@@ -56,7 +56,7 @@ ok('the frames move on: each nearer its neighbour than the planes are to each ot
 info.ends = {};
 for (const [x, tag, restTag] of [[0.005, 'h0', 'rest0'], [0.995, 'h1', 'rest1']]) {
   await rest(0);
-  ok(`the thread is held at ${x}`, (await hold(x)).ok, null);
+  { const h = await hold(x); ok(`the thread is held at ${x}`, h.ok, h); }
   await ev(rAF2);
   const c = await ev('typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null');
   await grab(tag);

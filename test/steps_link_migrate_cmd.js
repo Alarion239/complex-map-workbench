@@ -18,28 +18,28 @@ const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwStep
 const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().ready.ready";
 const OPEN_MS = 30000;
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
-// (the state is read through the hooks: a pane still refining its Landscape does not hold the wait)
+// The page is ready when READY holds, on a document other than the one that was open (the kit's reloaded(old, ...)): a reload
+// that swaps the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
+// never gets there is a failed check naming the missing part, and any other error is thrown. (The state is read through the hooks: a pane still refining its
+// Landscape does not hold the wait.)
+const untilReady = async (name, old, parked) => {
+  let err = null;
+  try { await reloaded(old, parked ? READY_PARKED : READY, { limitMs: OPEN_MS }); } catch (e) {
+    err = String((e && e.message) || e);
+    if (!/^the page did not finish reloading within/.test(err)) throw e;
+  }
+  ok(name, !err, err);
+};
 const openAt = async (url, parked) => {
+  const old = await ev('performance.timeOrigin');
   await go(url);
-  const w = await settled({ max: OPEN_MS, only: true, until: parked ? READY_PARKED : READY });
-  ok(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, w.ok, w);
+  await untilReady(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, old, parked);
 };
 // A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
 // settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
-// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read. Any
-// other error still fails the suite; the deadline is 30 s.
-const NAV = /navigated or closed/;
-const reloadedFigure = async (toastText) => {
-  const until = `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
-  for (let i = 0; i < 120; i++) {
-    let r = null;
-    try { r = await ev(until); } catch (e) { if (!NAV.test(String(e && e.message || e))) throw e; }
-    if (r && r.__exc && NAV.test(String(r.__exc))) r = null;
-    if (r === true) return;
-    await sleep(250);
-  }
-  throw new Error(`the figure did not open: no "${toastText}" on the reloaded page`);
-};
+// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read: the kit's reloaded(old, ...), where old is the
+// page's document before the link was opened. Any other error still fails the suite; the deadline is 30 s.
+const reloadedFigure = (old, toastText) => reloaded(old, `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`, { limitMs: 30000 });
 const grab = async (name) => { const e = exc(await logs()); if (e.length) errs.push({ name, e: e.slice(0, 3) }); };
 // a link's payload, as the app makes it: #cmw=0.<base64url JSON> or #cmw=1.<base64url of deflate-raw JSON>
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
@@ -110,8 +110,9 @@ const FORMS = [
 for (const [name, url] of FORMS) {
   n++;
   const ns = 'lmig' + n + Date.now();
+  const old = await ev('performance.timeOrigin');
   await go(url(ns));
-  await reloadedFigure('Opened the figure from the link.');
+  await reloadedFigure(old, 'Opened the figure from the link.');
   const got = await ev(READ);
   info[name] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`${name}: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
@@ -149,8 +150,9 @@ n++;
   const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
   const open = async (figCam) => {
     const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
+    const old = await ev('performance.timeOrigin');
     await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
-    await reloadedFigure('Opened the figure from the link.');
+    await reloadedFigure(old, 'Opened the figure from the link.');
   };
   const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
   await open(base);   // no `of`: the Landscape's camera
@@ -169,13 +171,50 @@ n++;
   await grab('figCam of');
 }
 
+// a link made from the steps view's Landscape carries its moved camera and opens on it: the link is built from the figure the
+// view writes (figureState), not by hand; a link made from the same figure without figCam opens on the default camera
+n++;
+{
+  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+  const CAM_TOL = 1e-6;
+  const near = (a, b) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < CAM_TOL);
+  const ZOOM = 1.6;
+  const moved = { yaw: 0.9, pitch: 0.25, tx: 0.08, ty: -0.12 };
+  const nsOf = (tag) => 'lmig' + n + tag + Date.now() + Math.floor(Math.random() * 1e6);
+  const open = async (state, tag) => {
+    const old = await ev('performance.timeOrigin');
+    await go(`${BASE}/test.html?ns=${nsOf(tag)}&view=steps#cmw=${linkOf(state, true)}`);
+    await reloaded(old, `document.body.innerText.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
+    return camsOf();
+  };
+  await open({ ...XY, rightMode: 'image' }, 'a');
+  await ev(`__cmwSteps({ surf: 'land' }); 1`);
+  await settled({ max: 60000 });
+  const base = (await camsOf()).cam;
+  await ev(`(() => { const c = __cmwCam('L'); __cmwCam('L', { yaw: ${moved.yaw}, pitch: ${moved.pitch}, dist: c.dist * ${ZOOM}, tx: ${moved.tx}, ty: ${moved.ty} }); })(), 1`);
+  const want = { ...moved, d: base.d * ZOOM };
+  const fig = await ev('__cmwFigureState()');
+  const out = fig && fig.figCam;
+  info['figCam written on the Landscape'] = out;
+  ok('Landscape link: figCam is written without `of`', !!out && !('of' in out), out);
+  ok('Landscape link: the camera written is the one on the view', near(out, want), { out, want });
+  const got = await open(fig, 'b');
+  info['Landscape link opened'] = got;
+  ok('Landscape link: cam is the written camera on reopening', near(got.cam, out), { out, got });
+  const { figCam, ...bare } = fig;
+  const plain = await open(bare, 'c');
+  ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out), { out, plain });
+  await grab('Landscape link');
+}
+
 // the open page's own route (a scene file and a link pasted into it both open a state through openFigure)
 n++;
 {
   const ns = 'lmig' + n + Date.now();
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  const old = await ev('performance.timeOrigin');
   await ev(`__cmwPOpen(${JSON.stringify(LINK_STATE)}, 'scene'); 1`);
-  await reloadedFigure('Opened the scene.');
+  await reloadedFigure(old, 'Opened the scene.');
   const got = await ev(READ);
   info['open a classic state in the page (scene)'] = got;
   for (const k of Object.keys(LINK_WANT)) ok(`scene: ${k}`, eq(got[k], LINK_WANT[k]), { k, want: LINK_WANT[k], got });
@@ -189,6 +228,7 @@ const FIND = `(() => { const f = (st, t) => { for (let i = 0; i < st.length; i++
 // page does not use (the new page clears the keys at its load)
 const PROBE = 'cmw-test-probe-open';
 const probeOpen = async (st, how) => {
+  const old = await ev('performance.timeOrigin');
   // (the open is deferred past this call's reply: its reload would otherwise close the target while the call waits for it)
   await ev(`window.addEventListener('pagehide', () => { localStorage.setItem('${PROBE}', JSON.stringify(${FIND})); }); setTimeout(() => __cmwPOpen(${JSON.stringify(st)}, ${JSON.stringify(how)}), 0); 1`);
   // the read retries while the page reloads (the target is closed for a moment): the first read that answers is the new page's
@@ -197,7 +237,7 @@ const probeOpen = async (st, how) => {
     try { raw = await ev(`(() => { const v = localStorage.getItem('${PROBE}'); localStorage.removeItem('${PROBE}'); return v; })()`); } catch (e) { raw = null; }
     if (!raw) await new Promise((r) => setTimeout(r, 500));
   }
-  await settled({ max: 30000, until: READY });
+  await untilReady('the steps view opened after the figure reload', old);
   return raw ? JSON.parse(raw) : null;
 };
 const TOASTED = (t) => `document.body.innerText.includes(${JSON.stringify(t)})`;

@@ -45,6 +45,7 @@ const example = async (ns, ex, scope) => {
   await go(`${BASE}/test.html?ns=${ns}${Date.now()}&lang=en&view=steps`);
   await settled({ max: READY_MS, until: loaded });
   await ev(`__cmwExample(${names.indexOf(ex)}), 1`);
+  await adopted();
   await ev(`__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: '${scope}' }), 1`);
 };
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });

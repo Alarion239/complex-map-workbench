@@ -24,7 +24,7 @@ ok('plane w1 parked frame settles', await grab('R1'), null);
 await rest(0);
 ok('plane z parked frame settles', await grab('R0'), null);
 for (const u of HELD_U) {
-  ok(`u = ${u}: the thread is held`, (await hold(u)).ok, null);
+  { const h = await hold(u); ok(`u = ${u}: the thread is held`, h.ok, h); }
   ok(`u = ${u}: the moving frame settles`, await grab('M' + u), null);
   const g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, b: g.b }; })()');
   ok(`u = ${u}: the frame is the inverse pass's`, !!g && g.path === 'inverse', g);

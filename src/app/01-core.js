@@ -287,7 +287,7 @@
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
-      alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
+      alpha: 0.85, meshN: 240, v3: true, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
       patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
       // w-plane targets, drawn in the right plane in Image mode; their preimages show in the left plane in every
