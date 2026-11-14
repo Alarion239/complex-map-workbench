@@ -2233,16 +2233,12 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    // (the rail's scroll is read here, where the layout is clean, so that the follow in svSync only writes; the rail's width is changing
-    // for the next three frames, in which the browser's clamp of its scroll is put back)
+    // (the rail's scroll and size are read here, where the layout is clean, so that the follow in svSync only writes)
     {
       const ro = new ResizeObserver(() => {
         const E = SV.els;
         if (!E) return;
-        E.scrollX = rail.scrollLeft;
-        E.resizing = true;
-        const tick = E.resizeTick = (E.resizeTick || 0) + 1;
-        requestAnimationFrame(() => requestAnimationFrame(() => requestAnimationFrame(() => { if (SV.els === E && E.resizeTick === tick) E.resizing = false; })));
+        E.scrollX = rail.scrollLeft; E.railBoxW = rail.clientWidth; E.railBoxS = rail.scrollWidth;
         E.centres = null; svFitStrip(); svFitRail(); svSync();
       });
       ro.observe(rail); ro.observe(track);
@@ -2256,16 +2252,19 @@
     // (the app's own scrolls of the rail land where it wrote them (svRailTo). Any other scroll is the user's, from a wheel, a trackpad, find
     // in page or a screen reader's reveal alike: until the ring moves, a resize leaves the rail where it is, and a rail left at its end stays
     // at its end. A wheel that moves nothing brings no scroll event, and leaves the rail following. The exception is the browser's own clamp
-    // while the rail's width is changing, to a range that then grows back: that one is put back where the app wrote it, and a scroll to show
-    // the focused control stays. The rail has no touch scroll (touch-action: none))
+    // when the rail's size has changed since the last scroll or resize it saw (the event comes before the observer's callback of the same
+    // resize): that scroll is never the user's, and is put back where the app wrote it, unless focus is in the rail (a scroll to show the
+    // focused control stays). The rail has no touch scroll (touch-action: none))
     rail.addEventListener('scroll', () => {
       const E = SV.els;
       if (!E) return;
+      const resized = rail.clientWidth !== E.railBoxW || rail.scrollWidth !== E.railBoxS;
+      E.railBoxW = rail.clientWidth; E.railBoxS = rail.scrollWidth;
       E.scrollX = rail.scrollLeft;
       E.atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1;
       if (!(E.writes && E.writes.some((v) => Math.abs(v - rail.scrollLeft) <= 1))) {
-        if (E.resizing && E.writes && !rail.contains(document.activeElement)) { rail.scrollLeft = E.writes[0]; return; }
-        E.userScrolled = true; E.writes = null;
+        if (!resized) { E.userScrolled = true; E.writes = null; }
+        else if (E.writes && !rail.contains(document.activeElement)) { rail.scrollLeft = E.writes[0]; return; }
       }
       svFades(); svBandSync(E.centres || []);
     }, { passive: true });
@@ -2544,7 +2543,10 @@
       E.strip.classList.remove('sv-measure');
       return { w, equal: fixed + w * ws.length, own: fixed + ws.reduce((a, b) => a + b, 0) };
     };
+    // (the measuring layouts have a narrower thread: the browser clamps the rail's scroll to their range, and it is put back)
+    const sx = E.rail.scrollLeft;
     const names = measure(false), letters = measure(true);
+    E.rail.scrollLeft = sx;
     const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
     const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
     const mode = E.centreLetters ? SV_RAIL_LETTERS : fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;

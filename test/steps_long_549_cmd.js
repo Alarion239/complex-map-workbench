@@ -6,6 +6,8 @@
 //   is whole and on top; on a desktop, a rail nobody scrolled follows the ring when its width changes and again after the thread has
 //   fitted and been let go, also after a wheel that moves nothing (the rail fits, is at its end, or the wheel is mostly vertical),
 //   and a rail the user scrolled by the wheel keeps its place (or its end) until the ring moves;
+//   and, on a real window resize (narrowed by 200 px and back, three times, at 1280 en, 1280 ru dark and 1440 it), the rail stays at its
+//   end with the ring in view, whether nobody scrolled it or the user left it at its end;
 // - keyboard: Tab from the ring visits every plane, every chip and ›, each plane and chip whole in the rail and on top
 //   once focused (#549: the focus scrolls it clear of the fade); the arrows walk the planes and stop at the last;
 // - touch (on the phone widths): a tap on › moves one plane, and a swipe along the thread goes on.
@@ -17,11 +19,11 @@ const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !
 const ns = 'svl' + Date.now();
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true }, SIN = { type: 'sin', params: {}, on: true };
 const N = 12, CHAIN = Array.from({ length: N }, (_, i) => [MOB, CUBE, SIN][i % 3]);
-const open = async (w, h, mobile, lang) => {
+const open = async (w, h, mobile, lang, dark = false) => {
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps: CHAIN, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
-  await view(w, h, false, mobile);
+  await view(w, h, dark, mobile);
   await go(`http://localhost:${PORT}/gl-helpers.html`);
-  const k = `${ns}${w}${lang}`;
+  const k = `${ns}${w}${lang}${dark ? 'd' : ''}`;
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=${lang}&view=steps`);
   await still({ until: "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" });
@@ -45,6 +47,41 @@ const centre = (sel) => ev(`(() => { const b = document.querySelector(${JSON.str
 const ringIn = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), t = document.querySelector('#svStrip .sv-thumb').getBoundingClientRect(), c = t.left + t.width / 2;
   const on = document.querySelector('#svStrip .sv-plane.on'), n = on ? on.querySelector('.sv-node').getBoundingClientRect() : null;
   return { cx: Math.round(c), l: Math.round(r.left), r: Math.round(r.right), ring: c >= r.left - 0.5 && c <= r.right + 0.5, clear: c >= r.left + ${FADE_PX} && c <= r.right - ${FADE_PX}, node: !n || (n.left >= r.left - 0.5 && n.right <= r.right + 0.5) }; })()`);
+const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))');
+// (a rail nobody scrolled, or one the user left at its end, follows the ring when its width changes: the ring is in the rail, clear of the
+// fades or with the rail at its end. The follow lands within a few frames of a resize: read once it has, or after FOLLOW_POLLS polls)
+const FOLLOW_POLLS = 60;
+const followed = async () => {
+  let f;
+  for (let i = 0; i < FOLLOW_POLLS; i++) {
+    const r = await ringIn(), g = await geo();
+    f = { ok: r.ring && r.node && (r.clear || g.scroll >= g.max - 1), scroll: g.scroll, max: g.max, ring: r };
+    if (f.ok) break;
+    await sleep(50);
+  }
+  return f;
+};
+// a wheel to the left over the rail's centre, tried once more if the rail does not move (a wheel's first event after a click is sometimes
+// not taken): where the rail was and where it is, and how many tries it took
+const wheelLeft = async () => {
+  const [x, y] = await centre('#svStrip .sv-rail');
+  await move(x, y);
+  const before = (await geo()).scroll;
+  let after = before, retries = -1;
+  for (let tryN = 0; tryN < 2 && after >= before - 50; tryN++) {
+    retries++;
+    await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: -300, deltaY: 0 });
+    for (let i = 0; i < 20 && after >= before - 50; i++) { await sleep(100); after = (await geo()).scroll; }
+  }
+  return { before, after, retries };
+};
+// a wheel over the rail's centre; one that moves nothing brings no scroll, so the page is given two frames to show none
+const wheelOver = async (deltaX, deltaY) => {
+  const [x, y] = await centre('#svStrip .sv-rail');
+  await move(x, y);
+  await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX, deltaY });
+  await frames(); await frames();
+};
 const touch = async (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts }, undefined);
 
 // (software rendering takes minutes a combination: the CI cut is en at the four widths, ru and it at 360 and 1440, each
@@ -94,23 +131,15 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
     ok(`${tag}: mouse: every one of the ${2 * N + 1} chips and planes can be scrolled to and is whole and on top`, miss.length === 0, miss.slice(0, 4));
     // (a sideways wheel on the thread scrolls it: the scroll is animated, so it is read a moment later)
     if (!mobile) {   // (a phone has no wheel)
-    const [rx, ry] = await centre('#svStrip .sv-rail');
     await ev(`document.querySelector('#svStrip .sv-rail').scrollLeft = 1e6; 1`); await sleep(200);
-    const w0 = (await geo()).scroll;
-    await move(rx, ry); await sleep(100);
-    let w1 = w0;
-    for (let tryN = 0; tryN < 2 && w1 >= w0 - 50; tryN++) {   // (a wheel's first event after a click is sometimes not taken; counted)
-      if (tryN) info[tag].retries = (info[tag].retries || 0) + 1;
-      await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: rx, y: ry, deltaX: -300, deltaY: 0 });
-      for (let i = 0; i < 20 && w1 >= w0 - 50; i++) { await sleep(100); w1 = (await geo()).scroll; }
-    }
+    const { before: w0, after: w1, retries } = await wheelLeft();
+    if (retries) info[tag].retries = (info[tag].retries || 0) + retries;
     ok(`${tag}: a wheel to the left scrolls the thread (${w0} to ${w1})`, w1 < w0 - 50 || g0.track <= g0.rail + 1, { w0, w1 });
     // (a rail the user scrolled stays where they left it when the thread or the rail changes width; the ring is brought into view
     // again when it moves: ‹)
     ok(`${tag}: the thread is longer than its rail, so the rail legs below run`, g0.track > g0.rail + 1, g0);
     if (g0.track > g0.rail + 1) {
       // (the strip's right padding changes the rail's width, which is what the page's observer watches: the wait is for that width to change)
-      const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))');
       const resized = async (px) => {
         const w0 = (await geo()).rail;
         await ev(`document.querySelector('#svStrip').style.paddingRight = '${px}px'; 1`);
@@ -121,18 +150,6 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
         return (await geo()).scroll;
       };
       // (a rail nobody scrolled follows the ring when its width changes: the ring is in the rail, clear of the fades or with the rail at its end)
-      // (the follow lands within a few frames of a resize: read once it has, or after FOLLOW_POLLS polls)
-      const FOLLOW_POLLS = 60;
-      const followed = async () => {
-        let f;
-        for (let i = 0; i < FOLLOW_POLLS; i++) {
-          const r = await ringIn(), g = await geo();
-          f = { ok: r.ring && r.node && (r.clear || g.scroll >= g.max - 1), scroll: g.scroll, max: g.max, ring: r };
-          if (f.ok) break;
-          await sleep(50);
-        }
-        return f;
-      };
       const narrowRing = async (after) => {
         const railW0 = (await geo()).rail;
         await ev(`document.querySelector('#svStrip').style.paddingRight = '200px'; 1`);
@@ -145,13 +162,6 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
         await frames();
         const wide = await followed();
         ok(`${tag}: and when it gets wide again${after} (${railW1} to ${(await geo()).rail})`, wide.ok && (await geo()).rail === railW0, wide);
-      };
-      // (a wheel over the rail, at its centre; one that moves nothing brings no scroll, so the page is given two frames to show none)
-      const wheelOver = async (deltaX, deltaY) => {
-        const [x, y] = await centre('#svStrip .sv-rail');
-        await move(x, y);
-        await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX, deltaY });
-        await frames(); await frames();
       };
       await ev(`__cmwSteps({ go: 0, now: true }); 1`); await rest(); await ev(`__cmwSteps({ go: ${N}, now: true }); 1`); await rest(); await frames();
       await narrowRing('');
@@ -175,12 +185,7 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
       ok(`${tag}: the thread fits a rail widened enough, and overflows again when it is let go`, fitted.max === 0 && (await geo()).max > 0, fitted);
       await narrowRing(' after the thread has fitted and a wheel on it');
       // (a rail the user scrolled by the wheel stays where it is when the thread changes width)
-      await move(rx, ry);
-      let before = (await geo()).scroll;
-      for (let tryN = 0; tryN < 2 && (await geo()).scroll >= before - 50; tryN++) {   // (a wheel's first event after a click is sometimes not taken)
-        await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: rx, y: ry, deltaX: -300, deltaY: 0 });
-        for (let i = 0; i < 20 && (await geo()).scroll >= before - 50; i++) await sleep(100);
-      }
+      const { before } = await wheelLeft();
       // (the wheel's scroll is animated: read it once two reads agree)
       let k0 = (await geo()).scroll;
       for (let i = 0; i < 40; i++) { await sleep(100); const v = (await geo()).scroll; if (v === k0) break; k0 = v; }
@@ -283,6 +288,41 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
       ok(`${tag}: swipes along the thread go on towards the end (plane ${t2.i}, x ${t2.x.toFixed(2)})`, t2.x > 1.5, { i: t2.i, x: t2.x });
       ok(`${tag}: after the swipes the ring is in the rail`, tr.ring, tr);
     }
+    } catch (e) { ok(`${tag}: the run went on to the end`, false, String(e && e.message || e)); }
+  }
+}
+// ---- a real window resize on a desktop (the page's viewport, not the strip's padding): narrowed by 200 px and back, RESIZES times, the
+// rail keeps the ring in view and stays at its end, for a rail nobody scrolled and for one the user left at its end
+const RESIZES = 3, RESIZE_PX = 200, RESIZE_H = 800;
+for (const [w, lang, dark] of [[1280, 'en', false], [1280, 'ru', true], [1440, 'it', false]]) {
+  for (const user of [false, true]) {
+    if (typeof process !== 'undefined' && process.env.CMW_549_ONLY && process.env.CMW_549_ONLY !== 'resize') continue;
+    const tag = `${w} ${lang}${dark ? ' dark' : ''}, window resized, ${user ? 'a rail the user left at its end' : 'a rail nobody scrolled'}`;
+    try {
+      await open(w, RESIZE_H, false, lang, dark);
+      await ev(`__cmwSteps({ go: ${N}, now: true }); 1`); await rest(); await frames();
+      const g0 = await geo();
+      ok(`${tag}: the thread is longer than its rail`, g0.track > g0.rail + 1, g0);
+      if (user) {
+        await wheelOver(5000, 0);
+        const end = await followed();
+        ok(`${tag}: the wheel took the rail to its end`, end.max > 0 && end.scroll >= end.max - 1, end);
+      }
+      const resizeTo = async (vw) => {
+        const w0 = (await geo()).rail;
+        await view(vw, RESIZE_H, dark, false);
+        let g = await geo();
+        for (let i = 0; i < 100 && g.rail === w0; i++) { await sleep(50); g = await geo(); }
+        ok(`${tag}: the window of ${vw} px changes the rail's width (${w0} to ${g.rail})`, g.rail !== w0, { w0, rail: g.rail });
+        await frames();
+      };
+      for (let i = 1; i <= RESIZES; i++) {
+        for (const [what, vw] of [['narrower', w - RESIZE_PX], ['back', w]]) {
+          await resizeTo(vw);
+          const f = await followed();
+          ok(`${tag}: ${what}, time ${i}: the rail stays at its end with the ring in view (${f.scroll}/${f.max})`, f.ok && f.max > 0 && f.scroll >= f.max - 1, f);
+        }
+      }
     } catch (e) { ok(`${tag}: the run went on to the end`, false, String(e && e.message || e)); }
   }
 }
