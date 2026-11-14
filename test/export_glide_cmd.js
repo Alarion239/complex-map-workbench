@@ -11,6 +11,39 @@ const DRAWN = 60;
 // a 3D frame has its picture on it when more than this share of its pixels is drawn (a globe fills about a third of its frame, so
 // this says the picture is there and not the paper alone)
 const DRAWN_MIN = 0.04;
+// a 3D first frame is compared with the still over the pixels the still draws, to this mean difference (of 255): the frame shows
+// the screen's look and the still the art layer's fills, so the bound is above their gap and below the controls' (a globe agrees
+// to about 3, the Landscape, whose relief window is rounded, to about 12)
+const SPHERE_BOUND = 6, LAND_BOUND = 15;
+// the share of the still's pixels that must be drawn for its comparison to say something
+const STILL_DRAWN_MIN = 0.05;
+// the 3 channels of a white pixel summed: a pixel is paper when its channels sum within DRAWN of this
+const RGB_MAX = 765;
+// the controls: the frame zoomed by this factor, and shifted by this share of the crop's width
+const CONTROL_ZOOM = 1.1, CONTROL_SHIFT = 0.1;
+// the still is compared at this width in px
+const CMP_W = 320;
+// a globe still's panel and the pane's canvas on the screen agree in width over height to this (css px rounding)
+const ASPECT_TOL = 0.02;
+// a mark of the still keeps this far (pt) from the globe's outline, which is sampled at this many points
+const LIMB_CLEAR = 1, LIMB_POINTS = 720;
+// the pane's marks are written at this font size (px), centred on their place
+const MARK_PX = 13;
+// (run in the page) the marks, by name, whose box comes within LIMB_CLEAR of the globe's outline. The outline is the unit sphere's limb
+// seen from the eye (the points p of the sphere with p . eye = 1) through the art layer's camera ga.globe, which a still's panel and a
+// frame share; at(fx, fy) puts a place of the render, as fractions of it from its top left, in the coordinates of the boxes
+// ({ tex, x0, x1, y0, y1 })
+const LIMB_MARKS = `(boxes, ga, at) => {
+  const g = ga.globe, dist = Math.hypot(...g.eye), eh = g.eye.map((v) => v / dist), rad = Math.sqrt(1 - 1 / (dist * dist));
+  const cr = (p, q) => [p[1] * q[2] - p[2] * q[1], p[2] * q[0] - p[0] * q[2], p[0] * q[1] - p[1] * q[0]];
+  const side = cr(eh, Math.abs(eh[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]), sl = Math.hypot(...side), u = side.map((v) => v / sl), w = cr(eh, u);
+  const limb = Array.from({ length: ${LIMB_POINTS} }, (_, i) => {
+    const a = 2 * Math.PI * i / ${LIMB_POINTS}, q = GLR.M4.apply(g.MVP, eh.map((v, j) => v / dist + rad * (Math.cos(a) * u[j] + Math.sin(a) * w[j])));
+    return at(q[0] / q[3] * 0.5 + 0.5, 1 - (q[1] / q[3] * 0.5 + 0.5));
+  });
+  const near = (b) => limb.some(([x, y]) => x > b.x0 - ${LIMB_CLEAR} && x < b.x1 + ${LIMB_CLEAR} && y > b.y0 - ${LIMB_CLEAR} && y < b.y1 + ${LIMB_CLEAR});
+  return boxes.filter(near).map((b) => b.tex).join(' ');
+}`;
 // the options of the glide video every check here records: 1 s per step, as the other API-made videos (export_cmd.js; #531). A
 // video renders secs x fps x steps frames and a hold shows its kept picture again, so the length is what the suite's time follows
 const VIDEO_OPT = { size: '1280x720', fps: 30, secs: 1, ends: 'once' };
@@ -89,7 +122,7 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     if (!f.box) return { none: 1 };
     const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
     im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
-    const w = 320, h = Math.round(w * im[3] / im[2]);
+    const w = ${CMP_W}, h = Math.round(w * im[3] / im[2]);
     const still = document.createElement('canvas'); still.width = w; still.height = h;
     still.getContext('2d').drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
     // the frame's window: f.box widened about its centre to 16:9
@@ -105,14 +138,68 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     let s = 0; for (let i = 0; i < a.length; i += 4) s += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]);
     mad = s / (w * h * 3);
     }
+    // a globe or a relief: the frame is the still's camera widened to 16:9 (the same eye, target and up, the same extent in the
+    // still's height), so the still's picture is the frame's centre crop at the still's aspect (the Landscape's still crops the
+    // relief to what is drawn: f.info.crop, as fractions of the render at the still's aspect). Compared over the pixels the
+    // still draws (the frame's paper is white, but it carries a ground shadow and the screen's look), the frame also moved by
+    // a tenth of the crop (a zoom, a shift) as controls the row must tell apart
+    let three = null;
+    if (${surf !== 'plane'}) {
+      const bmp = await createImageBitmap(await __cmwFig.png(f, 150)), k = bmp.width / f.W;
+      im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+      const w = ${CMP_W}, h = Math.round(w * im[3] / im[2]), asp = im[2] / im[3], cr = f.info && f.info.crop;
+      const still = document.createElement('canvas'); still.width = w; still.height = h;
+      const gs = still.getContext('2d'); gs.fillStyle = '#fff'; gs.fillRect(0, 0, w, h);
+      gs.drawImage(bmp, im[0] * k, im[1] * k, im[2] * k, im[3] * k, 0, 0, w, h);
+      const c = gs.getImageData(0, 0, w, h).data;
+      const cmp = (img, picW, H, zoom, dx) => {
+        let sx = picW / 2 - H * asp / 2, sy = 0, cw = H * asp, ch = H;
+        if (cr) { const rw = H * cr.asp; sx = picW / 2 - rw / 2 + cr.x0 * rw; sy = cr.y0 * H; cw = (cr.x1 - cr.x0) * rw; ch = (cr.y1 - cr.y0) * H; }
+        const mx = sx + cw / 2 + dx * cw, my = sy + ch / 2;
+        cw /= zoom; ch /= zoom;
+        const cv = document.createElement('canvas'); cv.width = w; cv.height = h;
+        const g = cv.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, w, h);
+        g.drawImage(img, mx - cw / 2, my - ch / 2, cw, ch, 0, 0, w, h);
+        const a = g.getImageData(0, 0, w, h).data;
+        let sum = 0, n = 0;
+        for (let i = 0; i < a.length; i += 4) { if (${RGB_MAX} - c[i] - c[i + 1] - c[i + 2] <= ${DRAWN}) continue; sum += Math.abs(a[i] - c[i]) + Math.abs(a[i + 1] - c[i + 1]) + Math.abs(a[i + 2] - c[i + 2]); n++; }
+        return { mad: n ? sum / (n * 3) : null, n: n / (w * h) };
+      };
+      const picW = Math.round(chk.pic * dv.width), H = dv.height;
+      // (the pane's canvas on the screen, measured here and not through the figure: its width over height is the still's panel's
+      // for a globe)
+      const pc = [...document.querySelectorAll('#plotL canvas')].map((e) => e.getBoundingClientRect()).sort((p, q) => q.width * q.height - p.width * p.height)[0];
+      three = { first: cmp(dv, picW, H, 1, 0), zoom: cmp(dv, picW, H, ${CONTROL_ZOOM}, 0), shift: cmp(dv, picW, H, 1, ${CONTROL_SHIFT}), asp: +asp.toFixed(3), dom: pc ? +(pc.width / pc.height).toFixed(3) : null };
+    }
     // the chrome, drawn the same on every frame: the key's ring (first frame against the last), and the still (ruling B of #943)
     // draws what the pane draws: no level curves of its own
     const de = await ld(end.decoded), rc = (img) => { const c = document.createElement('canvas'); c.width = 60; c.height = 80; c.getContext('2d').drawImage(img, 0.89 * img.width, 0.1 * img.height, 0.08 * img.width, 0.14 * img.height, 0, 0, 60, 80); return c.getContext('2d').getImageData(0, 0, 60, 80).data; };
     const r0 = rc(dv), r1 = rc(de); let sr = 0; for (let i = 0; i < r0.length; i += 4) sr += Math.abs(r0[i] - r1[i]) + Math.abs(r0[i + 1] - r1[i + 1]) + Math.abs(r0[i + 2] - r1[i + 2]);
-    return { mad, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
+    // (the sphere's marks 0, infinity, 1, i, -1, -i: the still names the marks that the first frame's code draws. The frame's are
+    // the texts its code writes on its canvas as the frame is drawn, so a mark the frame leaves out is not assumed from the camera)
+    let labels = null;
+    if (${surf === 'sphere'}) {
+      const P = CanvasRenderingContext2D.prototype, text = P.fillText, marks = ['0', '\u221e', '1', 'i', '\u22121', '\u2212i'], seen = new Set();
+      P.fillText = function (t, ...a) { if (marks.includes(t)) seen.add(t); return text.call(this, t, ...a); };
+      let ga; try { ga = await __cmwFig.glideArt(0, { wpt: im[2], hpt: im[3], dpi: 96, raw: true, look: 'light' }); } finally { P.fillText = text; }
+      const named = (b) => (b.tex.includes('infty') ? '\u221e' : b.tex.replace('-', '\u2212'));
+      const still = f.boxes.filter((b) => b.kind === 'globe-label');
+      labels = { still: still.map(named).sort().join(' '), frame: [...seen].sort().join(' '), onLimb: (${LIMB_MARKS})(still, ga, (fx, fy) => [im[0] + fx * im[2], im[1] + fy * im[3]]) };
+    }
+    return { mad, three, labels, ring: sr / (60 * 80 * 3), lvl: f.svg.includes('stroke="#1a1a1a"'), W: f.W, H: f.H, panel: im, t: chk.t };
   } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 300000);
   info[tag + ' first frame vs PNG'] = fp;
   if (surf === 'plane') ok(`${tag}: the first frame at rest equals the still PNG of the first plane`, fp && !fp.err && fp.mad != null && fp.mad < DECODED_MAD, fp);
+  // (a bound for each: the frame shows the screen's look, the still the art layer's fills; the controls sit well above it)
+  if (surf !== 'plane') {
+    const t3 = fp && fp.three, bound = surf === 'sphere' ? SPHERE_BOUND : LAND_BOUND;
+    ok(`${tag}: the first frame's centre crop is the still of the first plane (over the pixels the still draws, under ${bound} of 255)`, !!t3 && t3.first.mad != null && t3.first.n > STILL_DRAWN_MIN && t3.first.mad < bound, fp);
+    // the still's shape is checked against the pane's own size, not against the figure's path that the frame also takes
+    if (surf === 'sphere') ok(`${tag}: the globe still's panel has the pane's width over height (${t3 && t3.dom})`, !!t3 && t3.dom != null && Math.abs(t3.asp - t3.dom) < ASPECT_TOL, fp);
+    if (surf === 'sphere') ok(`${tag}: the still names the sphere's marks that the first frame draws (${fp && fp.labels && fp.labels.frame})`, !!fp && !!fp.labels && fp.labels.frame.length > 0 && fp.labels.still === fp.labels.frame, fp);
+    if (surf === 'sphere') ok(`${tag}: the still's marks keep ${LIMB_CLEAR} pt clear of the globe's outline (on it: ${fp && fp.labels && fp.labels.onLimb || 'none'})`, !!fp && !!fp.labels && fp.labels.onLimb === '', fp);
+    ok(`${tag}: the same comparison fails on a frame zoomed by ${CONTROL_ZOOM} and on one shifted by ${CONTROL_SHIFT} of the crop`, !!t3 && t3.zoom.mad > bound && t3.shift.mad > bound, fp);
+  }
   ok(`${tag}: the key's ring is the same on the first and the last frame`, fp && fp.ring != null && fp.ring < 6, fp);
   ok(`${tag}: the still draws no level curves of its own`, fp && fp.lvl === false, fp);
   // a parked frame against the screen at the same place; a globe or a relief has no window of the still's to crop to, so its
@@ -145,6 +232,37 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
     if (scope) await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
     ok(`${tag}: a frame at x = ${park} matches the screen parked there`, s && s.mad < 14 && (surf === 'plane' || s.drawn > DRAWN_MIN) && Math.abs(s.x - park) < 1e-6, s);
   }
+}
+// a short, wide pane (a landscape phone) makes a small globe, and its marks come near its outline: the still's marks keep clear of it
+{
+  await view(740, 360, false);
+  await open(1, 'sphere');
+  const lm = await ev(`await (async () => { try {
+    const f = await __cmwFig.build({});
+    const im = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number)).sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
+    const ga = await __cmwFig.glideArt(0, { wpt: im[2], hpt: im[3], dpi: 96, raw: true, look: 'light' });
+    const boxes = f.boxes.filter((b) => b.kind === 'globe-label');
+    return { onLimb: (${LIMB_MARKS})(boxes, ga, (fx, fy) => [im[0] + fx * im[2], im[1] + fy * im[3]]), marks: boxes.length };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 120000);
+  info['sphere still at 740 x 360'] = lm;
+  ok(`a 740 x 360 pane: the sphere still's marks keep ${LIMB_CLEAR} pt clear of the globe's outline (on it: ${lm && lm.onLimb || 'none'})`, !!lm && !lm.err && lm.marks > 0 && lm.onLimb === '', lm);
+  await view(1440, 900, false);
+}
+// on a portrait pane (a phone) the camera is fitted to the pane's width, so in the 16:9 frame the globe is small and the marks, which
+// keep their size, come near its outline: the frame's marks, as its code writes them, keep clear of it
+{
+  await view(412, 860, false, true);
+  await open(1, 'sphere');
+  const fm = await ev(`await (async () => { try {
+    const [fw, fh] = ${JSON.stringify(VIDEO_OPT.size)}.split('x').map(Number), marks = ['0', '\u221e', '1', 'i', '\u22121', '\u2212i'], boxes = [];
+    const P = CanvasRenderingContext2D.prototype, text = P.fillText;
+    P.fillText = function (t, x, y, ...a) { if (marks.includes(t)) { const w = this.measureText(t).width; boxes.push({ tex: t, x0: x - w / 2, x1: x + w / 2, y0: y - ${MARK_PX} / 2, y1: y + ${MARK_PX} / 2 }); } return text.call(this, t, x, y, ...a); };
+    let ga; try { ga = await __cmwFig.glideArt(0, { wpt: fw * 72 / 96, hpt: fh * 72 / 96, dpi: 96, raw: true, look: 'light' }); } finally { P.fillText = text; }
+    return { onLimb: (${LIMB_MARKS})(boxes, ga, (fx, fy) => [fx * ga.globe.w, fy * ga.globe.h]), marks: boxes.length, pane: [ga.globe.w, ga.globe.h] };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 120000);
+  info['sphere first frame on a portrait pane'] = fm;
+  ok(`a portrait pane: the sphere's first-frame marks keep ${LIMB_CLEAR} px clear of the globe's outline (on it: ${fm && fm.onLimb || 'none'})`, !!fm && !fm.err && fm.marks > 0 && fm.onLimb === '', fm);
+  await view(1440, 900, false);
 }
 // the picture check has teeth: a frame of paper alone has no drawn pixels, so it is below DRAWN_MIN
 {
