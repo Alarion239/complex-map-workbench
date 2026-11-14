@@ -22,6 +22,10 @@
 //   scrub's frames decompose no step of the chain (each glide's plans share its t-free part: invHomPath);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
+// - a long-lived page: a chain of three glides with polar rings (z + c, 1/z, e^z), c edited until the polar meshes kept
+//   are SV_POLAR_KEEP, then a zeta step added, whose glide draws the carried meshes and their polar ring: that far glide
+//   (to plane 4, the thread on plane 0) still has its ring sizes made and their meshes built by the idle job, and parked
+//   at x after x on it, its frames make no size and create no buffer, texture or vertex array for the ring.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -307,5 +311,39 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   })()`);
   info['the kept scratch entries'] = { king: kept, after };
   ok('a step bypassed: the carried colour\'s kept scratch entries are freed', kept && kept.n > 0 && after && after.changed && after.held.n === 0, info['the kept scratch entries']);
+}
+// ---- a long-lived page: the far glide's ring meshes once the polar meshes kept are SV_POLAR_KEEP ----
+{
+  // (the steps view's polar meshes kept at most, SV_POLAR_KEEP; c's edits, each a new pole of 1/z on plane 0 and new
+  // polar meshes, past what fills them; FAR: the zeta step's glide)
+  const POLAR_KEEP = 12, EDITS = 4, FAR = 3;
+  const ns = 'gf' + Date.now();
+  await load(ns, { shapes: [], steps: [{ type: 'add', params: { c: '0.3' } }, { type: 'recip', params: {} }, { type: 'exp', params: {} }], srcView: { cx: 0, cy: 0, s: 60 } });
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+  await ready();
+  await settled({ max: 30000, until: '!!window.GLR && GLR.ok && __cmwSteps().on' });
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  for (let k = 1; k <= EDITS; k++) {
+    await ev(`__cmwStepParam(0, 'c', '${(0.3 + 0.37 * k).toFixed(2)}+${(0.11 * k).toFixed(2)}i'), 1`);
+    await settled({ max: 30000, until: '!__cmwSvKey().busy' });
+  }
+  await ev(`__cmwAddStep('zeta', {}), 1`);
+  await settled({ max: 60000, until: '__cmwSteps().planes.length === 5 && !__cmwSvKey().busy' });
+  const kept = await ev('__cmwSvRingMade()'), far = await ev(`__cmwSvRingMade(${FAR})`);
+  // (the frames' work counted from here: the ring's sizes made in a frame, and its GL objects created in one)
+  await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svRingGPU', 'svCarryRegions'], '__farAlloc');
+  await ev('globalThis.__svPathStats = {}, 1');
+  for (const x of [0.2, 0.35, 0.5, 0.65, 0.8]) {
+    await ev(`__cmwSteps({ park: ${FAR + x} }), 1`);
+    await settled({ max: 20000, until: `Math.abs(__cmwSvX() - ${FAR + x}) < 1e-6` });
+  }
+  const ps = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return s; })()');
+  const alloc = await ev('window.__farAlloc');
+  info['the far glide'] = { kept, far, ringFrame: ps.ringFrame || 0, alloc: alloc.length, first: alloc.slice(0, 3) };
+  ok('a long-lived page: the polar meshes kept are SV_POLAR_KEEP after the edits', kept.polar === POLAR_KEEP, info['the far glide']);
+  ok('a long-lived page: the far glide\'s ring sizes are made and their polar meshes built by the idle job', far.made > 0 && far.left === 0 && far.unbuilt === 0, info['the far glide']);
+  ok('a long-lived page: parked on the far glide, no frame makes a ring size', !(ps.ringFrame > 0), info['the far glide']);
+  ok('a long-lived page: parked on the far glide, no frame creates a buffer, texture or vertex array for the ring', alloc.length === 0, info['the far glide']);
 }
 return { pass: fails.length === 0, fails, info };

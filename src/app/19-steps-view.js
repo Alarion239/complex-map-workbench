@@ -898,7 +898,7 @@
     return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
-  // the plane and, while svRingSizes is under half its limit, of the chain's other glides (svRingAhead, svRingNext),
+  // the plane and of the chain's other glides, nearest first, with their meshes, as far as the caches take them (svRingAhead, svRingNext),
   // SV_POLE_BUDGET ms an idle moment at most, so a glide finds them made. One job at a time (svPoleJob, its token: a
   // new one ends the one before); it reads its inputs (the chain, clipWin, the camera) afresh each slice, and
   // svPolesWatch starts it again once they change after it ended
@@ -1227,8 +1227,15 @@
     while (yes - no > 1) { const mid = (no + yes) >> 1; if (yield* test(mid)) yes = mid; else no = mid; }
     return yes;
   }
+  // (a full table drops the sizes no glide of the chain draws at the view the frames between planes draw in: other
+  // chains', windows' and views'; whole when the chain's own fill it)
   function svRingSet(key, m) {
-    if (svRingSizes.size >= SV_RING_SIZES_MAX) svRingSizes.clear();
+    if (svRingSizes.size >= SV_RING_SIZES_MAX) {
+      const keep = new Set();
+      for (const { j } of svGlidesNear()) for (const k of svGlideRingKeys(j)) keep.add(k.key);
+      for (const k of svRingSizes.keys()) if (!keep.has(k)) svRingSizes.delete(k);
+      if (svRingSizes.size >= SV_RING_SIZES_MAX) svRingSizes.clear();
+    }
     svRingSizes.set(key, m);
   }
   function svRingFor(pane, map) {
@@ -1270,8 +1277,9 @@
   // round in the map's picture as on the plane, whatever its radius. Its seam, the edge between its first and its last
   // column of cells, is the ray from c at angle pi, a hair either side (SV_POLAR_EPS), the principal cut of a logarithm
   // or a root about c: no cell straddles it. Relative to c (meshInstances' origin), so float32 keeps its points near c.
-  // Kept by id in svPolarRes, at most SV_POLAR_KEEP, the oldest dropped first: {meshRes, NR rings, NT cells a ring, dl
-  // the log of a ring's ratio}; svPolarBuilds counts the builds
+  // Kept by id in svPolarRes, at most SV_POLAR_KEEP (the bound on the steps view's polar meshes in GPU memory), the one
+  // farthest from the thread dropped first (svPolarFarthest): {meshRes, NR rings, NT cells a ring, dl the log of a
+  // ring's ratio}; svPolarBuilds counts the builds
   // (SV_POLAR_BEHIND: the ring's depth offset, in polygonOffset units, about a step of the sheet key (2^-24 a unit):
   // where the ring and the whole plane's mesh overlap along their shares' edge, the whole plane's finer cells are in
   // front, not whichever mesh's placement lands nearer, which would speckle a colour band's edge)
@@ -1375,13 +1383,46 @@
     out.origin = ring.c.slice();
     r = { meshRes: GLR.createMesh(out), NR, NT, dl };
     svPolarBuilds++;
+    const need = svPolarRes.size >= SV_POLAR_KEEP ? svPolarNeed() : null;
     while (svPolarRes.size >= SV_POLAR_KEEP) {
-      const [k, o] = svPolarRes.entries().next().value;
-      svPolarRes.delete(k);
-      GLR.destroy(o.meshRes);
+      const { id } = svPolarFarthest(need);
+      GLR.destroy(svPolarRes.get(id).meshRes);
+      svPolarRes.delete(id);
     }
     svPolarRes.set(ring.id, r);
     return r;
+  }
+  // the ring id of a polar size m (svRingShape's), kept on m: a size is made for one clipWin, which its key holds
+  const svPolarId = (m) => m.id || (m.id = svRingShape(m).id);
+  // the glides of the chain, nearest the thread first: {j, d}, d the distance in planes from the thread's place to the
+  // glide's middle, j + 1/2
+  function svGlidesNear() {
+    const x = SV.g.x, out = [];
+    for (let j = 0; j + 1 < svPlanes().length; j++) out.push({ j, d: Math.abs(j + 0.5 - x) });
+    return out.sort((p, q) => p.d - q.d);
+  }
+  // the ring keys of the glide j at the view the frames between planes draw in (svRenderMoving's S.srcView)
+  const svGlideRingKeys = (j) => svRingKeys(svBetween(j + 0.5, null), S.srcView);
+  // the polar meshes the chain's made ring sizes draw with: ring id -> the distance of the nearest glide that draws it
+  function svPolarNeed() {
+    const need = new Map();
+    for (const { j, d } of svGlidesNear()) {
+      for (const { key } of svGlideRingKeys(j)) {
+        const m = svRingSizes.get(key);
+        if (m && m.polar && !need.has(svPolarId(m))) need.set(svPolarId(m), d);
+      }
+    }
+    return need;
+  }
+  // the kept polar mesh farthest from the thread by need (svPolarNeed's): {id, d}, d Infinity for one no glide of the
+  // chain draws (another chain's, window's or view's); of those as far, the one used longest ago
+  function svPolarFarthest(need) {
+    let far = { id: null, d: -1 };
+    for (const id of svPolarRes.keys()) {
+      const d = need.has(id) ? need.get(id) : Infinity;
+      if (d > far.d) far = { id, d };
+    }
+    return far;
   }
   // a ring size's mesh and its carried colour's textures, made by the idle job once it has made the size, so the frame
   // that first draws the ring builds and allocates nothing
@@ -1403,23 +1444,28 @@
     const a = svPolarWarmRing ? gpu.get(SV_ALL.id) : null, P = a && a.meshRes ? svPolarSkip(a, svPolarWarmRing, null) : null;
     if (P) GLR.carryReserve(a.meshRes, SV_CARRY_L, P.skip);
   }
-  // the first twentieth of the glides into and out of the plane the thread is at whose m is not made, Everywhere, for
-  // the left pane, which the steps view draws in: {g, q, key, v, w, h}, or null (from the first moment, so a page's
-  // first glide finds them made). Those two glides first, then every other glide of the chain (a scrub crosses them
-  // all, and a frame that finds a polar size's mesh not built builds it): while svPolarRes has room and svRingSizes is
-  // under half its limit, so that no mesh made for a far glide drops one of the glides next to the thread
+  // the first twentieth of the chain's glides whose m is not made, or is a polar size whose mesh is not built,
+  // Everywhere, for the left pane, which the steps view draws in: {g, q, key, v, w, h, m} (m: the size when made), or
+  // null (from the first moment, so a page's first glide finds them made). The glides nearest the thread first, so the
+  // two into and out of the plane it is at come first, then every other glide of the chain (a scrub crosses them all,
+  // and a frame that finds a polar size's mesh not built builds it), as far as the caches take them: the glides whose
+  // sizes fit in svRingSizes, and a polar mesh only while svPolarRes has room or keeps one farther from the thread than
+  // its glide (which it then drops), so that no mesh made for a far glide drops one of a nearer glide
   function svRingNext() {
     if (!SV.on || !paneL) return null;
     const L = svCarryShapes();
     if (!L || !L.includes(SV_ALL)) return null;
-    // (the view the frames between planes draw in: svRenderMoving sets the pane's view to S.srcView)
-    const P = svPlanes(), i = Math.round(SV.g.x), v = S.srcView, order = [i - 1, i];
-    if (svPolarRes.size < SV_POLAR_KEEP && svRingSizes.size < SV_RING_SIZES_MAX / 2) for (let j = 0; j + 1 < P.length; j++) if (j !== i - 1 && j !== i) order.push(j);
-    for (const j of order) {
-      if (j < 0 || j + 1 >= P.length) continue;
+    const v = S.srcView;
+    let keys = 0;
+    for (const { j, d } of svGlidesNear()) {
+      keys += SV_RING_Q + 1;
+      if (keys > SV_RING_SIZES_MAX) return null;
       const g = svBetween(j + 0.5, null);
       for (const { q, key } of svRingKeys(g, v)) {
-        if (!svRingSizes.has(key)) return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s }, w: paneL.w, h: paneL.h };
+        const m = svRingSizes.get(key);
+        if (m !== undefined && !(m && m.polar && !svPolarRes.has(svPolarId(m)))) continue;
+        if (m !== undefined && svPolarRes.size >= SV_POLAR_KEEP && !(svPolarFarthest(svPolarNeed()).d > d)) return null;
+        return { g, q, key, v: { cx: v.cx, cy: v.cy, s: v.s }, w: paneL.w, h: paneL.h, m };
       }
     }
     return null;
@@ -1435,7 +1481,8 @@
     if (!svRingJob) {
       const n = svRingNext();
       if (!n) return false;
-      svRingJob = { key: n.key, gen: svRingSize(n.g, n.q, n.v, n.w, n.h) };
+      // (a size made whose polar mesh is not built: the job only builds it)
+      svRingJob = { key: n.key, gen: n.m !== undefined ? { next: () => ({ done: true, value: n.m }) } : svRingSize(n.g, n.q, n.v, n.w, n.h) };
     }
     for (;;) {
       const r = svRingJob.gen.next();
