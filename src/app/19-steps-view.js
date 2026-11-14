@@ -1519,6 +1519,11 @@
     // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
     // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
     // layers cannot be drawn, the front layer alone is drawn)
+    // (while the carried colour's programs link: a still frame of plane z's colour (T = 0) whose shapes are all drawn from
+    // their SphereMeshes (the tiling's stand-in while a chain's first program links, smNeed's 'linking') shows those
+    // meshes in the phase of their source points, which is that colour, with programs that carry no chain)
+    const standIn = () => T === 0 && n > 0 && lay.every((d) => d.pre)
+      && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })));
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
     for (let pass = 0; pass < 2; pass++) {
@@ -1528,7 +1533,7 @@
         if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
       }
       if (ready) break;
-      if (!layers) return false;
+      if (!layers) return standIn();
       layers = false;
     }
     const drawAll = () => {
@@ -1543,7 +1548,7 @@
       return true;
     };
     const layered = layers ? GLR.carryLayers(a, drawAll) : null;
-    return layered === null ? drawAll() : layered;
+    return (layered === null ? drawAll() : layered) || standIn();
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (the inverse pass, svCarryExactHom, or the carried meshes, svCarryRegions);
