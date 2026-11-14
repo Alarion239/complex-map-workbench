@@ -1,4 +1,4 @@
-  // ---------------- view fitting ----------------
+  // ---------------- view fitting ---------------- (bisect)
   function robustBox(xs, ys) {
     if (xs.length < 2) return null;
     const q = (arr, p) => arr[Math.min(arr.length - 1, Math.max(0, Math.floor(p * (arr.length - 1))))];

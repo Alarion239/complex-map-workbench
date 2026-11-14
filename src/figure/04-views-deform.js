@@ -52,6 +52,9 @@
       return [x + (px - c[0]) * k, y + (py - c[2]) * k];
     };
   };
+  // a sphere's mark is labelled when its normal makes more than this with the line to the eye (the screen's labels start to show
+  // above it)
+  const GLOBE_LABEL_FACE = 0.05;
   // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera
   function globeLabels(g, r, c, x, y, k, tp) {
     if (!g || !A.lift) return '';
@@ -59,7 +62,7 @@
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
     let m = '';
     for (const [lab, p] of [['0', [0, 0, -1]], ['\\infty', [0, 0, 1]], ['1', A.lift(1, 0)], ['i', A.lift(0, 1)], ['-1', A.lift(-1, 0)], ['-i', A.lift(0, -1)]]) {
-      if (face(p) < 0.3) continue;
+      if (face(p) <= GLOBE_LABEL_FACE) continue;
       const q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
       const it = XD.tex(lab, tp), b = XD.boxOf(it, q[0], q[1], 'middle', 'mid');
