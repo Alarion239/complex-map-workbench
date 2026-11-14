@@ -3015,14 +3015,16 @@
   // a program of the main panes landed (GLR.onReady) and the left pane has drawn no frame since (svDrawPlane clears it)
   let svRedrawDue = false;
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
-  // programs linked (both map modes, the carried colour and its cut fills, any inverse one still compiling), the carried
-  // colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the meshes); while svRedrawDue,
-  // the left pane's frame that draws with the program that landed, a part not done. total is 0 only while the GPU layer
-  // or the chain is not up; ready is true only when done = total > 0
+  // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
+  // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
+  // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
+  // meshes); while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
+  // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
+  // is not up; ready is true only when done = total > 0
   function svReady() {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
-    parts.programs = GLR.progStatus();
+    parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
     parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
