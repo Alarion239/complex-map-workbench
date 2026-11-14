@@ -360,7 +360,7 @@ if (process.env.CMW_ONLY !== '1-3') {
   } else if (USER5_PLAY) {
   // the steps view has no Deformation transport: the thread's play is the film, and on the Landscape with All sheets it
   // glides over the sheets (the carried sheets, GLR.drawLandscape's landCarryPlace). Playing √z from z: a frame between the
-  // planes draws both sheets, the title says so, and the play ends on w_1, the colour plane, with one surface (#791)
+  // planes draws both sheets, the title says so, and the play ends on w_1, the colour plane, with one surface
   await loadSt(`u5splay${Date.now()}`, { steps: [RT(2)], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   await ev(`__cmwSteps({ surf: 'land', clock: 40 }); 1`); await settled({ until: '__cmwLandSheets().drawn && __cmwLandSheets().drawn.K === 2', max: 20000 });
   const at0 = await ev('__cmwLandSheets()');
@@ -372,13 +372,11 @@ if (process.env.CMW_ONLY !== '1-3') {
   ok('sheets, steps play: a frame of the glide draws both sheets', !!(mid && mid.drawn && mid.drawn.K === 2), mid && mid.drawn);
   ok('sheets, steps play: the glide\'s title says both sheets', !!(mid && /both sheets/.test(mid.title)), mid && mid.title);
   R.u5.caps.play = { x, drawn: mid && mid.drawn, title: mid && mid.title };
-  let end = 0;
-  for (let i = 0; i < 150 && end < 0.999; i++) { await sleep(120); end = await ev('__cmwSvX()'); }
   await settled({ until: '__cmwSvX() >= 0.999', max: 20000 });
-  const done = await ev('__cmwLandSheets()');
+  const end = await ev('__cmwSvX()'), done = await ev('__cmwLandSheets()');
   // (w_1 is the colour plane: its F is the identity, one surface and no sheets)
   ok('sheets, steps play: it arrives on w_1, the colour plane, and the sheets are gone', end >= 0.999 && done && !done.drawn, { end, drawn: done && done.drawn });
-  // (√ then sin: the play from w_1 glides across the sin step, whose frames keep √'s two sheets (#1099); a slow clock keeps
+  // (√ then sin: the play from w_1 glides across the sin step, whose frames keep √'s two sheets; a slow clock keeps
   // the play between the planes while the carry's program compiles)
   await loadSt(`u5splaysin${Date.now()}`, { steps: [RT(2), CU('\\sin(z)')], rightMode: '3d', sheets: true, height: 'im', shapes: disc });
   await ev(`__cmwSteps({ surf: 'land', clock: 8, x: 1 }); 1`); await settled({ until: '__cmwSvX() === 1', max: 20000 });
