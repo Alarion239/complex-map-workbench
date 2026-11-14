@@ -25,6 +25,11 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    max, panes })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
    compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
    (8000), and answers `{ ok, ms, busy }`.
+   `reloaded(old, readyExpr, { limitMs })` waits for the page a reload brings: a document other than the one that began at `old` (its
+   `performance.timeOrigin`, read before the reload was asked for), loaded, with `readyExpr` true (one that throws is not true yet); a call the
+   reload cuts off is asked again, any other error is thrown, and after `limitMs` (20 s) it throws naming what is missing.
+   `injectGone(n)` makes the next `n` probes of `reloaded` fail with the page-gone error, to check that it asks again; `goneLeft()` says how
+   many are unconsumed (each command file starts with none).
    A frame held with `__cmwSteps({ x })` (a scrub not let go) keeps `__cmwSteps().moving` true on every surface, plane, Sphere
    and Landscape alike: never wait on `!__cmwSteps().moving` after a held `x`. The wait for a held frame is
    `__cmwSteps().ready.ready` (the frame's programs linked and warm) as `settled`'s `until`, with its pane checks left on.

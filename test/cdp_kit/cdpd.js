@@ -238,6 +238,7 @@ const RELOAD_LIMIT_MS = 20000, RELOAD_POLL_MS = 50;
 // reload cuts them off (for a check that the wait asks again; it counts down to 0 by itself)
 const FAULT = { gone: 0 };
 H.injectGone = (n) => { FAULT.gone = n; };
+H.goneLeft = () => FAULT.gone;   // (how many injected cuts are still unconsumed; each command file starts with none)
 const probe = (expr) => { if (FAULT.gone > 0) { FAULT.gone--; return Promise.reject(new Error('{"code":-32000,"message":"Inspected target navigated or closed"}')); } return H.ev(expr); };
 H.reloaded = async (old, readyExpr = 'true', { limitMs = RELOAD_LIMIT_MS } = {}) => {
   const t0 = Date.now();
@@ -386,7 +387,7 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
       done.add(f);
       const body = fs.readFileSync(path.join(Q, f), 'utf8');
       let out;
-      FAULTS.length = 0;
+      FAULTS.length = 0; FAULT.gone = 0;
       try {
         const fn = new (Object.getPrototypeOf(async function () {}).constructor)(...Object.keys(H), body);
         out = await fn(...Object.values(H));
