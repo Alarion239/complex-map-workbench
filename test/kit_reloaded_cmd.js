@@ -7,7 +7,7 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const RELOAD_AFTER_MS = 100;     // the page reloads itself this long after the wait starts
 const SHORT_LIMIT_MS = 1500;     // a wait that is meant to give up
-const READY = `typeof __cmwSteps === 'function' && !!document.getElementById('canvasR')`;
+const READY = `typeof __cmwSteps === 'function' && Array.isArray(__cmwSteps().planes)`;   // (throws until the app has started)
 await go(`http://localhost:${PORT}/test.html?view=steps`);
 await settled({ only: true, max: 20000, until: READY });
 
@@ -30,6 +30,18 @@ let cutErr = null;
 try { await reloaded(before, READY); } catch (e) { cutErr = String(e && e.message || e); }
 info.cutErr = cutErr;
 ok('a probe cut off by the page-gone error is asked again', cutErr === null, cutErr);
+
+// a ready expression that throws while the page starts (a hook that is not up yet) is not true yet, and is not a failure of the wait
+const GATE_MS = 600;   // the page defines its gate this long after it starts
+const gate = await send('Page.addScriptToEvaluateOnNewDocument', { source: `setTimeout(() => { window.__gate = { open: true }; }, ${GATE_MS});` });
+const beforeGate = await ev('performance.timeOrigin');
+await ev(`setTimeout(() => location.reload(), ${RELOAD_AFTER_MS}); 1`);
+let gateErr = null;
+const t1 = Date.now();
+try { await reloaded(beforeGate, 'window.__gate.open'); } catch (e) { gateErr = String(e && e.message || e); }
+await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: gate.identifier });
+info.gate = { gateErr, ms: Date.now() - t1 };
+ok('a ready expression that throws until the page has started is waited for, and the wait returns', gateErr === null && info.gate.ms >= GATE_MS, info.gate);
 
 // a page that never reloads: the wait gives up and names what is missing
 const same = await ev('performance.timeOrigin');
