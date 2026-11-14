@@ -38,6 +38,47 @@
     const Pm = M4.persp(cam.fov || 28 * Math.PI / 180, pw / ph, Math.max(0.02, cam.dist * 0.02), cam.dist * 30);
     return { MVP: M4.mul(Pm, V), eye };
   }
+  // The unit sphere's outline (its limb) seen from the eye, as a polygon of toPt's points (toPt maps a point of space to a place in
+  // the caller's units, null when it is behind the camera): the sphere's points p with p . eye / |eye| = 1 / |eye|. Null when toPt
+  // fails on one.
+  const LIMB_STEPS = 72;
+  function globeLimb(eye, toPt) {
+    const d = Math.hypot(...eye), e = eye.map((v) => v / d), rad = Math.sqrt(Math.max(0, 1 - 1 / (d * d)));
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const side = cross(e, Math.abs(e[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]), len = Math.hypot(...side), u = side.map((v) => v / len), w = cross(e, u);
+    const poly = [];
+    for (let i = 0; i < LIMB_STEPS; i++) {
+      const a = 2 * Math.PI * i / LIMB_STEPS, q = toPt(e.map((v, j) => v / d + rad * (Math.cos(a) * u[j] + Math.sin(a) * w[j])));
+      if (!q) return null;
+      poly.push(q);
+    }
+    return poly;
+  }
+  const inPolygon = (q, poly) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if ((poly[i][1] > q[1]) !== (poly[j][1] > q[1]) && q[0] < (poly[j][0] - poly[i][0]) * (q[1] - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) inside = !inside;
+    }
+    return inside;
+  };
+  // Whether box b, grown by air, has some of its corners and edge midpoints inside the polygon and some outside: it crosses it.
+  const crossesPolygon = (b, poly, air) => {
+    const xs = [b.x0 - air, (b.x0 + b.x1) / 2, b.x1 + air], ys = [b.y0 - air, (b.y0 + b.y1) / 2, b.y1 + air];
+    const marks = xs.flatMap((px) => ys.map((py) => inPolygon([px, py], poly)));
+    return marks.some(Boolean) && !marks.every(Boolean);
+  };
+  // A sphere's mark kept off the globe's outline (limb: globeLimb's polygon; centre: the globe's centre in the same units;
+  // boxAt(q): the mark's box when it is placed at q): its box, grown by LIMB_AIR, must not cross the outline. A mark that would
+  // is moved out from the centre in LIMB_NUDGE_STEP steps, by at most LIMB_NUDGE_MAX. Returns its place, or null when it
+  // still crosses. The distances are in the caller's units (pt in a figure, px on a pane).
+  const LIMB_AIR = 1.5, LIMB_NUDGE_STEP = 0.5, LIMB_NUDGE_MAX = 6;
+  function clearOfLimb(q, boxAt, limb, centre) {
+    if (!limb || !centre) return q;
+    const away = Math.hypot(q[0] - centre[0], q[1] - centre[1]) || 1, ux = (q[0] - centre[0]) / away, uy = (q[1] - centre[1]) / away;
+    let at = q;
+    for (let moved = 0; moved < LIMB_NUDGE_MAX && crossesPolygon(boxAt(at), limb, LIMB_AIR); moved += LIMB_NUDGE_STEP) at = [at[0] + ux * LIMB_NUDGE_STEP, at[1] + uy * LIMB_NUDGE_STEP];
+    return crossesPolygon(boxAt(at), limb, LIMB_AIR) ? null : at;
+  }
   // Light rig, fixed in the world (spec 6.9): key azimuth 135 deg elevation 50 deg, fill azimuth -45 deg elevation
   // 20 deg. The azimuths are bearings (clockwise from +y, the hillshade convention), i.e. math angles -45 and 135:
   // with the default cameras (yaw -38 / -60) the key sits high over the viewer's shoulder and the fill rakes from
