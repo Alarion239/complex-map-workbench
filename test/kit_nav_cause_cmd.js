@@ -1,7 +1,7 @@
-// The harness says why a call died with "Inspected target navigated or closed" (or "Cannot find context with specified
-// id"): the error's message names the event that came first, a navigation (Page.frameStartedLoading or
-// Page.frameNavigated: the error can come before the commit) or a crash (Inspector.targetCrashed); with neither seen it says so. The same text goes into the suite's log. (A crash is not
-// driven here: it ends the page the daemon's other suites share.) A failure with no event says so.
+// The harness says why a call died with "Inspected target navigated or closed" (or "Cannot find context with specified id"):
+// the error's message ends with [method: the event that came first], a navigation (Page.frameStartedLoading or
+// Page.frameNavigated: the error can come before the commit) or a crash (Inspector.targetCrashed), or says that none was
+// seen. The same text goes into the suite's log. (A crash is not driven here: it ends the page the daemon's other suites share.)
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
