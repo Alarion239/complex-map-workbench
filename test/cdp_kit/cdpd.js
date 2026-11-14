@@ -176,23 +176,24 @@ H.go = async (url, ms = 15000) => {
 // A page that is not the app's (a helper page, an old build) has no start-up to wait for. A link (#cmw=) opens in a second load:
 // the app decodes it, drops the hash and reloads, so for such a url the wait also goes through that reload (the document that
 // answers is another one, for at most NAV_LINK_MS after the hash is gone), and a call the reload cuts off is asked again of the
-// new page. Answers whether the page came up in time; a page that did not says so in the suite's log (H.go, H.settled), as a
-// check after nav sees the page as it is.
+// new page. Answers the start-up wait's answer ({ ok, ms, busy, at }, with loaded: whether the load event came in time): when the
+// app did not start in time that answer is a kit fault (H.settled), so the suite fails unless it reads ok and handles it.
 const NAV_QUIET_MS = 8000, NAV_LINK_MS = 2000, NAV_GONE = /navigated or closed|Cannot find context/;
 const navCall = async (f, t0) => { for (;;) { try { return await f(); } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e)) || Date.now() - t0 > NAV_QUIET_MS) throw e; await sleep(100); } } };
 H.nav = async (url) => {
   const loaded = await H.go(url), t0 = Date.now();
-  let linkOk = true;
   if (/[#&]cmw=/.test(url)) {
     const first = await navCall(() => H.ev('performance.timeOrigin'), t0);
-    linkOk = (await navCall(() => H.settled({ only: true, max: NAV_QUIET_MS, until: `typeof window.__cmwPOpen !== 'function' || !/[#&]cmw=/.test(location.hash)` }), t0)).ok;
+    await navCall(() => H.settled({ only: true, max: NAV_QUIET_MS, until: `typeof window.__cmwPOpen !== 'function' || !/[#&]cmw=/.test(location.hash)` }), t0);
     for (const t1 = Date.now(); Date.now() - t1 < NAV_LINK_MS; await sleep(50)) {
       try { if (await H.ev('performance.timeOrigin') !== first) break; } catch (e) { if (!NAV_GONE.test(String((e && e.message) || e))) throw e; break; }
     }
   }
-  const r = await navCall(() => H.settled({ max: NAV_QUIET_MS, until: `typeof window.__cmwSteps !== 'function' || (() => { try { return Array.isArray(__cmwSteps().planes); } catch (e) { return false; } })()` }), t0);
-  const quiet = r.ok;
-  return loaded && linkOk && quiet;
+  const started = await navCall(() => H.settled({ only: true, max: NAV_QUIET_MS, until: `typeof window.__cmwSteps !== 'function' || (() => { try { return Array.isArray(__cmwSteps().planes); } catch (e) { return false; } })()` }), t0);
+  // (the page's quiet is asked for but not required: a page may hold its panes on purpose, as ?glhold does, so its answer is read here)
+  const quiet = (await navCall(() => H.settled({ max: NAV_QUIET_MS }), t0)).ok;
+  if (!quiet) LOG.push({ t: 'warn', m: `H.nav: the page was not quiet within ${NAV_QUIET_MS} ms (${url})` });
+  return Object.assign(started, { loaded });
 };
 // [#504] H.settled(o): wait until the page is quiet, instead of a fixed sleep: after o.floor ms (default 0), until two
 // animation frames find the document loaded, neither pane's last GPU frame pending, compiling or awaiting its Landscape refinement (__cmwPaneStatus; not
@@ -321,15 +322,18 @@ H.loadView = async (view, ns, st, o = {}) => {
 H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 // load(ns, state, extra, view, { limitMs, stallMs, origin }): the page opened with the saved state, answering once it is loaded, its
 // hooks are defined and the app has built the chain of the saved state: the plane list (__cmwSteps().planes, in either view)
-// holds a plane for a step (two or more: the origin plane and the step's; a saved step shown alone leaves just those two, and
-// the app adopts the whole chain at once), and a state with no active step asks no plane. The app starts after the page's
-// load event (software GL, a busy machine), so a read right after the load event finds an empty chain. A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for
-// again, and one not ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
+// holds CHAIN_PLANES planes when the state has an active step (the origin plane and a step's; a saved step shown alone leaves
+// just those two, and the app adopts the whole chain at once), and none is asked when it has none. The app starts after the
+// page's load event (software GL, a busy machine), so a read right after the load event finds an empty chain.
+// A page not ready within the one wait (a slow load, or a document replaced while the wait ran) is waited for again, and one not
+// ready within limitMs (LOAD_LIMIT_MS by default) throws, so a suite never goes on with a page still loading.
 // A document whose body has stopped arriving (still "loading" with its response not finished) after stallMs (LOAD_STALL_MS by
 // default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
-const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2;
+const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2, CHAIN_PLANES = 2;
+H.CHAIN_PLANES = CHAIN_PLANES;   // (for a suite that checks what load() waits for)
 // pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
-// since its start; 0 where an event has not come) and how many scripts and sheets it has, and how many planes its chain has built (null before the hook answers)
+// since its start; 0 where an event has not come), how many scripts and sheets it has, and how many planes its chain has built
+// (null before the hook answers)
 const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
 // docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
 const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
@@ -340,7 +344,7 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
   await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   const url = origin + '/test.html?ns=' + ns + (viewName ? '&view=' + viewName : '');
   await send('Page.navigate', { url }, S);
-  const want = Array.isArray(o.steps) && o.steps.some((q) => q.on !== false) ? 2 : 0;
+  const want = Array.isArray(o.steps) && o.steps.some((q) => q.on !== false) ? CHAIN_PLANES : 0;
   const ready = `document.readyState === 'complete' && typeof window.__cmwPaneStatus === 'function' && (() => { try { return __cmwSteps().planes.length >= ${want}; } catch (e) { return false; } })()`;
   const limitMs = opts.limitMs || LOAD_LIMIT_MS, stallMs = opts.stallMs || LOAD_STALL_MS, t0 = Date.now();
   let r, reloads = 0, tNav = t0;
