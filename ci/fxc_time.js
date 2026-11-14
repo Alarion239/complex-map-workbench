@@ -117,7 +117,7 @@ const GO = (k) => `__cmwSteps({ go: ${k} })`;
 const MOUNTAIN_KING = 'In the Hall of the Mountain King';
 const LAST = '(() => { const n = __cmwSteps().planes.length - 1; if (n > 0) __cmwSteps({ go: n }); return true; })()';
 const SCENES = {
-  mk: { example: MOUNTAIN_KING, phases: [['open', null], ['land', SC.main('land')], ['land closed', SC.main('xy')], ['glide', LAST], ['globe', `(${GO(0)}, __cmwSteps({ surf: 'sphere' }), ${LAST})`]] },
+  mk: { example: MOUNTAIN_KING, phases: [['open', null], ['glide', LAST]] },
   expsin: { edit: 'exp(sin(z))', phases: [['glide', GO(1)], ['globe', `(${GO(0)}, __cmwSteps({ surf: 'sphere' }), ${GO(1)})`]] },
   sinzz: { edit: 'sin(z)/z', phases: [['glide', GO(1)]] },
   cubic: { edit: 'z^3-2z+1', phases: [['glide', GO(1)]] },
@@ -142,7 +142,7 @@ async function captureScene(base, name, tree) {
       await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
     }
     await H.nav(`${base}test.html?ns=${ns}&view=steps&glprof`);
-    await H.until(`typeof __cmwSteps === 'function' && typeof GLR !== 'undefined'`, 60000, 200);
+    await H.until(`typeof __cmwSteps === 'function' && typeof GLR !== 'undefined'`, 240000, 200);
     // settled: no new link for 6 s and none pending
     const quiet = async (maxMs) => {
       const t0 = Date.now();
@@ -189,7 +189,8 @@ async function capture() {
     fs.writeFileSync(path.join(dist, 'blank.html'), '<!doctype html><title>b</title>');
     const S = await serve(dist);
     for (const n of names) {
-      const r = await captureScene(S.base, n, tree);
+      let r;
+      try { r = await captureScene(S.base, n, tree); } catch (e) { console.log(`[fxc] ${sd.label} ${n}: ${String(e.message).split('\n')[0]}: once more`); r = await captureScene(S.base, n, tree); }
       console.log(`[fxc] ${sd.label} ${n}: ${r.length} inverse programs: ${r.map((x) => `${x.phase} ${x.name} ${((x.vs.length + x.fs.length) / 1024).toFixed(0)} KB`).join('; ')}`);
       for (const x of r) found.push({ side: sd.label, ...x });
     }
@@ -201,6 +202,13 @@ async function capture() {
     const id = sha1(x.vs + '\0' + x.fs);
     if (!progs.has(id)) progs.set(id, { id, name: x.name, key: x.key, mode: x.mode, srcKB: +((x.vs.length + x.fs.length) / 1024).toFixed(1), vs: x.vs, fs: x.fs, in: [] });
     progs.get(id).in.push(`${x.side}/${x.scene}/${x.phase}`);
+  }
+  // the Mountain King's carry programs come in two sizes of the front buffer (IX_B, the key's B3 or B5, by the view the page is
+  // in): the captured one's sibling with the other size, linked by the app on the Windows machines (B5)
+  for (const p of [...progs.values()]) {
+    if (!(p.in.some((s) => s.split('/')[1] === 'mk') && /MOB/.test(String(p.key)) && /carry/.test(String(p.key)) && p.fs.includes('const int IX_B = 3;'))) continue;
+    const fs5 = p.fs.replace('const int IX_B = 3;', 'const int IX_B = 5;');
+    progs.set(`${p.id}x5`, { ...p, id: `${p.id}x5`, key: String(p.key).replace(/\|B3$/, '|B5'), fs: fs5, srcKB: +((p.vs.length + fs5.length) / 1024).toFixed(1), in: p.in.map((s) => `${s.split('/')[0]}/mk/B5 (IX_B 5)`) });
   }
   // the jobs, the most informative first. The first side is the reference of the variants (b, c): only its programs get
   // them. First the Mountain King's MOB carry programs (the largest): each as the sides link it, then its b and c; then
