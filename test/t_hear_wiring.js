@@ -13,19 +13,13 @@
 // Run: node test/t_hear_wiring.js
 const vm = require('vm');
 const CX = require('../src/cx.js');
-const { source } = require('./src_text');
+const { source, braced, fnText: fnTextOf } = require('./src_text');
 const C = CX.C, TAU = 2 * Math.PI;
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } else if (process.env.V) console.log('ok  ', name); }
 
 const HOOKS = source('soundhooks.js'), APP = source('app.js');
-// from `at` (an index of text) to the brace that closes the first one after it
-function braced(text, at, what) {
-  let d = 0;
-  for (let k = text.indexOf('{', at); k < text.length; k++) { const c = text[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return text.slice(at, k + 1); }
-  throw new Error('unbalanced ' + what);
-}
-function fnText(name) { const i = HOOKS.indexOf(`  function ${name}(`); if (i < 0) throw new Error('no function ' + name); return braced(HOOKS, i, name); }
+const fnText = (name) => fnTextOf(HOOKS, name);
 function constText(name) { const m = HOOKS.match(new RegExp(`\\n  const ${name} = [^\\n]*;\\n`)); if (!m) throw new Error('no const ' + name); return m[0]; }
 
 // ---------- the app's side (src/app/14-interaction.js) ----------
