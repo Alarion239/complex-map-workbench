@@ -1587,9 +1587,10 @@ const Inverse = (() => {
   // (newtOps). {ok, ops} | {ok: false, reason}
   // a polynomial step of degree 2 to NEWT_POLY_MAX, its degree known exactly: its roots are all of Newton's members
   const isNewtPoly = (P) => !!P.polynomial && !!P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX;
-  // Inverse.polyHom(b): whether built step b's homotopy is a polynomial in u at every t, so it has no pole at any t: a
-  // polynomial step as isNewtPoly takes it, not a recognised chain (whose homotopy walks its sub-steps' own): the
-  // straight line or a zoom (f conjugated by affine maps), which newtOps inverts by every root (NEWT with deg)
+  // Inverse.polyHom(b): whether built step b is a polynomial step as isNewtPoly takes it, not a recognised chain (whose
+  // homotopy walks its sub-steps' own), so its homotopy has no pole at any t. homOps takes it as a root power (z^n as
+  // z^(1 + (n - 1) t), or its zoom about a point), a zoom of f (f conjugated by affine maps), or else the straight line
+  // or the step's own homotopy, a polynomial in u, which newtOps inverts by every root (NEWT with deg)
   const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
   function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };

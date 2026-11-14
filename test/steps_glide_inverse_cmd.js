@@ -131,7 +131,9 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The first frame at rest
 // after it leaves no hold behind, the hold ends once the tracks exist, and a glide with an exact inverse (z squared) is
 // never held, nor one Everywhere through a polynomial step inverted by every root after no step with a pole (the partial
-// sum of the exponential: its map has no pole at any t, so no tracks to wait for).
+// sum of the exponential: its map has no pole at any t, so no tracks to wait for); the same step after 1/z, whose pole
+// the glide's map keeps, is held. For such a glide with no pole (the partial sum, and z squared's root power) the idle
+// job makes no tracks, and its key mid-glide holds plane 1's points alone, even with whole tracks made for it.
 {
   const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 6, HELD_OVER = 0.002, HELD_FAR = 10 * HELD_OVER, FRAME_SEARCH_MS = 0.001;
   const FLOOR = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
@@ -170,6 +172,15 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
     await park(0);
     return heldOver();
   };
+  // (a glide to plane b with no pole at any t, once the idle job has ended: its tracks' next step (0: none made) and its
+  // key's points at u = 1/2 with whole tracks made for it, against plane b's own; an entire map's tracks can hold points
+  // where |F| passes 1e8, which no key takes: the partial sum's, near 34.6 ± 21.7i)
+  const noTracks = async (b) => {
+    await settled({ max: 120000, until: '__cmwSteps().ready.ready && !__cmwSvKey().busy' });
+    const idle = (await ev(`__cmwSvKey(${b}, 0.5)`)).tracks, key = (await ev(`__cmwSvKey(${b}, 0.5, true)`)).sing, rest = (await ev(`__cmwSvKey(${b})`)).sing;
+    const pts = (L) => JSON.stringify(L.map((p) => p.join(',')).sort());
+    return { idle, key, rest, ok: idle.k === 0 && pts(key) === pts(rest) };
+  };
   const heldOver = () => ev(`(() => { const A = window.__gi.f, B = __giGrab(); let over = 0; for (let i = 0; i < A.d.length; i += 4) { let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > ${HELD_DIFF}) over++; } return over / (A.d.length / 4); })()`);
   for (const x of [0.25, 0.5, 0.75]) {
     await load(ex, x);
@@ -206,10 +217,23 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const r3 = await first(0.5, true);
   info['squared scrub at once'] = r3;
   ok('z squared scrubbed at once after load: never held, drawn by the inverse pass', !r3.hold && !!r3.g && r3.g.path === 'inverse', r3);
+  const k3 = await noTracks(1);
+  info['squared tracks'] = k3;
+  ok('z squared (a root power): the idle job makes no pole tracks, and the glide\'s key holds plane 1\'s points alone', k3.ok, k3);
   await load(ps, 0.5, 'all');
   const r4 = await first(0.5, true);
   info['partial sum scrub at once'] = r4;
   ok('the partial sum of the exponential scrubbed at once after load, Everywhere: never held, drawn by the inverse pass', !r4.hold && !!r4.g && r4.g.path === 'inverse', r4);
+  const k4 = await noTracks(1);
+  info['partial sum tracks'] = k4;
+  ok('the partial sum of the exponential: the idle job makes no pole tracks, and the glide\'s key holds plane 1\'s points alone', k4.ok, k4);
+  // (1/z put before it: the glide to plane 2 has 1/z's pole at 0, which only its tracks give its key)
+  await ev("__cmwAddStep('recip', {}, 0), 1");
+  await settled({ max: 120000, until: '__cmwSteps().planes.length === 3 && __cmwSteps().ready.ready' });
+  await ev(`__cmwSteps({ poleFrameMs: ${FRAME_SEARCH_MS}, dropTracks: true, x: 1.5 }), 1`);
+  const r5 = await first(1.5, true);
+  info['partial sum after 1/z scrub at once'] = r5;
+  ok('the partial sum of the exponential after 1/z, scrubbed at once with its tracks dropped: held for them', r5.hold === 2, r5);
 }
 // ---- the NEWT roots pass reads no GL state back ----
 // (the partial sum of the exponential, degree 8, Inside regions, inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a

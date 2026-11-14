@@ -890,8 +890,8 @@
     return null;
   }
   // Whether the glide into plane b moves through entire maps alone, so its map h_{b,t} after the steps before b has no
-  // pole at any t: step b's homotopy is a polynomial at every t (Inverse.polyHom: the one a glide inverts by every root,
-  // NEWT with deg), and each active step before b is entire. Its frames' key then takes no pole tracks (svSheetKeyAt),
+  // pole at any t: step b is a polynomial step, whose homotopy has none (Inverse.polyHom: a root power, a zoom, or a
+  // polynomial in u inverted by every root, NEWT with deg), and each active step before b is entire. Its frames' key then takes no pole tracks (svSheetKeyAt),
   // none are made for it (svPolesLeft), and its glide never waits for them (svTracksMissing)
   function svGlideEntire(b) {
     if (isDeriv(b) || !Inverse.polyHom(built[b - 1])) return false;
