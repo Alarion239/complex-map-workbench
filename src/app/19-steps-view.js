@@ -13,7 +13,7 @@
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
-    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's)
+    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -889,13 +889,13 @@
     }
     return null;
   }
-  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
-  // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
-  // (svSheetKeyAt) exist
+  // The pole tracks the frames of the glide into plane b are drawn from, while they are not made (null otherwise): its
+  // inverse paths h have a Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's
+  // last whole ones (svSheetKeyAt) exist
   function svTracksMissing(b, h) {
-    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
+    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return null;
     const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
-    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
+    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]) ? P : null;
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
   // the plane and of the chain's other glides, nearest first, with their meshes, as far as the caches take them (svRingAhead, svRingNext),
@@ -937,7 +937,7 @@
     // (this glide's tracks once they are whole; until then (a glide at once after an edit or a change of view, before
     // the idle moments made them), the plane's last whole tracks, for other windows (they find the same poles where the
     // windows overlap); with none, the poles a seed step finds at t itself: the same search, without the tracks through
-    // a cut. No tracks are made in a frame)
+    // a cut. A glide's frames make no tracks; the frames that hold the glide for them do, svLinkHold)
     const s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
     let P = svPoleTracks(b, k.win), at = null;
     if (P.k <= SV_POLE_K) {
@@ -1105,8 +1105,10 @@
   // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
   // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
   // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
-  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
-  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0. Each frame of such
+  // a wait makes the tracks for a frame's pole budget, so the wait ends within a bounded number of frames: a held play or
+  // glide asks for frame after frame, and where each takes past its deadline (a software renderer) no idle moment comes
+  // between them. Such a wait also starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
@@ -1114,7 +1116,13 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
     const linking = !!h && h.paths.some((p, i) => svInvState(h, i, g.b, g.u) === 'pending');
-    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
+    const P = linking ? null : svTracksMissing(g.b, h);
+    if (P) {
+      svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
+      // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
+      if (P.k > SV_POLE_K) svHomMemo = null;
+    }
+    svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
