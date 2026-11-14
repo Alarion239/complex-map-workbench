@@ -135,6 +135,7 @@ await ready();
 await setup("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
 await setup(`__cmwExample(${EX}); 1`);
 await wait();
+await adopted();
 {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
   // the region: outside the circle |z - c| = r (the example's disc, its centre and radius as 15-examples-guide.js gives

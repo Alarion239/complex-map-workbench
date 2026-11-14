@@ -117,7 +117,6 @@ ok('the curve follows', b.fcurve.expr === `Re z = (${A})`, b.fcurve.expr);
 ok('the radius follows (2a)', b.disc.r === 2 * A, b.disc.r);
 ok('the region formula follows', b.formula.expr === `|z - (${A})| < 0.5`, b.formula.expr);
 ok('the steps read the new value', /;a=/.test(b.sig) && b.sig.endsWith(`;a=${A}`), b.sig.slice(-30));
-const zero = await ev(`(()=>{ const z = __cmwZp(); return z ? z.params.zeros : null })()`);
 ok('the zero keeps its formula', b.zeros === 'a', b.zeros);
 ok('the drag is one undo step', b.hi === hiBeforeDrag + 1, { hi: b.hi, was: hiBeforeDrag });
 await shot('v15p-2-dragged');

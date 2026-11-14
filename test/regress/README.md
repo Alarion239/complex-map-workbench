@@ -1,9 +1,7 @@
 # Regression gates: performance and image quality
 
-Two suites guard the coming meshing / refinement / inverse-rendering change. Both were recorded on the code as it
-is today (the baseline) and must keep passing afterwards: **performance must not decrease and image quality must not
-decrease**. Intended improvements (images of unbounded regions reaching the edges of the view, better-shaped meshes)
-are reported as `IMPROVED`, never as failures.
+Two suites guard the app's speed and the images it draws: a change must not make **performance or image quality
+worse**. A change for the better is reported as `IMPROVED`, never as a failure.
 
 | | perf suite | quality suite |
 |---|---|---|
@@ -50,9 +48,9 @@ node test/regress/quality/verify_truth.js      # independent check of the SPEC 1
 python3 test/regress/test_compare.py           # the two gates on synthetic results (< 1 s)
 ```
 
-**How it works.** Each scene is a saved state with a pinned right view (1440×900, dpr 1, light theme, panels shown).
-The runner renders it in its own headless Chrome and reads `#canvasR` once the canvas is stable, the LED is not
-`busy` and no GL program is pending. It then compares every pixel with the **exact** image, computed on the CPU from
+**How it works.** Each scene is a saved state with a pinned view of its image (1440×900, dpr 1, light theme). The
+runner renders it in its own headless Chrome, in the steps view on the chain's last plane, Inside regions, and reads
+`#canvasL` once the canvas is stable, the LED is not `busy` and no GL program is pending. It then compares every pixel with the **exact** image, computed on the CPU from
 the inverse of the map over all branches.
 
 **What is measured.** The scenes cover:
@@ -68,51 +66,17 @@ cell edge. For the bounded controls it also reports a golden-PNG diff: the fract
 
 **The gate** (`quality/tolerances.json`):
 
-- IoU and parity must not drop by more than 0.002. Parity is gated only when at least 1000 pixels were scored.
+- IoU must not drop by more than 0.002.
 - Holes and spill must not grow by more than 0.001.
 - Golden diffs must stay at or below 0.5 %.
 
-Larger moves in the good direction are reported as **IMPROVED**. Today the cut-off unbounded images have these
-values, which the coming change should raise as improvements:
-
-| run | IoU |
-|---|---|
-| `logH_out4` | 0.73 |
-| `logH_out16` | 0.18 |
-| `cayley_H_zoom1` | 0.77 |
-| `recip_ext_zoom0` | 0.81 |
-| `sqrt_slit_out16` | 0.61 |
-
-Every other scene scores IoU 1, holes 0, spill 0 and parity 1. Three full runs gave bit-identical renders (32/32) and
-identical metrics.
-
-**SPEC 12.4 scenes (P0).** `zi_H` (z^i of the upper half-plane: the annulus e^−π < \|w\| < 1 at 1×, 4×, 16×), `expH`
-(1×, 16×), `e1z_disc` (1×, 16×), `e1z_custom`, `exp_far_disc`, `ez2_disc`, `healed_cut`, in the variants mask and
-pattern plus `polar` (log-polar checker), `mask85` and `mask20` (solid at alpha 0.85 / 0.2) where the spec asks for
-them: 31 runs. They are scored in **strict mode**: a stroke-coloured pixel inside the true image is a hole (outside the
-band of a stroke that legitimately crosses it, `healed_cut`'s cut line), opacity and colour are taken over every
-interior pixel, and a metric with nothing to score is null with a problem, never a perfect 1. Where several sheets
-overlap, the checker and polar truths are the pattern of the **front** sheet (SPEC 5.1's key D from the saved
-`clipWin`, the tie rule of 5.2; the polar pattern's solid c0 disc around 0 included). New metrics: front-sheet checker
-and polar parity (as `parity_acc`), `opacity_min` (gated, tol 0.01) with `opacity_p01` / `_mean` / `_lt99`,
-`color_off` (gated, tol 0.001: interior pixels more than 6 RGB units from the opaque fill colour) and `hole_leak`
-(gated: must not grow; translucent fill counts on mask runs). Their truths are independent of the app and checked by
+Larger moves in the good direction are reported as **IMPROVED**. Every run scores coverage (the `cover` classifier:
+IoU, holes, spill, hole_leak). The SPEC 12.4 scenes (`zi_H` at 1×, 4×, 16×, `expH`, `e1z_disc`, `e1z_custom`,
+`exp_far_disc`, `ez2_disc`, `healed_cut`) and the P2 review's scenes are scored in **strict mode**: a metric with
+nothing to score is null with a problem, never a perfect 1. Their truths are independent of the app and checked by
 `quality/verify_truth.js` (forward rasterisation of the region against the inverse truth, soundness of every preimage,
-agreement of the saved state's map with the app's own step functions, polar parity, the empty hole, and an own model
-of the front sheet's pattern); `--selftest` checks the metrics on synthetic renders, ideal and with defects (a darker
-or edge-coloured fill, the sheet behind the front, the polar pattern without its c0 disc, a translucent leak, a crack,
-blank renders). Today's values (details in `quality/README.md`):
-
-| run | today | spec target (P2) |
-|---|---|---|
-| `zi_H.polar`, `zi_H_out4.polar` | polar parity 0.948, 0.969 | ≥ 0.999 |
-| `zi_H.pattern`, `expH.pattern`, `e1z_disc.pattern` | front-sheet checker parity 0.641, 0.311, 0.500 (today's mesh shows another sheet in front, or no checker at all) | gated once recorded |
-| `zi_H.mask85` | opacity p01 0.85, mean 0.935 (one sheet); `color_off` 0.39 | opacity_min ≥ 0.99 |
-| `zi_H.mask20`, `expH.mask20` | IoU 0.009, 0.815; opacity mean 0.32, 0.58; `color_off` 1 | IoU ≥ 0.999, opacity ≥ 0.99 |
-| `e1z_disc.mask20` | opacity 0.987 | ≥ 0.99 |
-| `zi_H` mask / pattern / polar / mask85, `zi_H_out4` | IoU 0.994–0.995, holes 0.5–0.7 %: chords along the outer rim, the fill and its stroke (strict: the stroke's dark pixels inside the true disc are holes) | IoU ≥ 0.999, holes and `color_off` ≤ 0.001 |
-| `zi_H*` hole_leak | 0 / 112 px: today's path keeps the z^i hole empty (the spec expected it filled) | 0 |
-| the rest (exp, e^{1/z} at alpha ≥ 0.85, far disc, e^{z²}, healed cut) | IoU 1 (≥ 0.9995), holes ≈ 0, spill 0, parity 1 where one sheet, opacity 1, `color_off` ≈ 0 | must stay |
+agreement of the saved state's map with the app's own step functions, the empty hole); `--selftest` checks the
+metrics on synthetic renders, ideal and with defects. Details in `quality/README.md`.
 
 ---
 
@@ -162,8 +126,8 @@ measuring code: settle with a pending compile, compile stats, the scrub scene's 
   * (P0) wraps `shaderSource / attachShader / linkProgram / getProgramParameter / useProgram`: one record per linked
     program (link time; the time the app first saw it complete, through `COMPLETION_STATUS_KHR` or a `LINK_STATUS`
     query; whether it is an **inverse program**, i.e. its fragment shader contains the SPEC 4.1 walker `invWalk` /
-    `uInv`), and per frame the number of draws made with an inverse program. Nothing here exists before P2, so the
-    inverse fields read 0 / null on today's code.
+    `uInv`), and per frame the number of draws made with an inverse program (0 / null on a build that links no
+    inverse program).
 * **Settled** = neither LED is `busy`, no program compile is pending (`GLR.frameStatus().pending`: while a program
   compiles the app draws a stand-in or nothing, and the LEDs do not show compiles; P0 review), and there has been no
   WebGL draw and no LED change for 600 ms (longer than every debounce in the app: 200 ms `sourceViewChanged`, 160 ms
@@ -178,78 +142,60 @@ measuring code: settle with a pending compile, compile stats, the scrub scene's 
 ### Scenes and units
 
 Scenes (`scenes.js`): `default` = the first-visit example (strip |Im z| < π/2 → exp → Möbius (w−1)/(w+1)),
-`logUHP` = log of the upper half-plane (unbounded; today its image strip is cut off at both ends), `chain4` = disc +
+`logUHP` = log of the upper half-plane (unbounded: its image strip reaches the view's edges), `chain4` = disc +
 grid through z+0.3+0.2i → z² → Cayley (z−i)/(z+i) → log (a pole and a cut inside: heavy fix-ups), `scrub` = disc +
 polar grid through a disk automorphism (Möbius, scrubbable φ), `cubic` = disc through z³−1 (three preimages).
+
+Every unit opens the page in the steps view and stands where it measures (`AT` in `run.js`, through `__cmwSteps` and
+`ci/steps_scenes.js`): the plane z; the image (the last plane, Inside regions); Phase (the last plane, Everywhere);
+the last plane's Landscape; or the globe (z or the last plane, Inside regions). The page has one plane, pane L.
 
 | unit | what runs |
 |---|---|
 | `mesh` | `Region.buildMesh` called directly in the page for 11 shapes (6 bounded kinds, 5 unbounded) at Q = 60/120/480 (= meshN 240/480/1920 ÷ 4), window [−4,4]×[−3,3] |
-| `image.<scene>.m<N>` | Image mode, scene ∈ default/logUHP/chain4, mesh N ∈ 240/480/1920: statics, remesh, pan L, pan R; at N = 240 also wheel zoom on both planes |
-| `phase.default` | Phase mode: pan both planes |
-| `landscape.default`, `sphere.default`, `sphere.logUHP` | orbit (left-drag) of the right plane in Landscape / Sphere. `view_moved` compares screenshots of the dragged pane taken with the pointer outside the panes and the view settled, before and after the first leg (hovering a pane changes it by itself) |
+| `image.<scene>.m<N>` | the plane z, scene ∈ default/logUHP/chain4, mesh N ∈ 240/480/1920: statics, remesh, pan (`.pan`); at N = 240 also a wheel zoom (`.zoom`) |
+| `phase.default` | Phase: pan (`.pan`) |
+| `landscape.default`, `sphere.default`, `sphere.logUHP` | orbit (left-drag) of the last plane's Landscape / of the image on the globe (Space held). `view_moved` compares screenshots of the plane taken with the pointer outside it and the view settled, before and after the first leg (hovering a plane changes it by itself) |
 | `examples` | `__cmwExample(i)` for all 14 examples, in order, in a fresh page per rep |
-| `scrub` | drag the φ label of the Möbius step ±160 px (φ ±40°) |
-| `hover.default`, `hover.cubic` | 60-move sweep over the right plane (Image mode): preimage tracking |
+| `scrub` | on the image, drag the φ label of the Möbius step in the Inspector ±160 px (φ ±40°) |
+| `hover.default`, `hover.cubic` | on the last plane with the colour plane set to z, a 60-move sweep with the select tool: the probe's readout searches each point's preimage in z (`svSource`); `found_preimages`: the readout names one at the end of every sweep |
 
 **Units of SPEC 12.5 (phase P0).** Scenes: `ziH` = z^i (powa α = i) of the upper half-plane, `expH` = exp of the upper
 half-plane (both with infinitely many sheets), `disc_cube` / `joukowski` / `annulus_log` / `poly_mobius` = the quality
 suite's bounded golden scenes (same maps, shapes and views, the perf look), `mobius_halfplane` = a disk automorphism
 (scrubbable φ) of the upper half-plane, `hoverdim` = exp of the upper half-plane plus a small disc, `gridCircles` = a Line grid plus six circles, a glider and a disc under z². (`mobius_halfplane` was changed in the P0 review: it now
 ends with (1 + w)/(1 − w), so its pole blaschke^−1(1) moves with φ and crosses the half-plane's boundary during each
-drag; φ starts at 40°, the right view is (0, 60).) Their right views
-are pinned (the quality suite's views), so a change of the auto-fit cannot change what they measure.
+drag; φ starts at 40°, the image's view is (0, 60).) The views of their images are pinned (`wView`, the quality
+suite's views; the steps view has one camera for every plane, so a unit on the image opens with it), so a change of the
+auto-fit cannot change what they measure.
 
 | unit | what runs |
 |---|---|
-| `image.ziH.m240`, `image.expH.m240` | Image mode, right plane: statics, pan R, wheel zoom R in / out (each with its settle), dpr 1. When an inverse program was linked during the load, the unit first waits (≤ 5 s) for a frame drawn with it. `inverse_drawn` (check): when the app says a shape of the right plane is inverse (`__cmwPaths`, P2), or without that hook an inverse program was linked, the unit's draws must include inverse draws (before P2: true) |
+| `image.ziH.m240`, `image.expH.m240` | the image: statics, a pan, a wheel zoom in / out (each with its settle), dpr 1. When an inverse program was linked during the load, the unit first waits (≤ 5 s) for a frame drawn with it. `inverse_drawn` (check): when the app says a shape of the shown plane is inverse (`__cmwPaths`, role L), or without that hook an inverse program was linked, the unit's draws must include inverse draws |
 | `image.ziH.m240.dpr2`, `image.expH.m240.dpr2`, `image.disc_cube.dpr2` | the same at **device pixel ratio 2** (`Emulation.setDeviceMetricsOverride`, viewport still 1440×900 CSS px: 4× the pixels; reset to 1 after the unit). `*.dpr_ok` checks that the page really ran at dpr 2 |
-| `sphere.ziH` | Sphere view of `ziH`: orbit (as `sphere.logUHP`) |
-| `sphere.globeL0` (P3) | X Sphere at stage 0 (`leftSphere: true` in the saved state, which both apps read): the upper half-plane of `logUHP` on the z-globe, orbit of the **left** pane. Since P3 one exact inverse pass over the globe (a region through infinity covers the north pole); in the reference the lifted mesh (notes/ui-design/panels.md 11) |
-| `scrub.mobius_halfplane` | drag the φ label ±160 px (φ 40° → 80° → 40°); the chain's pole crosses the half-plane's boundary at φ = 61.93° in each drag (`pole_crossed`: computed from the φ values the drags produced). Besides the frame metrics it counts line resampling (`Region.sampleCurve`) and line uploads (`GLR.createLines`) during the drags (`no_line_resample` must stay true: P4 refines lines on settle only, keyed by structural singular points, which this scrub moves) and while it settles (info) |
+| `sphere.ziH` | the image of `ziH` on the globe: orbit (as `sphere.logUHP`) |
+| `sphere.globeL0` (P3) | the plane z on the globe, Inside regions: the upper half-plane of `logUHP` on the z-globe, orbit. One exact inverse pass over the globe (a region through infinity covers the north pole) |
+| `scrub.mobius_halfplane` | on the image, drag the φ label ±160 px (φ 40° → 80° → 40°); the chain's pole crosses the half-plane's boundary at φ = 61.93° in each drag (`pole_crossed`: computed from the φ values the drags produced). Besides the frame metrics it counts line resampling (`Region.sampleCurve`) and line uploads (`GLR.createLines`) during the drags (`no_line_resample` must stay true: P4 refines lines on settle only, keyed by structural singular points, which this scrub moves) and while it settles (info) |
 | `gallery.open` | click Examples; time until every gallery thumbnail has its image, the frames meanwhile, programs linked, and inverse programs among them (`no_inverse_compiles`: side chains never start an inverse compile, SPEC 4.4 / 10.7). A fresh page per rep |
-| `hover.dim` | on `hoverdim`, 12 visits alternating between the two rows of the shape list (each dims the other shape to half alpha): frame times, programs linked (`no_compile`), LED busy starts (`no_job`: no fix-up or SphereMesh job, SPEC 8.8), and `dimmed` (the right pane really changed) |
+| `hover.dim` | on `hoverdim`, 12 visits alternating between the two rows of the shape list (each dims the other shape to half alpha): frame times, programs linked (`no_compile`), LED busy starts (`no_job`: no fix-up or SphereMesh job, SPEC 8.8), and `dimmed` (the image really changed) |
 | `sv.first_glide` | the steps view (`?view=steps`, #366): a fresh open of the default page and of ζ (example 18), 3 s idle (the glide's programs prestarted, `svPrestart`), then the first glide to plane 1: its longest frame (`longest_ms`, kind `limit` 50 ms: no synchronous program link, #366 A2), the `LINK_STATUS` waits over 5 ms (`link_waits`, `link_wait_ms`, info) and the frame p95 (info); then a warm glide's frame p95 (`sv.warm_glide.<scene>.frame_p95_ms`, `frame_ms`). Shard `steps`. A reference without the steps view cannot run it (NEW) |
 | `sv.interact.<scene>` | the steps view's own interactions (#366 K), on a GPU only (a software renderer is skipped, said in the details; `CMW_SV_SOFT=1` runs it anyway): scenes `default`, `zeta` and `king` (the Mountain King), each opened, idled 3 s and glided there and back, then **parked half-way** between z and w₁. Measures: the strip scrub Everywhere and Inside regions (`sv.scrub.{all,in}.<scene>`), a pan of the plane with Inside regions (`sv.pan.in.<scene>`) and an orbit on the globe, with Space held (`sv.orbit.<scene>`), each as `frame_p95_ms` and `cpu_p95_ms` (`frame_ms`), `settle_jank_ms`, and latency p95 and fps (info). Also `sv.scrub.all.<scene>.gl_copies`: `GLR.blit` calls per frame drawn while scrubbing Everywhere, kind `limit` 1.25 (#492 / #503: one copy), and `sv.scrub.in.<scene>.gl_copies`, the same while scrubbing Inside regions, kind `limit` 1.05 (#440's follow-up: the grid and the outlines in G's masked frame, one copy). A scrub that draws no frames fails the unit. The reps stop early (said in the details) when the next would pass 75% of the unit's time limit; `sv.interact.king` has a limit of 420 s (`timeoutS`; CI's `--unit-timeout 1800` is longer anyway). Shard `steps`. A reference without the steps view cannot run it (NEW) |
 | `sv.glide.<scene>` | the steps view's glide at 60 fps (#439 F, #443), on a GPU only (a software renderer is skipped, said in the details; `CMW_SV_SOFT=1` runs it anyway): scenes `default`, `zeta` and `king` (the Mountain King, by name), each at dpr 1 and at dpr 2 (`.dpr2`, `setDpr` as the image units). Per rep: a fresh open, Everywhere on the plane surface (the default page opens in Inside regions: set to Everywhere here), 3 s idle, a warm glide there and back, then the timed glide z → w₁ → z at the normal speed. Measures: `frame_p95_ms` and `cpu_p95_ms` (`frame_ms`, the 60 fps budget 14 ms), `fps` (`throughput`, frames presented per second, at least 55), `jank_ms` (the longest stall), `long_intervals` (rAF intervals over 25 ms, info), `gl_copies` (`GLR.blit` calls per frame drawn, kind `limit` 1.25: one copy, #503) and `label_ms` (the label pass per frame on the move, kind `limit` 2 ms: no curve is sampled through the map while the view moves, #608; what it costs is placing and drawing the labels, 0.5 to 1.7 ms on the Mac; the landing's pass at rest is left out) and `links` (programs linked while gliding, kind `limit` 0: #366 A2). A glide that draws no frames fails the unit. The reps stop early (said in the details) when the next would pass a dpr's half of 75% of the unit's time limit; `sv.glide.king` has a limit of 600 s. Shard `steps`. A reference without the steps view cannot run it (NEW) |
-| `pointer.hover_point`, `pointer.hover_orth` | wave 1's pointer work (#63; `notes/ux-build/w1-review-regress.json` regress-6): on `gridCircles` (a Line grid plus six circles, a glider on the unit circle, a disc), a 60-move sweep over X with the Point tool and with Orthogonal (the snap and detent search on every move): pointermove handler p50 / p95, frames, latency; the ring's chip on a grid line is recorded (`details`) |
+| `pointer.hover_point`, `pointer.hover_orth` | wave 1's pointer work (#63; `notes/ux-build/w1-review-regress.json` regress-6): on `gridCircles` (a Line grid plus six circles, a glider on the unit circle, a disc), a 60-move sweep over the plane z with the Point tool and with Orthogonal (the snap and detent search on every move): pointermove handler p50 / p95, frames, latency; the ring's chip on a grid line is recorded (`details`) |
 | `pointer.snap_drag` | on `gridCircles`, the disc dragged by its body with Snap on across the grid (anchorMove's snap search on every move): handlers, frames, latency, settle; `moved` (the disc moved) |
 | `pointer.glider` | on `gridCircles`, the glider dragged round the unit circle from 36° to 300° (railDrag's detents and dwell timer on every move): handlers, frames, latency; `on_circle` (still a glider, on the circle, moved) |
-| `pointer.probe_x` | on `default`, a sweep over X with the select tool (the hover probe's readout on every move): handlers, frames, latency |
-| `pointer.roots_morph_pan` | example 10 (Roots as preimages, with targets) with the deformation playing, a 40-move pan of Y (regress-7: the target note in every Y render, the undo state in every overlay frame): handlers, frames, latency, jank; `playing` |
-| `swiftshader.ratio` (opt-in) | a separate runner, run only with `--swiftshader` or when `--only` names it (a full run without it lists it in `meta.optInSkipped`, and `compare_perf.py` reports its baseline metrics as SKIP, not missing; `run.sh --update-baseline` records it). Its **own** headless Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader` (CPU WebGL2): for each bounded golden scene, pan R there and back (1 rep: SwiftShader frames take 50–130 ms here) with exact images on (default) and off (`__cmwSet('exactImages', false)`); `ratio` = frame p50 on / off, gated absolutely at ≤ 3 (SPEC 4.7). With exact images on it waits for a pending compile and the first inverse frame; `inverse_drawn_on` (check): when the app says the shape is inverse (the cost guard may demote it, then it says forward) the pan must have drawn with the inverse program, or the ratio would compare forward with forward. Before P2 both are forward (ratio ≈ 1, `inv_draws_on` 0); `is_swiftshader` checks the renderer string |
+| `pointer.probe_x` | on `default`, a sweep over the plane z with the select tool (the hover probe's readout on every move): handlers, frames, latency |
+| `swiftshader.ratio` (opt-in) | a separate runner, run only with `--swiftshader` or when `--only` names it (a full run without it lists it in `meta.optInSkipped`, and `compare_perf.py` reports its baseline metrics as SKIP, not missing; `run.sh --update-baseline` records it). Its **own** headless Chrome with `--use-angle=swiftshader --enable-unsafe-swiftshader` (CPU WebGL2): for each bounded golden scene, a pan of the image there and back (1 rep: SwiftShader frames take 50–130 ms here) with exact images on (default) and off (`__cmwSet('exactImages', false)`); `ratio` = frame p50 on / off, gated absolutely at ≤ 3 (SPEC 4.7). With exact images on it waits for a pending compile and the first inverse frame; `inverse_drawn_on` (check): when the app says the shape is inverse (the cost guard may demote it, then it says forward) the pan must have drawn with the inverse program, or the ratio would compare forward with forward. `is_swiftshader` checks the renderer string |
 | `examples` (extended) | per example also: programs linked, `compile_ms` (call → the last forward program seen complete; 0 when nothing new compiled), and for inverse programs (P2 on): their count, `inv_compile_ms`, `inv_first_draw_ms` (first inverse link → end of the first frame drawn with one; absolute limit 250 ms, SPEC 4.7) and `inv_after_call_ms`. A slow inverse compile outlasting the settle is waited for (≤ 5 s); an inverse program that never draws gets the whole window (a lower bound, never null: `never_drew`), the worst rep then counts instead of the median, and the metric carries `expect: true` whenever an inverse program was linked, so a null value fails |
 
 Every image / sphere unit of the list also reports `inv_draws` (info): the draws made with an inverse program during
 the unit, so a result shows which path it measured.
 
-`--quick` now also runs `image.ziH.m240.dpr2` (the costliest per-pixel inverse case of SPEC 12.5); measured 2 min 45 s
-wall for the 10 units. The other new units are in the full suite, which grows by about 2.5 min (5 image units of
-~17 s, `sphere.ziH` 19 s, `scrub.mobius_halfplane`, `gallery.open` and `hover.dim` ~11 s each). The settled shots of
-`view_moved` (P0 review) add about 4 s to each orbit unit and 8 s to `phase.default`. A full run with
-`--swiftshader` after the P0 review (`results/p0fix-full.json`, load 4–7) took 12.4 min, 0 errors, every check true.
-
-**Values on today's code** (one run of each new unit, 2026-10-19, `results/p0-newunits.json`; measured build
-`dist/test.html` sha1 `04aa240d1958`, the quality baseline's app, built from the pre-sphere sources
-(`notes/backup-pre-sphere/src`); the `src` hash in the result's meta differs only because other owners had started
-editing `src/` (`inverse.js`, `region.js`), which that build does not contain; measured while other agents loaded the machine (load 4–8), so they show that the units work,
-**not** what the baseline will be — the lead records that on a quiet machine):
-
-| unit | today |
-|---|---|
-| `image.ziH.m240` / `.dpr2` | pan R frame p50 4.7 / 5.1–5.7 ms, zoom R in p50 3.7 / 3.7–5.7 ms, settle 0 ms, 3,742 fix-up triangles, `inv_draws` 0; dpr 2 canvas 820×1032 |
-| `image.expH.m240` / `.dpr2` | pan R p50 6.9 / 6.3–7.4 ms, zoom R in p50 6.1 / 6.3–6.7 ms, 40,195 fix-up triangles |
-| `image.disc_cube.dpr2` | pan R p50 4.4–4.9 ms, zoom R in p50 3.1–4.5 ms |
-| `sphere.ziH` | orbit p50 4.6 ms, p95 7.1 ms, settle 797 ms |
-| `scrub.mobius_halfplane` | (scene changed in the P0 review; `results/p0fix-full.json`) frame p50 8.3 ms, p95 11.6 ms; φ 40° → 80° → 40° in every drag, the pole from 0.986 + 0.168i to 0.982 − 0.190i and back (`pole_crossed` true); line uploads 0 and samples 0 during the scrubs and while settling (`no_line_resample` true) |
-| `gallery.open` | 14 thumbnails in 1.16–1.18 s, settled 1.31 s, 20 programs linked, 0 inverse, jank 0 |
-| `hover.dim` | frame p50 10.7–13 ms, p95 13.3–14.5 ms; 0 programs, 0 jobs (`no_compile`, `no_job`, `dimmed` true) |
-| `swiftshader.ratio` | renderer SwiftShader (Vulkan 1.3.0, LLVM 10); pan R p50 on / off: disc_cube 88.3 / 88.0 ms, joukowski 70.8 / 73.3, annulus_log 113.7 / 115.2, poly_mobius 54.5 / 54.8; ratio 0.97–1.00 (0.85–1.10 in a 2-rep run): both forward today |
-| `examples` | `compile_ms` 0 (examples 0–1: nothing new to compile) to 210–260 ms (examples 9, 11, 12, 13: 2–9 programs); `inv_programs` 0 and the `inv_*` timings null everywhere |
+`--quick` runs `image.ziH.m240.dpr2` too (the costliest per-pixel inverse case of SPEC 12.5).
 
 ### Metrics
 
-Names are `<unit>.<scenario>.<metric>`; e.g. `image.logUHP.m240.zoomR.in.settle_ms`.
+Names are `<unit>.<scenario>.<metric>`; e.g. `image.logUHP.m240.zoom.in.settle_ms`.
 
 | metric | kind | meaning |
 |---|---|---|
@@ -261,18 +207,18 @@ Names are `<unit>.<scenario>.<metric>`; e.g. `image.logUHP.m240.zoomR.in.settle_
 | `settle_ms` | settle_ms | end of input → view fully refined (LEDs idle, nothing drawn for 600 ms) |
 | `settle_jank_ms` | jank_ms | longest frame or long task between the end of the input and settled (remesh / fix-up frames) |
 | `settled`, `view_moved`, `view_zoomed`, `value_changed`, `found_preimages`, `api_ok`, `suite.no_errors` | check | must be true: the interaction really happened (the plane followed the pointer: `__cmwW2S` moved by the drag; the 3D view changed: pane screenshot hash), the run had no page exception |
-| `redraw_ms` | frame_ms | one full static redraw of both planes (`__cmwSet` no-op → next frame), median of 12 (the first, slower one dropped) |
+| `redraw_ms` | frame_ms | one full static redraw of the plane (`__cmwSet` no-op → next frame), median of 12 (the first, slower one dropped) |
 | `remesh.frame_ms` | oneshot_ms | the frame that rebuilds every mesh after `__cmwSet('meshN', N)`, incl. GPU uploads (min of 5) |
 | `remesh.cpu_ms` | info | its main-thread part (JIT warm-up makes it vary 2×; `mesh.*.build_ms` gates the meshing CPU cost) |
 | `remesh.settle_ms` | settle_ms | until the fix-ups after that remesh are done |
 | `gpu_live_bytes`, `gpu_peak_bytes` | mem_bytes | WebGL buffers + textures + renderbuffers after the scene loaded and settled / peak since page load |
 | `gpu_live_end_bytes`, `gpu_peak_end_bytes` | mem_bytes | the same after all interactions of the unit |
 | `tris`, `fix_tris`, `segs` | info | `__cmwInfo()`: base triangles, fix-up triangles, line segments (more triangles is not a failure by itself) |
-| `cmwTime_left_ms`, `cmwTime_right_ms` | info | `__cmwTime(3)` at the end of the unit (its `getImageData` readbacks are slow and noisy) |
+| `cmwTime_ms` | info | `__cmwTime(3)` at the end of the unit (its `getImageData` readbacks are slow and noisy) |
 | `examples.<i>.first_frame_ms` | oneshot_ms | `__cmwExample(i)` call → end of the first frame that drew (includes the synchronous load) |
-| `examples.<i>.settle_ms` | settle_ms | call (or pausing the playing deformation, example 5) → settled |
+| `examples.<i>.settle_ms` | settle_ms | call (or pausing an example's playing glide) → settled |
 | `examples.<i>.gpu_live_bytes`, `gpu_peak_bytes` | mem_bytes | after settling / peak during that example |
-| `examples.5.morph.fps`, `.frame_p95_ms` | throughput, frame_ms | the deformation playing for 1.5 s |
+| `examples.<i>.play.fps`, `.frame_p95_ms` | throughput, frame_ms | an example that opens playing its glide: 1.5 s of it |
 | `examples.<i>.call_ms`, `.tris` | info | synchronous part of `loadExample`; triangles incl. fix-ups |
 | `mesh.<shape>.q<Q>.build_ms` | cpu_ms | `Region.buildMesh` time: the fastest of 9 calls (5 at Q 480) per rep, over 3 reps, after a warm-up call |
 | `mesh.<shape>.q<Q>.min_angle_p5_deg` | quality_min | 5th percentile of the smallest angle of the mesh's triangles (stretched far-field grids give slivers ≈ 0.1°) |
@@ -305,14 +251,6 @@ Names are `<unit>.<scenario>.<metric>`; e.g. `image.logUHP.m240.zoomR.in.settle_
 | info | never | – (the change is printed with `--all`) |
 | (the relative kinds, not in the baseline) | never: reported as `NEW` with its value | – |
 | (a paired run whose reference cannot run the unit, #292) | never: reported as `NEW` with the reason | – |
-| (`REPORT_ONLY` in compare_perf.py, #413: `fps` and `latency_p95_ms` of `image.{expH,ziH}.a{30,50}.dpr2.zoomR.{in,out}`) | never: reported as `INFO`, whatever their kind | – |
-
-**The dpr-2 opacity zooms (#413).** The wheel zooms of the opacity scenes at dpr 2 draw frames at the 60 Hz
-boundary (frame p95 12–15 ms). When a few frames miss vsync, the rAF cadence halves and their fps swings
-between about 30 and about 50 frames/s either way, round to round, on the same pair of builds (runs 41069254062 and
-41074624389). Their fps and latency are therefore reported, not gated. Their frame times (`frame_p50_ms`,
-`frame_p95_ms`, `cpu_p95_ms`) stay gated, with the 14 ms budget and accepted.json's caps, as do the same metrics of
-every other unit.
 
 **A unit the reference cannot run (#292).** In a paired run (`run.js --ab`, `ci/perf_shard.js`) every scene a unit
 opens records what it built and drew once settled: the steps' errors, and the shapes with a mesh or lines. When the
@@ -339,16 +277,10 @@ maximum), the relative terms catch real regressions in large ones. Where the mea
 unchanged code is wider than a rule (GPU-bound frames at mesh 1920 and in the 3D views swing by up to ±30 % between
 page loads on this machine), the noise envelope widens that metric's limit to what was actually observed.
 
-**`budget_ms` (right-plane refinement).** The current code never refines the right plane after a pan or zoom there,
-so `image.*.panR.settle_ms` and `image.*.zoomR.{in,out}.settle_ms` are 0 ms in the baseline. The coming change
-refines the image view on zoom; it may take as long as the *left* plane already takes to refine the same scene:
-these metrics carry `budget_ms = 1.25 × (the same scene's L-side settle) + 50 ms`, and the limit is the larger of
-the usual rule and that budget. Frame times and latency during those interactions stay gated as usual.
-
 ### What the coming change should look like in this report
 
 * **Must stay PASS**: every frame / latency / throughput metric of pans, zooms, orbits, scrubs and hovers;
-  memory; load times of the examples; the right-plane refinement within its budget; long frames after interactions
+  memory; load times of the examples; long frames after interactions
   (`settle_jank_ms`: CPU refinement must stay time-sliced like the fix-ups).
 * **Expected IMPROVED** (never a failure): `mesh.<unbounded shape>.*.min_angle_p5_deg` if the far field is meshed on
   the sphere's second chart instead of a stretched grid; any timing that gets faster. The reach of unbounded images
@@ -377,12 +309,9 @@ The user accepted two documented exceptions: "accept the documented GPU-memory e
 Retina zoom at the 14 ms line), and re-record the 8 bounded reference images with the corrected strokes."
 
 - **Perf: `perf/accepted.json`.** Each entry names one metric, a cap (`max`) and the reason. `compare_perf.py` reports a
-  listed FAIL as `ACCEPTED` only while the value stays at or below its cap; above the cap it FAILS again. Entries:
-  GPU memory of the Phase scenes (`phase.default.*`, `examples.0/9/10/11/12`), which grew from about 1.2 MB to
-  2.6-3.9 MB because the right pane now always shows the images (the user's left = X / right = Y design), and the
-  zoom frame/latency of `image.ziH.a30.dpr2` (z^i of H at 30 % opacity on Retina, 12-14.7 ms per frame, inside 60 fps).
-  A second consent (same day): the GPU memory and post-zoom settle time of the two hard essential-singularity
-  chains drawn by the P5 SphereMesh, `image.custom_e_z1z.m240` (e^{z+1/z}) and `image.expexp_H.m240` (exp(exp z)).
+  listed FAIL as `ACCEPTED` only while the value stays at or below its cap; above the cap it FAILS again. Entries: the
+  GPU memory and post-zoom settle time of the two hard essential-singularity chains drawn by the P5 SphereMesh,
+  `image.custom_e_z1z.m240` (e^{z+1/z}) and `image.expexp_H.m240` (exp(exp z)) (the second consent, same day).
   Example 9's mesh cost is explicitly NOT excepted: it is fixed at the root (inverse support for rational formulas).
   Add an entry only with the user's consent.
 - **Quality: the 8 bounded goldens** (`disc_cube`, `joukowski`, `annulus_log`, `poly_mobius`, mask and pattern) were
@@ -412,21 +341,8 @@ busy machine slows both sides alike instead of failing the comparison. Results: 
 `paired-<stamp>-ref.json` (reference); `paired-latest*.json` are copies of the last pair. A failing metric should be
 confirmed by re-running that unit's pair (`--paired --only 'unit'`, and once more with `--ab-flip`) before it is
 called a regression.
-**Layouts (merged views, `notes/ui-design/merged-views.md`).** The reference shows the Phase, Landscape and
-phase-sphere views in its right pane, beside the shapes plane; the current app shows them as one wide panel (the top
-bar's Phase and Landscape views). The page says where each picture is: `__cmwPaneOf(mode, sphereMode)` names the pane
-of the view itself (pane L, full width), `__cmwOtherPane(mode, sphereMode)` the old layout's other pane, or `null` when
-the view is one merged panel, and `__cmwLayout()` the current layout (`main`, `deform`, `merged`, `shown`, pane widths).
-In the mode units `.panR` / `.orbit` drag the view's own pane on both builds; `.panL`, the shapes plane beside the old
-view, pans X's plane in the X → Y view on the current build (the same picture at the same pane width; the unit
-switches back before `.panR`). Quality scenes are Image scenes and render in X → Y, where the panes keep their size.
-The mode units of a merged view record `<unit>.viewWidth` in the details: their `.panR` / `.orbit` drag the full-width
-panel (about twice the reference pane's width), so those metrics compare a 2x-wider picture with the reference's pane;
-the metric history before the merged views is not continuous with them.
-`morph.play.views` (merged-views review) plays the deformation for 2 s in the Phase and Landscape views (`default` and
-`scrub` scenes): H_t painted in the full-width panel at every frame. The reference has no deformation of its phase pane
-(the toggle switches its right pane to the old Morph view), so it is like-for-unlike there and gated by the absolute
-60 fps budget (BUDGET60); `<unit>.view` in the details says which picture played on each side.
+**One plane.** Both sides open the steps view, which has one plane (pane L, full width); a unit stands on the
+picture it measures (`AT` in `run.js`) and drags that plane, so the two sides compare like with like.
 Self-test (2026-10-19, machine under load 4-8, reference against an identical copy of itself, --quick): 665 metrics,
 0 FAIL, 4 IMPROVED (noise). An earlier version that shared one browser between the sides showed a cache-order bias
 (4 FAIL, 10 IMPROVED); that is why each side has its own browser.
@@ -443,7 +359,7 @@ runs the full suite 3 times, the opt-in SwiftShader runner included (~33 min; `P
 
 **A busy machine is no verdict.** `run.js` records the units that started with the 1-minute load over `--load-max` (`meta.busyUnits`, after waiting `--load-wait` s). `compare_perf.py` marks a FAIL of such a unit BUSY and does not count it; across merged passes (`merge_runs.py`: `meta.passBusy`, `meta.passUnits`) a unit that started busy in any pass counts as red only with 2 passes that started quiet. With only BUSY failures the exit code is 3 ("invalid: machine busy"; `--busy-units FILE` lists the units to run again). ci/README.md, Perf on a loaded machine.
 
-**A throttled machine fails the run.** Before each unit and after the last, `run.js` measures the median `requestAnimationFrame` interval of an idle page. Over `--raf-max` ms (default 20; 0 turns the check off) the run stops with exit 5 and `machine throttled (rAF median … ms > 20 ms …)`, and `ci/perf_shard.js` fails the shard with that cause instead of reporting numbers. The medians are kept in `meta.raf`. The hosted Windows advisory job (gate.yml) passes `--raf-max 0`. This catches mac-gpu with its display asleep: runs 41264000039 and 41268369131 saw every frame wait on a ~45–50 ms cadence, with every timing 2–3× on both sides. The GPU gate's Mac perf step also runs under `caffeinate -dimsu`.
+**A throttled machine fails the run.** Before each unit and after the last, `run.js` measures the median `requestAnimationFrame` interval of an idle page. Over `--raf-max` ms (default 20; 0 turns the check off) the run stops with exit 5 and `machine throttled (rAF median … ms > 20 ms …)`, and `ci/perf_shard.js` fails the shard with that cause instead of reporting numbers. The medians are kept in `meta.raf`. The hosted Windows advisory job (gate.yml) passes `--raf-max 0`. This catches mac-gpu with its display asleep: runs 41264000039 and 41268369131 saw every frame wait on a ~45–50 ms cadence, with every timing 2–3× on both sides. The GPU gate runs every Mac step that drives the browser under `caffeinate -dimsu`.
 (`make_baseline.py`, which also keeps each run's value for the noise envelope), prints the merged result against
 the OLD baseline for review, and replaces `perf/baseline.json` (the runs and the merged file stay in
 `perf/results/`). Never update the baseline to make a failure go away without understanding it; never record it

@@ -357,7 +357,7 @@
     }
   }
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
-  const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
+  const plainMath = XD.plain;
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
   const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // the default file name and \label: the scene, the view and the kind of figure, so two
