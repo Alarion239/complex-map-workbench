@@ -1,5 +1,5 @@
-// The task lines #34 added (ux's approved table): Y's scroll or drag, Targets' disc drawn in Y, Natural domain's click on the F tile,
-// the derivative's double-click on its card and Cauchy's drag of the circle. Each: nothing ticks without input; real mouse input ticks it
+// The tour's task lines (ux's approved table): Y's scroll or drag, Targets' disc drawn in Y, Natural domain's click on the whole map
+// (the steps view), the derivative's click on its chip (the steps view) and Cauchy's drag of the circle. Each: nothing ticks without input; real mouse input ticks it
 // within 300 ms; the result line (then) shows; the tour's English line is the approved one. 1440 × 900, English.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -8,6 +8,8 @@ const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = async () => { const c = await ev('Tour.current()'); return c ? c.chapter + '/' + c.id : null; };
 const lit = () => ev('Tour.lit()');
+// (typeset maths reads w1 where the plain-text fallback reads w₁: a line is compared with its subscripts as digits)
+const flat = (t) => t.replace(/[₀-₉]/g, (c) => String(c.charCodeAt(0) - 0x2080)).replace(/\s+/g, ' ').trim();
 logs();
 const open = async (ns, w, h, dark, mobile, lang) => {
   await view(w, h, dark, mobile);
@@ -35,7 +37,7 @@ const task = async (id, text, fn, ready) => {
     // (a step's scene can take a few seconds to load on a software renderer: the input waits for what it acts on)
     if (ready) { check(`${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settle(2500); }
     const a = await l2();
-    check(`${id}: the task line is "${text}"`, a && a.text.replace(/\s+/g, ' ').trim().endsWith(text) && !a.done, a);
+    check(`${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
     await sleep(1800);
     check(`${id}: nothing ticks without input`, !(await l2()).done);
     await fn();
@@ -89,24 +91,24 @@ check('targets: the result line says X shades its preimage', /X shades its preim
   check('targets: a disc drawn on z, then › and ‹, does not tick it', !(await l2()).done, await l2());
 }
 
-// domain: click the F tile
-await task('domain', 'Click the F tile.', async () => {
-  const f = await center(SV ? '#svStrip .sv-wholemap' : '#pipeline .ftile');
-  await mdrag(f[0], f[1], f[0], f[1]);
-});
-check('domain: the result line names the Inspector', /Inspector lists where every step is defined/.test((await l2()).text), await l2());
-
-// deriv: double-click the card d/dz (the second card of its scene); in the steps view, click its chip
-await task('deriv', SV ? 'Click the chip d/dz.' : 'Double-click the card d/dz.', async () => {
-  if (SV) { const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip'); await mdrag(c[0], c[1], c[0], c[1]); return; }
-  const c = await center('#pipeline .card[data-k="2"]');
-  for (const n of [1, 2]) { await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: c[0], y: c[1], button: 'left', clickCount: n }); await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: c[0], y: c[1], button: 'left', clickCount: n }); }
-});
-check('deriv: the result line says what the step is', SV ? /Inspector shows the step that differentiates/.test((await l2()).text) : /input and output/.test((await l2()).text), await l2());
-
-// the steps view's Add function and Reorder steps (the classic add card has no such line; its chain has no reorder step)
+// domain: click the whole map's chip; deriv: click the chip d/dz (the second step of its scene). The classic views have no
+// chain to click
 if (SV) {
-  await task('add', 'Click + Add function.', async () => {
+  await task('domain', 'Click the F tile.', async () => {
+    const f = await center('#svStrip .sv-wholemap');
+    await mdrag(f[0], f[1], f[0], f[1]);
+  });
+  check('domain: the result line names the Inspector', /Inspector lists where every step is defined/.test((await l2()).text), await l2());
+  await task('deriv', 'Click the chip d/dz.', async () => {
+    const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip');
+    await mdrag(c[0], c[1], c[0], c[1]);
+  });
+  check('deriv: the result line says what the step is', /Inspector shows the step that differentiates/.test((await l2()).text), await l2());
+}
+
+// the steps view's Add function and Reorder steps
+if (SV) {
+  await task('add', 'Click Add function.', async () => {
     const c = await center('#svStrip .sv-add');
     await mdrag(c[0], c[1], c[0], c[1]);
   });
@@ -120,7 +122,7 @@ if (SV) {
   check('reorder: the result line says the planes changed with the order', /changed with the order/.test((await l2()).text), await l2());
 }
 
-// cauchy: drag the circle gamma (Select is on); a fresh page, as the focus the double-click above left on a card is no part of it
+// cauchy: drag the circle gamma (Select is on); a fresh page, as the focus the clicks above left on the thread is no part of it
 await open('tt2', 1440, 900, false, false);
 await task('cauchy', 'Drag the circle γ.', async () => {
   const p = await px('L', Math.SQRT1_2, Math.SQRT1_2);
@@ -140,7 +142,7 @@ const taskT = async (id, text, fn, ready) => {
     await goStep(id); await settle(2500);   // (a phone's scene takes longer to settle)
     if (ready) { check(`phone ${id}: its scene is up`, (await until(ready, 20000, 100)) != null); await settle(2500); }
     const a = await l2();
-    check(`phone ${id}: the task line is "${text}"`, a && a.text.replace(/\s+/g, ' ').trim().endsWith(text) && !a.done, a);
+    check(`phone ${id}: the task line is "${text}"`, a && flat(a.text).endsWith(flat(text)) && !a.done, a);
     await sleep(1500);
     check(`phone ${id}: nothing ticks without input`, !(await l2()).done);
     await fn();
@@ -148,26 +150,19 @@ const taskT = async (id, text, fn, ready) => {
     check(`phone ${id}: a finger ticks it`, t != null, [await cur(), await l2()]);
   } catch (e) { check(`phone ${id}: ran`, false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 };
-// y: a finger drags Y (the large plane on a phone at this step)
-await taskT('y', 'Pinch in Y, or drag.', async () => {
+// y: a finger drags Y (the large plane on a phone at this step; the steps view's tour has no Y step)
+if (!SV) await taskT('y', 'Pinch in Y, or drag.', async () => {
   const b = await ev(`(() => { const b = document.getElementById('plotR').getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; })()`);
   await tdrag(b[0] + 120, b[1] + 200, b[0] + 190, b[1] + 160);
 });
-// domain: a tap on the F tile (in the chain sheet, which a tap on the steps button opens)
-await taskT('domain', 'Tap the F tile.', async () => {
-  if (!(await center('#pipeline .ftile'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(800); } }
-  const f = await center('#pipeline .ftile');
-  await tap(f[0], f[1]);
-});
-// deriv: the chain, the card d/dz, then Show alone in its sheet
-await open('tt5', 390, 844, false, true);   // (a fresh page: the F tile's sheet above is no part of it)
-await taskT('deriv', 'Open the chain, tap d/dz, then Show alone.', async () => {
-  if (!(await center('#pipeline .card[data-k="2"]'))) { const cs = await center('.ph-csteps'); if (cs) { await tap(cs[0], cs[1]); await settle(1500); } }
-  const c = await center('#pipeline .card[data-k="2"]');
-  await tap(c[0], c[1]); await settle(2000);   // (the editor sheet slides up: its lens is tapped where it rests)
-  const ln = await center('#propsPanel .insp-step .ihead .alone-btn');
-  await tap(ln[0], ln[1]);
-});
+// deriv: a tap on the chip d/dz (the classic views have no chain to tap)
+if (SV) {
+  await open('tt5', 390, 844, false, true);
+  await taskT('deriv', 'Tap the chip d/dz.', async () => {
+    const c = await center('#svStrip .sv-step[data-k="2"] .sv-fchip');
+    await tap(c[0], c[1]);
+  });
+}
 // cauchy: a finger drags the circle (the Select tool is on)
 await open('tt4', 390, 844, false, true);
 await taskT('cauchy', 'Tap the circle γ, then drag it.', async () => {

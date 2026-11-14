@@ -3,7 +3,8 @@
 // GLChain.build(...).inverse (SPEC 4.1): the key is Inverse.inverseKey, the program's op list is Inverse.stepOps of
 // every live step in order, the uInv allocator covers every op's parameters, a parameter change keeps the key, an
 // eligibility flip changes it without touching the forward key or layout, and the walker nests one loop per
-// multivalued op. The GPU side is test/glsl_inverse_test.js. Run: node test/t_gl_inverse.js
+// multivalued op; and every program's two stages agree on their varyings' centroid qualifier (GLR._src.DEFS). The GPU
+// side is test/glsl_inverse_test.js. Run: node test/t_gl_inverse.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
@@ -152,7 +153,8 @@ for (const t of TYPES) {
   const head = GLR._src.INV_HEAD(8, ''), main = GLR._src.INV_MAIN(false);
   check('INV_HEAD: ixRest on rejection and on a full buffer', /pos >= min\(IX_B, ixK\(\) \+ 2\)\) \{ ixRest\(cv\); return; \}/.test(head) && /if \(nb == IX_B\) ixRest\(bC\[IX_B - 1\]\);/.test(head));
   check('INV_HEAD: no early stop when K > B and uKall', /if \(uKall > 0 && uKsat > IX_B\) return 1e38;/.test(head));
-  check('INV_MAIN: the rest composites through ixTr, then the tail closure', /C \+= T \* \(1\.0 - ixTr\) \* mc; T \*= ixTr;/.test(main) && /if \(ixTailInf\) \{ C \+= T \* mc; T = 0\.0; \}/.test(main) && !/nCov > IX_B/.test(main));
+  check('INV_MAIN: the rest composites through ixTr, then the tail closure', /C \+= T \* \(1\.0 - ixTr\) \* mc; T \*= ixTr;/.test(main) && /if \(ixTailInf \|\| uLastOpaque == 1\) \{ C \+= T \* mc; T = 0\.0; \}/.test(main) && !/nCov > IX_B/.test(main));
+  check('INV_MAIN: with uLastOpaque the farthest buffered layer composites at alpha 1', /farthest = uLastOpaque == 1 && i == nb - 1 && ixTr >= 1\.0 && !ixTailInf;/.test(main) && /\(farthest \? 1\.0 : uAlpha\) \* bC\[i\] \/ U/.test(main));
 }
 // ---- the cost guard's hysteresis: a level is left only by a probe of the finer one (SPEC 10.12) ----
 {
@@ -309,6 +311,33 @@ for (const t of TYPES) {
   // pattern 8 in both footprint modes
   check('pattern 8 in the fwidth and analytic patterns', /uPattern == 8/.test(GLR._src.PATTERN_SRC('fwidth')) && /vec2 sl = sl8, slw = slw8;/.test(GLR._src.PATTERN_SRC('analytic')));
   check('GLR.PATTERNS.sphere is 8', GLR.PATTERNS && GLR.PATTERNS.sphere === 8);
+}
+// ---- the staged-shape declarations ride on IX_STAGED: a carried program without a staged shape never mentions them ----
+{
+  const steps = [St('poly')], info = GLChain.build(steps, steps.map(Funcs.build));
+  const STAGED_NAMES = /\b(uShStage|uEdgeOnly|uEdgeW|uEdgeA|uStageGrow|ixEdge)\b/;
+  const plain = GLR._src.invSources(GLR.inverseB(1), false, [], { carry: true, pre: '', main: '' }, info)[1];
+  const staged = GLR._src.invSources(GLR.inverseB(1), false, [], { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' }, info)[1];
+  const live = (src) => src.split('\n').reduce((o, l) => { if (/^#ifdef IX_STAGED/.test(l)) o.d++; else if (/^#(else|endif)/.test(l) && o.d) o.d--; else if (!o.d) o.t.push(l); return o; }, { d: 0, t: [] }).t.join('\n');
+  check('carried program: staged names only under IX_STAGED', !STAGED_NAMES.test(live(plain)) && !STAGED_NAMES.test(plain.replace(/#ifdef IX_STAGED[\s\S]*?(?:#else|#endif)/g, '')));
+  check('staged carried program declares the staged uniforms', /uniform int uShStage;/.test(staged) && /uniform float uStageGrow;/.test(staged));
+}
+// ---- every program's stages agree on their varyings' centroid qualifier (GLSL ES 3.00 4.3.9: a mismatch fails the link) ----
+{
+  const decls = (src, dir) => {
+    const m = new Map();
+    for (const x of src.matchAll(new RegExp(`(?<![\\w(,]\\s*)((?:flat|smooth|centroid|invariant)\\s+)*\\b${dir}\\s+\\w+\\s+(\\w+)\\s*;`, 'g'))) m.set(x[2], /\bcentroid\b/.test(x[0]));
+    return m;
+  };
+  const bad0 = [];
+  let pairs = 0;
+  for (const [name, d] of Object.entries(GLR._src.DEFS)) {
+    if (typeof d.vs !== 'function' || typeof d.fs !== 'function') continue;
+    const vs = d.vs(), fsrc = d.fs();
+    const out = decls(vs, 'out'), inn = decls(fsrc, 'in');
+    for (const [v, c] of inn) if (out.has(v)) { pairs++; if (out.get(v) !== c) bad0.push(`${name}.${v}: vs ${out.get(v) ? 'centroid' : 'plain'}, fs ${c ? 'centroid' : 'plain'}`); }
+  }
+  check('every program\'s vertex outputs and fragment inputs agree on centroid', pairs > 20 && bad0.length === 0, JSON.stringify({ pairs, bad: bad0 }));
 }
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);

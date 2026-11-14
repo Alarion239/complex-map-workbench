@@ -1,6 +1,6 @@
-// The deformation range at the gl.js level (notes/deform-range/SPEC.md 13.3): GLR.evalMap (the vertex program's
+// The steps view's glide maps at the gl.js level (notes/deform-range/SPEC.md 13.3): GLR.evalMap (the vertex program's
 // mapPoint, through transform feedback) against the CPU twin __cmwEval('cpuMap') at 64 probes, for chain3, sin∘√ and
-// Möbius-log, every bracket, t in {0, end/2, end}, one after another and all at once; mapKeyOf, isIdent and mapFor
+// Möbius-log, every run of planes, the thread at its start, middle and end, one step at a time and all at once; mapKeyOf, isIdent and mapFor
 // with the post. A command file for a CDP daemon:  <runner> test/deform_range_gl_cmd.js
 const fails = [], info = { rows: 0, worst: 0, worstAt: null };
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -16,19 +16,31 @@ await view(1440, 900, false);
 for (const [name, ch] of Object.entries(CHAINS)) {
   await load('drgl' + name + Date.now(), { shapes: [{ id: 's1', kind: 'rect', a: [ch.box[0], ch.box[2]], b: [ch.box[1], ch.box[3]] }], steps: ch.steps, srcView: { cx: 0, cy: 0, s: 60 } });
   await sleep(900);
-  await ev('__cmwMorph({ open: true, playing: false })'); await sleep(300);
   const pts = Array.from({ length: 64 }, () => [ch.box[0] + (ch.box[1] - ch.box[0]) * rnd(), ch.box[2] + (ch.box[3] - ch.box[2]) * rnd()]);
   const n = ch.steps.length;
-  for (let a = 1; a <= n; a++) for (let b = a; b <= n; b++) for (const all of [false, true]) {
-    const r = await ev(`(() => { __cmwMorph({ range: { a: ${a}, b: ${b} } }); const sel = document.getElementById('homOrderSel'); if (sel && !sel.disabled) { sel.value = '${all ? 'all' : 'steps'}'; sel.dispatchEvent(new Event('change')); } const len = +document.getElementById('morphLabel').textContent.split('/')[1]; const out = []; for (const T of [0, len / 2, len]) { __cmwMorph({ T }); const m = __cmwState().homView.imageMap; const g = GLR.evalMap(m, ${JSON.stringify(pts)}); const c = __cmwEval('cpuMap', m, ${JSON.stringify(pts)}); let worst = 0, k = 0, nf = 0; c.forEach((w, i) => { const gx = g[2 * i], gy = g[2 * i + 1]; if (!w) { if (isFinite(gx) && isFinite(gy) && Math.hypot(gx, gy) < 1e30) nf++; return; } if (!isFinite(gx) || !isFinite(gy)) { nf++; return; } k++; worst = Math.max(worst, Math.hypot(gx - w[0], gy - w[1]) / (1 + Math.hypot(w[0], w[1]))); }); out.push({ T, m, worst, k, nf }); } return out; })()`, 60000);
-    for (const q of r) {
+  // (the thread's planes 0..n: a span lo..hi taken all at once is mode 3 over those planes, parked at x between them; plane by
+  // plane, the thread between two neighbouring planes is mode 1 at u; both at the span's start, middle and end)
+  const probe = async (lo, hi, all) => {
+    await ev(`__cmwSteps({ order: '${all ? 'all' : 'steps'}', span: ${all ? `[${lo}, ${hi}]` : 'null'} })`);
+    const out = [];
+    for (const x of [lo, (lo + hi) / 2, hi]) {
+      const r = await ev(`(() => { __cmwSteps({ x: ${x} }); const m = __cmwSteps().between; const g = GLR.evalMap(m, ${JSON.stringify(pts)}); const c = __cmwEval('cpuMap', m, ${JSON.stringify(pts)}); let worst = 0, k = 0, nf = 0; c.forEach((w, i) => { const gx = g[2 * i], gy = g[2 * i + 1]; if (!w) { if (isFinite(gx) && isFinite(gy) && Math.hypot(gx, gy) < 1e30) nf++; return; } if (!isFinite(gx) || !isFinite(gy)) { nf++; return; } k++; worst = Math.max(worst, Math.hypot(gx - w[0], gy - w[1]) / (1 + Math.hypot(w[0], w[1]))); }); return { x: ${x}, m, worst, k, nf }; })()`, 60000);
+      out.push(r);
+      if (all && x === (lo + hi) / 2 && hi - lo > 1) ok(`${lo}…${hi} all at once at its middle is one map over the planes (mode 3)`, r.m && r.m.mode === 3 && r.m.a === lo && r.m.b === hi, r.m);
+    }
+    return out;
+  };
+  ok(`${name}: the steps view is on, with its planes 0…${ch.steps.length}`, await ev('(() => { const s = __cmwSteps(); return s.on && s.planes.length === ' + (ch.steps.length + 1) + '; })()'), await ev('__cmwSteps().planes'));
+  for (let a = 0; a < n; a++) for (let b = a + 1; b <= n; b++) for (const all of [false, true]) {
+    if (!all && b - a > 1) continue;   // plane by plane the thread crosses one step at a time
+    for (const q of await probe(a, b, all)) {
       info.rows++;
-      if (q.worst > info.worst) { info.worst = q.worst; info.worstAt = { name, a, b, all, T: q.T, m: q.m }; }
+      if (q.worst > info.worst) { info.worst = q.worst; info.worstAt = { name, a, b, all, x: q.x, m: q.m }; }
       // (tolerance as glsl_test: 2e-4 relative; a point the GPU cannot evaluate in float32 is counted, not failed, when few)
-      ok(`${name} ${a}…${b}${all ? ' all' : ''} T ${q.T}: GPU = CPU (64 probes)`, q.worst <= 2e-4 && q.nf <= 2, q);
+      ok(`${name} planes ${a}…${b}${all ? ' all' : ''} x ${q.x}: GPU = CPU (64 probes)`, q.worst <= 2e-4 && q.nf <= 2, q);
     }
   }
-  await ev('__cmwMorph({ open: false, range: null })');
+  await ev("__cmwSteps({ span: null, go: 0, now: true })");
 }
 // mapKeyOf, isIdent, mapFor with the post
 await load('drglk' + Date.now(), { shapes: [{ id: 's1', kind: 'rect', a: [-1, -1], b: [1, 1] }], steps: [{ type: 'exp', params: {}, on: false }, { type: 'mobius', params: MOB, on: true }, { type: 'pown', params: { n: 2 }, on: true }] });

@@ -18,7 +18,7 @@ const HomRange = (function (factory) {
     const B = () => (typeof env.built === 'function' ? env.built() : env.built) || [];
     const uidOf = (S, k) => (env.uidOf ? env.uidOf(k) : S && S.steps && S.steps[k - 1] ? S.steps[k - 1].uid : undefined);
     const lerpF = (F0, F1, t) => (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); };
-    // a d/dz segment's straight line with exact ends (D3, review v16 math-2): G_{k−1} itself at t <= 0 and G_k at t >= 1,
+    // a d/dz segment's straight line with exact ends: G_{k−1} itself at t <= 0 and G_k at t >= 1,
     // so an infinite end does not make the other one NaN and a signed zero keeps its side of a cut (gl.js MAP_STAGE too)
     const lerpE = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : lerpF(F0, F1, t));
     // the natural homotopy of step k at t, a map of its input plane; exact ends (D3): the identity at t <= 0, f at t >= 1
@@ -55,7 +55,8 @@ const HomRange = (function (factory) {
       if (!hr || typeof hr !== 'object') return null;
       if (S.focus > 0 && !anyFocus) return null;
       const n = N();
-      if (!(n > 0)) return null;
+      // (the chain not built yet: no step is known to be active, so nothing is decided and the setting is kept)
+      if (!(n > 0) || !B().length) return null;
       const find = (u, idx, end) => {
         if (u === null) return end;
         if (typeof u === 'string') { for (let k = 1; k <= n; k++) if (uidOf(S, k) === u) return k; }
@@ -109,7 +110,7 @@ const HomRange = (function (factory) {
       const H0F = wrap(env.rangeF(pb, lo));
       if (m === 0) {
         // (no active step inside: G_t is the identity, so H_t = Q ∘ P is the plain stage map pb → p1 when the post is
-        // live; a mode-0 map takes no post, so it is never tagged with one: review v16 math-6)
+        // live; a mode-0 map takes no post, so it is never tagged with one)
         const top = Q ? p1 : lo, F = env.rangeF(pb, top);
         const map = { mode: 0, a: pb, b: top };
         if (pb) map.base = pb;
@@ -163,14 +164,14 @@ const HomRange = (function (factory) {
     }
     return { resolve, normal, write, range, state, cpuMap, homF, H0, lastDeriv, stops, leftStage, allAtOnce };
   }
-  // ---- the step glide (#246): the chain position x (the deformation's T, x = k the plane after k steps) follows an
+  // ---- the step glide: the chain position x (the deformation's T, x = k the plane after k steps) follows an
   // integer target, which ‹ › move one step each. Not a tween: a critically damped spring, so a press never waits for
   // the last one to end, several quick presses go faster (the speed grows with the steps still to go), and a press the
   // other way turns x round from where it is, with no jump in x or in its speed. x never passes its target (it stops
   // there), never leaves 0…max, and settles on it exactly. omega (1/s) sets the pace: at the default 6.5 one step takes
   // about 1.4 s to settle, most of it in the first 0.6 s, and 20 steps still settle within 2 s.
   // glider({ omega }) -> { set(x), to(target, max), nudge(d, max), step(dt) -> moving, x, v, target, moving(), since }
-  // (since: the glide's own time from the last press to now, or to its settling: the frames' dt, each at most 100 ms)
+  // (since: the glide's own time from the last press to the current time, or to its settling: the frames' dt, each at most 100 ms)
   function glider(opt = {}) {
     const W = opt.omega || 6.5, EPS = 1e-3;
     const g = { x: 0, v: 0, target: 0, max: 0, since: 0 };

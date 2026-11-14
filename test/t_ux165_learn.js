@@ -1,9 +1,10 @@
-// v16.5 wave 1, the learn piece (notes/ux-build/w1-learn-AS-BUILT.md): the DOM-free parts. The learning lane's API
-// (UX21, UX74), the tour copy it changed (UX77 Details, UX90 the welcome, UX20 the Phase key step), and the Russian of
-// this piece (UX78, UX93: the tour is «обучение», short one-line phone tiles; every string of the table shipped).
+// The learn piece (notes/ux-build/w1-learn-AS-BUILT.md): the DOM-free parts. The learning lane's API,
+// the tour copy (Details, the welcome, the Phase key step), and the Russian of
+// this piece (the tour is «обучение», short one-line phone tiles; every string of the table shipped).
 // The browser side is test/ux165_learn_cmd.js. Run: node test/t_ux165_learn.js
 const fs = require('fs');
 const path = require('path');
+globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
 const { Tour } = require('../src/tour.js');
 const T = Tour._t;
 let fails = 0, n = 0;
@@ -52,7 +53,7 @@ const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
 ok('the table has the piece\'s strings', ents.length >= 70, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
-// (wave 1 merge: V165_HERE is one set holding every piece's table, this one among them)
+// (V165_HERE is one set holding every piece's table, this one among them)
 ok('make_ru_table.py reads the table after every v16.4 one', /V165_HERE = \{[^}]*'v165-ux-learn\.json'[^}]*\}/.test(MK) && MK.indexOf("glob('v165-*.json')") > MK.lastIndexOf("glob('v164-*.json')"));
 const TABLE = (() => { const s = require('./src_text').source('i18n_ru.js', { esm: 'strip' }); const m = /I18N\.define\('ru', (".*")\);\s*$/ms.exec(s); return JSON.parse(JSON.parse(m[1])); })();
 const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;

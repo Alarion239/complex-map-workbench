@@ -182,8 +182,8 @@ if (require.main === module) (async () => {
     await scene(name, true, name === 'sqrt-cut');
   }
   // the Glide where |F| changes fast (the stress suite's expz3-circle: e^(z³) round a circle of radius 6, |F| from e^-216
-  // to e^216, 65 turns of arg F a second): the brightness of each control at once clicked there (17x by stress.js's
-  // detector), smoothed now. This score reads 14.8 with the brightness stepped, 7.6 smoothed: gated at 12
+  // to e^216, 65 turns of arg F a second): the brightness of each control stepped at once clicks there (17x by stress.js's
+  // detector), so it is smoothed. This score reads 14.8 with the brightness stepped, 7.6 smoothed: gated at 12
   if (!only || only.test('expz3-circle')) {
     H.SC['expz3-circle'] = { F: (z) => CX.exp(CX.ipow(z, 3)), z: (t) => { const a = 0.1 + TAU * 0.1 * Math.min(t, 5); return [6 * Math.cos(a), 6 * Math.sin(a)]; }, dur: 5.6, pxu: 50, halfW: 500, cx: 0, marks: [] };
     await scene('expz3-circle', true, false, 12);

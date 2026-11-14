@@ -30,7 +30,7 @@ const SCENES = {
     },
   },
   // a 4-step chain with a pole, a branch cut and a power (fix-ups on the CPU)
-  // [#253] shapes of planes 1, 2 and 3 of a 3-step chain beside one of the z-plane: X (the z-plane) pulls each
+  // shapes of planes 1, 2 and 3 of a 3-step chain beside one of the z-plane: X (the z-plane) pulls each
   // back per pixel through its steps (O(n²) step evaluations a pixel over the planes), Y draws them forward
   stages3: {
     label: 'shapes in planes 1-3 of z^2 -> +1 -> exp (preimages pulled back in X)',
@@ -200,7 +200,7 @@ const SCENES = {
       srcView: { cx: 0, cy: 1, s: 60 }, rightView: { cx: 0, cy: 0, s: 60 },
     },
   },
-  // wave 1's pointer paths (issue #63; notes/ux-build/w1-review-regress.json regress-6): a Line grid plus several
+  // pointer paths (notes/ux-build/w1-review-regress.json): a Line grid plus several
   // circles, so the snap and detent search of a hover, a drag or a glide has many curves near the pointer; the unit
   // circle C carries a glider g, and the disc d1 is dragged with Snap on
   gridCircles: {

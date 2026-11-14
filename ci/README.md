@@ -227,6 +227,46 @@ artifact.
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
   cause (no frame missed, t still moving, the program still compiling), is printed in the summary, and does not fail
   the job; the GPU machines run the suites at full speed.
+- **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
+  It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
+  on the 24.04 image one file of about 18 MB) and installs them with `dpkg`. Those files are kept in an Actions cache,
+  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
+  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
+  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
+  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
+  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
+  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+    none, or when they do not install, the same version comes from a fallback mirror on another domain:
+    kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
+    `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
+    `mirrors.us.kernel.org`, for http, ftp and rsync; `mirrors.edge.kernel.org` is kernel.org's HTTPS front for its
+    mirrors and is not on the list. What keeps the files intact is apt's check of the mirror against Ubuntu's archive
+    keyring, as for Ubuntu's own mirrors. The fallback has a sources file and package lists of its own (the runner's
+    are untouched). Then come 2 more downloads from Ubuntu's mirrors, each after a wait (10, then 20 s) and a refresh
+    of the lists.
+  - **After a Mesa update**, until GitHub's image has it: each pocket's package list names only its newest version,
+    so the fallback fails (apt: `Version '…' was not found`) unless the image's version is still published in the
+    security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
+    stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
+    newer version, which the job does not save under the key that names the image's.
+  - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
+    not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
+    cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
+    (`timeout -k 5` sends SIGKILL 5 s after SIGTERM).
+  - **It fails loudly:** a job that ends the step without the package installed (`dpkg -s`) or without lavapipe's ICD
+    file (the `lvp_icd*.json` the package lists) fails there, with the annotation *Mesa (lavapipe)* naming the cause:
+    the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
+    errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
+    lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
+    lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
+- **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
+  name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
+  job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
+  there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
+  image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
+  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine). Moving the browser
+  jobs to Ubuntu 26.04 and unpinning them is #1507.
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
@@ -454,6 +494,7 @@ Settings (environment variables):
 
 | file | |
 |---|---|
+| `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
@@ -465,7 +506,7 @@ Settings (environment variables):
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
-| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome, every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
+| `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |

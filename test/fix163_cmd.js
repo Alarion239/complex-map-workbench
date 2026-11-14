@@ -1,4 +1,4 @@
-// v16.3 review fixes (notes/orthogonal-circle/ledger.json): the in-app checks of the user- and math-review findings
+// In-app checks of the findings
 // that the node suite cannot see. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/fix163_cmd.js
 //   U1 the unit circle picked as C is fixed (a body drag pans, a toast); Make free unlocks it
@@ -9,7 +9,7 @@
 //   U13 a disc as C: "the circle of Disc 1"; M5 Use complement keeps a meet on K
 //   U12 a touch tap on a tile: the chip's touch form before the curve
 //   U3 dark: the rings (shot); U4 BUDGET60: T (a glider) and a free point dragged in a 28-shape disk scene
-// the daemon's port: one constant (CMW_PORT in the daemon's environment, else 9826) [v16.3 verify-2]
+// the daemon's port: one constant (CMW_PORT in the daemon's environment, else 9826)
 const PORT = (typeof process !== 'undefined' && process.env && process.env.CMW_PORT) || 9826;
 const fails = [], info = {};
 let checks = 0;
@@ -61,7 +61,7 @@ await view(1440, 900, false, false);
   let st = await ST();
   const K = last(st), C = byId(st, K.def.args[0].s);
   ok('U1 the unit circle picked as C: a fixed shape (fixed: unit), K on it', C && C.fixed === 'unit' && C.kind === 'circle' && K.def.op === 'perp' && K.def.nk === 'circle', [C, K.def]);
-  // (v16.5 fix rail-4: the row's name is "The unit circle", no number, and its description is its equation)
+  // (the row's name is "The unit circle", no number, and its description is its equation)
   info.u1row = { name: await rowK(C.id), d: await rowD(C.id) };
   ok('U1 its row reads "the unit circle"', info.u1row.name === 'The unit circle' && /^\|z\|\s*=\s*1$/.test(info.u1row.d || ''), info.u1row);
   await tool('select');
@@ -94,8 +94,8 @@ await view(1440, 900, false, false);
   const p = await W(2, 0.4);
   await click(p[0], p[1]); await settle(200);
   let d = (await CI()).draft;
-  // (a chip that would wrap keeps one line without its keyboard tail; this one in X at 1440 does. v16.5 UX48
-  // wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
+  // (a chip that would wrap keeps one line without its keyboard tail; this one in X at 1440 does.
+  // The wording: "Pick the touching point …", the count, and "⌫ undo pick · Esc" once P is picked)
   const u6 = await ev(`(() => { const t = document.querySelector('#draftChipL .cm-t'); if (!t) return null; const r = document.createRange(); r.selectNodeContents(t); return { text: t.textContent, lines: new Set([...r.getClientRects()].map((q) => Math.round(q.top))).size }; })()`);
   // (the chip names its tool in full on the steps view's wide plane, by its tile label on the classic left pane)
   const u6tn = (await ev(`document.documentElement.classList.contains('sv')`)) ? 'Touching circle' : 'Touching';
@@ -114,9 +114,9 @@ await view(1440, 900, false, false);
   ok('U5 one click on the other ring: the second tangent through the same P', st.list.length === n1 + 2 && L2.def.op === 'tangent' && L2.def.index === r1.k && L2.def.args[1].s === L1.def.args[1].s && M2.def.op === 'meet', [L2.def, M2.def]);
   const nm = await names();
   info.u2rows = [await rowD(L1.id), await rowD(L2.id)];
-  // (v16.5 fix rail-4: C is the shown unit circle made a shape, "the unit circle", no number)
+  // (C is the shown unit circle made a shape, "the unit circle", no number)
   ok('U2 each tangent reads by its touching point', info.u2rows[0] === `tangent to the unit circle at ${nm(M1.id)}, through ${nm(L1.def.args[1].s)}` && info.u2rows[1] === `tangent to the unit circle at ${nm(M2.id)}, through ${nm(L1.def.args[1].s)}`, info.u2rows);
-  // a click off C now starts the next circle (P is no longer refused there)
+  // a click off C starts the next circle (P is not refused there)
   d = (await CI()).draft;
   const q = await W(-1.5, 1.2);
   await click(q[0], q[1]); await settle(200);
@@ -164,7 +164,7 @@ await view(1440, 900, false, false);
 {
   await nav(`http://localhost:${PORT}/test.html?ns=${NS}u12`); await settle(1500);
   const r = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'); const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`);
-  // touch input needs touch emulation on, or Input.dispatchTouchEvent never returns [v16.3 verify-2]
+  // touch input needs touch emulation on, or Input.dispatchTouchEvent never returns
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: r[0], y: r[1] }] });
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });

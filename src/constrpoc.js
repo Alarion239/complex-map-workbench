@@ -2,8 +2,8 @@
 'use strict';
 // Part 1 of the constructions (constr.js's header): the proof of concept, kept whole (its 84 tests run against Constr
 // in test/t_constr.js): the exact predicate, forms, meets with the entering rule, Moebius gliders, a named-node graph
-// with formulas. Moved out of constr.js (issue #20, the file-size budget) as a factory constr.js calls where this part
-// stood, with the names of its own this part reads (reanchor is the v16 core's); constr.js takes the names back.
+// with formulas. A factory constr.js calls with the names of its own it reads (reanchor is part 2's); constr.js takes
+// the names it returns.
 const ConstrPoc = (host) => {
   const { EPS, INF, isInf, reanchor } = host;
   const isXY = (p) => Array.isArray(p) && p.length === 2 && Number.isFinite(p[0]) && Number.isFinite(p[1]);
@@ -37,7 +37,7 @@ const ConstrPoc = (host) => {
     const v = ldexp(Number(M >> BigInt(sh)), 2 * E + sh);
     return (neg ? -1 : 1) * (v === 0 ? Number.MIN_VALUE : v);
   }
-  // [review math-3] the orientation of the DECIMALS the user snapped or typed. Grid points are the doubles nearest
+  // the orientation of the DECIMALS the user snapped or typed. Grid points are the doubles nearest
   // 0.1, 0.3, 0.6 …, and three such doubles on a decimal line are exactly collinear only about half the time. When
   // all six coordinates are 12-digit decimals (x === +x.toPrecision(12)), and the double predicate is within the
   // rounding of those decimals, the exact predicate runs on the decimals scaled to integers: 0 there is 0 here.
@@ -100,7 +100,7 @@ const ConstrPoc = (host) => {
   const FUNCS = ['sqrt', 'conj', 'sin', 'cos', 'tan', 'exp', 'log', 'abs', 'arg', 'Re', 'Im', 're', 'im', 'ln'];
   class FormulaError extends Error {}
   // the Russian keyboard's look-alike letters become the Latin ones (а с е о р х у к, and the capitals); any other
-  // Cyrillic letter is refused (a name must look the same to everyone: review-design 17)
+  // Cyrillic letter is refused (a name must look the same to everyone)
   const HOMO = { 'а': 'a', 'с': 'c', 'е': 'e', 'о': 'o', 'р': 'p', 'х': 'x', 'у': 'y', 'к': 'k',
     'А': 'A', 'В': 'B', 'С': 'C', 'Е': 'E', 'Н': 'H', 'К': 'K', 'М': 'M', 'О': 'O', 'Р': 'P', 'Т': 'T', 'Х': 'X' };
   function latin(src) {
@@ -110,7 +110,7 @@ const ConstrPoc = (host) => {
   }
   // opt.known: the names in scope. A run of two or more letters that is not a function is a product of names only
   // when EVERY letter is a known name or i, e, z ("ai" = a i); otherwise it is an error ("Unknown function sinc"),
-  // never a set of new sliders (review-users 6). Without opt.known every run is refused.
+  // never a set of new sliders. Without opt.known every run is refused.
   function tokenize(src, opt = {}) {
     const t = [];
     let i = 0;
@@ -196,7 +196,7 @@ const ConstrPoc = (host) => {
     for (const k of ['a', 'b']) if (n[k]) namesOf(n[k], out);
     return out;
   }
-  // the names of a field's formula, and the new one (at most one new name per edit: review-users 6)
+  // the names of a field's formula, and the new one (at most one new name per edit)
   function analyze(src, known) {
     const ast = parse(src, { known: new Set(known) });
     const names = [...namesOf(ast)], fresh = names.filter((n) => !known.has(n));
@@ -259,7 +259,7 @@ const ConstrPoc = (host) => {
     const A = collinear ? 0 : orientD(P, Q, R);
     const D = sr * q1[1] - sq * r1[1], E = sq * r1[0] - sr * q1[0];
     if (A === 0) {
-      // [review math-3] collinear (exactly, by the decimals, or by incidence): the line through P and Q itself, its side
+      // collinear (exactly, by the decimals, or by incidence): the line through P and Q itself, its side
       // the one the lifting gives (left of P -> Q unless R lies between P and Q), so R's rounding never tilts it
       const lam = dot(r1, q1) / sq, sgn = lam > 0 && lam < 1 ? -1 : 1;
       return withPts(gc(0, [sgn * q1[1], -sgn * q1[0]], 0, P), [P, Q, R]);
@@ -276,7 +276,7 @@ const ConstrPoc = (host) => {
     if (!(L > 0)) return null;
     return withPts(gc(0, [d[1] / L, -d[0] / L], 0, p), [p, q]);
   }
-  // (v16.1, verify-3) a form keeps the points it was built through (g.pts): two curves built through the same two points
+  // a form keeps the points it was built through (g.pts): two curves built through the same two points
   // meet exactly there, whatever the conditioning (meets), where solving the forms lost up to 0.08 |PQ| for a circle
   // through nearly collinear points met with the line through two of them
   function withPts(g, pts) { if (g) g.pts = pts.map((z) => z.slice()); return g; }
@@ -332,7 +332,7 @@ const ConstrPoc = (host) => {
     const a = geomOf(g1), b = geomOf(g2);
     if (a.line && b.line) {
       const den = cross(a.d, b.d);
-      // [review v16 math-5] the same line to rounding (within 256 ulps of the coordinates at both anchors, at an angle
+      // the same line to rounding (within 256 ulps of the coordinates at both anchors, at an angle
       // within 256 ulps): the crossing would be a point that rounding chose, so there is none ('the curves coincide')
       const la = abs(a.d), lb = abs(b.d), dl = 256 * EPS * Math.max(abs(a.p), abs(b.p), abs(sub(b.p, a.p)));
       if (Math.abs(den) <= 256 * EPS * la * lb && Math.abs(cross(sub(b.p, a.p), b.d)) <= dl * lb && Math.abs(cross(sub(a.p, b.p), a.d)) <= dl * la) return coincideMark();
@@ -349,7 +349,7 @@ const ConstrPoc = (host) => {
       const qa = f.A, qb = f.A * dot(u, d) + dot(f.B, d), qc = f.A * dot(u, u) + 2 * dot(f.B, u) + f.C;
       if (qa === 0) { if (qb === 0) return [null, null]; const t = -qc / (2 * qb); const z = add(w.p, scl(d, t)); return [z, INF]; }
       const disc = qb * qb - qa * qc;
-      // [review v16 math-5] a 3-point circle whose points are collinear to rounding (it leaves a line by at most
+      // a 3-point circle whose points are collinear to rounding (it leaves a line by at most
       // 256 ulps of the coordinates over its triangle, longest side f.e: R snapped to a point of P Q that the graph
       // does not track), met with a line that keeps within that of it at the vertex of f (the line P Q): the meets
       // would be points that rounding chose, so there are none: 'the curves coincide' (meetsOf, evalNode)
@@ -362,7 +362,7 @@ const ConstrPoc = (host) => {
       const t1 = q / qa, t2 = q !== 0 ? qc / q : t1;
       return [add(w.p, scl(d, t1)), add(w.p, scl(d, t2))];
     }
-    // [review math-2] two circles: their radical axis L = A2 f1 - A1 f2 (f2 re-anchored at o1 exactly: B2 + A2 (o1 - o2),
+    // two circles: their radical axis L = A2 f1 - A1 f2 (f2 re-anchored at o1 exactly: B2 + A2 (o1 - o2),
     // C = f2(o1)) is a line form, so no centre enters; L then meets the smaller circle on the stable line path above
     const o1 = g1.o, B2 = add(g2.B, scl(sub(o1, g2.o), g2.A)), C2 = fOf(g2, o1);
     const L = gc(0, sub(scl(g1.B, g2.A), scl(B2, g1.A)), g2.A * g1.C - g1.A * C2, o1);
@@ -387,7 +387,7 @@ const ConstrPoc = (host) => {
     if (G.line) return add(G.p, scl(G.d, dot(sub(z, G.p), G.d) / dot(G.d, G.d)));
     return projectForm(g, z);
   }
-  // [review math-1] the point of a generalized circle nearest z, without its centre (c + r v/|v| loses eps |c|, a
+  // the point of a generalized circle nearest z, without its centre (c + r v/|v| loses eps |c|, a
   // whole unit at r = 1e16): from z, two Newton steps along the gradient of the Hermitian form. Along n = grad f / g
   // (g = |grad f|), f(z + s n) = f + g s + A s^2, and its small root -2 f / (g + sqrt(g^2 - 4 A f)) is the step to the
   // nearest point (exact for a line, and for a circle of any radius to a few ulps of |z - o|)
@@ -523,8 +523,7 @@ const ConstrPoc = (host) => {
       const d = Object.assign({}, def);
       nodes.set(name, { name, def: d, deps, out: [], val: undefined, err: null, note: null });
       rebuild();
-      // a circle through three points is created as the disc, whatever the order of the taps (review-design 15,
-      // review-users 7). The sign is stored; afterwards the orientation follows the points, so a drag through the
+      // a circle through three points is created as the disc, whatever the order of the taps. The sign is stored; afterwards the orientation follows the points, so a drag through the
       // collinear case goes on continuously (disc, half-plane, outside). Use complement flips it.
       if (d.kind === 'circle3' && d.flip == null) {
         const p = d.args.map((a) => nodes.get(a).val);
@@ -612,7 +611,7 @@ const ConstrPoc = (host) => {
     const pointVal = (nm) => { const m = nodes.get(nm); if (!m || m.val == null) return null; if (!(isInf(m.val) || (Array.isArray(m.val) && typeof m.val[0] === 'number' && POINT_KINDS.has(m.def.kind)))) throw new FormulaError(`${nm} is not a point`); return m.val; };
     const curveVal = (nm) => { const m = nodes.get(nm); if (!m || m.val == null) return null; if (!CURVE_KINDS.has(m.def.kind)) throw new FormulaError(`${nm} is not a curve`); if (Array.isArray(m.val)) throw new FormulaError(`${nm} is a family: pick one curve`); return m.val; };
 
-    // a glider's parameter: through the points that define its curve when it has them (review-users 8)
+    // a glider's parameter: through the points that define its curve when it has them
     function curvePts(cn) { const c = nodes.get(cn).def; if (c.kind !== 'circle3' && c.kind !== 'line') return null; const p = c.args.map(pointVal); return p.some((x) => x == null || isInf(x)) ? null : p; }
     function gliderParam(cn, g, z) {
       const p = curvePts(cn), w = project(g, z);

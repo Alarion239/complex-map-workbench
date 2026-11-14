@@ -239,7 +239,7 @@ for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
   await ev(`Phone.close(true)`); await settle(300);
 }
 // a landscape phone (wider than 767 px): the Display sheet opened from the Phase plane has all its options, the styles
-// first (it had only the unit circle: the plane's strip was laid out as a laptop's, the sheet given only its overflow)
+// first
 for (const lang of ['', 'ru']) {
   await fresh(780, 360, true, lang);
   const tag = `phone 780 × 360 ${lang || 'en'}`;
@@ -286,7 +286,7 @@ for (const lang of ['', 'ru']) {
 }
 // the per-frame path (#320): MP.renderRight lays the heads out every pan or zoom frame. With nothing changed, a frame
 // touches nothing in either pane head (no class written, no child moved) and forces no layout: Chrome's own counter over
-// 20 wheel-zoom frames over Y's plane (wave 7 forced about five a frame: the title's classes cleared, the widths read)
+// 20 wheel-zoom frames over Y's plane (the heads must not lay out per frame: clearing the title's classes and reading widths would force a layout each)
 {
   await fresh(1440, 900, false, '', 'xy');
   await settle(1200);

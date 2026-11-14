@@ -1,8 +1,8 @@
 'use strict';
 // Restores the source snapshots some unit tests compare against, from the git history (they were never committed):
-//   notes/gate-morph-zp-r1/src  v13, before the strings were wrapped (t_i18n_english, t_i18n_parse)
-//   notes/v16.2-candidate/src   v16.2 (t_constr: constr_perp_tests, constr_touch_tests read v16.2's constr.js)
-//   notes/v16.3-candidate/src   v16.3 (t_constr: constr_seg_tests, constr_between_tests read v16.3's constr.js)
+//   notes/gate-morph-zp-r1/src  the sources before the strings were wrapped (t_i18n_english, t_i18n_parse)
+//   notes/v16.2-candidate/src   the 16.2 candidate (t_constr: constr_perp_tests, constr_touch_tests read its constr.js) standards-ok: the path names it
+//   notes/v16.3-candidate/src   the 16.3 candidate (t_constr: constr_seg_tests, constr_between_tests read its constr.js) standards-ok: the path names it
 // A commit the clone does not have (a shallow clone: a worker's depth 50) is fetched by itself first
 // (git fetch --depth=1 origin <sha>, #427); CI checks out with fetch-depth: 0. A snapshot this script wrote carries the
 // commit in <dir>/.commit and is replaced when the commit differs; a folder without that file (made by hand) is left as
