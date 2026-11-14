@@ -2227,17 +2227,36 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitStrip(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
+    // (the rail's scroll is read here, where the layout is clean, so that the follow in svSync only writes)
+    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.scrollX = rail.scrollLeft; SV.els.centres = null; svFitStrip(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
     onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
-    rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
-    // (a sideways wheel or trackpad is the user's own scroll of the thread: until the ring moves, a resize leaves the rail where it is. The rail
-    // has no touch scroll (touch-action: none), and a focus scroll is a ring move)
-    rail.addEventListener('wheel', (e) => { const E = SV.els; if (E && (e.deltaX || (e.shiftKey && e.deltaY))) E.userScrolled = true; }, { passive: true });
+    // (a sideways wheel or trackpad that moves the rail is the user's own scroll of the thread: until the ring moves, a resize leaves the
+    // rail where it is, and a rail left at its end stays at its end. A wheel that moves nothing (the rail fits, or is already at that end)
+    // leaves the rail following: the scroll event it would bring does not come. The rail has no touch scroll (touch-action: none), and a
+    // focus scroll is a ring move)
+    rail.addEventListener('scroll', () => {
+      const E = SV.els;
+      if (!E) return;
+      E.scrollX = rail.scrollLeft;
+      E.atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1;
+      if (E.wheeling) { E.userScrolled = true; E.followTo = null; }
+      // (a rail that the browser moved from where the app put it (the follow, a reveal, the end the user left it at), as it does while the
+      // rail's width is changing, is put back; a scroll to show the focused control stays, and the user's own scroll ends the target)
+      else if (E.followTo != null && Math.abs(rail.scrollLeft - E.followTo) > 1 && !rail.contains(document.activeElement)) { rail.scrollLeft = E.followTo; return; }
+      svFades(); svBandSync(E.centres || []);
+    }, { passive: true });
+    rail.addEventListener('wheel', (e) => {
+      const E = SV.els;
+      if (!E || !(e.deltaX || (e.shiftKey && e.deltaY))) return;
+      // (the scroll event of this wheel comes within the next frame or two)
+      E.wheeling = true;
+      requestAnimationFrame(() => requestAnimationFrame(() => { if (SV.els === E) E.wheeling = false; }));
+    }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
@@ -2425,7 +2444,7 @@
       const key = `${x.toFixed(3)}|${c.length}|${SV.alone}`;
       if (key !== E.followKey || !E.userScrolled) {
         E.followKey = key; E.userScrolled = false;
-        const m = Math.min(60, E.railW / 3), s = Math.round(E.rail.scrollLeft);   // (where the rail is now, not where its last scroll event said)
+        const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
         // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
         const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
         // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
@@ -2443,10 +2462,15 @@
         const to = Math.max(0, Math.min(E.scrollMax, Math.round(aim)));
         // (the fades follow at once: the rail's scroll event comes a frame later)
         if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
+        E.followTo = to;
+      } else if (E.atEnd && E.scrollX < E.scrollMax) {
+        // (a rail the user left at its end stays at its end when its range grows)
+        E.rail.scrollLeft = E.scrollMax; E.scrollX = E.scrollMax; svFades();
+        E.followTo = E.scrollMax;
       }
     } else {
       // (a rail that fits has no scroll of the user's to keep: it follows the ring again when it overflows)
-      E.userScrolled = false;
+      E.userScrolled = false; E.atEnd = false; E.followTo = null;
       if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
     }
   }
@@ -3896,6 +3920,7 @@
     const rail = E.rail, a = stepEl.offsetLeft, s = rail.scrollLeft, w = rail.clientWidth;
     const to = Math.max(0, Math.min(rail.scrollWidth - w, Math.min(Math.max(s, a + stepEl.offsetWidth - w), a)));
     if (to !== s) { rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    E.followTo = to;
     E.hold = { tx: force ? null : E.tx ?? null, aim: to };
   }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
