@@ -78,7 +78,7 @@ async function judged(tag, at, seeds) {
   await steps({ scope: at.scope, surf: 'plane', go: 1, now: true });
   ok(`${tag}: plane w1's parked frame settles`, await grab('R1'), null);
   await steps({ scope: at.scope, surf: 'plane', go: 0, now: true });
-  if (at.hold != null) { ok(`${tag}: the thread is held at x = ${at.hold}`, (await hold(at.hold)).ok, null); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
+  if (at.hold != null) { const h = await hold(at.hold); ok(`${tag}: the thread is held at x = ${at.hold}`, h.ok, h); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
   ok(`${tag}: the moving frame settles`, await grab('M'), null);
   const state = await ev('__cmwSteps()'), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
   const j = await judge('R0', 'M', { seeds });

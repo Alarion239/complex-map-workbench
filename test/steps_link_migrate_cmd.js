@@ -19,7 +19,7 @@ const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __c
 const OPEN_MS = 30000;
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 // The page is ready when READY holds, on a document other than the one that was open (the kit's reloaded(old, ...)): a reload
-// that replaces the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
+// that swaps the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
 // never gets there is a failed check naming the missing part. (The state is read through the hooks: a pane still refining its
 // Landscape does not hold the wait.)
 const untilReady = async (name, old, parked) => {
