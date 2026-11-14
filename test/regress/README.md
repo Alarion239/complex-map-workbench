@@ -50,9 +50,9 @@ node test/regress/quality/verify_truth.js      # independent check of the SPEC 1
 python3 test/regress/test_compare.py           # the two gates on synthetic results (< 1 s)
 ```
 
-**How it works.** Each scene is a saved state with a pinned right view (1440×900, dpr 1, light theme, panels shown).
-The runner renders it in its own headless Chrome and reads `#canvasR` once the canvas is stable, the LED is not
-`busy` and no GL program is pending. It then compares every pixel with the **exact** image, computed on the CPU from
+**How it works.** Each scene is a saved state with a pinned view of its image (1440×900, dpr 1, light theme). The
+runner renders it in its own headless Chrome, in the steps view on the chain's last plane, Inside regions, and reads
+`#canvasL` once the canvas is stable, the LED is not `busy` and no GL program is pending. It then compares every pixel with the **exact** image, computed on the CPU from
 the inverse of the map over all branches.
 
 **What is measured.** The scenes cover:

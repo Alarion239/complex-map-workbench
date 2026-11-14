@@ -200,11 +200,12 @@ function refCannot(ref, cur, refErr, curErr) {
   return null;
 }
 
-async function paneRect(side) {
-  return B.ev(`(() => { const e = document.getElementById(${JSON.stringify(side === 'L' ? 'overlayL' : 'overlayR')}); const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; })()`);
+// the plane's pane (the steps view has one, pane L) and a hash of its screenshot
+async function paneRect() {
+  return B.ev(`(() => { const e = document.getElementById('overlayL'); const r = e.getBoundingClientRect(); return { x: r.left, y: r.top, w: r.width, h: r.height, cx: r.left + r.width / 2, cy: r.top + r.height / 2 }; })()`);
 }
-async function paneShot(side) {
-  const r = await paneRect(side);
+async function paneShot() {
+  const r = await paneRect();
   const buf = await B.shot({ x: Math.round(r.x), y: Math.round(r.y), width: Math.round(r.w), height: Math.round(r.h) });
   return crypto.createHash('sha1').update(buf).digest('hex');
 }
@@ -238,8 +239,8 @@ async function windowStats(a, b) {
 // space: Space is held through the drag (outside the timed window). From P3b on, a left drag on an editable globe draws
 // or moves the shape under it; with Space held it turns the globe in every tool and on every point, and a build before
 // P3b ignores Space and turns it too, so a globe orbit leg measures the same orbit on both builds of a paired run.
-async function dragLeg(side, dx, dy, button, n = 40, dt = 16, space = false) {
-  const r = await paneRect(side);
+async function dragLeg(dx, dy, button, n = 40, dt = 16, space = false) {
+  const r = await paneRect();
   const x0 = r.cx - dx / 2, y0 = r.cy - dy / 2;
   if (space) await B.key('keyDown');
   const a = await pageNow();
@@ -253,8 +254,8 @@ async function dragLeg(side, dx, dy, button, n = 40, dt = 16, space = false) {
 // a wheel gesture: `steps` wheel events of deltaY 50 (x1.083 zoom each) every `gap` ms at a point near the centre.
 // delta: the deltaY sent over CDP (with a device scale factor of 2 the page receives half of it, so dpr-2 units send
 // 50 x dpr to zoom by the same factor)
-async function wheelLeg(side, steps, dir, gap = 16, delta = 50) {
-  const r = await paneRect(side);
+async function wheelLeg(steps, dir, gap = 16, delta = 50) {
+  const r = await paneRect();
   await B.move(r.cx + 13, r.cy - 11);
   const a = await pageNow();
   // dispatched without waiting for each acknowledgement (a wheel ACK takes about two frames), like a trackpad
@@ -387,9 +388,9 @@ async function panPlane(pre) {
   let moved = true;
   for (let i = 0; i < REPS; i++) {
     const w0 = await B.ev(`__cmwW2S('L', 0, 0)`);
-    const leg1 = await dragLeg('L', 160, 70, 'middle');
+    const leg1 = await dragLeg(160, 70, 'middle');
     const w1 = await B.ev(`__cmwW2S('L', 0, 0)`);
-    const leg2 = await dragLeg('L', -160, -70, 'middle');
+    const leg2 = await dragLeg(-160, -70, 'middle');
     const w2 = await B.ev(`__cmwW2S('L', 0, 0)`);
     // the plane followed the pointer there and back
     const ok = Math.abs(w1[0] - w0[0] - 160) < 3 && Math.abs(w1[1] - w0[1] - 70) < 3 && Math.abs(w2[0] - w0[0]) < 3 && Math.abs(w2[1] - w0[1]) < 3;
@@ -408,9 +409,9 @@ async function zoomPlane(pre, delta = 50) {
   let ok = true;
   for (let i = 0; i < REPS; i++) {
     const s0 = await zoomScale();
-    const l1 = await wheelLeg('L', 24, -1, 16, delta);
+    const l1 = await wheelLeg(24, -1, 16, delta);
     const s1 = await zoomScale();
-    const l2 = await wheelLeg('L', 24, +1, 16, delta);
+    const l2 = await wheelLeg(24, +1, 16, delta);
     const s2 = await zoomScale();
     const good = s1 / s0 > 4 && Math.abs(s2 / s0 - 1) < 0.02;
     if (!good) detail(`${id}.zoom_fail_${i}`, { s0, s1, s2 });
@@ -435,10 +436,10 @@ async function sceneEnd(pre) {
 // a screenshot hash of a pane with the pointer outside it and the view settled: hovering a pane changes it by itself
 // (hover markers, the globe's highlight), so a shot taken with the pointer still inside after a drag would differ even
 // if the drag had not moved the view
-async function shotAtRest(side) {
+async function shotAtRest() {
   await B.move(5, 5);
   await settle(await pageNow());
-  return paneShot(side);
+  return paneShot();
 }
 // A view of the steps view (an AT entry): pan it (Phase) or orbit it (Landscape, the globe: a left-button drag).
 // view_moved compares shots of the plane at rest before and after the first leg. A globe orbit holds Space: on an
@@ -450,10 +451,10 @@ async function viewUnit(pre, scene, at, kind) {
   const id = `${pre}.${kind}`, reps = [], sp = o.steps.surf === 'sphere';
   let moved = true;
   for (let i = 0; i < REPS; i++) {
-    const h0 = await shotAtRest('L');
-    const leg1 = await dragLeg('L', 160, 60, kind === 'pan' ? 'middle' : 'left', 40, 16, sp);
-    const h1 = await shotAtRest('L');
-    const leg2 = await dragLeg('L', -160, -60, kind === 'pan' ? 'middle' : 'left', 40, 16, sp);
+    const h0 = await shotAtRest();
+    const leg1 = await dragLeg(160, 60, kind === 'pan' ? 'middle' : 'left', 40, 16, sp);
+    const h1 = await shotAtRest();
+    const leg2 = await dragLeg(-160, -60, kind === 'pan' ? 'middle' : 'left', 40, 16, sp);
     moved = moved && h0 !== h1;
     reps.push(legSummary([leg1, leg2], 'pointermove'));
   }
@@ -723,7 +724,7 @@ async function svPrestartEditUnit() {
     await B.ev(`__cmwAddStep('joukowski', {}), 1`);
     await B.until('__cmwSteps().ready.ready === false', SETTLE_TIMEOUT, 20);
     const r = await B.ev('(() => { const s = __cmwSteps(); return s.ready ? s.ready.total - s.ready.done : -1; })()');
-    const w = await dragLeg('L', 200, 120, 'left', 150, 16);
+    const w = await dragLeg(200, 120, 'left', 150, 16);
     frame.push(quant(w.frame, 0.95));
     longest.push(Math.max(0, ...w.frame));
     left.push(r);
@@ -963,14 +964,14 @@ async function svInteractUnit(scene) {
       }
       // Inside regions (left from the scrub), parked: a pan of the plane (middle drag, as the other units' pans)
       await park();
-      R['pan.in'].push(legSummary([await dragLeg('L', 160, 60, 'middle'), await dragLeg('L', -160, -60, 'middle')], 'pointermove'));
+      R['pan.in'].push(legSummary([await dragLeg(160, 60, 'middle'), await dragLeg(-160, -60, 'middle')], 'pointermove'));
       // the globe, parked: an orbit (Space held: a plain left drag on a region would move it, P3b)
       await B.ev(`__cmwSteps({ scope: 'all', surf: 'sphere' }), 1`);
       await park();
       // (with the glides' pole work counted, __svPathStats, and the long tasks of each leg's settle, their start after
       // the leg's end: a settle's jank that is a slice of the idle job shows as one)
       await B.ev('globalThis.__svPathStats = {}, 1');
-      const o1 = await dragLeg('L', 160, 60, 'left', 40, 16, true), o2 = await dragLeg('L', -160, -60, 'left', 40, 16, true);
+      const o1 = await dragLeg(160, 60, 'left', 40, 16, true), o2 = await dragLeg(-160, -60, 'left', 40, 16, true);
       const ps = JSON.parse(await B.ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = null; return JSON.stringify(s || {}); })()'));
       const long = [];
       for (const l of [o1, o2]) long.push(...(await B.ev(`__perf.longSince(${l.b + 1}, ${l.until})`)).map((t) => [+(t[0] - l.b).toFixed(1), t[1]]));
@@ -1141,7 +1142,7 @@ async function hoverUnit(scene) {
   const reps = [];
   let found = true;
   for (let i = 0; i < REPS; i++) {
-    const r = await paneRect('L');
+    const r = await paneRect();
     const a = await pageNow();
     // a slow sweep through the plane (no buttons): 60 moves 16 ms apart along a wave
     for (let k = 0; k <= 60; k++) {
@@ -1266,7 +1267,7 @@ const invDraws = async () => (await B.ev('__perf.counters()')).invDraws;
 // half_passes (info): inverse passes drawn at half resolution by the cost guard during the pan and zoom (P2 review: a
 // gate pass reached at half resolution is visible)
 const halfDraws = async () => B.ev(`typeof GLR !== 'undefined' && GLR.inverseHalfDraws !== undefined ? GLR.inverseHalfDraws : 0`);
-async function imageRUnit(pre, scene, dpr) {
+async function imageWUnit(pre, scene, dpr) {
   if (dpr !== 1) await setDpr(dpr);
   try {
     const o = await openApp(wState(scene, { meshN: 240 }), AT.image);
@@ -1419,11 +1420,11 @@ async function hoverDimUnit() {
   const rowXY = (id) => B.ev(`(() => { const e = document.querySelector('.shape[data-id="${id}"] .shape-row'); if (!e) return null; e.scrollIntoView({ block: 'nearest' }); const b = e.getBoundingClientRect(); return [b.left + b.width * 0.4, b.top + b.height / 2]; })()`);
   // the dimming really happens: the image differs while the disc's row is hovered
   await B.move(5, 5); await settle(await pageNow());
-  const h0 = await paneShot('L');
+  const h0 = await paneShot();
   const p2 = await rowXY('s2');
   if (!p2) throw new Error('shape row s2 not found');
   await B.move(p2[0], p2[1]); await settle(await pageNow());
-  const h1 = await paneShot('L');
+  const h1 = await paneShot();
   await B.move(5, 5); await settle(await pageNow());
   put(`${pre}.dimmed`, 'check', '', [h0 !== h1]);
   const reps = [];
@@ -1495,8 +1496,8 @@ async function pathLeg(pts, held = false) {
   return Object.assign(w, { settle: s.timeout ? null : Math.max(0, s.t - b), settleTimeout: s.timeout, jank: await jankIn(b + 1, s.now), a, b });
 }
 // a sweep through a pane: 61 points along a wave over half its width
-async function sweepPts(side) {
-  const r = await paneRect(side);
+async function sweepPts() {
+  const r = await paneRect();
   return Array.from({ length: 61 }, (_, k) => { const u = k / 60; return [r.cx + (u - 0.5) * r.w * 0.5, r.cy + Math.sin(u * Math.PI * 2) * r.h * 0.15]; });
 }
 // points round a circle of the left plane (centre c, radius r; degrees a0 to a1)
@@ -1521,7 +1522,7 @@ async function pointerHoverUnit(pre, toolId) {
   detail(`${pre}.open`, await openApp(sceneState('gridCircles', { meshN: 240 })));
   await pickTool(toolId);
   const reps = [];
-  for (let i = 0; i < REPS; i++) reps.push(legSummary([await pathLeg(await sweepPts('L'))], 'pointermove'));
+  for (let i = 0; i < REPS; i++) reps.push(legSummary([await pathLeg(await sweepPts())], 'pointermove'));
   putPointer(pre, reps);
   // the search ran: on a grid line inside the unit circle the ring names a target (recorded, not gated)
   const at = await w2s('L', 0.5, 0.004);
@@ -1570,7 +1571,7 @@ async function pointerProbeXUnit() {
   detail(`${pre}.open`, await openApp(sceneState('default', { meshN: 240 })));
   await pickTool('select');
   const reps = [];
-  for (let i = 0; i < REPS; i++) reps.push(legSummary([await pathLeg(await sweepPts('L'))], 'pointermove'));
+  for (let i = 0; i < REPS; i++) reps.push(legSummary([await pathLeg(await sweepPts())], 'pointermove'));
   putPointer(pre, reps);
 }
 // SwiftShader (CPU WebGL2, the renderer of machines without a usable GPU): pan-frame p50 of the image (the last plane,
@@ -1598,8 +1599,8 @@ async function asPhone(fn) {
 }
 // a one-finger drag on the phone's plane by (dx, dy) px, from `from` (page px; default: centred on the plane), measured
 // as dragLeg measures a mouse drag
-async function touchLeg(side, dx, dy, from = null, n = 40, dt = 16) {
-  const r = await paneRect(side);
+async function touchLeg(dx, dy, from = null, n = 40, dt = 16) {
+  const r = await paneRect();
   const [x0, y0] = from || [r.cx - dx / 2, r.cy - dy / 2];
   const a = await pageNow();
   await B.touchDrag(x0, y0, x0 + dx, y0 + dy, { n, dt });
@@ -1636,9 +1637,9 @@ async function phonePanUnit() {
     for (let i = 0; i < REPS; i++) {
       const w0 = await B.ev(`__cmwW2S('L', 0, 0)`);
       const p0 = await B.ev(`__cmwW2S('L', 0, 2.6)`);
-      const leg1 = await touchLeg('L', 120, 40, p0);
+      const leg1 = await touchLeg(120, 40, p0);
       const w1 = await B.ev(`__cmwW2S('L', 0, 0)`);
-      const leg2 = await touchLeg('L', -120, -40, [p0[0] + 120, p0[1] + 40]);
+      const leg2 = await touchLeg(-120, -40, [p0[0] + 120, p0[1] + 40]);
       moved = moved && Math.abs(w1[0] - w0[0] - 120) < 6 && Math.abs(w1[1] - w0[1] - 40) < 6;
       reps.push(legSummary([leg1, leg2], 'pointermove'));
     }
@@ -1651,7 +1652,7 @@ async function phoneLandUnit() {
   await asPhone(async () => {
     await openApp(sceneState('default', { meshN: 240 }), AT.land);
     const reps = [];
-    for (let i = 0; i < REPS; i++) reps.push(legSummary([await touchLeg('L', 140, 0), await touchLeg('L', -140, 0)], 'pointermove'));
+    for (let i = 0; i < REPS; i++) reps.push(legSummary([await touchLeg(140, 0), await touchLeg(-140, 0)], 'pointermove'));
     putInteraction('phone.landscape.orbit', reps);
   });
 }
@@ -1708,8 +1709,8 @@ async function swiftshaderUnit() {
         const d0 = await invDraws();
         const rr = [];
         for (let i = 0; i < reps; i++) {
-          const leg1 = await dragLeg('L', 160, 70, 'middle');
-          const leg2 = await dragLeg('L', -160, -70, 'middle');
+          const leg1 = await dragLeg(160, 70, 'middle');
+          const leg2 = await dragLeg(-160, -70, 'middle');
           rr.push(legSummary([leg1, leg2], 'pointermove'));
         }
         const id = `${pre}.${scene}.${mode}`;
@@ -1783,13 +1784,13 @@ unit('hover.cubic', 'hover the last plane past the colour plane z: the probe\'s 
 // SPEC 12.5 (P0): exact images through infinity (the new units are NEW in the comparison until the baseline is
 // re-recorded with them)
 for (const scene of ['ziH', 'expH']) {
-  unit(`image.${scene}.m240`, `the image, ${SCENES[scene].label}: statics, pan, wheel zoom (dpr 1)`, () => imageRUnit(`image.${scene}.m240`, scene, 1));
-  unit(`image.${scene}.m240.dpr2`, `the image, ${SCENES[scene].label}: statics, pan, wheel zoom at dpr 2`, () => imageRUnit(`image.${scene}.m240.dpr2`, scene, 2));
+  unit(`image.${scene}.m240`, `the image, ${SCENES[scene].label}: statics, pan, wheel zoom (dpr 1)`, () => imageWUnit(`image.${scene}.m240`, scene, 1));
+  unit(`image.${scene}.m240.dpr2`, `the image, ${SCENES[scene].label}: statics, pan, wheel zoom at dpr 2`, () => imageWUnit(`image.${scene}.m240.dpr2`, scene, 2));
 }
 // P5 (SPEC 12.5): the forward fallback's settle (SphereMesh jobs in idle slices: none over 6 ms), then the image's pan
 // and zoom and their settles (a zoom by more than 2x rebuilds the mesh)
 for (const scene of ['custom_e_z1z', 'expexp_H']) unit(`image.${scene}.m240`, `the image, ${SCENES[scene].label}: settle, statics, pan, wheel zoom (dpr 1)`, () => smUnit(`image.${scene}.m240`, scene));
-unit('image.disc_cube.dpr2', `the image, ${SCENES.disc_cube.label}: statics, pan, wheel zoom at dpr 2`, () => imageRUnit('image.disc_cube.dpr2', 'disc_cube', 2));
+unit('image.disc_cube.dpr2', `the image, ${SCENES.disc_cube.label}: statics, pan, wheel zoom at dpr 2`, () => imageWUnit('image.disc_cube.dpr2', 'disc_cube', 2));
 unit('examples.cold', `load the examples with inverse programs (${COLD_EXAMPLES.join(', ')}) with cold inverse compiles: compile + first draw (info)`, examplesColdUnit);
 unit('sphere.ziH', 'the image on the globe, z^i of the upper half-plane: orbit', () => viewUnit('sphere.ziH', 'ziH', AT.globeW, 'orbit'));
 unit('sphere.globeL0', 'the plane z on the globe, Inside regions: the upper half-plane (exact through infinity): orbit', () => viewUnit('sphere.globeL0', 'logUHP', AT.globeZ, 'orbit'));

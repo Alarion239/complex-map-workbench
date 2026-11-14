@@ -119,15 +119,15 @@ async function main() {
   try {
     await R.openApp(wState('ziH', { meshN: 240 }), R.AT.globeW);
     const r = await B.ev(`(() => { const e = document.getElementById('overlayL').getBoundingClientRect(); return { cx: e.left + e.width / 2, cy: e.top + e.height / 2 }; })()`);
-    const h0 = await R.shotAtRest('L');
+    const h0 = await R.shotAtRest();
     for (let k = 0; k <= 30; k++) { await B.move(r.cx - 80 + k * 160 / 30, r.cy - 30 + k * 60 / 30); await sleep(16); }
     await R.settle(await R.pageNow());
-    const hInside = await R.paneShot('L');
-    const hRest = await R.shotAtRest('L');
+    const hInside = await R.paneShot();
+    const hRest = await R.shotAtRest();
     check('(5) old protocol: a sweep without a button changes the pane while the pointer is inside', hInside !== h0, `${h0.slice(0, 8)} -> ${hInside.slice(0, 8)}`);
     check('(5) shotAtRest: the same sweep leaves the pane unchanged (view_moved false)', hRest === h0, `${h0.slice(0, 8)} -> ${hRest.slice(0, 8)}`);
-    await R.dragLeg('L', 160, 60, 'left', 40, 16, true);
-    const hOrbit = await R.shotAtRest('L');
+    await R.dragLeg(160, 60, 'left', 40, 16, true);
+    const hOrbit = await R.shotAtRest();
     check('(5) shotAtRest: a left-button orbit changes the pane (view_moved true)', hOrbit !== h0, `${h0.slice(0, 8)} -> ${hOrbit.slice(0, 8)}`);
   } catch (e) { check('(5) the app could be opened at ' + BASE, false, String(e).slice(0, 200)); }
   await B.close();

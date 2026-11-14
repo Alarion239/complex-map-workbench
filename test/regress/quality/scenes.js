@@ -504,7 +504,7 @@ const SCENES = [
   scene('e1z_disc', 'e1z_disc_out16', 'infinite', { cx: 0, cy: 0, s: 60 / 16 }, 'e^{1/z} of the unit disc, zoomed out 16x'),
   scene('e1z_custom', 'e1z_custom', 'infinite', { cx: 0, cy: 0, s: 60 }, 'custom formula e^{1/z} of the unit disc'),
   scene('exp_far_disc', 'exp_far_disc', 'bounded_far', { cx: 0, cy: 0, s: 60 }, 'exp of |z - 60i| < 1 with the left view zoomed out to +-80 x +-100 (members m = 9, 10)'),
-  scene('ez2_disc', 'ez2_disc', 'bounded_far', { cx: 3.3, cy: -3.15, s: 22 }, 'custom e^{z^2} of |z - (3+3i)| < 0.3, default left view; right view fitted to the image'),
+  scene('ez2_disc', 'ez2_disc', 'bounded_far', { cx: 3.3, cy: -3.15, s: 22 }, 'custom e^{z^2} of |z - (3+3i)| < 0.3, default z view; the view of the image fitted to it'),
   scene('healed_cut', 'healed_cut', 'bounded_cut', { cx: -1, cy: 0.5 / 150, s: 150 }, '[log, exp] of |z + 1| < 0.6: a cut that a later step heals; the cut runs through pixel centres (0.5 px offset)'),
   // P2 review (SPEC 13.12): saturation points at 6x and 12x zoom-out, a deep zoom, z^i's polar cells at alpha < 1
   scene('atanh_D', 'atanh_D_s20', 'saturation', { cx: 0, cy: 0, s: 20 }, 'artanh of the unit disc, zoomed out 6x: the strip |Im w| < pi/4 to the view edges'),
