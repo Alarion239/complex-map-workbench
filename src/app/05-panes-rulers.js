@@ -590,7 +590,9 @@
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
-    return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    const b = { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    // (a video frame: the window the still of that plane has, its edges rounded)
+    return artLandRound && !artMode ? artLandRound(b) : b;
   }
   // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs, va, vb, rest}: plane
   // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of
@@ -754,7 +756,7 @@
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
-    refitCam(cam, CAM3, landFitDist(geo, pane));
+    refitCam(cam, CAM3, landFitDist(geo, artCamAsp ? { w: pane.h * artCamAsp, h: pane.h } : pane));
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     // (the carried grid: over plane s's block)
     const src = carry ? landBox(carry.vs) : null;
@@ -1108,7 +1110,7 @@
     if (!over) backdrop(pane);
     // 28 degree camera fitted to the globe and its labels at this pane's aspect (spec 6.10)
     // (with the equatorial plane on, frame more of the disc; its rim fades out, so the pane never cuts it hard)
-    refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, pane.w, pane.h, 1.05));
+    refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, artCamAsp ? pane.h * artCamAsp : pane.w, pane.h, 1.05));
     // contact shadow (spec 6.10): an elliptical radial gradient, aspect 1.6 : 0.35, on the ground under the globe,
     // placed and sized from the globe's projection; it fades out as the camera drops below the ground
     const ctx = pane.ctx;
