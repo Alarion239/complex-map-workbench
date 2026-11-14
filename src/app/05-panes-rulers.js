@@ -75,7 +75,7 @@
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
   let zpHandlesL = [], zpHover = null, zpSel = null;
   // (k: the stage the left plane shows, default its own: z's view is S.srcView, a later stage's V.left)
-  function leftView(k = leftStage()) { return k === 0 ? S.srcView : V.left; }
+  function leftView(k = leftStage()) { return k === 0 || (SV.on && svGliding()) ? S.srcView : V.left; }
   // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
   function phHold() { if (Phone.hold) Phone.hold(); }
