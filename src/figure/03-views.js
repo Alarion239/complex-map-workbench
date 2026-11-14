@@ -449,7 +449,8 @@
     const arrowSpan = two ? Math.max(axes === 'box' ? 22 : 26, arrowLab ? arrowLab.w + 12 : 0) : 0;
     const titles = (side) => [`\\operatorname{Re} ${vars[side]}`, `\\operatorname{Im} ${vars[side]}`];
     const ah = 4.6;
-    const asp = (side) => (boxes[side] ? aspect(boxes[side]) : A.paneAspect(side));
+    // (a plane's window has its own shape; a globe is the pane's picture, whose paneAspect is height over width)
+    const asp = (side) => (boxes[side] ? aspect(boxes[side]) : 1 / A.paneAspect(side));
     // the steps view's plain still of a plane past the colour plane carries the pane's key: the hue ring and the line
     // saying where the colour is carried from, in a column right of the picture
     const sk = view0 === 'xyL' && panels.length === 1 && A.svOn() && A.svKey ? A.svKey() : null;
@@ -752,19 +753,20 @@
   }
 
   // ---------- (3) Landscape: one 3D panel, cropped to the relief, a clean frame and vector floor labels ----------
+  // a relief window with its edges rounded to a step of about an eighth of each side
+  const roundLandBox = (b) => {
+    const rnd = (a0, a1) => { const st = niceStep(a1 - a0, 8), b0 = Math.round(a0 / st) * st, b1 = Math.round(a1 / st) * st; return b1 > b0 ? [b0, b1] : [a0, a1]; };
+    const [x0, x1] = rnd(b.x0, b.x1), [y0, y1] = rnd(b.y0, b.y1);
+    return { x0, x1, y0, y1 };
+  };
   async function figLand(o, P, W, T) {
     const [tp, lp] = T;
     const asp = A.paneAspect('L');
     const wpt = W - 8, hpt = wpt * Math.min(asp, 0.8);
     // the window: the screen's, with its edges rounded (to a step of about an eighth of each side), so the caption and
     // the floor labels read [-8, 8] x [-5, 5], not [-8.33, 8.33] x [-5.13, 5.13]
-    let landBox = null;
     const lb = A.landBox ? A.landBox() : null;
-    if (lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite)) {
-      const rnd = (a0, a1) => { const st = niceStep(a1 - a0, 8), b0 = Math.round(a0 / st) * st, b1 = Math.round(a1 / st) * st; return b1 > b0 ? [b0, b1] : [a0, a1]; };
-      const [x0, x1] = rnd(lb.x0, lb.x1), [y0, y1] = rnd(lb.y0, lb.y1);
-      landBox = { x0, x1, y0, y1 };
-    }
+    const landBox = lb && [lb.x0, lb.x1, lb.y0, lb.y1].every(Number.isFinite) ? roundLandBox(lb) : null;
     // what is drawn (the relief and its block): the pixel bounds of the non-white
     const look = (r) => {
       let i0 = r.w, i1 = -1, j0 = r.h, j1 = -1;
@@ -878,7 +880,7 @@
         if (fp) items.push(`<path d="${fp}" stroke="${OUTLINE_GRAY}" stroke-width="${OUTLINE_W}" fill="none" stroke-linecap="butt" stroke-linejoin="round" class="floor-footprint"/>`);
       }
     }
-    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art } };
+    return { items, defs: '', lines, H: top + ih + 4, info: { box: L && L.box, art, crop: { x0: c0 / r.w, x1: c1 / r.w, y0: d0 / r.h, y1: d1 / r.h, asp: r.w / r.h } } };
   }
 
   // ---------- (4) The deformation: a filmstrip of H_t, or the one-plane paths figure ----------
