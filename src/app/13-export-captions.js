@@ -35,34 +35,6 @@
     if (Number.isInteger(S.sel) && S.sel >= 0 && S.sel <= n) return S.sel;
     return S.focus > 0 && S.focus <= n ? S.focus : n;
   }
-  function syncSel() {
-    const sel = selOf(), quiet = !!(morph.playing && morph.open);
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) {
-      const on = +c.dataset.k === sel;
-      c.classList.toggle('sel', on); c.classList.toggle('quiet', on && quiet);
-      if (c.getAttribute('aria-selected') !== String(on)) c.setAttribute('aria-selected', String(on));
-      c.tabIndex = on ? 0 : -1;   // (review design-14: one tab stop, the selected option; the arrows move inside)
-    }
-    const ft = /** @type {HTMLElement | null} */ (document.querySelector('#pipeline .ftile'));
-    if (ft) { ft.classList.toggle('sel', sel === 'F'); ft.setAttribute('aria-selected', String(sel === 'F')); ft.tabIndex = sel === 'F' ? 0 : -1; }
-    syncPlaying();
-    const wb = $('viewAllBtn');
-    if (wb) wb.disabled = S.focus === 0;
-  }
-  // the card of the step the deformation is in (review design-13): one after another, the step at t; all at once, the
-  // last card, which shows the deformation itself
-  let playKey = '';
-  function syncPlaying() {
-    let k = 0;
-    if (morph.open && morphOn()) {
-      const steps = morphRange().steps;
-      k = allAtOnce() ? steps[steps.length - 1] : steps[Math.max(0, Math.min(steps.length - 1, Math.floor(morph.T - (morph.T >= steps.length ? 1e-9 : 0))))];
-    }
-    const key = String(k || 0);
-    if (key === playKey && (!k || document.querySelector('#pipeline .card.playing'))) return;
-    playKey = key;
-    for (const c of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#pipeline .card'))) c.classList.toggle('playing', !!k && +c.dataset.k === k);
-  }
   // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
   function syncAloneChip() {
     const head = document.querySelector('#paneL .pane-head');
@@ -151,7 +123,6 @@
     setSel(k);
     // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
-    syncSel();
     svFSync();
     if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
     if (S.hideRight) {
@@ -230,7 +201,7 @@
       moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
-      svOn: () => SV.on, regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
+      regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
     });
     return insp;
   }
@@ -276,6 +247,9 @@
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
   // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
   let artLandBox = null;
+  // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
+  // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
+  let artLandRound = null, artCamAsp = null;
   // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
   const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
@@ -341,7 +315,9 @@
     svGlideArt: async (x, o) => {
       const keep = { x: SV.g.x, span: SV.span };
       SV.span = null; SV.g.set(x);
-      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : o); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+      // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
+      const real = paneL.h > 20 ? paneL : paneR;
+      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o)); } finally { SV.g.set(keep.x); SV.span = keep.span; }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
@@ -426,6 +402,8 @@
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },
+      get artLandRound() { return artLandRound; }, set artLandRound(v) { artLandRound = v; },
+      get artCamAsp() { return artCamAsp; }, set artCamAsp(v) { artCamAsp = v; },
       get artMode() { return artMode; }, set artMode(v) { artMode = v; },
       get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
       get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },

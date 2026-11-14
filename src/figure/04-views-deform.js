@@ -52,17 +52,25 @@
       return [x + (px - c[0]) * k, y + (py - c[2]) * k];
     };
   };
-  // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera
+  // a sphere's mark is labelled when its normal makes more than this with the line to the eye (the screen's labels start to show
+  // above it)
+  const GLOBE_LABEL_FACE = 0.05;
+  // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera and keep clear of its
+  // outline and of the other labels
   function globeLabels(g, r, c, x, y, k, tp) {
     if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
+    const limb = GLR.globeLimb(g.eye, P), centre = P([0, 0, 0]);
     let m = '';
     for (const [lab, p] of [['0', [0, 0, -1]], ['\\infty', [0, 0, 1]], ['1', A.lift(1, 0)], ['i', A.lift(0, 1)], ['-1', A.lift(-1, 0)], ['-i', A.lift(0, -1)]]) {
-      if (face(p) < 0.3) continue;
-      const q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
+      if (face(p) <= GLOBE_LABEL_FACE) continue;
+      let q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
-      const it = XD.tex(lab, tp), b = XD.boxOf(it, q[0], q[1], 'middle', 'mid');
+      const it = XD.tex(lab, tp), boxAt = (at) => XD.boxOf(it, at[0], at[1], 'middle', 'mid');
+      q = GLR.clearOfLimb(q, boxAt, limb, centre);
+      if (!q) continue;
+      const b = boxAt(q);
       if (XD.boxes.some((o2) => o2.x0 < b.x1 + 0.6 && o2.x1 > b.x0 - 0.6 && o2.y0 < b.y1 + 0.6 && o2.y1 > b.y0 - 0.6)) continue;
       m += XD.at(it, q[0], q[1], 'middle', 'mid', 'globe-label', 0.4);
     }
@@ -260,13 +268,11 @@
       }
     }
     if (keyW) {
-      const R = keyW / 2 - 12, r0k = R * 0.55, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0k)} ${f2(ky)}a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(2 * r0k)} 0a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(-2 * r0k)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0k)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
+      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
+      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
     }
     const box = kind === 'land' && raws[0].land ? raws[0].land.box : null;
@@ -423,6 +429,11 @@
       mL = 3; gut = ah * 0.3 + 2 + nA + 8 + arrowSpan + 8; mR = ah * 0.3 + 2 + nB + 2;
       top = Math.max(t1.a + t1.d + ah + 5, lp * 1.15 + 3); bottom = 3;
     }
+    // (past the colour plane the To plane's pane key, as the plain still of that plane carries it: the hue ring and the line
+    // saying where the colour is carried from, in a column right of the second picture)
+    const sk = A.svKey ? A.svKey(to) : null;
+    const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
+    mR += keyW ? keyW + KEY_GAP : 0;
     let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
     h = Math.min(h, W * 0.62, P.maxH - top - bottom);
     const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;
@@ -450,8 +461,14 @@
     const oys = axes === 'cross' ? boxes.map((b) => Math.min(y + h, Math.max(y, y + (b.y1 / (b.y1 - b.y0)) * h))) : [];
     const { a0, a1, ay } = arrowPlace({ box: axes === 'box', xr: xs[0] + h * asp[0], xn: xs[1], y, h, oys, label: arrowLab, span: arrowSpan, off: axes === 'cross' ? ah * 0.3 + 2 + XD.tex(titles[0][0], lp).w + 8 : 8 });
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
+    let keyBottom = 0;
+    if (keyW) {
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp);
+      items.push(...k.items);
+      keyBottom = k.bottom;
+    }
     const ownWin = !!fit.boxes && !sameBox(boxes[0], boxes[1]);
-    return { items, defs, lines, H: y + h + bottom, info: { svTwo: true, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
+    return { items, defs, lines, H: Math.max(y + h + bottom, keyBottom), info: { svTwo: true, keyLine: keyW ? sk.carried.text : null, frames: [frames[from], frames[to]], from, to, arrow: arrowTex, ownWin, fellBack: ownWin && fit.fellBack, boxes } };
   }
   // Phase: a filmstrip of the portraits of H_t over one window (colour with level lines, or B/W contours)
   async function figFilmPhase(o, P, W, T) {
@@ -515,13 +532,11 @@
       await breathe();
     }
     if (keyW) {
-      const R = keyW / 2 - 12, r0k = R * 0.55, kx = W - keyW / 2, ky = rows * rowH / 2, kid = `${XD.ns}-key`;
-      const url = await ringKey(R, 300);
-      items.push(`<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0k)} ${f2(ky)}a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(2 * r0k)} 0a${f2(r0k)} ${f2(r0k)} 0 1 1 ${f2(-2 * r0k)} 0Z" clip-rule="evenodd"/></clipPath>`
-        + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-        + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0k)}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
-      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'key'));
-      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'key'));
+      // (the key's ring: 12 pt of the column's half width go to its marks and margins)
+      const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
+      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
+      items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
     }
     return { items, defs, lines, H: rows * rowH, info: { film: 'phase', ts, m, labs: ts.map(lab), box, bw, zp: zps, dc } };

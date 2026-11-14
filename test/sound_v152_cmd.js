@@ -3,7 +3,7 @@
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
 // a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1); off
 // silences the notes; a held finger and a phone's long press near a zero. The parts that run on the classic Deformation (the loop
-// singing while t runs, palette B's scrub, Esc while it plays) are in sound_v152_deform_classic_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
+// singing while t runs, Esc while it plays) are in sound_v152_deform_classic_cmd.js. A command file for the CDP daemon (test/cdp_kit README):
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &   test/<you>_cdp/q.sh test/sound_v152_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
@@ -181,9 +181,14 @@ await ev(`Sound.set({ sonify: true }); 1`);
   // sound". Three rounds of 1.5 s are counted apart; measured over 10 runs here: 0 to 2 notes in a round (the lap's own notes finished first), at most MAXHELD asked, where 15 and 30 px play none)
   {
     const MAXHELD = 3;
-    const q = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 3);
-    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (10 to 12 notes: at 6 px the 5 px rope lags about 56° of arg, so the lift's jump crosses two lines at once and one can go uncounted; 10 notes in 6 of 10 runs)`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 10 && q.notes + q.merged <= 12, q);
-    ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°), so at most ${MAXHELD} notes (merged ones included) in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
+    // (a lap with no hold: the stroke's 9 notes and the lift's 3 (the finger's jump from 56° behind crosses 3 lines,
+    // sounded 42 ms apart, none dropped), 12 in 3 runs of 3. With the tremor held first, two of the lines the rope still
+    // owes sound in the hold whenever the tremor pulls the probe over them: the same notes, earlier, and they are the
+    // hold's 0 to 2 below, so the lap's own count is read with no hold)
+    const q0 = R.touchLaps['r6_from5.7'] = await lap(6, 5.7, 48, 0);
+    ok(`a touch lap 6 px from a zero, from 5.7° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes; the 5 px rope lags about 56° of arg there, so the lift's jump crosses 3 lines, each sounded)`, q0.up === 1 && q0.down === 0 && q0.notes + q0.merged >= 11 && q0.notes + q0.merged <= 12, q0);
+    const q = R.touchLaps['r6_hold'] = await lap(6, 5.7, 48, 3);
+    ok(`held 6 px from a zero, trembling ±1.5 px: known limit (#266), the tremor is past the arg hysteresis there (14° against 3.75°) and pulls the probe over the lines the rope still owes, so at most ${MAXHELD} notes (merged ones included) in 1.5 s, not none`, q.heldRuns.every((n) => n <= MAXHELD), q.heldRuns);
   }
   await view(1440, 900, false, false);
   await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: 'en-US,en' });

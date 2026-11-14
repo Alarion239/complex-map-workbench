@@ -39,13 +39,13 @@
   }
   // the right click, the messages' place, the drawers and the panels' buttons (init: before applyLayout)
   function setupShell() {
-    // (v16.5 UX99) a right click on a chain card or a Shapes row opens its ⋯ menu at the pointer, as on the planes
+    // a right click on a Shapes row opens its ⋯ menu at the pointer, as on the planes
     // (a mouse only: a phone's long press keeps its own meaning)
     document.addEventListener('contextmenu', (e) => {
       const t = e.target instanceof Element ? e.target : null;
       if (!t || document.documentElement.classList.contains('ph') || (e.pointerType && e.pointerType !== 'mouse')) return;
-      const card = t.closest('#pipeline .card[data-k]'), row = !card && t.closest('.shape-row');
-      const more = /** @type {HTMLButtonElement | null} */ (card ? card.querySelector('.card-head .more') : row ? row.querySelector(':scope > .more') : null);
+      const row = t.closest('.shape-row');
+      const more = /** @type {HTMLButtonElement | null} */ (row ? row.querySelector(':scope > .more') : null);
       if (!more || more.disabled) return;
       e.preventDefault();
       if (popEl && popEl._opener === more) closePalette();

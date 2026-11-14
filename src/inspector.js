@@ -25,7 +25,6 @@ const Inspector = (() => {
   const FAMILY = { exp: 'exp', log: 'log', mobius: 'mobius', blaschke: 'mobius', recip: 'mobius', zp: 'zp', mul: 'linear', add: 'linear', affine: 'linear',
     pown: 'power', powa: 'power', root: 'root', joukowski: 'special', ijouk: 'special', conj: 'special', dh: 'special', bottcher: 'special', poly: 'poly', rational: 'poly', custom: 'custom', deriv: 'deriv' };
   const typeIcon = (type) => ICON[FAMILY[type] || (/^a?(sin|cos|tan|sinh|cosh|tanh|sec|csc|cot)h?$/.test(type) ? 'trig' : 'custom')];
-  const regionIcon = () => ICON.region;
   // icons of the head buttons (16 px)
   const s16 = (inner, fill) => `<svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   // (Show alone is one card inside a focus frame, never a magnifier, which reads as zoom or search)
@@ -196,6 +195,7 @@ const Inspector = (() => {
       const flong = h('div', { class: 'ftex long', hidden: true }, $t('The formula is long; the field below holds it in full.'));
       // (it scrolls sideways when the formula is long: a keyboard reaches it, named by what it holds)
       const form = h('div', { class: 'iform', tabindex: 0, role: 'group', 'aria-label': $t('Formula') }, ftex, flong);
+      const hint = h('div', { class: 'ihint', 'aria-live': 'polite' });
       const err = h('div', { class: 'ierr', role: 'status' });
       const params = h('div', { class: 'params' + (st.type === 'mobius' ? ' matrix2' : '') + (st.type === 'zp' ? ' zp' : '') });
       fillParams(params, st, k);
@@ -206,8 +206,11 @@ const Inspector = (() => {
       // its fields and before the note line, with one button that splits it into those steps
       const split = st.type === 'custom' && A.splitInfo ? h('details', { class: 'split-offer', hidden: true }) : null;
       const rep = buildRepeat(k);
-      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, err, params, rep.root, det, split, note, nums);
-      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, err, note, nums, det, params, split, rep, typing: false };
+      const root = h('div', { class: 'insp-step', 'data-k': k }, head, form, hint, err, params, rep.root, det, split, note, nums);
+      const E = { kind: 'step', k, root, lens, inv, byp, ftex, flong, hint, err, note, nums, det, params, split, rep, typing: false };
+      // (the hint follows the field as it is typed: it goes the moment the bracket is)
+      const fx0 = params.querySelector('input[data-pkey="expr"]');
+      if (fx0) fx0.addEventListener('input', () => fillHint(E, fx0.value));
       if (split) {
         split.open = foldOpen();
         // (the tour's unfolding, below, is not the viewer's fold)
@@ -321,8 +324,7 @@ const Inspector = (() => {
     }
     // after a split, the keyboard goes to the first new step: its card in the classic view, its chip on the steps view's
     // thread (the button and its Inspector are rebuilt: the element is looked up again while the chain is drawn)
-    // The focus has to survive the redraw that follows a split. The classic card is drawn once, but on the steps view's
-    // thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
+    // The focus has to survive the redraw that follows a split. On the steps view's thread the chip's focus is gone a frame or two after it is set, and in a slow renderer only stays about 5 s (277
     // frames) after the click; what takes it back there is not known (nothing calls blur(), the chip is not replaced). So
     // the focus is put on the chip again each frame until it has stayed FOCUS_STAYS frames; FOCUS_TRIES frames (10 s at
     // 60 Hz) bounds the wait. (A user who moves the focus elsewhere in that time has it taken back.)
@@ -330,7 +332,7 @@ const Inspector = (() => {
     function focusCard(k) {
       let n = 0, held = 0;
       const go = () => {
-        const c = /** @type {HTMLElement | null} */ (document.querySelector(A.svOn && A.svOn() ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`));
+        const c = /** @type {HTMLElement | null} */ (document.querySelector(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`));
         if (c && c.isConnected) {
           if (document.activeElement !== c) { c.focus({ preventScroll: true }); held = 0; } else held++;
         }
@@ -435,6 +437,65 @@ const Inspector = (() => {
       const b = A.built()[k - 1];
       return !!(b && !b.error && b.cuts && b.cuts.some((c) => c.editable));
     }
+    // z^-1/2 reads (z⁻¹)/2 by the usual precedence. A ^ followed by a number with its optional sign and then /, with no
+    // bracket after the ^, gets a quiet hint that says so and offers the bracketed power; the reading itself is unchanged.
+    // (A product, z^2*3, is 3z² as it stands, so it gets none.) The base is a name, a number or a bracketed group.
+    const POW_HINT = /\^\s*([+\-−]?)\s*(\d+(?:\.\d+)?)\s*\/\s*(\d+(?:\.\d+)?)/g;
+    const SUP_DIGITS = '⁰¹²³⁴⁵⁶⁷⁸⁹';
+    // the base that ends the text: a bracketed group (its brackets balanced) or a name or number; '' when there is none
+    function baseBefore(t) {
+      t = t.trimEnd();
+      if (t.endsWith(')')) {
+        let d = 0;
+        for (let i = t.length - 1; i >= 0; i--) {
+          if (t[i] === ')') d++;
+          else if (t[i] === '(' && --d === 0) return t.slice(i);
+        }
+        return '';
+      }
+      const m = /([A-Za-z][A-Za-z0-9]*|\d+(?:\.\d+)?)$/.exec(t);
+      return m ? m[1] : '';
+    }
+    function powHint(text) {
+      POW_HINT.lastIndex = 0;
+      for (let m; (m = POW_HINT.exec(text));) {
+        const base = baseBefore(text.slice(0, m.index));
+        if (!base) continue;
+        const [, sgn, n1, n2] = m, neg = sgn === '-' || sgn === '−';
+        // (z¹ is z: the reading drops the exponent 1)
+        const sup = n1 === '1' && !neg ? '' : /^\d+$/.test(n1) ? (neg ? '⁻' : '') + [...n1].map((d) => SUP_DIGITS[+d]).join('') : '^' + (neg ? '−' : '') + n1;
+        return { read: sup ? `(${base}${sup})/${n2}` : `${base}/${n2}`, power: `${neg ? '−' : ''}${n1}/${n2}`, fix: `${base}^(${neg ? '-' : ''}${n1}/${n2})` };
+      }
+      return null;
+    }
+    // the sentence with each expression in a span that does not break and keeps the field's monospace face
+    // (private-use characters nothing else in a translation uses: Italian's own marker is U+E001)
+    const HINT_MARK = ['\uE010', '\uE011', '\uE012'];
+    function hintSentence(p) {
+      const s = $t('Read as {read}. For the power {power}, write {fix}.', { read: HINT_MARK[0], power: HINT_MARK[1], fix: HINT_MARK[2] });
+      const val = [p.read, p.power, p.fix], out = [];
+      for (const part of s.split(/([\uE010-\uE012])/)) {
+        const at = HINT_MARK.indexOf(part);
+        out.push(at < 0 ? part : h('span', { class: 'ihint-x' }, val[at]));
+      }
+      return h('span', null, ...out);
+    }
+    function fillHint(E, text) {
+      const p = text == null ? null : powHint(text), key = p ? p.fix : '';
+      if (E.hint.dataset.key === key) return;
+      E.hint.dataset.key = key;
+      E.hint.textContent = '';
+      if (!p) return;
+      const use = () => {
+        const fx = E.params.querySelector('input[data-pkey="expr"]');
+        if (!fx) return;
+        fx.value = p.fix;
+        fx.dispatchEvent(new Event('input', { bubbles: true }));
+        fx.dispatchEvent(new Event('change', { bubbles: true }));
+        fx.focus();
+      };
+      E.hint.append(hintSentence(p), ' ', h('button', { type: 'button', class: 'btn small ihint-use', onclick: use }, $t('Use {fix}', { fix: p.fix })));
+    }
     function fillStep(E) {
       const S = A.S(), k = E.k, st = S.steps[k - 1], b = A.built()[k - 1];
       if (!st) return;
@@ -451,6 +512,7 @@ const Inspector = (() => {
       const bt = off ? $t('Turn this step back on') : $t('Bypass this step');
       if (E.byp.dataset.tip !== bt) { E.byp.dataset.tip = bt; E.byp.setAttribute('aria-label', bt); }
       E.inv.disabled = !b || bad;
+      if (!E.typing) fillHint(E, st.type === 'custom' ? String(st.params.expr || '') : null);
       const errT = bad ? b.error : '';
       if (E.err.textContent !== errT) E.err.textContent = errT;
       if (b && !bad) {
@@ -712,9 +774,9 @@ const Inspector = (() => {
     // the chain is rebuilt (undo, a step added or removed, a number renamed): the editor is built again at the next
     // render, except under a field being typed in (it waits for the field to be left, as above)
     function invalidate() { cur.stale = true; }
-    return { render, refreshParams, invalidate, typeIcon, regionIcon, STRONG };
+    return { render, refreshParams, invalidate, STRONG };
   }
-  return { create, typeIcon, regionIcon, STRONG };
+  return { create, STRONG };
 })();
 import { Construct } from './construct.js';
 import { Params } from './params.js';

@@ -28,8 +28,9 @@ await shot('ux165-v01-phone');
 
 // ---------------------------------------------------------------- phone: the message row
 await phone(412, 860);
+const clearChain = async () => { await key('k', 4); await settled({ until: "!!document.getElementById('palInput')", max: 8000 }); await type('Clear chain'); await settled({ until: "document.getElementById('palInput').value === 'Clear chain'", max: 8000 }); await key('Enter'); await settled({ until: '__cmwP().steps.length === 0', max: 8000 }); };
 await fresh('ux165f'); await settled({ until: "typeof __cmwState === 'function' && !!document.querySelector('#pipeline')" });
-await ev(`document.querySelector('#clearChain').click()`); await settled({ until: "!!document.querySelector('#toastHost .toast')" });
+await clearChain(); await settled({ until: "!!document.querySelector('#toastHost .toast')" });
 g = await ev(`(() => { const r = (e) => { if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: b.left, t: b.top, r: b.right, b: b.bottom }; }; return { t: r(document.querySelector('#toastHost .toast')), inset: r(document.querySelector('.pane.ph-inset')), fit: r(document.querySelector('.pane:not(.ph-inset) .viewstack')), col: r(document.querySelector('.pane:not(.ph-inset) .ph-col')), chain: r(document.querySelector('.pipe-wrap')) }; })()`);
 // (#66: a phone's message takes the row over the tool row, under the chain bar, and the planes give that row up: it covers none of them)
 check('UX80 phone: the message sits in its own row under the chain bar, clear of the inset, Fit and the key column', g.t && !meet(g.t, g.inset) && !meet(g.t, g.fit) && !meet(g.t, g.col) && g.t.t >= g.chain.b - 1 && g.t.b - g.t.t >= 44, g);
