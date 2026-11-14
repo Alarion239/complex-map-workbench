@@ -456,7 +456,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, hint: document.querySelector('.xf-hint').textContent, stats: __cmwFig.previewStats() }); })()`);
-  const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, send, settled, pvState });
+  const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, settled, pvState });
   const filled = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.total > 0 && s.ready === s.total); })()`;
   // (in the page: the preview's picture at timeline index k against the saved video's frame k, decoded, and against the
   // exact render at its t, all at the preview's size; mean abs difference of 255)
