@@ -18,6 +18,14 @@ const RING_MARKS = 4;
 // the options of the glide video every check here records: 1 s per step, as the other API-made videos (export_cmd.js; #531). A
 // video renders secs x fps x steps frames and a hold shows its kept picture again, so the length is what the suite's time follows
 const VIDEO_OPT = { size: '1280x720', fps: 30, secs: 1, ends: 'once' };
+// the Play range the Loop, Bounce and hidden-tab checks record: the thread's second step (planes 1 to 2), one step long
+// the evaluate wait (ms) for making a video: its encode
+const MAKE_VIDEO_MS = 600000;
+const PLAY_RANGE = [1, 2];
+// a hidden page's timers wait at least this long (ms), its animation frames do not come and document.hidden is true
+const HIDDEN_TIMER_MS = 1000;
+// a video made in a hidden page may take this many times a visible one's time, or this much longer (ms), whichever is more
+const HIDDEN_RATIO = 3, HIDDEN_SLACK_MS = 4000;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
@@ -124,6 +132,42 @@ for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land
 {
   const paperShare = await ev(`(() => { const w = 96, h = 54, c = document.createElement('canvas'); c.width = w; c.height = h; const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, w, h); const d = x.getImageData(0, 0, w, h).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.abs(d[i] - d[0]) + Math.abs(d[i + 1] - d[1]) + Math.abs(d[i + 2] - d[2]) > ${DRAWN}) n++; return n / (w * h); })()`);
   ok('a frame of paper alone is not a drawn picture (its drawn share is under DRAWN_MIN)', paperShare <= DRAWN_MIN, paperShare);
+}
+// the glide video's Play range, Loop, Bounce and hidden page: the video spans the Play range, Loop and Bounce take the classic
+// export's times (videoTimes), and a page that is hidden makes it at a pace close to a visible one. The range is one step, so
+// each video is a few dozen moving frames
+{
+  await open(1, 'plane');
+  const full = await ev('__cmwFig.glide()');
+  await ev(`(__cmwSteps({ range: ${JSON.stringify(PLAY_RANGE)} }), 1)`);
+  const rg = await ev('__cmwFig.glide()');
+  info['glide with a Play range'] = { full, rg };
+  ok('a Play range is the glide\'s span: its planes, not the whole thread', rg && full && rg.lo === PLAY_RANGE[0] && rg.hi === PLAY_RANGE[1] && full.lo === 0 && rg.lo > full.lo && rg.hi === full.hi && rg.from !== full.from, { full, rg });
+  const mk = (ends, hidden) => ev(`await (async () => { try {
+    const opt = Object.assign({}, ${JSON.stringify(VIDEO_OPT)}, { ends: '${ends}' }), g = __cmwFig.glide();
+    const st = window.setTimeout, raf = window.requestAnimationFrame;
+    if (${!!hidden}) {
+      for (const [k, v] of [['hidden', true], ['visibilityState', 'hidden']]) Object.defineProperty(document, k, { configurable: true, get: () => v });
+      window.setTimeout = (f, d, ...a) => st(f, Math.max(d || 0, ${HIDDEN_TIMER_MS}), ...a); window.requestAnimationFrame = () => 0;
+    }
+    const t0 = performance.now();
+    let r; try { r = await __cmwFig.makeVideo({ video: opt, keepForCheck: true }); } finally { window.setTimeout = st; window.requestAnimationFrame = raf; delete document.hidden; delete document.visibilityState; }
+    const ms = Math.round(performance.now() - t0), span = g.hi - g.lo, T = __cmwFig.videoTimes(opt, span);
+    const at = (x) => (typeof x === 'number' ? x : x.a), blend = T.findIndex((x) => typeof x !== 'number');
+    const moving = T.findIndex((x) => typeof x === 'number' && x > 0 && x < span), chk = await __cmwFig.videoCheck(blend >= 0 ? blend : moving);
+    return { frames: r.frames, expect: T.length, span, first: at(T[0]), last: T[T.length - 1], top: Math.max(...T.map((x) => (typeof x === 'number' ? x : Math.max(x.a, x.b)))), blends: T.filter((x) => typeof x !== 'number').length, mad: chk && chk.mad, t: chk && chk.t, ms };
+  } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, MAKE_VIDEO_MS);
+  const once = await mk('once'), loop = await mk('loop'), bounce = await mk('bounce');
+  info['glide video once, loop, bounce'] = { once, loop, bounce };
+  ok('the video of a Play range is the range\'s: frames of videoTimes() over its one step, times within it', !once.err && once.frames === once.expect && once.span === PLAY_RANGE[1] - PLAY_RANGE[0] && once.top === once.span && once.last === once.span && once.mad < 12 && once.t > 0 && once.t < 1, once);
+  ok('Bounce goes to the far end of the range and back to its first plane, in more frames than Once', !bounce.err && bounce.frames === bounce.expect && bounce.expect > once.expect && bounce.top === bounce.span && bounce.last === bounce.first && bounce.blends === 0 && bounce.mad < 12, bounce);
+  ok('Loop cross-fades the end back to the first plane (blended frames, the last one a fade to it), in more frames than Once', !loop.err && loop.frames === loop.expect && loop.expect > once.expect && loop.blends > 0 && loop.mad < 12, loop);
+  // a hidden page, as Chrome makes one: document.hidden, timers that wait a second and animation frames that never come, so a
+  // video that waits on a timer or an animation frame per frame crawls (the encoder's dequeue event and a message channel do not)
+  const hid = await mk('once', true);
+  info['glide video in a hidden page'] = { visible: once, hidden: hid };
+  ok('a video made in a hidden page has the same frames at a pace close to a visible one', !hid.err && hid.frames === once.frames && hid.ms < Math.max(HIDDEN_RATIO * once.ms, once.ms + HIDDEN_SLACK_MS), { once, hid });
+  await ev(`(__cmwSteps({ range: null }), 1)`);
 }
 // the dialog: Video is listed, with where it goes and how long it is
 // the key and the axis title the video draws are the pane's own and follow the thread: the pane is read parked at each plane
