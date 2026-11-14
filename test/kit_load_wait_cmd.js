@@ -6,7 +6,8 @@
 //   - control: the same load with a limit (DIAG_LIMIT_MS) shorter than the hold throws, naming the limit, and describes the page;
 //   - control: when the page cannot answer that read, the throw still names the limit and carries the read error;
 //   - a document whose body stops after STALL_BYTES is opened again after stallMs and the load answers on a ready page;
-//   - control: a server that stops every answer gets two more openings, and the load throws naming the limit.
+//   - control: a server that stops every answer gets two more openings, and the load throws naming the limit;
+//   - go opens a stalled document again (GO_STALL_MS), and answers false when none ever finishes.
 // It runs in the steps view. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -67,5 +68,21 @@ try {
   finally { srv.closeAllConnections(); srv.close(); }
   info.forever = { err, tests: srv.tests };
   ok('load: control: a server that stops every answer is opened again twice, then throws, naming the limit', !!err && new RegExp('not ready after ' + STALL_LIMIT_MS + ' ms').test(err) && /reloads 2;/.test(err) && srv.tests === 3, info.forever);
+  // (go, which nav, seed and loadView use, opens a stalled document again too, and answers false when none ever finishes)
+  const GO_LIMIT_MS = 12000;
+  srv = await serveDist((n) => n === 1);
+  try {
+    t0 = Date.now();
+    const loaded = await go(srv.origin + '/test.html?ns=kitgoreload' + t0, GO_LIMIT_MS);
+    info.goReload = { loaded, tests: srv.tests, ms: Date.now() - t0 };
+    ok('go: a document whose body stops arriving is opened again, and go answers true', loaded === true && srv.tests === 2, info.goReload);
+  } finally { srv.closeAllConnections(); srv.close(); }
+  srv = await serveDist(() => true);
+  try {
+    t0 = Date.now();
+    const loaded = await go(srv.origin + '/test.html?ns=kitgoforever' + t0, GO_LIMIT_MS);
+    info.goForever = { loaded, tests: srv.tests, ms: Date.now() - t0 };
+    ok('go: control: a server that stops every answer is opened again twice, then go answers false within its limit', loaded === false && srv.tests === 3 && info.goForever.ms < GO_LIMIT_MS + 3000, info.goForever);
+  } finally { srv.closeAllConnections(); srv.close(); }
 } finally { await holdSheet(0); }
 return { pass: fails.length === 0, fails, info };
