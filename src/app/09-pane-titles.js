@@ -188,8 +188,8 @@
   function seg(id, value, options, onchange, label, opt) {
     const o = opt || {};
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
-    for (const [v, l, title] of options) {
-      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
+    for (const [v, l, title, aria] of options) {
+      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
     setSeg(el, value);
     // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
@@ -731,7 +731,7 @@
   function setSheets(on) {
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
-    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: fnText() })); }
+    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: SV.on ? svHeightName('text') : fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
@@ -818,6 +818,15 @@
     syncOpacityRange(rng);
     return row;
   }
+  // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
+  // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
+  // button named by its words and titled so
+  function heightOptions(Fn) {
+    const lg = I18N.fnName('log');
+    if (!SV.on) return [['log', `${lg} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]];
+    const kinds = [['log', `${lg} |·|`, $t('log of the modulus')], ['abs', '|·|', $t('modulus')], ['re', 'Re', $t('real part')], ['im', 'Im', $t('imaginary part')]];
+    return kinds.map(([v, l, words]) => [v, l, words, words]);
+  }
   function buildFootL(f) {
     const Fn = fnText();
     // the Landscape view (merged-views.md): its height, then its colouring in one control: the phase colours the relief
@@ -825,7 +834,7 @@
     if (lLand()) {
       const paint = !S.view.D.phase ? 'plaster' : landMaterial() === 'phase' ? 'phase' : 'tiles';
       f.append(
-        seg('heightSeg', S.height, [['log', `${I18N.fnName('log')} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
+        seg('heightSeg', S.height, heightOptions(Fn), (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
         seg('landPaint', paint, [['tiles', $t('Tiles'), $t('Phase colours with modulus contours')], ['phase', $t('Plain'), $t('Phase colours only')], ['plaster', $t('Plaster'), $t('The relief alone, lit')]], (v) => {
           setViewOpt('D', 'phase', v !== 'plaster');
           if (v === 'phase') setOpt('landPlain', S.dc !== 'phase');

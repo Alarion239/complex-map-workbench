@@ -60,7 +60,7 @@
   // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
   const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
-  // The Landscape's height follows the colour plane T, as the colour does (#1576): a point's height is h of its image in T,
+  // The Landscape's height follows the colour plane T, as the colour does: a point's height is h of its image in T,
   // the same on every plane. Plane k's heights are carried by the points of plane svHeightSrc(k): k itself up to T (the
   // map from w_k into T, the colour's), T's own points past it (as they carry T's colour), and z's points where a d/dz
   // step between k and T leaves no map from the later plane to the earlier one's, as the colour's carry

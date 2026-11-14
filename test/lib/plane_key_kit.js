@@ -28,7 +28,7 @@
   },
   // what the key shows on the surface (plane, sphere, land) with T at plane T and the thread at plane i: on a plane up to T the
   // style's key, past T the hue ring with the plane its colour is carried from, on the Landscape the height key, of what
-  // the height reads (#1576: the map into T up to it, T's own variable at and past it)
+  // the height reads (the map into T up to it, T's own variable at and past it)
   // (in another language than English only the kind is checked: the captions are translated)
   expectKey: function (ok, name, surf, T, i, lg) {
     if (this.lang && this.lang !== 'en') {

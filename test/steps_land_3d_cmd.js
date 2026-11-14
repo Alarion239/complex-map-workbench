@@ -9,7 +9,7 @@
 //   there, within the exact-image tolerance (at most 2 % of the pane's pixels more than 32/255 apart: the rest frame's
 //   refined walls and cut rims are not drawn while moving);
 // - past T the carried points keep T's colour: plane w₂'s frame at rest is the points of w₁ carried (s = 1, u = 1);
-// - the title names what the height reads (#1576): the map into T up to it ("landscape of log|f₁|", F from z into the
+// - the title names what the height reads, which follows T: the map into T up to it ("landscape of log|f₁|", F from z into the
 //   last plane), T's own variable on T ("log|w₁|"), and past T T's variable and that the points carry it (", carried
 //   from w₁"), as the Height select reads ("|·|", "Re", "Im"); the floor's axes name the plane drawn
 //   (Re w₁, Im w₁ on w₁), and in a held frame the plane nearer the thread.

@@ -20,6 +20,13 @@
 //   pixels more than DIFF_TOL apart (frac), the largest (max) and the mean (mean); and each frame's mean luminance
 //   (lum, Rec. 601 weights) and mean alpha (alpha); win { x: [x0, x1], y: [y0, y1] } (fractions of the pane): only
 //   the pixels in that window;
+// - wordsOff(): canvasL draws no words from here on (fillText and strokeText do nothing on it; every other canvas draws
+//   as before), for a suite that reads the picture under them: the floor's and the ruler's labels name things that two
+//   frames compared may name differently, and over a surface a glyph reads as a speck;
+// - keep(tag) and compareKept(a, b): a kept frame brought out of the page (a page load clears __heldPx), and two such
+//   frames' difference: the pixels with any channel apart (apart), the share more than DIFF_TOL apart (frac), the
+//   largest channel difference (max), and whether each frame shows a picture (shown: its channels span more than
+//   DIFF_TOL, so two blank canvases are not the same picture); null when either is missing or their sizes differ;
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over the window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u and the
@@ -128,6 +135,32 @@
       await sleep(100);
     }
     return false;
+  };
+  const wordsOff = () => ev(`(() => { const p = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = p[k]; p[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
+  const kept = {};
+  const keep = async (tag) => {
+    const b64 = await ev(`(() => { const P = (window.__heldPx || {})[${JSON.stringify(tag)}]; if (!P) return ''; let s = ''; for (let i = 0; i < P.length; i += 0x8000) s += String.fromCharCode.apply(null, P.subarray(i, i + 0x8000)); return btoa(s); })()`);
+    kept[tag] = b64 ? Buffer.from(b64, 'base64') : null;
+    return !!kept[tag];
+  };
+  const compareKept = (a, b) => {
+    const A = kept[a], B = kept[b];
+    if (!A || !B || A.length !== B.length) return null;
+    let apart = 0, over = 0, max = 0;
+    const lo = [[255, 255, 255], [255, 255, 255]], hi = [[0, 0, 0], [0, 0, 0]];
+    for (let i = 0; i < A.length; i += 4) {
+      let m = 0;
+      for (let c = 0; c < 3; c++) {
+        m = Math.max(m, Math.abs(A[i + c] - B[i + c]));
+        lo[0][c] = Math.min(lo[0][c], A[i + c]); hi[0][c] = Math.max(hi[0][c], A[i + c]);
+        lo[1][c] = Math.min(lo[1][c], B[i + c]); hi[1][c] = Math.max(hi[1][c], B[i + c]);
+      }
+      if (m) apart++;
+      if (m > DIFF_TOL) over++;
+      if (m > max) max = m;
+    }
+    const shown = [0, 1].map((k) => Math.max(...[0, 1, 2].map((c) => hi[k][c] - lo[k][c])) > DIFF_TOL);
+    return { apart, frac: +(over / (A.length / 4)).toFixed(5), max, shown };
   };
   const compare = (a, b, win = null) => ev(`(() => {
     const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}];
@@ -282,5 +315,5 @@ ${REF}`;
     const q = r.ref;
     return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, pass: q.n >= minN && q.over <= maxOver };
   };
-  return { hold, UNHELD, grab, compare, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, UNHELD, grab, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()

@@ -717,5 +717,9 @@
  "Nothing to fit yet": "Пока нечего вписывать",
  "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, плоскость, плоская, область, z-плоскость, фазовый портрет, раскраска области, раскраска, цвет, фаза, аргумент, модуль",
  "riemann sphere, globe, infinity, sphere": "riemann sphere, globe, infinity, sphere, сфера римана, глобус, бесконечность, сфера",
- "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы"
+ "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, рельеф, 3d, поверхность, риманова поверхность, поверхность модуля, высота, листы",
+ "log of the modulus": "логарифм модуля",
+ "modulus": "модуль",
+ "real part": "вещественная часть",
+ "imaginary part": "мнимая часть"
 }

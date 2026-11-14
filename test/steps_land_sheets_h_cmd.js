@@ -1,4 +1,4 @@
-// The steps view's Landscape height follows the colour plane T, as its colour does (#1576): a point's height is h of
+// The steps view's Landscape height follows the colour plane T, as its colour does: a point's height is h of
 // its image in T, so the steps after T never change the relief of a plane up to T, and past T the points carry T's
 // heights as they carry its colour.
 // A chain z → z² + 1 → √ (and the same without √, or with exp after it), the Landscape, Im heights, the shapes hidden:
@@ -22,24 +22,13 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { grab, compare, wordsOff, keep, compareKept } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const carried = async () => JSON.parse(await ev('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)'));
 const heightAt = async (x, y) => JSON.parse(await ev(`JSON.stringify(typeof __cmwLandHeightAt === 'function' ? __cmwLandHeightAt(${x}, ${y}) : 'no hook')`));
 const near = (v, w) => Array.isArray(v) && Math.hypot(v[0] - w[0], v[1] - w[1]) <= 1e-6 * (1 + Math.hypot(w[0], w[1]));
-// (a kept frame's pixels, canvasL's RGBA bytes, held here: a page load clears the page's own copy)
-const kept = {};
-const keep = async (tag) => { const b64 = await ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}]; if (!P) return ''; let s = ''; for (let i = 0; i < P.length; i += 0x8000) s += String.fromCharCode.apply(null, P.subarray(i, i + 0x8000)); return btoa(s); })()`); kept[tag] = b64 ? Buffer.from(b64, 'base64') : null; };
-// two kept frames' difference: the pixels with any channel apart, the share more than 32/255 apart, the largest channel difference
-const diff = (a, b) => {
-  const A = kept[a], B = kept[b];
-  if (!A || !B || A.length !== B.length) return null;
-  let n = 0, over = 0, max = 0;
-  for (let i = 0; i < A.length; i += 4) { const m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])); if (m) n++; if (m > 32) over++; if (m > max) max = m; }
-  return { apart: n, frac: +(over / (A.length / 4)).toFixed(5), max };
-};
 const step = (type, params) => ({ type, params: params || {}, on: true });
 const P = step('custom', { expr: 'z^2 + 1', cut: 180 }), ROOT = step('root', { n: 2 }), EXP = step('exp');
 // the chain steps on the Landscape with Im heights (o.height: another) at plane `plane` with T, still: its frame kept as
@@ -49,7 +38,7 @@ async function frame(steps, T, plane, tag, o = {}) {
   const ns = 'landfollow' + Date.now(), height = o.height || 'im';
   await loadView('steps', ns, { shapes: [], steps, sheets: !!o.sheets, srcView: { cx: 0, cy: 0, s: 90 } });
   await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
-  await ev(`(() => { const f = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = f[k]; f[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
+  await wordsOff();
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: ${T}, go: ${plane}, now: true }); 1`);
   await settled({ max: 60000 });
   await ev(`(document.querySelector('#heightSeg button[data-v="${height}"]') || {}).click?.(), 1`);
@@ -69,8 +58,8 @@ const CH = [P, ROOT];
   ok('T = z: the chain has three planes and T is z', Array.isArray(r.with.planes) && r.with.planes.length === 3 && r.with.T === 0, r.with);
   ok('T = z, plane z: its own relief (no carry)', !r.with.carry, r.with.carry);
   ok('T = z, plane z: the height reads z itself', near(r.withH, [0.3, 0.7]), r.withH);
-  r.d = diff('z3', 'z2');
-  ok('T = z, plane z: the relief is unchanged by the √ step after T (no seam along its cut)', !!r.d && r.d.max === 0, r.d);
+  r.d = compareKept('z3', 'z2');
+  ok('T = z, plane z: the relief is unchanged by the √ step after T (no seam along its cut)', !!r.d && r.d.max === 0 && r.d.shown.every(Boolean), r.d);
 }
 {
   const r = info.w1 = {};
@@ -80,8 +69,8 @@ const CH = [P, ROOT];
   ok('T = w₁, plane z: its own relief (no carry)', !r.with.carry, r.with.carry);
   // ((0.3 + 0.7i)² + 1 = 0.6 + 0.42i)
   ok('T = w₁, plane z: the height reads z² + 1', near(r.withH, [0.6, 0.42]), r.withH);
-  r.d = diff('w1z3', 'w1z2');
-  ok('T = w₁, plane z: the relief is h(z² + 1), unchanged by the √ step after T', !!r.d && r.d.max === 0, r.d);
+  r.d = compareKept('w1z3', 'w1z2');
+  ok('T = w₁, plane z: the relief is h(z² + 1), unchanged by the √ step after T', !!r.d && r.d.max === 0 && r.d.shown.every(Boolean), r.d);
 }
 {
   const r = info.past = {};
@@ -94,8 +83,8 @@ const CH = [P, ROOT];
   ok('past T, plane w₂: at their heights on w₁ (the carry\'s height map is w₁\'s identity)', !!c && !!c.hmap && c.hmap.a === 1 && c.hmap.b === 1, c);
   // ((0.8 + 0.5i)² = 0.39 + 0.8i)
   ok('past T, plane w₂: the probe reads the point of w₁ carried there, w₂²', near(r.h, [0.39, 0.8]), r.h);
-  r.d = diff('p3', 'p4');
-  ok('past T, plane w₂: the carried relief is unchanged by a step after it', !!r.d && r.d.max === 0, r.d);
+  r.d = compareKept('p3', 'p4');
+  ok('past T, plane w₂: the carried relief is unchanged by a step after it', !!r.d && r.d.max === 0 && r.d.shown.every(Boolean), r.d);
 }
 // ---- All sheets: z, √, Möbius ----
 const CHAIN = [ROOT, step('mobius', { a: '1', b: '-i', c: '1', d: 'i' })];
@@ -104,8 +93,8 @@ const CHAIN = [ROOT, step('mobius', { a: '1', b: '-i', c: '1', d: 'i' })];
   r.mid = await frame(CHAIN, 1, 0, 'sh1', { sheets: true });
   r.alone = await frame([ROOT], 1, 0, 'sh0', { sheets: true });
   ok('All sheets, T = w₁, plane z: its own relief', !r.mid.carry, r.mid.carry);
-  r.d = diff('sh1', 'sh0');
-  ok('All sheets, T = w₁, plane z: the sheets of √, as on the chain √ alone', !!r.d && r.d.max === 0, r.d);
+  r.d = compareKept('sh1', 'sh0');
+  ok('All sheets, T = w₁, plane z: the sheets of √, as on the chain √ alone', !!r.d && r.d.max === 0 && r.d.shown.every(Boolean), r.d);
   r.past = await frame([...CHAIN, step('mobius', { a: '0', b: '1', c: '1', d: '0' })], 2, 3, 'sh3', { sheets: true, height: 'log' });
   const c = r.past.carry;
   ok('All sheets, T = w₂, plane w₃: a carried frame from z with the sheets', !!c && c.s === 0 && c.sheets === true && !!c.hmap && c.hmap.a === 0 && c.hmap.b === 2, c);

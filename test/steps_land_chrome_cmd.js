@@ -1,11 +1,13 @@
 // The steps view's Landscape chrome: the Height key, the title and the readout name what the height reads, which
-// follows the colour plane T (#1576): the map into T up to it (F from z into the last plane, f₁, f₂), T's own variable
+// follows the colour plane T: the map into T up to it (F from z into the last plane, f₁, f₂), T's own variable
 // on T, and past T T's variable, whose heights the points carry. The default page (z, exp, Möbius) on the Landscape,
 // with T = w₁ (plane w₂ past it) and T = w₂ (the default):
 // - on every plane at rest and between planes, held at u = 0.5: the Height key is the key, captioned "height log |X|",
 //   X what the plane's height reads (held, either plane's);
 // - the title names the relief's height, log|X|, on every plane with either T;
-// - at rest the probe at the pane's centre reads the point, X there (but on T, where X is the point) and the height |X|.
+// - at rest the probe at the pane's centre reads the point, X there (but on T, where X is the point) and the height |X|
+//   (but on T, where the point's own row reads it);
+// - the Height control names the kind of height alone ("log |·|", "|·|", "Re", "Im"), each button named in words.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -31,6 +33,11 @@ await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
 await settled({ max: 60000 });
 // what plane i's height reads with T
 const X = (T, i) => (i >= T ? `w${'₀₁₂'[T]}` : T === 2 && i === 0 ? 'F' : i === 0 ? 'f₁' : 'f₂');
+// the Height control names the kind of height alone, the same on every plane (the title, the key and the ruler name the
+// map), each button with an accessible name in words
+info.heightSeg = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#heightSeg button')].map((b) => [b.dataset.v, b.textContent.trim(), b.getAttribute('aria-label')]))`));
+ok('the Height control: the kinds log |·|, |·|, Re, Im', JSON.stringify(info.heightSeg.map((b) => b.slice(0, 2))) === JSON.stringify([['log', 'log |·|'], ['abs', '|·|'], ['re', 'Re'], ['im', 'Im']]), info.heightSeg);
+ok('the Height control: each button named in words', JSON.stringify(info.heightSeg.map((b) => b[2])) === JSON.stringify(['log of the modulus', 'modulus', 'real part', 'imaginary part']), info.heightSeg);
 info.runs = {};
 for (const T of [1, 2]) {
   const r = info.runs['T' + T] = { rest: {}, held: {} };
@@ -44,7 +51,8 @@ for (const T of [1, 2]) {
     ok(`T = ${T}, plane ${i} at rest: the Height key, of ${x}`, k.kind === '3d' && k.caption === `height log |${x}|`, k);
     ok(`T = ${T}, plane ${i}: the title's height is log|${x}|`, String(role).replace(/<[^>]*>/g, '').includes(`log|${x}|`), role);
     const lab = rows.map((r) => r[0].trim());
-    ok(`T = ${T}, plane ${i} at rest: the readout reads |${x}|`, lab.includes(`|${x}|`), rows);
+    // (on T the point's own row reads |x|: a log height adds no second one)
+    ok(`T = ${T}, plane ${i} at rest: the readout reads |${x}| once`, lab.filter((l) => l === `|${x}|`).length === 1, rows);
     // (on T, x is the plane's own variable: its row is the point's, not repeated)
     ok(`T = ${T}, plane ${i} at rest: the readout reads ${x} once`, lab.filter((l) => l === x).length === 1, rows);
   }
