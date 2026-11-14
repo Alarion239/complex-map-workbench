@@ -1587,6 +1587,10 @@ const Inverse = (() => {
   // (newtOps). {ok, ops} | {ok: false, reason}
   // a polynomial step of degree 2 to NEWT_POLY_MAX, its degree known exactly: its roots are all of Newton's members
   const isNewtPoly = (P) => !!P.polynomial && !!P.degExact && P.deg >= 2 && P.deg <= NEWT_POLY_MAX;
+  // Inverse.polyHom(b): whether built step b's homotopy is a polynomial in u at every t, so it has no pole at any t: a
+  // polynomial step as isNewtPoly takes it, not a recognised chain (whose homotopy walks its sub-steps' own): the
+  // straight line or a zoom (f conjugated by affine maps), which newtOps inverts by every root (NEWT with deg)
+  const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
   function homOps(b, t) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
@@ -1724,7 +1728,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox

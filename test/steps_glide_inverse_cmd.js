@@ -130,21 +130,22 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // The first frame of a scrub made at once (no wait for ready.ready) is the held frame, pixel-equal to plane z's parked
 // frame, or drawn by the inverse pass with the share of its floor; never a frame below the floor. The first frame at rest
 // after it leaves no hold behind, the hold ends once the tracks exist, and a glide with an exact inverse (z squared) is
-// never held.
+// never held, nor one Everywhere through a polynomial step inverted by every root after no step with a pole (the partial
+// sum of the exponential: its map has no pole at any t, so no tracks to wait for).
 {
   const INK_PAPER = 240, FRAME_MS = 600000, FIRST_MS = 120000, HELD_DIFF = 6, HELD_OVER = 0.002, HELD_FAR = 10 * HELD_OVER, FRAME_SEARCH_MS = 0.001;
   const FLOOR = { 0.25: 0.045, 0.5: 0.065, 0.75: 0.07 };
-  const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared');
-  ok('the zeta and the squared examples are found', ex >= 0 && sq >= 0, names.length);
+  const ex = names.indexOf('Zeros of the zeta function'), sq = names.indexOf('Quarter plane squared'), ps = names.indexOf('Partial sums of the exponential');
+  ok('the zeta, the squared and the partial sums examples are found', ex >= 0 && sq >= 0 && ps >= 0, names.length);
   const SHARE = `(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`;
   // (the example, then every pole track dropped and the scrub to x in one page call: no idle moment makes tracks in
   // between, as right after load; a frame's own pole search gets FRAME_SEARCH_MS, as on a machine too slow to finish it)
-  const load = async (example, x) => {
+  const load = async (example, x, scope = 'in') => {
     await go(`${BASE}/test.html?ns=gh${Date.now()}&lang=en&view=steps`);
     await ready();
     await ev(HELP);
     await ev(`__cmwExample(${example}), 1`);
-    await ev("__cmwSteps({ bare: true, scope: 'in' }), 1");
+    await ev(`__cmwSteps({ bare: true, scope: '${scope}' }), 1`);
     await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
     await ev(`__cmwSteps({ poleFrameMs: ${FRAME_SEARCH_MS}, dropTracks: true, x: ${x} }), 1`);
   };
@@ -205,6 +206,10 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const r3 = await first(0.5, true);
   info['squared scrub at once'] = r3;
   ok('z squared scrubbed at once after load: never held, drawn by the inverse pass', !r3.hold && !!r3.g && r3.g.path === 'inverse', r3);
+  await load(ps, 0.5, 'all');
+  const r4 = await first(0.5, true);
+  info['partial sum scrub at once'] = r4;
+  ok('the partial sum of the exponential scrubbed at once after load, Everywhere: never held, drawn by the inverse pass', !r4.hold && !!r4.g && r4.g.path === 'inverse', r4);
 }
 // ---- the NEWT roots pass reads no GL state back ----
 // (the partial sum of the exponential, degree 8, Inside regions, inverts by a NEWT op, whose members the roots pass draws for every pixel, GLR.newtRoots: once a
