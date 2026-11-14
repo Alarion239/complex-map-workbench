@@ -16,6 +16,7 @@ await load('shape-stroke' + Date.now(), Object.assign({}, K.BASE, {
   steps: [{ type: 'pown', params: { n: 2 }, on: true }],
 }));
 await settled({ floor: 300, max: 15000, until: "typeof __cmwStroke === 'function' && __cmwShapes().shapes.length === 3" });
+ok('the page is the steps view', (await ev('__cmwSteps().on')) === true, await ev('__cmwSteps().on'));
 const st = (id, opt) => ev(`__cmwStroke('${id}', ${JSON.stringify(opt || {})})`);
 const same = (a, b) => !!a && Object.keys(b).every((k) => Math.abs(a[k] - b[k]) < 1e-9);
 R.circle = await st('a1'); ok('a curve: 2 px, halo 4 px', same(R.circle, { width: 2, alpha: 1, casing: 4 }), R.circle);
@@ -28,5 +29,6 @@ R.sel = await st('a1', { domain: true }); ok('selected on its plane: +0.75 px, t
 R.selG = await st('a1', { domain: true, still: true }); ok('on a globe the selection adds nothing', same(R.selG, { width: 2, casing: 4 }), R.selG);
 await ev(`__cmwSelect('t1'); 1`);
 await settled({ floor: 300, max: 15000, until: "__cmwShapes().selected === 't1'" });
+ok('the target t1 is selected in the steps view', (await ev('__cmwShapes().selected')) === 't1', await ev('__cmwShapes().selected'));
 R.tgt = await st('t1', { domain: true }); ok('a selected target outline: its halo is its width + 2', same(R.tgt, { width: 2.25, casing: 4.25 }), R.tgt);
 return { pass: fails.length === 0, fails, results: R };
