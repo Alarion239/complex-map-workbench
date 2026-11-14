@@ -23,9 +23,9 @@
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
 // - a long-lived page: a chain of three glides with polar rings (z + c, 1/z, e^z), c edited until the polar meshes kept
-//   are SV_POLAR_KEEP, most of them earlier chains': the far glide (to plane 3, the thread on plane 0) still has its
-//   ring sizes made and their meshes built by the idle job, and parked at x after x on it, its frames make no size and
-//   create no buffer, texture or vertex array for the ring.
+//   are SV_POLAR_KEEP, then a zeta step added, whose glide draws the carried meshes and their polar ring: that far glide
+//   (to plane 4, the thread on plane 0) still has its ring sizes made and their meshes built by the idle job, and parked
+//   at x after x on it, its frames make no size and create no buffer, texture or vertex array for the ring.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -315,8 +315,8 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
 // ---- a long-lived page: the far glide's ring meshes once the polar meshes kept are SV_POLAR_KEEP ----
 {
   // (the steps view's polar meshes kept at most, SV_POLAR_KEEP; c's edits, each a new pole of 1/z on plane 0 and new
-  // polar meshes, past what fills them)
-  const POLAR_KEEP = 12, EDITS = 4, FAR = 2;
+  // polar meshes, past what fills them; FAR: the zeta step's glide)
+  const POLAR_KEEP = 12, EDITS = 4, FAR = 3;
   const ns = 'gf' + Date.now();
   await load(ns, { shapes: [], steps: [{ type: 'add', params: { c: '0.3' } }, { type: 'recip', params: {} }, { type: 'exp', params: {} }], srcView: { cx: 0, cy: 0, s: 60 } });
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
@@ -328,6 +328,8 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
     await ev(`__cmwStepParam(0, 'c', '${(0.3 + 0.37 * k).toFixed(2)}+${(0.11 * k).toFixed(2)}i'), 1`);
     await settled({ max: 30000, until: '!__cmwSvKey().busy' });
   }
+  await ev(`__cmwAddStep('zeta', {}), 1`);
+  await settled({ max: 60000, until: '__cmwSteps().planes.length === 5 && !__cmwSvKey().busy' });
   const kept = await ev('__cmwSvRingMade()'), far = await ev(`__cmwSvRingMade(${FAR})`);
   // (the frames' work counted from here: the ring's sizes made in a frame, and its GL objects created in one)
   await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svRingGPU', 'svCarryRegions'], '__farAlloc');
