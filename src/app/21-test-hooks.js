@@ -58,8 +58,9 @@
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   // the colour plot's stand-in (colourStandIn): the cell of its finest level done (css px; null before one) and its
-  // nodes, its evaluations, CPU ms, slices, longest slice (ms) and why it stopped (null while it runs); null when none
-  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
+  // it runs); null when none
+  /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
   window.__cmwPaths = () => {
     const views = [], out = [];
     if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)

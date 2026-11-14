@@ -9,7 +9,8 @@ await load(ns, {});
 await ev('(__cmwExample(1), 1)');
 const base = await ev('location.origin');
 await go(`${base}/test.html?ns=${ns}&glhold&view=steps`);
-await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
+// (the app up: its panes stay compiling while the links are held)
+await settled({ max: 30000, panes: false, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
 await ev('(__cmwSteps({ go: 99, now: true }), 1)');
 await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });
 const held = await ev('__cmwSteps().ready');

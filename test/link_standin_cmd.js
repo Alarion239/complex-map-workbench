@@ -10,6 +10,28 @@
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+// Releases the held links and records, in the page, a verdict on each frame from then on, until REC_AFTER frames past the
+// first 'gpu' one (or REC_MS): fn names the GLR draw the verdicts watch; verdict, a page-side function's source, turns a
+// frame's {calls of fn, drew (those that returned true), pending (GLR.frameStatus())} into 'blank', 'gpu' or another
+// name. -> {list, runs}: the verdicts (null when the record did not end) and their runs, [verdict, count] each
+const REC_AFTER = 8, REC_MS = 30000;
+const releaseFrames = async (fn, verdict) => {
+  await ev(`(() => { window.__lsFr = null;
+    const orig = GLR.${fn}, verdict = ${verdict}, f = { calls: 0, drew: 0 }, fr = [], t1 = performance.now();
+    GLR.${fn} = function () { const r = orig.apply(this, arguments); f.calls++; if (r) f.drew++; return r; };
+    let gpu = -1;
+    const tick = () => {
+      fr.push(verdict({ calls: f.calls, drew: f.drew, pending: GLR.frameStatus().pending })); f.calls = f.drew = 0;
+      if (gpu < 0 && fr[fr.length - 1] === 'gpu') gpu = fr.length;
+      if ((gpu < 0 || fr.length - gpu < ${REC_AFTER}) && performance.now() - t1 < ${REC_MS}) requestAnimationFrame(() => setTimeout(tick, 0));
+      else { GLR.${fn} = orig; window.__lsFr = fr; }
+    };
+    GLR.holdLinks(false); requestAnimationFrame(() => setTimeout(tick, 0)); return 1; })()`);
+  const done = await settled({ only: true, max: REC_MS + 5000, until: 'Array.isArray(window.__lsFr)' });
+  const list = done.ok ? await ev('window.__lsFr') : null, runs = [];
+  for (const x of list || []) { if (runs.length && runs[runs.length - 1][0] === x) runs[runs.length - 1][1]++; else runs.push([x, 1]); }
+  return { list, runs };
+};
 await view(1440, 900, false);
 const ns = 'lsi' + Date.now();
 await load(ns, {});
@@ -33,22 +55,14 @@ info.held = held;
 info.last = last;
 ok('while the link is held: the stand-in is drawn (verdict linking, the shape on the pane)', !!held, held || last);
 ok('while the link is held: the frame counts as pending', held && held.pending === true, held);
-// (the frames after the release, collected in the page: blank = the frame is pending and drew nothing)
-await ev(`(() => { window.__lsiFr = null;
-  let pre = false; const dp = GLR.drawPreMapped; GLR.drawPreMapped = function () { pre = true; return dp.apply(this, arguments); };
-  const fr = [], t1 = performance.now();
-  const tick = () => { const st = GLR.frameStatus(); fr.push(st.pending && !pre ? 'blank' : st.pending ? 'stand-in' : 'gpu'); pre = false;
-    if (performance.now() - t1 < 4000) requestAnimationFrame(() => setTimeout(tick, 0)); else { GLR.drawPreMapped = dp; window.__lsiFr = fr; } };
-  GLR.holdLinks(false); requestAnimationFrame(() => setTimeout(tick, 0)); return 1; })()`);
-let after = null;
-for (let i = 0; i < 60 && !Array.isArray(after); i++) { await sleep(500); after = await ev('window.__lsiFr'); }
-const runs = []; for (const x of Array.isArray(after) ? after : []) { if (runs.length && runs[runs.length - 1][0] === x) runs[runs.length - 1][1]++; else runs.push([x, 1]); }
-info.after = Array.isArray(after) ? runs : after;
-ok('after the release: no frame pending with nothing drawn', Array.isArray(after) && !after.includes('blank'), info.after);
-await sleep(2500);
+// (the frames after the release: blank = the frame is pending and drew nothing)
+const after = await releaseFrames('drawPreMapped', "(f) => (f.pending && !f.calls ? 'blank' : f.pending ? 'stand-in' : 'gpu')");
+info.after = after.list ? after.runs : null;
+ok('after the release: no frame pending with nothing drawn', !!after.list && !after.list.includes('blank'), info.after);
+const finWait = await settled({ max: 20000 });
 const fin = { blue: +(await blue()).toFixed(3), pending: await ev('GLR.frameStatus().pending'), why: await ev(`__cmwSmVerdict('SV').map((v) => v.why)`) };
-info.final = fin;
-ok('after the release: the GPU picture, settled', fin.pending === false && !fin.why.includes('linking') && fin.blue > 0.05, fin);
+info.final = Object.assign({ wait: finWait }, fin);
+ok('after the release: the GPU picture, settled', finWait.ok && fin.pending === false && !fin.why.includes('linking') && fin.blue > 0.05, fin);
 // the colour plot's stand-in: (z²−1)/(z²+1), its colour plane w₁, Everywhere, a disc on z; colourStandIn's levels go to 4 px
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const loaded = "typeof __cmwSteps === 'function' && !!window.GLR";
@@ -90,18 +104,10 @@ info.colourIn = { wait: inWait, n: inPx.length, black: inPx.filter((p) => Math.m
 ok('Inside regions, the program held: the region is coloured, not black, and the pane says it is compiling', inWait.ok && info.colourIn.n >= 20 && info.colourIn.black === 0 && info.colourIn.coloured >= 0.8 * info.colourIn.n && !!info.colourIn.pane && info.colourIn.pane.compiling === true, info.colourIn);
 await ev("__cmwSteps({ scope: 'all' }), 1");
 await settled({ panes: false });
-// (after the release, each frame's colour plots, collected in the page: blank = one drew nothing)
-await ev(`(() => { window.__lscFr = null;
-  let calls = 0, drew = 0; const dc = GLR.drawColorPlot; GLR.drawColorPlot = function () { const r = dc.apply(this, arguments); calls++; if (r) drew++; return r; };
-  const fr = [], t1 = performance.now();
-  const tick = () => { fr.push(!calls ? 'none' : drew < calls ? 'blank' : GLR.frameStatus().pending ? 'pending' : 'gpu'); calls = drew = 0;
-    if (performance.now() - t1 < 4000) requestAnimationFrame(() => setTimeout(tick, 0)); else { GLR.drawColorPlot = dc; window.__lscFr = fr; } };
-  GLR.holdLinks(false); requestAnimationFrame(() => setTimeout(tick, 0)); return 1; })()`);
-let colourAfter = null;
-for (let i = 0; i < 60 && !Array.isArray(colourAfter); i++) { await sleep(500); colourAfter = await ev('window.__lscFr'); }
-const cruns = []; for (const x of Array.isArray(colourAfter) ? colourAfter : []) { if (cruns.length && cruns[cruns.length - 1][0] === x) cruns[cruns.length - 1][1]++; else cruns.push([x, 1]); }
-info.colourAfter = Array.isArray(colourAfter) ? cruns : colourAfter;
-ok('the colour plot, after the release: no frame where it drew nothing', Array.isArray(colourAfter) && colourAfter.includes('gpu') && !colourAfter.includes('blank'), info.colourAfter);
+// (after the release, each frame's colour plots: blank = one of them drew nothing)
+const colourAfter = await releaseFrames('drawColorPlot', "(f) => (!f.calls ? 'none' : f.drew < f.calls ? 'blank' : f.pending ? 'pending' : 'gpu')");
+info.colourAfter = colourAfter.list ? colourAfter.runs : null;
+ok('the colour plot, after the release: no frame where it drew nothing', !!colourAfter.list && colourAfter.list.includes('gpu') && !colourAfter.list.includes('blank'), info.colourAfter);
 const linked = await settled({ max: 20000 });
 const gpuPx = (await K.lpx(pts)).px;
 info.colourMatch = K.tally(heldZ.px, gpuPx, { tol: 24 });

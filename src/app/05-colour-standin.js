@@ -4,18 +4,19 @@
   // the plot's map) and coloured on the GPU as the plot is (GLR.drawColorPlot's st.standIn). The grid's nodes lie on the
   // pane's CSS pixels, every STANDIN_CELLS px, a level at a time: each level is drawn once it is complete, and the next,
   // twice as fine, takes the nodes it shares with it. A stand-in starts once the plot's program has had nothing to draw
-  // for SM_LINKING_MS, so a quick link never computes one, and it runs in idle slices of STANDIN_SLICE ms of evaluations
-  // (the clock read after each), none while anything moves. It spends at most STANDIN_BUDGET ms: from the second slice
-  // on (the first one's evaluations wait on the JIT, many times as long as later ones), at the end of each slice and
-  // before each level, the work left is costed at the time per evaluation measured so far, and a stand-in whose work
-  // would not fit stops there, its finest level done still drawn. A chain whose first level does not fit gets none: the
-  // pane waits as it would without it.
+  // for SM_LINKING_MS, so a quick link never computes one, and it runs in idle slices, none while anything moves: each
+  // ends before an evaluation as long as the last would pass STANDIN_SLICE ms (the clock read after each), short of the
+  // idle drivers' 6 ms by the collector's pause that the evaluations' garbage can bring into a slice. It spends at most
+  // STANDIN_BUDGET ms: from the second slice on (the first one's evaluations wait on the JIT, many times as long as later
+  // ones), at the end of each slice and before each level, the work left is costed at the time per evaluation measured
+  // so far, and a stand-in whose work would not fit stops there, its finest level done still drawn. A chain whose first
+  // level does not fit gets none: the pane waits as it would without it.
   const STANDIN_CELLS = [64, 32, 16, 8, 4];
-  const STANDIN_SLICE = 4, STANDIN_BUDGET = 250;
+  const STANDIN_SLICE = 3, STANDIN_BUDGET = 250;
   // the stand-in of the plot's map in its view: {key, vkey, map, F, x0, y0, s, w, h, next (the level being
   // evaluated), grid (the finest level done, drawn), prev (the same map's grid in an earlier view, drawn until this one
-  // has a level), ms, n (evaluations), slices, maxSlice, end (why it stopped: 'done', 'budget', 'error', 'linked'),
-  // dead}; null when there is none
+  // has a level), ms, n (evaluations), slices, firstSlice and maxSlice (ms: the first slice, the longest after it), end
+  // (why it stopped: 'done', 'budget', 'error', 'linked'), dead}; null when there is none
   let standInJob = null;
   // the stand-in GLR.drawColorPlot gets with pane's plot of map (renderColor): the finest level done, or null when
   // there is none to draw (the plot's program draws, or has waited less than SM_LINKING_MS; not the screen's left pane)
@@ -27,7 +28,7 @@
       const prev = j && j.key === key ? j.grid || j.prev : null;
       standInStop();
       j = standInJob = { key, vkey, map, F: cpuMap(map), x0: v.cx - pane.w / (2 * v.s), y0: v.cy - pane.h / (2 * v.s), s: v.s, w: pane.w, h: pane.h,
-        next: null, grid: null, prev, ms: 0, n: 0, slices: 0, maxSlice: 0, end: null, dead: false };
+        next: null, grid: null, prev, ms: 0, n: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false };
       standInLevel(j, 0);
       standInRun(j);
     }
@@ -62,13 +63,15 @@
       let end;
       try { end = standInSlice(j, t0); } catch (e) { console.error('colour stand-in', e); end = 'error'; }
       const dt = performance.now() - t0;
-      j.ms += dt; j.slices++; j.maxSlice = Math.max(j.maxSlice, dt);
+      if (j.slices) j.maxSlice = Math.max(j.maxSlice, dt); else j.firstSlice = dt;
+      j.ms += dt; j.slices++;
       if (end) { j.end = end; return; }
     }
   }
-  // one slice of job j, begun at t0: the next level's nodes until STANDIN_SLICE ms are spent; -> why the job stops, or
-  // null to go on. A level done is drawn from the next frame on
+  // one slice of job j, begun at t0: the next level's nodes until the next one, as long as the last, would end past
+  // STANDIN_SLICE ms; -> why the job stops, or null to go on. A level done is drawn from the next frame on
   function standInSlice(j, t0) {
+    let te = t0;
     for (;;) {
       const L = j.next, n = L.nx * L.ny;
       while (L.k < n) {
@@ -77,8 +80,9 @@
         const z = j.F(C(L.x0 + a * L.h, L.y0 + b * L.h));
         L.w[2 * k] = z.re; L.w[2 * k + 1] = z.im;
         j.n++;
-        const t = performance.now();
-        if (t - t0 >= STANDIN_SLICE) {
+        const t = performance.now(), last = t - te;
+        te = t;
+        if (t - t0 + last >= STANDIN_SLICE) {
           const spent = j.ms + t - t0;
           return j.slices && spent + standInLeft(L, L.k) * spent / j.n > STANDIN_BUDGET ? 'budget' : null;
         }
