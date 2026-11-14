@@ -1196,6 +1196,31 @@ void main() {
   o = vec4(dcolor(mapF(z)), 1.0);
 }
 `;
+  // The colour plot's stand-in while its program links (drawColorPlot's st.standIn): w = F(z) at the nodes of a grid,
+  // texel (i, j) the node i across and j up; uGO is node (0, 0) and uGC the cell, in device px from the viewport's
+  // corner. w is interpolated at each pixel and coloured by dcolor, as the plot colours F(z): bilinear in w, or in 1/w
+  // where the cell's four nodes all have |w| > 1 (about a pole, where 1/w is close to linear); a cell with a node that
+  // is not finite takes its nearest node's value. Off the grid nothing is drawn
+  const COLOR_STANDIN_FS = `
+uniform vec2 uGO; uniform float uGC; uniform vec4 uVp; uniform sampler2D uWNodes;
+out vec4 o;
+vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }
+void main() {
+  ivec2 n = textureSize(uWNodes, 0);
+  vec2 q = (gl_FragCoord.xy - uVp.xy - uGO) / uGC;
+  ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
+  vec2 f = clamp(q - vec2(i), 0.0, 1.0);
+  vec2 a = texelFetch(uWNodes, i, 0).xy, b = texelFetch(uWNodes, i + ivec2(1, 0), 0).xy;
+  vec2 c = texelFetch(uWNodes, i + ivec2(0, 1), 0).xy, d = texelFetch(uWNodes, i + ivec2(1, 1), 0).xy;
+  vec2 w;
+  if (!(cfin(a) && cfin(b) && cfin(c) && cfin(d))) w = texelFetch(uWNodes, i + ivec2(step(0.5, f)), 0).xy;
+  else if (min(min(dot(a, a), dot(b, b)), min(dot(c, c), dot(d, d))) > 1.0) w = cinv(mix(mix(cinv(a), cinv(b), f.x), mix(cinv(c), cinv(d), f.x), f.y));
+  else w = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  vec3 col = dcolor(w);
+  if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(n - 1)))) discard;
+  o = vec4(col, 1.0);
+}
+`;
   // The colour carried by the points, on the GPU (the steps view's svCarry): a grid of uN cells over plane s
   // (uCGrid: its corner and cell), each cell two triangles, drawn without buffers (gl_VertexID). A vertex places its
   // triangle's three corners by mapPoint (the glide's map from plane s: uBase = s), so the triangle is the same in all

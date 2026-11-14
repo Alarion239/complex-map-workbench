@@ -29,7 +29,7 @@
       canvas.addEventListener('webglcontextrestored', () => {
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
-        sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = ptsTex = rtFbo = null;
+        sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
         peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
@@ -47,7 +47,9 @@
     }
     return ok;
   }
-  function begin(pw, ph, clear) {
+  // a new frame of pw x ph device px, cleared to clear (rgba 0-1; transparent by default). keep: it goes on with the
+  // status of the frame before it (frameStatus), for a pane drawn in several frames: it reports what each waited for
+  function begin(pw, ph, clear, keep) {
     if (canvas.width < pw || canvas.height < ph) {
       canvas.width = Math.max(canvas.width, Math.ceil(pw));
       canvas.height = Math.max(canvas.height, Math.ceil(ph));
@@ -59,7 +61,8 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; }
+      invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
     gl.viewport(0, 0, pw, ph);
@@ -774,16 +777,40 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, Math.max(1, m), 1, 0, gl.RGBA, gl.FLOAT, d);
     edgeKey = c.edges; edgeO = [ox, oy];
   }
+  // the colour plot's stand-in (st.standIn): its texture (unit 4) and the w array last uploaded into it
+  let standInTex = null, standInKey = null;
+  function standInUniforms(P, st, dpr) {
+    const g = st.standIn, k = st.view.s * dpr;
+    gl.activeTexture(gl.TEXTURE4);
+    if (!standInTex) standInTex = floatTex(); else gl.bindTexture(gl.TEXTURE_2D, standInTex);
+    if (standInKey !== g.w) {
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, g.nx, g.ny, 0, gl.RG, gl.FLOAT, g.w);
+      standInKey = g.w;
+    }
+    u2f(P, 'uGO', (g.x0 - st.view.cx) * k + fw / 2, (g.y0 - st.view.cy) * k + fh / 2);
+    u1f(P, 'uGC', g.h * k);
+  }
+  // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
+  // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn, coloured as
+  // the plot is, only when the plot's program gives nothing to draw: the frame in which its link completes draws the
+  // plot. -> true when the plot or its stand-in was drawn
   function drawColorPlot(st) {
-    if (!ok) return;
+    if (!ok) return false;
     const cp = st.cauchy && st.cauchy.plan && st.cauchy.edges && st.cauchy.edges.length >= 4 ? st.cauchy : null;
     const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
     const pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
-    // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
-    const P = program(pname, st.map, st.exact);
-    if (!P) return;
-    use(P, st.map);
     const dpr = st.dpr || 1;
+    // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
+    let P = program(pname, st.map, st.exact);
+    if (!P) {
+      if (pname !== 'color' || !st.standIn || !(P = program('colorStandIn'))) return false;
+      use(P);
+      standInUniforms(P, st, dpr);
+      return colorPass(P, st, dpr);
+    }
+    if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; }
+    use(P, st.map);
     if (cp) {
       cauchyEdges(cp);
       u1i(P, 'uEdgeN', edgeN);
@@ -807,6 +834,11 @@
       u2f(P, 'uCenter', st.view.cx, st.view.cy);
     }
     u2f(P, 'uInvScale', 1 / (st.view.s * dpr), 1 / (st.view.s * dpr));
+    return colorPass(P, st, dpr);
+  }
+  // the colour plot's pass with program P, its own uniforms set: the frame's viewport, the style's uniforms and
+  // st's blending -> true
+  function colorPass(P, st, dpr) {
     u4f(P, 'uVp', vpX, vpY, fw, fh);
     dcUniforms(P, st, dpr);
     // (st.dstAlpha: kept only where the frame's alpha is, the regions an alphaOnly pass drew: the
@@ -822,6 +854,7 @@
     gl.bindVertexArray(null);
     gl.enable(gl.BLEND);
     if (st.dstAlpha || fade) gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
+    return true;
   }
   // which of the frame's channels what follows writes: its alpha alone (a mask of the regions, for drawColorPlot's
   // dstAlpha or keepInAlpha), its colour alone (drawn over that mask), or all of them again

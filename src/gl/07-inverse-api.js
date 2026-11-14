@@ -1012,8 +1012,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // the programs compiling, as {id, key, offView} (key: the chain structure key, 'static' for the others; offView: a
     // view's no pane shows, e.offView)
     pending() { const out = []; for (const e of progs.values()) if (e.state === 'pending') out.push({ id: e.id, key: e.key, offView: !!e.offView }); return out; },
-    // ms the current chain's area draws for map have had nothing to draw (0: they draw), and the tests'
-    // hold on its links
+    // bareMs(map, names): ms the current chain's draws of programs names (default its area draws) for map have had
+    // nothing to draw (0: they draw), and the tests' hold on its links
     bareMs, holdLinks, chainProgs,
     // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
     // waits for the final picture (the quality harness's settle, onReady's redraw) still waits

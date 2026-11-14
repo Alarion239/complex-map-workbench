@@ -506,7 +506,11 @@
     // curve selected, the plane is paper with its reason)
     const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
     if (cauchyWhy) paper(pane);
-    else if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    else {
+      // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
+      cst.standIn = colourStandIn(pane, cst.map);
+      if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {

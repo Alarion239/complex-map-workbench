@@ -133,6 +133,7 @@ const griegCaptionsAll = (d) => Array.isArray(d) && d[0] > 0 && Array.isArray(d[
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
   'series_edit_cmd.js': [t(/^timing: /)],
+  'link_standin_cmd.js': [t(/^timing: /)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
