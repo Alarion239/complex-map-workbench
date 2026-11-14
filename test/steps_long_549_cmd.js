@@ -195,16 +195,19 @@ for (const [w, h, mobile] of [[360, 780, true], [390, 844, true], [1024, 768, fa
       await wheelOver(5000, 0);
       const atEnd = async () => { let g = await geo(); for (let i = 0; i < 40 && g.scroll < g.max - 1; i++) { await sleep(50); g = await geo(); } return g; };
       const ends = [await atEnd()];
+      // (the page's observer of the rail has delivered a width change once the one installed here, which is delivered with it, has counted it)
+      await ev(`window.__railSeen = 0; new ResizeObserver(() => { window.__railSeen++; }).observe(document.querySelector('#svStrip .sv-rail')); 1`);
+      const observed = async (n) => { for (let i = 0; i < 100 && (await ev('window.__railSeen')) === n; i++) await sleep(50); };
       for (const pad of ['200px', '']) {   // (the rail narrower, then as it was: its range grows, then shrinks)
-        const railW = (await geo()).rail;
+        const railW = (await geo()).rail, seen = await ev('window.__railSeen');
         await ev(`document.querySelector('#svStrip').style.paddingRight = '${pad}'; 1`);
         for (let i = 0; i < 100 && (await geo()).rail === railW; i++) await sleep(50);
+        await observed(seen);
         ends.push(await atEnd());
       }
       ok(`${tag}: a rail the user scrolled to its end stays at its end when the thread changes width (${ends.map((g) => `${g.scroll}/${g.max}`).join(', ')})`, ends.every((g) => g.max > 0 && g.scroll >= g.max - 1), ends);
       // (a scroll that is not the app's, here a scrollIntoView with the focus outside the rail, is the user's: the plane it shows stays in view
       // through a resize, where the ring (on the last plane) would take the rail)
-      await frames(); await frames();   // (the page puts the rail back for three frames after a resize: past them)
       await ev(`document.activeElement && document.activeElement.blur(); document.querySelector('#svStrip .sv-plane[data-i="0"]').scrollIntoView({ inline: 'start', block: 'nearest' }); 1`);
       await frames();
       const planeIn = () => ev(`(() => { const r = document.querySelector('#svStrip .sv-rail').getBoundingClientRect(), b = document.querySelector('#svStrip .sv-plane[data-i="0"]').getBoundingClientRect(); return b.left >= r.left - 0.5 && b.right <= r.right + 0.5; })()`);

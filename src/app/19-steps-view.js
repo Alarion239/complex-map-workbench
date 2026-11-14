@@ -2542,7 +2542,8 @@
       E.strip.classList.remove('sv-measure');
       return { w, equal: fixed + w * ws.length, own: fixed + ws.reduce((a, b) => a + b, 0) };
     };
-    // (the measuring layouts have a narrower thread: the browser clamps the rail's scroll to their range, and it is put back)
+    // (the measuring layouts have a narrower thread: the browser clamps the rail's scroll to their range. The scroll is put back to where it
+    // was: that is undoing the browser's clamp, not a scroll of the app's own, so it is not recorded by svRailTo)
     const sx = E.rail.scrollLeft;
     const names = measure(false), letters = measure(true);
     E.rail.scrollLeft = sx;
