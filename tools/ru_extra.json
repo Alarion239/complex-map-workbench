@@ -715,5 +715,7 @@
  "Read as {read}. For the power {power}, write {fix}.": "Читается как %{read}. Для степени %{power} напишите %{fix}.",
  "Use {fix}": "Заменить на %{fix}",
  "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "В Рельефе нет сферы: выберите Плоскость или Сферу в меню поверхности",
- "Nothing to fit yet": "Пока нечего вписывать"
+ "Nothing to fit yet": "Пока нечего вписывать",
+ "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
+ "No tone past the colour plane: the colour here comes from {p}.": "После плоскости цвета звука нет: цвет здесь берётся из %{p}."
 }

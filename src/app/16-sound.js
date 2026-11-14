@@ -29,6 +29,22 @@
     // {src, h: [{t, x, y}]}; hold, holdT, pz, a slow finger's held crossing, its timer and the probe's points of the last 50 ms
     // (sndHold)
     rope: null, hand: null, fh: null, hold: null, holdT: 0, pz: null, lifting: false, lastSrc: '', ptype: '',
+    // svk, the steps view's plane last seen at the end of a frame (sndFrame): another one re-picks the probe;
+    // svSaid, the plane where "no tone past the colour plane" was said last (once a plane)
+    svk: /** @type {string | null} */ (null), svSaid: '',
+  };
+  // the steps view's plane as the sound reads it, null in the classic view. The probe hears what the colours and the
+  // readout show, the map from the plane into the colour plane, and while the view glides, plays, is scrubbed or swiped
+  // or rests parked, the nearer plane's (the readout's). k and T, that plane's stage and the colour plane's; key, what
+  // the probe's function is made of; past, the colour plane's name when k is past it (its colour is carried from there,
+  // by the points: no tone, TODO(#727)), else ''. Read only when asked: view, the camera the picture is drawn with (while
+  // the thread moves or rests between two planes the one every plane shares, S.srcView, svRenderMoving's; else the plane's
+  // own, leftView); F, the map from plane k into the colour plane (svF); and name, its name ("F", "f₂", "f₃∘f₂", or the
+  // plane's own variable where svF is the identity)
+  const stepsView = () => {
+    if (!SV.on) return null;
+    const k = leftStage(), T = svT();
+    return { key: `${k}>${T}`, k, T, past: k > T ? svName(T) : '', get view() { return svMoving() ? S.srcView : leftView(); }, get F() { return svF(k); }, get name() { return svColoured(k) ? svKeyName(k) : svName(k); } };
   };
   const SND_ICON_ON = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.4 5.6a3.4 3.4 0 0 1 0 4.8M12.3 3.7a6.1 6.1 0 0 1 0 8.6"/>');
   const SND_ICON_OFF = svgI('<path d="M2.5 6h2.2L8 3.2v9.6L4.7 10H2.5z"/><path d="M10.5 6l3.5 3.5M14 6l-3.5 3.5"/>');
@@ -39,10 +55,9 @@
       C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
       focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn,
       morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts,
-      render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
-      updateDraftChips, zerosPolesTimed,
+      render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, toast, touchUI, tourEmit,
+      tourL, tourSndMine, updateDraftChips, zerosPolesTimed,
       get S() { return S; },
-      get stepsView() { return SV.on; },
       get TH() { return TH; },
       get built() { return built; },
       get chainSig() { return chainSig; },
@@ -67,9 +82,12 @@
   function sndInit(...args) { return SH.sndInit(...args); }
   function sndMorphStart(...args) { return SH.sndMorphStart(...args); }
   function sndMorphArrive(...args) { return SH.sndMorphArrive(...args); }
+  function sndScrub(...args) { return SH.sndScrub(...args); }
+  function sndScrubEnd(...args) { return SH.sndScrubEnd(...args); }
   function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
+  function sndPickAt(...args) { return SH.sndPickAt(...args); }
   function sndLift(...args) { return SH.sndLift(...args); }
   function sndHoverOff(...args) { return SH.sndHoverOff(...args); }
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }

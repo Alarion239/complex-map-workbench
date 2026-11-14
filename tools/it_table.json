@@ -3423,5 +3423,7 @@
  "Click Loop.": "Fai clic su «Ciclo».",
  "Show the whole chain": "Mostra tutta la catena",
  "Color": "Colore",
- "after f{k}": "dopo f{k}"
+ "after f{k}": "dopo f{k}",
+ "This curve is in {plane}, a later plane: listen along it there.": "Questa curva sta nel piano {plane}, più avanti nella catena: usa «Ascolta lungo la curva» da quel piano.",
+ "No tone past the colour plane: the colour here comes from {p}.": "Nessun suono dopo il piano del colore: qui il colore viene da {p}."
 }

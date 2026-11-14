@@ -9,8 +9,8 @@ const SoundHooks = (() => {
   let C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
     focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState,
     nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D,
-    requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
-    updateDraftChips, zerosPolesTimed;
+    requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, toast, touchUI, tourEmit, tourL,
+    tourSndMine, updateDraftChips, zerosPolesTimed;
   // the engine's live stream (Sound.hear) once it is there; until then today's harp (each side builds on its own)
   const sndHear = () => (SND && SND.hear ? SND.hear : null);
   const sndNow = () => performance.now() / 1000;
@@ -126,7 +126,7 @@ const SoundHooks = (() => {
     // the keyboard probe: the X plane takes the focus while sound is on
     if (A.paneL) {
       const cv = A.paneL.ocanvas;
-      if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', (A.stepsView ? 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight' : 'ArrowUp ArrowDown ArrowLeft ArrowRight') + ' Q Z O D Enter L'); }
+      if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', (stepsView() ? 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight' : 'ArrowUp ArrowDown ArrowLeft ArrowRight') + ' Q Z O D Enter L'); }
       else if (!on && cv.hasAttribute('tabindex')) { cv.removeAttribute('tabindex'); cv.removeAttribute('aria-keyshortcuts'); }
     }
     if (!(on && s.sonify)) { sndVoiceOff(true); sndCurveOff(); }
@@ -198,18 +198,21 @@ const SoundHooks = (() => {
   const sndRender = () => requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null);
 
   // ---- Mathematical events: the deformation ----
-  // the swell once per play the user starts, the arrival once per such play (never on loop repeats)
+  // the swell once per play the user starts, the arrival once per such play (never on loop repeats): the Deformation's
+  // and the steps view's ▶ Play along the thread, which calls them at a play's start and at its own end. secs: the
+  // steps view's time a plane, which sets the arrival's strength as the Deformation's time does
   function sndMorphStart() { if (!A.sndP.on || !SND) return; sndUnhush(); snd.morphArm = true; SND.play('morphStart', {}); if (!(morph.T > 0)) snd.run = null; }
-  function sndMorphArrive() {
+  function sndMorphArrive(secs) {
     if (!snd.morphArm) return;
     snd.morphArm = false;
     if (snd.mo && SND) { SND.motionEnd(); snd.mo = null; }
-    soundCue('morphEnd', { vel: sndClamp(0.6 * Math.sqrt(2 / Math.max(0.2, A.S.morphSecs || 1.6)), 0.35, 0.9) });
+    soundCue('morphEnd', { vel: sndClamp(0.6 * Math.sqrt(2 / Math.max(0.2, secs || A.S.morphSecs || 1.6)), 0.35, 0.9) });
   }
-  // scrubbing: Sound.scrub decides from the drag's speed: soft detents at each 0.05 of t / morphLen() while
-  // slow, a soft band that follows the speed while fast; t = 0, ½, 1 soft keys
-  function sndScrub(T0, T1) {
-    // (the slider's input sets morph.T right after this call: the tone follows H_t on the next frame; a person's step)
+  // scrubbing the steps view's thread (its strip): Sound.scrub plays a texture that follows the drag's speed, and a
+  // wooden note at the thread's start, quarters and end. T0 and T1: the thread's place before and after the move, len:
+  // its length (all in planes)
+  function sndScrub(T0, T1, len) {
+    // (a person's step: a resting probe is heard again on the next frame, and picked again where the nearer plane changes)
     snd.userT = performance.now();
     sndUnhush();
     soundFunctionChanged('t');
@@ -217,10 +220,9 @@ const SoundHooks = (() => {
     // (not while Hear the function plays F under a resting probe: the scrub's detents are wood strikes in the
     // marimba's own pitch classes, which a listener could not tell from F's notes; spec 3.14)
     if (sndHear() && A.sndP.sonify && snd.rest) return;
-    const m = morphLen() || 1;
-    SND.scrub(T0 / m, T1 / m);
+    SND.scrub(T0 / len, T1 / len);
   }
-  // the hand let go of the slider: the scrub's air fades (DESIGN v2 §3)
+  // the hand let go of the strip: the scrub's air fades (DESIGN v2 §3)
   function sndScrubEnd() { if (SND) SND.scrubEnd(); }
   // the motion bed (DESIGN v2 §4): while a play the user started runs its first pass, the scrub's air follows the
   // playback (t / length and its rate); it fades at the arrival or a pause. Off while Hear the function is on (the harp
@@ -242,22 +244,47 @@ const SoundHooks = (() => {
   // (SPEC 9: the merged plane's probe with a bracket's pre only reads its point as u in w_{a-1} and plays G_t; with a
   // post it is silent, sndMove)
   const sndMergedBase = () => { const p = rangeParts(); return p && !p.post.length ? p.a - 1 : null; };
-  const sndF = (src) => (morphOn() ? (src === 'merged' && sndMergedBase() != null ? morphState(true, sndMergedBase()).F : morphState(true).F) : focusF());
-  const sndFKey = () => `${A.chainSig[nSteps()]}|${A.S.focus}|${morph.open ? morph.T : '-'}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}`;
+  // (in the steps view the map from the nearer plane into the colour plane, what the colours and the readout show;
+  // the Deformation is closed there)
+  const sndF = (src) => { const v = stepsView(); return v ? v.F : morphOn() ? (src === 'merged' && sndMergedBase() != null ? morphState(true, sndMergedBase()).F : morphState(true).F) : focusF(); };
+  // the steps view's plane and colour plane, which the probe's function is made of there: '' in the classic
+  // view. One camera serves every plane, so without it another plane's map would read as the same view and function
+  const sndSvKey = () => { const v = stepsView(); return v ? v.key : ''; };
+  // past the steps view's colour plane the colour is carried from it by the points, and the probe makes no tone there
+  // (TODO(#727): hear the carried colour). sndSvPast: the plane the colour comes from, else ''. sndSvQuiet: the probe there
+  // is silent (its stroke ends) and says where the colour comes from, once a plane (always: every time, for D, Z, O);
+  // true when it is past
+  const sndSvPast = () => { const v = stepsView(); return v ? v.past : ''; };
+  function sndSvQuiet(always) {
+    const p = sndSvPast();
+    if (!p) return false;
+    const H = sndHear();
+    if (H && H.state().stroke) H.gap(sndNow());
+    snd.last = null; snd.rest = null; snd.loop = null; snd.rope = null;
+    const k = sndSvKey();
+    if (always || snd.svSaid !== k) { snd.svSaid = k; sndSay($t('No tone past the colour plane: the colour here comes from {p}.', { p })); }
+    return true;
+  }
+  const sndFKey = () => `${A.chainSig[nSteps()]}|${A.S.focus}|${morph.open ? morph.T : '-'}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}|${sndSvKey()}`;
   // what the probe's function is made of, apart from the chain and t: a change is a new start (nearest pitch class)
-  const sndFrameKey = () => `${A.S.focus}|${morph.open ? 1 : 0}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}|${A.S.sectors || 12}`;
+  const sndFrameKey = () => `${A.S.focus}|${morph.open ? 1 : 0}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}|${A.S.sectors || 12}|${sndSvKey()}`;
   // the view of the plane the probe is on: a change is a view gesture (src 'merged': the deformation plane or globe
   // of X → Y; otherwise X's plane, globe or relief). solo() changes when the deformation merges X → Y into one plane,
   // so a probe of the hidden X plane stops there. needle: what a still probe depends on: on the relief and on X's globe
   // it is the needle, a point of X that stays put while the camera refits (opening the deformation refits the relief).
   // A plane's key holds its pane's size too: a pane that shrinks or grows under a still pointer (the transport bar,
-  // a merge, another view) moves the plane under it as a fit does
+  // a merge, another view) moves the plane under it as a fit does. The steps view's plane is part of it: another
+  // shown plane or colour plane is another picture under a still pointer (a view change, and on the relief another
+  // relief under the needle), picked again as a fresh start, never one stroke across two maps
   function sndVKey(src, needle) {
     const cam = (c) => (c ? `${c.yaw}|${c.pitch}|${c.dist}|${c.tx}|${c.ty}` : '');
     if (src === 'merged') return `M|${solo()}|${A.paneR.w}|${A.paneR.h}|` + (rGlobe() ? cam(camS) : `${V.right.cx}|${V.right.cy}|${V.right.s}`);
-    if (lLand() || lGlobe()) return `L|${solo()}|` + (needle ? A.S.view.main : cam(camOf('L')));
-    const v = leftView(); return `P|${solo()}|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
+    const sv = sndSvKey();
+    if (lLand() || lGlobe()) return `L|${solo()}|${sv}|` + (needle ? A.S.view.main : cam(camOf('L')));
+    const v = sndLeftView(); return `P|${solo()}|${sv}|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
   }
+  // the view X's plane is drawn with: leftView, or in the steps view the camera its picture is drawn with (stepsView's view)
+  const sndLeftView = () => { const v = stepsView(); return v ? v.view : leftView(); };
   // H at transport time T: the app's own homView() with morph.T set for the call (the one place that knows how the
   // transport builds H_T; DEFORMATION.md)
   function sndFAt(T) {
@@ -283,6 +310,8 @@ const SoundHooks = (() => {
     const p = snd.play;
     if (src !== 'key') snd.px = [x, y];
     if (p && src !== 'key') return;
+    // (past the steps view's colour plane, no tone; once a plane, where the colour comes from)
+    if (src !== 'merged' && A.sndP.sonify && sndSvQuiet()) return;
     if (src === 'loop' && !snd.loop && A.sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
     // (silent too when the bracket holds a live d/dz: its segment is a line between two functions of z, so a point of
     // w_{a-1} is not in G_t's domain from that step on)
@@ -331,7 +360,7 @@ const SoundHooks = (() => {
       if (src === 'merged') { if (rImage()) { A.paneR.setView(V.right); return A.paneR.s2w(x, y); } return pickSphere(A.paneR, camS, x, y); }
       if (lLand()) return pickLand(x, y);
       if (lGlobe()) return typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
-      A.paneL.setView(leftView()); return A.paneL.s2w(x, y);
+      A.paneL.setView(sndLeftView()); return A.paneL.s2w(x, y);
     } catch (e) { return null; }
   }
   function sndHoverOff() {
@@ -384,8 +413,11 @@ const SoundHooks = (() => {
     requestRender('OL');
   }
   // called at the end of every frame (one line in frame()): the waiting re-pick, once the pane under the pointer has
-  // its new size and, on the relief, a frame has been drawn since the change; given up after 30 frames
+  // its new size and, on the relief, a frame has been drawn since the change; given up after 30 frames.
+  // A change of the steps view's plane (an arrival, C, a park or a play crossing half-way, a step shown alone; frames
+  // run whenever it does) makes the probe's function another one, so the point under a still pointer is picked again
   function sndFrame() {
+    if (A.sndP.on && A.sndP.sonify && SND) { const sk = sndSvKey(); if (sk !== snd.svk) { if (snd.svk != null) sndRelayout(); snd.svk = sk; } }
     const q = snd.rp;
     if (!q) return;
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.cxy) { snd.rp = null; return; }
@@ -414,12 +446,7 @@ const SoundHooks = (() => {
     // plane, the same point
     const same = r && r.src === src && sndVKey(src, true) === r.nk;
     if (same && pane === A.paneL && (lLand() || lGlobe())) return;
-    let z = null;
-    if (pane === A.paneL) {
-      if (lLand()) z = pickLand(x, y);
-      else if (lGlobe()) z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
-      else { pane.setView(leftView()); z = pane.s2w(x, y); }
-    } else if (rImage()) { pane.setView(V.right); z = pane.s2w(x, y); } else z = pickSphere(pane, camS, x, y);
+    const z = sndPickAt(src, x, y);
     if (!z || (same && r.z.re === z.re && r.z.im === z.im)) return;
     // (the plane moved under the pointer: the rope lets go, the point is the hand's)
     snd.rope = null;
@@ -465,6 +492,8 @@ const SoundHooks = (() => {
   // fn: a re-evaluation because the function changed (soundFunctionChanged), not because the probe moved.
   function sndHover(z, px, src, fn, zh) {
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.tracker || !z) return;
+    // (the keyboard probe, a re-evaluation and a lift too: past the steps view's colour plane, no tone)
+    if (src !== 'merged' && sndSvQuiet()) return;
     // the engine's stream (Sound.hear: the marimba notes or the Glide) once it is there
     const H = sndHear();
     if (H) sndHearAt(H, z, px, src, fn, zh || z);
@@ -510,7 +539,7 @@ const SoundHooks = (() => {
     const bz = sndBridge(F, z, g0), zc = bz.z, g = bz.g;
     const deadline = t0 + 3;
     let budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
-    const vs = merged ? V.right.s : leftView().s;
+    const vs = merged ? V.right.s : sndLeftView().s;
     const fnMoved = (gen || dT || !!paths) && !swap, tMove = dT && !gen;
     if (snd.run && (snd.run.tp ? gen || (!fn && moved && !morph.playing) : t0 - snd.run.t > 1600)) snd.run = null;
     let act = 'seat', phi1 = snd.phi, r = null;
@@ -641,6 +670,7 @@ const SoundHooks = (() => {
   function sndQueryAt(z, px, src) {
     const H = sndHear();
     if (!H || !A.sndP.on || !A.sndP.sonify || !snd.tracker || !z) return false;
+    if (src !== 'merged' && sndSvQuiet()) return false;   // (no tone past the steps view's colour plane)
     const F = sndF(src);
     let g = null;
     try { g = F(z); } catch (e) { g = null; }
@@ -734,6 +764,7 @@ const SoundHooks = (() => {
     snd.lastLoop = { pts: pts.slice(), closed: true };
     sndUnhush();
     if (!A.sndP.events) return;
+    if (sndSvQuiet(true)) return;   // (past the steps view's colour plane, no winding number of the plane's own variable)
     let r;
     try { r = Calc.argPrinciple(sndF(), pts, 0, { budget: 120000 }); } catch (e) { r = { ok: false, turn: NaN, winding: 0 }; }
     if (!Number.isFinite(r.turn)) { SND.play('cut', { tier: 'events' }); sndSay($t('No winding number: F jumps, vanishes or is infinite on the loop.')); return; }
@@ -936,6 +967,7 @@ const SoundHooks = (() => {
   // (edited, another chain)
   function sndListen(pts, closed, lead, listen, shape, o) {
     if (!A.sndP.on || !A.sndP.events || !SND || !snd.tracker || !pts || pts.length < 2) return false;
+    if (sndSvQuiet(true)) return false;   // (no tone past the steps view's colour plane)
     // the function itself (Sound.along: the notes or the Glide), once the engine has it; a composed score (listen,
     // from "Play the composition") keeps the path below
     if (SND.along && !listen) return sndListenFn(pts, closed, lead, shape, o || {});
@@ -1094,8 +1126,12 @@ const SoundHooks = (() => {
     }
     if (!best) return;
     let pts = best.pts;
-    const k = leftStage();
-    if (k > 0) { const G = rangeF(0, k); pts = pts.map(([x, y]) => { const w = G(C(x, y)); return [w.re, w.im]; }).filter((q) => Number.isFinite(q[0]) && Number.isFinite(q[1])); }
+    // the curve in the plane shown, k, from its own plane j (the steps view draws in every plane; the classic X at a
+    // focused step in the plane before it): carried by f_k ∘ ⋯ ∘ f_{j+1}. A curve of a later plane is no curve of this one
+    // (the steps view shows it pulled back): it is listened to in its own plane
+    const k = leftStage(), j = shapeStage(s);
+    if (j > k) { sndSay($t('This curve is in {plane}, a later plane: listen along it there.', { plane: 'w' + sub(j) })); return false; }
+    if (k > j) { const G = rangeF(j, k); pts = pts.map(([x, y]) => { const w = G(C(x, y)); return [w.re, w.im]; }).filter((q) => Number.isFinite(q[0]) && Number.isFinite(q[1])); }
     // (piece with no score, the Mountain King as a function: its Listen along, the function itself)
     const L = sndListenOf(s), sc = SND && SND.along ? (piece ? L : null) : L;
     if (piece && !sc && !(SND && SND.along)) return false;
@@ -1227,7 +1263,7 @@ const SoundHooks = (() => {
     sndHover(z, A.paneL.w / 2 + (z.re - v.cx) * v.s, 'key');
     clearTimeout(snd.annT);
     snd.annT = setTimeout(() => {
-      if (!snd.kz) return;
+      if (!snd.kz || sndSvPast()) return;   // (past the steps view's colour plane, sndSvQuiet's line says where the colour comes from)
       const g = sndF()(snd.kz);
       sndSay(CX.isFin(g) ? $tn('z {z}. Modulus {modulus}, argument {n} degrees.', 'z {z}. Modulus {modulus}, argument {n} degrees.', Math.round(Math.atan2(g.im, g.re) / DEG), { z: sndFmt(snd.kz), modulus: I18N.num(CX.fmtNum(CX.abs(g), 3)) }) : $t('z {z}. F is infinite here.', { z: sndFmt(snd.kz) }));
     }, 450);
@@ -1263,7 +1299,7 @@ const SoundHooks = (() => {
     if (!A.sndP.on || !SND || !snd.kbd || e.ctrlKey || e.metaKey) return;
     const k = e.key, done = () => { e.preventDefault(); e.stopPropagation(); };
     // (in the steps view ← → step the chain, so the probe's arrows are Alt / Option + arrow; the other keys take no Alt)
-    if (/^Arrow/.test(k) ? e.altKey !== A.stepsView : e.altKey) return;
+    if (/^Arrow/.test(k) ? !!e.altKey !== !!stepsView() : e.altKey) return;
     const arrows = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] };
     const st0 = sndStep();
     if (arrows[k]) {
@@ -1281,6 +1317,8 @@ const SoundHooks = (() => {
       return;
     }
     const kl = (I18N.keyOf(e) || '').toLowerCase();
+    // (past the steps view's colour plane Z, O and D say where the colour comes from, not the plane's own zeros)
+    if ((kl === 'z' || kl === 'o' || kl === 'd') && sndSvPast()) { done(); sndSvQuiet(true); return; }
     if (kl === 'z') {
       done();
       const L = sndLandmarks();
@@ -1326,9 +1364,10 @@ const SoundHooks = (() => {
         if (w === 'zero') return L.incomplete ? $tn('{n} or more zero: {items}{andMore}', '{n} or more zeros: {items}{andMore}', a.length, lp) : $tn('{n} zero: {items}{andMore}', '{n} zeros: {items}{andMore}', a.length, lp);
         return L.incomplete ? $tn('{n} or more pole: {items}{andMore}', '{n} or more poles: {items}{andMore}', a.length, lp) : $tn('{n} pole: {items}{andMore}', '{n} poles: {items}{andMore}', a.length, lp);
       };
-      const kmax = A.S.focus === 0 ? nSteps() : A.S.focus;
-      const cuts = A.built.filter((b, i) => i < kmax && A.S.steps[i] && A.S.steps[i].on !== false && b && !b.error && b.cuts && b.cuts.length).length;
-      sndSay($t('{fnText} in this view: {zs}; {ps}{choice}.', { fnText: fnText(), zs: list(zs, 'zero'), ps: list(ps, 'pole'), choice: cuts ? $tn('; branch cuts from {n} step, drawn in red', '; branch cuts from {n} steps, drawn in red', cuts) : '' }));
+      // (in the steps view the map from the shown plane into the colour plane, steps k+1 … T, by its name)
+      const sv = stepsView(), lo = sv ? sv.k : 0, kmax = sv ? sv.T : A.S.focus === 0 ? nSteps() : A.S.focus;
+      const cuts = A.built.filter((b, i) => i >= lo && i < kmax && A.S.steps[i] && A.S.steps[i].on !== false && b && !b.error && b.cuts && b.cuts.length).length;
+      sndSay($t('{fnText} in this view: {zs}; {ps}{choice}.', { fnText: sv ? sv.name : fnText(), zs: list(zs, 'zero'), ps: list(ps, 'pole'), choice: cuts ? $tn('; branch cuts from {n} step, drawn in red', '; branch cuts from {n} steps, drawn in red', cuts) : '' }));
       return;
     }
     if (k === 'Enter') {
@@ -1337,7 +1376,7 @@ const SoundHooks = (() => {
       sndKeyStart();
       snd.kloop = [[snd.kz.re, snd.kz.im]];
       if (A.sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
-      sndSay(A.stepsView ? $t('Loop started. Move with Alt + the arrow keys; Enter closes it.') : $t('Loop started. Move with the arrow keys; Enter closes it.'));
+      sndSay(stepsView() ? $t('Loop started. Move with Alt + the arrow keys; Enter closes it.') : $t('Loop started. Move with the arrow keys; Enter closes it.'));
       return;
     }
     if (kl === 'l') {
@@ -1353,12 +1392,12 @@ const SoundHooks = (() => {
 
   function init(api) {
     A = api;
-    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
+    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
     // Calc.throughZP / throughZPAlong / ZP_CALLS (SOUND-PLAN 2.2): one implementation, the engine's (Sound.HT, FINAL
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   }
-  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
+  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt, sndPickAt };
 })();
 import { $, DEG, TAU, h } from './util.js';
 import { CX } from './cx.js';

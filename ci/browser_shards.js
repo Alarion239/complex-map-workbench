@@ -24,7 +24,7 @@ const SHARDS = [
   // (480 + 295, with meetnear_coincide and between: 5 + 23)
   { id: 'constructions', suites: ['constr_cmd.js', 'touch_cmd.js', 'meetnear_coincide_cmd.js', 'between_cmd.js'] },
   { id: 'deform', suites: ['sheets_deform_cmd.js', 'deform_range_cmd.js', 'deform_nat_cmd.js', 'deform_range_gl_cmd.js', 'rel162_sheets_cmd.js', 'deform_dirichlet_cmd.js'] },   // 340 + 292 + 114 + 22 + 24 + about 30
-  { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'sound_v152_deform_classic_cmd.js', 'seasong_cmd.js'] },                         // 214 + 104 + 98
+  { id: 'sound', suites: ['sound_cmd.js', 'sound_v152_cmd.js', 'sound_v152_deform_classic_cmd.js', 'seasong_cmd.js', 'sound_steps_cmd.js'] },   // 214 + 104 + 98; sound_steps_cmd about 100 locally (SwiftShader)
   { id: 'tour', suites: ['tour_cmd.js', 'tour_cmd_classic_cmd.js', 'tour_titles_cmd.js', 'tour_chapters_cmd.js', 'tour_lane_cmd.js', 'guide_nav_cmd.js', 'example_params_cmd.js', 'example_cauchy_cmd.js', 'tour_auto_cmd.js', 'tour_auto_classic_cmd.js', 'tour_tasks_cmd.js', 'tour_tasks_classic_cmd.js', 'tour_lit_cmd.js', 'tour_perf_cmd.js'] },        // 235 + 312 + 135 + 50
   { id: 'tour-phone', suites: ['tour_phone_cmd.js', 'tour_phone_classic_cmd.js', 'tour_skip_hover_cmd.js', 'phone_fwell_cmd.js', 'v15_merge_cmd.js', 'v151_cmd.js', 'tour_it360_cmd.js'] },                   // 552 + 16 + 44
   { id: 'tour-audit-phone', suites: ['tour_audit_cmd.js#phone', 'example_lane_cut_cmd.js'] },               // 557
