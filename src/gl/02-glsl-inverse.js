@@ -199,12 +199,19 @@ void ixFromGrad(float L, float gx, float gy, out float s, out vec2 n) {
   float gl = length(g / m) * m;
   s = L / gl; n = g / gl;
 }
-// formulas: central differences of the full level along the footprints
+// formulas: central differences of the full level along the footprints. The level at z, z + dX, z - dX, z + dY and
+// z - dY comes from one ixFormLevel call site, in a loop whose trip count is a uniform: a shader compiler inlines
+// every call, so five calls would hold five copies of every formula's level
 void ixCentral(vec2 z, vec2 dX, vec2 dY, out float s, out vec2 n) {
-  float L0 = ixFormLevel(z);
+  float L0 = 0.0, lxp = 0.0, lxm = 0.0, lyp = 0.0;
+  vec2 dl = vec2(0.0);
   n = vec2(0.0);
-  if (!(L0 > -1e37)) { s = -1e38; return; }
-  vec2 dl = vec2(ixFormLevel(z + dX) - ixFormLevel(z - dX), ixFormLevel(z + dY) - ixFormLevel(z - dY)) * 0.5;
+  for (int k = 0; k < 5 * uIxOne; k++) {
+    float l = ixFormLevel(k == 0 ? z : k == 1 ? z + dX : k == 2 ? z - dX : k == 3 ? z + dY : z - dY);
+    if (k == 0) { L0 = l; if (!(L0 > -1e37)) { s = -1e38; return; } }
+    else if (k == 1) lxp = l; else if (k == 2) lxm = l; else if (k == 3) lyp = l;
+    else dl = vec2(lxp - lxm, lyp - l) * 0.5;
+  }
   if (!ixFin(dl)) { s = L0 > 0.0 ? 1e38 : -1e38; return; }
   ixFromGrad(L0, dl.x, dl.y, s, n);
 }
@@ -214,6 +221,20 @@ void ixDirHalf(vec2 d, float th, vec2 dLX, vec2 dLY, float sg, out float s, out 
   float l = sg * (d.x * e.y - d.y * e.x), dt = sg * dot(d, e);
   ixFromGrad(l, l * dLX.x + dt * dLX.y, l * dLY.x + dt * dLY.y, s, n);
 }
+#ifdef IX_CARRY
+// the chain's stages (a, b], G = chainRange(., a, b), at z, z + dX and, unless an, z + dY: g0 = G(z), gx = G(z + dX) - g0,
+// gy = G(z + dY) - g0 (0 with an). One chainRange call site, in a loop whose trip count is a uniform: a shader compiler
+// inlines every call, so three calls would hold three copies of the chain (the carried colour's and a later plane's
+// shape's points, ixCarryCol and ixShapePx)
+void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, out vec2 g0, out vec2 gx, out vec2 gy) {
+  g0 = vec2(0.0); gx = g0; gy = g0;
+  for (int k = 0; k < 3 * uIxOne; k++) {
+    if (k == 2 && an) break;
+    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : z + dY, a, b);
+    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else gy = g - g0;
+  }
+}
+#endif
 // signed distance (image px, positive inside) of a candidate to the region boundary and its unit image-space normal
 // (SPEC 4.3), with the Lambda rule for |Re Lambda| > 60
 void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out float s, out vec2 n) {
@@ -224,7 +245,8 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   if (uShStage > 0) {
     // (the shape's level at the point's image on its plane, along the image of the footprints)
     if (!zf) return;
-    vec2 g0 = chainRange(z, 0, uShStage), gx = chainRange(z + dX, 0, uShStage) - g0, gy = chainRange(z + dY, 0, uShStage) - g0;
+    vec2 g0, gx, gy;
+    ixChain3(z, dX, dY, 0, uShStage, false, g0, gx, gy);
     if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
     z = g0; dX = gx; dY = gy;
   }
@@ -580,25 +602,15 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
   // from the end, entries behind it moving back one slot, up to the first entry in front of it (one comparison for
   // the walk's usual, key-ordered arrivals). The same buffer as the scan and shift below, which candidates that may
   // merge with a twin (partial and bound) still take. exp(H) at alpha 0.3, dpr 2: 6.0 -> 4.5 ms per pass (for B 3
-  // and 5 this path measured 4-10 % slower: the scan below stays there).
-  if ((cv >= 1.0 || ga >= 50.0) && ixK() + 2 >= IX_B) {
-    if (nb == IX_B && !ixFront(D, tz, bD[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
-    if (nb == IX_B) ixRest(bC[IX_B - 1]);
-    highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
-    int p = min(nb, IX_B - 1);
-    bool done = false;
-    for (int i = IX_B - 1; i > 0; i--) {
-      if (done || i > p) continue;
-      if (ixFront(D, tz, bD[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-      else { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
-    }
-    if (!done) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
-    nb = min(nb + 1, IX_B);
-    return;
-  }
+  // and 5 this path measured 4-10 % slower: the scan below stays there). Both paths decide first, then shade a kept
+  // candidate at the one ixShadeAdm call site and insert it their own way: a shader compiler inlines every call, so two
+  // call sites would hold two copies of the shading. (The scan keeps its indentation inside if (!fast): the text B 3 and
+  // 5 compile stays the same.)
+  bool fast = (cv >= 1.0 || ga >= 50.0) && ixK() + 2 >= IX_B;
+  if (fast && nb == IX_B && !ixFront(D, tz, bD[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
 ` : ''}  // position: the entries in front of the candidate (a prefix of the sorted buffer)
   int pos = 0;
-  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(D, tz, bD[i], bZ[i])) pos = i + 1;
+${B >= 8 ? '  if (!fast) {\n' : ''}  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(D, tz, bD[i], bZ[i])) pos = i + 1;
   // twin merge with the neighbour at pos - 1 (first) or pos
   if (cv < 1.0 && ga < 50.0) {
     int tw = -1;
@@ -611,9 +623,21 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
     }
   }
   if (pos >= min(IX_B, ixK() + 2)) { ixRest(cv); return; }
-  if (nb == IX_B) ixRest(bC[IX_B - 1]);
+${B >= 8 ? '  }\n' : ''}  if (nb == IX_B) ixRest(bC[IX_B - 1]);
   highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
-  for (int i = IX_B - 1; i > 0; i--) {
+${B >= 8 ? `  if (fast) {
+    int p = min(nb, IX_B - 1);
+    bool done = false;
+    for (int i = IX_B - 1; i > 0; i--) {
+      if (done || i > p) continue;
+      if (ixFront(D, tz, bD[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+      else { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
+    }
+    if (!done) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+    nb = min(nb + 1, IX_B);
+    return;
+  }
+` : ''}  for (int i = IX_B - 1; i > 0; i--) {
     if (i > pos) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
     else if (i == pos) { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
   }

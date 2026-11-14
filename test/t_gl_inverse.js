@@ -3,8 +3,9 @@
 // GLChain.build(...).inverse (SPEC 4.1): the key is Inverse.inverseKey, the program's op list is Inverse.stepOps of
 // every live step in order, the uInv allocator covers every op's parameters, a parameter change keeps the key, an
 // eligibility flip changes it without touching the forward key or layout, and the walker nests one loop per
-// multivalued op; and every program's two stages agree on their varyings' centroid qualifier (GLR._src.DEFS). The GPU
-// side is test/glsl_inverse_test.js. Run: node test/t_gl_inverse.js
+// multivalued op; the inverse program's leaf reaches each of its heavy helpers from one call site; and every program's
+// two stages agree on their varyings' centroid qualifier (GLR._src.DEFS). The GPU side is test/glsl_inverse_test.js.
+// Run: node test/t_gl_inverse.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
@@ -321,6 +322,79 @@ for (const t of TYPES) {
   const live = (src) => src.split('\n').reduce((o, l) => { if (/^#ifdef IX_STAGED/.test(l)) o.d++; else if (/^#(else|endif)/.test(l) && o.d) o.d--; else if (!o.d) o.t.push(l); return o; }, { d: 0, t: [] }).t.join('\n');
   check('carried program: staged names only under IX_STAGED', !STAGED_NAMES.test(live(plain)) && !STAGED_NAMES.test(plain.replace(/#ifdef IX_STAGED[\s\S]*?(?:#else|#endif)/g, '')));
   check('staged carried program declares the staged uniforms', /uniform int uShStage;/.test(staged) && /uniform float uStageGrow;/.test(staged));
+}
+// ---- the leaf reaches each heavy helper from one call site: a shader compiler inlines every call, so a second call site
+// of the chain (chainRange), the carried colour (dcolorD), the admission's shading (ixShadeAdm) or a formula's level
+// (ixFormLevel) puts a second copy of it in the program (FXC's compile time grows faster than the inlined size) ----
+{
+  // the text a compiler sees: #ifdef / #ifndef / #if ... #else ... #endif resolved with the text's own #defines (#if
+  // takes terms joined by &&: defined(X), !defined(X), a number, a name, a name compared with a number)
+  const preprocess = (src) => {
+    const defs = new Map(), out = [], open = [];
+    const num = (name) => +(defs.get(name) || 0);
+    const term = (t) => {
+      const m = /^(!?)defined\s*\(\s*(\w+)\s*\)$/.exec(t) || /^(\w+)\s*(>=|>|==)\s*(\d+)$/.exec(t);
+      if (m && m.length === 3) return defs.has(m[2]) !== (m[1] === '!');
+      if (m) return m[2] === '>=' ? num(m[1]) >= +m[3] : m[2] === '>' ? num(m[1]) > +m[3] : num(m[1]) === +m[3];
+      if (/^\d+$/.test(t)) return +t !== 0;
+      if (/^\w+$/.test(t)) return num(t) !== 0;
+      throw new Error(`#if term ${t}`);
+    };
+    for (const line of src.split('\n')) {
+      const m = /^\s*#\s*(ifdef|ifndef|if|elif|else|endif|define)\b\s*(.*)$/.exec(line), on = open.every((x) => x);
+      if (!m) { if (on) out.push(line); continue; }
+      const [, d, rest] = m;
+      if (d === 'elif') throw new Error('#elif');
+      if (d === 'endif') open.pop();
+      else if (d === 'else') open.push(!open.pop());
+      else if (d === 'define') { if (on) { const dm = /^(\w+)(\()?\S*\s*(.*)$/.exec(rest); defs.set(dm[1], dm[2] ? '1' : dm[3]); out.push(line); } }
+      else open.push(d === 'ifdef' ? defs.has(rest.trim()) : d === 'ifndef' ? !defs.has(rest.trim()) : rest.split('&&').every((t) => term(t.trim())));
+    }
+    return out.join('\n');
+  };
+  // copies of each function in main's full inlining: the bodies of the functions defined at the start of a line, every
+  // call site counted
+  const copies = (src) => {
+    const text = preprocess(src).replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
+    const body = new Map();
+    for (const m of text.matchAll(/^(?:highp |mediump |lowp )?\w+ (\w+)\([^()]*\)\s*\{/gm)) {
+      let d = 0, j = m.index + m[0].length - 1;
+      do { if (text[j] === '{') d++; else if (text[j] === '}') d--; j++; } while (d > 0);
+      body.set(m[1], text.slice(m.index + m[0].length, j));
+    }
+    const callsOf = new Map(), out = new Map();
+    const calls = (f) => {
+      if (!callsOf.has(f)) {
+        const c = new Map();
+        for (const m of body.get(f).matchAll(/\b(\w+)\s*\(/g)) if (m[1] !== f && body.has(m[1])) c.set(m[1], (c.get(m[1]) || 0) + 1);
+        callsOf.set(f, c);
+      }
+      return callsOf.get(f);
+    };
+    const visit = (f, k) => { out.set(f, (out.get(f) || 0) + k); for (const [g, c] of calls(f)) visit(g, k * c); };
+    visit('main', 1);
+    return out;
+  };
+  const steps = [St('exp'), St('mobius')], info = GLChain.build(steps, steps.map(Funcs.build));
+  const CARRY = { carry: true, pre: '', main: '' }, STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  const form = GLChain.levelGLSL('|\\Im z|<1', 'ilev0');
+  const prog = (B, globe, extra, forms = []) => GLR._src.invSources(B, globe, forms, extra, info)[1];
+  check('a formula shape\'s level compiles', form.ok);
+  const CASES = [
+    ['the carried program', prog(5, false, CARRY), { chainRange: 1, dcolorD: 1 }],
+    ['the carried program on the globe', prog(5, true, CARRY), { chainRange: 1, dcolorD: 1 }],
+    ['the carried program of a later plane\'s shape', prog(5, false, STAGED), { chainRange: 2, dcolorD: 1 }],
+    ['the carried program at B = 8', prog(8, false, CARRY), { ixShadeAdm: 1, chainRange: 1, dcolorD: 1 }],
+    ['the program at B = 8', prog(8, false), { ixShadeAdm: 1 }],
+    ['the program with a formula shape', prog(5, false, undefined, [form.source]), { ixFormLevel: 1 }],
+  ];
+  for (const [name, src, want] of CASES) {
+    const c = copies(src);
+    for (const [f, k] of Object.entries(want)) check(`${name} holds ${k} cop${k > 1 ? 'ies' : 'y'} of ${f}`, c.get(f) === k, `${c.get(f)} copies`);
+  }
+  // (the count sees a second call site: ixCarryCol calling dcolorD twice)
+  const one = prog(5, false, CARRY), two = one.replace('  return dcolorD(w, wx, wy);', '  if (uGt == 99) return dcolorD(w, wx, wy);\n  return dcolorD(w, wx, wy);');
+  check('a second dcolorD call site counts as a second copy', two !== one && copies(two).get('dcolorD') === 2, copies(two).get('dcolorD'));
 }
 // ---- every program's stages agree on their varyings' centroid qualifier (GLSL ES 3.00 4.3.9: a mismatch fails the link) ----
 {
