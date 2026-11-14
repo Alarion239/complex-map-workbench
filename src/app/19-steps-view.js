@@ -2781,14 +2781,18 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
-    // (the levels settled, the key is unfolded again if the bar still fits beside it)
+    // (the levels settled, the key is unfolded again if the bar still fits beside it, or fits one level shorter: the key
+    // folded first for a bar a little too wide, and a narrower head, whose bar shortens anyway, would show its words, so
+    // a wider head never folds a key a narrower one shows)
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
       // (the chip's own width: its words, not the width a squeezed chip is left with)
       const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
       const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
-      if (E.bar.scrollWidth + keep + dw > room) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
+      const fits = () => E.bar.scrollWidth + keep + dw <= room;
+      if (!fits() && lvl < 5) { set(lvl + 1); if (fits()) { lvl++; svTitleTip(lvl >= 4); } else set(lvl); }
+      if (!fits()) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
