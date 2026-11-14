@@ -580,9 +580,12 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
 // scrubber quiet for a screen reader while it plays, a hidden page, a small device
 R.pv2 = {};
 if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
-  const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
+  const PV_STATE = `(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek'), cv = document.querySelector('.xf-pvcv');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !cv.hidden, cssW: Math.round(cv.getBoundingClientRect().width || parseFloat(cv.style.width) || 0), dpr: devicePixelRatio, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
-      seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
+      seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`;
+  const pvState = () => ev(PV_STATE);
+  // click sel and read the state in the same task: a restart that begins on the click is read as it began, whatever the round trips take
+  const clickState = (sel) => ev(`(() => { document.querySelector(${JSON.stringify(sel)}).click(); return ${PV_STATE}; })()`);
   const shownE = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.id && s.shown); })()`;
   const VS = `async (k) => { const d = __cmwFig.dialog(), s = d.preview.state(), o = Object.assign(d.preview.opts(), { keepForCheck: true, alive: null });
     const r = await __cmwFig.makeVideo(o); const chk = await __cmwFig.videoCheck(k, s.pw, s.ph), pf = await d.preview.frame(k);
@@ -654,8 +657,7 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   await settled({ until: shownE, max: 20000, only: true }); await sleep(500);
   await clickSel('#xfPvPlay'); await sleep(100);
   const id1 = (await pvState()).id;
-  await clickSel('#xfVEnds button[data-v="bounce"]'); await sleep(40);
-  const c0 = await pvState();
+  const c0 = await clickState('#xfVEnds button[data-v="bounce"]');
   await clickSel('#xfPvPlay'); await sleep(30);
   const c1 = await pvState();
   await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id1} && s.shown; })()`, max: 20000, only: true }); await sleep(300);
@@ -666,11 +668,11 @@ if (!['4', '4a', '4a-fig', '4a-vid', '4b'].includes(process.env.CMW_ONLY)) {
   // frames, not the 960 px poster, and stays paused; then Play again for (vp-6)
   await clickSel('#xfPvPlay'); await sleep(100);
   const id2 = (await pvState()).id;
-  await clickSel('#xfVEnds button[data-v="loop"]'); await sleep(40);
+  const cl = await clickState('#xfVEnds button[data-v="loop"]');
   const tp = (await settled({ until: `(() => { const s = __cmwFig.dialog().preview.state(); return s.id > ${id2} && s.shown; })()`, max: 20000, only: true })).at; await sleep(200);
   const c3 = await pvState();
-  R.pv2.pausedRestart = { tp, c3: { id: c3.id, shown: c3.shown, playing: c3.playing, canvas: c3.canvas, poster: c3.poster, btn: c3.btn, pw: c3.pw } };
-  ok('preview (vp-2 residual): a restart while paused shows its own frames, not the poster, and stays paused', tp >= 0 && c3.shown && c3.canvas && !c3.poster && !c3.playing && c3.btn === 'Play', R.pv2.pausedRestart);
+  R.pv2.pausedRestart = { cl: cl.id, tp, c3: { id: c3.id, shown: c3.shown, playing: c3.playing, canvas: c3.canvas, poster: c3.poster, btn: c3.btn, pw: c3.pw } };
+  ok('preview (vp-2 residual): a restart while paused shows its own frames, not the poster, and stays paused', cl.id === 0 && tp >= 0 && c3.shown && c3.canvas && !c3.poster && !c3.playing && c3.btn === 'Play', R.pv2.pausedRestart);
   await clickSel('#xfPvPlay'); await settled({ until: `__cmwFig.dialog().preview.state().playing`, max: 5000, only: true }); await sleep(300);
   // (vp-6) the scrubber with focus stands still for a screen reader while the video plays; a key moves from the frame in view
   await ev(`document.getElementById('xfPvSeek').focus(); 1`); await sleep(150);
