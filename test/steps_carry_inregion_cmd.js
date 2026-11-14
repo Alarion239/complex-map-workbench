@@ -11,7 +11,10 @@
 // - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside
 //   regions (and every region point coloured, past the window too) and Everywhere; Everywhere held mid-glide at 0.25.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
-//   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere.
+//   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere. For n = 2, the bare frames
+//   (__cmwSteps({ bare: true }), the colour layer alone) Inside regions, parked halfway (the inverse pass's frame) and at
+//   rest on plane w1 (the exact colour under the regions' mask), have no outlines: leaving the shapes' strokes out
+//   (__cmwHideStrokes) changes no pixel by more than DIFF_TOL; control: not bare, it changes the frame.
 // - F = sin(((e^z - 1) / (e^z + 1))^2), Everywhere at rest on its last plane: the whole plane near a family of poles.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -24,9 +27,11 @@ await view(1200, 800, false, false);
 const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length' }); };
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
+// (the least share of the frame the annulus's two outlines cover, not bare)
+const OUTLINE_MIN = 0.001;
 const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
-const { hold, grab, fade, judge, JUDGE_MIN_N } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { hold, grab, fade, judge, JUDGE_MIN_N, compare: compareFrames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // the colours at the points W of the state `at` against plane z's at the points Z: {n, wrong, paper, worst, state}
 // at.hold: the thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user
 // holding the thread; the frame is read once its programs are linked and two frames are alike
@@ -183,6 +188,26 @@ for (const n of [2, 3]) {
     };
     const tag = `z^${n} ${scope} ${park == null ? 'rest' : 'parked ' + park}`;
     if (park == null) await check(tag, { scope, go: 1, now: true }, 1, P, pts, cand, 200); else await judged(tag, { scope, park });
+  }
+  if (n === 2) {
+    for (const [tag, at] of [['parked 0.5', { park: 0.5 }], ['rest on w1', { go: 1, now: true }]]) {
+      // the share of the frame's pixels the shapes' strokes change (compareFrames' frac), bare or not
+      const strokes = async (bare) => {
+        await ev(`__cmwSteps({ bare: ${bare} }), 1`);
+        await steps(Object.assign({ scope: 'in', surf: 'plane' }, at));
+        const on = await grab('strokes');
+        await ev('__cmwHideStrokes(true), 1');
+        await wait();
+        const off = await grab('no strokes');
+        await ev('__cmwHideStrokes(false), __cmwSteps({ bare: false }), 1');
+        await wait();
+        return on && off ? compareFrames('strokes', 'no strokes') : null;
+      };
+      const bare = await strokes(true), drawn = await strokes(false), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
+      info[`z^2 in ${tag}, bare`] = { bare, drawn, g };
+      ok(`z^2 in ${tag}: the bare frame has no outlines (the strokes change no pixel)`, !!bare && bare.frac === 0, info[`z^2 in ${tag}, bare`]);
+      ok(`z^2 in ${tag}: control: not bare, the strokes change the frame`, !!drawn && drawn.frac > OUTLINE_MIN, info[`z^2 in ${tag}, bare`]);
+    }
   }
 }
 
