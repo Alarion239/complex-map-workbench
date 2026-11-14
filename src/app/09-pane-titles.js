@@ -1287,8 +1287,8 @@
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
       else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
     }
-    // (the steps view's Height key describes h(F), the same quantity on every plane)
-    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }

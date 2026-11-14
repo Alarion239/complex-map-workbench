@@ -254,11 +254,12 @@
   function svCapParts(o) {
     const c = figCapParts(o);
     if (!SV.on || morphOn()) return c;
-    const q = svFigParts(), carried = !q.coloured && q.k > 0;
+    // (hName: what the Landscape's height reads, svHeightName; past the colour plane, the point of T it is carried from)
+    const q = svFigParts(), carried = !q.coloured && q.k > 0, hName = svHeightName('tex', q.k);
     // (F, the map from z into the last plane: the composite's formula in z, as the classic caption has it)
-    if (q.name === 'F') return Object.assign(c, { Fname: 'F', lvar: 'z', mapTex: c.formula ? `F(z)=${c.formula}` : null, carried });
+    if (q.name === 'F') return Object.assign(c, { Fname: 'F', lvar: 'z', mapTex: c.formula ? `F(z)=${c.formula}` : null, carried, hName });
     const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
-    return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
+    return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried, hName });
   }
   // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
   const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in

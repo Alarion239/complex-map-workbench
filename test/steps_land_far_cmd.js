@@ -1,5 +1,6 @@
 // The steps view's carried Landscape past its box: the far patch's height is smooth about the height map's poles. The
-// default page (z, exp, Möbius), Everywhere, T = w₁, the glide z → w₁ held at u = 0.25 and 0.5. Plane z outside the carried box
+// default page (z, exp, Möbius), Everywhere, T = w₂ (the heights are h(F), F the whole chain, the colour plane's: #1576), the
+// glide z → w₁ held at u = 0.25 and 0.5. Plane z outside the carried box
 // is carried into the block by the far patch (svLandFar), whose cells are coarse; the height h(F) of that region has a log
 // spike at each pole of exp's Möbius image (z = ±3πi, ±5πi, ...), which a coarse cell facets. Each pole in the far
 // patch's inner ring gets a pole patch of its own (svLandPatches, svLandHeightPoles). Read on the CPU from the last
@@ -26,7 +27,7 @@ const FAR_N = 128;
 await view(1440, 900, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landfar${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
-await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 2, go: 0, now: true }); 1`);
 await settled({ max: 60000 });
 for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await ev(`__cmwSteps({ go: 0, now: true }); 1`);

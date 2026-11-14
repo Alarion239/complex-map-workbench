@@ -1,12 +1,22 @@
-// The steps view's Landscape with All sheets and the colour plane mid-chain: every sheet stands at h(F), as the single
-// surface does, whatever T. A chain z, √, Möbius (two sheets over z and every plane after √), All sheets on, the
-// Landscape, the shapes hidden. Plane z with T = w₂ (the last plane) is its own relief, h(F) on F's sheets (the
-// reference); with T = w₁ it is plane z's points carried (the identity carry), coloured by √ (the stages up to T):
-// - plane z at rest with T = w₁: a carried frame that draws the sheets, with the reference's scale and its cells refined
-//   about the walls (the pole of F at z = −1 is a spike, as the reference's, not a sail), coloured by √ at every fragment;
-// - its surface stands where the reference's does: read for where the surface is (a pixel of the phase colours, its
-//   largest channel less its smallest over 16/255, against the grey floor and backdrop), the pixels that are surface
-//   in one frame and not in the other are at most 1 % of the pane's (the colours differ: √'s phase against F's).
+// The steps view's Landscape height follows the colour plane T, as its colour does (#1576): a point's height is h of
+// its image in T, so the steps after T never change the relief of a plane up to T, and past T the points carry T's
+// heights as they carry its colour.
+// A chain z → z² + 1 → √ (and the same without √, or with exp after it), the Landscape, Im heights, the shapes hidden:
+// - T = z: plane z is its own relief, Im z, the probe's height map the identity; the frame is the same pixel for pixel
+//   as with the √ step removed (no seam along √'s cut, nothing of the steps after T);
+// - T = w₁: plane z is the relief of Im(z² + 1), the probe reading z² + 1; the frame is the same pixel for pixel as on
+//   the chain without √, where w₁ is the last plane;
+// - past T (T = w₁): plane w₂ is plane w₁'s points carried (s = 1) at their heights on w₁ (the carry's height map is the
+//   identity of w₁), and the probe over a point of w₂ reads the point of w₁ carried there, its square; the frame is the
+//   same pixel for pixel with an exp step appended after w₂.
+// (The frames compared are drawn without the pane's words, filled or stroked: the ruler's title names what the height
+// reads, f₁ where w₁ is mid-chain and F where it is the last plane)
+// A chain z, √, Möbius (two sheets over z and every plane after √), All sheets on:
+// - T = w₁: plane z is its own relief with the sheets of √, the same pixel for pixel as the chain √ alone;
+// - with 1/w after it, T = w₂ and log heights: plane w₃, past T, is a carried frame from z with the sheets at their
+//   heights in T (the stages (z, w₂]: w₂'s pole, at z = −1 on √'s second sheet, a spike carried to w₃ = 0);
+// - T = w₂: plane z's own relief at the pane heights of the CI's and of a few others is still once settled() returns
+//   (the refined frame is the first rest frame: the pane draws no other frame after it).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -17,44 +27,92 @@ await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const carried = async () => JSON.parse(await ev('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)'));
-// (the share of the pane's pixels that are surface in one of kept frames a and b and not in the other)
-const apart = (a, b) => ev(`(() => {
-  const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}];
+const heightAt = async (x, y) => JSON.parse(await ev(`JSON.stringify(typeof __cmwLandHeightAt === 'function' ? __cmwLandHeightAt(${x}, ${y}) : 'no hook')`));
+const near = (v, w) => Array.isArray(v) && Math.hypot(v[0] - w[0], v[1] - w[1]) <= 1e-6 * (1 + Math.hypot(w[0], w[1]));
+// (a kept frame's pixels, canvasL's RGBA bytes, held here: a page load clears the page's own copy)
+const kept = {};
+const keep = async (tag) => { const b64 = await ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}]; if (!P) return ''; let s = ''; for (let i = 0; i < P.length; i += 0x8000) s += String.fromCharCode.apply(null, P.subarray(i, i + 0x8000)); return btoa(s); })()`); kept[tag] = b64 ? Buffer.from(b64, 'base64') : null; };
+// two kept frames' difference: the pixels with any channel apart, the share more than 32/255 apart, the largest channel difference
+const diff = (a, b) => {
+  const A = kept[a], B = kept[b];
   if (!A || !B || A.length !== B.length) return null;
-  const surf = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > 16;
-  let n = 0, sa = 0, sb = 0, x = 0;
-  for (let i = 0; i < A.length; i += 4) { n++; const p = surf(A, i), q = surf(B, i); sa += p; sb += q; x += p !== q; }
-  return { apart: +(x / n).toFixed(5), surface: [+(sa / n).toFixed(4), +(sb / n).toFixed(4)] };
-})()`);
-const CHAIN = [{ type: 'root', params: { n: 2 }, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }];
-const ns = 'landsheetsh' + Date.now();
-await loadView('steps', ns, { shapes: [], steps: CHAIN, sheets: true });
-await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
-await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
-await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 2, go: 0, now: true }); 1`);
-await settled({ max: 60000 });
-info.planes = await ev('__cmwSteps().planes');
-ok('the chain has three planes', Array.isArray(info.planes) && info.planes.length === 3, info.planes);
-for (const i of [0]) {
-  await ev(`__cmwSteps({ T: 2 }); 1`);
-  await rest(i);
-  const own = info['own' + i] = await carried();
-  ok(`T = w₂, plane ${i}: its own relief`, !own, own);
-  ok(`T = w₂, plane ${i}: the reference frame is still`, await grab('own' + i), null);
-  await ev(`__cmwSteps({ T: 1 }); 1`);
-  await rest(i);
-  const c = info['mid' + i] = await carried();
-  ok(`T = w₁, plane ${i}: a carried frame with the sheets`, !!c && c.sheets === true, c);
-  ok(`T = w₁, plane ${i}: the rest frame's cells are refined about the walls, as the own relief's are`, !!c && c.refined === true, c);
-  ok(`T = w₁, plane ${i}: the frame is still`, await grab('mid' + i), null);
-  const d = info['d' + i] = await apart('mid' + i, 'own' + i);
-  ok(`T = w₁, plane ${i}: the frames show a surface`, !!d && d.surface[1] > 0.03, d);
-  ok(`T = w₁, plane ${i}: the sheets stand where h(F)'s do (≤ 1 % of the pane apart)`, !!d && d.apart <= 0.01, d);
+  let n = 0, over = 0, max = 0;
+  for (let i = 0; i < A.length; i += 4) { const m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])); if (m) n++; if (m > 32) over++; if (m > max) max = m; }
+  return { apart: n, frac: +(over / (A.length / 4)).toFixed(5), max };
+};
+const step = (type, params) => ({ type, params: params || {}, on: true });
+const P = step('custom', { expr: 'z^2 + 1', cut: 180 }), ROOT = step('root', { n: 2 }), EXP = step('exp');
+// the chain steps on the Landscape with Im heights (o.height: another) at plane `plane` with T, still: its frame kept as
+// `tag`. The pane's words are not drawn (the floor's and the ruler's: the ruler's title names what the height reads,
+// "Im f₁" or "Im F", which the frames compared here may name differently)
+async function frame(steps, T, plane, tag, o = {}) {
+  const ns = 'landfollow' + Date.now(), height = o.height || 'im';
+  await loadView('steps', ns, { shapes: [], steps, sheets: !!o.sheets, srcView: { cx: 0, cy: 0, s: 90 } });
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`(() => { const f = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = f[k]; f[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: ${T}, go: ${plane}, now: true }); 1`);
+  await settled({ max: 60000 });
+  await ev(`(document.querySelector('#heightSeg button[data-v="${height}"]') || {}).click?.(), 1`);
+  await rest(plane);
+  const st = JSON.parse(await ev('JSON.stringify({ T: __cmwSteps().T, planes: __cmwSteps().planes, height: (document.querySelector("#heightSeg [aria-pressed=true], #heightSeg .on") || {}).dataset?.v || null })'));
+  ok(`${tag}: the frame is still`, await grab(tag), null);
+  await keep(tag);
+  return Object.assign(st, { carry: await carried() });
 }
-// the relief is h(F) whatever T: with the colour kept to a disc far from the pole (Inside regions, plain paper elsewhere),
-// plane z's frames with T = w₂ and T = w₁ are the same shape about the pole at z = −1 (a window of the pane around it:
-// none of its pixels more than 32/255 apart, held_frames.js's DIFF_TOL: the two frames draw the same cells), at the
-// pane heights of the CI's and of a few others (the spike's edge crosses a pixel centre at some of them)
+// ---- z → z² + 1 → √ ----
+const CH = [P, ROOT];
+{
+  const r = info.z = {};
+  r.with = await frame(CH, 0, 0, 'z3');
+  r.withH = await heightAt(0.3, 0.7);
+  r.without = await frame([P], 0, 0, 'z2');
+  ok('T = z: the chain has three planes and T is z', Array.isArray(r.with.planes) && r.with.planes.length === 3 && r.with.T === 0, r.with);
+  ok('T = z, plane z: its own relief (no carry)', !r.with.carry, r.with.carry);
+  ok('T = z, plane z: the height reads z itself', near(r.withH, [0.3, 0.7]), r.withH);
+  r.d = diff('z3', 'z2');
+  ok('T = z, plane z: the relief is unchanged by the √ step after T (no seam along its cut)', !!r.d && r.d.max === 0, r.d);
+}
+{
+  const r = info.w1 = {};
+  r.with = await frame(CH, 1, 0, 'w1z3');
+  r.withH = await heightAt(0.3, 0.7);
+  r.last = await frame([P], 1, 0, 'w1z2');
+  ok('T = w₁, plane z: its own relief (no carry)', !r.with.carry, r.with.carry);
+  // ((0.3 + 0.7i)² + 1 = 0.6 + 0.42i)
+  ok('T = w₁, plane z: the height reads z² + 1', near(r.withH, [0.6, 0.42]), r.withH);
+  r.d = diff('w1z3', 'w1z2');
+  ok('T = w₁, plane z: the relief is h(z² + 1), unchanged by the √ step after T', !!r.d && r.d.max === 0, r.d);
+}
+{
+  const r = info.past = {};
+  r.rest = await frame(CH, 1, 2, 'p3');
+  // (a point of w₂ in the window, and the point of w₁ carried to it: w₂ = √w₁, so w₁ = w₂²)
+  r.h = await heightAt(0.8, 0.5);
+  r.more = await frame([P, ROOT, EXP], 1, 2, 'p4');
+  const c = r.rest.carry;
+  ok('past T, plane w₂: plane w₁\'s points carried', !!c && c.s === 1 && c.u === 1, c);
+  ok('past T, plane w₂: at their heights on w₁ (the carry\'s height map is w₁\'s identity)', !!c && !!c.hmap && c.hmap.a === 1 && c.hmap.b === 1, c);
+  // ((0.8 + 0.5i)² = 0.39 + 0.8i)
+  ok('past T, plane w₂: the probe reads the point of w₁ carried there, w₂²', near(r.h, [0.39, 0.8]), r.h);
+  r.d = diff('p3', 'p4');
+  ok('past T, plane w₂: the carried relief is unchanged by a step after it', !!r.d && r.d.max === 0, r.d);
+}
+// ---- All sheets: z, √, Möbius ----
+const CHAIN = [ROOT, step('mobius', { a: '1', b: '-i', c: '1', d: 'i' })];
+{
+  const r = info.sheets = {};
+  r.mid = await frame(CHAIN, 1, 0, 'sh1', { sheets: true });
+  r.alone = await frame([ROOT], 1, 0, 'sh0', { sheets: true });
+  ok('All sheets, T = w₁, plane z: its own relief', !r.mid.carry, r.mid.carry);
+  r.d = diff('sh1', 'sh0');
+  ok('All sheets, T = w₁, plane z: the sheets of √, as on the chain √ alone', !!r.d && r.d.max === 0, r.d);
+  r.past = await frame([...CHAIN, step('mobius', { a: '0', b: '1', c: '1', d: '0' })], 2, 3, 'sh3', { sheets: true, height: 'log' });
+  const c = r.past.carry;
+  ok('All sheets, T = w₂, plane w₃: a carried frame from z with the sheets', !!c && c.s === 0 && c.sheets === true && !!c.hmap && c.hmap.a === 0 && c.hmap.b === 2, c);
+}
+// the refined frame is the first rest frame, at the pane heights of the CI's and of a few others (the spike's edge
+// crosses a pixel centre at some of them): with the colour kept to a disc far from the pole (Inside regions, plain
+// paper elsewhere), plane z's own relief with T = w₂
 for (const dh of [0, -17, -7, -2, 3, 11, 20]) {
   await view(1440, 900 + dh, false, false);
   const ns2 = 'landsheetshb' + Date.now();
@@ -74,11 +132,5 @@ for (const dh of [0, -17, -7, -2, 3, 11, 20]) {
   ok(`bare (pane ${900 + dh}), T = w₂: a later frame is still`, await grab('bare2late'), null);
   const late = info['late' + dh] = await compare('bare2', 'bare2late', { x: [0.28, 0.62], y: [0.2, 0.6] });
   ok(`bare (pane ${900 + dh}): the first rest frame is the later frame (none of the window apart)`, !!late && late.frac === 0, late);
-  await ev(`__cmwSteps({ T: 1 }); 1`);
-  await rest(0);
-  ok(`bare (pane ${900 + dh}), T = w₁: the carried frame is still`, await grab('bare1'), null);
-  // (the pane's window around the pole at z = −1 under the default camera: the funnel and its wall, clear of the sheets' far edges)
-  const win = info['bare' + dh] = await compare('bare2', 'bare1', { x: [0.28, 0.62], y: [0.2, 0.6] });
-  ok(`bare (pane ${900 + dh}): the relief about the pole is the same with T = w₁ as with T = w₂ (none of the window apart)`, !!win && win.frac === 0, win);
 }
 return { pass: fails.length === 0, fails, info };

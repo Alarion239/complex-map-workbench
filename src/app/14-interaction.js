@@ -1322,13 +1322,15 @@
       // panels.md 2: z, |z|, arg, then F as modulus and angle with its swatch (first, so it is never cut); where the
       // chip is too narrow for that (a pane under about 560px), z and F with fewer digits
       // (the steps view's colour plane reads its own variable above: no second row for the identity)
-      // (the steps view's Landscape reads F at the point, the whole chain's value, and the height it stands at, h(F),
-      // the same quantities on every plane; F is not repeated on the last plane, where it is the plane's own variable)
-      const land = SV.on && lLand(), hk = land ? svHT(lk) : -1, hF = land ? svHeightF(lk)(z) : null;
+      // (the steps view's Landscape reads the point's image in the colour plane T, what its height reads (svHeightName: the
+      // map into T, or past T the point of T the height is carried from), and the height it stands at; the image is not
+      // repeated on T, where it is the plane's own variable. The value is the probe's own, the one it picked on)
+      const land = SV.on && lLand(), pk = land ? render3D.pick : null, hF = pk && pk.F ? pk.F(z) : null, hn = land ? svHeightName('html', lk) : '';
       const hRow = (dp) => {
+        if (!hF) return '';
         const fin = CX.isFin(hF), hv = !fin ? NaN : landValue(hF);
-        const hl = { re: 'Re <i>F</i>', im: 'Im <i>F</i>' }[S.height] || '|<i>F</i>|';
-        return (hk === lk ? '' : rk('<i>F</i>', fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
+        const hl = { re: `Re ${hn}`, im: `Im ${hn}` }[S.height] || `|${hn}|`;
+        return (lk === svT() ? '' : rk(hn, fin ? fmtCxHtml(hF, dp) : '∞')) + rk(hl, Number.isFinite(hv) ? fmtR(hv, dp) : '∞');
       };
       const fv = (dp) => land ? (landOffRegion(render3D.mask, z) ? '' : hRow(dp)) : SV.on && svMapName('text') === null ? '' : rk(SV.on ? svMapCall('html') : fnHtml(), ok ? `${sw}${fmtR(CX.abs(wl), dp)} ∠ ${degs(Math.atan2(wl.im, wl.re), dp)}` : '∞');
       const forms = [

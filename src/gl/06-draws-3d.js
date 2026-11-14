@@ -247,10 +247,9 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // The steps view's carried landscape (st.carry {map, s, T, hT, hT2, u, lim, src, key}): plane s's grid over its box src
+  // The steps view's carried landscape (st.carry {map, s, T, hT, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
-  // each vertex at the height of the stages (s, hT] at its point (hT default T), blended over u into that of the stages
-  // (s, hT2] (default hT: the glide's two planes read their heights from different planes across a d/dz step), and coloured by G = the stages (s, T]
+  // each vertex at the height of the stages (s, hT] at its point (hT default T), and coloured by G = the stages (s, T]
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
@@ -274,7 +273,7 @@
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     const h1 = c.hT == null ? c.T : c.hT;
-    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
@@ -1160,9 +1159,6 @@
     lvCollect();
     // the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
     if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
-    // (a carry that moves nothing, plane s at rest: its own refined cells, the colour of the stages up to T)
-    const idc = st.carry && st.sheets && st.carry.map.mode === 0 && st.carry.map.a === st.carry.map.b && st.carry.s === st.carry.map.a ? st.carry.T : null;
-    if (idc != null) st = Object.assign({}, st, { carry: null, colT: idc });
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -1280,7 +1276,7 @@
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
       // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
-      const colT = st.carry ? st.carry.T : st.colT, colB = hs && colT != null && colT < hs.b ? colT : hs ? hs.b : 0;
+      const colT = st.carry ? st.carry.T : null, colB = hs && colT != null && colT < hs.b ? colT : hs ? hs.b : 0;
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
@@ -1526,7 +1522,6 @@
       }
     }
     resetState();
-    if (idc != null) info.carried = true;
     return info;
   }
 
