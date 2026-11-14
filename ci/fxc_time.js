@@ -25,7 +25,6 @@ const crypto = require('crypto');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
-const SC = require('./steps_scenes');
 
 const argv = process.argv.slice(2);
 const MODE = argv[0];
@@ -191,6 +190,8 @@ async function capture() {
     for (const n of names) {
       let r;
       try { r = await captureScene(S.base, n, tree); } catch (e) { console.log(`[fxc] ${sd.label} ${n}: ${String(e.message).split('\n')[0]}: once more`); r = await captureScene(S.base, n, tree); }
+      // (a page slow under load can glide before its example is up: a scene that links no inverse program is run again)
+      for (let k = 0; !r.length && k < 2; k++) { console.log(`[fxc] ${sd.label} ${n}: no inverse program: once more`); r = await captureScene(S.base, n, tree); }
       console.log(`[fxc] ${sd.label} ${n}: ${r.length} inverse programs: ${r.map((x) => `${x.phase} ${x.name} ${((x.vs.length + x.fs.length) / 1024).toFixed(0)} KB`).join('; ')}`);
       for (const x of r) found.push({ side: sd.label, ...x });
     }
