@@ -25,7 +25,7 @@
       return;
     }
     if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
-    S[k] = v; if (k === 'meshN') { dropAllGPU(); } if (k === 'exactImages') scheduleFix(); requestRender('L', 'R');
+    S[k] = v; if (k === 'meshN') { dropAllGPU(); } requestRender('L', 'R');
   };
   // U-b: the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
