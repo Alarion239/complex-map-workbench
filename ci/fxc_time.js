@@ -18,6 +18,9 @@
 //   node ci/fxc_time.js glide --ref REF [--scenes expsin,mk] [--rounds 2] [--timeout-s 900] [--budget-min 85] [--no-build] [--out FILE]
 //     the first glide of the scenes in the app itself, this checkout against REF, the sides in turn: the seconds to its first
 //     exact frame and the link seconds of its inverse programs.
+//   node ci/fxc_time.js play [--ref REF] [--scenes expsin,mk] [--timeout-s 900] [--tail-s 420] [--no-build] [--out FILE]
+//     the first glide as it plays (sampled every 250 ms): its first exact frame, its end, the frame rate meanwhile, the stalls
+//     (holds) and every inverse program it links: when, how long, and what waited for it.
 // Variants (the text of the fragment shader):
 //   a  as the app links it
 //   b  every for loop whose trip count is a literal or an IX_ constant gets "+ uZero" on its bound: a uniform nothing
@@ -475,4 +478,127 @@ async function glideAB() {
   process.exit(0);
 }
 
-(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide ...'))).catch((e) => { console.error(e); process.exit(2); });
+// ---- the first glide as it plays, in the app: what the links that land after the first exact frame are, and what the play does meanwhile
+// The glide is sampled every 250 ms (its position, its path, whether it is moving) and the app's animation-frame callbacks are
+// timed from the page's first script on. Per cell:
+//   firstS     seconds from the glide's start to its first exact frame
+//   playS      seconds until the glide has stopped moving at its end; meshAfter: samples after the first exact frame whose frame was
+//              the carried mesh, not the inverse pass (0: every frame was exact)
+//   fps        animation-frame callbacks a second between the first exact frame and the end of the play, and the longest gap (ms)
+//   stalls     intervals where the glide was moving but its position stood still for over a second (a hold: on what is open then)
+//   links      every inverse program linked from the glide's start: its start and end (s from the glide's start), its link seconds,
+//              and what waited for it: "first frame" (done by the first exact frame), "held" (a stall overlaps its link), or "none"
+const PLAY_PROBE = `(() => {
+  window.__rafT = [];
+  const raf = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (cb) => raf((t) => { window.__rafT.push(t); return cb(t); });
+})();`;
+async function playCell(base, name, tree, timeoutMs, tailMs) {
+  const sc = SCENES[name], glide = sc.phases.find(([l]) => l === 'glide')[1];
+  const H = await launch({ width: 1440, height: 900, inject: PLAY_PROBE });
+  try {
+    const ns = `fxc${name}${Date.now()}`;
+    await H.nav(`${base}blank.html`);
+    if (sc.edit) {
+      const st = { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'image' };
+      await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+    }
+    await H.nav(`${base}test.html?ns=${ns}&view=steps&glprof`);
+    await H.until(`typeof __cmwSteps === 'function' && typeof GLR !== 'undefined'`, 240000, 200);
+    const quiet = async (maxMs) => {
+      const t0 = Date.now();
+      let n = -1, since = Date.now();
+      for (;;) {
+        const r = await H.ev('GLR.profile()'), open = r.filter((x) => x.ms === null).length;
+        if (r.length !== n) { n = r.length; since = Date.now(); }
+        if ((Date.now() - since > 6000 && !open) || Date.now() - t0 > maxMs) return r.length;
+        await sleep(250);
+      }
+    };
+    await quiet(timeoutMs);
+    if (sc.example) {
+      const i = exampleIndex(tree, sc.example);
+      if (i < 0) throw new Error(`no example named ${sc.example} in ${tree}`);
+      await H.ev(`__cmwExample(${i})`);
+    }
+    if (sc.edit) {
+      await H.until(`!!document.querySelector('input[data-pkey="expr"]')`, 30000, 100);
+      await H.ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = ${JSON.stringify(sc.edit)}; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return true; })()`);
+    }
+    const n0 = await quiet(timeoutMs);
+    await H.ev('window.__gpRec0 = __cmwSteps().glide; 1');
+    const g0 = await H.ev('performance.now()');
+    const t1 = Date.now();
+    await H.ev(glide);
+    // samples: [s, moving, x, path, exact]
+    const samples = [];
+    let firstS = null, endS = null, moved = false;
+    while (Date.now() - t1 < timeoutMs + tailMs) {
+      const r = await H.ev('(() => { const s = __cmwSteps(), g = s.glide; return [performance.now(), !!s.moving, s.x, g ? g.path : null, !!g && g !== window.__gpRec0 && g.path === "inverse"]; })()');
+      const at = (r[0] - g0) / 1000;
+      samples.push([at, r[1], r[2], r[3], r[4]]);
+      if (r[4] && firstS == null) firstS = at;
+      if (r[1]) moved = true;
+      if (moved && !r[1] && endS == null && firstS != null) endS = at;
+      const recs = (await H.ev('GLR.profile()')).slice(n0).filter((x) => x.inv);
+      const open = recs.filter((x) => x.ms === null).length;
+      if (endS != null && !open) break;
+      if (endS != null && at - endS > tailMs / 1000) break;
+      if (firstS == null && Date.now() - t1 > timeoutMs) break;
+      await sleep(250);
+    }
+    const raf = (await H.ev('window.__rafT')).map((t) => (t - g0) / 1000);
+    const recs = (await H.ev('GLR.profile()')).slice(n0).filter((x) => x.inv).map((x) => ({ key: String(x.key).slice(0, 44), start: (x.t0 - g0) / 1000, end: x.ms == null ? null : (x.t0 + x.ms - g0) / 1000, s: x.ms == null ? null : x.ms / 1000 }));
+    // stalls: the glide moving with its position unchanged for over a second
+    const stalls = [];
+    let st0 = null;
+    for (let i = 1; i < samples.length; i++) {
+      const still = samples[i][1] && samples[i][2] === samples[i - 1][2];
+      if (still && st0 == null) st0 = samples[i - 1][0];
+      if (!still && st0 != null) { if (samples[i - 1][0] - st0 > 1) stalls.push([st0, samples[i - 1][0]]); st0 = null; }
+    }
+    if (st0 != null && samples[samples.length - 1][0] - st0 > 1) stalls.push([st0, samples[samples.length - 1][0]]);
+    for (const r of recs) {
+      const e = r.end == null ? Infinity : r.end;
+      r.waited = firstS != null && e <= firstS + 0.6 ? 'first frame' : stalls.some(([a, b]) => r.start < b && e > a) ? 'held' : 'none';
+    }
+    const play = raf.filter((t) => firstS != null && t >= firstS && (endS == null || t <= endS));
+    const gaps = play.slice(1).map((t, i) => t - play[i]);
+    return { firstS, playS: endS, meshAfter: samples.filter((x) => firstS != null && x[0] > firstS && x[3] === 'mesh').length, frames: play.length, fps: play.length > 1 ? (play.length - 1) / (play[play.length - 1] - play[0]) : null, longestGapMs: gaps.length ? Math.max(...gaps) * 1000 : null, stalls, links: recs };
+  } finally { await H.close(); }
+}
+
+async function playAB() {
+  const refSha = opt('ref', '');
+  const names = opt('scenes', 'expsin,mk').split(','), timeoutMs = Number(opt('timeout-s', '900')) * 1000, tailMs = Number(opt('tail-s', '420')) * 1000;
+  if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
+  const sides = [{ label: 'current', tree: ROOT }];
+  if (refSha) { const R = buildReference(refSha); sides.push({ label: `reference ${R.sha.slice(0, 8)}`, tree: R.dir }); }
+  for (const sd of sides) { sd.dist = path.join(sd.tree, 'dist'); fs.writeFileSync(path.join(sd.dist, 'blank.html'), '<!doctype html><title>b</title>'); Object.assign(sd, await serve(sd.dist)); }
+  const rows = [];
+  for (const name of names) {
+    for (const sd of sides) {
+      const row = { scene: name, side: sd.label };
+      rows.push(row);
+      try { Object.assign(row, await playCell(sd.base, name, sd.tree, timeoutMs, tailMs), { status: 'ok' }); } catch (e) { row.status = `failed: ${String(e.message).split('\n')[0]}`; }
+      console.log(`[fxc] ${name} ${sd.label}: first exact ${row.firstS == null ? 'none' : row.firstS.toFixed(1)} s, play ended ${row.playS == null ? 'never' : row.playS.toFixed(1)} s, ${row.fps == null ? '-' : row.fps.toFixed(1)} fps, mesh frames after ${row.meshAfter}, ${row.status}`);
+    }
+  }
+  for (const sd of sides) sd.server.close();
+  const outFile = path.resolve(opt('out', path.join(ROOT, '.ci', 'fxc', 'play.json')));
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, rows }, null, 1));
+  const f = (v, d = 1) => (v == null ? 'none' : v.toFixed(d));
+  const lines = ['### The first glide as it plays', '', 'Seconds from the glide\'s start. fps: the app\'s animation-frame callbacks a second from the first exact frame to the end of the play; mesh: samples after the first exact frame drawn by the carried mesh.', '',
+    '| scene | side | first exact frame | play ended | fps (longest gap ms) | mesh frames after | stalls (s) |', '|---|---|---|---|---|---|---|'];
+  for (const r of rows) lines.push(`| ${r.scene} | ${r.side} | ${r.status === 'ok' ? f(r.firstS) : r.status} | ${f(r.playS)} | ${f(r.fps)} (${f(r.longestGapMs, 0)}) | ${r.meshAfter == null ? '' : r.meshAfter} | ${(r.stalls || []).map(([a, b]) => `${a.toFixed(0)}-${b.toFixed(0)}`).join(', ')} |`);
+  lines.push('', '| scene | side | inverse program | starts s | ends s | link s | what waited for it |', '|---|---|---|---|---|---|---|');
+  for (const r of rows) for (const l of r.links || []) lines.push(`| ${r.scene} | ${r.side} | ${esc(l.key)} | ${f(l.start)} | ${l.end == null ? 'open' : f(l.end)} | ${l.s == null ? 'open' : f(l.s)} | ${l.waited} |`);
+  lines.push('');
+  const md = lines.join('\n');
+  summary(md);
+  console.log(md);
+  process.exit(0);
+}
+
+(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play ...'))).catch((e) => { console.error(e); process.exit(2); });
