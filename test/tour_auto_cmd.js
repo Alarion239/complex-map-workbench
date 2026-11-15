@@ -39,7 +39,6 @@ const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max)
 // A blocked main thread also fires the countdown's timer late, by up to the blocked time: the page's long tasks (PerformanceObserver,
 // buffered) are summed over the wait, so the advance may be late by what was blocked and never early
 const ltInstall = () => ev(`(() => { if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } } return !!window.__lt; })()`);
-const SLOW = 128;   // the CPU slowdown of the slow-page check
 const BUSY_MS = 300;   // a long task that ended less than this ago, or a program still linking: the page is busy
 // (the 6 s is counted from the page's last busy moment: a formula's compile and link on a loaded runner take as long as they take,
 // and the limit is on how long the page then takes to show done once it is idle. A step that is never done still gives up 6 s
@@ -215,24 +214,20 @@ if (fi) {
   await key('Backspace'); await key('Backspace'); t0 = Date.now();
   const aF2 = await advanceAfter('basics/formula', t0, 250);
   check('formula: moves on CD_MS after that text is gone', aF2.ok, aF2);
-  // a slow page (the CPU slowed 128×: the formula's compile takes seconds in several blocks): done is still seen, because the 6 s is
-  // counted from the page's last busy moment, not from the Enter
-  const clearField = `(() => { const e = document.activeElement; e.value = ''; })()`;
-  await goStep('basics/formula');
-  await click(fi[0], fi[1]); await settle(100);
-  await ev(clearField);
-  await send('Emulation.setCPUThrottlingRate', { rate: SLOW });
-  let dS = null;
-  try { await type('|z-1|<2'); await key('Enter'); dS = await doneAt(Date.now()); } finally { await send('Emulation.setCPUThrottlingRate', { rate: 1 }); }
-  check(`formula: with the CPU slowed ${SLOW}×, done is seen`, !!dS && dS.left != null, dS);
-  // the control: a step that is not done still gives up, 6 s after the page is quiet (the limit is not loosened)
-  await goStep('basics/formula');
-  await click(fi[0], fi[1]); await settle(100);
-  await ev(clearField);
-  await type('|z|<1');
-  const tN = Date.now(), dN = await doneAt(tN), waited = Date.now() - tN;
-  check('formula: a step that is not done gives up 6 s after the page is quiet', dN === null && waited >= 6000 && waited < 9000, { dN, waited });
 } else check('formula: the field is there', false);
+// doneAt's limit, on a step whose done is stubbed (Tour.lit replaced for the check, then restored): a page that stays busy (a 400 ms
+// block each second, as a slow compile makes) and shows done after 8 s is waited for, because the 6 s is counted from the page's
+// last busy moment; a step that is never done, on a page busy for 3 s, gives up 6 s after that, so the limit is not loosened
+const stubLit = (doneAfter, busyFor) => ev(`(() => { window.__realLit = window.__realLit || Tour.lit; const t0 = performance.now(); Tour.lit = () => performance.now() - t0 < ${doneAfter} ? { done: false } : { done: true, countdown: { left: 1000 } }; window.__stubIv = setInterval(() => { const a = performance.now(); while (performance.now() - a < 400); if (performance.now() - t0 > ${busyFor}) clearInterval(window.__stubIv); }, 1000); return 1; })()`);
+const unstubLit = () => ev(`(() => { clearInterval(window.__stubIv); if (window.__realLit) Tour.lit = window.__realLit; return 1; })()`);
+try {
+  await stubLit(8000, 7000);
+  const tB = Date.now(), dB = await doneAt(tB), waitedB = Date.now() - tB;
+  check('doneAt: a step that shows done after 8 s of a busy page is waited for (the 6 s counts from the last busy moment)', !!dB && dB.left === 1000 && waitedB >= 8000, { dB, waitedB });
+  await unstubLit(); await stubLit(1e9, 3000);
+  const tN = Date.now(), dN = await doneAt(tN), waitedN = Date.now() - tN;
+  check('doneAt: a step that is never done gives up 6 s after the page is quiet (the limit is not loosened)', dN === null && waitedN >= 9000 && waitedN < 11500, { dN, waitedN });
+} finally { await unstubLit(); }
 } catch (e) { check('a focused text field holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // a finger, here the mouse, held down does not hold it: it moves on CD_MS after the task's event
