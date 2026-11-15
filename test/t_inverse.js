@@ -7,6 +7,7 @@ global.Region = require('../src/region.js');
 const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
 const { InvOps } = require('../src/invops.js');
+const { cpuPerCall } = require('./lib/cpu_time');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
 const QUICK = process.argv.includes('--quick');
@@ -675,9 +676,8 @@ section('(f) singular points');
     ['tan∘exp', [{ type: 'exp' }, { type: 'tan' }], WIN0], ['tan(tan z)', [{ type: 'tan' }, { type: 'tan' }], WIN0]]) {
     const { plan } = planOf(steps);
     Inverse.singular(plan, win);
-    const t0 = process.hrtime.bigint(), N = 20;
-    let l; for (let i = 0; i < N; i++) l = Inverse.singular(plan, win, ['undef', 'branch', 'pole'], 16);
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6 / N;
+    // (CPU time, test/lib/cpu_time.js: a busy machine does not count in it)
+    let l; const ms = cpuPerCall(() => { l = Inverse.singular(plan, win, ['undef', 'branch', 'pole'], 16); }, 20);
     const per = {}; for (const e of l) per[e.kind] = (per[e.kind] || 0) + 1;
     console.log(`singular ${name.padEnd(18)} ${ms.toFixed(3)} ms per call, ${JSON.stringify(per)}`);
     check(`singular ${name}: <= 16 per kind, < 2 ms`, Object.values(per).every((x) => x <= 16) && ms < 2, `${ms} ms ${JSON.stringify(per)}`);
