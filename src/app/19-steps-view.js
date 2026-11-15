@@ -296,15 +296,28 @@
   }
   // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
   // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
-  // sound relayout and no spoken label, so a figure or a video drawn off-screen leaves the page as it found it. -> draw()'s result
+  // sound relayout and no spoken label. A Play or a glide under way is held for the visit and goes on afterwards from where it
+  // was, its clock moved on by the visit's time, so a figure or a video drawn off-screen leaves the page as it found it.
+  // -> draw()'s result
   async function svAtPlane(i, draw) {
-    const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left) };
-    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U) return draw();
-    const visit = (k, x) => { SV.anim = null; SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
-    svPause(false);
+    const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left), play: SV.play, anim: SV.anim };
+    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim) return draw();
+    const visit = (k, x) => { SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
+    const t0 = performance.now();
+    if (keep.play && keep.play.slide) clearTimeout(keep.play.timer);
+    SV.play = null; SV.anim = null;
     svKeepView();
     visit(i, i);
-    try { return await draw(); } finally { visit(keep.i, keep.x); Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at; }
+    try { return await draw(); } finally {
+      const held = performance.now() - t0;
+      for (const A of [keep.play, keep.anim]) if (A && A.t0 != null) A.t0 += held;
+      SV.play = keep.play; SV.anim = keep.anim;
+      visit(keep.i, keep.x);
+      Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at;
+      if (keep.play && keep.play.slide) keep.play.timer = setTimeout(() => svSlide(false), svSlideMs());
+      svSync();
+      requestRender('L');
+    }
   }
   function svArrive() {
     svPolesWatch();
@@ -3377,6 +3390,8 @@
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
   }
+  // a slide's time on each plane (ms)
+  const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
   function svSlide(first) {
     const A = SV.play;
@@ -3389,7 +3404,7 @@
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
     }
-    A.timer = setTimeout(() => svSlide(false), svReduced() ? 2000 : svPerPlane());
+    A.timer = setTimeout(() => svSlide(false), svSlideMs());
     svSync();
   }
   // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's

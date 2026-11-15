@@ -4,7 +4,8 @@
 // parked frame of the glide matches the pane the screen draws at the same thread position; the thread's place, Play range
 // and the pane are as they were afterwards; the dialog lists Video and says where it goes and how long it is. The same on the
 // sphere and the Landscape: the glide is recorded in the screen's 3D camera at the frame's own aspect.
-// At a whole thread position a frame is that plane's picture, wherever the view is parked, and the view stays parked there.
+// At a whole thread position a frame is that plane's picture, wherever the view is parked, and the view stays parked there
+// (its spoken label too), and a running Play goes on.
 // A command file for a CDP daemon:  <runner> test/export_glide_cmd.js
 const fails = [], info = {};
 // a pixel of the frame is 'drawn' where it differs from the frame's own paper by more than this (summed over r, g, b)
@@ -471,5 +472,22 @@ for (const surf of ['sphere', 'land']) {
       ok(`${surf}: parked at ${at}, the spoken label is unchanged by the frames`, typeof said === 'string' && said.length > 0 && after === said, { said, after });
     }
   }
+}
+// a frame at a whole thread position leaves a running Play running (#1553): on the plane (a glide) and on the Landscape (a slide,
+// a plane a tick), with Play looping, a frame at plane 1 is drawn; afterwards Play is on, its button says Pause, and the
+// thread's position goes on moving (the waits are the page's own, settled's only: a Play is never quiet)
+for (const surf of ['plane', 'land']) {
+  await open(1, surf);
+  await ev(`(__cmwSteps({ loop: true }), __cmwSteps({ play: true }), 1)`);
+  await settled({ until: '!!__cmwSteps().play', max: SETTLE_MAX_MS, only: true });
+  const r = await ev(`await (async () => {
+    await __cmwFig.glideArt(1, { wpt: 240, hpt: ${surf === 'plane' ? 'undefined' : 135}, dpi: 96 });
+    const b = document.querySelector('#svStrip .sv-play');
+    return { play: __cmwSteps().play, label: b && b.getAttribute('aria-label'), x: __cmwSteps().x };
+  })()`, 120000);
+  const moved = await settled({ until: `Math.abs(__cmwSteps().x - ${r.x}) > ${POS_TOL}`, max: SETTLE_MAX_MS, only: true });
+  info[`${surf}: Play after a frame`] = Object.assign({ moved: moved.ok }, r);
+  ok(`${surf}: Play is still on after a frame at a plane, its button says Pause, and the thread moves on`, !!r.play && r.label === 'Pause' && moved.ok === true, info[`${surf}: Play after a frame`]);
+  await ev(`(__cmwSteps({ play: false }), __cmwSteps({ loop: false }), 1)`);
 }
 return { pass: fails.length === 0, fails, info };
