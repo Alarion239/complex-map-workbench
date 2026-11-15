@@ -769,7 +769,6 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote();
     // (the Landscape's Height control under a visible caption: its buttons name the kind of height alone in the steps view,
     // "Re", "|·|", which over the sheet's other rows would not say what they set; the caption names the control, so it is
     // said once)
