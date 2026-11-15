@@ -264,7 +264,8 @@
       return s + homDef();
     }
     if (view === 'land') {
-      const f = hm ? 'H_t' : c.Fname, ht = { log: `\\log|${f}|`, abs: `|${f}|`, re: `\\operatorname{Re} ${f}`, im: `\\operatorname{Im} ${f}` }[c.height || 'log'];
+      // (fh: what the height reads, the steps view's c.hName where it is not the plane's own map, past the colour plane)
+      const f = hm ? 'H_t' : c.Fname, fh = hm ? f : c.hName || f, ht = { log: `\\log|${fh}|`, abs: `|${fh}|`, re: `\\operatorname{Re} ${fh}`, im: `\\operatorname{Im} ${fh}` }[c.height || 'log'];
       // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2; c.sheets: what the landscape
       // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming)
       const shc = c.sheets && (hm || !c.sheets.hom) && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
