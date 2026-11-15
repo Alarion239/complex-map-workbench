@@ -39,7 +39,23 @@ const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max)
 // A blocked main thread also fires the countdown's timer late, by up to the blocked time: the page's long tasks (PerformanceObserver,
 // buffered) are summed over the wait, so the advance may be late by what was blocked and never early
 const ltInstall = () => ev(`(() => { if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } } return !!window.__lt; })()`);
-const doneAt = async (t0, max = 6000) => { await ltInstall(); while (Date.now() - t0 < max) { const L = await ev('(() => { const l = Tour.lit(); return l && l.done && l.countdown && l.countdown.left != null ? { left: l.countdown.left, p: performance.now() } : null; })()'); if (L) return { t: Date.now(), p: L.p, left: L.left, after: Date.now() - t0 }; await sleep(15); } return null; };
+const SLOW = 128;   // the CPU slowdown of the slow-page check
+const BUSY_MS = 300;   // a long task that ended less than this ago, or a program still linking: the page is busy
+// (the 6 s is counted from the page's last busy moment: a formula's compile and link on a loaded runner take as long as they take,
+// and the limit is on how long the page then takes to show done once it is idle. A step that is never done still gives up 6 s
+// after the page goes quiet; the poll's own blocked wait ends in a long task, so it counts as busy)
+const doneAt = async (t0, max = 6000) => {
+  await ltInstall();
+  let from = t0;
+  for (const cap = t0 + 120000; Date.now() < cap;) {
+    const L = await ev(`(() => { const l = Tour.lit(), T = window.__lt || [], p = performance.now(); return { left: l && l.done && l.countdown && l.countdown.left != null ? l.countdown.left : null, p, busy: (typeof GLR !== 'undefined' && GLR.pendingLinks > 0) || (T.length > 0 && p - T[T.length - 1][1] < ${BUSY_MS}) }; })()`);
+    if (L.left != null) return { t: Date.now(), p: L.p, left: L.left, after: Date.now() - t0 };
+    if (L.busy) from = Date.now();
+    if (Date.now() - from >= max) return null;
+    await sleep(15);
+  }
+  return null;
+};
 const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
 // the advance from a doneAt: the countdown's timer is due `left` ms after the poll. It fires at the end of any long task that covers
 // that moment (a blocked main thread runs it late, never early), and the advance's own work (a chapter change) is a long task that
@@ -184,8 +200,7 @@ if (fi) {
   // the moment done shows, and the countdown may fire late only as far as the page was blocked)
   await type('|z-1|<2'); await key('Enter'); t0 = Date.now();
   const dD = await doneAt(t0);
-  const ff = await lit();
-  check('formula: done by the formula field (via formula)', ff && ff.done, ff && ff.countdown);
+  check('formula: done by the formula field (via formula)', !!dD && dD.left != null, dD);
   // (a main-thread block across the countdown's due moment: the timer fires about 300 ms late)
   await blockAtDue(dD);
   const aD = await advanceFrom('basics/formula', dD, 250);
@@ -200,6 +215,23 @@ if (fi) {
   await key('Backspace'); await key('Backspace'); t0 = Date.now();
   const aF2 = await advanceAfter('basics/formula', t0, 250);
   check('formula: moves on CD_MS after that text is gone', aF2.ok, aF2);
+  // a slow page (the CPU slowed 128×: the formula's compile takes seconds in several blocks): done is still seen, because the 6 s is
+  // counted from the page's last busy moment, not from the Enter
+  const clearField = `(() => { const e = document.activeElement; e.value = ''; })()`;
+  await goStep('basics/formula');
+  await click(fi[0], fi[1]); await settle(100);
+  await ev(clearField);
+  await send('Emulation.setCPUThrottlingRate', { rate: SLOW });
+  let dS = null;
+  try { await type('|z-1|<2'); await key('Enter'); dS = await doneAt(Date.now()); } finally { await send('Emulation.setCPUThrottlingRate', { rate: 1 }); }
+  check(`formula: with the CPU slowed ${SLOW}×, done is seen`, !!dS && dS.left != null, dS);
+  // the control: a step that is not done still gives up, 6 s after the page is quiet (the limit is not loosened)
+  await goStep('basics/formula');
+  await click(fi[0], fi[1]); await settle(100);
+  await ev(clearField);
+  await type('|z|<1');
+  const tN = Date.now(), dN = await doneAt(tN), waited = Date.now() - tN;
+  check('formula: a step that is not done gives up 6 s after the page is quiet', dN === null && waited >= 6000 && waited < 9000, { dN, waited });
 } else check('formula: the field is there', false);
 } catch (e) { check('a focused text field holds it' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
