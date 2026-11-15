@@ -8,4 +8,4 @@
 //   cpuPerCall(fn, n)  -> the CPU time of one call of fn(i), in ms: n calls, fn(0) to fn(n - 1), timed together
 const cpuNow = () => { const c = process.cpuUsage(); return (c.user + c.system) / 1000; };
 const cpuPerCall = (fn, n) => { const c0 = cpuNow(); for (let i = 0; i < n; i++) fn(i); return (cpuNow() - c0) / n; };
-module.exports = { cpuNow, cpuPerCall };
+module.exports = { cpuPerCall };
