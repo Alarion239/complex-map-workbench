@@ -7,26 +7,35 @@
 // drawn over the marks; Inside regions draws the colour globe kept inside the regions in a pass of its own, which must
 // not cover them. On the default page the "i" faces the camera inside a region, so it is required among the full-ink
 // marks: a frame with no such mark fails.
+// The figure (Figure.build, the paper still) draws these names as vectors over its art raster, so the raster, drawn
+// off the page (artMode), must hold none of them, Everywhere and Inside regions alike: the wrapper counts the marks
+// written while the figure builds on canvases that are not in the document and at least ART_MIN px each way (the art
+// raster; the figure also writes its labels on a small canvas of its own to measure them).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 // (GLYPH_MIN: the least number of a mark's pixels its glyph and halo change, at dpr 1 (an "i" at GLOBE_MARK_PX changes
 // about 60); DIFF: the levels of 255 by which a pixel must change to count; FULL_INK: the mark's alpha that counts as full
 // ink (smoothstep(0.05, 0.3, n·v) at 1))
-const GLYPH_MIN = 15, DIFF = 32, FULL_INK = 0.99;
+// ART_MIN: the least side, in px, of an off-page canvas counted as the figure's art raster (it is 1403 x 1196 here; the
+// figure's label-measuring canvas is 48 x 32)
+const GLYPH_MIN = 15, DIFF = 32, FULL_INK = 0.99, ART_MIN = 256;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running) && GLR.pendingLinks === 0";
 const quiet = () => settled({ max: 60000, until: QUIET_UNTIL });
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // the page's wrapper: __mk.seen[mark] = { x0, x1, y0, y1, a } for each mark the left pane wrote in the last frames;
-// __mk.on false leaves the marks out
+// __mk.on false leaves the marks out; __mk.art: the marks written on canvases off the page at least ART_MIN px each way,
+// each as "mark@WxH"
 const WRAP = `(() => {
   if (window.__mk) return 1;
   const M = new Set(['0', '∞', '1', 'i', '−1', '−i']), P = CanvasRenderingContext2D.prototype;
-  window.__mk = { on: true, seen: {} };
+  window.__mk = { on: true, seen: {}, art: [] };
   for (const fn of ['fillText', 'strokeText']) {
     const f = P[fn];
     P[fn] = function (t, x, y, ...rest) {
+      const cv = this.canvas;
+      if (M.has(t) && cv instanceof HTMLCanvasElement && !cv.isConnected && cv.width >= ${ART_MIN} && cv.height >= ${ART_MIN}) __mk.art.push(t + '@' + cv.width + 'x' + cv.height);
       if (this.canvas.id === 'canvasL' && M.has(t)) {
         const m = this.getTransform(), w = this.measureText(t).width, px = parseFloat((/([\\d.]+)px/.exec(this.font) || [0, 16])[1]);
         const X = m.a * x + m.c * y + m.e, Y = m.b * x + m.d * y + m.f, hw = (w / 2 + 3) * m.a, hh = (px / 2 + 3) * m.d;
@@ -81,6 +90,11 @@ for (const scope of ['all', 'in']) {
     if (q.a < FULL_INK) continue;
     ok(`${scope}: the mark "${t}" shows on the frame (at least ${GLYPH_MIN} of its pixels change)`, q.n >= GLYPH_MIN, q);
   }
+  // the figure of the same view: built, and no mark on its art raster
+  const fig = await ev('(async () => { __mk.art = []; const f = await Figure.build({}); return { built: !!f, art: __mk.art.slice() }; })()');
+  R[scope].figure = fig;
+  ok(`${scope}: the figure builds`, !!fig && fig.built, fig);
+  ok(`${scope}: the figure's art raster holds none of the marks (the figure draws them as vectors)`, !!fig && fig.built && fig.art.length === 0, fig);
 }
 await redraw();
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);

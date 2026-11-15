@@ -1100,13 +1100,14 @@
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
-    // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid), and the marks over both. While the
-    // mask's program links (a frame or two) the regions' globe alone; the frame is asked again when it has)
+    // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid), and the marks over both (not on the
+    // figure's art layer, artMode, which draws them as vectors). While the mask's program links (a frame or two) the
+    // regions' globe alone; the frame is asked again when it has)
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false }), first = Object.assign({}, look, { imageMode: true, carried: null });
       const info = sphereView(pane, c, base, Object.assign({}, first, { marks: false }));
       const carried = maskedGlobe(pane, c, base, Object.assign(look, { pre: null }));
-      if (info) globeMarks(pane, info, first);
+      if (info && !artMode) globeMarks(pane, info, first);
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
