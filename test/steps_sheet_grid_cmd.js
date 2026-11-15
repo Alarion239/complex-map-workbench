@@ -151,4 +151,35 @@ info.sliderTexts = said;
 ok('the sheet shows the opacity, grid step and mesh sliders', ['opacityRange', 'patScale', 'meshRange'].every((id) => said.some((x) => x.id.includes(id))), said);
 ok('each slider\'s aria-valuetext is its readout\'s text (opacity "85 %", grid step "×1", mesh "240")', said.length > 0 && said.every((x) => x.text && x.said === x.text), said);
 ok('the readout is not the raw slider position (the mesh slider\'s position is not 240)', said.some((x) => x.id === 'meshRange' && x.value !== x.text), said);
+// a style chosen in the open sheet refills it: the settings that style has (n for Tiles, the grid step for Grid) replace the old style's
+const styleControls = () => ev(`(() => ({ n: !!document.querySelector('.ph-sheet #secSel'), step: !!document.querySelector('.ph-sheet #dcGridSel'),
+  checked: (document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]') || {}).dataset && document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]').dataset.v }))()`);
+const pickStyle = async (v) => { await ev(`document.querySelector('.ph-sheet .sty-seg [data-v="${v}"]').click(); 1`); await settled({ floor: SETTLE_FLOOR }); };
+await open(PHONE, 'en', false);
+const tiles = await styleControls();
+ok('the sheet opens on Tiles with n and no grid step', tiles.checked === 'enhanced' && tiles.n && !tiles.step, tiles);
+await pickStyle('grid');
+const gridSt = await styleControls();
+ok('choosing Grid in the open sheet replaces n by the grid step', gridSt.checked === 'grid' && !gridSt.n && gridSt.step, gridSt);
+const kept = await ev(`document.activeElement && document.activeElement.closest('.sty-seg') && document.activeElement.dataset.v`);
+ok('the chosen style keeps the focus after the sheet is refilled', kept === 'grid', kept);
+await pickStyle('enhanced');
+const backTiles = await styleControls();
+ok('choosing Tiles again brings n back and takes the grid step away', backTiles.checked === 'enhanced' && backTiles.n && !backTiles.step, backTiles);
+// a control of the sheet that rebuilds the strips (the Landscape's Colouring, a segmented choice that is not the style row) keeps the
+// focus in the sheet, on the same choice, after the refill
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
+await settled({ max: 60000 });
+const focusAfter = async (sel) => {
+  await ev(`(() => { const b = document.querySelector(${JSON.stringify(sel)}); b.focus(); b.click(); return 1; })()`);
+  await settled({ floor: SETTLE_FLOOR });
+  return ev(`(() => { const a = document.activeElement; return { tag: a && a.tagName, inSheet: !!(a && a.closest('.ph-sheet')), group: a && a.closest('[role="radiogroup"]') && a.closest('[role="radiogroup"]').id, v: a && a.dataset && a.dataset.v, checked: a && a.getAttribute('aria-checked') }; })()`);
+};
+await ev(`document.querySelector('.ph-dsp').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+const plaster = await focusAfter('.ph-sheet #landPaint [data-v="plaster"]');
+ok('pressing Plaster in the Landscape colouring keeps the focus on that segmented control\'s checked choice, inside the sheet', plaster.inSheet && plaster.group === 'landPaint' && plaster.checked === 'true', plaster);
+ok('after any refill the focus is not on the page body', plaster.tag !== 'BODY', plaster);
+const tilesAgain = await focusAfter('.ph-sheet #landPaint [data-v="tiles"]');
+ok('pressing Tiles in the Landscape colouring keeps the focus on it inside the sheet', tilesAgain.inSheet && tilesAgain.group === 'landPaint' && tilesAgain.v === 'tiles' && tilesAgain.checked === 'true', tilesAgain);
 return { pass: fails.length === 0, fails, info };
