@@ -525,6 +525,11 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
+/* the scope's switch keeps the segmented control's padding (0 10px, the design spec): its second segment is the short word, so
+   it fits at 360 px in Russian and Italian (#1596) */
+:root.ph.sv .sv-head .sv-scope > button, :root.ph.sv .sv-head.sv-c4 .sv-scope > button { padding: 0 10px; }
+:root.ph.sv .sv-head .sv-scope .sc-full { display: none; }
+:root.ph.sv .sv-head .sv-scope .sc-short { display: inline; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }

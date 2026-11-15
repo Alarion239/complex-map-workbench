@@ -448,6 +448,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-surf1 svg { width: 12px; height: 12px; flex: 0 0 12px; }
 .sv-scope-menu { display: none; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .sv-scope-menu svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.sv-scope .sc-short { display: none; }
 .sv-head.sv-sm .sv-seg.sv-scope { display: none; }
 .sv-head.sv-sm .sv-scope-menu { display: inline-flex; }
 .sv-head.sv-si .sv-surf1 .sv-surf-i { display: inline-flex; }
