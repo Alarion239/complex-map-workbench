@@ -134,10 +134,16 @@
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
-  // then past T that the points carry it and their colour from T
+  // then past T that the points carry it and their colour from T. Parked between two planes, the place is no plane: the
+  // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it)
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
+    const park = svParkedPair();
+    if (park && !(SV.surf === 'land' && svMain(k) === 'land')) {
+      role = park[1] <= T ? $t('coloured from {p}', { p: wHtml(T) }) : $t('colour carried from {p}', { p: wHtml(T) });
+      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short };
+    }
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
@@ -2382,11 +2388,12 @@
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
-      const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
+      const cpText = k === T && !parked ? $t('Colour plane') : $t('Colour from here');
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
       E.cp.setAttribute('aria-label', cpText);
-      E.cp.setAttribute('aria-pressed', String(k === T));
-      E.cp.classList.toggle('on', k === T);
+      // (pressed on the colour plane only: a place parked between two planes is no plane)
+      E.cp.setAttribute('aria-pressed', String(k === T && !parked));
+      E.cp.classList.toggle('on', k === T && !parked);
       E.cp.disabled = !!svAloneOk();
       E.cp.setAttribute('data-tip', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
@@ -2877,9 +2884,14 @@
     return $t('Step {k} of {m} · {f} · {p} %', { k: I18N.num(a + 1), m: I18N.num(P.length - 1), f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: I18N.num(Math.round(100 * (x - a))) });
   }
   function svPlaceText() {
+    const pr = svParkedPair();
+    return pr ? $t('Between {a} and {b}', { a: svName(pr[0]), b: svName(pr[1]) }) : svName(svStage());
+  }
+  // parked between two planes: their stages [a, b], either side of the thread; else null
+  function svParkedPair() {
+    if (!svParked()) return null;
     const P = svPlanes(), x = SV.g.x;
-    if (!svParked()) return svName(svStage());
-    return $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.min(P.length - 1, Math.ceil(x))]) });
+    return [P[Math.floor(x)], P[Math.min(P.length - 1, Math.ceil(x))]];
   }
   function svSetT(k) {
     // (#437: a step shown alone is coloured from its own plane; the button says so, and so does the key)

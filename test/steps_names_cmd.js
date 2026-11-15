@@ -4,6 +4,7 @@
 //    T, carried", with no X and no F where the map is f₂;
 //  - the probe's readout names that map ("f₂(w₁)") and reads its value on the plane under the pointer (not F of the point);
 //  - the key's caption follows the same map; the last plane has one name, w₂;
+//  - parked between two planes, the title names them ("z → w₁ · coloured from w₁") and the colour button is not pressed;
 //  - the left panel groups the shapes by plane ("In z", "In w₁") with no X or Y, and the phone's probe hint names the map.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/steps_names_cmd.js
 // Prints { pass, fails, info }.
@@ -26,6 +27,9 @@ const WANT = [
   [['phase', 'F'], ['phase', 'f₂'], ['plane', 'w₂']],
 ];
 const NAMES = ['z', 'w₁', 'w₂'];
+// parked places: [colour plane T, x, the planes either side, role kind]
+const PARKED = [[1, 0.5, 0, 1, 'col'], [1, 0.25, 0, 1, 'col'], [2, 0.5, 0, 1, 'col'], [1, 1.5, 1, 2, 'carried'], [0, 0.5, 0, 1, 'carried']];
+const PARK_WORD = { en: { col: 'coloured from', carried: 'colour carried from' }, ru: { col: 'цвет из', carried: 'цвет, перенесённый из' } };
 
 for (const lang of ['en', 'ru']) {
   await view(1440, 900, false);
@@ -97,6 +101,22 @@ for (const lang of ['en', 'ru']) {
     ok(`${tag}: the ruler's corner names the plane`, (await ev(`document.getElementById('cornerL').textContent + '|' + !!document.querySelector('#cornerL sub')`)) === (k === 0 ? 'z|false' : `w${k}|true`), await txt('#cornerL'));
     if (kind === 'plane') ok(`${tag}: the readout does not repeat itself at the colour plane`, !/∠/.test(ro || ''), ro);
     info[tag] = { title, ro };
+  }
+  // parked between two planes (#1665): the title names the span the live label names ("z → w₁ · coloured from w₁", past T
+  // "colour carried from"), and the colour button is not pressed, as the place is no plane
+  for (const [T, x, a, b, kind] of PARKED) {
+    const tag = `${lang} T=${NAMES[T]} parked at ${x}`;
+    await ev(`__cmwSteps({ T: ${T} }); __cmwSteps({ park: ${x} }); 1`);
+    await until(`(() => { const s = __cmwSteps(); return s.T === ${T} && Math.abs(s.x - ${x}) < 1e-9 && !s.anim; })()`);
+    await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+    const plain = (t) => t.replace(/[₀-₉]/g, (c) => String(c.charCodeAt(0) - 0x2080));
+    const want = `${plain(NAMES[a])} → ${plain(NAMES[b])} · ${PARK_WORD[lang][kind]} ${NAMES[T]}`;
+    const title = await txt('.sv-title'), s = await ev('__cmwSteps()');
+    const pressed = await ev("(document.querySelector('.sv-cp') || { getAttribute: () => null }).getAttribute('aria-pressed')");
+    info[tag] = { title, label: s.label, pressed, i: s.i };
+    ok(`${tag}: the live label names the span`, s.label.includes(NAMES[a]) && s.label.includes(NAMES[b]), s.label);
+    ok(`${tag}: the title reads "${want}"`, title === want, title);
+    ok(`${tag}: the colour button is not pressed`, pressed === 'false', pressed);
   }
   // the left panel: shapes by plane, no X and no Y
   await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: 0, now: true }); 1`); await settle(500);
