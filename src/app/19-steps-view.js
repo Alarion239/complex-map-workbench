@@ -1686,6 +1686,52 @@
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
     SV.core = 'still'; still(pane);
   }
+  // Sheets over a glide: a glide frame onto a plane b coloured by its own variable (at or before the colour plane) is
+  // the copies of plane z, one per sheet combo of the multivalued steps up to b, each placed by the glide's map
+  // continued on its combo and coloured on it (the steps after b on their principal sheets, as plane b's own colour),
+  // so it covers plane b as plane b does at rest, every sheet's image and not the principal one's alone. (A plane past
+  // the colour plane carries the principal sheet's points at rest, and so does a glide onto it.) A combo is the chain with each multivalued step's sheet (its k, which the GPU
+  // reads as data, so the programs are the same) moved by the combo's digit: n sheets for a root, the sheet window
+  // (2W + 1, S.sheetW) for an infinitely sheeted step. Combo 0 is the chain as it is; the others, at most
+  // SV_GLIDE_SHEETS_MAX, are svGlideSheets(b)'s, made once per chain. SV.glideSheets 1 (a test hook's) draws combo 0 alone
+  const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
+  let svSheetMemo = { key: '', list: [] };
+  function svGlideSheets(b) {
+    const top = b, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const key = `${chainSig[nSteps()]}|${top}|${W}`;
+    if (svSheetMemo.key === key) return svSheetMemo.list;
+    // (the radix of each step's digit: its sheets, or the window of an infinitely sheeted one)
+    const radix = [];
+    for (const e of Funcs.sheetSteps(S.steps, built)) {
+      const st = S.steps[e.k - 1];
+      if (e.k <= top && SV_SHEET_STEPS.includes(st.type)) radix.push({ k: e.k, r: e.n > 0 ? e.n : 2 * W + 1, inf: !(e.n > 0) });
+    }
+    const K = Math.min(SV_GLIDE_SHEETS_MAX, radix.reduce((p, d) => p * d.r, 1)), list = [];
+    for (let c = 1; c < K; c++) {
+      let x = c;
+      const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
+      for (const d of radix) {
+        const digit = x % d.r, st = steps[d.k - 1];
+        x = Math.floor(x / d.r);
+        st.params.k = (st.params.k || 0) + (d.inf ? digit - W : digit);
+      }
+      const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
+      list.push({ steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${c}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
+    }
+    svSheetMemo = { key, list, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    return list;
+  }
+  // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'
+  // caches are keyed by it) and the GPU chain's data, then the chain as it is again; draw's answer
+  function svOnSheets(v, draw) {
+    const s0 = S.steps, b0 = built, g0 = chainSig, m0 = svHomMemo;
+    S.steps = v.steps; built = v.built; chainSig = v.sig; svHomMemo = null;
+    if (v.gl) GLR.setChain(v.gl);
+    try { return draw(); } finally {
+      S.steps = s0; built = b0; chainSig = g0; svHomMemo = m0;
+      if (svSheetMemo.own) GLR.setChain(svSheetMemo.own);
+    }
+  }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
     const hold = svLinkHold();
@@ -1719,6 +1765,9 @@
     const colour = () => {
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
+      // (the other sheets' copies first, svGlideSheets: the principal one over them where they meet)
+      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && SV.glideSheets !== 1 ? svGlideSheets(b) : [];
+      for (const v of sheets) svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }) || svCarryRegions(pane, map, T, b, frame, null));
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
