@@ -256,8 +256,17 @@
   }
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
+  // the app's scroll of the rail to v (from s, where the rail is): its last two values are kept, by which its scroll events are told from the
+  // user's, and the first is what the rail is put back to when the browser clamps it while the rail's width changes
+  function svRailTo(E, v, s = E.scrollX) {
+    E.writes = [v, E.writes ? E.writes[0] : v];
+    if (v !== s) { E.rail.scrollLeft = v; E.scrollX = v; svFades(); }
+  }
+  // the rail's next follow brings the ring into view, though the ring has not moved (a press on the thread, ‹ and › at an end)
+  function svFollowRing() { if (SV.els) SV.els.followKey = null; }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
+    svFollowRing();
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
@@ -934,7 +943,7 @@
     return { alpha: a === T ? 1 + (slider - 1) * glide.u : slider, alphaOwn: slider };
   };
   const svCarryLook = (base, shape, glide, T) => Object.assign(svCarryAlpha(base, shape, glide, T), { lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
-  // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
+  // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {width, alpha, ...} draws its boundary alone (GLR.drawInverse's edge);
   // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf, glide) => {
@@ -1007,14 +1016,15 @@
     if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
     return svHomMemo;
   }
-  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths) of the glide frame at
-  // (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
+  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
+  // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
   // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1)
   const svInvState = (h, i, b, u) => {
     const p = h.paths[i];
     return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
   };
-  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
+  // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
+  // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it
   // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
   // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
   // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
@@ -1026,7 +1036,8 @@
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
-    const linking = !!h && h.paths.some((p, i) => svInvState(h, i, g.b, g.u) === 'pending');
+    const st = h && svStagedOf();
+    const linking = !!h && [h, st].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
     svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
@@ -1693,20 +1704,36 @@
     // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
     // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
     // opaque line that drawPreimage draws at rest, so the carried colour shows stronger there)
-    const nearer = (x) => shapeStage(x) <= st.g.near;
-    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => (nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
-    const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
-    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ w: pullBandW(x, pane.dpr), a: PULL_EDGE_A }));
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => (st.nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
+    const later = st.list.map((x, i) => i).filter((i) => !st.nearer(st.list[i]));
+    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A }));
   }
-  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
-  // when there is none or the pass cannot draw them
+  // the outlines of the regions of the plane the glide reaches, in the frames where it is the nearer plane (from the
+  // midpoint on), into the open frame: the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour
+  // over its casing; col: which outlines are shown, as svOutlines), where the inverse pass puts the boundary. Inside
+  // regions and Everywhere. The pulled-back regions' band is the mask's (svStagedMask); the earlier planes' outlines are
+  // the outline pass's (svShapeMap)
+  function svStagedStrokes(pane, map0, col) {
+    if (map0.mode !== 1) return;
+    const st = svStagedOf();
+    if (!st) return;
+    const own = st.list.map((x, i) => i).filter((i) => shapeStage(st.list[i]) >= st.g.b && st.nearer(st.list[i]) && outlineShown(st.list[i], !col));
+    if (!own.length) return;
+    svDrawInverse(pane, own.map((i) => st.list[i]), own.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => shapeStroke(x, pane.dpr, { plane: st.g.near }));
+  }
+  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, nearer(x):
+  // whether region x is on a plane up to the nearer one}, or null when there is none or the pass cannot draw them.
+  // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
+  // regions (svInvPaths)
   function svStagedOf() {
     const g = svBetween();
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
     const h = svHomPaths(g.b, g.u).h;
     if (!h) return null;
-    const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
-    return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
+    const all = h.list.indexOf(SV_ALL);
+    const list = all < 0 ? h.list.filter((x) => shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
+    if (!list.length) return null;
+    return { g, list, paths: list.map((x) => h.paths[all < 0 ? h.list.indexOf(x) : all]), nearer: (x) => shapeStage(x) <= g.near };
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -1770,6 +1797,7 @@
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
+    if (!hideStrokes) svStagedStrokes(pane, map0, col);
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
@@ -1941,11 +1969,12 @@
     return svScope() === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
   }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
-  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
-  // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
+  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, over the paper (what the
+  // plot leaves undrawn, while its program links, reads as the paper), else the plot drawn, copied to a 2D canvas, cut
+  // to the regions there and copied to the page. A new GL frame is open after it, with the colour frame's status
   function svColourIn(pane, cst) {
     const k = svStage(), map = stageMap(k);
-    if (!svMask(pane, map, k, { paint: () => GLR.drawColorPlot(cst) })) {
+    if (!svMask(pane, map, k, { paint: () => { GLR.clearRGB(TH.planeRGB); GLR.drawColorPlot(cst); } })) {
       GLR.drawColorPlot(cst);
       svColCv = svCanvas(svColCv, pane);
       const cc = svColCv.getContext('2d');
@@ -1957,7 +1986,7 @@
       pane.ctx.restore();
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    GLR.begin(pane.pw, pane.ph);
+    GLR.begin(pane.pw, pane.ph, null, true);
   }
 
   // ---- the controls: the plane's head and the chain strip ----
@@ -2114,14 +2143,41 @@
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
     // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitStrip(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
+    // (the rail's scroll and size are read here, where the layout is clean, so that the follow in svSync only writes)
+    {
+      const ro = new ResizeObserver(() => {
+        const E = SV.els;
+        if (!E) return;
+        E.scrollX = rail.scrollLeft; E.railBoxW = rail.clientWidth; E.railBoxS = rail.scrollWidth;
+        E.centres = null; svFitStrip(); svFitRail(); svSync();
+      });
+      ro.observe(rail); ro.observe(track);
+    }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
     onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
-    rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
+    // (the app's own scrolls of the rail land where it wrote them (svRailTo). Any other scroll is the user's, from a wheel, a trackpad, find
+    // in page or a screen reader's reveal alike: until the ring moves, a resize leaves the rail where it is, and a rail left at its end stays
+    // at its end. A wheel that moves nothing brings no scroll event, and leaves the rail following. The exception is the browser's own clamp
+    // when the rail's size has changed since the last scroll or resize it saw (the event comes before the observer's callback of the same
+    // resize): that scroll is never the user's, and is put back where the app wrote it, unless focus is in the rail (a scroll to show the
+    // focused control stays). The rail has no touch scroll (touch-action: none))
+    rail.addEventListener('scroll', () => {
+      const E = SV.els;
+      if (!E) return;
+      const resized = rail.clientWidth !== E.railBoxW || rail.scrollWidth !== E.railBoxS;
+      E.railBoxW = rail.clientWidth; E.railBoxS = rail.scrollWidth;
+      E.scrollX = rail.scrollLeft;
+      E.atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1;
+      if (!(E.writes && E.writes.some((v) => Math.abs(v - rail.scrollLeft) <= 1))) {
+        if (!resized) { E.userScrolled = true; E.writes = null; }
+        else if (E.writes && !rail.contains(document.activeElement)) { rail.scrollLeft = E.writes[0]; return; }
+      }
+      svFades(); svBandSync(E.centres || []);
+    }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
@@ -2284,7 +2340,7 @@
     // ring is centred on a node, clear of its name): measured with the centres)
     if (!E.centres || E.centresSig !== E.sig) {
       const pl = [...E.track.querySelectorAll('.sv-plane')];
-      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
+      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft; E.scrollMax = E.rail.scrollWidth - E.rail.clientWidth;
       const nd = pl[0] && pl[0].querySelector('.sv-node');
       if (nd) E.thumb.style.setProperty('--sv-node-y', `${(pl[0].offsetTop + nd.offsetTop + nd.offsetHeight / 2).toFixed(1)}px`);
       svFades();
@@ -2304,24 +2360,38 @@
     const kf = document.activeElement, keepFocus = !!kf && kf !== E.thumb && E.rail.contains(kf) && kf.matches(':focus-visible') && !SV.anim && !SV.g.moving();
     if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
     else if (E.trackW > E.railW + 1) {
-      const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
-      // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
-      const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
-      // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
-      // under a drag or a glide, the ring is kept a plane's width from either end)
-      // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
-      const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
-      // (on a phone the rail stays where svRevealSel put it while the ring is parked on the plane it was parked on; once the ring
-      // moves, a jump, a glide or a drag, the ring decides again)
-      let aim = want;
-      if (E.hold && document.documentElement.classList.contains('ph') && !SV.alone) {
-        if (E.hold.tx == null) E.hold.tx = tx;
-        if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
-      } else E.hold = null;
-      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
-      // (the fades follow at once: the rail's scroll event comes a frame later)
-      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
-    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
+      // (the rail follows the ring when the ring moves, or a control asks for it (svFollowRing), or the user has not scrolled it
+      // since the last follow: a resize alone leaves a rail the user scrolled where it is, its scrollLeft clamped by the browser)
+      const key = `${x.toFixed(3)}|${c.length}|${SV.alone}`;
+      if (key !== E.followKey || !E.userScrolled) {
+        E.followKey = key; E.userScrolled = false;
+        const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
+        // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
+        const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
+        // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
+        // under a drag or a glide, the ring is kept a plane's width from either end)
+        // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
+        const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+        // (on a phone the rail stays where svRevealSel put it while the ring is parked on the plane it was parked on; once the ring
+        // moves, a jump, a glide or a drag, the ring decides again)
+        let aim = want;
+        if (E.hold && document.documentElement.classList.contains('ph') && !SV.alone) {
+          if (E.hold.tx == null) E.hold.tx = tx;
+          if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
+        } else E.hold = null;
+        // (to the rail's real range, scrollWidth - clientWidth, which trackW - railW is not when the whole map sits outside the rail)
+        const to = Math.max(0, Math.min(E.scrollMax, Math.round(aim)));
+        // (the fades follow at once: the rail's scroll event comes a frame later)
+        svRailTo(E, to);
+      } else if (E.atEnd) {
+        // (a rail the user left at its end stays at its end when its range grows)
+        svRailTo(E, E.scrollMax);
+      }
+    } else {
+      // (a rail that fits has no scroll of the user's to keep: it follows the ring again when it overflows)
+      E.userScrolled = false; E.atEnd = false;
+      svRailTo(E, 0);
+    }
   }
   // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
   // centres and the scroll the rail reported, no read
@@ -2383,7 +2453,11 @@
       E.strip.classList.remove('sv-measure');
       return { w, equal: fixed + w * ws.length, own: fixed + ws.reduce((a, b) => a + b, 0) };
     };
+    // (the measuring layouts have a narrower thread: the browser clamps the rail's scroll to their range. The scroll is put back to where it
+    // was: that is undoing the browser's clamp, not a scroll of the app's own, so it is not recorded by svRailTo)
+    const sx = E.rail.scrollLeft;
     const names = measure(false), letters = measure(true);
+    E.rail.scrollLeft = sx;
     const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
     const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
     const mode = E.centreLetters ? SV_RAIL_LETTERS : fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
@@ -2769,7 +2843,7 @@
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
       if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-awalk, .sv-bandx')) return;
-      svOutsideBand(posX(e));
+      svOutsideBand(posX(e)); svFollowRing();
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
     rail.addEventListener('pointermove', (e) => {
@@ -3765,7 +3839,7 @@
     E.revealed = k;
     const rail = E.rail, a = stepEl.offsetLeft, s = rail.scrollLeft, w = rail.clientWidth;
     const to = Math.max(0, Math.min(rail.scrollWidth - w, Math.min(Math.max(s, a + stepEl.offsetWidth - w), a)));
-    if (to !== s) { rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    svRailTo(E, to, s);
     E.hold = { tx: force ? null : E.tx ?? null, aim: to };
   }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
