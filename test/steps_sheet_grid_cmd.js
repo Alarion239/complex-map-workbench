@@ -182,8 +182,8 @@ ok('pressing Plaster in the Landscape colouring keeps the focus on that segmente
 ok('after any refill the focus is not on the page body', plaster.tag !== 'BODY', plaster);
 const tilesAgain = await focusAfter('.ph-sheet #landPaint [data-v="tiles"]');
 ok('pressing Tiles in the Landscape colouring keeps the focus on it inside the sheet', tilesAgain.inSheet && tilesAgain.group === 'landPaint' && tilesAgain.v === 'tiles' && tilesAgain.checked === 'true', tilesAgain);
-// the Landscape surface on a landscape phone: the "Opacity" group holds the opacity slider and nothing else, and the Scale
-// slider sits under "Style settings" with its own label
+// the Landscape surface on a landscape phone: the "Opacity" group holds the opacity slider and nothing else; the Height choice,
+// the Scale slider and the View choice are under "Height", and the Colouring choice under "Colour style", none of them under "Overlays"
 const LAND_PHONE_W = 844, LAND_PHONE_H = 390;   // (px: a phone on its side)
 await view(LAND_PHONE_W, LAND_PHONE_H, false, true);
 await loadView('steps', ns + 'land', st, { lang: 'en' });
@@ -192,8 +192,16 @@ await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
 await settled({ max: 60000 });
 await ev(`document.querySelector('.ph-dsp').click(); 1`);
 await settled({ floor: SHEET_FLOOR });
-const groupOf = (head) => `(() => { const g = [...document.querySelectorAll('.ph-sheet .ph-grp')].find((e) => e.querySelector('h3') && e.querySelector('h3').textContent === ${JSON.stringify(head)}); return g ? [...g.querySelectorAll('input[type="range"]')].map((i) => i.id) : null; })()`;
-const opac = await ev(groupOf('Opacity')), settings = await ev(groupOf('Style settings'));
+// the sheet opens with the focus on the current Colouring: the checked choice of the Landscape's colour style, as on the Plane it is the checked style
+const focusOpen = await ev(`(() => { const a = document.activeElement, g = a && a.closest('[role="radiogroup"]'); return { id: g && g.id, checked: a && a.getAttribute('aria-checked'), tag: a && a.tagName }; })()`);
+ok('on the Landscape surface the sheet opens with the focus on the checked Colouring choice', focusOpen.id === 'landPaint' && focusOpen.checked === 'true', focusOpen);
+// the ids of the segmented choices and sliders in the group under a heading (null when no group has it)
+const idsIn = (head) => `(() => { const g = [...document.querySelectorAll('.ph-sheet .ph-grp')].find((e) => e.querySelector('h3') && e.querySelector('h3').textContent === ${JSON.stringify(head)}); return g ? [...g.querySelectorAll('[role="radiogroup"][id], input[type="range"]')].map((i) => i.id) : null; })()`;
+const opac = await ev(idsIn('Opacity')), heightIds = await ev(idsIn('Height')), styleIds = await ev(idsIn('Colour style'));
 ok('on the Landscape surface the Opacity group holds only the opacity slider', !!opac && opac.length === 1 && /^opacityRange/.test(opac[0]), opac);
-ok('on the Landscape surface the Scale slider is under Style settings', !!settings && settings.includes('lscaleRange'), settings);
+const HEIGHT_GROUP = ['heightSeg', 'lscaleRange', 'viewSeg'];   // (the ids, in the order they show: Height, Scale, View)
+ok('on the Landscape surface the Height group holds the Height choice, the Scale slider and the View choice, in that order', JSON.stringify(heightIds) === JSON.stringify(HEIGHT_GROUP), heightIds);
+ok('on the Landscape surface the Colouring choice is under Colour style', !!styleIds && styleIds.includes('landPaint'), styleIds);
+const overlays = await ev(idsIn('Overlays'));
+ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !!overlays && !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
 return { pass: fails.length === 0, fails, info };
