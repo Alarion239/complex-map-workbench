@@ -660,11 +660,10 @@ async function scrubUnit() {
 // for comparison. Scenes: the default page, and the zeros of zeta (looked up by name), whose chain is long. The
 // reference lacks the view (no __cmwSteps): the unit is NEW there (refCannot)
 const SV_FIRST_LIMIT = 50, SV_IDLE_MS = 3000;
-// an example's index by its English name, read with ci/glprof.js's pattern (an example inserted before it moves the
+// an example's index by its English name, read by ci/steps_scenes.js's exampleNames (an example inserted before it moves the
 // index, not the scene); a name that is not an example's throws: the unit never measures another scene in its place
 function exampleIndex(name) {
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
-  const i = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'")).indexOf(name);
+  const i = SV.exampleNames(ROOT).indexOf(name);
   if (i < 0) throw new Error(`no example named ${name} (src/app/15-examples-guide.js)`);
   return i;
 }
