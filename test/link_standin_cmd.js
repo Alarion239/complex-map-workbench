@@ -6,7 +6,10 @@
 // - the colour plot's stand-in (colourStandIn): a typed (z²−1)/(z²+1) on its colour plane's planes, Everywhere. The pane
 //   is coloured from F's values on a CPU grid, the frame still pending, on plane z and on the colour plane w₁; Inside
 //   regions, the region is coloured (not black) and the pane says it is compiling; on release the plot takes its place
-//   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget.
+//   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget;
+// - the carried colour past a colour plane other than z (carriedW): z² then z + 0.2 conj(z), colour plane w₁, w₂ parked,
+//   Everywhere. The pane is coloured from the SphereMeshes' points' colours of w₁, the frame still pending; on release
+//   the carried colour takes its place with no frame where it drew nothing, in the stand-in's colours.
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -132,8 +135,17 @@ const onW2 = await settled({ only: true, max: 30000, until: `(() => { const s = 
 // (in colour: at least 60 % of a 16 x 10 grid of the pane's points, read in the page)
 const P4 = await K.paneOf(), pts4 = JSON.stringify(K.grid(P4, 16, 10));
 const carriedWait = await settled({ only: true, max: 30000, until: `(() => { const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
+const carriedPx = (await K.lpx(K.grid(P4, 16, 10))).px;
 info.carriedT1 = { onW2, wait: carriedWait, hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
 ok('the carried colour past colour plane w₁, its programs held: w₂ is drawn in colour (the frame pending)', onW2.ok && carriedWait.ok && info.carriedT1.pending === true, info.carriedT1);
+// (after the release, each frame's pre-mapped draws: blank = it drew none of them)
+const carriedAfter = await releaseFrames('drawPreMapped', "(f) => (!f.calls ? 'none' : !f.drew ? 'blank' : f.pending ? 'stand-in' : 'gpu')");
+info.carriedAfter = carriedAfter.list ? carriedAfter.runs : null;
+ok('the carried colour past colour plane w₁, after the release: no frame where it drew nothing', !!carriedAfter.list && carriedAfter.list.includes('gpu') && !carriedAfter.list.includes('blank'), info.carriedAfter);
+const carriedLinked = await settled({ max: 20000 });
+// (the points the held stand-in coloured: the 'linking' mesh leaves the pane's far corners bare)
+info.carriedMatch = K.tally(carriedPx, (await K.lpx(K.grid(P4, 16, 10))).px, { tol: 24, skip: (k) => !carriedPx[k] || K.bare(carriedPx[k][4]) });
+ok('the carried colour past colour plane w₁, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', carriedLinked.ok && info.carriedMatch.n >= 96 && info.carriedMatch.wrong <= 0.1 * info.carriedMatch.n, info.carriedMatch);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };

@@ -53,14 +53,16 @@
   // the nodes of level L still to evaluate from node k on: all of them on the first level, three in four on the others
   const standInLeft = (L, k) => (L.nx * L.ny - k) * (L.li ? 0.75 : 1);
   // a stand-in job's idle driver: a slice at a time (j.slice(t0) -> why the job stops, or null to go on), waiting out any
-  // motion between them; j.check() -> why it stops before its next slice ('dead': what it was for is gone; 'linked'), or null
+  // motion between them; j.check() -> why it stops before its next slice ('linked', or 'dead': what it was for is gone,
+  // the job then dead with no end), or null
   async function standInRun(j) {
     for (;;) {
       await yieldTask();
       while (!j.dead && (interacting() || fixBusy())) await yieldNow(60);
       if (j.dead) return;
       const stop = j.check();
-      if (stop) { j.end = stop; j.dead = stop === 'dead'; return; }
+      if (stop === 'dead') { j.dead = true; return; }
+      if (stop) { j.end = stop; return; }
       const t0 = performance.now();
       let end;
       try { end = j.slice(t0); } catch (e) { console.error('stand-in', e); end = 'error'; }
@@ -106,21 +108,26 @@
   // While the carried colour's programs link, a plane at rest past a colour plane T > 0 is drawn from its regions'
   // SphereMeshes (smNeed's 'linking'), each vertex coloured by its source point z's point of plane T, G(z) (cpuMap of the
   // stages 0 to T), as the colour plane colours it: G is computed here, a mesh at a time, in the colour plot's stand-in's
-  // slices and budget (a mesh whose points do not fit gets none), and goes to the GPU with the mesh (GLR.setPreW)
+  // slices and budget (a mesh whose points do not fit gets none; the budget is each mesh's), and goes to the GPU with the
+  // mesh (GLR.setPreW). The colour is per vertex, interpolated across each triangle: a cut of G that the plane does not
+  // share is blurred across its triangles, and a vertex exactly on a pole of G takes hue 0
   let carriedJob = null;
   const PRE_ARG = 16 / TAU;   // (the meshes' polar coordinates: (ln |z|, arg z) * PRE_ARG, PAT_PRE's)
   // whether SphereMesh entry e's mesh carries its points of plane T on the GPU; when not, its job starts (if none runs)
-  // or goes on (e.carryW: the points made, {key, w}, w null when they did not fit the budget). preZ: the mesh keeps the source point itself, not its polar coordinates (graph paper's mesh)
-  function carriedW(e, T, preZ) {
-    const map = { mode: 0, a: 0, b: T }, key = `${e.key}|${mapKeyOf(map)}|${preZ ? 1 : 0}`;
+  // or goes on (e.carryW: {key, w}, set when the job starts, w the points once it is done, null while it runs and for
+  // good when it stopped first: the budget, an error, the program linked). preZ: the mesh keeps the source point itself,
+  // not its polar coordinates (graph paper's mesh); map: the plane's map, whose carried colour's program the job ends at
+  function carriedW(e, T, preZ, map) {
+    const toT = { mode: 0, a: 0, b: T }, key = `${e.key}|${mapKeyOf(toT)}|${preZ ? 1 : 0}`;
     if (!e.res) return false;
     if (e.res.wKey === key) return true;
     if (e.carryW && e.carryW.key === key) return !!e.carryW.w && GLR.setPreW(e.res, e.carryW.w, key);
     const j = carriedJob;
     if (j && !j.end && !j.dead && sm.entries.get(j.e.key) === j.e) return false;
-    const n3 = 3 * e.data.n, mapKey = mapKeyOf(map);
-    const nj = carriedJob = { key, e, preZ, F: cpuMap(map), w: new Float32Array(2 * n3), seen: new Map(), k: 0, n: 0, ms: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false,
-      check: () => (sm.entries.get(e.key) !== e || mapKeyOf(map) !== mapKey ? 'dead' : null), slice: (t0) => carriedSlice(nj, t0) };
+    const n3 = 3 * e.data.n, mapKey = mapKeyOf(toT);
+    e.carryW = { key, w: null };
+    const nj = carriedJob = { key, e, preZ, F: cpuMap(toT), w: new Float32Array(2 * n3), seen: new Map(), k: 0, n: 0, ms: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false,
+      check: () => (sm.entries.get(e.key) !== e || mapKeyOf(toT) !== mapKey ? 'dead' : GLR.linked(['regionPK'], map) ? 'linked' : null), slice: (t0) => carriedSlice(nj, t0) };
     standInRun(nj);
     return false;
   }
@@ -133,22 +140,23 @@
       const k = j.k++, c = k % 3, a = ((k - c) / 3) * 12 + 4 * c, px = A[a + 2], py = A[a + 3], id = px + ',' + py;
       let g = j.seen.get(id), due;
       if (!g) {
-        const lr = Math.max(-80, Math.min(80, px / PRE_ARG)), z = j.preZ ? C(px, py) : C(Math.exp(lr) * Math.cos(py / PRE_ARG), Math.exp(lr) * Math.sin(py / PRE_ARG));
+        const lr = Math.max(-GLR.PRE_LN, Math.min(GLR.PRE_LN, px / PRE_ARG)), z = j.preZ ? C(px, py) : C(Math.exp(lr) * Math.cos(py / PRE_ARG), Math.exp(lr) * Math.sin(py / PRE_ARG));
         let w;
         try { w = j.F(z); } catch (err) { w = C(NaN, NaN); }
         const r = Math.hypot(w.re, w.im);
-        g = Number.isNaN(r) ? [NaN, NaN] : !Number.isFinite(r) ? [80 * PRE_ARG, 0] : [Math.log(Math.max(r, 1e-300)) * PRE_ARG, Math.atan2(w.im, w.re) * PRE_ARG];
+        g = Number.isNaN(r) ? [NaN, NaN] : !Number.isFinite(r) ? [GLR.PRE_LN * PRE_ARG, 0] : [Math.log(Math.max(r, 1e-300)) * PRE_ARG, Math.atan2(w.im, w.re) * PRE_ARG];
         j.seen.set(id, g); j.n++;
         const t = performance.now();
+        // (the work left at the rate of new points per corner so far, highest at the mesh's start, where a triangle brings
+        // up to 3 new points against about 1 in 6 corners over a whole mesh: a mesh near the budget may stop early)
         due = standInDue(j, t0, t - te, t, (n3 - j.k) * j.n / j.k);
         te = t;
       }
       const turn = 2 * Math.PI * PRE_ARG, a0 = c ? j.w[2 * (k - c) + 1] : g[1];
       j.w[2 * k] = g[0]; j.w[2 * k + 1] = g[1] + turn * Math.round((a0 - g[1]) / turn);
-      if (due === 'budget') j.e.carryW = { key: j.key, w: null };
       if (due !== undefined) return due;
     }
-    j.e.carryW = { key: j.key, w: j.w };
+    j.e.carryW.w = j.w;
     if (j.e.res) GLR.setPreW(j.e.res, j.w, j.key);
     requestRender('L');
     return 'done';

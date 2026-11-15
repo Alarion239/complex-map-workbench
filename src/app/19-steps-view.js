@@ -1543,7 +1543,7 @@
     // colour plane, their points of it, mapped on the CPU, carriedW)
     const standIn = () => n > 0 && lay.every((d) => d.pre) && (T === 0
       ? lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })))
-      : lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ)) && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) }))));
+      : lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ, map)) && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) }))));
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
     for (let pass = 0; pass < 2; pass++) {
