@@ -61,6 +61,7 @@ const VIEWS = {
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'steps_glide_cut_cmd.js': steps(),
   'steps_sheets_readback_cmd.js': steps(),
   'steps_land_head_cmd.js': steps(),
   'sv_land_sin_sheets_cmd.js': steps(),
@@ -336,6 +337,7 @@ const VIEWS = {
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
   'kit_adopted_cmd.js': steps({ pin: true }),
+  'kit_go_link_cmd.js': steps({ pin: true }),
   'reload_wait_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
