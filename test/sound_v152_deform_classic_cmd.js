@@ -14,38 +14,14 @@ const loadHere = async (ns, st) => {
   // hook read before it (__cmwSound, __cmwW2S) answers an exception, not a value)
   for (let i = 0; i < 40 && !(await ev(`typeof __cmwSound === 'function' && typeof __cmwW2S === 'function' && document.readyState === 'complete'`)); i++) await sleep(250);
 };
-// (the engine's Sound.hear.state().counts run since load; __hearCount() reads them as __hearCount() did, since
-// its last call: up and down the red line's crossings (line k ≡ 0 mod n, the low D), notes the notes played, merged
-// the crossings merged into one note, cracks the cuts; as sound_cmd.js's hearCount)
-const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__hearCount = () => { const c = Sound.hear.state().counts, p = window.__hc0 || { dUp: 0, dDown: 0, notes: 0, merged: 0, cracks: 0 }; window.__hc0 = { dUp: c.dUp, dDown: c.dDown, notes: c.notes, merged: c.merged, cracks: c.cracks }; return { up: c.dUp - p.dUp, down: c.dDown - p.dDown, notes: c.notes - p.notes, merged: c.merged - p.merged, cracks: c.cracks - p.cracks }; }; })();' });
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = () => settled({ max: 4000 });
-const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
-const snd = () => ev('__cmwSound()');
 const glide = async (pts, dt = 16) => { for (const p of pts) { await move(p[0], p[1]); await sleep(dt); } };
-const circle = async (c, r, turns = 1, n = 48, a0 = 0.4) => { const out = []; for (let i = 0; i <= n * turns; i++) { const a = a0 + 2 * Math.PI * i / n; out.push(await W(c[0] + r * Math.cos(a), c[1] + r * Math.sin(a))); } return out; };
-const spy = () => ev(`(() => { window.__made = []; for (const [k, d] of Object.entries(Sound.CATALOG)) { if (d.__spy) continue; const m = d.make; d.make = (Pt, o) => { __made.push(k); return m(Pt, o); }; d.__spy = 1; } return 1; })()`);
-const made = () => ev(`(() => { const m = __made.slice(); __made.length = 0; return m; })()`);
 const ns = 'snd152' + Date.now();
 const fn = (expr, s = 120) => ({ steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s } });
-const start = async (expr) => {
-  await loadHere(ns, fn(expr));
-  await ev(`__cmwSetMain('phase')`); await settle();
-  await click(5, 300); await settle();
-  await ev(`Sound.set({ on: true, vol: 0.7, ui: true, events: true, sonify: true }, { quiet: true }); 1`);
-  await settled({ until: `Sound.state().audio === 'running'`, max: 4000, panes: false });
-  await ev(`__cmwSet('loop', false); 1`);
-  await spy();
-};
-// a pointer loop round c (radius r, laps), the notes' count over it
-const harpLoop = async (c, r, laps = 1) => {
-  const pts = await circle(c, r, laps, 64);
-  await move(pts[0][0], pts[0][1]); await settle();
-  const phi0 = (await snd()).phi; await ev('__hearCount()');
-  await glide(pts); await settle();
-  return { dphi: +((await snd()).phi - phi0).toFixed(6), harp: await ev('__hearCount()') };
-};
+const { W, snd, circle, spy, made, hearInject, start, harpLoop } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'sound_kit.js'), 'utf8'))({ ev, send, move, click, settled, loadHere, settle, glide, ns, fn });
+await hearInject();
 logs();
 await view(1440, 900, false);
 
