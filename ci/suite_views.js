@@ -60,6 +60,7 @@ const VIEWS = {
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_sheets_readback_cmd.js': steps(),
@@ -118,7 +119,7 @@ const VIEWS = {
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
-  'steps_exact_switch_cmd.js': steps(),
+  'steps_exact_saved_false_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
   'steps_regions_note_cmd.js': steps({ pin: true }),
@@ -337,6 +338,7 @@ const VIEWS = {
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
   'kit_adopted_cmd.js': steps({ pin: true }),
+  'kit_go_link_cmd.js': steps({ pin: true }),
   'reload_wait_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
