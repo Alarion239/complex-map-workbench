@@ -1922,10 +1922,13 @@
   // the carried mesh of plane a's globe (drawSphere's st.carried; its graticule shows at x <= T, as the exact pass's): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
   // on the way from that plane to the colour plane
+  // (svGlobeKeyRec: the sheet key the last carried mesh was built with, read by the test hooks)
+  let svGlobeKeyRec = null;
   function svGlobeMesh(a, T, map, x = a) {
     const src = Math.min(a, T);
     if (src > 0 && derivIn(src, T)) return null;
-    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svSheetKey(a, src), graticule: x <= T });
+    svGlobeKeyRec = svSheetKey(a, src);
+    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svGlobeKeyRec, graticule: x <= T });
   }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
   // homotopy), by the carried mesh where a region has no inverse plan (kept inside those regions alone when others take
