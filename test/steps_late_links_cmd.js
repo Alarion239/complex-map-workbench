@@ -37,8 +37,8 @@
 //   put on the globe half way through the first glide and back on the plane past plane 1 never goes back either;
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
-//   left pane draws at most a tenth of the animation frames, › pressed then replaces it by a glide from where it is (its
-//   thread still never goes back), and it ends within seconds of the link landing.
+//   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
+//   (its thread still never goes back), and it ends within seconds of the link landing.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
