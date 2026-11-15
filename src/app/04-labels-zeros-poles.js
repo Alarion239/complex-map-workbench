@@ -839,7 +839,7 @@
     const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
     // (two columns while every value fits one, as zpFields lays them out)
     const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
-    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
       const row = el.closest('.zp-item');
       if (row) row.classList.toggle('wide1', wide);
       if (document.activeElement === el) continue;
@@ -848,19 +848,11 @@
       if (v != null && el.value !== zpShow(v)) { el.value = zpShow(v); el.classList.remove('bad'); }
     }
   }
-  // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
-  function refreshZpCard(k) {
+  // the Inspector's parameter fields of step k, rebuilt after a zero or pole is added or removed
+  function refreshZpFields(k) {
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return;
-    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p']]) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      const top = el.scrollTop;
-      el.innerHTML = '';
-      el.append(zpFields(st, k, pre));
-      el.scrollTop = top;
-    }
-    if (insp) insp.refreshParams(k);   // (the Inspector's editor)
+    if (insp) insp.refreshParams(k);
   }
   function zpSet(k, kind, i, v) {
     const st = S.steps[k - 1];
@@ -904,7 +896,7 @@
     zpSel = { k, kind, i: list.length - 1 };
     if (selected) { selected = null; buildShapeList(); }
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     return list.length - 1;
   }
   // the Inspector's Add zero / Add pole (DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
@@ -916,7 +908,7 @@
     commit();
     requestRender('OL');
     sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }));
-    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"], #pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
+    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
     if (inp) inp.scrollIntoView({ block: 'nearest' });
   }
   function zpRemove(k, kind, i) {
@@ -931,9 +923,99 @@
     else if (zpSel && zpSel.k === k && zpSel.kind === kind && zpSel.i > i) zpSel.i--;
     zpHover = null;
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     commit();
     requestRender('OL');
+  }
+  function paramField(st, k, q, pre = 'p') {
+    const val = st.params[q.key] ?? q.def;
+    // (the step in the chain at this moment: an Undo while the field is being typed puts new step objects in the chain, and the field follows them)
+    const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
+    const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
+    let input, extra = null, before = null;
+    const id = `${pre}${k}_${q.key}`;
+    if (q.type === 'choice') {
+      input = h('select', { class: 'inp', id, onchange: (e) => { upd(e.target.value); commit(); } }, ...q.choices.map(([v, l]) => h('option', { value: v }, l)));
+      input.value = val;
+    } else if (q.type === 'int' || q.type === 'angle') {
+      input = h('input', { class: 'inp', id, type: 'number', step: '1', value: val, min: q.min });
+      // an empty or unreadable field (Number('') is 0) is flagged and never applied; leaving it shows the value in use again
+      const unread = () => input.value.trim() === '' || !!(input.validity && input.validity.badInput) || !Number.isFinite(Number(input.value));
+      input.addEventListener('input', () => {
+        if (unread()) {
+          input.classList.add('bad'); input.setAttribute('aria-invalid', 'true');
+          input.setAttribute('data-tip', $t('Enter a number; {label} stays {choice}', { label: q.label, choice: st.params[q.key] ?? q.def }));
+          return;
+        }
+        const v = Number(input.value);
+        const okInt = q.type !== 'int' || (Number.isInteger(v) && (q.min == null || v >= q.min));
+        input.classList.toggle('bad', !okInt); input.setAttribute('aria-invalid', String(!okInt));
+        if (!okInt) input.setAttribute('data-tip', $t('Uses {choice}: {label} must be a whole number{choice2}', { choice: Math.max(q.min ?? -Infinity, Math.round(v)), label: q.label, choice2: q.min != null ? ` ≥ ${q.min}` : '' })); else input.removeAttribute('data-tip');
+        upd(q.type === 'int' ? Math.round(v) : v);
+      });
+      input.addEventListener('change', () => {
+        if (unread()) input.value = st.params[q.key] ?? q.def;
+        const v = Number(input.value);
+        if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
+        input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
+        commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
+      });
+      if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
+      // a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
+      // with All sheets on, the one view that draws them
+      if (q.key === 'k' && q.type === 'int') {
+        const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
+        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); tourEmit('sheet-changed', { k, sheet: v }); };
+        before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
+        extra = h('div', { class: 'sheet-ctl' },
+          n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
+          h('button', { class: 'icon-btn sh-next', type: 'button', 'aria-label': $t('Next sheet'), 'data-tip': $t('Next sheet'), onclick: (e) => { e.preventDefault(); go(1); } }, '›'),
+          h('button', { class: 'btn ghost small sh-all', type: 'button', 'data-tip': $t('Landscape draws every sheet of the map as one surface'), onclick: (e) => { e.preventDefault(); showAllSheets(); } }, $t('Show all sheets')));
+      }
+    } else {
+      // (a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
+      // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
+      const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
+      const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
+      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+      if (num) input.dataset.num = '1';
+      // (the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
+      if (q.bound) input.dataset.bound = q.bound.join(',');
+      // (a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
+      // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
+      // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
+      // (the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
+      // the text is dropped, not given by live() to the new chain's step of the same type at k)
+      let due = 0, typedOn = null;
+      const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
+      input.addEventListener('input', () => {
+        // (the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
+        if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
+        if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
+        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
+        const cost = chainCost();
+        if (q.type !== 'seq' && cost <= 8) { apply(); return; }
+        clearTimeout(due);
+        typedOn = live();
+        due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
+      });
+      input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
+      if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
+    }
+    input.dataset.pkey = q.key;
+    // (a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    if (q.say) input.setAttribute('aria-label', q.say);
+    const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
+    const sym = PSYM[q.key];
+    const labelText = sym ? sym[0] : q.label;
+    // (a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
+    // says what the field is; the symbol keeps its own span, where a step's index goes)
+    const word = paramWord(st, q);
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
+    if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
+    return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }
   // the parameter fields of a 'zp' card: a, the + zero / + pole buttons, then one field per zero and per pole
   function zpFields(st, k, pre) {
@@ -973,7 +1055,7 @@
     // (a field emptied, or holding a list '0.5, 0.5i': the card again, one field per item, so fields and handles
     // keep their indices)
     input.addEventListener('change', () => {
-      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpFields(k); syncZpFields(k); }
       else if (input.value !== zpShow(zpRaw(input))) input.value = zpShow(zpRaw(input));
       commit();
     });
@@ -1000,7 +1082,7 @@
     setFocus(k);
     commit();
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
-    return cardButton(k);
+    return null;
   }
   // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
   // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger

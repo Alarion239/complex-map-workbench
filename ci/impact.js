@@ -71,14 +71,14 @@ const MAP = [
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
-  ['src/app/{02-gpu-regions,03-exact-images,07-preimages-integrals}.js', { core: true }],   // regions, exact images, preimages
+  ['src/app/{02-gpu-regions,03-exact-images,05-colour-standin,07-preimages-integrals}.js', { core: true }],   // regions, exact images, the colour plot's stand-in, preimages
   ['src/app/04-labels-zeros-poles.js', ui('views', 'constructions')],                     // labels, zeros and poles
   ['src/app/05-panes-rulers.js', ui('views', 'desktop', 'phone')],                         // view fitting, panes, rulers
   ['src/app/06-deformation.js', ui('deform')],                                             // the deformation
-  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // thumbnails, the render loop
+  ['src/app/08-thumbnails-render.js', { core: true, areas: ['views'] }],                   // the render loop
   ['src/app/09-pane-titles.js', ui('desktop', 'phone')],                                   // pane titles, option strips
   ['src/app/10-tools-menus.js', ui('constructions', 'desktop', 'phone')],                  // the tools and menus
-  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's cards
+  ['src/app/11-pipeline.js', ui('views', 'desktop', 'phone')],                             // the function chain's edits, Repeat and range
   ['src/app/12-command-palette.js', ui('desktop', 'i18n')],                                // the command palette
   ['src/app/13-export-captions.js', ui('export', 'i18n')],                                 // guarantees, export, captions
   ['src/app/14-interaction.js', ui('constructions', 'desktop', 'phone')],                  // pointer and keys

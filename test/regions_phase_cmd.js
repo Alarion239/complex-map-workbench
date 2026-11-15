@@ -9,7 +9,7 @@ const U = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = (ms = 400) => settled({ floor: ms });
-const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, nav, sleep, settled: settled });
+const { DISC, STATE, openSaved, popFit } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'regions_open.js'), 'utf8'))({ U, ev, send, go, sleep, settled: settled });
 await view(1440, 900, false, false);
 // ---- 1. a saved state with an old pattern opens with the phase; its grid step and grid lines stay
 for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch', 0.5, true], ['sphere', 4, false], ['solid', 1, true], ['polar', 0.25, true]]) {
@@ -26,7 +26,7 @@ for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch',
   for (let i = 0; i < 50 && !payload; i++) { await sleep(100); payload = await ev('window.__rgLink || null'); }
   ok('a link encodes', typeof payload === 'string' && /^\d\./.test(payload), payload);
   await nav(`${U}/gl-helpers.html`); await sleep(300);
-  await nav(`${U}/test.html?ns=rgph-l1-${Date.now() % 1000000}#cmw=${payload}`);
+  await go(`${U}/test.html?ns=rgph-l1-${Date.now() % 1000000}#cmw=${payload}`);
   for (let i = 0; i < 100; i++) { await sleep(200); try { if ((await ev(`typeof __cmwRegions === 'function' && !location.hash && __cmwShapes().shapes.length === 1`)) === true) break; } catch (e) { /* the page reloads */ } }
   await settle(800);
   const r = await ev('__cmwRegions()');
@@ -41,7 +41,7 @@ ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSt
 ok('no pattern swatches in the page', (await ev(`document.querySelectorAll('#patternSeg, .patterns, [data-pat]').length`)) === 0, null);
 await ev(`document.querySelector('#leftFoot .opts-btn').click()`); await settle(500);
 const pop = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'); const b = p && p.querySelector('#regionsBox'); return b && { ids: ['linesChk', 'patScale', 'chevChk', 'alphaRange'].filter((id) => b.querySelector('#' + id)), swatches: p.querySelectorAll('.pat, [data-pat], #regionsBox canvas').length, text: b.innerText }; })()`);
-ok("the head's ⋯ pop-up: grid lines, their step, chevrons and opacity, no swatch", pop && pop.ids.length === 4 && pop.swatches === 0 && /phase of z/.test(pop.text) && /Grid step/.test(pop.text), pop);
+ok("the head's ⋯ pop-up: grid lines, their step, chevrons and opacity, no swatch", pop && pop.ids.length === 4 && pop.swatches === 0 && /phase of w₁, carried by the map/.test(pop.text) && /Grid step/.test(pop.text), pop);
 const grp = await ev(`(() => { const p = document.querySelector('#popHost .opts-pop'), kids = [...p.children], i = kids.indexOf(p.querySelector('#regionsBox')); const h = kids[i - 1]; return { before: i, label: h && h.classList.contains('opts-sep') ? h.textContent : null, rule: h ? getComputedStyle(h).borderTopWidth : null }; })()`);
 ok("the regions' group follows the head's other controls under a rule and its name", grp.before > 1 && grp.label === 'Regions' && grp.rule === '1px', grp);
 await ev(`(() => { const c = document.getElementById('linesChk'); if (!c.checked) c.click(); return 1; })()`); await settle(600);

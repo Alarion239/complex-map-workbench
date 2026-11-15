@@ -20,11 +20,13 @@
   }
   // CPU samples of what a stage shows, restricted to the part that comes from the visible z-window
   // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
-  function stageSamples(F0, xs, ys, k, few) { const it = stageSampler(F0, xs, ys, k, few); while (!it.next().done) { /* the samples go to xs, ys */ } }
-  // the same, a step at a time: it yields every 16 samples ([#243] a costly fit runs in slices, fitRightSliced); few:
-  // an eighth of the samples (a chain card's picture of a costly chain)
-  function* stageSampler(F0, xs, ys, k, few) {
-    const per = few ? 8 : 1;
+  // (at most this many mesh vertices and this many points of a polygon go into a fit's samples)
+  const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
+  // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
+  const GLOBE_MARK_PX = 13;
+  function stageSamples(F0, xs, ys, k) { const it = stageSampler(F0, xs, ys, k); while (!it.next().done) { /* the samples go to xs, ys */ } }
+  // the same, a step at a time: it yields every 16 samples (a costly fit runs in slices, fitRightSliced)
+  function* stageSampler(F0, xs, ys, k) {
     const core = Region.expandBox(clipWin, 1.05);
     const inCore = (x, y) => x >= core.x0 && x <= core.x1 && y >= core.y0 && y <= core.y1;
     let got = 0;
@@ -41,7 +43,7 @@
       const r = shapeGPU(s);
       if (t === 'area' && r.mesh) {
         const src = r.mesh.src, nv = src.length / 2;
-        const stride = Math.max(1, Math.floor(nv * per / 2500));
+        const stride = Math.max(1, Math.floor(nv / MESH_SAMPLE_CAP));
         for (let i = 0; i < nv; i += stride) {
           const x = src[2 * i], y = src[2 * i + 1];
           if (r.mesh.stretched && !inCore(x, y)) continue;
@@ -53,14 +55,14 @@
       let unbounded = s.kind === 'line' || s.kind === 'ray' || s.kind === 'fcurve';
       if (t === 'area') { try { unbounded = !Region.bboxOf(s); } catch (e) { unbounded = true; } }
       for (const p of r.polys || []) {
-        const n = p.length / 2, stride = Math.max(1, Math.floor(n * per / 400));
+        const n = p.length / 2, stride = Math.max(1, Math.floor(n / POLY_SAMPLE_CAP));
         for (let i = 0; i < n; i += stride) { const x = p[2 * i], y = p[2 * i + 1]; if ((!unbounded || inCore(x, y)) && push(F(C(x, y)))) yield; }
       }
     }
   }
-  function fitPane(pane, k, extraKs = [], F, few) {
+  function fitPane(pane, k, extraKs = [], F) {
     const xs = [], ys = [];
-    stageSamples(F || stageF(k), xs, ys, k, few);
+    stageSamples(F || stageF(k), xs, ys, k);
     for (const k2 of extraKs) stageSamples(stageF(k2), xs, ys, k2);
     const b = robustBox(xs, ys);
     if (b) pane.fitBox(b, 0.07);
@@ -75,7 +77,7 @@
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
   let zpHandlesL = [], zpHover = null, zpSel = null;
   // (k: the stage the left plane shows, default its own: z's view is S.srcView, a later stage's V.left)
-  function leftView(k = leftStage()) { return k === 0 ? S.srcView : V.left; }
+  function leftView(k = leftStage()) { return k === 0 || (SV.on && svGliding()) ? S.srcView : V.left; }
   // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
   function phHold() { if (Phone.hold) Phone.hold(); }
@@ -506,7 +508,11 @@
     // curve selected, the plane is paper with its reason)
     const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
     if (cauchyWhy) paper(pane);
-    else if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    else {
+      // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
+      cst.standIn = colourStandIn(pane, cst.map);
+      if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
+    }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
@@ -590,7 +596,9 @@
     const mx = (vb.x0 + vb.x1) / 2, my = (vb.y0 + vb.y1) / 2;
     let w = vb.x1 - vb.x0, h = vb.y1 - vb.y0;
     if (w > 2 * h) w = 2 * h; else if (h > 2 * w) h = 2 * w;
-    return { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    const b = { x0: mx - w / 2, x1: mx + w / 2, y0: my - h / 2, y1: my + h / 2 };
+    // (a video frame: the window the still of that plane has, its edges rounded)
+    return artLandRound && !artMode ? artLandRound(b) : b;
   }
   // carry (the steps view's Landscape as carried points, svLandCarry): {map, s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs, va, vb, rest}: plane
   // s's points moved by map (GLR.drawLandscape's carry), at the heights of the stages (s, hT] and in the colours of
@@ -754,7 +762,7 @@
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
-    refitCam(cam, CAM3, landFitDist(geo, pane));
+    refitCam(cam, CAM3, landFitDist(geo, artCamAsp ? { w: pane.h * artCamAsp, h: pane.h } : pane));
     const view = { yaw: cam.yaw, pitch: cam.pitch, dist: cam.dist, tx: cam.tx, ty: cam.ty, tz: geo.center[2], fov: CAM3.fov };
     // (the carried grid: over plane s's block)
     const src = carry ? landBox(carry.vs) : null;
@@ -767,13 +775,18 @@
     GLR.begin(pane.pw, pane.ph);
     // source outlines printed on the floor, in the plane the landscape is built on (stage focus - 1)
     const outlines = [];
-    const omap0 = stageMap(leftStage());
+    const omap0 = carry && carry.zmap ? carry.zmap : stageMap(leftStage());
+    // (the steps view's Inside regions: a region's outline is thin and grey, on the floor under its surface's edge)
+    const footprint = mask && mask.cut && !(carry && carry.plain) ? new Set(visibleAreas()) : null;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point') continue;
-      const omap = shapeMap(s, omap0);
+      const omap = SV.on ? svShapeMap(s, omap0) : shapeMap(s, omap0);
       if (!omap) continue;
       const r = shapeGPU(s);
-      if (r.lineRes) outlines.push({ res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey: `${r.lineKey}|${mapKeyOf(omap)}` });
+      if (!r.lineRes) continue;
+      const cacheKey = `${r.lineKey}|${mapKeyOf(omap)}`;
+      outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
+        : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const info = GLR.drawLandscape({
       map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, hT2: carry.hT2, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
@@ -797,13 +810,14 @@
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
+    render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on that plane's heights, h(F_k); one between two planes has no probe)
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svHeightF(carry.rest) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -1061,18 +1075,27 @@
   function globeResult(role, s, res, live, fwd) {
     if (live && res === 'pending' && fwd) noteStandIn(role, s.id, fwd.map((f) => [f.res, f.st && f.st.cacheKey]));
     if (live) notePath(role, s.id, res === 'drawn' ? 'inverse' : res === 'pending' ? 'pending' : 'forward');
-    if (res === 'pending') { if (live) { invWaiting.add(role); invPendN++; } else thumbNotFinal = true; }
-    else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); requestRender(...w, 'T'); }
+    if (res === 'pending' && live) { invWaiting.add(role); invPendN++; }
+    else if (res === 'drawn' && invWaiting.size) { const w = [...invWaiting].filter((x) => x !== role || !live); invWaiting.clear(); if (w.length) requestRender(...w); }
     if (res === 'error' && GLR.inverseStatus(S.alpha, 'globe') === 'error') {
       const k = (GLR.inverseInfo || {}).key || '';
       if (k !== invFailKey) { invFailKey = k; scheduleFix(); }
     }
   }
+  // the colour globe of o drawn over the pane's globe, kept inside the regions (regions drawn solid; o.only: only these): true
+  // when its colour was drawn, false while the mask's program links (the caller asks again) or on an error
+  function maskedGlobe(pane, c, base, o) {
+    if (!(GLR.keepInAlpha && GLR.keepInAlpha(true))) return false;
+    try {
+      const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign({}, o, { imageMode: false, maskRegions: true })));
+      return !!(mi && mi.carried);
+    } catch (e) { console.error('globe region mask', e); return false; }
+  }
   // A plane on the Riemann sphere, orbited by camera c (base: its fitted defaults). o.imageMode: the shapes of stage
   // o.stage lifted onto a plain globe with its graticule; otherwise the globe carries the phase portrait of the
   // focused map (or H_t with the Morph transport, o.hom) and the shapes are outlined. o.plane: the equatorial plane with the projection ray
   // of o.probeW; without it the probe is a dot on the globe. o.carried: the steps view's carried colour over the colour
-  // globe (GLR.drawSphere's st.carried); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
+  // globe (GLR.drawSphere's st.carried); o.only: a Set of the shapes the globe's regions are drawn for (the rest left out); o.carryRegions: the steps view's carried colour by the inverse pass, the plain
   // globe under it (drawSphere's regions, each an inverse record with its carry). Returns the frame's {MVP, eye,
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
@@ -1082,13 +1105,7 @@
     if (o.inRegions) {
       const look = Object.assign({}, o, { inRegions: false });
       const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
-      let carried = false;
-      if (GLR.keepInAlpha && GLR.keepInAlpha(true)) {
-        try {
-          const mi = withSolidRegions(() => sphereView(pane, c, base, Object.assign(look, { imageMode: false, maskRegions: true, pre: null })));
-          carried = !!(mi && mi.carried);
-        } catch (e) { console.error('globe region mask', e); }
-      }
+      const carried = maskedGlobe(pane, c, base, Object.assign(look, { pre: null }));
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
@@ -1099,7 +1116,7 @@
     if (!over) backdrop(pane);
     // 28 degree camera fitted to the globe and its labels at this pane's aspect (spec 6.10)
     // (with the equatorial plane on, frame more of the disc; its rim fades out, so the pane never cuts it hard)
-    refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, pane.w, pane.h, 1.05));
+    refitCam(c, base, GLR.fitDist(o.plane ? 1.75 : 1.16, base.fov, artCamAsp ? pane.h * artCamAsp : pane.w, pane.h, 1.05));
     // contact shadow (spec 6.10): an elliptical radial gradient, aspect 1.6 : 0.35, on the ground under the globe,
     // placed and sized from the globe's projection; it fades out as the camera drops below the ground
     const ctx = pane.ctx;
@@ -1150,7 +1167,7 @@
       }
     }
     for (const s of S.shapes) {
-      if (s.visible === false || kindType(s) === 'point') continue;
+      if (s.visible === false || kindType(s) === 'point' || (o.only && !o.only.has(s))) continue;
       // a later plane's shape is drawn on the globes of its own plane and the planes after it, under its own map: in the
       // steps view's glide (o.lineMap) the glide's map from its plane (svShapeMap), in another homotopy none
       const sm = o.lineMap ? svShapeMap(s, map) : hom ? (shapeStage(s) ? null : map) : shapeMap(s, map);
@@ -1177,11 +1194,7 @@
         const p = recsOf ? pathOf(s, sm, role, 'globe', { recs: recsOf, budget: live }) : null;
         if (p && p.path === 'inverse') {
           // a bounded shape's image box (in w; the shape's own box at stage 0) scissors its pass (gl.js globeScissorOf)
-          let gbox = null;
-          if (shapeBounded(s)) {
-            if (p.plan.ops.length) gbox = invBox(p.e, p.plan, s, live);
-            else { try { gbox = Region.bboxOf(s); } catch (err) { gbox = null; } }
-          }
+          const gbox = globeImageBox(p, s, live);
           regions.push({
             inv: { map: p.m, plan: p.plan, prep: p.prep, shape: s, dpr: pane.dpr, motion: live && interacting(), coldOk: offRender, globeBox: gbox,
               look: { color: GLR.hexRGB(ink.c0), color2: GLR.hexRGB(ink.alt), edge: GLR.hexRGB(ink.edge), ink: TH.inkRGB, alpha: S.alpha, alphaOwn: S.alpha, pattern: S.pattern, cell, lines: S.lines, sphN: sphN(), stretch } },
@@ -1284,15 +1297,23 @@
       }
     }
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    ctx.font = `italic 500 13px ${TH.math}`;
+    ctx.font = `italic 500 ${GLOBE_MARK_PX}px ${TH.math}`;
     const pts = /** @type {[string, number[]][]} */ ([['0', [0, 0, -1]], ['∞', [0, 0, 1]], ['1', lift(1, 0)], ['i', lift(0, 1)], ['−1', lift(-1, 0)], ['−i', lift(0, -1)]]);
+    // (a video frame fits the camera at the still's aspect, which can make the globe small against the marks' fixed size: its marks keep
+    // off the globe's outline, as the still's do)
+    const limb = artCamAsp ? GLR.globeLimb(info.eye, (p) => project(pane, info.MVP, p)) : null, centre = limb ? project(pane, info.MVP, [0, 0, 0]) : null;
     for (const [lab, p] of pts) {
       const f = facing(p);
       const u = Math.max(0, Math.min(1, (f - 0.05) / 0.25)), a = u * u * (3 - 2 * u);   // smoothstep(0.05, 0.3, n·v)
       if (a <= 0) continue;
       // poles: just beyond the globe; equator points: just above the |z| = 1 line, so the label never sits on it
-      const q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
+      let q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
+      if (limb) {
+        const half = ctx.measureText(lab).width / 2;
+        q = GLR.clearOfLimb(q, (at) => ({ x0: at[0] - half, x1: at[0] + half, y0: at[1] - GLOBE_MARK_PX / 2, y1: at[1] + GLOBE_MARK_PX / 2 }), limb, centre);
+        if (!q) continue;
+      }
       // (a video frame: the figure draws these labels at full ink; their places still keep the point labels clear)
       if (artNoLab) { labelReg(pane).marks.push([q[0], q[1], 11]); continue; }
       ctx.globalAlpha = a;
@@ -1371,19 +1392,10 @@
     r.value = String(S.alpha); paintFader(r);
     $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
     for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
-    requestRender('L', 'R', 'T'); save();
+    requestRender('L', 'R'); save();
   }
   function setupViewControls() {
-    // the view controls: the top bar's view switch (merged-views.md) and the panes' Plane | Sphere radios (U4)
-    const vsw = $('viewSwitch');
-    if (vsw) {
-      for (const [v, l, k, html] of MAINS) vsw.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': `${l}  ${k}`, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${html}</span>`, onclick: () => setMain(v) }));
-      vsw.addEventListener('keydown', (e) => {
-        if (e.key !== 'ArrowLeft' && e.key !== 'ArrowRight') return;
-        const i = MAINS.findIndex((x) => x[0] === S.view.main), j = Math.max(0, Math.min(MAINS.length - 1, i + (e.key === 'ArrowRight' ? 1 : -1)));
-        setMain(MAINS[j][0]); /** @type {HTMLElement} */ (vsw.children[j]).focus(); e.preventDefault();
-      });
-    }
+    // the panes' Plane | Sphere radios (U4)
     for (const side of ['L', 'R']) {
       const el = $(side === 'L' ? 'leftTabs' : 'rightTabs');
       for (const [v, l, k] of SURF[side]) el.append(h('button', { 'data-mode': v, role: 'radio', 'data-tip': k ? `${l}  ${k}` : l, 'aria-label': l, html: `${VIEW_ICONS[v]}<span>${l}</span>`, onclick: () => setView(side, v), ...(v === 'sphere' ? { onpointerenter: prestartGlobe, onfocus: prestartGlobe } : {}) }));
@@ -1397,12 +1409,12 @@
     // the Key switch in X's legend chip: the colour key painted in the Y plane
     const kc = $('wKeyChk');
     if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
-    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R', 'T'); drawLegend(); save(); });   // (#363: Y's key chip names the grid's cell only while its lines are drawn)
+    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (Y's key chip names the grid's cell only while its lines are drawn)
     $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
-    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R', 'T'); save(); });
+    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R'); save(); });
     $('alphaRange').addEventListener('input', (e) => setFillOpacity(+/** @type {HTMLInputElement} */ (e.target).value));
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
-    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R', 'T'); save(); });
+    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
   }
@@ -1415,7 +1427,7 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
+    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (merged-views
     // review: on a 356 px plot the key covered a third of the landscape); a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1431,6 +1443,7 @@
       $(side + 'ZoomOut').innerHTML = ICONS.minus;
       $(side + 'Fit').innerHTML = ICONS.fit;
       $(side + 'Solo').innerHTML = ICONS.expand;
+      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
       const zb = (f) => () => {
         const sd = side === 'left' ? 'L' : 'R';
         if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }

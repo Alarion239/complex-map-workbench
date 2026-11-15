@@ -10,8 +10,6 @@ const SCALE = new Set([10, 11, 12, 13, 15, 19]);
 // file, text (a piece of the declaration's line that names it), size, why
 const OFFSCALE = [
   { file: 'phone.css', text: '[type="range"]', size: 16, why: 'iOS Safari zooms the page into a field set smaller than 16 px: the phone sheets\' fields keep 16 px' },
-  { file: 'desk.css', text: '.ftile .fF {', size: 26, why: 'the function letter of a chain tile is a figure drawn large, not text: its size is its design, and the tile\'s height is set around it' },
-  { file: 'phone.css', text: '.ftile > .fF {', size: 24, why: 'the phone\'s chain tile draws the function letter as a figure, as desk.css\'s tile does at 26 px' },
   { file: 'desk.css', text: '.sv-nav {', size: 26, why: 'the thread strip\'s < > are glyph arrows, 44 px targets, drawn large like a figure' },
 ];
 // the font sizes a stylesheet's text sets: [size token, line number, line] (comments blanked first, keeping the lines)
