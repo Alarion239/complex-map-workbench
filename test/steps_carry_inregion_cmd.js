@@ -11,7 +11,10 @@
 // - The Joukowski airfoil w = (z + 1/z) / 2 with its region, the outside of the circle through 1: at rest, Inside
 //   regions (and every region point coloured, past the window too) and Everywhere; Everywhere held mid-glide at 0.25.
 // - w = z^n, n = 2, 3, on the annulus 0.6 < |z| < 1.6 about 0 (its image covers n times): at rest and parked halfway
-//   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere.
+//   (the power path H_t(z) = z^(1 + (n - 1) t), principal), Inside regions and Everywhere. For n = 2, the bare frames
+//   (__cmwSteps({ bare: true }), the colour layer alone) Inside regions, parked halfway (the inverse pass's frame) and at
+//   rest on plane w1 (the exact colour under the regions' mask), have no outlines: leaving the shapes' strokes out
+//   (__cmwHideStrokes) changes no pixel by more than DIFF_TOL; control: not bare, it changes the frame.
 // - F = sin(((e^z - 1) / (e^z + 1))^2), Everywhere at rest on its last plane: the whole plane near a family of poles.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
@@ -24,43 +27,17 @@ await view(1200, 800, false, false);
 const wait = async () => { await settled({ max: 60000, until: '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length' }); };
 const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwLPx === "function" && typeof __cmwSvKey === "function" && typeof __cmwSvFixed === "function" && typeof __cmwSphere === "function"' }); };
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// (the least share of the frame the annulus's two outlines cover, not bare)
+const OUTLINE_MIN = 0.001;
+const { lpx, paneOf, exampleNames, bareCount, grid, joukPath, carryRead } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
-const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-// the colours at the points W of the state `at` against plane z's at the points Z: {n, wrong, paper, worst, state}
-// at.hold: the thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user
-// holding the thread; the frame is read once its programs are linked and two frames are alike
-async function compare(at, W, Z) {
-  await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
-  const ref = (await lpx(Z)).px;
-  if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
-  const state = await ev('__cmwSteps()'), got = (await lpx(W)).px;
-  if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
-  const fmt = (v) => v.map((q) => +q.toFixed(3));
-  const { n, wrong, paper, worst, ex } = tally(got, ref, { note: (k) => ({ w: fmt(W[k]), z: fmt(Z[k]) }) });
-  return { n, wrong, paper, worst, ex, state: { x: state.x, T: state.T, scope: state.scope } };
-}
-// one case: cand(w) -> the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out). A point w
-// is also left out where the front point jumps (a seam of the key's choice): its front differs by more than 0.06 from
-// the front 1.5 px away in any direction
+const { hold, grab, fade, judge, JUDGE_MIN_N, compare: compareFrames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// the front point's colour against plane z's (carryRead's measure: test/lib/carry_kit.js), as one case's checks: cand(w) ->
+// the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out)
+const { measure } = carryRead({ steps, wait, hold });
 async function check(tag, at, b, P, pts, cand, min, exact = false) {
-  const d = 1.5 / P.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
-  const C = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
-  // (mid-glide, the key of the glide's frame at t: its points are the glide map's poles at t, __cmwSvKey(b, t))
-  const xt = at.hold != null ? at.hold : at.park, t = xt != null ? xt - Math.floor(xt) : 0;
-  const F = await fronts(C.map((c) => c.map((e) => e.z)), b, t > 0 ? (await ev(`__cmwSvKey(${b}, ${t})`)).sing : null);
-  const at5 = (k, j) => { const i = 5 * k + j; return F[i] < 0 ? null : C[i][F[i]]; };
-  const W = [], Z = [];
-  let left = 0;
-  pts.forEach((w, k) => {
-    const f = at5(k, 0);
-    if (!f) return;
-    const jump = [1, 2, 3, 4].some((j) => { const g = at5(k, j); return !g || Math.hypot(g.z[0] - f.z[0], g.z[1] - f.z[1]) > 0.06; });
-    if (f.out || jump) { left++; return; }
-    if (shown(P, f.z)) { W.push(w); Z.push(f.z); }
-  });
-  const r = await compare(at, W, Z);
-  info[tag] = Object.assign(r, { leftOut: left });
+  const r = await measure(at, b, P, pts, cand);
+  info[tag] = r;
   const x = at.hold != null ? at.hold : at.park != null ? at.park : at.go;
   // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
   ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < (at.hold != null ? 0.01 : 1e-9) && r.state.T === 0, r.state);
@@ -68,6 +45,38 @@ async function check(tag, at, b, P, pts, cand, min, exact = false) {
   ok(`${tag}: no point on the bare paper (no tears, no window edge)`, r.paper === 0, info[tag]);
 }
 
+// the carried colour of the frame mid-glide, parked (at.park) or held (at.hold), graded by the judge against the exact picture of
+// plane z's parked frame (held_frames' judge: the frame pulled back through H_u's inverse by the glide's own sheet key)
+async function judged(tag, at, seeds) {
+  // (the colour layer alone, as the other suites that grade a frame against the exact picture read it: outlines and labels are drawn over the colour at places that differ between the frames)
+  await ev('__cmwSteps({ bare: true }), 1');
+  await steps({ scope: at.scope, surf: 'plane', go: 0, now: true });
+  ok(`${tag}: plane z's parked frame settles`, await grab('R0'), null);
+  await steps({ scope: at.scope, surf: 'plane', go: 1, now: true });
+  ok(`${tag}: plane w1's parked frame settles`, await grab('R1'), null);
+  await steps({ scope: at.scope, surf: 'plane', go: 0, now: true });
+  if (at.hold != null) { const h = await hold(at.hold); ok(`${tag}: the thread is held at x = ${at.hold}`, h.ok, h); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
+  ok(`${tag}: the moving frame settles`, await grab('M'), null);
+  const state = await ev('__cmwSteps()'), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
+  const j = await judge('R0', 'M', { seeds });
+  if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
+  await ev('__cmwSteps({ bare: false }), 1');
+  info[tag] = { j, g, x: state.x, T: state.T };
+  // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
+  const x = at.hold != null ? at.hold : at.park;
+  ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(state.x - x) < (at.hold != null ? 0.01 : 1e-9) && state.T === 0, info[tag]);
+  ok(`${tag}: the frame is the exact picture (the judge passes)`, j.pass, info[tag]);
+  // negative control: the cross-fade of the two planes' parked frames at the same u is not the exact picture
+  const xt = at.hold != null ? at.hold : at.park, u = xt - Math.floor(xt);
+  ok(`${tag}: the cross-fade frame exists`, await fade('R0', 'R1', u, 'X'), null);
+  const c = await judge('R0', 'X', { seeds });
+  info[tag].control = c;
+  ok(`${tag}: negative control: a cross-fade of the two planes' frames does not pass the judge`, !c.pass && c.n >= JUDGE_MIN_N, info[tag]);
+}
+
+// (the reference's Newton seeds for the Joukowski frame: the default 8 x 6 grid misses roots in the band under the real axis,
+// where the front root it then picks is a later sheet's)
+const JOUK_SEEDS = [48, 32];
 // ---- the Joukowski airfoil ----
 const names = exampleNames();
 const EX = names.indexOf('Joukowski airfoil');
@@ -76,6 +85,7 @@ await go(`http://localhost:${PORT}/test.html?view=steps&ns=cex${Date.now()}`);
 await ready();
 await ev("__cmwSet('morphPaths', false), __cmwSet('alpha', 1), 1");
 await ev(`__cmwExample(${EX}); 1`);
+await adopted();
 await wait();
 {
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
@@ -112,7 +122,7 @@ await wait();
     // the outline's 1.5 px stroke and 3.5 px halo, and the 1.5 px the seam test moves w)
     const AXIS = 0.04;
     const heldCand = joukPath(outside, (z, w) => Math.min(Math.abs(z[0]), Math.abs(z[1])) < AXIS || labelAt(w)).candAt(0.25);
-    await check('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, 1, P, pts, heldCand, 400);
+    await judged('Joukowski all held 0.25', { scope: 'all', hold: 0.25 }, JOUK_SEEDS);
     // (and densely over the stretch where the image of the cut, the lower semicircle, runs: Re w in [-3, -0.5],
     // Im w in [-3.5, -0.3], 50 x 50; none wrong: the triangles the cut tears keep the enhanced style's modulus bands
     // where the exact colour has them)
@@ -149,7 +159,28 @@ for (const n of [2, 3]) {
       }
       return out;
     };
-    await check(`z^${n} ${scope} ${park == null ? 'rest' : 'parked ' + park}`, park == null ? { scope, go: 1, now: true } : { scope, park }, 1, P, pts, cand, 200);
+    const tag = `z^${n} ${scope} ${park == null ? 'rest' : 'parked ' + park}`;
+    if (park == null) await check(tag, { scope, go: 1, now: true }, 1, P, pts, cand, 200); else await judged(tag, { scope, park });
+  }
+  if (n === 2) {
+    for (const [tag, at] of [['parked 0.5', { park: 0.5 }], ['rest on w1', { go: 1, now: true }]]) {
+      // the share of the frame's pixels the shapes' strokes change (compareFrames' frac), bare or not
+      const strokes = async (bare) => {
+        await ev(`__cmwSteps({ bare: ${bare} }), 1`);
+        await steps(Object.assign({ scope: 'in', surf: 'plane' }, at));
+        const on = await grab('strokes');
+        await ev('__cmwHideStrokes(true), 1');
+        await wait();
+        const off = await grab('no strokes');
+        await ev('__cmwHideStrokes(false), __cmwSteps({ bare: false }), 1');
+        await wait();
+        return on && off ? compareFrames('strokes', 'no strokes') : null;
+      };
+      const bare = await strokes(true), drawn = await strokes(false), g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u }; })()');
+      info[`z^2 in ${tag}, bare`] = { bare, drawn, g };
+      ok(`z^2 in ${tag}: the bare frame has no outlines (the strokes change no pixel)`, !!bare && bare.frac === 0, info[`z^2 in ${tag}, bare`]);
+      ok(`z^2 in ${tag}: control: not bare, the strokes change the frame`, !!drawn && drawn.frac > OUTLINE_MIN, info[`z^2 in ${tag}, bare`]);
+    }
   }
 }
 

@@ -18,7 +18,7 @@ const loaded = async (pause, ms = 30000) => {
   await settle(0);
 };
 await view(1440, 900, false, false);
-await nav(`${U}?ns=i18nc-keys-${Date.now()}&lang=ru`); await loaded(3500);
+await go(`${U}?ns=i18nc-keys-${Date.now()}&lang=ru`); await loaded(3500);
 await ev(`document.activeElement && document.activeElement.blur(), 1`);
 const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await settled({ max: 3000 }); };
 const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
@@ -26,7 +26,7 @@ await press('с', 'KeyC'); check('ЙЦУКЕН С (KeyC) → Circle', (await too
 await press('м', 'KeyV');
 // text fields keep their letters: this check runs in i18n_cmd.js under the steps view (standards-ok: its steps-view twin is there, with the steps view's keys)
 // the logarithm's example and its Landscape title say which sheets, in Russian
-await nav(`${U}?ns=i18nc-log-${Date.now()}&lang=ru`); await loaded(3500);
+await go(`${U}?ns=i18nc-log-${Date.now()}&lang=ru`); await loaded(3500);
 await ev(`document.getElementById('examplesBtn').click(), 1`); await until(`!!document.querySelector('#popHost .examples .ex-name')`);
 const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
 check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
