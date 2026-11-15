@@ -3,7 +3,7 @@
 // [z³ - 3z, d/dz], glided from w₁ to w₂: in each case below, the frames parked at u = 1/4 and u = 3/4 are compared,
 // colour layer alone (SV.bare), with the cross-fade of the two planes' frames at rest (held_frames' fade): at most
 // FADE_OFF of the pixels may be more than DIFF_TOL apart. A frame that fades through the bare paper, or that leaves an
-// end out, is far off it.
+// end out, is far off it. Each plane's frame at rest must show colour: its mean luminance under PAPER_LUM.
 // - On the plane, both planes past the colour plane z (T = 0), Everywhere and Inside regions: plane w₁ at rest by the
 //   exact pass, plane w₂ by the carried meshes (the inverse planner has no plan past a d/dz, #1645);
 // - on the plane, the colour plane w₁ (T = 1), Inside regions: plane w₁ coloured, plane w₂ past it;
@@ -20,8 +20,8 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { grab, compare, fade, UNHELD, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // (FADE_OFF: the share of a frame's pixels that may be more than DIFF_TOL from the cross-fade, where an outline of
 // the regions' antialiased edge or a sample of the meshes' fix-up lands a pixel apart; GRABS: the tries at a still
-// frame, a quiet wait between them)
-const FADE_OFF = 0.01, GRABS = 4;
+// frame, a quiet wait between them; PAPER_LUM: a frame's mean luminance under which it is not the bare paper, about 253)
+const FADE_OFF = 0.01, GRABS = 4, PAPER_LUM = 245;
 const QUIET_UNTIL = `window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && GLR.pendingLinks === 0 && __cmwSvFixed() && !(window.__cmwSphere && __cmwSphere().running) && (${UNHELD})`;
 const quiet = () => settled({ max: 60000, until: QUIET_UNTIL });
 // the frame where the state o puts it (go: a plane, arrived at; x: a place between two), still and kept as tag
@@ -56,6 +56,9 @@ for (const c of CASES) {
   await ev(`__cmwSteps(${JSON.stringify({ T: c.T, scope: c.scope, surf: c.surf, bare: true })}); 1`);
   ok(`${tag}: the frame at rest on w1 settles`, await frameAt({ go: 1, now: true }, tag + ' w1'), null);
   ok(`${tag}: the frame at rest on w2 settles`, await frameAt({ go: 2, now: true }, tag + ' w2'), null);
+  const rest = await compare(tag + ' w1', tag + ' w2');
+  r.restLum = rest && rest.lum.map((v) => +v.toFixed(1));
+  ok(`${tag}: each plane at rest shows colour, not the bare paper (its mean luminance under ${PAPER_LUM})`, !!rest && rest.lum.every((l) => l < PAPER_LUM), r.restLum);
   for (const u of [0.25, 0.75]) {
     const at = `${tag} u=${u}`;
     ok(`${at}: the frame settles`, await frameAt({ x: 1 + u }, at), null);

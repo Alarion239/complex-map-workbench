@@ -1692,8 +1692,8 @@
     const ends = [end(bt.x0, pane)];
     svJumpCv = svCanvas(svJumpCv, pane);
     ends.push(end(bt.x1, svProxy(pane, svJumpCv)));
-    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = bt.u; pane.ctx.drawImage(svJumpCv, 0, 0); pane.ctx.restore();
-    // (no cut handles mid-glide: a plane at rest's)
+    svFadeOver(pane, svJumpCv, bt.u);
+    // (the cut handles are cleared, as they are mid-glide)
     cutHandlesL = [];
     const exact = (e) => e === 'plot' || e === 'inverse';
     svGlideRec = { b: bt.b, u: bt.u, path: ends.every(exact) ? 'inverse' : ends.includes('none') ? 'none' : 'mesh', reason: 'a d/dz step', ends, key: null, H: bt.F, Hb: null, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
@@ -2051,7 +2051,7 @@
     if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
       svFadeCv = svCanvas(svFadeCv, pane);
       sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
-      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
+      svFadeOver(pane, svFadeCv, u);
     }
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
@@ -2076,6 +2076,11 @@
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.clearRect(0, 0, cv.width, cv.height);
     return cv;
+  }
+  // canvas cv (svCanvas's, the pane's size in device pixels) drawn over the pane at opacity alpha: plane b's picture
+  // faded over plane a's
+  function svFadeOver(pane, cv, alpha) {
+    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = alpha; pane.ctx.drawImage(cv, 0, 0); pane.ctx.restore();
   }
   // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is
   // neutral)
