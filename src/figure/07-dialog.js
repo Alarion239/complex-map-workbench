@@ -656,7 +656,10 @@
     vidBtn.addEventListener('click', async () => {
       if (vRun) return;
       const run = vRun = { cancel: false, q: -1 };
-      vidBtn.disabled = true; running(true); meter.style.width = '0%'; meterEl.setAttribute('aria-valuenow', '0'); progTxt.textContent = $t('Preparing…'); progSr.textContent = $t('Making the video');
+      // (Save video is disabled while the frames are made: the focus it had goes to Cancel, which the progress row shows, and
+      // comes back to Save video, which then says it is saved, when the video is done or cancelled)
+      const hadFocus = document.activeElement === vidBtn;
+      vidBtn.disabled = true; running(true); if (hadFocus) cancelBtn.focus({ preventScroll: true }); meter.style.width = '0%'; meterEl.setAttribute('aria-valuenow', '0'); progTxt.textContent = $t('Preparing…'); progSr.textContent = $t('Making the video');
       try {
         const r = await makeVideo(opts({ video: vset, alive: () => !closed && !run.cancel }), { cancelled: () => closed || run.cancel, progress: (i, n) => {
           const pc = 100 * i / n, q = Math.floor(pc / 25);
@@ -673,7 +676,11 @@
         after2.hidden = false;
         after2.textContent = $t('{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).', { w: r.W, h: r.H, fps: r.fps, secs: I18 ? I18.num(r.secs.toFixed(1)) : r.secs.toFixed(1), codec: /^avc1/.test(r.codec) ? 'H.264' : /^vp09/.test(r.codec) ? 'VP9' : 'VP8', ext: r.ext.toUpperCase() });
       } catch (e) { console.error(e); cueError(); toast(/WebCodecs/.test(String(e && e.message)) ? $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.') : $t('The video could not be made here.')); }
-      finally { vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt(); }
+      finally {
+        const lost = document.activeElement === cancelBtn || document.activeElement === document.body;
+        vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt();
+        if (!closed && lost) vidBtn.focus({ preventScroll: true });
+      }
     });
     let rz = 0;
     const onResize = () => { clearTimeout(rz); rz = setTimeout(() => { placePaper(); if (pvWH && fmtOf() === 'video') pv.resize(fitPv(pvWH[0], pvWH[1])); }, 60); }; // (bigger: sharper frames; review vp-3)
