@@ -298,16 +298,17 @@
   // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
-  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into landC)
+  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when given
+  // (another sheet's copy, LAND_COPIES), else into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
-    if (!polar && (!landC || landC.N !== N)) {
+    if (!o && (!landC || landC.N !== N)) {
       if (landC) for (const t of [landC.tex1, landC.tex2]) gl.deleteTexture(t);
       landC = { N, tex1: floatTex(), tex2: floatTex() };
     }
-    const out = polar ? o : landC;
-    if (polar && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
+    const out = o || landC;
+    if (o && out.N !== N) { if (out.tex1) for (const t of [out.tex1, out.tex2]) gl.deleteTexture(t); Object.assign(out, { N, tex1: floatTex(), tex2: floatTex() }); }
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
@@ -346,6 +347,8 @@
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
+  // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each
+  const landCopies = [];
   // (the steps view's Inside regions) st.mask {cv, key, box, cut}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS), or with cut not drawn; null: the colour everywhere
@@ -1350,18 +1353,36 @@
     // relief: an open sheet, both sides drawn (no skirt walls, no block)
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
-      const Pc = program('landCarry', st.carry.map);
-      use(Pc, st.carry.map);
-      common(Pc);
-      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
-      u3(Pc, 'uCut', C.cut);
-      u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
-      // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
-      keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
-      u2f(Pc, 'uClipA', aspect[0], aspect[1]);
-      const sb = st.carry.src || box;
-      u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      const Pc = program('landCarry', st.carry.map), sb = st.carry.src || box;
+      // (the carried surface's program and uniforms, with the chain the GPU holds when it is called)
+      const setUp = () => {
+        use(Pc, st.carry.map);
+        common(Pc);
+        lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        u3(Pc, 'uCut', C.cut);
+        u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
+        // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
+        keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
+        u2f(Pc, 'uClipA', aspect[0], aspect[1]);
+        u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+        u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      };
+      // (the other sheets' copies first (st.carry.copies: each runs its function with the GPU's chain on that sheet's
+      // combo, then puts the chain back): each its own heights over the box's grid, placed and coloured on its sheet, with
+      // no patches. The principal surface is drawn after them, so it is the one shown where a copy meets it)
+      info.copies = 0;
+      for (const [i, around] of (st.carry.copies || []).entries()) {
+        around(() => {
+          if (!carryReady(st.carry.map)) return;
+          const o = carryHeights(st, N, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {}));
+          setUp();
+          gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
+          gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, o.tex2);
+          gl.drawArrays(gl.TRIANGLES, 0, 6 * (o.N - 1) * (o.N - 1));
+          info.copies++;
+        });
+      }
+      setUp();
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);

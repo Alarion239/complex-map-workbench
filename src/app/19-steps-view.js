@@ -428,8 +428,12 @@
     if (SV.surf !== 'land' || !lLand()) return false;
     const g = svBetween();
     if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
-    const mapOf = (s) => svGlideMap(g, s);
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    const mapOf = (s) => svGlideMap(g, s), carry = svLandCarry(mapOf, g.a, g.b, g.u);
+    // (onto a plane b coloured by its own variable: the other sheets' copies of the carried surface, svGlideSheets, as the
+    // Plane's glide draws them; not with All sheets, whose surfaces are the carry's own)
+    const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
+    carry.copies = sheets.map((v) => (draw) => svOnSheets(v, draw));
+    render3D(pane, carry);
     return true;
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
@@ -1741,18 +1745,20 @@
   // the colour plane carries the principal sheet's points at rest, and so does a glide onto it.) A combo is the chain with each multivalued step's sheet (its k, which the GPU
   // reads as data, so the programs are the same) moved by the combo's digit: n sheets for a root, the sheet window
   // (2W + 1, S.sheetW) for an infinitely sheeted step. Combo 0 is the chain as it is; the others, at most
-  // SV_GLIDE_SHEETS_MAX, are svGlideSheets(b)'s, made once per chain. SV.glideSheets 1 (a test hook's) draws combo 0 alone
+  // SV_GLIDE_SHEETS_MAX, are svGlideSheets(b)'s, made once per chain. svGlideSheets(b, from) moves the steps in (from, b]
+  // alone: a Landscape glide carries the points of plane from, which no step before it moves. SV.glideSheets 1 (a test
+  // hook's) draws combo 0 alone, on the Plane and on the Landscape
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
   let svSheetMemo = { key: '', list: [] };
-  function svGlideSheets(b) {
+  function svGlideSheets(b, from = 0) {
     const top = b, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
-    const key = `${chainSig[nSteps()]}|${top}|${W}`;
+    const key = `${chainSig[nSteps()]}|${from}|${top}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (the radix of each step's digit: its sheets, or the window of an infinitely sheeted one)
     const radix = [];
     for (const e of Funcs.sheetSteps(S.steps, built)) {
       const st = S.steps[e.k - 1];
-      if (e.k <= top && SV_SHEET_STEPS.includes(st.type)) radix.push({ k: e.k, r: e.n > 0 ? e.n : 2 * W + 1, inf: !(e.n > 0) });
+      if (e.k > from && e.k <= top && SV_SHEET_STEPS.includes(st.type)) radix.push({ k: e.k, r: e.n > 0 ? e.n : 2 * W + 1, inf: !(e.n > 0) });
     }
     const K = Math.min(SV_GLIDE_SHEETS_MAX, radix.reduce((p, d) => p * d.r, 1)), list = [];
     for (let c = 1; c < K; c++) {
