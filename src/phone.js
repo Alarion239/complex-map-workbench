@@ -769,8 +769,17 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
+    const tn = A.targetNote();
+    // (the Landscape's Height control under a visible caption: its buttons name the kind of height alone in the steps view,
+    // "Re", "|·|", which over the sheet's other rows would not say what they set; the caption names the control, so it is
+    // said once)
+    const capped = kids.flatMap((k) => {
+      if (k.id !== 'heightSeg') return [k];
+      k.setAttribute('aria-labelledby', 'phHeightCap');
+      return [h('h3', { class: 'ph-h', id: 'phHeightCap' }, $t('Height')), k];
+    });
     const tn = A.targetNote(), scope = A.scopeSeg();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]));
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...capped, ...(unit ? [unit] : [])]));
     if (reg) { A.regionsNote(); els.regions.append(reg); }
     els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
