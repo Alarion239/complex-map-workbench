@@ -289,7 +289,7 @@ artifact.
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
-- the rows declared even (`INTENT.rows`: the segmented controls, the steps view's plane dots, the phone's tool rail) are evenly spaced, within 1 px; `test/layout_rows_cmd.js` moves one member of each by 3 px and expects the check to report it.
+- the rows declared even (`INTENT.rows`: the segmented controls of three members or more, the steps view's track, the phone's tool rail, in landscape a column) are evenly spaced, within 1 px; a row that wraps onto a second line is skipped; `test/layout_rows_cmd.js` moves one member of each by 3 px and expects the check to report it.
 
 It runs over the matrix of `test/lib/layout_matrix.js`:
 - **sizes:** phones 360, 390 and 412 portrait, 740×360 and 915×412 landscape; desktops 1024, 1280 and 1440;
