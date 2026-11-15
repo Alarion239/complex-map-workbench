@@ -1,6 +1,6 @@
 // The carried meshes' rest frame of a map whose sheets tie (z³: about the window centre every w has three sheets at the
-// same distance D, so which sheet is in front is decided by the sheets' depth keys alone). The exact images are off, so
-// the meshes draw the plane. The frame has to be as smooth as the exact pass's frame of the same plane: the colour carried
+// same distance D, so which sheet is in front is decided by the sheets' depth keys alone). The whole plane is forced forward
+// (__cmwForceForward on its pseudo-shape), so the meshes draw it. The frame has to be as smooth as the exact pass's frame of the same plane: the colour carried
 // from z changes slowly across w (a hue per sheet, three sheets round the centre), so the 3 x 3 pixels about a point of
 // the pane are nearly one colour. When the front sheet flips from one fragment to the next, they are not: the frame
 // speckles.
@@ -19,14 +19,16 @@ const SMOOTH_MAX = 0.1;            // the share of rough points the exact pass's
 const ROUGH_MARGIN = 0.05;         // the share of rough points by which the meshes' frame may exceed the exact pass's
 const FIXED_WAIT = 15000, DRAWN_WAIT = 60000, START_WAIT = 30000;   // ms
 await view(1200, 800, false, false);
+const SV_ALL_ID = '__svAll';   // the whole plane's pseudo-shape (the steps view's carried colour)
 const roughShare = async (exact) => {
   const ns = 'svmt' + Date.now();
-  const st = { v3: true, v4: true, v5: true, v6: true, exactImages: exact, alpha: 1, shapes: [],
+  const st = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [],
     steps: [{ type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+  await ev(`__cmwForceForward(${JSON.stringify(exact ? [] : [SV_ALL_ID])}), 1`);
   await ev(`document.querySelector('.sv-cp').click(); 1`);
   await settled({});
   await ev(`document.querySelector('#svStrip .sv-plane[data-i="1"]').click(); 1`);

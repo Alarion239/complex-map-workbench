@@ -19,6 +19,8 @@
 //                                        controls to golden/ (deliberate baseline update; no browser)
 //   node run_quality.js --override '{"meshN":80}' --out DIR   sensitivity check: the same scenes with a changed
 //                                        saved state (never accepted as a baseline)
+//   node run_quality.js --force-forward --out DIR   every scene's shapes forced forward (__cmwForceForward: the meshes'
+//                                        and the plain GPU draw instead of the exact pass), never accepted as a baseline
 //   node run_quality.js --reeval DIR     recompute the metrics of DIR from its renders (after editing metrics.js or a
 //                                        scene's truth; no browser)
 //   node run_quality.js --golden DIR     compare the bounded controls with DIR/<id>.png instead of golden/ (CI's paired
@@ -40,7 +42,7 @@ const VIEWPORT = { width: 1440, height: 900, dpr: 1 };
 const GOLDEN_THR = 8;   // /255 per channel after the 1 px blur
 
 function args() {
-  const a = process.argv.slice(2), o = { out: path.join(HERE, 'out', 'latest'), only: null, base: 'http://localhost:8793', stableMs: 1500, timeoutMs: 30000, accept: null, reeval: null, override: null };
+  const a = process.argv.slice(2), o = { out: path.join(HERE, 'out', 'latest'), only: null, base: 'http://localhost:8793', stableMs: 1500, timeoutMs: 30000, accept: null, reeval: null, override: null, forceForward: false };
   for (let i = 0; i < a.length; i++) {
     const k = a[i], v = () => a[++i];
     if (k === '--out') o.out = path.resolve(v());
@@ -51,6 +53,7 @@ function args() {
     else if (k === '--accept') o.accept = path.resolve(v());
     else if (k === '--reeval') o.reeval = path.resolve(v());
     else if (k === '--override') o.override = JSON.parse(v());
+    else if (k === '--force-forward') o.forceForward = true;
     else if (k === '--golden') o.golden = path.resolve(v());
     else if (k === '-h' || k === '--help') { console.log(fs.readFileSync(__filename, 'utf8').split('\n').slice(2, 24).join('\n')); process.exit(0); }
     else { console.error('unknown argument ' + k); process.exit(2); }
@@ -61,7 +64,7 @@ function args() {
 // ---------------- deliberate baseline update ----------------
 function accept(dir) {
   const met = JSON.parse(fs.readFileSync(path.join(dir, 'metrics.json'), 'utf8'));
-  if (met.meta.state_override) { console.error('refusing to accept a run made with --override'); process.exit(1); }
+  if (met.meta.state_override || met.meta.force_forward) { console.error('refusing to accept a run made with --override or --force-forward'); process.exit(1); }
   const bad = Object.entries(met.runs).filter(([, r]) => !r.ok);
   if (bad.length) { console.error('refusing to accept a run with failed scenes: ' + bad.map(([k]) => k).join(', ')); process.exit(1); }
   fs.mkdirSync(GOLDEN, { recursive: true });
@@ -227,7 +230,7 @@ async function renderRun(B, run, opt) {
   await B.send('Page.navigate', { url: `${opt.base}/test.html?ns=${ns}` });
   // wait for the app, stand where the run says, then wait until the plane's canvas stops changing and nothing is in
   // progress
-  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false, stood = false;
+  let last = null, since = 0, settled = false, hashes = 0, lastBusy = null, camSet = false, stood = false, forced = !opt.forceForward;
   const deadline = t0 + opt.timeoutMs;
   await sleep(600);
   while (Date.now() < deadline) {
@@ -239,6 +242,8 @@ async function renderRun(B, run, opt) {
       // (where the run stands, and a globe's camera, are not in the saved state: set here once the app is up, before
       // the canvas may settle; the colour plane is the last plane)
       if (r.ready && !stood) { await B.ev(standAt(run.stand)); stood = true; last = null; continue; }
+      // (--force-forward: every shape of the scene is drawn forward, as the exact pass is the default)
+      if (r.ready && !forced) { await B.ev(`__cmwForceForward((__cmwFigureState().shapes || []).map((s) => s.id)), 1`); forced = true; last = null; continue; }
       if (r.ready && run.cam && !camSet) { const { side, ...o } = run.cam; await B.ev(`__cmwCam(${JSON.stringify(side)}, ${JSON.stringify(o)}), 1`); camSet = true; last = null; continue; }
     } catch (e) { h = null; }
     const now = Date.now();
@@ -412,6 +417,7 @@ async function main() {
   const met = { meta: { suite: 'cmw-image-quality', version: 1, date: new Date().toISOString(), browser: B.version, viewport: VIEWPORT, base_url: opt.base, app_sha1: appSha, app_sha1_source: appShaSource,
     band_px: M.BAND, parity_min_cell_px: M.PARITY_MIN_CELL, parity_min_edge_px: M.PARITY_MIN_EDGE, golden_thr: GOLDEN_THR, stable_ms: opt.stableMs }, runs: {} };
   if (opt.override) met.meta.state_override = opt.override;
+  if (opt.forceForward) met.meta.force_forward = true;
   const t0 = Date.now();
   try {
     for (const run of runs) {

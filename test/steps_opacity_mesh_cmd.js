@@ -16,7 +16,7 @@ const { lpx } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js')
 await view(1200, 800, false, false);
 const openPage = async (meshes, alpha) => {
   const ns = 'svom' + Date.now();
-  const st = { v3: true, v4: true, v5: true, v6: true, exactImages: true, alpha,
+  const st = { v3: true, v4: true, v5: true, v6: true, alpha,
     shapes: [{ id: 's2', kind: 'disc', c: [0.3, 0.1], r: 1, ci: 0, visible: true }, { id: 's3', kind: 'disc', c: [1.4, 0], r: 0.3, ci: 1, visible: true }],
     steps: [{ type: 'pown', params: { n: 2 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });

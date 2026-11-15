@@ -1575,8 +1575,8 @@ async function pointerProbeXUnit() {
   putPointer(pre, reps);
 }
 // SwiftShader (CPU WebGL2, the renderer of machines without a usable GPU): pan-frame p50 of the image (the last plane,
-// Inside regions) for the quality suite's bounded golden scenes with exact images on (default) and off (__cmwSet('exactImages', false), the
-// forward path). SPEC 4.7 gate: the ratio on / off <= 3 with the cost guard active. Before P2 both draws are forward
+// Inside regions) for the quality suite's bounded golden scenes with exact images on (default) and off (every shape forced forward with
+// __cmwForceForward, the forward path). SPEC 4.7 gate: the ratio on / off <= 3 with the cost guard active. Before P2 both draws are forward
 // (ratio about 1; inv_draws_on 0). Runs in its own headless Chrome (--use-angle=swiftshader).
 const SS_SCENES = ['disc_cube', 'joukowski', 'annulus_log', 'poly_mobius'];
 const SS_RATIO_LIMIT = 3;
@@ -1703,7 +1703,7 @@ async function swiftshaderUnit() {
       const res = {};
       for (const mode of ['on', 'off']) {
         const t0 = await pageNow();
-        await B.ev(`__cmwSet('exactImages', ${mode === 'on'}); 1`);
+        await B.ev(`__cmwForceForward(${mode === 'on' ? '[]' : "(__cmwFigureState().shapes || []).map((s) => s.id)"}); 1`);
         await settle(t0);
         if (mode === 'on') await waitInverseFrame(0, 10000);   // a pending inverse compile draws a forward stand-in
         const d0 = await invDraws();

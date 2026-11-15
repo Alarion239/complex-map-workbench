@@ -19,7 +19,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const req = process.getBuiltinModule('module').createRequire(process.cwd() + '/');
 const Q = req('./test/regress/quality/scenes.js');
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
-const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false, exactImages: false };
+const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 // the steps view at the chain's last plane (sv.at is clamped to it), coloured from plane z, on Inside regions
 const SV = { dc: 'phase', sv: { at: 99, T: 0, scope: 'in' } };
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
@@ -44,11 +44,11 @@ const settle = async (ms = 120000, want = {}) => {
 // calls, as long as it takes, and fail with the hook that never came rather than a ReferenceError later. Then count what the
 // app draws (watchDraws below).
 const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSmReset', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
-// The steps view's rest frame is the exact pass's whatever a scene's saved exactImages says, so a scene whose frame must be the
-// meshes' (loadReady's fwd) has its shapes forced forward (the test hook), and the exact image is read with none forced
+// The steps view's rest frame is the exact pass's, so a scene whose frame must be the meshes' (loadReady's fwd) has its shapes
+// forced forward (the test hook), and the exact image is read with none forced
 let curIds = [];
 const forceFwd = (ids) => ev(`__cmwForceForward(${JSON.stringify(ids)}); 1`);
-const setExact = async (on) => { await ev(`__cmwSet("exactImages", ${on}); 1`); await forceFwd(on ? [] : curIds); };
+const setExact = (on) => forceFwd(on ? [] : curIds);
 const loadReady = async (ns, st, ms = 120000, fwd = false) => {
   const r = await load(ns, st);
   const t0 = Date.now();
@@ -183,7 +183,7 @@ for (const run of Q.runs()) {
   seen.add(run.scene.name);
   const v = [];
   for (const k of [1, 4, 0.25]) {
-    const st = Object.assign({}, run.state, SV, { exactImages: false, srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
+    const st = Object.assign({}, run.state, SV, { srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
     await loadReady('p5v' + Date.now(), st);
     // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
     // is asked for here: the first may have come before) and the LED rests)
