@@ -73,6 +73,7 @@ const VIEWS = {
   'steps_land_cover_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
+  'steps_link_dead_keys_cmd.js': steps(),
   'steps_link_mesh_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
