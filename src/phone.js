@@ -762,7 +762,15 @@ const Phone = (() => {
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
     const tn = A.targetNote();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
+    // (the Landscape's Height control under a visible caption: its buttons name the kind of height alone in the steps view,
+    // "Re", "|·|", which over the sheet's other rows would not say what they set; the caption names the control, so it is
+    // said once)
+    const capped = kids.flatMap((k) => {
+      if (k.id !== 'heightSeg') return [k];
+      k.setAttribute('aria-labelledby', 'phHeightCap');
+      return [h('h3', { class: 'ph-h', id: 'phHeightCap' }, $t('Height')), k];
+    });
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...capped, ...(unit ? [unit] : []));
     if (reg) { A.regionsNote(); els.regions.append(reg); }
     els.regionsH.hidden = !reg;
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
