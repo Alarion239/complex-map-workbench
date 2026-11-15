@@ -3324,7 +3324,7 @@
  "Plane {p}, {i} of {n}": "Piano {p}, {i} di {n}",
  "Label": "Etichetta",
  "No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw": "Nessun passo porta a {p}, quindi non ci sono traiettorie t ↦ Hₜ(z) da disegnare",
- "landscape of {h}{sheets}, colour carried from {p}": "paesaggio di {h}{sheets}, colore trasportato da {p}",
+ "landscape of {h}{sheets}, carried from {p}": "paesaggio di {h}{sheets}, trasportato da {p}",
  "Drawn from {p}'s targets": "Disegnato dai bersagli di {p}",
  "Shaded from {p}'s targets": "Ombreggiato dai bersagli di {p}",
  "Shaded and drawn from {p}'s targets": "Ombreggiato e disegnato dai bersagli di {p}",
@@ -3408,5 +3408,9 @@
  "after f{k}": "dopo f{k}",
  "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus": "plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, piano, piatto, dominio, piano z, ritratto di fase, colorazione del dominio, colorazione, colore, fase, argomento, modulo",
  "riemann sphere, globe, infinity, sphere": "riemann sphere, globe, infinity, sphere, sfera di riemann, globo, infinito, sfera",
- "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, paesaggio, superficie, superficie di riemann, superficie del modulo, altezza, rilievo, fogli"
+ "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets": "landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets, paesaggio, superficie, superficie di riemann, superficie del modulo, altezza, rilievo, fogli",
+ "log of the modulus": "logaritmo del modulo",
+ "modulus": "modulo",
+ "real part": "parte reale",
+ "imaginary part": "parte immaginaria"
 }
