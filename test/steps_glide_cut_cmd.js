@@ -5,7 +5,7 @@
 // ruler's one pixel of rasterization), and at most SAME_FRAC of the band's pixels may fail. The handle's disc is checked apart, in a box around the
 // parked handle, the same way, and the glide leaves it no hit target (an inert handle). Controls (each must fail the same measure): the glide frame against the plane it arrives at, and the parked plane
 // against itself shifted SHIFT_PX px. The dashed bank's dashes keep the parked plane's phase at the arrival and through the glide (read off the line's red
-// along the bank's polyline). The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws no handle.
+// along the bank's polyline). A glide frame's handle is never drawn hot, and labels keep clear of its chip. The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws no handle.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -92,6 +92,70 @@ if (heldMark) Object.assign(paused, { heldInk: await inkAt('heldMid', heldMark),
 info.paused = paused;
 ok(`the control: the glide frame held at u = ${MID_U} draws its handle's chip, over ${MIN_INK} pixels of the cut's red in its box`, !!heldMark && paused.heldInk > MIN_INK, paused);
 ok(`a frame parked at u = ${MID_U}, between two planes, draws no cut handle: no mark, no hit target and none of the chip's red in the held frame's chip box`, paused.marks === 0 && paused.handles === 0 && paused.ink === 0, paused);
+// A glide frame's handle is never drawn hot: the hover a parked plane's handle had (the pointer left on it, the pane's pointer not moved since) does
+// not carry over to the inert mark. Two pictures are compared within RING_R px of a handle, the pixels more than TOL levels apart counted: the parked
+// plane 0 with the pointer on its handle against with the pointer away (the control: a hot handle is drawn bigger, HOT_MIN px differ at least), then
+// the frame held at MID_U, the pointer left on plane 0's handle against away from it, round its mark: at most HOT_TOL px differ
+const RING_R = 10, HOT_MIN = 20, HOT_TOL = 3;
+const ringDiff = (a, b, m) => ev(`(() => {
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), k = cv.width / r.width, W = cv.width, H = cv.height, A = window.__cutPx[${JSON.stringify(a)}], B = window.__cutPx[${JSON.stringify(b)}];
+  const cx = (${m[0]} - r.left) * k, cy = (${m[1]} - r.top) * k, R = ${RING_R} * k;
+  let n = 0;
+  for (let y = Math.max(0, Math.floor(cy - R)); y < Math.min(H, Math.ceil(cy + R)); y++)
+    for (let x = Math.max(0, Math.floor(cx - R)); x < Math.min(W, Math.ceil(cx + R)); x++) {
+      const i = 4 * (y * W + x);
+      if (Math.hypot(x + 0.5 - cx, y + 0.5 - cy) <= R && Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${TOL}) n++;
+    }
+  return n;
+})()`);
+await frameAt('__cmwSteps({ park: 0 })');
+const hot = { handle: await ev('(() => { const h = __cmwCutHandles()[0]; return h ? [h.x, h.y] : null; })()') };
+ok('the parked plane 0 has a cut handle to hover', !!hot.handle, hot);
+if (hot.handle) {
+  const away = [hot.handle[0] + 150, hot.handle[1] - 120];
+  await move(...away); await settled({ max: 20000 }); ok('the parked plane 0, the pointer away, is drawn', !!(await grab('p0cold')), null);
+  await move(...hot.handle); await settled({ max: 20000 }); ok('the parked plane 0, the pointer on its handle, is drawn', !!(await grab('p0hot')), null);
+  await heldAt(MID_U); hot.mark = await ev('(() => { const m = __cmwCutMarks()[0]; return m ? [m.x, m.y] : null; })()');
+  ok('the frame held at the middle, the pointer left on plane 0\'s handle, is drawn', !!(await grab('heldHot')), null);
+  await frameAt('__cmwSteps({ park: 0 })'); await move(...away); await settled({ max: 20000 });
+  await heldAt(MID_U); ok('the frame held at the middle, the pointer away, is drawn', !!(await grab('heldCold')), null);
+  hot.parked = await ringDiff('p0hot', 'p0cold', hot.handle);
+  if (hot.mark) hot.held = await ringDiff('heldHot', 'heldCold', hot.mark);
+}
+info.hot = hot;
+ok(`the control: the parked plane 0's handle with the pointer on it is drawn hot: ${HOT_MIN} px or more round it differ from the pointer away`, hot.parked >= HOT_MIN, hot);
+ok(`the mark of the frame held at u = ${MID_U} is not drawn hot after the pointer was left on plane 0's handle: at most ${HOT_TOL} px round it differ from the pointer away`, !!hot.mark && hot.held <= HOT_TOL, hot);
+// Labels keep clear of a glide frame's handle: a point put where its picture in the frame held at MID_U lies LABEL_DX, LABEL_DY px from the mark (its
+// place in plane z solved from the frame's own map, __cmwSteps().glide.H, to within LABEL_FIT px), so that its label's first spots are on the handle's
+// chip. No label of that frame overlaps the chip's box, as the label pass keeps it: CHIP_BOX px left, right, up and down of the mark
+const LABEL_DX = 30, LABEL_DY = 6, LABEL_FIT = 3, CHIP_BOX = [8, 84, 11, 11];
+await heldAt(MID_U);
+const lab = await ev(`(() => {
+  const r = document.getElementById('canvasL').getBoundingClientRect(), m = __cmwCutMarks()[0], g = __cmwSteps().glide;
+  if (!m || !g || !g.H) return null;
+  const tx = m.x - r.left + ${LABEL_DX}, ty = m.y - r.top + ${LABEL_DY};
+  const scr = (z) => { const w = g.H(z); return w && Number.isFinite(w.re) && Number.isFinite(w.im) ? [g.w / 2 + (w.re - g.view.cx) * g.view.s, g.h / 2 - (w.im - g.view.cy) * g.view.s] : null; };
+  let best = null, bd = Infinity;
+  for (let a = -4; a <= 4; a += 0.02) for (let b = -4; b <= 4; b += 0.02) { const p = scr({ re: a, im: b }); if (p) { const dd = Math.hypot(p[0] - tx, p[1] - ty); if (dd < bd) { bd = dd; best = [a, b]; } } }
+  return best && { z: best, fit: +bd.toFixed(2) };
+})()`);
+ok(`a point of plane z lands ${LABEL_DX}, ${LABEL_DY} px from the held frame's mark, within ${LABEL_FIT} px`, !!lab && lab.fit <= LABEL_FIT, lab);
+if (lab) {
+  await frameAt('__cmwSteps({ park: 0 })');
+  await ev(`__cmwSet('shapes', __cmwShapes().shapes.concat([{ id: 'chipLabel', kind: 'point', p: ${JSON.stringify(lab.z)}, ci: 1, visible: true }])), 1`);
+  await settled({ max: 20000 });
+  await heldAt(MID_U); await settled({ max: 20000, until: '__cmwLabelsPlaced().length > 0' });
+  Object.assign(lab, await ev(`(() => {
+    const r = document.getElementById('canvasL').getBoundingClientRect(), m = __cmwCutMarks()[0];
+    if (!m) return { mark: null };
+    const mx = m.x - r.left, my = m.y - r.top, b = { x0: mx - ${CHIP_BOX[0]}, x1: mx + ${CHIP_BOX[1]}, y0: my - ${CHIP_BOX[2]}, y1: my + ${CHIP_BOX[3]} };
+    const placed = __cmwLabelsPlaced(), on = placed.filter((q) => q.x < b.x1 && q.x1 > b.x0 && q.y < b.y1 && q.y1 > b.y0);
+    return { mark: [mx, my], box: b, placed, on };
+  })()`));
+}
+info.labels = lab;
+ok('the frame held at the middle places labels', !!lab && !!lab.placed && lab.placed.length > 0, lab);
+ok('no label of the frame held at the middle lies on its handle\'s chip', !!lab && !!lab.mark && Array.isArray(lab.on) && lab.on.length === 0, lab);
 await frameAt('__cmwSteps({ park: 1 })'); ok('the parked plane 1 is drawn', !!(await grab('parked1')), null);
 await frameAt('__cmwSteps({ park: 0 })'); await grab('parked0');
 // the picture of a region of a frame against a parked one: { n, fail, failShift } (n: the pixels, fail: the share without a pixel of the other's 3 x 3 within TOL; failShift: the same with this frame shifted SHIFT_PX px)

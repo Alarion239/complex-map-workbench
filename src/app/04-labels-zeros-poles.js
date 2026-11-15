@@ -390,7 +390,8 @@
     return out;
   }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
-  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
+  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs); dash, the dash pattern, starts
+  // dashOffset px into it on every arc (the offset holds for a bank drawn as one run: an arc after a pen lift starts at it too)
   function strokeCurves(pane, curves, dash, dashOffset = 0) {
     const ctx = pane.ctx;
     ctx.setLineDash(dash || []); ctx.lineDashOffset = dashOffset;
