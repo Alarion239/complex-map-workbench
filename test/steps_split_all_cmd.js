@@ -2,6 +2,7 @@
 // the span, which keeps its progress u, gives those n steps times of their own (stepT) that run them as the formula's own
 // homotopy does. The left pane at the same u is pixel-equal across the Split (the exact plot), and the times last to the end
 // of that glide. Two Splits in one glide, and an Undo and a Redo of the second, each leave the picture of before the first.
+// Plane by plane too, a Redo of a Split in flight is that Split again: the glide goes on from where the Split put it.
 // Negative control: the same frame with the step times dropped from the span differs from the frame before the Split.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -98,6 +99,25 @@ await undoRedo('undoBtn', 6);
 await twoLeg('Undo of the second Split', 6, ONE_SPLIT_T);
 await undoRedo('redoBtn', 7);
 await twoLeg('Redo of the second Split', 7, TWO_SPLITS_T);
+// plane by plane (All at once off): a Split, its Undo and its Redo in one glide. The Redo is the Split again, so the thread
+// is where the Split put it and the glide goes on to the plane it was going to
+await open({ homAll: false });
+await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
+const m0 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
+await splitNow(2, 6);
+const m1 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
+await undoRedo('undoBtn', 4);
+const m2 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
+await undoRedo('redoBtn', 6);
+const m3 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
+info.planeByPlane = [m0, m1, m2, m3];
+ok('plane by plane: the Split and its Undo keep the glide (moving, to its plane)', m0.moving && m1.moving && m2.moving && m1.to === 5 && m2.to === 3, info.planeByPlane);
+ok('plane by plane: after the Redo the thread is where the Split put it', Math.abs(m3.x - m1.x) < U_EPS, [m1.x, m3.x]);
+ok('plane by plane: after the Redo the glide goes on to plane 5', m3.moving && m3.to === 5, m3);
+await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
+await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS);
+ok('plane by plane: the glide ends on plane 5', Math.abs((await sv()).x - 5) < PLANE_EPS, await sv());
 // negative control: the same Split with the step times dropped from the span (the sub-steps' own homotopies at one u) is not the
 // formula's picture, so the frame check above can fail
 await open();
