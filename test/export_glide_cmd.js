@@ -5,7 +5,7 @@
 // and the pane are as they were afterwards; the dialog lists Video and says where it goes and how long it is. The same on the
 // sphere and the Landscape: the glide is recorded in the screen's 3D camera at the frame's own aspect.
 // At a whole thread position a frame is that plane's picture, wherever the view is parked, and the view stays parked there
-// (its spoken label too), and a running Play goes on.
+// (its spoken label too), and a running Play goes on. A recording changes nothing on the page behind the dialog.
 // A command file for a CDP daemon:  <runner> test/export_glide_cmd.js
 const fails = [], info = {};
 // a pixel of the frame is 'drawn' where it differs from the frame's own paper by more than this (summed over r, g, b)
@@ -489,5 +489,29 @@ for (const surf of ['plane', 'land']) {
   info[`${surf}: Play after a frame`] = Object.assign({ moved: moved.ok }, r);
   ok(`${surf}: Play is still on after a frame at a plane, its button says Pause, and the thread moves on`, !!r.play && r.label === 'Pause' && moved.ok === true, info[`${surf}: Play after a frame`]);
   await ev(`(__cmwSteps({ play: false }), __cmwSteps({ loop: false }), 1)`);
+}
+// a recording leaves the page behind the dialog alone: with the view parked at the last plane and between the first two, a
+// video of the thread is made while the strip (its slider, buttons and plane marks), the pane's name and the live region are
+// watched; nothing in them changes, and the pane's name is what it was
+{
+  await open(1, 'plane');
+  for (const at of [2, 0.5]) {
+    await ev(`(__cmwSteps({ go: ${Math.round(at)}, now: true }), ${at % 1 ? `__cmwSteps({ park: ${at} })` : 1}, 1)`);
+    await settled({ until: `!__cmwSteps().anim && Math.abs(__cmwSteps().x - ${at}) < ${POS_TOL}`, max: SETTLE_MAX_MS });
+    const m = await ev(`await (async () => {
+      const log = [], pane = document.getElementById('paneL'), live = document.querySelector('#stage > [aria-live]');
+      const mo = new MutationObserver((ms) => { for (const x of ms) log.push((x.target.id || x.target.className || x.target.nodeName) + ' ' + x.type + ' ' + (x.attributeName || '')); });
+      mo.observe(document.getElementById('svStrip'), { subtree: true, attributes: true, childList: true, characterData: true });
+      mo.observe(pane, { attributes: true, attributeFilter: ['aria-label'] });
+      mo.observe(live, { subtree: true, childList: true, characterData: true });
+      const before = pane.getAttribute('aria-label');
+      await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)} });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      mo.disconnect();
+      return { n: log.length, first: log.slice(0, 6), before, after: pane.getAttribute('aria-label') };
+    })()`, VIDEO_WAIT_MS);
+    info[`recording parked at ${at}: page changes`] = m;
+    ok(`parked at ${at}: a recording changes nothing in the strip, the pane's name or the live region`, m.n === 0 && m.after === m.before && !!m.before, m);
+  }
 }
 return { pass: fails.length === 0, fails, info };

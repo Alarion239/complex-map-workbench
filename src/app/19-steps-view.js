@@ -36,6 +36,7 @@
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
+  SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svOffscreen): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
@@ -258,6 +259,8 @@
     svViewFix();
     leftAuto = false;
     if (k > 0) Object.assign(V.left, S.srcView);
+    // (off-screen the view's state is all the picture needs; the page keeps showing where the view is, and is put back to)
+    if (SV.offscreen) return;
     applyLayout();
     buildShapeList();
     updateFocusUI();
@@ -296,12 +299,14 @@
   }
   // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
   // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
-  // sound relayout and no spoken label. A Play or a glide under way is held for the visit and goes on afterwards from where it
-  // was, its clock moved on by the visit's time, so a figure or a video drawn off-screen leaves the page as it found it.
-  // -> draw()'s result
+  // sound relayout and no spoken label, and while it lasts the page is not written (svApply and svSync wait on SV.offscreen:
+  // the strip, the slider and the pane's name keep saying where the view is). A Play or a glide under way is held for the visit
+  // and goes on afterwards from where it was, its clock moved on by the visit's time, so a figure or a video drawn off-screen
+  // leaves the page as it found it. -> draw()'s result
   async function svAtPlane(i, draw) {
     const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left), play: SV.play, anim: SV.anim };
-    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim) return draw();
+    SV.offscreen++;
+    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim) { try { return await draw(); } finally { SV.offscreen--; } }
     const visit = (k, x) => { SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
     const t0 = performance.now();
     if (keep.play && keep.play.slide) clearTimeout(keep.play.timer);
@@ -313,9 +318,9 @@
       for (const A of [keep.play, keep.anim]) if (A && A.t0 != null) A.t0 += held;
       SV.play = keep.play; SV.anim = keep.anim;
       visit(keep.i, keep.x);
+      SV.offscreen--;
       Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at;
       if (keep.play && keep.play.slide) keep.play.timer = setTimeout(() => svSlide(false), svSlideMs());
-      svSync();
       requestRender('L');
     }
   }
@@ -2370,7 +2375,7 @@
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
   function svSync() {
-    if (!SV.on || !SV.els) return;
+    if (!SV.on || !SV.els || SV.offscreen) return;
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
     // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
