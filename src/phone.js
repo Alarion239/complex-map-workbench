@@ -784,6 +784,14 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
+    // (the Landscape's Height control under a visible caption: its buttons name the kind of height alone in the steps view,
+    // "Re", "|·|", which over the sheet's other rows would not say what they set; the caption names the control, so it is
+    // said once)
+    const capped = kids.flatMap((k) => {
+      if (k.id !== 'heightSeg') return [k];
+      k.setAttribute('aria-labelledby', 'phHeightCap');
+      return [h('h3', { class: 'ph-h', id: 'phHeightCap' }, $t('Height')), k];
+    });
     const tn = A.targetNote(), scope = A.scopeSeg();
     // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
     // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
@@ -794,7 +802,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...capped, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
