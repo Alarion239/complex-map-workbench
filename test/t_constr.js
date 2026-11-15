@@ -22,6 +22,7 @@ global.Curves = Curves;
 const K = require(path.join(SRC, 'constr.js'));
 global.Constr = K;
 const Inverse = require(path.join(SRC, 'inverse.js'));
+const { cpuPerCall } = require('./lib/cpu_time');
 let pass = 0, fail = 0;
 const sect = { A: [0, 0], B: [0, 0], C: [0, 0] };
 let cur = 'A';
@@ -29,7 +30,6 @@ const ok = (c, msg, extra) => { if (c) pass++; else fail++; sect[cur][c ? 0 : 1]
 const near = (a, b, tol = 1e-12) => Math.abs(a - b) <= tol * Math.max(1, Math.abs(b));
 const nearP = (p, q, tol = 1e-12) => p && q && near(p[0], q[0], tol) && near(p[1], q[1], tol);
 const fAt = (g, z) => K.fOf(g, z);
-const cpu = (fn, n) => { const c0 = process.cpuUsage(); for (let i = 0; i < n; i++) fn(i); const c = process.cpuUsage(c0); return (c.user + c.system) / 1000 / n; };
 
 // =========================================================== A. the PoC engine tests
 cur = 'A';
@@ -370,7 +370,7 @@ const subst = (src, vals) => src.replace(/(?<![A-Za-z\\])([A-Za-z])(?![A-Za-z])/
   ok(agreeAll, 'equations: the app\'s exact shapes equal the engine\'s');
   const ray = Curves.fromFormula(subst('\\arg(z - P) = a', { a: 0.6, P }));
   ok(ray.exact && ray.pieces[0].exact[0].kind === 'ray', 'equations: arg(z − P) = a is an exact ray (forms the engine leaves to the app)', ray.pieces[0].exact[0]);
-  const ms = cpu((i) => Curves.fromFormula(subst('|z - P| = a + 2.5', { a: i / 1000, P })), 2000);
+  const ms = cpuPerCall((i) => Curves.fromFormula(subst('|z - P| = a + 2.5', { a: i / 1000, P })), 2000);
   ok(ms < 0.5, `equations: substitute + parse + recognize per slider step: ${(ms * 1000).toFixed(1)} µs CPU`);
 }
 
@@ -379,7 +379,7 @@ const subst = (src, vals) => src.replace(/(?<![A-Za-z\\])([A-Za-z])(?![A-Za-z])/
   const win = { x0: -3, x1: 3, y0: -2, y1: 2 };
   const d0 = Curves.fromFormula(subst('Re(z^3) = a', { a: 0.5 }));
   ok(!d0.exact, 'traced: Re(z³) = a is not exact (traced to float64)');
-  const ms = cpu((i) => { const d = Curves.fromFormula(subst('Re(z^3) = a', { a: 0.5 + i / 997 })); Curves.trace(d, win, { maxMs: 2000, step: Math.hypot(6, 4) / 1600 }); }, 20);
+  const ms = cpuPerCall((i) => { const d = Curves.fromFormula(subst('Re(z^3) = a', { a: 0.5 + i / 997 })); Curves.trace(d, win, { maxMs: 2000, step: Math.hypot(6, 4) / 1600 }); }, 20);
   console.log(`  note: one trace of Re(z³) = a in a 6 × 4 window: ${ms.toFixed(1)} ms CPU`);
   ok(true, `traced: a slider re-traces per value: ${ms.toFixed(1)} ms per step (DESIGN.md: traced curves under a slider)`);
 }
