@@ -184,7 +184,7 @@ for (const run of Q.runs()) {
   const v = [];
   for (const k of [1, 4, 0.25]) {
     const st = Object.assign({}, run.state, SV, { srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
-    await loadReady('p5v' + Date.now(), st);
+    await loadReady('p5v' + Date.now(), st, 120000, true);
     // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
     // is asked for here: the first may have come before) and the LED rests)
     await ev('window.__p5f = window.__p5w.frames; __cmwHideStrokes(false); 1');
@@ -203,7 +203,7 @@ ok('12.3: the SphereMesh verdict is the same at 1x, 4x and 1/4x for every qualit
 // ---- 8.8: a pan of plane z that re-centres clipWin; the stand-in is the old mesh, never the GPU image ----
 // (in the steps view the meshing window is plane z's: a pan of a later plane moves the one camera and leaves clipWin,
 // whose mesh stays valid; so plane z is panned, and the frames are read back on the last plane)
-await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 ok('8.8: the app drew the mesh before the rest frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest0');
@@ -253,7 +253,7 @@ ok('8.8: frames during the rebuild match the rest frame (<= 0.5 % of pixels > 32
 ok('8.8: frames during the rebuild match the exact image (<= 0.5 % of pixels > 32/255)', R.panFrames.duringVsTruth.every((d) => d && d.frac32 <= 0.005), R.panFrames);
 
 // ---- the forward image of exp(H) (checker, alpha 0.85) against the exact inverse image ----
-await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 ok('exp(H) forward vs inverse: the app drew the mesh before the forward frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('fwd');
@@ -299,7 +299,7 @@ ok('10.6: the export meshes are freed once the figure is drawn', exE.length === 
 ok('10.6: the export mesh ended on no budget', stE1.lastExport && stE1.lastExport.every((e) => !e.partial), R.export);
 
 // ---- memory: one mesh per slot at rest after four moves of the region (each a new mesh content) ----
-await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 // (each change is a new mesh: wait for its build, a job is asked for by a draw that may come late)
 let builtNow = 1;
@@ -328,7 +328,7 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
 {
   const hs = [0, 1, 2, 3].map((k) => ({ id: 'h' + k, kind: 'halfplane', a: [0, 0.4 * k], b: [1, 0.4 * k + 0.3 * (k % 2)] }));
   const st = { shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } };
-  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
   const s0 = await settle(120000, { entries: 4, built: 4 });
   // (the window watched: 2 s of the page's own time from here, through its frames)
   await ev('window.__restT = performance.now(), 1');
