@@ -195,9 +195,6 @@
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
     // (its stand-in while it links: F's values on the app's grid, coloured the same way, COLOR_STANDIN_FS)
     colorStandIn: { chain: false, vs: () => QUAD_VS, fs: () => FIN + UTIL + DCOLOR + COLOR_STANDIN_FS },
-    // (the steps view's carried colour, CARRY_VS)
-    carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
-    carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
     // (the same on the globe, CARRY_GLOBE_VS)
     carryG: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(false) },
     carryGId: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(true) },
@@ -269,7 +266,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = GLChain.LIB;
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainHomAllG', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uGrp0', 'uGrpN', 'groupT', 'postOf', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uStepT', 'stepT', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -751,9 +748,19 @@ float wabs(vec2 w) {
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapIn(P, map) || {};
-      u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0); u1i(P, 'uGrp0', m.grp ? m.grp.from : 0); u1i(P, 'uGrpN', m.grp ? m.grp.n : 0);
+      u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
+      if (P.loc.uStepT) gl.uniform2fv(P.loc.uStepT, stepTData(m.stepT, Math.max(1, P.ch.sigs.length)));
     }
     bindLut(P);
+  }
+  // mode 3's uStepT for steps 1..n (gl/01 STEP_T): stepT[k] = [a, b] where the map spec gives one, else (1, 0); one
+  // buffer a size, filled for each draw (a frame allocates nothing)
+  const stepTBufs = new Map();
+  function stepTData(stepT, n) {
+    let d = stepTBufs.get(n);
+    if (!d) { d = new Float32Array(2 * (n + 1)); stepTBufs.set(n, d); }
+    for (let k = 0; k <= n; k++) { const m = stepT && stepT[k]; d[2 * k] = m ? m[0] : 1; d[2 * k + 1] = m ? m[1] : 0; }
+    return d;
   }
   // a float64 value as a float32 pair (hi + lo)
   const hi32 = Math.fround;
@@ -1088,27 +1095,16 @@ float wabs(vec2 w) {
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
       data[o + pc + 4] = d.tri[t];
     }
-    // (d.dynamic: the data kept, for updatePreMesh to move its vertices frame by frame)
-    const buf = makeBuf(data, d.dynamic ? gl.DYNAMIC_DRAW : undefined);
+    const buf = makeBuf(data);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
     gl.bindVertexArray(null);
-    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [], data: d.dynamic ? data : null, stride };
+    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
     for (const [r] of preAll) { if (preBytes <= PRE_BYTES) break; if (r !== res) destroy(r); }
     return res;
-  }
-  // (a flat dynamic mesh's vertices moved: pos as createPreMesh's (2 per vertex, 6 per triangle), the
-  // other attributes kept; one upload, no new buffer)
-  function updatePreMesh(res, pos) {
-    if (!ok || !res || !res.data || res.sph || !res.n) return false;
-    const D = res.data, st = res.stride, nv = res.count;
-    for (let v = 0; v < nv; v++) { D[v * st] = pos[2 * v]; D[v * st + 1] = pos[2 * v + 1]; }
-    gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
-    return true;
   }
   // st: {view, dpr, color, color2, edge, ink, alpha, pattern, cell, lines, sphN, stretch, sphere: {MVP, eye},
   //      scissor [x, y, w, h] (device px of the pane, bottom-left origin),
@@ -1456,7 +1452,7 @@ float wabs(vec2 w) {
   }
   const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry); {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {

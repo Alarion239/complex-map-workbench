@@ -46,6 +46,8 @@ const VIEWS = {
   'steps_carry_inregion_cmd.js': steps(),
   'steps_carry_far_cmd.js': steps(),
   'steps_carry_chains_cmd.js': steps(),
+  'steps_carry_planes_cmd.js': steps(),
+  'steps_globe_key_cmd.js': steps(),
   'steps_carry_exact_cmd.js': steps(),
   'steps_rim_inverse_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
@@ -86,6 +88,7 @@ const VIEWS = {
   'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_glide_mask_carry_cmd.js': steps(),
+  'steps_glide_mask_later_cmd.js': steps({ pin: true }),
   'steps_glide_look_cmd.js': steps({ pin: true }),
   'steps_glide_black_cmd.js': steps({ pin: true }),
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
@@ -134,6 +137,7 @@ const VIEWS = {
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
+  'steps_seg_focus_cmd.js': steps(),
   'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
   'font_late_cmd.js': steps(),
@@ -267,6 +271,7 @@ const VIEWS = {
   'ux165_learn_phone_classic_cmd.js': classic('the classic phone\'s learn checks: Y\'s chip naming the inset after a target and the inset\'s pulse (V01), and the message row under the chain bar (UX80); the steps view\'s phone has no inset and no chain bar'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
+  'steps_sound_name_cmd.js': steps(),
   'v151_cmd.js': steps({ pin: true }),
 
   // to port: export (the shown plane, the filmstrip, the glide)
