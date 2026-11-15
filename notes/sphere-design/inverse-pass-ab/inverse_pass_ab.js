@@ -207,8 +207,8 @@ const SCENES = [
   // B = 8 on the globe and in the staged program
   { name: 'globe-a0.3', view: 'steps', state: Object.assign({}, STRIP, { alpha: 0.3 }), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   { name: 'staged-a0.3', view: 'steps', state: Object.assign({}, STRIP, { alpha: 0.3, shapes: STRIP.shapes.concat([{ id: 's3', kind: 'disc', c: [0, 0.3], r: 0.4, stage: 1, ci: 2, visible: true }]) }), xs: [0.5] },
-  // a typed formula's NEWT op
-  { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5] },
+  // a typed formula's NEWT op (want: its carried program has drawn, as for globe-terms below)
+  { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5], want: '^inv\\|B5c:k2' },
   // the globe
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   // (want: the carried program, which a software renderer may still be linking when the panes are quiet, has drawn)
