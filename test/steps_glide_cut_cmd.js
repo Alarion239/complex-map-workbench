@@ -5,7 +5,8 @@
 // ruler's one pixel of rasterization), and at most SAME_FRAC of the band's pixels may fail. The handle's disc is checked apart, in a box around the
 // parked handle, the same way, and the glide leaves it no hit target (an inert handle). Controls (each must fail the same measure): the glide frame against the plane it arrives at, and the parked plane
 // against itself shifted SHIFT_PX px. The dashed bank's dashes keep the parked plane's phase at the arrival and through the glide (read off the line's red
-// along the bank's polyline). A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
+// along the bank's polyline). The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws no handle.
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -17,6 +18,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, BAND_PX = 12, DISC_R = 9, CHIP_W = 90, SHIFT_PX = 2, END_EPS = 1e-4, CHIP_EDGE_MAX = 0.1, CHIP_SCALE = 0.2, MID_U = 0.5, STEP_U = 0.02, JUMP_RATIO = 3, JUMP_FLOOR_PX = 4;
 const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
+const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));
 // the picture of the left pane (its canvas with its overlay over it) kept in the page as window.__cutPx[tag] once two reads 100 ms apart agree
 const grab = async (tag) => {
@@ -35,20 +37,27 @@ const grab = async (tag) => {
   return null;
 };
 const frameAt = async (state) => {
+  await ev('if (window.__svScrubUp) { window.__svScrubUp(); window.__svScrubUp = null; } 1');
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: false }); ${state}; 1`);
   await settled({ max: 20000 });
 };
 await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}` });
 await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function"' });
+// a glide frame at u, under way: the thread held there by a scrub on the rail not let go, as a user holds it (held_frames.js), then put at u exactly
+const heldAt = async (u) => {
+  await frameAt('__cmwSteps({ park: 0 })');
+  await hold(u);
+  await ev(`__cmwSteps({ x: ${u} }); 1`); await settled({ max: 20000 });
+};
 await ev(`__cmwExample(${names.indexOf('Square root and its sheets')}); 1`); await settled({ max: 20000 });
 await frameAt('__cmwSteps({ park: 0 })'); const dim = await grab('parked0');
 ok('the parked plane 0 is drawn', !!dim, dim);
-await frameAt(`__cmwSteps({ x: ${END_EPS} })`); ok('the glide frame near plane 0 is drawn', !!(await grab('glide')), null);
+await heldAt(END_EPS); ok('the glide frame near plane 0 is drawn', !!(await grab('glide')), null);
 const glideHandles = await ev('__cmwCutHandles().length');
-await frameAt(`__cmwSteps({ x: ${END_EPS / 10} })`); ok('the glide frame a tenth of that near plane 0 is drawn', !!(await grab('glideTenth')), null);
+await heldAt(END_EPS / 10); ok('the glide frame a tenth of that near plane 0 is drawn', !!(await grab('glideTenth')), null);
 const glidePath = await ev('(__cmwSteps().glide || {}).path');
 // the handle drawn across the middle of the glide: its place at u = MID_U - 2 STEP_U ... MID_U + 2 STEP_U; the jump from one side of the middle to the other is at most JUMP_RATIO times the larger move between neighbouring steps (and JUMP_FLOOR_PX px)
-const handleAt = async (u) => { await frameAt(`__cmwSteps({ x: ${u} })`); return ev('(() => { const m = __cmwCutMarks()[0]; return m ? [m.x, m.y] : null; })()'); };
+const handleAt = async (u) => { await heldAt(u); return ev('(() => { const m = __cmwCutMarks()[0]; return m ? [m.x, m.y] : null; })()'); };
 const mid = [];
 for (const k of [-3, -1, 1, 3]) mid.push(await handleAt(MID_U + k * STEP_U / 2));
 info.mid = mid;
@@ -59,6 +68,30 @@ if (mid.every((m) => !!m)) {
   info.midJump = { jump, walk };
   ok(`the handle is continuous across the middle: its move from u = ${MID_U - STEP_U / 2} to ${MID_U + STEP_U / 2} is at most ${JUMP_RATIO} times the move between neighbouring steps (at least ${JUMP_FLOOR_PX} px)`, jump <= Math.max(JUMP_FLOOR_PX, JUMP_RATIO * walk), { jump, walk });
 }
+// A frame parked between two planes draws no handle: there one would look draggable and take no press. The pictures (the pane with its overlay) of the
+// glide frame held at MID_U and of the frame parked there are read in the held frame's chip box: from DISC_R + CHIP_GAP px right of its handle to CHIP_W,
+// BAND_PX rows each side, clear of the cut's line through the handle. A pixel there in the cut's red counts (the chip's border and its "θ" label; the
+// control: the held frame's count is over MIN_INK)
+const MIN_INK = 50, CHIP_GAP = 4;
+const inkAt = (tag, m) => ev(`(() => {
+  // (m: the mark's place on the page, as __cmwCutMarks gives it)
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), k = cv.width / r.width, W = cv.width, H = cv.height, d = window.__cutPx[${JSON.stringify(tag)}], m = ${JSON.stringify(m)};
+  const mx = m[0] - r.left, my = m[1] - r.top;
+  let n = 0;
+  for (let y = Math.max(0, Math.round((my - ${BAND_PX}) * k)); y < Math.min(H, Math.round((my + ${BAND_PX}) * k)); y++)
+    for (let x = Math.max(0, Math.round((mx + ${DISC_R + CHIP_GAP}) * k)); x < Math.min(W, Math.round((mx + ${CHIP_W}) * k)); x++) { const i = 4 * (y * W + x); if (d[i] > 150 && d[i + 1] < 110 && d[i + 2] < 100) n++; }
+  return n;
+})()`);
+await heldAt(MID_U);
+const heldMark = await ev('(() => { const m = __cmwCutMarks()[0]; return m ? [m.x, m.y] : null; })()');
+ok('the glide frame held at the middle is drawn', !!(await grab('heldMid')), null);
+await frameAt(`__cmwSteps({ park: ${MID_U} })`);
+ok('the frame parked at the middle is drawn', !!(await grab('pausedMid')), null);
+const paused = { moving: await ev('__cmwSteps().moving'), label: await ev('__cmwSteps().label'), marks: await ev('__cmwCutMarks().length'), handles: await ev('__cmwCutHandles().length'), heldMark };
+if (heldMark) Object.assign(paused, { heldInk: await inkAt('heldMid', heldMark), ink: await inkAt('pausedMid', heldMark) });
+info.paused = paused;
+ok(`the control: the glide frame held at u = ${MID_U} draws its handle's chip, over ${MIN_INK} pixels of the cut's red in its box`, !!heldMark && paused.heldInk > MIN_INK, paused);
+ok(`a frame parked at u = ${MID_U}, between two planes, draws no cut handle: no mark, no hit target and none of the chip's red in the held frame's chip box`, paused.marks === 0 && paused.handles === 0 && paused.ink === 0, paused);
 await frameAt('__cmwSteps({ park: 1 })'); ok('the parked plane 1 is drawn', !!(await grab('parked1')), null);
 await frameAt('__cmwSteps({ park: 0 })'); await grab('parked0');
 // the picture of a region of a frame against a parked one: { n, fail, failShift } (n: the pixels, fail: the share without a pixel of the other's 3 x 3 within TOL; failShift: the same with this frame shifted SHIFT_PX px)

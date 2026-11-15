@@ -470,7 +470,7 @@
   // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
   // as drawCarriedCuts draws them. look = { own, marks } makes the picture the cut's look at rest as well: with own(j0) true for the plane j0 a cut lives in, the hatches on the closed side of each
-  // cut's solid bank and the dot at the image of its branch point (the marks of the plane the cut lives in); marks, an array, takes the editable cuts' handles
+  // cut's solid bank and the dot at the image of its branch point (the marks of the plane the cut lives in); marks, an array (or null: no handles), takes the editable cuts' handles
   // ({ x, y, step, deg }, for drawCutHandles: drawn, never hit-tested)
   function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1, look = null) {
     if (artMode) return;
