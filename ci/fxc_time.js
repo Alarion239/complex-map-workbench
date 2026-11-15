@@ -547,7 +547,7 @@ async function playCell(base, name, tree, timeoutMs, tailMs) {
       if (firstS == null && Date.now() - t1 > timeoutMs) break;
       await sleep(250);
     }
-    const raf = (await H.ev('window.__rafT')).map((t) => (t - g0) / 1000);
+    const raf = [...new Set(await H.ev('window.__rafT'))].map((t) => (t - g0) / 1000);   // (one per frame: the callbacks of a frame share its time)
     const recs = (await H.ev('GLR.profile()')).slice(n0).filter((x) => x.inv).map((x) => ({ key: String(x.key).slice(0, 44), start: (x.t0 - g0) / 1000, end: x.ms == null ? null : (x.t0 + x.ms - g0) / 1000, s: x.ms == null ? null : x.ms / 1000 }));
     // stalls: the glide moving with its position unchanged for over a second
     const stalls = [];
