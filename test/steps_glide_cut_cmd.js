@@ -4,7 +4,8 @@
 // nothing else of the picture but the colour: each pixel passes when some pixel of the parked frame's 3 x 3 around it is within TOL levels of it (the
 // ruler's one pixel of rasterization), and at most SAME_FRAC of the band's pixels may fail. The handle's disc is checked apart, in a box around the
 // parked handle, the same way, and the glide leaves it no hit target (an inert handle). Controls (each must fail the same measure): the glide frame against the plane it arrives at, and the parked plane
-// against itself shifted SHIFT_PX px. A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
+// against itself shifted SHIFT_PX px. The dashed bank's dashes keep the parked plane's phase at the arrival and through the glide (read off the line's red
+// along the bank's polyline). A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -104,4 +105,48 @@ ok('the control: the parked chip against itself: no pixel fails', rows['the park
 ok('the control: the parked plane against itself: no pixel fails', rows['the parked plane against itself'].fail === 0, rows['the parked plane against itself']);
 ok(`the control: the parked plane against itself shifted ${SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the parked plane against itself'].failShift > CONTROL_FACTOR * SAME_FRAC, rows['the parked plane against itself']);
 ok(`the control: the same glide frame against plane 1: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the glide frame against plane 1'].fail > CONTROL_FACTOR * SAME_FRAC, rows['the glide frame against plane 1']);
+// The dashed bank: its dashes keep the phase the parked plane gives them, counted from the bank's start, at the arrival (the glide frame END_EPS short of
+// plane 1 against the parked plane 1) and through the glide (at DASH_US). The phase is read off the pane's canvas along the bank's own polyline
+// (__cmwCutCurves), a sample every DASH_STEP px of arc length from DASH_SKIP px on, a sample on where the line's red is there: the offset in [0, DASH_PERIOD)
+// whose pattern (on for DASH_ON px of each DASH_PERIOD, the app's [6, 4]) agrees with most samples. Each reading needs MIN_DASH_SAMPLES samples and an agreement
+// of DASH_AGREE (the pattern was read, not noise). Control: the parked plane's samples read DASH_SHIFT px further along give a phase more than PHASE_TOL away
+const DASH_ON = 6, DASH_PERIOD = 10, DASH_STEP = 0.25, DASH_SKIP = 4, MIN_DASH_SAMPLES = 500, DASH_AGREE = 0.8, PHASE_TOL = 1, DASH_SHIFT = 3, DASH_US = [0.5, 0.9];
+const dashPhase = (shift = 0) => ev(`(() => {
+  const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), k = cv.width / r.width, W = cv.width, H = cv.height, d = cv.getContext('2d').getImageData(0, 0, W, H).data;
+  const bank = __cmwCutCurves().find((c) => c.step === 1 && !c.solid);
+  if (!bank) return null;
+  // (the line's red at a pixel: the cut's ink, not its casing nor the picture under it)
+  const red = (x, y) => { const j = 4 * (y * W + x); return d[j] > 170 && d[j + 1] < 120 && d[j + 2] < 100; };
+  const on = [], ts = [];
+  let t = 0;
+  for (let i = 1; i < bank.s.length; i++) {
+    const a = bank.s[i - 1], b = bank.s[i];
+    if (!a || !b) break;
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    for (let u = 0; u < L; u += ${DASH_STEP}) {
+      const px = (a[0] + (b[0] - a[0]) * u / L) * k, py = (a[1] + (b[1] - a[1]) * u / L) * k, x = Math.round(px), y = Math.floor(py);
+      if (t + u < ${DASH_SKIP} || x < 1 || y < 0 || x >= W || y >= H) continue;
+      on.push(red(x, y) || red(x - 1, y)); ts.push(t + u + ${shift});
+    }
+    t += L;
+  }
+  let best = { phase: null, agree: -1 };
+  for (let o = 0; o < ${DASH_PERIOD}; o += ${DASH_STEP}) {
+    let g = 0;
+    for (let i = 0; i < on.length; i++) if (on[i] === ((ts[i] + o) % ${DASH_PERIOD} < ${DASH_ON})) g++;
+    if (g > best.agree) best = { phase: o, agree: g };
+  }
+  return { n: on.length, phase: best.phase, agree: +(best.agree / Math.max(1, on.length)).toFixed(3) };
+})()`);
+const phaseGap = (a, b) => { const g = Math.abs(a - b) % DASH_PERIOD; return Math.min(g, DASH_PERIOD - g); };
+const read = (q) => !!q && q.n > MIN_DASH_SAMPLES && q.agree >= DASH_AGREE;
+await frameAt('__cmwSteps({ park: 1 })');
+const dash = { parked1: await dashPhase(), parked1Shifted: await dashPhase(DASH_SHIFT) };
+await frameAt(`__cmwSteps({ x: ${1 - END_EPS} })`); dash.arrive = await dashPhase();
+for (const u of DASH_US) { await frameAt(`__cmwSteps({ x: ${u} })`); dash['u' + u] = await dashPhase(); }
+info.dash = dash;
+ok('the parked plane 1\'s dashed bank is read', read(dash.parked1), dash.parked1);
+ok(`the control: the parked plane 1's dashes read ${DASH_SHIFT} px further along are more than ${PHASE_TOL} px out of phase`, read(dash.parked1Shifted) && phaseGap(dash.parked1Shifted.phase, dash.parked1.phase) > PHASE_TOL, dash);
+ok(`the dashed bank of the glide frame ${END_EPS} short of plane 1 has the parked plane 1's dash phase, within ${PHASE_TOL} px`, read(dash.arrive) && read(dash.parked1) && phaseGap(dash.arrive.phase, dash.parked1.phase) <= PHASE_TOL, dash);
+for (const u of DASH_US) ok(`the dashed bank at u = ${u} has the parked plane's dash phase from the bank's start, within ${PHASE_TOL} px`, read(dash['u' + u]) && read(dash.parked1) && phaseGap(dash['u' + u].phase, dash.parked1.phase) <= PHASE_TOL, dash);
 return { pass: fails.length === 0, fails, info };

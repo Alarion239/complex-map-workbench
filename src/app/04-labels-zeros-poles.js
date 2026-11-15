@@ -391,9 +391,9 @@
   }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
   // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
-  function strokeCurves(pane, curves, dash) {
+  function strokeCurves(pane, curves, dash, dashOffset = 0) {
     const ctx = pane.ctx;
-    ctx.setLineDash(dash || []);
+    ctx.setLineDash(dash || []); ctx.lineDashOffset = dashOffset;
     const arcs = distinctArcs(curves.map((pts) => {
       let pen = null;
       return pts.flatMap((q) => {
@@ -412,7 +412,7 @@
       }
       ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.globalAlpha = 1;
   }
   // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
   // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
@@ -484,12 +484,18 @@
         if (c.kind !== 'ray') continue;
         const win = stageWin(j - 1);
         // (the clockwise bank is dashed under the solid one: where the two coincide, as along the whole ray of a cut at the start of a glide, the dashes are left out, so the
-        // line is the single one the plane at rest draws)
+        // line is the single one the plane at rest draws; the dashes after a run left out at the bank's start keep their phase from that start, as the plane at rest
+        // draws them, by the run's length as the dash offset)
         const banks = [-1, 1].map((side) => cutBank(pane, c, F, side, win, proj, step)), solid = banks[1].pts;
         banks.forEach(({ pts, ws }, i) => {
           const side = i ? 1 : -1;
           carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
-          strokeCurves(pane, [side > 0 ? pts : pts.map((q, k) => (q && solid[k] && Math.hypot(q[0] - solid[k][0], q[1] - solid[k][1]) < CUT_COINCIDE_PX ? null : q))], side > 0 ? [] : [6, 4]);
+          if (side > 0) { strokeCurves(pane, [pts], []); } else {
+            const kept = pts.map((q, k) => (q && solid[k] && Math.hypot(q[0] - solid[k][0], q[1] - solid[k][1]) < CUT_COINCIDE_PX ? null : q));
+            let lead = 0;
+            for (let k = 1; k < pts.length && !kept[k - 1] && pts[k - 1] && pts[k]; k++) lead += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+            strokeCurves(pane, [kept], [6, 4], lead);
+          }
           if (look && look.own && look.own(j - 1) && side > 0) hatchCurve(pane, pts);
         });
         if (look && look.own && look.own(j - 1)) branchDot(pane, F(c.p), proj);
