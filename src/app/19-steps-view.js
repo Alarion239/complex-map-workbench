@@ -21,7 +21,7 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
-    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svLinkHold)
+    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
@@ -316,6 +316,8 @@
     if (SV.drag && SV.drag.moved) { dirty.L = true; svSync(); return false; }
     if (SV.play && !SV.play.slide) return svPlayFrame();
     if (SV.anim) {
+      // (held: it does not move while it waits, svLinkHold)
+      if (SV.anim.held) { dirty.L = true; return true; }
       // (SV.clock, a test hook's, null in the app: the glide's time advances that many ms a frame instead of by the wall
       // clock, so a suite reads its frames mid-glide however long each one takes to draw)
       const A = SV.anim, el = SV.clock ? (A.el = (A.el || 0) + SV.clock) : performance.now() - A.t0;
@@ -1145,12 +1147,12 @@
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
-    const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
+    const A = svMotion();
     const g = svBetween(A && A.held ? A.held.x : SV.g.x);
     if (!svHolds(g)) {
       // (released: the frame is the one the motion waited on, and its clock goes on from there)
-      if (A && A.held) { SV.g.set(A.held.at); A.held = null; }
-      if (A) A.drawn = { at: SV.g.x, el: svElapsed(A) };
+      if (A && A.held) { SV.g.set(A.held.at); svSetElapsed(A, A.held.el); }
+      svMotionDrawn(A);
       return null;
     }
     if (!A) return g.x0;
@@ -1158,10 +1160,16 @@
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
     return A.held.at;
   }
+  // the motion whose clock moves the thread: a glide, or a play a glide at a time; null
+  const svMotion = () => SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
   // a motion's time since its start (ms), as svFrame and svPlayFrame read it (the test clock's, or the wall clock's), and
   // that time set
   const svElapsed = (A) => (SV.clock ? A.el || 0 : performance.now() - A.t0);
   function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
+  // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
+  function svMotionDrawn(A) {
+    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; }
+  }
   // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
   // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0)
   function svHolds(g) {
@@ -1711,7 +1719,7 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
-    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (svLandMoving(pane)) svHeldOn = null; else svRenderMoving(pane); return; } }
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
     svHeldOn = null;
@@ -1722,7 +1730,7 @@
   // after any other frame
   let svHeldOn = null;
   function svRenderMoving(pane) {
-    if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); return; }
+    if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); svMotionDrawn(svMotion()); return; }
     const asks = renderAsks, hold = svLinkHold();
     // (a held frame with the inputs of the held frame on the pane, and no frame asked for since, would draw that frame
     // again: the pane keeps it, its status included, and the hold's own checks above are all this frame does)
@@ -3436,9 +3444,12 @@
   function svPlayFrame() {
     // (SV.clock, a test hook's: the play's time advances that many ms a frame, as a glide's, so a suite reads its speed in the
     // frames drawn however long each takes)
-    const A = SV.play, now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
+    const A = SV.play;
     // (another chain loaded under the play, an example, a link or an undo: it stops, and the new state's view is adopted)
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return false; }
+    // (held: it does not move while it waits, svLinkHold)
+    if (A.held) { dirty.L = true; return true; }
+    const now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
     SV.g.set(A.from + (A.to - A.from) * v);
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
@@ -3447,7 +3458,7 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.held = A.drawn = null; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -3633,15 +3644,15 @@
     SV.g.set(nx);
     if (aim != null) SV.g.to(cl(pl(aim)));
     if (A) {
-      const el = SV.clock ? A.el || 0 : performance.now() - A.t0, v = Math.min(1, el / A.ms);
+      const el = svElapsed(A), v = Math.min(1, el / A.ms);
       A.e0 = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
-      A.from = SV.g.x; A.to = cl(pl(A.to)); A.held = A.drawn = null;
+      A.from = SV.g.x; A.to = cl(pl(A.to)); A.held = null; A.drawn = { at: A.from, el };
     }
     if (B) {
       B.steps = S.steps;
       if (B.slide) { B.start = cl(pl(B.start)); B.end = cl(pl(B.end)); } else {
-        const left = B.ms * (1 - Math.min(1, (SV.clock ? B.el || 0 : performance.now() - B.t0) / B.ms));
-        B.from = SV.g.x; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left); B.held = B.drawn = null;
+        const left = B.ms * (1 - Math.min(1, svElapsed(B) / B.ms));
+        B.from = SV.g.x; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left); B.held = null; B.drawn = { at: B.from, el: 0 };
       }
     }
     if (sp) SV.span = span;
