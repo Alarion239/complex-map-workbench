@@ -977,8 +977,8 @@
     const paths = list.map((x) => {
       if (hom) return viaHom(x, u, singAt);
       if (derivIn(0, b)) return invDerivPath(x, b);
-      const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false, stepsRest: true });
-      // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is. The exactImages switch is not read here: a plane at rest is the exact pass's)
+      const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
+      // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is)
       const m = normalizeMap(stageMap(b));
       if (p.path !== 'forward' || invPlan(m.a || 0, m.b || 0).ok) return p;
       const q = viaHom(x, 1, restHom);
