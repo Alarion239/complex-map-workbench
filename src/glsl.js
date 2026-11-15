@@ -2195,7 +2195,7 @@ void ixAncTan(vec2 w) {
   const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
-  // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at grid stage ks
+  // InvOps.opNewt's (with H_t' by _fd, the float32 one); _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at grid stage ks
   // (InvOps.opNewt's fixed grid: the stages k / NEWT_K up to k0 = floor(NEWT_K t), ug the root at k0, IX_NR_NONE when
   // the walk failed by then), then one step at t, polished, kept when it hits w; _walk0, member 0 from w; _m0, member
   // 0 where the NEWT roots pass (IX_NR_N, uNrTex0: (ug, u) for the pixel's own w) has it: a stored member that misses w
@@ -2208,9 +2208,7 @@ bool ${P}_step(inout vec2 u, vec2 w, float t) {
   vec2 hu = ${H('u', 't')};
   vec2 d = ${P}_fd(u, hu, t);
   if (!(dot(d, d) > 0.0)) return false;
-  vec2 st = cdiv(hu - w, d);
-  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
-  u -= sl > mx ? st * (mx / sl) : st;
+  u -= cdiv(hu - w, d);
   return ixFin(u);
 }
 bool ${P}_polish(inout vec2 u, vec2 w, float t) {
