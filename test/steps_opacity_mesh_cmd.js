@@ -6,7 +6,7 @@
 //   ones before it (the opaque path leaves nothing behind);
 // - below 100 % the layers show through: a point covered twice differs at 85 % and at 50 % from 100 %, and 85 % from
 //   50 %, with layered frames drawn;
-// - the meshes' colour at 85 % and 50 % is the exact pass's (the same page with the exact images on), at both points;
+// - the meshes' colour at 85 % and 50 % is the exact pass's (the same page with no shape forced forward), at both points;
 // - a point covered once is the same at every opacity, within 2/255 (the layers' programs shade it as the front layer's do).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -16,7 +16,7 @@ const { lpx } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js')
 await view(1200, 800, false, false);
 const openPage = async (meshes, alpha) => {
   const ns = 'svom' + Date.now();
-  const st = { v3: true, v4: true, v5: true, v6: true, exactImages: true, alpha,
+  const st = { v3: true, v4: true, v5: true, v6: true, alpha,
     shapes: [{ id: 's2', kind: 'disc', c: [0.3, 0.1], r: 1, ci: 0, visible: true }, { id: 's3', kind: 'disc', c: [1.4, 0], r: 0.3, ci: 1, visible: true }],
     steps: [{ type: 'pown', params: { n: 2 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
