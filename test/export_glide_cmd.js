@@ -428,7 +428,7 @@ for (const surf of ['sphere', 'land']) {
   ok('Paths on: the pane draws paths at the parked place, and none with Paths off', heads > 0 && pr.headsOn > 0 && pr.headsOff === 0, info['paths on and off']);
   ok(`the glide's frame draws the paths with Paths on and not with Paths off (over ${PATHS_MIN_SHARE} of its pixels differ)`, pr.share > PATHS_MIN_SHARE, info['paths on and off']);
 }
-// a frame at a whole thread position is that plane's picture wherever the view is parked (#1553): the frames at every plane drawn
+// a frame at a whole thread position is that plane's picture wherever the view is parked: the frames at every plane drawn
 // with the view parked at that plane are the references; each is drawn again with the view parked at the last plane (the frames
 // of the other planes) and parked between the first two planes (the frames of every plane), and must match its reference to
 // SAME_PLANE_MAD. The control: the references of z and the last plane differ by more than SAME_PLANE_MAD, so the bound tells
@@ -473,21 +473,25 @@ for (const surf of ['sphere', 'land']) {
     }
   }
 }
-// a frame at a whole thread position leaves a running Play running (#1553): on the plane (a glide) and on the Landscape (a slide,
-// a plane a tick), with Play looping, a frame at plane 1 is drawn; afterwards Play is on, its button says Pause, and the
-// thread's position goes on moving (the waits are the page's own, settled's only: a Play is never quiet)
-for (const surf of ['plane', 'land']) {
-  await open(1, surf);
+// a frame at a whole thread position leaves a running Play running, in both of Play's kinds: a glide, and a slide (a plane a
+// tick, Play's kind under reduced motion, emulated here). With Play looping, a frame at plane 1 is drawn; afterwards Play is
+// the same kind, its button says Pause, and the thread's position goes on moving (the waits are the page's own, settled's
+// only: a Play is never quiet)
+for (const [kind, reduced] of [['glide', false], ['slide', true]]) {
+  await open(1, 'plane');
+  if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'reduce' }] });
   await ev(`(__cmwSteps({ loop: true }), __cmwSteps({ play: true }), 1)`);
   await settled({ until: '!!__cmwSteps().play', max: SETTLE_MAX_MS, only: true });
   const r = await ev(`await (async () => {
-    await __cmwFig.glideArt(1, { wpt: 240, hpt: ${surf === 'plane' ? 'undefined' : 135}, dpi: 96 });
+    const before = __cmwSteps().play;
+    await __cmwFig.glideArt(1, { wpt: 240, dpi: 96 });
     const b = document.querySelector('#svStrip .sv-play');
-    return { play: __cmwSteps().play, label: b && b.getAttribute('aria-label'), x: __cmwSteps().x };
+    return { before, play: __cmwSteps().play, label: b && b.getAttribute('aria-label'), x: __cmwSteps().x };
   })()`, 120000);
   const moved = await settled({ until: `Math.abs(__cmwSteps().x - ${r.x}) > ${POS_TOL}`, max: SETTLE_MAX_MS, only: true });
-  info[`${surf}: Play after a frame`] = Object.assign({ moved: moved.ok }, r);
-  ok(`${surf}: Play is still on after a frame at a plane, its button says Pause, and the thread moves on`, !!r.play && r.label === 'Pause' && moved.ok === true, info[`${surf}: Play after a frame`]);
+  info[`${kind}: Play after a frame`] = Object.assign({ moved: moved.ok }, r);
+  ok(`Play as a ${kind}: still a ${kind} after a frame at a plane, its button says Pause, and the thread moves on`, r.before === kind && r.play === kind && r.label === 'Pause' && moved.ok === true, info[`${kind}: Play after a frame`]);
   await ev(`(__cmwSteps({ play: false }), __cmwSteps({ loop: false }), 1)`);
+  if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
 }
 return { pass: fails.length === 0, fails, info };
