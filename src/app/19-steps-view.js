@@ -1098,20 +1098,19 @@
     return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
-  // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it
-  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
-  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
-  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
-  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
-  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // and the staged one of the later planes' shapes, svStagedOf and svStagedCurves, which draws their mask and strokes),
+  // and once it is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the
+  // glide waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of
+  // the plane before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks,
+  // and the first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a
+  // wait also starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
-    const st = h && svStagedOf();
-    const linking = !!h && [h, st].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
+    const linking = !!h && [h, svStagedOf(), svStagedCurves()].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
     svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
@@ -1785,18 +1784,31 @@
     const later = st.list.map((x, i) => i).filter((i) => !st.nearer(st.list[i]));
     svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A }));
   }
-  // the outlines of the regions of the plane the glide reaches, in the frames where it is the nearer plane (from the
-  // midpoint on), into the open frame: the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour
-  // over its casing; col: which outlines are shown, as svOutlines), where the inverse pass puts the boundary. Inside
-  // regions and Everywhere. The pulled-back regions' band is the mask's (svStagedMask); the earlier planes' outlines are
+  // The shapes of the plane the glide reaches, in the frames where it is the nearer plane (from the midpoint on), that the
+  // inverse pass strokes with the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour over its
+  // casing), where it puts a region's boundary or the curve itself: Map shape -> its inverse path, or null. Inside
+  // regions and Everywhere. The pulled-back regions' band is the mask's (svStagedMask); the earlier planes' strokes are
   // the outline pass's (svShapeMap)
-  function svStagedStrokes(pane, map0, col) {
-    if (map0.mode !== 1) return;
-    const st = svStagedOf();
-    if (!st) return;
-    const own = st.list.map((x, i) => i).filter((i) => shapeStage(st.list[i]) >= st.g.b && st.nearer(st.list[i]) && outlineShown(st.list[i], !col));
-    if (!own.length) return;
-    svDrawInverse(pane, own.map((i) => st.list[i]), own.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => shapeStroke(x, pane.dpr, { plane: st.g.near }));
+  function svReached(map0) {
+    if (map0.mode !== 1) return null;
+    const g = svBetween();
+    if (g.near !== g.b) return null;
+    const m = new Map();
+    for (const q of [svStagedOf(), svStagedCurves()]) if (q) q.list.forEach((x, i) => { if (shapeStage(x) === g.b) m.set(x, q.paths[i]); });
+    return m.size ? m : null;
+  }
+  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level)
+  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve']);
+  // the curves of later planes of the frame between two planes, with their inverse path, the whole plane's (a shape of
+  // a later plane is tested on its own plane, svInvPaths): {list, paths}, or null when there is none or the pass cannot
+  // draw them
+  function svStagedCurves() {
+    const g = svBetween();
+    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b) || !svHomPaths(g.b, g.u).h) return null;
+    const list = S.shapes.filter((x) => x.visible !== false && SV_STAGED_CURVES.has(x.kind) && shapeStage(x) > 0 && !derivIn(0, shapeStage(x)));
+    if (!list.length) return null;
+    const whole = invHomPath(SV_ALL, 0, g.b, g.u, () => svSheetKeyAt(g.b, g.u).sing);
+    return whole.path === 'inverse' ? { list, paths: list.map(() => whole) } : null;
   }
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, nearer(x):
   // whether region x is on a plane up to the nearer one}, or null when there is none or the pass cannot draw them.
@@ -1869,14 +1881,16 @@
   // caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
+    const reached = hideStrokes ? null : svReached(map0), stroke = (x) => shapeStroke(x, pane.dpr, { plane: shapeStage(x) });
     for (const s of hideStrokes ? [] : S.shapes) {
       if (!outlineShown(s, !col)) continue;
+      const p = reached && reached.get(s);
+      if (p) { svDrawInverse(pane, [s], [p], svT(), { open: true }, null, null, stroke); continue; }
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
-    if (!hideStrokes) svStagedStrokes(pane, map0, col);
     if (!frame) GLR.blit(pane.ctx);
   }
   // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
