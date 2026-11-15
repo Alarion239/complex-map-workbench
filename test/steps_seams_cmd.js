@@ -14,6 +14,8 @@
 //    the cut's image, in the colour layer alone, no pixel of the paper's grey (max - min channel under 20) between two coloured ones (max - min
 //    channel over 40) 3 px either side; a control draws a one-pixel line of paper along the cut's image and the same scan
 //    must count it
+//  - cut curves: Square root and its sheets, strokes hidden: the frame a hair short of plane 1 draws the parked plane 1's
+//    cut curves (the same banks, both ways within 2 px), with controls that must fail the same comparison
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the images shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -54,7 +56,9 @@ const park = async (x, scope) => {
   await park(1.5, 'all');
   // (the fill draws through its mask, started with it: that program made, then a frame drawn with it)
   await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
-  await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
+  // (the colour layer alone is read, here and once settled after the chain change: a frame between two planes draws the
+  // cut's curves, the dashed bank along the seam, with the strokes hidden as the parked plane does, each dash a jump)
+  await ev('__cmwHideStrokes(true); __cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
   ok('teeth: the frame is drawn with the fill\'s mask', await drawn(), null);
   const TEETH = `(() => {
     // (a jump: colour distance over JUMP between vertically adjacent pixels; the band is BAND px; the mean is over the
@@ -149,9 +153,10 @@ const park = async (x, scope) => {
   const worst = after.reduce((w, t) => (t.perRow > w.perRow ? t : w), { perRow: 0 });
   ok('teeth: in the 2 s after a chain change, no frame shows a sawtooth along the seam (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', worst.perRow <= 1.5, worst);
   // (and once settled, the seam is drawn: the colour reaches it in most rows)
-  await settled({ max: 30000 }); await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
+  await settled({ max: 30000 }); await ev('__cmwHideStrokes(true); __cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
   ok('after the chain change: the frame is drawn', await drawn(), null);
   info.afterSettled = await teeth('afterSettled');
+  await ev(`__cmwSteps({ bare: false }); 1`);
   ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
   // (parked on w2 itself, the colour layer alone (the cut's handle is drawn along the seam): the log's cut is the
   // negative real axis there, a horizontal seam, its place in each column the row where the colour passes from the sheet
@@ -237,12 +242,9 @@ const park = async (x, scope) => {
     await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); await drawn();
     const tracks = await ev(`(window.__seamsCut = __cmwCutCurves().filter((cut) => cut.step === 2).flatMap((cut) => (cut.w.length && Array.isArray(cut.w[0][0]) ? cut.w : [cut.w])).filter((t) => t.length > 1)).length`);
     ok(`cracks: ${kase.name}: the cut's image is drawn`, tracks > 0, tracks);
-    await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 }); await drawn();
-    const cutCurves = await ev('__cmwCutCurves().length');
-    ok(`cracks: ${kase.name}, strokes hidden: no cut curve is drawn`, cutCurves === 0, cutCurves);
     // (the colour layer alone is read: a crack is a gap in the fill, and the cut's curve with its paper-coloured halo is
-    // drawn over the fill)
-    await ev('__cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
+    // drawn over the fill, strokes hidden or not)
+    await ev('__cmwHideStrokes(true); __cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
     ok(`cracks: ${kase.name}: the colour layer alone is drawn`, await drawn(), null);
     const got = info['cracks' + kase.n] = await ev(SCAN(null));
     ok(`cracks: ${kase.name}, parked half-way: the cut's image was sampled`, got.samples > MIN_SAMPLES, got);
@@ -252,6 +254,55 @@ const park = async (x, scope) => {
     const control = info['cracksControl' + kase.n] = await ev(SCAN(PAPER));
     ok(`cracks (control): ${kase.name}: a one-pixel line of paper along the cut's image is counted`, control.cracks >= CAUGHT * control.samples && control.samples > MIN_SAMPLES, control);
     await ev('__cmwSteps({ bare: false }); 1');
+  }
+}
+// cut curves: Square root and its sheets, strokes hidden
+{
+  // (BANK_PX: how far a sample of the frame's bank may lie from the parked bank's polyline, for samples within FAR_PX px of
+  // the pane's origin: the bank's far end runs tens of thousands of px out, where a quarter of the samples differ by their
+  // own spacing; END_EPS: how far a step the frame is from its plane; CUT_BANKS: the two banks of a ray cut, the solid one
+  // and the dashed one, what the frame draws of Square root's cut)
+  const BANK_PX = 2, FAR_PX = 3000, END_EPS = 1e-4, CUT_BANKS = 2;
+  const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+  const ex = names.indexOf('Square root and its sheets');
+  ok('cut curves: the example is found', ex >= 0, names.length);
+  if (ex >= 0) {
+    await go(`http://localhost:${PORT}/test.html?view=steps&ns=seamcut${Date.now()}`);
+    await ready();
+    await ev(`__cmwExample(${ex}); 1`); await settled({ max: 20000 });
+    // The cut curves of the frame END_EPS of a step short of plane 1, strokes hidden, are the parked plane 1's (strokes
+    // hidden): the same count, the same solid and dashed banks, and every sample of a bank within BANK_PX px of the parked
+    // bank's polyline (the frame samples a quarter as many points). The controls, each a frame that must fail the same
+    // comparison: the plane 0 parked (a plane that draws its cut as a ray and keeps no banks: a frame with the cut
+    // dropped), and the frame's own banks with one removed.
+    const cutsOf = async () => JSON.parse(await ev('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, s: c.s.filter(Boolean) })))'));
+    const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const polyDist = (p, poly) => { let m = Infinity; for (let i = 1; i < poly.length; i++) m = Math.min(m, segDist(p, poly[i - 1], poly[i])); return m; };
+    // (both ways: every frame sample lies within BANK_PX of the reference polyline, and every reference sample within
+    // FAR_PX of the origin lies within BANK_PX of the frame's polyline, so a bank that stops short or a half-drawn one
+    // fails the second)
+    const near = (a, b) => a.every((p) => Math.abs(p[0]) > FAR_PX || Math.abs(p[1]) > FAR_PX || polyDist(p, b) <= BANK_PX);
+    const sameCuts = (frame, ref) => frame.length === ref.length && frame.every((c, i) => c.step === ref[i].step && c.solid === ref[i].solid && c.s.length > 1 && ref[i].s.length > 1 && near(c.s, ref[i].s) && near(ref[i].s, c.s));
+    // (the strokes are hidden at the frames compared: the page's own state is read back, after the frame has settled)
+    const hidden = async () => { await settled({ max: 20000 }); return (await ev('__cmwHideStrokesGet()')) === true; };
+    await park(1, 'all'); ok('cut curves: the strokes are hidden at the parked plane 1', await hidden(), null); const parked1 = await cutsOf();
+    await ev(`__cmwSteps({ x: ${1 - END_EPS} }); 1`); await settled({ max: 20000 }); ok('cut curves: the frame next to plane 1 is drawn', await drawn(), null);
+    ok('cut curves: the strokes are hidden at the frame next to plane 1', await hidden(), null);
+    const nearEnd = await cutsOf();
+    await park(0, 'all'); const parked0 = await cutsOf();
+    info.cutCurves = { parked1: parked1.length, nearEnd: nearEnd.length, parked0: parked0.length };
+    ok('cut curves: the parked plane 1 draws the cut\'s two banks', parked1.length === CUT_BANKS, info.cutCurves);
+    ok(`cut curves: the frame ${END_EPS} short of plane 1, strokes hidden, draws the parked plane 1's cut curves (the same count and banks, within ${BANK_PX} px)`, sameCuts(nearEnd, parked1), info.cutCurves);
+    ok('cut curves: the control: a frame that drops the cut (the plane 0 parked, which keeps no banks) is not the parked plane 1\'s', !sameCuts(parked0, parked1), info.cutCurves);
+    ok('cut curves: the control: the frame with one of its banks dropped is not the parked plane 1\'s', !sameCuts(nearEnd.slice(1), parked1), { kept: nearEnd.length - 1 });
+    // the reverse controls: a frame whose banks are cut to their first half passes the frame-to-reference direction alone
+    // and fails the two-way comparison
+    const half = nearEnd.map((c) => ({ ...c, s: c.s.slice(0, Math.max(2, c.s.length >> 1)) }));
+    ok('cut curves: the control: banks cut to their first half still lie on the parked ones (one way)', half.every((c, i) => near(c.s, parked1[i].s)), null);
+    ok('cut curves: the control: banks cut to their first half are not the parked plane 1\'s (the reverse check)', !sameCuts(half, parked1), null);
+    // the strokes control: with the strokes shown, the same read reports them shown
+    await ev('__cmwHideStrokes(false); 1');
+    ok('cut curves: the control: with the strokes shown the hidden check fails', !(await hidden()), null);
   }
 }
 return { pass: fails.length === 0, fails, info };
