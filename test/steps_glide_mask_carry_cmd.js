@@ -42,6 +42,7 @@ for (const c of CASES) {
     const ex = names.indexOf(c.example);
     ok(`${c.tag}: the example is found`, ex >= 0, names.length);
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
     await settled({ max: SETTLE_MAX_MS });
     await ev(`__cmwSet('morphPaths', false), __cmwSet('alpha', 1), __cmwSteps(${JSON.stringify({ scope: 'in', surf: 'plane' })}), 1`);
     await rest(0);

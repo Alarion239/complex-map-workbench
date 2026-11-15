@@ -44,6 +44,7 @@ const VIEWS = {
   'steps_carry_cmd.js': steps(),
   'steps_carry_inregion_cmd.js': steps(),
   'steps_carry_far_cmd.js': steps(),
+  'steps_carry_chains_cmd.js': steps(),
   'steps_carry_exact_cmd.js': steps(),
   'steps_rim_inverse_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
@@ -56,6 +57,7 @@ const VIEWS = {
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'steps_sheets_readback_cmd.js': steps(),
   'steps_land_head_cmd.js': steps(),
   'sv_land_sin_sheets_cmd.js': steps(),
   'steps_sheet_dedupe_cmd.js': steps(),
@@ -71,6 +73,7 @@ const VIEWS = {
   'steps_land_cover_cmd.js': steps(),
   'steps_land_sheets_h_cmd.js': steps(),
   'steps_land_chrome_cmd.js': steps(),
+  'steps_link_mesh_cmd.js': steps(),
   'steps_glstatus_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
   'steps_linkhold_chain_cmd.js': steps(),
@@ -316,6 +319,7 @@ const VIEWS = {
 
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
+  'kit_adopted_cmd.js': steps({ pin: true }),
   'reload_wait_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
