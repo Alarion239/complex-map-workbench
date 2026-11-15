@@ -192,6 +192,9 @@ await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
 await settled({ max: 60000 });
 await ev(`document.querySelector('.ph-dsp').click(); 1`);
 await settled({ floor: SHEET_FLOOR });
+// the sheet opens with the focus on the current Colouring: the checked choice of the Landscape's colour style, as on the Plane it is the checked style
+const focusOpen = await ev(`(() => { const a = document.activeElement, g = a && a.closest('[role="radiogroup"]'); return { id: g && g.id, checked: a && a.getAttribute('aria-checked'), tag: a && a.tagName }; })()`);
+ok('on the Landscape surface the sheet opens with the focus on the checked Colouring choice', focusOpen.id === 'landPaint' && focusOpen.checked === 'true', focusOpen);
 // the ids of the segmented choices and sliders in the group under a heading (null when no group has it)
 const idsIn = (head) => `(() => { const g = [...document.querySelectorAll('.ph-sheet .ph-grp')].find((e) => e.querySelector('h3') && e.querySelector('h3').textContent === ${JSON.stringify(head)}); return g ? [...g.querySelectorAll('[role="radiogroup"][id], input[type="range"]')].map((i) => i.id) : null; })()`;
 const opac = await ev(idsIn('Opacity')), heightIds = await ev(idsIn('Height')), styleIds = await ev(idsIn('Colour style'));
