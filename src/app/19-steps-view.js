@@ -1134,8 +1134,10 @@
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it
   // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
-  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
-  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
+  // on the plane it started from (a glide's or a play's clock starts again there, and a play or glide over several
+  // planes waits on the first plane of the glide it holds, not on its own first one, whose glides it has shown; a
+  // scrub's frame is that of the plane before the thread), so no frame between the planes is the carried mesh's or one
+  // drawn without its tracks, and the
   // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0. Each frame of such
   // a wait makes the tracks for a frame's pole budget, so the wait ends within a bounded number of frames: a held play or
   // glide asks for frame after frame, and where each takes past its deadline (a software renderer) no idle moment comes
@@ -1158,7 +1160,13 @@
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
-    if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
+    if (A) {
+      // (the held glide's first plane, in the motion's direction: when the motion started before it, it starts there
+      // now, with the time it takes from there)
+      const own = A.to >= A.from ? g.x0 : g.x0 + 1;
+      if ((own - A.from) * (A.to - A.from) > 0) { A.ms *= (A.to - own) / (A.to - A.from); A.from = own; }
+      A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from;
+    }
     return g.x0;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
