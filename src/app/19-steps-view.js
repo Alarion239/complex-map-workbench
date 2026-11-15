@@ -1083,12 +1083,12 @@
   // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
   // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
   // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
-  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
-  // come from the mask's pass (svStagedMask), which the colour layer does not draw
+  // lack parts of an unbounded region's image). The pullbacks of regions of later planes keep their own opacity and band,
+  // which only the mask's pass (svStagedMask) draws, so such a frame keeps a mask made of the inverse pass alone
   function svExactGlide(b, u) {
     if (!GLR.inverseState) return false;
     const h = svHomPaths(b, u).h;
-    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
+    return !!h && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
   }
   // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
   let svHomMemo = null;
@@ -1728,8 +1728,11 @@
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
-    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    // (with a region of a later plane, the mask stays but is the inverse pass's too: svStagedMask draws every region)
+    const exact = svMaskOn() && !still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u);
+    const mask = svMaskOn() && !(exact && !svStagedOf());
     if (mask && svMask(pane, map, still ? a : undefined, {
+      exact,
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame)
@@ -1774,12 +1777,12 @@
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
   }
-  // Inside regions between two planes: the alpha of the regions of later planes in the open frame, by the inverse pass
-  // (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's map), at the opacity they have
-  // at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA), which writes alpha alone under the
-  // caller's write mask. Nothing when none is visible or the pass cannot draw them
-  function svStagedMask(pane) {
-    const st = svStagedOf();
+  // Inside regions between two planes: the alpha of the regions of later planes (all: and of the colour's plane) in the
+  // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
+  // map), at the opacity they have at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA),
+  // which writes alpha alone under the caller's write mask. Nothing when none is visible or the pass cannot draw them
+  function svStagedMask(pane, all) {
+    const st = svStagedOf(all);
     if (!st) return;
     // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
     // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
@@ -1804,16 +1807,16 @@
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, nearer(x):
   // whether region x is on a plane up to the nearer one}, or null when there is none or the pass cannot draw them.
   // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
-  // regions (svInvPaths)
-  function svStagedOf() {
+  // regions (svInvPaths). all: the regions of the colour's plane too (Inside regions)
+  function svStagedOf(all) {
     const g = svBetween();
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
     const h = svHomPaths(g.b, g.u).h;
     if (!h) return null;
-    const all = h.list.indexOf(SV_ALL);
-    const list = all < 0 ? h.list.filter((x) => shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
+    const whole = h.list.indexOf(SV_ALL);
+    const list = whole < 0 ? h.list.filter((x) => all || shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
     if (!list.length) return null;
-    return { g, list, paths: list.map((x) => h.paths[all < 0 ? h.list.indexOf(x) : all]), nearer: (x) => shapeStage(x) <= g.near };
+    return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), nearer: (x) => shapeStage(x) <= g.near };
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -1845,6 +1848,8 @@
     }
     if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
     let onPage = false;
+    // (o.exact: the regions of the colour's plane are not filled from their forward image: svStagedMask draws them)
+    if (o.exact) opt.skip = (x) => !shapeStage(x);
     const mp = Object.create(pane);
     mp.begin = () => {};
     try {
@@ -1852,7 +1857,7 @@
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
-          else svStagedMask(mp);
+          else svStagedMask(mp, o.exact);
           GLR.writeMask(true, false);
           o.paint();
           GLR.writeMask(true, true);
@@ -1970,11 +1975,16 @@
     const mesh = !inv || fwd.length ? svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
     if (!inv && !mesh) return null;
     if (inv && fwd.length && !mesh) return null;
-    const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' };
-    const info = sphereView(pane, camL, CAML, Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver()));
+    const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' }, mixed = !!inv && fwd.length > 0;
+    const over = Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver());
+    const info = sphereView(pane, camL, CAML, mixed ? Object.assign({}, over, { marks: false }) : over);
     let meshed = !!(info && info.carried) && !inv;
-    // (the mesh over the exact pass's globe, kept inside the regions that take it)
-    if (info && inv && fwd.length) meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
+    // (the mesh over the exact pass's globe, kept inside the regions that take it, and the globe's marks over both, as
+    // sphereView's Inside regions draws them: not on the figure's art layer, which draws them as vectors)
+    if (info && mixed) {
+      meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
+      if (!artMode) globeMarks(pane, info, over);
+    }
     const exact = !!inv && inv.length > 0;
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
@@ -2387,8 +2397,11 @@
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       // (the Cauchy style draws everywhere: Inside regions would cut its outside part f₋ off, so the control reads Everywhere and says why it is off)
       const sc = svScope(), cWhy = S.dc === 'cauchy' ? $t('The Cauchy integral is drawn everywhere: its outside part is not cut to regions') : '';
-      setSeg(E.scope, sc);
-      for (const b of E.scope.querySelectorAll('button')) { /** @type {HTMLButtonElement} */ (b).disabled = !!cWhy; if (cWhy) b.dataset.tip = cWhy; }
+      for (const el of [E.scope, E.sheetScope]) {
+        if (!el) continue;
+        setSeg(el, sc);
+        for (const b of el.querySelectorAll('button')) { /** @type {HTMLButtonElement} */ (b).disabled = !!cWhy; if (cWhy) b.dataset.tip = cWhy; }
+      }
       const scName = sc === 'in' ? $t('Inside') : $t('Everywhere');
       E.scopeBtn.innerHTML = `<span class="sv-surf-t">${scName}</span>${ICONS.chevD || ''}`;
       E.scopeBtn.setAttribute('aria-label', `${$t('Where colour shows')}: ${E.SCOPES.find((v) => v[0] === sc)[1]}`);
@@ -2494,6 +2507,13 @@
   function svSetSurface(v) { SV.surf = v; if (v === 'sphere') { prestartGlobe(); svPrestartSoon(300); } svApply(); tourEmit('surface-changed', { s: v }); }
   function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
+  // the scope switch again, for the phone's Display sheet (the sheet shows it full width; svSync keeps it with the head's)
+  function svSheetScope() {
+    const el = seg(null, SV.scope, SV.els.SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-sheet-scope', loop: true });
+    SV.els.sheetScope = el;
+    svSync();
+    return el;
+  }
   function svScopeMenu() { svChoiceMenu(SV.els.scopeBtn, SV.els.SCOPES, SV.scope, $t('Where colour shows'), svSetScope); }
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and

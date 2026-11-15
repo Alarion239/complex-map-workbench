@@ -501,8 +501,11 @@ await section('P51', async () => {
   await key('Escape'); await settle(200);
   // UX95: the Display sheet's region section is "Regions" (#35; #363: the regions' display, as Y's head button names it)
   // ([v17 D5, #82]: a heading of the sheet, no longer the left panel's #secDisplay)
+  // (the sheet's headings exist only while it is open)
+  await tapSel('.ph-dsp'); await settle(400);
   const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
   ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
+  await key('Escape'); await settle(200);
 });
 
 // ------------------------------------------------------------------- layout: the two-line readout, Snap, the touch ×
