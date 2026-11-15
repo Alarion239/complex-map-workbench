@@ -30,10 +30,10 @@
 //   the frame kept there is the one a frame asked for with no change draws afresh, and once the budget is given back
 //   the play reaches plane 1;
 // - z + 1/z, then z⁴ + z, on a fresh page whose links land seconds late, ▶ pressed from plane 0: the play goes through the
-//   first glide and is held a second time, for the programs of the glide into plane 2, waiting on plane 1; while that
-//   hold lasts with nothing changed (the play waiting where it is), the browser's idle callbacks are given time and the
-//   left pane draws at most a tenth of the animation frames, and once the links land the play reaches plane 2; a glide from plane 2 to plane 0 on such
-//   a page waits for its glides' programs, its thread never going back, and reaches plane 0;
+//   first glide and is held a second time, for the programs of the glide into plane 2; while that hold lasts with
+//   nothing changed (the play waiting where it is), the browser's idle callbacks are given time and the left pane draws
+//   at most a tenth of the animation frames, and once the links land the play reaches plane 2; a glide from plane 2 to
+//   plane 0 on such a page waits for its glides' programs, its thread never going back, and reaches plane 0;
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
 //   left pane draws at most a tenth of the animation frames, and it ends within seconds of the link landing.
@@ -328,7 +328,7 @@ try {
   // exp(sin z) typed over z² + 1 (a disc, Inside regions), on a fresh page whose links land late (the suite's), the glide
   // to plane 1 with its time a frame PLAY_STEP_MS; from its second frame on, the links it starts land LATER_LINK_MS late
   // (__lateLinkMs): the program its frames ask for past about two fifths of the way. While the glide waits for it
-  // (the thread still for frames in a row, past its start), counted (record); then the link lands and the glide ends
+  // (the thread still for frames in a row, between the planes), counted (record); then the link lands and the glide ends
   {
     await loadView('steps', 'lls' + Date.now(), { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0 });
     await settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(\'input[data-pkey="expr"]\')' });
@@ -337,7 +337,7 @@ try {
     await settled({ only: true, max: WARM_MS, until: 'GLR.pendingLinks === 0' });
     await record('requestIdleCallback');
     await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
-    const s0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0 && GLR.pendingLinks > 0` });
+    const s0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0 && __cmwSvX() < 1 && GLR.pendingLinks > 0` });
     const s1 = await recorded();
     const s2 = await settled({ only: true, max: PLAY_MS, until: 'GLR.pendingLinks === 0' });
     const t2 = Date.now();
