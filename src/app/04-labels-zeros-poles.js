@@ -58,7 +58,7 @@
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
     const lite = !!r.lite;
-    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
+    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles (a frame between two planes' marks too)
     const marks = r.marks;
     const hard = [];
     const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected)
@@ -66,7 +66,7 @@
     if (sel) {
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
-    if (pane === paneL && lFlat()) for (const hd of cutHandlesL) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
@@ -789,11 +789,12 @@
     ctx.fillStyle = color || TH.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(text, x + 6, y + 0.5);
   }
-  function drawCutHandles(pane, handles) {
+  // the cut handles on pane's overlay; inert: marks that take no press (a frame between two planes'), never drawn hot
+  function drawCutHandles(pane, handles, inert = false) {
     const ctx = pane.octx;
     for (const hd of handles) {
-      const dragging = drag && drag.mode === 'cut' && drag.step === hd.step;
-      const hot = hoverCut === hd.step || dragging;
+      const dragging = !inert && drag && drag.mode === 'cut' && drag.step === hd.step;
+      const hot = (!inert && hoverCut === hd.step) || dragging;
       if (dragging && !hd.F && !hd.fwd) {
         const [bx, by] = pane.w2s(hd.p);
         const r = 40, ang = hd.deg * DEG;

@@ -248,7 +248,7 @@
     zpHandlesL = [];
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
-      drawCutHandles(paneL, cutMarksL);
+      drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // ([#253] a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
