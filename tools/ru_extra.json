@@ -721,5 +721,6 @@
  "log of the modulus": "логарифм модуля",
  "modulus": "модуль",
  "real part": "вещественная часть",
- "imaginary part": "мнимая часть"
+ "imaginary part": "мнимая часть",
+ "split f{x} into f{x}–f{x2}: {chain}": "разложение f%{x} на шаги f%{x}–f%{x2}: %{chain}"
 }

@@ -1393,6 +1393,7 @@
  "Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.": "«Sfera» avvolge il piano sulla sfera di Riemann, con $\\infty$ al polo nord; qui $F(\\infty)=1$, che non è né uno zero né un polo. Puoi disegnare anche sulla sfera.",
  "Spiral": "Spirale",
  "Split f{k} into f{k}–f{k2}: {chain}.": "Passo f{k} scomposto in f{k}–f{k2}: {chain}.",
+ "split f{x} into f{x}–f{x2}: {chain}": "scomposizione di f{x} in f{x}–f{x2}: {chain}",
  "Split into steps": "Scomponi in passi",
  "Split into {n} step\u0004Split into {n} steps": {
   "one": "Scomponi in {n} passo",
