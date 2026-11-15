@@ -17,6 +17,8 @@
 //   (held_frames.js), and the control at least MISS further from it
 //   (the other sheet's half of the relief is missing). The view is a small window about 0 (S.srcView.s = SCALE), which
 //   the square root maps onto a disc that covers it: the carried points reach the whole of plane b's window.
+// - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
+//   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -29,6 +31,7 @@ const SAME_SURF = 0.08;               // departure: the share by which the surfa
 const MISS_SURF = 0.15;               // departure: the share by which the control's surface is smaller than the frame's, at least
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
+const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const step = (type, params) => ({ type, params: params || {}, on: true });
 const ROOT = step('root', { n: 2, cut: 180 }), CUBIC = step('custom', { expr: 'z^3-3z', cut: 180 });
 await view(1440, 900, false, false);
@@ -77,5 +80,18 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
   ok(`${name}, u = ${1 - NEAR}: the frame is plane ${b} parked (within ${END_FRAC})`, !!arr.all && arr.all.frac <= END_FRAC, arr);
   ok(`${name}, u = ${1 - NEAR}: the control is at least ${MISS} further from it`, !!arr.all && !!arr.one && arr.one.frac >= arr.all.frac + MISS, arr);
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
+}
+// ---- Inside regions: an annulus under the square root ----
+{
+  const ns = 'landcopiesin' + Date.now(), r = info.inside = {};
+  await loadView('steps', ns, { shapes: [{ id: 'a1', kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2, ci: 0, visible: true }], steps: [ROOT], srcView: { cx: 0, cy: 0, s: 90 } });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSteps({ scope: 'in', surf: 'land', go: 0, now: true }); 1`);
+  await settled({ max: 60000 });
+  for (const u of [0.5, 1 - NEAR]) {
+    const c = r[`u ${u}`] = await at(u, 0, `in${u}`);
+    ok(`Inside regions, u = ${u}: a carried frame of the principal sheet's image of the region alone (no copy)`, c.s === 0 && c.copies === 0, c);
+  }
 }
 return { pass: fails.length === 0, fails, info };
