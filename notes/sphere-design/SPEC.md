@@ -175,7 +175,7 @@ Until a row is enabled, `pathOf` answers `'forward'` for it and its fix-ups run 
 pathOf(s, map, role, viewKind) =
   m = normalizeMap(map)                                   // paused homotopy at t = 0 or 1 -> mode 0 (10.5)
   !GLR.ok || isIdent(m)                       -> 'forward'          // identity draws stay as today
-  !S.exactImages || !PHASE[role][viewKind]    -> 'forward'          // hidden switch; phase flags
+  !PHASE[role][viewKind]                      -> 'forward'          // phase flags
   (m.mode || 0) !== 0                         -> 'forward'          // playing homotopy frames, transitions
   !(plan = invPlan(m.a, m.b)).ok              -> 'forward'          // Inverse.planChain, cached per rebuild()
   s._err                                      -> 'forward'          // an invalid shape draws nothing, as today
@@ -216,8 +216,7 @@ A shape changes path only when one of these changes:
 - map mode: morph play or pause (paused frames normalise), transitions;
 - program state;
 - the cost guard (D8), which only demotes bounded clean shapes, and only after half resolution in motion did not bring
-  the pane inside the 60 fps budget;
-- the `exactImages` switch.
+  the pane inside the 60 fps budget.
 
 **Never on pans, zooms or orbits**, with the single exception of the cost guard's demotion, whose two renders agree to
 ≤ 0.011 % golden_diff.
@@ -233,7 +232,7 @@ A shape changes path only when one of these changes:
 
 The left plane at stage 0, Phase, Landscape, the phase sphere, Preimage targets (`drawPreimage`), the line renderer's
 shaders, the map cache (still used by forward draws), `Region.buildMesh` (still meshes the left plane and the forward
-paths), the morph and transition renderers, and saved state (one new optional boolean, `exactImages`).
+paths), the morph and transition renderers, and saved state (an old save's `exactImages` key is read and ignored: exact images are always on).
 
 ---
 
@@ -1101,8 +1100,8 @@ net at cell edges, as `net()`.
 
 ### 8.1 When
 
-For each role, view kind and area shape whose path is `'forward'` because the shape is ineligible (or `exactImages` is
-off), and whose map is still:
+For each role, view kind and area shape whose path is `'forward'` because the shape is ineligible, and whose map is
+still:
 - the shape is stretched or unbounded (`Region.bboxOf` null, or larger than 3 windows), **or**
 - today's `computeFix` first pass finds trouble: a vertex with a non-finite image, or a triangle still failing the
   relative midpoint test (0.2 × longest edge) at depth 5. **Rev 2:** the test is view-independent (rev 1's "image
@@ -1310,10 +1309,9 @@ defects in practice.
 ## 10. App integration (`src/app.js`)
 
 ### 10.1 State and hooks
-- `S.exactImages` (default true; `sanitizeState` makes it a boolean).
+- No state: exact images are always on. An old save's `exactImages` key is dropped by `sanitizeState`.
 - Test hooks inside `TEMP-DEBUG-HOOK` blocks:
   - `__cmwPaths()` → `[{id, role, viewKind, path, reason}]`;
-  - `__cmwSet('exactImages', bool)`;
   - `__cmwForceForward([ids])` → `pathOf` returns `'forward'` for those shape ids (mixed-path tests, 12.4 (c));
   - `__cmwSphereW(x, y)` → w under a Sphere-view pixel (for 12.4);
   - `__cmwGuard()` → the cost guard's state per pane (12.5).
@@ -1527,7 +1525,7 @@ Phase flags (2.1) live in one table in app.js: `PHASE = {R: {flat: P2, globe: P3
 - **Work.** `src/sphere.js` (8.2–8.9), `regionP`/`regionSP`, app jobs (10.4) for ineligible shapes, the display rule
   during rebuilds, job keys and tokens (8.8), `prepareExport` for SphereMesh (10.6).
 - **Tests.**
-  - 12.3, including a forced-forward quality run: every acceptance scene with `exactImages` off reaches IoU ≥ 0.999
+  - 12.3, including a forced-forward quality run: every acceptance scene with every shape forced forward (`__cmwForceForward`) reaches IoU ≥ 0.999
     after settle.
   - Perf: `image.custom_e_z1z.m240` (e^{z+1/z} on H) settles within budget, no slice over 6 ms; `image.expexp_H`
     (an unbounded shape forced forward by the outer-family rule) pan and zoom settle units.
@@ -1674,7 +1672,7 @@ shapes: the scissor box contains every image pixel of a dense (10⁵-point) forw
   - Repeat both on the globe (rev 2: merged list order).
 - (d) Compile gap: right after adding a step, a frame with `frameStatus().pending` shows the forward image; within 2 s
   it is replaced by the inverse image; no frame is blank. The step thumbnail drawn during the gap is redrawn.
-- (e) `exactImages` toggled off and on: forward and inverse images of the bounded golden scenes differ by
+- (e) every shape forced forward and not: forward and inverse images of the bounded golden scenes differ by
   ≤ 0.5 % golden_diff.
 - (f) Sphere view z^i(H): 400 globe samples inside the hole cap are globe-coloured; 400 annulus samples are fill;
   Cayley at the north pole has no notch (via `__cmwSphereW`).
