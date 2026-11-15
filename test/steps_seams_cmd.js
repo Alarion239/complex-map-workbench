@@ -9,10 +9,12 @@
 //    the seam instead: per column, the jumps between horizontally adjacent pixels in the 40 px band across it, the
 //    worst 20 columns' mean, at most 1.5 too The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
 //    w2 and w3), while the fill's programs link: the fill draws only with its mask, never a torn triangle whole
-//  - cracks: Square root and its sheets, Everywhere, parked half-way between z and w1, where the cut's image is the two
-//    rays from 0 at 135° and 225°: across each ray, no pixel of the paper's grey (max - min channel under 20) between
-//    two coloured ones (max - min channel over 40) 3 px either side
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
+//  - cracks: z^2 then its square root and z^3 then its cube root, coloured from z, Everywhere, parked half-way between z
+//    and w1, where the root's cut, carried into the picture, runs through the fill with a sheet on each side of it: along
+//    the cut's image, in the colour layer alone, no pixel of the paper's grey (max - min channel under 20) between two coloured ones (max - min
+//    channel over 40) 3 px either side; a control draws a one-pixel line of paper along the cut's image and the same scan
+//    must count it
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the images shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -176,62 +178,80 @@ const park = async (x, scope) => {
   ok('parked on w2: the seam along the cut is on one row in every column, to a pixel (no teeth)', info.atW2.cols > 100 && info.atW2.spread <= Math.ceil(info.atW2.k), info.atW2);
 }
 
-// cracks: Square root and its sheets
+// cracks: z^n then its n-th root
 {
-  const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-  const ex = names.indexOf('Square root and its sheets');
-  ok('cracks: the example is found', ex >= 0, names.length);
-  if (ex >= 0) {
-    await go(`http://localhost:${PORT}/test.html?view=steps&ns=seamsq${Date.now()}`);
-    await ready();
-    await ev(`__cmwExample(${ex}); 1`); await settled({ max: 20000 });
-    await park(0.5, 'all');
-    // The ray is scanned from RAY_START px out to RAY_END of the smaller canvas side, over +-RAY_HALF px across it; a pixel is a crack when its
-    // own saturation is under CRACK_SAT while the pixels FLANK px to both sides of the ray are above FLANK_SAT.
-    const RAY_START = 30, RAY_END = 0.45, RAY_HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500;
-    // (inject: a fill crack, a paper-grey line INJECT_PX wide, INJECT_OFF px beside the 135° ray, drawn into the frame before it is read)
-    const INJECT_PX = 2, INJECT_OFF = 4;
-    const scan = (inject) => ev(`(() => {
-      if (${inject}) {
-        const c0 = document.getElementById('canvasL'), r0 = c0.getBoundingClientRect(), k0 = c0.width / r0.width, o0 = __cmwW2S('L', 0, 0), O0 = [(o0[0] - r0.left) * k0, (o0[1] - r0.top) * k0];
-        const A0 = 135 * Math.PI / 180, u0 = [Math.cos(A0), -Math.sin(A0)], n0 = [-u0[1], u0[0]], g0 = c0.getContext('2d');
-        g0.save(); g0.setTransform(1, 0, 0, 1, 0, 0); g0.strokeStyle = 'rgb(236,240,242)'; g0.lineWidth = ${INJECT_PX}; g0.beginPath();
-        g0.moveTo(O0[0] + 100 * u0[0] + ${INJECT_OFF} * n0[0], O0[1] + 100 * u0[1] + ${INJECT_OFF} * n0[1]);
-        g0.lineTo(O0[0] + 260 * u0[0] + ${INJECT_OFF} * n0[0], O0[1] + 260 * u0[1] + ${INJECT_OFF} * n0[1]); g0.stroke(); g0.restore();
-      }
-      const RAY_START = ${RAY_START}, RAY_END = ${RAY_END}, RAY_HALF = ${RAY_HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT};
-      const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
-      const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), O = [(o[0] - r.left) * k, (o[1] - r.top) * k];
-      const sat = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return -1; const i = (y * W + x) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
-      const out = {};
-      for (const a0 of [135, 225]) {
-        const A = a0 * Math.PI / 180, u = [Math.cos(A), -Math.sin(A)], n = [-u[1], u[0]];
-        let samples = 0, cracks = 0, first = null;
-        for (let rr = RAY_START; rr < Math.min(W, H) * RAY_END; rr++) for (let t = -RAY_HALF; t <= RAY_HALF; t++) {
-          const p = [O[0] + rr * u[0] + t * n[0], O[1] + rr * u[1] + t * n[1]], s = sat(...p);
-          if (s < 0) continue;
-          samples++;
-          if (s < CRACK_SAT && sat(p[0] - FLANK * n[0], p[1] - FLANK * n[1]) > FLANK_SAT && sat(p[0] + FLANK * n[0], p[1] + FLANK * n[1]) > FLANK_SAT) { cracks++; if (!first) first = [Math.round(p[0]), Math.round(p[1])]; }
+  // (each case: z^n then its n-th root, cut 180, coloured from z, Everywhere, parked half-way between z and w1. The z plane
+  // covers the picture there more than once, so the root's cut, carried into the picture (its preimage under z^n, moved
+  // half-way), runs through the fill with a sheet on each side of it)
+  const CRACK_CASES = [{ name: 'Square root', n: 2 }, { name: 'Cube root', n: 3 }];
+  // The cut's image is sampled every STEP device px from ORIGIN device px out from 0, and each sample's pixels within
+  // HALF px across it are read; a pixel is a crack when its saturation (max - min channel) is under CRACK_SAT while the
+  // pixels FLANK px to both sides of it, across the cut's image, are over FLANK_SAT. The fill lies on both sides of a
+  // sample when the pixels HALF + FLANK px to both sides of it are over FLANK_SAT: TWO_SIDED of the samples at least, so
+  // that the rule reads a gap between two sheets, never the edge of the fill. The control, a line of PAPER one device
+  // pixel wide drawn along the cut's image, is counted at CAUGHT of the samples at least
+  const STEP = 0.5, ORIGIN = 30, HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500, TWO_SIDED = 0.95, CAUGHT = 0.9;
+  const PAPER = [236, 240, 242, 255];
+  // (the scan of the frame along the cut's image, window.__seamsCut's tracks of plane points; paper: draw the control first)
+  const SCAN = (paper) => `(() => {
+    const STEP = ${STEP}, ORIGIN = ${ORIGIN}, HALF = ${HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT}, PAPER = ${JSON.stringify(paper)};
+    const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height, g = c.getContext('2d');
+    const dev = (w) => { const p = __cmwW2S('L', w[0], w[1]); return [(p[0] - r.left) * k, (p[1] - r.top) * k]; };
+    const o = dev([0, 0]), edge = HALF + FLANK + 1;
+    // ([point, unit normal] along each track, in the canvas and ORIGIN px or more from 0)
+    const samples = [];
+    for (const t of window.__seamsCut) {
+      const P = t.map(dev);
+      for (let i = 0; i + 1 < P.length; i++) {
+        const a = P[i], b = P[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (!(len > 0)) continue;
+        const n = [(a[1] - b[1]) / len, (b[0] - a[0]) / len];
+        for (let s = 0; s < len; s += STEP) {
+          const p = [a[0] + (b[0] - a[0]) * s / len, a[1] + (b[1] - a[1]) * s / len];
+          if (p[0] >= edge && p[1] >= edge && p[0] < W - edge && p[1] < H - edge && Math.hypot(p[0] - o[0], p[1] - o[1]) >= ORIGIN) samples.push([p, n]);
         }
-        out[a0] = { samples, cracks, first };
       }
-      const g = __cmwSteps().glide || {};
-      return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
-    })()`);
-    info.cracks = await scan(false);
-    // (the cut's image curve, a red line with a paper-coloured halo, is a stroke: with the strokes hidden the frame draws none, so
-    // its halo is not a grey pixel between coloured ones; the same at any device pixel ratio)
-    info.cutCurves = await ev('__cmwCutCurves().length');
-    ok('cracks: Square root, parked half-way, strokes hidden: no cut curve is drawn', info.cutCurves === 0, info.cutCurves);
-    for (const a0 of ['135', '225']) {
-      const q = info.cracks.out[a0];
-      ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
-      ok(`cracks: Square root, parked half-way: no uncovered pixel along the cut's image at ${a0}°`, q.cracks === 0, q);
     }
-    // the control: the scan still counts a real crack beside the cut's image (the 135° ray; the 225° ray has none)
-    info.control = await scan(true);
-    ok('cracks: a fill crack injected beside the cut\'s image at 135° is counted', info.control.out['135'].cracks > 0, info.control.out['135']);
-    ok('cracks: the other ray, with no crack injected, still reads none', info.control.out['225'].cracks === 0, info.control.out['225']);
+    if (PAPER) { const im = g.createImageData(1, 1); im.data.set(PAPER); for (const [p] of samples) g.putImageData(im, Math.round(p[0]), Math.round(p[1])); }
+    const d = g.getImageData(0, 0, W, H).data;
+    const sat = (x, y) => { const i = (Math.round(y) * W + Math.round(x)) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
+    const at = (p, n, t) => [p[0] + t * n[0], p[1] + t * n[1]];
+    let twoSided = 0, cracks = 0, first = null;
+    for (const [p, n] of samples) {
+      if (sat(...at(p, n, -HALF - FLANK)) > FLANK_SAT && sat(...at(p, n, HALF + FLANK)) > FLANK_SAT) twoSided++;
+      for (let t = -HALF; t <= HALF; t++) {
+        const q = at(p, n, t);
+        if (sat(...q) < CRACK_SAT && sat(...at(q, n, -FLANK)) > FLANK_SAT && sat(...at(q, n, FLANK)) > FLANK_SAT) { cracks++; if (!first) first = q.map(Math.round); break; }
+      }
+    }
+    return { label: __cmwSteps().label, samples: samples.length, twoSided, cracks, first };
+  })()`;
+  for (const kase of CRACK_CASES) {
+    const ns = 'seamc' + kase.n + Date.now();
+    await seed(ns, { steps: [{ id: 'f1', type: 'pown', params: { n: kase.n } }, { id: 'f2', type: 'root', params: { n: kase.n, cut: 180, k: 0 } }], shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.6, ci: 1, visible: true }], focus: 2 });
+    await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+    await ready();
+    await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
+    await park(0.5, 'all');
+    // (the cut's image as the strokes draw it, read with them shown)
+    await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); await drawn();
+    const tracks = await ev(`(window.__seamsCut = __cmwCutCurves().filter((cut) => cut.step === 2).flatMap((cut) => (cut.w.length && Array.isArray(cut.w[0][0]) ? cut.w : [cut.w])).filter((t) => t.length > 1)).length`);
+    ok(`cracks: ${kase.name}: the cut's image is drawn`, tracks > 0, tracks);
+    await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 }); await drawn();
+    const cutCurves = await ev('__cmwCutCurves().length');
+    ok(`cracks: ${kase.name}, strokes hidden: no cut curve is drawn`, cutCurves === 0, cutCurves);
+    // (the colour layer alone is read: a crack is a gap in the fill, and the cut's curve with its paper-coloured halo is
+    // drawn over the fill)
+    await ev('__cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
+    ok(`cracks: ${kase.name}: the colour layer alone is drawn`, await drawn(), null);
+    const got = info['cracks' + kase.n] = await ev(SCAN(null));
+    ok(`cracks: ${kase.name}, parked half-way: the cut's image was sampled`, got.samples > MIN_SAMPLES, got);
+    ok(`cracks: ${kase.name}, parked half-way: the fill lies on both sides of the cut's image`, got.twoSided >= TWO_SIDED * got.samples, got);
+    ok(`cracks: ${kase.name}, parked half-way: no uncovered pixel along the cut's image`, got.cracks === 0, got);
+    // the control: the same scan counts a crack drawn along the cut's image
+    const control = info['cracksControl' + kase.n] = await ev(SCAN(PAPER));
+    ok(`cracks (control): ${kase.name}: a one-pixel line of paper along the cut's image is counted`, control.cracks >= CAUGHT * control.samples && control.samples > MIN_SAMPLES, control);
+    await ev('__cmwSteps({ bare: false }); 1');
   }
 }
 return { pass: fails.length === 0, fails, info };
