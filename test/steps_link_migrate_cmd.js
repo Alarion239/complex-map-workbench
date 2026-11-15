@@ -2,7 +2,8 @@
 // rightMode, sphereMode, leftSphere, material and solo; the U-b `view`; a deformation range and the Deformation's time
 // figMorph; a right pane's camera rightView) opens in the steps view on its equivalent (Views.svOf through svAdopt), and
 // the links that carry such a state open the same way: #cmw=0. (plain JSON), #cmw=1. (deflate-raw), and a hash with cmw
-// after another part. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info, errs }.
+// after another part. The steps view also honours the query flags ?ns= (a page's own storage) and ?i18n-debug (the recorded lookup
+// misses). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info, errs }.
 // (the classic view's own picture is not tested here: this suite proves that the steps view shows the same thing)
 const zlib = process.mainModule.require('zlib');
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -17,6 +18,8 @@ const READ = `(() => { const s = __cmwSteps(), c = __cmwState(); return { on: s.
 const READY = "typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving";
 const READY_PARKED = "typeof __cmwSteps === 'function' && __cmwSteps().on && __cmwSteps().ready.ready";
 const OPEN_MS = 30000;
+// where the app saves the state of the page with ?ns=<ns> (the bare key without a namespace)
+const storeKey = (ns) => 'complex-map-workbench-v1' + (ns ? ':' + ns : '');
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 // The page is ready when READY holds, on a document other than the one that was open (the kit's reloaded(old, ...)): a reload
 // that swaps the page during the wait cuts the call off, and reloaded asks again of the new page, up to OPEN_MS; a page that
@@ -89,7 +92,7 @@ for (const [name, st, want] of CASES) {
   // the expanded pane (solo), the deformation range (homRange) and the step selected (sel)
   if (name.startsWith('right pane')) {
     // (the save is written on pagehide: poll for the saved right-pane camera, not a fixed wait)
-    const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+    const key = JSON.stringify(storeKey(ns));
     await ev('window.dispatchEvent(new Event("pagehide")); 1');
     await settled({ max: 15000, panes: false, until: `(() => { const o = JSON.parse(localStorage.getItem(${key})); return !!(o && o.rightView); })()` });
     const saved = await ev(`(() => { const o = JSON.parse(localStorage.getItem(${key})); return o ? o.rightView : null; })()`);
@@ -125,7 +128,7 @@ for (const [name, url] of FORMS) {
 n++;
 {
   const ns = 'lmig' + n + Date.now();
-  const key = JSON.stringify('complex-map-workbench-v1:' + ns);
+  const key = JSON.stringify(storeKey(ns));
   const fig = { ...LINK_STATE, figCam: { yaw: 0.4, pitch: -0.3, d: 1.5, tx: 0.1, ty: -0.2 }, figMorph: { T: 1.5 } };
   await openAt(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(fig, true)}`, true);
   const got = await ev(READ);
@@ -141,19 +144,36 @@ n++;
   await grab('figCam link');
 }
 
+// the two cameras a page holds, the Landscape's (cam) and the z-globe's (camL); near: whether camera a is camera b to within tol
+// (CAM_EXACT for values that pass through JSON unchanged, CAM_TOL for those the page works out, as a zoom against the fit)
+const CAM_EXACT = 1e-9, CAM_TOL = 1e-6;
+const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
+const near = (a, b, tol) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < tol);
+// a figure's link opened in a fresh namespace: the cameras of the page it opens on. The page is waited for at rest (the toast, the
+// steps view, not moving) unless atRest is false: a Landscape still refining holds no camera, so its link waits for the toast and
+// the steps view only
+const OPEN_TOAST = 'Opened the figure from the link.';
+const openCams = async (state, tag, atRest = true) => {
+  const old = await ev('performance.timeOrigin');
+  // (a raw navigation and the kit's reloaded, not go: go opens the url again when the document it is waiting for is slow to arrive, and
+  // a link opened again finds the state its own first open saved, and asks before opening it)
+  await send('Page.navigate', { url: `${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}` });
+  try {
+    if (atRest) await reloadedFigure(old, OPEN_TOAST);
+    else await reloaded(old, `document.body.innerText.includes(${JSON.stringify(OPEN_TOAST)}) && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
+  } catch (e) {
+    const page = await ev(`({ toast: (document.getElementById('toastHost') || {}).innerText, steps: typeof __cmwSteps === 'function' ? { on: __cmwSteps().on, moving: __cmwSteps().moving } : null, hash: location.hash.slice(0, 20) })`);
+    throw new Error(`${tag}: ${e.message}; the page: ${JSON.stringify(page)}`);
+  }
+  return camsOf();
+};
+
 // figCam names its camera (`of`): a link saved while the steps view shows the z-globe carries camL and opens on camL; a figCam
 // without `of` (a classic-saved link, the Landscape's) moves cam only and leaves camL where it was
 n++;
 {
   const GLOBE = { ...XY, rightMode: 'image', leftSphere: true };
-  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
-  const near = (a, b) => !!a && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < 1e-9);
-  const open = async (figCam) => {
-    const ns = 'lmig' + n + Date.now() + Math.floor(Math.random() * 1e6);
-    const old = await ev('performance.timeOrigin');
-    await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf({ ...GLOBE, figCam }, true)}`);
-    await reloadedFigure(old, 'Opened the figure from the link.');
-  };
+  const open = (figCam) => openCams({ ...GLOBE, figCam }, 'g');
   const base = { yaw: 0.2, pitch: -0.1, d: 1, tx: 0, ty: 0 };
   await open(base);   // no `of`: the Landscape's camera
   const land0 = await camsOf();
@@ -161,49 +181,41 @@ n++;
   await open(sph);
   const got = await camsOf();
   const { of, ...sphCam } = sph;
-  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam), got);
-  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam) && !near(got.cam, base), got);
-  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base), land0);
-  ok('figCam without `of`: camL is untouched', !near(land0.camL, base), land0);
+  ok('figCam of sphere: camL is the link\'s', near(got.camL, sphCam, CAM_EXACT), got);
+  ok('figCam of sphere: cam is untouched', !near(got.cam, sphCam, CAM_EXACT) && !near(got.cam, base, CAM_EXACT), got);
+  ok('figCam without `of`: cam is the link\'s', near(land0.cam, base, CAM_EXACT), land0);
+  ok('figCam without `of`: camL is untouched', !near(land0.camL, base, CAM_EXACT), land0);
   const out = await ev('__cmwFigureState().figCam');
   info['figCam written on the globe'] = out;
-  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam), out);
+  ok('figCam round trip: the sphere camera is written back with of "sphere"', !!out && out.of === 'sphere' && near(out, sphCam, CAM_EXACT), out);
   await grab('figCam of');
 }
 
+// the camera the Landscape block moves to: yaw and pitch (radians) and the pan, and the zoom against the fit; the wait for the
+// Landscape to settle after the surface change
+const MOVED_CAM = { yaw: 0.9, pitch: 0.25, tx: 0.08, ty: -0.12 }, CAM_ZOOM = 1.6, LAND_SETTLE_MS = 60000;
 // a link made from the steps view's Landscape carries its moved camera and opens on it: the link is built from the figure the
 // view writes (figureState), not by hand; a link made from the same figure without figCam opens on the default camera
 n++;
 {
-  const camsOf = () => ev('(() => { const c = __cmwState(); return { cam: c.cam, camL: c.camL }; })()');
-  const CAM_TOL = 1e-6;
-  const near = (a, b) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].every((k) => Math.abs(a[k] - b[k]) < CAM_TOL);
-  const ZOOM = 1.6;
-  const moved = { yaw: 0.9, pitch: 0.25, tx: 0.08, ty: -0.12 };
-  const nsOf = (tag) => 'lmig' + n + tag + Date.now() + Math.floor(Math.random() * 1e6);
-  const open = async (state, tag) => {
-    const old = await ev('performance.timeOrigin');
-    await go(`${BASE}/test.html?ns=${nsOf(tag)}&view=steps#cmw=${linkOf(state, true)}`);
-    await reloaded(old, `document.body.innerText.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on`, { limitMs: OPEN_MS });
-    return camsOf();
-  };
-  await open({ ...XY, rightMode: 'image' }, 'a');
+  await openCams({ ...XY, rightMode: 'image' }, 'a');
   await ev(`__cmwSteps({ surf: 'land' }); 1`);
-  await settled({ max: 60000 });
+  await settled({ max: LAND_SETTLE_MS });
   const base = (await camsOf()).cam;
-  await ev(`(() => { const c = __cmwCam('L'); __cmwCam('L', { yaw: ${moved.yaw}, pitch: ${moved.pitch}, dist: c.dist * ${ZOOM}, tx: ${moved.tx}, ty: ${moved.ty} }); })(), 1`);
-  const want = { ...moved, d: base.d * ZOOM };
+  await ev(`(() => { const c = __cmwCam('L'); __cmwCam('L', { yaw: ${MOVED_CAM.yaw}, pitch: ${MOVED_CAM.pitch}, dist: c.dist * ${CAM_ZOOM}, tx: ${MOVED_CAM.tx}, ty: ${MOVED_CAM.ty} }); })(), 1`);
+  const want = { ...MOVED_CAM, d: base.d * CAM_ZOOM };
   const fig = await ev('__cmwFigureState()');
   const out = fig && fig.figCam;
   info['figCam written on the Landscape'] = out;
   ok('Landscape link: figCam is written without `of`', !!out && !('of' in out), out);
-  ok('Landscape link: the camera written is the one on the view', near(out, want), { out, want });
-  const got = await open(fig, 'b');
+  ok('Landscape link: the camera written is the one on the view', near(out, want, CAM_TOL), { out, want });
+  const got = await openCams(fig, 'b', false);
   info['Landscape link opened'] = got;
-  ok('Landscape link: cam is the written camera on reopening', near(got.cam, out), { out, got });
-  const { figCam, ...bare } = fig;
-  const plain = await open(bare, 'c');
-  ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out), { out, plain });
+  ok('Landscape link: cam is the written camera on reopening', near(got.cam, out, CAM_TOL), { out, got });
+  const bare = { ...fig };
+  delete bare.figCam;
+  const plain = await openCams(bare, 'c', false);
+  ok('Landscape link without figCam: cam is not the moved camera (the control)', !near(plain.cam, out, CAM_TOL), { out, plain });
   await grab('Landscape link');
 }
 
@@ -278,6 +290,53 @@ n++;
   ok('figureState: no hideLeft or hideRight', !!fs && eq(fs.keys, []), fs);
   ok('figureState: rightView is null while the right plane is fitted (auto)', !!fs && fs.rightView === null, fs);
   await grab('figureState');
+}
+
+// ?ns=<name> gives a page its own storage: the figure a namespaced steps page saves is under its own key, not the bare one, and
+// neither another namespace nor the page without ?ns sees it
+n++;
+{
+  const nsA = 'lmigA' + n + Date.now(), nsB = 'lmigB' + n + Date.now();
+  const stepsSaved = (ns) => ev(`(() => { const v = localStorage.getItem(${JSON.stringify(storeKey(ns))}); return v ? JSON.parse(v).steps.length : null; })()`);
+  const chainTypes = () => ev('__cmwFigureState().steps.map((st) => st.type)');
+  const LINK_TYPES = LINK_STATE.steps.map((st) => st.type);   // (a page with no saved figure opens a worked example, a different chain)
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=${nsA}&view=steps#cmw=${linkOf(LINK_STATE, true)}`);
+  await reloadedFigure(old, 'Opened the figure from the link.');
+  await ev('window.dispatchEvent(new Event("pagehide")); 1');
+  await settled({ max: 15000, panes: false, until: `(() => { const v = localStorage.getItem(${JSON.stringify(storeKey(nsA))}); return !!v && JSON.parse(v).steps.length === ${LINK_STATE.steps.length}; })()` });
+  const saved = { own: await stepsSaved(nsA), bare: await stepsSaved('') };
+  info['?ns: where the figure is saved'] = saved;
+  ok('?ns: the figure is saved under the namespace', saved.own === LINK_STATE.steps.length, saved);
+  ok('?ns: nothing is saved under the bare key', saved.bare === null, saved);
+  await openAt(`${BASE}/test.html?ns=${nsB}&view=steps`);
+  const other = await chainTypes();
+  ok('?ns: another namespace opens without the figure', other.length > 0 && !eq(other, LINK_TYPES), other);
+  await openAt(`${BASE}/test.html?view=steps`);
+  const bare = await chainTypes();
+  ok('without ?ns: the page does not see the namespace\'s figure', bare.length > 0 && !eq(bare, LINK_TYPES), bare);
+  await grab('?ns');
+}
+
+// ?i18n-debug records the lookups an interface language has no entry for (I18N.missing); without it, and without ?lang=, nothing is
+// recorded. The language is the device setting (cmw-lang), Russian here, so that ?lang= is not what turns the recording on.
+n++;
+{
+  const ns = 'lmigI' + n + Date.now();
+  const PROBE = 'a sentence no language has ' + ns;
+  const probed = () => ev(`(() => { const ru = $t('Link copied.'); $t(${JSON.stringify(PROBE)}); return { debug: I18N._debug, ru: ru !== 'Link copied.', recorded: [...I18N.missing].includes(${JSON.stringify(PROBE)}) }; })()`);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  await ev(`localStorage.setItem('cmw-lang:${ns}', 'ru'); 1`);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps`);
+  const off = await probed();
+  info['?i18n-debug: without the flag'] = off;
+  ok('?i18n-debug: the steps view is in Russian from the device setting', off.ru, off);
+  ok('without ?i18n-debug: no lookup miss is recorded', !off.debug && !off.recorded, off);
+  await openAt(`${BASE}/test.html?ns=${ns}&view=steps&i18n-debug`);
+  const on = await probed();
+  info['?i18n-debug: with the flag'] = on;
+  ok('?i18n-debug: a lookup miss is recorded in the steps view', on.debug && on.ru && on.recorded, on);
+  await grab('?i18n-debug');
 }
 
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);
