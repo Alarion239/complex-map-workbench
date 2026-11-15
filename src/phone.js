@@ -798,6 +798,20 @@ const Phone = (() => {
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
+  // the open Display sheet is filled again from the strips as they now are (a colour style chosen in it has its own
+  // settings). A focus that was inside the sheet stays there, on what it was on: the checked choice of the same segmented
+  // control, else the control with the same id, else the sheet's first control; the sheet keeps its scroll position
+  function refreshDisplay() {
+    if (!on || kind !== 'display' || !els.viewOpts) return;
+    const body = els.body.display, top = body.scrollTop, was = document.activeElement;
+    const held = !!was && was !== document.body && body.contains(was);
+    const group = held && was.closest('[role="radiogroup"]'), gid = group && group.id, wid = held && was.id;
+    fillDisplay(els.dispSide);
+    body.scrollTop = top;
+    if (!held) return;
+    const now = (gid && body.querySelector(`#${CSS.escape(gid)} [aria-checked="true"]`)) || (wid && body.querySelector(`#${CSS.escape(wid)}`)) || body.querySelector('button, input, select, [tabindex]');
+    if (now) /** @type {HTMLElement} */ (now).focus();
+  }
   function homeDisplay() {
     const home = $('regionsHome');
     if (!home) return;
@@ -1016,7 +1030,7 @@ const Phone = (() => {
     backInit();
   }
   return {
-    init, open, close, chain, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, chain, refreshDisplay: () => refreshDisplay(), swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),

@@ -329,10 +329,13 @@
     }
     x.putImageData(img, 0, 0);
   }
-  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z
+  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z. The Landscape under
+  // Plaster draws the relief with no phase colours, so there is no colouring to name and the note is hidden
   function regionsNote() {
-    const note = document.querySelector('#regionsBox > .lbl');
-    if (note) note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
+    const note = /** @type {HTMLElement | null} */ (document.querySelector('#regionsBox > .lbl'));
+    if (!note) return;
+    note.hidden = S.view.main === 'land' && !lPhase();
+    note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
   }
   function buildDisplay() {
     // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)
@@ -340,6 +343,7 @@
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
+    $('patScale').setAttribute('aria-valuetext', $('patScaleVal').textContent);
     $('meshRange').min = 0; $('meshRange').max = 1000; $('meshRange').step = 1;
     $('meshRange').value = meshToPos(S.meshN);
     showMeshVal(S.meshN);
@@ -455,6 +459,7 @@
   }
   function showMeshVal(n) {
     $('meshVal').textContent = `${n}`;
+    $('meshRange').setAttribute('aria-valuetext', `${n}`);   // (the slider's value is a position on the piecewise scale)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#meshPresets button'))) b.classList.toggle('on', +b.dataset.n === n);
     $('meshNote').hidden = n < 480;
     paintFader($('meshRange'));
