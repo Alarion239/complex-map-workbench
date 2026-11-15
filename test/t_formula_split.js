@@ -13,7 +13,7 @@
 //  6. the deformation: the formula's hom(t) against the split chain played step after step at n t (400 points, five t);
 //     the morph.T mapping;
 //  7. the rows: the last row reads back as F; `eq` exactly when the spelling differs; the names are the recNote's;
-//  8. the Möbius TeX without a zero term; 9. cost (p95 < 1 ms uncached, 12 nested sines < 5 ms);
+//  8. the Möbius TeX without a zero term; 9. cost, as CPU time (p95 < 3 ms uncached, cached about 0, 12 nested sines < 5 ms);
 // 10. the search's one-step corpus: every catalog step's spellings (LaTeX and plain, English and Russian notation, with
 //     parameters and shared numbers) is `one` of that type with the expected parameters, and equals the formula.
 // node test/t_formula_split.js [-v]
@@ -23,6 +23,7 @@ const R = path.join(__dirname, '..');
 global.CX = require(R + '/src/cx.js'); global.Expr = require(R + '/src/parse.js');
 global.Funcs = require(R + '/src/funcs.js'); global.Region = require(R + '/src/region.js');
 global.Inverse = require(R + '/src/inverse.js'); global.Recognize = require(R + '/src/recognize.js');
+const { cpuPerCall } = require('./lib/cpu_time');
 const C = CX.C;
 const VERBOSE = process.argv.includes('-v');
 let A = 0.7;
@@ -251,22 +252,29 @@ A = 1; { const sp = Funcs.splitSteps(stOf('\\frac{az+1}{z+a}')); ok('a = 1: bloc
 
 // ---- 9. cost ----
 {
+  // (CPU time, test/lib/cpu_time.js: a busy machine does not count in it. A reading is not exact under a CPU-clock tick, so each
+  // formula is timed over CUTS_TIMED calls, at cuts it has not been split at, and the p95 is taken over the formulas)
+  const CUTS_TIMED = 7, CACHED_CALLS = 1000, NESTED_TIMED = 40;
   const times = [];
+  // (one untimed pass first, at other cuts: the compiler's threads are counted in CPU time, and the first formulas run before the code is warm)
+  for (const inp of inputs) for (let j = 0; j < CUTS_TIMED; j++) Funcs.splitSteps(stOf(inp.tex, 300 + j / 10), null);
   for (const inp of inputs) {
     const st = stOf(inp.tex, 180), b = Funcs.build(st);
     if (b.error) continue;
-    const t0 = performance.now(); Funcs.splitSteps(stOf(inp.tex, 181.5 + times.length % 7 / 10), null); times.push(performance.now() - t0);
+    times.push(cpuPerCall((j) => Funcs.splitSteps(stOf(inp.tex, 181.5 + j / 10), null), CUTS_TIMED));
   }
   times.sort((a, b) => a - b);
   const p95 = times[Math.floor(times.length * 0.95)];
   // (the uncached figure includes the build of the step at a cut not seen before; the split alone is less)
-  ok(`splitSteps p95 < 3 ms uncached with its build (${p95.toFixed(2)} ms)`, p95 < 3, p95);
+  ok(`splitSteps p95 < 3 ms uncached with its build, CPU time (${p95.toFixed(2)} ms)`, p95 < 3, p95);
   const st = stOf('\\sin(z^2+1)'), b = Funcs.build(st); Funcs.splitSteps(st, b);
-  const t0 = performance.now(); for (let i = 0; i < 1000; i++) Funcs.splitSteps(st, b); const cached = (performance.now() - t0) / 1000;
+  const cached = cpuPerCall(() => Funcs.splitSteps(st, b), CACHED_CALLS);
   ok(`cached about 0 (${(cached * 1000).toFixed(1)} µs)`, cached < 0.05, cached);
   let e = 'z'; for (let i = 0; i < 12; i++) e = `\\sin(${e})`;
-  const s12 = stOf(e), b12 = Funcs.build(s12);
-  const t1 = performance.now(); const sp12 = Funcs.splitSteps(s12, b12); const dt = performance.now() - t1;
+  const s12 = stOf(e), b12 = Funcs.build(s12), sp12 = Funcs.splitSteps(s12, b12);
+  // (the states are built before the clock starts: the time is the split)
+  const nested = Array.from({ length: NESTED_TIMED }, (_, j) => { const s = stOf(e, 181.5 + j / 10); return [s, Funcs.build(s)]; });
+  const dt = cpuPerCall((j) => Funcs.splitSteps(nested[j][0], nested[j][1]), NESTED_TIMED);
   ok(`12 nested sines split into 12 in < 5 ms (${dt.toFixed(2)} ms)`, sp12.kind === 'many' && sp12.steps.length === 12 && dt < 5, [sp12.kind, sp12.steps.length, dt]);
   stats.p95 = +p95.toFixed(3); stats.cachedUs = +(cached * 1000).toFixed(2); stats.nested12 = +dt.toFixed(2);
 }
