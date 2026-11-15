@@ -89,6 +89,8 @@ const VIEWS = {
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
   'steps_glide_later_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
+  'steps_inspector_cmd.js': steps({ pin: true }),
+  'steps_orthogonal_listen_cmd.js': steps(),
   'steps_walk_cmd.js': steps({ pin: true }),
   'steps_split_remap_cmd.js': steps({ pin: true }),
   'steps_split_all_cmd.js': steps({ pin: true }),
