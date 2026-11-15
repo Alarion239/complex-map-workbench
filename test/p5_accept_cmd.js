@@ -5,7 +5,7 @@
 // One camera shows every plane (S.srcView): the scenes' views of the image are their srcView.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
-//  (k) the crack test: exact images off, each scene's region drawn from its SphereMesh; every interior pixel (the
+//  (k) the crack test: each scene's region forced forward (__cmwForceForward), drawn from its SphereMesh; every interior pixel (the
 //      analytic truth, 4 px from the rims) is covered (fill = more than 24 (summed over the channels) from the plane's
 //      own picture with no fill: its paper, its grid lines and axes, and their anti-aliased blends with the paper)
 //  12.3 the trouble classification (__cmwSmVerdict) is the same at 1x, 4x and 1/4x zoom for every quality scene
@@ -19,7 +19,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const req = process.getBuiltinModule('module').createRequire(process.cwd() + '/');
 const Q = req('./test/regress/quality/scenes.js');
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
-const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false, exactImages: false };
+const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 // the steps view at the chain's last plane (sv.at is clamped to it), coloured from plane z, on Inside regions
 const SV = { dc: 'phase', sv: { at: 99, T: 0, scope: 'in' } };
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
@@ -44,11 +44,11 @@ const settle = async (ms = 120000, want = {}) => {
 // calls, as long as it takes, and fail with the hook that never came rather than a ReferenceError later. Then count what the
 // app draws (watchDraws below).
 const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSmReset', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
-// The steps view's rest frame is the exact pass's whatever a scene's saved exactImages says, so a scene whose frame must be the
-// meshes' (loadReady's fwd) has its shapes forced forward (the test hook), and the exact image is read with none forced
+// The steps view's rest frame is the exact pass's, so a scene whose frame must be the meshes' (loadReady's fwd) has its shapes
+// forced forward (the test hook), and the exact image is read with none forced
 let curIds = [];
 const forceFwd = (ids) => ev(`__cmwForceForward(${JSON.stringify(ids)}); 1`);
-const setExact = async (on) => { await ev(`__cmwSet("exactImages", ${on}); 1`); await forceFwd(on ? [] : curIds); };
+const setExact = (on) => forceFwd(on ? [] : curIds);
 const loadReady = async (ns, st, ms = 120000, fwd = false) => {
   const r = await load(ns, st);
   const t0 = Date.now();
@@ -183,8 +183,8 @@ for (const run of Q.runs()) {
   seen.add(run.scene.name);
   const v = [];
   for (const k of [1, 4, 0.25]) {
-    const st = Object.assign({}, run.state, SV, { exactImages: false, srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
-    await loadReady('p5v' + Date.now(), st);
+    const st = Object.assign({}, run.state, SV, { srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
+    await loadReady('p5v' + Date.now(), st, 120000, true);
     // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
     // is asked for here: the first may have come before) and the LED rests)
     await ev('window.__p5f = window.__p5w.frames; __cmwHideStrokes(false); 1');
@@ -203,7 +203,7 @@ ok('12.3: the SphereMesh verdict is the same at 1x, 4x and 1/4x for every qualit
 // ---- 8.8: a pan of plane z that re-centres clipWin; the stand-in is the old mesh, never the GPU image ----
 // (in the steps view the meshing window is plane z's: a pan of a later plane moves the one camera and leaves clipWin,
 // whose mesh stays valid; so plane z is panned, and the frames are read back on the last plane)
-await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 ok('8.8: the app drew the mesh before the rest frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest0');
@@ -253,7 +253,7 @@ ok('8.8: frames during the rebuild match the rest frame (<= 0.5 % of pixels > 32
 ok('8.8: frames during the rebuild match the exact image (<= 0.5 % of pixels > 32/255)', R.panFrames.duringVsTruth.every((d) => d && d.frac32 <= 0.005), R.panFrames);
 
 // ---- the forward image of exp(H) (checker, alpha 0.85) against the exact inverse image ----
-await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 ok('exp(H) forward vs inverse: the app drew the mesh before the forward frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('fwd');
@@ -299,7 +299,7 @@ ok('10.6: the export meshes are freed once the figure is drawn', exE.length === 
 ok('10.6: the export mesh ended on no budget', stE1.lastExport && stE1.lastExport.every((e) => !e.partial), R.export);
 
 // ---- memory: one mesh per slot at rest after four moves of the region (each a new mesh content) ----
-await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 // (each change is a new mesh: wait for its build, a job is asked for by a draw that may come late)
 let builtNow = 1;
@@ -328,7 +328,7 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
 {
   const hs = [0, 1, 2, 3].map((k) => ({ id: 'h' + k, kind: 'halfplane', a: [0, 0.4 * k], b: [1, 0.4 * k + 0.3 * (k % 2)] }));
   const st = { shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } };
-  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
   const s0 = await settle(120000, { entries: 4, built: 4 });
   // (the window watched: 2 s of the page's own time from here, through its frames)
   await ev('window.__restT = performance.now(), 1');
