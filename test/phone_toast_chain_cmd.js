@@ -6,6 +6,7 @@
 // lines, the buttons together at the right, 44 px tall) when they do not fit beside the buttons (ru and it at 360 px), one row otherwise (en).
 // A message of two rows over the Display and Chain sheets (360 × 640) and the More side panel (740 × 360) has the sheet end above it, whatever its height; a message
 // whose only button is the close × keeps it at the right over those sheets and without one.
+// The steps view's message with no sheet open takes two rows too when its words do not fit beside its buttons (the choice does not read the overflow on its start side).
 // In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -122,5 +123,41 @@ for (const [k, tag] of [[null, 'no sheet'], ['display', 'the Display sheet'], ['
   ok(`${t}: it shows with its close button`, !!mm && !!mm.x, mm);
   if (!mm || !mm.x) continue;
   ok(`${t}: the close button is at the right (its right edge at most ${X_EDGE_MAX} px from the message's)`, mm.toast[2] - mm.x[1] <= X_EDGE_MAX, { toast: mm.toast, x: mm.x });
+}
+// ---- the steps view's message with no sheet open (eyes on #1359, #1685): over the plot's bottom edge it is packed to the end, so the choice of rows
+// must not read the overflow on its start side: words that do not fit on one line beside the buttons take the full width, at most two lines, and the
+// buttons go below them at the right; short words stay on one row beside them (control)
+const PLOT_MSGS = { en: 'Added f₄ Exponential at the end of the chain, after the Möbius step', ru: 'Добавлен шаг f₄ (Экспонента) в конец цепочки, после дробно-линейного шага', it: 'Aggiunto il passo f₄ (Esponenziale) in fondo alla catena, dopo il passo di Möbius' };
+const measurePlot = () => ev(`(() => {
+  const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
+  const sp = t.querySelector(':scope > span'), tb = t.getBoundingClientRect(), sb = sp.getBoundingClientRect(), cs = getComputedStyle(t);
+  const inner = tb.width - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight) - 2 * parseFloat(cs.borderLeftWidth);
+  const btns = [...t.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { t: b.textContent.trim() || b.className, l: Math.round(r.left), r: Math.round(r.right), top: Math.round(r.top), hit: !!at && (b === at || b.contains(at)) }; });
+  return { placed: host.dataset.placed || null, rows: t.dataset.rows, toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), words: Math.round(sb.width), inner: Math.round(inner), wordsBottom: Math.round(sb.bottom),
+    cutV: sp.scrollHeight - sp.clientHeight, btns, win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.bottom <= innerHeight + 0.5 };
+})()`);
+for (const lang of ['en', 'ru', 'it']) {
+  const tag = `${lang} 360×640 steps view, no sheet`;
+  await fresh(360, 640, lang);
+  await ev(`__cmwToast(${JSON.stringify(PLOT_MSGS[lang])}, ${JSON.stringify({ en: 'Undo', ru: 'Отменить', it: 'Annulla' }[lang])}, { sticky: true }), 1`);
+  await shown();
+  await settled({ max: 3000, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]') && document.getElementById('toastHost').dataset.placed === 'phone-plot'` });
+  const m = await measurePlot();
+  info[tag] = m;
+  ok(`${tag}: the message lies over the plot`, !!m && m.placed === 'phone-plot', m);
+  if (!m) continue;
+  ok(`${tag}: words that do not fit beside the buttons take two rows`, m.rows === 'two', { rows: m.rows, words: m.words, inner: m.inner });
+  ok(`${tag}: the words have the full width`, m.words >= m.inner - 1, { words: m.words, inner: m.inner });
+  ok(`${tag}: the words are not clamped (at most two lines)`, m.cutV <= 1, { cutV: m.cutV });
+  ok(`${tag}: the buttons are below the words, at the right`, m.btns.length >= 2 && m.btns.every((b) => b.top >= m.wordsBottom - 1) && m.toast[2] - Math.max(...m.btns.map((b) => b.r)) <= X_EDGE_MAX + 8, { btns: m.btns, wordsBottom: m.wordsBottom, toast: m.toast });
+  ok(`${tag}: its buttons can be pressed and it is inside the window`, m.btns.every((b) => b.hit) && m.win, { btns: m.btns, win: m.win });
+}
+{
+  await fresh(360, 640, 'en');
+  await ev(`__cmwToast('Added f₄', 'Undo', { sticky: true }), 1`);
+  await shown();
+  await settled({ max: 3000, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]')` });
+  const m = await measurePlot();
+  ok('en 360×640 steps view, no sheet: a short message stays on one row (control)', !!m && m.rows === 'one', m);
 }
 return { pass: fails.length === 0, fails, info };

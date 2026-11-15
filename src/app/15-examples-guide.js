@@ -1024,14 +1024,15 @@
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
   // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
   // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
+  // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
   function fitToastRows(t) {
     if (!t.isConnected) return;
     const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
-    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap';
+    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap'; t.style.justifyContent = 'flex-start';
     t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
-    sp.style.whiteSpace = ''; t.style.flexWrap = '';
+    sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
   }
   function toast(msg, actionLabel, action, isUndo, o) {

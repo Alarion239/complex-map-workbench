@@ -532,8 +532,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
 :root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
-/* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right) */
+/* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right;
+   and a message whose words do not fit on one line beside its buttons (data-rows="two") has them full width, at most two lines, so they are not clamped beside the buttons) */
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast[data-rows="two"] > span { flex: 1 1 100%; }
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 
 .ph-ctx.under { visibility: hidden; }
