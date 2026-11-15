@@ -38,6 +38,7 @@ const CHROME_FLAGS = [
   ...EXTRA_FLAGS,
 ];
 
+// opts.flags: extra Chrome flags, after the others (a later switch of the same name wins)
 // opts.angle: another ANGLE backend than Metal (e.g. 'swiftshader' for the CPU-rendered WebGL2 of machines without a
 // usable GPU: swiftshader.ratio); every other flag stays the same
 function flagsFor(opts) {
@@ -59,7 +60,7 @@ async function launch(opts = {}) {
   const flags = opts.cache
     ? [...flagsFor(opts).filter((f) => !/^--disable-gpu-(program|shader-disk)-cache$/.test(f)), `--gpu-program-cache-size-kb=${CACHE_KB}`]
     : flagsFor(opts);
-  const ch = spawn(chrome, [...flags, `--user-data-dir=${prof}`, 'about:blank'], { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
+  const ch = spawn(chrome, [...flags, `--user-data-dir=${prof}`, ...(opts.flags || []), 'about:blank'], { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
   const wr = ch.stdio[3], rd = ch.stdio[4];
   let id = 0, buf = '';
   const pend = new Map();
