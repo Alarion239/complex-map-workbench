@@ -93,19 +93,31 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     if (k == uB) z1 = z;
   }
   return mix(z0, z1, uT);`,
-    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (groupT(k, uT, uGrp0, uGrpN) <= 0.0 ? 0 : 2) : ${POST}`, 'groupT(k, uT, uGrp0, uGrpN)'),
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (stepT(k) <= 0.0 ? 0 : 2) : ${POST}`, 'stepT(k)'),
   ];
   const MAP_STAGE = [
-    'return chainRange(s, uA, uB);',
-    `vec2 z = chainRange(s, uBase, uHi - 1);
+    () => 'return chainRange(s, uA, uB);',
+    () => `vec2 z = chainRange(s, uBase, uHi - 1);
   // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
-    `vec2 z0 = chainRange(s, uBase, uA);
+    () => `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAllG(z, uA, uB, uT, uGrp0, uGrpN));',
+    // (chainHomAll's walk, each step at its own time)
+    (n) => `vec2 z = chainRange(s, uBase, uA);
+  if (uT <= 0.0) return postOf(z);
+  for (int k = 1; k <= ${n}; k++) {
+    if (k > uB) break;
+    if (k > uA) z = chainHom(k, z, stepT(k));
+  }
+  return postOf(z);`,
   ];
+  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.js stepTime (the draw sets
+  // (1, 0), uT itself, for a step with no time of its own: GLR.use)
+  const STEP_T = (n) => `uniform vec2 uStepT[${n + 1}];
+float stepT(int k) { vec2 m = uStepT[min(k, ${n})]; return clamp(uT * m.x - m.y, 0.0, 1.0); }
+`;
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
@@ -120,12 +132,12 @@ bool derivIn(int a, int b) {
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
   const MAP = (info, mode) => {
-    const st = hasStages(info);
+    const st = hasStages(info), n = Math.max(1, sigsOf(info.key).length);
     return `
-const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost; uniform int uGrp0; uniform int uGrpN;
-${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
+const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
+${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}${mode === 3 ? STEP_T(n) : ''}
 vec2 mapPoint(vec2 s) {
-  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
+  ${st ? MAP_STAGE[mode](n) : MAP_PLAIN[mode](n)}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
@@ -1196,46 +1208,44 @@ void main() {
   o = vec4(dcolor(mapF(z)), 1.0);
 }
 `;
-  // The colour carried by the points, on the GPU (the steps view's svCarry): a grid of uN cells over plane s
-  // (uCGrid: its corner and cell), each cell two triangles, drawn without buffers (gl_VertexID). A vertex places its
-  // triangle's three corners by mapPoint (the glide's map from plane s: uBase = s), so the triangle is the same in all
-  // three, and one torn across a cut or a pole (an edge over uLim on the plane) is collapsed out of the picture; the
-  // corners in a loop no compiler can unroll (uNoUnroll): one copy of the chain. vP: the point of plane s, exact in the
-  // grid (affine), where the fragment stage evaluates the map into the colour plane.
-  const CARRY_VS = `
-uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale;
-uniform vec4 uCGrid; uniform ivec2 uN; uniform float uLim;
-out vec2 vP;
+  // The colour plot's stand-in while its program links (drawColorPlot's st.standIn): w = F(z) at the nodes of a grid,
+  // texel (i, j) the node i across and j up; uGO is node (0, 0) and uGC the cell, in device px from the viewport's
+  // corner. w is interpolated at each pixel and coloured by dcolor, as the plot colours F(z): bilinear in w, or in 1/w
+  // where the cell's four nodes all have |w| > 1 (about a pole, where 1/w is close to linear); a cell with a node that
+  // is not finite takes its nearest node's value. Off the grid nothing is drawn
+  const COLOR_STANDIN_FS = `
+uniform vec2 uGO; uniform float uGC; uniform vec4 uVp; uniform sampler2D uWNodes;
+out vec4 o;
+vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }
 void main() {
-  int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
-  ivec2 c = ivec2(cell % uN.x, cell / uN.x);
-  vec2 q0 = vec2(0.0), q1 = q0, q2 = q0, p = q0;
-  bool ok = true;
-  for (int k = 0; k < max(3, uNoUnroll); k++) {
-    if (k >= 3) break;
-    ivec2 o = k == 0 ? ivec2(0) : k == 1 ? (hf == 0 ? ivec2(1, 0) : ivec2(1, 1)) : (hf == 0 ? ivec2(1, 1) : ivec2(0, 1));
-    vec2 pk = uCGrid.xy + vec2(c + o) * uCGrid.zw, qk = mapPoint(pk);
-    if (!cfin(qk)) ok = false;
-    if (k == 0) q0 = qk; else if (k == 1) q1 = qk; else q2 = qk;
-    if (k == cn) p = pk;
-  }
-  ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
-  vec2 q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
-  vP = p;
-  gl_Position = ok ? vec4(((q - uCenter) - uCenterLo) * uScale, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  ivec2 n = textureSize(uWNodes, 0);
+  vec2 q = (gl_FragCoord.xy - uVp.xy - uGO) / uGC;
+  ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
+  vec2 f = clamp(q - vec2(i), 0.0, 1.0);
+  vec2 a = texelFetch(uWNodes, i, 0).xy, b = texelFetch(uWNodes, i + ivec2(1, 0), 0).xy;
+  vec2 c = texelFetch(uWNodes, i + ivec2(0, 1), 0).xy, d = texelFetch(uWNodes, i + ivec2(1, 1), 0).xy;
+  vec2 w;
+  if (!(cfin(a) && cfin(b) && cfin(c) && cfin(d))) w = texelFetch(uWNodes, i + ivec2(step(0.5, f)), 0).xy;
+  else if (min(min(dot(a, a), dot(b, b)), min(dot(c, c), dot(d, d))) > 1.0) w = cinv(mix(mix(cinv(a), cinv(b), f.x), mix(cinv(c), cinv(d), f.x), f.y));
+  else w = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  vec3 col = dcolor(w);
+  if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(n - 1)))) discard;
+  o = vec4(col, 1.0);
 }
 `;
-  // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
-  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
-  // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
-  // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
+  // The colour carried by the points, the fragment stage of the region meshes' carry (REGION_VS's carry option), of the
+  // pre-mapped meshes' (PRE_VS) and of the globe's (CARRY_GLOBE_VS): the colour plane's colour at the image of the point
+  // p of plane s there, G = chainRange(p, uGs, uGt) (the plot's style, dcolor), exact at every fragment; id: plane s is
+  // the colour plane (G the identity), a stage without the chain. Where the map from plane s folds (several points on
+  // one pixel past the colour plane), the inverse path's sheet key of the point (PRE_KEY, its depth) picks the one the
+  // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
   // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
-  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
+  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
