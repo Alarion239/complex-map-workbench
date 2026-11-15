@@ -351,7 +351,7 @@
     });
   }
   // (laying the strip out moves its controls out of the page and back, which drops the focus to the body: the control that had
-  // it takes it again, #1613)
+  // it takes it again)
   function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
     layoutFootRun(side, force);
