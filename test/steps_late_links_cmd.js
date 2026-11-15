@@ -23,7 +23,11 @@
 //   programs, then for its pole tracks, which no idle moment makes (svLinkHold); the frames that hold it make them, so
 //   the play reaches plane 1, and every glide frame the inverse pass draws after the hold has the whole tracks' key (none
 //   the poles a frame's own search found before them). Its place is polled in the page (__cmwSvX) with no frame asked
-//   for; control: those frames made the tracks.
+//   for; control: those frames made the tracks;
+// - on a fresh page, ▶ pressed on the partial sums with the chain's forward programs held linking (GLR.holdLinks): while
+//   the play is held with nothing changed, idle callbacks are given time and the left pane draws at most a tenth of the
+//   animation frames (the held frame stays on the pane), the frame kept there is the one a frame asked for with no
+//   change draws afresh, and once the links are let go the play reaches plane 1.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -36,6 +40,10 @@ const names = exampleNames();
 // to its end
 const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000, PLAY_MS = 120000;
 const NEWT_EX = 'Partial sums of the exponential', POLES_EX = 'Poles of the Gamma function', GLIDE_U = 0.5;
+// a play held with nothing changed: the idle callbacks given time and the animation frames it is watched over, and the
+// largest share of those frames the left pane may draw (the frames other code asks for: the pane's status notes, the
+// labels once still; the held frames themselves draw none)
+const HELD_IDLE = 20, HELD_TICKS = 60, HELD_SHARE = 0.1;
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 // (a page whose frames leave no idle moment: each idle callback runs for its timeout, at once when it has none, with no
 // time left)
@@ -198,6 +206,41 @@ try {
     } finally {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: noIdle.identifier });
     }
+  }
+  // the partial sums on a fresh page, ▶ pressed with the chain's forward programs held linking (GLR.holdLinks): the play
+  // waits on plane 0 and nothing changes its picture. Counted in the page from the hold's first drawn frame on: the
+  // animation frames, the left pane's frames drawn (GLR.blit into #canvasL) and a chain of idle callbacks, each with
+  // the time it was given; the left pane is read before and after a frame asked for with no change. Then the links let
+  // go: the play goes on
+  {
+    await example('llh', NEWT_EX, 'all');
+    await ev(`(() => {
+      const s = window.__llHeld = { ticks: 0, drawn: 0, idle: 0, withTime: 0, count: false };
+      const blit = GLR.blit;
+      GLR.blit = function (c) { if (s.count && c && c.canvas && c.canvas.id === 'canvasL') s.drawn++; return blit.apply(this, arguments); };
+      const tick = () => { if (s.count) s.ticks++; if (!s.done) requestAnimationFrame(tick); };
+      const idle = (dl) => { if (s.count) { s.idle++; if (dl.timeRemaining() > 0) s.withTime++; } if (!s.done) requestIdleCallback(idle); };
+      requestAnimationFrame(tick); requestIdleCallback(idle);
+      s.grab = () => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); return k.getContext('2d').getImageData(0, 0, k.width, k.height).data; };
+      return 1; })()`);
+    await ev('GLR.holdLinks(true), __cmwSteps({ play: true }), 1');
+    const h0 = await settled({ only: true, max: READY_MS, until: '__cmwSvX() === 0 && !!__cmwSteps().play && GLR.pendingLinks > 0' });
+    await ev('window.__llHeld.count = true, 1');
+    const h1 = await settled({ only: true, max: WARM_MS, until: `window.__llHeld.withTime >= ${HELD_IDLE} && window.__llHeld.ticks >= ${HELD_TICKS}` });
+    const held = await ev('(() => { const s = window.__llHeld; s.count = false; s.kept = s.grab(); s.at = s.drawnAll = s.drawn; return { ticks: s.ticks, drawn: s.drawn, idle: s.idle, withTime: s.withTime, x: __cmwSvX() }; })()');
+    // (a frame asked for with no change: the held frame drawn afresh, which the frames kept must show)
+    await ev('window.__llHeld.count = true, window.__llHeld.drawn = 0, __cmwSteps({ bare: true }), 1');
+    const h2 = await settled({ only: true, max: READY_MS, until: 'window.__llHeld.drawn > 0' });
+    const same = await ev('(() => { const s = window.__llHeld, a = s.kept, b = s.grab(); s.count = false; let off = 0; for (let i = 0; i < a.length; i++) if (a[i] !== b[i]) off++; return { n: a.length, off, x: __cmwSvX() }; })()');
+    await ev('GLR.holdLinks(false), 1');
+    const h3 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1' });
+    await ev('window.__llHeld.done = true, 1');
+    const got = { held, same, waits: { h0, h1, h2, h3 } };
+    ok(`${NEWT_EX}, ▶ with its links held: while the play is held with nothing changed, idle callbacks are given time (${HELD_IDLE} of them in ${HELD_TICKS} animation frames)`, h0.ok && h1.ok, got);
+    ok(`${NEWT_EX}, ▶ with its links held: while the play is held with nothing changed, the left pane draws at most ${HELD_SHARE} of its animation frames`, h0.ok && h1.ok && held.drawn <= HELD_SHARE * held.ticks, got);
+    ok(`${NEWT_EX}, ▶ with its links held: the frame kept on the pane is the one a frame asked for draws afresh`, h2.ok && same.x === 0 && same.off === 0, got);
+    ok(`${NEWT_EX}, ▶ with its links held, then let go: the play reaches plane 1`, h3.ok, got);
+    info.held = got;
   }
 } finally {
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });

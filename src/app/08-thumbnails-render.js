@@ -1,8 +1,11 @@
   // ---------------- render scheduling ----------------
   const dirty = { L: false, R: false, OL: false, OR: false, P: false, G: false }; // G: the legend chip
-  let rafId = 0;
+  // renderAsks: how many times a frame of the left pane has been asked for by a change (requestRender, a view tween, a
+  // motion remapped onto an edited chain); the frames a held glide draws over and over count only through their place,
+  // the view and the chain (svRenderMoving keeps the held frame on the pane while none of these changed)
+  let rafId = 0, renderAsks = 0;
   function requestRender(...which) {
-    for (const w of which.length ? which : ['L', 'R']) if (w) dirty[w] = true;
+    for (const w of which.length ? which : ['L', 'R']) if (w) { dirty[w] = true; if (w === 'L') renderAsks++; }
     if (!rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
   let lastInputT = 0, motionInT = 0;
@@ -296,7 +299,7 @@
       tw.view.cx = v.cx; tw.view.cy = v.cy; tw.view.s = v.s;
       if (u >= 1) { tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
     }
-    dirty.L = true; dirty.R = true;
+    dirty.L = true; dirty.R = true; renderAsks++;
   }
   // compute a fitted view for a pane without applying it
   function fittedView(pane, k, extraKs, F) {

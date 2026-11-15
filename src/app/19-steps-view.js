@@ -1681,14 +1681,24 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
-    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (svLandMoving(pane)) svHeldOn = null; else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    svHeldOn = null;
     SV.core = 'still'; still(pane);
   }
+  // the held frame on the left pane while a held glide's frames keep it there: { key: its inputs (the place held, the
+  // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn) }; null
+  // after any other frame
+  let svHeldOn = null;
   function svRenderMoving(pane) {
-    if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const hold = svLinkHold();
+    if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); return; }
+    const asks = renderAsks, hold = svLinkHold();
+    // (a held frame with the inputs of the held frame on the pane, and no frame asked for since, would draw that frame
+    // again: the pane keeps it, its status included, and the hold's own checks above are all this frame does)
+    const key = hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
+    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; return; }
+    svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null };
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
@@ -1800,6 +1810,7 @@
     if (rest) drawRulers(pane, 'L');
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
+    if (svHeldOn) svHeldOn.mf = mfDrawn;
   }
   // Inside regions between two planes: the alpha of the regions of later planes in the open frame, by the inverse pass
   // (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's map), at the opacity they have
@@ -3542,7 +3553,7 @@
     }
     if (sp) SV.span = span;
     SV.i = cl(pl(SV.i));
-    dirty.L = true;
+    dirty.L = true; renderAsks++;
   }
   function svShifted() {
     const sp = SV.split;
