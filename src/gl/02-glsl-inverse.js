@@ -132,7 +132,7 @@ bool ixShapeClip(vec2 z0, vec2 q, float m, out float lo, out float hi, out float
 ${CURVE_GEOM}#endif
 // ---- the shape's level (positive inside) and gradient: Region.levelOf, Inverse's kindLevel ----
 // (a curve of a later plane, kinds 11-16 and 20, in the staged program: minus its distance, so it holds no point and
-// its boundary draw, uEdgeOnly, strokes the curve itself)
+// the pass's boundary draw strokes the curve itself)
 vec3 ixKindLevel(vec2 z) {
   int kind = uShape.x;
 #ifdef IX_STAGED
