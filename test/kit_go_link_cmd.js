@@ -1,4 +1,4 @@
-// H.go (test/cdp_kit/cdpd.js) opens a #cmw= link once (#1619). A link opens in a second document (the app decodes it, drops the hash,
+// H.go (test/cdp_kit/cdpd.js) opens a #cmw= link once. A link opens in a second document (the app decodes it, drops the hash,
 // saves its figure and reloads), so with a heavy second document the first load event is missing for longer than GO_STALL_MS while
 // document 2 is still arriving. A navigation of the link again differs from the page that is loading only by its hash, so it is a
 // navigation within that document: the app opens the link again, finds the figure its first open saved, and shows the ask toast ("This
@@ -13,28 +13,13 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // (GO_STALL_MS is the kit's: a document stalled this long is opened again, unless it is a link)
 const HOLD_MS = GO_STALL_MS + 3000, STALL_BYTES = 1 << 20, SHEET_MS = 6000, GO_LIMIT_MS = 40000, NEVER_LIMIT_MS = 12000;
-const DIST = path.join(DIR, '..', '..', 'dist');
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1440, 900, false, false);
 await nav(`http://localhost:${PORT}/test.html?ns=kitgolinkbase${Date.now()}&view=steps`);
 const payload = await ev('await Params.encodeLink(__cmwP().figure)');
-// (a server for dist/: `late(n)` says whether the n-th test.html it serves arrives late: STALL_BYTES at once, the rest HOLD_MS
-// later, or never when `never`)
-const serveDist = async (late, never) => {
-  const srv = http.createServer((req, res) => {
-    const buf = fs.readFileSync(path.join(DIST, req.url.split('?')[0])), isTest = req.url.startsWith('/test.html');
-    // (no-store: a navigation again is another request, not the page from the cache)
-    res.setHeader('Content-Type', 'text/html'); res.setHeader('Content-Length', buf.length); res.setHeader('Cache-Control', 'no-store');
-    if (isTest) { srv.tests++; srv.log.push(`${Date.now() - srv.t0} ms: #${srv.tests} ${req.url.slice(0, 40)}`); }
-    if (!(isTest && late(srv.tests))) { res.end(buf); return; }
-    res.write(buf.subarray(0, STALL_BYTES));
-    if (!never) setTimeout(() => res.end(buf.subarray(STALL_BYTES)), HOLD_MS);
-  });
-  srv.tests = 0; srv.log = []; srv.t0 = Date.now();
-  await new Promise((done) => srv.listen(0, done));
-  srv.origin = 'http://localhost:' + srv.address().port;
-  return srv;
-};
+// (a server for dist/ whose n-th test.html arrives late, test/lib/dist_server.js: STALL_BYTES at once, the rest HOLD_MS later, or never)
+const { serveDist: serve } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'dist_server.js'), 'utf8'))({ http, fs, path, DIR });
+const serveDist = (late, never) => serve(late, { partial: STALL_BYTES, holdMs: never ? 0 : HOLD_MS });
 const close = (srv) => { srv.closeAllConnections(); srv.close(); };
 // the toasts the page shows over the next ms: the opened figure's, or the ask
 const toasts = async (ms) => {
