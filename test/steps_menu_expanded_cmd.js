@@ -29,5 +29,11 @@ for (const sel of SELS) {
   await open(sel);
   await key('Enter'); await closed();
   ok(`${sel} after a choice: aria-expanded is false`, (await state(sel)).exp === 'false', await state(sel));
+  // a press outside: on the plane's pane head title text, clear of the menu, its button and the pad (the page closes a menu on a capture-phase pointerdown, which the kit's click sends)
+  await open(sel);
+  const [ox, oy] = await ev(`(() => { const r = document.querySelector('#leftPanel').getBoundingClientRect(); return [r.left + r.width / 2, r.bottom - 12]; })()`);
+  info['outside ' + sel] = await ev(`(() => { const e = document.elementFromPoint(${ox}, ${oy}); const m = document.querySelector('#popHost .pop.menu'); return { at: e && (e.id || e.className || e.tagName), inMenu: !!m && !!e && m.contains(e) }; })()`);
+  await click(ox, oy); await closed();
+  ok(`${sel} after a press outside: aria-expanded is false`, (await state(sel)).exp === 'false', await state(sel));
 }
 return { pass: fails.length === 0, fails, info };
