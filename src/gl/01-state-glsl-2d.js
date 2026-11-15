@@ -93,19 +93,31 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     if (k == uB) z1 = z;
   }
   return mix(z0, z1, uT);`,
-    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (groupT(k, uT, uGrp0, uGrpN) <= 0.0 ? 0 : 2) : ${POST}`, 'groupT(k, uT, uGrp0, uGrpN)'),
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (stepT(k) <= 0.0 ? 0 : 2) : ${POST}`, 'stepT(k)'),
   ];
   const MAP_STAGE = [
-    'return chainRange(s, uA, uB);',
-    `vec2 z = chainRange(s, uBase, uHi - 1);
+    () => 'return chainRange(s, uA, uB);',
+    () => `vec2 z = chainRange(s, uBase, uHi - 1);
   // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
-    `vec2 z0 = chainRange(s, uBase, uA);
+    () => `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAllG(z, uA, uB, uT, uGrp0, uGrpN));',
+    // (chainHomAll's walk, each step at its own time)
+    (n) => `vec2 z = chainRange(s, uBase, uA);
+  if (uT <= 0.0) return postOf(z);
+  for (int k = 1; k <= ${n}; k++) {
+    if (k > uB) break;
+    if (k > uA) z = chainHom(k, z, stepT(k));
+  }
+  return postOf(z);`,
   ];
+  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.js stepTime (the draw sets
+  // (1, 0), uT itself, for a step with no time of its own: GLR.use)
+  const STEP_T = (n) => `uniform vec2 uStepT[${n + 1}];
+float stepT(int k) { vec2 m = uStepT[min(k, ${n})]; return clamp(uT * m.x - m.y, 0.0, 1.0); }
+`;
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
@@ -120,12 +132,12 @@ bool derivIn(int a, int b) {
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
   const MAP = (info, mode) => {
-    const st = hasStages(info);
+    const st = hasStages(info), n = Math.max(1, sigsOf(info.key).length);
     return `
-const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost; uniform int uGrp0; uniform int uGrpN;
-${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
+const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
+${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}${mode === 3 ? STEP_T(n) : ''}
 vec2 mapPoint(vec2 s) {
-  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
+  ${st ? MAP_STAGE[mode](n) : MAP_PLAIN[mode](n)}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
