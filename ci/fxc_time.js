@@ -21,6 +21,9 @@
 //   node ci/fxc_time.js play [--ref REF] [--scenes expsin,mk] [--timeout-s 900] [--tail-s 420] [--no-build] [--out FILE]
 //     the first glide as it plays (sampled every 250 ms): its first exact frame, its end, the frame rate meanwhile, the stalls
 //     (holds) and every inverse program it links: when, how long, and what waited for it.
+//   node ci/fxc_time.js cache [--bundle FILE] [--jobs 31,13,0,8] [--scenes expsin,mk] [--settings 2] [--timeout-s 900] [--budget-min 85] [--no-build] [--out FILE]
+//     the program cache: programs and app scenes linked cold, then in a fresh Chrome on the same profile, under two cache settings,
+//     with the cache folders' sizes.
 // Variants (the text of the fragment shader):
 //   a  as the app links it
 //   b  every for loop whose trip count is a literal or an IX_ constant gets "+ uZero" on its bound: a uniform nothing
@@ -51,7 +54,7 @@ const PAGE = `(() => {
       const t0 = performance.now();
       const vs = mk(gl.VERTEX_SHADER, job.vs), fs = mk(gl.FRAGMENT_SHADER, job.fs);
       const p = gl.createProgram(); gl.attachShader(p, vs); gl.attachShader(p, fs); gl.linkProgram(p);
-      if (ext) while (!gl.getProgramParameter(p, ext.COMPLETION_STATUS_KHR)) await new Promise((r) => setTimeout(r, 5));
+      if (ext && !job.noKhr) while (!gl.getProgramParameter(p, ext.COMPLETION_STATUS_KHR)) await new Promise((r) => setTimeout(r, 5));
       const ok = !!gl.getProgramParameter(p, gl.LINK_STATUS), ms = performance.now() - t0;
       // (and one draw: a back end that finishes its work at the first use of the program, not at the link, is timed there too)
       let drawMs = 0;
@@ -601,4 +604,166 @@ async function playAB() {
   process.exit(0);
 }
 
-(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play ...'))).catch((e) => { console.error(e); process.exit(2); });
+// ---- the program cache: does a second Chrome on the same profile link the same source faster?
+// On WARP a second pass of the extended walk linked as slowly as the first (#238). Two experiments, each under two cache settings
+// ("as glprof": the program cache raised to 512 MB, the disk cache at its default; "both raised": the disk cache raised too):
+//   programs  a few programs of the bundle (small to large) alone, each in a Chrome of its own, in turn, on one profile: cold, then
+//             the same again in a fresh Chrome on that profile; and the small and the large one each on a profile of their own
+//             (is a program evicted by the others, or never stored)
+//   app       a scene of the app (exp(sin z), the Mountain King: its load and first glide) cold, then in a fresh Chrome on the same
+//             profile: per program in link order its link seconds and the hash of its sources both times (the same source or not),
+//             with the cache folders' sizes after each pass
+const SRC_SHIM = `(() => {
+  const proto = WebGL2RenderingContext.prototype;
+  const ss = proto.shaderSource, at = proto.attachShader, lp = proto.linkProgram;
+  const src = new WeakMap(), att = new WeakMap();
+  window.__srcs = [];
+  proto.shaderSource = function (s, t) { src.set(s, t); return ss.call(this, s, t); };
+  proto.attachShader = function (p, s) { if (!att.has(p)) att.set(p, []); att.get(p).push(s); return at.call(this, p, s); };
+  proto.linkProgram = function (p) { const a = (att.get(p) || []).map((s) => src.get(s) || ''); window.__srcs.push({ vs: a[0] || '', fs: a[1] || '' }); return lp.call(this, p); };
+})();`;
+// the cache folders of a profile: [{ dir, files, kb }] (every folder under the profile, to a depth of 3, whose name has "cache")
+function cacheStats(prof) {
+  const out = [];
+  const size = (d) => { let n = 0, f = 0; try { for (const e of fs.readdirSync(d, { withFileTypes: true })) { const p = path.join(d, e.name); if (e.isDirectory()) { const r = size(p); n += r[0]; f += r[1]; } else if (e.isFile()) { n += fs.statSync(p).size; f++; } } } catch (e) { /* gone */ } return [n, f]; };
+  const walk = (d, depth) => {
+    let es = [];
+    try { es = fs.readdirSync(d, { withFileTypes: true }); } catch (e) { return; }
+    for (const e of es) {
+      if (!e.isDirectory()) continue;
+      const p = path.join(d, e.name);
+      if (/cache/i.test(e.name)) { const [n, f] = size(p); out.push({ dir: path.relative(prof, p), files: f, kb: Math.round(n / 1024) }); } else if (depth < 3) walk(p, depth + 1);
+    }
+  };
+  walk(prof, 1);
+  return out;
+}
+const cacheLine = (st) => st.filter((x) => x.kb > 0 || x.files > 0).map((x) => `${x.dir}: ${x.files} files, ${x.kb} KB`).join('; ') || 'no cache folder';
+const CACHE_SETTINGS = [['as glprof (program cache 512 MB, disk cache default)', []], ['disk cache raised too (--gpu-disk-cache-size-kb=524288)', ['--gpu-disk-cache-size-kb=524288']]];
+
+// one program in a Chrome of its own on the profile -> { s, ok }
+async function cacheLinkOne(prof, flags, source, timeoutMs) {
+  const H = await launch({ inject: PAGE, cache: prof, flags });
+  try {
+    await H.nav('about:blank');
+    await H.until('typeof window.__go === "function"', 20000, 100);
+    await H.ev(`window.__go(${JSON.stringify(source)})`);
+    const t1 = Date.now();
+    let r = null;
+    while (!r && Date.now() - t1 < timeoutMs) { await sleep(500); r = await Promise.race([H.ev('window.__res').catch(() => null), sleep(2000).then(() => null)]); }
+    return r ? { s: r.ms / 1000, ok: r.ok } : { s: null, ok: false };
+  } finally { await H.close(); }
+}
+
+// the app scene on the profile: load, the glide, every link landed -> [{ key, name, ms, kb, hash }] in link order
+async function cacheAppPass(base, name, tree, prof, flags, timeoutMs) {
+  const sc = SCENES[name], glide = sc.phases.find(([l]) => l === 'glide')[1];
+  const H = await launch({ width: 1440, height: 900, inject: SRC_SHIM, cache: prof, flags });
+  try {
+    const ns = `fxc${name}${Date.now()}`;
+    await H.nav(`${base}blank.html`);
+    if (sc.edit) {
+      const st = { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'image' };
+      await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+    }
+    await H.nav(`${base}test.html?ns=${ns}&view=steps&glprof`);
+    await H.until(`typeof __cmwSteps === 'function' && typeof GLR !== 'undefined'`, 240000, 200);
+    const quiet = async (maxMs) => {
+      const t0 = Date.now();
+      let n = -1, since = Date.now();
+      for (;;) {
+        const r = await H.ev('GLR.profile()'), open = r.filter((x) => x.ms === null).length;
+        if (r.length !== n) { n = r.length; since = Date.now(); }
+        if ((Date.now() - since > 6000 && !open) || Date.now() - t0 > maxMs) return r.length;
+        await sleep(250);
+      }
+    };
+    await quiet(timeoutMs);
+    if (sc.example) {
+      const i = exampleIndex(tree, sc.example);
+      if (i < 0) throw new Error(`no example named ${sc.example} in ${tree}`);
+      await H.ev(`__cmwExample(${i})`);
+    }
+    if (sc.edit) {
+      await H.until(`!!document.querySelector('input[data-pkey="expr"]')`, 30000, 100);
+      await H.ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = ${JSON.stringify(sc.edit)}; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return true; })()`);
+    }
+    await quiet(timeoutMs);
+    await H.ev(glide);
+    await quiet(timeoutMs);
+    const prof2 = await H.ev('GLR.profile()'), srcs = await H.ev('window.__srcs');
+    return prof2.map((r, i) => { const s = srcs[i] || { vs: '', fs: '' }; return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs) }; });
+  } finally { await H.close(); }
+}
+
+async function cacheStudy() {
+  const bundleFile = path.resolve(opt('bundle', path.join(ROOT, 'ci', 'fxc', 'bundle.json')));
+  const B = JSON.parse(fs.readFileSync(bundleFile, 'utf8'));
+  const timeoutMs = Number(opt('timeout-s', '900')) * 1000, budgetMs = Number(opt('budget-min', '85')) * 60000;
+  const progJobs = opt('jobs', '31,13,0,8').split(',').map(Number), scenes = opt('scenes', 'expsin,mk').split(',');
+  const src = (i) => B.sources[`${B.jobs[i].prog}:${B.jobs[i].variant}`];
+  const nameOf = (i) => { const p = B.programs.find((q) => q.id === B.jobs[i].prog); return `${p.name} ${String(p.key).slice(0, 36)} (${B.jobs[i].srcKB} KB)`; };
+  if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
+  const S = await serve(path.join(ROOT, 'dist'));
+  fs.writeFileSync(path.join(ROOT, 'dist', 'blank.html'), '<!doctype html><title>b</title>');
+  const t00 = Date.now(), tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-cachestudy-'));
+  const res = { programs: [], app: [] };
+  const over = () => Date.now() - t00 > budgetMs;
+  for (const [setName, flags] of CACHE_SETTINGS.slice(0, Number(opt('settings', String(CACHE_SETTINGS.length))))) {
+    // programs in turn on one profile: cold, warm; then the first (small) and the largest alone on a profile of their own
+    const plans = [['all in turn', progJobs], ['small alone', [progJobs[0]]], ['large alone', [progJobs[progJobs.length - 1]]]];
+    for (const [plan, js] of plans) {
+      const prof = path.join(tmp, `p${res.programs.length}`);
+      const row = { setting: setName, plan, passes: [] };
+      res.programs.push(row);
+      for (const pass of ['cold', 'warm']) {
+        const cells = [];
+        for (const j of js) {
+          if (over()) { cells.push({ job: j, s: null, skipped: true }); continue; }
+          const r = await cacheLinkOne(prof, flags, src(j), timeoutMs);
+          cells.push({ job: j, s: r.s });
+          console.log(`[fxc] cache ${setName.slice(0, 20)} ${plan} ${pass}: ${nameOf(j)} ${r.s == null ? 'timeout' : r.s.toFixed(1) + ' s'}`);
+        }
+        row.passes.push({ pass, cells, cache: cacheStats(prof) });
+      }
+    }
+    for (const name of scenes) {
+      const prof = path.join(tmp, `a${res.app.length}`), row = { setting: setName, scene: name, passes: [] };
+      res.app.push(row);
+      for (const pass of ['cold', 'warm']) {
+        if (over()) { row.passes.push({ pass, skipped: true }); continue; }
+        const recs = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs);
+        row.passes.push({ pass, recs, cache: cacheStats(prof) });
+        console.log(`[fxc] cache ${setName.slice(0, 20)} app ${name} ${pass}: ${recs.length} links, ${(recs.reduce((a, r) => a + Math.max(0, r.ms || 0), 0) / 1000).toFixed(1)} s of link time; ${cacheLine(cacheStats(prof))}`);
+      }
+    }
+  }
+  S.server.close();
+  const outFile = path.resolve(opt('out', path.join(ROOT, '.ci', 'fxc', 'cache.json')));
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, res }, null, 1));
+  const f = (v) => (v == null ? '' : v.toFixed(1));
+  const lines = ['### The program cache: a second Chrome on the same profile', '', 'Link seconds. A program is a hit when the warm link takes under 35 % of the cold one (or under 1 s).', ''];
+  for (const row of res.programs) {
+    lines.push(`**Programs, ${row.plan}; ${row.setting}**`, '', '| program | cold s | warm s | warm / cold |', '|---|---|---|---|');
+    const [c, w] = row.passes;
+    c.cells.forEach((x, i) => lines.push(`| ${esc(nameOf(x.job))} | ${x.skipped ? 'skipped' : f(x.s)} | ${f(w.cells[i].s)} | ${x.s && w.cells[i].s != null ? (w.cells[i].s / x.s).toFixed(2) : ''} |`));
+    lines.push('', `Cache after the cold pass: ${cacheLine(c.cache)}. After the warm pass: ${cacheLine(w.cache)}.`, '');
+  }
+  for (const row of res.app) {
+    const [c, w] = row.passes;
+    if (c.skipped || w.skipped) { lines.push(`**App, ${row.scene}; ${row.setting}**: skipped (budget)`, ''); continue; }
+    const sum = (a) => a.reduce((s, r) => s + Math.max(0, r.ms || 0), 0) / 1000;
+    const hits = c.recs.map((r, i) => { const x = w.recs[i]; return x && x.hash === r.hash ? ((x.ms || 0) < 1000 || x.ms < 0.35 * r.ms ? 'hit' : 'miss') : 'other source'; });
+    lines.push(`**App, ${row.scene}; ${row.setting}**: ${c.recs.length} links cold (${f(sum(c.recs))} s), ${w.recs.length} warm (${f(sum(w.recs))} s); ${hits.filter((x) => x === 'hit').length} hits, ${hits.filter((x) => x === 'miss').length} misses, ${hits.filter((x) => x === 'other source').length} with other source text.`, '',
+      '| # | program | KB | cold s | warm s | same source | result |', '|---|---|---|---|---|---|---|');
+    c.recs.forEach((r, i) => { const x = w.recs[i]; lines.push(`| ${i + 1} | ${r.inv ? 'inverse ' : ''}${esc(r.name)} \`${esc(r.key)}\` | ${r.kb} | ${f(r.ms == null ? null : r.ms / 1000)} | ${x ? f(x.ms == null ? null : x.ms / 1000) : ''} | ${x ? (x.hash === r.hash ? 'yes' : 'no') : ''} | ${hits[i]} |`); });
+    lines.push('', `Cache after the cold pass: ${cacheLine(c.cache)}. After the warm pass: ${cacheLine(w.cache)}.`, '');
+  }
+  const md = lines.join('\n');
+  summary(md);
+  console.log(md);
+  process.exit(0);
+}
+
+(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache ...'))).catch((e) => { console.error(e); process.exit(2); });
