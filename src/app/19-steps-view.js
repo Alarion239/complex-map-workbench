@@ -275,13 +275,17 @@
     draft = null; probe = null;
     requestRender('L');
   }
-  // runs draw() with the view at plane i (as svGo puts it there at once), then puts the view back where it was: on its plane, and
-  // at the place between two planes it was parked at. -> draw()'s result
+  // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
+  // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
+  // sound relayout and no spoken label, so a figure or a video drawn off-screen leaves the page as it found it. -> draw()'s result
   async function svAtPlane(i, draw) {
-    const keep = { i: SV.i, x: SV.g.x, span: SV.span };
+    const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left) };
     if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U) return draw();
-    svGo(i, true);
-    try { return await draw(); } finally { svGo(keep.i, true); SV.g.set(keep.x); SV.span = keep.span; }
+    const visit = (k, x) => { SV.anim = null; SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
+    svPause(false);
+    svKeepView();
+    visit(i, i);
+    try { return await draw(); } finally { visit(keep.i, keep.x); Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at; }
   }
   function svArrive() {
     svPolesWatch();

@@ -432,7 +432,7 @@ for (const surf of ['sphere', 'land']) {
 // of the other planes) and parked between the first two planes (the frames of every plane), and must match its reference to
 // SAME_PLANE_MAD. The control: the references of z and the last plane differ by more than SAME_PLANE_MAD, so the bound tells
 // planes apart (on the Landscape too, whose frames are mostly paper).
-// Afterwards the view is where it was parked
+// Afterwards the view is where it was parked, and its spoken label (the strip's live region) is what it said before the frames
 {
   const SAME_PLANE_MAD = 1, FRAME_PT = 240, PARK_BETWEEN = 0.5;
   for (const surf of ['plane', 'sphere', 'land']) {
@@ -454,8 +454,10 @@ for (const surf of ['sphere', 'land']) {
     for (let k = 0; k < n; k++) { await parkAt(k); await frameAt(k, `${surf}${k}`); }
     const ctl = await frameAt(n - 1, 'ctl', `${surf}0`);
     ok(`${surf}: the reference frames of z and the last plane differ (control, mean difference over ${SAME_PLANE_MAD})`, ctl > SAME_PLANE_MAD, ctl);
+    const spoken = () => ev(`(document.querySelector('#stage > [aria-live]') || {}).textContent`);
     for (const at of [n - 1, PARK_BETWEEN]) {
       await parkAt(at);
+      const said = await spoken();
       for (let k = 0; k < n; k++) {
         if (k === at) continue;
         const where = at === PARK_BETWEEN ? `parked at ${at}` : `parked at plane ${at}`;
@@ -465,6 +467,8 @@ for (const surf of ['sphere', 'land']) {
       }
       const back = await ev('({ x: __cmwSteps().x, i: __cmwSteps().i })');
       ok(`${surf}: the view is where it was parked (${at}) after the frames`, Math.abs(back.x - at) < POS_TOL, back);
+      const after = await spoken();
+      ok(`${surf}: parked at ${at}, the spoken label is unchanged by the frames`, typeof said === 'string' && said.length > 0 && after === said, { said, after });
     }
   }
 }
