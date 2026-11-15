@@ -277,9 +277,7 @@
         ctx.beginPath();
         for (let t = 8; t < L; t += 7) { const px = x0 + ux * t, py = y0 + uy * t; ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54); }
         ctx.stroke();
-        // branch point
-        ctx.fillStyle = TH.halo; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+        branchDot(pane, c.p);
       }
     }
     const sc = thin ? 0.66 : 1;
@@ -497,7 +495,7 @@
         if (look && look.own && look.own(j - 1)) branchDot(pane, F(c.p), proj);
         if (look && look.marks && c.editable) {
           const h = cutHandleAt(pane, F, c, st, win, proj, !!(look.own && look.own(j - 1)));
-          if (h) look.marks.push({ x: h[0], y: h[1], step: j, deg: st.params.cut ?? 180 });
+          if (h) look.marks.push({ x: h.s[0], y: h.s[1], step: j, deg: st.params.cut ?? 180 });
         }
       }
     }
@@ -566,24 +564,26 @@
     ctx.beginPath(); ctx.arc(x, y, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
     ctx.restore();
   }
-  // where the editable cut c of step st has its handle in the picture F draws, [x, y] or null: on the plane the cut lives in (own), where drawCuts puts it (a third of the view's
+  // where the editable cut c of step st has its handle in the picture F draws, { s: [x, y] on the screen, q: its point on the ray } or null: on the plane the cut lives in (own), where drawCuts puts it (a third of the view's
   // smaller side along the solid bank from the branch point, st.handleR if the step has one that is in view and 20 px from it); on a later plane where drawCarriedCuts does (a third of the
   // plane's window, pulled in along the ray until it is in view and 20 px clear of the branch point's image)
   function cutHandleAt(pane, F, c, st, win, proj, own) {
     const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);   // (d1: the ray's solid bank, the counter-clockwise one, on which the handle stays through the whole glide: it is the ray itself at the start and the plane's own solid bank at the end)
     const to = (w) => (CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
+    const at = (R) => { const q = CX.add(c.p, CX.scale(d1, R)), s = to(F(q)); return s ? { s, q } : null; };
     if (own) {
       const bx = pane.box();
       let R = Math.min(bx.x1 - bx.x0, bx.y1 - bx.y0) * 0.33;
-      if (st.handleR > 0) { const q = to(F(CX.add(c.p, CX.scale(d1, st.handleR)))), p0 = to(o); if (q && p0 && !offEdge(pane, q[0], q[1], 24) && Math.hypot(q[0] - p0[0], q[1] - p0[1]) >= 20) R = st.handleR; }
-      return to(F(CX.add(c.p, CX.scale(d1, R))));
+      if (st.handleR > 0) { const h = at(st.handleR), p0 = to(o); if (h && p0 && !offEdge(pane, h.s[0], h.s[1], 24) && Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) >= 20) R = st.handleR; }
+      return at(R);
     }
+    // (a branch point that lands at infinity, as log's: nothing to keep clear of)
     const p0 = to(o) || [Infinity, Infinity];
     let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
     for (let tries = 0; tries < 14; tries++, R *= 0.7) {
-      const q = to(F(CX.add(c.p, CX.scale(d1, R))));
-      if (!q || offEdge(pane, q[0], q[1], 24) || Math.hypot(q[0] - p0[0], q[1] - p0[1]) < 20) continue;
-      return q;
+      const h = at(R);
+      if (!h || offEdge(pane, h.s[0], h.s[1], 24) || Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) < 20) continue;
+      return h;
     }
     return null;
   }
@@ -611,18 +611,8 @@
           strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
         if (!c.editable) continue;
-        const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);
-        // (a branch point that lands at infinity, as log's: nothing to keep clear of)
-        const [ox, oy] = CX.isFin(o) ? pane.w2s(o) : [Infinity, Infinity];
-        let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
-        for (let tries = 0; tries < 14; tries++, R *= 0.7) {
-          const q = CX.add(c.p, CX.scale(d1, R)), w = F(q);
-          if (!CX.isFin(w)) continue;
-          const [x, y] = pane.w2s(w);
-          if (offEdge(pane, x, y, 24) || Math.hypot(x - ox, y - oy) < 20) continue;
-          handles.push({ x, y, step: j, p: c.p, deg: st.params.cut ?? 180, F, q, from: j - 1, to: k });
-          break;
-        }
+        const h = cutHandleAt(pane, F, c, st, win, null, false);
+        if (h) handles.push({ x: h.s[0], y: h.s[1], step: j, p: c.p, deg: st.params.cut ?? 180, F, q: h.q, from: j - 1, to: k });
       }
     }
     drawCutPreimages(pane, k, handles);
