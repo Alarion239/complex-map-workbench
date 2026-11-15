@@ -33,10 +33,12 @@
 //   first glide and is held a second time, for the programs of the glide into plane 2; while that hold lasts with
 //   nothing changed (the play waiting where it is), the browser's idle callbacks are given time and the left pane draws
 //   at most a tenth of the animation frames, and once the links land the play reaches plane 2; a glide from plane 2 to
-//   plane 0 on such a page waits for its glides' programs, its thread never going back, and reaches plane 0;
+//   plane 0 on such a page waits for its glides' programs, its thread never going back, and reaches plane 0; and a play
+//   put on the globe half way through the first glide and back on the plane past plane 1 never goes back either;
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
-//   left pane draws at most a tenth of the animation frames, and it ends within seconds of the link landing.
+//   left pane draws at most a tenth of the animation frames, › pressed then replaces it by a glide from where it is (its
+//   thread still never goes back), and it ends within seconds of the link landing.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -321,6 +323,19 @@ try {
       const back = await ev('(() => { const s = window.__llHeld; s.done = true; return { up: s.up, down: s.down }; })()');
       ok(`${POLE_EX}, then z⁴ + z: a glide from plane 2 to plane 0 waits for its glides' programs with its thread never going back, and reaches plane 0`, v0.ok && back.up === 0 && back.down > 0, { v0, back });
       info.back = { v0, back };
+      // (▶ from plane 0, put on the globe half way through the first glide and back on the plane past plane 1: the
+      // globe's frames move the play on, and the hold for the glide into plane 2 waits where the play is)
+      await chain('llg');
+      await record('requestIdleCallback');
+      await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
+      const w0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() >= 0.47' });
+      await ev("__cmwSteps({ surf: 'sphere' }), 1");
+      const w1 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() >= 1.3' });
+      await ev("__cmwSteps({ surf: 'plane' }), 1");
+      const w2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
+      const globe = await ev('(() => { const s = window.__llHeld; s.done = true; return { up: s.up, down: s.down }; })()');
+      ok(`${POLE_EX}, then z⁴ + z: ▶ put on the globe and back on the plane mid-play: its thread never goes back, and it reaches plane 2`, w0.ok && w1.ok && w2.ok && globe.down === 0, { globe, waits: { w0, w1, w2 } });
+      info.globe = { globe, waits: { w0, w1, w2 } };
     } finally {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
     }
@@ -339,14 +354,19 @@ try {
     await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
     const s0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0 && __cmwSvX() < 1 && GLR.pendingLinks > 0` });
     const s1 = await recorded();
+    // (› while it waits: a glide from where it is to the next plane in its place, with no hold record of its own)
+    const k0 = await ev('window.__llAnim = __cmwSteps().anim, 1');
+    await key('ArrowRight');
+    const k1 = await ev('(() => { const a = __cmwSteps().anim; return { replaced: !!a && a !== window.__llAnim, to: a && a.to, x: __cmwSvX() }; })()');
     const s2 = await settled({ only: true, max: PLAY_MS, until: 'GLR.pendingLinks === 0' });
     const t2 = Date.now();
     const s3 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
     const moves = await ev('(() => { const s = window.__llHeld; s.done = true; return { up: s.up, down: s.down }; })()');
-    const got = { held: s1.got, moves, endMs: Date.now() - t2, waits: { s0, s1: s1.wait, s2, s3 } }, still = s0.ok && s1.wait.ok && s1.got.xs.length === 1;
+    const got = { held: s1.got, moves, step: { k0, k1 }, endMs: Date.now() - t2, waits: { s0, s1: s1.wait, s2, s3 } }, still = s0.ok && s1.wait.ok && s1.got.xs.length === 1;
     ok('exp(sin z), the glide waiting half way for a program its later frames ask for: it waits where it is, its thread never going back', still && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: the browser's idle callbacks are given time (${HELD_IDLE} in ${HELD_TICKS} animation frames)`, still && s1.got.withTime >= HELD_IDLE, got);
     ok(`exp(sin z), the glide waiting half way: the left pane draws at most ${HELD_SHARE} of the animation frames`, still && s1.got.drawn <= HELD_SHARE * s1.got.ticks, got);
+    ok(`exp(sin z), the glide waiting half way, › pressed: the glide is replaced by one from where it is, and its thread still never goes back`, still && k1.replaced && k1.x >= s1.got.x && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: it ends within ${ENDS_MS} ms of the link landing`, s2.ok && s3.ok && got.endMs <= ENDS_MS, got);
     info.half = got;
   }
