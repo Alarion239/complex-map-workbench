@@ -1725,10 +1725,10 @@
   // caches are keyed by it) and the GPU chain's data, then the chain as it is again; draw's answer
   function svOnSheets(v, draw) {
     const s0 = S.steps, b0 = built, g0 = chainSig, m0 = svHomMemo;
-    S.steps = v.steps; built = v.built; chainSig = v.sig; svHomMemo = null;
+    setSteps(v.steps); built = v.built; chainSig = v.sig; svHomMemo = null;
     if (v.gl) GLR.setChain(v.gl);
     try { return draw(); } finally {
-      S.steps = s0; built = b0; chainSig = g0; svHomMemo = m0;
+      setSteps(s0); built = b0; chainSig = g0; svHomMemo = m0;
       if (svSheetMemo.own) GLR.setChain(svSheetMemo.own);
     }
   }
