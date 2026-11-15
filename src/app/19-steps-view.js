@@ -1590,10 +1590,49 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
-    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) return; SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
     SV.core = 'still'; still(pane);
+  }
+  // A glide into a d/dz plane (svBetween's jump: the step has no homotopy) on the plane or the globe: the two planes'
+  // pictures at rest cross-faded, each drawn as the plane draws at rest (the classic core's pull-back on a coloured
+  // plane, else the carry core's exact pass or its meshes), plane a's on the pane and plane b's over it at opacity u
+  // from a canvas of its own. The glide's record: path 'inverse' when both ends are exact (a coloured plane's plot, or
+  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. False for
+  // any other frame (the Landscape's jump is svLandMoving's)
+  let svJumpCv = null;
+  function svJump(pane, still) {
+    if (SV.surf === 'land') return false;
+    const bt = svBetween();
+    if (bt.all || bt.b === bt.a || bt.u <= SV_REST_U || !isDeriv(bt.b)) return false;
+    const g = SV.g, keep = { x: g.x, target: g.target, v: g.v, i: SV.i }, globe = SV.surf === 'sphere' && lGlobe();
+    // (each end drawn with the thread on its plane and the view the steps view sets there, svViewFix's main view and
+    // surface, put back after)
+    const v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
+    const end = (j, p) => {
+      const k = svPlanes()[j], side = svColoured(k) ? 'P' : 'L', main = v.main, was = v[side].surf;
+      g.x = j; g.target = j; g.v = 0; SV.i = j; svRestRec = null; leftSphereInfo = null;
+      v.main = svMain(k);
+      if (v.main !== 'land') v[side].surf = surf;
+      try {
+        if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
+        else still(p);
+      } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
+      if (svColoured(k)) return 'plot';
+      if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
+      return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
+    };
+    const ends = [end(bt.x0, pane)];
+    svJumpCv = svCanvas(svJumpCv, pane);
+    ends.push(end(bt.x1, svProxy(pane, svJumpCv)));
+    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = bt.u; pane.ctx.drawImage(svJumpCv, 0, 0); pane.ctx.restore();
+    // (no cut handles mid-glide: a plane at rest's)
+    cutHandlesL = [];
+    const exact = (e) => e === 'plot' || e === 'inverse';
+    svGlideRec = { b: bt.b, u: bt.u, path: ends.every(exact) ? 'inverse' : ends.includes('none') ? 'none' : 'mesh', reason: 'a d/dz step', ends, key: null, H: bt.F, Hb: null, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+    SV.core = 'carry';
+    return true;
   }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
