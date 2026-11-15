@@ -2753,8 +2753,8 @@
     if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
-      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
-      // tighten; eyes on #473)
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps tighten, and its segmented
+      // buttons' padding but the scope's, which keeps the spec's; eyes on #473)
       const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
       const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
       if (short()) E.bar.classList.add('sv-c3');
