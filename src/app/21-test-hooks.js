@@ -40,10 +40,10 @@
   /** @type {any} */ (window).__cmwToast = (msg, label, o) => toast(msg, label, () => {}, false, o);   // (a message with an optional action that does nothing)
   /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
   /** @type {any} */ (window).__cmwStepParam = (k, key, v) => { const st = S.steps[k]; if (!st) return false; st.params[key] = v; chainChanged(false); return true; };
-  // the label pass's count and time, and what the last pass of the left plane placed
+  // the label pass's count and time, and what the last pass of the left plane placed ({ text, x, y, x1, y1 }: its box in the pane's px)
   /** @type {any} */ (window).__cmwLabelStats = { n: 0, ms: 0 };
   setLabelProbe((ms, curves) => { const s = /** @type {any} */ (window).__cmwLabelStats; s.n++; s.ms += ms; (s.list = s.list || []).push({ ms: +ms.toFixed(2), curves }); });
-  /** @type {any} */ (window).__cmwLabelsPlaced = () => (paneL.labelsPlaced || []).map((q) => ({ text: q.text, x: Math.round(q.x0 * 10) / 10, y: Math.round(q.y0 * 10) / 10 }));
+  /** @type {any} */ (window).__cmwLabelsPlaced = () => (paneL.labelsPlaced || []).map((q) => ({ text: q.text, x: Math.round(q.x0 * 10) / 10, y: Math.round(q.y0 * 10) / 10, x1: Math.round(q.x1 * 10) / 10, y1: Math.round(q.y1 * 10) / 10 }));
   window.__cmwLayout = () => { const mg = Views.merged(S.view, morphOn()), one = solo(); return { main: S.view.main, deform: !!morph.open, merged: mg, shown: one ? [one] : ['L', 'R'], wL: paneL.w, wR: paneR.w }; };
   // which pane ('L' | 'R') shows the picture an earlier build's rightMode named (the perf suite drags that pane)
   window.__cmwPaneOf = (mode, sphereMode) => Views.paneOf(mode, sphereMode);
@@ -79,6 +79,7 @@
   };
   // shape ids that draw forward whatever their eligibility (mixed-path tests); [] clears
   window.__cmwHideStrokes = (on) => { hideStrokes = !!on; requestRender('L', 'R'); return hideStrokes; };
+  window.__cmwHideStrokesGet = () => hideStrokes;   // the state __cmwHideStrokes set, read back
   window.__cmwForceForward = (ids) => { forceFwd.clear(); for (const id of ids || []) forceFwd.add(id); scheduleFix(); requestRender('L', 'R'); return [...forceFwd]; };
   // the plane point w under a Sphere-view pixel (CSS px of the right pane), null off the globe
   window.__cmwSphereW = (x, y) => { const w = pickSphere(paneR, camS, x, y); return w ? [w.re, w.im] : null; };
@@ -389,6 +390,7 @@
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
+  window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (v16.5 test/ux165_chain_cmd.js)
   // TEMP-DEBUG-HOOK
 
