@@ -625,7 +625,7 @@
   }
 
   // ---------------- the forward fallback: SphereMesh (SPEC 8, P5) ----------------
-  // An area shape drawn forward (an ineligible chain or shape, exact images off, the cost guard's last resort, a morph
+  // An area shape drawn forward (an ineligible chain or shape, one forced forward by the test hook, the cost guard's last resort, a morph
   // paused inside a step) that is unbounded or stretched (bboxOf null, or wider than 3 windows), or whose fix-up found
   // trouble (fixGen: a vertex without a finite image, or a piece still failing the midpoint test at depth 5; the
   // verdict depends on the shape, the map and the window, never on the right view), is drawn from a SphereMesh: the

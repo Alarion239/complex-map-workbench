@@ -154,20 +154,24 @@ H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
 // It answers whether the load came in time; a page that did not load says so in the suite's log. A document whose body has stopped
-// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit.
+// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit, except a link
+// (#cmw=): it opens in a second document (the app decodes it, drops the hash, saves its figure and reloads), so a navigation of the
+// same url again lands on the page that holds that figure and asks whether to open the link instead of opening it. A link's wait
+// stays on the document its navigation brings, for the whole limit, and a document that never arrives says so.
 const GO_STALL_MS = 5000;
+H.GO_STALL_MS = GO_STALL_MS;   // (for a suite that holds a document back past it)
 H.go = async (url, ms = 15000) => {
-  const n = LOADS, t0 = Date.now();
+  const n = LOADS, t0 = Date.now(), link = /[#&]cmw=/.test(url);
   await send('Page.navigate', { url }, S);
   let ok = false, reloads = 0;
   while (!ok && Date.now() - t0 < ms) {
-    const left = ms - (Date.now() - t0), step = reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
+    const left = ms - (Date.now() - t0), step = !link && reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
     let t;
     ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
     clearTimeout(t);
-    if (!ok && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
+    if (!ok && !link && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
   }
-  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads})` });
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; the link\'s document stalled, and a link is not opened again: its figure is already saved and a second navigation would ask' : ''})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
   return ok;
 };

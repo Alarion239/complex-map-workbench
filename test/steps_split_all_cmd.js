@@ -2,7 +2,8 @@
 // the span, which keeps its progress u, gives those n steps times of their own (stepT) that run them as the formula's own
 // homotopy does. The left pane at the same u is pixel-equal across the Split (the exact plot), and the times last to the end
 // of that glide. Two Splits in one glide, and an Undo and a Redo of the second, each leave the picture of before the first.
-// Plane by plane too, a Redo of a Split in flight is that Split again: the glide goes on from where the Split put it.
+// Plane by plane too, a Redo of a Split in flight is that Split again: the glide goes on from where the Split put it. An Undo
+// of another edit that restores a chain of the same length is neither the Split's Undo nor its Redo.
 // Negative control: the same frame with the step times dropped from the span differs from the frame before the Split.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -44,6 +45,9 @@ const where = (a, b) => { let x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1, mx = 0; for 
 // (the Split of step k, and the number of planes it leaves)
 const splitNow = async (k = 2, planes = 6) => { await clickSel(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`); await until("!!document.querySelector('#propsPanel .split-offer .so-btn')"); await clickSel('#propsPanel .split-offer .so-btn'); await until(`__cmwSteps().planes.length === ${planes}`); };
 // (Undo and Redo through the top bar's buttons, as steps_split_remap_cmd does)
+// (the Remove of step k from its ⋯ menu, and the number of planes it leaves)
+const clickMenu = (label) => ev(`(() => { const b = [...document.querySelectorAll('#popHost .mi')].find((e) => e.querySelector('.mi-label').textContent === ${JSON.stringify(label)}); if (!b) return false; b.click(); return true; })()`);
+const removeStep = async (k, planes) => { await ev(`document.querySelector('#svStrip .sv-step[data-k="${k}"] .sv-more').click()`); await until("!!document.querySelector('#popHost .mi')"); const c = await clickMenu('Remove'); await until(`__cmwSteps().planes.length === ${planes}`); return c; };
 const undoRedo = async (id, planes) => { await ev(`document.getElementById('${id}').click()`); await until(`__cmwSteps().planes.length === ${planes}`); };
 // a span's step times, read as JSON (a step with none: null)
 const stepTIs = (span, want) => !!span && JSON.stringify(span.stepT) === JSON.stringify(want);
@@ -108,16 +112,44 @@ const m0 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q
 await splitNow(2, 6);
 const m1 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
 await undoRedo('undoBtn', 4);
-const m2 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
+const m2 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to, restored: q.restored }; })()');
 await undoRedo('redoBtn', 6);
-const m3 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
+const m3 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to, restored: q.restored }; })()');
 info.planeByPlane = [m0, m1, m2, m3];
 ok('plane by plane: the Split and its Undo keep the glide (moving, to its plane)', m0.moving && m1.moving && m2.moving && m1.to === 5 && m2.to === 3, info.planeByPlane);
 ok('plane by plane: after the Redo the thread is where the Split put it', Math.abs(m3.x - m1.x) < U_EPS, [m1.x, m3.x]);
 ok('plane by plane: after the Redo the glide goes on to plane 5', m3.moving && m3.to === 5, m3);
+ok('plane by plane: the Undo is taken as the Split\'s Undo and the Redo as its Redo', m2.restored === 'unsplit' && m3.restored === 'resplit', [m2.restored, m3.restored]);
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
 await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS);
 ok('plane by plane: the glide ends on plane 5', Math.abs((await sv()).x - 5) < PLANE_EPS, await sv());
+// an Undo that restores a chain of the same length as the one a Split's Undo or Redo would is neither: it is taken as any
+// other undo (restored 'load'), and the thread is not remapped by the Split's places. (2 sin z splits into 2 steps, so a
+// Remove before or after the Split gives chains of those lengths.)
+const CHAIN_R = [{ type: 'exp', params: {}, on: true }, F1('2\\sin z'), { type: 'mul', params: { c: '2' }, on: true }, { type: 'mul', params: { c: '3' }, on: true }];
+const at = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to, planes: q.planes.length, restored: q.restored }; })()');
+// a Remove before the glide, a Split, its Undo, then the Undo of the Remove: 4 steps, as the split chain has
+await open({ homAll: false, steps: CHAIN_R });
+const rmR = await removeStep(4, 4);
+await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
+await splitNow(2, 5); await undoRedo('undoBtn', 4);
+const r2 = await at();
+await undoRedo('undoBtn', 5);
+const r3 = await at();
+info.sameLengthRedo = [r2, r3];
+ok('the Undo of an earlier Remove, as long as the split chain, is not taken for the Split\'s Redo', rmR && r2.restored === 'unsplit' && r3.restored === 'load', info.sameLengthRedo);
+// a Split, two Removes, then the Undo of the second: 4 steps, as the chain before the Split has
+await open({ homAll: false, steps: CHAIN_R });
+await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 4 })');
+await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
+await splitNow(2, 6);
+const rmU = (await removeStep(5, 5)) && (await removeStep(4, 4));
+const u3 = await at();
+await undoRedo('undoBtn', 5);
+const u4 = await at();
+info.sameLengthUndo = [u3, u4];
+ok('the Undo of a Remove after a Split, as long as the chain before it, is not taken for the Split\'s Undo', rmU && u4.restored === 'load', info.sameLengthUndo);
 // negative control: the same Split with the step times dropped from the span (the sub-steps' own homotopies at one u) is not the
 // formula's picture, so the frame check above can fail
 await open();
