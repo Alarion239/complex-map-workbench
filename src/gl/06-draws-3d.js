@@ -299,7 +299,7 @@
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
   // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when given
-  // (another sheet's copy, LAND_COPIES), else into landC)
+  // (another sheet's copy, landCopies), else into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
