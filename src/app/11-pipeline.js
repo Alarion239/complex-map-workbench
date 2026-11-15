@@ -87,18 +87,6 @@
     }
     return kids;
   }
-  // a deformation range the user just chose plays from its start, so the change shows; not under reduced motion
-  function playNewRange() {
-    if (morph.open && !morph.playing && !matchMedia('(prefers-reduced-motion: reduce)').matches) togglePlay();
-  }
-  // what the deformation deforms in words, for Y's title: "Deforming f₁–f₂" (the active steps inside its range);
-  // null when it deforms every step
-  function rangeWords(fmt) {
-    const r = homRangeOk();
-    if (!r) return null;
-    const ks = activeSteps().filter((k) => k >= r.a && k <= r.b);
-    return $t('Deforming {steps}', { steps: stepRuns(ks, fmt === 'html') });
-  }
   // the ⋯ menu's Deformation ▸ (SPEC 6.5): Only f_k inside F, Steps f_k–f_n, Steps f_1–f_k, Every step; deduped by
   // their normal forms; disabled with the reason when the d/dz rule moves b past the item's end or f_k is bypassed
   function deformItems(k) {
@@ -130,8 +118,6 @@
   function chooseRange(r) {
     if (S.focus > 0) setFocus(0);
     setHomRange(r);
-    if (!morph.open) openTransport();
-    playNewRange();
     return null;
   }
   function regionSummary() {
@@ -301,7 +287,6 @@
     // toast offers Show alone: Show alone is its own choice, ui-redesign-2)
     keepShown(at + 1, 1);
     commit();
-    startTransition(at + 1);
     noteRecent(type);
     soundCue('stepAdd');
     addedToast(at + 1, 1, null, o && o.msg);
@@ -347,7 +332,6 @@
     chainChanged(true);
     keepShown(at + 1, news.length);   // (the planes keep F, the first new step is selected)
     commit();
-    startTransition(at + 1);
     for (const s of news) noteRecent(s.type);
     soundCue('stepAdd');
     addedToast(at + 1, news.length);

@@ -59,8 +59,8 @@ const PlaneMenu = (() => {
     if (!providers.has(group)) providers.set(group, []);
     providers.get(group).push(provider);
   }
-  const sideOfPane = (pane) => (pane === 'L' || pane === 'R' ? pane : api && api.sideOf(pane && pane.ocanvas ? pane.ocanvas : pane));
-  // open(pane, z, event): pane 'L' | 'R' (or a pane, or its canvas); z the point in that plane (null: from the event);
+  const sideOfPane = (pane) => (pane === 'L' ? pane : api && api.sideOf(pane && pane.ocanvas ? pane.ocanvas : pane));
+  // open(pane, z, event): pane 'L' (or the pane, or its canvas); z the point in that plane (null: from the event);
   // event {clientX, clientY, pointerType} (or {x, y} in pane pixels, keyboard: true). True when it opened; false when
   // nothing there has a menu.
   function open(pane, z, ev) {
@@ -80,15 +80,15 @@ const PlaneMenu = (() => {
     const zFree = !at || at.surface === 'flat' ? api.round(side, zExact) : zExact;
     const ctx = {
       side, x, y, cx: r.left + x, cy: r.top + y, touch, keyboard: !!ev.keyboard,
-      plane: at ? at.plane : side === 'L' ? 'X' : 'Y', surface: at ? at.surface : 'flat', stage: at ? at.stage : 0, s: at && at.s,
+      plane: at ? at.plane : 'X', surface: at ? at.surface : 'flat', stage: at ? at.stage : 0, s: at && at.s,
       zExact, zFree, z: zFree,
     };
     // head: the point and the map there
     const dp = dpFor(ctx.s);
-    let head = `<span class="pm-h1">${ctx.plane === 'X' ? varHtml(ctx.stage) : api.yHtml()} = ${fmtCx(ctx.z, dp)}</span>`;
+    let head = `<span class="pm-h1">${varHtml(ctx.stage)} = ${fmtCx(ctx.z, dp)}</span>`;
     if (ctx.plane === 'X') {
       const F = api.mapF(), w = F ? F(ctx.z) : null;
-      if (w) head += `<span class="pm-h2">${api.fnHtml()}(${varHtml(ctx.stage)}) = ${fmtCx(w, dpFor(api.scale('R')))}</span>`;
+      if (w) head += `<span class="pm-h2">${api.fnHtml()}(${varHtml(ctx.stage)}) = ${fmtCx(w, dp)}</span>`;
     }
     // the groups (a provider that throws is left out: one broken item never takes the menu away)
     const items = [];
@@ -249,7 +249,7 @@ const PlaneMenu = (() => {
     let x = null, y = null;
     if (side) { const p = api.kbPoint(side); if (p) [x, y] = p; }
     if (!side && last.side && api.shown(last.side)) side = last.side;
-    if (!side) side = api.shown('L') ? 'L' : 'R';
+    if (!side) side = 'L';
     if (x == null && last.side === side && performance.now() - last.t < 600000) { x = last.x; y = last.y; }
     const r = api.paneOf(side).ocanvas.getBoundingClientRect();
     if (x == null || x < 0 || y < 0 || x > r.width || y > r.height) { x = r.width / 2; y = r.height / 2; }

@@ -267,7 +267,7 @@
     syncPalBtn();
     if (!changed || !paneL) return;
     drawLegend();
-    requestRender('L', 'R');
+    requestRender('L');
   }
   function syncPalBtn() {
     const b = $('palBtn');
@@ -389,12 +389,6 @@
     if (l || r) { setPanels(S.hideLeft || l, S.hideRight || r); return true; }
     return false;
   }
-  function setSolo(which) {
-    if (Views.merged(S.view, morphOn())) return; // a merged view is one panel: nothing to expand
-    setOpt('solo', S.solo === which ? null : which);
-    applyLayout();
-    save();
-  }
   function applyLayout() {
     const lay = document.querySelector('.layout');
     placeKeys();
@@ -407,39 +401,29 @@
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
     const panes = document.querySelector('.panes');
-    // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
-    // so it reads as a view of its own, not an expanded pane
-    const one = solo(), mg = Views.merged(S.view, morphOn());
-    panes.classList.toggle('solo-L', one === 'L');
-    panes.classList.toggle('solo-R', one === 'R');
+    // one plane, pane L: the right pane is hidden (solo-L); the Phase and Landscape views are one wide panel
+    // (merged-L, merged-views.md), and no plane has an expand button
+    const mg = Views.merged(S.view);
+    panes.classList.toggle('solo-L', true);
     panes.classList.toggle('merged-L', mg === 'L');
-    panes.classList.toggle('merged-R', mg === 'R');
-    for (const [id, w] of [['leftSolo', 'L'], ['rightSolo', 'R']]) {
-      const b = $(id);
-      b.hidden = !!mg;
-      b.setAttribute('aria-pressed', String(S.solo === w));
-      b.setAttribute('data-tip', S.solo === w ? $t('Show both planes') : $t('Expand plane')); b.removeAttribute('title');
-      b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
-    }
+    for (const id of ['leftSolo', 'rightSolo']) $(id).hidden = true;
     syncModeChips();
-    if (mg !== layoutMg || one !== layoutOne) { layoutMg = mg; layoutOne = one; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
+    if (mg !== layoutMg) { layoutMg = mg; if (paneL) onPaneResize(); requestRender('L', 'OL'); }
   }
-  let layoutMg = null, layoutOne = null;
+  let layoutMg;
   // the panes' canvases follow their boxes (the ResizeObserver, and a layout change at once: a merge or a split
   // must not leave a frame, a fit or a mesh to be made at the old width)
   function onPaneResize() {
-    const a = paneL.resize(), b = paneR.resize();
-    $('paneR').classList.toggle('narrow', $('paneR').getBoundingClientRect().width < 520);
+    const a = paneL.resize();
     $('paneL').classList.toggle('narrow', $('paneL').getBoundingClientRect().width < 520);
     syncViewControls();
     fitRightTitle();
-    if (a && leftStage() > 0 && leftAuto && solo() !== 'R') { paneL.setView(V.left); fitPane(paneL, leftStage()); }
-    if (a || b) {
-      // (a merged view widens one pane: its options strip re-flows at the new width; a hidden pane is not fitted)
+    if (a && leftStage() > 0 && leftAuto) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
+    if (a) {
+      // (a merged view widens the plane: its options strip re-flows at the new width)
       layoutFoot();
       sourceViewChanged();
-      if (rightAuto && rImage() && solo() !== 'L') fitRight();
-      requestRender('L', 'R');
+      requestRender('L');
       sndRelayout();   // (sound: the plane under a still pointer moved)
     }
   }
@@ -471,15 +455,13 @@
     dropAllGPU();
     $('meshRange').value = meshToPos(n);
     showMeshVal(n);
-    if (rightAuto && rImage()) fitRight();
-    requestRender('L', 'R');
+    requestRender('L');
     save();
   }
 
-  // the views (merged-views.md): the top bar's switch X → Y · Phase · Landscape (keys 1-3 by e.code), the panes'
-  // Plane | Sphere switches in their heads (Shift 1, 2: the left or only panel, X or the portrait; Shift 3, 4: Y),
-  // and the Deformation toggle (M), which modifies the active view. The preimages and the integrals are parts of every
-  // view.
+  // the views (merged-views.md): the top bar's switch X → Y · Phase · Landscape (keys 1-3 by e.code) and the plane's
+  // Plane | Sphere switch in its head (Shift 1, 2: X or the portrait). The preimages and the integrals are parts of
+  // every view.
   const SURF = {
     L: [['plane', $t('Plane'), '⇧1'], ['sphere', $t('Sphere'), '⇧2']],
     R: [['plane', $t('Plane'), '⇧3'], ['sphere', $t('Sphere'), '⇧4']],
@@ -491,18 +473,18 @@
   // shows until a globe frame asks for them. Not at start-up: compiles there compete with the first scene's own
   // (example settle times)
   function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS, true); } catch (e) { /* the frame links them */ } }
-  // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
+  // side 'L': X's surface in the active view (X → Y's plane or the phase panel)
   function setView(side, surf) {
-    if (side === 'L' && lLand()) return;
-    const v = side === 'L' ? xView() : S.view.R;
-    if (!v || v.surf === surf || !(side === 'L' ? Views.SURF_L : Views.SURF_R).includes(surf)) return;
+    if (side !== 'L' || lLand()) return;
+    const v = xView();
+    if (!v || v.surf === surf || !Views.SURF_L.includes(surf)) return;
     if (surf === 'sphere') prestartGlobe();
     v.surf = surf;
-    viewChanged(side);
+    viewChanged();
   }
   // Each view keeps its own plane view and cameras (merged-views.md): X → Y and Phase both show X's plane and globe,
   // so the plane view (S.srcView, and V.left at a focused stage) and the z-globe's camera are swapped on a switch; the
-  // landscape (cam) and the w-globe (camS) belong to one view each already. A view seen for the first time starts from
+  // landscape's (cam) belongs to one view already. A view seen for the first time starts from
   // the one it was switched from.
   const viewMem = {};
   const camKeys = (c) => ({ yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov });
@@ -522,14 +504,14 @@
     }
     // an example's box (ex.fit), untouched since it opened, fits the X pane of a view seen for the first time (review ui-3)
     const refit = !m && exFitKey && exFitKey === JSON.stringify(S.srcView) && EX[currentExample] && EX[currentExample].fit;
-    // a shape draft and the probe end with the view they were made in; targets are edited in Y (X → Y only)
+    // a shape draft and the probe end with the view they were made in
     draft = null; probe = null; hoverCut = 0; setReadouts(null);
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     applyLayout();
     if (refit) { exFitTo(EX[currentExample]); paneL.setView(S.srcView); }
     sndRelayout();
     buildShapeList();
-    updateFocusUI(); scheduleFix(); requestRender('L', 'R', 'OL', 'OR'); save();
+    updateFocusUI(); scheduleFix(); requestRender('L', 'OL', 'OR'); save();
     tourEmit('view-changed', { main });
   }
   // U-b's Phase toggle, kept for the test hooks: on, the Phase view on X's surface; off, X → Y on the phase panel's
@@ -538,21 +520,11 @@
     if (on) { if (S.view.main === 'xy') setViewOpt('P', 'surf', S.view.L.surf); setMain('phase'); }
     else { setViewOpt('L', 'surf', S.view.P.surf); setMain('xy'); }
   }
-  function viewChanged(side) {
-    if (side === 'R') {
-      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it (the transport
-      // stays open)
-      // targets are drawn in Y Plane and on the w-globe (P3b): a target draft ends with the view it was drawn in
-      if (draft && draft.target) draft = null;
-      rHover = null; setHoverW(null);
-      if (autoFit()) { rightAuto = true; fitRight(); }
-      buildShapeList();
-    } else {
-      // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes
-      draft = draft && draft.target ? draft : null;
-      if (!lFlat()) { probe = null; hoverCut = 0; setReadouts(null); }
-    }
-    updateFocusUI(); scheduleFix(); requestRender('L', 'R'); save();
+  // a shape draft ends with the view it was drawn in (the plane or the z-globe); the flat probe goes
+  function viewChanged() {
+    draft = null;
+    if (!lFlat()) { probe = null; hoverCut = 0; setReadouts(null); }
+    updateFocusUI(); scheduleFix(); requestRender('L'); save();
   }
   // the head controls show the state
   // The canvas stack's surface and fit keys, on each plane's .viewstack. Sphere carries the surface in aria-pressed; a key the surface cannot
@@ -563,15 +535,13 @@
     note.textContent = off ? why : '';
   }
   function syncStackKeys() {
-    for (const side of ['left', 'right']) {
-      const L = side === 'left', sph = $(side + 'Sph');
-      if (!sph) continue;
-      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
-      sph.setAttribute('aria-pressed', String(on));
-      sph.innerHTML = MODE_ICONS.sphere;
-      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
-      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
-    }
+    const sph = $('leftSph');
+    if (!sph) return;
+    const on = SV.on ? SV.surf === 'sphere' : xView().surf === 'sphere';
+    sph.setAttribute('aria-pressed', String(on));
+    sph.innerHTML = MODE_ICONS.sphere;
+    setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+    setStackKey($('leftFit'), $('leftFitWhy'), false, $t('Nothing to fit yet'), $t('Fit view') + '  Z');
   }
   // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
   function stackSphere(side) {
@@ -586,11 +556,10 @@
     const main = S.view.main;
     document.documentElement.classList.toggle('view-land', main === 'land');
     setSeg($('leftTabs'), xView().surf);
-    setSeg($('rightTabs'), S.view.R.surf);
     // the landscape is its own surface: no Plane | Sphere in its head
     const lt = $('leftTabs'); if (lt && lt.parentElement.hidden !== lLand()) lt.parentElement.hidden = lLand();
     if (lt) { const al = main === 'phase' ? $t('Phase portrait surface') : $t('Left pane surface'); if (lt.getAttribute('aria-label') !== al) lt.setAttribute('aria-label', al); }
-    // X's switch (X → Y's left pane, the phase panel) takes Shift 1, 2; Y's takes Shift 3, 4
+    // X's switch (X → Y's plane, the phase panel) takes Shift 1, 2
     for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
     syncStackKeys();
   }
@@ -863,7 +832,6 @@
       { id: 'top', el: () => first('#top'), has: (el) => !!el.closest('#top') },
       { id: 'tools', el: () => act('#tools'), has: (el) => !!el.closest('#secDraw, #railTools') },
       { id: 'x', el: () => plane(paneL), has: (el) => paneL && el === paneL.ocanvas },
-      { id: 'y', el: () => plane(paneR), has: (el) => paneR && el === paneR.ocanvas },
       // (the steps view's thread, between the plane and the Inspector: F6 lands on its ring, and any control of the thread is in it)
       { id: 'thread', el: () => { const t = document.querySelector('#svStrip .sv-thumb'); return shown(t) ? t : null; }, has: (el) => !!el.closest('#svStrip') },
       { id: 'inspector', el: () => (S.hideRight ? null : first('#propsPanel')), has: (el) => !!el.closest('#propsPanel') },
@@ -1063,8 +1031,8 @@
   function examplesApi() {
     return {
       EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
-      commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
-      focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
+      commit, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
+      focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, phHold, placePop, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
@@ -1079,7 +1047,6 @@
       get hi() { return hi; },
       get hoverShape() { return hoverShape; }, set hoverShape(v) { hoverShape = v; },
       get paneL() { return paneL; },
-      get paneR() { return paneR; },
       get popEl() { return popEl; }, set popEl(v) { popEl = v; },
       get selected() { return selected; }, set selected(v) { selected = v; },
       get sideDraw() { return sideDraw; }, set sideDraw(v) { sideDraw = v; },

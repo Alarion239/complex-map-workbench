@@ -95,14 +95,15 @@
     return plan;
   }
   // (review math-10, SPEC 2.2 [C5]) the anchor the GPU packs the exact forms at, in float64: the centre of the view of
-  // the plane whose forms are packed ('X': the shapes, at the z-window's centre; 'Y': the targets, at Y's centre; or a
-  // point), so float32 sees only small numbers near the view at any radius and any distance from the first point
+  // the plane whose forms are packed ('X': the shapes, at the z-window's centre; 'Y': the targets, at their window's
+  // centre, targetWin; or a point), so float32 sees only small numbers near the view at any radius and any distance
+  // from the first point
   function cmFormAnchor(which) {
     if (!GLR.setFormAnchor) return;
     let xy = null;
     if (Array.isArray(which)) xy = which;
     else if (which === 'X') xy = goodWin(clipWin) ? [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2] : null;
-    else if (which === 'Y') xy = [V.right.cx, V.right.cy];
+    else if (which === 'Y') { const w = targetWin(); xy = [(w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2]; }
     GLR.setFormAnchor(xy && xy.every(Number.isFinite) ? xy : null);
   }
   // the interface's API (SPEC 20.2): every call that changes S records undo as v15's gestures do
@@ -154,7 +155,7 @@
       makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // ([v16.5 rail] live: a pull mid-drag, the release commits)
       // a gesture moved a source (live: a motion frame; the gesture's end calls end())
       moved(changed, o = {}) { cmGesture = cmGesture || !!o.live; const r = cmSync(changed || { all: true }); if (r && r.ids.length) { shapesChanged(!!(r.kindChanged.length || r.undefChanged.length)); targetsChanged(false); } return r; },
-      end() { cmGesture = false; commit(); if (rightAuto && autoFit()) fitRight(); requestRender('L', 'R'); },
+      end() { cmGesture = false; commit(); requestRender('L'); },
       remove(ids) {
         const plan = cmDeletePlan(ids);
         const del = new Set(plan.del);
@@ -174,21 +175,22 @@
   }
   // ---------------- v16 constructions: the interface's adapter (construct.js; SPEC 20, INTERFACE) ----------------
   function cmUiApi() {
-    const paneOf = (side) => (side === 'R' ? paneR : paneL);
     return {
       S: () => S, h, TH: () => TH, sub,
-      setView: (side) => { const p = paneOf(side); p.setView(side === 'R' ? V.right : leftView()); return p; },
+      // (the one plane, pane L, in its view)
+      setView: () => { paneL.setView(leftView()); return paneL; },
       win: (side) => (side === 'R' ? targetWin() : clipWin),
-      globeEdit, globePick: (side, x, y) => { const gc = globeCam(side); const g = gc ? pickGlobe(side === 'R' ? paneR : paneL, camOf(side), x, y) : null; return gc && g ? { gc, g, hit: (s, tol) => globeCurveHit(gc, s, x, y, tol) } : null; }, gScreen,
+      globeEdit, globePick: (side, x, y) => { const gc = globeCam(side); const g = gc ? pickGlobe(paneL, camOf(side), x, y) : null; return gc && g ? { gc, g, hit: (s, tol) => globeCurveHit(gc, s, x, y, tol) } : null; }, gScreen,
       tool: () => tool, setTool, selected: () => selected, dragging: () => !!drag && /^(move|handle|zp)$/.test(drag.mode) && !!drag.moved,
-      select: (id) => { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR', 'P'); },
-      hoverShape: (id) => { hoverShape = id; requestRender('L', 'R'); },
+      select: (id) => { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'OL', 'OR', 'P'); },
+      hoverShape: (id) => { hoverShape = id; requestRender('L'); },
       snapZ, snapOn: () => !!S.snap, altHeld: () => altHeld,
       // [v16.5 rail] the drag in progress; ending it without its release; back to the last undo step (Esc, a second
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
-      leftStage, planeShapes, lFlat, targetsEditable, zpStep,
-      yWhole: () => S.focus === 0 && !morphOn() && rImage(),
+      leftStage, planeShapes, lFlat, zpStep,
+      // (the w-plane of the whole chain shows nowhere: the page has one plane, pane L)
+      yWhole: () => false,
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
       nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
       capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption: review picture-7)

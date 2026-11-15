@@ -6,11 +6,9 @@
 // The engine handle and the shared state (SND, sndP, snd) stay the app's: the rest of the app reads them too.
 const SoundHooks = (() => {
   let A = null;
-  let C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
-    focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState,
-    nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D,
-    requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
-    updateDraftChips, zerosPolesTimed;
+  let C, EX, SND, SND_ICON_OFF, SND_ICON_ON, camOf, curvePieces, exOk, fnText, focusF, hov, lGlobe, lLand,
+    leftStage, leftView, loadExample, nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, render3D, requestRender,
+    setReadouts, shapeNames, snd, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed;
   // the engine's live stream (Sound.hear) once it is there; until then today's harp (each side builds on its own)
   const sndHear = () => (SND && SND.hear ? SND.hear : null);
   const sndNow = () => performance.now() / 1000;
@@ -74,21 +72,12 @@ const SoundHooks = (() => {
     if (sndHear()) sndHear().end();
     snd.rope = null;
     clearTimeout(snd.idleT);
-    clearTimeout(snd.cv.idle); snd.cv.on = false; snd.cv.key = '';
     // Esc means silence now: a still probe stops following the function until the pointer moves or the keyboard probe
     // steps again. The pointer's position goes too, so no layout change re-picks a point under a
-    // still pointer (the merge, a view switch, a resize): sndPtr keeps it again from the next move.
-    // the deformation may go on playing. Its motion bed is over for this play (a new Play arms
-    // it again) and the last loop stops singing H_t until the next thing a person does (sndUnhush: a press, a key, a
-    // move of the probe, Play, a scrub, a new loop)
-    snd.morphArm = false;
-    if (snd.mo) { SND.motionEnd(); snd.mo = null; }
-    snd.cv.hushed = true;
+    // still pointer (a view switch, a resize): sndPtr keeps it again from the next move.
     snd.rest = null; snd.run = null; snd.path = null; snd.cxy = null; snd.rp = null;
     if (snd.fcRaf) { cancelAnimationFrame(snd.fcRaf); snd.fcRaf = 0; }
   }
-  // the next thing a person does after Esc lets the last loop sing again
-  function sndUnhush() { snd.cv.hushed = false; }
   function sndSync(s) {
     A.sndP = s;
     const on = !!s.on;
@@ -129,7 +118,7 @@ const SoundHooks = (() => {
       if (on && !cv.hasAttribute('tabindex')) { cv.tabIndex = 0; cv.setAttribute('aria-keyshortcuts', (A.stepsView ? 'Alt+ArrowUp Alt+ArrowDown Alt+ArrowLeft Alt+ArrowRight' : 'ArrowUp ArrowDown ArrowLeft ArrowRight') + ' Q Z O D Enter L'); }
       else if (!on && cv.hasAttribute('tabindex')) { cv.removeAttribute('tabindex'); cv.removeAttribute('aria-keyshortcuts'); }
     }
-    if (!(on && s.sonify)) { sndVoiceOff(true); sndCurveOff(); }
+    if (!(on && s.sonify)) sndVoiceOff(true);
     if (!(on && s.events)) sndStopPlay(false);
     // the pointer's position on the page, only while Hear F is on (sndPtr)
     const hear = on && !!s.sonify;
@@ -153,8 +142,6 @@ const SoundHooks = (() => {
     if (!SND) { for (const id of ['soundBtn', 'soundMore']) { const b = $(id); if (b) b.hidden = true; } return; }
     snd.tracker = !!(Calc.argStep && Calc.orderAt);
     SND.subscribe(sndSync); sndSync(SND.state());
-    document.addEventListener('pointerdown', sndUnhush, true);
-    document.addEventListener('keydown', (e) => { if (e.key !== 'Escape') sndUnhush(); }, true);
     $('soundBtn').addEventListener('click', soundToggle);
     $('soundPh').addEventListener('click', soundToggle);
     const pop = $('sndPop'), more = $('soundMore');
@@ -177,93 +164,38 @@ const SoundHooks = (() => {
     // Notes / Glide (a preference the tour never holds: not through tourSndMine)
     for (const [id, gl] of /** @type {[string, boolean][]} */ ([['sndNotes', false], ['sndGlide', true]])) { const r = $(id); if (r) r.addEventListener('change', (e) => { if ((/** @type {HTMLInputElement} */ (e.target)).checked) soundMode(gl); }); }
     // the last pointer's type on a plane (the rope: 5 px behind a finger, 3 px behind a mouse or pen)
-    for (const p of [A.paneL, A.paneR]) for (const ev of ['pointerdown', 'pointermove']) p.ocanvas.addEventListener(ev, (e) => { snd.ptype = e.pointerType || ''; }, { capture: true, passive: true });
+    for (const ev of ['pointerdown', 'pointermove']) A.paneL.ocanvas.addEventListener(ev, (e) => { snd.ptype = e.pointerType || ''; }, { capture: true, passive: true });
     if (/iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1)) $('sndIos').hidden = false;
     // the keyboard probe on the X plane (focusable while sound is on), only when the plane got the focus from the
     // keyboard: after a click in it, V, L, D, O, Z … stay the tool and fit shortcuts
     A.paneL.ocanvas.addEventListener('pointerdown', () => { snd.ptrT = performance.now(); snd.kbd = false; }, true);
     // a press of a mouse or pen: where it began (sndPtr ends the rest when it becomes a drag or a pan). A pointer that
-    // arrives over a plane without moving: the plane changed under it (the panes merged or split): re-pick
-    for (const p of [A.paneL, A.paneR]) {
-      p.ocanvas.addEventListener('pointerdown', (e) => { snd.press = e.pointerType !== 'touch' ? [e.clientX, e.clientY] : null; }, true);
-      p.ocanvas.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch' && !e.buttons) sndRelayout(); });
-    }
+    // arrives over the plane without moving: the plane changed under it (another view): re-pick
+    A.paneL.ocanvas.addEventListener('pointerdown', (e) => { snd.press = e.pointerType !== 'touch' ? [e.clientX, e.clientY] : null; }, true);
+    A.paneL.ocanvas.addEventListener('pointerenter', (e) => { if (e.pointerType !== 'touch' && !e.buttons) sndRelayout(); });
     A.paneL.ocanvas.addEventListener('focus', () => { snd.kbd = performance.now() - snd.ptrT > 400; });
     A.paneL.ocanvas.addEventListener('keydown', sndKey);
     A.paneL.ocanvas.addEventListener('blur', () => { snd.kbd = false; if (snd.kz && !snd.kloop) { snd.kz = null; A.probe = null; setReadouts(null); sndRender(); sndVoiceOff(false); } });
     // a wheel zoom moves the plane under a still pointer: probe-driven event cues wait 250 ms (pans, pinches, orbits
     // and tweens are caught by the view key in sndHover)
-    for (const p of [A.paneL, A.paneR]) p.ocanvas.addEventListener('wheel', () => { if (A.sndP.on) snd.gestT = performance.now(); }, { passive: true });
+    A.paneL.ocanvas.addEventListener('wheel', () => { if (A.sndP.on) snd.gestT = performance.now(); }, { passive: true });
   }
-  const sndRender = () => requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null);
-
-  // ---- Mathematical events: the deformation ----
-  // the swell once per play the user starts, the arrival once per such play (never on loop repeats)
-  function sndMorphStart() { if (!A.sndP.on || !SND) return; sndUnhush(); snd.morphArm = true; SND.play('morphStart', {}); if (!(morph.T > 0)) snd.run = null; }
-  function sndMorphArrive() {
-    if (!snd.morphArm) return;
-    snd.morphArm = false;
-    if (snd.mo && SND) { SND.motionEnd(); snd.mo = null; }
-    soundCue('morphEnd', { vel: sndClamp(0.6 * Math.sqrt(2 / Math.max(0.2, A.S.morphSecs || 1.6)), 0.35, 0.9) });
-  }
-  // scrubbing: Sound.scrub decides from the drag's speed: soft detents at each 0.05 of t / morphLen() while
-  // slow, a soft band that follows the speed while fast; t = 0, ½, 1 soft keys
-  function sndScrub(T0, T1) {
-    // (the slider's input sets morph.T right after this call: the tone follows H_t on the next frame; a person's step)
-    snd.userT = performance.now();
-    sndUnhush();
-    soundFunctionChanged('t');
-    if (!A.sndP.on || !A.sndP.events || !SND) return;
-    // (not while Hear the function plays F under a resting probe: the scrub's detents are wood strikes in the
-    // marimba's own pitch classes, which a listener could not tell from F's notes; spec 3.14)
-    if (sndHear() && A.sndP.sonify && snd.rest) return;
-    const m = morphLen() || 1;
-    SND.scrub(T0 / m, T1 / m);
-  }
-  // the hand let go of the slider: the scrub's air fades (DESIGN v2 §3)
-  function sndScrubEnd() { if (SND) SND.scrubEnd(); }
-  // the motion bed (DESIGN v2 §4): while a play the user started runs its first pass, the scrub's air follows the
-  // playback (t / length and its rate); it fades at the arrival or a pause. Off while Hear the function is on (the harp
-  // and the loop's note follow H_t there). One line in frame().
-  function sndMotion() {
-    if (!SND || !A.sndP.on || !A.sndP.events) return;
-    const m = morphLen() || 1, now = performance.now();
-    if (!snd.morphArm || !morph.playing || !morph.open || A.sndP.sonify) { if (snd.mo) { SND.motionEnd(); snd.mo = null; } return; }
-    const mo = snd.mo || (snd.mo = { T: morph.T, t: now, rate: 0 });
-    const dt = (now - mo.t) / 1000;
-    if (dt > 0) { const r = Math.abs(morph.T - mo.T) / m / dt; mo.rate += (r - mo.rate) * Math.min(1, dt / 0.08); }
-    mo.T = morph.T; mo.t = now;
-    SND.motion(morph.T / m, mo.rate);
-  }
+  const sndRender = () => requestRender('OL', 'OR', lGlobe() || lLand() ? 'L' : null);
 
   // ---- Hear the function under the pointer ----
-  // the painted function at a point of the X plane (H_t while the deformation is open), as the readouts show it
-  // (homView().F without its second state, the image's, which the probe never uses)
-  // (SPEC 9: the merged plane's probe with a bracket's pre only reads its point as u in w_{a-1} and plays G_t; with a
-  // post it is silent, sndMove)
-  const sndMergedBase = () => { const p = rangeParts(); return p && !p.post.length ? p.a - 1 : null; };
-  const sndF = (src) => (morphOn() ? (src === 'merged' && sndMergedBase() != null ? morphState(true, sndMergedBase()).F : morphState(true).F) : focusF());
-  const sndFKey = () => `${A.chainSig[nSteps()]}|${A.S.focus}|${morph.open ? morph.T : '-'}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}`;
-  // what the probe's function is made of, apart from the chain and t: a change is a new start (nearest pitch class)
-  const sndFrameKey = () => `${A.S.focus}|${morph.open ? 1 : 0}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}|${A.S.sectors || 12}`;
-  // the view of the plane the probe is on: a change is a view gesture (src 'merged': the deformation plane or globe
-  // of X → Y; otherwise X's plane, globe or relief). solo() changes when the deformation merges X → Y into one plane,
-  // so a probe of the hidden X plane stops there. needle: what a still probe depends on: on the relief and on X's globe
-  // it is the needle, a point of X that stays put while the camera refits (opening the deformation refits the relief).
-  // A plane's key holds its pane's size too: a pane that shrinks or grows under a still pointer (the transport bar,
-  // a merge, another view) moves the plane under it as a fit does
+  // the painted function at a point of the X plane, as the readouts show it
+  const sndF = () => focusF();
+  const sndFKey = () => `${A.chainSig[nSteps()]}|${A.S.focus}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}`;
+  // what the probe's function is made of, apart from the chain: a change is a new start (nearest pitch class)
+  const sndFrameKey = () => `${A.S.focus}|${A.S.view.main}|${A.S.homAll ? 1 : 0}|${rangeKey()}|${A.S.sectors || 12}`;
+  // the view of the plane the probe is on (X's plane, globe or relief): a change is a view gesture. needle: what a
+  // still probe depends on: on the relief and on X's globe it is the needle, a point of X that stays put while the
+  // camera refits. A plane's key holds its pane's size too: a pane that shrinks or grows under a still pointer
+  // (another view) moves the plane under it as a fit does
   function sndVKey(src, needle) {
     const cam = (c) => (c ? `${c.yaw}|${c.pitch}|${c.dist}|${c.tx}|${c.ty}` : '');
-    if (src === 'merged') return `M|${solo()}|${A.paneR.w}|${A.paneR.h}|` + (rGlobe() ? cam(camS) : `${V.right.cx}|${V.right.cy}|${V.right.s}`);
-    if (lLand() || lGlobe()) return `L|${solo()}|` + (needle ? A.S.view.main : cam(camOf('L')));
-    const v = leftView(); return `P|${solo()}|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
-  }
-  // H at transport time T: the app's own homView() with morph.T set for the call (the one place that knows how the
-  // transport builds H_T; DEFORMATION.md)
-  function sndFAt(T) {
-    const T0 = morph.T;
-    morph.T = T;
-    try { return sndF(); } finally { morph.T = T0; }
+    if (lLand() || lGlobe()) return 'L|' + (needle ? A.S.view.main : cam(camOf('L')));
+    const v = leftView(); return `P|${A.paneL.w}|${A.paneL.h}|${v.cx}|${v.cy}|${v.s}`;
   }
   function sndVoiceOff(release) {
     clearTimeout(snd.idleT);
@@ -274,9 +206,8 @@ const SoundHooks = (() => {
     snd.rope = null; snd.hold = null; clearTimeout(snd.holdT);
     snd.last = null; snd.near = 0; snd.rest = null; snd.run = null;
   }
-  // the hover paths of onMove: z under the pointer (x: its CSS px in its pane); src 'pointer' | 'loop' | 'key' |
-  // 'merged' (the deformation plane of X → Y, DEFORMATION.md: its point read as a point of X, where the paths
-  // t → H_t(z) start; none on a focused d/dz step, whose plane is not X's). A playback ("listen along")
+  // the hover paths of onMove: z under the pointer (x: its CSS px in its pane); src 'pointer' | 'loop' | 'key'. A
+  // playback ("listen along")
   // plays to its end: a pointer move does not cut it (the menu item that starts it sits over the plane); Stop in its chip, Esc or another action end it.
   function sndMove(x, y, z, src) {
     if (!A.sndP.on) return;
@@ -284,11 +215,8 @@ const SoundHooks = (() => {
     if (src !== 'key') snd.px = [x, y];
     if (p && src !== 'key') return;
     if (src === 'loop' && !snd.loop && A.sndP.sonify) snd.loop = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), live: true };
-    // (silent too when the bracket holds a live d/dz: its segment is a line between two functions of z, so a point of
-    // w_{a-1} is not in G_t's domain from that step on)
-    if (src === 'merged') { const rp = rangeParts(); if (focusDeriv() || (rp && (rp.post.length || derivIn(rp.a - 1, rp.b)))) z = null; }
     if (!z) { sndHoverOff(); return; }
-    // the rope (spec 3.16): with the engine's stream, a hand's probe (pointer, loop, merged plane, a finger) follows
+    // the rope (spec 3.16): with the engine's stream, a hand's probe (pointer, loop, a finger) follows
     // the hand only once it is ρ px away, then ρ px behind it (ρ 3 px, 5 px for touch), so a resting hand's tremor
     // moves nothing. It feeds only the stream; the readouts, the order cues and the query keep the hand's own z
     let zr = z, xr = x;
@@ -328,7 +256,6 @@ const SoundHooks = (() => {
   // the point of the probe's plane at CSS px (x, y) of its pane, by the pane's own picker (as sndRepick)
   function sndPickAt(src, x, y) {
     try {
-      if (src === 'merged') { if (rImage()) { A.paneR.setView(V.right); return A.paneR.s2w(x, y); } return pickSphere(A.paneR, camS, x, y); }
       if (lLand()) return pickLand(x, y);
       if (lGlobe()) return typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
       A.paneL.setView(leftView()); return A.paneL.s2w(x, y);
@@ -340,10 +267,10 @@ const SoundHooks = (() => {
     snd.loop = null; snd.collide = '';
     sndVoiceOff(false);
   }
-  // The function under a still probe changed (the deformation plays or is scrubbed, a zero is dragged, a step's
-  // parameter is edited, a shared number's slider or Play): the tone re-evaluates at the probe's point on the next
-  // frame, once a frame however often this is called (DEFORMATION.md). kind:
-  //   't'               only the transport's t moved (tracked exactly along t);
+  // The function under a still probe changed (a zero is dragged, a step's parameter is edited, a shared number's
+  // slider or Play): the tone re-evaluates at the probe's point on the next frame, once a frame however often this is
+  // called (DEFORMATION.md). kind:
+  //   't'               a move along the chain that changes nothing the probe plays;
   //   { at: (u) => F_u } a path from the previous function (u = 0) to the new one (u = 1), tracked exactly as t is
   //                     (several in a frame are followed one after another; a shared number c0 → c1 gives
   //                     at = (u) => F with c = c0 + u (c1 − c0));
@@ -358,11 +285,10 @@ const SoundHooks = (() => {
       if (kind && typeof kind.at === 'function') { if (snd.path !== false) (snd.path || (snd.path = [])).push(kind.at); }
       else { snd.fcGen++; snd.path = false; }
     }
-    if (!snd.fcRaf && (snd.rest || (snd.lastLoop && morph.open))) snd.fcRaf = requestAnimationFrame(sndRetrack);
+    if (!snd.fcRaf && snd.rest) snd.fcRaf = requestAnimationFrame(sndRetrack);
   }
   function sndRetrack() {
     snd.fcRaf = 0;
-    sndCurveLive();
     const r = snd.rest;
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.tracker || snd.play || !r || r.src === 'loop') { snd.path = null; return; }
     if (r.src === 'key' && !snd.kz) { snd.path = null; return; }
@@ -372,8 +298,7 @@ const SoundHooks = (() => {
     if (sndVKey(r.src, true) !== r.nk) { snd.path = null; if (r.src !== 'key') sndRelayout(); return; }
     sndHover(r.z, r.px, r.src, true, r.zh);
   }
-  // The plane under a still pointer changed (the deformation merged X → Y into one plane or split it again; another
-  // main view; a pane resized; a fit): the tone goes on from the point under the pointer in the plane there, as a
+  // The plane under a still pointer changed (another main view; a pane resized; a fit): the tone goes on from the point under the pointer in the plane there, as a
   // fresh start (the nearest turn, no cue: the view key starts the 250 ms hush). The point is
   // read once the new layout is drawn (sndFrame, at the end of a frame), never from the previous one: the panes take their
   // new size in the ResizeObserver after the layout (onPaneResize, which calls this again), and the relief's picker
@@ -390,7 +315,7 @@ const SoundHooks = (() => {
     if (!q) return;
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.cxy) { snd.rp = null; return; }
     const el = document.elementFromPoint(snd.cxy[0], snd.cxy[1]);
-    const pane = el && el === A.paneL.ocanvas ? A.paneL : el && el === A.paneR.ocanvas ? A.paneR : null;
+    const pane = el && el === A.paneL.ocanvas ? A.paneL : null;
     let ready = true;
     if (pane) {
       const b = pane.canvas.getBoundingClientRect();
@@ -404,64 +329,29 @@ const SoundHooks = (() => {
   function sndRepick() {
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.cxy || snd.play || A.drag || snd.kz || snd.press) return;
     const el = document.elementFromPoint(snd.cxy[0], snd.cxy[1]);
-    const pane = el && el === A.paneL.ocanvas ? A.paneL : el && el === A.paneR.ocanvas ? A.paneR : null;
+    const pane = el && el === A.paneL.ocanvas ? A.paneL : null;
     if (!pane) return;
     const b = pane.ocanvas.getBoundingClientRect(), x = snd.cxy[0] - b.left, y = snd.cxy[1] - b.top;
-    const r = snd.rest, src = pane === A.paneL ? 'pointer' : 'merged';
-    if (pane === A.paneL ? solo() === 'R' : !(solo() === 'R' && morphOn())) return;
+    const r = snd.rest, src = 'pointer';
     // the probe's plane and view are the same: on the relief and X's globe the probe is the needle, a point of X that
-    // stays put while the camera refits (opening the deformation refits the relief: no re-pick); on a
-    // plane, the same point
+    // stays put while the camera refits (no re-pick); on a plane, the same point
     const same = r && r.src === src && sndVKey(src, true) === r.nk;
-    if (same && pane === A.paneL && (lLand() || lGlobe())) return;
+    if (same && (lLand() || lGlobe())) return;
     let z = null;
-    if (pane === A.paneL) {
-      if (lLand()) z = pickLand(x, y);
-      else if (lGlobe()) z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
-      else { pane.setView(leftView()); z = pane.s2w(x, y); }
-    } else if (rImage()) { pane.setView(V.right); z = pane.s2w(x, y); } else z = pickSphere(pane, camS, x, y);
+    if (lLand()) z = pickLand(x, y);
+    else if (lGlobe()) z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null;
+    else { pane.setView(leftView()); z = pane.s2w(x, y); }
     if (!z || (same && r.z.re === z.re && r.z.im === z.im)) return;
     // (the plane moved under the pointer: the rope lets go, the point is the hand's)
     snd.rope = null;
     sndMove(x, y, z, src);
   }
-  // The merged deformation plane: the probe's point p is a point of X and the tone is H_t(p), the head of the path
-  // t → H_t(p) that starts under the pointer. That path is drawn (thin, the probe's colour) with the probe's cross at
-  // its head, so the tone describes a point on screen. Called by renderOverlays; the path is skipped
-  // when its 40 evaluations would cost more than 1 ms.
-  function sndOverlay() {
-    const r = snd.rest;
-    const sounding = !!sndHear() && sndHear().active();
-    if (!A.sndP.on || !A.sndP.sonify || !r || r.src !== 'merged' || !sounding || A.drag || solo() !== 'R' || !morphOn() || !rImage()) return;
-    const pane = A.paneR, T1 = morph.T, p = r.z;
-    pane.setView(V.right);
-    let head = null;
-    try { head = sndFAt(T1)(p); } catch (e) { head = null; }
-    if (!head || !CX.isFin(head)) return;
-    if (snd.perEval * 40 < 1 && T1 > 0) {
-      const ctx = pane.octx, N = 40;
-      ctx.save(); ctx.lineWidth = 1.25; ctx.strokeStyle = A.TH.probe; ctx.globalAlpha = 0.85; ctx.lineJoin = 'round';
-      ctx.beginPath();
-      let pen = false, last = null;
-      for (let i = 0; i <= N; i++) {
-        let w = null;
-        try { w = i === N ? head : sndFAt(T1 * i / N)(p); } catch (e) { w = null; }
-        const q = w && CX.isFin(w) ? pane.w2s(w) : null;
-        // broken where H_t(p) is not finite or jumps (a pole or a cut on the way)
-        if (!q || Math.abs(q[0]) > 2e4 || Math.abs(q[1]) > 2e4 || (last && Math.hypot(q[0] - last[0], q[1] - last[1]) > 0.5 * (pane.w + pane.h))) { pen = false; last = null; continue; }
-        if (pen) ctx.lineTo(q[0], q[1]); else { ctx.moveTo(q[0], q[1]); pen = true; }
-        last = q;
-      }
-      ctx.stroke(); ctx.restore();
-    }
-    drawProbe(pane, head, A.TH.probe);
-  }
   // The probe (DESIGN §2.4, §2.5): arg F tracked exactly along the pointer's segment (Calc.argStep), so the voice's
   // pitch class never runs backwards and a loop's turns ring as bells; a branch cut is a tracker that cannot converge
   // while F stays finite and non-zero. Within a per-event budget of calls of F (about 3 ms, from the measured cost of
   // a call): when it runs out the voice holds and no cue fires. Event cues are suppressed during and 250 ms after a
-  // view gesture. While the deformation plays or is scrubbed, the step is a path in (z, t) (Sound.pathStep): exact in
-  // t too, so H_t's zeros, poles and cuts sweeping across a still probe ring as the pointer's do (DEFORMATION.md).
+  // view gesture. A change of the function along a path (soundFunctionChanged's at) is tracked as a path in (z, u)
+  // (Sound.pathStep): its zeros, poles and cuts sweeping across a still probe ring as the pointer's do (DEFORMATION.md).
   // fn: a re-evaluation because the function changed (soundFunctionChanged), not because the probe moved.
   function sndHover(z, px, src, fn, zh) {
     if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.tracker || !z) return;
@@ -480,29 +370,28 @@ const SoundHooks = (() => {
   // Order within the event: the cue at the hand first, then the stream's call (so the engine's cue window sees it)
   function sndHearAt(H, z, px, src, fn, zh) {
     const t0 = performance.now(), t = t0 / 1000;
-    const F = sndF(src), fk = sndFrameKey(), ck = `${A.chainSig[nSteps()]}#${snd.fcGen}`, vk = sndVKey(src);
-    const T = morph.open ? morph.T : null, merged = src === 'merged', n = A.S.sectors || 12;
+    const F = sndF(), fk = sndFrameKey(), ck = `${A.chainSig[nSteps()]}#${snd.fcGen}`, vk = sndVKey(src);
+    const n = A.S.sectors || 12;
     // pan from the (roped) probe's px in its pane (spec 3.11; the engine clamps to ±0.4)
-    const pan = 0.3 * sndClamp(2 * px / Math.max(1, merged ? A.paneR.w : A.paneL.w) - 1, -1, 1);
+    const pan = 0.3 * sndClamp(2 * px / Math.max(1, A.paneL.w) - 1, -1, 1);
     const hs = fn ? 'fn' : src === 'key' ? 'key' : 'hand';
-    if (!fn) { snd.rest = { z, zh, src, px, nk: sndVKey(src, true) }; sndUnhush(); }
-    // a change of the probe's source (the pointer, the keys, the merged plane) is a stroke start
+    if (!fn) snd.rest = { z, zh, src, px, nk: sndVKey(src, true) };
+    // a change of the probe's source (the pointer, the keys) is a stroke start
     const sk = src === 'loop' ? 'pointer' : src;
     if (sk !== snd.lastSrc) { snd.last = null; snd.lastSrc = sk; }
     if (vk !== snd.vKey) { if (snd.vKey) snd.gestT = t0; snd.vKey = vk; if (!(fn && snd.last && z.re === snd.last.re && z.im === snd.last.im)) snd.last = null; }
-    let swap = !!snd.last && T != null && snd.T != null && T < snd.T && morph.playing;
+    let swap = false;
     if (fk !== snd.fKey) { if (fn && snd.last && snd.fKey) swap = true; else snd.last = null; snd.fKey = fk; snd.near = 0; }
     if (swap) snd.run = null;
-    const dT = T !== snd.T, paths = Array.isArray(snd.path) && snd.path.length ? snd.path : null;
+    const paths = Array.isArray(snd.path) && snd.path.length ? snd.path : null;
     snd.path = null;
-    const gen = (ck !== snd.cKey && !paths) || (paths && dT) || swap;
+    const gen = (ck !== snd.cKey && !paths) || swap;
     const moved = !!snd.last && (z.re !== snd.last.re || z.im !== snd.last.im);
-    if (fn && snd.last && !gen && !dT && !paths && !moved) return;   // nothing new
+    if (fn && snd.last && !gen && !paths && !moved) return;   // nothing new
     snd.cKey = ck;
-    const T0 = snd.T;
-    snd.T = T;
     if (fn) snd.fcN++;
-    // (keyQuiet: the keyboard probe while the transport plays by itself does not talk over a screen reader)
+    // (keyQuiet: the keyboard probe while the function changes by itself (a shared number's Play) does not talk over a
+    // screen reader)
     const keyQuiet = src === 'key' && !snd.kloop && fn && t0 - snd.userT > 280;
     const quiet = t0 - snd.gestT < 250 || !!snd.play;
     let g0 = null;
@@ -510,15 +399,14 @@ const SoundHooks = (() => {
     const bz = sndBridge(F, z, g0), zc = bz.z, g = bz.g;
     const deadline = t0 + 3;
     let budget = Math.max(24, Math.min(6000, Math.floor(3 / snd.perEval)));
-    const vs = merged ? V.right.s : leftView().s;
-    const fnMoved = (gen || dT || !!paths) && !swap, tMove = dT && !gen;
-    if (snd.run && (snd.run.tp ? gen || (!fn && moved && !morph.playing) : t0 - snd.run.t > 1600)) snd.run = null;
+    const vs = leftView().s;
+    const fnMoved = (gen || !!paths) && !swap;
+    if (snd.run && t0 - snd.run.t > 1600) snd.run = null;
     let act = 'seat', phi1 = snd.phi, r = null;
     if (!sndOk(g)) act = 'gap';
     else if (snd.last && sndOk(snd.g)) {
       const za0 = snd.lc || snd.last;
       if (gen) r = { d: Math.atan2(snd.g.re * g.im - snd.g.im * g.re, snd.g.re * g.re + snd.g.im * g.im), exact: true, why: 'chain', evals: 0 };
-      else if (dT) r = SND.pathStep(Calc.argStep, sndFAt, za0, T0, snd.g, zc, T, g, { budget, deadline });
       else if (paths) {
         // one path after another, each from u = 0 to 1 (the probe moves along the last one); a jump keeps its path
         // for throughZPAlong
@@ -537,12 +425,12 @@ const SoundHooks = (() => {
         }
       } else r = Calc.argStep(F, za0, snd.g, zc, g, { budget, deadline });
       const dt = performance.now() - t0;
-      if (r.evals >= 4 || ((dT || paths) && r.evals >= 1)) { const c = snd.cost || (snd.cost = { dt: 0, n: 0 }); c.dt = 0.95 * c.dt + dt; c.n = 0.95 * c.n + r.evals + 1; if (c.n > 15) snd.perEval = Math.max(2e-5, c.dt / c.n); }
+      if (r.evals >= 4 || (paths && r.evals >= 1)) { const c = snd.cost || (snd.cost = { dt: 0, n: 0 }); c.dt = 0.95 * c.dt + dt; c.n = 0.95 * c.n + r.evals + 1; if (c.n > 15) snd.perEval = Math.max(2e-5, c.dt / c.n); }
       budget -= r.evals;
       // over budget: nothing fires, and the next event starts afresh (a declared limit)
       if (!r.exact && r.why === 'budget') { snd.last = null; snd.run = null; return; }
       phi1 = snd.phi + r.d / TAU;
-      if (r.exact && !gen && !dT && !paths && !fn && hs === 'hand' && sndHold(t0, phi1, Math.log(Math.hypot(g.re, g.im)), z, vs, n, [z, px, src, fn, zh])) return;
+      if (r.exact && !gen && !paths && !fn && hs === 'hand' && sndHold(t0, phi1, Math.log(Math.hypot(g.re, g.im)), z, vs, n, [z, px, src, fn, zh])) return;
       if (gen) act = swap ? 'seat' : 'pathless';
       else if (r.exact) act = 'step';
       else if (r.why === 'jump') {
@@ -552,14 +440,12 @@ const SoundHooks = (() => {
         const ZP = sndZP();
         if (!zp && ZP) {
           try {
-            zp = dT ? ZP.throughZPAlong((u) => sndFAt(T0 + u * (T - T0))(C(za0.re + (zc.re - za0.re) * u, za0.im + (zc.im - za0.im) * u)), snd.g, g)
-              : paths ? (r.P ? ZP.throughZPAlong(r.P, r.ga, r.gb) : true) : ZP.throughZP(F, za0, snd.g, zc, g);
+            zp = paths ? (r.P ? ZP.throughZPAlong(r.P, r.ga, r.gb) : true) : ZP.throughZP(F, za0, snd.g, zc, g);
           } catch (e) { zp = true; }
         }
         act = zp ? 'seat' : 'cut';
       } else act = 'seat';
-      if (fnMoved && !snd.run) snd.run = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), t: t0, tp: tMove };
-      else if (snd.run && tMove) snd.run.tp = true;
+      if (fnMoved && !snd.run) snd.run = { phi: 0, k: 0, jumps: 0, pc0: snd.phi - Math.floor(snd.phi), t: t0 };
       const jump = act === 'cut';
       if (snd.loop) { snd.loop.phi += r.d / TAU; if (jump) snd.loop.jumps++; sndTurnBells(snd.loop); }
       if (snd.run) { if (fnMoved) snd.run.t = t0; snd.run.phi += r.d / TAU; if (jump) snd.run.jumps++; sndTurnBells(snd.run); }
@@ -595,7 +481,6 @@ const SoundHooks = (() => {
     if (res && tourL['hear-turn']) { if (res.dUp > 0) tourEmit('hear-turn', { dir: 1 }); if (res.dDown > 0) tourEmit('hear-turn', { dir: -1 }); }
     // a key step that crosses no line and no band edge plays the point itself, so every step answers (spec 3.15)
     if (src === 'key' && !fn && act === 'step' && res && (res.arg || 0) + (res.mod || 0) === 0) sndQueryAt(zh, px, 'key');
-    if (merged) requestRender('OR');
   }
   // A slow finger's crossings wait to be confirmed (a provisional rule). The probe trails a finger
   // by the 5 px rope, so when the finger stops, the lines between the two are owed, and a tremor taut against the rope
@@ -641,22 +526,21 @@ const SoundHooks = (() => {
   function sndQueryAt(z, px, src) {
     const H = sndHear();
     if (!H || !A.sndP.on || !A.sndP.sonify || !snd.tracker || !z) return false;
-    const F = sndF(src);
+    const F = sndF();
     let g = null;
     try { g = F(z); } catch (e) { g = null; }
     g = sndBridge(F, z, g).g;
     if (!g || Number.isNaN(g.re) || Number.isNaN(g.im)) return false;
     const m = CX.isFin(g) ? Math.hypot(g.re, g.im) : Infinity;
     const phi = m > 0 && Number.isFinite(m) ? Math.atan2(g.im, g.re) / TAU : snd.phi;
-    const w = Math.max(1, src === 'merged' ? A.paneR.w : A.paneL.w);
+    const w = Math.max(1, A.paneL.w);
     return !!H.query({ phi, ln: Math.log(m), pan: 0.3 * sndClamp(2 * px / w - 1, -1, 1) });
   }
   // a click on a still point (no drag, the Select tool, an empty spot of a plane): the query at the point clicked
   function sndQueryClick(pane, side, x, y) {
     if (!sndHear() || !A.sndP.on || !A.sndP.sonify) return;
-    const src = side === 'L' ? 'pointer' : 'merged';
-    if (src === 'merged' && !(solo() === 'R' && morphOn())) return;
-    if (src === 'pointer' && solo() === 'R') return;
+    if (side !== 'L') return;
+    const src = 'pointer';
     const z = sndPickAt(src, x, y);
     if (z) sndQueryAt(z, x, src);
   }
@@ -732,7 +616,6 @@ const SoundHooks = (() => {
     snd.loop = null;
     if (!A.sndP.on || !SND || !pts || pts.length < 3) return;
     snd.lastLoop = { pts: pts.slice(), closed: true };
-    sndUnhush();
     if (!A.sndP.events) return;
     let r;
     try { r = Calc.argPrinciple(sndF(), pts, 0, { budget: 120000 }); } catch (e) { r = { ok: false, turn: NaN, winding: 0 }; }
@@ -758,79 +641,6 @@ const SoundHooks = (() => {
     const a = SND.curveAmps(Sm.phi.subarray(0, n - 1), W);
     snd.sang = W;
     return SND.sing(a.A, a.n0, { mode: 'release', tier: 'events', at: o.at || 0, tag: o.tag });
-  }
-  // the last loop sings while the function changes under it (the deformation plays or is scrubbed, an edit), with Hear
-  // the function on: once a frame (sndRetrack), the loop sampled at 256 points under H_t, arg tracked exactly between
-  // them within 2.5 ms (over that, the note holds). Its note W can only change when a zero or pole of H_t crosses the
-  // loop (homotopy invariance): there W is undefined for an instant and the note holds, then steps. It fades 0.9 s
-  // after the function stops changing.
-  function sndCurveLive() {
-    const L = snd.lastLoop, cv = snd.cv;
-    // (after Esc: silent until the next thing a person does)
-    if (!A.sndP.on || !A.sndP.sonify || !SND || !snd.tracker || !L || !L.closed || snd.play || !morph.open || cv.hushed) { sndCurveOff(); return; }
-    const key = `${A.chainSig[nSteps()]}|${morph.T}|${A.S.focus}|${A.S.homAll ? 1 : 0}|${snd.fcGen}|${L.pts.length}`;
-    if (key === cv.key) return;
-    cv.key = key;
-    const t0 = performance.now();
-    let r = null;
-    try { r = sndCurveW(sndF(), L.pts, 256, t0 + 2.5); } catch (e) { r = null; }
-    if (r) {
-      if (!r.ok) { if (cv.bad == null) cv.bad = t0; if (t0 - cv.bad > 150) sndCurveOff(true); cv.W = null; }
-      else if (!SND.singable(r.W)) {
-        // a W with no harmonic of D3 (4 + W outside 1 … 24, a loop round four poles): no note; the count is spoken
-        // whenever it changes
-        cv.bad = null;
-        if (cv.on) { SND.singOff(); cv.on = false; }
-        if (cv.W !== r.W) sndSayOnce($t('Winding number of the loop: {W}.', { W: r.W }));
-        cv.W = r.W; cv.T = morph.T;
-      } else {
-        cv.bad = null;
-        const a = SND.curveAmps(r.ph, r.W);
-        if (SND.sing(a.A, a.n0, { mode: 'live', tier: 'sonify' })) {
-          if (cv.W != null && cv.W !== r.W) sndSayOnce($t('Winding number of the loop: {W}.', { W: r.W }));
-          cv.on = true; cv.W = r.W; cv.T = morph.T;
-        }
-      }
-    }
-    clearTimeout(cv.idle);
-    cv.idle = setTimeout(() => sndCurveOff(true), 900);
-  }
-  function sndCurveOff(keepKey) {
-    const cv = snd.cv;
-    clearTimeout(cv.idle);
-    if (cv.on && SND) SND.singOff();
-    cv.on = false; cv.bad = null;
-    if (!keepKey) { cv.key = ''; cv.W = null; }
-  }
-  // a closed polygon resampled at M points evenly in arc length; arg F tracked exactly between them (and back to the
-  // start): {ph (turns), W, ok}; ok false where F vanishes, is infinite or jumps on the curve (no winding number);
-  // null when the deadline passed (the caller holds)
-  function sndCurveW(F, pts, M, deadline) {
-    const n = pts.length, Ls = [0];
-    for (let i = 1; i <= n; i++) { const a = pts[i - 1], b = pts[i % n]; Ls.push(Ls[i - 1] + Math.hypot(b[0] - a[0], b[1] - a[1])); }
-    const tot = Ls[n];
-    if (!(tot > 0)) return { ok: false };
-    const zs = [];
-    let i = 0;
-    for (let k = 0; k < M; k++) {
-      const sk = tot * k / M;
-      while (i < n - 1 && Ls[i + 1] < sk) i++;
-      const a = pts[i], b = pts[(i + 1) % n], u = (sk - Ls[i]) / Math.max(1e-300, Ls[i + 1] - Ls[i]);
-      zs.push(C(a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u));
-    }
-    const ph = new Float64Array(M), gs = zs.map((z) => F(z));
-    if (!gs.every(sndOk)) return { ok: false };
-    let acc = Math.atan2(gs[0].im, gs[0].re) / TAU, ok = true;
-    const a0 = acc;
-    ph[0] = acc;
-    for (let k = 1; k <= M; k++) {
-      const r = Calc.argStep(F, zs[k - 1], gs[k - 1], zs[k % M], gs[k % M], { budget: 400, deadline });
-      if (!r.exact) { if (r.why === 'budget') return null; ok = false; }
-      acc += r.d / TAU;
-      if (k < M) ph[k] = acc;
-    }
-    const Wn = acc - a0, W = Math.round(Wn);
-    return { ph, W, ok: ok && Math.abs(Wn - W) < 0.05 };
   }
   // a curve sampled uniformly in arc length, arg tracked exactly between the samples; null when F is too costly here
   function sndSample(F, pts, closed) {
@@ -928,7 +738,7 @@ const SoundHooks = (() => {
       zp = zc; gp = g;
     }
   }
-  // play F along a curve (Mathematical events): the probe travels the curve in X and its image in Y; Esc, L, the
+  // play F along a curve (Mathematical events): the probe travels the curve in X; Esc, L, the
   // menu again, or a pointer move of more than 4 px stop it (on a 12 ms fade, never mid-waveform). listen: a composed
   // curve's own duration, velocities, register and drum (sndListenOf; an example's melody, notes/sea-song), used only
   // while the harp would play exactly its crossings here; a pointer move does not stop a melody. shape: the shape it
@@ -1035,7 +845,7 @@ const SoundHooks = (() => {
       if (!sndSingLoop(pts, Wr, { at: dur + 0.05, tag }, { phi: Sp, cuts: [] })) SND.play('loopDone', { w: Wr, at: dur + 0.05, tag, force: true });
     }
     const h = { t0: hh.t0, now: hh.now, tag, along: hh, mode: hh.mode || '', counts: hh.counts || null };
-    const p = snd.play = { h, zs: R.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: false, fn: true, shape: shape || null, nf: 0, closed: !!closed, W: Wr, T: morph.open ? morph.T : null };
+    const p = snd.play = { h, zs: R.zs, dur, raf: 0, from: snd.px ? snd.px.slice() : null, tag, piece: false, fn: true, shape: shape || null, nf: 0, closed: !!closed, W: Wr };
     tourEmit('listen-started', { piece: false, fn: true, closed: !!closed, dur });
     updateDraftChips();
     const speed = raw !== dur ? $t('Listening along at {speed} pixels a second: the curve is too long or too short for 250.', { speed: I18N.num(Math.round(Lpx / dur)) }) + ' ' : '';
@@ -1043,14 +853,13 @@ const SoundHooks = (() => {
     sndPlayRun(p);
     return true;
   }
-  // the probe travels the curve while it plays (X's readouts and its image in Y); it stops when what it plays changed:
-  // the shape gone, a melody's curve or chain changed (its key checked every 8th frame), or, for the function, t moved
+  // the probe travels the curve while it plays (X's readouts); it stops when what it plays changed: the shape gone, or a
+  // melody's curve or chain changed (its key checked every 8th frame)
   function sndPlayRun(p) {
     const h = p.h, dur = p.dur;
     const tick = () => {
       if (snd.play !== p) return;
       if (p.shape && (!A.S.shapes.includes(p.shape) || (p.piece && (++p.nf % 8 === 0 || !p.shape.listen) && !sndListenOf(p.shape)))) { sndStopPlay(false); return; }
-      if (p.fn && p.T !== (morph.open ? morph.T : null)) { sndStopPlay(false); return; }
       const u = sndClamp((h.now() - h.t0) / dur, 0, 1), x = u * (p.zs.length - 1), j = Math.min(p.zs.length - 2, Math.floor(x)), a = x - j;
       A.probe = C(p.zs[j].re + (p.zs[j + 1].re - p.zs[j].re) * a, p.zs[j].im + (p.zs[j + 1].im - p.zs[j].im) * a);
       setReadouts(A.probe); sndRender();
@@ -1105,14 +914,14 @@ const SoundHooks = (() => {
   }
   // a composed curve's Listen along data (an example's melody: src/seasong.js, notes/sea-song), only on that curve as
   // it is stored (no edit or transform since: the key of its points; an edited curve loses it), under the chain it
-  // is composed for, with X in z and no deformation; null otherwise (then the usual rules play it)
+  // is composed for, with X in z; null otherwise (then the usual rules play it)
   // the example that is played (ex.song, its curve's song): found by its flag, whatever its score
   function sndIsSong(x) { return !!(x && (x.song || x.listen)); }
   function sndListenOf(s) {
     const L = s && s.listen;
     if (!L || s.kind !== 'curve' || !Array.isArray(s.pts)) return null;
     if (L.key !== sndPtsKey(s.pts)) { delete s.listen; return null; }
-    if (leftStage() !== 0 || morphOn() || !Array.isArray(L.steps) || A.S.steps.length !== L.steps.length) return null;
+    if (leftStage() !== 0 || !Array.isArray(L.steps) || A.S.steps.length !== L.steps.length) return null;
     const same = L.steps.every((st, i) => { const a = A.S.steps[i]; return a && a.type === st.type && a.on !== false && Object.keys(st.params || {}).every((k) => String(a.params[k]) === String(st.params[k])); });
     return same ? L : null;
   }
@@ -1353,12 +1162,12 @@ const SoundHooks = (() => {
 
   function init(api) {
     A = api;
-    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
+    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, camOf, curvePieces, exOk, fnText, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, render3D, requestRender, setReadouts, shapeNames, snd, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
     // Calc.throughZP / throughZPAlong / ZP_CALLS (SOUND-PLAN 2.2): one implementation, the engine's (Sound.HT, FINAL
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });
   }
-  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMorphStart, sndMorphArrive, sndScrub, sndScrubEnd, sndMotion, sndFAt, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndOverlay, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
+  return { init, soundCue, sndExportDone, sndError, sndToggleCue, sndSay, soundToggle, soundHear, soundStop, sndInit, sndMove, sndLift, sndHoverOff, soundFunctionChanged, sndRelayout, sndFrame, sndCollide, sndLoopDone, sndListen, sndStopPlay, sndListenShape, sndListenOf, sndPtsKey, sndListenAsk, sndTurnOnListen, sndPieceHint, syncPieceHint, pieceHint, listenChipMsg, sndPlayPiece, soundMode, sndQueryClick, sndIsSong, sndSampleAt };
 })();
 import { $, DEG, TAU, h } from './util.js';
 import { CX } from './cx.js';

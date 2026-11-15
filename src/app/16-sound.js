@@ -8,20 +8,19 @@
   let sndP = SND ? SND.prefs() : { on: false, vol: 0.7, ui: false, snap: false, events: false, sonify: false };
   const snd = {
     last: null, g: null, phi: 0, fKey: '', vKey: '', gestT: -1e9, near: 0, idleT: 0,
-    perEval: 0.002, loop: null, lastLoop: null, play: null, auto: false, morphArm: false, kz: null, kloop: null, lm: -1,
+    perEval: 0.002, loop: null, lastLoop: null, play: null, auto: false, kz: null, kloop: null, lm: -1,
     lms: null, lmKey: '', annT: 0, collide: '', tracker: false, ptrT: -1e9, kbd: false, px: null,
     // the function under a still probe (notes/sound/DEFORMATION.md): rest, the probe's last point {z, src, px};
-    // T, the transport time and cKey, the chain (+ fcGen) of the last evaluation; run, the turns counted while the
-    // function changes; fcRaf, the one evaluation a frame; fcN, function-driven evaluations (tests)
-    rest: null, T: null, cKey: '', run: null, fcGen: 0, fcRaf: 0, fcN: 0,
+    // cKey, the chain (+ fcGen) of the last evaluation; run, the turns counted while the function changes; fcRaf, the
+    // one evaluation a frame; fcN, function-driven evaluations (tests)
+    rest: null, cKey: '', run: null, fcGen: 0, fcRaf: 0, fcN: 0,
     // cxy, the pointer's last position on the page (null after Esc until it moves) and press, where a mouse or pen
     // press began (sndPtr); rp, a re-pick waiting for a frame drawn at the new layout (sndRelayout, sndFrame); userT,
-    // the last change of F a person made (not the transport's own frames); path, the paths of the changes since the
+    // the last change of F a person made (not a shared number's own Play); path, the paths of the changes since the
     // last evaluation (soundFunctionChanged({ at })); said, the last speech
     ptrOn: false, cxy: null, press: null, rp: null, userT: -1e9, path: null, said: null,
-    // spd, the probe's speed (px per ms, for how hard a ping is struck); cv, the last loop singing while the function
-    // changes (curves sing); listenN, a tag per "listen along"
-    spd: 0, cv: { key: '', W: null, bad: null, idle: 0, on: false, hushed: false }, listenN: 0,
+    // spd, the probe's speed (px per ms, for how hard a ping is struck); listenN, a tag per "listen along"
+    spd: 0, listenN: 0,
     // Hear the function (notes/sound/AS-BUILT, Sound.hear): rope, the roped point {x, y, src} in its pane's CSS px (3 px
     // behind a mouse or pen, 5 px behind a finger; null when let go); lastSrc, the probe's last source (a change is a
     // stroke start); ptype, the last pointer's type on a plane; hand, the hand's own last point {x, y, z, src}, where a
@@ -36,20 +35,16 @@
   // reassign as getters (and setters for the state they write)
   function soundHooksApi() {
     return {
-      C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
-      focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn,
-      morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts,
-      render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
-      updateDraftChips, zerosPolesTimed,
+      C, EX, SND, SND_ICON_OFF, SND_ICON_ON, camOf, curvePieces, exOk, fnText, focusF, hov, lGlobe, lLand,
+      leftStage, leftView, loadExample, nSteps, pickLand, pickSphereLeft, rangeF, rangeKey, render3D, requestRender,
+      setReadouts, shapeNames, snd, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed,
       get S() { return S; },
       get stepsView() { return SV.on; },
-      get TH() { return TH; },
       get built() { return built; },
       get chainSig() { return chainSig; },
       get currentExample() { return currentExample; },
       get drag() { return drag; },
       get paneL() { return paneL; },
-      get paneR() { return paneR; },
       get probe() { return probe; }, set probe(v) { probe = v; },
       get sndP() { return sndP; }, set sndP(v) { sndP = v; },
     };
@@ -65,17 +60,12 @@
   function soundHear(...args) { return SH.soundHear(...args); }
   function soundStop(...args) { return SH.soundStop(...args); }
   function sndInit(...args) { return SH.sndInit(...args); }
-  function sndMorphStart(...args) { return SH.sndMorphStart(...args); }
-  function sndMorphArrive(...args) { return SH.sndMorphArrive(...args); }
-  function sndMotion(...args) { return SH.sndMotion(...args); }
-  function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
   function sndLift(...args) { return SH.sndLift(...args); }
   function sndHoverOff(...args) { return SH.sndHoverOff(...args); }
   function soundFunctionChanged(...args) { return SH.soundFunctionChanged(...args); }
   function sndRelayout(...args) { return SH.sndRelayout(...args); }
   function sndFrame(...args) { return SH.sndFrame(...args); }
-  function sndOverlay(...args) { return SH.sndOverlay(...args); }
   function sndCollide(...args) { return SH.sndCollide(...args); }
   function sndLoopDone(...args) { return SH.sndLoopDone(...args); }
   function sndListen(...args) { return SH.sndListen(...args); }
@@ -104,9 +94,9 @@
       if (e.key !== 'Escape') return;
       // (a Listen along still preparing its samples counts as playing: this Esc drops it and goes no further)
       const playing = !!(snd.play || snd.prep);
-      // (what Esc silences is its own level: while a melody, the deformation's motion or a loop sounds, this Esc stops
+      // (what Esc silences is its own level: while a melody or a curve's playback sounds, this Esc stops
       // the sound and goes no further; the next one steps out of the modes)
-      escSound = !!(sndP && sndP.on && (snd.play || snd.prep || snd.morphArm || snd.mo || (snd.cv && snd.cv.on)));
+      escSound = !!(sndP && sndP.on && (snd.play || snd.prep));
       soundStop();
       if (playing && Tour.isActive && Tour.isActive() && !document.querySelector('.modal-bg, #popHost > .pop')) { e.preventDefault(); e.stopImmediatePropagation(); }
     }, true);

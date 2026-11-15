@@ -2,11 +2,10 @@
 // The phone layout (notes/ui-redesign-2/phone/DESIGN.md, build notes in notes/ui-redesign-2/build/phone.md).
 //
 // Below 768 px (and on a landscape phone: coarse pointer, at most 500 px tall, below 1024 px wide) the page is one
-// screen without page scroll: the view switch and More in the header, one plane with the other as a live inset (tap
-// it to swap), the chain bar (Numbers, the cards, +, F, Deformation) and the tool row (Undo, Select, Point, Disc,
-// Polygon, More). Everything else opens in one bottom sheet: the Editor (the Inspector with Parameters), More tools
-// (with the region formula and the shapes), Display, and More (sound, theme, language, examples, export, help).
-// While the Editor, More tools or Display is open, X and Y sit side by side above it.
+// screen without page scroll: the view switch and More in the header, the plane, the chain bar (Numbers, the cards,
+// +, F) and the tool row (Undo, Select, Point, Disc, Polygon, More). Everything else opens in one bottom sheet: the
+// Editor (the Inspector with Parameters), More tools (with the region formula and the shapes), Display, and More
+// (sound, theme, language, examples, export, help).
 //
 // The phone moves some of the app's own elements into its sheets (the Inspector's host, the region sections, the
 // Deformation toggle) and puts them back when the window grows past the phone layout: their listeners stay theirs.
@@ -14,17 +13,13 @@
 const Phone = (() => {
   let A = null;
   let on = false, land = false;
-  let big = 'L';                       // the large plane in X → Y; the other one is the inset
-  // "Both": X above Y, each its own half, rather than the large plane and the inset; remembered
-  const BOTH_KEY = 'cmw-ph-both' + (new URLSearchParams(location.search).get('ns') || '');
-  let both = (() => { try { return localStorage.getItem(BOTH_KEY) === '1'; } catch (e) { return false; } })();
   let kind = null, full = false;       // the open sheet and its height
   let nums = false;                    // the Editor opened by Numbers: Parameters only (review design-12)
   let anim = 0;                        // the sheet's opening or closing timer
   const homes = [];                    // [el, placeholder] of the moved elements
   const els = {};
   let opener = null;   // the control the Display sheet opened from, which gets the focus back
-  const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: X | Y above them
+  const SPLIT = new Set(['edit', 'tools', 'display']);   // the non-modal sheets: the plane above them
   const MQP = '(max-width: 767px)';
   const MQL = '(orientation: landscape) and (max-height: 500px) and (max-width: 1023px) and (pointer: coarse)';
   const DUR = 220;
@@ -86,14 +81,11 @@ const Phone = (() => {
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
     els.nums = h('button', { class: 'ph-nums ph-only', type: 'button', onclick: () => open('edit', { params: true }) });
-    // the chain bar is one row: ‹, the plane the deformation is at (the step whose plane it
-    // is; a tap opens that step's sheet), ›, and "3 steps ▾", which opens the chain as a sheet (Numbers, the whole map,
-    // z and the steps as rows, Add function); Deformation stays at the row's end. ‹ › glide the deformation from one
-    // step's plane to the next (A.glide: never blocking, faster on quick presses, turning round with no jump); their
-    // first touch compiles its programs, so the first glide does not wait for them
-    const warm = () => A.prestart();
-    els.cprev = h('button', { class: 'ph-cstep ph-cprev', type: 'button', 'aria-label': $t('Previous step'), html: I.chevL, onclick: () => A.glide(-1), onpointerdown: warm, onfocus: warm });
-    els.cnext = h('button', { class: 'ph-cstep ph-cnext', type: 'button', 'aria-label': $t('Next step'), html: I.chevR, onclick: () => A.glide(1), onpointerdown: warm, onfocus: warm });
+    // the chain bar is one row: ‹, the step shown alone or the whole map (a tap opens that step's sheet), ›, and
+    // "3 steps ▾", which opens the chain as a sheet (Numbers, the whole map, z and the steps as rows, Add function).
+    // ‹ ends a step shown alone (A.glide)
+    els.cprev = h('button', { class: 'ph-cstep ph-cprev', type: 'button', 'aria-label': $t('Previous step'), html: I.chevL, onclick: () => A.glide(-1) });
+    els.cnext = h('button', { class: 'ph-cstep ph-cnext', type: 'button', 'aria-label': $t('Next step'), html: I.chevR, onclick: () => A.glide(1) });
     els.cchip = h('button', { class: 'ph-cchip', type: 'button', onclick: () => { if (chainK == null) open('chain'); else A.cardClick(chainK); } },
       h('span', { class: 'ph-cf' }), h('span', { class: 'ph-cn' }));
     els.csteps = h('button', { class: 'ph-csteps', type: 'button', 'aria-haspopup': 'dialog', onclick: () => open('chain') }, h('span', { class: 'ph-cc' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: I.chevD }));
@@ -110,19 +102,12 @@ const Phone = (() => {
     // the tool row: Undo first (its long-press offers Redo)
     els.undo = h('button', { class: 'ph-undo tool ph-only', type: 'button', 'aria-label': $t('Undo'), html: `${I.undo}<span>${$t('Undo')}</span>` });
     undoKey(els.undo);
-    // each plane: Sphere and Display at the right; the inset's swap cover
-    for (const side of ['L', 'R']) {
-      const plot = $(side === 'L' ? 'plotL' : 'plotR'), pane = $(side === 'L' ? 'paneL' : 'paneR');
-      const bt = h('button', { class: 'ph-key ph-both-key', type: 'button', 'aria-pressed': String(both), 'aria-label': $t('Both'), html: BOTH_ICON, onclick: () => toggleBoth() });
-      const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere(side) });
-      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side }); } });
-      plot.append(h('div', { class: 'ph-col ph-only' }, bt, sph, dsp));
-      els['sph' + side] = sph;
-      els['both' + side] = bt;
-      const sw = h('button', { class: 'ph-swap ph-only', type: 'button', onclick: () => swap() },
-        h('span', { class: 'ph-tag', html: side === 'L' ? '<i>X</i>' : '<i>Y</i>' }), h('span', { class: 'ph-swic', html: SWAP }));
-      pane.append(sw);
-      els['swap' + side] = sw;
+    // the plane: Sphere and Display at the right
+    {
+      const sph = h('button', { class: 'ph-key ph-sph', type: 'button', 'aria-pressed': 'false', 'aria-label': $t('Sphere'), html: A.modeIcons.sphere, onclick: () => toggleSphere() });
+      const dsp = h('button', { class: 'ph-key ph-dsp', type: 'button', 'aria-label': $t('Display options'), html: I.sliders, onclick: () => { opener = dsp; open('display', { side: 'L' }); } });
+      $('plotL').append(h('div', { class: 'ph-col ph-only' }, sph, dsp));
+      els.sph = sph;
     }
     // the tool row's More key and the header's More open sheets on a phone
     $('toolMore').addEventListener('click', (e) => { if (!on) return; e.preventDefault(); e.stopPropagation(); open('tools'); }, true);
@@ -143,15 +128,14 @@ const Phone = (() => {
     if ($('constructTools')) new MutationObserver(() => syncTools()).observe($('constructTools'), { subtree: true, attributes: true, attributeFilter: ['class'] });
     new MutationObserver(() => { els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled; }).observe($('undoBtn'), { attributes: true, attributeFilter: ['disabled'] });
     els.undo.disabled = els.sundo.disabled = /** @type {HTMLButtonElement} */ ($('undoBtn')).disabled;
-    // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
+    // the views: the Sphere key follows the plane's surface
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
-    for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    new MutationObserver(() => { if (on) syncPanes(); }).observe($('leftTabs'), { subtree: true, attributes: true, attributeFilter: ['class'] });
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
   }
-  const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
   const TEX = '<svg viewBox="0 0 20 16" width="18" height="16" aria-hidden="true" fill="currentColor"><text x="0" y="11" font-family="STIX Two Text, Times New Roman, serif" font-size="10">T</text><text x="5.6" y="14" font-family="STIX Two Text, Times New Roman, serif" font-size="10">E</text><text x="11.4" y="11" font-family="STIX Two Text, Times New Roman, serif" font-size="10">X</text></svg>';
   const TOUR = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"><circle cx="8" cy="8" r="6"/><path d="M6.6 5.4v5.2L10.6 8z" fill="currentColor"/></svg>';
@@ -160,7 +144,6 @@ const Phone = (() => {
   const INFO = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><circle cx="8" cy="8" r="6.2"/><path d="M8 7.3v3.7"/><circle cx="8" cy="5" r=".5" fill="currentColor"/></svg>';
   // a tip taught where people look: a line with its small icon, at the end of a sheet's content (never on the plane)
   const tip = (icon, text) => h('p', { class: 'ph-tip' }, h('span', { class: 'ph-tip-ic', 'aria-hidden': 'true', html: icon }), h('span', null, text));
-  const SWAP = '<svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5.5h9.5M10 3l2.5 2.5L10 8M13 10.5H3.5M6 8l-2.5 2.5L6 13"/></svg>';
 
   // ---------------- mode ----------------
   function sync() {
@@ -169,9 +152,7 @@ const Phone = (() => {
     const l = matchMedia(MQL).matches, p = !l && matchMedia(MQP).matches;
     const want = p || l;
     if (want === on && l === land) return;
-    // (a rotation: the panes are synced first, so a landscape layout's side-by-side panes get their inset back in
-    // portrait)
-    if (want && !on) enter(l); else if (!want && on) leave(); else { const keepIt = keepSheet(); land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); reconcile(); keepIt(); }
+    if (want && !on) enter(l); else if (!want && on) leave(); else { const keepIt = keepSheet(); land = l; rootEl.classList.toggle('ph-land', l); close(true); syncPanes(); A.resize(); keepIt(); }
   }
   // a rotation (portrait <-> landscape) relays the sheet out: the same sheet opens again in the new layout,
   // at the same scroll, and the field that had the focus gets it back with its caret (the Editor's fields are rebuilt
@@ -179,7 +160,7 @@ const Phone = (() => {
   function keepSheet() {
     const k = kind;
     if (!k) return () => {};
-    const o = k === 'edit' && nums ? { params: true } : k === 'display' ? { side: els.dispSide || big } : {};
+    const o = k === 'edit' && nums ? { params: true } : k === 'display' ? { side: 'L' } : {};
     const body = els.body[k], top = body ? body.scrollTop : 0;
     const FIELDS = 'input:not([type="hidden"]), textarea, select';
     const fe = /** @type {HTMLInputElement | null} */ (document.activeElement);
@@ -223,148 +204,38 @@ const Phone = (() => {
     syncPanes(); syncTools(); syncNums(); syncSnap();
     chainSeen = ''; chain();
     A.resize();
-    reconcile();   // (the inset shows its plane's own view, the desktop's or the saved one, at its size)
   }
   function leave() {
     close(true);
-    // (the desktop gets each plane's large view back; no view is drawn small while merged or held)
-    for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
-    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
-    $('panes').classList.remove('ph-big-L', 'ph-big-R', 'ph-one');
+    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
+    $('panes').classList.remove('ph-big-L', 'ph-one');
     unparkAll();
     A.showPanels(false);
     A.resize();
   }
 
   // ---------------- the planes ----------------
-  function merged() { const p = $('panes'); return p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (one plane, pane L, as one panel: pane R stays hidden)
   function syncPanes() {
-    const p = $('panes'), mg = merged();
-    const b = mg || big;
-    p.classList.toggle('ph-big-L', b === 'L');
-    p.classList.toggle('ph-big-R', b === 'R');
-    p.classList.toggle('ph-one', !!mg);
-    rootEl.classList.toggle('ph-morph', !!A.morphOn());
-    const split = twoUp();
-    p.classList.toggle('ph-both', both && !land && !mg);
-    for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
-    for (const side of ['L', 'R']) $(side === 'L' ? 'paneL' : 'paneR').classList.toggle('ph-inset', !mg && !split && side !== b);
-    for (const side of ['L', 'R']) {
-      const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs'), sph = els['sph' + side];
-      const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
-      sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
-      const svS = side === 'L' && A.svOnSphere ? A.svOnSphere() : null;
-      const onS = svS != null ? svS : !!(sb && sb.classList.contains('on'));
-      sph.setAttribute('aria-pressed', String(onS));
-      sph.setAttribute('aria-label', onS ? $t('Plane') : $t('Sphere'));
-      const other = side === 'L' ? 'Y' : 'X';
-      els['swap' + side].setAttribute('aria-label', $t('Show {x} large', { x: side === 'L' ? 'X' : 'Y' }));
-      els['swap' + side].title = '';
-      void other;
-    }
+    $('panes').classList.add('ph-big-L', 'ph-one');
+    const tabs = $('leftTabs'), sph = els.sph;
+    const sb = tabs && tabs.querySelector('button[data-mode="sphere"]');
+    sph.hidden = !sb || tabs.offsetParent === null && !tabs.closest('.pane-head');
+    const svS = A.svOnSphere ? A.svOnSphere() : null;
+    const onS = svS != null ? svS : !!(sb && sb.classList.contains('on'));
+    sph.setAttribute('aria-pressed', String(onS));
+    sph.setAttribute('aria-label', onS ? $t('Plane') : $t('Sphere'));
   }
-  function toggleSphere(side) {
+  function toggleSphere() {
     // (the steps view keeps its own surface, which its view writes over the tabs: the key goes to it)
     if (A.svSphere && A.svSphere() != null) { setTimeout(syncPanes, 0); return; }
-    const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
+    const tabs = $('leftTabs');
     if (!tabs) return;
     const sb = tabs.querySelector('button[data-mode="sphere"]'), pb = tabs.querySelector('button[data-mode="plane"]');
     const t = /** @type {HTMLElement | null} */ (sb && sb.classList.contains('on') ? pb : sb);
     if (t) t.click();
     setTimeout(syncPanes, 0);
-  }
-  // The inset swaps with the large plane, and each plane keeps its own view (build/phone-swap.md). A plane's
-  // own view is its large view: the saved state and the desktop get that one (largeView). The inset draws it smaller,
-  // the same region (its centre and its units per pane width) at the inset's size; the plane that comes back large
-  // shows exactly what it showed before. Nothing is fitted (fitting the new inset would, for an unbounded region, frame
-  // the part in its own window plus a margin, so every round trip would multiply the scale). A plane the app fits
-  // itself (Y's auto fit, X's at a focused step) is fitted by the resize as before.
-  // keep[side], while side is drawn as the inset: {v: its large view, set: the view the inset was given, r: v.s / set.s}.
-  // Only the inset's view is ever small: while a merged view (Phase, Landscape, the Deformation) shows, or while the app
-  // parks, swaps or saves the views (hold), every plane holds its large view.
-  const keep = { L: null, R: null };
-  let held = false;
-  const sameView = (a, b) => !!a && !!b && a.cx === b.cx && a.cy === b.cy && a.s === b.s;
-  // the plane that goes small: the same region at the inset's size (a: its large view, with the large pane's width)
-  function shrink(side, a) {
-    keep[side] = null;
-    if (a.auto) return;
-    const w = A.getView(side).w;
-    if (!(w > 0 && a.w > 0)) return;
-    const v = { cx: a.cx, cy: a.cy, s: a.s * w / a.w };
-    A.setView(side, v);
-    keep[side] = { v: { cx: a.cx, cy: a.cy, s: a.s }, set: v, r: a.w / w };
-  }
-  // the plane that comes back large: what it showed large (or, when its view changed while it was small, that view
-  // at the large size)
-  function grow(side) {
-    const k = keep[side]; keep[side] = null;
-    const c = A.getView(side, true);   // (a running Fit lands first: swap-8)
-    if (!k || c.auto) return;
-    A.setView(side, sameView(c, k.set) ? k.v : { cx: c.cx, cy: c.cy, s: c.s * k.r });
-  }
-  // a plane's large view (writeState saves it; null: the view the app holds is that one)
-  function largeView(side) {
-    const k = keep[side];
-    if (!on || side === big || !k || merged()) return null;
-    const c = A.getView(side);
-    if (c.auto) return null;
-    return sameView(c, k.set) ? Object.assign({}, k.v) : { cx: c.cx, cy: c.cy, s: c.s * k.r };
-  }
-  // the plane that is not the large one is drawn small only as the inset (X -> Y, no sheet, portrait); side by side
-  // (an open sheet, a landscape phone) it shows its large view, like the large plane. A merged view (Phase,
-  // Landscape, the Deformation) holds other views: nothing changes until it ends.
-  function reconcile() {
-    if (!on || held || merged()) return;
-    const ins = big === 'L' ? 'R' : 'L';
-    const small = !twoUp();
-    if (small && !keep[ins]) shrink(ins, Object.assign(A.getView(ins, true), { w: A.getView(big).w }));
-    else if (!small && keep[ins]) grow(ins);
-  }
-  // the app is about to park, replace or save the views (a view switch, the Deformation, a focus, an example, the
-  // tour): the inset gets its large view back now, and is drawn small again once the current task ends
-  function hold() {
-    if (!on || held) return;
-    held = true;
-    for (const side of ['L', 'R']) if (keep[side]) grow(side);
-    // (the layout first: the panes' classes and sizes may still be those of a merged view)
-    queueMicrotask(() => { held = false; if (!on) return; syncPanes(); A.resize(); reconcile(); });
-  }
-  // X's window at its large size while X is the inset: the app's meshing window, so a swap does not move it and Y's
-  // auto fit frames the same region in the inset and large (swap-7); null: X's pane box is that window
-  function largeBox() {
-    const v = largeView('L');
-    if (!v) return null;
-    const p = A.getView(big), hw = p.w / 2 / v.s, hh = p.h / 2 / v.s;
-    return hw > 0 && hh > 0 ? { x0: v.cx - hw, x1: v.cx + hw, y0: v.cy - hh, y1: v.cy + hh } : null;
-  }
-  // two planes in sight: a landscape phone, an open sheet, or Both
-  const twoUp = () => land || rootEl.classList.contains('ph-split') || (both && !merged());
-  function toggleBoth() {
-    both = !both;
-    try { localStorage.setItem(BOTH_KEY, both ? '1' : '0'); } catch (e) { /* */ }
-    syncPanes();
-    A.resize();
-    reconcile();
-    A.sound('swap');
-  }
-  function swap(quiet) {
-    if (merged() || both || rootEl.classList.contains('ph-split')) return;
-    const now = big === 'L' ? 'R' : 'L';
-    big = now;
-    syncPanes();
-    A.resize();
-    grow(now);
-    reconcile();
-    if (quiet !== true) A.sound('swap');
-  }
-  // the large plane after a reload (the language switch) or a tour: a swap without its sound; while merged or held
-  // no plane is drawn small, so only the layout changes (swap-6)
-  function setBig(side) {
-    if (!on || (side !== 'L' && side !== 'R') || side === big) return;
-    if (merged() || held) { big = side; syncPanes(); A.resize(); return; }
-    swap(true);
   }
 
   // ---------------- the context bar (D3) ----------------
@@ -390,9 +261,8 @@ const Phone = (() => {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
-    // one is no second layout change for the planes)
-    if (A.morphOn()) st = null;
+    // (a sheet covers the bar but leaves its room, so that opening and closing one is no second layout change for the
+    // planes)
     els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;
@@ -568,7 +438,7 @@ const Phone = (() => {
     els.mark.hidden = k !== 'more';
     if (k === 'more') fillMore();
     if (k === 'tools') { if (opt.tab) toolTab = opt.tab; fillTiles(); syncSnap(); }
-    if (k === 'display') fillDisplay(opt.side || big);
+    if (k === 'display') fillDisplay(opt.side || 'L');
     if (k === 'chain') { chainSeen = ''; chain(); }
     // (Edit in the context bar: the selected shape's row, with its editor, comes into view)
     if (k === 'tools' && opt.edit) setTimeout(() => { const r = document.querySelector(`#shapeList .shape[data-id="${opt.edit}"]`); if (r) r.scrollIntoView({ block: 'nearest' }); }, 0);
@@ -591,7 +461,7 @@ const Phone = (() => {
       if (split) {
         rootEl.classList.add('ph-notrans', 'ph-split');
         rootEl.classList.remove('ph-ride');
-        syncPanes(); A.resize(); reconcile();
+        syncPanes(); A.resize();
         void els.sheet.offsetHeight;
         rootEl.classList.remove('ph-notrans');
       }
@@ -631,7 +501,7 @@ const Phone = (() => {
     if (split) {
       // the chain bar rides down with the sheet: it starts where it stood above the sheet
       if (!land && !now) { rootEl.classList.add('ph-notrans', 'ph-ride'); void els.sheet.offsetHeight; rootEl.classList.remove('ph-notrans'); }
-      syncPanes(); A.resize(); reconcile();
+      syncPanes(); A.resize();
       if (!land && !now) requestAnimationFrame(() => rootEl.classList.remove('ph-ride'));
     }
     rootEl.classList.remove('ph-ride');
@@ -1032,10 +902,10 @@ const Phone = (() => {
     backInit();
   }
   return {
-    init, open, close, chain, refreshDisplay: () => refreshDisplay(), swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, chain, refreshDisplay: () => refreshDisplay(), isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, nums: () => nums,
     geometry: () => { if (on) geometry(); },
     // TEMP-DEBUG-HOOK
-    _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
+    _state: () => ({ on, land, kind, full, split: rootEl.classList.contains('ph-split') }),
     _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
     // TEMP-DEBUG-HOOK
   };

@@ -91,24 +91,23 @@
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
   // the persisted state, as writeState saves it
-  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
+  const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R }), noRuntime));
   function tourSnapshot() {
     phHold();
     const xl = document.querySelector('#examplesBtn .exlabel');
     return {
       state: tourState(),
-      // what lives in memory only: the undo history, the panels as shown, the transport, the tool and selection, the
-      // planes' views and cameras, the views' memories and the Examples label
+      // what lives in memory only: the undo history, the panels as shown, the tool and selection, the plane's views and
+      // cameras, the views' memories and the Examples label
       mem: {
         hist: hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })), hi, hideLeft: S.hideLeft, hideRight: S.hideRight,
-        morph: { open: morph.open, T: morph.T, playing: morph.playing }, tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
-        V: JSON.parse(JSON.stringify(V)), leftAuto, rightAuto, clipWin: Object.assign({}, clipWin),
-        viewMem: JSON.parse(JSON.stringify(viewMem)), defMem: JSON.parse(JSON.stringify(defMem)), cams: [cam, camL, camS].map(camKeys), cell: [cellBase, cellKey],
-        phBig: tourPhone() ? Phone.big() : null,
+        tool, selected, currentExample, exLabel: xl ? xl.textContent : null,
+        V: JSON.parse(JSON.stringify(V)), leftAuto, clipWin: Object.assign({}, clipWin),
+        viewMem: JSON.parse(JSON.stringify(viewMem)), cams: [cam, camL].map(camKeys), cell: [cellBase, cellKey],
       },
     };
   }
-  // v15: the phone layout (src/phone.js) is on: its sheets and its large plane
+  // v15: the phone layout (src/phone.js) is on
   const tourPhone = () => Phone.isOn && Phone.isOn();
   // put the user's work back in place (opt.fromStash: after a reload or a crash, from the persisted state only)
   function tourRestore(sn, opt) {
@@ -121,9 +120,8 @@
     if (!st) return false;
     cancelTweens(); closePad(); closePalette();
     draft = null; drag = null; probe = null; zpSel = null; zpHover = null; selected = null; hoverShape = null;
-    rHover = null; setHoverW(null);
-    morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
-    defMem.y = null; defMem.d = null; defMem.dkey = '';
+    setHoverW(null);
+    morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);
     dockPref.L = !!S.hideLeft; dockPref.R = !!S.hideRight;
@@ -141,25 +139,20 @@
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
     if (m) {
       setTool(TOOLS.some((t) => t[0] === m.tool) ? m.tool : 'select');
-      if (m.morph.open && morphRange().steps.length) openTransport();
-      Object.assign(V.left, m.V.left); Object.assign(V.right, m.V.right); leftAuto = m.leftAuto; rightAuto = m.rightAuto;
-      if (m.defMem) Object.assign(defMem, m.defMem);
-      if (morph.open) { morph.T = m.morph.T; morph.playing = m.morph.playing; morph.seg = null; morph.u = 0; syncTransport(); }
-      [cam, camL, camS].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
+      Object.assign(V.left, m.V.left); leftAuto = m.leftAuto;
+      [cam, camL].forEach((c, i) => { if (m.cams && m.cams[i]) Object.assign(c, m.cams[i], { vyaw: 0, vpitch: 0 }); });
       hist = m.hist.map((e) => ({ s: e.s, focus: e.focus, range: e.range || null, sv: e.sv || null })); hi = Math.max(0, Math.min(hist.length - 1, m.hi));
       currentExample = m.currentExample;
       if (xl && m.exLabel != null) { xl.textContent = m.exLabel; xl.title = m.exLabel; }
       if (m.selected && (S.shapes.some((s) => s.id === m.selected) || S.targets.some((s) => s.id === m.selected))) selected = m.selected;
       if (m.cell) [cellBase, cellKey] = m.cell;
-      if (m.phBig && tourPhone() && Phone.big() !== m.phBig) Phone.setBig(m.phBig);
     } else {
       setTool('select');
-      if (S.rightView && autoFit()) { Object.assign(V.right, S.rightView); rightAuto = false; }
       hist = [snap()]; hi = 0;
     }
     updateUndo();
     buildShapeList(); buildRightFoot(); updateFocusUI(); drawLegend();
-    scheduleFix(); requestRender('L', 'R', 'OL', 'OR', 'P');
+    scheduleFix(); requestRender('L', 'OL', 'OR', 'P');
     save();
     return true;
   }
@@ -182,11 +175,10 @@
     if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
     if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines)
-    if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
+    // (v16.4) the phase sectors (Tiles' 30° lines)
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
-    requestRender('L', 'R');
+    requestRender('L');
     save();
   }
   const tourApi = {
@@ -258,8 +250,8 @@
     setView: (main) => setMain(main),
     // (#442: the steps view's chapter "Planes" puts the view where its step needs it)
     svPlace: (o) => svTourPlace(o),
-    setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
-    setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },
+    // (the one plane's surface: a scene's surface for another pane changes nothing)
+    setSurface: (pane, surf) => { if (pane !== 'R') setView('L', surf); },
     // (v16: a scene's bracket; null: every step)
     setRange: (r) => { setHomRange(r && Number.isInteger(r.a) && Number.isInteger(r.b) ? { a: r.a, b: r.b } : null); return true; },
     setTool: (id) => { if (TOOLS.some((t) => t[0] === id)) setTool(id); },
@@ -298,9 +290,8 @@
         setPanels(side === 'right' ? S.hideLeft : false, side === 'right' ? false : S.hideRight);
       }
     },
-    // v15: select a step (or 'F') for the Inspector; on a phone, which plane is the large one; close a phone's sheet
+    // v15: select a step (or 'F') for the Inspector; close a phone's sheet
     selectStep: (k) => { if (!S.steps.length) return false; k = k === 'F' ? 'F' : Math.max(1, Math.min(S.steps.length, k | 0)); selectStep(k); renderProps(); return true; },
-    showPlane: (pane) => { if (tourPhone() && (pane === 'L' || pane === 'R') && Phone.big() !== pane) Phone.swap(); },
     closeSheet: () => {
       if (tourPhone()) { const p = $('stepsPick'), b = $('stepsBtn'); if (p && b && !p.hidden) b.click(); if (Phone.sheet()) Phone.close(true); return; }
       if (document.querySelector('.disp-pop')) closePalette();
@@ -351,8 +342,6 @@
     },
   };
   function tourWire() {
-    // the events the app sends from delegated listeners: t scrubbed
-    document.addEventListener('input', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg && tg.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
     tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held
     Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
     if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)

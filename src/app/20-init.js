@@ -2,17 +2,15 @@
   // the figure: the saved state without the panels the viewer chose
   function figureState() {
     if (S.homRange) HR.resolve(S, true);
-    const out = Object.assign({}, S, { rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
-    const o = JSON.parse(JSON.stringify(out, cmSaveReplacer(out)));
+    const o = JSON.parse(JSON.stringify(S, cmSaveReplacer(S)));
     delete o.hideLeft; delete o.hideRight;
-    // (review math-10: the recipient sees the same picture: the Landscape camera, relative to its fit, and the
-    // deformation at its t; read once at load, never kept in the saved state)
+    // (review math-10: the recipient sees the same picture: the Landscape camera, relative to its fit; read once at
+    // load, never kept in the saved state)
     // (the camera of the surface the steps view shows: the z-globe's camL when it shows the sphere, else the Landscape's cam;
     // `of` names it, and a figCam without it is the Landscape's)
     const onGlobe = SV.on && SV.surf === 'sphere', c = onGlobe ? camL : cam, base = onGlobe ? CAML : CAM3;
     o.figCam = { yaw: c.yaw, pitch: c.pitch, d: c.dist / base.dist, tx: c.tx, ty: c.ty };
     if (onGlobe) o.figCam.of = 'sphere';
-    o.figMorph = morph.open ? { T: morph.T } : null;
     return o;
   }
   async function copyFigureLink() {
@@ -151,16 +149,16 @@
       let ok = false;
       try { ok = !S || (held ? localStorage.getItem(LS_KEY) != null : wrote !== false && localStorage.getItem(LS_KEY) === wrote); } catch (e) { ok = false; }
       if (!ok) return false;
-      // the open panels come back too: the deformation (at its t, paused), the open lamp, the selected shape
-      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { morph: morph.open ? { T: morph.T } : null, lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), big: Phone.big() } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
+      // the open panels come back too: the open lamp, the selected shape
+      if (!held) { try { sessionStorage.setItem(lsk('cmw-switch'), JSON.stringify({ hist, hi, at: Date.now(), ui: { lamp: openLamp, sel: selected, focus: 1, phone: Phone.isOn() ? { k: Phone.sheet(), nums: !!(Phone.nums && Phone.nums()), } : null } })); } catch (e) { /* undo starts afresh */ try { localStorage.setItem(lsk('cmw-switch-lost'), String(hist.length > 1 ? Date.now() : 0)); } catch (e2) { /* nothing to say */ } } }
       return true;
     }, () => toast($t('The language cannot change: this browser blocks site storage, and a reload would lose your work.')));
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
-    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R'); });
+    I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L'); });
     GLR.init();
-    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); svContextRestored(); requestRender('L', 'R'); };
+    GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); svContextRestored(); requestRender('L'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
-    GLR.onLost = () => requestRender('L', 'R');
+    GLR.onLost = () => requestRender('L');
     // w.main: the user's chain (panes, step thumbnails); w.side: example thumbnails (GLR side mode)
     // once nothing compiles (the views' plain programs and the exact images have landed), the views' homotopy programs
     // (one per map mode, gl.js MAP) compile in the background, so a deformation started later plays at once; never
@@ -186,7 +184,7 @@
     GLR.onReady = (w) => {
       // an inverse program that landed is warmed first, at once unless something moves (scheduleWarm)
       if (GLR.inverseColdWaiting) scheduleWarm(0);
-      if (!w || w.main) { svRedrawDue = true; requestRender('L', 'R'); prestartModesIdle(); }
+      if (!w || w.main) { svRedrawDue = true; requestRender('L'); prestartModesIdle(); }
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
@@ -209,7 +207,7 @@
     // (1024 to 1279: one panel docks; the Inspector when the chain has steps, the tools on an empty canvas)
     if (oneDock()) { if (S.steps.length) { setHidden('L', true); setHidden('R', false); } else { setHidden('L', false); setHidden('R', true); } }
     if (S.clipWin) clipWin = S.clipWin;
-    paneL.resize(); paneR.resize();
+    paneL.resize();
     paneL.setView(S.srcView);
     // (v16 review picture-1) a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
@@ -219,7 +217,6 @@
     setupParams(!!loaded);
     buildDisplay();
     setupPane(paneL, 'L');
-    setupPane(paneR, 'R');
     PlaneMenu.init(planeMenuApi());   // the planes' context menu
     Commands.init(commandsApi());   // the command palette (src/commands.js)
     Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
@@ -233,7 +230,7 @@
     // the undo entry follows the focused step until the next action (see noteFocus)
     document.addEventListener('pointerdown', noteFocus, true);
     document.addEventListener('keydown', noteFocus, true);
-    // write pending changes (and the right-plane view) when the page is hidden or closed
+    // write pending changes when the page is hidden or closed
     window.addEventListener('pagehide', writeState);
     document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') writeState(); });
     setupShell();
@@ -244,11 +241,11 @@
     setupEscSound();
     setupKeys();
     const ro = new ResizeObserver(() => onPaneResize());
-    ro.observe(paneL.canvas); ro.observe(paneR.canvas);
+    ro.observe(paneL.canvas);
     // (a notice whose theme is the one already read is skipped: the export's one-off read of the light tokens)
     const themeKey = () => `${document.documentElement.getAttribute('data-theme')}|${document.documentElement.className}|${matchMedia('(prefers-color-scheme: dark)').matches}`;
     let themeSeen = themeKey();
-    const themeChanged = () => { const k = themeKey(); if (k === themeSeen) return; themeSeen = k; readTheme(); buildDisplay(); buildShapeList(); drawLegend(); for (const k in rulerCache) rulerCache[k] = null; requestRender('L', 'R'); };
+    const themeChanged = () => { const k = themeKey(); if (k === themeSeen) return; themeSeen = k; readTheme(); buildDisplay(); buildShapeList(); drawLegend(); for (const k in rulerCache) rulerCache[k] = null; requestRender('L'); };
     matchMedia('(prefers-color-scheme: dark)').addEventListener('change', themeChanged);
     new MutationObserver(themeChanged).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme', 'class'] });
 
@@ -269,8 +266,8 @@
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
         if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); requestRender('P'); save(); }
-        // an old save's Morph view opens with the deformation on (merged-views.md migration)
-        if (S.deform) { deleteOpt('deform'); openTransport(); }
+        // (an old save's Morph view: the steps view shows its chain)
+        if (S.deform) deleteOpt('deform');
         // a link's or a scene's camera and deformation time (figureState, review math-10)
         if (S.figCam) {
           const c = S.figCam;
@@ -280,19 +277,16 @@
         if ('figMorph' in S) {
           const fm = S.figMorph;
           deleteOpt('figMorph');
-          // (the steps view has no Morph transport: the time is its place along the chain, set once the view is set up)
-          if (fm && Number.isFinite(fm.T) && SV.on) { if (!S.sv) svMorphT = fm.T; } else if (fm && Number.isFinite(fm.T) && !morph.open) { openTransport(); if (morph.open) { morph.T = Math.max(0, Math.min(morphLen(), fm.T)); morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); } }
+          // (an older link's deformation time: in the steps view its place along the chain, set once the view is set up)
+          if (fm && Number.isFinite(fm.T) && SV.on && !S.sv) svMorphT = fm.T;
         }
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
           if (swUi.lamp) openLamp = swUi.lamp;
-          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
-          if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); }
+          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet)
           // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
-        // the right plane reopens at the view the user left it at
-        if (loaded.rightView && autoFit()) { Object.assign(V.right, loaded.rightView); rightAuto = false; requestRender('R'); }
         if (loadDropped) toast($tn('{n} saved item could not be restored by this version and was left out.', '{n} saved items could not be restored by this version and were left out.', loadDropped));
       } catch (err) {
         // never a dead app on every reload: fall back to the first example
@@ -317,9 +311,7 @@
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
     Phone.init(phoneApi());
     // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
-    // (and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
-    // build/phone-swap.md)
-    if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
+    if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
     setupStepsView();   // ((#366 prototype) ?view=steps)
     if (svMorphT != null) { svPlaceAt(svMorphT); svMorphT = null; }
     tourWire();

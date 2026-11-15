@@ -106,8 +106,6 @@
     $('rightRailOpen').addEventListener('click', () => setPanels(S.hideLeft, false));
     // (the rail's Edit opens the selection in the temporary Inspector, over the stage's right edge)
     if ($('rightRailEdit')) $('rightRailEdit').addEventListener('click', () => { if (tempInsp) { closeTemp(); return; } if (window.innerWidth >= 1024 && S.hideRight) openTemp(); else setPanels(S.hideLeft, false); });
-    $('leftSolo').addEventListener('click', () => setSolo('L'));
-    $('rightSolo').addEventListener('click', () => setSolo('R'));
   }
   // the header's buttons and menus: undo and redo, help, sound, export, share, examples, the theme, the palette, Settings
   function setupHeaderButtons() {

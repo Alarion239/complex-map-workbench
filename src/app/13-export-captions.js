@@ -55,48 +55,28 @@
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
-  // The modes Esc steps out of, innermost first: a step shown alone, an expanded plane, the deformation. Each one is a
-  // chip at the right end of the head of the plane that stays in view, with the key that leaves it and a ×; the
-  // chip of the mode Esc closes next also shows Esc.
-  const modeNext = () => {
-    if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
-    return morphOn() ? 'morph' : null;
-  };
+  // The mode Esc steps out of: a step shown alone. It is a chip at the right end of the plane's head, with the key that
+  // leaves it and a ×.
+  const modeNext = () => (S.focus > 0 ? 'alone' : null);
   function modeClose(m) {
     if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
-    else if (m === 'solo') setSolo(S.solo);
-    else if (m === 'morph') closeTransport();
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
-    const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
+    const head = document.querySelector('#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
     if (!box) box = h('span', { class: 'mode-chips', id: 'modeChips' });
     const next = modeNext();
     const want = [];
-    if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
-    if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
     if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
-    // an expanded plane leaves the other one as a labelled strip at the edge, a way back
-    const strip = $('hiddenStrip') || h('button', { type: 'button', class: 'hidden-strip', id: 'hiddenStrip', hidden: true, onclick: () => setSolo(S.solo) });
-    const hid = S.view.main === 'xy' && S.solo && !mg ? (S.solo === 'L' ? 'R' : 'L') : null;
-    if (strip.parentNode !== $('panes')) $('panes').append(strip);
-    strip.hidden = !hid;
-    if (hid) {
-      const t = hid === 'R' ? $t('Y hidden') : $t('X hidden');
-      strip.dataset.side = hid;
-      if (strip.textContent !== t) { strip.textContent = t; strip.setAttribute('aria-label', $t('Show both planes')); strip.setAttribute('data-tip', $t('Show both planes')); }
-    }
-    const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
+    const sig = want.map((w) => w.join('|')).join('/') + '|' + next;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
@@ -106,7 +86,7 @@
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
-    if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
+    if (box.parentNode !== head) head.insertBefore(box, $('leftLed'));
     box.hidden = !want.length;
     if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');
@@ -144,7 +124,7 @@
   function toggleBypass(k) {
     const st = S.steps[k - 1];
     if (!st) return;
-    st.on = st.on === false; chainChanged(true); commit(); if (st.on) startTransition(k); sndToggleCue(st.on);
+    st.on = st.on === false; chainChanged(true); commit(); sndToggleCue(st.on);
   }
   function openTemp() {
     const host = $('propsPanel');
@@ -243,20 +223,18 @@
   // ---- the figure export (src/figure.js; notes/export-design/AS-BUILT.md): the renderer and the state it reads ----
   // artRender(side, o): one plane drawn off-screen in the art layer (fills only) for the exact world window o.box at
   // o.wpt points wide (a globe or the landscape: the pane's picture at o.wpt x o.hpt), in the light theme on white
-  // paper, the fills in the print tones o.ink(s), at o.dpi; o.T: the deformation's time (paused). The theme, the
+  // paper, the fills in the print tones o.ink(s), at o.dpi. The theme, the
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
   // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
   let artLandBox = null;
   // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
   // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
   let artLandRound = null, artCamAsp = null;
-  // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
-  const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
   // the shapes to it from z (carried: the caption says "the images of ... under it")
   function svCapParts(o) {
     const c = figCapParts(o);
-    if (!SV.on || morphOn()) return c;
+    if (!SV.on) return c;
     // (hName: what the Landscape's height reads, svHeightName; past the colour plane, the point of T it is carried from)
     const q = svFigParts(), carried = !q.coloured && q.k > 0, hName = svHeightName('tex', q.k);
     // (F, the map from z into the last plane: the composite's formula in z, as the classic caption has it)
@@ -280,13 +258,10 @@
   }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
-    // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
-    canDeform: () => morphRange().steps.length > 0,
-    deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
-    state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
-    viewKind: svFigView,
+    state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), lGlobe: lGlobe(), lLand: lLand(), main: S.view.main }),
+    viewKind: figViewKind,
     svOn: () => SV.on,
     // the filmstrip: the thread's planes by name, and plane i's picture as the stage shows it, in o.box when one is
     // given (the stage is moved to it for the one render and back)
@@ -346,20 +321,17 @@
     svRangeEnds: () => { const R = svRange(); return R ? [R.lo, R.hi] : null; },
     svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
-    F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
-    plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
-    homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
-    morphLen,
+    F: () => stageF(leftStage()),
+    plotF: () => focusF(),
     // L0: the z-plane's window (the shapes' own plane, also at a focused step)
     screenBox: (side) => side === 'L0' ? srcWindowBox() : viewBoxOf(side),
     // a pane's view (centre, px per unit), for the export window of an unbounded set (independent of the pane's size)
-    viewOf: (side) => { const v = side === 'L0' ? S.srcView : side === 'L' ? leftView() : V.right; return { cx: v.cx, cy: v.cy, s: v.s }; },
+    viewOf: (side) => { const v = side === 'L0' ? S.srcView : leftView(); return { cx: v.cx, cy: v.cy, s: v.s }; },
     landBox: () => landBox(),
-    paneAspect: (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return (real.h > 20 ? real.h : other.h) / effW(side); },
+    paneAspect: (side) => paneL.h / effW(side),
     panelVar,
-    fname: () => (morphOn() ? 'H_t' : SV.on ? svCapParts().Fname : fNameTex()),
-    // ([#383] the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
-    fTex: () => fNameTex(), parkedAt: () => parkedAt(),
+    fname: () => (SV.on ? svCapParts().Fname : fNameTex()),
+    fTex: () => fNameTex(),
     formulaTex: () => svCapParts().formula,
     formulaRaw: () => svCapParts().raw,
     capParts: svCapParts,
@@ -367,35 +339,26 @@
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
     sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
-    chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
+    chipHTML: (view) => { const name = { xyL: S.view.main === 'phase' ? $t('Phase') : 'X', phase: $t('Phase'), land: $t('Landscape') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
     hue: hueBytes,
-    // (export round 3) the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
-    // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
-    defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), rGlobe: rGlobe(), main: S.view.main, paths: S.morphPaths !== false, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
-    plotFAt: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.F : focusF(); } finally { morph.T = keep; } },
+    // the lift of the plane to the Riemann sphere (the globe's vector marks)
     lift: liftC,
-    // (export review r3) the screen's deformation paths (their points z), for the video's Paths
-    screenPaths: () => (S.view.main === 'xy' && S.morphPaths !== false && mfCache.sel && mfCache.sel.kept ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
-    // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe), and the live globe's
-    // chosen points (the globe's paths figure draws the same ones)
+    // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe)
     pathsSvg: (items, o) => pathsSvg(items, o),
     pathTimesTex: (m) => pathTimesTex(m),
     pathMarkTimes: (m) => pathMarkTimes(m),
     pathMarksTex: (m) => pathMarksTex(m),
-    morphPaths: (o) => figMorphPaths(o),
-    globePaths: () => (rGlobe() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
   });
   // what export and captions (src/export.js) need from the app: its functions and constants, and the state they
   // reassign as getters (and setters for the state they write)
   function exportApi() {
     return {
-      BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels,
-      focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
-      lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
-      morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-      pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
-      fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
-      smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
+      BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF,
+      flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe,
+      lLand, lPhase, lPlain, leftStage, leftView, mfFigCache, pathsSentence, openMenu, pathOf, pathsGen, pickScene,
+      readTheme, refineAllNow, renderLeft, requestRender, fNameTex, runGenSliced, saveScene, shapeTexOf,
+      sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone,
+      stageMap, texSegs, toast, wvar,
       get S() { return S; },
       get TH() { return TH; }, set TH(v) { TH = v; },
       get artCam() { return artCam; }, set artCam(v) { artCam = v; },
@@ -409,18 +372,14 @@
       get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
       get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },
       get built() { return built; },
-      get chainSig() { return chainSig; },
       get currentExample() { return currentExample; },
       get draft() { return draft; }, set draft(v) { draft = v; },
       get figMode() { return figMode; }, set figMode(v) { figMode = v; },
-      get figVec() { return figVec; }, set figVec(v) { figVec = v; },
       get hoverShape() { return hoverShape; }, set hoverShape(v) { hoverShape = v; },
       get offRender() { return offRender; }, set offRender(v) { offRender = v; },
       get paneL() { return paneL; }, set paneL(v) { paneL = v; },
-      get paneR() { return paneR; }, set paneR(v) { paneR = v; },
       get printInk() { return printInk; }, set printInk(v) { printInk = v; },
       get probe() { return probe; }, set probe(v) { probe = v; },
-      get rHover() { return rHover; }, set rHover(v) { rHover = v; },
       get selected() { return selected; }, set selected(v) { selected = v; },
     };
   }
@@ -438,7 +397,6 @@
   function cap1(...args) { return EXP.cap1(...args); }
   function pcTidy(...args) { return EXP.pcTidy(...args); }
   function compositeTexShort(...args) { return EXP.compositeTexShort(...args); }
-  function patternSegs(...args) { return EXP.patternSegs(...args); }
   function figureCaption(...args) { return EXP.figureCaption(...args); }
   function captionLatex(...args) { return EXP.captionLatex(...args); }
   function figMorphPaths(...args) { return EXP.figMorphPaths(...args); }

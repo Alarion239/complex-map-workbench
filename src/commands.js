@@ -8,13 +8,13 @@ const Commands = (() => {
   let A = null;
   let palState = null;
   let C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape,
-    addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan,
-    defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
-    integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample,
-    morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
-    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme,
-    setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle,
-    stageF, sub, toast, toggleAlone, tourEmit, viewBox;
+    addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText,
+    curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel,
+    integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample,
+    nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp,
+    replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels,
+    setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames,
+    sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox;
   const FN_INFO = {
     mul: [$t('Rotation and scaling; conformal on ℂ'), $t('scale rotate rotation multiply dilation')],
     add: [$t('Translation; conformal on ℂ'), $t('translate shift move')],
@@ -210,7 +210,7 @@ const Commands = (() => {
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
         ...(svSurface() ? ['plane', 'sphere', 'land'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
-        [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
+        [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), '', $t('paths trajectories arrows homotopy deformation lines')],
         [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
         // (the bracket for the selected step, else the last; SPEC 6.5)
         ...(activeSteps().length >= 2 ? (() => {
@@ -712,7 +712,7 @@ const Commands = (() => {
   function closed() { if (palState) { clearTimeout(palState.pvTimer); palState = null; } }
   function init(api) {
     A = api;
-    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample, morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox } = api);
+    ({ C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape, addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan, defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected, integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints, renumberZp, replaceSteps, robustBox, saveScene, lsk, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels, setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop, soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox } = api);
   }
   return { init, openPalette, opener, closed };
 })();

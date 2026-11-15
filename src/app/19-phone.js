@@ -2,31 +2,14 @@
   // what Phone.init gets: the app's side of the phone layout
   function phoneApi() {
     return {
-      icons: ICONS, modeIcons: MODE_ICONS, morphOn: () => morphOn(),
+      icons: ICONS, modeIcons: MODE_ICONS,
       // (the steps view's surface, for the plane's Sphere key: null outside the steps view)
       svSphere: () => svSphereKey(), svOnSphere: () => (SV.on ? SV.surf === 'sphere' : null),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
-      resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); },
-      // (build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
-      // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
-      // (land: a running tween on that view ends at its target first, review-phone-swap swap-8)
-      getView: (side, land) => {
-        const v = side === 'L' ? leftView() : V.right, p = side === 'L' ? paneL : paneR;
-        if (land) for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; if (tw.view === v) { Object.assign(v, tw.to); tweens.splice(i, 1); if (tw.onDone) tw.onDone(); } }
-        return { cx: v.cx, cy: v.cy, s: v.s, w: p.w, h: p.h, auto: side === 'L' ? leftStage() > 0 && leftAuto : rightAuto };
-      },
-      setView: (side, v) => {
-        const t = side === 'L' ? leftView() : V.right;
-        for (let i = tweens.length - 1; i >= 0; i--) if (tweens[i].view === t) tweens.splice(i, 1);
-        t.cx = v.cx; t.cy = v.cy; t.s = v.s;
-        if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); } else rightAuto = false;
-        requestRender('L', 'R', 'OL', 'OR');
-      },
-      fit: (side) => $(side === 'L' ? 'leftFit' : 'rightFit').click(),
-      // (#246) the phone's chain row and sheet: the plane it is at, ‹ › (the step glide), the deformation's programs
-      // compiled ahead of the first press, a step's sheet, a step moved by the sheet's drag
-      chainState: () => chainState(), glide: (d) => glideStep(d), cardClick: (k) => selectStep(k),
-      prestart: () => { try { if (GLR.ok && GLR.prestartModes) GLR.prestartModes(S.homAll ? [3] : [1]); } catch (e) { /* the frame starts them */ } },
+      resize: () => { onPaneResize(); requestRender('L', 'OL', 'OR'); },
+      // (#246) the phone's chain row and sheet: the step it shows, ‹ › (glideStep), a step's sheet, a step moved by the
+      // sheet's drag
+      chainState: () => chainState(), glide: () => glideStep(), cardClick: (k) => selectStep(k),
       moveStep: (k, d) => moveStep(k, d),
       footKids: (side) => foot[side].kids.slice(Math.max(0, foot[side].n)),
       regionsNote,

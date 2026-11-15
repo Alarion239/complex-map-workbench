@@ -78,18 +78,15 @@
     Construct.toolChanged();   // (v16)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) { const on = b.dataset.tool === id; b.classList.toggle('on', on); b.setAttribute('aria-pressed', String(on)); }
     updateToolHint();
-    // the right readout's idle hint names the tool (drawing a target, or the scale)
-    if (!probe) { const ro = $('rightReadout'); if (ro && !ro.classList.contains('copied') && !(rHover && rImage() && tool === 'select')) ro.innerHTML = idleRight(); }
     // the left readout's idle hint names the tool on a globe and on the landscape (panels.md 3, 9.1)
     if (!probe && !hov.w && (lGlobe() || lLand())) { const lr = $('leftReadout'); if (lr && !lr.classList.contains('copied')) lr.innerHTML = idleLeft(); }
     // an editable globe's graticule is the snap net of the tool (P3b): it is redrawn
-    requestRender('OL', 'OR', globeEdit('L') ? 'L' : null, globeEdit('R') ? 'R' : null);
+    requestRender('OL', 'OR', globeEdit('L') ? 'L' : null);
   }
   // the tool's cursors (the hint line under the tools is gone, item 3: descriptions are the tools' tooltips)
   function updateToolHint() {
     updateDraftChips();
     if (paneL) setCursor(paneL, 'L');
-    if (paneR) setCursor(paneR, 'R');
   }
 
   // ---------------- shapes ----------------
@@ -167,12 +164,12 @@
     commit();
     undoToast(cmMsg || (target ? $t('Target deleted.') : $t('Shape deleted.')));
   }
-  // targets change only the preimages and the right plane's targets: no meshes, no refit
+  // targets change only the preimages and the targets drawn: no meshes, no refit
   function targetsChanged(structural) {
     if (cmShapes()) structural = true;   // (v16 constructions)
     noteChange();
     if (structural) { buildShapeList(); updateFocusUI(); } else updateShapeList();
-    requestRender('L', 'R');
+    requestRender('L');
   }
   // ---------------- menus (popover lists) ----------------
   // items: {label, icon?, swatch?, key?, danger?, run} | 'sep' ; a 'kids' array opens a submenu beside its item.
@@ -358,7 +355,7 @@
     return true;
   }
   function nudgeShape(s, dx, dy, big) {
-    const pane = isTarget(s) ? paneR : paneL;
+    const pane = paneL;
     if (!pane || s.def) return false;
     // (wave 1 merge: the step of the grid as drawn, halves included, the rail piece's Constr.gridStep, as snapping uses)
     const sc = pane.view.s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
@@ -436,7 +433,7 @@
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
     // (the steps view: targets are listed under the last plane, and with none there is no group, nothing to draw "in Y")
     if (!SV.on || S.targets.length) {
-      const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
+      const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(outStage());
       host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
       if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tc = {};
@@ -500,9 +497,9 @@
         const now = performance.now();
         if (!touchUI() && e && e.target && e.target.closest && e.target.closest('.shape-name .k') && lastNameClick.id === s.id && now - lastNameClick.t < 450) { lastNameClick = { id: null, t: 0 }; startRename(s); return; }
         lastNameClick = { id: s.id, t: now };
-        selected = selected === s.id ? null : s.id; zpSel = null; if (!target && selected === s.id && shapeStage(s) !== leftStage()) setFocus(shapeStage(s) ? shapeStage(s) + 1 : 0); buildShapeList(); requestRender('L', 'R', 'P'); },
-      onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L', 'R'); },
-      onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L', 'R'); } } },
+        selected = selected === s.id ? null : s.id; zpSel = null; if (!target && selected === s.id && shapeStage(s) !== leftStage()) setFocus(shapeStage(s) ? shapeStage(s) + 1 : 0); buildShapeList(); requestRender('L', 'P'); },
+      onpointerenter: () => { hoverShape = s.id; Construct.markLinks(s.id); requestRender('L'); },
+      onpointerleave: () => { if (hoverShape === s.id) { hoverShape = null; Construct.markLinks(touchUI() ? selected : null); requestRender('L'); } } },
     sw, nameBtn, eye, more);
     const box = h('div', { class: 'shape' + (selected === s.id ? ' sel' : '') + (hidden ? ' hidden-shape' : ''), 'data-id': s.id }, row);
     // (v16: a construction's fields are its definition: the Inspector, ⋯. [v17 D4] on the laptop the Inspector edits a free
@@ -574,7 +571,7 @@
       if (s.complement) tex = $t('\\text{not }%{tex}', { tex });
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
-      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
+      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${outStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
       // ([#253] a shape of a plane of the chain, in that plane's variable)
       else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
@@ -796,7 +793,7 @@
     }
     if (s.kind === 'point') {
       const inp = h('input', { class: 'inp', value: exLabel(s.label) || '', placeholder: 'a', spellcheck: 'false' });
-      inp.addEventListener('input', () => { s.label = inp.value; requestRender('L', 'R'); });
+      inp.addEventListener('input', () => { s.label = inp.value; requestRender('L'); });
       inp.addEventListener('change', () => { commit(); buildShapeList(); });
       box.append(h('div', { class: 'field' }, lab($tx('field', 'label')), inp));
     }
@@ -836,7 +833,7 @@
     const label = Construct.shapeLabel(s);
     const back = selOf();
     // (‹ Back to f₂: the step, or F, the Inspector showed before the shape was selected)
-    const backBtn = back ? h('button', { type: 'button', class: 'linkbtn sh-back', onclick: () => { selected = null; buildShapeList(); requestRender('L', 'R', 'P'); },
+    const backBtn = back ? h('button', { type: 'button', class: 'linkbtn sh-back', onclick: () => { selected = null; buildShapeList(); requestRender('L', 'P'); },
       html: '‹ ' + (back === 'F' ? $t('Back to {f}', { f: '<i>F</i>' }) : $t('Back to {f}', { f: fsub(back) })) }) : null;
     const crumbs = h('div', { class: 'sh-crumbs' }, h('span', { class: 'sh-path' }, isTarget(s) ? $t('Targets') : $t('Shapes'), ' › ', label), backBtn);
     const head = h('div', { class: 'ihead sh-ihead' }, h('span', { class: 'swatch', 'data-kind': kindType(s), style: swatchStyle(s) }), h('span', { class: 'ttl' }, label),
@@ -859,7 +856,7 @@
     const sig = us.join(',') + '|' + I18N.lang;
     if (E.used.dataset.sig === sig) return;
     E.used.dataset.sig = sig;
-    E.used.replaceChildren(...(us.length ? us.map((id) => { const u = findShape(id); return h('button', { type: 'button', class: 'cm-chipbtn', onclick: () => { selected = id; buildShapeList(); requestRender('L', 'R', 'P'); } }, u ? Construct.shapeLabel(u) : id); })
+    E.used.replaceChildren(...(us.length ? us.map((id) => { const u = findShape(id); return h('button', { type: 'button', class: 'cm-chipbtn', onclick: () => { selected = id; buildShapeList(); requestRender('L', 'P'); } }, u ? Construct.shapeLabel(u) : id); })
       : [h('span', { class: 'cm-none' }, $t('nothing yet'))]));
   }
 
@@ -976,7 +973,7 @@
         else { Expr.compileLevel(ast); if (warn.length) setNote(warn.join(' ')); }
         inp.classList.remove('bad');
         TeX.set(prev, Expr.toTex(ast, pl === 'w' ? { s: 'w', p: 4 } : undefined).s);
-        tag.textContent = pl === 'w' ? `w${yAtF() ? '' : sub(rightStage())}-plane` : $t('z-plane');
+        tag.textContent = pl === 'w' ? `w${yAtF() ? '' : sub(outStage())}-plane` : $t('z-plane');
         return v;
       } catch (e) {
         plan = null;
