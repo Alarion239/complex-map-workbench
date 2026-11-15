@@ -1103,12 +1103,14 @@
   // carried} (carried: that colour was drawn) or null.
   function sphereView(pane, c, base, o) {
     // (o.inRegions: the steps view's Inside regions: the globe with its regions, then over it the colour globe kept
-    // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid). While the mask's program links
-    // (a frame or two) the regions' globe alone; the frame is asked again when it has)
+    // inside them (o.maskRegions, GLR.drawSphere's GPU mask, the regions drawn solid), and the marks over both (not on the
+    // figure's art layer, artMode, which draws them as vectors). While the mask's program links (a frame or two) the
+    // regions' globe alone; the frame is asked again when it has)
     if (o.inRegions) {
-      const look = Object.assign({}, o, { inRegions: false });
-      const info = sphereView(pane, c, base, Object.assign({}, look, { imageMode: true, carried: null }));
+      const look = Object.assign({}, o, { inRegions: false }), first = Object.assign({}, look, { imageMode: true, carried: null });
+      const info = sphereView(pane, c, base, Object.assign({}, first, { marks: false }));
       const carried = maskedGlobe(pane, c, base, Object.assign(look, { pre: null }));
+      if (info && !artMode) globeMarks(pane, info, first);
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
@@ -1244,10 +1246,18 @@
     if (over) return info;
     glStatusNote(pane);
     if (!info) return null;
-    const lift = liftC;
     // (the figure's art layer: the camera, read back for the vector labels, points and paths; the canvas marks are left out)
     if (artMode || artCam) artGlobe = { MVP: info.MVP, eye: info.eye, w: pane.w, h: pane.h };
-    if (artMode) return info;
+    if (artMode || o.marks === false) return info;
+    return globeMarks(pane, info, o);
+  }
+  // what sphereView draws over the globe's frame info ({MVP, eye}) on the pane's 2D context, with sphereView's options o:
+  // the point shapes and the w-plane's point targets lifted to the sphere, the deformation's live paths, the labels, the
+  // probe's ring and the sphere's marks (0, infinity, +-1, +-i, faded in by how far each faces the camera). o.marks false:
+  // sphereView leaves them to its caller, which draws a pass over the frame first (the Inside regions' colour globe).
+  // Returns info
+  function globeMarks(pane, info, o) {
+    const ctx = pane.ctx, lift = liftC, hom = o.hom || null, imageMode = o.imageMode, role = o.role === 'L' ? 'L' : 'R';
     const facing = (p) => { const tv = [info.eye[0] - p[0], info.eye[1] - p[1], info.eye[2] - p[2]]; const l = Math.hypot(...tv) || 1; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / l; };
     // the region's points, lifted to the sphere
     const Fp = hom && imageMode ? (hom.imageF || hom.F) : stageF(o.stage);
