@@ -430,8 +430,9 @@
     if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => svGlideMap(g, s), carry = svLandCarry(mapOf, g.a, g.b, g.u);
     // (onto a plane b coloured by its own variable: the other sheets' copies of the carried surface, svGlideSheets, as the
-    // Plane's glide draws them; not with All sheets, whose surfaces are the carry's own)
-    const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
+    // Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions, where
+    // plane b shows the principal sheet's image of the regions)
+    const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
     carry.copies = sheets.map((v) => (draw) => svOnSheets(v, draw));
     render3D(pane, carry);
     return true;
@@ -1742,36 +1743,43 @@
   // the copies of plane z, one per sheet combo of the multivalued steps up to b, each placed by the glide's map
   // continued on its combo and coloured on it (the steps after b on their principal sheets, as plane b's own colour),
   // so it covers plane b as plane b does at rest, every sheet's image and not the principal one's alone. (A plane past
-  // the colour plane carries the principal sheet's points at rest, and so does a glide onto it.) A combo is the chain with each multivalued step's sheet (its k, which the GPU
-  // reads as data, so the programs are the same) moved by the combo's digit: n sheets for a root, the sheet window
-  // (2W + 1, S.sheetW) for an infinitely sheeted step. Combo 0 is the chain as it is; the others, at most
-  // SV_GLIDE_SHEETS_MAX, are svGlideSheets(b)'s, made once per chain. svGlideSheets(b, from) moves the steps in (from, b]
-  // alone: a Landscape glide carries the points of plane from, which no step before it moves. SV.glideSheets 1 (a test
-  // hook's) draws combo 0 alone, on the Plane and on the Landscape
+  // the colour plane carries the principal sheet's points at rest, and so does a glide onto it; under Inside regions
+  // plane b shows the principal sheet's image of the regions, and so does a glide onto it.)
+  // A combo is the chain with each multivalued step's sheet (its k, which the GPU reads as data, so the programs are the
+  // same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW, the
+  // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
+  // are svGlideSheets(b)'s, nearest the principal sheet first (the sum of the offsets' distances from 0, a root's
+  // around its circle of sheets), made once per chain. A chain with more combos leaves the farthest ones out.
+  // svGlideSheets(b, from) moves the steps in (from, b] alone: a Landscape glide carries the points of plane from, which
+  // no step before it moves. SV.glideSheets 1 (a test hook's) draws the chain as it is alone, on the Plane and on the
+  // Landscape
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
   let svSheetMemo = { key: '', list: [] };
   function svGlideSheets(b, from = 0) {
-    const top = b, W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
-    const key = `${chainSig[nSteps()]}|${from}|${top}|${W}`;
+    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const key = `${chainSig[nSteps()]}|${from}|${b}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
-    // (the radix of each step's digit: its sheets, or the window of an infinitely sheeted one)
+    // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
     const radix = [];
     for (const e of Funcs.sheetSteps(S.steps, built)) {
       const st = S.steps[e.k - 1];
-      if (e.k > from && e.k <= top && SV_SHEET_STEPS.includes(st.type)) radix.push({ k: e.k, r: e.n > 0 ? e.n : 2 * W + 1, inf: !(e.n > 0) });
+      if (e.k <= from || e.k > b || !SV_SHEET_STEPS.includes(st.type)) continue;
+      const offs = e.n > 0 ? Array.from({ length: e.n }, (_, d) => d) : Array.from({ length: 2 * W + 1 }, (_, d) => (d <= W ? d : d - (2 * W + 1)));
+      radix.push({ k: e.k, offs, far: (o) => (e.n > 0 ? Math.min(o, e.n - o) : Math.abs(o)) });
     }
-    const K = Math.min(SV_GLIDE_SHEETS_MAX, radix.reduce((p, d) => p * d.r, 1)), list = [];
-    for (let c = 1; c < K; c++) {
-      let x = c;
+    // (every combo but the chain as it is, the first of the product: nearest the principal sheet first)
+    let combos = [[]];
+    for (const d of radix) combos = combos.flatMap((c) => d.offs.map((o) => c.concat(o)));
+    const far = (c) => c.reduce((t, o, i) => t + radix[i].far(o), 0);
+    combos = combos.slice(1).map((c, i) => ({ c, i, f: far(c) })).sort((x, y) => x.f - y.f || x.i - y.i).slice(0, SV_GLIDE_SHEETS_MAX - 1).map((x) => x.c);
+    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and stagesFollow,
+    // which change the user's chain)
+    const list = combos.map((offs, n) => {
       const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
-      for (const d of radix) {
-        const digit = x % d.r, st = steps[d.k - 1];
-        x = Math.floor(x / d.r);
-        st.params.k = (st.params.k || 0) + (d.inf ? digit - W : digit);
-      }
+      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; });
       const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
-      list.push({ steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${c}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
-    }
+      return { offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${n + 1}`), gl: GLR.ok ? GLChain.build(steps, bs) : null };
+    });
     svSheetMemo = { key, list, W, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
     return list;
   }
@@ -1820,13 +1828,14 @@
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       // (the other sheets' copies first, svGlideSheets: the principal one over them where they meet)
-      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && SV.glideSheets !== 1 ? svGlideSheets(b) : [];
+      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(b) : [];
       for (const v of sheets) svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }) || svCarryRegions(pane, map, T, b, frame, null));
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
-        // (sheets: the sheet combos drawn, svGlideSheets, and the window of an infinitely sheeted step's)
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: svSheetMemo.W };
+        // (sheets: the sheet combos drawn, svGlideSheets, the window of an infinitely sheeted step's, and each combo's
+        // offsets, one per multivalued step up to b in chain order, the chain as it is first)
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null };
         if (drew) return;
       }
       // (meshed: drawn by the carried meshes, which nothing is drawn under or blended over)

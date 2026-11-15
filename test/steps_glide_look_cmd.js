@@ -22,8 +22,8 @@
 //   colour layer alone (__cmwSteps({ bare })) of the frames at u (LOOK_U and COVER_U) sampled every 3 device px, the
 //   pixels more than 3 CSS px from the edge of H_u's image on the sheets the glide draws (the log step's homotopy
 //   H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut along (-inf, 0] on sheet k onto the sector
-//   s - 1/s + rho e^(i phi), |phi - 2 pi k s| < s pi; the glide draws the sheets k = -W..W of its record, sheets and
-//   sheetW): inside them, none is the bare paper (the commonest colour outside them), and outside them none is drawn,
+//   s - 1/s + rho e^(i phi), |phi - 2 pi k s| < s pi; the glide draws the sheets k its record names, sheetKs, the log
+//   step's offset in each combo drawn): inside them, none is the bare paper (the commonest colour outside them), and outside them none is drawn,
 //   at most COVER_TOL of each (one sheet's sector leaves part of the view outside it; the sheets' may cover it all);
 // - the ends: the frames at x = END_X (a case's end, if it names one) from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
@@ -126,7 +126,7 @@ const CASES = [
 // along (-inf, 0] onto, one per sheet: 1 inside one of them, -1 outside all, 0 within 3 CSS px of an edge)
 const LOG_SECTOR = `window.__logSector = () => {
   const g = __cmwSteps().glide, v = g.view, dpr = document.getElementById('canvasL').width / g.w, s = 1 - g.u, A = s - 1 / s;
-  const ks = g.sheets > 1 ? Array.from({ length: g.sheets }, (_, i) => i - g.sheetW) : [0];
+  const ks = g.sheetKs ? g.sheetKs.map((o) => o[0]) : [0];
   const wrap = (t) => t - 2 * Math.PI * Math.round(t / (2 * Math.PI));
   return (x, y) => {
   const pr = v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s - A, pi = v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s;
