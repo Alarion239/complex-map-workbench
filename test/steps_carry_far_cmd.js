@@ -140,7 +140,7 @@ await adopted();
   // them)
   const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
   // (the Joukowski path's candidates at t and its key's points: joukPath of the kit; the key along t reads every candidate)
-  const P0 = await paneOf(), J = joukPath(outside, () => false);
+  const P0 = await paneOf(), J = joukPath(outside);
   await keyAlongT(P0, J);
   await farFrames(P0);
 }

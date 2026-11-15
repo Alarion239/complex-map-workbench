@@ -26,7 +26,7 @@ float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #define IX_HASLAM(L) false
 #endif
 uniform vec4 uVp; uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uInvScale;
-uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN;
+uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
 // uKsat: the front count K of the drawn alpha (uncapped); uKall = 1: every covering candidate counts (the shape's own
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
@@ -265,8 +265,14 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|_T)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
+// z - p reduced modulo the key's period uSingT (0: none), Inverse's perReduce
+vec2 ixSingD(vec2 z, vec2 p) {
+  vec2 d = z - p;
+  float tt = dot(uSingT, uSingT);
+  return tt > 0.0 ? d - uSingT * floor(dot(d, uSingT) / tt + 0.5) : d;
+}
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
@@ -276,7 +282,7 @@ float ixSheetKey(vec2 z, bool zf, Lf L) {
     if (i >= uSingN) break;
     vec2 p = uSing[i];
     if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
-    else D += max(0.0, log2(uWinRs / cx_abs(z - p)));
+    else D += max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
   }
   return D;
 }
@@ -297,7 +303,7 @@ vec2 ixMobT(vec2 u) {
 // 2^D of a finite point without the logs (the same order as ixSheetKey)
 float ixKeyExp(vec2 z) {
   float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
-  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(z - uSing[i])); }
+  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i]))); }
   return K;
 }
 // the Mobius-prefix centre: the smallest key among the u-projection, the member nearest the reference in z and the

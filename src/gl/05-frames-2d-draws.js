@@ -596,7 +596,7 @@
     gl.bindVertexArray(null);
     return true;
   }
-  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing}, or null (uKeyOn 0)
+  // the sheet key's uniforms (PRE_KEY_DECL) of program Q: k {win, R, rs, sing, per}, or null (uKeyOn 0)
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
@@ -606,6 +606,7 @@
     u4f(Q, 'uKWin', w.x0, w.y0, w.x1, w.y1); u1f(Q, 'uKR', k.R); u1f(Q, 'uKRs', k.rs);
     if (Q.loc.uKSing) gl.uniform2fv(Q.loc.uKSing, sv);
     u1i(Q, 'uKSingN', sing.length);
+    u2f(Q, 'uKSingT', k.per ? k.per.re : 0, k.per ? k.per.im : 0);
   }
   // a carried-colour draw under the sheet key k (none: the draw order). depth: 'only' (default) a depth of its own;
   // 'first', 'mid', 'last' draws sharing one depth, so the key orders the points of all of them: the first clears it,

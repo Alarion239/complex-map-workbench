@@ -641,7 +641,7 @@
     const k = smKeyOf({ mode: 0, a: s, b });
     if (k) return k;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [] };
+    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [], per: null };
   }
   // The sheet key mid-glide (the map h_{b,t} after the steps before b): plane b's key, and the glide's poles at t, which
   // move with t (a path's pole sweeps across the plane, or flies in from infinity): a point beside one is not in front
@@ -951,7 +951,10 @@
       }
     }
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
-    return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
+    // (the period: the steps before b's, which h_{b,t} keeps whatever step b's path does, Inverse.keyPeriod; one point
+    // of each class modulo it, as at rest)
+    const per = b > 1 ? Inverse.keyPeriod(invPlan(0, b - 1)) : null;
+    return Object.assign({}, k, { sing: Inverse.keyClasses(acc.concat(poles), per).slice(0, 4), per });
   }
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a
   // pixel gives the one down it)
