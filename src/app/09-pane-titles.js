@@ -188,8 +188,8 @@
   function seg(id, value, options, onchange, label, opt) {
     const o = opt || {};
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
-    for (const [v, l, title] of options) {
-      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
+    for (const [v, l, title, aria] of options) {
+      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
     setSeg(el, value);
     // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
@@ -212,6 +212,13 @@
     const sel = h('select', { class: 'sel' + (cls ? ' ' + cls : ''), id: id || null, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
     sel.value = value;
     return sel;
+  }
+  // a list of a few numbers as the steps view's choice button (its word names the current one, a tap opens the menu of the
+  // others), not a native select: the head and the phone's sheet show the same control
+  function choiceEl(id, value, options, onchange, title) {
+    const b = svChoiceBtn(value, options, onchange, title, 'sv-choice-num');
+    if (id) b.id = id;
+    return b;
   }
   // (#247: with an icon, a check that the pane head shows as an icon toggle, its word the tooltip and its accessible name;
   // a phone's sheet and the ⋯ pop-up show the word)
@@ -350,7 +357,14 @@
       for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
     });
   }
+  // (laying the strip out moves its controls out of the page and back, which drops the focus to the body: the control that had
+  // it takes it again)
   function layoutFootNow(side, force) {
+    const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
+    layoutFootRun(side, force);
+    if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
+  }
+  function layoutFootRun(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
     const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
@@ -731,11 +745,11 @@
   function setSheets(on) {
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
-    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: fnText() })); }
+    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: SV.on ? svHeightName('text') : fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
-  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); }
+  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
   // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
   const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
   function buildFoot(side) {
@@ -789,8 +803,8 @@
   // Contours, Cauchy's Tiles, the relief's), and the pulled-back grid's step; idSuffix tells a second copy's ids apart
   function colourScrubs(land, idSuffix) {
     const out = [];
-    if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-    if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+    if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), choiceEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+    if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), choiceEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
     if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
   }
@@ -818,6 +832,16 @@
     syncOpacityRange(rng);
     return row;
   }
+  // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
+  // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
+  // button named and titled in words that start with its visible label ("Re, real part"; the modulus, |·|, is symbols
+  // alone, and its words are its name)
+  function heightOptions(Fn) {
+    const lg = I18N.fnName('log');
+    if (!SV.on) return [['log', `${lg} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]];
+    const kinds = [['log', `${lg} |·|`, lg, $t('log of the modulus')], ['abs', '|·|', '', $t('modulus')], ['re', 'Re', 'Re', $t('real part')], ['im', 'Im', 'Im', $t('imaginary part')]];
+    return kinds.map(([v, l, lead, words]) => { const name = !lead || words.startsWith(lead) ? words : `${lead}, ${words}`; return [v, l, name, name]; });
+  }
   function buildFootL(f) {
     const Fn = fnText();
     // the Landscape view (merged-views.md): its height, then its colouring in one control: the phase colours the relief
@@ -825,12 +849,12 @@
     if (lLand()) {
       const paint = !S.view.D.phase ? 'plaster' : landMaterial() === 'phase' ? 'phase' : 'tiles';
       f.append(
-        seg('heightSeg', S.height, [['log', `${I18N.fnName('log')} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
+        seg('heightSeg', S.height, heightOptions(Fn), (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
         seg('landPaint', paint, [['tiles', $t('Tiles'), $t('Phase colours with modulus contours')], ['phase', $t('Plain'), $t('Phase colours only')], ['plaster', $t('Plaster'), $t('The relief alone, lit')]], (v) => {
           setViewOpt('D', 'phase', v !== 'plaster');
           if (v === 'phase') setOpt('landPlain', S.dc !== 'phase');
           else if (v === 'tiles') { setOpt('landPlain', false); if (S.dc === 'phase') setOpt('dc', 'enhanced'); }
-          buildRightFoot(); updateFocusUI(); paintChanged(); save();
+          buildRightFoot(); regionsNote(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
     // the colour panel: the same controls on every plane of the steps view, before and after the colour plane; one that
@@ -1287,8 +1311,8 @@
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
       else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
     }
-    // (the steps view's Height key describes h(F), the same quantity on every plane)
-    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }

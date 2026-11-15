@@ -1,6 +1,6 @@
 # Roadmap
 
-**Live now:** v17.0-beta.19 (waves 1–19, 14 November 2026): the redesign so far, complex shared numbers, iteration, fast
+**Live now:** v17.0-beta.20 (waves 1–20, 14 November 2026): the redesign so far, complex shared numbers, iteration, fast
 Dirichlet series, the ES-module build, shapes and parameter points in every plane, exact preimages of a parameter point
 on rational chains, the phone's step bar and its ‹ › glide, an offline page you can download (7.8 MB), Try lines that close
 themselves, the tour strip's new look and task lines, screen-reader and 24 px target fixes, evenly lit globes, a Landscape
@@ -15,9 +15,9 @@ glide exported as a video, one colour panel on every plane, an Opacity slider fo
 (Zoom in, Zoom out, Fit view, Sphere) on every plane, the phone's ⋯ on every step's pill, figure labels as real text in the
 exported SVG and PDF, a scrub that never shows a frame below the floor while a glide's pole tracks are being made, glides
 that wait for shader programs that finish linking late, Fit and zoom to zeros/poles that zoom about the point both
-views share, and the step-by-step view's tour and Playback in Italian, with clearer Italian from Pietro's review sheets.
+views share, the step-by-step view's tour and Playback in Italian, with clearer Italian from Pietro's review sheets, a command palette that offers the surfaces instead of the old views, a Split during an All-at-once glide that changes nothing on screen, a glide video that starts on the still's picture, and an export dialog that says why Paths and Two planes need the Plane or Sphere.
 
-**Next:** v17.0-beta.20 (wave 20: the classic removal's perf and quality scenes on the steps view and the view switch gone, a Split mid-glide with All at once that matches the unsplit picture, the steps view's export parity, steadier test kit waits and fixes for the flaky suites), then what is left of the step-by-step view's parity with the classic views (the remaining suites, the glide's own
+**Next:** v17.0-beta.21 (wave 21: the Landscape's height following the colour plane, the reached plane's outlines and the cut drawn in every glide frame as the parked plane draws them, a scrolled thread that keeps its place on a resize, the old carry code removed, layout checks that know which controls share a row, and steadier suites), then what is left of the step-by-step view's parity with the classic views (the remaining suites, the glide's own
 export, an All sheets control, the tour's chapters), Hear the function in the steps view, the Italian review of the new
 strings and, when the Windows laptop is back, the Landscape's Max mesh, its first draws and the step cards' idle slices, then its becoming the default view (Alexander's go), then v17.0, when
 the touch rules (#30) and the guided tour rework (#34) are done; until then each merged wave is a beta. After v17.0 come v17.x releases. v17 is a redesign of how the app is laid out and learned. v16.5 and v17 both come from a usability audit of
@@ -30,7 +30,7 @@ of them serious, each with its fix; step counts for 43 common tasks; mockups of 
 |---|---|---|
 | v16.4.1 | Landscape walls, docked tour, hyperbolic lines | published |
 | v16.5 | The fixes that need no decision, snapping and railing of points | shipped (2026-10-27) |
-| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.19 is live; v17.0 waits for #30 and #34 |
+| v17 | The twelve layout decisions (D1–D12) and the new guided tour | in progress: v17.0-beta.20 is live; v17.0 waits for #30 and #34 |
 | patch | Landscape walls redesign | in progress: the edge pass runs in the surface's own program (#168, #47); the Max mesh at 60 fps (#48, #170) waits for a Windows measurement |
 
 ## Releases
@@ -61,6 +61,7 @@ Each merged wave is a release. Dates are the day the wave PR merged into `main` 
 | v17.0-beta.17 | 2026-11-12 | #1513 (b332ce1) | The step-by-step view holds the exact frame while a glide's pole tracks are still being made, so a scrub before the idle jobs finish never shows a frame below the floor. Scrub frames allocate nothing once the ring's sizes are warmed, and region fills read the pixel centre off the cuts. Every plane gets one canvas stack (Zoom in, Zoom out, Fit view, Sphere), with a disabled key's reason shown in place. Every step's pill has its ⋯ on a phone in a 44 px slot. Plaster in the Landscape's Colouring applies and stays chosen. Exported SVG and PDF figures carry their labels as real, selectable text. Under the hood: one judge for a parked glide's carried colour, a test kit that fails a suite on a page exception or a wait that ran out, suites that wait on conditions instead of sleeping, and a CI Mesa step that survives a mirror outage. |
 | v17.0-beta.18 | 2026-11-13 | #1542 (008263b) | Fit and zoom to zeros/poles zoom about the point the start and end views share, so that point stays still on screen instead of the view swinging sideways. In the step-by-step view, the glide's link hold and the ready state wait for shader programs that finish linking late, so a slow GPU never shows a stand-in plane as ready. Under the hood: suites that wait on the page's clock and on load events instead of fixed sleeps, a held-frames kit with one hold, the Mac kept awake in every GPU step, and CI's cache on Node 24. |
 | v17.0-beta.19 | 2026-11-14 | #1548 (3cbef29) | Italian: clearer wordings from Pietro's two review sheets, the steps view's tour and Playback strings in Italian, and the error fixes since beta.8. Under the hood: the language-switch suites wait for the reloaded page instead of a fixed sleep, two suites read their expected Italian from the page's own table, and a test that a finger lift over several colour lines sounds each. |
+| v17.0-beta.20 | 2026-11-14 | #1592 (2e230c1) | The command palette offers the surfaces instead of the old views; a Split during an All-at-once glide changes nothing on screen; the glide video starts on the still's picture with the globe's marks clear of its rim; the export dialog says why Paths and Two planes need the Plane or Sphere. Under the hood: the perf and quality scenes run on the steps view, a test kit that waits for the page instead of sleeping, steadier suites, and far glides prepared before you scrub to them. |
 
 The tag for each release is pushed by Alexander, so a row can exist before its tag does.
 
@@ -162,8 +163,8 @@ A reviewer takes the whole tour as a new user, on a laptop and on a phone, befor
 - **PRs merge in waves.** Each goes into an integration branch; one wave PR from that branch into `main`, a draft until
   the wave is complete, runs the whole gate once it is marked ready for review (unit tests, the browser suites, GLSL tests on Direct3D 11 and Metal, the
   quality suite, the perf suite's checks).
-- **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Windows
-  laptop and Mac: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
+- **The GPU gate** (`.github/workflows/gpu-gate.yml`, [ci/RUNNERS.md](ci/RUNNERS.md)) then runs on our own Mac and, on
+  request, on a Windows desktop: speed with the 60 fps frame-time budgets on real GPUs, and the same correctness checks.
 - **A merged wave is a release.** `v17.0-beta.N` is wave N; `v17.0` comes when #30 and #34 are done, then `v17.x`.
   The steps, in order:
   1. The wave's work is tracked on the board, issue #236 (who works on what, freezes, what is next).
