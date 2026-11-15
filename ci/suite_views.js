@@ -147,6 +147,7 @@ const VIEWS = {
   'steps_sphere_carry_cmd.js': steps(),
   'steps_sphere_look_cmd.js': steps(),
   'steps_sphere_rest_cmd.js': steps(),
+  'steps_sphere_marks_cmd.js': steps(),
   'steps_sphere_cayley_cmd.js': steps(),
   'steps_sphere_cut_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
@@ -266,6 +267,7 @@ const VIEWS = {
   'ux165_learn_phone_classic_cmd.js': classic('the classic phone\'s learn checks: Y\'s chip naming the inset after a target and the inset\'s pulse (V01), and the message row under the chain bar (UX80); the steps view\'s phone has no inset and no chain bar'),
   'ux165_learn_first_run_cmd.js': steps({ pin: true }),
   'ux165_learn_sound_cmd.js': steps({ pin: true }),
+  'steps_sound_name_cmd.js': steps(),
   'v151_cmd.js': steps({ pin: true }),
 
   // to port: export (the shown plane, the filmstrip, the glide)
