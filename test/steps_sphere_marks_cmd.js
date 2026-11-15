@@ -7,10 +7,11 @@
 // drawn over the marks; Inside regions draws the colour globe kept inside the regions in a pass of its own, which must
 // not cover them. On the default page the "i" faces the camera inside a region, so it is required among the full-ink
 // marks: a frame with no such mark fails.
-// The figure (Figure.build, the paper still) draws these names as vectors over its art raster, so the raster, drawn
-// off the page (artMode), must hold none of them, Everywhere and Inside regions alike: the wrapper counts the marks
-// written while the figure builds on canvases that are not in the document and at least ART_MIN px each way (the art
-// raster; the figure also writes its labels on a small canvas of its own to measure them).
+// The figure (Figure.build, the paper still) and the video's frame in the print look (Figure.glideArt, look null) draw
+// these names as vectors over their art raster, so the raster, drawn off the page (artMode), must hold none of them,
+// Everywhere and Inside regions alike: the wrapper counts the marks written while each builds on canvases that are not
+// in the document and at least ART_MIN px each way (the art raster; the figure also writes its labels on a small canvas
+// of its own to measure them).
 // At rest on a plane past the colour plane (svGlobeRest), where some regions take the exact pass and others the
 // carried mesh, the mesh is drawn over the exact pass's globe kept inside its regions, and must not cover the marks
 // either (#1637): z² from plane z, coloured from plane z, at rest on w₁, Inside regions, with a disc around e^(i pi/4)
@@ -23,7 +24,8 @@ const fails = [], R = {};
 // ink (smoothstep(0.05, 0.3, n·v) at 1))
 // ART_MIN: the least side, in px, of an off-page canvas counted as the figure's art raster (1403 x 1196 on the default
 // page, 1186 x 1011 in the rest leg; the figure's label-measuring canvas is 48 x 32)
-const GLYPH_MIN = 15, DIFF = 32, FULL_INK = 0.99, ART_MIN = 256;
+// VIDEO_PT: a video frame's picture size in pt, [w, h], as the video asks for it (1280 x 960 px at dpr 1: 960 x 720 pt)
+const GLYPH_MIN = 15, DIFF = 32, FULL_INK = 0.99, ART_MIN = 256, VIDEO_PT = [960, 720];
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running) && GLR.pendingLinks === 0 && __cmwSvFixed()";
@@ -93,6 +95,11 @@ const leg = async (tag) => {
   R[tag].figure = fig;
   ok(`${tag}: the figure builds`, !!fig && fig.built, fig);
   ok(`${tag}: the figure's art raster holds none of the marks (the figure draws them as vectors)`, !!fig && fig.built && fig.art.length === 0, fig);
+  // (the video's frame in the print look, at the thread's place: the same art layer, VIDEO_PT the frame's size)
+  const vid = await ev(`(async () => { __mk.art = []; const r = await Figure.glideArt(${st.x}, { wpt: ${VIDEO_PT[0]}, hpt: ${VIDEO_PT[1]}, dpi: 96, raw: true, look: null }); return { drawn: !!r, art: __mk.art.slice() }; })()`);
+  R[tag].video = vid;
+  ok(`${tag}: the video's print-look frame is drawn`, !!vid && vid.drawn, vid);
+  ok(`${tag}: the video's print-look frame holds none of the marks`, !!vid && vid.drawn && vid.art.length === 0, vid);
   return st;
 };
 
