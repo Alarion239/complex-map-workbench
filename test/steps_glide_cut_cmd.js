@@ -110,8 +110,9 @@ const ringDiff = (a, b, m) => ev(`(() => {
 })()`);
 await frameAt('__cmwSteps({ park: 0 })');
 const hot = { handle: await ev('(() => { const h = __cmwCutHandles()[0]; return h ? [h.x, h.y] : null; })()') };
-ok('the parked plane 0 has a cut handle to hover', !!hot.handle, hot);
-if (hot.handle) {
+const isXY = (q) => Array.isArray(q) && q.length === 2 && q.every(Number.isFinite);
+ok('the parked plane 0 has a cut handle to hover', isXY(hot.handle), hot);
+if (isXY(hot.handle)) {
   const away = [hot.handle[0] + 150, hot.handle[1] - 120];
   await move(...away); await settled({ max: 20000 }); ok('the parked plane 0, the pointer away, is drawn', !!(await grab('p0cold')), null);
   await move(...hot.handle); await settled({ max: 20000 }); ok('the parked plane 0, the pointer on its handle, is drawn', !!(await grab('p0hot')), null);
