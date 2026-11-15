@@ -2705,87 +2705,126 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
     }
     throw new Error('GLChain inverse: no GLSL for op ' + o.kind);
   }
-  // the walker: one loop per multivalued op, nested outermost op first; inactive ops (step outside (uIxA, uIxB]) pass
-  // the state through (single-valued: skipped; multivalued: one iteration). Mirrors Inverse.enumerate's rec().
+  // the walker: one loop over a stack of levels, one level per op, outermost op first (level N - 1). It walks the nest
+  // Inverse.enumerate's rec() describes (a loop per multivalued op; inactive ops pass the state through), in the same
+  // order, with each level's cursors in arrays indexed by the level: the range, stop and leaf helpers are reached from
+  // one site each, and so are the ops' own functions and ixApply (an op's function stores its ixApply arguments,
+  // ixDefer, and the one apply site below applies them). ph, what runs next at level j: 0 enter j (its input wL[j + 1];
+  // j = -1 the leaf), 1 j's next member or branch, 2 j's loop body after its inner levels, 3 a family's next base.
+  // an op's ixApply arguments, stored for the walker's one apply site (ixOpJ)
+  const IX_DEFER = `vec2 ixApU, ixApD, ixApLg, ixApLam, ixApDlam; bool ixApAnti, ixApHasLam; float ixApLvl;
+bool ixDefer(vec2 u, vec2 d, bool anti, float lvlOut, vec2 lgOut, bool hasLam, vec2 lam, vec2 dlam) {
+  ixApU = u; ixApD = d; ixApAnti = anti; ixApLvl = lvlOut; ixApLg = lgOut; ixApHasLam = hasLam; ixApLam = lam; ixApDlam = dlam;
+  return true;
+}
+`;
   function invWalkerSrc(ops) {
-    const N = ops.length, out = ['void invWalk(vec2 w) {', `  Lf L${N} = ixStart(w);`];
-    const fams = [];       // enclosing family loops (window-type: additive and log), innermost last
-    const emit = (j, cur, d, inLoop) => {
-      const ind = '  '.repeat(d);
-      const exit = inLoop ? 'continue;' : 'return;';
-      if (j < 0) {
-        out.push(`${ind}bool cv_;`, `${ind}invLeaf(${cur}, cv_);`);
-        // every enclosing active family loop counts covering members per direction (the tail closure, 4.1)
-        for (const f of fams) out.push(`${ind}if (act${f}) { if (goUp${f}) cU${f} = cv_ ? cU${f} + 1 : 0; else cD${f} = cv_ ? cD${f} + 1 : 0; }`);
-        return;
-      }
-      const o = ops[j], k = o.step, R = `L${j}`, P = `ix${j}`;
-      if (!IX_FIN[o.kind] && !IX_ADD[o.kind] && o.kind !== 'ROOTPOW') {
-        out.push(`${ind}Lf ${R} = ${cur};`, `${ind}if (ixAct(${k}) && !${P}_one(${R})) ${exit}`);
-        emit(j - 1, R, d, inLoop);
-        return;
-      }
-      if (IX_FIN[o.kind]) {
-        out.push(`${ind}int nb${j} = ixAct(${k}) ? ${P}_nb(${cur}) : 1;`,
-          `${ind}for (int b${j} = 0; b${j} < ${ixFinMax(o)}; b${j}++) {`,
-          `${ind}  if (b${j} >= nb${j}) break;`,
-          `${ind}  Lf ${R} = ${cur};`,
-          `${ind}  if (ixAct(${k}) && !${P}_one_b(${R}, b${j})) continue;`);
-        emit(j - 1, R, d + 1, true);
-        out.push(`${ind}}`);
-        return;
-      }
-      // window-type family (additive or log): bases, the member range and two cursors (3.5, 3.6)
-      const nbMax = o.kind === 'ROOTPOW' ? 1 : IX_ADD[o.kind];
-      const isLog = o.kind === 'ROOTPOW';
-      const c = o.cell;
-      const s = (x) => `${x}${j}`;
-      const i2 = ind + '  ', i4 = ind + '    ';
-      out.push(`${ind}bool ${s('act')} = ixAct(${k});`,
-        `${ind}for (int ${s('b')} = 0; ${s('b')} < ${nbMax}; ${s('b')}++) {`,
-        `${i2}if (${s('b')} > 0 && !${s('act')}) break;`,
-        `${i2}vec2 ${s('u0')} = vec2(0.0), ${s('st')} = vec2(0.0), ${s('d0')} = vec2(0.0);`,
-        `${i2}float ${s('lo')} = 0.0, ${s('hi')} = 0.0, ${s('hl')} = IX_INF, ${s('hh')} = -IX_INF, ${s('ms')} = 0.0;`,
-        `${i2}if (${s('act')}) {`,
-        `${i2}  if (${s('b')} >= ${P}_nb(${cur})) break;`,
-        `${i2}  if (!${P}_line(${cur}, ${s('b')}, ${s('u0')}, ${s('st')}, ${s('d0')})) continue;`,
-        isLog
-          ? `${i2}  ixRangeLog(${j}, ${cur}, ${s('u0')}, ${s('st')}, uInv[${c}], uInv[${c + 1}], ${s('lo')}, ${s('hi')}, ${s('hl')}, ${s('hh')}, ${s('ms')});`
-          : `${i2}  ixRangeAdd(${j}, ${cur}, ${s('u0')}, ${s('st')}, ${s('d0')}, ${s('lo')}, ${s('hi')}, ${s('hl')}, ${s('hh')}, ${s('ms')});`,
-        `${i2}  if (${s('lo')} > ${s('hi')}) continue;`,
-        `${i2}}`,
-        `${i2}float ${s('up')} = ${s('ms')}, ${s('dn')} = ${s('ms')} - 1.0;`,
-        `${i2}if (${s('dn')} >= ${s('hl')} && ${s('dn')} <= ${s('hh')}) ${s('dn')} = ${s('hl')} - 1.0;`,
-        `${i2}bool ${s('aU')} = !${s('act')} || (${s('up')} >= ${s('lo')} && ${s('up')} <= ${s('hi')});`,
-        `${i2}bool ${s('aD')} = ${s('act')} && ${s('dn')} >= ${s('lo')} && ${s('dn')} <= ${s('hi')};`,
-        `${i2}int ${s('turn')} = 0, ${s('cU')} = 0, ${s('cD')} = 0, ${s('nmax')} = ${s('act')} ? uIxN[${j}] : 1;`,
-        `${i2}bool ${s('goUp')} = true;`,
-        `${i2}for (int ${s('t')} = 0; ${s('t')} < 64; ${s('t')}++) {`,
-        `${i4}if (${s('t')} >= ${s('nmax')} || !(${s('aU')} || ${s('aD')})) break;`,
-        `${i4}if (${s('aU')} && ${s('aD')}) { ${s('goUp')} = (${s('turn')} & 1) == 0; ${s('turn')}++; } else ${s('goUp')} = ${s('aU')};`,
-        `${i4}float ${s('m')} = ${s('goUp')} ? ${s('up')} : ${s('dn')};`,
-        `${i4}if (${s('goUp')}) { ${s('up')} += 1.0; if (${s('up')} >= ${s('hl')} && ${s('up')} <= ${s('hh')}) ${s('up')} = ${s('hh')} + 1.0; if (${s('up')} > ${s('hi')}) ${s('aU')} = false; }`,
-        `${i4}else { ${s('dn')} -= 1.0; if (${s('dn')} >= ${s('hl')} && ${s('dn')} <= ${s('hh')}) ${s('dn')} = ${s('hl')} - 1.0; if (${s('dn')} < ${s('lo')}) ${s('aD')} = false; }`,
-        `${i4}Lf ${R} = ${cur};`,
-        `${i4}if (${s('act')}) { if (!${P}_at(${cur}, ${s('m')}, ${s('u0')}, ${s('st')}, ${s('d0')}, ${R})) { if (${s('goUp')}) ${s('cU')} = 0; else ${s('cD')} = 0; continue; } }`,
-        `${i4}else ${s('aU')} = false;`,
-        `${i4}ixLastOk = false;`);
-      fams.push(j);
-      emit(j - 1, R, d + 2, true);
-      fams.pop();
-      // the early stop (3.6) against the K-th key, or with K > B the tail rule (gl.js ixDKTail) against the buffer's
-      // last key, for a side still in range up to infinity, without a hole, whose last three members covered
-      out.push(`${i4}if (${s('act')} && uIxStopOp == ${j} && ixLastOk) {`,
-        `${i4}  float ${s('sk')} = ixDK(); bool ${s('tl')} = false;`,
-        `${i4}  if (!(${s('sk')} < 1e37) && !(${s('hl')} <= ${s('hh')}) && (${s('goUp')} ? ${s('cU')} >= 3 && ${s('hi')} >= IX_INF : ${s('cD')} >= 3 && ${s('lo')} <= -IX_INF)) { ${s('sk')} = ixDKTail(); ${s('tl')} = true; }`,
-        `${i4}  if (${s('sk')} < 1e37 && ${isLog ? `ixStopLog(${j}, ${s('st')}, ${s('goUp')}, ${s('sk')})` : `ixStop${'Add'}(${j}, ${s('st')}, ${s('goUp')}, ${s('u0')} + ${s('m')} * ${s('st')}, ${s('sk')})`}) { if (${s('tl')}) ixTailInf = true; if (${s('goUp')}) ${s('aU')} = false; else ${s('aD')} = false; }`,
-        `${i4}}`,
-        `${i2}}`,
-        `${i2}if (${s('act')} && ((${s('aU')} && ${s('cU')} >= 3) || (${s('aD')} && ${s('cD')} >= 3))) ixTailInf = true;`,
-        `${ind}}`);
-    };
-    emit(N - 1, `L${N}`, 1, false);
-    out.push('}');
+    const N = ops.length;
+    if (!N) return 'void invWalk(vec2 w) {\n  Lf L0 = ixStart(w);\n  bool cv_;\n  invLeaf(L0, cv_);\n}\n';
+    const kind = (o) => (IX_FIN[o.kind] ? 1 : IX_ADD[o.kind] || o.kind === 'ROOTPOW' ? 2 : 0);
+    const K = ops.map(kind);
+    // (up[j + 1]: the nearest loop level above level j, N past the outermost: where a level's emission returns, and where
+    // a failing single-valued op continues)
+    const up = [];
+    for (let j = -1; j < N; j++) { let L = j + 1; while (L < N && K[L] === 0) L++; up.push(L); }
+    const arr = (t, v) => `${t}[${v.length}](${v.join(', ')})`;
+    const has = (k) => K.includes(k);
+    const anyLog = ops.some((o) => o.kind === 'ROOTPOW'), anyAdd = ops.some((o) => IX_ADD[o.kind]);
+    const out = [];
+    out.push(`const int IX_KIND[${N}] = ${arr('int', K)};`, `const int IX_STEP[${N}] = ${arr('int', ops.map((o) => o.step))};`,
+      `const int IX_UP[${N + 1}] = ${arr('int', up)};`);
+    if (has(1)) out.push(`const int IX_FINMAX[${N}] = ${arr('int', ops.map((o) => (IX_FIN[o.kind] ? ixFinMax(o) : 0)))};`);
+    if (has(2)) {
+      out.push(`const int IX_NBMAX[${N}] = ${arr('int', ops.map((o) => (o.kind === 'ROOTPOW' ? 1 : IX_ADD[o.kind] || 0)))};`);
+      if (anyLog) out.push(`const int IX_CELL[${N}] = ${arr('int', ops.map((o) => o.cell || 0))};`, `const bool IX_ISLOG[${N}] = ${arr('bool', ops.map((o) => (o.kind === 'ROOTPOW' ? 'true' : 'false')))};`);
+    }
+    // the ops' own functions, by level: ixOpJ applies level j's op to R (its input C), once
+    const call = (j) => (K[j] === 0 ? `ix${j}_one(R)` : K[j] === 1 ? `ix${j}_one_b(R, b)` : `ix${j}_at(C, m, u0, st, d0, R)`);
+    out.push('bool ixOpJ(int j, int b, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {', '  Lf C = R;', '  bool ok = false;',
+      ops.map((o, j) => `  ${j ? 'else ' : ''}if (j == ${j}) ok = ${call(j)};`).join('\n'),
+      '  return ok && ixApply(R, ixApU, ixApD, ixApAnti, ixApLvl, ixApLg, ixApHasLam, ixApLam, ixApDlam);', '}');
+    const fl = K.map((x, j) => (x ? j : -1)).filter((j) => j >= 0);
+    if (fl.length) out.push(`int ixNbJ(int j, Lf C) {\n${fl.map((j) => `  if (j == ${j}) return ix${j}_nb(C);`).join('\n')}\n  return 1;\n}`);
+    if (has(2)) {
+      const L2 = K.map((x, j) => (x === 2 ? j : -1)).filter((j) => j >= 0);
+      out.push(`bool ixLineJ(int j, Lf C, int b, out vec2 u0, out vec2 st, out vec2 d0) {\n  u0 = vec2(0.0); st = u0; d0 = u0;\n${L2.map((j) => `  if (j == ${j}) return ix${j}_line(C, b, u0, st, d0);`).join('\n')}\n  return false;\n}`);
+    }
+    const range = anyLog && anyAdd ? 'if (IX_ISLOG[j]) ixRangeLog(j, C, u0, st, uInv[IX_CELL[j]], uInv[IX_CELL[j] + 1], lo, hi, hl, hh, ms); else ixRangeAdd(j, C, u0, st, d0, lo, hi, hl, hh, ms);'
+      : anyLog ? 'ixRangeLog(j, C, u0, st, uInv[IX_CELL[j]], uInv[IX_CELL[j] + 1], lo, hi, hl, hh, ms);' : 'ixRangeAdd(j, C, u0, st, d0, lo, hi, hl, hh, ms);';
+    const stop = anyLog && anyAdd ? '(IX_ISLOG[j] ? ixStopLog(j, wSt[j], g, sk) : ixStopAdd(j, wSt[j], g, wU0[j] + wM[j] * wSt[j], sk))'
+      : anyLog ? 'ixStopLog(j, wSt[j], g, sk)' : 'ixStopAdd(j, wSt[j], g, wU0[j] + wM[j] * wSt[j], sk)';
+    out.push('void invWalk(vec2 w) {', `  Lf wL[${N + 1}];`, `  wL[${N}] = ixStart(w);`, `  int wB[${N}]; bool wAct[${N}];`);
+    if (has(1)) out.push(`  int wNb[${N}];`);
+    out.push(`  int wT[${N}], wTurn[${N}], wCU[${N}], wCD[${N}], wNmax[${N}]; bool wAU[${N}], wAD[${N}], wGoUp[${N}];`,
+      `  vec2 wU0[${N}], wSt[${N}], wD0[${N}], wC[${N}]; vec4 wR[${N}]; float wM[${N}];`);
+    out.push(`  int j = ${N - 1}, ph = 0;`, '  for (int it = 0; it < 1048576; it++) {',
+      '    int ap = -1, apB = 0; float apM = 0.0;   // (an op to apply: its level, branch, member)',
+      '    if (ph == 0) {', '      if (j < 0) {', '        bool cv_;', '        invLeaf(wL[0], cv_);');
+    for (let f = 0; f < N; f++) if (K[f] === 2) out.push(`        if (wAct[${f}]) { if (wGoUp[${f}]) wCU[${f}] = cv_ ? wCU[${f}] + 1 : 0; else wCD[${f}] = cv_ ? wCD[${f}] + 1 : 0; }`);
+    out.push('        j = IX_UP[0]; ph = 2;', '      }');
+    if (has(0)) out.push('      else if (IX_KIND[j] == 0) { if (ixAct(IX_STEP[j])) ap = j; else { wL[j] = wL[j + 1]; j--; } }');
+    if (has(1)) out.push('      else if (IX_KIND[j] == 1) { wAct[j] = ixAct(IX_STEP[j]); wNb[j] = wAct[j] ? ixNbJ(j, wL[j + 1]) : 1; wB[j] = 0; ph = 1; }');
+    if (has(2)) out.push('      else { wAct[j] = ixAct(IX_STEP[j]); wB[j] = 0; ph = 3; }');
+    out.push('    } else if (ph == 1) {');
+    if (has(1)) out.push('      if (IX_KIND[j] == 1) {', '        int b = wB[j];', '        if (b >= IX_FINMAX[j] || b >= wNb[j]) { j = IX_UP[j + 1]; ph = 2; }',
+      '        else { wB[j] = b + 1; if (wAct[j]) { ap = j; apB = b; } else { wL[j] = wL[j + 1]; j--; ph = 0; } }', `      }${has(2) ? ' else {' : ''}`);
+    if (has(2)) {
+      out.push('        int t = wT[j];', '        bool aU = wAU[j], aD = wAD[j];',
+        '        if (t >= 64 || t >= wNmax[j] || !(aU || aD)) {',
+        '          if (wAct[j] && ((aU && wCU[j] >= 3) || (aD && wCD[j] >= 3))) ixTailInf = true;',
+        '          wB[j]++; ph = 3;',
+        '        } else {',
+        '          wT[j] = t + 1;',
+        '          bool g;',
+        '          if (aU && aD) { g = (wTurn[j] & 1) == 0; wTurn[j]++; } else g = aU;',
+        '          vec2 c = wC[j]; vec4 r = wR[j];',
+        '          float m = g ? c.x : c.y;',
+        '          if (g) { c.x += 1.0; if (c.x >= r.z && c.x <= r.w) c.x = r.w + 1.0; if (c.x > r.y) aU = false; }',
+        '          else { c.y -= 1.0; if (c.y >= r.z && c.y <= r.w) c.y = r.z - 1.0; if (c.y < r.x) aD = false; }',
+        '          wC[j] = c; wM[j] = m; wGoUp[j] = g;',
+        '          if (wAct[j]) { ap = j; apM = m; }',
+        '          else { aU = false; ixLastOk = false; wL[j] = wL[j + 1]; j--; ph = 0; }',
+        '          wAU[j] = aU; wAD[j] = aD;',
+        '        }');
+      if (has(1)) out.push('      }');
+    }
+    out.push('    } else if (ph == 2) {');
+    if (has(2)) out.push('      if (IX_KIND[j] == 2 && wAct[j] && uIxStopOp == j && ixLastOk) {',
+      '        float sk = ixDK(); bool tl = false, g = wGoUp[j]; vec4 r = wR[j];',
+      '        if (!(sk < 1e37) && !(r.z <= r.w) && (g ? wCU[j] >= 3 && r.y >= IX_INF : wCD[j] >= 3 && r.x <= -IX_INF)) { sk = ixDKTail(); tl = true; }',
+      `        if (sk < 1e37 && ${stop}) { if (tl) ixTailInf = true; if (g) wAU[j] = false; else wAD[j] = false; }`,
+      '      }');
+    out.push('      ph = 1;');
+    if (has(2)) out.push('    } else {', '      int b = wB[j];', '      if (b >= IX_NBMAX[j] || (b > 0 && !wAct[j])) { j = IX_UP[j + 1]; ph = 2; }', '      else {',
+      '        Lf C = wL[j + 1];',
+      '        vec2 u0 = vec2(0.0), st = vec2(0.0), d0 = vec2(0.0);',
+      '        float lo = 0.0, hi = 0.0, hl = IX_INF, hh = -IX_INF, ms = 0.0;',
+      '        int nx = 0;   // (0 the members, 1 the next base: a continue, 2 the base loop ends: a break)',
+      '        if (wAct[j]) {',
+      '          if (b >= ixNbJ(j, C)) nx = 2;',
+      '          else if (!ixLineJ(j, C, b, u0, st, d0)) nx = 1;',
+      `          else { ${range} if (lo > hi) nx = 1; }`,
+      '        }',
+      '        if (nx == 2) { j = IX_UP[j + 1]; ph = 2; }',
+      '        else if (nx == 1) wB[j] = b + 1;',
+      '        else {',
+      '          float upm = ms, dn = ms - 1.0;',
+      '          if (dn >= hl && dn <= hh) dn = hl - 1.0;',
+      '          wAU[j] = !wAct[j] || (upm >= lo && upm <= hi);',
+      '          wAD[j] = wAct[j] && dn >= lo && dn <= hi;',
+      '          wTurn[j] = 0; wCU[j] = 0; wCD[j] = 0; wNmax[j] = wAct[j] ? uIxN[j] : 1; wGoUp[j] = true; wT[j] = 0;',
+      '          wU0[j] = u0; wSt[j] = st; wD0[j] = d0; wC[j] = vec2(upm, dn); wR[j] = vec4(lo, hi, hl, hh);',
+      '          ph = 1;',
+      '        }',
+      '      }');
+    out.push('    }',
+      '    if (ap >= 0) {',
+      '      Lf R = wL[ap + 1];',
+      '      if (ixOpJ(ap, apB, apM, wU0[ap], wSt[ap], wD0[ap], R)) { if (IX_KIND[ap] == 2) ixLastOk = false; wL[ap] = R; j = ap - 1; ph = 0; }',
+      '      else if (IX_KIND[ap] == 0) { j = IX_UP[ap + 1]; ph = 1; }',
+      '      else if (IX_KIND[ap] == 2) { if (wGoUp[ap]) wCU[ap] = 0; else wCD[ap] = 0; }',
+      '    }',
+      `    if (j >= ${N}) break;`, '  }', '}');
     return out.join('\n') + '\n';
   }
   // the uInv values of op o (Inverse.stepOps op with its parameters in o.p): see the GLSL above for the layout
@@ -2879,7 +2918,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
-      txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
+      txt = { lib: head + INV_LIB + IX_DEFER + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join('').replace(/return ixApply\(\w+, /g, 'return ixDefer('), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }

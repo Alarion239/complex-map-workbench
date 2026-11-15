@@ -213,6 +213,9 @@ const SCENES = [
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   // (want: the carried program, which a software renderer may still be linking when the panes are quiet, has drawn)
   { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5], want: '^inv\\|B5cg' },
+  // (#1564's prototype: two and three window families in one program, at rest and in a glide)
+  { name: 'expsin', view: 'steps', state: typed('exp(sin(z))'), xs: [1, 0.5] },
+  { name: 'sec', view: 'steps', state: { shapes: [RECT], steps: [{ type: 'sin', params: {}, on: true }, { type: 'exp', params: {}, on: true }, { type: 'cos', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 60 } }, xs: [3, 2.5, 1.5] },
 ];
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
 
