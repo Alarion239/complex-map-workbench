@@ -2747,7 +2747,8 @@
   // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
   const SV_FOOT_MORE = 4 + 26;
   // the shortest level of the steps head's bar (svFitHead's set: 1 the scope as a menu, 2 the colour-plane button as its
-  // wheel, 3 the surface button as its icon, 4 the title's role shortened) at which the Height key keeps its words
+  // wheel, 3 the surface button as its icon, 4 the title's role shortened) at which the Height key keeps its words: the
+  // levels up to it keep the title's role and the surface button's name
   const SV_KEY_LEVEL = 2;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
@@ -2858,22 +2859,24 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
-    // (the levels settled, the key shows its words if the bar fits beside them at this level or a shorter one up to
-    // SV_KEY_LEVEL, the levels that cost the bar no words: the scope as a menu, the colour-plane button as its wheel. The
-    // surface button's name and the title's role, which says what the relief reads, outrank the key's words, whose glyph
-    // keeps them as its name and tooltip: past SV_KEY_LEVEL the key stays its glyph. So the key folds first while the bar
-    // is too wide, and a head with more room never folds a key that a head with less room shows at the same level)
+    // The levels settled, the key shows its words where the bar fits beside them, at this level or a shorter one up to
+    // SV_KEY_LEVEL. Those levels keep the title's role and the surface button's name: the scope as a menu, the
+    // colour-plane button as its wheel. The role, which says what the relief reads, and the surface button's name outrank
+    // the key's words, so past SV_KEY_LEVEL the key stays its glyph, which keeps its words as its name and tooltip. The
+    // key folds first while the bar is too wide, and a head with more room never folds a key that a head with less room
+    // shows.
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
       // (the chip's own width: its words, not the width a squeezed chip is left with)
       const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
       const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
-      const fits = () => lvl <= SV_KEY_LEVEL && E.bar.scrollWidth + keep + dw <= room;
+      // (whether the key's words fit beside the bar at level l, the bar set there)
+      const fits = (l) => l <= SV_KEY_LEVEL && E.bar.scrollWidth + keep + dw <= room;
       let l2 = lvl;
-      while (!fits() && l2 < SV_KEY_LEVEL) set(++l2);
-      if (l2 !== lvl) { if (E.bar.scrollWidth + keep + dw <= room) { lvl = l2; svTitleTip(lvl >= 4); } else set(lvl); }
-      if (!fits()) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
+      while (!fits(l2) && l2 < SV_KEY_LEVEL) set(++l2);
+      if (l2 !== lvl) { if (fits(l2)) { lvl = l2; svTitleTip(lvl >= 4); } else set(lvl); }
+      if (!fits(lvl)) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)

@@ -21,7 +21,10 @@ const open = async (w, h, mobile, lang) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` });
+  // (the steps view's head built and its chain on: a slow start takes longer than any fixed wait)
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('svHead') && !!document.querySelector('#paneL .pane-head')" });
+  await settle(500);
 };
 // the head's items, as laid out: each shown item's box, whether it is on the bar's row, cut or overlapping the next
 const LAYOUT = `(() => {
