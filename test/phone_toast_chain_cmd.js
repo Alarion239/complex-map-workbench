@@ -1,7 +1,10 @@
-// A phone's message does not cover the More sheet (#575): in English, Russian and Italian, at 360 × 640, 390 × 844 and
-// 740 × 360, with the More sheet open, a step added the way the palette adds one shows "Added f₄ …  Show alone  Undo"; the
-// sheet makes way for it by shrinking from its bottom edge (its head, ✕ and search field stay on the screen), and no control
-// of the sheet is under the message. In the steps view (ci/suite_views.js).
+// A phone's message beside the More sheet (#575, #1329): in English, Russian and Italian, at 360 × 640, 390 × 844 and 740 × 360, with the
+// More sheet open, a step added the way the palette adds one shows "Added f₄ …  Show alone  Undo". In landscape the sheet makes way for it by
+// shrinking from its bottom edge and no control of it is under the message. In portrait the sheet keeps its height: the message sits flush on
+// its bottom edge over its list, never over its head or search field, no control moves when it shows, the list's inset lets every control
+// scroll clear of it and goes back with the message. The message's words are never cut: they take two rows (words full width, at most two
+// lines, the buttons together at the right, 44 px tall) when they do not fit beside the buttons (ru and it at 360 px), one row otherwise (en).
+// In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -18,6 +21,8 @@ const fresh = async (w, h, lang) => {
 // (the toast stays 5 s: the measure runs once the sheet has made way for it)
 const shown = async () => (await settled({ max: 3000, panes: false, until: `!!document.querySelector('#toastHost .toast')` })).ok;
 const madeWay = (k) => settled({ max: 3000, panes: false, until: `(() => { const sh = document.querySelector('.ph-sheet[data-k="${k}"]'), t = document.querySelector('#toastHost .toast'); return !sh || !t || sh.getBoundingClientRect().bottom <= t.getBoundingClientRect().top + 1; })()` });
+// (portrait: the message sits at the sheet's bottom edge, over its list: placed once its bottom is the sheet's)
+const flushOnSheet = (k) => settled({ max: 3000, panes: false, until: `(() => { const sh = document.querySelector('.ph-sheet[data-k="${k}"]'), t = document.querySelector('#toastHost .toast'); return !sh || !t || Math.abs(t.getBoundingClientRect().bottom - sh.getBoundingClientRect().bottom) <= ${FLUSH_TOL}; })()` });
 // ---- the More sheet (eyes on #575): it hangs from its bottom edge up to a cap, with no top of its own; with its bottom lifted for the message it
 // has to shrink, not slide up off the screen (its header, ✕ and search field gone), and no control of it is under the message
 const measureMore = () => ev(`(() => {
@@ -51,7 +56,7 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="more"].open')` });
   let m = null, ysBefore = null;
   const ysNow = () => ev(`[...(document.querySelector('.ph-sheet[data-k="more"]') || document.body).querySelectorAll('button')].filter((b) => b.getClientRects().length > 0).map((b) => { const r = b.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); })`);
-  for (let i = 0; i < 3 && !m; i++) { ysBefore = await ysNow(); await ev(`__cmwAddStep('exp')`); if (await shown()) { await madeWay('more'); m = await measureMore(); } }
+  for (let i = 0; i < 3 && !m; i++) { ysBefore = await ysNow(); await ev(`__cmwAddStep('exp')`); if (await shown()) { await (h > w ? flushOnSheet('more') : madeWay('more')); m = await measureMore(); } }
   info[tag] = m;
   ok(`${tag}: it is open and a toast shows`, !!m && m.open, m);
   if (!m) continue;
@@ -65,7 +70,7 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
     const end = await measureMore();
     ok(`${tag}: at the end of its list no control is under the message`, !!end && end.under.length === 0, end && { under: end.under });
     await settled({ max: 8000, panes: false, until: `!document.querySelector('#toastHost .toast')` });
-    ok(`${tag}: the list's inset goes with the message`, await ev(`getComputedStyle(document.querySelector('.ph-sheet[data-k="more"] .ph-link').closest('.ph-sb')).paddingBottom === LIST_BASE_PAD`), null);
+    ok(`${tag}: the list's inset goes with the message`, await ev(`getComputedStyle(document.querySelector('.ph-sheet[data-k="more"] .ph-link').closest('.ph-sb')).paddingBottom === ${JSON.stringify(LIST_BASE_PAD)}`), null);
   } else ok(`${tag}: the toast covers none of its controls`, m.under.length === 0, { under: m.under, sheet: m.sheet, toast: m.toast });
   ok(`${tag}: the toast is inside the window`, m.win, { toast: m.toast });
   ok(`${tag}: its buttons can be pressed`, m.btns.length >= 1 && m.btns.every((b) => b.hit), m.btns);
