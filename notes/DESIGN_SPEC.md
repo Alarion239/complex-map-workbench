@@ -382,7 +382,7 @@ Labels are verbs in sentence case ("Add function", "Clear chain", "Reset camera"
 |---|---|
 | Image | "View outline" checkbox |
 | Phase | Style segmented [Tiles · Phase · Modulus · Contours · Grid], a sectors *n* scrubber (8/12/16/24, default 12), a Grid step scrubber (only in Grid style), and a "Region outline" checkbox |
-| Landscape | Height segmented [log \|F\| · \|F\| · Re F · Im F]; in the steps view the kind alone [log \|·\| · \|·\| · Re · Im], each named in words that start with its label ("Re, real part"), with a visible "Height" caption in the phone's Display sheet, since there the title, the Height key and the ruler name the map the height reads; Material segmented [Phase · Tiles · Plaster], a Scale scrubber (0.25–2), a "Unit level" checkbox, views [3/4 · Top · Front], and Reset camera |
+| Landscape | Height segmented [log \|F\| · \|F\| · Re F · Im F]; in the steps view the kind alone [log \|·\| · \|·\| · Re · Im], since there the title, the Height key and the ruler name the map the height reads, each named in words that start with its label ("Re, real part"); on a phone the Display sheet shows the control under a visible "Height" caption; Material segmented [Phase · Tiles · Plaster], a Scale scrubber (0.25–2), a "Unit level" checkbox, views [3/4 · Top · Front], and Reset camera |
 | Sphere | Segmented [Regions · Phase], a "Plane" checkbox, and Reset |
 | Morph | Replaced by the transport (6.11) |
 

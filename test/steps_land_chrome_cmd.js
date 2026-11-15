@@ -83,6 +83,7 @@ ok('phone 360 x 640, T = 1, plane 1 at rest: the readout reads |w₁| once', lab
 // (the Display sheet: the Height control under a visible caption, as its buttons name the kind alone)
 await ev(`Phone.open('display'), 1`);
 await settled({ max: 20000, until: '!!document.querySelector("#heightSeg") && !!document.querySelector("#heightSeg").getClientRects().length' });
-info.sheet = await ev(`(() => { const g = document.getElementById('heightSeg'), c = g && g.previousElementSibling; return { tag: c ? c.tagName : null, text: c ? c.textContent : null, shown: !!(c && c.getClientRects().length) }; })()`);
+info.sheet = await ev(`(() => { const g = document.getElementById('heightSeg'), c = g && g.previousElementSibling; return { tag: c ? c.tagName : null, text: c ? c.textContent : null, shown: !!(c && c.getClientRects().length), labelledBy: g ? g.getAttribute('aria-labelledby') : null, id: c ? c.id : null }; })()`);
 ok('phone 360 x 640: the Display sheet captions the Height control, visibly', !!info.sheet && info.sheet.tag === 'H3' && info.sheet.text === 'Height' && info.sheet.shown, info.sheet);
+ok('phone 360 x 640: the caption names the Height control (aria-labelledby), so it is said once', !!info.sheet && !!info.sheet.id && info.sheet.labelledBy === info.sheet.id, info.sheet);
 return { pass: fails.length === 0, fails, info };

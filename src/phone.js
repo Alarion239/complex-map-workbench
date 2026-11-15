@@ -763,8 +763,13 @@ const Phone = (() => {
     homeDisplay();
     const tn = A.targetNote();
     // (the Landscape's Height control under a visible caption: its buttons name the kind of height alone in the steps view,
-    // "Re", "|·|", which over the sheet's other rows would not say what they set)
-    const capped = kids.flatMap((k) => (k.id === 'heightSeg' ? [h('h3', { class: 'ph-h' }, $t('Height')), k] : [k]));
+    // "Re", "|·|", which over the sheet's other rows would not say what they set; the caption names the control, so it is
+    // said once)
+    const capped = kids.flatMap((k) => {
+      if (k.id !== 'heightSeg') return [k];
+      k.setAttribute('aria-labelledby', 'phHeightCap');
+      return [h('h3', { class: 'ph-h', id: 'phHeightCap' }, $t('Height')), k];
+    });
     els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...capped, ...(unit ? [unit] : []));
     if (reg) { A.regionsNote(); els.regions.append(reg); }
     els.regionsH.hidden = !reg;

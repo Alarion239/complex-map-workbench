@@ -2727,6 +2727,9 @@
   const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
   // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
   const SV_FOOT_MORE = 4 + 26;
+  // the shortest level of the steps head's bar (svFitHead's set: 1 the scope as a menu, 2 the colour-plane button as its
+  // wheel, 3 the surface button as its icon, 4 the title's role shortened) at which the Height key keeps its words
+  const SV_KEY_LEVEL = 2;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
@@ -2836,20 +2839,21 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
-    // (the levels settled, the key is unfolded again if the bar fits beside it at this level or a shorter one: the key folds
-    // first while the bar is too wide, and a narrower head, whose bar shortens anyway, shows the key's words beside a short
-    // bar, so the key is folded only where no level of the bar fits beside its words, and a head with more room never
-    // folds a key that a head with less room shows)
+    // (the levels settled, the key shows its words if the bar fits beside them at this level or a shorter one up to
+    // SV_KEY_LEVEL, the levels that cost the bar no words: the scope as a menu, the colour-plane button as its wheel. The
+    // surface button's name and the title's role, which says what the relief reads, outrank the key's words, whose glyph
+    // keeps them as its name and tooltip: past SV_KEY_LEVEL the key stays its glyph. So the key folds first while the bar
+    // is too wide, and a head with more room never folds a key that a head with less room shows at the same level)
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
       // (the chip's own width: its words, not the width a squeezed chip is left with)
       const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
       const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
-      const fits = () => E.bar.scrollWidth + keep + dw <= room;
+      const fits = () => lvl <= SV_KEY_LEVEL && E.bar.scrollWidth + keep + dw <= room;
       let l2 = lvl;
-      while (!fits() && l2 < 5) set(++l2);
-      if (fits() && l2 !== lvl) { lvl = l2; svTitleTip(lvl >= 4); } else if (l2 !== lvl) set(lvl);
+      while (!fits() && l2 < SV_KEY_LEVEL) set(++l2);
+      if (l2 !== lvl) { if (E.bar.scrollWidth + keep + dw <= room) { lvl = l2; svTitleTip(lvl >= 4); } else set(lvl); }
       if (!fits()) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
