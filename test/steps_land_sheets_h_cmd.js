@@ -25,7 +25,8 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { grab, compare, wordsOff, keep, compareKept } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
+// (at rest on plane i, the idle job done: its results change the cells a frame draws, so frames compared are kept after it)
+const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000, until: '!__cmwSvKey().busy' }); await ev(rAF2); };
 const carried = async () => JSON.parse(await ev('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)'));
 const heightAt = async (x, y) => JSON.parse(await ev(`JSON.stringify(typeof __cmwLandHeightAt === 'function' ? __cmwLandHeightAt(${x}, ${y}) : 'no hook')`));
 const near = (v, w) => Array.isArray(v) && Math.hypot(v[0] - w[0], v[1] - w[1]) <= 1e-6 * (1 + Math.hypot(w[0], w[1]));

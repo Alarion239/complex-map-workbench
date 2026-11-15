@@ -58,11 +58,7 @@ function walk() {
 // --walk extended: the examples by their English names in src/app/15-examples-guide.js (their indices move as examples
 // are added), each opened, then deformed and closed again; [label, statement, false, {until, measure}]: until, a
 // condition polled from the statement on (its time is the step's firstS); measure, read once the links have landed
-function exampleIndex(name) {
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
-  const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-  return names.indexOf(name);
-}
+const exampleIndex = (name) => SC.exampleNames(ROOT).indexOf(name);
 // (the All sheets and the Γ/ζ examples deformed; a Σ step and a power series)
 const EXTENDED_EXAMPLES = ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series'];
 // (#395, #355) the Mountain King: its first frame (mode 0, colour), its Landscape (landTF and landEdgeS of mode 0) and
