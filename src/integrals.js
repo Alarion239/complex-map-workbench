@@ -6,10 +6,10 @@
 // and so on. The state the rest of the app reads too (intPop, lastPan, holdMenuT, cauchyCache) stays the app's.
 const Integrals = (() => {
   let A = null;
-  let C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
-    integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage,
-    requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
-    sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed;
+  let C, ICONS, SND, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc,
+    intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, nSteps, openMenu, project,
+    requestRender, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay,
+    stageF, sub, toast, touchUI, tourEmit, zerosPolesTimed;
   // ---------------- integrals: ∫γ F dz along a curve, on a right click ----------------
   // The curve: a shape's curve, or an area's boundary oriented with the area on its left, taken in the left plane
   // (the input of the focused map F). A right click (a long press on touch) near a curve in the left plane, near its
@@ -294,14 +294,12 @@ const Integrals = (() => {
     }
     ctx.restore();
   }
-  // the shapes whose curves pass within reach of pane pixel (x, y): [{s, d}], nearest first. The left plane and the
-  // Phase portrait show them in the left plane's coordinates; the image plane of Image shows their images. Each shape
-  // is mapped from its own plane (shapeF); a shape not drawn in the pane's plane is not found there.
+  // the shapes whose curves pass within reach of pane pixel (x, y): [{s, d}], nearest first. The plane and the Phase
+  // portrait show them in the left plane's coordinates. Each shape is mapped from its own plane (shapeF); a shape not
+  // drawn in the pane's plane is not found there.
   function curvesNear(pane, side, x, y) {
-    let k, view;
-    if (side === 'L') { if (!lFlat()) return []; view = leftView(); k = leftStage(); }
-    else if (rImage() && !morphOn() && !trans.k) { view = V.right; k = rightStage(); }
-    else return [];
+    if (side !== 'L' || !lFlat()) return [];
+    const view = leftView(), k = leftStage();
     const F = stageF(k);
     pane.setView(view);
     const W = pane.w, H = pane.h, out = [];
@@ -375,14 +373,14 @@ const Integrals = (() => {
     const re = Math.abs(w.re) <= tol ? 0 : w.re, im = Math.abs(w.im) <= tol ? 0 : w.im;
     return CX.fmt(C(re, im), 12).replace(/\s/g, '');
   };
-  function openIntegralPop(id, cx, cy, o) {
+  function openIntegralPop(id, cx, cy) {
     closePalette();
     const s = A.S.shapes.find((x) => x.id === id);
     if (!s) return null;
     const pop = h('div', { class: 'pop int-pop', role: 'dialog', 'aria-label': $t('Line integral') });
     $('popHost').append(pop);
     A.popEl = pop;
-    A.intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0, beside: !!(o && o.beside), bx0: o && o.bx0 != null ? o.bx0 : null };
+    A.intPop = { id, el: pop, cx, cy, it: null, x: null, timer: 0 };
     tourEmit('integral-opened', { shape: id });
     pop._onClose = () => {
       if (!A.intPop || A.intPop.el !== pop) return;
@@ -407,11 +405,6 @@ const Integrals = (() => {
     let x = A.intPop.cx + 12, y = A.intPop.cy + 12;
     if (x + pw > window.innerWidth - 12) x = Math.max(12, A.intPop.cx - pw - 12);
     if (y + ph > window.innerHeight - 12) y = Math.max(12, Math.min(window.innerHeight - ph - 12, A.intPop.cy - ph - 12));
-    // (opened from the palette, the result sits beside its curve in X, never over Y, where its image is)
-    if (A.intPop.beside) {
-      const R = $('paneR').getBoundingClientRect();
-      if (R.width > 0 && R.left > pw + 24 && x + pw > R.left - 8) x = Math.max(12, Math.min(A.intPop.bx0 != null ? A.intPop.bx0 - pw - 12 : x, R.left - 8 - pw));
-    }
     // keep the planes' legend chips clear (merged-views review: on the wide Phase panel it covered the colour key):
     // a popover that would overlap one moves to its left, or below it when there is no room on the left
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -636,7 +629,7 @@ const Integrals = (() => {
 
   function init(api) {
     A = api;
-    ({ C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project, rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed } = api);
+    ({ C, ICONS, SND, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel, integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, nSteps, openMenu, project, requestRender, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf, sndStopPlay, stageF, sub, toast, touchUI, tourEmit, zerosPolesTimed } = api);
   }
   return { init, curvePieces, shapeGeom, sphereProj, drawIntHighlight, openIntegralMenu, integralItems, openIntegralPop, refreshIntPop, integrateSelected, cauchyPlot, cauchyDraw, setCauchyQuad, plotF };
 })();

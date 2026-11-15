@@ -69,9 +69,9 @@
   }
   // the words of the landscape's height (S.height)
   const heightHtml = (Fh) => ({ abs: `|${Fh}|`, re: `Re ${Fh}`, im: `Im ${Fh}` }[S.height] || `${I18N.fnName('log')}|${Fh}|`);
-  // the pane titles (panels.md 2): X is the domain of the map in focus, Y its codomain
+  // the plane's title (panels.md 2): X is the domain of the map in focus
   function paneTitles() {
-    const n = nSteps(), lk = leftStage(), rk = rightStage(), dk = focusDeriv();
+    const lk = leftStage(), dk = focusDeriv();
     const Fh = fnHtml();
     // the role, with its short form for a narrow head (fitTitle): the words before the formula ("landscape",
     // "phase", "Cauchy integral", "image"), plus ", deforming"
@@ -91,27 +91,11 @@
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
-    // ([v16.5 UX27] one name per plane everywhere: "X · z-plane, domain of F", "Y · w = F(z), image")
-    const XT = '<span class="ptag"><i>X</i> · </span>', YT = '<span class="ptag"><i>Y</i> · </span>';
+    // ([v16.5 UX27] one name per plane everywhere: "X · z-plane, domain of F")
+    const XT = '<span class="ptag"><i>X</i> · </span>';
     // (the steps view's plane: "w₁ · phase of f₂", the shown plane and the map from it into the colour plane, 19)
     const left = SV.on ? ((tp) => T(tp.name, tp.role))(svTitleParts()) : T(XT + xName, roleL + def, def ? undefined : shortL);
-    let right;
-    // (the deformation keeps Y's surface: the arrow form on the plane, the w-sphere's own title on the globe)
-    // (one title for the merged plane and the merged globe)
-    // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
-    // carry the "Y · " tag)
-    if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && rangeWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
-    else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
-    else if (S.focus === 0) {
-      // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
-      const j = parkedAt(), steps = j >= 0 ? j : n;
-      const pf = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
-      const map = j >= 0 ? `${j === 0 ? '<i>w</i>' + sub(0) : wHtml(j)} = ${pf}` : n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>';
-      right = T(YT + map, $tn('image, after {n} step', 'image, after {n} steps', steps), $tx('role', 'image'));
-    }
-    else if (dk) right = T(YT + `${wHtml(rk)} = d${wHtml(rk - 1)}/d<i>z</i>`, $tx('role', 'image'), '');
-    else right = T(YT + `${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
-    return { left, right };
+    return { left };
   }
   // (v16) where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
   // the phone's title chip and the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
@@ -133,20 +117,16 @@
   function updateFocusUI() {
     const t = paneTitles();
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
-    const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 ${parkedAt() >= 0 ? 'w' + String(parkedAt()).split('').map((d) => '\u2080\u2081\u2082\u2083\u2084\u2085\u2086\u2087\u2088\u2089'[+d]).join('') : 'w'}`;
+    const mt = `${S.focus === 0 && rangeParts() ? rangeStart('text') : 'z'} \u2192 w`;
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
-    if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
     phoneChain();
-    // (the last active step turned off or removed ends the deformation, and with it the merge)
-    if (morph.open && !morphRange().steps.length) { closeTransport(); return; }
-    if (Views.merged(S.view, morphOn()) !== layoutMg) applyLayout();
+    if (Views.merged(S.view) !== layoutMg) applyLayout();
     syncViewControls();
     fitRightTitle();
-    $('paneR').classList.toggle('no-rulers', !rImage());
     buildRightFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
@@ -298,14 +278,6 @@
   };
   const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
-  // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
-  function idleRight() {
-    // (the deformation's globe with under 3 paths, X mostly on its far side: the hint says why; verify fix path-8)
-    const v = rGlobe() ? { hint: mfGlobeAway() ? $t('Paths: X is on the far side; drag to turn') : globeHint('R') }
-      : document.documentElement.classList.contains('ph') && hasTargets() && targetText() ? { hint: targetText({ phone: true }) }
-        : targetsEditable() && tool !== 'select' && tool !== 'formula' ? { hint: $t('Draw a target in Y (the {x}-plane)', { x: yHtml() }) } : scaleText(paneR);
-    return v && v.hint ? `<span class="rhint">${v.hint}</span>` : rk('', v);
-  }
   function scaleText(pane) { return pane ? $t('{x} / div', { x: I18N.num(CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')) }) : ''; }
   // Mode options (spec 5.8): one 32px row. Controls that do not fit beside the view stack move, in order, behind
   // a sliders button into a popover; on a phone all of them do. The deformation transport always stays inline.
@@ -750,8 +722,8 @@
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
   function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
-  // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
-  const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
+  // X's paint changed (style, sectors, grid step): X redraws
+  const paintChanged = () => requestRender('L', 'T');
   function buildFoot(side) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot');
     if (!f) return;
@@ -763,22 +735,8 @@
     // ([v17 D4] a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
     const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
-    const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
-    if (morphOn() && rImage()) {
-      // (the merged deformation plane: no options of its own; the transport is docked under it)
-    } else if (rImage()) {
-      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }, ICONS.fov));
-      // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
-      // as a value in Y (its one switch, merged-views review)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }, '<span class="pcol-ic"></span>'); kl.dataset.tip = $t('Phase key') + ': ' + $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
-    } else if (rGlobe()) {
-      f.append(
-        checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { setViewOpt('R', 'eq', v); requestRender('R'); save(); }),
-        resetCam(camS, CAMS));
-      tipEq(f);
-    }
-    f.hidden = !f.children.length && !headed();
-    ft.kids = [...f.children]; layoutFootSide('R', true);
+    f.hidden = !headed();
+    ft.kids = []; layoutFootSide('R', true);
     drawLegend();
   }
   // a Paths toggle's state (the deformation's and the steps view's): pressed while the paths show, its tip saying what a
@@ -904,55 +862,6 @@
         ...(SV.on ? [opacityScrub('', true)] : []));
     }
   }
-  // The deformation plane has its own view (merged-views review: it shared Y's, so zooms leaked both ways): Y's split
-  // view is put aside while the deformation shows and restored when it closes; the deformation's own view is kept
-  // between openings for the same chain, focus and path, and fitted to X and its images the first time.
-  const defMem = { y: null, d: null, dkey: '' };
-  const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]) + rangeKey();
-  // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
-  // (o.still: opened paused at its end, F, for the step glide to start from; #246)
-  function openTransport(o) {
-    // (#362 opened while ‹ › have Y on a step's plane: the deformation opens paused there, the inspectable version of it)
-    const parked = trans.glide ? (glide.moving() ? glide.target : glide.x) : null;
-    endPeek();
-    const still = parked != null || !!(o && o.still === true);
-    if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
-    phHold();
-    if (typeof cancelTweens === 'function') cancelTweens();
-    defMem.y = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto };
-    const mem = defMem.d && defMem.dkey === defKey() ? defMem.d : null;
-    if (mem) { Object.assign(V.right, mem.v); rightAuto = mem.auto; } else rightAuto = true;
-    morph.open = true;
-    morph.T = parked != null ? Math.min(parked, morphLen()) : still ? morphLen() : 0; morph.seg = null; morph.u = 0; morph.hold = 0; morph.last = 0;
-    morph.playing = !still && !matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (morph.playing) sndMorphStart();
-    
-    soundFunctionChanged(); sndRelayout();
-    if (draft && draft.target) draft = null;
-    // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
-    // back to Select where the deformation's plane cannot be drawn on, so no chip stands over the plane uninvited)
-    if (tool !== 'select' && solo() !== 'L') setTool('select');
-    setHoverW(null); rHover = null;
-    // (X → Y: the panes merge into one plane, merged-views.md; the plane is fitted once its new width is known)
-    applyLayout();
-    if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
-    updateFocusUI(); scheduleFix(); requestRender('L', 'R');
-    tourEmit('deformation-toggled', { on: true });
-  }
-  function closeTransport() {
-    if (!morph.open) return;
-    phHold();
-    if (typeof cancelTweens === 'function') cancelTweens();
-    defMem.d = { v: { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, auto: rightAuto }; defMem.dkey = defKey();
-    morph.open = false; morph.playing = false; morph.seg = null; snd.morphArm = false;
-    morph.T = morphLen();
-    soundFunctionChanged(); sndRelayout();
-    if (defMem.y) { Object.assign(V.right, defMem.y.v); rightAuto = defMem.y.auto; defMem.y = null; }
-    applyLayout();
-    if (rightAuto && rImage()) { paneR.resize(); fitRight(); }
-    updateFocusUI(); scheduleFix(); requestRender('L', 'R');
-    tourEmit('deformation-toggled', { on: false });
-  }
   let legendNeedle = null, legendMod = null;
   const WHEEL_STOPS = ['#F58C7E', '#EA9853', '#CFA93E', '#A5B953', '#6EC580', '#27C8AF', '#1CC3D8', '#53B8F7', '#8EAAFD', '#B99BF5', '#DB8FD6', '#F089AC'];
   // The legend's static part (ring, strip, words) is painted once per look into an offscreen canvas; a probe move
@@ -971,13 +880,13 @@
   // (Hc: the key's height when it is one line of text with no ring)
   const LEG = { W: 136, H: 72, Hc: 24, dpr: 2, cx: 42, cy: 36, R: 24, r0: 14, sx: 80, sy: 30, sw: 48, sh: 8 };
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
-  // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
+  // height). legendKind(side): 'color' | 'sphere' | '3d' (X) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
   // the Landscape's key under Plaster: the height and the contours, with no hue
   const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
-    if (side === 'R') return rImage() ? 'image' : null;
+    if (side === 'R') return null;
     // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
     if (lLand()) return '3d';
     // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
@@ -1029,10 +938,8 @@
     if (foot.L.kids.length || foot.R.kids.length) layoutFoot(true);
     if (moved) drawLegend();   // (the chip's words, written when it is in the head)
   }
-  // the key chip's words in the pane head: the grid's cell while the regions' grid lines are drawn, else their fill, the
-  // phase of z (Y, #363), or what X's colours show
+  // the key chip's words in the pane head: what X's colours show
   function legendSum(kind) {
-    if (kind === 'image') return S.lines ? $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) }) : $t('Phase of z');
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() {
@@ -1072,8 +979,6 @@
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
     }
   }
-  // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
-  const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   function drawLegendSide(side) {
     const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
@@ -1091,7 +996,7 @@
       if (sm.textContent !== tx) sm.textContent = tx;
       // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
       // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
+      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + $t('Colour key: point at it to unfold, click to keep it open');
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
@@ -1125,27 +1030,23 @@
     const { W, dpr } = LEG, Hh = compact ? LEG.Hc : LEG.H;
     if (cv.width !== W * dpr || cv.height !== Hh * dpr) { cv.width = W * dpr; cv.height = Hh * dpr; cv.style.height = Hh + 'px'; st.drawn = ''; }
     st.h = Hh;
-    const img = kind === 'image';
-    const k = rightStage();
-    const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, morphOn(), fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
       off.width = W * dpr; off.height = Hh * dpr;
       const octx = off.getContext('2d');
       octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      paintLegend(octx, anyCut, kind, st);
+      paintLegend(octx, kind, st);
       st.key = key; st.drawn = '';
     }
-    const dyn = img ? '' : `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
+    const dyn = `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
     if (st.drawn === key + dyn) return;
     st.drawn = key + dyn;
     const ctx = cv.getContext('2d');
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);
     ctx.drawImage(st.cv, 0, 0);
-    if (img) return;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     const { cx, cy, R, sx, sy, sw, sh } = LEG;
     if (legendNeedle != null && !compact) {
@@ -1164,66 +1065,11 @@
   const keyStops = (dark) => (dark ? ['#3a4650', '#c9d2d8'] : ['#9aa4ab', '#eef2f4']);
   const keyFactor = (n) => I18N.num(n === 12 ? '×1.69' : `×${CX.fmtNum(Math.exp(TAU / n), 3)}`);
   const keyCaption = (plain, Fn) => (plain ? `arg ${Fn}` : $t('arg and |{Fn}|', { Fn }));
-  function paintLegend(ctx, anyCut, kind, st) {
+  function paintLegend(ctx, kind, st) {
     const W = LEG.W, Hh = st.h || LEG.H;
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
-    if (kind === 'image') {
-      // the regions' key (#363): their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
-      // markers present in the plane
-      ctx.font = `600 11px ${TH.ui}`; ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
-      ctx.fillText($t('Regions'), 8, 13);
-      // "cell 0.5 in z" as one run: words in the interface face, the number in the mono face, z in STIX italic
-      let x = 8;
-      const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
-      // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
-      // the plane's name is never cut (review ui-3). English draws as before
-      const parts = S.lines
-        ? [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]]
-        : [[$t('phase of '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
-      let k = 1;
-      if (I18N.lang !== 'en') { let w = 0; for (const [t, f] of parts) { ctx.font = f; w += ctx.measureText(t).width; } k = Math.min(1, (W - 8 - 4) / w); }
-      if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
-      for (const [t, f, c] of parts) run(t, f, c);
-      if (k < 1) ctx.restore();
-      // only marks that this plane actually draws
-      let y = 52;
-      ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
-      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; }
-      // the merged deformation plane: what grey is (X, the start) and what the lines are (the paths t -> H_t(z)), in
-      // the rows the view outline uses in X → Y (merged-views review: the chip's lower half was blank)
-      if (morphOn()) {
-        const run = (t, font, color, x, yy) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, yy); return x + ctx.measureText(t).width; };
-        // (with a cut's row above, X and the paths share the last row: the paths' row is never dropped)
-        const paths = S.morphPaths !== false && !morphHasDeriv(), share = paths && y > 52;
-        let px0 = 8;
-        if (y < 68) {
-          // (at a focused step after the first, the start is the dashed outline of the step's source, renderMorph)
-          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); px0 = run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y) + 10; }
-          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); px0 = run('start', `11px ${TH.ui}`, TH.muted, 30, y) + 10; }
-          if (share) px0 = Math.min(px0, W - 80); else { y += 15; px0 = 8; }
-        }
-        if (y < 72 && paths) {
-          // the paths' glyph (as on screen): an open ring, the line, a small arrowhead at its middle, a filled dot
-          ctx.strokeStyle = TH.muted; ctx.fillStyle = TH.muted; ctx.lineWidth = 1.2;
-          ctx.beginPath(); ctx.moveTo(px0 + 3.6, y); ctx.lineTo(px0 + 15, y); ctx.stroke();
-          ctx.beginPath(); ctx.arc(px0 + 1.8, y, 1.8, 0, TAU); ctx.stroke();
-          ctx.beginPath(); ctx.moveTo(px0 + 11, y); ctx.lineTo(px0 + 6.5, y - 2.6); ctx.lineTo(px0 + 7.8, y); ctx.lineTo(px0 + 6.5, y + 2.6); ctx.closePath(); ctx.fill();
-          ctx.beginPath(); ctx.arc(px0 + 16, y, 2, 0, TAU); ctx.fill();
-          let x = run('t', `italic 500 12px ${TH.math}`, TH.muted, px0 + 22, y);
-          x = run(' ↦ ', `11px ${TH.ui}`, TH.muted, x, y);
-          x = run('H', `italic 500 12px ${TH.math}`, TH.muted, x, y);
-          x = run('t', `italic 500 9px ${TH.math}`, TH.muted, x, y + 3);
-          x = run('(', `12px ${TH.math}`, TH.muted, x, y);
-          x = run('z', `italic 500 12px ${TH.math}`, TH.muted, x, y);
-          run(')', `12px ${TH.math}`, TH.muted, x, y);
-        }
-        return;
-      }
-      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
-      return;
-    }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
     const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
     // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
@@ -1320,83 +1166,27 @@
   // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
   // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
   // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
-  function glideStep(d) {
-    // (#362 the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
-    if (morph.open) endPeek();
-    if (!morph.open && S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
-    // (Y is a plane of X → Y here: in Phase, Landscape or with Y a sphere it isn't shown, so the deformation opens as before)
-    const L = !morph.open && S.view.main === 'xy' && rImage() && peekSteps();
-    if (L) {
-      if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
-      glide.nudge(d, L.length);
-      glide.last = 0;
-      // (reduced motion: the plane at once)
-      if (matchMedia('(prefers-reduced-motion: reduce)').matches) glide.set(glide.target);
-      // (Y's view follows the plane the glide is heading for, each fitted on its own: in the inset a view that held every
-      // plane left the first of them a speck off the centre)
-      if (rightAuto && rImage()) {
-        const j = Math.round(glide.target), at = j === 0 ? L[0] - 1 : L[j - 1];
-        tweenView(V.right, fittedView(paneR, at, []));
-      }
-      requestRender('R');
-      phoneChain();
-      return;
-    }
-    if (!morph.open) {
-      if (!morphRange().steps.length) { toast($t('Add a function to the chain to see its deformation.')); return; }
-      if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
-      openTransport({ still: true });
-      if (!morph.open) return;
-      glide.set(morph.T);
-    } else if (morph.playing || !glide.moving() || glide.x !== morph.T) {
-      // (Play, the scrubber or a tick moved T last: the glide starts from where T is now)
-      if (morph.playing) { morph.playing = false; snd.morphArm = false; }
-      glide.set(morph.T);
-    }
-    glide.nudge(d, morphLen());
-    glide.last = 0;
-    morph.seg = null; morph.u = 0; morph.hold = 0;
-    // (reduced motion: the step at once, no sweep, as Play does not start by itself there)
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.T = glide.target; glide.set(morph.T); syncTransport(); scheduleFix(); }
-    requestRender('R', 'L');
+  // the phone chain row's ‹ ›: a step shown alone goes back to the whole chain
+  function glideStep() {
+    if (S.focus > 0) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
   }
-  // (#246) what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
-  // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
-  // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
+  // what the phone's chain row shows: the step shown alone (the chip names it, marked alone; ‹ goes back to the whole
+  // chain), else the whole chain's last step, F
   function chainState() {
-    const n = nSteps(), open = morphOn() || trans.glide, m = open ? morphLen() : 0;
-    const T = !open ? m : trans.glide ? (glide.moving() ? glide.target : glide.x) : glide.moving() && glide.x === morph.T ? glide.target : morph.T, j = Math.round(T);
-    let k = n, html = '', name = '';
-    // (a step shown alone, X and Y its input and output: the chip names it, marked alone; ‹ › go back to the whole chain)
-    const alone = !open && S.focus > 0;
-    if (alone) k = S.focus;
-    else if (open && allAtOnce()) k = j ? -1 : 0;
-    else if (open) k = j ? morphRange().steps[j - 1] : 0;
-    if (k === -1 || (k === n && !n)) { html = '<i>F</i>'; name = $t('The whole map'); }
-    else if (k === 0) {
-      const rp = open ? rangeParts() : null;
-      html = rp ? rangeStart('html') : '<i>z</i>'; name = rp ? '' : $t('Shapes');
-    } else {
+    const n = nSteps(), alone = S.focus > 0, k = alone ? S.focus : n;
+    let html = '', name = '';
+    if (k === n && !n) { html = '<i>F</i>'; name = $t('The whole map'); }
+    else {
       const st = S.steps[k - 1];
       html = isDeriv(k) ? 'd/dz' : fsub(k); name = st ? cardName(st, defOf(st)) : '';
     }
-    return { n, open, k, html, name, alone, prev: n > 0 && (!open || T > 1e-6), next: open && T < m - 1e-6, key: [n, open, k, j, alone, chainSig[n]].join('|') };
+    return { n, k, html, name, alone, prev: alone, next: false, key: [n, k, alone, chainSig[n]].join('|') };
   }
   // (the phone's chain row follows T, the chain and the deformation; Phone.chain redraws only what changed)
   const phoneChain = () => { if (Phone.isOn() && Phone.chain) Phone.chain(); };
 
-  function togglePlay() {
-    morph.playing = !morph.playing;
-    morph.last = 0;
-    if (!morph.playing) { scheduleFix(); requestRender('R'); }
-    if (morph.playing && morph.T >= morphLen()) morph.T = 0;
-    morph.seg = null; morph.hold = 0;
-    if (morph.playing) sndMorphStart(); else snd.morphArm = false;
-    requestRender('R');
-  }
-
   // (#385) the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
-    onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R'); });
+    onFontsSettled(() => { fitRightTitle(true); requestRender('L'); });
   }

@@ -39,14 +39,14 @@
     const s = S.shapes.find((x) => x.id === id);
     if (!s || !paneL) return null;
     const r = paneL.ocanvas.getBoundingClientRect();
-    let x0 = Infinity, x1 = -Infinity, y0 = Infinity;
+    let x1 = -Infinity, y0 = Infinity;
     if (lFlat()) {
       paneL.setView(leftView());
-      try { for (const [, z] of Region.handlesOf(s)) { const [x, y] = paneL.w2s(z); x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); } } catch (e) { /* no handles */ }
+      try { for (const [, z] of Region.handlesOf(s)) { const [x, y] = paneL.w2s(z); x1 = Math.max(x1, x); y0 = Math.min(y0, y); } } catch (e) { /* no handles */ }
     }
-    const ok = Number.isFinite(x1) && x1 > -1e4 && x0 < 1e4;
+    const ok = Number.isFinite(x1) && x1 > -1e4 && x1 < 1e4;
     const cx = ok ? r.left + Math.min(r.width - 8, Math.max(8, x1)) : r.left + r.width / 2, cy = ok ? r.top + Math.max(8, Math.min(r.height - 8, y0)) : r.top + r.height / 3;
-    return openIntegralPop(id, cx, cy, { beside: true, bx0: ok ? r.left + Math.max(0, x0) : null });
+    return openIntegralPop(id, cx, cy);
   }
   // what the command palette (src/commands.js) needs from the app: its functions and constants, and the state it
   // reassigns as getters (and popEl as a setter too: the palette is one of the popovers)

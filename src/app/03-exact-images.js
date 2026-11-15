@@ -34,7 +34,7 @@
   // homotopy has H_0 = id and H_1 = f exactly (Inverse.homExact); the linear homotopy is exact at its ends.
   function normalizeMap(map) {
     const mode = map.mode || 0;
-    if (!mode || morph.playing || trans.k) return map;
+    if (!mode) return map;
     const t = map.t, base = map.base || 0;
     // (v16: with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
     // after the running one are inactive: the stages base..post; its start skips the running step but not the post)
@@ -261,12 +261,12 @@
   function interacting() {
     const now = performance.now();
     // ([#241] a number's slider held: its frames come further apart than 150 ms when the chain is costly)
-    return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
+    return !!(drag || tweens.length || camTweens.length || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
   // a camera still turning after its drag was let go (its momentum) moves too: those frames were drawn as rest frames,
   // each at a new distance, and All sheets at the Max mesh rebuilt their refinement in every one (r3 review speed-1)
   function camSpin() {
-    try { for (const c of [cam, camL, camS]) if (c && (Math.abs(c.vyaw) > 1e-4 || Math.abs(c.vpitch) > 1e-4)) return true; } catch (e) { /* (before the cameras exist) */ }
+    try { for (const c of [cam, camL]) if (c && (Math.abs(c.vyaw) > 1e-4 || Math.abs(c.vpitch) > 1e-4)) return true; } catch (e) { /* (before the cameras exist) */ }
     return false;
   }
   // An inverse program that landed is warmed (GLR.warmInverse: a one-pixel draw with a real pass's state builds its
@@ -296,7 +296,7 @@
       const pred = halfPred.L > 0 || halfPred.R > 0;
       if (pred && GLR.wantHalf) GLR.wantHalf();
       if (need === 1 && !pred && idle < WARM_HALF_IDLE) { scheduleWarm(Math.max(50, WARM_HALF_IDLE - idle)); return; }
-      if (GLR.warmInverse(need === 1 || pred)) requestRender('L', 'R');
+      if (GLR.warmInverse(need === 1 || pred)) requestRender('L');
     }, delay);
   }
   // the settle frame of a pane that drew half resolution in motion
@@ -349,7 +349,7 @@
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
     const m = normalizeMap(map);
-    if ((m.mode || 0) !== 0) return F(morph.playing || trans.k ? 'homotopy playing' : 'paused inside a step (homotopy)');
+    if ((m.mode || 0) !== 0) return F('inside a step (homotopy)');
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
@@ -456,16 +456,6 @@
     }
     if (!prep.ok) return F(prep.reason || 'shape not eligible');
     return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
-  }
-  // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
-  function requestInverseFor(map) {
-    if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;
-    if (isIdentMap(map) || !invPlan(map.a || 0, map.b || 0).ok) return;
-    const list = S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area' && !s._err);
-    if (!list.length) return;
-    cmFormAnchor('X');
-    GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
-    if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
@@ -864,14 +854,14 @@
   // Renumber points, Renumber zeros and poles (the command palette): tidy names again, by order; one undo step
   function renumberPoints() {
     if (!numberPoints(S.shapes, true)) { toast($t('The points are numbered in order already.')); return; }
-    shapesChanged(true); commit(); requestRender('L', 'R', 'OL', 'OR');
+    shapesChanged(true); commit(); requestRender('L', 'OL', 'OR');
     undoToast($t('Points renumbered.'));
   }
   function renumberZp() {
     let ch = false;
     for (const st of S.steps) if (Constr.zpRenumber(st)) ch = true;
     if (!ch) { toast($t('The zeros and poles are numbered in order already.')); return; }
-    chainRebuilt(); commit(); requestRender('L', 'R', 'OL', 'OR');
+    chainRebuilt(); commit(); requestRender('L', 'OL', 'OR');
     undoToast($t('Zeros and poles renumbered.'));
   }
   // the number the next new point takes
@@ -880,8 +870,6 @@
     // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
     const bn = s.bind ? boundNumber(s) : '';
     const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
-    // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
-    if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     if (figMode && primes > 0) return `${S.focus === 0 && primes === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(primes)}`}(${base})`;
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');

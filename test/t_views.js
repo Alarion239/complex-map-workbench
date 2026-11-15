@@ -1,7 +1,7 @@
 // Merged views (notes/ui-design/merged-views.md, revising U-b): the saved-state migration to the top bar's views
 // (X → Y · Phase · Landscape) from the single right-pane view of the first builds (rightMode, sphereMode, leftSphere,
 // material, spherePlane) and from U-b's pane views (view.L = {surf: plane | sphere | land, phase, eq}), plus the legacy
-// round trip the test hooks use, the pane the perf suite drags and the merged pane. Run: node test/t_views.js
+// round trip the test hooks use and the merged pane. Run: node test/t_views.js
 const { Views } = require('../src/view.js');
 let fails = 0, n = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -81,9 +81,7 @@ for (const v of [V('xy'), V('xy', { L: sv('sphere') }), V('phase'), V('land', { 
 check('xOf xy', Views.xOf(V('xy', { L: sv('sphere', true) })), { surf: 'sphere', phase: false, eq: true });
 check('xOf phase', Views.xOf(V('phase', { P: sv('sphere') })), { surf: 'sphere', phase: true, eq: false });
 check('xOf land plaster', Views.xOf(V('land', { D: false })), { surf: 'land', phase: false, eq: false });
-// the merged pane: Phase and Landscape are one wide left pane; X → Y with the deformation one wide right pane
-check('merged', [Views.merged(V('xy'), false), Views.merged(V('xy'), true), Views.merged(V('phase'), false), Views.merged(V('land'), true)], [null, 'R', 'L', 'L']);
-// the pane that shows the picture an old rightMode named (perf suite, layout-aware units)
-check('paneOf', ['image', 'color', '3d', 'sphere'].map((m) => Views.paneOf(m)).concat(Views.paneOf('sphere', 'color')), ['R', 'L', 'L', 'R', 'L']);
+// the merged pane: Phase and Landscape are one wide left pane; X → Y is the plane X
+check('merged', [Views.merged(V('xy')), Views.merged(V('phase')), Views.merged(V('land'))], [null, 'L', 'L']);
 console.log(fails ? `${fails} of ${n} FAILED` : `all ${n} passed`);
 process.exit(fails ? 1 : 0);

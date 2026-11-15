@@ -4,7 +4,7 @@
   // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
   // traces them in idle slices and asks for the redraw when one lands)
   const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
-  Region.dhAsync = { ready: () => requestRender('L', 'R') };
+  Region.dhAsync = { ready: () => requestRender('L') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -160,7 +160,7 @@
     }
     liveMsUsed += performance.now() - t0;
     // not finished: the next frame goes on with it (also after the pointer-up, with no input to ask for frames)
-    requestRender('L', 'R');
+    requestRender('L');
   }
   function dropShapeGPU(id) {
     lastPath.delete('R|' + id); lastPath.delete('L|' + id);
@@ -349,14 +349,7 @@
     for (let k = r.b + 1; k <= nSteps(); k++) if (stepFn(k)) post.push(k);
     return { a: r.a, b: r.b, pre, post };
   }
-  function homView() {
-    if (!morphOn()) return null;
-    const r = morphState(true), a = morphState(false);
-    const rg = homRangeOk();
-    return { map: r.map, F: r.F, key: r.key, t: morph.T, imageMap: a.map, imageF: a.F, range: rg ? { a: rg.a, b: rg.b } : null, H0F: a.H0F, H0Map: a.H0Map, start: S.focus > 1 || (S.focus === 0 && !!rg) };
-  }
   function morphRange() { return HR.range(S); }
-  const morphOn = () => morph.open && morphRange().steps.length > 0;
   // (#246) the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
   const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
@@ -377,8 +370,6 @@
     const m = R.steps.length, j = allAtOnce() ? (morph.T > 0 ? m : 0) : Math.min(m, Math.ceil(morph.T));
     return j >= m ? R.p1 : j > 0 ? R.steps[j - 1] : R.lo;
   };
-  // (exact ends, as homrange.js lerpE and gl.js MAP_STAGE: review v16 math-2)
-  const lerpF = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); });
   // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
   // or a formula that is not recognisably a catalog map, funcs.js); the identity at t <= 0 and f at t >= 1 (D3)
   const homF = (k, t) => HR.homF(k, t);
@@ -407,12 +398,11 @@
       if (opt.preview) {
         // (a drag's snap: the planes and the title only, a uniform change; the Inspector, the transport and the fit follow
         // at the release, setHomRange(…, {force}))
-        requestRender('L', 'R');
+        requestRender('L');
         const t = paneTitles();
-        if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
+        if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
       } else {
-        if (rightAuto && morphOn() && rImage()) fitRight();
-        requestRender('L', 'R', 'P');
+        requestRender('L', 'P');
         updateFocusUI();
       }
     }
@@ -432,25 +422,14 @@
     fixJob.timer = setTimeout(runFix, 160);
     scheduleLines();
   }
-  // need(s): some visible consumer of the role draws shape s forward (SPEC 10.4: the flat pane and the globe of role
-  // R, the left plane or the left globe of role L); a shape every consumer draws inverse (or is about to: pending)
+  // need(s): some visible consumer of the role draws shape s forward (SPEC 10.4: the plane or the globe of role L, the
+  // steps view's carried colour); a shape every consumer draws inverse (or is about to: pending)
   // needs no fix-up
   function fixTargets() {
     const out = [];
     const lk = leftStage();
     const needs = (map, role, kind) => (s) => pathOf(s, map, role, kind, { status: true }).path === 'forward';
-    if (lk > 0 && solo() !== 'R') out.push({ role: 'L', F: stageF(lk), key: 'S' + chainSig[lk], need: needs(stageMap(lk), 'L', lGlobe() ? 'globe' : 'flat') });
-    if (solo() !== 'L') {
-      // (Y always shows the images: in its plane or on its globe)
-      const imgs = true;
-      const kind = rGlobe() ? 'globe' : 'flat';
-      if (imgs && morphOn()) {
-        if (!morph.playing) { const ms = morphState(false); out.push({ role: 'R', F: ms.F, key: 'M' + chainSig[nSteps()] + ms.key + S.focus, need: needs(ms.map, 'R', kind) }); }
-      } else if (imgs && rightStage() > 0) {
-        const k = rightStage();
-        out.push({ role: 'R', F: stageF(k), key: 'S' + chainSig[k], need: needs(stageMap(k), 'R', kind) });
-      }
-    }
+    if (lk > 0) out.push({ role: 'L', F: stageF(lk), key: 'S' + chainSig[lk], need: needs(stageMap(lk), 'L', lGlobe() ? 'globe' : 'flat') });
     if (svFixWant && SV.on) out.push(svFixWant);
     return out;
   }
@@ -466,7 +445,7 @@
   // fix-ups never compete with motion: a homotopy, a view or camera tween, a drag, a playing morph, or the steps view's
   // glide, scrub or play (svGliding: the left pane's plane follows the thread, and a fix-up of the plane it passes
   // would run its slices between the scrub's frames)
-  const fixBusy = () => !!(trans.k || tweens.length || camTweens.length || drag || (morph.playing && morph.open) || (SV.on && svGliding()));
+  const fixBusy = () => !!(tweens.length || camTweens.length || drag || (SV.on && svGliding()));
   const FIX_SLICE = 5; // ms of work between yields (spec 8.3: idle slices of at most 6 ms)
   // the idle job: the fix-up of one mesh in FIX_SLICE ms slices, waiting out any motion between them (fixBusy); null
   // when the job went stale (fixJob.token moved on)
@@ -682,13 +661,12 @@
   // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null (role SV: the
   // steps view's carried colour in the left pane, its fix-ups r.fix.SV)
   function smNeed(s, r, role, m) {
-    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L' && role !== 'SV')) return null;
+    if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'L' && role !== 'SV')) return null;
     if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
       // (a shape drawn exactly at both ends shows today's GPU image while paused inside the step: the mesh changed
       // 0.00% of its pixels there, at 200 ms of CPU and a mesh per paused T)
-      if (morph.playing || trans.k) return null;
       const ends = homEnds(m);
       // (an identity end draws the region itself: exact)
       if (!ends || ends.every((e) => isIdentMap(e) || pathOf(s, e, role, 'flat').path !== 'forward')) return null;
@@ -827,7 +805,7 @@
   // that frame is asked for)
   function smKick() {
     clearTimeout(sm.kickT);
-    sm.kickT = setTimeout(() => { sm.kickT = 0; if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
+    sm.kickT = setTimeout(() => { sm.kickT = 0; if (interacting() || fixBusy()) smKick(); else requestRender('L'); }, 160);
   }
   let smPumpT = 0;
   function smPumpLater() { if (!smPumpT && !sm.running) smPumpT = setTimeout(() => { smPumpT = 0; smPump(); }, 0); }
@@ -881,7 +859,7 @@
     sm.stats.built++; if (data.partial) sm.stats.partial++;
     // memory: the least recently drawn published meshes go first
     if (sm.cpuBytes > SM_CPU_BYTES) for (const x of [...sm.entries.values()].sort((a, b) => a.t - b.t)) { if (sm.cpuBytes <= SM_CPU_BYTES) break; if (x !== e) smDrop(x); }
-    requestRender(job.role === 'R' ? 'R' : 'L');
+    requestRender('L');
   }
   // the export meshes, once the figure is drawn (or abandoned)
   function smDropExport(gen = null) { for (const e of [...sm.entries.values()]) if (e.exp && (gen == null || e.expGen === gen)) smDrop(e); }
@@ -962,10 +940,10 @@
     if (fixBusy() || interacting()) return 60;
     return Math.max(0, LINE_QUIET - (now - Math.max(motionInT, scrubT, lastChangeT)));
   };
-  // the stage maps the lines are drawn under (the right plane's, the left plane's when it shows a stage); their plan
+  // the stage maps the lines are drawn under (the chain's last, the left plane's when it shows a stage); their plan
   // gives the singular points (a chain's later stages list every earlier op's points too)
   function lineSpec() {
-    const ks = [...new Set([rightStage(), leftStage()])].filter((k) => k > 0 && !isIdentMap(stageMap(k))).sort((a, b) => a - b);
+    const ks = [...new Set([nSteps(), leftStage()])].filter((k) => k > 0 && !isIdentMap(stageMap(k))).sort((a, b) => a - b);
     if (!ks.length) return null;
     const top = ks[ks.length - 1];
     const plan = invPlan(0, top);
@@ -990,7 +968,7 @@
   // lines every frame with the same spec)
   let lineSpecC = { key: null, spec: null };
   function lineSpecNow() {
-    const k = `${rightStage()}|${leftStage()}|${chainSig[nSteps()]}|${S.steps.map((st) => (st.on === false ? '-' : st.type)).join(',')}|${winKey()}`;
+    const k = `${leftStage()}|${chainSig[nSteps()]}|${S.steps.map((st) => (st.on === false ? '-' : st.type)).join(',')}|${winKey()}`;
     if (lineSpecC.key !== k) { let spec = null; try { spec = lineSpec(); } catch (e) { spec = null; } lineSpecC = { key: k, spec }; }
     return lineSpecC.spec;
   }
@@ -1060,7 +1038,7 @@
     const res = polys.length ? GLR.createLines(polys, origin) : null;
     GLR.destroy(r.lineRes);
     r.lineRes = res; r.lpolys = polys; r.lorigin = origin; r.arcs = null;
-    requestRender('L', 'R');
+    requestRender('L');
   }
   async function runLines() {
     lineJob.timer = 0;

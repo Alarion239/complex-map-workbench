@@ -172,7 +172,7 @@
     // tool on a globe (Annulus, Sector, Polar grid: 'Draw in Plane')
     const sc = $('sphereChipL');
     if (sc) {
-      const drawing = tool !== 'select' && solo() !== 'R';
+      const drawing = tool !== 'select';
       const where = lLand() ? $t('the landscape') : $t('the Riemann sphere');
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
       let msg = '';
@@ -198,55 +198,33 @@
       sc.classList.toggle('has-act', !!act);
       if (sc.hidden === on) sc.hidden = !on;
     }
-    const sr = $('sphereChipR');
-    if (sr) {
-      const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
-      // (the merged deformation plane or globe draws nothing: said, merged-views review)
-      const on = tool !== 'select' && solo() !== 'L' && (morphOn() || (rGlobe() && GLOBE_OFF.has(tool)));
-      const msg = !on ? '' : morphOn() ? $t('Drawing is off in the deformation (M).') : $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName });
-      if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
-      // (v16.5 UX102) the way out is a button: the deformation turns off and the chosen tool stays
-      const want = on && morphOn();
-      let ab = sr.querySelector('.chip-act');
-      if (want && !ab) { ab = h('button', { class: 'toast-act chip-act chip-draw', type: 'button', 'data-tip': $t('Turn the deformation off and draw  M'), onclick: () => { const tl = tool; closeTransport(); if (tool !== tl) setTool(tl); updateDraftChips(); } }, $t('Turn off and draw')); sr.append(ab); }
-      else if (!want && ab) ab.remove();
-      sr.classList.toggle('has-act', want);
-      if (sr.hidden === on) sr.hidden = !on;
-    }
     syncGlobeTools();
   }
   // Annulus, Sector and Polar grid are dimmed while X shows its globe (panels.md 9.2: tooltip 'Draw in Plane')
-  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden (merged-views review)
   let globeToolsOff = null;
   function syncGlobeTools() {
-    const merged = S.view.main === 'xy' && morphOn(), off = lGlobe();
-    const k = `${merged}|${off}`;
-    if (k === globeToolsOff) return;
-    globeToolsOff = k;
+    const off = lGlobe();
+    if (off === globeToolsOff) return;
+    globeToolsOff = off;
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) {
       if (b.dataset.tool === 'select') continue;
-      const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
+      const g = off && GLOBE_OFF.has(b.dataset.tool);
       b.classList.toggle('globe-off', g);
       // (dimmed, it says so: a press still explains, so it stays focusable; ux's wave 12 sweep, axe's contrast)
       if (g) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
-      b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
+      b.dataset.tip = g ? $t('{base} · Draw in Plane', { base }) : base;
     }
   }
   function renderOverlays() {
-    const showL = solo() !== 'R', showR = solo() !== 'L';
     updateDraftChips();
     updateUndo();
     ctxChanged();
-    if (showL) { paneL.setView(leftView()); paneL.beginOverlay(); }
-    if (showR) {
-      paneR.setView(V.right);
-      paneR.beginOverlay();
-    }
+    paneL.setView(leftView()); paneL.beginOverlay();
     const sphL = !lFlat(); // the sphere and landscape views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
-    if (showL && !sphL) {
+    if (!sphL) {
       drawCutHandles(paneL, cutHandlesL);
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
@@ -258,34 +236,12 @@
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
     }
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
-    if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
-    if (intPop && showR && rImage() && !morphOn() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
-    // the preimages of the hovered point of the right plane
-    if (showL && hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
-    // Image: the w-plane targets are drawn and edited in the right plane like shapes in the domain
-    // the globes' handles, polygon vertices and snap ring (P3b)
-    if (showL && lGlobe() && globeEdit('L')) drawGlobeEdit('L');
-    if (showR && rGlobe() && globeEdit('R')) drawGlobeEdit('R');
-    if (showR && rImage() && targetsEditable()) {
-      paneR.setView(V.right);
-      drawHandles(paneR, S.targets);
-      if (draft && draft.target) drawDraft(paneR);
-      Construct.drawOverlay(paneR, 'R');   // (v16)
-      if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
-    }
-    if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
-    if (showR && rHover && !drag && rGlobe()) drawSphereMark(paneR, rHover);
-    if (showR) sndOverlay();
-    if (probe && showR) {
-      if (rImage() && !trans.k && !morphOn()) {
-        paneR.setView(V.right);
-        const F = focusF();
-        if (showL && !sphL && tool === 'select') drawGauge(paneL, paneR, probe, F);
-        drawProbe(paneR, F(probe), TH.probe);
-      }
-    }
-    if (showL && !sphL) drawRulers(paneL, 'L', true);
-    if (showR && rImage()) drawRulers(paneR, 'R', true);
+    if (intPop && !lLand()) drawIntHighlight(paneL, projL);
+    // the preimages of the hovered point
+    if (hov.w && hov.list && !lLand()) drawHoverPreimages(paneL, projL);
+    // the globe's handles, polygon vertices and snap ring (P3b)
+    if (lGlobe() && globeEdit('L')) drawGlobeEdit('L');
+    if (!sphL) drawRulers(paneL, 'L', true);
   }
   // ---- rulers: ticks and labels along the bottom and left edges, plus cursor markers ----
   // Ruler sizes come from a ResizeObserver, never from a layout read per frame, and the static layer (ticks and
@@ -305,7 +261,7 @@
             const o = rulerSize.get(e.target), w = e.contentRect.width, hh = e.contentRect.height;
             if (!o || o[0] !== w || o[1] !== hh) { rulerSize.set(e.target, [w, hh]); changed = true; }
           }
-          if (changed) requestRender('L', 'R');
+          if (changed) requestRender('L');
         });
       }
       s = [cv.clientWidth, cv.clientHeight]; // first sight only
@@ -337,12 +293,12 @@
     const rx = $(side === 'L' ? 'rulerLX' : 'rulerRX'), ry = $(side === 'L' ? 'rulerLY' : 'rulerRY');
     if (!rx || !ry) return;
     const seen = rulerSeen[side];
-    const show = side === 'R' ? rImage() : lFlat();
+    const show = side === 'L' && lFlat();   // (pane R's rulers stay hidden)
     if (seen.vis !== show) { rx.style.visibility = ry.style.visibility = show ? '' : 'hidden'; seen.vis = show; }
     const corner = $(side === 'L' ? 'cornerL' : 'cornerR');
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
     // (the steps view's plane name with a real subscript: the corner is 18 px wide, which cut the Unicode one)
-    const cornerHtml = !show ? '' : side === 'L' ? (SV.on ? svNameHtml(leftStage()) : wHtml(leftStage())) : (yAtF() ? '<i>w</i>' : wHtml(rightStage()));
+    const cornerHtml = !show ? '' : SV.on ? svNameHtml(leftStage()) : wHtml(leftStage());
     if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml; seen.corner = cornerHtml; }
     if (!show) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -437,12 +393,8 @@
     const cx = rx.getContext('2d'), cy = ry.getContext('2d');
     cx.setTransform(1, 0, 0, 1, 0, 0); cy.setTransform(1, 0, 0, 1, 0, 0);
     cx.drawImage(off.x, 0, 0); cy.drawImage(off.y, 0, 0);
-    // cursor markers: the probe in the left plane, its image in the right
-    let mk = null;
-    if (probe) {
-      if (side === 'L') mk = probe;
-      else if (rImage()) { const w = focusF()(probe); if (CX.isFin(w)) mk = w; }
-    }
+    // cursor marker: the probe
+    const mk = probe;
     if (mk) {
       const px = pane.w / 2 + (mk.re - v.cx) * v.s, py = pane.h / 2 - (mk.im - v.cy) * v.s;
       cx.setTransform(dpr, 0, 0, dpr, 0, 0); cy.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -501,22 +453,20 @@
     if (!GLR.ok) { pane.begin(TH.plane); noGL(pane); return; }
     pane.begin(TH.plane);
     GLR.begin(pane.pw, pane.ph);
-    // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside); with the Morph
-    // transport open (homView: the homotopy at its time t), the phase portrait of H_t (the Cauchy style then shows H_t)
-    const hv = typeof homView === 'function' ? homView() : null;
-    const cz = !hv && S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
-    const cst = { map: hv ? hv.map : S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
+    // the Cauchy style (st.cauchy: the nodes of the selected closed curve, F inside, 0 outside)
+    const cz = S.dc === 'cauchy' && typeof cauchyDraw === 'function' ? cauchyDraw(pane.view.s) : null;
+    const cst = { map: S.dc === 'cauchy' ? cauchyMap() : focusMap(), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: cz };
     // (the steps view's Inside regions: the colour only inside the regions of this plane, on the GPU, else in 2D; 19)
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
-    const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
+    const cauchyWhy = SV.on ? svCauchyWhy(cz) : '';
     if (cauchyWhy) paper(pane);
     else {
       // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
       cst.standIn = colourStandIn(pane, cst.map);
       if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     }
-    const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
+    const cauchyIdle = S.dc === 'cauchy' && !cz && !SV.on;
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -622,16 +572,14 @@
     if (!GLR.ok) { noGL(pane); return; }
     backdrop(pane);
     const box = carry ? carryBox(carry) : landBox();
-    // the Morph transport (homView): the surface of H_t; All sheets (S.sheets, window S.sheetW): the whole covering
-    // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
-    // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
-    const hv = !carry && typeof homView === 'function' ? homView() : null;
+    // All sheets (S.sheets, window S.sheetW): the whole covering surface of the focused map instead of its cut
+    // principal branch (notes/v16-user5/SHEETS-DESIGN.md)
     // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
     const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
-    const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
-    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
+    const sheetMap = carry ? svColourMap(carry.s) : focusMap();
+    const sheets = S.sheets && multiSheet() ? { W: sheetW, end: 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svHeightMap(carry.a), svHeightF(carry.a));
@@ -645,20 +593,13 @@
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
     render3D.linear = false;
-    // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
-    // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
-    // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
-    // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
-    // and a log window keeps its pitch instead of the compressed height's plates)
     const fm = carry ? carry.hmap : focusMap(), si = sheets && GLR.sheetInfo ? GLR.sheetInfo(fm, sheets.W) : null;
     if (si && S.height !== 'log' && typeof Funcs.sheetEval === 'function') {
       const lin = S.height === 're' || S.height === 'im';
       const q = (a, f) => a[Math.min(a.length - 1, Math.max(0, Math.floor(f * a.length)))];
       const mu0 = mu;
       const zAtIn = (bx) => (i, j) => C(bx.x0 + (i + 0.5) / 12 * (bx.x1 - bx.x0), bx.y0 + (j + 0.5) / 12 * (bx.y1 - bx.y0));
-      const zAt = zAtIn(box);
       const hOf = (w) => (w ? landValue(w) : NaN);
-      const key = `${chainSig[nSteps()]}|${S.focus}|${box.x0},${box.x1},${box.y0},${box.y1}|${S.height}|${sheets.W}|${si.K}|${sheets.uniq.join(',')}`;
       // the scale and the block's boost of the surfaces of map fmK (K sheets) over bx, cached per (chain, map, box, height, window)
       const scaleOf = (fmK, bx) => {
         // the combos drawn: the distinct sheets of fmK
@@ -695,71 +636,6 @@
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
       })() : scaleOf(fm, box);
       mu = c.mu;
-      // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
-      // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
-      // follows H_t: the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
-      // first needed), interpolated in log between them; the last is F's own (at the end the surfaces are F's, bit for
-      // bit), so the end frame is still the static one. The block (boost) stays F's.)
-      // (v16.2, review rv162-1: with many sheets one time's scale is K x 144 evaluations, about 8 ms at K = 24 on the
-      // Mac, so computing each inside the frame that first needs it dropped frames on the first play. The 8 times are
-      // now filled in idle time, one row of 12 points at a time, from the frame that opens the key on, ahead of t; a
-      // frame that needs a time not yet filled finishes it from where the idle work stopped. Same points, same values,
-      // same percentile: the scale is unchanged, only when it is computed moves.)
-      if (hv && c.mu > 0 && typeof Funcs.sheetMapEval === 'function') {
-        const L = morphLen(), N = 8, T = Math.max(0, Math.min(L, +hv.t || 0));
-        const hk = `${key}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${L}|${leftStage()}|${sheets.end}`;
-        const x = T / L * N, j = Math.min(N - 1, Math.floor(x)), f = x - j;
-        let h = render3D.muH && render3D.muH.key === hk ? render3D.muH : null;
-        if (!h) {
-          // what the evaluations read when they run (the rest of the key is fixed in the closure below): idle work
-          // stops when this no longer matches, so a value is only ever computed for the state of its key
-          const sig = () => `${chainSig[nSteps()]}|${S.focus}|${S.height}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${morphLen()}|${leftStage()}`;
-          const cmu = c.mu, combos = sheets.uniq, K = combos.length, W = sheets.W, end = sheets.end, s0 = sig();
-          h = render3D.muH = { key: hk, mu: [], part: [], sig, s0 };
-          // fill time j (from where it stopped); with over(), stop after the row that runs past it and return false
-          h.fill = (jt, over) => {
-            if (jt >= N) return true;
-            if (h.mu[jt] !== undefined) return true;
-            const p = h.part[jt] || (h.part[jt] = { r: 0, v: [], mp: null, bad: false });
-            if (!p.bad) {
-              try {
-                if (!p.mp) p.mp = HR.state(S, jt / N * L, true).map;
-                for (; p.r < K * 12; p.r++) {
-                  if (over && over()) return false;
-                  const k = combos[Math.floor(p.r / 12)], jj = p.r % 12;
-                  for (let i = 0; i < 12; i++) {
-                    const z = zAt(i, jj), xv = hOf(Funcs.sheetMapEval(S.steps, built, p.mp, z, z, k, W, end));
-                    if (Number.isFinite(xv)) p.v.push(Math.abs(xv));
-                  }
-                }
-              } catch (e) { p.bad = true; }
-            }
-            const v = p.bad ? [] : p.v;
-            v.sort((a, b) => a - b);
-            h.mu[jt] = v.length ? Math.max(1e-6, q(v, lin ? 0.98 : 0.5)) : cmu;
-            h.part[jt] = null;
-            return true;
-          };
-          const ric = typeof requestIdleCallback === 'function' ? requestIdleCallback : (cb) => setTimeout(() => cb(null), 16);
-          const work = (dl) => {
-            if (render3D.muH !== h || h.sig() !== h.s0) return;
-            const t0 = performance.now();
-            const over = () => (dl && typeof dl.timeRemaining === 'function' ? dl.timeRemaining() < 2 : performance.now() - t0 > 3);
-            // ahead of the transport's current time first, then the rest
-            const from = Math.max(0, Math.min(N - 1, h.from || 0));
-            for (let d = 0; d < N; d++) if (!h.fill((from + d) % N, over)) { ric(work); return; }
-          };
-          h.from = j;
-          ric(work);
-        }
-        h.from = j;
-        const at = (jt) => {
-          if (jt >= N) return c.mu;
-          if (h.mu[jt] === undefined) h.fill(jt, null);
-          return h.mu[jt];
-        };
-        mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : logLerp(at(j), at(j + 1), f);
-      }
       lscale *= c.boost || 1;
       if (lin) render3D.linear = true;
     }
@@ -792,7 +668,7 @@
         : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const info = GLR.drawLandscape({
-      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? carry.hmap : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}Lin` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
@@ -817,7 +693,7 @@
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)
     // what pickLand needs to find the point of X under the pointer (the last frame's camera, block and heights)
     // (a carried frame of a plane at rest picks on the carried heights, svLandPickF; one between two planes has no probe)
-    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : hv ? hv.F : focusF() } : render3D.pick;
+    render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
   render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
@@ -1030,7 +906,7 @@
     }
     // a focused d/dz step plots its stage w_k (a function of z), any other step its own map f_k; the steps view names what
     // the height reads on the shown plane (svHeightName)
-    const Fn = morphOn() && lPaintsF() ? 'Hₜ' : SV.on ? svHeightName('text') : S.focus === 0 ? 'F' : (typeof isDeriv === 'function' && isDeriv(S.focus) ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
+    const Fn = SV.on ? svHeightName('text') : S.focus === 0 ? 'F' : (typeof isDeriv === 'function' && isDeriv(S.focus) ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
     const tl = { log: [['|', false], [Fn, true], ['|', false]], abs: [['|', false], [Fn, true], ['|', false]], re: [['Re ', false], [Fn, true]], im: [['Im ', false], [Fn, true]] }[S.height || 'log'];
     // above the ruler; if a tick label is there, further up, then beside the top of the ruler
     // (from below the floor the relief hangs over the top of the ruler: beside it first, never over the surface)
@@ -1050,23 +926,6 @@
       : [[r1, [0, -1], 6], [r1, [0, -1], 16], [r1, [dir, 0], 10], [up(16), [dir, 0], 10]];
     for (const [a, d, gap] of tries) if (label(tl, a, d, gap, math12, null, TH.ink2, below)) break;
     ctx.restore();
-  }
-  // Y Sphere: the images on the w-globe (U-b; the phase globe is X Sphere + Phase, renderSphereLeft)
-  function renderSphere(pane) {
-    // the Morph transport (homView): the regions under H_t
-    const hv = typeof homView === 'function' ? homView() : null;
-    // the w-plane targets on the globe (P3b): fills and outlines exactly per pixel (the preimage pass through the identity
-    // map, as in Y Plane), points as marks; a target draft over them
-    const edit = !hv && globeEdit('R');
-    const post = [];
-    if (edit && hasTargets()) post.push({ map: IDENT, targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) });
-    const dp = edit ? globeDraftPass('R') : null;
-    if (dp) post.push(dp);
-    sphereView(pane, camS, CAMS, {
-      imageMode: true, stage: rightStage(), plane: !!S.view.R.eq, role: 'R',
-      probeW: probe ? (hv ? hv.F : focusF())(probe) : null, hom: hv,
-      post, net: edit ? globeNet() : 'plain', targetPts: edit,
-    });
   }
   // the conjugate lift of z = x + iy onto the Riemann sphere (panels.md 9.0; the GLSL lift in gl.js): 0 at the south
   // pole, infinity at the north pole, and seen from outside the globe keeps the plane's orientation
@@ -1372,9 +1231,8 @@
     // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
-      const hv = typeof homView === 'function' ? homView() : null;
       if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
-      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
+      return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: null, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
     return sphereView(pane, camL, CAML, Object.assign({ imageMode: true, stage: leftStage(), plane: !!xView().eq, role: 'L' }, leftGlobeOver()));
@@ -1396,7 +1254,7 @@
   let leftSphereInfo = null;   // the left globe's last frame {MVP, eye}: overlays lift their marks onto it
   // (v: a view of the left plane, default its own)
   function leftPaneBox(v = leftView()) {
-    const P = solo() === 'R' ? paneR : paneL;
+    const P = paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
   // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
@@ -1408,7 +1266,7 @@
     r.value = String(S.alpha); paintFader(r);
     $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
     for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity'))) syncOpacityRange(q);
-    requestRender('L', 'R'); save();
+    requestRender('L'); save();
   }
   function setupViewControls() {
     // the panes' Plane | Sphere radios (U4)
@@ -1423,16 +1281,13 @@
       });
     }
     // the Key switch in X's legend chip: the colour key painted in the Y plane
-    const kc = $('wKeyChk');
-    if (kc) kc.addEventListener('change', () => { setOpt('wKey', kc.checked); buildRightFoot(); requestRender('R'); save(); tourEmit('phase-key', { on: !!kc.checked }); });
-    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L', 'R'); drawLegend(); save(); });   // (Y's key chip names the grid's cell only while its lines are drawn)
-    $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L', 'R'); save(); });
-    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L', 'R'); save(); });
+    $('linesChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('lines', tg.checked); requestRender('L'); drawLegend(); save(); });   // (Y's key chip names the grid's cell only while its lines are drawn)
+    $('chevChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('chev', tg.checked); requestRender('L'); save(); });
+    $('unitChk').addEventListener('change', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('unit', tg.checked); requestRender('L'); save(); });
     $('alphaRange').addEventListener('input', (e) => setFillOpacity(+/** @type {HTMLInputElement} */ (e.target).value));
     $('meshRange').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); showMeshVal(posToMesh(+tg.value)); });
-    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R'); save(); });
+    $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
-    $('rightReadout').addEventListener('click', () => copyReadout('R'));
   }
   // (#385) the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
   function setupPaneButtons() {
@@ -1443,7 +1298,6 @@
       if (leftStage() > 0) leftAuto = true;
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
-    $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
     // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (merged-views
     // review: on a 356 px plot the key covered a third of the landscape); a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
@@ -1454,22 +1308,18 @@
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
-    for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
-      $(side + 'ZoomIn').innerHTML = ICONS.plus;
-      $(side + 'ZoomOut').innerHTML = ICONS.minus;
-      $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Solo').innerHTML = ICONS.expand;
-      $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
-      const zb = (f) => () => {
-        const sd = side === 'left' ? 'L' : 'R';
-        if (is3DSide(sd)) { zoomPane(pane, sd, pane.w / 2, pane.h / 2, f); return; }
-        const v = sd === 'L' ? leftView() : V.right;
-        pane.setView({ cx: v.cx, cy: v.cy, s: v.s });
-        const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
-        if (sd === 'R') rightAuto = false; else if (leftStage() > 0) leftAuto = false;
-        tweenView(v, target, 180, () => sourceViewChanged());
-      };
-      $(side + 'ZoomIn').addEventListener('click', zb(1.6));
-      $(side + 'ZoomOut').addEventListener('click', zb(1 / 1.6));
-    }
+    $('leftZoomIn').innerHTML = ICONS.plus;
+    $('leftZoomOut').innerHTML = ICONS.minus;
+    $('leftFit').innerHTML = ICONS.fit;
+    $('leftSph').addEventListener('click', () => stackSphere('L'));
+    const zb = (f) => () => {
+      if (is3DSide('L')) { zoomPane(paneL, 'L', paneL.w / 2, paneL.h / 2, f); return; }
+      const v = leftView();
+      paneL.setView({ cx: v.cx, cy: v.cy, s: v.s });
+      const target = { cx: v.cx, cy: v.cy, s: Math.min(1e9, Math.max(1e-6, v.s * f)) };
+      if (leftStage() > 0) leftAuto = false;
+      tweenView(v, target, 180, () => sourceViewChanged());
+    };
+    $('leftZoomIn').addEventListener('click', zb(1.6));
+    $('leftZoomOut').addEventListener('click', zb(1 / 1.6));
   }

@@ -225,9 +225,8 @@ const Views = (() => {
     if (v.main === 'land') return { surf: 'land', phase: !!v.D.phase, eq: false };
     return { surf: v.L.surf, phase: false, eq: v.L.eq };
   }
-  // the one pane a merged view shows ('L': Phase and Landscape, X's plots; 'R': X → Y with the deformation, one plane in
-  // Y's coordinates), null for the split view
-  const merged = (v, deform) => (v.main !== 'xy' ? 'L' : deform ? 'R' : null);
+  // 'L' for a merged view (Phase and Landscape: one wide panel of X's plots), null for X → Y
+  const merged = (v) => (v.main !== 'xy' ? 'L' : null);
   // the view an old state names (panels.md 10), as a U-b view (cleaned to a merged view by clean). dc: the state's
   // phase style, changed only as the table says (material tiles with the Plain style: Tiles). The old default material
   // 'phase' painted the relief Plain: that look is kept by landPlain (a landscape-only paint, never by rewriting dc).
@@ -253,7 +252,7 @@ const Views = (() => {
     if (Lx !== L6) view.L = sv(L6);
     // 'image', and the Morph, Preimage and Integral views of older builds, open in X → Y ('morph' with the deformation)
     let solo = o.solo;
-    if (('rightMode' in o) && paneOf(m, o.sphereMode) === 'L') solo = solo === 'R' || solo === 'L' ? null : solo;
+    if (('rightMode' in o) && Lx !== L6) solo = solo === 'R' || solo === 'L' ? null : solo;
     return { view, dc, landPlain, solo, deform: m === 'morph' };
   }
   // in place: o.view from o's legacy fields when it still carries rightMode (or has no view at all); the legacy
@@ -271,7 +270,7 @@ const Views = (() => {
     for (const k of LEGACY) delete o[k];
     return o;
   }
-  // the old fields that name the same picture (test hooks and the perf suite's old-layout units); a view with no old
+  // the old fields that name the same picture (the test hooks' __cmwSet of an old field); a view with no old
   // equivalent (e.g. X Sphere with Y Sphere) gets the nearest one
   function toLegacy(v, dc, landPlain) {
     v = clean(v);
@@ -282,12 +281,6 @@ const Views = (() => {
     else if (x.phase && x.surf === 'sphere') { o.rightMode = 'sphere'; o.sphereMode = 'color'; o.spherePlane = x.eq; o.leftSphere = false; }
     else if (v.R.surf === 'sphere') { o.rightMode = 'sphere'; o.spherePlane = v.R.eq; }
     return o;
-  }
-  // which pane shows the picture an old rightMode named ('image' | 'color' | '3d' | 'sphere' (+ sphereMode))
-  function paneOf(mode, sphereMode) {
-    if (mode === 'color' || mode === '3d') return 'L';
-    if (mode === 'sphere') return sphereMode === 'color' ? 'L' : 'R';
-    return 'R';
   }
   // The steps view's state (behind ?view=steps): S.sv = {at, T, scope, surf, speed, alone}. at: the shown position in
   // planes, fractional when the view is parked between two; T: the colour plane's stage (-1: the last plane); scope:
@@ -320,7 +313,7 @@ const Views = (() => {
     const surf = x.surf === 'land' ? 'land' : x.surf === 'sphere' ? 'sphere' : 'plane';
     return { at: 0, T: -1, scope: v.main === 'xy' && (hasAreas || empty) ? 'in' : 'all', surf };
   }
-  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, paneOf, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R, SV_SPEEDS };
+  return { blank, clean, xOf, merged, migrate, fromLegacy, toLegacy, cleanSv, svOf, LEGACY, MAIN, SURF_L, SURF_R, SV_SPEEDS };
 })();
 import { CX } from './cx.js';
 export { Axes, Pane, Views };

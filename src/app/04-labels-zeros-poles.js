@@ -61,8 +61,7 @@
     // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles (a frame between two planes' marks too)
     const marks = r.marks;
     const hard = [];
-    const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected)
-      : pane === paneR && rImage() && targetsEditable() ? (S.targets || []).find((x) => x.id === selected) : null;
+    const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected) : null;
     if (sel) {
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
@@ -682,65 +681,6 @@
       }
     }
   }
-  // images of the two banks of each ray cut, in the plane of stage R (dashed)
-  function drawCutBanks(pane, R) {
-    if (artMode) return;
-    const ctx = pane.ctx;
-    ctx.save();
-    ctx.setLineDash([4, 3]); ctx.lineWidth = 1; ctx.strokeStyle = TH.cut; ctx.globalAlpha = 0.7;
-    for (let k = 1; k <= R; k++) {
-      const b = built[k - 1];
-      // a d/dz step after the cut's step makes the stage no function of the cut's plane: no banks to draw
-      if (!stepFn(k) || !b || derivIn(k - 1, R)) continue;
-      const tail = (z) => { for (let j = k; j <= R; j++) { const f = stepFn(j); if (f) z = f(z); } return z; };
-      for (const c of b.cuts) {
-        if (c.kind !== 'ray') continue;
-        for (const side of [-1, 1]) {
-          const a = c.ang + side * 1e-7;
-          ctx.beginPath();
-          let pen = false;
-          for (let i = 0; i <= 200; i++) {
-            const rr = 1e-3 * Math.pow(1e7, i / 200);
-            const z = C(c.p.re + rr * Math.cos(a), c.p.im + rr * Math.sin(a));
-            const w = tail(z);
-            if (!CX.isFin(w)) { pen = false; continue; }
-            const [x, y] = pane.w2s(w);
-            if (Math.abs(x) > 1e5 || Math.abs(y) > 1e5) { pen = false; continue; }
-            if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-            pen = true;
-          }
-          ctx.stroke();
-        }
-      }
-    }
-    ctx.restore();
-  }
-  // image of the left viewport rectangle (where the left view lands)
-  function drawFov(pane, F) {
-    if (artMode) return;
-    const b = leftPaneBox();
-    const ctx = pane.ctx;
-    const corners = [C(b.x0, b.y0), C(b.x1, b.y0), C(b.x1, b.y1), C(b.x0, b.y1)];
-    ctx.save();
-    ctx.strokeStyle = TH.fov; ctx.globalAlpha = TH.fovA; ctx.lineWidth = 1; ctx.setLineDash([5, 4]);
-    ctx.beginPath();
-    for (let e = 0; e < 4; e++) {
-      const p = corners[e], q = corners[(e + 1) % 4];
-      let pen = false, lx = 0, ly = 0;
-      for (let i = 0; i <= 64; i++) {
-        const w = F(C(p.re + (q.re - p.re) * i / 64, p.im + (q.im - p.im) * i / 64));
-        if (!CX.isFin(w)) { pen = false; continue; }
-        const [x, y] = pane.w2s(w);
-        if (pen && Math.hypot(x - lx, y - ly) > 200) pen = false;
-        if (pen) ctx.lineTo(x, y); else ctx.moveTo(x, y);
-        pen = true; lx = x; ly = y;
-      }
-    }
-    ctx.stroke();
-    ctx.setLineDash([]);
-    for (const c of corners) { const w = F(c); if (!CX.isFin(w)) continue; const [x, y] = pane.w2s(w); ctx.strokeRect(x - 2, y - 2, 4, 4); }
-    ctx.restore();
-  }
   // orientation chevrons: at mid-length of open curves and at angle 0 of closed boundaries
   function drawChevrons(pane, F0, k) {
     if (artMode) return;
@@ -840,7 +780,7 @@
   // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
   // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
   function zpStep() {
-    if (!S || !paneL || solo() === 'R' || !lFlat()) return null;
+    if (!S || !paneL || !lFlat()) return null;
     const j = leftStage(), st = S.steps[j];
     if (!st || st.type !== 'zp' || st.on === false) return null;
     const items = {};

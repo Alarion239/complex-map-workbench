@@ -424,8 +424,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   grid-template-columns: minmax(0, calc((100% - 8px) * var(--split, 0.5))) 8px minmax(0, 1fr);
 }
 .panes > * { min-width: 0; min-height: 0; }
-.panes.solo-L, .panes.solo-R { grid-template-columns: minmax(0, 1fr); }
-.panes.solo-L > #gutterCol, .panes.solo-L > #paneR, .panes.solo-R > #gutterCol, .panes.solo-R > #paneL { display: none; }
+.panes.solo-L { grid-template-columns: minmax(0, 1fr); }
+.panes.solo-L > #gutterCol, .panes.solo-L > #paneR { display: none; }
 /* the plane an expanded one leaves out: a strip at its edge, named, that brings it back */
 .panes { position: relative; }
 .hidden-strip { position: absolute; top: 50%; translate: 0 -50%; z-index: 4; writing-mode: vertical-rl; padding: 12px 4px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); font: var(--t-label); cursor: pointer; }
@@ -1692,10 +1692,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   /* flow: planes, chain, region disclosures, guarantees */
   .layout { display: flex; flex-direction: column; gap: 12px; overflow: visible; }
   .stage { order: -1; display: flex; flex-direction: column; gap: 12px; }
-  .panes, .panes.solo-L, .panes.solo-R { display: flex; flex-direction: column; gap: 8px; }
-  .panes.solo-L > #paneR, .panes.solo-R > #paneL { display: grid; }
-  /* a merged view is one panel on a phone too */
-  .panes.merged-L > #paneR, .panes.merged-R > #paneL { display: none; }
+  .panes, .panes.solo-L { display: flex; flex-direction: column; gap: 8px; }
   .gutter { display: none !important; }
   .pane { height: min(calc(100vw - 32px), 46svh); flex: 0 0 auto; }
   .pane-head { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }

@@ -311,8 +311,8 @@
   }
   // target colors skip c4 (magenta), the palette ink nearest the pole color: roots must not read as poles
   const TARGET_CI = [5, 2, 6, 0, 4, 7, 1];
-  const V = { left: { cx: 0, cy: 0, s: 60 }, right: { cx: 0, cy: 0, s: 60 } };
-  let rightAuto = true, leftAuto = true;
+  const V = { left: { cx: 0, cy: 0, s: 60 } };
+  let leftAuto = true;
   let selected = null;
   let tool = 'select';
   let draft = null;
@@ -387,7 +387,7 @@
     draft.pts.pop();
     if (draft.cmAt && typeof draft.cmAt === 'object') delete draft.cmAt[draft.pts.length];
     if (!draft.pts.length) draft = null;
-    requestRender('OL', 'OR', lGlobe() ? 'L' : null, rGlobe() ? 'R' : null);
+    requestRender('OL', 'OR', lGlobe() ? 'L' : null);
     updateUndo();
     return true;
   }
@@ -551,13 +551,12 @@
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
-    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
+    const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R });
     // (v15.1: the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
     if (Phone.largeView) {
-      const lv = Phone.largeView('L'), rv = Phone.largeView('R');
+      const lv = Phone.largeView('L');
       if (lv && leftStage() === 0) out.srcView = Object.assign({}, S.srcView, lv);
-      if (rv && out.rightView) out.rightView = rv;
     }
     // run-time fields of shapes (s._err: a shape's current error) are not state
     // (returns what it wrote, false when storage refused it: the language switch reloads only on a written save)
@@ -721,7 +720,7 @@
     if (!isNum(st.dcGrid) || st.dcGrid <= 0) st.dcGrid = d0.dcGrid;
     const okView = (v) => v && isNum(v.cx) && isNum(v.cy) && isNum(v.s) && v.s > 0;
     if (!okView(st.srcView)) st.srcView = d0.srcView;
-    if (!okView(st.rightView)) st.rightView = null;
+    delete st.rightView;   // (the page keeps one view, S.srcView)
     const w = st.clipWin;
     if (w && !(isNum(w.x0) && isNum(w.x1) && isNum(w.y0) && isNum(w.y1) && w.x1 > w.x0 && w.y1 > w.y0)) delete st.clipWin;
     st.meshN = Math.max(MESH_MIN, Math.min(MESH_MAX, Math.round(+st.meshN) || 240));
@@ -854,19 +853,16 @@
   const focusDeriv = () => S.focus > 0 && isDeriv(S.focus);
   // ((#366 prototype) the steps view shows one plane of the chain: its stage, 19)
   const leftStage = () => (SV.on ? svStage(Math.round(SV.g.x)) : S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
-  // ([#383] while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
-  // exports, its variable's name, its overlays; trans.at is -1 except then, 08)
-  const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
-  // Y shows F, the whole chain's plane (not a focused step's, not a step the glide rests on)
-  const yAtF = () => S.focus === 0 && !(trans.at >= 0);
-  // the stage ‹ › rest Y on (whole chain, none focused), else -1; the map to it is named F_j, the first j steps' composite
-  const parkedAt = () => (S.focus === 0 && trans.at >= 0 ? trans.at : -1);
-  const fNameTex = () => (S.focus === 0 ? (parkedAt() >= 0 ? `F_{${parkedAt()}}` : 'F') : `f_{${S.focus}}`);
-  // ---- the panes' views (U-b, panels.md 2): X on the left, Y on the right ----
+  // the plane the map in focus lands in: stage n with no step focused, k at focus k (the w-plane the targets, the
+  // readouts and the exports name)
+  const outStage = () => (S.focus === 0 ? nSteps() : S.focus);
+  // the map in focus lands in F's plane, the whole chain's (not a focused step's)
+  const yAtF = () => S.focus === 0;
+  const fNameTex = () => (S.focus === 0 ? 'F' : `f_{${S.focus}}`);
+  // ---- the plane's views (U-b, panels.md 2) ----
   // lPlain: X Plane with the shapes (the plane of earlier builds' left pane); lColor: X Plane + Phase (the phase
   // portrait, earlier the right pane's Phase view); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
-  // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays). rImage: Y Plane (the images,
-  // the targets); rGlobe: Y Sphere.
+  // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays).
   // (merged views, merged-views.md: X's picture follows the top bar's view: X → Y shows the shapes on X's Plane or
   // Sphere; Phase the portrait on its own Plane or Sphere (view.P); Landscape the relief, phase-coloured or plaster)
   const xSurf = () => { const v = S.view; return v.main === 'phase' ? v.P.surf : v.main === 'land' ? 'land' : v.L.surf; };
@@ -876,24 +872,21 @@
   const lColor = () => S.view.main === 'phase' && S.view.P.surf === 'plane';
   const lGlobe = () => xSurf() === 'sphere';
   const lLand = () => S.view.main === 'land';
-  const rImage = () => S.view.R.surf === 'plane';
-  const rGlobe = () => S.view.R.surf === 'sphere';
   // the Sphere's equatorial plane of X's globe (X → Y's z-sphere or the phase sphere)
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
-  // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
-  // pane of the split view (S.solo) or null
-  const solo = () => (SV.on ? 'L' : Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null));
+  // the pane shown: the page has one plane, pane L
+  const solo = () => 'L';
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)
   const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
-  const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
+  const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
   // the map the Cauchy integral is taken of: the whole chain (the steps view's colour plane T does not change it); the classic views take the focus's
   const cauchyF = () => (SV.on ? stageF(nSteps()) : focusF());
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)
-  const yHtml = () => (yAtF() ? '<i>w</i>' : `<i>w</i>${sub(rightStage())}`);
+  const yHtml = () => (yAtF() ? '<i>w</i>' : `<i>w</i>${sub(outStage())}`);
   const fnHtml = () => (S.focus === 0 ? '<i>F</i>' : focusDeriv() ? `<i>w</i>${sub(S.focus)}` : `<i>f</i>${sub(S.focus)}`);
 

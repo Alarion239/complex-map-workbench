@@ -40,7 +40,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .panel.left > :not(#secDraw) { display: none !important; }
 :root.ph .panel.right { display: none !important; }
 :root.ph .stage { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 0; order: 0; }
-:root.ph .panes, :root.ph .panes.solo-L, :root.ph .panes.solo-R { position: relative; display: block; flex: 1 1 auto; min-height: 0; gap: 0; }
+:root.ph .panes, :root.ph .panes.solo-L { position: relative; display: block; flex: 1 1 auto; min-height: 0; gap: 0; }
 :root.ph .gutter { display: none !important; }
 :root.ph .panes > .pane { position: absolute; inset: 0; display: grid; grid-template-rows: minmax(0, 1fr) auto; height: auto; width: auto; border: 0; border-radius: 0; }
 /* Both: X above Y, each half the stage (a sheet's side-by-side layout and a merged view take over while they last) */

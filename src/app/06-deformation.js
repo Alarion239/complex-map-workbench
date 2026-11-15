@@ -278,21 +278,18 @@
     // (its first slice too waits for the frame to end)
     nextMacrotask().then(() => (alive() ? runGenSliced(g, alive, 3) : null)).catch((e) => console.error('deformation paths ahead', e)).finally(() => { if (mfAhead.job === job) mfAhead.job = null; });
   }
-  // The merged globe's live paths (merged-views review: the design's "one plane (or one globe)" both carry them): the
-  // same selection, chosen off the frame in the deformation's own flat frame at the globe pane's size (defFitView,
-  // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere
+  // The globe's live paths: the same selection, chosen off the frame in a flat frame at the globe pane's size (fit,
+  // fixed per chain, focus, path, shapes and pane size, so orbiting never re-chooses), drawn lifted to the sphere.
   // The globe's paths are chosen on the sphere under the camera of the moment (globeSelP); an orbit that turns more than
   // one kept start (or a quarter of them) away from the camera chooses again (epoch), after the same 150 ms of stillness.
-  // src: the deformation source (default the classic transport's); fit: the flat view the choice is made in (default
-  // the deformation's fitted frame, defFitView; the steps view passes its one camera, S.srcView)
+  // src: the deformation source; fit: the flat view the choice is made in (the steps view's one camera, S.srcView)
   const mfGlobe = { key: '', vp: null, cam: null, epoch: 0 };
-  function morphSelGlobe(pane, cam, src = classicSource(), fit = null) {
+  function morphSelGlobe(pane, cam, src, fit) {
     if (cam) mfGlobe.cam = cam;
-    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}` + (fit ? `|${fit.cx},${fit.cy},${fit.s}` : '');
+    const k = mfScreenKey(pane, src).key + `|${pane.w}x${pane.h}|${fit.cx},${fit.cy},${fit.s}`;
     if (mfGlobe.key !== k || !mfGlobe.vp) {
       const vp = Object.create(Pane.prototype);
-      vp.view = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
-      vp.view = fit ? { cx: fit.cx, cy: fit.cy, s: fit.s } : defFitView(vp, false);
+      vp.view = { cx: fit.cx, cy: fit.cy, s: fit.s }; vp.w = pane.w; vp.h = pane.h; vp.dpr = pane.dpr; vp.ocanvas = null; vp.globeSel = true;
       mfGlobe.key = k; mfGlobe.vp = vp;
     }
     const sel = morphSelScreen(mfGlobe.vp, src);
@@ -350,27 +347,15 @@
   // they reassign as getters (and setters for the state they write)
   function morphPathsApi() {
     return {
-      C, IDENT, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, arcOf, cap1, capT, captionLatex, classicSource, cmFormAnchor,
-      compositeTexShort, dcGridStep, drawChevrons, drawCutBanks, drawCuts, drawFov, drawPoints, drawPullback,
-      drawRulers, drawScene, fillTargets2D, fitTitle, focusF, hasTargets, homRangeOk, isDeriv, joinList, kindType,
-      lFlat, layoutFoot, lenPx, mDist, mapKeyOf, mfCache, morph, morphHasDeriv, morphLen, morphOn, morphOutline,
-      morphPrimes, morphRange, morphSelScreen, morphState, morphX, nSteps, noGL, openPalette, paintFader, paper,
-      patternSegs, preimageTargets, stagePullbacks, updatePre, drawPre, rGlobe, rImage, rangeParts, renderSphere, requestInverseFor, requestRender,
-      resamplePx, rightStage, segD, shapeGPU, shapeInk, shapePhrase, sheetsShown, stageF, stageMap, strokeTargets,
-      sub, trans, transState, tweens, updateCalcChip,
+      C, MF, PATHS, SegGrid, V, activeSteps, allAtOnce, cap1, capT, captionLatex, classicSource, compositeTexShort,
+      isDeriv, joinList, kindType, lenPx, mDist, mfCache, morph, morphLen, morphOutline, morphRange, morphState,
+      morphX, rangeParts, requestRender, resamplePx, segD, shapePhrase, sheetsShown,
       get S() { return S; },
       get TH() { return TH; },
-      get artMode() { return artMode; },
       get built() { return built; },
-      get chainSig() { return chainSig; },
       get clipWin() { return clipWin; },
-      get drag() { return drag; },
-      get figMode() { return figMode; },
-      get figVec() { return figVec; },
       get mfDrawn() { return mfDrawn; }, set mfDrawn(v) { mfDrawn = v; },
       get mfGlobeDrawn() { return mfGlobeDrawn; }, set mfGlobeDrawn(v) { mfGlobeDrawn = v; },
-      get motionInT() { return motionInT; },
-      get paneR() { return paneR; },
     };
   }
   // the app calls the module by the old names (as untyped calls: their types stay the module's own)
@@ -393,7 +378,4 @@
   function pathsSentence(...args) { return MP.pathsSentence(...args); }
   function morphAt(...args) { return MP.morphAt(...args); }
   const syncTransport = () => phoneChain();
-  function wKeyAvail(...args) { return MP.wKeyAvail(...args); }
-  function wKeyOn(...args) { return MP.wKeyOn(...args); }
-  function renderRight(...args) { return MP.renderRight(...args); }
 

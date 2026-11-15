@@ -4,17 +4,11 @@
   // of F(z) = p in view are found on the CPU (Calc.zerosPoles: cells, argument principle, Newton) and marked z₁, z₂, …
   const isTarget = (s) => !!s && Array.isArray(S.targets) && S.targets.includes(s);
   const hasTargets = () => !!(S.targets && S.targets.some((s) => s.visible !== false));
-  // targets are drawn and edited in the right plane of Image mode (not while it shows a deformation)
-  // (and on the w-globe, P3b: panels.md 9)
-  const targetsEditable = () => (rImage() || rGlobe()) && !morphOn() && solo() !== 'L';
   const findShape = (id) => S.shapes.find((x) => x.id === id) || (S.targets || []).find((x) => x.id === id) || null;
   function targetLabel(s, i) { return s.label || (i < 6 ? 'pqrstu'[i] : 'p' + sub(i + 1)); }
   const paneBox = (pane, v) => ({ x0: v.cx - pane.w / 2 / v.s, x1: v.cx + pane.w / 2 / v.s, y0: v.cy - pane.h / 2 / v.s, y1: v.cy + pane.h / 2 / v.s });
-  // the window target curves are clipped and hit-tested in: the right view (lines reach far beyond it)
-  function targetWin() {
-    const b = paneR && paneR.w > 0 ? paneBox(paneR, V.right) : { x0: -4, x1: 4, y0: -4, y1: 4 };
-    return goodWin(b) ? b : { x0: -4, x1: 4, y0: -4, y1: 4 };
-  }
+  // the window target curves are clipped and hit-tested in (lines reach far beyond it)
+  const targetWin = () => ({ x0: -4, x1: 4, y0: -4, y1: 4 });
   const IDENT = { mode: 0, a: 0, b: 0 };
   // target shapes as GLR.drawPreimage takes them (polygon and freehand vertices at most 256 in all)
   function preimageTargets(areasOnly) {
@@ -97,31 +91,6 @@
       by.get(st).push(s);
     }
     return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: pullTargets(list), halo: GLR.hexRGB(TH.halo) }));
-  }
-  // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
-  function strokeTargets(pane) {
-    const ctx = pane.ctx, win = targetWin();
-    for (const s of S.targets) {
-      if (s.visible === false || kindType(s) === 'point') continue;
-      let curves = [];
-      try { curves = Region.curvesOf(s, win); } catch (e) { curves = []; }
-      if (!curves.length) continue;
-      const ink = shapeInk(s), area = kindType(s) === 'area';
-      ctx.save();
-      ctx.beginPath();
-      for (const c of curves) {
-        const p = Region.sampleCurve(c, win);
-        for (let i = 0; i + 1 < p.length; i += 2) { const [x, y] = pane.w2sxy(p[i], p[i + 1]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
-        if (c.closed) ctx.closePath();
-      }
-      const sk = shapeStroke(s, 1, { domain: true });   // (the width and the halo's, in CSS px)
-      ctx.lineJoin = 'round'; ctx.lineCap = 'round';
-      ctx.globalAlpha = sk.casing.alpha; ctx.strokeStyle = TH.halo; ctx.lineWidth = sk.casing.width; ctx.stroke();
-      ctx.globalAlpha = 1; ctx.strokeStyle = ink.edge; ctx.lineWidth = sk.width;
-      if (area && Region.isOpen(s)) ctx.setLineDash(OPEN_DASH);
-      ctx.stroke();
-      ctx.restore();
-    }
   }
   // Calc.zerosPoles bounded in time (about ms on the main thread). Its work budget counts calls of F, and one call
   // can cost hundreds of evaluations (nested d/dz steps use the circle formula), so the cost of a call is measured
@@ -300,38 +269,6 @@
   // the point of the Riemann sphere under pane pixel (x, y) of a sphere view orbited by camera c (null off the globe
   // or at ∞): the ray from the eye meets the globe, and the stereographic projection takes the hit to the plane
   function pickSphere(pane, c, x, y) { const g = pickGlobe(pane, c, x, y); return g ? g.z : null; }
-  // a ring at w on the right plane's globe (the hovered point of the regions sphere)
-  function drawSphereMark(pane, w) {
-    if (!GLR.ok || !GLR.camera) return;
-    const pc = GLR.camera(camS, pane.w, pane.h);
-    const p = liftC(w.re, w.im);
-    const tv = [pc.eye[0] - p[0], pc.eye[1] - p[1], pc.eye[2] - p[2]];
-    if (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2] <= 0) return;
-    const q = project(pane, pc.MVP, p.map((v) => v * 1.01));
-    if (!q) return;
-    const ctx = pane.octx;
-    ctx.save();
-    ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.stroke();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = TH.probe; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.stroke();
-    ctx.restore();
-  }
-  // without GLR.drawPreimage: bounded area targets filled from their outlines
-  function fillTargets2D(pane, areas) {
-    const ctx = pane.ctx, win = targetWin();
-    for (const t of areas) {
-      if (t.complement || t.kind === 'formula') continue;
-      let curves = [];
-      try { curves = Region.curvesOf(t, win); } catch (e) { curves = []; }
-      ctx.save(); ctx.beginPath();
-      for (const c of curves) {
-        const p = Region.sampleCurve(c, win);
-        for (let i = 0; i + 1 < p.length; i += 2) { const [x, y] = pane.w2sxy(p[i], p[i + 1]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }
-        ctx.closePath();
-      }
-      ctx.globalAlpha = t.alpha; ctx.fillStyle = shapeInk(t).c0; ctx.fill('evenodd');
-      ctx.restore();
-    }
-  }
   // solutions of F(z) = p for the point targets, over the visible part of the left plane
   const roots = { key: '', sig: '', want: '', timer: 0, list: [], err: '' };
   const hasCalc = (fn) => Calc && typeof Calc[fn] === 'function';
@@ -367,12 +304,11 @@
         out.push({ s, sols: f });
       }
       roots.list = out; roots.err = err; roots.key = key; roots.sig = rootsSig(); roots.want = '';
-      requestRender('L', 'R');
+      requestRender('L');
     }, 100);
   }
   // roots are named after the left plane's variable: z₁, z₂ in the z-plane; in a wₖ-plane w₍₁₎, w₍₂₎ would clash
   // with the stage names, so they are r₁, r₂ there
-  const rootName = (i) => (leftStage() === 0 ? `<i>z</i>${sub(i)}` : `<i>r</i>${sub(i)}`);
   const rootNameText = (i) => (leftStage() === 0 ? `z${sub(i)}` : `r${sub(i)}`);
   const rootScale = () => (paneL ? Math.max(paneL.w, paneL.h) / paneL.view.s : 0);
   // the degree of the focused map when it is rational with an exact degree: {d, poly}, else null
@@ -597,29 +533,25 @@
   let holdMenuT = -Infinity;   // when a long press opened the menu: the touch's own contextmenu event opens nothing more
   // ---- the planes' context menu (v15, src/planemenu.js): what it needs from the app ----
   function planeMenuApi() {
-    const paneOf = (side) => (side === 'R' ? paneR : paneL);
-    const viewOf = (side) => (side === 'R' ? V.right : leftView());
-    const flatSide = (side) => (side === 'R' ? rImage() : lFlat());
+    // (one plane, pane L: side 'L')
+    const paneOf = () => paneL;
+    const viewOf = () => leftView();
+    const flatSide = (side) => side === 'L' && lFlat();
     const zpStepK = (k) => { const st = S.steps[k - 1]; return st && st.type === 'zp' ? st : null; };
     return {
       paneOf,
-      sideOf: (el) => (!el || !paneL ? null : el === paneL.ocanvas ? 'L' : el === paneR.ocanvas ? 'R' : null),
-      // the pane is on screen (a merged view shows one pane alone)
-      shown: (side) => !!paneOf(side) && solo() !== (side === 'L' ? 'R' : 'L') && paneOf(side).ocanvas.getClientRects().length > 0,
-      // what pane pixel (x, y) shows: {z, surface ('flat', 'globe', 'land'), plane ('X', 'Y', or 'D' for the
-      // deformation), stage, s (px per unit on a flat pane)}; null off a globe or the relief
+      sideOf: (el) => (!el || !paneL ? null : el === paneL.ocanvas ? 'L' : null),
+      // the pane is on screen
+      shown: (side) => side === 'L' && !!paneL && paneL.ocanvas.getClientRects().length > 0,
+      // what pane pixel (x, y) shows: {z, surface ('flat', 'globe', 'land'), plane 'X', stage, s (px per unit on a
+      // flat pane)}; null off a globe or the relief
       at(side, x, y) {
-        if (side === 'L') {
-          const j = leftStage();
-          if (lLand()) { const z = pickLand(x, y); return z && CX.isFin(z) ? { z, surface: 'land', plane: 'X', stage: j } : null; }
-          if (lGlobe()) { const z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null; return z && CX.isFin(z) ? { z, surface: 'globe', plane: 'X', stage: j } : null; }
-          paneL.setView(leftView());
-          return { z: paneL.s2w(x, y), surface: 'flat', plane: 'X', stage: j, s: paneL.view.s };
-        }
-        const plane = morphOn() ? 'D' : 'Y', st = rightStage();
-        if (rGlobe()) { const w = pickSphere(paneR, camS, x, y); return w && CX.isFin(w) ? { z: w, surface: 'globe', plane, stage: st } : null; }
-        paneR.setView(V.right);
-        return { z: paneR.s2w(x, y), surface: 'flat', plane, stage: st, s: paneR.view.s };
+        if (side !== 'L') return null;
+        const j = leftStage();
+        if (lLand()) { const z = pickLand(x, y); return z && CX.isFin(z) ? { z, surface: 'land', plane: 'X', stage: j } : null; }
+        if (lGlobe()) { const z = typeof pickSphereLeft === 'function' ? pickSphereLeft(x, y) : null; return z && CX.isFin(z) ? { z, surface: 'globe', plane: 'X', stage: j } : null; }
+        paneL.setView(leftView());
+        return { z: paneL.s2w(x, y), surface: 'flat', plane: 'X', stage: j, s: paneL.view.s };
       },
       toClient(side, z) { if (!flatSide(side)) return null; const p = paneOf(side); p.setView(viewOf(side)); const [x, y] = p.w2s(z), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; },
       scale: (side) => (flatSide(side) ? viewOf(side).s : null),
@@ -654,21 +586,19 @@
       cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
       // step k in the Inspector (v15: a click on its card does the same)
       inspect: (k) => inspectStep(k),
-      resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },
-      // the shape under the pointer: X's shapes at stage 0, Y's targets where they are edited
+      resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'OL'); },
+      // the shape under the pointer: X's shapes of the plane it shows (#252)
       shapeAt(side, x, y) {
-        const target = side === 'R';
-        if (target ? !(rImage() && targetsEditable()) : !lFlat()) return null;
-        const pane = paneOf(side);
-        pane.setView(viewOf(side));
-        // ([#252] X's shapes of the plane it shows)
-        const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin;
+        if (!flatSide(side)) return null;
+        const pane = paneL;
+        pane.setView(leftView());
+        const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = planeShapes(), win = leftStage() > 0 ? stageWin(leftStage()) : clipWin;
         // ([v16.5 UX56] a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
         // other shapes there are named as where it lies)
         const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
         const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => rank(a) - rank(b));
         const names = shapeNames();
-        const nm = (s) => (s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || (target ? targetLabel(s, S.targets.indexOf(s)) : Region.KINDS[s.kind].label);
+        const nm = (s) => (s.kind === 'point' && Construct.shapeLabel ? Construct.shapeLabel(s) : '') || names.get(s.id) || Region.KINDS[s.kind].label;
         const hits = [];
         for (const s of cands) {
           let hit = false;
@@ -681,20 +611,19 @@
         return { id: s.id, name: nm(s), kind: s.kind, selected: selected === s.id, on: s.kind === 'point' ? hits.slice(1).filter((x) => kindType(x) === 'curve').map(nm) : [],
           all: hits.map((x) => ({ id: x.id, name: nm(x), selected: selected === x.id })), canFront: i < list.length - 1, canBack: i > 0 };
       },
-      // the vertex of a polygon under the pointer (for Remove vertex), X's shapes at stage 0, Y's targets where edited
+      // the vertex of a polygon under the pointer (for Remove vertex), X's shapes at stage 0
       vertexAt(side, x, y, touch) {
-        const target = side === 'R';
-        if (target ? !(rImage() && targetsEditable()) : !(lFlat() && leftStage() === 0)) return null;
-        const pane = paneOf(side);
-        pane.setView(viewOf(side));
-        for (const s of (target ? S.targets : S.shapes).filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
+        if (!(flatSide(side) && leftStage() === 0)) return null;
+        const pane = paneL;
+        pane.setView(leftView());
+        for (const s of S.shapes.filter((q) => q.visible !== false && polyEditable(q)).reverse()) {
           const i = polyVertexAt(pane, s, x, y, touch ? 22 : 9);
           if (i >= 0) return { id: s.id, i, n: s.pts.length };
         }
         return null;
       },
       removeVertex(id, i) { if (polyRemoveVertex(id, i)) undoToast($t('Vertex removed.')); },
-      select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); },
+      select(id) { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'OL'); },
       newNumber: (z) => newNumberHere(z),
       front(id) { const t = S.targets.some((x) => x.id === id); moveShapeTo(id, (t ? S.targets : S.shapes).length - 1); },
       back(id) { moveShapeTo(id, 0); },
@@ -738,27 +667,23 @@
     if (draft && draft.pending) dropPending();   // ([UX47] a two-click shape's snapped start binds nothing)
     draft = null;
     Construct.cancel();
-    requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
+    requestRender('L', 'OL', 'OR');
     return true;
   }
   // a right-click that did not pan: it cancels a drawing, else opens the plane menu there
   const rightClickAt = (pane, side, x, y, touch) => cancelDrawing() || planeMenuAt(pane, side, x, y, touch);
-  // centre a flat plane's view at z (a double-click on the plane, issue #13)
+  // centre the flat plane's view at z (a double-click on the plane, issue #13)
   function centerView(side, z) {
-    if (side === 'L' ? !lFlat() : !rImage()) return;
-    if (side === 'L') { const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR'); }
-    else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
+    if (side !== 'L' || !lFlat()) return;
+    const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR');
     save();
   }
   // TEMP-DEBUG-HOOK (removed before publishing)
-  window.__cmwPlaneMenu = () => ({ stage: (k, re, im) => { const w = stageF(k)(C(re, im)); return [w.re, w.im]; }, w2s: (side, re, im) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const [x, y] = p.w2s(C(re, im)), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; }, s2w: (side, cx, cy) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const r = p.ocanvas.getBoundingClientRect(), w = p.s2w(cx - r.left, cy - r.top); return [w.re, w.im]; }, view: (side) => Object.assign({}, side === 'R' ? V.right : leftView()), steps: () => JSON.parse(JSON.stringify(S.steps)), hist: () => ({ hi, n: hist.length }), shapes: () => JSON.parse(JSON.stringify(S.shapes)), targets: () => JSON.parse(JSON.stringify(S.targets)), selected: () => selected, drag: () => (drag ? drag.mode : null), focus: () => S.focus, leftStage: () => leftStage(), curveBox: (id) => { const g = INT.shapeGeom(S.shapes.find((x) => x.id === id), true); return g ? g.box : null; } });
+  window.__cmwPlaneMenu = () => ({ stage: (k, re, im) => { const w = stageF(k)(C(re, im)); return [w.re, w.im]; }, w2s: (side, re, im) => { const p = paneL; p.setView(leftView()); const [x, y] = p.w2s(C(re, im)), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; }, s2w: (side, cx, cy) => { const p = paneL; p.setView(leftView()); const r = p.ocanvas.getBoundingClientRect(), w = p.s2w(cx - r.left, cy - r.top); return [w.re, w.im]; }, view: () => Object.assign({}, leftView()), steps: () => JSON.parse(JSON.stringify(S.steps)), hist: () => ({ hi, n: hist.length }), shapes: () => JSON.parse(JSON.stringify(S.shapes)), targets: () => JSON.parse(JSON.stringify(S.targets)), selected: () => selected, drag: () => (drag ? drag.mode : null), focus: () => S.focus, leftStage: () => leftStage(), curveBox: (id) => { const g = INT.shapeGeom(S.shapes.find((x) => x.id === id), true); return g ? g.box : null; } });
   // TEMP-DEBUG-HOOK
   // GPU Cauchy style of the Phase view: N nodes on the subject's boundary, shared by its components by length
   const cauchyCache = { key: '', val: null };
 
-  // ---------------- the readings chip (the w-plane targets' preimages) ----------------
-  const calcChipState = { html: '' };
-  const fxHtml = () => `${fnHtml()}(${wHtml(leftStage())})`;
   // a complex value for display: ×10ⁿ (never 'e'), components below tol·max shown as 0
   const cxShort = (w, scale = 0) => {
     if (!CX.isFin(w)) return '—';
@@ -772,124 +697,14 @@
     if (re === 0) return (im < 0 ? '−' : '') + ims;
     return `${f(re)} ${im < 0 ? '−' : '+'} ${ims}`;
   };
-  function updateCalcChip() {
-    const el = $('calcChip');
-    if (!el) return;
-    // the Cauchy style's note names the curve it integrates over: follow the selection
-    if (lColor() && S.dc === 'cauchy') {
-      const cp = cauchyPlot(), nm = cp ? cp.name : '';
-      if (nm !== calcChipState.cauchy) { calcChipState.cauchy = nm; buildRightFoot(); updateFocusUI(); }
-    }
-    // the targets' readings, in every view, while there are targets; not over the merged deformation, whose plane is
-    // Y's at time t, not X (merged-views review: the z-plane roots were listed as "in view" over a w-plane picture)
-    const want = hasTargets() && solo() !== 'L' && !(S.view.main === 'xy' && morphOn());
-    let html = '';
-    if (want) {
-      const pts = S.targets.filter((s) => s.visible !== false && s.kind === 'point');
-      const rows = [];
-      if (pts.length && !hasCalc('zerosPoles')) rows.push($t('<div class="cn">Root finding is not available in this build.</div>'));
-      else if (pts.length && roots.sig !== rootsSig()) rows.push($t('<div class="ch">Solving {x} = <i>p</i> in view…</div>', { x: fxHtml() }));
-      else if (pts.length) {
-        let iz = 0, shown = 0;
-        // with the left plane on the sphere the solve still runs over the flat view's window
-        const where = !lFlat() ? $t('in the flat view') : $t('in view');
-        const deg = focusDegree();
-        roots.list.forEach((e, j) => {
-          const s = S.targets.find((t) => t.id === e.s.id) || e.s, sols = e.sols;
-          if (j) rows.push('<hr>');
-          const zs = sols.filter((r) => r.kind !== 'pole'), ps = sols.filter((r) => r.kind === 'pole');
-          const nz = zs.reduce((a, r) => a + (r.mult || 1), 0);
-          // a capped or unfinished search gives a lower bound, never an exact count
-          const partial = !!(sols.truncated || sols.incomplete);
-          const val = s.p[0] === 0 && s.p[1] === 0 ? '0' : `<span class="cv">${cxShort(C(s.p[0], s.p[1]))}</span>`;
-          // (a search cut short that found nothing gives no count at all)
-          if (sols.incomplete && !nz) rows.push($t('<div class="ch">No roots of {x} = {val} found {where}</div>', { x: fxHtml(), val, where }));
-          else {
-            const pr = { fxHtml: fxHtml(), val, where, choice: sols.truncated ? $tn(' (first {n})', ' (first {n})', sols.length) : '' };
-            rows.push(partial ? $tn('<div class="ch">at least {n} root of {fxHtml} = {val} {where}{choice}</div>', '<div class="ch">at least {n} roots of {fxHtml} = {val} {where}{choice}</div>', nz, pr) : $tn('<div class="ch">{n} root of {fxHtml} = {val} {where}{choice}</div>', '<div class="ch">{n} roots of {fxHtml} = {val} {where}{choice}</div>', nz, pr));
-          }
-          const ink = rootInk(s);
-          for (const r of zs) {
-            iz++;
-            if (shown++ >= 6) continue;
-            rows.push(`<div class="cl"><span><span class="sw" style="background:${ink}"></span>${rootName(iz)}${r.mult > 1 ? ` <span class="cm">×${r.mult}</span>` : ''}</span><span class="cv">${cxShort(r.z, rootScale())}</span></div>`);
-          }
-          // poles like zeros: one row each, with the order and the place
-          for (const r of ps) {
-            if (shown++ >= 6) continue;
-            rows.push($t('<div class="cl"><span><span class="sw pole" style="color:{poleColor}"></span>pole{choice}</span><span class="cv">{z}</span></div>', { poleColor: TH.pole, choice: r.mult > 1 ? ` <span class="cm">×${r.mult}</span>` : '', z: cxShort(r.z, rootScale()) }));
-          }
-          if (sols.incomplete) rows.push($t('<div class="cn">The search stopped early; there may be more.</div>'));
-          // a rational F of degree d takes every value d times on the sphere (a polynomial, d times in ℂ)
-          else if (!partial && deg && nz < deg.d) rows.push($t('<div class="cn">{choice}{d} more outside {choice2}.</div>', { choice: deg.poly ? '' : $t('Up to '), d: deg.d - nz, choice2: !lFlat() ? $t('the flat view') : $t('the view (zoom out to see them)') }));
-        });
-        if (shown > 6) rows.push($tn('<div class="cm">and {n} more</div>', '<div class="cm">and {n} more</div>', shown - 6));
-        if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
-      }
-      // (v16.5 UX20, V01: what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
-      // chip, never a row over the plane: targetNote)
-      // over the w-globe the chip keeps to its headings, so the scene stays visible
-      const compact = rGlobe();
-      html = (compact ? rows.filter((r) => r.startsWith('<div class="ch">') || r.includes('cn err')) : rows).join('');
-    }
-    if (html !== calcChipState.html) { calcChipState.html = html; el.innerHTML = html; }
-    const show = want && !!html;
-    if (el.hidden === show) el.hidden = !show;
-    targetNote(want);
-  }
-  // (v16.5 UX20, V01) the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
-  // in X"); on a phone in Y's title chip ("Shaded in X (the inset)", idleRight), and the inset pulses once when a
-  // preimage first appears in it
-  function targetText(o) {
-    const vis = S.targets.filter((s) => s.visible !== false && s.kind !== 'point');
-    if (!vis.length) return '';
-    const na = vis.filter((s) => kindType(s) === 'area').length, nc = vis.length - na;
-    const ph = document.documentElement.classList.contains('ph'), inset = ph && $('paneL') && $('paneL').classList.contains('ph-inset');
-    if (o && o.phone) return na && nc ? (inset ? $t('Shaded and drawn in X (the inset)') : $t('Shaded and drawn in X')) : nc ? (inset ? $t('Drawn in X (the inset)') : $t('Drawn in X')) : inset ? $t('Shaded in X (the inset)') : $t('Shaded in X');
-    // (a desktop's head note is short, so it keeps its place beside the title: what is shaded or drawn is its tooltip)
-    return $t('Preimage in X');
-  }
-  // ([v16.5 fix regress-7] it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
-  // it returns at once while that is unchanged)
-  let targetNoteKey = '';
-  function targetNote(want) {
-    const ph = document.documentElement.classList.contains('ph');
-    let nv = 0, na = 0;
-    if (want) for (const s of S.targets) if (s.visible !== false && s.kind !== 'point') { nv++; if (kindType(s) === 'area') na++; }
-    const key = `${want ? 1 : 0}|${ph ? 1 : 0}|${nv}|${na}|${I18N.lang}|${S.focus}|${chainSig[nSteps()]}|${!!$('rightNote')}`;
-    if (key === targetNoteKey) return;
-    targetNoteKey = key;
-    const head = document.querySelector('#paneR .pane-head');
-    let el = $('rightNote');
-    const txt = want && !ph ? targetText() : '';
-    if (!el && txt && head) { el = h('span', { class: 'head-note', id: 'rightNote', role: 'status' }); const g = head.querySelector(':scope > .grow'); head.insertBefore(el, g ? g.nextSibling : null); }
-    if (el) {
-      // (areas are shaded, curves drawn: the tip says only what the targets are)
-      const tip = !txt ? '' : !na ? $t('The curves that {x} maps onto the targets of Y are drawn in X.', { x: fnText() })
-        : na === nv ? $t('Where {x} lands in the targets of Y is shaded in X.', { x: fnText() })
-        : $t('Where {x} lands in the targets of Y is shaded in X; the curves it maps onto them are drawn there.', { x: fnText() });
-      let fit = false;
-      if (el.textContent !== txt || el.dataset.tip !== tip) { el.textContent = txt; el.dataset.tip = tip; fit = true; }
-      if (el.hidden === !!txt) { el.hidden = !txt; fit = true; }
-      if (fit) fitTitle('R');
-    }
-    // (a phone: the inset X pulses once when a preimage first appears in it)
-    const n = want ? S.targets.filter((s) => s.visible !== false && s.kind !== 'point').length : 0;
-    const was = calcChipState.nOthers || 0;
-    calcChipState.nOthers = n;
-    if (n > was && ph) {
-      const pl = $('paneL');
-      if (pl && pl.classList.contains('ph-inset')) { pl.classList.remove('ph-pulse'); void pl.offsetWidth; pl.classList.add('ph-pulse'); setTimeout(() => pl.classList.remove('ph-pulse'), 1000); }
-    }
-  }
   // what the integrals (src/integrals.js) need from the app: its functions and constants, and the state they
   // reassign as getters (and setters for the state they write)
   function integralsApi() {
     return {
-      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
-      integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
-      rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
-      sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,
+      C, ICONS, SND, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+      integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, nSteps, openMenu, project,
+      requestRender, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
+      sndStopPlay, stageF, sub, toast, touchUI, tourEmit, zerosPolesTimed,
       get S() { return S; },
       get TH() { return TH; },
       get chainSig() { return chainSig; },
