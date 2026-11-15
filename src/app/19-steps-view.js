@@ -248,9 +248,10 @@
     const ls = SV.lastSplit, lu = SV.lastUnsplit;
     SV.lastSplit = null; SV.lastUnsplit = null;
     // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did; and the redo of
-    // that split, as the split itself)
-    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.lastUnsplit = ls; SV.own = true; return; }
-    if (lu && svGliding() && lu.sig === svStepsSig()) { SV.split = { k: lu.k, n: lu.n, j: lu.j, x: SV.g.x, rest: false, moving: true }; SV.lastSplit = lu; SV.own = true; return; }
+    // that split, as the split itself. Each is told by the chain it restores, the one before the Split or the one it made)
+    SV.restored = 'load';   // (how the last undo or redo was taken: 'unsplit', 'resplit' or 'load', for the test hook)
+    if (ls && svGliding() && ls.pre === svStepsSig()) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.lastUnsplit = ls; SV.own = true; SV.restored = 'unsplit'; return; }
+    if (lu && svGliding() && lu.sig === svStepsSig()) { SV.split = { k: lu.k, n: lu.n, j: lu.j, x: SV.g.x, rest: false, moving: true }; SV.lastSplit = lu; SV.own = true; SV.restored = 'resplit'; return; }
     if (svLoad()) { SV.sig = null; setTimeout(svApply, 0); }
   }
   function svApply() {
@@ -523,7 +524,7 @@
   // the map spec of a svBetween result g from the plane s, for a carried draw (s <= g.a): All at once, its span's steps
   // (at the span's step times) at g.u; else the step into g.b at g.u
   function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, stepT: g.stepT } : { mode: 1, base: s, hi: g.b, t: g.u }; }
-  // the chain's steps as a string, to tell a restored chain from another of the same length
+  // the chain's steps as a string, to tell a restored chain from another of the same length (svRestored)
   function svStepsSig() { return JSON.stringify(S.steps.map((st) => [st.type, st.params, st.on !== false])); }
   // a span's step times (stepT: [a, b] by step, or none) in a cache key (map and filter skip the sparse array's holes, the
   // steps with no time of their own)
@@ -531,7 +532,7 @@
   // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
   // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0]). The rule
   // composes, clamp(n clamp(a t - b, 0, 1) - i, 0, 1) = clamp(a n t - (b n + i), 0, 1), so it holds for a step with a time
-  // of its own as for any other (the steps a Split makes are catalog steps, which offer no Split of their own)
+  // of its own as for any other (the steps a Split makes refuse a Split, R1)
   function svStepTSplit(stepT, k, n) {
     const o = [], f = (stepT && stepT[k]) || [1, 0];
     if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
@@ -3534,7 +3535,7 @@
   function svSplitEdit(k, n) {
     const j = svPlanesOf(S.steps).indexOf(k) - 1;
     SV.split = { k, n, j, x: SV.g.x, rest: !svGliding(), moving: svGliding() };
-    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n }; SV.lastUnsplit = null;
+    SV.lastSplit = { k, n, j, pre: svStepsSig() }; SV.lastUnsplit = null;   // (pre: the chain before the Split, which only its Undo restores)
     SV.own = true;   // (an edit of the chain, not another chain loaded: svChainChanged keeps the planes it shows)
   }
   function svSplitApply(sp) {
