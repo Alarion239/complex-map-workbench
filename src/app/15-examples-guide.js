@@ -939,9 +939,9 @@
     // the tool row, which the planes and the sheet give up)
     if (phone) {
       if (document.documentElement.classList.contains('ph-sheet-on')) {
-        clear();   // (a sheet ends above the message's own row)
-        // (the More sheet in portrait is not lifted: the message sits at its bottom edge over its list, and the list's inset takes the message's height)
-        if (host.firstElementChild && !document.documentElement.classList.contains('ph-land') && document.querySelector('.ph-sheet[data-k="more"].open')) toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        clear();
+        // (a sheet ends above the message's own row, whatever its height, and the portrait More sheet's list takes the height as its bottom inset)
+        toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
         return;
       }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));

@@ -481,14 +481,13 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
 :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: bottom 150ms var(--ease-out); }
 @media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: none; } }
-/* A sheet gives up the message's row as the planes do: it ends above the message, so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */
-:root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + 56px); padding-bottom: 0; }
-/* the More sheet hangs from its bottom edge, up to a cap, and has no top of its own: with its bottom lifted it would slide up off the screen
-   (its top would be −64, header and close button gone); its cap gives the same room up, so it shrinks from the bottom like the others (portrait: in landscape
-   it is a side panel with a top of its own) */
-:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { max-height: calc(100dvh - 48px - var(--ph-row) - var(--ph-safe-b) - 56px); }
-/* the More sheet in portrait keeps its height with a message: the message sits at the sheet's bottom edge, over its list, and the list's
-   bottom inset is the message's height and a gap, so that every control scrolls clear of it; no control moves when it shows */
+/* A sheet gives up the message's row as the planes do: it ends above the message (placeToasts sets --ph-toast-h to the message's height, a
+   second row of buttons making it 76 to 94 px instead of 56), so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */
+:root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + var(--ph-toast-h, 56px)); padding-bottom: 0; }
+/* the More sheet in portrait hangs from its bottom edge, up to a cap, and has no top of its own: lifted it would slide up off the screen
+   (its top would be negative, header and close button gone). It keeps its height with a message instead: the message sits at the sheet's bottom edge,
+   over its list, and the list's bottom inset is the message's height and a gap, so that every control scrolls clear of it; no control moves when it shows
+   (in landscape it is a side panel with a top of its own, and is lifted like the others) */
 :root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { bottom: 0; padding-bottom: var(--ph-safe-b); max-height: calc(100dvh - 48px); }
 :root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] > .ph-sb { padding-bottom: calc(var(--ph-toast-h, 56px) + 8px); }
 :root.ph:not(.ph-land):has(.ph-sheet[data-k="more"].open) #toastHost { bottom: var(--ph-safe-b); }
@@ -527,7 +526,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast[data-rows="two"] { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
 :root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; }
 :root.ph #toastHost .toast[data-rows="two"] > .toast-act { height: 44px; min-width: 44px; }
-:root.ph #toastHost .toast[data-rows="two"] > span + .toast-act { margin-left: auto; }
+:root.ph #toastHost .toast[data-rows="two"] > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 /* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
    a vertical drag on it is its own (a swipe down dismisses it) */
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
@@ -535,7 +534,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
 /* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right) */
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
-:root.ph #toastHost[data-placed="phone-plot"] .toast > span + .toast-act { margin-left: auto; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 
 .ph-ctx.under { visibility: hidden; }
 

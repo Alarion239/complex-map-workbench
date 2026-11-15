@@ -4,6 +4,8 @@
 // its bottom edge over its list, never over its head or search field, no control moves when it shows, the list's inset lets every control
 // scroll clear of it and goes back with the message. The message's words are never cut: they take two rows (words full width, at most two
 // lines, the buttons together at the right, 44 px tall) when they do not fit beside the buttons (ru and it at 360 px), one row otherwise (en).
+// A message of two rows over the Display and Chain sheets (360 × 640) and the More side panel (740 × 360) has the sheet end above it, whatever its height; a message
+// whose only button is the close × keeps it at the right over those sheets and without one.
 // In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -25,9 +27,9 @@ const madeWay = (k) => settled({ max: 3000, panes: false, until: `(() => { const
 const flushOnSheet = (k) => settled({ max: 3000, panes: false, until: `(() => { const sh = document.querySelector('.ph-sheet[data-k="${k}"]'), t = document.querySelector('#toastHost .toast'); return !sh || !t || Math.abs(t.getBoundingClientRect().bottom - sh.getBoundingClientRect().bottom) <= ${FLUSH_TOL}; })()` });
 // ---- the More sheet (eyes on #575): it hangs from its bottom edge up to a cap, with no top of its own; with its bottom lifted for the message it
 // has to shrink, not slide up off the screen (its header, ✕ and search field gone), and no control of it is under the message
-const measureMore = () => ev(`(() => {
+const measureMore = (k = 'more') => ev(`(() => {
   const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
-  const sheet = document.querySelector('.ph-sheet[data-k="more"]'); if (!sheet) return null;
+  const sheet = document.querySelector('.ph-sheet[data-k="${k}"]'); if (!sheet) return null;
   const sb = sheet.getBoundingClientRect(), tb = t.getBoundingClientRect(), head = sheet.querySelector('.ph-sh'), hb = head && head.getBoundingClientRect();
   const vis = (e) => e.getClientRects().length > 0 && getComputedStyle(e).visibility !== 'hidden';
   const inter = (a, b) => Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 && Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1;
@@ -41,13 +43,13 @@ const measureMore = () => ev(`(() => {
   return { sheet: [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), head: hb && [hb.top, hb.bottom].map(Math.round), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), under, open: sheet.classList.contains('open'), cut, lines,
     win: tb.left >= -0.5 && tb.right <= innerWidth + 0.5 && tb.top >= -0.5 && tb.bottom <= innerHeight + 0.5, btns,
     headHit: !!hb && inter(tb, hb), fieldHit: [...sheet.querySelectorAll('input')].some((e) => vis(e) && inter(tb, e.getBoundingClientRect())),
-    rows: t.dataset.rows, btnH: [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().height)),
+    rows: t.dataset.rows, x: (() => { const b = t.querySelector('.toast-x'), r = b && b.getBoundingClientRect(); return r && [r.left, r.right].map(Math.round); })(), btnH: [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().height)),
     btnIn: [...t.querySelectorAll('button')].every((b) => { const r = b.getBoundingClientRect(); return r.left >= tb.left - 0.5 && r.right <= tb.right + 0.5 && r.top >= tb.top - 0.5 && r.bottom <= tb.bottom + 0.5; }) };
 })()`);
 // the toast's words wrap at a phone's width rather than being cut (#1329, ux's ruling): the text span may overflow by at most one
 // pixel, and its text is at most two lines (lines = its text's line boxes, 18 px apart); English, which fits on one line at 360 px,
 // keeps the one-line control
-const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, TOAST_GAP = 12, BTN_GAP_MAX = TOAST_GAP + 1, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
+const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, TOAST_GAP = 12, BTN_GAP_MAX = TOAST_GAP + 1, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, TOAST_ONE_ROW_H = 56, X_EDGE_MAX = 12, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   await fresh(w, h, lang);
@@ -86,5 +88,39 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   // (portrait took this check above, before its list was scrolled to the end)
   if (w > h) ok(`${tag}: the sheet's controls do not move when the message shows`, JSON.stringify(ysBefore) === JSON.stringify(await ysNow()), { before: ysBefore, now: await ysNow() });
   if (w === PHONE_360[0] && h === PHONE_360[1] && lang === 'en') ok(`${tag}: the message stays one line (control)`, m.lines === 1, { lines: m.lines });
+}
+// ---- a message of two rows over the other sheets (#1329, ux's measure): the sheets end above the message whatever its height (a row of buttons
+// makes it 76 to 94 px, not 56), so no control of the Display or Chain sheet, nor of the More sheet's side panel, is under it
+// (ru and it need two rows at 360 px; the Display sheet's second row of tiles and the chain list's last card were covered)
+for (const lang of ['ru', 'it']) for (const [k, w, h] of [['display', 360, 640], ['chain', 360, 640], ['more', 740, 360]]) {
+  const tag = `${lang} ${w}×${h} ${k} sheet, a message of two rows`;
+  await fresh(w, h, lang);
+  await ev(`Phone.open('${k}'); 1`);
+  await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="${k}"].open')` });
+  let m = null;
+  for (let i = 0; i < 3 && !m; i++) { await ev(`__cmwAddStep('exp')`); if (await shown()) { await madeWay(k); m = await measureMore(k); } }
+  info[tag] = m;
+  ok(`${tag}: the sheet is open and a message shows`, !!m && m.open, m);
+  if (!m) continue;
+  if (w === PHONE_360[0]) ok(`${tag}: the message takes two rows (control: it is taller than 56 px)`, m.rows === 'two' && m.toast[3] - m.toast[1] > TOAST_ONE_ROW_H, { rows: m.rows, toast: m.toast });
+  ok(`${tag}: the sheet ends above the message`, m.sheet[3] <= m.toast[1] + 1, { sheet: m.sheet, toast: m.toast });
+  ok(`${tag}: no control of the sheet is under the message`, m.under.length === 0, { under: m.under });
+  ok(`${tag}: its buttons can be pressed`, m.btns.length >= 1 && m.btns.every((b) => b.hit), m.btns);
+}
+// ---- a message whose only button is the close ×, over two rows (ux): the × stays at the right, on the row under the words
+const LONG_MSG = 'A long message with no button of its own that cannot fit on one line beside the close button at this width';
+for (const [k, tag] of [[null, 'no sheet'], ['display', 'the Display sheet'], ['chain', 'the Chain sheet']]) {
+  const t = `en 360×640 ${tag}: a message of two rows with only the close ×`;
+  await fresh(360, 640, 'en');
+  if (k) { await ev(`Phone.open('${k}'); 1`); await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="${k}"].open')` }); }
+  await ev(`__cmwToast(${JSON.stringify(LONG_MSG)}, null, { sticky: true }), 1`);
+  await shown();
+  await settled({ max: 3000, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]')` });
+  const m = await measureMore(k || 'more');
+  const mm = m || await ev(`(() => { const t = document.querySelector('#toastHost .toast'), b = t && t.querySelector('.toast-x'), tb = t && t.getBoundingClientRect(), r = b && b.getBoundingClientRect(); return t ? { rows: t.dataset.rows, toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round), x: r && [r.left, r.right].map(Math.round) } : null; })()`);
+  info[t] = mm;
+  ok(`${t}: it shows with its close button`, !!mm && !!mm.x, mm);
+  if (!mm || !mm.x) continue;
+  ok(`${t}: the close button is at the right (its right edge at most ${X_EDGE_MAX} px from the message's)`, mm.toast[2] - mm.x[1] <= X_EDGE_MAX, { toast: mm.toast, x: mm.x });
 }
 return { pass: fails.length === 0, fails, info };
