@@ -34,7 +34,7 @@
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
-  SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1}, indices into svPlanes(); null: plane by plane
+  SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -245,10 +245,12 @@
   function svRestored() {
     if (!SV.on || !SV.ready) return;
     if (SV.alone) { SV.alone = 0; SV.back = null; }   // (#437: an undo leaves a step shown alone)
-    const ls = SV.lastSplit;
-    SV.lastSplit = null;
-    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did)
-    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.own = true; return; }
+    const ls = SV.lastSplit, lu = SV.lastUnsplit;
+    SV.lastSplit = null; SV.lastUnsplit = null;
+    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did; and the redo of
+    // that split, as the split itself)
+    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.lastUnsplit = ls; SV.own = true; return; }
+    if (lu && svGliding() && lu.sig === svStepsSig()) { SV.split = { k: lu.k, n: lu.n, j: lu.j, x: SV.g.x, rest: false, moving: true }; SV.lastSplit = lu; SV.own = true; return; }
     if (svLoad()) { SV.sig = null; setTimeout(svApply, 0); }
   }
   function svApply() {
@@ -502,12 +504,12 @@
   function svBetween(x = SV.g.x, span = SV.span) {
     const P = svPlanes();
     if (span && span.x1 < P.length && x > span.x0 + SV_REST_U && x < span.x1 - SV_REST_U && svAllOk(span.x0, span.x1)) {
-      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), grp = span.grp || null, map = { mode: 3, a, b, t: u, grp };
+      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), stepT = span.stepT || null, map = { mode: 3, a, b, t: u, stepT };
       // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed, each at its own time:
-      // span.grp, the steps a Split during this glide made of one formula, run as that formula's homotopy runs them)
-      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, HR.groupT(grp, k, u)));
+      // span.stepT, the times of the steps Splits during this glide made of a formula, run as that formula's homotopy runs them)
+      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, HR.stepTime(stepT, k, u)));
       const H = (z) => { let w = z; for (const f of homs) w = f(w); return w; };
-      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, grp, x0: span.x0, x1: span.x1 };
+      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, stepT, x0: span.x0, x1: span.x1 };
     }
     const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
@@ -519,10 +521,35 @@
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
   }
   // the map spec of a svBetween result g from the plane s, for a carried draw (s <= g.a): All at once, its span's steps
-  // (with the span's group) at g.u; else the step into g.b at g.u
-  function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, grp: g.grp } : { mode: 1, base: s, hi: g.b, t: g.u }; }
-  // a span's group ({ from, n }, or none) in a cache key
-  function svGrpKey(grp) { return grp ? `${grp.from}:${grp.n}` : ''; }
+  // (at the span's step times) at g.u; else the step into g.b at g.u
+  function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, stepT: g.stepT } : { mode: 1, base: s, hi: g.b, t: g.u }; }
+  // the chain's steps as a string, to tell a restored chain from another of the same length
+  function svStepsSig() { return JSON.stringify(S.steps.map((st) => [st.type, st.params, st.on !== false])); }
+  // a span's step times (stepT: [a, b] by step, or none) in a cache key (map and filter skip the sparse array's holes, the
+  // steps with no time of their own)
+  function svStepTKey(stepT) { return stepT ? stepT.map((m, k) => `${k}:${m[0]}:${m[1]}`).filter(Boolean).join(',') : ''; }
+  // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
+  // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0]). The rule
+  // composes, clamp(n clamp(a t - b, 0, 1) - i, 0, 1) = clamp(a n t - (b n + i), 0, 1), so it holds for a step with a time
+  // of its own as for any other (the steps a Split makes are catalog steps, which offer no Split of their own)
+  function svStepTSplit(stepT, k, n) {
+    const o = [], f = (stepT && stepT[k]) || [1, 0];
+    if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
+    for (let i = 0; i < n; i++) o[k + i] = [f[0] * n, f[1] * n + i];
+    return o;
+  }
+  // the span's step times after the n steps k..k+n-1 are the formula again (an undo of their Split): a step after them
+  // moves n - 1 back, and the formula takes the time they ran in, [a, b] from their [a n, b n + i]; steps that ran
+  // otherwise (a Split made before this glide) leave it the glide's own time. Null when no step has a time of its own
+  function svStepTJoin(stepT, k, n) {
+    if (!stepT) return null;
+    const o = [], f = stepT[k];
+    stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i >= k + n) o[i - n + 1] = m; });
+    let own = !!f;
+    for (let i = 0; own && i < n; i++) { const m = stepT[k + i]; own = !!m && m[0] === f[0] && m[1] === f[1] + i; }
+    if (own && !(f[0] === n && f[1] === 0)) o[k] = [f[0] / n, f[1] / n];
+    return o.some(Boolean) ? o : null;
+  }
   // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
   const SV_CUT_THIN = 4;
   // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
@@ -579,7 +606,7 @@
     return {
       Fat: (T) => svBetween(lo + T * len).F, T: Math.max(0, Math.min(hi - lo, x - lo)) / len, Tend: (hi - lo) / len, seq: !all && hi - lo > 1,
       startId: start === 0,
-      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svGrpKey(all ? SV.span.grp : null)]),
+      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svStepTKey(all ? SV.span.stepT : null)]),
       alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
     };
   }
@@ -1056,12 +1083,12 @@
   // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
   // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
   // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
-  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
-  // come from the mask's pass (svStagedMask), which the colour layer does not draw
+  // lack parts of an unbounded region's image). The pullbacks of regions of later planes keep their own opacity and band,
+  // which only the mask's pass (svStagedMask) draws, so such a frame keeps a mask made of the inverse pass alone
   function svExactGlide(b, u) {
     if (!GLR.inverseState) return false;
     const h = svHomPaths(b, u).h;
-    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
+    return !!h && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
   }
   // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
   let svHomMemo = null;
@@ -1130,10 +1157,10 @@
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
-  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, svGrpKey(g.grp), q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
+  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, svStepTKey(g.stepT), q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
   function* svRingSize(g, q, v, pw, ph) {
-    const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1, grp: g.grp } : null), w = clipWin;
+    const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1, stepT: g.stepT } : null), w = clipWin;
     const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s;
     const past = (z) => { const p = gq.F(z); return !p || !CX.isFin(p) || Math.abs(p.re - v.cx) > hw || Math.abs(p.im - v.cy) > hh; };
     const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
@@ -1740,8 +1767,11 @@
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
-    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    // (with a region of a later plane, the mask stays but is the inverse pass's too: svStagedMask draws every region)
+    const exact = svMaskOn() && !still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u);
+    const mask = svMaskOn() && !(exact && !svStagedOf());
     if (mask && svMask(pane, map, still ? a : undefined, {
+      exact,
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame)
@@ -1786,12 +1816,12 @@
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
   }
-  // Inside regions between two planes: the alpha of the regions of later planes in the open frame, by the inverse pass
-  // (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's map), at the opacity they have
-  // at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA), which writes alpha alone under the
-  // caller's write mask. Nothing when none is visible or the pass cannot draw them
-  function svStagedMask(pane) {
-    const st = svStagedOf();
+  // Inside regions between two planes: the alpha of the regions of later planes (all: and of the colour's plane) in the
+  // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
+  // map), at the opacity they have at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA),
+  // which writes alpha alone under the caller's write mask. Nothing when none is visible or the pass cannot draw them
+  function svStagedMask(pane, all) {
+    const st = svStagedOf(all);
     if (!st) return;
     // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
     // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
@@ -1816,16 +1846,16 @@
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, nearer(x):
   // whether region x is on a plane up to the nearer one}, or null when there is none or the pass cannot draw them.
   // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
-  // regions (svInvPaths)
-  function svStagedOf() {
+  // regions (svInvPaths). all: the regions of the colour's plane too (Inside regions)
+  function svStagedOf(all) {
     const g = svBetween();
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
     const h = svHomPaths(g.b, g.u).h;
     if (!h) return null;
-    const all = h.list.indexOf(SV_ALL);
-    const list = all < 0 ? h.list.filter((x) => shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
+    const whole = h.list.indexOf(SV_ALL);
+    const list = whole < 0 ? h.list.filter((x) => all || shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
     if (!list.length) return null;
-    return { g, list, paths: list.map((x) => h.paths[all < 0 ? h.list.indexOf(x) : all]), nearer: (x) => shapeStage(x) <= g.near };
+    return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), nearer: (x) => shapeStage(x) <= g.near };
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -1857,6 +1887,8 @@
     }
     if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
     let onPage = false;
+    // (o.exact: the regions of the colour's plane are not filled from their forward image: svStagedMask draws them)
+    if (o.exact) opt.skip = (x) => !shapeStage(x);
     const mp = Object.create(pane);
     mp.begin = () => {};
     try {
@@ -1864,7 +1896,7 @@
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
-          else svStagedMask(mp);
+          else svStagedMask(mp, o.exact);
           GLR.writeMask(true, false);
           o.paint();
           GLR.writeMask(true, true);
@@ -3546,7 +3578,7 @@
   function svSplitEdit(k, n) {
     const j = svPlanesOf(S.steps).indexOf(k) - 1;
     SV.split = { k, n, j, x: SV.g.x, rest: !svGliding(), moving: svGliding() };
-    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n };
+    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n }; SV.lastUnsplit = null;
     SV.own = true;   // (an edit of the chain, not another chain loaded: svChainChanged keeps the planes it shows)
   }
   function svSplitApply(sp) {
@@ -3554,33 +3586,35 @@
     SV.T = r.T; SV.alone = r.alone; SV.back = r.back;
     SV.g.max = svPlanes().length - 1;
     if (!SV.alone && sp.rest) { SV.g.set(r.x); SV.i = Math.max(0, Math.min(SV.g.max, Math.round(r.x))); }
-    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x, { from: sp.k - 1, n: sp.n });
+    if (SV.lastSplit) SV.lastSplit.sig = svStepsSig();   // (the split chain, which only that Split's Redo restores)
+    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x, (st) => svStepTSplit(st, sp.k, sp.n));
   }
   // the undo of a split under way: the unit [j, j+n) of the n new steps is the formula's [j, j+1) again
   function svUnsplitApply(sp) {
     const { j, n } = sp, pl = (x) => (j < 0 || !(x >= j) ? x : x < j + n ? j + (x - j) / n : x - n + 1);
     SV.T = SV.T < 0 || SV.T < sp.k ? SV.T : SV.T < sp.k + n ? sp.k : SV.T - n + 1;
     SV.g.max = svPlanes().length - 1;
-    svRemapMotion(pl);
+    svRemapMotion(pl, (st) => svStepTJoin(st, sp.k, n));
   }
   // a glide or a play under way after the planes changed (pl: the old place on the thread -> the new one): it goes on from the
   // same place, to the same destination, with no jump. A glide keeps its ease's progress and its time; a play keeps the time
   // it has left, so the picture's speed goes on; a reduced-motion play (a plane a tick) is remapped to its planes.
-  // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; grp
-  // ({ from, n }: the steps this Split made of one formula) is carried by the span, which runs those steps as the formula's
-  // own homotopy runs them (svBetween), so the picture is the same at the same u. It lasts to the end of this glide.
-  // The span holds one group, the last Split's; after an undo it holds none (#1587)
-  function svRemapMotion(pl, grp) {
+  // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; the
+  // span's step times (stepT, retime: the old ones -> the new) run the steps a Split made of a formula as that formula's
+  // own homotopy runs them (svBetween), so the picture is the same at the same u, through any number of Splits and their
+  // undos and redos. They last to the end of this glide
+  function svRemapMotion(pl, retime) {
     const A = SV.anim, B = SV.play, x = SV.g.x, last = svPlanes().length - 1, cl = (v) => Math.max(0, Math.min(last, v));
     SV.motionKept = true;
     const aim = SV.g.moving() ? SV.g.target : null;
-    const sp = SV.span, P = svPlanes();
+    const sp = SV.span;
     let span = null, nx = cl(pl(x));
     if (sp) {
       const x0 = cl(pl(sp.x0)), x1 = cl(pl(sp.x1));
       if (x1 > x0 && svAllOk(x0, x1)) {
         span = { x0, x1 };
-        if (grp && P[x0] <= grp.from && grp.from + grp.n <= P[x1]) span.grp = grp;
+        const stepT = retime ? retime(sp.stepT || null) : sp.stepT;
+        if (stepT) span.stepT = stepT;
         nx = x0 + (x - sp.x0) / (sp.x1 - sp.x0) * (x1 - x0);
       }
     }
