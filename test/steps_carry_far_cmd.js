@@ -1,8 +1,7 @@
 // (Set to 100 % opacity: the front point's colour alone is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's carried colour mid-glide, Everywhere, where the glide pulls points from past the camera's window into
 // the view, and the sheet key at t (the glide map's poles at t beside plane b's points, __cmwSvKey(b, t)), against the
-// exact colour pulled back pixel by pixel as steps_carry_inregion_cmd.js reads it, the reference zoomed out for points
-// past the camera.
+// exact picture (held_frames' judge), its reference zoomed out for points past the camera.
 // Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
 // - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (drawn by the inverse pass; the front
 //   point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
@@ -26,11 +25,14 @@ const goOk = async (url) => { if (!(await go(url))) throw new Error('no load eve
 const need = (r, what) => { if (r && r.__exc !== undefined) throw new Error(what + ' failed: ' + r.__exc); return r; };
 const setup = async (expr) => need(await ev(expr), expr.slice(0, 60));
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
-// the left pane's pixels (lpx), its camera and size (paneOf), the pixel compare (tally), the front point (fronts) and the Joukowski
-// path (joukPath): test/lib/carry_kit.js
-const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
-// the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
-const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// the left pane's pixels (lpx), its camera and size (paneOf), the front point (fronts) and the Joukowski path (joukPath):
+// test/lib/carry_kit.js
+const { lpx, paneOf, exampleNames, bareCount, grid, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the held thread (hold; window.__svScrubUp lets go), the kept frames (grab), their cross-fade (fade) and the exact
+// picture's judge (judge): test/lib/held_frames.js
+const { hold, grab, fade, judge, JUDGE_MIN_N } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// (the judge's Newton seeds over the wide frame's window: [columns, rows])
+const FAR_SEEDS = [16, 12];
 // plane z's camera zoomed by f about the pane's centre (a wheel turn there, whose deltaY zooms by exp(-0.0016 deltaY),
 // as 14-interaction.js's wheel handler scales a pixel-mode wheel), once the camera has settled
 async function zoom(f) {
@@ -41,58 +43,54 @@ async function zoom(f) {
   await settled({ max: 20000, until: `Math.abs(__cmwCards().main.view.s / ${s0} - ${f}) < 0.02` });
   await wait();
 }
-// The Joukowski path's candidates at t and its key's points: joukPath of the kit; left out besides the circle's outline: the
-// unit circle (H_t's seam, 0.08) and the label (1.1 around the trailing edge's mark, 77 px at this view's 70 px per unit)
-const joukFar = (outside) => joukPath(outside, (z, w) => Math.abs(Math.hypot(z[0], z[1]) - 1) < 0.08 || Math.hypot(w[0] - 1.6, w[1] - 0.1) < 1.1);
 // The Joukowski path at x = 1/2, Everywhere, pulls points from twice the camera's window into the view (the far preimage
 // of w is about 1.5 w), and its pole on the disc, z = -i tan(pi / 6), sends the disc's points beside it far out. The
 // key at t counts that pole, so the front point at w is the far one wherever it is not near the centre, and the frame
-// must show its colour: from the carried points past the whole plane's mesh. Over the inner 90 % of the pane (48 x 32
-// points), parked and held at x = 1/2: the frame at the camera, and the reference colours of the front points (plane
-// z, coloured from z) read after zooming plane z out by 0.4, where they are shown. Last on its page: plane z is left
-// zoomed out, and the zoom leaves clipWin wider
-async function farFrames(P0, J) {
-  const cand = J.candAt(0.5), pts = grid(P0, 48, 32, 0.9);
-  // (the front point at each w and 1.5 px away: a point whose front moves more than 0.06 there, 4 px at this view's
-  // 70 px per unit, is on a seam of the key's choice, left out)
-  const d = 1.5 / P0.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
-  const C5 = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
-  const F5 = await fronts(C5.map((L) => L.map((e) => e.z)), 1, J.poleAt(0.5));
-  const at5 = (k, j) => (F5[5 * k + j] < 0 ? null : C5[5 * k + j][F5[5 * k + j]]);
-  const W = [], Z = [];
-  let farN = 0;
-  pts.forEach((w, k) => {
-    const f = at5(k, 0);
-    if (!f || f.out || [1, 2, 3, 4].some((j) => { const g = at5(k, j); return !g || Math.hypot(g.z[0] - f.z[0], g.z[1] - f.z[1]) > 0.06; })) return;
-    W.push(w); Z.push(f.z);
-    if (!shown(P0, f.z)) farN++;
-  });
+// must show its colour: from the carried points past the whole plane's mesh. Parked and held at x = 1/2, the frame at
+// the camera is graded by held_frames' judge against plane z's parked frame zoomed out by 0.4 (FAR_ZOOM), where those
+// points are shown: the exact picture, with at least FAR_MIN of the pixels compared having their front point past the
+// camera's window, and none whose front point the wide frame cannot show. Control: the cross-fade of plane z's and plane
+// w1's parked frames at the camera, at 1/2, does not pass the same judge. The colour layer alone (__cmwSteps({ bare:
+// true })), as the other judged suites read it: outlines and labels are drawn over it at places that differ between the
+// frames. Last on its page: plane z is left zoomed out, and the zoom leaves clipWin wider
+const FAR_ZOOM = 0.4, FAR_MIN = 200;
+async function farFrames(P0) {
+  const pts = grid(P0, 48, 32, 0.9);
+  await setup('__cmwSteps({ bare: true }), 1');
+  await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
+  ok("Joukowski all: plane z's parked frame settles", await grab('R0'), null);
+  await steps({ scope: 'all', surf: 'plane', go: 1, now: true });
+  ok("Joukowski all: plane w1's parked frame settles", await grab('R1'), null);
   // (both frames first, then the reference: zooming out widens clipWin, the whole plane's mesh, for good)
   const frames = [];
   for (const at of [{ scope: 'all', park: 0.5 }, { scope: 'all', hold: 0.5 }]) {
+    const tag = 'M' + frames.length;
     if (at.hold != null) { await steps({ scope: 'all', surf: 'plane', go: 0, now: true }); await hold(at.hold); } else await steps(Object.assign({ surf: 'plane' }, at));
-    frames.push({ at, state: await ev('__cmwSteps()'), got: (await lpx(W)).px, ring: await ev('__cmwSvRing()') });
+    ok(`Joukowski all ${at.hold != null ? 'held' : 'parked'} 0.5: the frame settles`, await grab(tag), null);
+    frames.push({ at, tag, state: await ev('__cmwSteps()'), paper: bareCount((await lpx(pts)).px), ring: await ev('__cmwSvRing()') });
     if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
   }
   await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
-  await zoom(0.4);
-  const P1 = await paneOf(), ref = (await lpx(Z)).px;
-  for (const { at, state, got, ring } of frames) {
+  await zoom(FAR_ZOOM);
+  ok("Joukowski all: plane z's parked frame, zoomed out, settles", await grab('R0w'), null);
+  for (const { at, tag: m, state, paper, ring } of frames) {
     const tag = `Joukowski all ${at.hold != null ? 'held' : 'parked'} 0.5, the points from past the camera`;
-    let hidden = 0;
-    const { n, wrong, paper, worst } = tally(got, ref, { skip: (k) => { const h = !shown(P1, Z[k]); if (h) hidden++; return h; } });
-    info[tag] = { n, wrong, paper, worst, hidden, far: farN, ring, x: state.x, moving: state.moving };
+    const j = await judge('R0w', m, { seeds: FAR_SEEDS });
+    info[tag] = { j, paper, ring, x: state.x, moving: state.moving };
     ok(`${tag}: at x = 0.5, coloured from z`, Math.abs(state.x - 0.5) < 0.01 && state.T === 0, state);
-    // (of the 1536 points, about 1450 are kept and about 900 of them have their front point past the camera's window:
-    // at least 200 such points, so the case is about them, and at least 800 points compared in all)
-    ok(`${tag}: front points past the camera's window are checked`, farN > 200 && hidden === 0, info[tag]);
+    ok(`${tag}: front points past the camera's window are graded, and every front point is shown`, j.far >= FAR_MIN && j.none === 0, info[tag]);
     // (Joukowski's homotopy is inverted by Newton seeded from its own points over w: the inverse pass draws the frame
     // pixel by pixel, every point past the window included, so no ring of carried points is drawn; tan z's case below
     // keeps one)
     ok(`${tag}: the inverse pass draws the frame`, !!state.glide && state.glide.path === 'inverse', { glide: state.glide, ring });
-    ok(`${tag}: the front point's colour, at most 1 % wrong`, n > 800 && wrong <= 0.01 * n, info[tag]);
-    ok(`${tag}: no point on the bare paper`, paper === 0, info[tag]);
+    ok(`${tag}: the frame is the exact picture (the judge passes)`, j.pass, info[tag]);
+    ok(`${tag}: no point of the inner 90 % on the bare paper`, paper.paper === 0 && paper.n > 1000, info[tag]);
   }
+  ok('Joukowski all 0.5: the cross-fade frame exists', await fade('R0', 'R1', 0.5, 'X'), null);
+  const c = await judge('R0w', 'X', { seeds: FAR_SEEDS, as: frames[0].tag });
+  info['Joukowski all 0.5, control'] = c;
+  ok("Joukowski all 0.5: control: a cross-fade of the two planes' frames does not pass the judge", !c.pass && c.n >= JUDGE_MIN_N, c);
+  await setup('__cmwSteps({ bare: false }), 1');
 }
 // The key along t in [0.3, 0.7]: the steps view's key at t (__cmwSvKey(1, t)) has plane w1's point and the path's pole,
 // no other (within 2e-3: the page reads the pole between its 64 steps of t on a line, off the curve by under 1e-3
@@ -141,9 +139,10 @@ await adopted();
   // the region: outside the circle |z - c| = r (the example's disc, its centre and radius as 15-examples-guide.js gives
   // them)
   const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
-  const P0 = await paneOf(), J = joukFar(outside);
+  // (the Joukowski path's candidates at t and its key's points: joukPath of the kit; the key along t reads every candidate)
+  const P0 = await paneOf(), J = joukPath(outside, () => false);
   await keyAlongT(P0, J);
-  await farFrames(P0, J);
+  await farFrames(P0);
 }
 
 // ---- a family of poles: w = tan z, Everywhere, parked halfway (its path's poles sweep in from far out) ----
