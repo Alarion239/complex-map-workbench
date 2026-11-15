@@ -5,7 +5,7 @@
 // One camera shows every plane (S.srcView): the scenes' views of the image are their srcView.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
-//  (k) the crack test: exact images off, each scene's region drawn from its SphereMesh; every interior pixel (the
+//  (k) the crack test: each scene's region forced forward (__cmwForceForward), drawn from its SphereMesh; every interior pixel (the
 //      analytic truth, 4 px from the rims) is covered (fill = more than 24 (summed over the channels) from the plane's
 //      own picture with no fill: its paper, its grid lines and axes, and their anti-aliased blends with the paper)
 //  12.3 the trouble classification (__cmwSmVerdict) is the same at 1x, 4x and 1/4x zoom for every quality scene

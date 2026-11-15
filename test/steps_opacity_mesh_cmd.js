@@ -6,7 +6,7 @@
 //   ones before it (the opaque path leaves nothing behind);
 // - below 100 % the layers show through: a point covered twice differs at 85 % and at 50 % from 100 %, and 85 % from
 //   50 %, with layered frames drawn;
-// - the meshes' colour at 85 % and 50 % is the exact pass's (the same page with the exact images on), at both points;
+// - the meshes' colour at 85 % and 50 % is the exact pass's (the same page with no shape forced forward), at both points;
 // - a point covered once is the same at every opacity, within 2/255 (the layers' programs shade it as the front layer's do).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];

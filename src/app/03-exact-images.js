@@ -385,15 +385,15 @@
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map(), invHomNewt = new Map();
+  // How many (a, k, chain) entries the map below keeps: it holds the t-free parts of the entries a session has glided between. A glide
+  // asks for its own (a, k) with the current chain, so a few pairs are in use, and eight leaves room for the pairs of a chain scrubbed
+  // back and forth; at the cap the whole map is cleared, which is safe because the next glide builds its part once
+  const INV_HOM_SKELS_MAX = 8;
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
   // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
   // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
   // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
   // planChain sets the same step, node and j on them (they have the same a and k)
-  // (the map keeps the t-free parts of the (a, k, chain) entries a session has glided between: a glide asks for its own (a, k) with the
-  // current chain, so a few pairs are in use, and INV_HOM_SKELS_MAX leaves room for the pairs of a chain scrubbed back and forth; at the
-  // cap the whole map is cleared, which is safe because the next glide builds its part once)
-  const INV_HOM_SKELS_MAX = 8;
   const invHomSkels = new Map();
   function invHomOnce(b) {
     if (!b || b.error || !b.def) return b;

@@ -1575,8 +1575,8 @@ async function pointerProbeXUnit() {
   putPointer(pre, reps);
 }
 // SwiftShader (CPU WebGL2, the renderer of machines without a usable GPU): pan-frame p50 of the image (the last plane,
-// Inside regions) for the quality suite's bounded golden scenes with exact images on (default) and off (every shape forced forward with
-// __cmwForceForward, the forward path). SPEC 4.7 gate: the ratio on / off <= 3 with the cost guard active. Before P2 both draws are forward
+// Inside regions) for the quality suite's bounded golden scenes drawn by the exact pass (default, the 'on' leg) and with every shape forced
+// forward (__cmwForceForward, the forward path, the 'off' leg). SPEC 4.7 gate: the ratio on / off <= 3 with the cost guard active. Before P2 both draws are forward
 // (ratio about 1; inv_draws_on 0). Runs in its own headless Chrome (--use-angle=swiftshader).
 const SS_SCENES = ['disc_cube', 'joukowski', 'annulus_log', 'poly_mobius'];
 const SS_RATIO_LIMIT = 3;
@@ -1718,7 +1718,7 @@ async function swiftshaderUnit() {
         putPooled(`${id}.frame_p95_ms`, 'frame_ms', 'ms', rr, 'frame', 0.95, 'frame_p95');
         put(`${id}.fps`, 'throughput', 'frames/s', rr.map((x) => x.fps));
         res[mode] = { p50: pooled(rr, 'frame', 0.5), inv: (await invDraws()) - d0, frames: rr.reduce((n, x) => n + (x.frames || 0), 0) };
-        // exact images on: when the app says the shape is inverse (the cost guard may demote it: then it says
+        // the exact pass (the 'on' leg): when the app says the shape is inverse (the cost guard may demote it: then it says
         // forward), the pan must have drawn with the inverse program, or the ratio compared forward with forward
         if (mode === 'on') await inverseDrawnCheck(`${pre}.${scene}.inverse_drawn_on`, res.on.inv);
       }
@@ -1806,7 +1806,7 @@ unit('phone.open', `phone profile (${PHONE.width}x${PHONE.height} @${PHONE.dpr}x
 unit('phone.pan', 'phone profile: one-finger pans of the plane shown', phonePanUnit);
 unit('phone.landscape', 'phone profile: Landscape, one-finger orbits', phoneLandUnit);
 unit('phone.examples', `phone profile: load examples ${PHONE_EXAMPLES.join(', ')}: first frame, settle`, phoneExamplesUnit);
-unit('swiftshader.ratio', `(opt-in: --swiftshader) SwiftShader (own browser): pan of the image of ${SS_SCENES.join(', ')} with exact images on / off`, swiftshaderUnit, { optIn: true });
+unit('swiftshader.ratio', `(opt-in: --swiftshader) SwiftShader (own browser): pan of the image of ${SS_SCENES.join(', ')} drawn by the exact pass (on) and with every shape forced forward (off)`, swiftshaderUnit, { optIn: true });
 
 // ---------------- meta ----------------
 function sha(file) { try { return crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex').slice(0, 16); } catch (e) { return null; } }
