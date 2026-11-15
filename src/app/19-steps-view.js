@@ -301,8 +301,10 @@
   // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
   // sound relayout and no spoken label, and while it lasts the page is not written (svApply and svSync wait on SV.offscreen:
   // the strip, the slider and the pane's name keep saying where the view is). A Play or a glide under way is held for the visit
-  // and goes on afterwards from where it was, its clock moved on by the visit's time, so a figure or a video drawn off-screen
-  // leaves the page as it found it. -> draw()'s result
+  // and goes on afterwards: a glide from where it was, its clock moved on by the visit's time; a slide (Play under reduced
+  // motion) on the plane it was on, its next step a full svSlideMs() after the visit. So a figure or a video drawn off-screen
+  // leaves the page as it found it. (They are drawn under a modal dialog, so no Play or glide starts during draw(): what is
+  // put back is what was held.) -> draw()'s result
   async function svAtPlane(i, draw) {
     const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left), play: SV.play, anim: SV.anim };
     SV.offscreen++;
