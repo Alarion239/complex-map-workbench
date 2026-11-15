@@ -11,9 +11,10 @@ const BASE = `http://localhost:${PORT}`;
 const DEAD_KEYS = ['hcap', 'spin'];
 const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
 const linkOf = (s) => '1.' + b64u(zlib.deflateRawSync(Buffer.from(JSON.stringify({ v: 1, s }))));
+// the deadlines, in ms: a link's page to open, the page to be quiet after it, and a first page to start
+const OPEN_MS = 30000, QUIET_MS = 60000, START_MS = 30000;
 // A link opens in a second load (openFigure writes the state and reloads): the kit's reloaded(old, ...) waits for the document
 // that load brings, with its toast and the steps view
-const OPEN_MS = 30000;
 const READY = `(() => { const t = document.body && document.body.innerText || ''; return t.includes('Opened the figure from the link.') && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`;
 // what a link opens to: the figure the view then writes, less the keys that are not part of the comparison (the camera is
 // written fresh)
@@ -21,14 +22,14 @@ const openedFigure = async (state, tag) => {
   const old = await ev('performance.timeOrigin');
   await go(`${BASE}/test.html?ns=ldead${tag}${Date.now()}&view=steps#cmw=${linkOf(state)}`);
   await reloaded(old, READY, { limitMs: OPEN_MS });
-  await settled({ max: 60000 });
+  await settled({ max: QUIET_MS });
   const f = await ev('__cmwFigureState()');
   delete f.figCam;
   return f;
 };
 await view(1440, 900, false, false);
 await go(`${BASE}/test.html?ns=ldead${Date.now()}&view=steps`);
-await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+await settled({ max: START_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
 const fig = await ev('__cmwFigureState()');
 info.keys = Object.keys(fig).length;
 for (const k of DEAD_KEYS) ok(`the written figure holds no ${k}`, !(k in fig), fig[k]);
