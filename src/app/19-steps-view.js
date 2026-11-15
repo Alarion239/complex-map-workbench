@@ -1718,7 +1718,7 @@
       const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
       list.push({ steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${c}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
     }
-    svSheetMemo = { key, list, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    svSheetMemo = { key, list, W, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
     return list;
   }
   // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'
@@ -1771,7 +1771,8 @@
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+        // (sheets: the sheet combos drawn, svGlideSheets, and the window of an infinitely sheeted step's)
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: svSheetMemo.W };
         if (drew) return;
       }
       // (meshed: drawn by the carried meshes, which nothing is drawn under or blended over)
