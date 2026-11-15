@@ -29,43 +29,15 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // (the least share of the frame the annulus's two outlines cover, not bare)
 const OUTLINE_MIN = 0.001;
-const { lpx, paneOf, exampleNames, tally, bareCount, grid, shown, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { lpx, paneOf, exampleNames, bareCount, grid, joukPath, carryRead } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
 const { hold, grab, fade, judge, JUDGE_MIN_N, compare: compareFrames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-// the colours at the points W of the state `at` against plane z's at the points Z: {n, wrong, paper, worst, state}
-// at.hold: the thread held at x mid-glide (a scrub on the rail not let go: the gliding path, no fix-up), as a user
-// holding the thread; the frame is read once its programs are linked and two frames are alike
-async function compare(at, W, Z) {
-  await steps({ scope: 'all', surf: 'plane', go: 0, now: true });
-  const ref = (await lpx(Z)).px;
-  if (at.hold != null) { await steps({ scope: at.scope, surf: 'plane', go: 0, now: true }); await hold(at.hold); } else { await steps(Object.assign({ surf: 'plane' }, at)); }
-  const state = await ev('__cmwSteps()'), got = (await lpx(W)).px;
-  if (at.hold != null) { await ev('window.__svScrubUp(); 1'); await wait(); }
-  const fmt = (v) => v.map((q) => +q.toFixed(3));
-  const { n, wrong, paper, worst, ex } = tally(got, ref, { note: (k) => ({ w: fmt(W[k]), z: fmt(Z[k]) }) });
-  return { n, wrong, paper, worst, ex, state: { x: state.x, T: state.T, scope: state.scope } };
-}
-// one case: cand(w) -> the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out). A point w
-// is also left out where the front point jumps (a seam of the key's choice): its front differs by more than 0.06 from
-// the front 1.5 px away in any direction
+// the front point's colour against plane z's (carryRead's measure: test/lib/carry_kit.js), as one case's checks: cand(w) ->
+// the points landing at w ([{z, out}], out: near an outline, a cut or a label, left out)
+const { measure } = carryRead({ steps, wait, hold });
 async function check(tag, at, b, P, pts, cand, min, exact = false) {
-  const d = 1.5 / P.v.s, nb = [[0, 0], [d, 0], [-d, 0], [0, d], [0, -d]];
-  const C = pts.flatMap((w) => nb.map(([a, e]) => cand([w[0] + a, w[1] + e])));
-  // (mid-glide, the key of the glide's frame at t: its points are the glide map's poles at t, __cmwSvKey(b, t))
-  const xt = at.hold != null ? at.hold : at.park, t = xt != null ? xt - Math.floor(xt) : 0;
-  const F = await fronts(C.map((c) => c.map((e) => e.z)), b, t > 0 ? (await ev(`__cmwSvKey(${b}, ${t})`)).sing : null);
-  const at5 = (k, j) => { const i = 5 * k + j; return F[i] < 0 ? null : C[i][F[i]]; };
-  const W = [], Z = [];
-  let left = 0;
-  pts.forEach((w, k) => {
-    const f = at5(k, 0);
-    if (!f) return;
-    const jump = [1, 2, 3, 4].some((j) => { const g = at5(k, j); return !g || Math.hypot(g.z[0] - f.z[0], g.z[1] - f.z[1]) > 0.06; });
-    if (f.out || jump) { left++; return; }
-    if (shown(P, f.z)) { W.push(w); Z.push(f.z); }
-  });
-  const r = await compare(at, W, Z);
-  info[tag] = Object.assign(r, { leftOut: left });
+  const r = await measure(at, b, P, pts, cand);
+  info[tag] = r;
   const x = at.hold != null ? at.hold : at.park != null ? at.park : at.go;
   // (a thread held by a scrub lands where the pointer is, within a hundredth of a plane, not exactly on x)
   ok(`${tag}: at x = ${x}, coloured from z`, Math.abs(r.state.x - x) < (at.hold != null ? 0.01 : 1e-9) && r.state.T === 0, r.state);
