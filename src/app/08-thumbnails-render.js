@@ -8,6 +8,9 @@
     for (const w of which.length ? which : ['L', 'R']) if (w) { dirty[w] = true; if (w === 'L') renderAsks++; }
     if (!rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
+  // the left pane's picture changed in the frame under way: drawn in it, and counted (renderAsks) so that a held frame
+  // is not kept over it. Every direct write of dirty.L that changes what the pane shows goes through here
+  function leftChanged() { dirty.L = true; renderAsks++; }
   let lastInputT = 0, motionInT = 0;
   // motionInT: the last CONTINUOUS input (a wheel, a pointer moved with a button down, a range slider's input, a held
   // key); a hover or a single click is not motion (interacting(): a ready inverse program is not held back for it)
@@ -299,7 +302,7 @@
       tw.view.cx = v.cx; tw.view.cy = v.cy; tw.view.s = v.s;
       if (u >= 1) { tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
     }
-    dirty.L = true; dirty.R = true; renderAsks++;
+    leftChanged(); dirty.R = true;
   }
   // compute a fitted view for a pane without applying it
   function fittedView(pane, k, extraKs, F) {

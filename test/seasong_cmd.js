@@ -5,7 +5,7 @@
 //  * the circle's menu (right-click; a long press on the phone) has Listen along and no "Play the composition" (the
 //    example has no score); Listen along first prepares its samples (F is costly: X's chip says "Preparing to listen
 //    along: N %", with Stop), then plays the function itself: the notes, 344 of them, no repeats (|F| is constant on
-//    the circle), 4 cracks, at 250 px/s of X's view (4π·s/250 s);
+//    the circle), 4 cracks, at 250 px/s of X's view (the curve's length·s/250 s);
 //  * the samples are kept: a second Listen along plays at once; Esc, L and the menu's Stop listening drop a
 //    preparation; another example or the circle deleted stop it; the L key (the keyboard probe) plays it;
 //  * the guide's paragraph and its button "Open and play" (the composition's way in, sndPlayPiece) open the example
@@ -46,9 +46,16 @@ const menuItems = () => ev(`(() => { const p = document.querySelector('#popHost 
 const pickXY = (id) => ev(`(() => { const b = document.querySelector('#popHost .pop.menu.pm .mi[data-pm="${id}"]'); if (!b) return null; const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`);
 // a point of the circle on screen (index k of its stored points)
 const curveXY = (k) => ev(`(() => { const p = SEASONG.pts[${k}]; return __cmwW2S('L', p[0], p[1]); })()`);
-// X's scale (px a unit) and the playback's expected length: two laps of the unit circle at 250 px/s
+// X's scale (px a unit) and the playback's expected length: the stored curve's polyline, as it is played, at 250 px/s. The
+// stored points run two laps and 0.0184 rad more (the seam overlaps), so the curve is 0.15 % longer than two laps, 4π: that is
+// 16 ms at the classic view's 221 px a unit and 20 ms at the steps view's 275, so a length of 4π would need a margin that depends on the view
 const pxPerUnit = () => ev(`(() => { const a = __cmwW2S('L', 0, 0), b = __cmwW2S('L', 1, 0); return Math.hypot(b[0] - a[0], b[1] - a[1]); })()`);
-const durAt = (s) => Math.min(30, Math.max(1, 4 * Math.PI * s / 250));
+let curveLen = null;
+const durAt = async (s) => {
+  if (curveLen == null) curveLen = await ev(`(() => { const p = SEASONG.pts; let L = 0; for (let i = 1; i < p.length; i++) L += Math.hypot(p[i][0] - p[i - 1][0], p[i][1] - p[i - 1][1]); return L; })()`);
+  return Math.min(30, Math.max(1, curveLen * s / 250));
+};
+const DUR_TOL = 0.001;   // (s: the length is the same polyline the app walks, so only rounding is left)
 // the circle on screen: every point inside the plane; the stored points inside the style bar's box
 const inView = () => ev(`(() => {
   const cv = document.querySelector('canvas.overlay[aria-keyshortcuts], .plot > canvas.overlay'); const r = cv.getBoundingClientRect();
@@ -81,7 +88,7 @@ async function waitPlay(maxS = 40) {
   return { ms: Date.now() - t0, seen, s };
 }
 const playsFn = (s, dur) => !!s && s.play && !!s.fn && s.fn.mode === 'notes' && !!s.fn.counts && s.fn.counts.notes === COUNTS.notes
-  && s.fn.counts.reps === COUNTS.reps && s.fn.counts.cracks === COUNTS.cracks && (dur == null || Math.abs(s.fn.dur - dur) < 0.02);
+  && s.fn.counts.reps === COUNTS.reps && s.fn.counts.cracks === COUNTS.cracks && (dur == null || Math.abs(s.fn.dur - dur) < DUR_TOL);
 
 // open the app in a language, theme and size; sound on (Interface off: the menu clicks stay quiet) after a gesture
 async function open(lang, dark, phone, ns) {
@@ -146,7 +153,7 @@ for (const [w, h] of [[1366, 768], [1280, 720], [1024, 768], [768, 1024]]) {
 }
 await view(1440, 900, false, false); await settle(500);
 await ev(`__cmwExample(${EXI}); 1`); await settle(1200);
-const S0 = await pxPerUnit(), DUR0 = durAt(S0);
+const S0 = await pxPerUnit(), DUR0 = await durAt(S0);
 R.pxPerUnit = S0; R.durExpected = DUR0;
 // the circle's menu: Listen along, and no "Play the composition" (no score: the function is the music)
 await slow(true);
@@ -165,7 +172,7 @@ let wp = await waitPlay(40);
 await slow(false);
 R.prep = { ms: wp.ms, seen: wp.seen };
 ok('the preparation counts up, then the function plays', wp.seen.length >= 2 && wp.seen.every((v, i) => !i || v >= wp.seen[i - 1]) && !!wp.s.play, R.prep);
-ok(`it plays the function: ${COUNTS.notes} notes, no repeats, ${COUNTS.cracks} cracks, 4π·s/250 s`, playsFn(wp.s, DUR0), { s: wp.s, DUR0 });
+ok(`it plays the function: ${COUNTS.notes} notes, no repeats, ${COUNTS.cracks} cracks, the curve's length·s/250 s`, playsFn(wp.s, DUR0), { s: wp.s, DUR0 });
 ok('X\'s chip: Listening along Circle, with Stop', wp.s.chip === 'Listening along Circle' && wp.s.stop, wp.s.chip);
 R.framesDesk = await frames(3000);
 ok('desktop: 60 fps while it plays (p95 under 20 ms)', R.framesDesk.p95 < 20, R.framesDesk);
@@ -180,7 +187,7 @@ ok('Listen along again plays at once (the samples were kept)', playsFn(s0, DUR0)
 await key('Escape'); await settle(200);
 // a new size: new samples (250 px/s of the new view). The menu's Stop listening, then Esc, drop the preparation
 await view(1366, 768, false, false); await settle(800);
-const S1 = await pxPerUnit(), DUR1 = durAt(S1);
+const S1 = await pxPerUnit(), DUR1 = await durAt(S1);
 items = await listenMenu(false);
 s0 = await state();
 // (the samples for this view: when its scale is another, the speed and the samples' key are too, and it prepares, or
@@ -334,7 +341,8 @@ for (const [lang, dark] of [['en', false], ['en', true], ['ru', true]]) {
   if (lang === 'en' && !dark) await shot(tag + '_preparing');
   wp = await waitPlay(60);
   R['prep_' + tag] = { ms: wp.ms, seen: wp.seen.length };
-  ok(`${tag}: the long-press menu prepares and plays the function`, playsFn(wp.s, durAt(sP)), { s: wp.s, dur: durAt(sP) });
+  const durP = await durAt(sP);
+  ok(`${tag}: the long-press menu prepares and plays the function`, playsFn(wp.s, durP), { s: wp.s, dur: durP });
   R['frames_' + tag] = await frames(3000);
   ok(`${tag}: 60 fps while it plays (p95 under 20 ms)`, R['frames_' + tag].p95 < 20, R['frames_' + tag]);
   if (lang === 'en' && !dark) await shot(tag + '_playing');
