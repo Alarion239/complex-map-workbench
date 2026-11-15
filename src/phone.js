@@ -761,11 +761,13 @@ const Phone = (() => {
   // and rows no group names go to the last (the overlays)
   const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);
   function displayGroups(kids) {
+    const land = kids.some((k) => k.matches('#viewSeg'));   // (the Landscape: Reset camera follows its View choice; elsewhere it has a group of its own)
     const groups = [
       { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
       { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
-      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
+      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
+      { name: $t('View'), rows: [matches('.cam-reset')] },
       { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
       { name: $t('Overlays'), rows: [] },
     ];

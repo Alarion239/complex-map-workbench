@@ -786,7 +786,8 @@
     const desc = noPaths ? tip : '';
     if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
   }
-  const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
+  // (its name is also a text, which only the phone's Display sheet shows beside the icon)
+  const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small cam-reset', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) }, h('span', { class: 'cr-t', 'aria-hidden': 'true' }, $t('Reset camera')));
   // the Equator checkbox's tooltip (P2: formerly "Plane")
   function tipEq(f) { const l = f.querySelector('label.check:has(> input[id^="eqChk"])'); if (l) l.dataset.tip = $t('Equatorial plane and projection ray'); }
   // X's strip (panels.md 4): the paint's part (Phase on: style, n, Δ, Outlines), then the surface's part (Sphere:

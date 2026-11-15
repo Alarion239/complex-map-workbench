@@ -204,4 +204,20 @@ ok('on the Landscape surface the Height group holds the Height choice, the Scale
 ok('on the Landscape surface the Colouring choice is under Colour style', !!styleIds && styleIds.includes('landPaint'), styleIds);
 const overlays = await ev(idsIn('Overlays'));
 ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !!overlays && !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
+// (#1640) Reset camera is a camera control, not an overlay: on the Landscape it follows View in the Height group, on the Sphere it
+// has a group of its own, View; either way its name is shown beside the icon
+const camOf = () => ev(`(() => { const b = document.querySelector('.ph-sheet [aria-label="Reset camera"]'), g = b && b.closest('.ph-grp'), prev = b && b.previousElementSibling;
+  return b ? { group: g && g.querySelector('h3') && g.querySelector('h3').textContent, after: prev && prev.id, shown: b.textContent.trim(), name: b.getAttribute('aria-label'), h: Math.round(b.getBoundingClientRect().height) } : null; })()`);
+const camLand = await camOf();
+ok('on the Landscape surface Reset camera follows View in the Height group, its name shown', !!camLand && camLand.group === 'Height' && camLand.after === 'viewSeg' && camLand.shown === 'Reset camera' && camLand.h >= 44, camLand);
+await ev(`document.querySelector('.ph-sheet .ph-x').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`);
+await settled({ max: 60000 });
+await ev(`document.querySelector('.ph-dsp').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+const camSphere = await camOf();
+ok('on the Sphere Reset camera is in a group of its own, View, its name shown', !!camSphere && camSphere.group === 'View' && camSphere.shown === 'Reset camera' && camSphere.h >= 44, camSphere);
+const sphereOverlays = await ev(`(() => { const g = [...document.querySelectorAll('.ph-sheet .ph-grp')].find((e) => e.querySelector('h3') && e.querySelector('h3').textContent === 'Overlays'); return g ? !!g.querySelector('[aria-label="Reset camera"]') : false; })()`);
+ok('on the Sphere Overlays does not hold Reset camera', sphereOverlays === false, sphereOverlays);
 return { pass: fails.length === 0, fails, info };
