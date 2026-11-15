@@ -21,7 +21,7 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
-    anim: null,      // the glide to a plane: {from, to, t0, ms, pathFrom}, eased in and out over a fixed time (no spring tail); pathFrom: where its paths' run starts once a hold has moved from (svLinkHold)
+    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svLinkHold)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
@@ -35,7 +35,7 @@
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1}, indices into svPlanes(); null: plane by plane
-  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, pathFrom} a glide, or {slide, start, end, timer} one plane at a time
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
@@ -277,8 +277,10 @@
     const from = SV.g.x;
     if (Math.abs(i - from) < SV_REST_U) { SV.anim = null; SV.g.set(i); svArrive(); return; }
     // (a press while it glides starts the next glide from where the picture is: no jump; 420 ms a plane, at most 900)
+    // (the speed setting's time a plane, for at most two planes' worth when it crosses several)
+    const per = SV_SPEEDS[SV.speed] || 900;
     SV.span = svSpanOf(from, i);
-    SV.anim = { from, to: i, t0: performance.now(), ms: svGlideMs(from, i) };
+    SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
     requestRender('L');
   }
@@ -504,13 +506,11 @@
     if (S.morphPaths === false || !SV.on) return null;
     const P = svPlanes(), x = SV.g.x, n = P.length - 1;
     let lo, hi;
-    // (a motion's run starts where it started, though a hold at a later glide starts its clock again there: pathFrom)
-    const runOf = (M) => { const f = M.pathFrom ?? M.from; return [Math.floor(Math.min(f, M.to) + 1e-9), Math.ceil(Math.max(f, M.to) - 1e-9)]; };
-    if (SV.play && !SV.play.slide) [lo, hi] = runOf(SV.play);
+    if (SV.play && !SV.play.slide) { lo = Math.floor(Math.min(SV.play.from, SV.play.to) + 1e-9); hi = Math.ceil(Math.max(SV.play.from, SV.play.to) - 1e-9); }
     else if (SV.anim) {
       // (All at once, the run is the span's: a Split under way moves the animation's start to where the glide is, not the run's)
       const sp = SV.span;
-      if (sp && svAllOk(sp.x0, sp.x1)) { lo = sp.x0; hi = sp.x1; } else [lo, hi] = runOf(SV.anim);
+      if (sp && svAllOk(sp.x0, sp.x1)) { lo = sp.x0; hi = sp.x1; } else { lo = Math.floor(Math.min(SV.anim.from, SV.anim.to) + 1e-9); hi = Math.ceil(Math.max(SV.anim.from, SV.anim.to) - 1e-9); }
     }
     else { lo = Math.floor(x + 1e-9); hi = lo + 1; }
     lo = Math.max(0, lo); hi = Math.min(n, hi);
@@ -1132,23 +1132,43 @@
     return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
-  // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it is
-  // linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits on
-  // the plane it started from (a glide's or a play's clock starts again there, and a play or glide over several planes
-  // waits on the first plane of the glide it holds, not on its own first one, whose glides it has shown; a scrub's frame
-  // is that of the plane before the thread), so no frame between the planes is the carried mesh's or one drawn without
-  // its tracks, and the first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else
-  // 0. Each frame of such a wait makes the tracks for a frame's pole budget, so the wait ends within a bounded number of
-  // frames: a held play or glide asks for frame after frame, and where each takes past its deadline (a software
-  // renderer) no idle moment comes between them. Such a wait also starts the idle job (svPolesWatch), which makes plane
-  // b's tracks first (svPolesLeft)
+  // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it
+  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): a glide or a play
+  // waits where it is, at the place of its last frame drawn (its start when it has drawn none) with its clock still,
+  // judged at the place it was held for (A.held) until that place can be drawn, and then goes on from there in the time
+  // it had left; a scrub's frame is that of the plane before the thread. So no frame between the planes is the carried
+  // mesh's or one drawn without its tracks, and the first one drawn is exact. After it svHoldB is plane b when the glide
+  // waits for the tracks, else 0. Each frame of such a wait makes the tracks for a frame's pole budget, so the wait ends
+  // within a bounded number of frames: a held play or glide asks for frame after frame, and where each takes past its
+  // deadline (a software renderer) no idle moment comes between them. Such a wait also starts the idle job
+  // (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
-    const g = svBetween();
-    if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
+    const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
+    const g = svBetween(A && A.held ? A.held.x : SV.g.x);
+    if (!svHolds(g)) {
+      // (released: the frame is the one the motion waited on, and its clock goes on from there)
+      if (A && A.held) { SV.g.set(A.held.at); A.held = null; }
+      if (A) A.drawn = { at: SV.g.x, el: svElapsed(A) };
+      return null;
+    }
+    if (!A) return g.x0;
+    if (!A.held) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
+    svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
+    return A.held.at;
+  }
+  // a motion's time since its start (ms), as svFrame and svPlayFrame read it (the test clock's, or the wall clock's), and
+  // that time set
+  const svElapsed = (A) => (SV.clock ? A.el || 0 : performance.now() - A.t0);
+  function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
+  // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
+  // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0)
+  function svHolds(g) {
+    svHoldB = 0;
+    if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return false;
     const h = svHomPaths(g.b, g.u).h;
-    const st = h && svStagedOf();
+    const st = h && svStagedOf(g);
     const linking = !!h && [h, st].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
     const P = linking ? null : svTracksMissing(g.b, h);
     if (P) {
@@ -1158,20 +1178,7 @@
     }
     svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
-    if (!linking && !svHoldB) return null;
-    const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
-    if (A) {
-      // (the held glide's first plane, in the motion's direction: when the motion started before it, it starts there
-      // now, taking the time a fresh motion from there takes; its paths keep the run they started with, A.pathFrom)
-      const own = A.to >= A.from ? g.x0 : g.x0 + 1;
-      if ((own - A.from) * (A.to - A.from) > 0) {
-        A.ms = A === SV.play ? svPerPlane() * Math.abs(A.to - own) : svGlideMs(own, A.to);
-        if (A.pathFrom == null) A.pathFrom = A.from;
-        A.from = own;
-      }
-      A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from;
-    }
-    return g.x0;
+    return linking || !!svHoldB;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
   // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
@@ -1866,8 +1873,7 @@
   // whether region x is on a plane up to the nearer one}, or null when there is none or the pass cannot draw them.
   // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
   // regions (svInvPaths)
-  function svStagedOf() {
-    const g = svBetween();
+  function svStagedOf(g = svBetween()) {
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
     const h = svHomPaths(g.b, g.u).h;
     if (!h) return null;
@@ -3260,9 +3266,6 @@
   // (or z), on the Landscape too (its sheets glide, svLandMoving). Reduced motion steps a plane at a time instead (2 s,
   // with the live region saying each plane).
   const svPerPlane = () => SV_SPEEDS[SV.speed] || 900;
-  // a glide's time (ms) from place `from` to `to`: the speed setting's time a plane, for at most two planes' worth when it
-  // crosses several
-  const svGlideMs = (from, to) => svPerPlane() * Math.min(2, Math.max(0.35, Math.abs(to - from)));
   // the range a…b (S.homRange: steps a…b are the band from w_{a−1} to w_b) as planes {lo, hi}, or null; the plane at or
   // before a stage
   const svIdxAt = (s) => { let r = 0; svPlanes().forEach((k, i) => { if (k <= s) r = i; }); return r; };
@@ -3444,7 +3447,7 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.pathFrom = null; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
@@ -3455,7 +3458,9 @@
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from); A.drawn = null;
+    // (held: it waits at the place it starts from now)
+    if (A.held) A.held.el = 0;
   }
   // stop: settle where it is (a plane near, or parked between two), as a scrub let go; quiet: another move took over
   function svPause(settle) {
@@ -3630,13 +3635,13 @@
     if (A) {
       const el = SV.clock ? A.el || 0 : performance.now() - A.t0, v = Math.min(1, el / A.ms);
       A.e0 = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
-      A.from = SV.g.x; A.pathFrom = null; A.to = cl(pl(A.to));
+      A.from = SV.g.x; A.to = cl(pl(A.to)); A.held = A.drawn = null;
     }
     if (B) {
       B.steps = S.steps;
       if (B.slide) { B.start = cl(pl(B.start)); B.end = cl(pl(B.end)); } else {
         const left = B.ms * (1 - Math.min(1, (SV.clock ? B.el || 0 : performance.now() - B.t0) / B.ms));
-        B.from = SV.g.x; B.pathFrom = null; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left);
+        B.from = SV.g.x; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left); B.held = B.drawn = null;
       }
     }
     if (sp) SV.span = span;
