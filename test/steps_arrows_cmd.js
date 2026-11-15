@@ -42,11 +42,21 @@ await ev(`(() => { const f = document.createElement('input'); f.id = 'zzField'; 
 await press('ArrowRight');
 await settled({ max: 4000, until: '!__cmwSteps().moving' });
 ok('→ in a text field leaves the thread where it is', (await at()) === i0, await at());
-// the keyboard help says it: the probe's arrows are Alt / Option + the arrows (the plain ones step the chain), in each language
-for (const [lang, re] of [['en', /Alt \/ Option \+ the arrows move a probe/], ['ru', /Alt \/ Option \+ стрелки перемещают указатель/], ['it', /Alt \/ Option \+ le frecce spostano una sonda/]]) {
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
-  await settled({ max: 30000, until: idle });
-  const t = await ev(`(document.querySelector('.snd-keys') || {}).textContent || ''`);
-  ok(`${lang}: the sound help says Alt / Option + the arrows move the probe`, re.test(t), t.slice(0, 160));
+// the keyboard help says it, by view: in the steps view the probe's arrows are Alt + the arrows (the plain ones step the chain), in the
+// classic view the plain arrows move it; the Sound pop-up's key line (the paragraph its view shows) and the Guide's Sound paragraph, in each language
+const HELP = [
+  ['steps', 'en', /Alt \+ the arrows move a probe/, /Alt ← → ↑ ↓ move a probe/], ['steps', 'ru', /Alt\u00a0\+\u00a0стрелки перемещают указатель/, /Alt ← → ↑ ↓ перемещают указатель/],
+  ['steps', 'it', /Alt \+ le frecce spostano una sonda/, /Alt ← → ↑ ↓ muovono una sonda/],
+  ['classic', 'en', /: the arrows move a probe/, /Tab to the left plane: the arrows move a probe/], ['classic', 'ru', /На активной плоскости: стрелки перемещают указатель/, /Tab на левую плоскость; стрелки перемещают указатель/],
+];
+for (const [vw, lang, keyLine, guide] of HELP) {
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=${vw}`);
+  await settled({ max: 30000, until: `!!document.querySelector('#paneL canvas')` });
+  const t = await ev(`([...document.querySelectorAll('.snd-keys')].find((e) => getComputedStyle(e).display !== 'none') || {}).textContent || ''`);
+  ok(`${vw} ${lang}: the sound pop-up's key line says how the probe moves`, keyLine.test(t) && (vw === 'steps') === /Alt/.test(t), t.slice(0, 200));
+  await key('?');
+  await settled({ max: 8000, only: true, until: `!!document.querySelector('#guideTitle')` });
+  const g = await ev(`(document.querySelector('.modal') || {}).textContent || ''`);
+  ok(`${vw} ${lang}: the Guide's Sound paragraph says how the probe moves`, guide.test(g.replace(/\s+/g, ' ')) && (vw === 'steps') === /Alt ← → ↑ ↓ (move a probe|перемещают|muovono)/.test(g.replace(/\s+/g, ' ')), (g.match(/.{60}(move a probe|перемещают указатель|muovono una sonda).{20}/) || [g.slice(0, 120)])[0]);
 }
 return { pass: fails.length === 0, fails, info };
