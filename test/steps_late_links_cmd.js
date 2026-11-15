@@ -29,10 +29,10 @@
 //   are given time and the left pane draws at most a tenth of the animation frames (the held frame stays on the pane),
 //   the frame kept there is the one a frame asked for with no change draws afresh, and once the budget is given back
 //   the play reaches plane 1;
-// - z + 1/z, then z⁴ + z, on such a page, ▶ pressed from plane 0: the play goes through the first glide and is held a
-//   second time, for the pole tracks of the glide into plane 2; while that hold lasts with nothing changed, the
-//   browser's idle callbacks are given time and the left pane draws at most a tenth of the animation frames, and once the
-//   budget is given back the play reaches plane 2.
+// - z + 1/z, then z⁴ + z, on a fresh page whose links land seconds late, ▶ pressed from plane 0: the play goes through the
+//   first glide and is held a second time, for the programs of the glide into plane 2, waiting on plane 1; while that
+//   hold lasts with nothing changed, the browser's idle callbacks are given time and the left pane draws at most a tenth
+//   of the animation frames, and once the links land the play reaches plane 2.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -53,6 +53,8 @@ const POLE_EX = 'Cauchy: a regular part and a pole';
 const HELD_POLE_MS = 0.001, HELD_TICKS = 60, HELD_IDLE = 20, HELD_SHARE = 0.1;
 // the play's time (ms) each frame adds where a play has to go through a glide frame by frame (__cmwSteps({ clock }))
 const PLAY_STEP_MS = 50;
+// ms a link reads not complete where a play is to wait for a later glide's programs long enough to be watched
+const SECOND_LINK_MS = 15000;
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 // (a page whose frames leave no idle moment: each idle callback runs for its timeout, at once when it has none, with no
 // time left; the browser's own requestIdleCallback is kept as window.__browserIdle)
@@ -257,41 +259,40 @@ try {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: noIdle.identifier });
     }
   }
-  // z + 1/z, then the polynomial z⁴ + z (a Newton step whose glide, after a map with a pole, waits for its pole tracks),
-  // on a fresh page with no idle moment for the app's jobs and a frame's pole budget of HELD_POLE_MS, ▶ pressed from
-  // plane 0: the play goes through the first glide and is held a second time, for the pole tracks of the glide into
-  // plane 2. Counted as above once that hold is on (__cmwSteps().hold === 2), with the thread's first places as the frames
-  // see them; then the budget is given back: the play reaches plane 2
+  // z + 1/z, then z⁴ + z, on a fresh page whose links land SECOND_LINK_MS late (a second late_links.js over the suite's),
+  // ▶ pressed from plane 0 with the play's time a frame PLAY_STEP_MS (__cmwSteps({ clock })), so that its frames go
+  // through the glides step by step: the play goes through the first glide, then waits for the programs of the glide
+  // into plane 2. While it waits on plane 1 (__cmwSvX() === 1, still playing), counted as above, with the thread's first
+  // places as the frames see them; then the links land: the play reaches plane 2
   {
-    const noIdle = await send('Page.addScriptToEvaluateOnNewDocument', { source: NO_IDLE });
+    const slow = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${SECOND_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
     try {
       await example('llq', POLE_EX, 'all');
       await ev("__cmwAddStep('custom', { expr: 'z^4+z', cut: 180 }, 1), 1");
       await settled({ max: READY_MS, until: '__cmwSteps().planes.length === 3' });
       await ev(`(() => {
         const s = window.__llHeld = { ticks: 0, drawn: 0, idle: 0, withTime: 0, count: false, xs: [] };
-        const blit = GLR.blit, ric = (f) => window.__browserIdle(f);
+        const blit = GLR.blit;
         GLR.blit = function (c) { if (s.count && c && c.canvas && c.canvas.id === 'canvasL') s.drawn++; return blit.apply(this, arguments); };
         const tick = () => { if (s.count) { s.ticks++; if (s.xs.length < 8 && (!s.xs.length || s.xs[s.xs.length - 1] !== __cmwSvX())) s.xs.push(__cmwSvX()); } if (!s.done) requestAnimationFrame(tick); };
-        const idle = (dl) => { if (s.count) { s.idle++; if (dl.timeRemaining() > 0) s.withTime++; } if (!s.done) ric(idle); };
-        requestAnimationFrame(tick); ric(idle);
+        const idle = (dl) => { if (s.count) { s.idle++; if (dl.timeRemaining() > 0) s.withTime++; } if (!s.done) requestIdleCallback(idle); };
+        requestAnimationFrame(tick); requestIdleCallback(idle);
         return 1; })()`);
-      // (the play's time a frame, PLAY_STEP_MS, so that its frames go through the glides step by step)
-      await ev(`__cmwSteps({ poleFrameMs: ${HELD_POLE_MS}, clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
-      const q0 =await settled({ only: true, max: PLAY_MS, until: '__cmwSteps().hold === 2' });
+      await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
+      const q0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !!__cmwSteps().play' });
       await ev('window.__llHeld.count = true, 1');
       const q1 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.ticks >= ${HELD_TICKS}` });
-      const second = await ev('(() => { const s = window.__llHeld; s.count = false; return { ticks: s.ticks, drawn: s.drawn, idle: s.idle, withTime: s.withTime, xs: s.xs, x: __cmwSvX(), hold: __cmwSteps().hold }; })()');
-      await ev('__cmwSteps({ poleFrameMs: 0 }), 1');
+      const second = await ev('(() => { const s = window.__llHeld; s.count = false; return { ticks: s.ticks, drawn: s.drawn, idle: s.idle, withTime: s.withTime, xs: s.xs, x: __cmwSvX(), links: GLR.pendingLinks }; })()');
       const q2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
       await ev('window.__llHeld.done = true, 1');
-      const got = { second, waits: { q0, q1, q2 } }, still = q0.ok && q1.ok && second.hold === 2;
-      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, for the pole tracks of the glide into plane 2: the browser's idle callbacks are given time (${HELD_IDLE} in ${HELD_TICKS} animation frames)`, still && second.withTime >= HELD_IDLE, got);
-      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, for the pole tracks of the glide into plane 2: the left pane draws at most ${HELD_SHARE} of the animation frames`, still && second.drawn <= HELD_SHARE * second.ticks, got);
-      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, then the frames' pole budget given back: the play reaches plane 2`, q2.ok, got);
+      const got = { second, waits: { q0, q1, q2 } }, still = q0.ok && q1.ok && second.x === 1;
+      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, for the programs of the glide into plane 2: the play waits on plane 1`, q0.ok, got);
+      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time: the browser's idle callbacks are given time (${HELD_IDLE} in ${HELD_TICKS} animation frames)`, still && second.withTime >= HELD_IDLE, got);
+      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time: the left pane draws at most ${HELD_SHARE} of the animation frames`, still && second.drawn <= HELD_SHARE * second.ticks, got);
+      ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, then the links land: the play reaches plane 2`, q2.ok, got);
       info.second = got;
     } finally {
-      await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: noIdle.identifier });
+      await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
     }
   }
 } finally {
