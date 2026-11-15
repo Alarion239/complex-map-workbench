@@ -96,9 +96,6 @@ const SoundHooks = (() => {
       const b = $(id);
       if (!b) continue;
       if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
-      // the name carries the state, as the visible label "Sound" is part of it
-      const nm = on ? $t('Sound: On') : $t('Sound: Off');
-      if (b.getAttribute('aria-label') !== nm) b.setAttribute('aria-label', nm);
       const ic = /** @type {HTMLElement | null} */ (b.querySelector('.snd-ic'));
       if (ic && ic.dataset.on !== String(on)) { ic.dataset.on = String(on); ic.innerHTML = on ? SND_ICON_ON : SND_ICON_OFF; }
       // a small wave on the button while Hear the function is on
