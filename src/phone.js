@@ -765,7 +765,7 @@ const Phone = (() => {
       { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
       { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
-      { name: $t('Height'), rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
+      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
       { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
       { name: $t('Overlays'), rows: [] },
     ];
@@ -776,6 +776,8 @@ const Phone = (() => {
         const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
         // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
         if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
+        // (a choice whose buttons name the kind alone, the Landscape's Height, is named by its group's label: said once)
+        if (grp.label) for (const r of ks) if (r.matches(grp.label)) r.setAttribute('aria-labelledby', head.id);
         return h('section', { class: 'ph-grp' }, head, ...ks);
       });
   }
@@ -784,14 +786,6 @@ const Phone = (() => {
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    // (the Landscape's Height control under a visible caption: its buttons name the kind of height alone in the steps view,
-    // "Re", "|·|", which over the sheet's other rows would not say what they set; the caption names the control, so it is
-    // said once)
-    const capped = kids.flatMap((k) => {
-      if (k.id !== 'heightSeg') return [k];
-      k.setAttribute('aria-labelledby', 'phHeightCap');
-      return [h('h3', { class: 'ph-h', id: 'phHeightCap' }, $t('Height')), k];
-    });
     const tn = A.targetNote(), scope = A.scopeSeg();
     // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
     // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
@@ -802,7 +796,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...capped, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
