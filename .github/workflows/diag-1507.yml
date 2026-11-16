@@ -1,6 +1,7 @@
 name: Diag 1507 (temporary)
-# TEMPORARY (#1507 diagnosis, deleted before the pull request): the browser job's setup on Ubuntu 26.04 (Mesa 26), then
-# the deform suites, a probe of sin∘√'s glide pieces (test/diag_1507_cmd.js) and the GLSL conformance pages on lavapipe.
+# TEMPORARY (#1507, deleted before the pull request), on Ubuntu 26.04 (Mesa 26): the four slowest browser shards twice
+# on one machine, with and without GALLIUM_OVERRIDE_CPU_CAPS=avx (the order alternates), for their wall times; and the
+# layout shards with it, for the new layout baseline.
 on:
   push:
     branches: [claude/p1perf-1507]
@@ -8,13 +9,19 @@ permissions:
   contents: read
 jobs:
   diag:
-    # (four jobs: GitHub's machines are AMD EPYC 7763 (Zen 3) or 9V74 (Zen 4, AVX-512); the failure was seen on a 9V74)
+    name: ${{ matrix.shard }} (${{ matrix.kind }})
     strategy:
       fail-fast: false
       matrix:
-        rep: [1, 2, 3, 4]
+        include:
+          - { shard: views-2, kind: speed, first: plain }
+          - { shard: export-4, kind: speed, first: avx }
+          - { shard: views-3, kind: speed, first: avx }
+          - { shard: tour, kind: speed, first: plain }
+          - { shard: layout-1, kind: layout, first: avx }
+          - { shard: layout-2, kind: layout, first: avx }
     runs-on: ubuntu-26.04
-    timeout-minutes: 60
+    timeout-minutes: 120
     env:
       CMW_ANGLE: vulkan
       CMW_CHROME_ARGS: --no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface
@@ -35,22 +42,17 @@ jobs:
       - name: CPU
         run: |
           lscpu | grep 'Model name'
-          grep -o 'avx[a-z0-9_]*' /proc/cpuinfo | sort -u | tr '\n' ' '
-      - name: Probe
+          python3 build.py
+      - name: Shard, plain (first)
+        if: matrix.first == 'plain'
         continue-on-error: true
-        run: node ci/browser.js --only 'diag_1507'
-      - name: Probe without AVX2, FMA or AVX-512 in llvmpipe
+        run: node ci/browser.js --no-build --shard ${{ matrix.shard }}
+      - name: Shard, avx
         continue-on-error: true
         env:
           GALLIUM_OVERRIDE_CPU_CAPS: avx
-        run: node ci/browser.js --no-build --only 'diag_1507'
-      - name: Deform suites
+        run: node ci/browser.js --no-build --shard ${{ matrix.shard }}
+      - name: Shard, plain (second)
+        if: matrix.first == 'avx' && matrix.kind == 'speed'
         continue-on-error: true
-        run: node ci/browser.js --no-build --only '^deform_range'
-      - if: always()
-        uses: actions/upload-artifact@v6
-        with:
-          name: diag-1507-${{ matrix.rep }}
-          path: .ci/
-          if-no-files-found: ignore
-          retention-days: 7
+        run: node ci/browser.js --no-build --shard ${{ matrix.shard }}
