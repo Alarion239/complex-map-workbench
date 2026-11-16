@@ -879,7 +879,8 @@
   function pointLabel(s, idx, primes) {
     // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
     const bn = s.bind ? boundNumber(s) : '';
-    const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
+    // (a point is named for the plane it was drawn on: z₀ on z, w₁₁ on w₁)
+    const base = exLabel(s.label) || (bn ? Params.display(bn) : (shapeStage(s) > 0 ? `w${sub(shapeStage(s))}` : 'z') + sub(Number.isInteger(s.num) ? s.num : idx));
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
