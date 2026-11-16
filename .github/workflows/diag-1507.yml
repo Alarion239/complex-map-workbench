@@ -1,0 +1,45 @@
+name: Diag 1507 (temporary)
+# TEMPORARY (#1507 diagnosis, deleted before the pull request): the browser job's setup on Ubuntu 26.04 (Mesa 26), then
+# the deform suites, a probe of sin∘√'s glide pieces (test/diag_1507_cmd.js) and the GLSL conformance pages on lavapipe.
+on:
+  push:
+    branches: [claude/p1perf-1507]
+permissions:
+  contents: read
+jobs:
+  diag:
+    runs-on: ubuntu-26.04
+    timeout-minutes: 60
+    env:
+      CMW_ANGLE: vulkan
+      CMW_CHROME_ARGS: --no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Mesa's Vulkan drivers (lavapipe)
+        run: mkdir -p "$RUNNER_TEMP/debs" && ci/lavapipe.sh "$RUNNER_TEMP/debs"
+      - name: Probe
+        continue-on-error: true
+        run: node ci/browser.js --only 'diag_1507'
+      - name: Deform suites
+        continue-on-error: true
+        run: node ci/browser.js --no-build --only '^deform_range'
+      - name: GLSL pages (glsl, core tier)
+        continue-on-error: true
+        run: node ci/glsl.js --only glsl --tier core
+      - if: always()
+        uses: actions/upload-artifact@v6
+        with:
+          name: diag-1507
+          path: .ci/
+          if-no-files-found: ignore
+          retention-days: 7
