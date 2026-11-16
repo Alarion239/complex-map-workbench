@@ -6,7 +6,7 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const POINTS = [[740, 360, 'en'], [915, 412, 'en'], [667, 375, 'en'], [320, 568, 'en'], [360, 640, 'en'], [360, 640, 'ru'], [360, 640, 'it'], [390, 844, 'ru'], [740, 360, 'ru'], [740, 360, 'it'], [915, 412, 'ru']];
+const POINTS = [[740, 360, 'en'], [915, 412, 'en'], [667, 375, 'en'], [320, 568, 'en'], [320, 568, 'ru'], [360, 640, 'en'], [360, 640, 'ru'], [360, 640, 'it'], [390, 844, 'ru'], [740, 360, 'ru'], [740, 360, 'it'], [915, 412, 'ru']];
 for (const [w, h, lang] of POINTS) {
   const name = `${w}x${h} ${lang}`;
   await view(w, h, false, true);
