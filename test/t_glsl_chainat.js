@@ -36,7 +36,7 @@ for (const [name, steps] of Object.entries(CHAINS)) {
     const h = fnBody(src, P + '_h') || '', hr = fnBody(src, P + '_hr');
     if (h.includes('if (t == 1.0)')) {
       ok(`${name}: step ${k} (a path with the t = 1 shortcut): in full or at t = 1 its map, else its path without the shortcut`, line.includes(`how == 1 || t == 1.0 ? ${P}_f(z) : ${P}_hr(z, t)`), line);
-      ok(`${name}: step ${k}: ${P}_hr is the path's body without the shortcut`, !!hr && !hr.includes('if (t == 1.0)') && hr.replace(`${P}_hr`, '') === h.replace(`${P}_h`, '').replace(/\n  if \(t == 1\.0\) return \w+_f\(z\);/, ''), { h, hr });
+      ok(`${name}: step ${k}: ${P}_hr is the path's body without the shortcut`, !!hr && !hr.includes('if (t == 1.0)') && hr.replace(`${P}_hr`, '') === h.replace(`${P}_h`, '').replace(/\n {2}if \(t == 1\.0\) return \w+_f\(z\);/, ''), { h, hr });
     }
     // (each of the map and the path once in the step's line: FXC inlines both)
     ok(`${name}: step ${k}: its map and its path appear at most once each in chainAt`, (line.match(new RegExp(`${P}_f\\(`, 'g')) || []).length <= 1 && (line.match(new RegExp(`${P}_hr?\\(`, 'g')) || []).length <= 1, line);
