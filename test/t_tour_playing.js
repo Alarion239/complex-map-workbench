@@ -26,7 +26,7 @@ const table = (f, lang) => {
   return JSON.parse(JSON.parse(m[1]));
 };
 const RU = table('src/i18n_ru.js', 'ru');
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./lib/tour');
 const T = Tour._t;
 const keys = (x) => (String(x).match(/\{[A-Za-z+]\}/g) || []).join('|');
 const P = T.PLAYING;

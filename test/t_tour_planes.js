@@ -13,7 +13,7 @@ const table = (f, lang) => {
   return JSON.parse(JSON.parse(m[1]));
 };
 const RU = table('src/i18n_ru.js', 'ru'), IT = table('src/i18n_it.js', 'it');
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./lib/tour');
 const T = Tour._t;
 let n = 0;
 const fails = [];
@@ -45,7 +45,7 @@ for (const s of P.steps) {
   if (s.id === 'step') ok(`${id}: only the chip f₁ closes it`, s.try.test({ k: 1 }) && !s.try.test({ k: 2 }));
   if (s.id === 'plane') ok(`${id}: an orbit does not close it`, s.try.test({ how: 'zoom' }) && !s.try.test({ how: 'orbit' }));
 }
-ok('svPlace is one of the actions that need a borrowed canvas', read('src/tour.js').includes("'select', 'plane', 'svPlace'"));
+ok('svPlace is one of the actions that need a borrowed canvas', require('./src_text').source('tour.js').includes("'select', 'plane', 'svPlace'"));
 
 // the words: the chapter's title and time, and every step's title, body and task, in both languages with the same markup
 const strings = new Set([P.title]);

@@ -4,7 +4,7 @@
 const fs = require('fs');
 const path = require('path');
 globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./lib/tour');
 const T = Tour._t;
 let fails = 0, n = 0;
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);

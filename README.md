@@ -82,8 +82,8 @@ python3 build.py
 ```
 
 `build.py` joins the files of `src/` in a fixed order into one `<script>`. `app.js`, `gl.js`, `figure.js`,
-`sound.js`, `construct.js` and `glsl.js` are kept as ordered parts: `src/app/`, `src/gl/`, `src/figure/`, `src/sound/`,
-`src/construct/` and `src/glsl/` hold a `wrap.js` (the
+`sound.js`, `construct.js`, `glsl.js` and `tour.js` are kept as ordered parts: `src/app/`, `src/gl/`, `src/figure/`,
+`src/sound/`, `src/construct/`, `src/glsl/` and `src/tour/` hold a `wrap.js` (the
 closure's first and last lines, or a file's header and module block) and the parts `NN-subject.js`, which take the
 place of its `// @parts` line in file name order (`tools/src_parts.py`; `test/src_text.js` joins them the same way
 for the tests).

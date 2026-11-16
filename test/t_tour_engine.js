@@ -2,7 +2,7 @@
 // (rrPath with per-corner radii) and the clipped-away rule. (notes/tour-r3/SPEC.md 1.4: the callout's placement,
 // place() with the safe area and open layers, and the docked callout, placeDock and dockGutter, are gone with the
 // callout; the strip is in the layout.) DOM-free: node test/t_tour_engine.js
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./lib/tour');
 const T = Tour._t;
 let n = 0, fails = 0;
 const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name, info === undefined ? '' : JSON.stringify(info)); } };

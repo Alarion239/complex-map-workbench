@@ -38,6 +38,7 @@ const ph = select(['src/phone.css', 'src/phone.js']);
 ok('T1: src/phone.* -> the phone shards', ph.tier === 'T1' && same(ph.browser, [...AREAS.phone, ...AREAS.layout, 'smoke']), ph.browser);
 ok('T1: src/figure/ (figure.js in parts) -> export and images', same(select(['src/figure/03-views.js']).browser, [...AREAS.export, 'smoke']));
 ok('T2: src/glsl/ (glsl.js in parts) -> the core shards, as glsl.js', same(select(['src/glsl/03-formulas-build.js']).browser, select(['src/glsl.js']).browser) && select(['src/glsl/03-formulas-build.js']).tier === select(['src/glsl.js']).tier);
+ok('T1: src/tour/ (tour.js in parts) -> the tour shards and smoke', same(select(['src/tour/03-run-strip-feeds.js']).browser, [...AREAS.tour, 'smoke']) && select(['src/tour/03-run-strip-feeds.js']).tier === 'T1');
 ok('T1: sound and the sea song', same(select(['src/sound.js', 'src/seasong.js']).browser, ['sound', 'smoke']));
 ok('T1: src/sound/ (sound.js in parts) -> sound', same(select(['src/sound/03-lifecycle-cues.js']).browser, ['sound', 'smoke']));
 ok('T1: constructions -> perp, constructions, ux165-1 (the rail)', same(select(['src/constr.js', 'src/construct.js']).browser, ['perp', 'constructions', 'ux165-1', 'smoke']));
