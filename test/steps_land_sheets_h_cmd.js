@@ -19,7 +19,8 @@
 //   (the refined frame is the first rest frame: the pane draws no other frame after it).
 // All sheets follow the map shown (#1705): z → z² + 1 → exp, T = w₁, All sheets on, Im heights: plane w₂ past T is plane
 // w₁'s points carried, and planes w₂ and w₁ are the same pixel for pixel with a square root appended after w₂ (the
-// whole chain then has a multivalued step; the maps shown have none).
+// whole chain then has a multivalued step; the maps shown have none). The title's sheets clause names the surfaces drawn, at
+// rest and mid-glide: none on that chain, both of √'s where z → √ → Möbius draws them.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -115,6 +116,36 @@ const CHAIN = [ROOT, step('mobius', { a: '1', b: '-i', c: '1', d: 'i' })];
     r[tag] = { before: before.carry && { s: before.carry.s, sheets: before.carry.sheets }, after: after.carry && { s: after.carry.s, sheets: after.carry.sheets }, d };
     if (plane === 2) ok('All sheets, plane w₂ past T: carried from w₁ with or without a step after it', !!before.carry && !!after.carry && before.carry.s === 1 && after.carry.s === 1, r[tag]);
     ok(`All sheets, plane w${plane === 2 ? '₂' : '₁'}: a square root appended after it changes nothing (the same frame pixel for pixel)`, !!d && d.max === 0 && d.shown.every(Boolean), r[tag]);
+  }
+}
+// The title says what the pane draws (#1705): its sheets clause ("both sheets", "all n sheets") counts the surfaces All
+// sheets draws, on each plane at rest and halfway from w₁ to w₂, and there is none where one surface is drawn. With T = w₁:
+// - z → z² + 1 → exp → √: no plane up to w₂ draws more than one, since the √ comes after them;
+// - z → √ → Möbius: planes z and w₂ draw √'s two sheets (w₂, past T, carried from z with them, and so does the glide to
+//   it), and plane w₁, T itself, is one surface
+{
+  const r = info.title = {};
+  // the sheets the title's clause names: 1 when it has none, -1 when it names sheets some other way
+  const named = (t) => (/\bboth sheets\b/.test(t) ? 2 : /\ball \d+ sheets\b/.test(t) ? +/\ball (\d+) sheets\b/.exec(t)[1] : /\bsheets?\b/.test(t) ? -1 : 1);
+  const at = async () => evJson(`JSON.stringify({ title: __cmwLandSheets().title.replace(/<[^>]*>/g, ' '), K: (__cmwLandSheets().drawn || {}).K || 1 })`);
+  for (const [name, steps, want] of [['after_root', [P, EXP, ROOT], { p0: 1, p1: 1, p2: 1, glide: 1 }], ['root_first', CHAIN, { p0: 2, p1: 1, p2: 2, glide: 2 }]]) {
+    const ns = 'landsheetstitle' + name + Date.now();
+    await loadView('steps', ns, { shapes: [], steps, sheets: true, srcView: { cx: 0, cy: 0, s: 90 } });
+    await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+    await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+    await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
+    await settled({ max: 60000 });
+    await ev(`(document.querySelector('#heightSeg button[data-v="im"]') || {}).click?.(), 1`);
+    const rows = r[name] = {};
+    for (const plane of [0, 1, 2]) { await rest(plane); rows['p' + plane] = await at(); }
+    await rest(1);
+    await ev(`__cmwSteps({ park: 1.5 }); 1`); await settled({ max: 60000, until: '!__cmwSvKey().busy' }); await ev(rAF2);
+    rows.glide = await at();
+    for (const [k, v] of Object.entries(rows)) {
+      const where = k === 'glide' ? 'halfway from w₁ to w₂' : `plane ${['z', 'w₁', 'w₂'][+k.slice(1)]}`;
+      const K = want[k];
+      ok(`All sheets, ${name === 'after_root' ? 'z → z² + 1 → exp → √' : 'z → √ → Möbius'}, ${where}: ${K} surface${K > 1 ? 's' : ''} drawn and the title's sheets clause names as many`, v.K === K && named(v.title) === K, v);
+    }
   }
 }
 // the refined frame is the first rest frame, at the pane heights of the CI's and of a few others (the spike's edge

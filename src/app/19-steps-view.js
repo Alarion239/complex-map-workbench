@@ -457,11 +457,14 @@
   // at rest. False when the Landscape is not on the pane
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
-    const g = svBetween();
-    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
-    const mapOf = (s) => svGlideMap(g, s);
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    render3D(pane, svLandCarryNow());
     return true;
+  }
+  // the carry the Landscape draws now (render3D's), undefined for a plane's own relief at rest
+  function svLandCarryNow() {
+    const g = svBetween();
+    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) return svLandRest(g.near);
+    return svLandCarry((s) => svGlideMap(g, s), g.a, g.b, g.u);
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
   // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight

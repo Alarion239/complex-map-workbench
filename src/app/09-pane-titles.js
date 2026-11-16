@@ -607,6 +607,13 @@
     const list = sheetUniq(m, ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
+  // the map whose sheets the Landscape draws with All sheets: in the steps view the map shown (#1705), on a carry the chain
+  // up to the planes it reaches, at rest the shown plane's map into the colour plane (focusMap); else, and while the
+  // deformation shows, the focused map
+  function landSheetsMap(carry) {
+    if (carry) return { mode: 0, a: 0, b: Math.max(carry.a, carry.b == null ? carry.a : carry.b, carry.hT) };
+    return SV.on && !homView() ? focusMap() : endMap();
+  }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
   function deformOneSheet() { return !!S.sheets && morphOn() && !deformSheetsOk(); }
@@ -620,18 +627,18 @@
     try { return !!Funcs.sheetMapPieces(S.steps, built, { mode: 3, base: leftStage(), a: R.lo, b: R.b, post: R.p1, t: 0.5 }); } catch (e) { return false; }
   }
   // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
-  // sheets off, a deformation with no sheet form, or no multivalued step in the map in focus), else {K: the surfaces
-  // drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom} (one per multivalued piece of the
-  // map in focus: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
+  // sheets off, a deformation with no sheet form, or no multivalued step in the map it draws the sheets of,
+  // landSheetsMap), else {K: the surfaces drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom}
+  // (one per multivalued piece of that map: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
   // log). hom: the deformation shows, and H_t is drawn on the sheets that become these sheets of F (at most these:
   // a step not begun adds its sheets when it starts; notes/v16-user5/SHEETS-DESIGN.md)
   function sheetsShown() {
     if (!S.sheets || !lLand()) return null;
     const hom = morphOn();
     if (hom && !deformSheetsOk()) return null;
-    const ms = multiSheet();
+    const m = landSheetsMap(SV.on && SV.surf === 'land' ? svLandCarryNow() : null), ms = multiSheet(m);
     if (!ms) return null;
-    const m = endMap(), a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
+    const a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
     try {
       for (const e of Funcs.sheetSteps(S.steps, built)) {
         if (e.k <= a || e.k > b) continue;
