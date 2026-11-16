@@ -87,6 +87,11 @@ const pts = K.grid(P, 12, 8).filter(away);
 const heldZ = { wait: zWait, standIn: await standIn(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), px: (await K.lpx(pts)).px };
 info.colourZ = Object.assign({}, heldZ, { px: undefined });
 ok('the colour plot, its program held: plane z is drawn from the stand-in (in colour, the frame pending)', zWait.ok && heldZ.hue > 0.6 && heldZ.pending === true, info.colourZ);
+// (the left LED: amber with its own tooltip while the colour plot is not done; the right LED is the right plane's)
+const STANDIN_TIP = 'Drawing a quick preview; the exact plot is still being built';
+const led = (id) => ev(`(() => { const e = document.getElementById('${id}'); return { cls: e.className, tip: e.getAttribute('data-tip'), label: e.getAttribute('aria-label') }; })()`);
+const ledHeld = { left: await led('leftLed'), right: await led('rightLed') };
+ok('the colour plot, its program held: the left LED is amber with its own tooltip, the right one is not', /\bbusy\b/.test(ledHeld.left.cls) && ledHeld.left.tip === STANDIN_TIP && ledHeld.left.label === STANDIN_TIP && !/\bbusy\b/.test(ledHeld.right.cls), ledHeld);
 await ev('__cmwSteps({ go: 1, now: true }), 1');
 await settled({ panes: false });
 const w1Wait = await levelDone();
@@ -114,6 +119,8 @@ const linked = await settled({ max: 20000 });
 const gpuPx = (await K.lpx(pts)).px;
 info.colourMatch = K.tally(heldZ.px, gpuPx, { tol: 24 });
 ok('the colour plot, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', linked.ok && info.colourMatch.n >= 40 && info.colourMatch.wrong <= 0.1 * info.colourMatch.n, info.colourMatch);
+const ledDone = await led('leftLed');
+ok('the colour plot, once linked: the left LED is green again', /\bok\b/.test(ledDone.cls) && ledDone.tip === 'Up to date', ledDone);
 // an expensive series (about half a millisecond an evaluation): its stand-in stops within its CPU budget
 const ns3 = 'lse' + Date.now();
 await seed(ns3, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 } }], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
