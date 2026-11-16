@@ -41,19 +41,8 @@ try {
   ok('load: a page whose read fails still throws the named limit, with the read error in the message', !!err2 && new RegExp('not ready after ' + SHORT_LIMIT_MS + ' ms').test(err2) && err2.includes(STUB), info.read);
   await holdSheet(0);
   // (a document whose body stops arriving: a server for dist/ that sends STALL_BYTES of test.html and then nothing)
-  const DIST = path.join(DIR, '..', '..', 'dist');
-  const serveDist = async (stalled) => {
-    const srv = http.createServer((req, res) => {
-      const f = path.join(DIST, req.url.split('?')[0]), buf = fs.readFileSync(f), isTest = req.url.startsWith('/test.html');
-      res.setHeader('Content-Type', 'text/html'); res.setHeader('Content-Length', buf.length);
-      if (isTest) srv.tests++;
-      if (isTest && stalled(srv.tests)) res.write(buf.subarray(0, STALL_BYTES)); else res.end(buf);
-    });
-    srv.tests = 0;
-    await new Promise((done) => srv.listen(0, done));
-    srv.origin = 'http://localhost:' + srv.address().port;
-    return srv;
-  };
+  const { serveDist: serve } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'dist_server.js'), 'utf8'))({ http, fs, path, DIR });
+  const serveDist = (stalled) => serve(stalled, { partial: STALL_BYTES });
   let srv = await serveDist((n) => n === 1);
   try {
     t0 = Date.now();

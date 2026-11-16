@@ -1632,11 +1632,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
       const rads = [];
       const n = subs.length;
       // the path at 0 < t < 1 (the deformation's sheets): its steps' paths in turn, step q on [q/n, (q+1)/n] (recPlan,
-      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits
+      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits. With
+      // full, every step in full, as _s does: chainSheetHom reaches the steps through _sh alone, so each step's sheet
+      // function has one call site there (a shader compiler inlines every call)
       subs.forEach(({ Q, sp }, q) => {
         if (!sp) {
           body += `  p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n`;
-          hbody += `  if (j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
+          hbody += `  if (full || j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
           return;
         }
         fn += sp.fn;
@@ -1645,17 +1647,17 @@ vec2 cx_binom(vec2 a, vec2 b) {
         body += sp.custom ? `  ${sp.apply()}\n` : `  { float s0 = cxs0_dig(${sp.rads[0]}, c); ${sp.apply(['s0'])} }\n`;
         if (sp.custom) {
           const hom = sp.homCall ? sp.homCall(`x - ${q}.0`) : 'p = vec4(cx_nan());';
-          hbody += `  if (j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+          hbody += `  if (full || j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
         } else {
-          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
+          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (full || j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
         }
       });
       return {
         rads, custom: true, apply: () => `p = ${P}_s(p, c);`,
-        homCall: (t) => `p = ${P}_sh(p, c, ${t});`,
+        homCall: (t, full = 'false') => `p = ${P}_sh(p, c, ${t}, ${full});`,
         fn: `${fn}vec4 ${P}_s(vec4 p, inout highp int c) {\n${body}  return p;\n}\n`,
         // (the path's function goes with chainSheetHom, into the sheet programs only: GLChain's sheetHom)
-        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
+        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t, bool full) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
         write(put) { for (const { sp } of subs) if (sp) sp.write(put); },
       };
     }
@@ -1759,12 +1761,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
     for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
-    // groupT(k, t, g0, gn): the time of step k in an All-at-once map at time t: t, or, for the gn steps (g0, g0 + gn] a Split
-    // made of one formula, that formula's own run of its steps in turn (step j on [j/gn, (j+1)/gn]; gn 0: no group)
-    src += 'float groupT(int k, float t, int g0, int gn) {\n  return gn > 0 && k > g0 && k <= g0 + gn ? clamp(t * float(gn) - float(k - g0 - 1), 0.0, 1.0) : t;\n}\n';
     // all at once (mode 3): every step's homotopy at the same t, H_t = h_{b,t} o ... o h_{a+1,t}, through chainHom (so
     // the step functions are not inlined a second time; a d/dz gives NaN there, an off or failed step the identity)
-    src += `vec2 chainHomAllG(vec2 z, int a, int b, float t, int g0, int gn) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, groupT(k, t, g0, gn));\n  }\n  return z;\n}\nvec2 chainHomAll(vec2 z, int a, int b, float t) {\n  return chainHomAllG(z, a, b, t, 0, 0);\n}\n`;
+    src += `vec2 chainHomAll(vec2 z, int a, int b, float t) {\n  for (int k = 1; k <= ${Math.max(1, steps.length)}; k++) {\n    if (k > b) break;\n    if (k > a) z = chainHom(k, z, t);\n  }\n  return z;\n}\n`;
     src += `bool chainIsDeriv(int k) {\n  return ${dks.length ? dks.map((k) => `k == ${k}`).join(' || ') : 'false'};\n}\n`;
     // the maps in (a, b] applied to a point (no d/dz inside)
     const raw = dks.length ? 'cxs0_raw' : 'chainRange';
@@ -1884,8 +1883,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
       } else if (!sp) {
         sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
       } else if (sp.custom) {
-        const hom = sp.homCall ? sp.homCall('t') : 'p = vec4(cx_nan());';
-        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) ${hom}\n  else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        // (a recognized formula, which has a path: the step in full and its path through the one call of _sh)
+        const dig = `else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        sh += sp.homCall ? `  if (h == 1 || (h == 2 && t > 0.0)) ${sp.homCall('t', 'h == 1 || t >= 1.0')}\n  ${dig}` : `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) p = vec4(cx_nan());\n  ${dig}`;
       } else {
         sh += `  if (h > 0) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (h == 1 || t >= 1.0) ${sp.apply(['s0'])}\n    else if (t > 0.0) ${sp.homApply(['s0'], 't')}\n  }\n  else if (${k} > base && ${k} <= end) cxs0_dig(${sp.rads[0]}, c);\n`;
       }
