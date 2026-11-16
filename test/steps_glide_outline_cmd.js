@@ -1,6 +1,6 @@
 // The steps view's glide strokes the shapes of the plane it reaches, as that plane's parked frame strokes them (the
-// shape's colour over its casing), from the frame where that plane is the nearer one: a region's outline, a circle and a
-// segment. On the glide a -> b = 0 -> 1 (step 1 a Möbius map h), held still on the rail at u in HOLD_U and parked at
+// shape's colour over its casing), from the frame where that plane is the nearer one: a region's outline and each kind of
+// curve the inverse pass strokes (a circle, a segment, a ray, an arc, a polyline, a constructed circle). On the glide a -> b = 0 -> 1 (step 1 a Möbius map h), held still on the rail at u in HOLD_U and parked at
 // U_END, each stroke pixel of plane 1's parked frame (its shape's ink, within INK_TOL, where the frame with the strokes
 // hidden differs) at w is carried to the exact place of that point at u, H_u(h^-1(w)) (H_u: the glide's homotopy,
 // __cmwSteps().glide.Hb), and the frame at u has that shape's ink within RING_R CSS px of it, where the same frame with
@@ -26,6 +26,14 @@ const ST = {
     { id: 'd1', kind: 'disc', c: [-0.5, 0.4], r: 0.3, ci: 3, visible: true, stage: 1 },
     { id: 'k1', kind: 'circle', c: [0.3, -0.6], r: 0.5, ci: 4, visible: true, stage: 1 },
     { id: 's1', kind: 'segment', a: [-1.5, -1], b: [1.2, -1.4], ci: 5, visible: true, stage: 1 },
+    { id: 'r1', kind: 'ray', a: [-1.8, 1.2], b: [-1.2, 1.6], ci: 6, visible: true, stage: 1 },
+    { id: 'a1', kind: 'arc', a: [-0.8, 1.6], m: [-0.3, 2], b: [0.2, 1.6], ci: 7, visible: true, stage: 1 },
+    { id: 'p1', kind: 'curve', pts: [[-3, -1], [-2.6, -0.4], [-2.2, -1], [-1.8, -0.4]], ci: 1, visible: true, stage: 1 },
+    // (a constructed circle, through three hidden points: its record is the circle's equation, not its centre and radius)
+    { id: 'q1', kind: 'point', p: [2, -1], ci: 0, visible: false, stage: 1 },
+    { id: 'q2', kind: 'point', p: [2.8, -1.4], ci: 0, visible: false, stage: 1 },
+    { id: 'q3', kind: 'point', p: [2.4, -2], ci: 0, visible: false, stage: 1 },
+    { id: 'g1', kind: 'circle', c: [0, 0], r: 1, color: '#C0392B', visible: true, stage: 1, def: { op: 'circle3', args: [{ s: 'q1' }, { s: 'q2' }, { s: 'q3' }], fill: 'none' } },
     // (the real axis: on plane 1, h takes it to the unit circle, which crosses c1's outline)
     { id: 'l0', kind: 'line', a: [-2, 0], b: [2, 0], ci: 0, visible: true },
   ],
@@ -73,7 +81,7 @@ const carried = (id) => ev(`(() => {
   return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, u: +g.u.toFixed(3) };
 })()`);
 const check = async (r, where) => {
-  for (const id of ST.shapes.filter((x) => x.stage === 1).map((x) => x.id)) {
+  for (const id of ST.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id)) {
     const q = r[`${id} ${where}`] = await carried(id);
     ok(`${id}'s stroke ${where} is plane 1's parked stroke carried there (at least ${HIT_MIN * 100} % of ${MIN_RING}+ pixels, its ink within ${RING_R} px)`, q.n >= MIN_RING && q.frac >= HIT_MIN, q);
   }
