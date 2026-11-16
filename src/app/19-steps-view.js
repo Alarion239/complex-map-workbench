@@ -2130,9 +2130,12 @@
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(SV.i + 1), n: I18N.num(n), where });
   }
+  // the role's words, each in a span that takes the space before it: the head's fit drops the last ones (sv-wx) when the role is
+  // short of room. A space inside a tag ("<i class=…>") does not split
+  const svRoleWords = (role) => role.split(/ (?![^<]*>)/).map((w, i) => `<span class="sv-w">${i ? ' ' : ''}${w}</span>`).join('');
   function svFormulaHtml() {
     const { name, role, short } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${svRoleWords(role)}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
   // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
@@ -2733,10 +2736,13 @@
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
   const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  // the title's role, cut to the whole words that the room allows with an ellipsis after them (SV_ROLE_ELL px), shows at least
+  // SV_ROLE_MORE px more than its first word: else it is its first word
+  const SV_ROLE_MORE = 40, SV_ROLE_ELL = 12;
   // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
   const SV_FOOT_MORE = 4 + 26;
   // the shortest level of the steps head's bar (svFitHead's set: 1 the scope as a menu, 2 the colour-plane button as its
-  // wheel, 3 the surface button as its icon, 4 the title's role shortened) at which the Height key keeps its words: the
+  // wheel, 3 the surface button as its icon, 4 the title's role cut to the room left, 5 its first word) at which the Height key keeps its words: the
   // levels up to it keep the title's role and the surface button's name
   const SV_KEY_LEVEL = 2;
   function svChipBare(chip, bare) {
@@ -2774,9 +2780,20 @@
     if (key === E.fitKey) return;
     E.fitKey = key;
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
-    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is its first word (sv-rs), then the title
-    // loses its role (sv-c2) last; a word is never cut)
-    const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-rs', lvl >= 4); E.bar.classList.toggle('sv-c2', lvl >= 5); };
+    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is cut to the whole words that the room
+    // that is left allows, then an ellipsis (sv-re), while that shows clearly more than its first word, else it is its first word
+    // (sv-rs), then the title loses its role (sv-c2) last; a word is never cut)
+    const role = /** @type {HTMLElement | null} */ (E.title.querySelector('.sv-role'));
+    const rwords = role ? /** @type {HTMLElement[]} */ ([...role.children]) : [];
+    let roleN = 0;
+    const set = (lvl) => {
+      E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3);
+      E.bar.classList.toggle('sv-re', lvl === 4); E.bar.classList.toggle('sv-rs', lvl >= 5); E.bar.classList.toggle('sv-c2', lvl >= 6);
+      // (level 4: the role's first roleN words, then an ellipsis)
+      const cut = lvl === 4 && roleN > 0;
+      if (role) role.classList.toggle('sv-cut', cut);
+      rwords.forEach((w, i) => w.classList.toggle('sv-wx', cut && i >= roleN));
+    };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
         svChipBare(c, false);
@@ -2824,14 +2841,25 @@
     const levels = (legOk) => {
       let l = 0;
       set(0);
-      while (l < 5 && E.bar.scrollWidth + keep > room) {
+      while (l < 6 && E.bar.scrollWidth + keep > room) {
         if (legOk && legFoldable && !legFolded) {
           const w0 = legend.getBoundingClientRect().width;
           legend.classList.add('glyph'); head.classList.add('sv-lg'); legFolded = true;
           keep -= w0 - legend.getBoundingClientRect().width;
           continue;
         }
+        if (l === 3) roleN = 0;
         set(++l);
+        if (l === 4) {
+          // (the role keeps the whole words that the room allows, and an ellipsis for the rest: not fewer than the first word's
+          // width and SV_ROLE_MORE px more, else the role is its first word. One layout reads every word's end)
+          const room4 = room - keep - (E.bar.scrollWidth - (role ? role.getBoundingClientRect().width : 0)), r0 = role ? role.getBoundingClientRect().left : 0;
+          let min = SV_ROLE_MORE;
+          if (role && role.dataset.short) { E.bar.classList.add('sv-rs'); min += role.getBoundingClientRect().width; E.bar.classList.remove('sv-rs'); }
+          const ends = rwords.map((w) => w.getBoundingClientRect().right - r0);
+          for (let i = ends.length - 1; i >= 1; i--) if (ends[i - 1] + SV_ROLE_ELL <= room4) { roleN = i; break; }
+          if (roleN && ends[roleN - 1] + SV_ROLE_ELL >= min) set(4); else { roleN = 0; set(++l); }
+        }
       }
       return l;
     };

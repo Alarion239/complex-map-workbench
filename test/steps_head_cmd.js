@@ -166,6 +166,31 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
     okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Where colour shows: Inside regions' && after.text === 'Inside', after);
   }
 }
+const SV_ELL = 12;   // (the ellipsis' room, svFitHead's SV_ROLE_ELL)
+// (#1646) the Landscape carried past the colour plane, ln|w₁| on w₂: the title's role is long ("landscape of ln|w₁|, carried from w₁")
+// and the head gives it the room that is left, not a first word with the room left empty
+for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 800]]) {
+  await view(W, H, false, false);
+  const CARRY = Object.assign({}, st, { shapes: [], height: 'log', steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] });
+  await seed(`${ns}carry${lang}`, CARRY);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}carry${lang}&lang=${lang}&view=steps` });
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'" });
+  await ev(`__cmwSteps({ T: 1, surf: 'land', go: 2, now: true }); 1`); await settle(1200);
+  const C = await ev(`(() => { const b = document.getElementById('svHead'), t = b.querySelector('.sv-title'), role = t.querySelector('.sv-role'), head = document.querySelector('#paneL .pane-head'), hr = head.getBoundingClientRect();
+    const kids = [...b.children, ...[...head.children].filter((c) => c !== b)].filter((c) => c.getClientRects().length && c.getBoundingClientRect().width > 0.5);
+    const sp = [...head.children].find((c) => c.classList.contains('grow')), wordW = (text) => { const r = document.createElement('span'); r.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:400 13px ' + getComputedStyle(role).fontFamily; r.textContent = text; document.body.appendChild(r); const w = r.getBoundingClientRect().width; r.remove(); return Math.round(w); };
+    const words = role.textContent.trim().split(' '), re = b.classList.contains('sv-re'), rs = b.classList.contains('sv-rs'), shown = re ? [...role.children].filter((w) => !w.classList.contains('sv-wx')).length : rs ? 1 : words.length;
+    return { hh: Math.round(hr.height), empty: sp ? Math.round(sp.getBoundingClientRect().width) : -1, has: { title: !!t.getClientRects().length, cp: !!b.querySelector('.sv-cp').getClientRects().length, surf: !!b.querySelector('.sv-surf1').getClientRects().length, styles: !!document.getElementById('dcSeg') && document.getElementById('dcSeg').getClientRects().length > 0 },
+      cut: role.classList.contains('sv-cut') && getComputedStyle(role, '::after').content.replace(/"/g, '') === '…' && role.scrollWidth <= role.clientWidth + 1, tip: t.getAttribute('data-tip'), firstW: wordW(words[0]), nextW: shown < words.length ? wordW(words[shown]) : 0, bar: b.className, full: t.textContent, shown: t.innerText, roleW: Math.round(role.getBoundingClientRect().width), tnote: !!document.querySelector('#svTnote') && !document.querySelector('#svTnote').hidden,
+      hw: Math.round(head.clientWidth), kids: kids.map((c) => (c.id || String(c.className).slice(0, 14)) + ':' + Math.round(c.getBoundingClientRect().left - hr.left) + '+' + Math.round(c.getBoundingClientRect().width)), T: __cmwSteps().T, surf: __cmwSteps().surf, stage: __cmwSteps().stage }; })()`);
+  info[`carry${lang}`] = C;
+  const n = `${lang} ${W} carried Landscape`;
+  const cut = /\bsv-(re|rs)\b/.test(C.bar);
+  ok(`${n}: the head is one row, the title, the colour plane and the surface all show`, C.hh <= 44 && C.has.title && C.has.cp && C.has.surf, C);
+  ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !cut || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
+  ok(`${n}: a role cut to the room is its whole words and an ellipsis (no word cut), and the title's tip has the whole title`, !/\bsv-re\b/.test(C.bar) || (C.cut && C.tip === C.full), C);
+  ok(`${n}: the role shows more than its first word when it is cut by the room`, !/\bsv-re\b/.test(C.bar) || C.roleW > C.firstW + 36, C);
+}
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
 info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';
 return { pass: fails.length === 0, fails, info };
