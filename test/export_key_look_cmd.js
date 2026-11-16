@@ -1,13 +1,12 @@
 // The colour key in an exported figure (#1707), as the LaTeX export prints it: the Overleaf preset (Homework, "Overleaf
 // article · 11 pt") and the article preset at 11 pt, for a Phase still with zeros and poles (example 9, its pane's key:
-// the ring, the modulus strip and the words), the default example's plane z, its plane w₂ past the colour plane (the
-// carried key) and the classic Phase figure (its ring marked 0, π/2, ±π, -π/2).
-// - The ring is vector: the figure's only bitmap is its picture, in the SVG and in the PDF (one image XObject). Before,
-//   the ring was a second, 300 dpi bitmap.
+// the ring, the modulus strip and the words), the default example's plane z, its plane w₂ past the colour plane with the
+// colour carried from z (the carried key) and the classic Phase figure (its ring marked 0, π/2, ±π, -π/2).
+// - The ring is vector: the figure's only bitmap is its picture, in the SVG and in the PDF (one image XObject).
 // - The key stands clear of the picture: its nearest mark or word is at least KEY_CLEAR pt right of the picture's frame,
-//   so the ring's left mark (-1, ±π) does not read as a label of the frame's right side (before: 5.3 pt).
-// - The key ends inside the figure: its width and its height. In a wide window the picture is short, and the key's last
-//   lines ran below the figure's bottom and were cut off (the key is now moved up, and the figure grows when it must).
+//   so the ring's left mark (-1, ±π) does not read as a label of the frame's right side.
+// - The key lies inside the figure: its width and its height, also in a wide window, where the picture is shorter than
+//   the key.
 // A command file for a CDP daemon:  <runner> test/export_key_look_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -21,7 +20,8 @@ const PRESETS = { overleaf11: { for: 'homework', sizeId: 'ol11', text: 11 }, art
 await view(1440, 900, false);
 await load('xkl' + Date.now(), {});
 const base = await ev('location.origin');
-const look = async (tag, opts) => {
+// want.carried: the figure must carry the colour from another plane (its key says where from: info.keyLine)
+const look = async (tag, opts, want = {}) => {
   await ev(`window.__xkl = null; (async () => { const f = await Figure.build(${JSON.stringify(opts)}); if (!f) return { none: true };
     const pdf = new Uint8Array(await (await Figure.pdf(f)).arrayBuffer()); let s = ''; for (let i = 0; i < pdf.length; i += 0x8000) s += String.fromCharCode.apply(null, pdf.subarray(i, i + 0x8000));
     const ims = [...f.svg.matchAll(/<image x="([-0-9.]+)" y="([-0-9.]+)" width="([0-9.]+)" height="([0-9.]+)"/g)].map((m) => m.slice(1).map(Number));
@@ -33,6 +33,7 @@ const look = async (tag, opts) => {
   ok(`${tag}: a figure builds`, r && !r.err && !r.none, r && (r.err || r));
   if (!r || r.err || r.none) return;
   ok(`${tag}: it has a key`, r.key.length >= 4, r.key.map((b) => b.tex));
+  if (want.carried) ok(`${tag}: its key is the carried key, with the line saying where the colour comes from`, !!r.keyLine, { view: r.view, keyLine: r.keyLine });
   ok(`${tag}: its only bitmap is the picture, in the SVG and in the PDF (the ring is vector)`, r.svgImages === 1 && r.pdfImages === 1, { svg: r.svgImages, pdf: r.pdfImages });
   // (the picture: the largest image; the key stands right of it)
   const pic = r.ims.slice().sort((p, q) => q[2] * q[3] - p[2] * p[3])[0];
@@ -54,13 +55,17 @@ const open = async (ex, classic) => {
 // example 9 (zeros at ±1, poles at ±i): the pane's key
 await open(9);
 for (const [p, o] of Object.entries(PRESETS)) await look(`example 9, ${p}`, o);
-// example 1: plane z (the colour plane), then plane w₂ (past it: the carried key)
+// example 1 with the colour from plane z (T = 0, as export_two_planes sets it): plane z, the colour plane with the pane's
+// key, then its last plane, past the colour plane, whose figure has the carried key (the ring and the line saying where the
+// colour comes from)
 await open(1);
+await ev('(__cmwSteps({ T: 0 }), __cmwSteps({ go: 0, now: true }), 1)');
+await settled({ until: '__cmwSteps().T === 0 && __cmwSteps().i === 0 && !__cmwSteps().moving', max: 15000, floor: 600 });
 await look('example 1, plane z, overleaf11', PRESETS.overleaf11);
 const n = await ev('__cmwSteps().planes.length');
 await ev(`(__cmwSteps({ go: ${n - 1}, now: true }), 1)`);
-await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 600 });
-await look(`example 1, plane ${n - 1}, overleaf11`, PRESETS.overleaf11);
+await settled({ until: `__cmwSteps().i === ${n - 1} && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000, floor: 600 });
+for (const [p, o] of Object.entries(PRESETS)) await look(`example 1, plane ${n - 1} (carried key), ${p}`, o, { carried: true });
 // a wide window: the picture is short, and the key is taller than it (example 9 on a 1600 x 480 page)
 await view(1600, 480, false);
 await open(9);

@@ -625,15 +625,15 @@
   // the ring key: the app's hue wheel on an annulus, in vector
   // the key column of a plain still and of a Phase figure: its width (at most KEY_COL_MAX pt, a fifth of the figure), the
   // gap between the picture and its column (wide enough that the ring's left mark, -1, does not read as a label of the
-  // frame's right side, #1707), the room a ring's own marks and margins take off the column's half width, the ring's inner
+  // frame's right side), the room a ring's own marks and margins take off the column's half width, the ring's inner
   // radius as a fraction of its outer, how many sectors its wheel has, and a line of words in units of the text size
   const KEY_COL_MAX = 64, KEY_COL_FRAC = 0.2, KEY_GAP = 12, KEY_RING_ROOM = 13, RING_INNER = 0.55, RING_SECTORS = 360, KEY_LINE = 1.3;
   // the hue ring of a key centred on (kx, ky), outer radius R pt, as a group with the id kid: the wheel as RING_SECTORS
   // sectors between the radii, sector i in the hue at its middle angle (t = (i + 0.5) / RING_SECTORS from arg -pi, as the
-  // app's wheel), then the two circles that outline it. Vector (#1707): sharp at any zoom of a PDF and at any dpi of a PNG,
-  // where a 300 dpi bitmap clipped to the band showed its pixels and its clip's edge. Each sector reaches one sector further,
-  // under the next, and the first one sector back, under the last, so no seam of anti-aliasing shows between them; the
-  // sectors' straight edges are within 0.003 pt of the arcs, under the outlines, drawn at lw pt: the figure's frame weight
+  // app's wheel), then the two circles that outline it. It is vector, so it stays sharp at any zoom of a PDF and at any dpi
+  // of a PNG. Each sector reaches one sector further, under the next, and the first one sector back, under the last, so no
+  // seam of anti-aliasing shows between them; the sectors' straight edges are within 0.003 pt of the arcs, under the
+  // outlines, which are drawn at lw pt: the figure's frame weight
   function ringKeyMarkup(kx, ky, R, kid, lw = 0.5) {
     const r0 = R * RING_INNER, n = RING_SECTORS, da = 2 * Math.PI / n;
     const P = (r, a) => `${f2(kx + r * Math.cos(a))} ${f2(ky - r * Math.sin(a))}`;
@@ -726,7 +726,7 @@
       const kx = x + w + KEY_GAP + keyW / 2, R = keyW / 2 - KEY_RING_ROOM, kid = `${XD.ns}-key`;
       // (the key's reach above and below the ring's centre, from its parts' heights as they are set below: its top mark
       // and title, and its last line. The ring is centred on the picture; a key taller than a wide picture moves up as far
-      // as the figure's top allows and the figure grows to hold the rest, so no line of it is cut off, #1707)
+      // as the figure's top allows and the figure grows to hold the rest, so every line of it is inside the figure)
       const ht = (it) => it.a + it.d, sh = 6;
       const above = sv ? R + 1.5 + ht(XD.tex('i', tp)) : R + 12 + ht(XD.tex(`\\arg ${A.fname()}`, tp));
       const below = !sv ? R + 1.5 + ht(XD.tex('-\\pi/2', tp))

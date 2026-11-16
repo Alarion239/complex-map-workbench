@@ -1,9 +1,8 @@
-// The colour key's ring in an exported figure (#1707): the app's hue wheel on an annulus, drawn in vector. Before, it was
-// a 300 dpi RGB bitmap clipped to the band, which showed its pixels when a PDF viewer zoomed in, stayed at 300 dpi in a
-// 600 dpi PNG and left its edges to the viewer's clip. Here (figure/03-views.js ringKeyMarkup, as Figure.geom.ringKey):
-// no image and no clip; sectors between the two radii that cover the whole turn, the one drawn last at each angle in the
-// hue the app gives that angle (t = (arg + pi) / 2 pi, as the bitmap was); each sector reaching under the next, so no
-// seam of anti-aliasing shows between two; and the ring outlined at both radii. Run: node test/t_figure_ringkey.js
+// The colour key's ring in an exported figure (#1707): the app's hue wheel on an annulus, drawn in vector, so it is sharp
+// at any zoom of a PDF and any dpi of a PNG (figure/03-views.js ringKeyMarkup, as Figure.geom.ringKey). It holds: no
+// image and no clip; sectors between the two radii that cover the whole turn, the one drawn last at each angle in the hue
+// the app gives that angle (t = (arg + pi) / 2 pi); each sector reaching under the next, so no seam of anti-aliasing shows
+// between two; and the ring outlined at both radii. Run: node test/t_figure_ringkey.js
 const vm = require('vm'), path = require('path');
 const R = path.join(__dirname, '..');
 global.CX = require(R + '/src/cx.js');
