@@ -85,10 +85,10 @@ ok('on a phone the header holds the same surface button, 40 px or more, with its
 // on its middle lands on it; short of room it is its icon and ▾, still named "Surface: …"
 // (eyes on #473: on every plane, w₁'s and w₂'s names are wider than z's)
 // (#1596) the scope switch's segments keep the segmented control's inner padding (0 10px, notes/DESIGN_SPEC.md) at 360 px, and at
-// 320 px in Italian on w₁ and w₂ (where the head is at its tightest, sv-c4), on every plane: the space between a label and its segment's edge, each side; a head that has folded the switch to a menu button
+// 320 px in en, ru and it on every plane (where the head is at its tightest), on every plane: the space between a label and its segment's edge, each side; a head that has folded the switch to a menu button
 // shows none to measure
-const SEG_PAD = 10, scopePad = [];
-for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2], [360, 'it', 0], [360, 'en', 2], [360, 'ru', 2], [320, 'it', 1], [320, 'it', 2]]) {
+const SEG_PAD = 10, LAST_PAD = 5, scopePad = [];   // (LAST_PAD: what the scope keeps in the head's last fold, sv-c5, where the bar would otherwise scroll)
+for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2], [360, 'it', 0], [360, 'en', 2], [360, 'ru', 2], [320, 'en', 0], [320, 'en', 1], [320, 'en', 2], [320, 'ru', 0], [320, 'ru', 1], [320, 'ru', 2], [320, 'it', 0], [320, 'it', 1], [320, 'it', 2]]) {
   await open(w, 800, true, lang);
   for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-surf1')`)); i++) await sleep(100);
   await ev(`__cmwSteps({ go: ${go}, now: true }); 1`);
@@ -97,8 +97,8 @@ for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [36
     const at = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && !!e.closest('.sv-surf1'); };
     const pad = [...document.querySelectorAll('#svHead .sv-scope > button')].filter((b) => b.getClientRects().length).map((b) => { const g = document.createRange(); g.selectNodeContents(b); const tr = g.getBoundingClientRect(), br = b.getBoundingClientRect(); return { text: ([...b.children].find((c) => c.getClientRects().length) || b).textContent.trim(), left: Math.round((tr.left - br.left) * 10) / 10, right: Math.round((br.right - tr.right) * 10) / 10 }; });
     const bar = document.getElementById('svHead');
-    return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height), pad, scrolls: bar.scrollWidth > bar.clientWidth + 1, c4: bar.classList.contains('sv-c4') }; })()`);
-  if (w <= 360) { scopePad.push(...t.pad); ok(`phone ${w} ${lang} plane ${go}: the header does not scroll sideways`, t.scrolls === false, t); ok(`phone ${w} ${lang} plane ${go}${t.c4 ? ' (sv-c4)' : ''}: each scope segment's label keeps ${SEG_PAD} px of padding on both sides`, t.pad.every((x) => x.left >= SEG_PAD - 0.5 && x.right >= SEG_PAD - 0.5), t.pad); }
+    return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height), pad, scrolls: bar.scrollWidth > bar.clientWidth + 1, c4: bar.classList.contains('sv-c4'), c5: bar.classList.contains('sv-c5') }; })()`);
+  if (w <= 360) { scopePad.push(...t.pad); ok(`phone ${w} ${lang} plane ${go}: the header does not scroll sideways`, t.scrolls === false, t); ok(`phone ${w} ${lang} plane ${go}${t.c5 ? ' (sv-c5, the last fold)' : ''}: each scope segment's label keeps ${t.c5 ? LAST_PAD : SEG_PAD} px of padding on both sides`, t.pad.every((x) => x.left >= (t.c5 ? LAST_PAD : SEG_PAD) - 0.5 && x.right >= (t.c5 ? LAST_PAD : SEG_PAD) - 0.5), t.pad); }
   ok(`phone ${w} ${lang} plane ${go}: the surface button is the hit target at its right edge and middle, clear of ⋯, named`, t.right && t.mid && t.gap >= 0 && /: /.test(t.name || '') && t.h >= 40, t);
 }
 ok('the scope switch showed (not folded to its menu button) on a phone in at least one language and plane', scopePad.length >= 2, scopePad);

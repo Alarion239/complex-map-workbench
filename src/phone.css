@@ -541,10 +541,12 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
-/* the scope's switch keeps the segmented control's padding (0 10px, the design spec), at every level of the head's fold (sv-c4's
-   `.seg > button` below has fewer classes in its selector than this one, so this wins): its second segment is the short word, so
-   it fits at 360 px in Russian and Italian (#1596) */
+/* the scope's switch keeps the segmented control's padding (0 10px, the design spec), at every level of the head's fold but the last
+   (sv-c4's `.seg > button` below has fewer classes in its selector than this one, so this wins): its second segment is the short
+   word, so it fits at 360 px in Russian and Italian (#1596) */
 :root.ph.sv .sv-head .seg.sv-scope > button, :root.ph.sv .sv-head.sv-c4 .seg.sv-scope > button { padding: 0 10px; }
+/* the last fold of the head (the bar still short after sv-c4: w₁ at 320 px): the scope's padding gives too, as nothing else is left */
+:root.ph.sv .sv-head.sv-c5 .seg.sv-scope > button { padding: 0 5px; }
 :root.ph.sv .sv-head .sv-scope .sc-full { display: none; }
 :root.ph.sv .sv-head .sv-scope .sc-short { display: inline; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
