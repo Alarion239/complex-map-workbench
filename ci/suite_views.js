@@ -30,6 +30,7 @@ const VIEWS = {
   'sv_cut_ring_dash_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
+  'ruler_corner_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
   'export_two_planes_dialog_cmd.js': steps(),
