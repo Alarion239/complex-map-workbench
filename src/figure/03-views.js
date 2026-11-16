@@ -622,25 +622,35 @@
     const png = await XD.encodePNG({ w, h, type: 0, data: lum });
     return { url: 'data:image/png;base64,' + b64(png), box, lum, w, h, enc: 'grey', bytes: png.length, dpi };
   }
-  // the ring key: the app's hue wheel on an annulus, as an RGB raster at dpi
+  // the ring key: the app's hue wheel on an annulus, in vector
   // the key column of a plain still and of a Phase figure: its width (at most KEY_COL_MAX pt, a fifth of the figure), the
-  // gap between the picture and its ring, the room a ring's own marks and margins take off the column's half width, the
-  // ring's inner radius as a fraction of its outer, its bitmap's resolution, and a line of words in units of the text size
-  const KEY_COL_MAX = 64, KEY_COL_FRAC = 0.2, KEY_GAP = 6, KEY_RING_ROOM = 13, RING_INNER = 0.55, RING_DPI = 300, KEY_LINE = 1.3;
-  // the hue ring of a key centred on (kx, ky), outer radius R pt: the wheel clipped to the band between the radii,
-  // outlined, as markup under the clip id kid
-  async function ringKeyMarkup(kx, ky, R, kid) {
-    const r0 = R * RING_INNER, url = await ringKey(R, RING_DPI);
-    return `<clipPath id="${kid}"><path d="M${f2(kx - R)} ${f2(ky)}a${f2(R)} ${f2(R)} 0 1 0 ${f2(2 * R)} 0a${f2(R)} ${f2(R)} 0 1 0 ${f2(-2 * R)} 0ZM${f2(kx - r0)} ${f2(ky)}a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(2 * r0)} 0a${f2(r0)} ${f2(r0)} 0 1 1 ${f2(-2 * r0)} 0Z" clip-rule="evenodd"/></clipPath>`
-      + `<image x="${f2(kx - R)}" y="${f2(ky - R)}" width="${f2(2 * R)}" height="${f2(2 * R)}" preserveAspectRatio="none" clip-path="url(#${kid})" xlink:href="${url}"/>`
-      + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/>`;
+  // gap between the picture and its column (wide enough that the ring's left mark, -1, does not read as a label of the
+  // frame's right side, #1707), the room a ring's own marks and margins take off the column's half width, the ring's inner
+  // radius as a fraction of its outer, how many sectors its wheel has, and a line of words in units of the text size
+  const KEY_COL_MAX = 64, KEY_COL_FRAC = 0.2, KEY_GAP = 12, KEY_RING_ROOM = 13, RING_INNER = 0.55, RING_SECTORS = 360, KEY_LINE = 1.3;
+  // the hue ring of a key centred on (kx, ky), outer radius R pt, as a group with the id kid: the wheel as RING_SECTORS
+  // sectors between the radii, sector i in the hue at its middle angle (t = (i + 0.5) / RING_SECTORS from arg -pi, as the
+  // app's wheel), then the two circles that outline it. Vector (#1707): sharp at any zoom of a PDF and at any dpi of a PNG,
+  // where a 300 dpi bitmap clipped to the band showed its pixels and its clip's edge. Each sector reaches one sector further,
+  // under the next, and the first one sector back, under the last, so no seam of anti-aliasing shows between them; the
+  // sectors' straight edges are within 0.003 pt of the arcs, under the outlines
+  function ringKeyMarkup(kx, ky, R, kid) {
+    const r0 = R * RING_INNER, n = RING_SECTORS, da = 2 * Math.PI / n;
+    const P = (r, a) => `${f2(kx + r * Math.cos(a))} ${f2(ky - r * Math.sin(a))}`;
+    let m = `<g id="${kid}">`;
+    for (let i = 0; i < n; i++) {
+      const a0 = -Math.PI + (i - (i === 0 ? 1 : 0)) * da, a1 = -Math.PI + (i + (i < n - 1 ? 2 : 1)) * da;
+      const hex = '#' + A.hue((i + 0.5) / n).map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
+      m += `<path d="M${P(R, a0)}L${P(R, a1)}L${P(r0, a1)}L${P(r0, a0)}Z" fill="${hex}"/>`;
+    }
+    return m + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/></g>`;
   }
   // the key of a plane past the colour plane, in a column keyW pt wide centred on kx whose top is y: the ring, then the line
   // saying where the colour is carried from, wrapped to the column's width, the plane's name in math. Returns its items and
   // the y its last line ends at
   async function carriedKey(carried, kx, y, keyW, tp) {
     const R = keyW / 2 - KEY_RING_ROOM, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
-    const items = [await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`), ...ringMarks(kx, ky, R, tp)];
+    const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`), ...ringMarks(kx, ky, R, tp)];
     const lns = [];
     let cur = '';
     for (const wd of carried.text.split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
@@ -653,16 +663,6 @@
   const ringMarks = (kx, ky, R, tp) => [
     XD.at(XD.tex('1', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'), XD.at(XD.tex('i', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'),
     XD.at(XD.tex('-1', tp), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'), XD.at(XD.tex('-i', tp), kx, ky + R + 1.5, 'middle', 'top', 'ring-mark')];
-  async function ringKey(Rpt, dpi) {
-    const n = Math.round(2 * Rpt * dpi / 72), rgb = new Uint8Array(n * n * 3).fill(255);
-    for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-      const u = (i + 0.5) / n * 2 - 1, v = 1 - (j + 0.5) / n * 2;
-      const t = (Math.atan2(v, u) + Math.PI) / (2 * Math.PI), c = A.hue(t);
-      rgb.set(c, 3 * (j * n + i));
-    }
-    const png = await XD.encodePNG({ w: n, h: n, type: 2, data: rgb });
-    return 'data:image/png;base64,' + b64(png);
-  }
   // zeros and poles of F in a box (Calc.zerosPoles), bounded in time
   function zerosPoles(F, box) {
     if (!Calc.zerosPoles) return [];
@@ -694,10 +694,11 @@
     const dc0 = A.capParts().dc || 'enhanced', keyW = bw || dc0 === 'classic' || dc0 === 'cauchy' ? 0 : Math.min(KEY_COL_MAX, W * KEY_COL_FRAC);
     const step = stepFor(box, W - keyW);
     const mL = tickW(box, step, tp) + 3, top = lp * 1.15 + 3, bottom = tp * 1.05 + 4.2;
-    let w = W - mL - Math.max(4, keyW ? 4 : overR(box, step, tp)) - keyW, h = w / aspect(box);
+    // (the key's column stands KEY_GAP pt right of the picture and ends at the figure's right edge)
+    let w = W - mL - (keyW ? KEY_GAP + keyW : Math.max(4, overR(box, step, tp))), h = w / aspect(box);
     const hmax = Math.min(W * 0.95, P.maxH - top - bottom);
     if (h > hmax) { h = hmax; w = h * aspect(box); }
-    const x = (W - keyW - w - mL - 4) / 2 + mL;
+    const x = (W - (keyW ? KEY_GAP + keyW : 4) - w - mL) / 2 + mL;
     let art;
     if (bw) art = await bandsArt(F, box, w, 300);
     else { art = await artPanel('L', box, w, Object.assign({}, o, { ink: 'colour' }), { mode: 'rgb', dpi: 300 }); if (!art) return null; }
@@ -723,7 +724,7 @@
     let kdefs = '';
     if (keyW) {
       const kx = x + w + KEY_GAP + keyW / 2, ky = top + h / 2, R = keyW / 2 - KEY_RING_ROOM, kid = `${XD.ns}-key`;
-      items.push(await ringKeyMarkup(kx, ky, R, kid));
+      items.push(ringKeyMarkup(kx, ky, R, kid));
       if (sv) {
         // the pane's key: the ring labelled 1, i, -1, -i, then (but in the plain Phase style) the three modulus bands with
         // their factor, and the caption "arg and |F|" ("arg F" when plain), the plane's variable in italic
