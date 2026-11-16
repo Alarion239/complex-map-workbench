@@ -110,6 +110,7 @@ const VIEWS = {
   'steps_labels_cmd.js': steps(),
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
+  'compile_pill_cmd.js': steps({ pin: true }),
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
