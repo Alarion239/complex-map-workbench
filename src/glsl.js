@@ -11,6 +11,38 @@ const GLChain = (() => {
   // Helper library. Public names (see the interface): cmul cdiv cinv cexp clog cpowr cpow cipow csqrtp
   // csin ccos ctan csinh ccosh ctanh casin cacos catan casinh cacosh catanh cfin carg.
   // Internal helpers are prefixed cx_ to stay out of the includer's namespace.
+  // cx_sin and cx_cos: the GPU's built-ins (TRIG_BUILTIN), or, on a renderer whose built-ins keep only Vulkan's minimum
+  // accuracy, sin and cos to float32's (TRIG_ACCURATE): SwiftShader, Chrome's software WebGL where a GPU is blocked or
+  // missing, is off by up to 2^-11 absolute (about 5e-4), enough to move the inverse renderer's leaves and to draw a
+  // region where it is not (#1739: a wedge at z^1.5's parked glide frame). useRenderer chooses one for the context,
+  // before its first program; LIB is the library with the one chosen.
+  const TRIG_BUILTIN = `float cx_sin(float x) { return abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
+float cx_cos(float x) { return abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }`;
+  // (Cody-Waite: x - q pi/2 in three parts, the first with 8 bits so that q times it is exact for |q| < 2^16; then the
+  // degree-9 and degree-10 polynomials of sin and cos on [-pi/4, pi/4]: within 1e-7 of Math.sin and Math.cos for |x| <= 200)
+  const TRIG_ACCURATE = `vec2 cx_sincos(float x) {
+  float q = floor(x * 0.6366197723675814 + 0.5);
+  float r = ((x - q * 1.5703125) - q * 4.837512969970703e-4) - q * 7.549789954891882e-8;
+  float r2 = r * r;
+  float s = r + r * r2 * (-0.16666667 + r2 * (0.008333331 + r2 * (-0.00019840874 + r2 * 2.7525562e-6)));
+  float c = 1.0 + r2 * (-0.5 + r2 * (0.041666638 + r2 * (-0.0013888378 + r2 * 2.4760495e-5)));
+  float m = q - 4.0 * floor(q * 0.25);
+  return m < 0.5 ? vec2(s, c) : m < 1.5 ? vec2(c, -s) : m < 2.5 ? vec2(-s, -c) : vec2(-c, s);
+}
+float cx_sin(float x) { return abs(x) <= 3.4e38 ? cx_sincos(x).x : cx_nan(); }
+float cx_cos(float x) { return abs(x) <= 3.4e38 ? cx_sincos(x).y : cx_nan(); }`;
+  // (built-in sin and cos are good enough on every GPU, and cheaper: only these renderers take TRIG_ACCURATE)
+  const TRIG_SOFT = /SwiftShader/i;
+  let trigAccurate = false;
+  // the renderer's name (a WebGL context's UNMASKED_RENDERER, or the string): true when it takes TRIG_ACCURATE
+  function useRenderer(r) {
+    if (r && typeof r === 'object' && typeof r.getExtension === 'function') {
+      const d = r.getExtension('WEBGL_debug_renderer_info');
+      r = d ? r.getParameter(d.UNMASKED_RENDERER_WEBGL) : r.getParameter(r.RENDERER);
+    }
+    trigAccurate = TRIG_SOFT.test(String(r || ''));
+    return trigAccurate;
+  }
   const LIB = `
 const float CX_PI = 3.141592653589793;
 // [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
@@ -28,8 +60,7 @@ bool cx_isnan(float x) { return (floatBitsToUint(x) & 0x7fffffffu) > 0x7f800000u
 bool cx_isinf(vec2 z) { highp uvec2 u = floatBitsToUint(z) & 0x7fffffffu; return max(u.x, u.y) == 0x7f800000u; }
 bool cx_signbit(float x) { return (floatBitsToUint(x) & 0x80000000u) != 0u; }
 // sin/cos of +-inf is NaN (as Math.sin/cos); GPU built-ins return a finite value there
-float cx_sin(float x) { return abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
-float cx_cos(float x) { return abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }
+${TRIG_BUILTIN}
 float cx_sinh(float x) {
   float ax = abs(x);
   if (ax < 0.25) { float x2 = x * x; return x * (1.0 + x2 / 6.0 * (1.0 + x2 / 20.0 * (1.0 + x2 / 42.0))); }
@@ -2900,7 +2931,12 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT, INV_LIB, seriesTrust };
+  const LIB_ACCURATE = LIB.replace(TRIG_BUILTIN, TRIG_ACCURATE);
+  return {
+    get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
+    useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
+    INV_LIB, seriesTrust,
+  };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
