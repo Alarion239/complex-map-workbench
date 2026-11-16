@@ -296,7 +296,7 @@
     }
     return probeTeachUntil > now ? `<span class="rhint rteach">${SV.on ? $t('Hold and slide to read {f}', { f: svMapCall('html') }) : $t('Hold and slide to read F(z)')}</span>` : '';
   };
-  const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
+  const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
   function idleRight() {
