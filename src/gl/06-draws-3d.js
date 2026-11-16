@@ -349,6 +349,17 @@
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
   // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each
   const landCopies = [];
+  // a seam's band (st.carry.copies' band): the part of the carried box sb within SEAM_CELLS cells of the principal grid
+  // (N points a side) of the ray from 0 at angle deg (0, 90, 180 or 270), where every surface's cells tear; on a grid of
+  // SEAM_N points a side. null when the ray misses sb
+  const SEAM_N = 96, SEAM_CELLS = 3;
+  function seamBand(sb, deg, N) {
+    const d = SEAM_CELLS * Math.max(sb.x1 - sb.x0, sb.y1 - sb.y0) / (N - 1);
+    const r = { 0: [-d, sb.x1, -d, d], 90: [-d, d, -d, sb.y1], 180: [sb.x0, d, -d, d], 270: [-d, d, sb.y0, d] }[deg];
+    if (!r) return null;
+    const b = { x0: Math.max(sb.x0, r[0]), x1: Math.min(sb.x1, r[1]), y0: Math.max(sb.y0, r[2]), y1: Math.min(sb.y1, r[3]) };
+    return b.x1 > b.x0 && b.y1 > b.y0 ? b : null;
+  }
   // (the steps view's Inside regions) st.mask {cv, key, box, cut}: a canvas over box (plane coordinates), opaque on the
   // carried region set, uploaded once per key to unit 15 (uMask), rebound at each program's setup (unit 15 is the
   // passes' scratch unit); outside it the surface is plain (LAND_FS), or with cut not drawn; null: the colour everywhere
@@ -1354,8 +1365,8 @@
     const Lp = st.carry && !hs ? null : hs ? (mode === 4 || mode === 5 ? program('landSheetC', st.map) : Ls) : program('land', st.map);
     if (st.carry && !hs) {
       const Pc = program('landCarry', st.carry.map), sb = st.carry.src || box;
-      // (the carried surface's program and uniforms, with the chain the GPU holds when it is called)
-      const setUp = () => {
+      // (the carried surface's program and uniforms, with the chain the GPU holds when it is called; over the box sb)
+      const setUp = (sb) => {
         use(Pc, st.carry.map);
         common(Pc);
         lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
@@ -1367,22 +1378,29 @@
         u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
         u4f(Pc, 'uPolar', 0, 0, 0, 0);
       };
-      // (the other sheets' copies first (st.carry.copies: each runs its function with the GPU's chain on that sheet's
-      // combo, then puts the chain back): each its own heights over the box's grid, placed and coloured on its sheet, with
-      // no patches. The principal surface is drawn after them, so it is the one shown where a copy meets it)
+      // (the other sheets' copies first (st.carry.copies: {draw, band}, draw running its function with the GPU's chain
+      // on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
+      // coloured on its sheet, with no patches; with band (an angle, degrees), over seamBand's box about that ray from
+      // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, so it is the one shown
+      // where a copy meets it)
       info.copies = 0;
-      for (const [i, around] of (st.carry.copies || []).entries()) {
-        around(() => {
+      for (const [i, cp] of (st.carry.copies || []).entries()) {
+        cp.draw(() => {
           if (!carryReady(st.carry.map)) return;
-          const o = carryHeights(st, N, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {}));
-          setUp();
+          const band = cp.band == null ? null : seamBand(sb, cp.band, N);
+          if (cp.band != null && !band) return;
+          const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
+          const o = carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {}));
+          setUp(band || sb);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, o.tex2);
+          u1i(Pc, 'uN', o.N);
           gl.drawArrays(gl.TRIANGLES, 0, 6 * (o.N - 1) * (o.N - 1));
           info.copies++;
         });
       }
-      setUp();
+      setUp(sb);
+      u1i(Pc, 'uN', hd.N);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);

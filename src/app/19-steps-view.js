@@ -436,8 +436,10 @@
     // Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions, where
     // plane b shows the principal sheet's image of the regions)
     const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
-    // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them)
-    carry.copies = [...(sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.b, carry.s) : []), ...sheets].map((v) => (draw) => svOnSheets(v, draw));
+    // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
+    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
+    const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.b, carry.s) : [];
+    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
     render3D(pane, carry);
     return true;
   }
@@ -1723,6 +1725,16 @@
   // twin take the same values away from both cuts). SV.glideSeams 0 (a test hook's) draws none
   function svGlideSeams(b, from = 0) {
     return svGlideSheets(b, from).length ? svSheetMemo.seamList() : [];
+  }
+  // where a Landscape glide's seams tear (svGlideSeams): along step b's cut, a ray from 0 in the plane of its input,
+  // when that plane is the carry's source s (from) and step b is the one multivalued step it applies. Its angle in
+  // degrees when it lies on an axis, so a seam's cells can be a box about it (GLR.drawLandscape's band), else null (the
+  // seams cover the source plane's whole box)
+  function svSeamCut(b, from) {
+    const st = S.steps[b - 1];
+    if (from !== b - 1 || !st || !SV_SHEET_STEPS.includes(st.type)) return null;
+    const c = (((st.params.cut == null ? 180 : +st.params.cut) % 360) + 360) % 360;
+    return c % 90 === 0 ? c : null;
   }
   // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'
   // caches are keyed by it) and the GPU chain's data, then the chain as it is again; draw's answer
