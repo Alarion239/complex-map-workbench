@@ -423,7 +423,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP; out vec2 vKW;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -481,7 +481,7 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
 ` : ''}  int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n  vKW = c == 0 ? w0 : (c == 1 ? w1 : w2);\n' : ''}${o.sheet && o.own ? `  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
   vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
   vWTol = uKPx + 0.25 * longest(w0, w1, w2);
@@ -764,6 +764,28 @@ float preKeyDepth(vec2 sa, bool stepped) {
   float d = log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
   float x = (stepped ? floor(d + 0.5) : d) + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
   return x / (KEY_SMAX + 1.0);
+}
+`;
+  // (#1647) the point the sheet key of a region mesh's fragment is taken at: its source point sa, interpolated linearly
+  // across the triangle, moved by one Newton step toward the point the map sends to this pixel's place vKW (also
+  // interpolated, and exact: the place is linear across the drawn triangle), with the map's own dz/dw at sa from the
+  // screen derivatives of sa and of its image over the pixel quad. The interpolated source point is off by the map's curvature over the triangle, many steps of the
+  // key apart for the sheets of a symmetric map (z^3's three sheets have the same |z|), which then took the front
+  // sheet triangle by triangle; one step brings it within the key's tie band, where the tie order decides, as in the
+  // exact pass. A step that does not land on a finite point leaves sa
+  const KEY_REFINE = `vec2 keyPoint(vec2 sa) {
+  vec2 f = mapPoint(sa), fx = dFdx(f), fy = dFdy(f), dsx = dFdx(sa), dsy = dFdy(sa);
+  float det = fx.x * fy.y - fy.x * fx.y;
+  if (!(abs(det) > 1e-30) || !cfin(f)) return sa;
+  vec2 s1 = sa;
+  for (int i = 0; i < 2; i++) {
+    vec2 r = (i == 0 ? f : mapPoint(s1)) - vKW;
+    vec2 q = vec2(fy.y * r.x - fy.x * r.y, fx.x * r.y - fx.y * r.x) / det;
+    vec2 s2 = s1 - (dsx * q.x + dsy * q.y);
+    if (!cfin(s2)) break;
+    s1 = s2;
+  }
+  return s1;
 }
 `;
   const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
@@ -1248,13 +1270,13 @@ void main() {
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
-  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, refine = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;${refine ? '\nin vec2 vKW;\n' + KEY_REFINE : ''}
 ${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+${key ? (refine ? PRE_KEY.split('preKeyDepth(sa, true)').join('preKeyDepth(keyPoint(sa), true)') : PRE_KEY) : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
   // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
