@@ -343,7 +343,7 @@
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
     // (the steps view's plane name with a real subscript: the corner is 18 px wide, which cut the Unicode one)
     const cornerHtml = !show ? '' : side === 'L' ? (SV.on ? svNameHtml(leftStage()) : wHtml(leftStage())) : (yAtF() ? '<i>w</i>' : wHtml(rightStage()));
-    if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml; seen.corner = cornerHtml; }
+    if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml ? `<span>${cornerHtml}</span>` : ''; seen.corner = cornerHtml; }   // (one grid item: the letter and its subscript share a line, not a row each)
     if (!show) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const [xw, xh] = rulerDims(rx), [yw, yh] = rulerDims(ry);
