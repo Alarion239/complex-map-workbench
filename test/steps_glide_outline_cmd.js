@@ -1,18 +1,20 @@
 // The steps view's glide strokes the shapes of the plane it reaches, as that plane's parked frame strokes them (the
-// shape's colour over its casing), from the frame where that plane is the nearer one: a region's outline, a circle and a
-// segment. On the glide a -> b = 0 -> 1 (step 1 a Möbius map h), held still on the rail at u in HOLD_U and parked at
-// U_END, each stroke pixel of plane 1's parked frame (its shape's ink, within INK_TOL, where the frame with the strokes
-// hidden differs) at w is carried to the exact place of that point at u, H_u(h^-1(w)) (H_u: the glide's homotopy,
-// __cmwSteps().glide.Hb), and the frame at u has that shape's ink within RING_R CSS px of it, where the same frame with
-// the strokes hidden differs, for at least HIT_MIN of at least MIN_RING of them. And the strokes stack in the shapes'
-// order, as at rest: where the line l0 of plane 0, listed after the disc c1 of plane 1, crosses c1's outline (the pixels
-// of l0's ink in plane 1's parked frame with c1's ink within CROSS_R px), the frame at U_END has l0's ink at the same
-// pixel (within 1 px) for at least STACK_MIN of at least MIN_CROSS of them. Inside regions and Everywhere (SCOPES).
+// shape's colour over its casing): a region's outline, a circle and a segment. On the glide a -> b = 0 -> 1 (step 1 a
+// Möbius map h), held still on the rail at u in HOLD_U and parked at U_END, each stroke pixel of plane 1's parked frame
+// (its shape's ink, within INK_TOL, where the frame with the strokes hidden differs) at w is carried to the exact place
+// of that point at u, H_u(h^-1(w)) (H_u: the glide's homotopy, __cmwSteps().glide.Hb), and the frame at u has that
+// shape's stroke within RING_R CSS px of it, for at least HIT_MIN of at least MIN_RING of them: a pixel that differs
+// from the same frame with the strokes hidden and, as the stroke comes in over the glide at opacity u, lies TOWARD x u
+// of a channel's range nearer the shape's ink than that frame's (from FULL_U on, the ink itself, within INK_TOL). And
+// the strokes stack in the shapes' order, as at rest: where the line l0 of plane 0, listed after the disc c1 of plane
+// 1, crosses c1's outline (the pixels of l0's ink in plane 1's parked frame with c1's ink within CROSS_R px), the frame
+// at U_END has l0's ink at the same pixel (within 1 px) for at least STACK_MIN of at least MIN_CROSS of them. Inside
+// regions and Everywhere (SCOPES).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const HIT_MIN = 0.9, MIN_RING = 100, RING_R = 3, INK_TOL = 24, HOLD_U = [0.6, 0.75], U_END = 0.998, SCOPES = ['in', 'all'];
-const CROSS_R = 4, STACK_MIN = 0.95, MIN_CROSS = 40;
+const CROSS_R = 4, STACK_MIN = 0.95, MIN_CROSS = 40, FULL_U = 0.95, TOWARD = 0.05;
 await view(1200, 800);
 // (step 1, h(z) = (a z + b) / (c z + d), the Cayley map: its coefficients as [re, im], for the inverse the check carries
 // plane 1's outline back with)
@@ -49,7 +51,11 @@ const carried = (id) => ev(`(() => {
   const W = c.width, H = c.height, dpr = W / g.w, v = g.view, hex = __cmwLook(${JSON.stringify(id)}, 'L').edge.replace('#', '');
   const ink = [0, 2, 4].map((k) => parseInt(hex.slice(k, k + 2), 16));
   const near = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2])) <= ${INK_TOL};
-  const drawn = (D, D0, i) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60;
+  const drawn = (D, D0, i, k = 1) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60 * k;
+  // (the stroke comes in over the glide, at opacity u: before FULL_U, the pixel has moved towards the shape's ink by
+  // TOWARD of a channel's range times u from the frame with the strokes hidden; from FULL_U, it is the ink)
+  const fromInk = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2]));
+  const inkAt = (i, k) => (k >= ${FULL_U} ? near(M, i) : fromInk(M, i) + ${TOWARD} * 255 * k <= fromInk(M0, i));
   // (h^-1(w) = (d w - b) / (a - c w))
   const { a, b, c: cc, d } = ${JSON.stringify(H1)};
   const mul = (p, q) => [p[0] * q[0] - p[1] * q[1], p[0] * q[1] + p[1] * q[0]];
@@ -67,7 +73,7 @@ const carried = (id) => ev(`(() => {
     if (!(wx >= R && wy >= R && wx < W - R && wy < H - R)) { off++; continue; }
     n++;
     let found = false;
-    for (let dy = -R; dy <= R && !found; dy++) for (let dx = -R; dx <= R && !found; dx++) { const j = 4 * ((wy + dy) * W + wx + dx); if (near(M, j) && drawn(M, M0, j)) found = true; }
+    for (let dy = -R; dy <= R && !found; dy++) for (let dx = -R; dx <= R && !found; dx++) { const j = 4 * ((wy + dy) * W + wx + dx); if (inkAt(j, g.u) && drawn(M, M0, j, g.u)) found = true; }
     if (found) hit++;
   }
   return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, u: +g.u.toFixed(3) };
