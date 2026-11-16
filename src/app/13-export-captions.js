@@ -294,17 +294,13 @@
       const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
       return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
     }),
-    svArt: async (i, o) => {
-      const keep = SV.i;
-      svGo(i, true);
-      const at = SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
-        : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
-      try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
-    },
+    svArt: (i, o) => svAtPlane(i, () => artRender('L', Object.assign({}, o, SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
+      : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) }))),
     svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
     // it is drawn on, null without a step or where the left pane shows no picture of that surface; svGlideArt draws the
-    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving),
+    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving; at a
+    // plane, that plane at rest, wherever the view is parked),
     // at o.box on the plane and at the frame's o.wpt x o.hpt in the screen's camera on the sphere and the Landscape, and
     // svGlideText is the screen's own words for that place
     svGlide: () => {
@@ -314,11 +310,15 @@
       return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
     },
     svGlideArt: async (x, o) => {
-      const keep = { x: SV.g.x, span: SV.span };
-      SV.span = null; SV.g.set(x);
       // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
       const real = paneL.h > 20 ? paneL : paneR;
-      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o)); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+      const draw = () => artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o));
+      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's)
+      const k = Math.round(x);
+      if (Math.abs(x - k) <= SV_REST_U) return svAtPlane(k, draw);
+      const keep = { x: SV.g.x, span: SV.span };
+      SV.span = null; SV.g.set(x);
+      try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
