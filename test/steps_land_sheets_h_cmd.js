@@ -17,6 +17,9 @@
 //   heights in T (the stages (z, w₂]: w₂'s pole, at z = −1 on √'s second sheet, a spike carried to w₃ = 0);
 // - T = w₂: plane z's own relief at the pane heights of the CI's and of a few others is still once settled() returns
 //   (the refined frame is the first rest frame: the pane draws no other frame after it).
+// All sheets follow the map shown (#1705): z → z² + 1 → exp, T = w₁, All sheets on, Im heights: plane w₂ past T is plane
+// w₁'s points carried, and planes w₂ and w₁ are the same pixel for pixel with a square root appended after w₂ (the
+// whole chain then has a multivalued step; the maps shown have none).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -99,6 +102,20 @@ const CHAIN = [ROOT, step('mobius', { a: '1', b: '-i', c: '1', d: 'i' })];
   r.past = await frame([...CHAIN, step('mobius', { a: '0', b: '1', c: '1', d: '0' })], 2, 3, 'sh3', { sheets: true, height: 'log' });
   const c = r.past.carry;
   ok('All sheets, T = w₂, plane w₃: a carried frame from z with the sheets', !!c && c.s === 0 && c.sheets === true && !!c.hmap && c.hmap.a === 0 && c.hmap.b === 2, c);
+}
+// ---- All sheets follow the map shown (#1705): a step after the plane shown changes nothing on it ----
+// A chain z → z² + 1 → exp, T = w₁, All sheets on, Im heights: plane w₂ past T is plane w₁'s points carried (s = 1), and
+// with a square root appended after w₂ it is the same carry, the same pixel for pixel; and so is plane w₁, on T
+{
+  const r = info.follow = {};
+  for (const [plane, tag] of [[2, 'past'], [1, 'onT']]) {
+    const before = await frame([P, EXP], 1, plane, `fb${plane}`, { sheets: true });
+    const after = await frame([P, EXP, ROOT], 1, plane, `fa${plane}`, { sheets: true });
+    const d = compareKept(`fb${plane}`, `fa${plane}`);
+    r[tag] = { before: before.carry && { s: before.carry.s, sheets: before.carry.sheets }, after: after.carry && { s: after.carry.s, sheets: after.carry.sheets }, d };
+    if (plane === 2) ok('All sheets, plane w₂ past T: carried from w₁ with or without a step after it', !!before.carry && !!after.carry && before.carry.s === 1 && after.carry.s === 1, r[tag]);
+    ok(`All sheets, plane w${plane === 2 ? '₂' : '₁'}: a square root appended after it changes nothing (the same frame pixel for pixel)`, !!d && d.max === 0 && d.shown.every(Boolean), r[tag]);
+  }
 }
 // the refined frame is the first rest frame, at the pane heights of the CI's and of a few others (the spike's edge
 // crosses a pixel centre at some of them): with the colour kept to a disc far from the pole (Inside regions, plain

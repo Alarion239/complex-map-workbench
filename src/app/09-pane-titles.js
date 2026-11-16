@@ -595,13 +595,14 @@
     const si = GLR.sheetInfo(m, W);
     return si ? sheetUniq(m, W, si.K) : [0];
   }
-  function multiSheet() {
+  // the sheets of map m (the focused map, endMap, unless a caller names the map it shows), or null when it has one
+  function multiSheet(m = endMap()) {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
     // (a map GLR.sheetInfo cannot describe throws: no sheets)
-    try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
+    try { ms = GLR.sheetInfo(m, S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
+    const list = sheetUniq(m, ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
