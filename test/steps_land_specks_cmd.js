@@ -17,7 +17,7 @@ await wordsOff();
 await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 3, now: true }); 1`);
 await settled({ max: 60000 });
 await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-const yaw0 = await evJson(`JSON.stringify(__cmwCam('L'))`).yaw;
+const yaw0 = (await evJson(`JSON.stringify(__cmwCam('L'))`)).yaw;
 info.n = {};
 for (const dy of [0, 0.35, -0.35, 0.7, -0.7]) {
   await ev(`__cmwCam('L', { yaw: ${yaw0} + ${dy} }); 1`);

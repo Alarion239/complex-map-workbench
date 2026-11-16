@@ -141,7 +141,7 @@ for (const [v, h] of [['abs', (x) => `|${x}|`], ['re', (x) => `Re ${x}`], ['im',
   d.speck = { w2: await speck('dr2'), w3: await speck('dr3') };
   ok('d/dz chain, T = 1, plane 3 at rest: no more speckled than plane 2 (no fighting sheets)', d.speck.w3 <= 1.5 * d.speck.w2, d.speck);
   await rest(3);
-  const yaw = await evJson(`JSON.stringify(__cmwCam('L'))`).yaw;
+  const yaw = (await evJson(`JSON.stringify(__cmwCam('L'))`)).yaw;
   await ev(`__cmwCam('L', { yaw: ${yaw} + 0.003 }); 1`);
   await settled({ max: 30000 });
   await ev(rAF2);
