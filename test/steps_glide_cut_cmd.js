@@ -16,7 +16,6 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 // SHIFT_PX the shift of the control; CHIP_EDGE_MAX the share of the handle chip's pixels that may have no pixel of the parked chip's 3 x 3 within TOL (the label's glyphs are anti-aliased at the handle's place, which
 // a glide frame has moved by 0.04 px at END_EPS: text edges differ by more than TOL for that; the share falls with the motion, which CHIP_SCALE checks, and a 2 px shift of the chip fails it); CHIP_SCALE the most the share may be, at a tenth of END_EPS, of that at END_EPS; END_EPS how far a step the glide frame is from its parked plane, so that its motion is below a hundredth of a pixel)
 const TOL = 6, SAME_FRAC = 0.005, CONTROL_FACTOR = 10, MIN_PIXELS = 5000, BAND_PX = 12, DISC_R = 9, CHIP_W = 90, SHIFT_PX = 2, END_EPS = 1e-4, CHIP_EDGE_MAX = 0.1, CHIP_SCALE = 0.2, MID_U = 0.5, STEP_U = 0.02, JUMP_RATIO = 3, JUMP_FLOOR_PX = 4;
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const pause = (ms) => new Promise((r) => setTimeout(r, ms));

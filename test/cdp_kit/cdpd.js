@@ -118,6 +118,16 @@ H.ev = async (expr, timeout = 20000) => {
   const r = await evRaw(expr, timeout);
   return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
 };
+// evJson(expr, timeout): ev() of an expression that answers a JSON string (JSON.stringify(...) in the page), parsed. A page
+// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception, where
+// JSON.parse of ev()'s { __exc } answer would throw "[object Object]" is not valid JSON.
+H.evJson = async (expr, timeout) => {
+  const r = await H.ev(expr, timeout);
+  const what = JSON.stringify(String(expr).slice(0, 160));
+  if (r && typeof r === 'object' && typeof r.__exc === 'string') throw new Error(`evJson ${what}: ${r.__exc.slice(0, 300)}`);
+  if (typeof r !== 'string') throw new Error(`evJson ${what}: the page answered ${JSON.stringify(r) === undefined ? typeof r : JSON.stringify(r).slice(0, 100)}, not a JSON string`);
+  return JSON.parse(r);
+};
 const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
@@ -379,6 +389,9 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
 H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
+// exampleNames(): the examples' English names, in the order __cmwExample(i) opens them, read from the checkout this folder sits in
+// (ci/steps_scenes.js, with its unescape of a quote)
+H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js')).exampleNames(path.join(DIR, '..', '..'));
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });
