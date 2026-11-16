@@ -534,7 +534,7 @@
     // column's width, the plane's name in math; the figure is as tall as its picture or its key, the taller)
     let keyBottom = 0;
     if (keyW) {
-      const kx = xs.L + h * asp('L') + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp);
+      const kx = xs.L + h * asp('L') + KEY_GAP + keyW / 2, k = await carriedKey(sk.carried, kx, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }
@@ -633,8 +633,8 @@
   // app's wheel), then the two circles that outline it. Vector (#1707): sharp at any zoom of a PDF and at any dpi of a PNG,
   // where a 300 dpi bitmap clipped to the band showed its pixels and its clip's edge. Each sector reaches one sector further,
   // under the next, and the first one sector back, under the last, so no seam of anti-aliasing shows between them; the
-  // sectors' straight edges are within 0.003 pt of the arcs, under the outlines
-  function ringKeyMarkup(kx, ky, R, kid) {
+  // sectors' straight edges are within 0.003 pt of the arcs, under the outlines, drawn at lw pt: the figure's frame weight
+  function ringKeyMarkup(kx, ky, R, kid, lw = 0.5) {
     const r0 = R * RING_INNER, n = RING_SECTORS, da = 2 * Math.PI / n;
     const P = (r, a) => `${f2(kx + r * Math.cos(a))} ${f2(ky - r * Math.sin(a))}`;
     let m = `<g id="${kid}">`;
@@ -643,14 +643,14 @@
       const hex = '#' + A.hue((i + 0.5) / n).map((v) => Math.max(0, Math.min(255, Math.round(v))).toString(16).padStart(2, '0')).join('');
       m += `<path d="M${P(R, a0)}L${P(R, a1)}L${P(r0, a1)}L${P(r0, a0)}Z" fill="${hex}"/>`;
     }
-    return m + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="0.5"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="0.5"/></g>`;
+    return m + `<circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(R)}" fill="none" stroke="#000000" stroke-width="${lw}"/><circle cx="${f2(kx)}" cy="${f2(ky)}" r="${f2(r0)}" fill="none" stroke="#000000" stroke-width="${lw}"/></g>`;
   }
   // the key of a plane past the colour plane, in a column keyW pt wide centred on kx whose top is y: the ring, then the line
   // saying where the colour is carried from, wrapped to the column's width, the plane's name in math. Returns its items and
   // the y its last line ends at
-  async function carriedKey(carried, kx, y, keyW, tp) {
+  async function carriedKey(carried, kx, y, keyW, tp, lw = 0.5) {
     const R = keyW / 2 - KEY_RING_ROOM, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
-    const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`), ...ringMarks(kx, ky, R, tp)];
+    const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, lw), ...ringMarks(kx, ky, R, tp)];
     const lns = [];
     let cur = '';
     for (const wd of carried.text.split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
@@ -721,10 +721,21 @@
     if (A.svOn()) { const srcWin = expandBox(A.screenBox('L0'), 3), lay = planeLayers(o, P, 'L', A.F('L'), box, w, A.shapes(), srcWin, null); curves.push(...lay.curves); points.push(...lay.points); }
     const p = XD.panel({ x, y: top, w, h, box, step, art: [art], curves, points, axes: o.axes === 'cross' ? 'cross' : 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: [`\\operatorname{Re} ${A.panelVar('L')}`, `\\operatorname{Im} ${A.panelVar('L')}`] });
     const items = [p.markup, head(x, x + w, top - 3, '', A.panelVar('L'), lp)];
-    let kdefs = '';
+    let kdefs = '', keyBottom = 0;
     if (keyW) {
-      const kx = x + w + KEY_GAP + keyW / 2, ky = top + h / 2, R = keyW / 2 - KEY_RING_ROOM, kid = `${XD.ns}-key`;
-      items.push(ringKeyMarkup(kx, ky, R, kid));
+      const kx = x + w + KEY_GAP + keyW / 2, R = keyW / 2 - KEY_RING_ROOM, kid = `${XD.ns}-key`;
+      // (the key's reach above and below the ring's centre, from its parts' heights as they are set below: its top mark
+      // and title, and its last line. The ring is centred on the picture; a key taller than a wide picture moves up as far
+      // as the figure's top allows and the figure grows to hold the rest, so no line of it is cut off, #1707)
+      const ht = (it) => it.a + it.d, sh = 6;
+      const above = sv ? R + 1.5 + ht(XD.tex('i', tp)) : R + 12 + ht(XD.tex(`\\arg ${A.fname()}`, tp));
+      const below = !sv ? R + 1.5 + ht(XD.tex('-\\pi/2', tp))
+        : sv.plain ? R + 1.5 + tp * 1.3 + 2 + ht(XD.tex(keyWithName(sv.caption, sv.name), tp))
+          : Math.max(R + 1.5 + tp * 2.5 + sh + 1.5 + ht(XD.tex(keyTxt(sv.perBand), tp)), R + 1.5 + tp * 2.5 + sh + 1.5 + tp * 1.3 + 2 + ht(XD.tex(keyWithName(sv.caption, sv.name), tp)));
+      let ky = top + h / 2;
+      if (ky + below > top + h + bottom) ky = Math.max(above + 1, top + h + bottom - below);
+      keyBottom = ky + below + 2;
+      items.push(ringKeyMarkup(kx, ky, R, kid, P.lw.frame));
       if (sv) {
         // the pane's key: the ring labelled 1, i, -1, -i, then (but in the plain Phase style) the three modulus bands with
         // their factor, and the caption "arg and |F|" ("arg F" when plain), the plane's variable in italic
@@ -733,10 +744,10 @@
         let yy = ky + R + 1.5 + tp * 1.3;
         // (a Phase picture: its key never says "carried from", which the pane's does only off Phase)
         if (!sv.plain) {
-          const sw = 2 * R, sx = kx - R, sh = 6, sy = yy + tp * 1.2;
+          const sw = 2 * R, sx = kx - R, sy = yy + tp * 1.2;
           kdefs += `<linearGradient id="${kid}-g"><stop offset="0" stop-color="${sv.stops[0]}"/><stop offset="1" stop-color="${sv.stops[1]}"/></linearGradient>`;
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
-          items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="0.5"/>`);
+          items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="${P.lw.frame}"/>`);
           items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
           items.push(XD.at(XD.tex(keyTxt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
           yy = sy + sh + 1.5 + tp * 1.3;
@@ -750,7 +761,7 @@
         items.push(XD.at(XD.tex(`\\arg ${A.fname()}`, tp), kx, ky - R - 12, 'middle', 'bottom', 'key'));
       }
     }
-    return { items, defs: p.defs + kdefs, lines: p.lines, H: top + h + bottom, info: { box, zp, bw, art } };
+    return { items, defs: p.defs + kdefs, lines: p.lines, H: Math.max(top + h + bottom, keyBottom), info: { box, zp, bw, art } };
   }
 
   // ---------- (3) Landscape: one 3D panel, cropped to the relief, a clean frame and vector floor labels ----------
