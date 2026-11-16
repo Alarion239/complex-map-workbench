@@ -138,6 +138,7 @@ const VIEWS = {
   'steps_ru_keys_cmd.js': steps(),
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
+  'phone_toast_lines_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
   'phone_hint_globe_cmd.js': steps(),
   'steps_seg_focus_cmd.js': steps(),
