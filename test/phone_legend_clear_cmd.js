@@ -54,9 +54,11 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
   const home = await still();
   await ev(`(() => { const r = document.querySelector('#plotL > .chip.readout'); r.dataset.t = r.innerHTML; r.style.cssText = 'height:auto;white-space:normal;line-height:18px;padding:4px 8px;max-width:calc(100% - 72px)'; r.innerHTML = 'z = 12.3456 + 7.8901 i<br>w = F(z) = 123456.7890 + 12345.6789 i, a long second line'; return 1; })()`);
-  await sleep(600);
+  // (the key is placed again once the readout has changed size: waited for as a condition, the key's --lg-drop set by the page)
+  const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('leftLegend').style.getPropertyValue('--lg-drop') !== ''` });
   const m = await still();
   info['two-line readout'] = { home: home.legend, m };
+  ok('568×320: the key is placed again, below the readout, once the readout has two lines', dropped.ok, { drop: m.drop, wait: dropped });
   ok('568×320: the two-line readout reaches the folded legend (control)', !!m.readout && !!home.reach && m.readout.r > home.reach.l && m.readout.b > home.reach.t, { readout: m.readout, reach: home.reach });
   ok('568×320: the legend\'s hit area is clear of the two-line readout', !inter(m.reach, m.readout), { reach: m.reach, readout: m.readout, drop: m.drop });
 }
