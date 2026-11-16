@@ -38,7 +38,11 @@
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
 //   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
-//   (its thread still never goes back), and it ends within seconds of the link landing.
+//   (its thread still never goes back), and it ends within seconds of the link landing;
+// - the default example, colour plane 0, the glide's program linked, then › pressed with the links from then on landing
+//   seconds late: plane 1's own programs link while the glide runs; from the landing until they land every frame at
+//   rest on plane 1 is the inverse pass's by the glide's ops at its end (its last picture), never the carried meshes',
+//   then plane 1's own, and those two are one picture within 3 levels.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -66,6 +70,10 @@ const SECOND_LINK_MS = 15000, LATER_LINK_MS = 60000;
 // the animation frames in a row the thread of a held motion stays put, and the most ms from a held glide's last link
 // landing to its end
 const STILL_FRAMES = 3, ENDS_MS = 5000;
+// the default example; ms a link reads not complete where the plane a glide lands on waits past the landing for its own
+// programs (Direct3D's compiler takes tens of seconds for them, #845); two pictures are one when every channel is within
+// LAND_LEVELS levels at all but LAND_SHARE of the pixels (ux's line on #845)
+const DEF_EX = 'Strip to disk', LAND_LINK_MS = 10000, LAND_LEVELS = 3, LAND_SHARE = 0.005;
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 // (a page whose frames leave no idle moment: each idle callback runs for its timeout, at once when it has none, with no
 // time left; the browser's own requestIdleCallback is kept as window.__browserIdle)
@@ -369,6 +377,52 @@ try {
     ok(`exp(sin z), the glide waiting half way, › pressed: the glide is replaced by one from where it is, and its thread still never goes back`, still && k1.replaced && k1.x >= s1.got.x && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: it ends within ${ENDS_MS} ms of the link landing`, s2.ok && s3.ok && got.endMs <= ENDS_MS, got);
     info.half = got;
+  }
+  // the default example (exp, then a Möbius map; a strip, Inside regions), colour plane 0, on a fresh page whose links land
+  // late (the suite's), the glide's program linked first (parked half way to plane 1 until the inverse pass draws there,
+  // then back at once); then the links started from › on land LAND_LINK_MS late, as Direct3D's compiler makes them, and
+  // › pressed. In the page, at every animation frame: whether an inverse program links while the glide runs, and each
+  // new record of a frame at rest on plane 1 (__cmwSteps().rest), the pane read at the last one drawn by the glide's
+  // ops at its end (rest.end) and at the first one drawn by plane 1's own
+  {
+    await example('lle', DEF_EX, 'in');
+    await ev('__cmwSteps({ T: 0 }), 1');
+    await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && __cmwSteps().x === 0' });
+    await ev(`__cmwSteps({ park: ${GLIDE_U} }), 1`);
+    const e0 = await settled({ only: true, max: FRAME_MS, until: `(() => { const g = __cmwSteps().glide; return !!g && g.u === ${GLIDE_U} && g.path === 'inverse'; })()` });
+    await ev('__cmwSteps({ go: 0, now: true }), 1');
+    const e1 = await settled({ max: READY_MS, until: '__cmwSteps().x === 0 && __cmwSteps().ready.ready && GLR.pendingLinks === 0' });
+    await ev(`(() => {
+      const s = window.__llLand = { linking: 0, recs: [], seen: null, end: null, own: null, done: false };
+      const grab = () => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); return k.getContext('2d').getImageData(0, 0, k.width, k.height).data; };
+      const tick = () => {
+        const q = __cmwSteps(), r = q.rest;
+        if (q.anim && GLR.pending().some((p) => p.id.startsWith('inv|'))) s.linking++;
+        if (r && r !== s.seen && q.x === 1 && !q.anim) {
+          s.seen = r; s.recs.push({ path: r.path, end: !!r.end });
+          if (r.path === 'inverse' && r.end) s.end = grab();
+          if (r.path === 'inverse' && !r.end && !s.own) s.own = grab();
+        }
+        if (!s.done) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      window.__lateLinkMs = ${LAND_LINK_MS};
+      __cmwSteps({ go: 1 });
+      return 1; })()`);
+    const e2 = await settled({ only: true, max: READY_MS, until: '!!window.__llLand.own && GLR.pendingLinks === 0' });
+    const land = await ev(`(() => { const s = window.__llLand; s.done = true;
+      let cmp = null;
+      if (s.end && s.own && s.end.length === s.own.length) {
+        let off = 0, max = 0;
+        for (let i = 0; i < s.end.length; i += 4) { const d = Math.max(Math.abs(s.end[i] - s.own[i]), Math.abs(s.end[i + 1] - s.own[i + 1]), Math.abs(s.end[i + 2] - s.own[i + 2])); if (d > ${LAND_LEVELS}) off++; max = Math.max(max, d); }
+        cmp = { px: s.end.length / 4, off, max };
+      }
+      return { linking: s.linking, recs: s.recs.slice(0, 12), n: s.recs.length, cmp }; })()`);
+    const R = land.recs, own = R.findIndex((r) => !r.end), got = { land, waits: { e0, e1, e2 } };
+    ok(`${DEF_EX}, plane 1's own programs linking ${LAND_LINK_MS} ms, › pressed: they link while the glide runs, not once it has landed`, names.indexOf(DEF_EX) >= 0 && e2.ok && land.linking > 0, got);
+    ok(`${DEF_EX}, plane 1's own programs linking, › pressed: until they land, every frame at rest on plane 1 is the inverse pass's by the glide's ops at its end, never the carried meshes'; then plane 1's own`, e2.ok && land.n > 0 && R.every((r) => r.path === 'inverse') && R[0].end && own > 0 && R.slice(own).every((r) => !r.end), got);
+    ok(`${DEF_EX}: plane 1 drawn by the glide's ops at its end and by its own is one picture (within ${LAND_LEVELS} levels at ${100 * (1 - LAND_SHARE)} % of the pixels)`, !!land.cmp && land.cmp.off <= LAND_SHARE * land.cmp.px, got);
+    info.land = got;
   }
 } finally {
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });

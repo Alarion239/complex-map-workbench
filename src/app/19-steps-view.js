@@ -1130,20 +1130,20 @@
   // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
   // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
   // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1); u null: at rest on plane b, as
-  // svCarryExact draws it. Asking begins the program's compile when it is missing
-  const svInvState = (h, i, b, u) => {
+  // svCarryExact draws it. Asking begins the program's compile when it is missing, unless start is false ('none')
+  const svInvState = (h, i, b, u, start) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
+    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0, start });
   };
   // At rest on plane a past the colour plane while the programs of its own frame link (h: its own paths, svInvPaths at
   // rest; Inside regions, the mask's fills too: the tiling's inverse program at opacity 1): the paths of the glide into a
-  // at its end (svInvPaths' end), drawn with the program the glide's frames linked, once all of theirs is linked; else
-  // null. So a plane a glide lands on keeps the glide's last picture, exact, until its own frame is, with no carried mesh
-  // between; like the glide's frames, it draws no mask from the regions' images
+  // at its end (svInvPaths' end), drawn with the program the glide's frames linked, when it is linked (never begun here);
+  // else null. So a plane a glide lands on keeps the glide's last picture, exact, until its own frame is, with no carried
+  // mesh between; like the glide's frames, it draws no mask from the regions' images
   function svRestEnd(a, h) {
     if (!h.paths.some((p, i) => svInvState(h, i, a, null) === 'pending') && !(svMaskOn() && GLR.inverseStatus(1, 'flat') === 'pending')) return null;
     const e = svInvPaths(a, 1, 'flat', { r: null }, true);
-    return e && e.paths.every((p, i) => svInvState(e, i, a, null) === 'ready') ? e : null;
+    return e && e.paths.every((p, i) => svInvState(e, i, a, null, false) === 'ready') ? e : null;
   }
   // The programs of plane k's frame at rest past the colour plane, begun (svInvState, GLR.inverseRequest): its own paths'
   // carried colour (svCarryExact's) and, Inside regions, the mask's fills, so that they link while a motion that ends on
