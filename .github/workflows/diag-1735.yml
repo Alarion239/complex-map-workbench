@@ -1,0 +1,43 @@
+name: Diag 1735 (temporary)
+# TEMPORARY (#1735, deleted before the pull request): on Ubuntu 26.04 (Mesa 26.0.8, LLVM 21) without
+# GALLIUM_OVERRIDE_CPU_CAPS, the chainAt variants of test/diag_1735_cmd.js on four machines (GitHub's AMD Zen 4/5 ones
+# drew sin∘√'s glide as NaN); then the deform_range suites with the override, for #1752's note on those machines.
+on:
+  push:
+    branches: [claude/p1perf-1735]
+permissions:
+  contents: read
+jobs:
+  diag:
+    strategy:
+      fail-fast: false
+      matrix:
+        rep: [1, 2, 3, 4]
+    runs-on: ubuntu-26.04
+    timeout-minutes: 40
+    env:
+      CMW_ANGLE: vulkan
+      CMW_CHROME_ARGS: --no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Mesa's Vulkan drivers (lavapipe)
+        run: mkdir -p "$RUNNER_TEMP/debs" && ci/lavapipe.sh "$RUNNER_TEMP/debs"
+      - name: CPU
+        run: |
+          lscpu | grep 'Model name'
+      - name: Variants, without the override
+        continue-on-error: true
+        run: node ci/browser.js --only 'diag_1735'
+      - name: deform_range suites with GALLIUM_OVERRIDE_CPU_CAPS=avx
+        continue-on-error: true
+        env:
+          GALLIUM_OVERRIDE_CPU_CAPS: avx
+        run: node ci/browser.js --no-build --only '^deform_range'

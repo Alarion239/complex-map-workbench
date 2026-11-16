@@ -332,6 +332,8 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   const LIN = (P) => `if (t == 0.0) return z;\n  vec2 w = ${P}_f(z);\n  return z * (1.0 - t) + w * t;`;
   // a step's path with the t = 1 shortcut, the map itself there (exactly): every path but a straight line's (LIN, whose
   // z (1 - t) + f(z) t is not f(z) where z is infinite) and a plan that handles t = 1 in its own body (own1)
+  // TEMPORARY (#1735 diagnosis): the chainAt variant, from localStorage cmw1735var (0: as on main)
+  const VAR1735 = () => { try { return +(globalThis.localStorage && globalThis.localStorage.getItem('cmw1735var')) || 0; } catch (e) { return 0; } };
   const exactAt1 = (pl) => !pl.h.startsWith('if (t == 0.0)');
   const withOne = (P, pl) => (!exactAt1(pl) || pl.own1 ? pl.h : `if (t == 1.0) return ${P}_f(z);\n  ${pl.h}`);
 
@@ -1737,6 +1739,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // at t = 1 every homotopy equals the map itself (exactly so on the CPU up to float64 rounding)
       const h = withOne(P, plan);
       src += `vec2 ${P}_h(vec2 z, float t) {\n  ${h}\n}\n`;
+      // TEMPORARY (#1735 diagnosis): variant 1's path without the t = 1 shortcut
+      if (VAR1735() === 1 && h !== plan.h) src += `vec2 ${P}_hr(vec2 z, float t) {\n  ${plan.h}\n}\n`;
     }
     // a d/dz step is not a map of w: chainStep and chainHom give NaN there (callers mix chainStage(k - 1) and
     // chainStage(k) instead)
@@ -1755,9 +1759,14 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // the map at t = 1 (exactly), so in full it is the path at 1 and the map is not written again; a straight-line
     // path (no shortcut: z (1 - t) + f(z) t is not f(z) where z is infinite) calls the map itself.
     src += 'vec2 chainAt(int k, vec2 z, float t, int how) {\n  if (how == 0) return z;\n';
+    // TEMPORARY (#1735 diagnosis): variant 1: in full or at t = 1 the map, else the path
+    // without its shortcut; 2: in full the map, else the path
+    const VAR = VAR1735();
     for (const { P, k, plan } of maps) {
-      src += plan.h.startsWith('if (t == 0.0)') ? `  if (k == ${k}) return how == 1 ? ${P}_f(z) : ${P}_h(z, t);\n`
-        : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
+      const sc = withOne(P, plan) !== plan.h;
+      src += plan.h.startsWith('if (t == 0.0)') || VAR === 2 ? `  if (k == ${k}) return how == 1 ? ${P}_f(z) : ${P}_h(z, t);\n`
+        : VAR === 1 && sc ? `  if (k == ${k}) return how == 1 || t == 1.0 ? ${P}_f(z) : ${P}_hr(z, t);\n`
+          : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
     }
     for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
