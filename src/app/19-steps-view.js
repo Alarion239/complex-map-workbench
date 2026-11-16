@@ -176,6 +176,8 @@
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
+    // (the Cauchy style's carried programs, its own variants, started as it is chosen)
+    if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy') svPrestartSoon(0);
     // (the Cauchy style is drawn on z, so choosing it, or loading a state, example or tour step that has it, colours from z)
     // (and the thread parks on z with it: the style's control is in the pane of the colour plane, which the view shows only while it is the plane the thread is on)
     if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy' && !SV.alone && P.length > 1) { if (SV.T !== P[0]) SV.T = P[0]; if (SV.i !== 0) { SV.dcSeen = S.dc; svGo(0, true); } }
@@ -1144,7 +1146,9 @@
     const g = svBetween();
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
-    const linking = !!h && [h, svStagedOf(), svStagedCurves()].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
+    // (the Cauchy style's carried programs too, its own variants: while they link, nothing past z draws its colour)
+    const linking = (!!h && [h, svStagedOf(), svStagedCurves()].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending')))
+      || (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry());
     svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
@@ -3242,6 +3246,9 @@
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
       // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();
+      // (the Cauchy style's variants, CARRY_CAUCHY: the carried meshes' and the pre-mapped mesh's at rest and in the glide, so a
+      // plane past z at rest has them when the thread arrives, while its inverse program links)
+      if (S.dc === 'cauchy' && GLR.prestartNames && GLR.carryNames) GLR.prestartNames(GLR.carryNames(false, true).concat(['regionPKZ']), [0, 1]);
       svPrestartGlobeInv();
       svWarmCarry(0);
       svPolesWatch();
