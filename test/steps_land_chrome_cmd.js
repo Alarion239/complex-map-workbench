@@ -20,15 +20,15 @@ await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
-const legend = async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())'));
+const legend = async () => await evJson('JSON.stringify(__cmwLegend())');
 // the pointer over the pane's centre: the readout's rows (label, value) and the probed point
 async function probeRows() {
-  const c = JSON.parse(await ev(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })())`));
+  const c = await evJson(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })())`);
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0] + 1, y: c[1] });
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: c[0], y: c[1] });
   await settled({ max: 20000 });
   await ev(rAF2);
-  return JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#leftReadout .rp')].map((e) => [e.querySelector('.rk') ? e.querySelector('.rk').textContent : '', e.querySelector('.rv') ? e.querySelector('.rv').textContent : '']))`));
+  return await evJson(`JSON.stringify([...document.querySelectorAll('#leftReadout .rp')].map((e) => [e.querySelector('.rk') ? e.querySelector('.rk').textContent : '', e.querySelector('.rv') ? e.querySelector('.rv').textContent : '']))`);
 }
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landchrome${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
@@ -38,7 +38,7 @@ await settled({ max: 60000 });
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_key_kit.js'), 'utf8')), X = (T, i) => K.heightOf(T, i);
 // the Height control names the kind of height alone, the same on every plane (the title, the key and the ruler name the
 // map), each button with an accessible name in words
-info.heightSeg = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#heightSeg button')].map((b) => [b.dataset.v, b.textContent.trim(), b.getAttribute('aria-label')]))`));
+info.heightSeg = await evJson(`JSON.stringify([...document.querySelectorAll('#heightSeg button')].map((b) => [b.dataset.v, b.textContent.trim(), b.getAttribute('aria-label')]))`);
 ok('the Height control: the kinds log |·|, |·|, Re, Im', JSON.stringify(info.heightSeg.map((b) => b.slice(0, 2))) === JSON.stringify([['log', 'log |·|'], ['abs', '|·|'], ['re', 'Re'], ['im', 'Im']]), info.heightSeg);
 ok('the Height control: each button named in words that start with its visible label', JSON.stringify(info.heightSeg.map((b) => b[2])) === JSON.stringify(['log of the modulus', 'modulus', 'Re, real part', 'Im, imaginary part']), info.heightSeg);
 info.runs = {};

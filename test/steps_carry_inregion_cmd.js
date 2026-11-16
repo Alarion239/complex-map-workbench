@@ -29,7 +29,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // (the least share of the frame the annulus's two outlines cover, not bare)
 const OUTLINE_MIN = 0.001;
-const { lpx, paneOf, exampleNames, bareCount, grid, joukPath, carryRead } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { lpx, paneOf, bareCount, grid, joukPath, carryRead } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // the held thread (hold; window.__svScrubUp lets go): test/lib/held_frames.js
 const { hold, grab, fade, judge, JUDGE_MIN_N, compare: compareFrames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 // the front point's colour against plane z's (carryRead's measure: test/lib/carry_kit.js), as one case's checks: cand(w) ->
