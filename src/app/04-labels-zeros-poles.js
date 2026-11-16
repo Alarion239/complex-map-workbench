@@ -55,6 +55,21 @@
     for (const s of S.targets || []) live.add(s.id);
     for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
   }
+  // the boxes of the controls over a plane's canvas, in the plane's pixels (what the labels' boxes are in): the plot's children that are not
+  // canvases, shown and with a box. A label drawn under one is covered by it. Not the readout chip: its width follows the pointer, and a
+  // resting picture's labels do not depend on where the pointer was
+  function controlBoxes(pane) {
+    const plot = pane.ocanvas && pane.ocanvas.parentElement;
+    if (!plot) return [];
+    const pr = plot.getBoundingClientRect(), out = [];
+    for (const c of plot.children) {
+      if (c.tagName === 'CANVAS' || c.classList.contains('hairline') || c.classList.contains('readout')) continue;
+      const r = c.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || getComputedStyle(c).visibility === 'hidden') continue;
+      out.push({ x0: r.left - pr.left, x1: r.right - pr.left, y0: r.top - pr.top, y1: r.bottom - pr.top });
+    }
+    return out;
+  }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
     const lite = !!r.lite;
@@ -67,6 +82,9 @@
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
     if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    // (the plane's own controls, over its canvas: the readout and legend chips, the view buttons, the phone's button column. Read at a full
+    // placement only: a pass on the move keeps the offsets of the last one)
+    if (!lite) hard.push(...controlBoxes(pane));
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
