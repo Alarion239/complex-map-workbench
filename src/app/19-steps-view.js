@@ -136,7 +136,8 @@
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
   // then past T that the points carry it and their colour from T
   function svTitleParts() {
-    const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
+    // (the plane the thread is nearest to, not the one it last arrived at: a glide's header turns over at the half, as the picture does)
+    const k = svStage(Math.round(SV.g.x)), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
@@ -2270,7 +2271,7 @@
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
-    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
+    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage(Math.round(SV.g.x))) });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
@@ -2479,11 +2480,11 @@
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
-      const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
+      const cpAt = svStage(at), cpText = cpAt === T ? $t('Colour plane') : $t('Colour from here');   // (the plane the thread is nearest to, as the title's)
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
       E.cp.setAttribute('aria-label', cpText);
-      E.cp.setAttribute('aria-pressed', String(k === T));
-      E.cp.classList.toggle('on', k === T);
+      E.cp.setAttribute('aria-pressed', String(cpAt === T));
+      E.cp.classList.toggle('on', cpAt === T);
       E.cp.disabled = !!svAloneOk();
       E.cp.setAttribute('data-tip', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
