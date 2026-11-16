@@ -22,6 +22,7 @@ const open = async (exN, w = 1440, h = 900, dark = false) => {
   await go(`${base}/test.html?view=steps&ns=xdf${Date.now() % 1e7}${ns++}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${exN}), 1)`);
+  await adopted();
   await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
   await ev(`(__cmwSteps({ surf: 'plane' }), __cmwSteps({ go: 0, now: true }), __cmwSet('wKey', false), 1)`);
   await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
@@ -124,6 +125,7 @@ if (part('preview')) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
+  const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, settled, pvState });
   const filled = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.total > 0 && s.ready === s.total); })()`;
   // in the page: the preview's picture at timeline index k against the saved video's frame k, decoded, and against the exact
   // render at its t, all at the preview's size; mean abs difference of 255
@@ -156,6 +158,9 @@ if (part('preview')) {
   await ev(`(() => { const b = document.getElementById('xfPvPlay'); b.click(); return 1; })()`); await sleep(300);
   const p1 = await pvState(); await sleep(400); const p2 = await pvState();
   ok('preview: the button pauses it', p1 && p2 && p1.btn === 'Play' && typeof p1.i === 'number' && p1.i === p2.i, { p1, p2 });
+  // the scrubber takes the keyboard, paused (the steps view's preview has its own page, so its own run of the check)
+  const { mid, k0, k1, k2, k3 } = await scrubberKeys();
+  ok('preview: the scrubber takes the keyboard (Right: one frame on; End; Home), paused', k0.i === mid && !k0.playing && k1.i === mid + 1 && !k1.playing && k2.i === k2.n - 1 && k3.i === 0 && k3.seek[0] === 0, { mid, n: k2.n, k0: k0.i, k1: k1.i, k2: k2.i, k3: k3.i });
   await key('Escape'); await settle(300);
   ok('preview: closing the dialog stops it', (await ev('!__cmwFig.dialog()')) === true, null);
 }

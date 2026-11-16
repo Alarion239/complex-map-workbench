@@ -199,8 +199,9 @@
     const deformRow = defo ? row($t('Deformation'), segB('xfDeform', deformOf(), dOpts, (v) => { set.deform = v; changed(); }, $t('Deformation'))) : null;
     if (deformRow) deformRow.classList.add('wide');
     // the steps view's picture: the shown plane, or the filmstrip of the whole thread
-    // (Two planes needs a flat surface: the Landscape's picture is 3D, and a 2D figure never stands in for it. Paths: the plane
-    // with the paths of the step that leads to it; off, with its reason, where there is no such step)
+    // (Two planes and Paths need the Plane or the Sphere: the Landscape's picture is 3D, and a 2D figure never stands in for it.
+    // Paths: the plane with the paths of the step that leads to it; off, with its reason, on the Landscape or where there is no
+    // such step)
     const svPics = [['plane', $t('Shown plane')], ['paths', $t('Paths')], ['two', $t('Two planes')], ['film', $t('Filmstrip')]];
     const svFlat = () => A.svSurf() !== 'land';
     const svp = A.svOn() && A.svPathsFig ? A.svPathsFig() : null, svpOk = !!svp && svp.i != null;
@@ -212,11 +213,11 @@
     const svPicRow = svPicSeg ? row($t('Picture'), svPicSeg) : null;
     if (svPicRow && !svpOk) {
       const pb = svPicRow.querySelector('[data-v="paths"]');
-      const why = svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
+      const why = !svFlat() ? $t('Paths is for the Plane and Sphere surfaces') : svp && svp.why === 'deriv' ? $t('d/dz is not a map, so there are no paths t ↦ Hₜ(z) to draw') : $t('No step leads to {p}, so there are no paths t ↦ Hₜ(z) to draw', { p: svp && svp.name ? svp.name : 'z' });
       if (pb) { pb.setAttribute('aria-disabled', 'true'); pb.dataset.tip = why; pb.setAttribute('aria-description', why); }
     }
     if (svPicRow) svPicRow.classList.add('wide');
-    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the flat surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
+    if (svPicSeg && !svFlat()) { const tb = svPicSeg.querySelector('[data-v="two"]'), why = $t('Two planes is for the Plane and Sphere surfaces'); tb.setAttribute('aria-disabled', 'true'); tb.dataset.tip = why; tb.setAttribute('aria-description', why); }
     const planeSel = (id, label, onchange) => { const el = h('select', { class: 'xf-select xf-plane', id, 'aria-label': label, onchange: () => onchange(+el.value) }); return el; };
     const fromSel = planeSel('xfSvFrom', $t('From plane'), (v) => { set.svFrom = v; if (set.svTo <= v) set.svTo = v + 1; fillTo(); changed(); });
     const toSel = planeSel('xfSvTo', $t('To plane'), (v) => { set.svTo = v; changed(); });

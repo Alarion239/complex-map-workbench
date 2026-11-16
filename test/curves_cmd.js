@@ -19,7 +19,7 @@
 // curves_target_cmd.js: the steps view does not draw them to the same tolerance, or has no right pane to read them in.)
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
-const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'curves_kit.js'), 'utf8'))({ ev, send, nav, load, shot, settled, view, fs, DIR, ok, R });
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'curves_kit.js'), 'utf8'))({ ev, send, go, load, shot, settled, view, fs, DIR, ok, R });
 const { BASE, PORT, settle, typeIn, addFormula, shapes } = K;
 await view(1440, 900);
 

@@ -147,8 +147,6 @@
     syncViewControls();
     fitRightTitle();
     $('paneR').classList.toggle('no-rulers', !rImage());
-    $('rightFit').hidden = !rImage();
-    $('leftFit').hidden = false;
     buildRightFoot();
     if (/** @type {any} */ (setupFormula).refresh) /** @type {any} */ (setupFormula).refresh();
     syncSnapUnit();
@@ -190,8 +188,8 @@
   function seg(id, value, options, onchange, label, opt) {
     const o = opt || {};
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
-    for (const [v, l, title] of options) {
-      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
+    for (const [v, l, title, aria] of options) {
+      el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
     }
     setSeg(el, value);
     // (the thumb is placed again once the control is in the page: for the segment checked by then, which a caller may
@@ -214,6 +212,13 @@
     const sel = h('select', { class: 'sel' + (cls ? ' ' + cls : ''), id: id || null, title, 'aria-label': title, onchange: (e) => onchange(e.target.value) }, ...options.map(([v, l]) => h('option', { value: v }, l)));
     sel.value = value;
     return sel;
+  }
+  // a list of a few numbers as the steps view's choice button (its word names the current one, a tap opens the menu of the
+  // others), not a native select: the head and the phone's sheet show the same control
+  function choiceEl(id, value, options, onchange, title) {
+    const b = svChoiceBtn(value, options, onchange, title, 'sv-choice-num');
+    if (id) b.id = id;
+    return b;
   }
   // (#247: with an icon, a check that the pane head shows as an icon toggle, its word the tooltip and its accessible name;
   // a phone's sheet and the ⋯ pop-up show the word)
@@ -291,7 +296,7 @@
     }
     return probeTeachUntil > now ? `<span class="rhint rteach">${SV.on ? $t('Hold and slide to read {f}', { f: svMapCall('html') }) : $t('Hold and slide to read F(z)')}</span>` : '';
   };
-  const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
+  const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
   function idleRight() {
@@ -352,7 +357,14 @@
       for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
     });
   }
+  // (laying the strip out moves its controls out of the page and back, which drops the focus to the body: the control that had
+  // it takes it again)
   function layoutFootNow(side, force) {
+    const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
+    layoutFootRun(side, force);
+    if (f && a && a !== document.body && a.isConnected && document.activeElement !== a && f.contains(a)) /** @type {HTMLElement} */ (a).focus({ preventScroll: true });
+  }
+  function layoutFootRun(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
     const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
@@ -550,7 +562,9 @@
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
-    if (!refresh) { const first = pop.querySelector('button, input, select'); if (first) first.focus({ preventScroll: true }); }
+    // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
+    // segmented row, whose other buttons are tabindex -1)
+    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
@@ -733,11 +747,11 @@
   function setSheets(on) {
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
-    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: fnText() })); }
+    if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: SV.on ? svHeightName('text') : fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
-  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); }
+  function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
   // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
   const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
   function buildFoot(side) {
@@ -791,8 +805,8 @@
   // Contours, Cauchy's Tiles, the relief's), and the pulled-back grid's step; idSuffix tells a second copy's ids apart
   function colourScrubs(land, idSuffix) {
     const out = [];
-    if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), selectEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
-    if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), selectEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
+    if (land || /^(enhanced|modulus|cauchy)$/.test(S.dc)) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Phase sectors') }, h('span', { class: 'pl' }, 'n'), choiceEl('secSel' + idSuffix, String(S.sectors || 12), [['8', '8'], ['12', '12'], ['16', '16'], ['24', '24']], (v) => { setOpt('sectors', +v); paintChanged(); drawLegend(); save(); }, $t('Phase sectors'))));
+    if (S.dc === 'grid' && !land) out.push(h('div', { class: 'scrub ovf', 'data-tip': $t('Grid step') }, h('span', { class: 'pl' }, 'Δ'), choiceEl('dcGridSel' + idSuffix, String(S.dcGrid), [['0.1', '0.1'], ['0.25', '0.25'], ['0.5', '0.5'], ['1', '1'], ['2', '2']], (v) => { setOpt('dcGrid', +v); paintChanged(); save(); }, $t('Grid step'))));
     if (SV.on && !land) out.push(opacityScrub(idSuffix));
     return out;
   }
@@ -822,6 +836,16 @@
   }
   // why the Cauchy style and its parts are not offered while the colour plane is not z (the integral is drawn on z, where its curve lies)
   function cauchyOffZWhy() { return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z'); }
+  // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
+  // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
+  // button named and titled in words that start with its visible label ("Re, real part"; the modulus, |·|, is symbols
+  // alone, and its words are its name)
+  function heightOptions(Fn) {
+    const lg = I18N.fnName('log');
+    if (!SV.on) return [['log', `${lg} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]];
+    const kinds = [['log', `${lg} |·|`, lg, $t('log of the modulus')], ['abs', '|·|', '', $t('modulus')], ['re', 'Re', 'Re', $t('real part')], ['im', 'Im', 'Im', $t('imaginary part')]];
+    return kinds.map(([v, l, lead, words]) => { const name = !lead || words.startsWith(lead) ? words : `${lead}, ${words}`; return [v, l, name, name]; });
+  }
   function buildFootL(f) {
     const Fn = fnText();
     // the Landscape view (merged-views.md): its height, then its colouring in one control: the phase colours the relief
@@ -829,12 +853,12 @@
     if (lLand()) {
       const paint = !S.view.D.phase ? 'plaster' : landMaterial() === 'phase' ? 'phase' : 'tiles';
       f.append(
-        seg('heightSeg', S.height, [['log', `${I18N.fnName('log')} |${Fn}|`], ['abs', `|${Fn}|`], ['re', `Re ${Fn}`], ['im', `Im ${Fn}`]], (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
+        seg('heightSeg', S.height, heightOptions(Fn), (v) => { setOpt('height', v); updateFocusUI(); requestRender('L'); save(); }, $t('Height')),
         seg('landPaint', paint, [['tiles', $t('Tiles'), $t('Phase colours with modulus contours')], ['phase', $t('Plain'), $t('Phase colours only')], ['plaster', $t('Plaster'), $t('The relief alone, lit')]], (v) => {
           setViewOpt('D', 'phase', v !== 'plaster');
           if (v === 'phase') setOpt('landPlain', S.dc !== 'phase');
           else if (v === 'tiles') { setOpt('landPlain', false); if (S.dc === 'phase') setOpt('dc', 'enhanced'); }
-          buildRightFoot(); updateFocusUI(); paintChanged(); save();
+          buildRightFoot(); regionsNote(); updateFocusUI(); paintChanged(); save();
         }, $t('Colouring')));
     }
     // the colour panel: the same controls on every plane of the steps view, before and after the colour plane; one that
@@ -953,12 +977,16 @@
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the Landscape's key under Plaster: the height and the contours, with no hue
+  const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
     if (!GLR.ok) return null;
     if (side === 'R') return rImage() ? 'image' : null;
+    // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
+    if (lLand()) return '3d';
     // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
     if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
-    return lLand() ? '3d' : lGlobe() ? 'sphere' : 'color';
+    return lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
@@ -1076,9 +1104,11 @@
       const nm = $t('Colour key');
       if (box.getAttribute('aria-label') !== nm) box.setAttribute('aria-label', nm);
     }
-    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette())) {
-      box.dataset.kind = kind; box.dataset.pal = GLR.palette();
-      box.style.setProperty('--wheel', keyConic());
+    // (the chip's glyph is the hue wheel; the Landscape under Plaster paints no hue, so its glyph keeps the neutral ink)
+    const hueless = plasterKey(kind);
+    if (kind && (box.dataset.kind !== kind || box.dataset.pal !== GLR.palette() || box.dataset.hueless !== String(hueless))) {
+      box.dataset.kind = kind; box.dataset.pal = GLR.palette(); box.dataset.hueless = String(hueless);
+      if (hueless) box.style.removeProperty('--wheel'); else box.style.setProperty('--wheel', keyConic());
     }
     if (side === 'L') {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
@@ -1102,7 +1132,7 @@
     const img = kind === 'image';
     const k = rightStage();
     const anyCut = img && built.some((b, i) => i < k && S.steps[i] && S.steps[i].on !== false && b && !b.error && b.cuts.some((c) => c.kind === 'ray'));
-    const key = [kind, S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
+    const key = [kind, plasterKey(kind), S.dc, compact, GLR.palette(), S.sectors, S.height, S.pattern, S.lines, img ? patternCell() : '', anyCut, S.fov, lFlat(), morphOn(), S.morphPaths !== false, fnText(), SV.on ? svKeyName() + '|' + svCarriedFrom() : '', TH.ink, TH.plane, TH.lineStrong, document.fonts ? document.fonts.status : ''].join('|');
     if (st.key !== key || !st.cv) {
       if (!st.cv) st.cv = document.createElement('canvas');
       const off = st.cv;
@@ -1200,15 +1230,17 @@
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
     const cauchyOff = SV.on && kind === 'color' && S.dc === 'cauchy' && svT() !== 0 && !svCarriedFrom();
-    st.ring = !cauchyOff;
+    // (the Landscape under Plaster paints no hue: its key keeps the height and the contours, with no ring)
+    const noRing = cauchyOff || plasterKey(kind);
+    st.ring = !noRing;
     // hue ring: arg increases counterclockwise from red at 1
     const { cx, cy, R, r0, sx, sy, sw, sh } = LEG;
-    if (!cauchyOff) for (let i = 0; i < 360; i++) {
+    if (!noRing) for (let i = 0; i < 360; i++) {
       const a0 = i * DEG, a1 = (i + 1.5) * DEG;
       ctx.fillStyle = `rgb(${keyRGB(i * DEG).map((v) => Math.round(255 * v)).join(',')})`;
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
-    if (!cauchyOff) {
+    if (!noRing) {
       ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
       // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
@@ -1231,7 +1263,7 @@
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
     // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (SV.on && svCarriedFrom() && !lPhase()) {
+    if (kind === 'color' && SV.on && svCarriedFrom() && !lPhase()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
@@ -1283,8 +1315,8 @@
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
       else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
     }
-    // (the steps view's Height key describes h(F), the same quantity on every plane)
-    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? 'F' : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
+    // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
+    const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
     if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
