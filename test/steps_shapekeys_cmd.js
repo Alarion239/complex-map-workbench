@@ -116,7 +116,8 @@ for (const [name, w, h, dpr, dark] of SETTINGS) {
   await until(`__cmwShapes().selected === 'd1'`);
   await onPlane();
   await press('ArrowRight'); await press('ArrowRight');
-  const toastUp = `(() => { const t = document.querySelector('#toastHost .toast'); return !!t && /^Moved Disc 1 to /.test(t.textContent) && getComputedStyle(t).opacity === '1' && getComputedStyle(t).translate === 'none'; })()`;
+  // (the toast of the settled run: a slow press can let the one for the first nudge show before the second, so the wait is for the toast that matches the state now, in place)
+  const toastUp = `(() => { const t = document.querySelector('#toastHost .toast'), c = __cmwShapes().shapes.find((x) => x.id === 'd1').c; return !!t && t.textContent.startsWith('Moved Disc 1 to ' + c[0].toFixed(3) + ', ' + c[1].toFixed(3) + '.') && getComputedStyle(t).opacity === '1' && getComputedStyle(t).translate === 'none'; })()`;
   await until(toastUp, 8000);
   const m = await ev(`(() => {
     const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), cs = getComputedStyle(t);
