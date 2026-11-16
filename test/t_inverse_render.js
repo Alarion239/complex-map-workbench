@@ -349,6 +349,15 @@ console.log('--- (h) golden emulation');
     const raw = Inverse.keySing(plan, win, null), g = frontOf({ win, R, rs: R / 8, sing: raw, per: null });
     check('control: without the period the key puts a copy far from the centre in front', CX.abs(g) > 2 * CX.abs(nearC), { g, raw });
   }
+  // a Möbius step with c = 0 before the periodic step is affine: 2z + 1, exp, (z - 1)/(z + 1) has the period pi i,
+  // and its poles (-1 + i pi (2m + 1)) / 2 make one class modulo it
+  {
+    const steps = [{ type: 'mobius', params: { a: '2', b: '1', c: '0', d: '1' } }, { type: 'exp' }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }];
+    const plan = planOf(steps), win = { x0: -8.4, x1: 8.4, y0: -6, y1: 6 };
+    const per = Inverse.keyPeriod(plan), sing = Inverse.keySing(plan, win);
+    check('a Möbius step with c = 0 before exp: the key\'s period is pi i', !!per && Math.abs(per.re) < 1e-12 && Math.abs(Math.abs(per.im) - Math.PI) < 1e-12, per);
+    check('a Möbius step with c = 0 before exp: one key point of each class modulo the period', sing.length === 1, sing);
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------

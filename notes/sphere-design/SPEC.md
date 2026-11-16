@@ -973,8 +973,7 @@ D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|_T)
   to the nearest point of p's class. Every copy z + kT of a point then takes the same singular terms, and the copies
   rank by their distance to W alone. A key without T would penalise only the copies beside the listed poles, so a copy
   beside a pole P leaves out would come in front of the copies near the window (on Strip to disk's w₂, copies 3
-  periods down). Mid-glide,
-  T is the period of the steps before the glide's step, which the glide's map keeps.
+  periods down). Mid-glide, T is the period of the steps before the glide's step, which the glide's map keeps.
 - With Λ and Re Λ > 60: dist ≈ e^{Re Λ}, so log2(1 + dist/R) ≈ (Re Λ − ln R)/ln 2. For p = 0 the singular term is
   log2(rs) − Re Λ/ln 2.
 

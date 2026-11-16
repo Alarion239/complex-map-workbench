@@ -411,13 +411,15 @@ const Inverse = (() => {
     const k = Math.round((d.re * per.re + d.im * per.im) / (per.re * per.re + per.im * per.im));
     return k === 0 ? d : C(d.re - k * per.re, d.im - k * per.im);
   }
-  // Inverse.keyPeriod(plan) -> the period T of the chain in z (F(z + T) = F(z)), or null: the step its leading affine ops
-  // u = A z + B lead to has an additive family of period p (exp, sin, cos, tan and their kin), so T = p / A
+  // Inverse.keyPeriod(plan) -> the period T of the chain in z (F(z + T) = F(z)), or null: the step its leading affine
+  // ops (AFF, or MOB with c = 0) u = A z + B lead to has an additive family of period p (exp, sin, cos, tan and their
+  // kin), so T = p / A
   function keyPeriod(plan) {
     if (!plan || !plan.ok) return null;
     let A = ONE;
     for (const o of plan.ops) {
-      if (o.kind === 'AFF') { A = mul(o.p.a, A); continue; }
+      const af = affOf(o);
+      if (af) { A = mul(af.a, A); continue; }
       return o.fam && o.fam.type === 'add' && isFin(o.fam.p) && !isZero(A) ? div(o.fam.p, A) : null;
     }
     return null;
