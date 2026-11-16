@@ -52,9 +52,9 @@
   }
   // the nodes of level L still to evaluate from node k on: all of them on the first level, three in four on the others
   const standInLeft = (L, k) => (L.nx * L.ny - k) * (L.li ? 0.75 : 1);
-  // a stand-in job's idle driver: a slice at a time (j.slice(t0) -> why the job stops, or null to go on), waiting out any
-  // motion between them; j.check() -> why it stops before its next slice ('linked', or 'dead': what it was for is gone,
-  // the job then dead with no end), or null
+  // a stand-in job's idle driver: a slice at a time (j.slice(t0) -> why the job stops, null to go on, or 'rest' to go on
+  // after j.rest ms), waiting out any motion between them; j.check() -> why it stops before its next slice ('linked', or
+  // 'dead': what it was for is gone, the job then dead with no end), or null
   async function standInRun(j) {
     for (;;) {
       await yieldTask();
@@ -69,16 +69,19 @@
       const dt = performance.now() - t0;
       if (j.slices) j.maxSlice = Math.max(j.maxSlice, dt); else j.firstSlice = dt;
       j.ms += dt; j.slices++;
+      if (end === 'rest') { j.rests++; await yieldNow(j.rest); continue; }
       if (end) { j.end = end; return; }
     }
   }
   // after an evaluation of job j that ended at t, last ms after the one before it, in a slice begun at t0, with left
   // evaluations still to cost: undefined to go on, else why the slice ends: null when the next evaluation, as long as the
-  // last, would end past STANDIN_SLICE ms, 'budget' (from the second slice on) when the work left would not fit
-  function standInDue(j, t0, last, t, left) {
+  // last, would end past STANDIN_SLICE ms, 'budget' (from the second slice on) when the work left would not fit budget
+  // (j.need: the job's whole work as costed, ms)
+  function standInDue(j, t0, last, t, left, budget = STANDIN_BUDGET) {
     if (t - t0 + last < STANDIN_SLICE) return undefined;
     const spent = j.ms + t - t0;
-    return j.slices && spent + left * spent / j.n > STANDIN_BUDGET ? 'budget' : null;
+    j.need = spent + left * spent / j.n;
+    return j.slices && j.need > budget ? 'budget' : null;
   }
   // one slice of job j, begun at t0: the next level's nodes until standInDue ends it; -> why the job stops, or null to go
   // on. A level done is drawn from the next frame on
@@ -108,16 +111,24 @@
   // While the carried colour's programs link, a plane at rest past a colour plane T > 0 is drawn from its regions'
   // SphereMeshes (smNeed's 'linking'), each vertex coloured by its source point z's point of plane T, G(z) (cpuMap of the
   // stages 0 to T), as the colour plane colours it: G is computed here, a mesh at a time, in the colour plot's stand-in's
-  // slices and budget (a mesh whose points do not fit gets none; the budget is each mesh's), and goes to the GPU with the
-  // mesh (GLR.setPreW). G is per vertex, interpolated across each triangle in a form that stands for it there
-  // (carriedForm): its polar coordinates, or about a zero or a pole of G, G itself or 1/G. A cut of G that the plane does
-  // not share is blurred across its triangles
+  // slices, and goes to the GPU with the mesh (GLR.setPreW). Nothing is drawn until every mesh has its points, so a mesh
+  // whose work does not fit the budget (each mesh's) rests instead of stopping: it goes on once the time since it
+  // started, at CARRIED_SHARE of the main thread, pays for the work left, costed again after each slice (a busy CPU, as
+  // a driver compiling on every core, makes the costing grow, and a CPU that frees up makes it shrink). A mesh whose
+  // work is costed past CARRIED_MAX ms once an eighth of its corners are done gets none (before that, the costing runs
+  // far high: the first slice's evaluations wait on the JIT, and the first triangles bring the most new points). G is
+  // per vertex, interpolated across each triangle in a form that stands for it there (carriedForm): its polar
+  // coordinates, or about a zero or a pole of G, G itself or 1/G. A cut of G that the plane does not share is blurred
+  // across its triangles
   let carriedJob = null;
   const PRE_ARG = 16 / TAU;   // (the meshes' polar coordinates: (ln |z|, arg z) * PRE_ARG, PAT_PRE's)
+  // (a rest lasts until the work fits, at least CARRIED_REST[0] ms and at most CARRIED_REST[1], then a slice costs it again)
+  const CARRIED_SHARE = 0.25, CARRIED_MAX = 4000, CARRIED_REST = [100, 2000];
   // whether SphereMesh entry e's mesh carries its points of plane T on the GPU; when not, its job starts (if none runs)
   // or goes on (e.carryW: {key, w}, set when the job starts, w the points once it is done, null while it runs and for
-  // good when it stopped first: the budget, an error, the program linked). preZ: the mesh keeps the source point itself,
-  // not its polar coordinates (graph paper's mesh); map: the plane's map, whose carried colour's program the job ends at
+  // good when it stopped first: past CARRIED_MAX, an error, the program linked). preZ: the mesh keeps the source point
+  // itself, not its polar coordinates (graph paper's mesh); map: the plane's map, whose carried colour's program the job
+  // ends at
   function carriedW(e, T, preZ, map) {
     const toT = { mode: 0, a: 0, b: T }, key = `${e.key}|${mapKeyOf(toT)}|${preZ ? 1 : 0}`;
     if (!e.res) return false;
@@ -128,6 +139,7 @@
     const n3 = 3 * e.data.n, mapKey = mapKeyOf(toT);
     e.carryW = { key, w: null };
     const nj = carriedJob = { key, e, preZ, F: cpuMap(toT), w: new Float32Array(3 * n3), seen: new Map(), tri: [null, null, null], k: 0, n: 0, ms: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false,
+      t0: performance.now(), rests: 0, rest: 0, need: 0,
       check: () => (sm.entries.get(e.key) !== e || mapKeyOf(toT) !== mapKey ? 'dead' : GLR.linked(['regionPK'], map) ? 'linked' : null), slice: (t0) => carriedSlice(nj, t0) };
     standInRun(nj);
     return false;
@@ -160,9 +172,10 @@
         j.seen.set(id, g);
         const tn = performance.now();
         // (the work left at the rate of new points per corner so far, highest at the mesh's start, where a triangle brings
-        // up to 3 new points against about 1 in 6 corners over a whole mesh: a mesh near the budget may stop early)
-        due = standInDue(j, t0, tn - te, tn, (n3 - j.k) * j.n / j.k);
+        // up to 3 new points against about 1 in 6 corners over a whole mesh: a mesh near the budget may rest first)
+        due = standInDue(j, t0, tn - te, tn, (n3 - j.k) * j.n / j.k, Math.max(STANDIN_BUDGET, CARRIED_SHARE * (tn - j.t0)));
         te = tn;
+        if (due === 'budget' && (j.need <= CARRIED_MAX || 8 * j.k < n3)) { j.rest = Math.min(CARRIED_REST[1], Math.max(CARRIED_REST[0], j.need / CARRIED_SHARE - (tn - j.t0))); due = 'rest'; }
       }
       const a0 = c ? j.w[3 * (k - c) + 1] : g[1];
       j.w[3 * k] = g[0]; j.w[3 * k + 1] = g[1] + turn * Math.round((a0 - g[1]) / turn); j.w[3 * k + 2] = 0;

@@ -11,7 +11,9 @@
 //   Everywhere. The pane is coloured from the SphereMeshes' points' colours of w₁, the frame still pending; on release
 //   the carried colour takes its place with no frame where it drew nothing, in the stand-in's colours. About a zero and
 //   a pole of the colour (w₁ = z − 1, then w₁ + 0.2 conj(w₁); w₁ = 1/(z − 1), then 1/w₁ + 0.2 conj(1/w₁): w₂ = 0),
-//   every point of rings held within 16 levels of the carried colour once linked;
+//   every point of rings held within 16 levels of the carried colour once linked. With the CPU six times slower, the
+//   carried job rests until its work fits its budget, then finishes, and the rings are in colour. A carried job that
+//   stops short of its points (past CARRIED_MAX on a slow machine) is a timing row, its colours not compared;
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
 //   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
 //   once linked, at least 99 % of a pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1,
@@ -131,6 +133,9 @@ await settled({ max: 20000, panes: false, until: loaded });
 const exWait = await settled({ only: true, max: 30000, until: "typeof __cmwStandIn === 'function' && !!__cmwStandIn() && !!__cmwStandIn().end" });
 info.expensive = { wait: exWait, standIn: await standIn() };
 ok('timing: an expensive series\' stand-in keeps to its CPU budget (250 ms and a slice)', exWait.ok && !!info.expensive.standIn && info.expensive.standIn.ms <= 280, info.expensive);
+// (the carried colour's job past T > 0 (__cmwCarried), and a page condition that holds once it stopped short of its points)
+const carried = () => ev("typeof __cmwCarried === 'function' ? __cmwCarried() : null");
+const carriedShort = "(typeof __cmwCarried === 'function' && !!__cmwCarried() && !!__cmwCarried().end && __cmwCarried().end !== 'done')";
 // the carried colour past a colour plane other than z: z² then z + 0.2 conj(z) (no inverse plan), colour plane w₁, the
 // plane w₂ parked, Everywhere: while the links are held, the pane is coloured from the SphereMeshes' points' colours
 const ns4 = 'lsk' + Date.now();
@@ -138,40 +143,58 @@ await seed(ns4, { steps: [{ type: 'pown', params: { n: 2 } }, { type: 'custom', 
 await go(`${base}/test.html?ns=${ns4}&glhold`);
 await settled({ max: 20000, panes: false, until: loaded });
 const onW2 = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); return s.stage === 2 && s.T === 1; })()` });
-// (in colour: at least 60 % of a 16 x 10 grid of the pane's points, read in the page)
+// (in colour: at least 60 % of a 16 x 10 grid of the pane's points, read in the page. The carried job rests while its
+// work does not fit, so the wait also ends on a job that stopped short of its points (past CARRIED_MAX on a slow
+// machine): a timing row, and nothing to compare)
 const P4 = await K.paneOf(), pts4 = JSON.stringify(K.grid(P4, 16, 10));
-const carriedWait = await settled({ only: true, max: 30000, until: `(() => { const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
+const carriedWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
 const carriedPx = (await K.lpx(K.grid(P4, 16, 10))).px;
-info.carriedT1 = { onW2, wait: carriedWait, hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
-ok('the carried colour past colour plane w₁, its programs held: w₂ is drawn in colour (the frame pending)', onW2.ok && carriedWait.ok && info.carriedT1.pending === true, info.carriedT1);
+info.carriedT1 = { onW2, wait: carriedWait, job: await carried(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
+const short4 = !!info.carriedT1.job && info.carriedT1.job.end === 'budget';
+ok('timing: the carried colour past colour plane w₁: its job finished, within CARRIED_MAX', !short4, info.carriedT1.job);
+ok('the carried colour past colour plane w₁, its programs held: w₂ is drawn in colour (the frame pending)', short4 || (onW2.ok && carriedWait.ok && info.carriedT1.pending === true), info.carriedT1);
 // (after the release, each frame's pre-mapped draws: blank = it drew none of them)
 const carriedAfter = await releaseFrames('drawPreMapped', "(f) => (!f.calls ? 'none' : !f.drew ? 'blank' : f.pending ? 'stand-in' : 'gpu')");
 info.carriedAfter = carriedAfter.list ? carriedAfter.runs : null;
-ok('the carried colour past colour plane w₁, after the release: no frame where it drew nothing', !!carriedAfter.list && carriedAfter.list.includes('gpu') && !carriedAfter.list.includes('blank'), info.carriedAfter);
+ok('the carried colour past colour plane w₁, after the release: no frame where it drew nothing', short4 || (!!carriedAfter.list && carriedAfter.list.includes('gpu') && !carriedAfter.list.includes('blank')), info.carriedAfter);
 const carriedLinked = await settled({ max: 20000 });
 // (the points the held stand-in coloured: the 'linking' mesh leaves the pane's far corners bare)
 info.carriedMatch = K.tally(carriedPx, (await K.lpx(K.grid(P4, 16, 10))).px, { tol: 24, skip: (k) => !carriedPx[k] || K.bare(carriedPx[k][4]) });
-ok('the carried colour past colour plane w₁, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', carriedLinked.ok && info.carriedMatch.n >= 96 && info.carriedMatch.wrong <= 0.1 * info.carriedMatch.n, info.carriedMatch);
+ok('the carried colour past colour plane w₁, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', short4 || (carriedLinked.ok && info.carriedMatch.n >= 96 && info.carriedMatch.wrong <= 0.1 * info.carriedMatch.n), info.carriedMatch);
 // the same stand-in about a zero and a pole of the colour, away from z = 0 and with no inverse plan, the plane real-linear
 // in z − 1 there: w₁ = z − 1 then w₂ = w₁ + 0.2 conj(w₁) (the zero at w₂ = 0), and w₁ = 1/(z − 1) then w₂ = 1/w₁ +
 // 0.2 conj(1/w₁) (the pole at w₂ = 0). Rings of 12 points about w₂ = 0, 4, 8 and 12 px out, read while the links are
 // held and again from the carried colour once they are not, within 16 levels: the stand-in colours a triangle from its
 // vertices' points of w₁ and the linked program from each fragment's own, up to 9 levels apart on these rings (at 4, 8
-// and 12 px alike); (ln |w₁|, arg w₁) interpolated across the zero or the pole put them over 100 levels apart
-for (const [name, e1, e2] of [['zero', 'z-1', 'z+0.2\\overline{z}'], ['pole', '\\frac{1}{z-1}', '\\frac{1}{z}+\\frac{0.2}{\\overline{z}}']]) {
-  const nsw = 'lsw' + name + Date.now();
+// and 12 px alike); (ln |w₁|, arg w₁) interpolated across the zero or the pole put them over 100 levels apart. Then the
+// zero's scene with the CPU six times slower from the page's start (CDP's throttling), as a driver compiling on every
+// core makes it: the job's work does not fit its budget, so it rests until it does, and the rings come in colour (a job
+// that gave up at its budget left them paper)
+const WAYS = { zero: ['z-1', 'z+0.2\\overline{z}'], pole: ['\\frac{1}{z-1}', '\\frac{1}{z}+\\frac{0.2}{\\overline{z}}'] };
+for (const [name, scene, slow] of [['zero', 'zero', 1], ['pole', 'pole', 1], ['slow', 'zero', 6]]) {
+  const nsw = 'lsw' + name + Date.now(), [e1, e2] = WAYS[scene];
   await seed(nsw, { steps: [{ type: 'custom', params: { expr: e1, cut: 180 } }, { type: 'custom', params: { expr: e2, cut: 180 } }], sv: { at: 2, T: 1, scope: 'all', surf: 'plane' } });
+  if (slow > 1) await send('Emulation.setCPUThrottlingRate', { rate: slow });
   await go(`${base}/test.html?ns=${nsw}&glhold`);
-  await settled({ max: 20000, panes: false, until: loaded });
+  await settled({ max: 20000 * slow, panes: false, until: loaded });
   const Pw = await K.paneOf(), ring = [];
   for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring.push([px / Pw.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / Pw.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
-  const hw = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = __cmwLPx(${JSON.stringify(ring)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+  const hw = await settled({ only: true, max: slow > 1 ? 90000 : 60000, until: `(() => { if (${carriedShort}) return true; const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = __cmwLPx(${JSON.stringify(ring)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+  const job = await carried();
+  if (slow > 1) {
+    await send('Emulation.setCPUThrottlingRate', { rate: 1 });
+    info.carriedSlow = { held: hw, job, hue: (await K.lpx(ring)).px.filter((q) => q && Math.max(q[4][0], q[4][1], q[4][2]) - Math.min(q[4][0], q[4][1], q[4][2]) > 40).length };
+    ok(`the carried colour on a CPU ${slow} times slower: its job finishes (resting while its work does not fit) and the rings are in colour`, hw.ok && !!job && job.end === 'done' && info.carriedSlow.hue > 18, info.carriedSlow);
+    break;
+  }
+  const short = !!job && job.end === 'budget';
+  ok(`timing: the carried colour about its ${name}: its job finished, within CARRIED_MAX`, !short, job);
   await settled({ panes: false });
   const heldPx = (await K.lpx(ring)).px, pending = await ev('GLR.frameStatus().pending');
   await ev('GLR.holdLinks(false), 1');
   const linkedW = await settled({ max: 20000 });
-  const rw = info['carried' + name] = Object.assign(K.tally(heldPx, (await K.lpx(ring)).px, { tol: 16, note: (k) => ({ px: [4, 8, 12][Math.floor(k / 12)], i: k % 12 }) }), { held: hw, pending, linked: linkedW, after: await ev('GLR.frameStatus().pending') });
-  ok(`the carried colour past colour plane w₁ about its ${name} (w₂ = 0), the links held: every point within 16 levels of the linked frame`, hw.ok && pending === true && linkedW.ok && rw.after === false && rw.n >= 30 && rw.wrong === 0, rw);
+  const rw = info['carried' + name] = Object.assign(K.tally(heldPx, (await K.lpx(ring)).px, { tol: 16, note: (k) => ({ px: [4, 8, 12][Math.floor(k / 12)], i: k % 12 }) }), { held: hw, job, pending, linked: linkedW, after: await ev('GLR.frameStatus().pending') });
+  ok(`the carried colour past colour plane w₁ about its ${name} (w₂ = 0), the links held: every point within 16 levels of the linked frame`, short || (hw.ok && pending === true && linkedW.ok && rw.after === false && rw.n >= 30 && rw.wrong === 0), rw);
 }
 // the carried colour from the SphereMeshes at T = 0: the default example, colour plane z, w₁ at rest, bare
 const ns5 = 'lsz' + Date.now();
