@@ -646,10 +646,11 @@ const cacheLine = (st) => st.filter((x) => x.kb > 0 || x.files > 0).map((x) => `
 const CACHE_SETTINGS = [['as glprof (program cache 512 MB, disk cache default)', []], ['disk cache raised too (--gpu-disk-cache-size-kb=524288)', ['--gpu-disk-cache-size-kb=524288']]];
 
 // one program in a Chrome of its own on the profile -> { s, ok }
-async function cacheLinkOne(prof, flags, source, timeoutMs) {
+// (the page is the app server's blank page: Chrome keeps no program cache for the opaque origin of about:blank, so a program linked there never hits)
+async function cacheLinkOne(prof, flags, source, timeoutMs, url) {
   const H = await launch({ inject: PAGE, cache: prof, flags });
   try {
-    await H.nav('about:blank');
+    await H.nav(url);
     await H.until('typeof window.__go === "function"', 20000, 100);
     await H.ev(`window.__go(${JSON.stringify(source)})`);
     const t1 = Date.now();
@@ -727,7 +728,7 @@ async function cacheStudy() {
         let before = stored(prof);
         for (const j of js) {
           if (over()) { cells.push({ job: j, s: null, skipped: true }); continue; }
-          const r = await cacheLinkOne(prof, flags, src(j), timeoutMs);
+          const r = await cacheLinkOne(prof, flags, src(j), timeoutMs, `${S.base}blank.html`);
           const now = stored(prof);
           cells.push({ job: j, s: r.s, grew: now - before });
           before = now;
