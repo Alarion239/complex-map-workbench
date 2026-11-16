@@ -642,12 +642,15 @@ function cacheStats(prof) {
   walk(prof, 1);
   return out;
 }
+// (what the cache folders hold that grows with a program: GPUCache and GPUPersistentCache, KB)
+const storedKb = (prof) => cacheStats(prof).filter((x) => /(^|[\\/])(GPUCache|GPUPersistentCache)$/.test(x.dir)).reduce((a, x) => a + x.kb, 0);
 const cacheLine = (st) => st.filter((x) => x.kb > 0 || x.files > 0).map((x) => `${x.dir}: ${x.files} files, ${x.kb} KB`).join('; ') || 'no cache folder';
 const CACHE_SETTINGS = [['as glprof (program cache 512 MB, disk cache default)', []], ['disk cache raised too (--gpu-disk-cache-size-kb=524288)', ['--gpu-disk-cache-size-kb=524288']]];
 
 // one program in a Chrome of its own on the profile -> { s, ok }
 // (the page is the app server's blank page: Chrome keeps no program cache for the opaque origin of about:blank, so a program linked there never hits)
-async function cacheLinkOne(prof, flags, source, timeoutMs, url) {
+// idleS: seconds the page is left open and idle after the link (Chrome writes the cache asynchronously), then closed with Browser.close
+async function cacheLinkOne(prof, flags, source, timeoutMs, url, idleS) {
   const H = await launch({ inject: PAGE, cache: prof, flags });
   try {
     await H.nav(url);
@@ -656,12 +659,14 @@ async function cacheLinkOne(prof, flags, source, timeoutMs, url) {
     const t1 = Date.now();
     let r = null;
     while (!r && Date.now() - t1 < timeoutMs) { await sleep(500); r = await Promise.race([H.ev('window.__res').catch(() => null), sleep(2000).then(() => null)]); }
-    return r ? { s: r.ms / 1000, ok: r.ok } : { s: null, ok: false };
+    if (idleS) await sleep(idleS * 1000);
+    const open = storedKb(prof);   // (the cache folders while Chrome is still open, after the idle wait)
+    return r ? { s: r.ms / 1000, ok: r.ok, open } : { s: null, ok: false, open };
   } finally { await H.close(); }
 }
 
 // the app scene on the profile: load, the glide, every link landed -> [{ key, name, ms, kb, hash }] in link order
-async function cacheAppPass(base, name, tree, prof, flags, timeoutMs) {
+async function cacheAppPass(base, name, tree, prof, flags, timeoutMs, idleS) {
   const sc = SCENES[name], glide = sc.phases.find(([l]) => l === 'glide')[1];
   const H = await launch({ width: 1440, height: 900, inject: SRC_SHIM, cache: prof, flags });
   try {
@@ -673,11 +678,14 @@ async function cacheAppPass(base, name, tree, prof, flags, timeoutMs) {
     }
     await H.nav(`${base}test.html?ns=${ns}&view=steps&glprof`);
     await H.until(`typeof __cmwSteps === 'function' && typeof GLR !== 'undefined'`, 240000, 200);
+    const series = [];   // [wall ms, cache KB], about every 2 s
+    const sample = () => { const t = Date.now(); if (!series.length || t - series[series.length - 1][0] > 2000) series.push([t, storedKb(prof)]); };
     const quiet = async (maxMs) => {
       const t0 = Date.now();
       let n = -1, since = Date.now();
       for (;;) {
         const r = await H.ev('GLR.profile()'), open = r.filter((x) => x.ms === null).length;
+        sample();
         if (r.length !== n) { n = r.length; since = Date.now(); }
         if ((Date.now() - since > 6000 && !open) || Date.now() - t0 > maxMs) return r.length;
         await sleep(250);
@@ -696,8 +704,16 @@ async function cacheAppPass(base, name, tree, prof, flags, timeoutMs) {
     await quiet(timeoutMs);
     await H.ev(glide);
     await quiet(timeoutMs);
-    const prof2 = await H.ev('GLR.profile()'), srcs = await H.ev('window.__srcs');
-    return prof2.map((r, i) => { const s = srcs[i] || { vs: '', fs: '' }; return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs) }; });
+    if (idleS) await sleep(idleS * 1000);
+    series.push([Date.now(), storedKb(prof)]);
+    const prof2 = await H.ev('GLR.profile()'), srcs = await H.ev('window.__srcs'), origin = await H.ev('performance.timeOrigin');
+    // the cache KB at wall time t: the first sample at or after it
+    const kbAt = (t) => { const x = series.find(([w]) => w >= t); return (x || series[series.length - 1])[1]; };
+    const recs = prof2.map((r, i) => {
+      const s = srcs[i] || { vs: '', fs: '' }, end = r.ms == null ? null : origin + r.t0 + r.ms;
+      return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs), grew: end == null ? null : kbAt(end + 4000) - kbAt(end) };
+    });
+    return { recs, open: series[series.length - 1][1] };
   } finally { await H.close(); }
 }
 
@@ -714,11 +730,12 @@ async function cacheStudy() {
   const t00 = Date.now(), tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-cachestudy-'));
   const res = { programs: [], app: [] };
   const over = () => Date.now() - t00 > budgetMs;
-  for (const [setName, flags] of CACHE_SETTINGS.slice(0, Number(opt('settings', String(CACHE_SETTINGS.length))))) {
+  const idles = opt('idle-s', '0').split(',').map(Number);
+  for (const [setName0, flags] of CACHE_SETTINGS.slice(0, Number(opt('settings', String(CACHE_SETTINGS.length))))) for (const idleS of idles) {
+    const setName = `${setName0}, idle ${idleS} s then a graceful close`;
     // programs in turn on one profile: cold, warm; then the first (small) and the largest alone on a profile of their own
     const plans = flag('turn-only') ? [['all in turn', progJobs]] : [['all in turn', progJobs], ['small alone', [progJobs[0]]], ['large alone', [progJobs[progJobs.length - 1]]]];
-    // (what the cache folders hold that grows with a program: GPUCache and GPUPersistentCache, KB)
-    const stored = (prof) => cacheStats(prof).filter((x) => /(^|[\\/])(GPUCache|GPUPersistentCache)$/.test(x.dir)).reduce((a, x) => a + x.kb, 0);
+    const stored = storedKb;
     for (const [plan, js] of plans) {
       const prof = path.join(tmp, `p${res.programs.length}`);
       const row = { setting: setName, plan, passes: [] };
@@ -728,9 +745,9 @@ async function cacheStudy() {
         let before = stored(prof);
         for (const j of js) {
           if (over()) { cells.push({ job: j, s: null, skipped: true }); continue; }
-          const r = await cacheLinkOne(prof, flags, src(j), timeoutMs, `${S.base}blank.html`);
+          const r = await cacheLinkOne(prof, flags, src(j), timeoutMs, `${S.base}blank.html`, idleS);
           const now = stored(prof);
-          cells.push({ job: j, s: r.s, grew: now - before });
+          cells.push({ job: j, s: r.s, grewOpen: r.open - before, grew: now - before });
           before = now;
           console.log(`[fxc] cache ${setName.slice(0, 20)} ${plan} ${pass}: ${nameOf(j)} ${r.s == null ? 'timeout' : r.s.toFixed(1) + ' s'}`);
         }
@@ -742,8 +759,8 @@ async function cacheStudy() {
       res.app.push(row);
       for (const pass of ['cold', 'warm']) {
         if (over()) { row.passes.push({ pass, skipped: true }); continue; }
-        const recs = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs);
-        row.passes.push({ pass, recs, cache: cacheStats(prof) });
+        const { recs, open } = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, idleS);
+        row.passes.push({ pass, recs, open, cache: cacheStats(prof) });
         console.log(`[fxc] cache ${setName.slice(0, 20)} app ${name} ${pass}: ${recs.length} links, ${(recs.reduce((a, r) => a + Math.max(0, r.ms || 0), 0) / 1000).toFixed(1)} s of link time; ${cacheLine(cacheStats(prof))}`);
       }
     }
@@ -755,9 +772,9 @@ async function cacheStudy() {
   const f = (v) => (v == null ? '' : v.toFixed(1));
   const lines = ['### The program cache: a second Chrome on the same profile', '', 'Link seconds. A program is a hit when the warm link takes under 35 % of the cold one (or under 1 s).', ''];
   for (const row of res.programs) {
-    lines.push(`**Programs, ${row.plan}; ${row.setting}**`, '', '| program | source KB | cold s | warm s | warm / cold | cache grew by (KB, cold; warm) |', '|---|---|---|---|---|---|');
+    lines.push(`**Programs, ${row.plan}; ${row.setting}**`, '', '| program | source KB | cold s | warm s | warm / cold | cache grew by (KB): cold, Chrome open after the wait / after the close; warm, the same |', '|---|---|---|---|---|---|');
     const [c, w] = row.passes;
-    c.cells.forEach((x, i) => lines.push(`| ${esc(nameOf(x.job))}, variant ${B.jobs[x.job].variant} | ${B.jobs[x.job].srcKB} | ${x.skipped ? 'skipped' : f(x.s)} | ${f(w.cells[i].s)} | ${x.s && w.cells[i].s != null ? (w.cells[i].s / x.s).toFixed(2) : ''} | ${x.grew == null ? '' : x.grew}; ${w.cells[i].grew == null ? '' : w.cells[i].grew} |`));
+    c.cells.forEach((x, i) => lines.push(`| ${esc(nameOf(x.job))}, variant ${B.jobs[x.job].variant} | ${B.jobs[x.job].srcKB} | ${x.skipped ? 'skipped' : f(x.s)} | ${f(w.cells[i].s)} | ${x.s && w.cells[i].s != null ? (w.cells[i].s / x.s).toFixed(2) : ''} | ${x.grewOpen == null ? '' : x.grewOpen} / ${x.grew == null ? '' : x.grew}; ${w.cells[i].grewOpen == null ? '' : w.cells[i].grewOpen} / ${w.cells[i].grew == null ? '' : w.cells[i].grew} |`));
     lines.push('', `Cache after the cold pass: ${cacheLine(c.cache)}. After the warm pass: ${cacheLine(w.cache)}.`, '');
   }
   for (const row of res.app) {
@@ -766,8 +783,8 @@ async function cacheStudy() {
     const sum = (a) => a.reduce((s, r) => s + Math.max(0, r.ms || 0), 0) / 1000;
     const hits = c.recs.map((r, i) => { const x = w.recs[i]; return x && x.hash === r.hash ? ((x.ms || 0) < 1000 || x.ms < 0.35 * r.ms ? 'hit' : 'miss') : 'other source'; });
     lines.push(`**App, ${row.scene}; ${row.setting}**: ${c.recs.length} links cold (${f(sum(c.recs))} s), ${w.recs.length} warm (${f(sum(w.recs))} s); ${hits.filter((x) => x === 'hit').length} hits, ${hits.filter((x) => x === 'miss').length} misses, ${hits.filter((x) => x === 'other source').length} with other source text.`, '',
-      '| # | program | KB | cold s | warm s | same source | result |', '|---|---|---|---|---|---|---|');
-    c.recs.forEach((r, i) => { const x = w.recs[i]; lines.push(`| ${i + 1} | ${r.inv ? 'inverse ' : ''}${esc(r.name)} \`${esc(r.key)}\` | ${r.kb} | ${f(r.ms == null ? null : r.ms / 1000)} | ${x ? f(x.ms == null ? null : x.ms / 1000) : ''} | ${x ? (x.hash === r.hash ? 'yes' : 'no') : ''} | ${hits[i]} |`); });
+      '| # | program | KB | cold s | warm s | same source | result | cache grew within 4 s of its cold link (KB) |', '|---|---|---|---|---|---|---|---|');
+    c.recs.forEach((r, i) => { const x = w.recs[i]; lines.push(`| ${i + 1} | ${r.inv ? 'inverse ' : ''}${esc(r.name)} \`${esc(r.key)}\` | ${r.kb} | ${f(r.ms == null ? null : r.ms / 1000)} | ${x ? f(x.ms == null ? null : x.ms / 1000) : ''} | ${x ? (x.hash === r.hash ? 'yes' : 'no') : ''} | ${hits[i]} | ${r.grew == null ? '' : r.grew} |`); });
     lines.push('', `Cache after the cold pass: ${cacheLine(c.cache)}. After the warm pass: ${cacheLine(w.cache)}.`, '');
   }
   const md = lines.join('\n');
