@@ -9,8 +9,9 @@
 //   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget;
 // - the carried colour past a colour plane other than z (carriedW): z² then z + 0.2 conj(z), colour plane w₁, w₂ parked,
 //   Everywhere. The pane is coloured from the SphereMeshes' points' colours of w₁, the frame still pending; on release
-//   the carried colour takes its place with no frame where it drew nothing, in the stand-in's colours, and every point
-//   of rings about the colour's zero (w₂ = 0, w₁ = z²'s double zero) within 3 levels of it;
+//   the carried colour takes its place with no frame where it drew nothing, in the stand-in's colours. About a zero and
+//   a pole of the colour (w₁ = z − 1, then w₁ + 0.2 conj(w₁); w₁ = 1/(z − 1), then 1/w₁ + 0.2 conj(1/w₁): w₂ = 0),
+//   every point of rings held within 16 levels of the carried colour once linked;
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
 //   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
 //   once linked, at least 99 % of a pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1,
@@ -141,11 +142,6 @@ const onW2 = await settled({ only: true, max: 30000, until: `(() => { const s = 
 const P4 = await K.paneOf(), pts4 = JSON.stringify(K.grid(P4, 16, 10));
 const carriedWait = await settled({ only: true, max: 30000, until: `(() => { const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
 const carriedPx = (await K.lpx(K.grid(P4, 16, 10))).px;
-// (rings of 12 points about w₂ = 0, the image of the colour's zero w₁ = 0 (z = 0, where w₁ = z² is a double zero), 4, 8
-// and 12 px out)
-const ring4 = [];
-for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring4.push([px / P4.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / P4.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
-const heldRing4 = (await K.lpx(ring4)).px;
 info.carriedT1 = { onW2, wait: carriedWait, hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
 ok('the carried colour past colour plane w₁, its programs held: w₂ is drawn in colour (the frame pending)', onW2.ok && carriedWait.ok && info.carriedT1.pending === true, info.carriedT1);
 // (after the release, each frame's pre-mapped draws: blank = it drew none of them)
@@ -156,8 +152,27 @@ const carriedLinked = await settled({ max: 20000 });
 // (the points the held stand-in coloured: the 'linking' mesh leaves the pane's far corners bare)
 info.carriedMatch = K.tally(carriedPx, (await K.lpx(K.grid(P4, 16, 10))).px, { tol: 24, skip: (k) => !carriedPx[k] || K.bare(carriedPx[k][4]) });
 ok('the carried colour past colour plane w₁, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', carriedLinked.ok && info.carriedMatch.n >= 96 && info.carriedMatch.wrong <= 0.1 * info.carriedMatch.n, info.carriedMatch);
-info.carriedZero = Object.assign(K.tally(heldRing4, (await K.lpx(ring4)).px, { tol: 3 }), { pending: await ev('GLR.frameStatus().pending') });
-ok('the carried colour past colour plane w₁ about its zero (w₂ = 0): every point within 3 levels once linked', carriedLinked.ok && info.carriedZero.pending === false && info.carriedZero.n >= 30 && info.carriedZero.wrong === 0, info.carriedZero);
+// the same stand-in about a zero and a pole of the colour, away from z = 0 and with no inverse plan, the plane real-linear
+// in z − 1 there: w₁ = z − 1 then w₂ = w₁ + 0.2 conj(w₁) (the zero at w₂ = 0), and w₁ = 1/(z − 1) then w₂ = 1/w₁ +
+// 0.2 conj(1/w₁) (the pole at w₂ = 0). Rings of 12 points about w₂ = 0, 4, 8 and 12 px out, read while the links are
+// held and again from the carried colour once they are not, within 16 levels: the stand-in colours a triangle from its
+// vertices' points of w₁ and the linked program from each fragment's own, up to 9 levels apart on these rings (at 4, 8
+// and 12 px alike); (ln |w₁|, arg w₁) interpolated across the zero or the pole put them over 100 levels apart
+for (const [name, e1, e2] of [['zero', 'z-1', 'z+0.2\\overline{z}'], ['pole', '\\frac{1}{z-1}', '\\frac{1}{z}+\\frac{0.2}{\\overline{z}}']]) {
+  const nsw = 'lsw' + name + Date.now();
+  await seed(nsw, { steps: [{ type: 'custom', params: { expr: e1, cut: 180 } }, { type: 'custom', params: { expr: e2, cut: 180 } }], sv: { at: 2, T: 1, scope: 'all', surf: 'plane' } });
+  await go(`${base}/test.html?ns=${nsw}&glhold`);
+  await settled({ max: 20000, panes: false, until: loaded });
+  const Pw = await K.paneOf(), ring = [];
+  for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring.push([px / Pw.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / Pw.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
+  const hw = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = __cmwLPx(${JSON.stringify(ring)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+  await settled({ panes: false });
+  const heldPx = (await K.lpx(ring)).px, pending = await ev('GLR.frameStatus().pending');
+  await ev('GLR.holdLinks(false), 1');
+  const linkedW = await settled({ max: 20000 });
+  const rw = info['carried' + name] = Object.assign(K.tally(heldPx, (await K.lpx(ring)).px, { tol: 16, note: (k) => ({ px: [4, 8, 12][Math.floor(k / 12)], i: k % 12 }) }), { held: hw, pending, linked: linkedW, after: await ev('GLR.frameStatus().pending') });
+  ok(`the carried colour past colour plane w₁ about its ${name} (w₂ = 0), the links held: every point within 16 levels of the linked frame`, hw.ok && pending === true && linkedW.ok && rw.after === false && rw.n >= 30 && rw.wrong === 0, rw);
+}
 // the carried colour from the SphereMeshes at T = 0: the default example, colour plane z, w₁ at rest, bare
 const ns5 = 'lsz' + Date.now();
 await go(`${base}/test.html?ns=${ns5}&glhold`);
