@@ -4,7 +4,9 @@
 // of the pane are nearly one colour. When the front sheet flips from one fragment to the next, they are not: the frame speckles.
 // - the exact pass's frame (the plane at rest) is smooth by this measure: at most SMOOTH_MAX of the points are rough;
 // - the carried meshes' frame of the same plane (every shape forced forward, __cmwForceForward(['__svAll']), as for a step
-//   with no exact inverse) is as smooth: at most ROUGH_MARGIN more of its points are rough than the exact pass's (#1647).
+//   with no exact inverse) is as smooth: at most ROUGH_MARGIN more of its points are rough than the exact pass's (#1647);
+// - so is a frame of an All-at-once glide over [z³, 1 z] past the power step, unforced: the span's map (mode 3) has no
+//   inverse pass, so every frame between its planes is the carried meshes' (#1647, #1742).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -16,26 +18,37 @@ const SKEW = [0.003, 0.002];       // a shift off the exact centre and off the q
 const ROUGH_SPREAD = 30;           // the largest channel spread (0..255) over a point's 3 x 3 pixels above which the point is rough
 const SMOOTH_MAX = 0.1;            // the share of rough points the exact pass's frame may have
 const ROUGH_MARGIN = 0.05;         // the share of points more than the exact pass's that the meshes' frame may have rough
-const FIXED_WAIT = 15000, DRAWN_WAIT = 60000, START_WAIT = 30000;   // ms
+const FIXED_WAIT = 15000, DRAWN_WAIT = 60000, START_WAIT = 30000, GLIDE_WAIT = 120000;   // ms
+const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;   // the glide's time a frame while it runs, and once frozen
+const PAST_POWER_X = 1.1;          // the All-at-once glide is frozen once the thread is past plane 1 (z³ done, 1 z barely begun)
 await view(1200, 800, false, false);
-const roughShare = async (forward) => {
+const ZCUBE = [{ type: 'pown', params: { n: 3 }, on: true }];
+const open = async (steps, extra = {}) => {
   const ns = 'svmt' + Date.now();
-  const st = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [],
-    steps: [{ type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
+  const st = Object.assign({ v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } }, extra);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
-  if (forward) await ev(`__cmwForceForward(['__svAll']); 1`);
   await ev(`document.querySelector('.sv-cp').click(); 1`);
   await settled({});
-  await ev(`document.querySelector('#svStrip .sv-plane[data-i="1"]').click(); 1`);
-  await settled({ max: FIXED_WAIT, until: `__cmwSteps().stage === 1 && !__cmwSteps().moving && __cmwSvFixed()` });
-  await settled({ max: DRAWN_WAIT, until: `__cmwSvFixed() && (() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()` });
+};
+const drawn = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()`;
+// the share of the grid's points that are rough in the frame on the pane now
+const measure = async () => {
   const V = (await lpx([])).view, pts = [];
   for (let i = 0; i < NX; i++) for (let j = 0; j < NY; j++) pts.push([V.cx + (i - (NX - 1) / 2) * STEP + SKEW[0], V.cy + (j - (NY - 1) / 2) * STEP + SKEW[1]]);
   const spread = (await lpx(pts)).px.filter(Boolean).map((p) => Math.max(...[0, 1, 2].map((c) => Math.max(...p.map((x) => x[c])) - Math.min(...p.map((x) => x[c])))));
   return { n: spread.length, rough: spread.filter((s) => s > ROUGH_SPREAD).length, share: spread.filter((s) => s > ROUGH_SPREAD).length / spread.length };
+};
+// z³ at rest on plane 1, colour from z; forward: every shape forced forward, so the carried meshes draw it
+const roughShare = async (forward) => {
+  await open(ZCUBE);
+  if (forward) await ev(`__cmwForceForward(['__svAll']); 1`);
+  await ev(`document.querySelector('#svStrip .sv-plane[data-i="1"]').click(); 1`);
+  await settled({ max: FIXED_WAIT, until: `__cmwSteps().stage === 1 && !__cmwSteps().moving && __cmwSvFixed()` });
+  await settled({ max: DRAWN_WAIT, until: `__cmwSvFixed() && ${drawn}` });
+  return measure();
 };
 const exactFrame = await roughShare();
 info.exact = exactFrame;
@@ -46,4 +59,16 @@ const meshFrame = await roughShare(true);
 info.mesh = meshFrame;
 ok('the page reads the meshes\' grid', meshFrame.n >= 0.9 * NX * NY, meshFrame);
 ok(`the carried meshes' frame of z³ is as smooth as the exact pass's (within ${ROUGH_MARGIN * 100} % of the points)`, meshFrame.share <= exactFrame.share + ROUGH_MARGIN, { mesh: meshFrame, exact: exactFrame });
+// an All-at-once glide over [z³, 1 z], frozen past plane 1: a frame of the span's map (mode 3), drawn by the carried meshes
+await open(ZCUBE.concat([{ type: 'mul', params: { c: '1' }, on: true }]), { homAll: true });
+await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS} })`); await ev('__cmwSteps({ go: 2 })');
+await settled({ max: GLIDE_WAIT, until: `__cmwSteps().x > ${PAST_POWER_X}`, only: true });
+await ev(`__cmwSteps({ clock: ${FREEZE_CLOCK_MS} })`);
+await settled({ max: DRAWN_WAIT, until: drawn });
+const glide = await ev('(() => { const q = __cmwSteps(); return { x: q.x, all: q.all, mode: q.between && q.between.mode }; })()');
+ok('the glide is frozen between plane 1 and plane 2, all at once (map mode 3)', glide.all && glide.mode === 3 && glide.x > PAST_POWER_X && glide.x < 2, glide);
+const allFrame = await measure();
+info.all = Object.assign({ x: glide.x }, allFrame);
+ok('the page reads the All-at-once frame\'s grid', allFrame.n >= 0.9 * NX * NY, allFrame);
+ok(`an All-at-once glide's frame of z³ is as smooth as the exact pass's (within ${ROUGH_MARGIN * 100} % of the points)`, allFrame.share <= exactFrame.share + ROUGH_MARGIN, { all: allFrame, exact: exactFrame });
 return { pass: fails.length === 0, fails, info };

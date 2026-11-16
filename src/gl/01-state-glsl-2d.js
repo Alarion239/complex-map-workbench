@@ -752,10 +752,10 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // uPeelOn = 1 (the carried colour's layers, GLR.carryLayers): only the fragments behind the previous layer's key, which
   // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
   const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
-  const PRE_KEY_DECL = `${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
-const float KEY_STEPS = 16384.0;
+  const KEY_DECL = (steps) => `${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
+const float KEY_STEPS = ${steps.toFixed(1)};
 const float KEY_DMAX = 63.0;
-const float KEY_SMAX = 68141.0;
+const float KEY_SMAX = ${Math.floor(steps * Math.log(64)).toFixed(1)};
 float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
@@ -766,6 +766,9 @@ float preKeyDepth(vec2 sa, bool stepped) {
   return x / (KEY_SMAX + 1.0);
 }
 `;
+  const KEY_STEPS_MESH = Number((typeof location !== 'undefined' && /[?&]ks=(\d+)/.exec(location.search) || [0, 16])[1]);
+  const PRE_KEY_DECL = KEY_DECL(KEY_STEPS_MESH);
+  const KEY_DECL_3D = KEY_DECL(16384);
   const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
