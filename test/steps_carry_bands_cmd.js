@@ -1,14 +1,16 @@
-// #845: the carried colour under Everywhere has no sawtooth bands below full opacity. exp(sin z) typed, colour plane z,
-// plane w1 at rest (the exact pass refuses the whole plane there: 'unbounded range outside the innermost family', so the
-// carried meshes draw it). Below full opacity the meshes drew every covering layer, and a layer behind the front one
-// ended where the meshes end (they cover clipWin and the ring, not every point behind), along their triangles' edges:
-// through the front layer at the slider's 85 % those ends showed as sawtooth bands of whole triangles (#845 part 2).
-// - Everywhere at 85 %: the colour layer (bare) has no straight step run of 10 px or more (ux's line on #845: no straight
-//   run of 10 px or more along which the colour steps by 6 levels or more), at dpr 2;
-// - control: that frame is the carried meshes' (the rest record's path is 'mesh'), and Everywhere at 85 % draws no
-//   layered frame (GLR.carryLayerFrames);
+// #845: the carried colour of the whole plane has no sawtooth bands below full opacity. exp(sin z) typed, colour plane z,
+// plane w1 at rest. The exact pass refuses the whole plane there ('unbounded range outside the innermost family'), so the
+// carried meshes draw it. Below full opacity they drew every covering layer, and a layer behind the front one ended where
+// the meshes end (they cover clipWin and the ring, not every point behind), along their triangles' edges. Through the
+// front layer at the slider's 85 %, those ends showed as sawtooth bands of whole triangles (#845, part 2 of the diagnosis).
+// The whole plane's meshes now draw the front layer alone (svCarryRegions); a region's own meshes keep their layers.
+// - Everywhere at 85 %, dpr 2, the colour layer alone (bare): no straight step run of 10 px or more (ux's line on #845:
+//   no straight run of 10 px or more along which the colour steps by 6 levels or more);
+// - control: that frame is the carried meshes' (the rest record's path is 'mesh'), drawn from the whole plane's SphereMesh
+//   once its job has landed, and it is the carried colour (it covers the pane, mostly saturated, in many colours);
+// - Everywhere at 85 %: a frame drawn again at rest draws no layered frame (GLR.carryLayerFrames);
 // - control: the meshes of a region below full opacity still draw their layers (the disc forced forward, Inside regions,
-//   85 %: layered frames drawn).
+//   85 %: a frame drawn again draws a layered frame).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
@@ -20,20 +22,40 @@ await seed(ns, { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0
   steps: [{ type: 'custom', params: { expr: 'exp(sin(z))', cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'image' });
 await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
 await settled({ max: 120000, until: "typeof __cmwSteps === 'function' && !!window.GLR && __cmwSteps().ready.ready" });
-// the frame at rest, settled: its programs linked and its meshes built (a SphereMesh's job lands after the first frames)
-const still = async () => {
-  await settled({ max: 120000, until: `__cmwSteps().ready.ready && GLR.pendingLinks === 0 && __cmwSvFixed() && (() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()` });
-  await sleep(1500);
+// the frame at rest, settled: its programs linked, its fix-up done and no SphereMesh job left (none running, wanted or
+// due to be asked for); sv: the whole plane's SphereMesh of the steps view (its key's role SV) is built. Then the frame
+// that job's landing asked for is drawn (settled)
+const SM_IDLE = (sv) => `(() => { const s = __cmwSphere(); return !s.running && !s.kick && s.jobs.length === 0 && s.want.length === 0${sv ? ' && s.entries.some((e) => /\\|SV\\|/.test(e.key) && e.gpu)' : ''}; })()`;
+const still = async (sv) => {
+  const w = await settled({ max: 120000, until: `__cmwSteps().ready.ready && GLR.pendingLinks === 0 && __cmwSvFixed() && ${SM_IDLE(sv)}` });
   await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
+  return w;
+};
+// a frame drawn again at rest, as a still frame: the rest record (__cmwSteps().rest, a new object for each such frame) is
+// marked first, so a record without the mark is a frame drawn since. -> whether one was drawn, and the layered frames it drew
+const redraw = async () => {
+  const f0 = await ev('GLR.carryLayerFrames()');
+  const fresh = '(() => { const r = __cmwSteps().rest; return !!r && !r.__mark; })()';
+  await ev('(() => { const r = __cmwSteps().rest; if (r) r.__mark = 1; __cmwSteps({ bare: true }); return 1; })()');
+  await settled({ max: 60000, until: `__cmwSteps().ready.ready && ${fresh}` });
+  const drawn = await ev(fresh), f1 = await ev('GLR.carryLayerFrames()');
+  return { drawn, layered: f1 - f0 };
 };
 // the left pane's straight step runs: a pixel steps where the second difference of a channel across it, along one of four
 // directions, is 6 levels or more; a run is an 8-connected set of such pixels whose length (its principal axis) is 10 px
-// or more and whose width is 2.5 px or less. The paper (TH.plane) is left out
+// or more and whose width is 2.5 px or less. The paper (TH.plane) is left out. Also the pixels off the paper (covered),
+// the share of saturated ones (channels 32 or more apart) and the colours (4 bits a channel) the frame holds
 const RUNS = `(() => {
   const c = document.getElementById('canvasL'), W = c.width, H = c.height, p = c.getContext('2d').getImageData(0, 0, W, H).data;
-  const g = document.createElement("canvas").getContext("2d"); g.fillStyle = (typeof TH !== "undefined" && TH.plane) || "#ffffff"; g.fillRect(0, 0, 1, 1); const pp = g.getImageData(0, 0, 1, 1).data;
-  const on = new Uint8Array(W * H), s = new Uint8Array(W * H), seen = new Uint8Array(W * H), dirs = [1, W, W + 1, W - 1];
-  for (let i = 0; i < W * H; i++) on[i] = Math.max(Math.abs(p[4 * i] - pp[0]), Math.abs(p[4 * i + 1] - pp[1]), Math.abs(p[4 * i + 2] - pp[2])) > 10 ? 1 : 0;
+  const g = document.createElement('canvas').getContext('2d'); g.fillStyle = (typeof TH !== 'undefined' && TH.plane) || '#ffffff'; g.fillRect(0, 0, 1, 1); const pp = g.getImageData(0, 0, 1, 1).data;
+  const on = new Uint8Array(W * H), s = new Uint8Array(W * H), seen = new Uint8Array(W * H), dirs = [1, W, W + 1, W - 1], hues = new Set();
+  let sat = 0;
+  for (let i = 0; i < W * H; i++) {
+    const r = p[4 * i], gg = p[4 * i + 1], b = p[4 * i + 2];
+    on[i] = Math.max(Math.abs(r - pp[0]), Math.abs(gg - pp[1]), Math.abs(b - pp[2])) > 10 ? 1 : 0;
+    if (Math.max(r, gg, b) - Math.min(r, gg, b) >= 32) sat++;
+    hues.add((r >> 4) * 256 + (gg >> 4) * 16 + (b >> 4));
+  }
   for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
     const i = y * W + x; if (!on[i]) continue;
     for (const n of dirs) {
@@ -56,31 +78,26 @@ const RUNS = `(() => {
     if (L >= 10 && Wd <= 2.5) out.push({ L: +L.toFixed(1), x: Math.round(mx), y: Math.round(my) });
   }
   out.sort((u, v) => v.L - u.L);
-  return { W, H, covered: on.reduce((m, v) => m + v, 0), n: out.length, longest: out.length ? out[0].L : 0, top: out.slice(0, 5) };
+  return { W, H, covered: on.reduce((m, v) => m + v, 0), sat: +(sat / (W * H)).toFixed(3), colours: hues.size, n: out.length, longest: out.length ? out[0].L : 0, top: out.slice(0, 5) };
 })()`;
 // Everywhere at the slider's 85 %
 await ev("(__cmwSteps({ bare: true, T: 0, scope: 'all' }), __cmwSteps({ go: 1, now: true }), 1)");
-await still();
-const f0 = await ev('GLR.carryLayerFrames()');
-await ev('(__cmwSteps({ bare: true }), 1)');
-await still();
-const f1 = await ev('GLR.carryLayerFrames()');
+info.everywhereWait = await still(true);
+const again = await redraw();
 const all = await ev(RUNS), rest = await ev('__cmwSteps().rest');
-info.everywhere = { runs: all, rest, layered: f1 - f0 };
+info.everywhere = { runs: all, rest, again };
 ok('Everywhere at 85 %: the frame at rest is the carried meshes\' (the exact pass refuses the whole plane)', !!rest && rest.a === 1 && rest.path === 'mesh', rest);
-ok('Everywhere at 85 %: the colour layer covers the pane', !!all && all.covered > 0.95 * all.W * all.H, all && { covered: all.covered, W: all.W, H: all.H });
+ok('Everywhere at 85 %: the frame is the carried colour (it covers the pane, mostly saturated, in many colours)', !!all && all.covered > 0.95 * all.W * all.H && all.sat > 0.5 && all.colours >= 64,
+  all && { covered: all.covered, of: all.W * all.H, sat: all.sat, colours: all.colours });
 ok('Everywhere at 85 %: no straight step run of 10 px or more (no sawtooth bands)', !!all && all.n === 0, all && { n: all.n, longest: all.longest, top: all.top });
-ok('Everywhere at 85 %: no layered frame (the meshes draw the front layer alone)', f1 === f0, { before: f0, after: f1 });
+ok('Everywhere at 85 %: a frame drawn again at rest draws no layered frame (the meshes draw the front layer alone)', again.drawn && again.layered === 0, again);
 // Inside regions, the disc on the meshes: its layers still drawn below full opacity
 await ev("(__cmwForceForward(['s1']), __cmwSteps({ scope: 'in' }), 1)");
-await still();
-const g0 = await ev('GLR.carryLayerFrames()');
-await ev('(__cmwSteps({ bare: true }), 1)');
-await still();
-const g1 = await ev('GLR.carryLayerFrames()'), restIn = await ev('__cmwSteps().rest');
-info.inside = { rest: restIn, layered: g1 - g0 };
+info.insideWait = await still(false);
+const againIn = await redraw(), restIn = await ev('__cmwSteps().rest');
+info.inside = { rest: restIn, again: againIn };
 ok('Inside regions at 85 %, the disc forced forward: the frame is the carried meshes\'', !!restIn && restIn.path === 'mesh', restIn);
-ok('Inside regions at 85 %, the disc forced forward: layered frames are drawn', g1 > g0, { before: g0, after: g1 });
+ok('Inside regions at 85 %, the disc forced forward: a frame drawn again draws a layered frame', againIn.drawn && againIn.layered > 0, againIn);
 const L = logs().filter((l) => l.t === 'EXC');
 ok('no page exceptions', L.length === 0, L.slice(0, 3));
 return { pass: fails.length === 0, fails, info };
