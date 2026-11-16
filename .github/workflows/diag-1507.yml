@@ -33,7 +33,9 @@ jobs:
       - name: Mesa's Vulkan drivers (lavapipe)
         run: mkdir -p "$RUNNER_TEMP/debs" && ci/lavapipe.sh "$RUNNER_TEMP/debs"
       - name: CPU
-        run: lscpu | grep -E 'Model name|^Flags' | sed -E 's/^Flags:.*/AVX: &/' | grep -oE 'Model name:.*|avx[a-z0-9_]*' | sort -u | tr '\n' ' '
+        run: |
+          lscpu | grep 'Model name'
+          grep -o 'avx[a-z0-9_]*' /proc/cpuinfo | sort -u | tr '\n' ' '
       - name: Probe
         continue-on-error: true
         run: node ci/browser.js --only 'diag_1507'
