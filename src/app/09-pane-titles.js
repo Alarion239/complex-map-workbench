@@ -562,7 +562,9 @@
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
-    if (!refresh) { const first = pop.querySelector('button, input, select'); if (first) first.focus({ preventScroll: true }); }
+    // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
+    // segmented row, whose other buttons are tabindex -1)
+    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
