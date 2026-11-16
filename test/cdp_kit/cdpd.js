@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 const DIR = __dirname;
 const Q = path.join(DIR, 'q');
+// a file the runner waits for (READY, N.out, FATAL; ci/browser.js polls for it and reads it as soon as it exists): written beside
+// it and renamed into place, so it appears whole (a rename within one file system is atomic), never empty or part written
+const writeWhole = (f, data) => { fs.writeFileSync(f + '.tmp', data); fs.renameSync(f + '.tmp', f); };
 fs.mkdirSync(Q, { recursive: true });
 // (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
 // and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
@@ -404,7 +407,7 @@ H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js
   // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
   const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
-  fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
+  writeWhole(path.join(Q, 'READY'), 'ok');
   const done = new Set();
   for (;;) {
     const files = fs.readdirSync(Q).filter((f) => /^\d+\.js$/.test(f) && !done.has(f)).sort((x, y) => parseInt(x) - parseInt(y));
@@ -419,9 +422,9 @@ H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
       const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
       if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
-      fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
+      writeWhole(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }
     await sleep(80);
   }
-})().catch((e) => { fs.writeFileSync(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
+})().catch((e) => { writeWhole(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
