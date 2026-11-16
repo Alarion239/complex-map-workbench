@@ -4,7 +4,9 @@
 // the scope set after it is kept:
 //   - control: a scope set before the render, with no wait, is overwritten by the adoption (the race the wait is for). The page's
 //     animation frames are held until the scope is set (and PAUSE_MS has passed, longer than any delay a slow runner makes between two
-//     calls), so the control does not depend on how fast the calls are;
+//     calls), so the control does not depend on how fast the calls are. A frame that the page asked for before the hold is not held (the
+//     page asks for one frame at a time, and while it is pending asks for no other): it is let through, DRAIN, before the example is
+//     loaded, or it would render the loaded chain and adopt it before the scope is set;
 //   - the page's animation frames are held back LATE_MS, so that the render comes after the suite's next call: the scope set after
 //     adopted() is still there when the page is quiet.
 // It runs in the steps view. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -17,9 +19,12 @@ await load('kitadopted' + Date.now(), { shapes: [], steps: [] });
 // suite waits for the adoption
 const HOLD = `(() => { const raf = window.requestAnimationFrame.bind(window); window.__rafOrig = window.__rafOrig || raf; window.__rafQ = []; window.requestAnimationFrame = (f) => (window.__rafQ.push(f), 0); return 1; })()`;
 const LATE = `(() => { const raf = window.requestAnimationFrame.bind(window); window.__rafOrig = window.__rafOrig || raf; window.requestAnimationFrame = (f) => setTimeout(() => window.__rafOrig(f), ${LATE_MS}); return 1; })()`;
+// two frames of the browser's own, which a frame asked for before the hold is one of: after them the page has none pending, and what it asks for is held
+const DRAIN = `new Promise((r) => window.__rafOrig(() => window.__rafOrig(() => r(1))))`;
 const RELEASE = `(() => { window.requestAnimationFrame = window.__rafOrig; for (const f of (window.__rafQ || []).splice(0)) window.__rafOrig(f); return 1; })()`;
 const scopeAfter = async (waitForAdoption) => {
   await ev(waitForAdoption ? LATE : HOLD);
+  if (!waitForAdoption) await ev(DRAIN);
   try {
     await ev(`__cmwExample(${EXAMPLE}), 1`);
     if (waitForAdoption) await adopted(); else await sleep(PAUSE_MS);
