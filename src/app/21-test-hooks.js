@@ -39,6 +39,10 @@
   // (walls tests, #168 review) a step's parameter set as its field sets it (live, chainChanged(false)): a log's cut
   /** @type {any} */ (window).__cmwToast = (msg, label, o) => toast(msg, label, () => {}, false, o);   // (a message with an optional action that does nothing)
   /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
+  // (#1547) the slow-links path (GLR.slowLinks: a typed edit's prestart waits for its commit, the Landscape's warm-up for
+  // its first draw) forced on (true) or off (false), or left to the renderer (null); no argument only reads it. Answers
+  // whether the path is on, and the typed edit held ({ held: ms left })
+  /** @type {any} */ (window).__cmwSlowLinks = (...a) => { if (a.length) GLR.forceSlowLinks(a[0]); return { on: GLR.slowLinks(), held: typingHold() }; };
   /** @type {any} */ (window).__cmwStepParam = (k, key, v) => { const st = S.steps[k]; if (!st) return false; st.params[key] = v; chainChanged(false); return true; };
   // the label pass's count and time, and what the last pass of the left plane placed ({ text, x, y, x1, y1 }: its box in the pane's px)
   /** @type {any} */ (window).__cmwLabelStats = { n: 0, ms: 0 };

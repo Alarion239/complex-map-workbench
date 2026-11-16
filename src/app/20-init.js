@@ -173,8 +173,9 @@
     const warmNext = () => {
       try {
         if (!GLR.ok || !GLR.prestartModes || warmI >= WARM.length) return;
-        // (no group starts while the user is active: the first after 300 ms of quiet, the later ones after a second)
-        if (GLR.compiling || performance.now() - lastInputT < (warmI ? 1000 : 300)) { modesT = setTimeout(warmNext, 400); warmKick(); return; }
+        // (no group starts while the user is active: the first after 300 ms of quiet, the later ones after a second; nor,
+        // where links are slow, while a formula is being typed, until the edit is committed: typingHold, #1547)
+        if (GLR.compiling || performance.now() - lastInputT < (warmI ? 1000 : 300) || typingHold() > 0) { modesT = setTimeout(warmNext, 400); warmKick(); return; }
         WARM[warmI++]();
         modesT = setTimeout(warmNext, 400);
         warmKick();

@@ -12,7 +12,28 @@
     const t = performance.now();
     lastInputT = t;
     if (ev === 'wheel' || (ev === 'pointermove' && e.buttons) || (ev === 'input' && e.target && e.target.type === 'range') || (ev === 'keydown' && e.repeat)) motionInT = t;
+    if (ev === 'input' && typedField(e.target)) { typedEl = e.target; typedT = t; }
   }, { passive: true, capture: true });
+  // (#1547) A formula typed into a field (a step's, a parameter's) is applied at each keystroke, and the plane drawn
+  // follows it. Where links are slow (GLR.slowLinks: ANGLE's Direct3D 11), the programs started ahead of their use wait
+  // until the edit is committed: Enter or leaving the field (its change or focusout), or TYPED_COMMIT_MS without a
+  // keystroke. Those are the steps view's prestart (svPrestartSoon) and the warm-up's groups (the init part's warmNext).
+  // A pause of 300 ms started them for every prefix of the formula: typed at 450 ms per character, a 10-term sum linked
+  // 220 programs in 162 s of FXC on WARP, where pasting the same formula links 16. typedEl: the field typed in, until
+  // the edit is committed; typingHold() -> the ms left to wait (0: nothing held)
+  const TYPED_COMMIT_MS = 1500;
+  let typedEl = null, typedT = 0;
+  const typedField = (t) => !!t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /^(text|search|number)$/.test(t.type)) || !!t.isContentEditable);
+  function typingHold() {
+    if (!typedEl) return 0;
+    const left = TYPED_COMMIT_MS - (performance.now() - typedT);
+    if (left <= 0 || document.activeElement !== typedEl || !(GLR.slowLinks && GLR.slowLinks())) { typedEl = null; return 0; }
+    return left;
+  }
+  // (committed: what waited starts now)
+  const typedCommit = (/** @type {any} */ e) => { if (!typedEl || e.target !== typedEl) return; const held = typingHold() > 0; typedEl = null; if (held) svTypedCommit(); };
+  window.addEventListener('change', typedCommit, true);
+  window.addEventListener('focusout', typedCommit, true);
   // ---------------- the start-up bar (issue #245) ----------------
   // A thin bar at the top of the page while the programs of the first frames and of the background warm-up (WARM, in
   // the init part) are still linking: counted from the GPU layer's own program lists (GLR.warmStatus), never from

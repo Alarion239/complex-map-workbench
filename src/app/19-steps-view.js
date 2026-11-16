@@ -3254,16 +3254,21 @@
     svPrestartSoon(0);
   }
   // svPrestart again once the edits have stopped for `ms` (a chain or a shape edited, an example, a link, an undo), in an
-  // idle moment: a drag or typing is never held back by it, and a run of edits starts it once
+  // idle moment: a drag or typing is never held back by it, and a run of edits starts it once. (#1547) Where links are
+  // slow, a formula being typed holds it until the edit is committed (typingHold), and the commit starts it (svTypedCommit)
   let svPrestartTimer = 0;
   function svPrestartSoon(ms) {
     clearTimeout(svPrestartTimer);
     svPrestartTimer = setTimeout(() => {
       svPrestartTimer = 0;
       if (interacting()) { svPrestartSoon(250); return; }
+      const hold = typingHold();
+      if (hold > 0) { svPrestartSoon(hold); return; }
       (window.requestIdleCallback || setTimeout)(svPrestart);
     }, ms);
   }
+  // (a typed edit committed: a prestart still to come starts now)
+  function svTypedCommit() { if (svPrestartTimer) svPrestartSoon(0); }
   // a program of the main panes landed (GLR.onReady) and the left pane has drawn no frame since (svDrawPlane clears it)
   let svRedrawDue = false;
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
