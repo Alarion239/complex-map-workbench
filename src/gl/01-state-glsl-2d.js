@@ -735,11 +735,18 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // the front sheet of every sample is the one the inverse path shows (one D per leaf would draw jagged seams where
   // sheets meet). D is Inverse.sheetKey's: the distance to the window's centre, the poles penalised.
   // preKeyDepth(sa, stepped), sa the source point: depth = (s + 0.999 (tie order)) / (KEY_SMAX + 1), s = KEY_STEPS ln(1 + D).
-  // - KEY_STEPS = 2^14: the key's steps per unit of ln(1 + D). Inverse.front ties two sheets within a relative band of
-  //   2^-14 (1 + D), a constant step of ln(1 + D), so the key is uniform in that variable: keys a tie step apart are one
-  //   unit of s apart, and the tie order, in [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys
-  //   within a step. A map symmetric about the centre gives its sheets equal D, which the mesh's placement (1e-3 of |z|)
-  //   would otherwise order fragment by fragment.
+  // - KEY_STEPS: the key's steps per unit of ln(1 + D); keys a step apart are one unit of s apart, and the tie order, in
+  //   [0, 1) and scaled by 0.999 to stay below a unit, decides only between keys within a step.
+  //   - The carried meshes' key (PRE_KEY_DECL: REGION_VS's carry option, CARRY_FS, CARRY_MASK_FS, REGION_PRE_FS) has
+  //     KEY_STEPS_MESH = 2^2. A mesh's source point is the one interpolated across its triangle, a few 1e-3 of |z| off,
+  //     which at 2^14 steps is tens of steps: where a map symmetric about the centre gives its sheets equal D (z^3 and
+  //     z^2 + c about 0), the front sheet then changed from triangle to triangle (#1647). At 2^2 that error is a small
+  //     part of a step, so the tie order decides there as it does in the inverse pass; sheets whose ln(1 + D) differ by
+  //     less than a step are ordered by the tie order too. Measured on the All-at-once glides (whose frames only the
+  //     meshes draw, #1742): the last mesh frame differs from the inverse pass's frame it lands on in no more of the pane
+  //     than at 2^14, and in far less where the sheets tie (z^3: 60 % of the pane to 0.7 %).
+  //   - The Landscape's key (KEY_DECL_3D) keeps 2^14, the inverse pass's own tie band (Inverse.front ties two sheets
+  //     within a relative band of 2^-14 (1 + D), a constant step of ln(1 + D)).
   // - stepped (a fragment stage: PRE_KEY, after PAT_PRE.pre or CARRY_FS): s rounded to its step, so two sheets in one
   //   step are ordered by the tie order alone. Not stepped (a vertex stage: REGION_VS's carry option): s itself, since a
   //   depth interpolated across a triangle whose vertices straddle a step would order the sheets wrongly over the whole
@@ -747,8 +754,8 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // - The tie order: larger Im z in front, then larger Re z, by the atan of the offset from the centre (the whole
   //   plane into a bounded range; Re z weighted 1e-3, normalised by 1.001).
   // - D is capped at KEY_DMAX = 63 (a point that far behind is behind every point that matters), so s <= KEY_SMAX
-  //   = 2^14 ln 64 (about 2^16.1) and the depth is linear in [0, 1): a step spans about 2^7.9 of the 24-bit depth buffer's levels,
-  //   which keep the tie order apart.
+  //   = KEY_STEPS ln 64 and the depth is linear in [0, 1): a step spans at least 2^7.9 of the 24-bit depth buffer's levels
+  //   (2^14 steps; 2^2 steps span about 2^20), which keep the tie order apart.
   // uPeelOn = 1 (the carried colour's layers, GLR.carryLayers): only the fragments behind the previous layer's key, which
   // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
   const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
@@ -766,9 +773,10 @@ float preKeyDepth(vec2 sa, bool stepped) {
   return x / (KEY_SMAX + 1.0);
 }
 `;
-  const KEY_STEPS_MESH = Number((typeof location !== 'undefined' && /[?&]ks=(\d+)/.exec(location.search) || [0, 16])[1]);
+  // KEY_DECL(steps): the declarations and preKeyDepth with KEY_STEPS = steps
+  const KEY_STEPS_MESH = 4, KEY_STEPS_3D = 16384;
   const PRE_KEY_DECL = KEY_DECL(KEY_STEPS_MESH);
-  const KEY_DECL_3D = KEY_DECL(16384);
+  const KEY_DECL_3D = KEY_DECL(KEY_STEPS_3D);
   const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
