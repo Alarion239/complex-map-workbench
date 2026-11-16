@@ -343,6 +343,7 @@
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
+    $('patScale').setAttribute('aria-valuetext', $('patScaleVal').textContent);
     $('meshRange').min = 0; $('meshRange').max = 1000; $('meshRange').step = 1;
     $('meshRange').value = meshToPos(S.meshN);
     showMeshVal(S.meshN);
@@ -458,6 +459,7 @@
   }
   function showMeshVal(n) {
     $('meshVal').textContent = `${n}`;
+    $('meshRange').setAttribute('aria-valuetext', `${n}`);   // (the slider's value is a position on the piecewise scale)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#meshPresets button'))) b.classList.toggle('on', +b.dataset.n === n);
     $('meshNote').hidden = n < 480;
     paintFader($('meshRange'));
@@ -936,7 +938,12 @@
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
     // the tool row, which the planes and the sheet give up)
     if (phone) {
-      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      if (document.documentElement.classList.contains('ph-sheet-on')) {
+        clear();
+        // (a sheet ends above the message's own row, whatever its height, and the portrait More sheet's list takes the height as its bottom inset)
+        toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        return;
+      }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
       if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
       host.setAttribute('data-placed', 'phone-plot');
@@ -1015,6 +1022,19 @@
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
+  // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
+  // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
+  // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
+  function fitToastRows(t) {
+    if (!t.isConnected) return;
+    const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
+    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap'; t.style.justifyContent = 'flex-start';
+    t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
+    sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
+  }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -1027,6 +1047,8 @@
     if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
     t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
+    // (a phone's message picks its rows on the next frame: its caller may still add a button, as undoToast's Show alone)
+    if (rt.contains('ph')) requestAnimationFrame(() => fitToastRows(t));
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };

@@ -19,8 +19,8 @@ const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.j
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 await view(1440, 900, false, false);
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
-const cover = async (patches = true) => JSON.parse(await ev(`JSON.stringify(__cmwLandCover(480, 400, ${patches === 'poles' ? "'poles'" : patches}))`));
-const carried = async () => JSON.parse(await ev('JSON.stringify((({ u, s, patches }) => ({ u, s, patches }))(__cmwLandCarry() || {}))'));
+const cover = async (patches = true) => await evJson(`JSON.stringify(__cmwLandCover(480, 400, ${patches === 'poles' ? "'poles'" : patches}))`);
+const carried = async () => await evJson('JSON.stringify((({ u, s, patches }) => ({ u, s, patches }))(__cmwLandCarry() || {}))');
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landpoles${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
 await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 2, now: true }); 1`);

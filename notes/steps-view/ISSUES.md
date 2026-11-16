@@ -2,6 +2,9 @@
 
 These are drafts to file when Alexander approves the design on #366. Until then nothing is filed and no PR is opened.
 
+Where this draft names `svCarry` (a CPU mesh) or `GLR.drawCarried`, the page draws the carried colour with the region
+meshes instead (`svCarryRegions`, `GLR.drawRegion` with `carry`).
+
 - **One issue per PR**, into `claude/funny-darwin-l5uis3`. Each says `Part of #366` and links here.
 - **Behind `?view=steps`:** everything until K, so the default UI is untouched.
 - **The prototype** is on `claude/w11-rework-366` (src/app/19-steps-view.js and hooks), published at
