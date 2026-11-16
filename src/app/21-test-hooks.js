@@ -117,6 +117,7 @@
     return out;
   };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
+  window.__cmwGlobeDisk = (side) => { const g = globeCam(side); return g ? { R: g.R, w: g.pane.w, h: g.pane.h } : null; };   // (a globe pane's silhouette radius R, and the pane's size, in CSS px: the app's own globeCam)
   // what the live panes last drew each shape with: {'R|s1': 'inverse' | 'pending' | 'forward', ...}
   window.__cmwDrawn = () => Object.fromEntries(lastPath);
   // the scissor w-box of shape id's image under the right plane's map (SPEC 4.8; null: no scissor)
