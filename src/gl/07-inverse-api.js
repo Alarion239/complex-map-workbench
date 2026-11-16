@@ -34,11 +34,13 @@
     const recs = new Map(), data = [];
     const want = [], wantExpr = [], wantIds = [];
     for (const s of list || []) {
-      if (!s || s.visible === false || !TKIND[s.kind] || TKIND[s.kind] > 10) continue;
-      const gk = gKind(s);
+      if (!s || s.visible === false || !TKIND[s.kind]) continue;
       // stage: the plane the shape lies on; a shape of plane k > 0 holds the points z of plane 0 whose F_{0->k}(z) it
-      // holds, so its clip primitive and box (in its own plane) say nothing of z
+      // holds, so its clip primitive and box (in its own plane) say nothing of z. A curve (kinds 11-16, a constructed
+      // circle 20) is packed only on a later plane, where the staged program strokes it (its level is minus its distance)
       const stage = Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
+      if (TKIND[s.kind] > (stage ? 16 : 10)) continue;
+      const gk = gKind(s);
       const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
       recs.set(s.id, rec);
       let prim = null;
@@ -46,7 +48,7 @@
       const pk = packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
-      if (s.kind === 'polygon' && pk.pts.length > INV_POLY_MAX) { rec.ok = false; rec.reason = `polygon with more than ${INV_POLY_MAX} vertices`; }
+      if ((s.kind === 'polygon' || s.kind === 'curve') && pk.pts.length > INV_POLY_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_POLY_MAX} vertices`; }
       if (s.kind === 'formula') {
         if (want.length >= MAX_INV_FORMS) { rec.ok = false; rec.reason = 'fifth formula shape'; }
         else {
@@ -79,7 +81,7 @@
       }
       rec.ptsOff = n;
       rec.nPts = 0;
-      if (s.kind === 'polygon' && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
+      if ((s.kind === 'polygon' || s.kind === 'curve') && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
     }
     // the formula bundle: an edit of the same formula shapes (same ids in the same slots) waits FORM_DEBOUNCE ms after
     // the last change, while the edited shapes are pending (forward) and the others keep the current program; a load,
@@ -961,7 +963,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawCarried, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -994,11 +996,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // globe passes drawn with a scissor (globeScissorOf) and their scissored device px (tests)
     get carriedGlobeGraticule() { return carriedGlobeGraticule; },
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
-    // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program)
-    _src: { logK, DEFS, warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program, every program's uniforms against
+    // the texture units finishLink sets, SAMPLER_UNITS)
+    _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, updatePreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
+    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
