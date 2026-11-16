@@ -1,7 +1,7 @@
 name: Diag 1735 (temporary)
 # TEMPORARY (#1735, deleted before the pull request): on Ubuntu 26.04 (Mesa 26.0.8, LLVM 21) without
-# GALLIUM_OVERRIDE_CPU_CAPS, the chainAt variants of test/diag_1735_cmd.js on four machines (GitHub's AMD Zen 4/5 ones
-# drew sin∘√'s glide as NaN); then the deform_range suites with the override, for #1752's note on those machines.
+# GALLIUM_OVERRIDE_CPU_CAPS, the deform_range suites (the NaN guard of sin∘√'s glide) with the fixed chainAt, on four
+# machines (GitHub's AMD Zen 4/5 ones drew the glide as NaN).
 on:
   push:
     branches: [claude/p1perf-1735]
@@ -33,11 +33,6 @@ jobs:
       - name: CPU
         run: |
           lscpu | grep 'Model name'
-      - name: Variants, without the override
+      - name: deform_range suites without the override (the NaN guard)
         continue-on-error: true
-        run: node ci/browser.js --only 'diag_1735'
-      - name: deform_range suites with GALLIUM_OVERRIDE_CPU_CAPS=avx
-        continue-on-error: true
-        env:
-          GALLIUM_OVERRIDE_CPU_CAPS: avx
-        run: node ci/browser.js --no-build --only '^deform_range'
+        run: node ci/browser.js --only '^deform_range'
