@@ -183,8 +183,8 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
-  // view's scope switch does; without it ← → stop at the ends)
+  // (opt.cls: more classes; opt.loop: ↑ ↓ move too, as the steps view's scope switch does. The arrows ← → wrap in every row, as a
+  // radiogroup's do: from the last radio on to the first, from the first back to the last)
   function seg(id, value, options, onchange, label, opt) {
     const o = opt || {};
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
@@ -203,7 +203,7 @@
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
       const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
       if (i < 0) return;
-      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
+      const j = (i + (next ? 1 : bs.length - 1)) % bs.length;
       bs[j].click(); bs[j].focus(); e.preventDefault();
     });
     return el;
@@ -561,7 +561,16 @@
     pop.style.top = y + 'px';
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
-    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
+    // (Escape, and Tab off either end, close the pop-up and give the focus back to the anchor: it is a non-modal dialog, so Tab does
+    // not trap, and it lies apart from the page's Tab order (after the app in the document), so a Tab out of it would land on the
+    // page's last or first control with the pop-up left open)
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); return; }
+      if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const stops = [...pop.querySelectorAll(':is(button, input, select, textarea, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((x) => /** @type {HTMLElement} */ (x).offsetParent !== null);
+      if (!stops.length || (e.shiftKey ? e.target !== stops[0] : e.target !== stops[stops.length - 1])) return;
+      e.preventDefault(); closePalette(); btn.focus();
+    });
     // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
     // segmented row, whose other buttons are tabindex -1)
     if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
