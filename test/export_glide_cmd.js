@@ -475,22 +475,25 @@ for (const surf of ['sphere', 'land']) {
 }
 // a frame at a whole thread position leaves a running Play running, in both of Play's kinds: a glide, and a slide (a plane a
 // tick, Play's kind under reduced motion, emulated here). With Play looping, a frame at plane 1 is drawn; afterwards Play is
-// the same kind, its button says Pause, and the thread's position goes on moving (the waits are the page's own, settled's
-// only: a Play is never quiet)
+// the same kind, its button says Pause (its words do not change while the frame is drawn), and the thread's position goes on
+// moving (the waits are the page's own, settled's only: a Play is never quiet)
 for (const [kind, reduced] of [['glide', false], ['slide', true]]) {
   await open(1, 'plane');
   if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'reduce' }] });
   await ev(`(__cmwSteps({ loop: true }), __cmwSteps({ play: true }), 1)`);
   await settled({ until: '!!__cmwSteps().play', max: SETTLE_MAX_MS, only: true });
   const r = await ev(`await (async () => {
-    const before = __cmwSteps().play;
+    const before = __cmwSteps().play, b = document.querySelector('#svStrip .sv-play');
+    // (the button's words while the frame is drawn: it never says Play)
+    const flips = [], mo = new MutationObserver(() => flips.push(b.getAttribute('aria-label')));
+    mo.observe(b, { attributes: true, attributeFilter: ['aria-label'] });
     await __cmwFig.glideArt(1, { wpt: 240, dpi: 96 });
-    const b = document.querySelector('#svStrip .sv-play');
-    return { before, play: __cmwSteps().play, label: b && b.getAttribute('aria-label'), x: __cmwSteps().x };
+    mo.disconnect();
+    return { before, play: __cmwSteps().play, label: b && b.getAttribute('aria-label'), flips, x: __cmwSteps().x };
   })()`, 120000);
   const moved = await settled({ until: `Math.abs(__cmwSteps().x - ${r.x}) > ${POS_TOL}`, max: SETTLE_MAX_MS, only: true });
   info[`${kind}: Play after a frame`] = Object.assign({ moved: moved.ok }, r);
-  ok(`Play as a ${kind}: still a ${kind} after a frame at a plane, its button says Pause, and the thread moves on`, r.before === kind && r.play === kind && r.label === 'Pause' && moved.ok === true, info[`${kind}: Play after a frame`]);
+  ok(`Play as a ${kind}: still a ${kind} after a frame at a plane, its button says Pause (and never Play while the frame is drawn), and the thread moves on`, r.before === kind && r.play === kind && r.label === 'Pause' && r.flips.length === 0 && moved.ok === true, info[`${kind}: Play after a frame`]);
   await ev(`(__cmwSteps({ play: false }), __cmwSteps({ loop: false }), 1)`);
   if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
 }
