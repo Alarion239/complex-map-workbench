@@ -58,7 +58,7 @@
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
     const lite = !!r.lite;
-    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
+    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles (a frame between two planes' marks too)
     const marks = r.marks;
     const hard = [];
     const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected)
@@ -66,7 +66,7 @@
     if (sel) {
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
-    if (pane === paneL && lFlat()) for (const hd of cutHandlesL) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
@@ -277,9 +277,7 @@
         ctx.beginPath();
         for (let t = 8; t < L; t += 7) { const px = x0 + ux * t, py = y0 + uy * t; ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54); }
         ctx.stroke();
-        // branch point
-        ctx.fillStyle = TH.halo; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+        branchDot(pane, c.p);
       }
     }
     const sc = thin ? 0.66 : 1;
@@ -392,10 +390,11 @@
     return out;
   }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
-  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
-  function strokeCurves(pane, curves, dash) {
+  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs); dash, the dash pattern, starts
+  // dashOffset px into it on every arc (the offset holds for a bank drawn as one run: an arc after a pen lift starts at it too)
+  function strokeCurves(pane, curves, dash, dashOffset = 0) {
     const ctx = pane.ctx;
-    ctx.setLineDash(dash || []);
+    ctx.setLineDash(dash || []); ctx.lineDashOffset = dashOffset;
     const arcs = distinctArcs(curves.map((pts) => {
       let pen = null;
       return pts.flatMap((q) => {
@@ -414,7 +413,7 @@
       }
       ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.globalAlpha = 1;
   }
   // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
   // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
@@ -471,11 +470,12 @@
   // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
   // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
-  // as drawCarriedCuts draws them. While the strokes are hidden (the tests' __cmwHideStrokes) none is drawn
-  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
+  // as drawCarriedCuts draws them. look = { own, marks } makes the picture the cut's look at rest as well: with own(j0) true for the plane j0 a cut lives in, the hatches on the closed side of each
+  // cut's solid bank and the dot at the image of its branch point (the marks of the plane the cut lives in); marks, an array (or null: no handles), takes the editable cuts' handles
+  // ({ x, y, step, deg }, for drawCutHandles: drawn, never hit-tested)
+  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1, look = null) {
     if (artMode) return;
     carriedCuts = [];
-    if (hideStrokes) return;
     pane.ctx.save();
     pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
     for (let j = 1; j <= S.steps.length; j++) {
@@ -484,10 +484,25 @@
       for (const c of b.cuts) {
         if (c.kind !== 'ray') continue;
         const win = stageWin(j - 1);
-        for (const side of [-1, 1]) {
-          const { pts, ws } = cutBank(pane, c, F, side, win, proj, step);
+        // (the clockwise bank is dashed under the solid one: where the two coincide, as along the whole ray of a cut at the start of a glide, the dashes are left out, so the
+        // line is the single one the plane at rest draws; the dashes after a run left out at the bank's start keep their phase from that start, as the plane at rest
+        // draws them, by the run's length as the dash offset)
+        const banks = [-1, 1].map((side) => cutBank(pane, c, F, side, win, proj, step)), solid = banks[1].pts;
+        banks.forEach(({ pts, ws }, i) => {
+          const side = i ? 1 : -1;
           carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
-          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+          if (side > 0) { strokeCurves(pane, [pts], []); } else {
+            const kept = pts.map((q, k) => (q && solid[k] && Math.hypot(q[0] - solid[k][0], q[1] - solid[k][1]) < CUT_COINCIDE_PX ? null : q));
+            let lead = 0;
+            for (let k = 1; k < pts.length && !kept[k - 1] && pts[k - 1] && pts[k]; k++) lead += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+            strokeCurves(pane, [kept], [6, 4], lead);
+          }
+          if (look && look.own && look.own(j - 1) && side > 0) hatchCurve(pane, pts);
+        });
+        if (look && look.own && look.own(j - 1)) branchDot(pane, F(c.p), proj);
+        if (look && look.marks && c.editable) {
+          const h = cutHandleAt(pane, F, c, st, win, proj, !!(look.own && look.own(j - 1)));
+          if (h) look.marks.push({ x: h.s[0], y: h.s[1], step: j, deg: st.params.cut ?? 180 });
         }
       }
     }
@@ -508,6 +523,77 @@
     pane.ctx.restore();
   }
   let carriedCuts = [];
+  const CUT_COINCIDE_PX = 1;   // screen px: samples of a cut's two banks this close are one point
+  // the hatches of a cut's closed side along the screen polyline pts (null where it breaks), as drawCuts hatches a ray: a stroke every 7 px of arc length from 8 px on,
+  // 5 px long, turned toward the clockwise side. Only the stretch of each segment inside the pane and HATCH_PAD px around it is stroked (a bank runs tens of thousands of px
+  // out), the strokes keeping their place on the arc
+  const HATCH_PAD = 20;
+  function hatchCurve(pane, pts) {
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.strokeStyle = TH.cut; ctx.globalAlpha = 1; ctx.lineWidth = 1.25; ctx.setLineDash([]);
+    ctx.beginPath();
+    let run = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (!a || !b) { run = 0; continue; }
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (!(L > 0)) continue;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      // (the parameter range of the segment inside the padded pane, by slabs)
+      let lo = 0, hi = 1;
+      for (const [p0, d, size] of [[a[0], dx, pane.w], [a[1], dy, pane.h]]) {
+        if (d === 0) { if (p0 < -HATCH_PAD || p0 > size + HATCH_PAD) hi = -1; continue; }
+        const t0 = (-HATCH_PAD - p0) / d, t1 = (size + HATCH_PAD - p0) / d;
+        lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+      }
+      if (hi >= lo) {
+        const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+        // (the first stroke at or after the visible stretch's start: the strokes are at arc lengths 8 + 7 n)
+        for (let t = 8 + 7 * Math.max(0, Math.ceil((run + lo * L - 8) / 7)); t - run < hi * L; t += 7) {
+          if (t - run < 0) continue;
+          const k = t - run, px = a[0] + ux * k, py = a[1] + uy * k;
+          ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54);
+        }
+      }
+      run += L;
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // the dot at a cut's branch point, drawn as drawCuts draws it
+  function branchDot(pane, w, proj) {
+    if (!CX.isFin(w)) return;
+    const [x, y] = proj ? proj(w) || [NaN, NaN] : pane.w2s(w), ctx = pane.ctx;
+    if (!Number.isFinite(x)) return;
+    ctx.save();
+    ctx.fillStyle = TH.halo; ctx.strokeStyle = TH.cut; ctx.lineWidth = 1.5; ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // where the editable cut c of step st has its handle in the picture F draws, { s: [x, y] on the screen, q: its point on the ray } or null: on the plane the cut lives in (own), where drawCuts puts it (a third of the view's
+  // smaller side along the solid bank from the branch point, st.handleR if the step has one that is in view and 20 px from it); on a later plane where drawCarriedCuts does (a third of the
+  // plane's window, pulled in along the ray until it is in view and 20 px clear of the branch point's image)
+  function cutHandleAt(pane, F, c, st, win, proj, own) {
+    const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);   // (d1: the ray's solid bank, the counter-clockwise one, on which the handle stays through the whole glide: it is the ray itself at the start and the plane's own solid bank at the end)
+    const to = (w) => (CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
+    const at = (R) => { const q = CX.add(c.p, CX.scale(d1, R)), s = to(F(q)); return s ? { s, q } : null; };
+    if (own) {
+      const bx = pane.box();
+      let R = Math.min(bx.x1 - bx.x0, bx.y1 - bx.y0) * 0.33;
+      if (st.handleR > 0) { const h = at(st.handleR), p0 = to(o); if (h && p0 && !offEdge(pane, h.s[0], h.s[1], 24) && Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) >= 20) R = st.handleR; }
+      return at(R);
+    }
+    // (a branch point that lands at infinity, as log's: nothing to keep clear of)
+    const p0 = to(o) || [Infinity, Infinity];
+    let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
+    for (let tries = 0; tries < 14; tries++, R *= 0.7) {
+      const h = at(R);
+      if (!h || offEdge(pane, h.s[0], h.s[1], 24) || Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) < 20) continue;
+      return h;
+    }
+    return null;
+  }
   // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
   // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
   // dashed, and for the editable cuts a handle on the solid curve (the ray's handle point carried the same way, pulled in
@@ -532,18 +618,8 @@
           strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
         if (!c.editable) continue;
-        const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);
-        // (a branch point that lands at infinity, as log's: nothing to keep clear of)
-        const [ox, oy] = CX.isFin(o) ? pane.w2s(o) : [Infinity, Infinity];
-        let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
-        for (let tries = 0; tries < 14; tries++, R *= 0.7) {
-          const q = CX.add(c.p, CX.scale(d1, R)), w = F(q);
-          if (!CX.isFin(w)) continue;
-          const [x, y] = pane.w2s(w);
-          if (offEdge(pane, x, y, 24) || Math.hypot(x - ox, y - oy) < 20) continue;
-          handles.push({ x, y, step: j, p: c.p, deg: st.params.cut ?? 180, F, q, from: j - 1, to: k });
-          break;
-        }
+        const h = cutHandleAt(pane, F, c, st, win, null, false);
+        if (h) handles.push({ x: h.s[0], y: h.s[1], step: j, p: c.p, deg: st.params.cut ?? 180, F, q: h.q, from: j - 1, to: k });
       }
     }
     drawCutPreimages(pane, k, handles);
@@ -714,11 +790,12 @@
     ctx.fillStyle = color || TH.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(text, x + 6, y + 0.5);
   }
-  function drawCutHandles(pane, handles) {
+  // the cut handles on pane's overlay; inert: marks that take no press (a frame between two planes'), never drawn hot
+  function drawCutHandles(pane, handles, inert = false) {
     const ctx = pane.octx;
     for (const hd of handles) {
-      const dragging = drag && drag.mode === 'cut' && drag.step === hd.step;
-      const hot = hoverCut === hd.step || dragging;
+      const dragging = !inert && drag && drag.mode === 'cut' && drag.step === hd.step;
+      const hot = (!inert && hoverCut === hd.step) || dragging;
       if (dragging && !hd.F && !hd.fwd) {
         const [bx, by] = pane.w2s(hd.p);
         const r = 40, ang = hd.deg * DEG;
