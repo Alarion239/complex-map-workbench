@@ -111,8 +111,8 @@
     // X Landscape: the relief of the height over X
     if (lLand()) {
       cutHandlesL = []; leftSphereInfo = null; render3D(pane, SV.on ? svLandRest() : undefined);
-      // the relief has no place for the target preimages (they show in X Plane and Sphere): said, not dropped silently
-      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show in X → Y and Phase (1, 2)'));
+      // the relief has no place for the target preimages (they show on the Plane and the Sphere): said, not dropped silently
+      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show on the Plane and the Sphere'));
       return;
     }
     // X Sphere: this plane on the Riemann sphere, with its shapes or (Phase) the phase portrait (orbit only; drawing on
