@@ -535,9 +535,7 @@ void main() {
 `;
   // The steps view's carried landscape: plane s's grid over the box uSrc (uN x uN), each vertex at its image
   // under the glide's map from plane s (mapPoint: uBase = s) and at the height of the stages (uGs, uGt] there (s to
-  // the plane the heights read, hT), so every point keeps its height while the plane moves. When the glide's far plane
-  // reads its heights from another plane (uGt2, hT2: across a d/dz step), the height is blended linearly over uHu from
-  // the first to the second, each end exactly its plane's (a point is kept where the end it is nearer to has a height).
+  // the colour plane, hT), so every point keeps its height while the plane moves.
   // tfOut: (place x, y, height, finite).
   // The carried grid's point of plane s at grid place ij (0 to uN - 1 each way): over the box uSrc, or, with uPolar
   // (pole x, y, r0, r1; r1 > 0), a patch about a pole of the glide's map: the angle once round clockwise with i (so its
@@ -557,7 +555,7 @@ vec2 carryZIn(vec4 src, vec2 ij) {
 vec2 carryZ(vec2 ij) { return carryZIn(uSrc, ij); }
 `;
   const LAND_CARRY_TF_VS = `
-uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt; uniform int uGt2; uniform float uHu;
+uniform int uN; uniform vec4 uSrc; uniform int uGs; uniform int uGt;
 out vec4 tfOut;
 ` + CARRY_Z + `
 void main() {
@@ -565,11 +563,6 @@ void main() {
   gl_PointSize = 1.0;
   vec2 z = carryZ(vec2(float(gl_VertexID % uN), float(gl_VertexID / uN)));
   vec2 q = mapPoint(z), hv = heightW(chainRange(z, uGs, uGt));
-  if (uGt2 != uGt) {
-    vec2 h2 = heightW(chainRange(z, uGs, uGt2));
-    bool both = hv.y > 0.5 && h2.y > 0.5;
-    hv = uHu >= 1.0 ? h2 : uHu <= 0.0 ? hv : both ? vec2(mix(hv.x, h2.x, uHu), 1.0) : uHu < 0.5 ? hv : h2;
-  }
   tfOut = cfin(q) && hv.y > 0.5 ? vec4(q, hv.x, 1.0) : vec4(0.0);
 }
 `;
@@ -1323,7 +1316,7 @@ void main() {
   vec2 w = mapF(z);
   vec3 alb = albedo(w);
   vec3 col = tiersOver(z, vec4(uFloorCol, 1.0), 1.0).rgb;
-  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint);         // phase portrait printed at 10%
+  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint); // phase portrait printed at 10%
   // contact shading under the surface: where the sheet comes close to the plate (no walls, nothing outside);
   // All sheets (uSheetK > 0): the lowest sheet over the point, from the per-cell height tiles
   float contact = 0.0;
@@ -1348,7 +1341,7 @@ void main() {
   // a cut surface (uMaskCut) casts no shadow where it is not drawn
   if (uMaskCut > 0.5) contact *= step(0.5, inRegions(z));
   lin = mix(lin, toLin(uShadow), clamp(0.7 * uShadowA * contact, 0.0, 1.0));
-  vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt);                // the outer 12% fades out
+  vec2 e = (uExt - abs(vPos.xy)) / (0.12 * uExt); // the outer 12% fades out
   float a = uPlateA * smoothstep(0.0, 1.0, min(e.x, e.y));
   o = vec4(toSrgb(fogged(lin, vPos)) * a, a);
 }
@@ -1411,18 +1404,18 @@ void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
 uniform int uNet;
 void sphereLines(vec3 n, out float net, out float re, out float eq) {
   float nz = clamp(n.z, -1.0, 1.0);
-  float y = 0.5 * log2(max(1.0 + nz, 1e-12) / max(1.0 - nz, 1e-12));   // log2 |z|
+  float y = 0.5 * log2(max(1.0 + nz, 1e-12) / max(1.0 - nz, 1e-12)); // log2 |z|
   float fy = fwidth(y);
   float mk = uNet == 2 ? (6.0 / PI) : (12.0 / PI);
   float th = atan(n.y, n.x) * mk;
   float fa = argWidth(n.xy) * mk;
   float fny = fwidth(n.y);
-  float mer = iso(th, fa, 1.0) * dfade(fa);                                        // meridians every 15 (30) deg
-  float par = iso(y, fy, 1.0) * dfade(fy) * step(0.5, abs(y)) * step(abs(y), uNet == 2 ? 2.5 : 3.5);  // |z| = 1/8 (1/4) ... 8 (4)
+  float mer = iso(th, fa, 1.0) * dfade(fa); // meridians every 15 (30) deg
+  float par = iso(y, fy, 1.0) * dfade(fy) * step(0.5, abs(y)) * step(abs(y), uNet == 2 ? 2.5 : 3.5); // |z| = 1/8 (1/4) ... 8 (4)
   net = max(mer, par);
-  if (uNet == 1) net = tiersOver(vec2(n.x, -n.y) / max(1.0 - nz, 1e-7), vec4(0.0), 1.0).a;   // the lifted lattice (coverage)
-  eq = iso0(y, fy, 1.5 * uDpr);                                                    // |z| = 1
-  re = iso0(n.y, fny, 1.25 * uDpr);                                                // real great circle
+  if (uNet == 1) net = tiersOver(vec2(n.x, -n.y) / max(1.0 - nz, 1e-7), vec4(0.0), 1.0).a; // the lifted lattice (coverage)
+  eq = iso0(y, fy, 1.5 * uDpr); // |z| = 1
+  re = iso0(n.y, fny, 1.25 * uDpr); // real great circle
 }
 vec3 phaseLines(vec3 base, float net, float re, float eq) {
   vec3 ink = vec3(0.0431, 0.0667, 0.0784);
@@ -1440,7 +1433,7 @@ void main() {
   float net, re, eq;
   sphereLines(n, net, re, eq);
 ${phase ? `
-  vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7)));   // S = 0, N = infinity (the conjugate lift's inverse)
+  vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7))); // S = 0, N = infinity (the conjugate lift's inverse)
   vec3 col = phaseLines(base, net, re, eq);` : `
   vec3 col = mix(uPlaneCol, uGridMaj, net);
   col = mix(col, uAxisCol, 0.7 * re);
@@ -1472,7 +1465,7 @@ void main() {
   col = mix(col, vec4(uAxisCol, 1.0), 0.5 * max(iso0(p.x, fp.x, uDpr), iso0(p.y, fp.y, uDpr)));
   col = mix(col, vec4(uAxisCol, 1.0), 0.4 * iso0(r - uR, fr, uDpr));
   float inside = clamp((uR - r) / max(fr, 1e-6) + 0.5 + 0.5 * uDpr, 0.0, 1.0);
-  col *= inside * (1.0 - smoothstep(0.45 * uR, uR, r));          // the rim fades out: no hard edge at the frame
+  col *= inside * (1.0 - smoothstep(0.45 * uR, uR, r)); // the rim fades out: no hard edge at the frame
   if (col.a <= 0.002) discard;
   o = col;
 }
