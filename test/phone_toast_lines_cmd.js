@@ -2,6 +2,7 @@
 // are not cut at two; a message that stays up through a rotation takes the rows its new width needs.
 //  - at 360 × 640 in the steps view, with no sheet open (over the plot) and with the Display sheet open (over its row): the words of the longest it and ru
 //    messages are not cut (`scrollHeight - clientHeight` of the words ≤ 1) and are at most three lines; the message is inside the window;
+//  - (#1685) with no sheet open at 390 × 844 and 360 × 740, en and ru: a long message over the plot has its words whole and `data-rows` is what is drawn;
 //  - a message of two rows at 360 × 640 that stays up while the phone turns to 740 × 360 has one row beside its buttons, and the other way
 //    round: `data-rows` is what is drawn (the buttons beside the words, or under them).
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -48,6 +49,21 @@ for (const lang of ['it', 'ru']) for (const sheet of [false, true]) {
   ok(`${tag}: it takes two rows (the words full width)`, m.rows === 'two', m.rows);
   ok(`${tag}: the words are not cut`, m.cut <= CUT_MAX, { cut: m.cut, lines: m.lines });
   ok(`${tag}: the words are at most ${MAX_LINES} lines`, m.lines <= MAX_LINES, m.lines);
+  ok(`${tag}: the message is inside the window`, m.win, m.toast);
+}
+// ---- #1685: with no sheet open the message over the plot takes the two-row rule too (words whole, buttons under them at the right), at 390 × 844 and 360 × 740
+const OPENED = { en: ['Opened the figure from the link. Some constructions could not be read and were opened as plain figures.', 'Undo'], ru: ['Фигура по ссылке открыта. Некоторые построения не удалось прочитать, они открыты как простые фигуры.', 'Отменить'] };
+for (const lang of ['en', 'ru']) for (const [w, h] of [[390, 844], [360, 740]]) {
+  const tag = `${lang} ${w}×${h} over the plot, no sheet`;
+  await open(w, h, lang);
+  await show(OPENED[lang][0], OPENED[lang][1]);
+  await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]') && document.getElementById('toastHost').dataset.placed === 'phone-plot'` });
+  const m = await still();
+  info[tag] = m;
+  ok(`${tag}: the message lies over the plot`, !!m && m.placed === 'phone-plot', m);
+  if (!m) continue;
+  ok(`${tag}: the words are not cut and are at most ${MAX_LINES} lines`, m.cut <= CUT_MAX && m.lines <= MAX_LINES, { cut: m.cut, lines: m.lines });
+  ok(`${tag}: data-rows is what is drawn (${m.rows}: the buttons ${m.rows === 'two' ? 'under' : 'beside'} the words)`, m.btnTop !== null && (m.rows === 'two' ? m.btnTop >= m.wordsBottom - 1 : m.btnTop < m.wordsBottom - 1), m);
   ok(`${tag}: the message is inside the window`, m.win, m.toast);
 }
 // ---- a message through a rotation
