@@ -19,7 +19,7 @@
     return ev('__cmwSteps().planes.length');
   },
   next: () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))'),
-  legend: async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())')),
+  legend: async () => await evJson('JSON.stringify(__cmwLegend())'),
   // T at plane T, the thread parked at plane i (settled); -> the legend
   park: async function (T, i) {
     await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${i}, now: true }), 1)`);
