@@ -274,8 +274,9 @@ artifact.
   GitHub's AMD Zen 4/5 machines (EPYC 9V74, 9V45): NaN at every point, while their Zen 3 (EPYC 7763) and Intel
   (Xeon 6975P-C) machines compute it. Each job gets one of these machines at random; without the setting,
   `deform_range_gl_cmd.js` and `deform_range_cmd.js` fail on the Zen 4/5 ones, and `test/t_lavapipe.js` checks that
-  every job that draws with lavapipe has it. Without AVX2, FMA and AVX-512 the shards ran about as fast (#1507's PR has
-  the numbers). Users on llvmpipe with such a CPU still meet the fault: #1735.
+  every job that draws with lavapipe has it. Without AVX2, FMA and AVX-512 the four slowest shards took 1 to 8 % longer
+  (each run twice on one machine: views-2 2300 → 2484 s, export-4 1470 → 1556 s, views-3 1652 → 1726 s, tour
+  1158 → 1169 s). Users on llvmpipe with such a CPU still meet the fault: #1735.
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
