@@ -379,6 +379,9 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
 H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
+// exampleNames(): the examples' English names, in the order __cmwExample(i) opens them, read from the checkout this folder sits in
+// (ci/steps_scenes.js, with its unescape of a quote)
+H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js')).exampleNames(path.join(DIR, '..', '..'));
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });

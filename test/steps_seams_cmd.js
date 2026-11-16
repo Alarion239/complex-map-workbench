@@ -263,7 +263,7 @@ const park = async (x, scope) => {
   // own spacing; END_EPS: how far a step the frame is from its plane; CUT_BANKS: the two banks of a ray cut, the solid one
   // and the dashed one, what the frame draws of Square root's cut)
   const BANK_PX = 2, FAR_PX = 3000, END_EPS = 1e-4, CUT_BANKS = 2;
-  const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+  const names = exampleNames();
   const ex = names.indexOf('Square root and its sheets');
   ok('cut curves: the example is found', ex >= 0, names.length);
   if (ex >= 0) {
