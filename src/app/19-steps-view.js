@@ -1839,14 +1839,23 @@
   }
   // stroke st (shapeStroke's) at the share k of its opacity, its casing too
   const svStrokeAt = (st, k) => Object.assign({}, st, { alpha: st.alpha * k }, st.casing ? { casing: Object.assign({}, st.casing, { alpha: st.casing.alpha * k }) } : {});
+  // the frame between two planes whose shapes of later planes the inverse pass draws: {g: svBetween's, h: its paths
+  // (svHomPaths)}, or null (at rest, a d/dz step, or no inverse paths)
+  function svStagedFrame() {
+    const g = svBetween();
+    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
+    const h = svHomPaths(g.b, g.u).h;
+    return h ? { g, h } : null;
+  }
   // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level)
   const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve']);
   // the curves of later planes of the frame between two planes, with their inverse path, the whole plane's (a shape of
   // a later plane is tested on its own plane, svInvPaths): {list, paths}, or null when there is none or the pass cannot
   // draw them
   function svStagedCurves() {
-    const g = svBetween();
-    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b) || !svHomPaths(g.b, g.u).h) return null;
+    const f = svStagedFrame();
+    if (!f) return null;
+    const { g } = f;
     const list = S.shapes.filter((x) => x.visible !== false && SV_STAGED_CURVES.has(x.kind) && shapeStage(x) > 0 && !derivIn(0, shapeStage(x)));
     if (!list.length) return null;
     const whole = invHomPath(SV_ALL, 0, g.b, g.u, () => svSheetKeyAt(g.b, g.u).sing);
@@ -1858,10 +1867,9 @@
   // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
   // regions (svInvPaths). all: the regions of the colour's plane too (Inside regions)
   function svStagedOf(all) {
-    const g = svBetween();
-    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
-    const h = svHomPaths(g.b, g.u).h;
-    if (!h) return null;
+    const f = svStagedFrame();
+    if (!f) return null;
+    const { g, h } = f;
     const whole = h.list.indexOf(SV_ALL);
     const list = whole < 0 ? h.list.filter((x) => all || shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
     if (!list.length) return null;
@@ -1919,7 +1927,8 @@
     GLR.writeMask(true, true);
     return onPage;
   }
-  // the shapes' outlines under map, open sets dashed (spec 6.5), along the curve under map; col: as the colour plot draws
+  // the shapes' outlines in S.shapes order: under map, open sets dashed (spec 6.5), along the curve under map; the plane
+  // a glide reaches, from the midpoint, by the inverse pass per pixel (svReached), solid; col: as the colour plot draws
   // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
   // caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {

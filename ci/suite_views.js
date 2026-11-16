@@ -56,6 +56,7 @@ const VIEWS = {
   'steps_link_migrate_cmd.js': steps({ pin: true }),
   'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
+  'gl_uniform_units_cmd.js': steps(),
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
@@ -139,6 +140,7 @@ const VIEWS = {
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
+  'phone_hint_globe_cmd.js': steps(),
   'steps_seg_focus_cmd.js': steps(),
   'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
@@ -338,6 +340,7 @@ const VIEWS = {
   // to port: engine (no view of its own)
   'kit_ev_cmd.js': steps({ pin: true }),
   'kit_adopted_cmd.js': steps({ pin: true }),
+  'kit_example_names_cmd.js': steps({ pin: true }),
   'kit_go_link_cmd.js': steps({ pin: true }),
   'reload_wait_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
