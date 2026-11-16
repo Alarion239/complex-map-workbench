@@ -16,7 +16,7 @@ const closed = async () => { await settled({ max: 8000, only: true, until: `!doc
 // (the Scope button shows once the scope is Inside regions)
 await ev(`__cmwSteps({ scope: 'in' }); 1`);
 await settled({ max: 8000, only: true, until: `!!document.querySelector('.sv-scope-menu') && document.querySelector('.sv-scope-menu').getClientRects().length > 0` });
-const SELS = ['.sv-scope-menu', '.sv-surf1', '.sv-speed'];
+const SELS = ['.sv-scope-menu', '.sv-surf1', '.sv-speed', '#themeBtn'];
 info.buttons = await ev(`[...document.querySelectorAll('button[aria-haspopup="menu"]')].filter((b) => b.getClientRects().length).map((b) => b.className.split(' ').slice(-1)[0])`);
 for (const sel of SELS) {
   const here = await ev(`!!document.querySelector(${JSON.stringify(sel)}) && document.querySelector(${JSON.stringify(sel)}).getClientRects().length > 0`);
