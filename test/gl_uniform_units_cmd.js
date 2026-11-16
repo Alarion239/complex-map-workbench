@@ -9,9 +9,11 @@
 //   pending before one of them is counted too; a link that fails reaches the app's "shader <name> <log>" warning: none in any scene.
 // Scenes: the steps view's default example on plane z; Square root and its sheets, Everywhere, parked half-way; exp then log,
 // Everywhere, parked between w1 and w2 (the fill's point pass), then its Sphere and Landscape surfaces; the classic view.
+// The probe must have seen programs linked and drawn on each scene's page, so the error checks do not pass empty.
 // Controls: a float of a name with a unit, and a sampler against a float of one name, are flagged by the static check; a linked program
 // with a float of such a name is flagged by the linked check; a glUniform1i on a float is counted; an error pending before a
-// glUniform1i is counted apart; a program that compiles but does not link reaches the warning.
+// glUniform1i is counted apart; an error raised by a link (of a deleted program) and one raised by a program's first draw (a negative
+// count) are counted; a program that compiles but does not link reaches the warning.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names. Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -40,39 +42,8 @@ const PROBE = `(() => {
   console.warn = function (...a) { if (a[0] === 'shader') E.warns.push(a.slice(1).join(' ').slice(0, 200)); return w.apply(console, a); };
 })();`;
 await send('Page.addScriptToEvaluateOnNewDocument', { source: PROBE });
-// the declared uniforms of one stage, name -> [types] (comments dropped; a declaration may list several names and arrays)
-const DECLS = `(() => {
-  const decls = (src) => {
-    const m = {};
-    const s = src.replace(/\\/\\*[\\s\\S]*?\\*\\//g, ' ').replace(/\\/\\/[^\\n]*/g, ' ');
-    for (const d of s.matchAll(/\\buniform\\s+(?:(?:highp|mediump|lowp)\\s+)?(\\w+)\\s+([^;]+);/g)) {
-      for (const n of d[2].split(',')) { const name = n.trim().replace(/\\[.*$/, '').replace(/\\s*=.*$/, ''); (m[name] = m[name] || []).push(d[1]); }
-    }
-    return m;
-  };
-  const clashes = (vs, fs) => {
-    const a = decls(vs), b = decls(fs), bad = [];
-    for (const n of new Set([...Object.keys(a), ...Object.keys(b)])) { const types = new Set([...(a[n] || []), ...(b[n] || [])]); if (types.size > 1) bad.push(n + ': ' + [...types].join(' / ')); }
-    return bad;
-  };
-  const units = (vs, fs, U) => {
-    const bad = [];
-    for (const src of [vs, fs]) for (const [n, types] of Object.entries(decls(src))) if (n in U && types.some((t) => !/sampler/.test(t))) bad.push(n + ': ' + types.join(' / ') + ' (unit ' + U[n] + ')');
-    return bad;
-  };
-  return { decls, clashes, units };
-})()`;
-const STATIC = `(() => {
-  const T = ${DECLS}, bad = [], built = [];
-  for (const n of Object.keys(GLR._src.DEFS)) for (const mode of ${JSON.stringify(MODES)}) {
-    let s;
-    try { s = GLR._src.programSources(n, mode); } catch (e) { continue; }
-    built.push(n);
-    for (const c of T.clashes(s[0], s[1])) bad.push(n + '/' + mode + ' ' + c);
-    for (const c of T.units(s[0], s[1], GLR._src.SAMPLER_UNITS)) bad.push(n + '/' + mode + ' ' + c);
-  }
-  return { names: Object.keys(GLR._src.DEFS), built: [...new Set(built)], bad: [...new Set(bad)] };
-})()`;
+const { DECLS, STATIC: staticOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'uniform_decls.js'), 'utf8'));
+const STATIC = staticOf(MODES);
 // the active uniforms of every program linked so far that have a texture unit and are not of a sampler type
 const LINKED = `(() => {
   const gl = GLR.gl, U = GLR._src.SAMPLER_UNITS;
@@ -101,6 +72,7 @@ const scene = async (key, run) => {
   await readStatic();
   const e = await errorsOf(), l = await ev(LINKED);
   info.scenes[key] = { drawn: e.drawn, linked: l.programs, errors: e.uniform1i + e.pending + e.link + e.draw, warns: e.warns.length };
+  ok(`${key}: the probe saw programs linked and drawn on this page`, e.linked > 0 && e.drawn > 0, { linked: e.linked, drawn: e.drawn });
   ok(`${key}: no GL error at a glUniform1i, a link or a program's first draw, and none pending before them`, e.uniform1i + e.pending + e.link + e.draw === 0, e);
   ok(`${key}: no program failed to link`, e.warns.length === 0, e.warns);
   ok(`${key}: every linked program's uniform that has a texture unit is a sampler`, l.programs > 0 && l.bad.length === 0, l);
@@ -155,6 +127,27 @@ const ctlU1 = await ev(`(() => {
   return { uniform1i: d, pending: E.pending.length - m };
 })()`);
 ok('control: a glUniform1i on a float is counted, and an error pending before one is counted apart', ctlU1.uniform1i === 1 && ctlU1.pending === 1, ctlU1);
+const ctlDrains = await ev(`(() => {
+  const gl = GLR.gl, E = window.__glerr, mk = (t, s) => { const sh = gl.createShader(t); gl.shaderSource(sh, s); gl.compileShader(sh); return sh; };
+  // (a link that raises an error: of a deleted program)
+  const dead = gl.createProgram();
+  gl.deleteProgram(dead);
+  const nl = E.link.length;
+  gl.linkProgram(dead);
+  const link = E.link.length - nl;
+  // (a program's first draw that raises an error: a negative count)
+  const p = gl.createProgram();
+  gl.attachShader(p, mk(gl.VERTEX_SHADER, '#version 300 es\\nvoid main() { gl_Position = vec4(0.0); }'));
+  gl.attachShader(p, mk(gl.FRAGMENT_SHADER, '#version 300 es\\nprecision highp float; out vec4 c; void main() { c = vec4(1.0); }'));
+  gl.linkProgram(p); gl.useProgram(p);
+  const nd = E.draw.length;
+  gl.drawArrays(gl.TRIANGLES, 0, -1);
+  const draw = E.draw.length - nd;
+  gl.useProgram(null);
+  E.linked = E.linked.filter((q) => q !== dead && q !== p); gl.deleteProgram(p);
+  return { link, draw };
+})()`);
+ok('control: an error raised by a link, and one raised by a program\'s first draw, are counted', ctlDrains.link >= 1 && ctlDrains.draw >= 1, ctlDrains);
 await ev(`GLR._src.DEFS.glunitsBroken = { chain: false, vs: () => 'out vec2 v; void main() { v = vec2(0.0); gl_Position = vec4(0.0); }', fs: () => 'in vec3 v; out vec4 c; void main() { c = vec4(v, 1.0); }' }; 1`);
 let warned = [];
 for (let k = 0; k < 40 && !warned.length; k++) {
