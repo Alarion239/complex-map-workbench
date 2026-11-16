@@ -1666,8 +1666,9 @@
   // pictures at rest cross-faded, each drawn as the plane draws at rest (the classic core's pull-back on a coloured
   // plane, else the carry core's exact pass or its meshes), plane a's on the pane and plane b's over it at opacity u
   // from a canvas of its own. The glide's record: path 'inverse' when both ends are exact (a coloured plane's plot, or
-  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. False for
-  // any other frame (the Landscape's jump is svLandMoving's)
+  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. The cuts
+  // are each end's, faded with it; while the glide is under way, the handles of the plane it is nearest to, inert. False
+  // for any other frame (the Landscape's jump is svLandMoving's)
   let svJumpCv = null;
   function svJump(pane, still) {
     if (SV.surf === 'land') return false;
@@ -1690,12 +1691,18 @@
       if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
       return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
     };
-    const ends = [end(bt.x0, pane)];
+    // (each end's cut handles, as its draw leaves them: the editable ones of the classic core at rest (cutHandlesL), or
+    // the inert ones of the carry core, which draws them so while a scrub holds the thread (cutMarksL))
+    const handles = [];
+    const drawEnd = (j, p) => { cutHandlesL = []; cutMarksL = []; const e = end(j, p); handles.push(cutHandlesL.concat(cutMarksL)); return e; };
+    const ends = [drawEnd(bt.x0, pane)];
     svJumpCv = svCanvas(svJumpCv, pane);
-    ends.push(end(bt.x1, svProxy(pane, svJumpCv)));
+    ends.push(drawEnd(bt.x1, svProxy(pane, svJumpCv)));
     svFadeOver(pane, svJumpCv, bt.u);
-    // (the cut handles are cleared, as they are mid-glide)
+    // (no handle takes a press mid-glide; while the glide is under way the plane it is nearest to shows its handles
+    // inert, as a glide frame between two other planes does (cutMarksL); a frame parked between the planes shows none)
     cutHandlesL = [];
+    cutMarksL = svGliding() ? handles[bt.u < 0.5 ? 0 : 1] : [];
     const exact = (e) => e === 'plot' || e === 'inverse';
     svGlideRec = { b: bt.b, u: bt.u, path: ends.every(exact) ? 'inverse' : ends.includes('none') ? 'none' : 'mesh', reason: 'a d/dz step', ends, key: null, H: bt.F, Hb: null, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
     SV.core = 'carry';
