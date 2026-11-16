@@ -104,11 +104,12 @@ window.__invTestRun = async (opts = {}) => {
     chains.push({ name: 'mobius > zp', steps: [St('mobius'), St('zp', ZPS[4])] });
     chains.push({ name: 'zp > zp', steps: [St('zp', ZPS[0]), St('zp', ZPS[3])] });
   }
-  // a plane past a d/dz step, as the steps view plans it (invDerivChain, #1645): the step before the d/dz off and its
-  // derivative formula (Funcs.derivativeStep) in the d/dz's place; gallery example 15, [z³ - 3z, d/dz], at plane w₂
-  if (Funcs.derivativeStep) {
+  // a plane past a d/dz step, as the steps view plans it: the step before the d/dz off and its derivative formula
+  // (Funcs.derivativeStep) in the d/dz's place; gallery example 15, [z³ - 3z, d/dz], at plane w₂ (a missing formula
+  // throws: the chain is never left out)
+  {
     const f = St('custom', { expr: 'z^3-3z', cut: 180 }), d = Funcs.derivativeStep(f);
-    if (d && d.step) chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
+    chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
   }
   // ---- shapes ----
   const SH = [];

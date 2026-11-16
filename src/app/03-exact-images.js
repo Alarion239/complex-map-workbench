@@ -435,16 +435,28 @@
       if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
-      let plan, inv;
-      try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
-      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
-      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
-      h = { plan, inv, preps: new Map(), sing: null };
+      h = invOwnPlan(S.steps, bh, a, k);
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
+    const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
+    return invOwnPath(h, s, a, k, own);
+  }
+  // A chain that stands in for the chain itself from plane a to plane b (a glide's homotopy in its step's place,
+  // invHomPath; a d/dz step's derivative formula, invDerivPath), planned with its own inverse program:
+  // {plan, inv, preps, sing}, plan.ok false with the reason where the plan or the program cannot be made
+  function invOwnPlan(steps, bs, a, b) {
+    let plan, inv;
+    try { plan = Inverse.planChain(steps, bs, a, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
+    try { inv = plan.ok ? GLChain.buildInverse(steps, bs) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
+    if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
+    return { plan, inv, preps: new Map(), sing: null };
+  }
+  // the inverse path of area shape s from plane a to plane b through h (invOwnPlan's), prepared once for each window and
+  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing)
+  function invOwnPath(h, s, a, b, own) {
+    const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
-    const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     const wk = winKey() + '|' + shapeKey(s) + (own ? '|' + own.map((p) => p.re + ',' + p.im).join(';') : '');
     let prep = h.preps.get(wk);
     if (!prep) {
@@ -455,12 +467,13 @@
       h.preps.set(wk, prep);
     }
     if (!prep.ok) return F(prep.reason || 'shape not eligible');
-    return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
+    return { path: 'inverse', reason: null, m: { mode: 0, a, b }, plan: h.plan, prep, inv: h.inv };
   }
   // A plane b past a d/dz step k: its points are D(z) carried on by the steps after k, D = (f_{k-1} ∘ … ∘ f_1)′, a map of
   // z. The chain with D in step k's place, the steps before it off, plans that map from z and builds its own inverse
   // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the one live step
-  // before the d/dz (Funcs.derivativeStep); {steps, built, k} or {reason}
+  // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
+  // asked of it) or {reason}
   const invDerivs = new Map();
   function invDerivChain(b) {
     const ck = `${b}|${chainSig[nSteps()]}`;
@@ -477,7 +490,7 @@
       const db = d && d.step ? Funcs.build(d.step) : null;
       if (!db || db.error) r = { reason: (d && d.error) || (db && db.error) || 'no derivative formula' };
       else {
-        const steps = S.steps.map((st, i) => (i + 1 < k && st ? Object.assign({}, st, { on: false }) : i + 1 === k ? d.step : st));
+        const steps = S.steps.map((st, i) => (i + 1 < k && st ? Object.assign({}, st, { on: false }) : i + 1 === k ? Object.assign({ on: true }, d.step) : st));
         const bs = built.slice();
         bs[k - 1] = db;
         r = { steps, built: bs, k };
@@ -488,35 +501,12 @@
     return r;
   }
   // the inverse path of area shape s on plane b past a d/dz step, at rest (pathOf's answer, with its own plan and program)
-  const invDerivHs = new Map();
   function invDerivPath(s, b) {
-    const F = (reason) => ({ path: 'forward', reason });
-    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
+    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return { path: 'forward', reason: 'no inverse renderer' };
     const c = invDerivChain(b);
-    if (!c.steps) return F(c.reason);
-    const ck = `${b}|${chainSig[nSteps()]}`;
-    let h = invDerivHs.get(ck);
-    if (!h) {
-      let plan, inv;
-      try { plan = Inverse.planChain(c.steps, c.built, 0, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
-      try { inv = plan.ok ? GLChain.buildInverse(c.steps, c.built) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
-      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
-      h = { plan, inv, preps: new Map(), sing: null };
-      if (invDerivHs.size >= 8) invDerivHs.clear();
-      invDerivHs.set(ck, h);
-    }
-    if (!h.plan.ok) return F(h.plan.reason);
-    const wk = winKey() + '|' + shapeKey(s);
-    let prep = h.preps.get(wk);
-    if (!prep) {
-      try {
-        if (!h.sing || h.sing.k !== winKey()) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin) };
-        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: h.sing.v });
-      } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
-      h.preps.set(wk, prep);
-    }
-    if (!prep.ok) return F(prep.reason || 'shape not eligible');
-    return { path: 'inverse', reason: null, m: { mode: 0, a: 0, b }, plan: h.plan, prep, inv: h.inv };
+    if (!c.steps) return { path: 'forward', reason: c.reason };
+    if (!c.h) c.h = invOwnPlan(c.steps, c.built, 0, b);
+    return invOwnPath(c.h, s, 0, b, null);
   }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {

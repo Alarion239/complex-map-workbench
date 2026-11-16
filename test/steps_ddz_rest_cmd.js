@@ -58,20 +58,13 @@ const pairs = async (P, keep) => {
   return { W: outW, Z: outZ };
 };
 const fmt = (v) => v.map((q) => +q.toFixed(3));
-// the roots of z³ - 3z - w (Durand-Kerner), as [x, y]
-const cubicRoots = (w) => {
-  const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]], sub = (a, b) => [a[0] - b[0], a[1] - b[1]];
-  const div = (a, b) => { const d = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / d, (a[1] * b[0] - a[0] * b[1]) / d]; };
-  const p = (z) => sub(sub(mul(mul(z, z), z), [3 * z[0], 3 * z[1]]), w);
-  let r = [[0.4, 0.9], [-0.65, 0.72], [1.1, -0.3]];
-  for (let it = 0; it < 200; it++) r = r.map((z, i) => sub(z, div(p(z), r.reduce((q, y, j) => (j === i ? q : mul(q, sub(z, y))), [1, 0]))));
-  return r;
-};
+// the roots of z³ - 3z - w for each w of ws, as [x, y] (the page's CX.polyRoots)
+const cubicRoots = (ws) => ev(`(${JSON.stringify(ws)}).map((w) => CX.polyRoots([CX.C(1), CX.C(0), CX.C(-3), CX.C(-w[0], -w[1])]).map((z) => [z.re, z.im]))`);
 // the points w of a grid over w₁'s pane, with their front preimage z (z³ - 3z = w) where plane z's reference shows it
 const pairs1 = async (P) => {
-  const W = [], lists = [];
-  for (const w of grid(P, 70, 70, 0.9)) {
-    const r = cubicRoots(w);
+  const W = [], lists = [], G = grid(P, 70, 70, 0.9), R = await cubicRoots(G);
+  for (const [n, w] of G.entries()) {
+    const r = R[n];
     // (off the branch values w = ±2, where two roots meet)
     if (Math.min(Math.hypot(w[0] - 2, w[1]), Math.hypot(w[0] + 2, w[1])) < 0.2) continue;
     lists.push(r); W.push(w);
