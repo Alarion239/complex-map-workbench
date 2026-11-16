@@ -1147,9 +1147,10 @@
   }
   // The programs of plane k's frame at rest past the colour plane, begun (svInvState, GLR.inverseRequest): its own paths'
   // carried colour (svCarryExact's) and, Inside regions, the mask's fills, so that they link while a motion that ends on
-  // k runs, alongside the glide's own, not once it has landed
+  // k runs, alongside the glide's own, not once it has landed. Only where links run in the background
+  // (KHR_parallel_shader_compile): elsewhere asking links them at once, inside the motion's frame
   function svRestStart(k) {
-    if (!(k > svT()) || SV.surf !== 'plane' || !GLR.inverseState) return;
+    if (!(k > svT()) || SV.surf !== 'plane' || !GLR.inverseState || !GLR.parallelCompile) return;
     const h = svInvPaths(k, null, 'flat', { r: null });
     if (!h) return;
     h.paths.forEach((p, i) => svInvState(h, i, k, null));
