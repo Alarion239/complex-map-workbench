@@ -100,10 +100,11 @@ await settled({ panes: false, until: `!!window.__lk` });
 link = await ev('window.__lk || null');
 await openApp({ steps: two, shapes: [] });
 await ev(`Params.decodeLink(${JSON.stringify(String(link))}).then((st) => { __cmwPOpen(st, 'link'); }); 1`);
-// (opening a link replaces the page: a poll with a bound and a condition, which tolerates the reload between its reads)
+// (opening a link replaces the page: a poll with a bound and a condition, which tolerates the reload between its reads;
+// the strip comes first: it is built once the new page has its state, before which __cmwP has no params to read)
 for (let i = 0; i < 160; i++) {
   let got = false;
-  try { got = await ev(`typeof __cmwP === 'function' && __cmwP().shapes.length === 2 && !!document.querySelector('#svStrip .sv-step')`); } catch (e) { got = false; }
+  try { got = await ev(`!!document.querySelector('#svStrip .sv-step') && typeof __cmwP === 'function' && __cmwP().shapes.length === 2`); } catch (e) { got = false; }
   if (got) break;
   await sleep(250);
 }
