@@ -565,7 +565,8 @@
   // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
   // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0]). The rule
   // composes, clamp(n clamp(a t - b, 0, 1) - i, 0, 1) = clamp(a n t - (b n + i), 0, 1), so it holds for a step with a time
-  // of its own as for any other (the steps a Split makes refuse a Split, R1)
+  // of its own as for any other (the page does not offer that today: the Split's reader and its gate refuse the steps a
+  // Split makes)
   function svStepTSplit(stepT, k, n) {
     const o = [], f = (stepT && stepT[k]) || [1, 0];
     if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
@@ -2276,7 +2277,7 @@
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
-    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
+    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: (e) => { if (!svOff(e.currentTarget)) svSetT(svStage()); } });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
@@ -2491,8 +2492,10 @@
       // (pressed on the colour plane only: a place parked between two planes is no plane)
       E.cp.setAttribute('aria-pressed', String(k === T && !parked));
       E.cp.classList.toggle('on', k === T && !parked);
+      // (a step shown alone: disabled, it is coloured from its own plane; else parked between two planes: off, with the
+      // reason, since a place between planes is no plane to colour from)
       E.cp.disabled = !!svAloneOk();
-      E.cp.setAttribute('data-tip', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
+      svDisableWhy(E.cp, !svAloneOk() && parked ? $t('Stop on a plane to colour from it') : '', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
@@ -3201,7 +3204,9 @@
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
       } else if (lk === 'c' && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
-        svSetT(svStage());
+        // (parked between two planes, the key says why it does nothing, as the colour button's reason does)
+        if (!SV.alone && svParked()) { if (SV.els && SV.els.live) SV.els.live.textContent = $t('Stop on a plane to colour from it'); }
+        else svSetT(svStage());
       }
     }, true);
   }
