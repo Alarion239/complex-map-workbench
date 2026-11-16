@@ -536,17 +536,18 @@ async function playCell(base, name, tree, timeoutMs, tailMs) {
     await H.ev(glide);
     // samples: [s, moving, x, path, exact]
     const samples = [];
-    let firstS = null, endS = null, moved = false;
+    let firstS = null, endS = null, moved = false, landS = null;
     while (Date.now() - t1 < timeoutMs + tailMs) {
-      const r = await H.ev('(() => { const s = __cmwSteps(), g = s.glide; return [performance.now(), !!s.moving, s.x, g ? g.path : null, !!g && g !== window.__gpRec0 && g.path === "inverse"]; })()');
+      const r = await H.ev('(() => { const s = __cmwSteps(), g = s.glide; return [performance.now(), !!s.moving, s.x, g ? g.path : null, !!g && g !== window.__gpRec0 && g.path === "inverse", !s.moving && s.rest && s.rest.a === s.i ? s.rest.path : null]; })()');
       const at = (r[0] - g0) / 1000;
-      samples.push([at, r[1], r[2], r[3], r[4]]);
+      samples.push([at, r[1], r[2], r[3], r[4], r[5]]);
+      if (endS != null && landS == null && r[5] === 'inverse') landS = at;
       if (r[4] && firstS == null) firstS = at;
       if (r[1]) moved = true;
       if (moved && !r[1] && endS == null && firstS != null) endS = at;
       const recs = (await H.ev('GLR.profile()')).slice(n0).filter((x) => x.inv);
       const open = recs.filter((x) => x.ms === null).length;
-      if (endS != null && !open) break;
+      if (endS != null && !open && (landS != null || at - endS > 20)) break;
       if (endS != null && at - endS > tailMs / 1000) break;
       if (firstS == null && Date.now() - t1 > timeoutMs) break;
       await sleep(250);
@@ -568,7 +569,9 @@ async function playCell(base, name, tree, timeoutMs, tailMs) {
     }
     const play = raf.filter((t) => firstS != null && t >= firstS && (endS == null || t <= endS));
     const gaps = play.slice(1).map((t, i) => t - play[i]);
-    return { firstS, playS: endS, meshAfter: samples.filter((x) => firstS != null && x[0] > firstS && x[3] === 'mesh').length, frames: play.length, fps: play.length > 1 ? (play.length - 1) / (play[play.length - 1] - play[0]) : null, longestGapMs: gaps.length ? Math.max(...gaps) * 1000 : null, stalls, links: recs };
+    // (the landing: the plane at rest drawn by the inverse pass, svRestRec's path; none for a plane that is the colour plane, which has no such record)
+    const meshLanding = samples.filter((x) => endS != null && x[0] >= endS && (x[3] === 'mesh' || x[5] === 'mesh')).length;
+    return { firstS, playS: endS, landExactS: landS == null || endS == null ? null : landS - endS, meshAfterLanding: meshLanding, meshAfter: samples.filter((x) => firstS != null && x[0] > firstS && x[3] === 'mesh').length, frames: play.length, fps: play.length > 1 ? (play.length - 1) / (play[play.length - 1] - play[0]) : null, longestGapMs: gaps.length ? Math.max(...gaps) * 1000 : null, stalls, links: recs };
   } finally { await H.close(); }
 }
 
@@ -594,8 +597,8 @@ async function playAB() {
   fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, rows }, null, 1));
   const f = (v, d = 1) => (v == null ? 'none' : v.toFixed(d));
   const lines = ['### The first glide as it plays', '', 'Seconds from the glide\'s start. fps: the app\'s animation-frame callbacks a second from the first exact frame to the end of the play; mesh: samples after the first exact frame drawn by the carried mesh.', '',
-    '| scene | side | first exact frame | play ended | fps (longest gap ms) | mesh frames after | stalls (s) |', '|---|---|---|---|---|---|---|'];
-  for (const r of rows) lines.push(`| ${r.scene} | ${r.side} | ${r.status === 'ok' ? f(r.firstS) : r.status} | ${f(r.playS)} | ${f(r.fps)} (${f(r.longestGapMs, 0)}) | ${r.meshAfter == null ? '' : r.meshAfter} | ${(r.stalls || []).map(([a, b]) => `${a.toFixed(0)}-${b.toFixed(0)}`).join(', ')} |`);
+    '| scene | side | first exact frame | play ended | landing to the plane\'s exact frame | mesh samples after the landing | fps (longest gap ms) | mesh frames after the first exact | stalls (s) |', '|---|---|---|---|---|---|---|---|---|'];
+  for (const r of rows) lines.push(`| ${r.scene} | ${r.side} | ${r.status === 'ok' ? f(r.firstS) : r.status} | ${f(r.playS)} | ${f(r.landExactS)} | ${r.meshAfterLanding == null ? '' : r.meshAfterLanding} | ${f(r.fps)} (${f(r.longestGapMs, 0)}) | ${r.meshAfter == null ? '' : r.meshAfter} | ${(r.stalls || []).map(([a, b]) => `${a.toFixed(0)}-${b.toFixed(0)}`).join(', ')} |`);
   lines.push('', '| scene | side | inverse program | starts s | ends s | link s | what waited for it |', '|---|---|---|---|---|---|---|');
   for (const r of rows) for (const l of r.links || []) lines.push(`| ${r.scene} | ${r.side} | ${esc(l.key)} | ${f(l.start)} | ${l.end == null ? 'open' : f(l.end)} | ${l.s == null ? 'open' : f(l.s)} | ${l.waited} |`);
   lines.push('');
