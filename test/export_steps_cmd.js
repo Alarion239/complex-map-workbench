@@ -4,6 +4,7 @@
 // same points of the figure's raster: by world coordinate on a plane (the figure's window, Figure.build's box), by
 // position in the frame on the sphere (the same camera and aspect), and on the Landscape, which the figure crops to the
 // relief, by the share of each of 12 hue bins. Only cells the stage colours count. The caption names the plane's map.
+// On the real axis of F the colour is arg 0 whichever zero F's imaginary part is (#1709).
 // A command file for a CDP daemon:  <runner> test/export_steps_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -200,4 +201,31 @@ for (const crop of ['fit', 'screen']) {
     ok(`${tag}: each frame has its own ticks`, r && r.ticks >= 8, r && r.ticks);
   } else ok(`${tag}: every frame shows the camera's window, with no note`, r && !r.err && !r.boxes && !r.own && !/own window/.test(r.cap), r);
 }
+// the colour on Re z = 0 where F is real (#1709): example 9, F = (z²−1)/(z²+1), whose window [−5, 5] × [−4, 4] is symmetric
+// about 0, so an odd art width puts a column of pixel centres on Re z = 0, where F(iy) = (y²+1)/(y²−1) > 0 for |y| > 1 and
+// arg F = 0, as on the columns beside it. A driver whose atan(y, x) reads a −0 imaginary part as negative (SwiftShader)
+// drew that column in the hue of arg π. Each odd width of the sweep: the centre column, at 15% down the art, is within
+// AXIS_JUMP (summed over the channels) of each neighbour
+const AXIS_JUMP = 60, AXIS_PTS = [351, 354, 357];
+await go(`${base}/test.html?view=steps&ns=xsvax${Date.now() % 1e7}`);
+await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
+await ev(`(__cmwExample(9), 1)`);
+await settled({ until: '__cmwSteps().planes.length > 0 && !__cmwSteps().moving', max: 15000, floor: 300 });
+const axis = [];
+for (const pt of AXIS_PTS) {
+  await ev(`window.__xsv = null; (async () => {
+    const f = await Figure.build({ for: 'homework', sizeId: 'custom', customPt: ${pt}, text: 11 });
+    const m = f.svg.match(/<image[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/); if (!m) return { none: true };
+    const img = new Image(); img.src = m[1]; await img.decode();
+    const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
+    const k = (img.width - 1) / 2, d = g.getImageData(k - 1, Math.round(img.height * 0.15), 3, 1).data;
+    return { w: img.width, px: [0, 1, 2].map((i) => [d[4 * i], d[4 * i + 1], d[4 * i + 2]]) };
+  })().then((r) => { window.__xsv = r; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
+  await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
+  const r = await ev('window.__xsv');
+  if (r && r.w % 2 === 1) axis.push(Object.assign({ pt }, r));
+}
+const jump = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
+info.axis = axis;
+ok('example 9, odd art widths: the column on Re z = 0, where arg F = 0, has its neighbours\' colour', axis.length >= 2 && axis.every((r) => jump(r.px[1], r.px[0]) <= AXIS_JUMP && jump(r.px[1], r.px[2]) <= AXIS_JUMP), axis);
 return { pass: fails.length === 0, fails, info };
