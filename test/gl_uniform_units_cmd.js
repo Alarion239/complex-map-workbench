@@ -79,7 +79,6 @@ const scene = async (key, run) => {
 };
 const open = async (url) => { await go(url); await settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!GLR._src' }); };
 const openSeeded = async (state) => { const ns = 'glunits' + Date.now(); await seed(ns, state); await open(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`); };
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 await scene('steps view, the default example, plane z', () => open(`http://localhost:${PORT}/test.html?view=steps&ns=glunits${Date.now()}`));
 await scene('Square root and its sheets, Everywhere, parked half-way', async () => {
   await ev(`__cmwExample(${exampleNames().indexOf('Square root and its sheets')}); 1`); await settled({ max: LOAD_MAX_MS });
