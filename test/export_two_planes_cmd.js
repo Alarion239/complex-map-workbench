@@ -79,7 +79,7 @@ const nPlanes = planes;
 for (const [T, to] of [[0, 1], [0, 2], [nPlanes - 1, 1], [nPlanes - 1, 2]]) {
   await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${to}, now: true }), 1)`);
   await settled({ until: `__cmwSteps().i === ${to} && !__cmwSteps().moving && __cmwSteps().T === ${T}`, max: 15000 });
-  const wk = JSON.parse(await ev(`JSON.stringify(__cmwFig.svKey(${to}))`));
+  const wk = await evJson(`JSON.stringify(__cmwFig.svKey(${to}))`);
   const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: to });
   const carried = wk && wk.carried ? wk.carried.text : null;
   const tag = `T ${T}, to plane ${to}`;
@@ -108,19 +108,19 @@ ok('example 18: As on screen keeps the camera window, with no note', r18s && r18
 // the labels carry text (#1015): an invisible <text> over each label's glyph box (within GLYPH_SLACK_PT), in the SVG; the same words,
 // invisible, in the PDF's text layer, in reading order
 await ready(1);
-const tl = JSON.parse(await ev(`await (async () => { try {
+const tl = await evJson(`await (async () => { try {
   const f = await Figure.build({ svPic: 'two', crop: 'screen' });
   const buf = new Uint8Array(await (await Figure.pdf(f)).arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
   const els = [...new DOMParser().parseFromString(f.svg, 'image/svg+xml').querySelectorAll('g.cmw-text > text')].map((t) => ({ text: t.textContent, x: +t.getAttribute('x'), y: +t.getAttribute('y'), fs: +t.getAttribute('font-size'), len: +t.getAttribute('textLength'), op: t.getAttribute('fill-opacity') }));
   return JSON.stringify({ els, boxes: f.boxes, pdf: btoa(bin) });
-} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS));
+} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
 ok('the two-plane figure builds with its text layer', !tl.err && tl.els.length >= 3, tl.err || tl.els);
 if (!tl.err) {
   const words = tl.els.map((t) => t.text);
   ok('the layer has the panel names and the arrow\'s label', ['z', 'w₂', 'F'].every((w) => words.includes(w)), words);
   ok('the figure\'s title is not a text of the layer (it is the <title>)', !words.some((w) => /joined by/.test(w)), words);
   ok('every text is invisible', tl.els.every((t) => t.op === '0'), tl.els);
-  const pl = JSON.parse(await ev(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\sqrt{z}', '\\\\sqrt{z+1}', '\\\\sqrt[3]{z}', '\\\\sqrt[n]{z}', '\\\\sqrt2', '\\\\frac{1}{z^{2}}', '\\\\frac{1}{e^{-z}+1}', '\\\\frac{1}{\\\\sqrt{z}}', '\\\\frac{\\\\pi}{2}', '\\\\text{colour carried from }w_{2}'].map((t) => [t, typeof __cmwFig.XD.plain === 'function' ? __cmwFig.XD.plain(t) : null])))`));
+  const pl = await evJson(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\sqrt{z}', '\\\\sqrt{z+1}', '\\\\sqrt[3]{z}', '\\\\sqrt[n]{z}', '\\\\sqrt2', '\\\\frac{1}{z^{2}}', '\\\\frac{1}{e^{-z}+1}', '\\\\frac{1}{\\\\sqrt{z}}', '\\\\frac{\\\\pi}{2}', '\\\\text{colour carried from }w_{2}'].map((t) => [t, typeof __cmwFig.XD.plain === 'function' ? __cmwFig.XD.plain(t) : null])))`);
   const WANT = { '\\arg H_{t}': 'arg H_t', '\\sin z': 'sin z', '\\zeta(z)': 'ζ(z)', '\\bar z': 'z\u0304', '\\frac{1}{z}': '1/z', '\\frac{z+1}{z-1}': '(z+1)/(z-1)', 'z \\le 1': 'z ≤ 1', '\\operatorname{Re} z': 'Re z', 'f_{2}': 'f₂', '\\text{colour carried from }w_{2}': 'colour carried from w₂' };
   ok('XD.plain reads TeX as people read it', Object.entries(WANT).every(([k, v]) => pl[k] === v), pl);
   ok('a key\'s ring marks (1, i, -1, -i) carry no text', !words.includes('1') && !words.includes('i') && !words.includes('-1'), words);
