@@ -807,7 +807,7 @@ void main() { emit(mapPoint(srcOf(bary(aT)))); }
 `;
   // The fill's point pass (drawRegionCarry, fillPoints): for every sub-triangle t of every instance (uSub: its three
   // template corners, regionTemplate's order; uSubI: their places in the map cache and its centroid's), REGION_VS's
-  // fill cull on the same cache texture (unit 1, uCW, uCP) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
+  // fill cull on the same cache texture (unit 1, uCW, uCStride) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
   // draws from the cache is not evaluated and its four points are written as 0, one it fills as point k = 0..3, its
   // onCentreSheet(zc, s_k) with zc its centroid's source point (s_3 the centroid), written as (w, side, 1) into texel
   // instance * uP + 4 t + k of an RGBA32F texture. The fill culls by that .w, so the two never disagree; the chain runs
@@ -820,14 +820,14 @@ layout(location = 4) in float aSkip;
 uniform vec2 uSub[12];
 uniform vec4 uSubI[4];
 uniform float uKPx; uniform float uKLim;
-uniform highp sampler2D uW; uniform int uCW; uniform int uCP;
+uniform highp sampler2D uW; uniform int uCW; uniform int uCStride;
 flat out vec4 tfOut4;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
 uniform int uFPass; uniform highp sampler2D uFA;
 ${SRC}
 ${BARY}
 ${VALID}
-vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
+vec2 WC(float k) { int i = gl_InstanceID * uCStride + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
 vec4 FA(int i) { return texelFetch(uFA, ivec2(i % uRtW, i / uRtW), 0); }
 ${ON_CENTRE}${FILL_DRAWN}void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;
@@ -1403,6 +1403,32 @@ void main() {
   o = vec4(dcolor(w), 1.0);
 }
 `;
+  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15: a segment, a line, a ray,
+  // a circle, an arc): curveNearAB(kind, A, B, w) is the curve's point nearest w. Shared by the preimages (PRE_FS) and
+  // the inverse pass's curves of later planes (INV_HEAD)
+  const CURVE_GEOM = `
+float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
+vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
+vec2 nearer(vec2 p, vec2 q, vec2 q2) { return dot(p - q2, p - q2) < dot(p - q, p - q) ? q2 : q; }
+// >= 0 inside the angular range that runs ccw over span degrees from the direction B.xy to B.zw (Region's sectorLevel)
+float angIn(vec2 v, float span, vec4 B) {
+  float a = crs(B.xy, v), b = -crs(B.zw, v);
+  return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
+}
+vec2 curveNearAB(int kind, vec4 A, vec4 B, vec2 w) {
+  if (kind == 11) return segNear(w, A.xy, A.zw);
+  if (kind == 12 || kind == 13) {
+    float L = dot(A.zw, A.zw);
+    float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
+    return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
+  }
+  vec2 v = w - A.xy;
+  float l = length(v);
+  vec2 q = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * A.z;
+  if (kind == 15 && angIn(v, A.w, B) < 0.0) q = nearer(w, A.xy + B.xy * A.z, A.xy + B.zw * A.z);
+  return q;
+}
+`;
   // ---------- preimages: where w = F(z) lands in target shapes of the w-plane (Preimage mode) ----------
   // Targets come in a float texture row: 6 texels per target (kind, complement, first point, point count | shape
   // parameters A | B | fill colour, alpha | edge colour, width (device px) | w-grid cell, -), then polygon and
@@ -1416,15 +1442,7 @@ uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp; uniform float uD
 uniform highp sampler2D uPts; uniform int uTN; uniform vec3 uHalo; uniform float uHaloA;
 out vec4 o;
 vec4 R(int i) { return texelFetch(uPts, ivec2(i, 0), 0); }
-float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
-vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
-vec2 nearer(vec2 p, vec2 q, vec2 q2) { return dot(p - q2, p - q2) < dot(p - q, p - q) ? q2 : q; }
-// >= 0 inside the angular range that runs ccw over span degrees from the direction B.xy to B.zw (Region's sectorLevel)
-float angIn(vec2 v, float span, vec4 B) {
-  float a = crs(B.xy, v), b = -crs(B.zw, v);
-  return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
-}
-${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
+${CURVE_GEOM}${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
 // formula fa (and fb when two) at w and at the first n - 1 of w + dx, w + dy, w - dx, w - dy, from one call site of
 // formulaLevel in a loop (issue #396: FXC inlines every call of formulaLevel, the dispatch over every level function,
 // and the gradients' calls one by one wrote them all out about 21 times). a, b: (w + dx, w + dy, w - dx, w - dy)
@@ -1474,19 +1492,7 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
 }
 // curve targets: the nearest point of the curve
 vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
-  if (kind == 11) return segNear(w, A.xy, A.zw);
-  if (kind == 12 || kind == 13) {
-    float L = dot(A.zw, A.zw);
-    float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
-    return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
-  }
-  if (kind == 14 || kind == 15) {
-    vec2 v = w - A.xy;
-    float l = length(v);
-    vec2 q = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * A.z;
-    if (kind == 15 && angIn(v, A.w, B) < 0.0) q = nearer(w, A.xy + B.xy * A.z, A.xy + B.zw * A.z);
-    return q;
-  }
+  if (kind >= 11 && kind <= 15) return curveNearAB(kind, A, B, w);
   if (kind == 16) {
     int s = 6 * uTN + int(K.z + 0.5), n = int(K.w + 0.5);   // vertices follow the records
     vec2 q = R(s).xy;
