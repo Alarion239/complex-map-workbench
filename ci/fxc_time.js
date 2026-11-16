@@ -622,6 +622,9 @@ const SRC_SHIM = `(() => {
   const ss = proto.shaderSource, at = proto.attachShader, lp = proto.linkProgram;
   const src = new WeakMap(), att = new WeakMap();
   window.__srcs = [];
+  window.__rafT = [];
+  const raf0 = window.requestAnimationFrame.bind(window);
+  window.requestAnimationFrame = (cb) => raf0((t) => { window.__rafT.push(t); return cb(t); });
   proto.shaderSource = function (s, t) { src.set(s, t); return ss.call(this, s, t); };
   proto.attachShader = function (p, s) { if (!att.has(p)) att.set(p, []); att.get(p).push(s); return at.call(this, p, s); };
   proto.linkProgram = function (p) { const a = (att.get(p) || []).map((s) => src.get(s) || ''); window.__srcs.push({ vs: a[0] || '', fs: a[1] || '' }); return lp.call(this, p); };
@@ -707,11 +710,12 @@ async function cacheAppPass(base, name, tree, prof, flags, timeoutMs, idleS) {
     if (idleS) await sleep(idleS * 1000);
     series.push([Date.now(), storedKb(prof)]);
     const prof2 = await H.ev('GLR.profile()'), srcs = await H.ev('window.__srcs'), origin = await H.ev('performance.timeOrigin');
+    const rafT = [...new Set(await H.ev('window.__rafT'))];
     // the cache KB at wall time t: the first sample at or after it
     const kbAt = (t) => { const x = series.find(([w]) => w >= t); return (x || series[series.length - 1])[1]; };
     const recs = prof2.map((r, i) => {
       const s = srcs[i] || { vs: '', fs: '' }, end = r.ms == null ? null : origin + r.t0 + r.ms;
-      return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs), grew: end == null ? null : kbAt(end + 4000) - kbAt(end) };
+      return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs), grew: end == null ? null : kbAt(end + 4000) - kbAt(end), t0: r.t0, frames: r.ms == null ? null : rafT.filter((t) => t >= r.t0 && t <= r.t0 + r.ms).length };
     });
     return { recs, open: series[series.length - 1][1] };
   } finally { await H.close(); }
@@ -757,7 +761,7 @@ async function cacheStudy() {
     for (const name of scenes) {
       const prof = path.join(tmp, `a${res.app.length}`), row = { setting: setName, scene: name, passes: [] };
       res.app.push(row);
-      for (const pass of ['cold', 'warm']) {
+      for (const pass of ['cold', 'warm', 'warm again', 'warm a third time'].slice(0, Number(opt('passes', '2')))) {
         if (over()) { row.passes.push({ pass, skipped: true }); continue; }
         const { recs, open } = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, idleS);
         row.passes.push({ pass, recs, open, cache: cacheStats(prof) });
@@ -786,6 +790,20 @@ async function cacheStudy() {
       '| # | program | KB | cold s | warm s | same source | result | cache grew within 4 s of its cold link (KB) |', '|---|---|---|---|---|---|---|---|');
     c.recs.forEach((r, i) => { const x = w.recs[i]; lines.push(`| ${i + 1} | ${r.inv ? 'inverse ' : ''}${esc(r.name)} \`${esc(r.key)}\` | ${r.kb} | ${f(r.ms == null ? null : r.ms / 1000)} | ${x ? f(x.ms == null ? null : x.ms / 1000) : ''} | ${x ? (x.hash === r.hash ? 'yes' : 'no') : ''} | ${hits[i]} | ${r.grew == null ? '' : r.grew} |`); });
     lines.push('', `Cache after the cold pass: ${cacheLine(c.cache)}. After the warm pass: ${cacheLine(w.cache)}.`, '');
+  }
+  // every pass of an app scene: its links against the first pass's, and each inverse program's link seconds and the frames the page drew meanwhile
+  for (const row of res.app) {
+    if (row.passes.some((x) => x.skipped) || row.passes.length < 2) continue;
+    const [c] = row.passes, sum = (a) => a.reduce((t, r) => t + Math.max(0, r.ms || 0), 0) / 1000;
+    lines.push(`**App, ${row.scene}; ${row.setting}: every pass**`, '', '| pass | links | link s | programs that hit (against the first pass, same source, warm under 35 % of cold or under 1 s) |', '|---|---|---|---|');
+    for (const x of row.passes) { const hit = x.recs.filter((r, i) => { const k = c.recs[i]; return k && k.hash === r.hash && ((r.ms || 0) < 1000 || r.ms < 0.35 * k.ms); }).length; lines.push(`| ${x.pass} | ${x.recs.length} | ${f(sum(x.recs))} | ${x === c ? '' : hit} |`); }
+    lines.push('', '| inverse program | ' + row.passes.map((x) => `${x.pass}: link s, frames meanwhile (frames a second)`).join(' | ') + ' |', '|---|' + row.passes.map(() => '---|').join(''));
+    c.recs.forEach((r, i) => {
+      if (!r.inv) return;
+      const cells = row.passes.map((x) => { const q = x.recs.find((y) => y.hash === r.hash); return q ? `${f(q.ms == null ? null : q.ms / 1000)} s, ${q.frames == null ? '' : q.frames}${q.ms ? ` (${(q.frames / (q.ms / 1000)).toFixed(1)})` : ''}` : 'not linked'; });
+      lines.push(`| ${esc(r.key)} (${r.kb} KB) | ${cells.join(' | ')} |`);
+    });
+    lines.push('', `GPUCache and GPUPersistentCache after each pass: ${row.passes.map((x) => `${x.pass}: ${x.open} KB`).join('; ')}.`, '');
   }
   const md = lines.join('\n');
   summary(md);
