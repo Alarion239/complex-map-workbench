@@ -32,13 +32,13 @@ const { hold, grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib',
 const rest = async (i) => { await ev(`window.__drawn = []; __cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 const park = async (x) => { await ev(`window.__drawn = []; __cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
 // what the frame shows: the view, the Height key (shown, and named so) and the camera's pitch
-const state = async () => JSON.parse(await ev(`JSON.stringify((() => {
+const state = async () => await evJson(`JSON.stringify((() => {
   const l = document.getElementById('leftLegend'), st = __cmwSteps();
   const name = l ? [l.title, l.getAttribute('aria-label'), l.textContent].join(' ') : '';
   const r = document.getElementById('canvasL').getBoundingClientRect(), pk = __cmwSound({ pick: [r.left + r.width / 2, r.top + r.height / 2] });
   const d = window.__drawn || [], axes = d.flatMap((t, i) => (/^(Re|Im) $/.test(t) && d[i + 1] ? [t + d[i + 1]] : []));
   return { title: (document.querySelector('.sv-title') || {}).textContent || '', axes: [...new Set(axes)], main: st.main, key: !!l && !l.hidden && /Height key/.test(name), pitch: __cmwCam('L').pitch, pick: pk, carry: typeof __cmwLandCarry === 'function' ? __cmwLandCarry() : null };
-})())`));
+})())`);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=land3d${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
 // (the words the canvases draw, from the last reset: the floor's axis names)
@@ -141,7 +141,7 @@ for (const [v, h] of [['abs', (x) => `|${x}|`], ['re', (x) => `Re ${x}`], ['im',
   d.speck = { w2: await speck('dr2'), w3: await speck('dr3') };
   ok('d/dz chain, T = 1, plane 3 at rest: no more speckled than plane 2 (no fighting sheets)', d.speck.w3 <= 1.5 * d.speck.w2, d.speck);
   await rest(3);
-  const yaw = JSON.parse(await ev(`JSON.stringify(__cmwCam('L'))`)).yaw;
+  const yaw = (await evJson(`JSON.stringify(__cmwCam('L'))`)).yaw;
   await ev(`__cmwCam('L', { yaw: ${yaw} + 0.003 }); 1`);
   await settled({ max: 30000 });
   await ev(rAF2);

@@ -35,11 +35,11 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await hold(u);
   const tag = `held at u = ${u}`;
   const c = info[u] = {
-    carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar }) => ({ u, s, polar }))(__cmwLandCarry() || {}))')),
-    err: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000)),
-    whole: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000)),
-    poles: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000)),
-    covered: JSON.parse(await ev('JSON.stringify(__cmwLandCover(480, 400, true))', 120000)),
+    carried: await evJson('JSON.stringify((({ u, s, polar }) => ({ u, s, polar }))(__cmwLandCarry() || {}))'),
+    err: await evJson(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000),
+    whole: await evJson(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000),
+    poles: await evJson(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000),
+    covered: await evJson('JSON.stringify(__cmwLandCover(480, 400, true))', 120000),
   };
   const at = (y) => (c.carried.polar || []).some(([px, py]) => Math.abs(px) < 1e-6 && Math.abs(py - y) < 1e-6);
   // (at the glide's ends the frame is the parked plane's own heights: the same bound over the cells whose images are in the

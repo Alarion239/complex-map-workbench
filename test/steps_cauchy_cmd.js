@@ -37,7 +37,7 @@ const read = async () => {
   const at = async (x, y) => { const p = await ev(`(() => { const p = __cmwW2S('L', ${x}, ${y}), r = document.getElementById('canvasL').getBoundingClientRect(); return [p[0] - r.left, p[1] - r.top]; })()`); return png.at(Math.round(p[0]), Math.round(p[1])); };
   return { inside: await at(0.55, 0.3), outside: await at(1.9, 0.45) };
 };
-const legend = async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())'));
+const legend = async () => await evJson('JSON.stringify(__cmwLegend())');
 const tile = () => ev(`(() => { const t = document.querySelector('#dcSeg [data-v="cauchy"]'); return t ? { disabled: t.disabled, tip: t.dataset.tip, desc: t.getAttribute('aria-description'), on: t.classList.contains('on') } : null; })()`);
 
 await open(CIRCLE);
@@ -60,11 +60,11 @@ const t0 = await tile();
 ok('T = z: the Cauchy tile is on and enabled', t0 && t0.on && !t0.disabled, t0);
 const lg0 = await legend();
 ok('T = z: the key names the Cauchy integral and keeps its ring', lg0.caption === 'Cauchy integral' && lg0.ring === true, lg0);
-const nm0 = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
+const nm0 = await evJson('JSON.stringify(__cmwSteps().names.title)');
 ok('T = z: the title is "Cauchy integral over {name}"', /^Cauchy integral over /.test(nm0.role), nm0);
 // (Inside regions would cut f₋ off: the scope control reads Everywhere, disabled with its reason)
 await ev(`(__cmwSteps({ scope: 'in' }), 1)`);
-const sc0 = JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('.sv-scope button')].map((b) => ({ on: b.classList.contains('on'), disabled: b.disabled, tip: b.dataset.tip, v: b.dataset.v })))`));
+const sc0 = await evJson(`JSON.stringify([...document.querySelectorAll('.sv-scope button')].map((b) => ({ on: b.classList.contains('on'), disabled: b.disabled, tip: b.dataset.tip, v: b.dataset.v })))`);
 ok('Cauchy: the scope control is disabled with its reason and reads Everywhere', sc0.length > 0 && sc0.every((b) => b.disabled && /drawn everywhere/.test(b.tip || '')) && sc0.filter((b) => b.on).every((b) => b.v === 'all'), sc0);
 const pxs = await read();
 ok('Cauchy with scope Inside: the outside is still coloured', !isGrey(pxs.outside), pxs);

@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 const DIR = __dirname;
 const Q = path.join(DIR, 'q');
+// a file the runner waits for (READY, N.out, FATAL; ci/browser.js polls for it and reads it as soon as it exists): written beside
+// it and renamed into place, so it appears whole (a rename within one file system is atomic), never empty or part written
+const writeWhole = (f, data) => { fs.writeFileSync(f + '.tmp', data); fs.renameSync(f + '.tmp', f); };
 fs.mkdirSync(Q, { recursive: true });
 // (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
 // and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
@@ -117,6 +120,16 @@ H.faults = (clear = false) => { const u = FAULTS.filter((x) => !x.handled).map((
 H.ev = async (expr, timeout = 20000) => {
   const r = await evRaw(expr, timeout);
   return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
+};
+// evJson(expr, timeout): ev() of an expression that answers a JSON string (JSON.stringify(...) in the page), parsed. A page
+// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception, where
+// JSON.parse of ev()'s { __exc } answer would throw "[object Object]" is not valid JSON.
+H.evJson = async (expr, timeout) => {
+  const r = await H.ev(expr, timeout);
+  const what = JSON.stringify(String(expr).slice(0, 160));
+  if (r && typeof r === 'object' && typeof r.__exc === 'string') throw new Error(`evJson ${what}: ${r.__exc.slice(0, 300)}`);
+  if (typeof r !== 'string') throw new Error(`evJson ${what}: the page answered ${JSON.stringify(r) === undefined ? typeof r : JSON.stringify(r).slice(0, 100)}, not a JSON string`);
+  return JSON.parse(r);
 };
 const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
@@ -379,6 +392,9 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
 H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
+// exampleNames(): the examples' English names, in the order __cmwExample(i) opens them, read from the checkout this folder sits in
+// (ci/steps_scenes.js, with its unescape of a quote)
+H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js')).exampleNames(path.join(DIR, '..', '..'));
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });
@@ -392,7 +408,7 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
   // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
   const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
-  fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
+  writeWhole(path.join(Q, 'READY'), 'ok');
   const done = new Set();
   for (;;) {
     const files = fs.readdirSync(Q).filter((f) => /^\d+\.js$/.test(f) && !done.has(f)).sort((x, y) => parseInt(x) - parseInt(y));
@@ -407,9 +423,9 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
       const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
       if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
-      fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
+      writeWhole(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }
     await sleep(80);
   }
-})().catch((e) => { fs.writeFileSync(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
+})().catch((e) => { writeWhole(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
