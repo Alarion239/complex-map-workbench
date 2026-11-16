@@ -1188,7 +1188,8 @@
   function svHolds(g) {
     svHoldB = 0;
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return false;
-    // (SV.ahead, a test hook's, true in the app: false leaves a glide its frame's own programs alone, the latch's case)
+    // (SV.ahead, a test hook's, true in the app: false asks for no program ahead of the frame that draws with it, neither
+    // the glide's other frames' nor the landing plane's (svLandStart): the latch's case)
     const A = svMotion(), d = A && A.drawn;
     const whole = !!A && SV.ahead !== false && GLR.parallelCompile && !(d && d.at > g.x0 + SV_REST_U && d.at < g.x1 - SV_REST_U) && svSetLinking(A, g.x0, A.to >= A.from ? 1 : -1);
     const h = svHomPaths(g.b, g.u).h;
@@ -1236,7 +1237,7 @@
   // regions, the mask's fills (the tiling's inverse program at opacity 1); at or before it, the classic core's region
   // tiling (its inverse program at the regions' opacity)
   function svLandStart(k) {
-    if (k == null || SV.surf !== 'plane' || !GLR.inverseState || !GLR.inverseRequest || !GLR.parallelCompile) return;
+    if (k == null || SV.surf !== 'plane' || SV.ahead === false || !GLR.inverseState || !GLR.inverseRequest || !GLR.parallelCompile) return;
     if (k > svT()) {
       const h = svInvPaths(k, null, 'flat', { r: null });
       if (!h) return;
