@@ -7,7 +7,7 @@
 // formulas, keys, sheets and long captions, in en, ru and it (Russian set by MathJax in STIX2 as the rest, with its own
 // notation). The video draws no TeX: its text is numbers, t and the globe's labels, written by the code (06-video.js).
 // [#1758] And the caption's displayed formula (F's definition) has as much air under it as over it, as TeX's display
-// skips do: the text after it started 0.2 of the type size higher than the text before it ended.
+// skips do.
 // Needs MathJax: test-mj.html (MathJax 4 and its STIX2 font from vendor/, ci/browser_suites.js PAGES). A command file for a CDP daemon.
 const fails = [], info = { figures: 0, texts: 0, displays: 0 };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -15,7 +15,7 @@ const BASE = `http://localhost:${PORT}`;
 // (a figure that set fewer texts than this, or no caption, would pass whatever it holds)
 const MIN_TEXTS = 20;
 // (#1758) pt by which the air under a caption's displayed formula may differ from the air over it, glyph box to glyph box
-// (the lines' own heights and depths differ a little: the default example's display had 6.7 pt over it and 4.0 under it)
+// (the lines' own heights and depths differ a little: the default example's display has 6.7 pt over it and 6.2 under it)
 const DISPLAY_AIR_TOL = 1;
 // (the gallery's figures with a display under F's name, over the three languages: fewer would pass whatever the check holds)
 const MIN_DISPLAYS = 6;
