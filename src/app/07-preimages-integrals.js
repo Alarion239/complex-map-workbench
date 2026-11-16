@@ -448,8 +448,8 @@
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
   // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
-  function exactPre(j, st, p) {
-    if (!Inverse.pointPre) return null;
+  // the inverse plan of the steps from plane j to plane st, kept per chain
+  function prePlan(j, st) {
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
     let plan = prePlans.get(key);
     if (!plan) {
@@ -457,7 +457,11 @@
       prePlans.set(key, plan);
       while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
     }
-    const r = Inverse.pointPre(plan, C(p[0], p[1]));
+    return plan;
+  }
+  function exactPre(j, st, p) {
+    if (!Inverse.pointPre) return null;
+    const r = Inverse.pointPre(prePlan(j, st), C(p[0], p[1]));
     return r.exact ? r : null;
   }
   function trackPre(P, j, box) {
@@ -500,32 +504,45 @@
       requestRender(side);
     }, 100);
   }
-  // (#1700) the regions of later planes seen in plane j are pulled back per pixel (stagePullbacks), and a piece of a
-  // preimage that lies outside the window shows nothing: "+n off view" says how many there are. A region's pieces are
-  // counted where its chain has finitely many inverse branches (exactPre), by the preimages of one point inside it
-  // (Region.interiorPoint): one per piece. Kept per shape, plane and chain; the window is read each frame
+  // the regions of later planes seen in plane j are pulled back per pixel (stagePullbacks), and a piece of a preimage
+  // that lies outside the window shows nothing: "+n off view" says how many there are. A region's pieces are counted
+  // where its chain has finitely many inverse branches (exactPre) and the region holds none of the chain's critical
+  // values (Inverse.critValues) and has no hole (PULL_SIMPLE: a disc, a rectangle, a polygon, a half-plane, a sector of
+  // less than a full turn, not taken as a complement): then each piece holds exactly one preimage of a point inside it
+  // (Region.interiorPoint), so those preimages count the pieces. Around a critical value, inside the region or in a hole
+  // of it, several of them lie in one piece (z³ over a disc or an annulus about 0: one piece, three preimages), so such a
+  // region, or one whose chain's critical values are not known, gets no count. Kept per shape, plane and chain; the
+  // window is read each frame
+  const PULL_SIMPLE = new Set(['disc', 'rect', 'polygon', 'halfplane', 'sector']);
+  const pullSimple = (s) => PULL_SIMPLE.has(s.kind) && !s.complement && !(s.kind === 'sector' && ((((s.t2 - s.t1) % 360) + 360) % 360) === 0);
   const pullOffCache = new Map();
   let pullOffDrawn = [];
   function pullOffPre(j, s) {
     const st = shapeStage(s), key = JSON.stringify([j, st, chainSig[nSteps()], s]);
+    // (a region with no count is kept as null too)
     let e = pullOffCache.get(key);
-    if (!e) {
-      let p = null;
-      try { p = Region.interiorPoint(s, winOf(s)); } catch (err) { p = null; }
-      const ex = p ? exactPre(j, st, p) : null;
+    if (e === undefined) {
+      let p = null, cv = null, inside = null;
+      if (pullSimple(s)) try { p = Region.interiorPoint(s, winOf(s)); cv = Inverse.critValues(prePlan(j, st)); inside = Region.levelOf(s); } catch (err) { p = null; }
+      const ex = p && cv && !cv.some((w) => inside(w) >= 0) ? exactPre(j, st, p) : null;
       e = ex ? ex.zs.filter((z) => z && CX.isFin(z)) : null;
       pullOffCache.set(key, e);
       while (pullOffCache.size > 64) pullOffCache.delete(pullOffCache.keys().next().value);
     }
     return e;
   }
+  // the points z nearest the centre of the window b first
+  const byCentre = (b) => { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2; return (p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy); };
+  // the "+n more" and "+n off view" words sit this far right of and below the point they follow, in css px
+  const PRE_MORE_PX = 14;
+  // with no piece in view, "+n off view" keeps this far inside the window's edge, in css px
+  const PULL_EDGE_PX = 24;
   // the count for each region of a later plane that has pieces off the window, next to its nearest piece in view (at the
   // window's edge toward the nearest piece off it when none is in view)
   function drawPullOff(pane, j) {
     pullOffDrawn = [];
     if (artMode) return;
-    const b = pane.box(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, labels = [], E = 24;
-    const near = (zs) => zs.slice().sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy))[0];
+    const b = pane.box(), labels = [], E = PULL_EDGE_PX, near = (zs) => zs.slice().sort(byCentre(b))[0];
     for (const s of S.shapes) {
       if (s.visible === false || shapeStage(s) <= j || kindType(s) !== 'area') continue;
       const zs = pullOffPre(j, s);
@@ -533,7 +550,7 @@
       const vis = zs.filter((z) => inBoxZ(z, b, 0)), n = zs.length - vis.length;
       if (!(n > 0)) continue;
       let [x, y] = pane.w2s(vis.length ? near(vis) : near(zs));
-      if (vis.length) { x += 14; y += 14; } else { x = Math.max(E, Math.min(pane.w - E, x)); y = Math.max(E, Math.min(pane.h - E, y)); }
+      if (vis.length) { x += PRE_MORE_PX; y += PRE_MORE_PX; } else { x = Math.max(E, Math.min(pane.w - E, x)); y = Math.max(E, Math.min(pane.h - E, y)); }
       const text = $t('+{n} off view', { n });
       labels.push({ x, y, text, word: true });
       pullOffDrawn.push({ id: s.id, n, all: zs.length, text, x, y });
@@ -546,12 +563,12 @@
     P.hits = [];
     if (side === 'L') drawPullOff(pane, j);
     if (artMode || P.sig !== preSig(j)) return;
-    const ctx = pane.ctx, labels = [], b = pane.box(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const ctx = pane.ctx, labels = [], b = pane.box();
     for (const e of P.list) {
       const s = S.shapes.find((x) => x.id === e.id);
       if (!s) continue;
       const ink = shapeInk(s), name = pointLabel(s, 0, 0);
-      const vis = e.sols.filter((r) => inBoxZ(r.z, b, 0)).sort((p, q) => Math.hypot(p.z.re - cx, p.z.im - cy) - Math.hypot(q.z.re - cx, q.z.im - cy));
+      const near = byCentre(b), vis = e.sols.filter((r) => inBoxZ(r.z, b, 0)).sort((p, q) => near(p.z, q.z));
       vis.slice(0, PRE_SHOW).forEach((r, i) => {
         const [x, y] = pane.w2s(r.z);
         ctx.save();
@@ -565,7 +582,7 @@
       const rest = (e.exact ? e.sols.length : vis.length) - Math.min(PRE_SHOW, vis.length);
       if (vis.length && (rest > 0 || e.more)) {
         const [x, y] = pane.w2s(vis[Math.min(PRE_SHOW, vis.length) - 1].z);
-        labels.push({ x: x + 14, y: y + 14, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
+        labels.push({ x: x + PRE_MORE_PX, y: y + PRE_MORE_PX, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
       }
     }
     if (labels.length) placeLabels(ctx, pane, labels);
@@ -601,7 +618,7 @@
   // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
   const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
   // TEMP-DEBUG-HOOK (removed before publishing)
-  // (#1700) the regions' off-window counts drawn in the last frame
+  // the regions' off-window counts drawn in the last frame
   /** @type {any} */ (window).__cmwPullOff = () => pullOffDrawn.map((e) => Object.assign({}, e));
   /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more, exact: !!e.exact })), trackMs: preOf[side].trackMs, hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
   // TEMP-DEBUG-HOOK
