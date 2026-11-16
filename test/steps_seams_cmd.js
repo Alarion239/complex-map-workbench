@@ -263,7 +263,7 @@ const park = async (x, scope) => {
   // own spacing; END_EPS: how far a step the frame is from its plane; CUT_BANKS: the two banks of a ray cut, the solid one
   // and the dashed one, what the frame draws of Square root's cut)
   const BANK_PX = 2, FAR_PX = 3000, END_EPS = 1e-4, CUT_BANKS = 2;
-  const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+  const names = exampleNames();
   const ex = names.indexOf('Square root and its sheets');
   ok('cut curves: the example is found', ex >= 0, names.length);
   if (ex >= 0) {
@@ -275,7 +275,7 @@ const park = async (x, scope) => {
     // bank's polyline (the frame samples a quarter as many points). The controls, each a frame that must fail the same
     // comparison: the plane 0 parked (a plane that draws its cut as a ray and keeps no banks: a frame with the cut
     // dropped), and the frame's own banks with one removed.
-    const cutsOf = async () => JSON.parse(await ev('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, s: c.s.filter(Boolean) })))'));
+    const cutsOf = async () => await evJson('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, s: c.s.filter(Boolean) })))');
     const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
     const polyDist = (p, poly) => { let m = Infinity; for (let i = 1; i < poly.length; i++) m = Math.min(m, segDist(p, poly[i - 1], poly[i])); return m; };
     // (both ways: every frame sample lies within BANK_PX of the reference polyline, and every reference sample within
