@@ -38,7 +38,8 @@ const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 
-const argv = process.argv.slice(2);
+// (FXC_ARGS: more flags, from the environment: the workflow passes them so that a run needs no edit of its command)
+const argv = process.argv.slice(2).concat((process.env.FXC_ARGS || '').split(/\s+/).filter(Boolean));
 const MODE = argv[0];
 const opt = (name, def) => { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : def; };
 const flag = (name) => argv.includes('--' + name);
@@ -700,7 +701,7 @@ async function cacheStudy() {
   const bundleFile = path.resolve(opt('bundle', path.join(ROOT, 'ci', 'fxc', 'bundle.json')));
   const B = JSON.parse(fs.readFileSync(bundleFile, 'utf8'));
   const timeoutMs = Number(opt('timeout-s', '900')) * 1000, budgetMs = Number(opt('budget-min', '85')) * 60000;
-  const progJobs = opt('jobs', '31,13,0,8').split(',').map(Number), scenes = opt('scenes', 'expsin,mk').split(',');
+  const progJobs = opt('jobs', '31,13,0,8').split(',').map(Number), scenes = opt('scenes', 'expsin,mk').split(',').filter((x) => x && x !== 'none');
   const src = (i) => B.sources[`${B.jobs[i].prog}:${B.jobs[i].variant}`];
   const nameOf = (i) => { const p = B.programs.find((q) => q.id === B.jobs[i].prog); return `${p.name} ${String(p.key).slice(0, 36)} (${B.jobs[i].srcKB} KB)`; };
   if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
@@ -711,17 +712,22 @@ async function cacheStudy() {
   const over = () => Date.now() - t00 > budgetMs;
   for (const [setName, flags] of CACHE_SETTINGS.slice(0, Number(opt('settings', String(CACHE_SETTINGS.length))))) {
     // programs in turn on one profile: cold, warm; then the first (small) and the largest alone on a profile of their own
-    const plans = [['all in turn', progJobs], ['small alone', [progJobs[0]]], ['large alone', [progJobs[progJobs.length - 1]]]];
+    const plans = flag('turn-only') ? [['all in turn', progJobs]] : [['all in turn', progJobs], ['small alone', [progJobs[0]]], ['large alone', [progJobs[progJobs.length - 1]]]];
+    // (what the cache folders hold that grows with a program: GPUCache and GPUPersistentCache, KB)
+    const stored = (prof) => cacheStats(prof).filter((x) => /(^|[\\/])(GPUCache|GPUPersistentCache)$/.test(x.dir)).reduce((a, x) => a + x.kb, 0);
     for (const [plan, js] of plans) {
       const prof = path.join(tmp, `p${res.programs.length}`);
       const row = { setting: setName, plan, passes: [] };
       res.programs.push(row);
       for (const pass of ['cold', 'warm']) {
         const cells = [];
+        let before = stored(prof);
         for (const j of js) {
           if (over()) { cells.push({ job: j, s: null, skipped: true }); continue; }
           const r = await cacheLinkOne(prof, flags, src(j), timeoutMs);
-          cells.push({ job: j, s: r.s });
+          const now = stored(prof);
+          cells.push({ job: j, s: r.s, grew: now - before });
+          before = now;
           console.log(`[fxc] cache ${setName.slice(0, 20)} ${plan} ${pass}: ${nameOf(j)} ${r.s == null ? 'timeout' : r.s.toFixed(1) + ' s'}`);
         }
         row.passes.push({ pass, cells, cache: cacheStats(prof) });
@@ -745,9 +751,9 @@ async function cacheStudy() {
   const f = (v) => (v == null ? '' : v.toFixed(1));
   const lines = ['### The program cache: a second Chrome on the same profile', '', 'Link seconds. A program is a hit when the warm link takes under 35 % of the cold one (or under 1 s).', ''];
   for (const row of res.programs) {
-    lines.push(`**Programs, ${row.plan}; ${row.setting}**`, '', '| program | cold s | warm s | warm / cold |', '|---|---|---|---|');
+    lines.push(`**Programs, ${row.plan}; ${row.setting}**`, '', '| program | source KB | cold s | warm s | warm / cold | cache grew by (KB, cold; warm) |', '|---|---|---|---|---|---|');
     const [c, w] = row.passes;
-    c.cells.forEach((x, i) => lines.push(`| ${esc(nameOf(x.job))} | ${x.skipped ? 'skipped' : f(x.s)} | ${f(w.cells[i].s)} | ${x.s && w.cells[i].s != null ? (w.cells[i].s / x.s).toFixed(2) : ''} |`));
+    c.cells.forEach((x, i) => lines.push(`| ${esc(nameOf(x.job))}, variant ${B.jobs[x.job].variant} | ${B.jobs[x.job].srcKB} | ${x.skipped ? 'skipped' : f(x.s)} | ${f(w.cells[i].s)} | ${x.s && w.cells[i].s != null ? (w.cells[i].s / x.s).toFixed(2) : ''} | ${x.grew == null ? '' : x.grew}; ${w.cells[i].grew == null ? '' : w.cells[i].grew} |`));
     lines.push('', `Cache after the cold pass: ${cacheLine(c.cache)}. After the warm pass: ${cacheLine(w.cache)}.`, '');
   }
   for (const row of res.app) {
