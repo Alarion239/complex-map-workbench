@@ -33,6 +33,9 @@ const NAMES = ['z', 'w₁', 'w₂'];
 const PARKED = [[1, 0.5, 0, 1, 'col'], [1, 0.25, 0, 1, 'col'], [2, 0.5, 0, 1, 'col'], [1, 1.5, 1, 2, 'carried'], [0, 0.5, 0, 1, 'carried']];
 // the colour button's reason while parked
 const PARK_WHY = { en: 'Stop on a plane to colour from it', ru: 'Чтобы взять из плоскости цвет, остановитесь на ней' };
+// the colour button's words while parked, and the Landscape title's role (kept while parked)
+const PARK_BTN = { en: 'Colour from here', ru: 'Цвет отсюда' };
+const LAND_ROLE = { en: 'landscape of', ru: 'рельеф функции' };
 const PARK_WORD = { en: { col: 'coloured from', carried: 'colour carried from' }, ru: { col: 'цвет из', carried: 'цвет, перенесённый из' } };
 
 for (const lang of ['en', 'ru']) {
@@ -106,7 +109,7 @@ for (const lang of ['en', 'ru']) {
     if (kind === 'plane') ok(`${tag}: the readout does not repeat itself at the colour plane`, !/∠/.test(ro || ''), ro);
     info[tag] = { title, ro };
   }
-  // parked between two planes (#1665): the title names the span the live label names ("z → w₁ · coloured from w₁", past T
+  // parked between two planes: the title names the span the live label names ("z → w₁ · coloured from w₁", past T
   // "colour carried from"), and the colour button is not pressed, as the place is no plane
   for (const [T, x, a, b, kind] of PARKED) {
     const tag = `${lang} T=${NAMES[T]} parked at ${x}`;
@@ -117,7 +120,9 @@ for (const lang of ['en', 'ru']) {
     const want = `${plain(NAMES[a])} → ${plain(NAMES[b])} · ${PARK_WORD[lang][kind]} ${NAMES[T]}`;
     const title = await txt('.sv-title'), s = await ev('__cmwSteps()');
     const pressed = await ev("(document.querySelector('.sv-cp') || { getAttribute: () => null }).getAttribute('aria-pressed')");
-    info[tag] = { title, label: s.label, pressed, i: s.i };
+    const words = await txt('.sv-cp .sv-cp-t');
+    info[tag] = { title, label: s.label, pressed, words, i: s.i };
+    ok(`${tag}: the colour button reads "${PARK_BTN[lang]}"`, words === PARK_BTN[lang], words);
     ok(`${tag}: the live label names the span`, s.label.includes(NAMES[a]) && s.label.includes(NAMES[b]), s.label);
     ok(`${tag}: the title reads "${want}"`, title === want, title);
     ok(`${tag}: the colour button is not pressed`, pressed === 'false', pressed);
@@ -138,6 +143,21 @@ for (const lang of ['en', 'ru']) {
       ok(`${tag}: the C key leaves the colour plane and stays parked`, afterC.T === T && Math.abs(afterC.x - x) < 1e-9, afterC);
       ok(`${tag}: the C key says why`, afterC.live >= 1, afterC);
     }
+  }
+  // parked in the Landscape: the title keeps the relief's role ("landscape of …"), and the colour button is off as on the plane
+  {
+    const tag = `${lang} Landscape, T=w₁ parked at 0.5`;
+    await ev(`__cmwSteps({ T: 1 }); __cmwSteps({ go: 0, now: true }); __cmwSteps({ surf: 'land' }); 1`);
+    await until("__cmwSteps().surf === 'land' && __cmwSteps().main === 'land'");
+    await ev('__cmwSteps({ park: 0.5 }); 1');
+    await until('(() => { const s = __cmwSteps(); return Math.abs(s.x - 0.5) < 1e-9 && !s.anim; })()');
+    await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+    const title = await txt('.sv-title'), dis = await ev("document.querySelector('.sv-cp').getAttribute('aria-disabled')"), words = await txt('.sv-cp .sv-cp-t');
+    info[tag] = { title, dis, words };
+    ok(`${tag}: the title keeps the relief's role`, (title || '').includes(LAND_ROLE[lang]) && !(title || '').includes('→'), title);
+    ok(`${tag}: the colour button is off and reads "${PARK_BTN[lang]}"`, dis === 'true' && words === PARK_BTN[lang], { dis, words });
+    await ev(`__cmwSteps({ surf: 'plane' }); __cmwSteps({ go: 0, now: true }); 1`);
+    await until("__cmwSteps().surf === 'plane' && __cmwSteps().i === 0 && !__cmwSteps().moving");
   }
   // the left panel: shapes by plane, no X and no Y
   await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: 0, now: true }); 1`); await settle(500);
