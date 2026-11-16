@@ -20,8 +20,9 @@
   // keystroke. Those are the steps view's prestart (svPrestartSoon) and the warm-up's groups (the init part's warmNext).
   // A pause of 300 ms started them for every prefix of the formula: typed at 450 ms per character, a 10-term sum linked
   // 220 programs in 162 s of FXC on WARP, where pasting the same formula links 16. typedEl: the field typed in, until
-  // the edit is committed; typingHold() -> the ms left to wait (0: nothing held)
-  const TYPED_COMMIT_MS = 1500;
+  // the edit is committed; typingHold() -> the ms left to wait (0: nothing held). (1 s, not 1.5: a glide started 2 s after
+  // the last keystroke finds its programs linked, as it did with the 300 ms pause; a pause in typing is shorter)
+  const TYPED_COMMIT_MS = 1000;
   let typedEl = null, typedT = 0;
   const typedField = (t) => !!t && (t.tagName === 'TEXTAREA' || (t.tagName === 'INPUT' && /^(text|search|number)$/.test(t.type)) || !!t.isContentEditable);
   function typingHold() {

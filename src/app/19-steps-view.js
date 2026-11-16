@@ -940,7 +940,7 @@
           if (P) { svPoleMake(P, left(), 'idle'); if (P.k > SV_POLE_K && svHoldB === P.b) { svHoldB = 0; requestRender('L'); } }
           else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
         }
-        if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
+        if (svPolesLeft() || svRingLeft() || (svMeshNext() && !(typingHold() > 0))) { idle(next); return; }
       } catch (e) { /* (a map that cannot be evaluated: nothing more to make) */ }
       svPoleBusy = false;
     };
@@ -1552,8 +1552,12 @@
   }
   // the idle job's share of those meshes: all of them at once (each built whole), only with at least half a slice's
   // time left; false when there are none to make or too little time
+  // (#1547: where links are slow, not while a formula is being typed: the meshes reserve the glide's programs of the
+  // chain, carryLayersReserve; the commit starts the job again, svTypedCommit. Meanwhile the layers' own program, one for
+  // every chain, links, so the reserve after the commit finds it ready, as one during the typing did)
   function svMeshAhead(ms) {
     const key = svMeshNext();
+    if (key && typingHold() > 0) { if (svOpacity() < 0.999 && GLR.prestart) GLR.prestart(['carryLayers']); return false; }
     if (!key || ms < SV_POLE_BUDGET / 2) return false;
     svMeshDone = key;
     if (svOpacity() < 0.999 && GLR.carryLayersReserve) GLR.carryLayersReserve(svOpacity());
@@ -3267,8 +3271,8 @@
       (window.requestIdleCallback || setTimeout)(svPrestart);
     }, ms);
   }
-  // (a typed edit committed: a prestart still to come starts now)
-  function svTypedCommit() { if (svPrestartTimer) svPrestartSoon(0); }
+  // (a typed edit committed: a prestart still to come starts now, and the idle job's meshes it held, svMeshAhead)
+  function svTypedCommit() { if (svPrestartTimer) svPrestartSoon(0); svPolesWatch(); }
   // a program of the main panes landed (GLR.onReady) and the left pane has drawn no frame since (svDrawPlane clears it)
   let svRedrawDue = false;
   // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
