@@ -1,18 +1,18 @@
 // ci/glprof.js's walks name examples by their English names (src/app/15-examples-guide.js): every name the extended and
-// mountain walks use is an example's (and the steps walk's, #439), read with glprof's own pattern, and the GPU gate offers each walk. Node only.
+// mountain walks use is an example's (and the steps walk's, #439), read by ci/steps_scenes.js's exampleNames (as glprof's exampleIndex does), and the GPU gate offers each walk. Node only.
 // Run: node test/t_glprof_walks.js
 'use strict';
 const fs = require('fs');
 const path = require('path');
 const ROOT = path.join(__dirname, '..');
+const SC = require('../ci/steps_scenes');
 const G = fs.readFileSync(path.join(ROOT, 'ci', 'glprof.js'), 'utf8');
 const W = fs.readFileSync(path.join(ROOT, '.github', 'workflows', 'gpu-gate.yml'), 'utf8');
 let pass = 0, fail = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL ' + name + (got !== undefined ? ' ' + JSON.stringify(got) : '')); } };
 
 // the examples' names as glprof's exampleIndex reads them
-const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
-const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = SC.exampleNames(ROOT);
 ok('the examples are found', names.length > 20, names.length);
 const list = /const EXTENDED_EXAMPLES = (\[[^\n]*\]);/.exec(G);
 const mk = /const MOUNTAIN_KING = ('[^'\n]*');/.exec(G);

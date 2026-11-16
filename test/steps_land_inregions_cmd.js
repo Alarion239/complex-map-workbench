@@ -33,11 +33,11 @@ const hoverAt = async (x, y) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
   await settled({ max: 20000 });
   await ev(rAF2);
-  return JSON.parse(await ev(`JSON.stringify([...document.querySelectorAll('#leftReadout .rk')].map((e) => e.textContent.trim()))`));
+  return await evJson(`JSON.stringify([...document.querySelectorAll('#leftReadout .rk')].map((e) => e.textContent.trim()))`);
 };
 // the same over the pane position p (CSS px)
 const hoverRows = async (p) => {
-  const c = JSON.parse(await ev(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + ${p[0]}, r.top + ${p[1]}]; })())`));
+  const c = await evJson(`JSON.stringify((() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + ${p[0]}, r.top + ${p[1]}]; })())`);
   return hoverAt(c[0], c[1]);
 };
 const gap = (a, b) => Math.max(...a.map((v, k) => Math.abs(v - b[k])));

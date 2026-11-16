@@ -126,7 +126,7 @@ const Export = (() => {
       }
       try { if (!(await smPrepareExport(panes, alive, dims.gen || 0))) return false; } catch (e) { console.error('SphereMesh export', e); }
     }
-    if (!GLR.ok || !GLR.inverseRequest || A.S.exactImages === false) return warmExport(panels, alive, morphFig);
+    if (!GLR.ok || !GLR.inverseRequest) return warmExport(panels, alive, morphFig);
     const kinds = new Set();
     const need = (role, kind, map) => {
       if (!PHASE[role][kind]) return;

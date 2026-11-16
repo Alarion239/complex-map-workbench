@@ -327,14 +327,14 @@ for (const T of ['null', 0]) {
   for (let i = 0; i < nPl; i++) {
     await ev(`(__cmwSteps({ go: ${i}, now: true }), 1)`);
     await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: 15000 });
-    pane.push(JSON.parse(await ev(`JSON.stringify({ cap: __cmwLegend().caption, title: __cmwSteps().names.title.name.replace(/<\\/?i>/g, '').replace(/<sub>(\\d+)<\\/sub>/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[c]).join('')) })`)));
+    pane.push(await evJson(`JSON.stringify({ cap: __cmwLegend().caption, title: __cmwSteps().names.title.name.replace(/<\\/?i>/g, '').replace(/<sub>(\\d+)<\\/sub>/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[c]).join('')) })`));
   }
   await ev(`(__cmwSteps({ go: 0, now: true }), 1)`);
   await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0', max: 15000 });
   for (let i = 0; i < nPl; i++) for (const [dx, at] of [[0, i], [0.4, i], [-0.4, i], [0.6, i + 1], [-0.6, i - 1]]) {
     const x = i + dx, want = pane[Math.max(0, Math.min(nPl - 1, at))];
     if (x < 0 || x > nPl - 1) continue;
-    const k = JSON.parse(await ev(`JSON.stringify(__cmwFig.svKey(${x}))`));
+    const k = await evJson(`JSON.stringify(__cmwFig.svKey(${x}))`);
     if (k.carried) carriedSeen++;
     info[`key T ${T} at ${x}`] = { k, want };
     ok(`T ${T}, thread position ${x}: the key's words are the pane's at plane ${at}`, (k.carried ? k.carried.text : k.caption) === want.cap && k.title === want.title, { k, want });
@@ -344,11 +344,11 @@ ok('past the colour plane the key says where the colour is carried from', carrie
 // the glide's label words are the pane's readout: a frame's label, then the pane parked at the same place says it too. The
 // pane's spoken value is the readout followed by the Play range's words, and no range is set here, so it is the label itself
 {
-  const lb = JSON.parse(await ev(`await (async () => { try {
+  const lb = await evJson(`await (async () => { try {
     const g = __cmwFig.glide(), vopt = ${JSON.stringify(VIDEO_OPT)};
     const r = await __cmwFig.makeVideo({ video: vopt, keepForCheck: true }), chk = await __cmwFig.videoCheck(5, ${PROBE_W}, ${PROBE_H});
     return JSON.stringify({ lo: g.lo, hi: g.hi, t: chk && chk.t, label: chk && chk.label, frames: r.frames });
-  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 600) }); } })()`, VIDEO_WAIT_MS));
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 600) }); } })()`, VIDEO_WAIT_MS);
   ok('a glide frame reports the label it drew', !lb.err && typeof lb.label === 'string' && lb.label.length > 0, lb);
   if (!lb.err && lb.label) {
     const park = async (x) => {
@@ -368,7 +368,7 @@ ok('past the colour plane the key says where the colour is carried from', carrie
 for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
   await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${go}, now: true }), 1)`);
   await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${go} && __cmwSteps().T === ${T}`, max: 15000 });
-  const sv = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ view: f && f.view, key: f && f.info ? f.info.keyLine || null : null, cap: __cmwLegend().caption, W: f && f.W, H: f && f.H, ring: f ? f.boxes.filter((b) => b.kind === 'ring-mark').map((b) => ({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) : [] }); })()`, 60000));
+  const sv = await evJson(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ view: f && f.view, key: f && f.info ? f.info.keyLine || null : null, cap: __cmwLegend().caption, W: f && f.W, H: f && f.H, ring: f ? f.boxes.filter((b) => b.kind === 'ring-mark').map((b) => ({ x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) : [] }); })()`, 60000);
   ok(`T ${T}, plane ${go}: the still is built as ${want}`, sv.view === want, sv);
   // (a plain plane's still carries the pane's key: its line is the caption the pane's legend shows; a Phase still has none of its own here)
   // (the ring's marks, drawn by the code the plain still shares, lie inside the figure on both stills)
@@ -379,7 +379,7 @@ for (const [T, go, want] of [[0, 1, 'xyL'], [nPl - 1, 0, 'phase']]) {
 await view(1440, 430, false);
 await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
 await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().T === 0`, max: 15000 });
-const short = JSON.parse(await ev(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ H: f.H, view: f.view, boxes: f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => ({ k: b.kind, y1: b.y1, tex: b.tex })) }); })()`, 60000));
+const short = await evJson(`await (async () => { const f = await __cmwFig.build({}); return JSON.stringify({ H: f.H, view: f.view, boxes: f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => ({ k: b.kind, y1: b.y1, tex: b.tex })) }); })()`, 60000);
 ok('a short pane: the still\'s key (ring marks and lines) lies inside the figure', short.view === 'xyL' && short.boxes.length >= 5 && short.boxes.every((b) => b.y1 <= short.H + FIT_SLACK), short);
 await view(1440, 900, false);
 await open(1, 'plane');

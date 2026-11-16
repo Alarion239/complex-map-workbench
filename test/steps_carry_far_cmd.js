@@ -27,7 +27,7 @@ const setup = async (expr) => need(await ev(expr), expr.slice(0, 60));
 const steps = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); __cmwSteps({ T: 0 }); 1`); await wait(); };
 // the left pane's pixels (lpx), its camera and size (paneOf), the front point (fronts) and the Joukowski path (joukPath):
 // test/lib/carry_kit.js
-const { lpx, paneOf, exampleNames, bareCount, grid, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const { lpx, paneOf, bareCount, grid, fronts, joukPath } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // the held thread (hold; window.__svScrubUp lets go), the kept frames (grab), their cross-fade (fade) and the exact
 // picture's judge (judge): test/lib/held_frames.js
 const { hold, grab, fade, judge, JUDGE_MIN_N } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
