@@ -112,8 +112,8 @@
   // SphereMeshes (smNeed's 'linking'), each vertex coloured by its source point z's point of plane T, G(z) (cpuMap of the
   // stages 0 to T), as the colour plane colours it: G is computed here, a mesh at a time, in the colour plot's stand-in's
   // slices, and goes to the GPU with the mesh (GLR.setPreW). Nothing is drawn until every mesh has its points, so a mesh
-  // whose work does not fit the budget (each mesh's) rests instead of stopping: it goes on once the time since it
-  // started, at CARRIED_SHARE of the main thread, pays for the work left, costed again after each slice (a busy CPU, as
+  // whose work does not fit the budget (each mesh's) rests, and goes on once the time since it started, at
+  // CARRIED_SHARE of the main thread, pays for the work left, costed again after each slice (a busy CPU, as
   // a driver compiling on every core, makes the costing grow, and a CPU that frees up makes it shrink). A mesh whose
   // work is costed past CARRIED_MAX ms once an eighth of its corners are done gets none (before that, the costing runs
   // far high: the first slice's evaluations wait on the JIT, and the first triangles bring the most new points). G is

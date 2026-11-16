@@ -166,10 +166,10 @@ ok('the carried colour past colour plane w₁, once linked: the stand-in had its
 // 0.2 conj(1/w₁) (the pole at w₂ = 0). Rings of 12 points about w₂ = 0, 4, 8 and 12 px out, read while the links are
 // held and again from the carried colour once they are not, within 16 levels: the stand-in colours a triangle from its
 // vertices' points of w₁ and the linked program from each fragment's own, up to 9 levels apart on these rings (at 4, 8
-// and 12 px alike); (ln |w₁|, arg w₁) interpolated across the zero or the pole put them over 100 levels apart. Then the
-// zero's scene with the CPU six times slower from the page's start (CDP's throttling), as a driver compiling on every
-// core makes it: the job's work does not fit its budget, so it rests until it does, and the rings come in colour (a job
-// that gave up at its budget left them paper)
+// and 12 px alike); interpolating (ln |w₁|, arg w₁) across the zero or the pole puts them over 100 levels apart. Then
+// the zero's scene with the CPU six times slower from the page's start (CDP's throttling), as a driver compiling on
+// every core makes it: while the job's work does not fit its budget, the job rests; the row holds that it finishes and
+// that the rings are in colour
 const WAYS = { zero: ['z-1', 'z+0.2\\overline{z}'], pole: ['\\frac{1}{z-1}', '\\frac{1}{z}+\\frac{0.2}{\\overline{z}}'] };
 for (const [name, scene, slow] of [['zero', 'zero', 1], ['pole', 'pole', 1], ['slow', 'zero', 6]]) {
   const nsw = 'lsw' + name + Date.now(), [e1, e2] = WAYS[scene];
