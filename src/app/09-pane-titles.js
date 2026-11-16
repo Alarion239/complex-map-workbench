@@ -1043,15 +1043,18 @@
   }
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
-  // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
-  // to the lowest of them; it is recomputed each time the key is shown)
+  // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
+  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the distance to the lowest of
+  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size)
+  const LEGEND_HIT_PX = 8;
   function placeKeyPop(box) {
     const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
     box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
-    if (!el || (!head && box.classList.contains('collapsed'))) return;
+    if (!el) return;
+    const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
     // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
@@ -1066,9 +1069,12 @@
       let drop = 0;
       for (const e of plot.querySelectorAll(sel)) {
         const r = e.getBoundingClientRect();
-        if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
+        if (r.width && r.left < c.right + reach && c.left - reach < r.right && r.top < c.bottom + reach && c.top - reach < r.bottom) drop = Math.max(drop, r.bottom + 6 + reach - c.top);
       }
       if (drop <= 0) return;
+      // (a folded chip does not go under the context bar: the readout it would touch is the lesser harm)
+      const bar = reach ? document.querySelector('.ph-ctx.in') : null;
+      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) return;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
     }
   }

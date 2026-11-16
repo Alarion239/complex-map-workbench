@@ -1452,6 +1452,11 @@
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
+      // (on a phone the chip lies in the plot, folded: it stays below the readout as it changes size)
+      try {
+        const plot = el.parentNode, ro = new ResizeObserver(() => requestAnimationFrame(() => placeKeyPop(el)));
+        if (plot && !/** @type {HTMLElement} */ (plot).classList.contains('pane-head')) for (const e of /** @type {HTMLElement} */ (plot).querySelectorAll(':scope > .chip.readout')) ro.observe(e);
+      } catch (e) { /* no ResizeObserver */ }
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
