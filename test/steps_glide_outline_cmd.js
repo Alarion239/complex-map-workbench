@@ -6,11 +6,12 @@
 // u, H_u(h^-1(w)) (H_u: the glide's homotopy, __cmwSteps().glide.Hb), and the frame at u has that shape's stroke within
 // RING_R CSS px of it, for at least HIT_MIN of at least MIN_RING of them: a pixel that differs from the same frame with
 // the strokes hidden and, as the stroke comes in over the glide at opacity u, lies TOWARD x u of a channel's range
-// nearer the shape's ink than that frame's (from FULL_U on, the ink itself, within INK_TOL). And the strokes stack in
-// the shapes' order, as at rest: where the line l0 of plane 0, listed after the disc c1 of plane 1, crosses c1's
-// outline (the pixels of l0's ink in plane 1's parked frame with c1's ink within CROSS_R px), the frame at U_END has
-// l0's ink at the same pixel (within 1 px) for at least STACK_MIN of at least MIN_CROSS of them. Inside regions and
-// Everywhere (SCOPES).
+// nearer the shape's ink than that frame's (from FULL_U on, the ink itself, within INK_TOL). Everywhere, before FULL_U,
+// the drawn pixel alone: over the colour, a stroke at opacity u with its light casing can land farther from its ink
+// than a background already near that ink. And the strokes stack in the shapes' order, as at rest: where the line l0 of
+// plane 0, listed after the disc c1 of plane 1, crosses c1's outline (the pixels of l0's ink in plane 1's parked frame
+// with c1's ink within CROSS_R px), the frame at U_END has l0's ink at the same pixel (within 1 px) for at least
+// STACK_MIN of at least MIN_CROSS of them. Inside regions and Everywhere (SCOPES).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -55,7 +56,7 @@ const snap = async (tag, hide) => {
 };
 const park = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-9 && GLR.pendingLinks === 0 && !__cmwSteps().hold` }); };
 // plane 1's outline of shape id (P1, P10: strokes hidden) carried to the frame at u (M, M0)
-const carried = (id) => ev(`(() => {
+const carried = (id, scope) => ev(`(() => {
   const g = __cmwSteps().glide, K = window.__heldPx, P = K.P1, P0 = K.P10, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
   const W = c.width, H = c.height, dpr = W / g.w, v = g.view, hex = __cmwLook(${JSON.stringify(id)}, 'L').edge.replace('#', '');
   const ink = [0, 2, 4].map((k) => parseInt(hex.slice(k, k + 2), 16));
@@ -64,7 +65,7 @@ const carried = (id) => ev(`(() => {
   // (the stroke comes in over the glide, at opacity u: before FULL_U, the pixel has moved towards the shape's ink by
   // TOWARD of a channel's range times u from the frame with the strokes hidden; from FULL_U, it is the ink)
   const fromInk = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2]));
-  const inkAt = (i, k) => (k >= ${FULL_U} ? near(M, i) : fromInk(M, i) + ${TOWARD} * 255 * k <= fromInk(M0, i));
+  const inkAt = (i, k) => (k >= ${FULL_U} ? near(M, i) : ${JSON.stringify(scope)} === 'all' || fromInk(M, i) + ${TOWARD} * 255 * k <= fromInk(M0, i));
   // (h^-1(w) = (d w - b) / (a - c w))
   const { a, b, c: cc, d } = ${JSON.stringify(H1)};
   const mul = (p, q) => [p[0] * q[0] - p[1] * q[1], p[0] * q[1] + p[1] * q[0]];
@@ -87,9 +88,9 @@ const carried = (id) => ev(`(() => {
   }
   return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, u: +g.u.toFixed(3) };
 })()`);
-const check = async (r, where) => {
+const check = async (r, where, scope) => {
   for (const id of ST.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id)) {
-    const q = r[`${id} ${where}`] = await carried(id);
+    const q = r[`${id} ${where}`] = await carried(id, scope);
     ok(`${id}'s stroke ${where} is plane 1's parked stroke carried there (at least ${HIT_MIN * 100} % of ${MIN_RING}+ pixels, its ink within ${RING_R} px)`, q.n >= MIN_RING && q.frac >= HIT_MIN, q);
   }
 };
@@ -120,13 +121,13 @@ for (const scope of SCOPES) {
   for (const u of HOLD_U) {
     r[`hold ${u}`] = await hold(u);
     await snap('M'); await snap('M0', true);
-    await check(r, `held at u = ${u}`);
+    await check(r, `held at u = ${u}`, scope);
     await ev('window.__svScrubUp(), 1');
     await park(0);
   }
   await park(U_END);
   await snap('M'); await snap('M0', true);
-  await check(r, `parked at u = ${U_END}`);
+  await check(r, `parked at u = ${U_END}`, scope);
   const q = r.stack = await stacked();
   ok(`at u = ${U_END} the strokes stack as at rest: l0 over c1's outline where they cross (at least ${STACK_MIN * 100} % of ${MIN_CROSS}+ pixels)`, q.n >= MIN_CROSS && q.frac >= STACK_MIN, q);
 }
