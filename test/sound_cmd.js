@@ -26,8 +26,6 @@ const fails = [], R = {};
 const { morphKey, mainView, morphPlayKey } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const W = (re, im) => ev(`__cmwW2S('L', ${re}, ${im})`);
-const snd = () => ev('__cmwSound()');
 // (Hear the function: the marimba notes replace the pointer harp, perfwin/sound/impl/SOUND-PLAN.md 5.1. The
 // engine's Sound.hear.state().counts run since load; this reads them as harpCount() did, since the last call: up and
 // down are the red line's crossings (line k ≡ 0 mod n, the harp's low D), notes the notes played, cracks the cuts)
@@ -43,6 +41,8 @@ const live = async () => (await snd()).live;
 // every AudioContext the page makes is counted (window.__acN)
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: '(() => { window.__acN = 0; const A = window.AudioContext; if (!A) return; window.AudioContext = class extends A { constructor(...a) { super(...a); window.__acN++; } }; })();' });
 const ns = 'sndcmd' + Date.now();
+// (the pointer's screen point and the sound state: the kit's; the circle, spy, made and inj above and below are this file's own)
+const { W, snd } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'sound_kit.js'), 'utf8'))({ ev, send, move, click, settled, loadHere, settle, glide, ns, fn: null });
 const SQ = { steps: [{ type: 'custom', params: { expr: 'z^2-1', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 120 } };
 await view(1440, 900, false);
 await loadHere(ns, SQ);
