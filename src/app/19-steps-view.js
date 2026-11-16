@@ -21,7 +21,7 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
-    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn)
+    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn, set, landAsked}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn), set: the programs of the glide it is in (svSetLinking), landAsked: those of the plane it ends on begun (svLandStart)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
@@ -35,7 +35,7 @@
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
-  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn, set, landAsked} a glide (held, drawn, set, landAsked: svLinkHold's), or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
@@ -1162,6 +1162,8 @@
       // (released: the frame is the one the motion waited on, and its clock goes on from there)
       if (A && A.held) { SV.g.set(A.held.at); svSetElapsed(A, A.held.el); }
       svMotionDrawn(A);
+      // (its frame drawable: in the motion's last glide, the programs of the plane it ends on, after the glide's own)
+      if (A && !A.landAsked && Math.round(A.to) === (A.to >= A.from ? g.x1 : g.x0)) { A.landAsked = true; svLandStart(svPlanes()[Math.round(A.to)]); }
       return null;
     }
     if (!A) return g.x0;
@@ -1180,10 +1182,15 @@
     if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; }
   }
   // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
-  // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0)
+  // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0); and
+  // while a motion has drawn no frame of g's glide, any program of the glide's other frames (svSetLinking), so it moves
+  // only once it has every program its frames ask for, where links run in the background (KHR_parallel_shader_compile)
   function svHolds(g) {
     svHoldB = 0;
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return false;
+    // (SV.ahead, a test hook's, true in the app: false leaves a glide its frame's own programs alone, the latch's case)
+    const A = svMotion(), d = A && A.drawn;
+    const whole = !!A && SV.ahead !== false && GLR.parallelCompile && !(d && d.at > g.x0 + SV_REST_U && d.at < g.x1 - SV_REST_U) && svSetLinking(A, g.x0, A.to >= A.from ? 1 : -1);
     const h = svHomPaths(g.b, g.u).h;
     const linking = !!h && [h, svStagedOf(false, g), svStagedCurves(g)].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
     const P = linking ? null : svTracksMissing(g.b, h);
@@ -1194,7 +1201,48 @@
     }
     svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
-    return linking || !!svHoldB;
+    return whole || linking || !!svHoldB;
+  }
+  // The inverse paths the frames of the glide between the planes at places j and j + 1 draw with over its whole course:
+  // for each run of the SV_SET_N sample places u, in the order of travel (dir), whose step ops are of one kind (one
+  // inverse program, invHomKinds), the frame at the run's first u: its colour's paths (svInvPaths) and those of the later
+  // planes' shapes (svStagedOf, svStagedCurves). [{ q: {list, paths}, b, u }]
+  const SV_SET_N = 16;
+  function svGlideSet(j, dir) {
+    const P = svPlanes(), b = P[j + 1], out = [], memo = svHomMemo, seen = new Set();
+    if (b == null || b === P[j] || isDeriv(b)) return out;
+    for (let i = 0; i < SV_SET_N; i++) {
+      const u = (dir < 0 ? SV_SET_N - i - 0.5 : i + 0.5) / SV_SET_N, k = invHomKinds(0, b, u);
+      if (seen.has(k)) continue;
+      seen.add(k);
+      const g = svBetween(j + u, null);
+      svHomMemo = null;
+      for (const q of [svHomPaths(b, u).h, svStagedOf(false, g), svStagedCurves(g)]) if (q) out.push({ q, b, u });
+    }
+    svHomMemo = memo;
+    return out;
+  }
+  // whether a program of the glide between the planes at places j and j + 1 still links (svGlideSet, each begun here
+  // when missing, in the order of travel): its set kept on the motion A while the chain, the window and the look stay
+  function svSetLinking(A, j, dir) {
+    const key = [j, dir, svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity()].join('|');
+    if (!A.set || A.set.key !== key) A.set = { key, list: svGlideSet(j, dir) };
+    let linking = false;
+    for (const { q, b, u } of A.set.list) for (let i = 0; i < q.paths.length; i++) if (svInvState(q, i, b, u) === 'pending') linking = true;
+    return linking;
+  }
+  // The programs of plane k's frame at rest, begun where links run in the background (KHR_parallel_shader_compile; else
+  // asking links them at once): past the colour plane, its own paths' carried colour (svCarryExact's) and, Inside
+  // regions, the mask's fills (the tiling's inverse program at opacity 1); at or before it, the classic core's region
+  // tiling (its inverse program at the regions' opacity)
+  function svLandStart(k) {
+    if (k == null || SV.surf !== 'plane' || !GLR.inverseState || !GLR.inverseRequest || !GLR.parallelCompile) return;
+    if (k > svT()) {
+      const h = svInvPaths(k, null, 'flat', { r: null });
+      if (!h) return;
+      h.paths.forEach((p, i) => svInvState(h, i, k, null));
+      if (svMaskOn()) GLR.inverseRequest(1, 'flat');
+    } else if (k > 0 && invPlan(0, k).ok && visibleAreas().length) GLR.inverseRequest(S.alpha, 'flat');
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
   // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone

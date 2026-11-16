@@ -458,6 +458,13 @@
     if (!prep.ok) return F(prep.reason || 'shape not eligible');
     return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
   }
+  // the kinds of step k's homotopy ops at t as invHomPath plans them (Inverse.homOps on the chain's skeleton), '' with
+  // none: the frames of a glide whose ops are of one kind draw with one inverse program
+  function invHomKinds(a, k, t) {
+    let hk = null;
+    try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+    return hk && hk.ok ? hk.ops.map((o) => o.kind + (o.p && o.p.deg ? '^' + o.p.deg : '')).join() : '';
+  }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
     if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;

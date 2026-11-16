@@ -38,7 +38,9 @@
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
 //   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
-//   (its thread still never goes back), and it ends within seconds of the link landing;
+//   (its thread still never goes back), and it ends within seconds of the link landing; that with the glide asking for
+//   its frames' own programs alone, as they come (the latch's case); as the app glides, it asks for every program of
+//   its frames before it moves, waits for them at its start and then never stands still between the planes;
 // - the default example, colour plane 0, the glide's program linked, then › pressed with the links from then on landing
 //   seconds late: from the landing until plane 1's own programs land, every frame at rest on plane 1 is the inverse
 //   pass's by the glide's ops at its end (its last picture), never the carried meshes', then plane 1's own, and those two
@@ -350,16 +352,23 @@ try {
   }
   // exp(sin z) typed over z² + 1 (a disc, Inside regions), on a fresh page whose links land late (the suite's), the glide
   // to plane 1 with its time a frame PLAY_STEP_MS; from its second frame on, the links it starts land LATER_LINK_MS late
-  // (__lateLinkMs): the program its frames ask for past about two fifths of the way. While the glide waits for it
-  // (the thread still for frames in a row, between the planes), counted (record); then the link lands and the glide ends
-  {
-    await loadView('steps', 'lls' + Date.now(), { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0 });
+  // (__lateLinkMs). First with the glide asking for its frames' own programs alone, as they come (__cmwSteps({ ahead:
+  // false })): the program its frames ask for past about two fifths of the way. While the glide waits for it (the thread
+  // still for frames in a row, between the planes), counted (record); then the link lands and the glide ends
+  const expSin = async (ns) => {
+    await loadView('steps', ns + Date.now(), { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0 });
     await settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(\'input[data-pkey="expr"]\')' });
     await ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = 'exp(sin(z))'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return 1; })()`);
     await adopted();
     await settled({ only: true, max: WARM_MS, until: 'GLR.pendingLinks === 0' });
+  };
+  // (the glide to plane 1, its time a frame PLAY_STEP_MS, the links from its second frame on LATER_LINK_MS late)
+  const lateGlide = () => ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
+  {
+    await expSin('lls');
+    await ev('__cmwSteps({ ahead: false }), 1');
     await record('requestIdleCallback');
-    await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
+    await lateGlide();
     const s0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0 && __cmwSvX() < 1 && GLR.pendingLinks > 0` });
     const s1 = await recorded();
     // (› while it waits: a glide from where it is to the next plane in its place, with no hold record of its own)
@@ -377,6 +386,27 @@ try {
     ok(`exp(sin z), the glide waiting half way, › pressed: the glide is replaced by one from where it is, and its thread still never goes back`, still && k1.replaced && k1.x >= s1.got.x && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: it ends within ${ENDS_MS} ms of the link landing`, s2.ok && s3.ok && got.endMs <= ENDS_MS, got);
     info.half = got;
+  }
+  // Then as the app glides: it asks for the programs of all the glide's frames at its first frame, so the late links of
+  // its later frames are not its own. In the page, at every animation frame, the longest run of frames the thread stays
+  // put at plane 0 (the start's wait) and between the planes
+  {
+    await expSin('lla');
+    await ev(`(() => {
+      const s = window.__llAhead = { at0: 0, mid: 0, run: 0, last: __cmwSvX(), done: false };
+      const tick = () => {
+        const x = __cmwSvX();
+        s.run = x === s.last ? s.run + 1 : 0; s.last = x;
+        if (x === 0) s.at0 = Math.max(s.at0, s.run); else if (x < 1) s.mid = Math.max(s.mid, s.run);
+        if (!s.done) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return 1; })()`);
+    await lateGlide();
+    const a0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
+    const ahead = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
+    ok(`exp(sin z), its later frames' links late: the glide asks for every program of its frames before it moves, waits for them at its start, and then never stands still between the planes`, a0.ok && ahead.at0 >= STILL_FRAMES && ahead.mid < STILL_FRAMES, { ahead, wait: a0 });
+    info.ahead = { ahead, wait: a0 };
   }
   // the default example (exp, then a Möbius map; a strip, Inside regions), colour plane 0, on a fresh page whose links land
   // late (the suite's), the glide's program linked first (parked half way to plane 1 until the inverse pass draws there,
