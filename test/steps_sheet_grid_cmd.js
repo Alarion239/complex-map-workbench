@@ -151,6 +151,13 @@ info.sliderTexts = said;
 ok('the sheet shows the opacity, grid step and mesh sliders', ['opacityRange', 'patScale', 'meshRange'].every((id) => said.some((x) => x.id.includes(id))), said);
 ok('each slider\'s aria-valuetext is its readout\'s text (opacity "85 %", grid step "×1", mesh "240")', said.length > 0 && said.every((x) => x.text && x.said === x.text), said);
 ok('the readout is not the raw slider position (the mesh slider\'s position is not 240)', said.some((x) => x.id === 'meshRange' && x.value !== x.text), said);
+// (#1642, label in name: a voice-control user says what they see) each slider's accessible name contains its visible label
+const sliderNames = await ev(`(() => [...document.querySelectorAll('.ph-sheet input[type="range"]')].filter((i) => i.getClientRects().length).map((i) => {
+  const row = i.closest('.fader-row'), fl = row && row.querySelector('.fl'), lab = i.getAttribute('aria-labelledby'), head = lab && document.getElementById(lab);
+  return { id: i.id || i.className, visible: fl && fl.getClientRects().length ? fl.textContent.trim() : null, name: head ? head.textContent.trim() : i.getAttribute('aria-label') || '' };
+}))()`);
+info.sliderNames = sliderNames;
+ok('each slider\'s accessible name contains its visible label (the mesh slider\'s "Mesh quality")', sliderNames.some((x) => x.id === 'meshRange' && x.visible) && sliderNames.every((x) => !x.visible || x.name.toLowerCase().includes(x.visible.toLowerCase())), sliderNames);
 // a style chosen in the open sheet refills it: the settings that style has (n for Tiles, the grid step for Grid) replace the old style's
 const styleControls = () => ev(`(() => ({ n: !!document.querySelector('.ph-sheet #secSel'), step: !!document.querySelector('.ph-sheet #dcGridSel'),
   checked: (document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]') || {}).dataset && document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]').dataset.v }))()`);
