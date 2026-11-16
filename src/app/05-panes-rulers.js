@@ -72,6 +72,8 @@
   // ---------------- panes ----------------
   let paneL, paneR;
   let cutHandlesL = [];
+  let cutMarksL = [];   // the cuts' handles on a frame between two planes: drawn like the editable ones, never hit-tested
+
   let hoverCut = 0;
   // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
@@ -109,8 +111,8 @@
     // X Landscape: the relief of the height over X
     if (lLand()) {
       cutHandlesL = []; leftSphereInfo = null; render3D(pane, SV.on ? svLandRest() : undefined);
-      // the relief has no place for the target preimages (they show in X Plane and Sphere): said, not dropped silently
-      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show in X → Y and Phase (1, 2)'));
+      // the relief has no place for the target preimages (they show on the Plane and the Sphere): said, not dropped silently
+      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show on the Plane and the Sphere'));
       return;
     }
     // X Sphere: this plane on the Riemann sphere, with its shapes or (Phase) the phase portrait (orbit only; drawing on
@@ -246,6 +248,7 @@
     zpHandlesL = [];
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
+      drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // ([#253] a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)

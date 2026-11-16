@@ -128,9 +128,31 @@ bool ixShapeClip(vec2 z0, vec2 q, float m, out float lo, out float hi, out float
   if (nAll > nIn && l2 < h2) { hlo = l2; hhi = h2; }
   return lo <= hi;
 }
+#ifdef IX_STAGED
+${CURVE_GEOM}#endif
 // ---- the shape's level (positive inside) and gradient: Region.levelOf, Inverse's kindLevel ----
+// (a curve of a later plane, kinds 11-16 and 20, in the staged program: minus its distance, so it holds no point and
+// the pass's boundary draw strokes the curve itself)
 vec3 ixKindLevel(vec2 z) {
   int kind = uShape.x;
+#ifdef IX_STAGED
+  if (kind >= 11 && kind <= 16) {
+    vec2 q;
+    if (kind <= 15) q = curveNearAB(kind, uShA, uShB, z);
+    else {
+      int n = uShape.z, s = uShape.w;
+      q = ixRec(s).xy;
+      for (int i = 1; i < 64 * uIxOne; i++) { if (i >= n) break; q = nearer(z, q, segNear(z, ixRec(s + i - 1).xy, ixRec(s + i).xy)); }
+    }
+    float d = cx_abs(z - q);
+    return d > 0.0 ? vec3(-d, (q - z) / d) : vec3(0.0, 1.0, 0.0);
+  }
+  if (kind == 20) {           // a constructed circle (gcurve): minus |f/2|, f/2 relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
+    vec2 u = z - uShA.xy, g = uShA.z * u + uShB.xy;
+    float f = 0.5 * (uShA.z * dot(u, u) + 2.0 * dot(uShB.xy, u) + uShA.w);
+    return f >= 0.0 ? vec3(-f, -g) : vec3(f, g);
+  }
+#endif
   if (kind == 1) {
     vec2 v = z - uShA.xy;
     float d = cx_abs(v);

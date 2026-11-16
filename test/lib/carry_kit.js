@@ -1,14 +1,13 @@
 // The carried-colour suites' shared page script and pixel compare: steps_carry_inregion_cmd.js, steps_carry_far_cmd.js,
 // steps_carry_chains_cmd.js and steps_carry_planes_cmd.js. The left pane's pixels come from the page's __cmwLPx; the
-// rest is the pane's camera, the nearest of a point's 9 pixels to a reference, the bare-paper test and the example list
-// of src/app/15-examples-guide.js.
+// rest is the pane's camera, the nearest of a point's 9 pixels to a reference and the bare-paper test (the example names are the
+// CDP kit's exampleNames()).
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
 // - lpx(pts): __cmwLPx(pts) answers { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels about
 //   it as [r, g, b, a] each, row by row (the centre is index 4), or null off the pane;
 // - paneOf(): the pane's camera (v: the view, with cx, cy, s) and its size in css px (w, h);
 // - nearest(p, ref): the least, over the 9 pixels ref of a point, of the largest channel difference (0..255) from p;
 // - bare(p): whether the centre pixel p (of a 3 x 3 read) is bare paper, its channels within 6 of each other;
-// - exampleNames(): the example names of src/app/15-examples-guide.js, in the order the page lists them;
 // - tally(got, ref, o): over the points k with got[k] and ref[k] both read (and not o.skip(k)), the count n of those, how
 //   many are wrong (nearest() over o.tol, default 14, from the 3 x 3 reference), how many sit on bare paper, the worst
 //   nearest(), and up to 6 examples (o.note(k) adds its fields to each): { n, wrong, paper, worst, ex };
@@ -38,7 +37,6 @@
     return best;
   };
   const bare = (p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6;
-  const exampleNames = () => [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const tally = (got, ref, o = {}) => {
     const tol = o.tol == null ? 14 : o.tol, ex = [];
     let n = 0, wrong = 0, paper = 0, worst = 0;
@@ -225,5 +223,5 @@
     };
     return { measure };
   };
-  return { lpx, paneOf, nearest, bare, exampleNames, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
+  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
 })()

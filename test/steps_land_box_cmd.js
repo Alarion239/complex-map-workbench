@@ -25,7 +25,7 @@ const TICK_TOL = 1e-6;   // (CSS pixels)
 const LEFT_CTL = 3, ZOOM_FACTOR = 2;
 const SETTLE_MS = 60000;
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const EXAMPLE = names.indexOf('Roots as preimages');
 if (EXAMPLE < 0) throw new Error('steps_land_box: the example Roots as preimages is not in the guide');
 await view(1440, 900, false, false);

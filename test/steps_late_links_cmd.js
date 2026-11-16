@@ -23,7 +23,6 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 // ms a link reads not complete; the waits (ms) for a page, for the chain's programs and for a glide's frame
 const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000;

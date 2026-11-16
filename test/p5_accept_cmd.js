@@ -30,7 +30,7 @@ const settle = async (ms = 120000, want = {}) => {
   let s = null;
   for (;;) {
     await sleep(300);
-    s = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+    s = await evJson('JSON.stringify(__cmwSphere())');
     const there = s.entries.length >= (want.entries || 0) && s.stats.built >= (want.built || 0);
     if (!s.running && !s.jobs.length && there && Date.now() - t0 > 1200) break;
     if (Date.now() - t0 > ms) break;
@@ -210,7 +210,7 @@ await grab('rest0');
 const rL = await ev('(() => { const r = document.getElementById("canvasL").getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()');
 const cxL = rL[0] + rL[2] / 2, cyL = rL[1] + rL[3] / 2;
 await ev('__cmwSmReset ? 1 : 0');
-const st0 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const st0 = await evJson('JSON.stringify(__cmwSphere())');
 // a 45% pan of plane z (re-centres the meshing window at rest); a middle-button drag pans the pane
 const last = await ev('__cmwSteps().i');
 await ev('__cmwSteps({ go: 0, now: true }); 1');
@@ -227,7 +227,7 @@ await ev(rAF2);
 const during = [];
 let nDur = 0;
 for (let i = 0; i < 40; i++) {
-  const s = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+  const s = await evJson('JSON.stringify(__cmwSphere())');
   during.push({ jobs: s.jobs.length, entries: s.entries.length });
   // (frames while the rebuild runs: the old mesh stands in, compared below with the rest frame and the truth)
   if (s.jobs.length && nDur < 4) { await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); await grab('dur' + nDur++); }
@@ -291,7 +291,7 @@ await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["L"], widthIn: 7 })
 let fig = null;
 for (let i = 0; i < 400 && !fig; i++) { await sleep(300); fig = await ev('window.__p5fig'); }
 const figOk = !!(fig && fig.ok);
-const stE1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const stE1 = await evJson('JSON.stringify(__cmwSphere())');
 const exE = stE1.entries.filter((e) => e.why === 'export');
 R.export = { figOk, fig, built: stE1.lastExport, kept: exE.length, preBytes: [stE0.preBytes, stE1.preBytes], cpuBytes: [stE0.cpuBytes, stE1.cpuBytes], maxSlice: +stE1.stats.maxSlice.toFixed(1) };
 ok('10.6: the export built a SphereMesh at its own resolution', figOk && stE1.lastExport && stE1.lastExport.length >= 1, R.export);
@@ -307,7 +307,7 @@ for (const y of [0.1, 0.2, 0.3, 0.4]) {
   await ev(`__cmwSet("shapes", [${JSON.stringify(Object.assign({}, H, { a: [0, y], b: [1, y] }))}]); 1`);
   builtNow = (await settle(60000, { entries: 1, built: builtNow + 1 })).stats.built;
 }
-const stM = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const stM = await evJson('JSON.stringify(__cmwSphere())');
 const perSlot = {};
 for (const e of stM.entries) perSlot[e.slot] = (perSlot[e.slot] || 0) + 1;
 R.memory = { entries: stM.entries.length, perSlot, preBytes: stM.preBytes, cpuBytes: stM.cpuBytes, built: stM.stats.built };
@@ -319,7 +319,7 @@ await sleep(500);
 await ev('window.__p5lc.restoreContext(); 1');
 await sleep(1500);
 await settle();
-const stC = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const stC = await evJson('JSON.stringify(__cmwSphere())');
 const nGpu = await drawnBytes();
 R.contextLoss = { preBytes: stC.preBytes, before: stM.preBytes, entriesOnGpu: nGpu, entries: stC.entries.length };
 ok('context loss: the pre-mapped bytes count only the meshes uploaded after the restore', stC.preBytes <= stM.preBytes + 1 && (nGpu > 0 ? stC.preBytes > 0 : stC.preBytes === 0), R.contextLoss);
@@ -333,7 +333,7 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
   // (the window watched: 2 s of the page's own time from here, through its frames)
   await ev('window.__restT = performance.now(), 1');
   await settled({ max: 20000, panes: false, until: 'performance.now() - window.__restT > 2000' });
-  const s1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+  const s1 = await evJson('JSON.stringify(__cmwSphere())');
   R.rest4 = { built: [s0.stats.built, s1.stats.built], entries: s1.entries.length, preBytes: s1.preBytes, cpuBytes: s1.cpuBytes };
   ok('memory: at rest with four unbounded regions, no mesh is rebuilt over 2 s',
     s1.entries.length >= 4 && s1.stats.built === s0.stats.built && !s1.jobs.length, R.rest4);
