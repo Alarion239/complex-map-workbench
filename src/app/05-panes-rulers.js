@@ -645,6 +645,9 @@
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
     render3D.linear = false;
+    // (the share of the compressed height in a carried frame's linear one, between its planes' looks at rest: GLR's
+    // heightComp)
+    let hComp = 0;
     // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
     // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
@@ -687,13 +690,18 @@
         cache.set(ck, r);
         return r;
       };
-      // a carried frame: each plane's own scale and boost, from plane s's to plane b's over u in log, as the rest
-      // frames' are, so a frame depends on u alone
-      const ofPlane = (k, v) => scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v));
+      // a carried frame: each plane's look at rest, from plane a's to plane b's over u (the scale and boost in log), so a
+      // frame depends on u alone and a glide parks on the plane's own look. A plane whose height map at rest (its rest
+      // carry's, else svHeightMap) has sheets has their scale and block and, with Re or Im heights, the linear height
+      // (lw 1); one without has the plane's median and the compressed height (lw 0), the sheets-off carry's scale
+      const restSheets = (k) => { try { return !!GLR.sheetInfo((svLandRest(k) || { hmap: svHeightMap(k) }).hmap, sheets.W); } catch (e) { return false; } };
+      const ofPlane = (k, v) => (restSheets(k)
+        ? Object.assign({ lw: lin ? 1 : 0 }, scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v)))
+        : { mu: medianAbs(landBox(v), svHeightMap(k), svHeightF(k)), boost: 1, lw: 0 });
       const c = carry ? (() => {
         const ra = ofPlane(carry.a, carry.va), rb = carry.b == null ? ra : ofPlane(carry.b, carry.vb);
-        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
-      })() : scaleOf(fm, box);
+        return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u), lw: ra.lw + (rb.lw - ra.lw) * carry.u };
+      })() : Object.assign({ lw: lin ? 1 : 0 }, scaleOf(fm, box));
       mu = c.mu;
       // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
       // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
@@ -761,7 +769,7 @@
         mu = f <= 0 ? at(j) : f >= 1 ? at(j + 1) : logLerp(at(j), at(j + 1), f);
       }
       lscale *= c.boost || 1;
-      if (lin) render3D.linear = true;
+      if (c.lw > 0) { render3D.linear = true; hComp = 1 - c.lw; }
     }
     // 28 degree camera fitted to the bounding sphere of the block and its plate at this pane's aspect
     const geo = GLR.landGeom(box, lscale);
@@ -792,7 +800,7 @@
         : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
     const info = GLR.drawLandscape({
-      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far, copies: carry.copies || null } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, heightComp: hComp, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,

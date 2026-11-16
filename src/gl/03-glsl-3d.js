@@ -1,6 +1,6 @@
   // ---------- landscape (spec 6.9) ----------
   const HEIGHT = `
-uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip;
+uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip; uniform float uHComp;
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
   bool nanx = isnan(w.x) || !(w.x < 0.0 || w.x >= 0.0), nany = isnan(w.y) || !(w.y < 0.0 || w.y >= 0.0);
@@ -8,12 +8,14 @@ vec2 heightW(vec2 w) {
   float mu = uMu > 0.0 ? uMu : 1.0;
   // linear Re / Im (modes 4, 5): the stacked sheets of a covering surface keep their true pitch (atan made plateaus).
   // The block ends at 1.25 H; the landscape's mesh (uHClip > 0) keeps heights up to uHClip H and is clipped at the
-  // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block
+  // block exactly (LAND_SHEET_VS), everything else (the probe) stops at the block. uHComp: the share of the compressed
+  // height (modes 2, 3) in it, on a carried glide between a plane drawn linear and one drawn compressed
   if (uHMode == 4 || uHMode == 5) {
     float x = uHMode == 4 ? w.x : w.y;
     bool bad = uHMode == 4 ? nanx : nany;
-    float lim = uHClip > 0.0 ? uHClip : 1.25;
-    return vec2(uH * clamp(x / mu, -lim, lim), bad ? 0.0 : 1.0);
+    float lim = uHClip > 0.0 ? uHClip : 1.25, l = clamp(x / mu, -lim, lim);
+    if (uHComp > 0.0) l = mix(l, (2.0 / PI) * atan(clamp(x / mu, -1e30, 1e30)), uHComp);
+    return vec2(uH * l, bad ? 0.0 : 1.0);
   }
   // linear with a soft knee (modes 6, 7: All sheets while deforming): linear up to mu, then levelling off to 1.25 mu
   if (uHMode == 6 || uHMode == 7) {
@@ -1032,14 +1034,17 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     vec2 rest = 2.0 * uAspect / float(M);
     float nz = max(nrm.z, 1e-6);
     vec3 tx = vec3(dx, -nrm.x / nz * rest.x), ty = vec3(dy, -nrm.y / nz * rest.y);
-    if (uPatch == 1) {
-      // (a patch's cells are not the plane's grid: the slopes come from the cell's four corners, each at its place)
+    if (uPatch == 1 || uCPS == 1) {
+      // (a patch's cells are not the plane's grid, and a sheet on its own places is moved by its own map: the slopes come
+      // from the cell's four corners, each at its place and height)
       ivec2 o = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
       vec3 P00 = vec3(((p00.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o, 0).x);
       vec3 P10 = vec3(((p10.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 0), 0).x);
       vec3 P01 = vec3(((p01.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(0, 1), 0).x);
       vec3 P11 = vec3(((p11.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 1), 0).x);
       tx = mix(P10 - P00, P11 - P01, f.y); ty = mix(P01 - P00, P11 - P10, f.x);
+    }
+    if (uPatch == 1) {
       vZ = carryZIn(vec4(0.0), vec2(c) + f);
       vZc = carryZIn(vec4(0.0), vec2(c) + 0.5);
     }
@@ -1214,7 +1219,16 @@ vec3 cueTint(vec3 c, float s) {
 // 1 (45 degrees) keep F as it is: there the step along the gradient is not small. (Not in the base cells' program, land:
 // its fragment stage stays the base's, r3 cold opens: with this in it, a heavy formula's first Landscape held the GPU
 // process 0.7 to 0.8 s where the base did not stall; the base cells are the flat ones, a wall is refined)
-${lite ? '' : `vec2 facetW(vec2 w) {
+${lite ? '' : `// the inverse of the linear height (modes 4, 5) with its compressed share uHComp: h = (1 - c) x + c (2/pi) atan x, by
+// Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps)
+float linInv(float h) {
+  float c = clamp(uHComp, 0.0, 1.0);
+  if (c <= 0.0) return h;
+  float x = mix(h, tan(0.5 * PI * clamp(h, -0.999, 0.999)), c);
+  for (int i = 0; i < 6; i++) x -= ((1.0 - c) * x + c * (2.0 / PI) * atan(x) - h) / ((1.0 - c) + c * (2.0 / PI) / (1.0 + x * x));
+  return x;
+}
+vec2 facetW(vec2 w) {
   vec3 nf = normalize(vNor);
   float wt = smoothstep(1.0, 2.0, length(nf.xy) / max(abs(nf.z), 1e-4));
   vec2 ht = heightW(w);
@@ -1223,7 +1237,7 @@ ${lite ? '' : `vec2 facetW(vec2 w) {
   if (uHMode >= 2) {
     // (v16.4 merge: the knee modes 6, 7 of All sheets while deforming invert heightW's soft knee; 6 is Re F)
     float a = abs(h), c = 0.5 / PI;
-    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * h : mu * tan(0.5 * PI * hc);
+    float x = uHMode >= 6 ? mu * sign(h) * (a <= 1.0 ? a : 1.0 + c * tan(min((a - 1.0) / c, 0.5 * PI - 1e-3))) : uHMode >= 4 ? mu * linInv(h) : mu * tan(0.5 * PI * hc);
     if (uHMode == 2 || uHMode == 4 || uHMode == 6) w.x = x; else w.y = x;
     return w;
   }
