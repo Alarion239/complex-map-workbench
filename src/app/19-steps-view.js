@@ -21,7 +21,7 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
-    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn)
+    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn, asked}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn), asked: the programs of the plane it ends on begun (svRestStart)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
@@ -35,7 +35,7 @@
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1}, indices into svPlanes(); null: plane by plane
-  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn, asked} a glide (held, drawn, asked: svLinkHold's), or {slide, start, end, timer} one plane at a time
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
@@ -998,8 +998,9 @@
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
   // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
   // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
-  // that do not are put in it and left out of the lists
-  function svInvPaths(b, u, kind, why) {
+  // that do not are put in it and left out of the lists. end (u = 1): the glide into b at its end by the ops of its frames
+  // (invHomPath's end), so with their program, its points keyed as at rest
+  function svInvPaths(b, u, kind, why, end) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
@@ -1010,9 +1011,9 @@
     let whole = null;
     // (a plane at rest whose step has no exact inverse is drawn as the glide's last frame is: the homotopy's inverse at t = 1)
     const restHom = () => svSheetKey(b).sing;
-    const viaHom = (x, t, sing) => (shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, t, sing)) : invHomPath(x, 0, b, t, sing));
+    const viaHom = (x, t, sing, e) => (shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, t, sing, e)) : invHomPath(x, 0, b, t, sing, e));
     const paths = list.map((x) => {
-      if (hom) return viaHom(x, u, singAt);
+      if (hom) return end ? viaHom(x, 1, restHom, true) : viaHom(x, u, singAt);
       const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false, stepsRest: true });
       // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is. The exactImages switch is not read here: a plane at rest is the exact pass's)
       const m = normalizeMap(stageMap(b));
@@ -1064,9 +1065,9 @@
   // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
   // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape takes that path: a region of a later plane, a
-  // map with no inverse, a program still compiling
-  function svCarryExact(pane, a, T, frame) {
-    const h = a > T ? svInvPaths(a, null, 'flat', { r: null }) : null;
+  // map with no inverse, a program still compiling. h: the paths it draws, plane a's own (svInvPaths at rest) or, while
+  // their programs link, the glide's into a at its end (svRestEnd); null: none
+  function svCarryExact(pane, a, T, frame, h) {
     // (a path of the homotopy's inverse at t = 1, which has a NEWT op: its roots pass runs at t = 1)
     const nt = !!h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'));
     return !!h && (nt ? svDrawInverse(pane, h.list, h.paths, T, frame, 1, null, null, a) : svDrawInverse(pane, h.list, h.paths, T, frame)) === 'drawn';
@@ -1128,11 +1129,32 @@
   }
   // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
   // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
-  // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1)
+  // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1); u null: at rest on plane b, as
+  // svCarryExact draws it. Asking begins the program's compile when it is missing
   const svInvState = (h, i, b, u) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
+    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
   };
+  // At rest on plane a past the colour plane while the programs of its own frame link (h: its own paths, svInvPaths at
+  // rest; Inside regions, the mask's fills too: the tiling's inverse program at opacity 1): the paths of the glide into a
+  // at its end (svInvPaths' end), drawn with the program the glide's frames linked, once all of theirs is linked; else
+  // null. So a plane a glide lands on keeps the glide's last picture, exact, until its own frame is, with no carried mesh
+  // between; like the glide's frames, it draws no mask from the regions' images
+  function svRestEnd(a, h) {
+    if (!h.paths.some((p, i) => svInvState(h, i, a, null) === 'pending') && !(svMaskOn() && GLR.inverseStatus(1, 'flat') === 'pending')) return null;
+    const e = svInvPaths(a, 1, 'flat', { r: null }, true);
+    return e && e.paths.every((p, i) => svInvState(e, i, a, null) === 'ready') ? e : null;
+  }
+  // The programs of plane k's frame at rest past the colour plane, begun (svInvState, GLR.inverseRequest): its own paths'
+  // carried colour (svCarryExact's) and, Inside regions, the mask's fills, so that they link while a motion that ends on
+  // k runs, alongside the glide's own, not once it has landed
+  function svRestStart(k) {
+    if (!(k > svT()) || SV.surf !== 'plane' || !GLR.inverseState) return;
+    const h = svInvPaths(k, null, 'flat', { r: null });
+    if (!h) return;
+    h.paths.forEach((p, i) => svInvState(h, i, k, null));
+    if (svMaskOn() && GLR.inverseRequest) GLR.inverseRequest(1, 'flat');
+  }
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it
   // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): a glide or a play
@@ -1148,6 +1170,8 @@
   function svLinkHold() {
     svHomMemo = null;
     const A = svMotion();
+    // (the programs of the plane the motion ends on, at rest: begun with its first frame and again in each held one)
+    if (A && (!A.asked || A.held)) { A.asked = true; svRestStart(svPlanes()[Math.round(A.to)]); }
     const g = svBetween(A && A.held ? A.held.x : SV.g.x);
     if (!svHolds(g)) {
       // (released: the frame is the one the motion waited on, and its clock goes on from there)
@@ -1193,7 +1217,8 @@
   // (H_u on the glide's first plane), view, w, h (the pane's css size)}
   // (read by the test hooks)
   let svGlideRec = null;
-  // (the last plane at rest past the colour plane: { a, path: 'inverse' | 'mesh' }, how its colour was drawn)
+  // (the last plane at rest past the colour plane: { a, path: 'inverse' | 'mesh', end }, how its colour was drawn; end:
+  // by the glide into it at its end, svRestEnd)
   let svRestRec = null;
   const SV_CARRY_L = 2;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
@@ -1756,6 +1781,9 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), src = Math.min(a, T), still = u <= SV_REST_U || b === a;
+    // (at rest past the colour plane: the inverse paths of its own frame, and while their programs link, those of the
+    // glide into it at its end, svRestEnd)
+    const own = still && a > T ? svInvPaths(a, null, 'flat', { r: null }) : null, end = own && svRestEnd(a, own);
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false, cc: false };
@@ -1778,8 +1806,8 @@
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
       // svCarryExact; the carried grid only where neither path can draw)
-      const exact = still && !svColoured(a) && svCarryExact(pane, a, T, frame);
-      if (still && !svColoured(a)) svRestRec = { a, path: exact ? 'inverse' : 'mesh' };
+      const exact = still && !svColoured(a) && svCarryExact(pane, a, T, frame, end || own);
+      if (still && !svColoured(a)) svRestRec = { a, path: exact ? 'inverse' : 'mesh', end: exact && !!end };
       if (exact) carried = true;
       // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
       // travel on, each fragment its point's colour; Everywhere with the outer meshes, they cover the pane, so no
@@ -1801,8 +1829,9 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
-    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide, nor for a
+    // glide's end at rest, svRestEnd)
+    const mask = svMaskOn() && !end && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
     if (mask && svMask(pane, map, still ? a : undefined, {
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
