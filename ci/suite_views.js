@@ -48,6 +48,7 @@ const VIEWS = {
   'steps_carry_chains_cmd.js': steps(),
   'steps_carry_planes_cmd.js': steps(),
   'steps_carry_bands_cmd.js': steps(),
+  'steps_ddz_glide_cmd.js': steps(),
   'steps_globe_key_cmd.js': steps(),
   'steps_carry_exact_cmd.js': steps(),
   'steps_rim_inverse_cmd.js': steps(),
