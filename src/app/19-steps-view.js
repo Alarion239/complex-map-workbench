@@ -1695,7 +1695,20 @@
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
     cutMarksL = [];
-    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) return; SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    if (svMoving()) {
+      if (svParked()) svCheck();
+      if (svMoving()) {
+        probeMoving();
+        if (svJump(pane, still)) return;
+        // (a glide waiting for its programs (svLinkHold, svGlobeHold): on the plane it started from, that plane's frame at
+        // rest, drawn as it is at rest (svRestAt); held between two planes, the frame there)
+        const hold = SV.surf === 'land' ? null : SV.surf === 'sphere' && lGlobe() ? svGlobeHold() : svLinkHold();
+        if (hold != null && Math.abs(hold - Math.round(hold)) <= SV_REST_U) { svRestAt(Math.round(hold), pane, still); SV.core = 'still'; return; }
+        SV.core = 'carry';
+        if (!svLandMoving(pane)) svRenderMoving(pane, hold);
+        return;
+      }
+    }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
     SV.core = 'still'; still(pane);
@@ -1711,19 +1724,9 @@
     if (SV.surf === 'land') return false;
     const bt = svBetween();
     if (bt.all || bt.b === bt.a || bt.u <= SV_REST_U || !isDeriv(bt.b)) return false;
-    const g = SV.g, keep = { x: g.x, target: g.target, v: g.v, i: SV.i }, globe = SV.surf === 'sphere' && lGlobe();
-    // (each end drawn with the thread on its plane and the view the steps view sets there, svViewFix's main view and
-    // surface, put back after)
-    const v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
+    const globe = SV.surf === 'sphere' && lGlobe();
     const end = (j, p) => {
-      const k = svPlanes()[j], side = svColoured(k) ? 'P' : 'L', main = v.main, was = v[side].surf;
-      g.x = j; g.target = j; g.v = 0; SV.i = j; svRestRec = null; leftSphereInfo = null;
-      v.main = svMain(k);
-      if (v.main !== 'land') v[side].surf = surf;
-      try {
-        if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
-        else still(p);
-      } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
+      const k = svRestAt(j, p, still);
       if (svColoured(k)) return 'plot';
       if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
       return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
@@ -1739,9 +1742,24 @@
     SV.core = 'carry';
     return true;
   }
-  function svRenderMoving(pane) {
-    if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const hold = svLinkHold();
+  // plane j's frame at rest (svPlanes' j-th) drawn on pane p, as the steps view draws it at rest: the thread on that
+  // plane and the view the steps view sets there (svViewFix's main view and surface), all put back after; the classic
+  // core's still, or the carry core where the plane's colour is pushed forward -> the plane
+  function svRestAt(j, p, still) {
+    const g = SV.g, keep = { x: g.x, target: g.target, v: g.v, i: SV.i }, v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
+    const k = svPlanes()[j], side = svColoured(k) ? 'P' : 'L', main = v.main, was = v[side].surf;
+    g.x = j; g.target = j; g.v = 0; SV.i = j; svRestRec = null; leftSphereInfo = null;
+    v.main = svMain(k);
+    if (v.main !== 'land') v[side].surf = surf;
+    try {
+      if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
+      else still(p);
+    } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
+    return k;
+  }
+  // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's), or null
+  function svRenderMoving(pane, hold = null) {
+    if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane, hold); return; }
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
@@ -2042,10 +2060,10 @@
   // wait, for a glide the globe's carried mesh draws: All at once, or a step with no inverse plan, between two planes
   // that show the colour) -> the place to draw instead of the thread's, or null
   function svGlobeHold() {
-    svHomMemo = null;
     const g = svBetween(), T = svT(), shows = (k) => svColoured(k) || k > T;
     if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b) || !shows(g.a) || !shows(g.b)) return null;
-    if (!g.all && (g.map.mode !== 1 || svHomPaths(g.b, g.u).h)) return null;
+    // (a glide the globe's inverse pass draws, as svSphereMoving asks it (svGlobeCarryInv), draws no carried mesh)
+    if (!g.all && (g.map.mode !== 1 || svInvPaths(g.b, g.u, 'globe', { r: null }))) return null;
     const src = Math.min(g.a, T);
     if (src > 0 && derivIn(src, T)) return null;
     return svMeshLinking(svGlideMap(g, src), { id: src === T }) ? svHoldAt(g) : null;
@@ -2101,8 +2119,7 @@
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
-  function svSphereMoving(pane) {
-    const hold = svGlobeHold();
+  function svSphereMoving(pane, hold = null) {
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
@@ -2114,8 +2131,8 @@
     // (svGlobeCarryInv), the regions' own colour on the plain globe, nothing blended in, so the ends are the planes'
     // own globes. A plane past the colour plane shows the colour carried to it, at rest too (u null), as the plane's
     // svCarryExact. For a step with no inverse plan, at rest or between two planes that show the colour, the carried mesh
-    // (svGlobeMesh); where neither can draw, the globe of the plane the frame is nearest to, as it is at rest: never two
-    // globes blended
+    // (svGlobeMesh); where neither can draw (the glide waits while the mesh links, svGlobeHold), the plain globe of
+    // the plane the frame is nearest to: never two globes blended
     const T = svT(), still = u <= SV_REST_U || b === a;
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
