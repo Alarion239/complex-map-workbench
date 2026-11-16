@@ -1,4 +1,4 @@
-// The steps view at rest on a plane past a d/dz step, drawn by the exact pass (#1645): gallery example 15,
+// The steps view at rest on a plane past a d/dz step, drawn by the exact pass: gallery example 15,
 // [z³ - 3z, d/dz], at rest on w₂ past the colour plane. w₂'s points are D(z) = (z³ - 3z)′ = 3z² - 3, a map of z; the
 // inverse pass draws each pixel w with the colour of its front point z, D(z) = w, so the frame's colour at w must be the
 // colour the colour plane gives z, which plane z shows at z at rest when it is coloured from that plane (the reference,
