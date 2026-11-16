@@ -5,7 +5,7 @@ const path = require('path');
 let COARSE = false;
 global.matchMedia = (q) => ({ matches: /pointer:\s*coarse/.test(q) ? COARSE : false, addEventListener() {}, removeEventListener() {} });
 globalThis.location = { search: '?view=classic' };   // (the classic tour's content: the tour reads the view from the page's address)
-const { Tour } = require('../src/tour.js');
+const { Tour } = require('./lib/tour');
 const T = Tour._t;
 let fails = 0, n = 0;
 const ok = (name, cond, info) => { n++; if (!cond) { fails++; console.log('FAIL', name, info !== undefined ? JSON.stringify(info) : ''); } };

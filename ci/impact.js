@@ -96,6 +96,7 @@ const MAP = [
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
   ['src/phone.*', ui('phone', 'layout')],                                     // the phone layout, its script and CSS
   ['src/tour.js', ui('tour')],                                                // the guided tour
+  ['src/tour/**', ui('tour')],                                                // tour.js in parts (#1552), the same
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
   ['src/glsl/**', { core: true }],                                            // glsl.js in parts (#1552), the same as glsl.js
