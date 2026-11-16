@@ -517,6 +517,7 @@
   const pullSimple = (s) => PULL_SIMPLE.has(s.kind) && !s.complement && !(s.kind === 'sector' && ((((s.t2 - s.t1) % 360) + 360) % 360) === 0);
   const pullOffCache = new Map();
   let pullOffDrawn = [];
+  // {p, zs} for region s seen in plane j: p a point inside it, zs its preimages (one per piece), or null (no count)
   function pullOffPre(j, s) {
     const st = shapeStage(s), key = JSON.stringify([j, st, chainSig[nSteps()], s]);
     // (a region with no count is kept as null too)
@@ -525,35 +526,98 @@
       let p = null, cv = null, inside = null;
       if (pullSimple(s)) try { p = Region.interiorPoint(s, winOf(s)); cv = Inverse.critValues(prePlan(j, st)); inside = Region.levelOf(s); } catch (err) { p = null; }
       const ex = p && cv && !cv.some((w) => inside(w) >= 0) ? exactPre(j, st, p) : null;
-      e = ex ? ex.zs.filter((z) => z && CX.isFin(z)) : null;
+      e = ex ? { p, zs: ex.zs.filter((z) => z && CX.isFin(z)) } : null;
       pullOffCache.set(key, e);
       while (pullOffCache.size > 64) pullOffCache.delete(pullOffCache.keys().next().value);
     }
     return e;
   }
+  // the pieces of region s that show in the window b: a piece shows where its preimage point is in the window, or where a
+  // point of the window lies in it. A sample of the window (PULL_GRID) that the map takes into the region is followed
+  // back to the region's point p along the segment between them (PULL_WALK steps, each preimage the nearest to the last,
+  // inside the region, which holds no critical value), and so names its piece: the index of the preimage of p it reaches.
+  // A Set of indices into e.zs, kept per region and window; while the view moves (interacting), the region's last answer
+  // stands, and at most PULL_FOLLOW samples are followed back
+  const PULL_GRID = [24, 16], PULL_WALK = 16, PULL_FOLLOW = 64;
+  const pullSeenCache = new Map(), pullSeenLast = new Map();
+  function pullSeen(j, s, e, b) {
+    const st = shapeStage(s), rk = JSON.stringify([j, st, chainSig[nSteps()], s]), key = rk + JSON.stringify([b.x0, b.x1, b.y0, b.y1].map((v) => +v.toPrecision(6)));
+    let seen = pullSeenCache.get(key);
+    if (seen) return seen;
+    if (interacting() && pullSeenLast.has(rk)) return pullSeenLast.get(rk);
+    seen = new Set();
+    e.zs.forEach((z, k) => { if (inBoxZ(z, b, 0)) seen.add(k); });
+    if (seen.size < e.zs.length) {
+      const F = rangeF(j, st), inside = Region.levelOf(s), P = C(e.p[0], e.p[1]);
+      const near = (list, u) => { let bi = -1, bd = Infinity; list.forEach((q, i) => { const d = CX.abs(CX.sub(q, u)); if (d < bd) { bd = d; bi = i; } }); return bi; };
+      // (the samples in the region, those nearest a piece not yet seen first: a piece that shows reaches in from its side)
+      const [nx, ny] = PULL_GRID, hits = [], unseen = e.zs.filter((z, k) => !seen.has(k));
+      for (let gi = 0; gi < nx; gi++) for (let gj = 0; gj < ny; gj++) {
+        const u = C(b.x0 + (b.x1 - b.x0) * (gi + 0.5) / nx, b.y0 + (b.y1 - b.y0) * (gj + 0.5) / ny), w0 = F(u);
+        if (CX.isFin(w0) && inside(w0) > 0) hits.push({ u, w0, d: Math.min(...unseen.map((q) => CX.abs(CX.sub(q, u)))) });
+      }
+      hits.sort((p, q) => p.d - q.d);
+      for (const h of hits.slice(0, PULL_FOLLOW)) {
+        if (seen.size >= e.zs.length) break;
+        let u = h.u, ok = true;
+        const w0 = h.w0;
+        for (let t = 1; t <= PULL_WALK && ok; t++) {
+          const w = CX.add(w0, CX.scale(CX.sub(P, w0), t / PULL_WALK)), ex = inside(w) >= 0 ? exactPre(j, st, [w.re, w.im]) : null;
+          if (!ex || !ex.zs.length) ok = false; else u = ex.zs[near(ex.zs, u)];
+        }
+        const k = ok ? near(e.zs, u) : -1;
+        if (k >= 0 && CX.abs(CX.sub(e.zs[k], u)) <= 1e-6 * (1 + CX.abs(u))) seen.add(k);
+      }
+    }
+    pullSeenCache.set(key, seen);
+    pullSeenLast.set(rk, seen);
+    while (pullSeenLast.size > 64) pullSeenLast.delete(pullSeenLast.keys().next().value);
+    while (pullSeenCache.size > 64) pullSeenCache.delete(pullSeenCache.keys().next().value);
+    return seen;
+  }
   // the points z nearest the centre of the window b first
   const byCentre = (b) => { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2; return (p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy); };
-  // the "+n more" and "+n off view" words sit this far right of and below the point they follow, in css px
+  // the "+n more" words sit this far right of and below the last dot shown, in css px
   const PRE_MORE_PX = 14;
-  // with no piece in view, "+n off view" keeps this far inside the window's edge, in css px
-  const PULL_EDGE_PX = 24;
-  // the count for each region of a later plane that has pieces off the window, next to its nearest piece in view (at the
-  // window's edge toward the nearest piece off it when none is in view)
+  // with no piece in view, "+n off view" is placed this far inside the window's edge, in css px, where the edge meets the
+  // ray from the window's centre toward the nearest piece, moved along the edge by PULL_EDGE_STEP px at a time (up to
+  // PULL_EDGE_TRIES each way) until it is clear of the controls over the plane (labelChrome)
+  const PULL_EDGE_PX = 24, PULL_EDGE_STEP = 24, PULL_EDGE_TRIES = 12;
+  // where "+n off view" goes when no piece is in view: [x, y] on the window's edge toward z, clear of the controls
+  function pullEdgeAt(pane, z, text) {
+    const W = pane.w, H = pane.h, E = PULL_EDGE_PX, [tx, ty] = pane.w2s(z), dx = tx - W / 2, dy = ty - H / 2;
+    const k = Math.min(dx ? (W / 2 - E) / Math.abs(dx) : Infinity, dy ? (H / 2 - E) / Math.abs(dy) : Infinity);
+    const x0 = W / 2 + dx * k, y0 = H / 2 + dy * k, side = Math.abs(Math.abs(dx * k) - (W / 2 - E)) < 0.5;
+    const ctx = pane.ctx;
+    ctx.save(); ctx.font = `500 12px ${TH.ui}`; const tw = ctx.measureText(text).width; ctx.restore();
+    // (the box the placer's spots around [x, y] can take, its own margins included)
+    const clear = (x, y, ch) => !ch.some((r) => x - tw - 14 < r.x1 && x + tw + 14 > r.x0 && y - 30 < r.y1 && y + 30 > r.y0);
+    const ch = labelChrome(pane);
+    for (let i = 0; i <= 2 * PULL_EDGE_TRIES; i++) {
+      const d = PULL_EDGE_STEP * (i % 2 ? (i + 1) / 2 : -i / 2);
+      const x = side ? x0 : Math.max(E, Math.min(W - E, x0 + d)), y = side ? Math.max(E, Math.min(H - E, y0 + d)) : y0;
+      if (clear(x, y, ch)) return [x, y];
+    }
+    return [x0, y0];
+  }
+  // the count for each region of a later plane that has pieces off the window, drawn in the region's ink: next to its
+  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view
   function drawPullOff(pane, j) {
     pullOffDrawn = [];
     if (artMode) return;
-    const b = pane.box(), labels = [], E = PULL_EDGE_PX, near = (zs) => zs.slice().sort(byCentre(b))[0];
+    const b = pane.box(), labels = [];
     for (const s of S.shapes) {
       if (s.visible === false || shapeStage(s) <= j || kindType(s) !== 'area') continue;
-      const zs = pullOffPre(j, s);
-      if (!zs || !zs.length) continue;
-      const vis = zs.filter((z) => inBoxZ(z, b, 0)), n = zs.length - vis.length;
+      const e = pullOffPre(j, s);
+      if (!e || !e.zs.length) continue;
+      const seen = pullSeen(j, s, e, b), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
+      const n = offs.length;
       if (!(n > 0)) continue;
-      let [x, y] = pane.w2s(vis.length ? near(vis) : near(zs));
-      if (vis.length) { x += PRE_MORE_PX; y += PRE_MORE_PX; } else { x = Math.max(E, Math.min(pane.w - E, x)); y = Math.max(E, Math.min(pane.h - E, y)); }
       const text = $t('+{n} off view', { n });
-      labels.push({ x, y, text, word: true });
-      pullOffDrawn.push({ id: s.id, n, all: zs.length, text, x, y });
+      const dOff = (z) => Math.min(...offs.map((q) => CX.abs(CX.sub(z, q))));
+      const [x, y] = vis.length ? pane.w2s(vis.slice().sort((p, q) => dOff(p) - dOff(q))[0]) : pullEdgeAt(pane, offs.slice().sort(byCentre(b))[0], text);
+      labels.push({ x, y, text, word: true, chrome: true, ink: shapeInk(s).edge });
+      pullOffDrawn.push({ id: s.id, n, all: e.zs.length, text, x, y });
     }
     if (labels.length) placeLabels(pane.ctx, pane, labels);
   }
