@@ -173,7 +173,11 @@
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
-    // (its stand-in while it links: each vertex's colour-plane point mapped on the CPU, setPreW, coloured the same way)
+    // (and from plane z's own colour (T = 0): the colour of the source point itself, a program without the chain, so
+    // the SphereMeshes' carried colour never waits for the chain's links; carryId's case)
+    regionPKid: { chain: false, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true) },
+    // (past another colour plane, its stand-in while it links: each vertex's colour-plane point mapped on the CPU,
+    // setPreW, coloured the same way)
     regionPW: { chain: false, vs: () => PRE_VS(false, true), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true, false, false, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
@@ -268,7 +272,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = GLChain.LIB;
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainHomAllG', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uGrp0', 'uGrpN', 'groupT', 'postOf', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uStepT', 'stepT', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -750,9 +754,19 @@ float wabs(vec2 w) {
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapIn(P, map) || {};
-      u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0); u1i(P, 'uGrp0', m.grp ? m.grp.from : 0); u1i(P, 'uGrpN', m.grp ? m.grp.n : 0);
+      u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
+      if (P.loc.uStepT) gl.uniform2fv(P.loc.uStepT, stepTData(m.stepT, Math.max(1, P.ch.sigs.length)));
     }
     bindLut(P);
+  }
+  // mode 3's uStepT for steps 1..n (gl/01 STEP_T): stepT[k] = [a, b] where the map spec gives one, else (1, 0); one
+  // buffer a size, filled for each draw (a frame allocates nothing)
+  const stepTBufs = new Map();
+  function stepTData(stepT, n) {
+    let d = stepTBufs.get(n);
+    if (!d) { d = new Float32Array(2 * (n + 1)); stepTBufs.set(n, d); }
+    for (let k = 0; k <= n; k++) { const m = stepT && stepT[k]; d[2 * k] = m ? m[0] : 1; d[2 * k + 1] = m ? m[1] : 0; }
+    return d;
   }
   // a float64 value as a float32 pair (hi + lo)
   const hi32 = Math.fround;
@@ -1077,7 +1091,7 @@ float wabs(vec2 w) {
   // d: SphereMesh.publish() -> res {kind: 'pre', n (triangles), count (vertices), sph, org}
   function createPreMesh(d) {
     if (!ok || !d || !d.n) return null;
-    const sph = !!d.pos3, pc = sph ? 3 : 2, stride = pc + 5, n = d.n;
+    const sph = !!d.pos3, pc = sph ? 3 : 2, stride = pc + 6, n = d.n;
     const data = new Float32Array(n * 3 * stride);
     for (let t = 0; t < n; t++) for (let j = 0; j < 3; j++) {
       const o = (t * 3 + j) * stride;
@@ -1085,13 +1099,13 @@ float wabs(vec2 w) {
       else { data[o] = d.pos[t * 6 + 2 * j]; data[o + 1] = d.pos[t * 6 + 2 * j + 1]; }
       const a = t * 12 + 4 * j;
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
-      data[o + pc + 4] = d.tri[t];
+      data[o + pc + 4] = d.tri[t]; data[o + pc + 5] = d.cart ? d.cart[t] : 0;
     }
     const buf = makeBuf(data);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
+    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0); attrib(4, 1, stride * 4, (pc + 5) * 4, 0);
     gl.bindVertexArray(null);
     const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
@@ -1107,15 +1121,16 @@ float wabs(vec2 w) {
   // (A depth-only pre-pass and separate passes for the layers behind and the front, which keep those layers, drew the
   // mesh three times: gl_FragDepth turns early depth tests off, and exp(exp z)(H)'s settle frames jank by 20 ms.)
   // st.carry (flat only, the steps view's carried colour): each fragment the colour plane's colour of its source point
-  // (regionPK), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source
-  // point itself (graph paper's mesh), not its polar coordinates; st.carry.w: each vertex's colour-plane point comes
-  // with the mesh (setPreW), a program without the chain (regionPW), the stand-in while regionPK links; -> true when
-  // drawn, false while its program compiles
+  // (regionPK; regionPKid when the colour plane is the mesh's own plane, st.carry.s = T), its depth the sheet key,
+  // st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source point itself (graph paper's mesh), not
+  // its polar coordinates; st.carry.w: each vertex's colour-plane point comes with the mesh (setPreW), a program
+  // without the chain (regionPW), the stand-in while regionPK links; -> true when drawn, false while its program
+  // compiles
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
     if (carry && st.carry.w && !res.wBuf) return false;
-    const P = carry ? (st.carry.w ? program('regionPW') : program('regionPK', st.map)) : program(sph ? 'regionSP' : 'regionP');
+    const P = carry ? (st.carry.w ? program('regionPW') : program(st.carry.s === st.carry.T ? 'regionPKid' : 'regionPK', st.map)) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);

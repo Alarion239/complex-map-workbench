@@ -93,19 +93,31 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     if (k == uB) z1 = z;
   }
   return mix(z0, z1, uT);`,
-    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (groupT(k, uT, uGrp0, uGrpN) <= 0.0 ? 0 : 2) : ${POST}`, 'groupT(k, uT, uGrp0, uGrpN)'),
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (stepT(k) <= 0.0 ? 0 : 2) : ${POST}`, 'stepT(k)'),
   ];
   const MAP_STAGE = [
-    'return chainRange(s, uA, uB);',
-    `vec2 z = chainRange(s, uBase, uHi - 1);
+    () => 'return chainRange(s, uA, uB);',
+    () => `vec2 z = chainRange(s, uBase, uHi - 1);
   // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
-    `vec2 z0 = chainRange(s, uBase, uA);
+    () => `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAllG(z, uA, uB, uT, uGrp0, uGrpN));',
+    // (chainHomAll's walk, each step at its own time)
+    (n) => `vec2 z = chainRange(s, uBase, uA);
+  if (uT <= 0.0) return postOf(z);
+  for (int k = 1; k <= ${n}; k++) {
+    if (k > uB) break;
+    if (k > uA) z = chainHom(k, z, stepT(k));
+  }
+  return postOf(z);`,
   ];
+  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.js stepTime (the draw sets
+  // (1, 0), uT itself, for a step with no time of its own: GLR.use)
+  const STEP_T = (n) => `uniform vec2 uStepT[${n + 1}];
+float stepT(int k) { vec2 m = uStepT[min(k, ${n})]; return clamp(uT * m.x - m.y, 0.0, 1.0); }
+`;
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
@@ -120,12 +132,12 @@ bool derivIn(int a, int b) {
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
   const MAP = (info, mode) => {
-    const st = hasStages(info);
+    const st = hasStages(info), n = Math.max(1, sigsOf(info.key).length);
     return `
-const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost; uniform int uGrp0; uniform int uGrpN;
-${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
+const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
+${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}${mode === 3 ? STEP_T(n) : ''}
 vec2 mapPoint(vec2 s) {
-  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
+  ${st ? MAP_STAGE[mode](n) : MAP_PLAIN[mode](n)}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
@@ -597,10 +609,14 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   // point itself. Footprints by fwidth, as the 'fwidth' mode. The pattern formulas (PAT_CHAIN) are the shared text.
   PAT_PRE.pre = `  vec2 g = vG;
   vec2 gw = fwidth(g);
-  vec2 gp = vP, gpw = fwidth(vP);
+  // (a triangle that carries its source point itself, vCart: its polar coordinates from it here, as the 'fwidth' mode's)
+  vec2 gc = vec2(log(max(length(vP), 1e-30)), atan(vP.y, vP.x)) * (16.0 / TAU);
+  vec2 gcw = vec2(fwidth(gc.x), argWidth(vP) * (16.0 / TAU)), gvw = fwidth(vP);
+  bool cart = vCart > 0.5;
+  vec2 gp = cart ? gc : vP, gpw = cart ? gcw : gvw;
   vec2 rt = preRT(gp);
   float rr = rt.x, th = rt.y;
-  vec2 sa = uPattern == 4 ? vP : preSrc(gp);
+  vec2 sa = uPattern == 4 || cart ? vP : preSrc(gp);
   vec2 fs = uPattern == 4 ? fwidth(vP) : gw * uCell;
   float gr = rr / uCell, fgr = fwidth(gr);
   float ra = th * (12.0 / PI), fra = gpw.y * 1.5;
@@ -707,17 +723,19 @@ ${sphere ? `
 `;
   // ---- pre-mapped triangles (SPEC 8.7, P5): SphereMesh's leaves, mapped on the CPU, drawn far to near ----
   // aPos = w - w0 (flat; uRel = view centre - w0, a float64 difference) or the conjugate lift of w (globe); aAttr the
-  // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern); w: aW the colour
-  // plane's point of the vertex's source point, (ln |G|, arg G) * 16 / tau as vP's (vW, CARRY_FS's w option)
+  // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern); aCart 1 where the
+  // triangle's vP is its source point itself, not its polar coordinates (SphereMesh's cart: about z = 0); w: aW the
+  // colour plane's point of the vertex's source point, (ln |G|, arg G) * 16 / tau as vP's (vW, CARRY_FS's w option)
   const PRE_VS = (sphere, w = false) => `
 layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
 layout(location = 2) in float aTri;
+layout(location = 4) in float aCart;
 ${w ? 'layout(location = 3) in vec2 aW;\nout vec2 vW;\n' : ''}out vec2 vG; out vec2 vP;
-flat out float vJac;
+flat out float vJac; flat out float vCart;
 ${sphere ? 'out vec3 vNor; out vec3 vPos;\nuniform mat4 uMVP;' : 'uniform vec2 uRel; uniform vec2 uScale;'}
 void main() {
-  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri;${w ? ' vW = aW;' : ''}
+  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vCart = aCart;${w ? ' vW = aW;' : ''}
 ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPos * 1.002, 1.0);' : '  gl_Position = vec4((aPos - uRel) * uScale, 0.0, 1.0);'}
 }
 `;
@@ -761,7 +779,7 @@ float preKeyDepth(vec2 sa, bool stepped) {
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
     const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_DECL], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
-    for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP;\n' + PRE_SRC], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
+    for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP; flat in float vCart;\n' + PRE_SRC], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
       if (!t.includes(a)) throw new Error('REGION_PRE_FS: ' + a.slice(0, 40));
       t = t.split(a).join(b);
     }
@@ -1231,7 +1249,7 @@ void main() {
   // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
+  // mesh) or vCart is (a triangle about z = 0), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
   // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
@@ -1243,9 +1261,9 @@ void main() {
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, w = false) => `
 uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;${w ? ' in vec2 vW;' : ''}
-${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${pre ? 'uniform int uPreZ; flat in float vCart;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 || vCart > 0.5 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${w ? 'preSrc(vW)' : id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;

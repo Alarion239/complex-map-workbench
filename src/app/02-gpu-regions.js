@@ -625,7 +625,7 @@
   }
 
   // ---------------- the forward fallback: SphereMesh (SPEC 8, P5) ----------------
-  // An area shape drawn forward (an ineligible chain or shape, exact images off, the cost guard's last resort, a morph
+  // An area shape drawn forward (an ineligible chain or shape, one forced forward by the test hook, the cost guard's last resort, a morph
   // paused inside a step) that is unbounded or stretched (bboxOf null, or wider than 3 windows), or whose fix-up found
   // trouble (fixGen: a vertex without a finite image, or a piece still failing the midpoint test at depth 5; the
   // verdict depends on the shape, the map and the window, never on the right view), is drawn from a SphereMesh: the
@@ -871,7 +871,7 @@
     if (st.failed || !job.mesh) { if (job.mesh) job.mesh.dispose(); return; }
     const data = job.mesh.publish(), stats = job.mesh.stats();
     job.mesh.dispose();
-    const bytes = (data.pos ? data.pos.byteLength : 0) + (data.pos3 ? data.pos3.byteLength : 0) + data.attr.byteLength + data.tri.byteLength;
+    const bytes = (data.pos ? data.pos.byteLength : 0) + (data.pos3 ? data.pos3.byteLength : 0) + data.attr.byteLength + data.tri.byteLength + (data.cart ? data.cart.byteLength : 0);
     const e = { key: job.key, ck: job.ck, ck0: job.ck0, slot: job.slot, role: job.role, kind: job.kind, view: job.view, guardBox: data.guardBox, data, res: null, t: performance.now(), bytes, why: job.why, exp: !!job.exp, expGen: job.expGen || 0,
       info: { n: data.n, partial: !!data.partial, nodes: stats.nodes, work: stats.work, ms: +job.ms.toFixed(1), slices: job.slices, settleMs: +(performance.now() - job.t0).toFixed(0), budgetWhy: stats.budgetWhy } };
     // one mesh per slot: the slot's older meshes (another content: pattern, alpha, lines, a paused T, the map; or

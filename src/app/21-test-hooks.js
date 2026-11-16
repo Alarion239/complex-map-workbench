@@ -25,7 +25,7 @@
       return;
     }
     if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
-    S[k] = v; if (k === 'meshN') { dropAllGPU(); } if (k === 'exactImages') scheduleFix(); requestRender('L', 'R');
+    S[k] = v; if (k === 'meshN') { dropAllGPU(); } requestRender('L', 'R');
   };
   // U-b: the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
@@ -40,10 +40,10 @@
   /** @type {any} */ (window).__cmwToast = (msg, label, o) => toast(msg, label, () => {}, false, o);   // (a message with an optional action that does nothing)
   /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
   /** @type {any} */ (window).__cmwStepParam = (k, key, v) => { const st = S.steps[k]; if (!st) return false; st.params[key] = v; chainChanged(false); return true; };
-  // the label pass's count and time, and what the last pass of the left plane placed
+  // the label pass's count and time, and what the last pass of the left plane placed ({ text, x, y, x1, y1 }: its box in the pane's px)
   /** @type {any} */ (window).__cmwLabelStats = { n: 0, ms: 0 };
   setLabelProbe((ms, curves) => { const s = /** @type {any} */ (window).__cmwLabelStats; s.n++; s.ms += ms; (s.list = s.list || []).push({ ms: +ms.toFixed(2), curves }); });
-  /** @type {any} */ (window).__cmwLabelsPlaced = () => (paneL.labelsPlaced || []).map((q) => ({ text: q.text, x: Math.round(q.x0 * 10) / 10, y: Math.round(q.y0 * 10) / 10 }));
+  /** @type {any} */ (window).__cmwLabelsPlaced = () => (paneL.labelsPlaced || []).map((q) => ({ text: q.text, x: Math.round(q.x0 * 10) / 10, y: Math.round(q.y0 * 10) / 10, x1: Math.round(q.x1 * 10) / 10, y1: Math.round(q.y1 * 10) / 10 }));
   window.__cmwLayout = () => { const mg = Views.merged(S.view, morphOn()), one = solo(); return { main: S.view.main, deform: !!morph.open, merged: mg, shown: one ? [one] : ['L', 'R'], wL: paneL.w, wR: paneR.w }; };
   // which pane ('L' | 'R') shows the picture an earlier build's rightMode named (the perf suite drags that pane)
   window.__cmwPaneOf = (mode, sphereMode) => Views.paneOf(mode, sphereMode);
@@ -79,6 +79,7 @@
   };
   // shape ids that draw forward whatever their eligibility (mixed-path tests); [] clears
   window.__cmwHideStrokes = (on) => { hideStrokes = !!on; requestRender('L', 'R'); return hideStrokes; };
+  window.__cmwHideStrokesGet = () => hideStrokes;   // the state __cmwHideStrokes set, read back
   window.__cmwForceForward = (ids) => { forceFwd.clear(); for (const id of ids || []) forceFwd.add(id); scheduleFix(); requestRender('L', 'R'); return [...forceFwd]; };
   // the plane point w under a Sphere-view pixel (CSS px of the right pane), null off the globe
   window.__cmwSphereW = (x, y) => { const w = pickSphere(paneR, camS, x, y); return w ? [w.re, w.im] : null; };
@@ -332,14 +333,14 @@
     return { n: nx * ny, bare, at };
   };
   // the height error of the last carried Landscape frame's far patches, on the CPU: each cell of a far patch outside the pole patches'
-  // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h = svHeightF: plane s to the height plane) averaged, the
+  // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the
   // chord's height at the cell, against L at its centre; {cells, bad: the cells whose chord is off by more than tol, worst, at:
   // the worst cell's centre and corners' mean and exact L}, per patch of c.far (of 'polar': per pole patch, each at its own
   // resolution, none left out), or null with no carry
   window.__cmwLandFarErr = (tol = 0.25, skipPatches = true, of = 'far') => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets || !c.far) return null;
-    const F = cpuMap(c.map), h = svHeightF(c.s), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
+    const F = cpuMap(c.map), h = cpuMap(c.hmap), b = c.box, L = (z) => { const v = h(z); return CX.isFin(v) ? Math.log(1 + CX.abs(v)) : NaN; };
     return (of === 'polar' ? (c.polar || []).slice(0, c.patches || 0).map((q) => [...q, c.patchN]) : c.far).map(([px, py, r0, r1, N]) => {
       const m = (N || c.patchN || 96) - 1, at = (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return C(px + r * Math.cos(th), py + r * Math.sin(th)); };
       const out = { cells: 0, bad: 0, worst: 0, at: null }, V = new Float64Array((m + 1) * (m + 1));
@@ -368,11 +369,18 @@
     return project(pk, pk.info.MVP, [(2 * (x - b.x0) / (b.x1 - b.x0) - 1) * ax, (2 * (y - b.y0) / (b.y1 - b.y0) - 1) * ay, h]);
   };
   // the last Landscape frame's pane position (CSS px) of the surface point over (x, y) of its plane, null with no pick data
+  // or no surface there
   window.__cmwLandSurfacePx = (x, y) => {
     const pk = render3D.pick;
     if (!pk || !pk.info) return null;
     const w = pk.F(C(x, y));
-    return landWorldPx(pk, x, y, pk.info.heightOf(landValue(w)));
+    return w ? landWorldPx(pk, x, y, pk.info.heightOf(landValue(w))) : null;
+  };
+  // the value the last Landscape frame's height reads over the point (x, y) of its plane (the probe's: the image in the
+  // colour plane of the point there, svLandPickF on a carried frame), [re, im], or null with no pick data or no surface there
+  window.__cmwLandHeightAt = (x, y) => {
+    const pk = render3D.pick, w = pk && pk.F ? pk.F(C(x, y)) : null;
+    return w ? [w.re, w.im] : null;
   };
   // the last Landscape frame's pane position (CSS px) of the floor point under the place (x, y) of its box (the plane the
   // frame draws, carried or at rest), null when no frame is drawn
@@ -382,6 +390,7 @@
   };
   window.__cmwLandSheets = () => ({ drawn: render3D.sheetsInfo || null, shown: sheetsShown(), deformOk: deformSheetsOk(), linear: !!render3D.linear, title: paneTitles().left });
   window.__cmwCutCurves = () => carriedCuts.map((c) => Object.assign({}, c));   // (test/sv_cut_curve_cmd.js)
+  window.__cmwCutMarks = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutMarksL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y })); };   // (the handles a frame between two planes draws, which take no input; test/steps_glide_cut_cmd.js)
   window.__cmwCutHandles = () => { const r = paneL.ocanvas.getBoundingClientRect(); return cutHandlesL.map((hd) => ({ step: hd.step, x: r.left + hd.x, y: r.top + hd.y, deg: hd.deg, w: hd.F ? hd.F(hd.q) : null, carried: !!(hd.F || hd.fwd), wz: hd.q ? { re: hd.q.re, im: hd.q.im } : null })); };   // (v16.5 test/ux165_chain_cmd.js)
   // TEMP-DEBUG-HOOK
 
@@ -396,10 +405,11 @@
   // the steps view's globe: whether its last frame drew the carried colour and by which path ('inverse' or 'mesh'),
   // and where the point (re, im) of the glide's plane a is at the glide's u (H_u of svBetween; the point itself at
   // rest); H: that map ({re, im} -> {re, im}, the identity at rest); eye and key: the last frame's camera position and
-  // key light direction (drawSphere's, world coordinates)
+  // key light direction (drawSphere's, world coordinates); meshWin: the window of the sheet key the last carried mesh
+  // was built with (svGlobeMesh), and clipWin, the tiling's
   window.__cmwSvGlobe = (re, im) => {
     const g = svBetween(), z = C(re, im), w = g.H ? g.H(z) : z, si = leftSphereInfo;
-    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null };
+    return { carried: !!(si && si.carried), path: (si && si.carryPath) || null, a: g.a, b: g.b, u: g.u, w: w && CX.isFin(w) ? [w.re, w.im] : null, H: g.H || ((q) => q), eye: si ? si.eye : null, key: si ? si.key : null, meshWin: svGlobeKeyRec ? Object.assign({}, svGlobeKeyRec.win) : null, clipWin: Object.assign({}, clipWin) };
   };
   // the steps view's paths: Paths on, the deformation source (svPathsSource), the last frame's moving points (how many,
   // and how far in px the farthest is from H_T(z) of its start z; globeHeads: how many on a globe; globeError: what
@@ -444,7 +454,7 @@
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone; clock: ms of glide time a frame, 0 the wall
   // clock; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten); glide: the last glide frame's
   // record (svGlideRec), hold: the plane whose glide waits for its pole tracks (svHoldB), rest: the last plane at rest's (svRestRec)
-  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, grp: SV.span.grp || null } : null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
+  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   // the loaded settings and ids, read back plain (a getter: the suites that load a saved state with a key left out or set oddly read what the load made of it)
   /** @type {any} */ (window).__cmwKeys = () => ({ alpha: S.alpha, meshN: S.meshN, nextId: S.nextId, shapeIds: S.shapes.map((s) => s.id), targetIds: S.targets.map((t) => t.id), shapeCi: S.shapes.map((s) => s.ci), shapeColor: S.shapes.map((s) => s.color || null), v3: !!S.v3, v4: !!S.v4, v5: !!S.v5, v6: !!S.v6, focus: S.focus });
