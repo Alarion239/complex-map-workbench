@@ -489,8 +489,9 @@
   function carryPrep(res, st) {
     if (!ok || !res || !res.n) return false;
     const L = st.L || 4;
-    // (st.peel: the variants that write the sheet key per fragment, for the layers of carryLayers)
-    const N = (n) => (st.peel ? n + 'P' : n);
+    // (st.peel: the variants that write the sheet key per fragment, for the layers of carryLayers; the Cauchy style's, CARRY_CAUCHY)
+    const cz = carryCauchyOn(st.carry);
+    const N = (n) => (st.peel ? n + 'P' : n) + (cz ? 'Z' : '');
     // (a deformation whose path has a cut the sheets continue: the places from the map cache (regionKC), then the
     // triangles they tear across a cut on their centre's sheet (regionKSCpt, its places from its point pass); without
     // the cache, every triangle
@@ -516,7 +517,7 @@
     // while the sheet program itself links. Without the key (no depth to draw the mask into), the sheet program alone)
     const masked = !!(st.key && st.key.win) && !clip;
     const maskOf = (name, R, get) => {
-      const M = get(name + 'm', st.map);
+      const M = get(name.replace(/Z$/, '') + 'm', st.map);
       return M && M.ch === R.ch && M.mode === R.mode ? M : null;
     };
     let fill = null, fp = null, mask = null;
@@ -796,9 +797,11 @@
   // Cauchy integral's colour, anything else leaves the stages' colour
   // whether the residue theorem's data (a plan and its polygon's edges) are there to draw
   const cauchyUsable = (c) => !!(c && c.plan && c.edges && c.edges.length >= 4);
+  // whether carried colour c draws the Cauchy integral: its programs are then the CARRY_CAUCHY variants
+  const carryCauchyOn = (c) => !!(c && cauchyUsable(c.cauchy));
   const CARRY_EDGE_UNIT = SAMPLER_UNITS.uCEdges;
   function carryCauchy(P, c) {
-    const cp = c && cauchyUsable(c.cauchy) ? c.cauchy : null;
+    const cp = carryCauchyOn(c) ? c.cauchy : null;
     u1i(P, 'uCT', cp ? cp.T : -1);
     if (!cp) return;
     cauchyPlan(P, cp, CARRY_EDGE_UNIT);
