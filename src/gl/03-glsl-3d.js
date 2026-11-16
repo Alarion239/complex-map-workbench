@@ -581,6 +581,29 @@ void main() {
   tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
 }
 `;
+  // the carried All sheets' places sheet by sheet: each sheet's cells' corners (LAND_SHEET_TF_VS's tiles: 2M x 2M texels a
+  // combo, uTileC tiles a row, M = uN - 1 cells a side, over the box uBox or a pole's patch, CARRY_ZIN) moved by the glide's
+  // map on that sheet (mapSheet, the map's uniforms: its steps applied from the stage uBase, with the digits of the
+  // sheets' heights, (uSheetA, uSheetB]), so each sheet stands over its own image: (place x, y, 0, finite). LAND_SHEET_VS
+  // reads them with uCPS 1
+  const LAND_CARRY_PLACE_S_TF_VS = () => SHEET_MAP + `
+uniform int uN; uniform vec4 uBox; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
+out vec4 tfOut;
+` + CARRY_ZIN + `
+void main() {
+  int T = 2 * (uN - 1);
+  gl_Position = vec4(0.0, 0.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+  tfOut = vec4(0.0);
+  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+  ivec2 tile = p / T, qq = p - tile * T;
+  int combo = tile.y * uTileC + tile.x;
+  if (combo >= uSheetK) return;
+  ivec2 cell = qq / 2, cor = qq - cell * 2;
+  vec2 q = mapSheet(carryZIn(uBox, vec2(cell) + 0.5), carryZIn(uBox, vec2(cell + cor)), combo);
+  tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
+}
+`;
   // its normals: central differences of the moved points in the block (one-sided where a neighbour is not finite, is
   // across a tear (a step over uLim on the plane) or a height step over uStep), and the occlusion of the heights over
   // the grid (LAND_AO, as at rest)
@@ -965,12 +988,19 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
-// the carried sheets (uCarry 1, the steps view's glide): the grid corners' places under the glide's map (uCP, over the grid
-// of the cells, uN x uN; LAND_CARRY_PLACE_TF_VS) in the block over uCBox; a triangle with a corner not finite or an edge over
-// uCLim on the plane (torn across a cut or a pole of the map) is left out
+// the carried sheets (uCarry 1, the steps view's glide): the cells' corners' places under the glide's map (uCP) in the
+// block over uCBox, each sheet's own on it (uCPS 1, LAND_CARRY_PLACE_S_TF_VS, in uT1's tiles) or, until that program has
+// run, the principal sheet's grid's for every sheet (uN x uN, LAND_CARRY_PLACE_TF_VS); a triangle with a corner not finite
+// or an edge over uCLim on the plane (torn across a cut or a pole of the map) is left out
 // A pole's patch (uPatch 1): the same, over the grid of the patch (CARRY_Z, uPolar), whose cells carry their own heights
 // uCP and uT1 are the patch's too
 uniform highp sampler2D uCP; uniform int uCarry; uniform vec4 uCBox; uniform float uCLim; uniform int uPatch;
+uniform int uCPS;
+// a corner's place: its sheet's own (uCPS 1, LAND_CARRY_PLACE_S_TF_VS: uT1's tiles) or the grid's, every sheet's
+vec4 cpAt(int combo, ivec2 c, ivec2 cor) {
+  if (uCPS == 1) return texelFetch(uCP, ivec2(combo % uTileC, combo / uTileC) * (2 * (uN - 1)) + 2 * c + cor, 0);
+  return texelFetch(uCP, c + cor, 0);
+}
 ` + CARRY_ZIN + `
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc; flat out int vCombo;
@@ -994,7 +1024,7 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     // the vertex's place: the cell's four corners' places by bilinear weights, the tangents of the moved sheet from
     // their differences (the slopes of the height at rest, nrm, carried over) in the block over uCBox
     vec2 f = q.xy / 16.0 - vec2(c);
-    vec4 p00 = texelFetch(uCP, c, 0), p10 = texelFetch(uCP, c + ivec2(1, 0), 0), p01 = texelFetch(uCP, c + ivec2(0, 1), 0), p11 = texelFetch(uCP, c + ivec2(1, 1), 0);
+    vec4 p00 = cpAt(combo, c, ivec2(0, 0)), p10 = cpAt(combo, c, ivec2(1, 0)), p01 = cpAt(combo, c, ivec2(0, 1)), p11 = cpAt(combo, c, ivec2(1, 1));
     vec2 pl = mix(mix(p00.xy, p10.xy, f.x), mix(p01.xy, p11.xy, f.x), f.y);
     vec2 toW = 2.0 * uAspect / uCBox.zw;
     vPos = vec3(((pl - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, q.z);
@@ -1062,7 +1092,7 @@ void main() {
   }
   if (!(ta.y > 0.5 && tb.y > 0.5 && tc.y > 0.5)) return;
   if (uCarry == 1) {
-    vec4 ca = texelFetch(uCP, c + A, 0), cb = texelFetch(uCP, c + B, 0), cc = texelFetch(uCP, c + C, 0);
+    vec4 ca = cpAt(combo, c, A), cb = cpAt(combo, c, B), cc = cpAt(combo, c, C);
     if (ca.w < 0.5 || cb.w < 0.5 || cc.w < 0.5) return;
     if (length(ca.xy - cb.xy) > uCLim || length(cb.xy - cc.xy) > uCLim || length(cc.xy - ca.xy) > uCLim) return;
   }

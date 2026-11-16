@@ -327,22 +327,37 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
   }
-  // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
-  // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
-  // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
-  // i + 1
+  // the carried All sheets' places, bound to unit 11 (uCP) for the sheets' draw and run every frame, as the places change
+  // with the glide; the box's in landCP[0], a patch's in slot i + 1. sh ({sp: the sheets' plan, tileC: their heights'
+  // tiles a row}): each sheet's cells' corners at their image under the glide's map on that sheet, in the tiles of its
+  // heights (LAND_CARRY_PLACE_S_TF_VS), so each sheet stands over its own image; 2. Without sh, or until that program
+  // has compiled: the grid of N points a side over the box src, or a pole's patch (polar, CARRY_Z), at its image on the
+  // principal sheet, where every sheet stands (LAND_CARRY_PLACE_TF_VS); 1. 0 when neither program is ready
   const landCP = [];
-  function carryPlaces(st, N, polar, slot = 0) {
-    const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
-    if (!P) return false;
+  function carryPlaces(st, N, polar, slot = 0, sh = null) {
+    const c = st.carry, sb = c.src || st.box, PS = sh ? program('landCarryPlaceS', c.map) : null;
     if (!landCP[slot]) landCP[slot] = floatTex();
+    if (PS && hasSheets(PS.ch.info)) {
+      const sp = sh.sp, M = N - 1, texW = sh.tileC * 2 * M, texH = Math.ceil(sp.K / sh.tileC) * 2 * M;
+      use(PS, c.map);
+      u1i(PS, 'uN', N);
+      u4f(PS, 'uBox', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+      u4f(PS, 'uPolar', ...(polar || [0, 0, 0, 0]));
+      u1i(PS, 'uSheetA', sp.a); u1i(PS, 'uSheetB', sp.b); u1i(PS, 'uSheetK', sp.K); u1i(PS, 'uTileC', sh.tileC); u1i(PS, 'uTexW', texW); u1iv(PS, 'uSheetMap', sp.map);
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(PS, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landCP[slot], texW, texH, gl.RGBA32F, gl.RGBA);
+      gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
+      return 2;
+    }
+    const P = program('landCarryPlace', c.map);
+    if (!P) return 0;
     use(P, c.map);
     u1i(P, 'uN', N);
     u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
     runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP[slot], N, N, gl.RGBA32F, gl.RGBA);
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
-    return true;
+    return 1;
   }
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
@@ -1435,10 +1450,11 @@
       const polar = (st.carry.polar || []).slice(0, CARRY_POLES), far = (st.carry.far || []).slice(0, CARRY_FAR_N.length);
       [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, CARRY_FAR_N[k]])].forEach(([p, n], i) => {
         const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect);
-        if (h && carryPlaces(st, h.N, p, h.slot)) sheetPatches.push(Object.assign(h, { far: i >= polar.length }));
+        const cp = h ? carryPlaces(st, h.N, p, h.slot, { sp, tileC: h.tileC }) : 0;
+        if (cp) sheetPatches.push(Object.assign(h, { far: i >= polar.length, cps: cp === 2 ? 1 : 0 }));
       });
     }
-    const carried = !!st.carry && !!hs && carryPlaces(st, hs.N);
+    const cpBox = st.carry && hs ? carryPlaces(st, hs.N, null, 0, { sp, tileC: hs.tileC }) : 0, carried = cpBox > 0;
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
@@ -1462,7 +1478,8 @@
         u1i(Lp, 'uSheetK', hs.K); u1iv(Lp, 'uSheetMap', sp.map);
         u1i(Lp, 'uCarry', carried ? 1 : 0);
         u2f(Lp, 'uClipA', aspect[0], aspect[1]);
-        if (carried) { info.carried = true; u4f(Lp, 'uCBox', box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1)); }
+        u1i(Lp, 'uCPS', cpBox === 2 ? 1 : 0);
+        if (carried) { info.carried = true; info.sheetPlaces = cpBox === 2; u4f(Lp, 'uCBox', box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1)); }
       } else {
         u1i(Lp, 'uCuts', hd.cuts || 0);
         for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, hd.edges[d]); }
@@ -1487,7 +1504,7 @@
         gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
         u1i(Lp, 'uPatch', 1); u1i(Lp, 'uRefOn', 0); u1f(Lp, 'uCLim', st.carry.lim);
         const drawPatch = (p) => {
-          u1i(Lp, 'uN', p.N); u4f(Lp, 'uPolar', ...p.polar);
+          u1i(Lp, 'uN', p.N); u4f(Lp, 'uPolar', ...p.polar); u1i(Lp, 'uCPS', p.cps);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.tex1);
           gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[p.slot]);
           gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
@@ -1496,7 +1513,7 @@
         gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         for (const p of sheetPatches) if (p.far) drawPatch(p);
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
-        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0);
+        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0); u1i(Lp, 'uCPS', cpBox === 2 ? 1 : 0);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
         gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
         info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
