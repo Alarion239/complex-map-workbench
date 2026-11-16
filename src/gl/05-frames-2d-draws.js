@@ -478,6 +478,22 @@
     return peel ? names.map((n) => (n === 'fillPts' ? n : /m$/.test(n) ? n.slice(0, -1) + 'Pm' : n + 'P')) : names;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
+  // the state of the carried colour a frame of map would draw, nothing drawn: on the plane drawRegionCarry's (its map
+  // cache's program, or the plain one carryPrep falls back to), on the globe (globe: {id}, plane s the colour plane)
+  // drawCarriedGlobe's. 'ready' when that program, or the stand-in program() draws while it links, is linked; 'pending'
+  // while it links (asking starts it, as a draw does: the plane's map cache's where the cache runs, else the plain
+  // one); 'error' when it cannot link
+  function carryState(map, globe) {
+    if (!ok || lost || !cur.info) return 'error';
+    const m = map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
+    const cuts = kinds.some((c) => c && (c.clip || c.h === 'sheet'));
+    const names = globe ? [globe.id ? 'carryGId' : 'carryG'] : [noCutProg('regionKC', cuts), noCutProg('regionK', cuts)];
+    if (names.some((n) => programLinked(n, map))) return 'ready';
+    const name = globe || rtOK ? names[0] : names[1];
+    getProg(name, cur, true, map);
+    const e = progs.get(progId(name, cur, map));
+    return e && e.state === 'error' ? 'error' : 'pending';
+  }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
   // point, not four times per vertex, which would be most of a glide frame); -> true when drawn, false while its

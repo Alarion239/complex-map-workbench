@@ -51,9 +51,6 @@
   // the carried globe's mesh (cells along longitude and latitude), and the chord, on the unit sphere, over which a
   // triangle is torn across a cut or a pole and left out (CARRY_GLOBE_VS)
   const SV_GLOBE_MESH = { nx: 192, ny: 96 }, SV_GLOBE_CHORD = 0.5;
-  // plane b's globe is cross-faded in over a's only past this u (under it its alpha, u, is below 3 of 255 levels, not
-  // worth a second globe's draw)
-  const SV_FADE_U = 0.01;
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   // which way the shown plane is painted: 'pull' on a coloured plane (the colour is pulled back through the map), 'push' past it
@@ -1099,22 +1096,36 @@
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' regions, svStagedOf, which draws their mask and outlines), and once it
-  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
-  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
-  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
-  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
-  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing); or whose step
+  // the carried meshes draw (no inverse plan, or All at once), while their programs link (svMeshLinking): the glide
+  // waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the
+  // plane before the thread), so no frame between the planes is the carried mesh's, one drawn without its tracks or
+  // the planes' plots in place of the meshes, and the first one drawn is the glide's own. After it svHoldB is plane b
+  // when the glide waits for the tracks, else 0; such a wait also starts the idle job (svPolesWatch), which makes plane
+  // b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
     const g = svBetween();
-    if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
-    const h = svHomPaths(g.b, g.u).h;
+    if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b)) return null;
+    const inv = !g.all && g.map.mode === 1 && !!GLR.inverseState;
+    const h = inv ? svHomPaths(g.b, g.u).h : null;
     const st = h && svStagedOf();
-    const linking = !!h && [h, st].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
-    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
+    const linking = h ? [h, st].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending')) : svMeshLinking(g.map, null);
+    svHoldB = inv && !linking && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
-    if (!linking && !svHoldB) return null;
+    return linking || svHoldB ? svHoldAt(g) : null;
+  }
+  // whether the carried meshes a glide's frame of map draws with are still linking (GLR.carryState; globe: {id}, the
+  // carried globe's): a frame of the glide would draw something else in their place
+  function svMeshLinking(map, globe) {
+    if (!GLR.carryState) return false;
+    if (!globe && !(svCarryShapes() || []).length) return false;
+    return GLR.carryState(map, globe) === 'pending';
+  }
+  // a glide held on the plane it started from: a glide's or a play's clock starts again there, a scrub's frame is that
+  // of the plane before the thread -> the place to draw
+  function svHoldAt(g) {
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
     if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
     return g.x0;
@@ -1754,10 +1765,10 @@
       // (at rest while the programs at rest link: the glide's own to plane a at its end, t = 1, the same places, with
       // the programs the glide there linked)
       if (still && !svColoured(a) && a > 0 && !isDeriv(a) && svCarryRegions(pane, { mode: 1, hi: a, t: 1 }, T, a, frame, null)) return;
-      // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, the two planes'
-      // cross-faded, the whole picture of a d/dz step's glide and of a glide while the carried meshes' programs link)
-      if (still) plot(a, 1);
-      else { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
+      // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, where the carried
+      // meshes cannot draw (the glide waits while they link, svLinkHold), the colour of the plane the frame is nearest
+      // to, as it is at rest: never two planes blended)
+      plot(still ? a : near, 1);
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
@@ -1977,8 +1988,20 @@
     p.begin = (bg) => { p.ctx.setTransform(1, 0, 0, 1, 0, 0); p.ctx.clearRect(0, 0, cv.width, cv.height); if (bg) { p.ctx.fillStyle = bg; p.ctx.fillRect(0, 0, cv.width, cv.height); } p.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0); };
     return p;
   }
-  // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
-  let svFadeCv = null;
+  // the globe's glide held on the plane it started from while the carried mesh it is drawn with links (svLinkHold's
+  // wait, for a glide the globe's carried mesh draws: All at once, or a step with no inverse plan, between two planes
+  // that show the colour) -> the place to draw instead of the thread's, or null
+  function svGlobeHold() {
+    svHomMemo = null;
+    const g = svBetween(), T = svT(), shows = (k) => svColoured(k) || k > T;
+    if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b) || !shows(g.a) || !shows(g.b)) return null;
+    if (!g.all && (g.map.mode !== 1 || svHomPaths(g.b, g.u).h)) return null;
+    const src = Math.min(g.a, T);
+    if (src > 0 && derivIn(src, T)) return null;
+    return svMeshLinking(svGlideMap(g, src), { id: src === T }) ? svHoldAt(g) : null;
+  }
+  // the glide on the globe: the globe of plane a with the colour carried by the glide's map, the shapes moving on it.
+  // While the carried mesh it is drawn with links, the glide waits on the plane it started from (svGlobeHold)
   // the regions' colour on the globe per pixel through the inverse pass, as drawSphere's regions draw records: between
   // two planes, step b's homotopy at u (svCarryExactHom's records); at rest on plane b past the colour plane (u null),
   // the map into b (svCarryExact's). A point of the plane shown is walked back to plane 0 and coloured as the colour
@@ -2029,7 +2052,8 @@
     return info;
   }
   function svSphereMoving(pane) {
-    const bt = svBetween(), { a, b, u, map, F, near, all } = bt;
+    const hold = svGlobeHold();
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
@@ -2040,7 +2064,8 @@
     // (svGlobeCarryInv), the regions' own colour on the plain globe, nothing blended in, so the ends are the planes'
     // own globes. A plane past the colour plane shows the colour carried to it, at rest too (u null), as the plane's
     // svCarryExact. For a step with no inverse plan, at rest or between two planes that show the colour, the carried mesh
-    // (svGlobeMesh); while neither can draw, plane b's globe fading in over plane a's
+    // (svGlobeMesh); where neither can draw, the globe of the plane the frame is nearest to, as it is at rest: never two
+    // globes blended
     const T = svT(), still = u <= SV_REST_U || b === a;
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
@@ -2050,13 +2075,9 @@
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
-    const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
+    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
-    if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
-      svFadeCv = svCanvas(svFadeCv, pane);
-      sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
-      svFadeOver(pane, svFadeCv, u);
-    }
+    if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
     // the plane's camera, drawn lifted to the sphere)
