@@ -138,8 +138,8 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(W, H, false, false);
-  // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
-  const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
+  // (waits on a condition: the state the next step reads, polled every 100 ms for up to 15 s)
+  const until = async (expr) => (await settled({ until: expr, max: 15000, only: true, poll: 100 })).ok;
   await seed(`${ns}land${lang}${W}`, LAND);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
   await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
