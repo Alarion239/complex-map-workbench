@@ -98,6 +98,7 @@ const MAP = [
   ['src/tour.js', ui('tour')],                                                // the guided tour
   ['src/figure/**', ui('export')],                                           // exported figures, and the images shard
   ['src/{sound,seasong}.js', ui('sound')],                                    // the sound, the sea song
+  ['src/glsl/**', { core: true }],                                            // glsl.js in parts (#1552), the same as glsl.js
   ['src/sound/**', ui('sound')],                                              // sound.js in parts
   ['src/{construct,constr,constrpoc,constrortho}.js', ui('constructions')],   // perp, constructions, the ux165 rail
   ['src/construct/**', ui('constructions')],                                  // construct.js in parts (#20), the same

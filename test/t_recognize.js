@@ -20,7 +20,7 @@ const R = path.join(__dirname, '..');
 global.CX = require(R + '/src/cx.js'); global.Expr = require(R + '/src/parse.js');
 global.Funcs = require(R + '/src/funcs.js'); global.Region = require(R + '/src/region.js');
 global.Inverse = require(R + '/src/inverse.js'); global.Recognize = require(R + '/src/recognize.js');
-global.GLChain = require(R + '/src/glsl.js');
+global.GLChain = require('./lib/glchain');
 const C = CX.C;
 const VERBOSE = process.argv.includes('-v');
 let A = 0.7;
