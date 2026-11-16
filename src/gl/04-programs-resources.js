@@ -1171,16 +1171,17 @@ float wabs(vec2 w) {
     if (sc) { if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST); }
     return true;
   }
-  // the carried colour's stand-in on pre-mapped mesh res: w, each vertex's colour-plane point G as (ln |G|, arg G) * 16
-  // / tau (PRE_VS's aW), 2 floats a vertex in the mesh's order, arg continuous across each triangle; key: what w was
-  // computed for (res.wKey). -> false when res has no buffers (evicted, or a lost context: upload the mesh first)
+  // the carried colour's stand-in on pre-mapped mesh res: w, each vertex's colour-plane point G (PRE_VS's aW), 3 floats a
+  // vertex in the mesh's order: the point in a form its triangle shares (the third float: 0, (ln |G|, arg G) * 16 / tau,
+  // arg continuous across the triangle; 1, G; 2, 1/G); key: what w was computed for (res.wKey). -> false when res has
+  // no buffers (evicted, or a lost context: upload the mesh first)
   function setPreW(res, w, key) {
-    if (!ok || !res || !res.vao || !w || w.length < 2 * res.count) return false;
+    if (!ok || !res || !res.vao || !w || w.length < 3 * res.count) return false;
     if (!res.wBuf) { res.wBuf = gl.createBuffer(); res.bytes += w.byteLength; if (preAll.has(res)) preBytes += w.byteLength; }
     gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf);
     gl.bufferData(gl.ARRAY_BUFFER, w, gl.STATIC_DRAW);
     gl.bindVertexArray(res.vao);
-    attrib(3, 2, 8, 0, 0);
+    attrib(3, 3, 12, 0, 0);
     gl.bindVertexArray(null);
     res.wKey = key;
     return true;

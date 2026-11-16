@@ -632,6 +632,9 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   const PRE_SRC = `vec2 preRT(vec2 gp) { return vec2(exp(clamp(gp.x * (TAU / 16.0), -${PRE_LN}.0, ${PRE_LN}.0)), gp.y * (TAU / 16.0)); }
 vec2 preSrc(vec2 gp) { vec2 rt = preRT(gp); return rt.x * vec2(cos(rt.y), sin(rt.y)); }
 `;
+  // 1/v, a finite stand-in for infinity at v = 0: the stand-ins' (COLOR_STANDIN_FS, CARRY_FS's w option), programs
+  // without the chain (whose GLSL has a cinv of its own)
+  const CINV = 'vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }\n';
   const PAT_CHAIN = `  if (uPattern == 1) {              // Checker
     col = mix(mix(c0, c1, checker(g, gw)), 0.5 * (c0 + c1), m);
     if (uLines > 0.5) col = mix(col, k, 0.35 * net(g, gw));
@@ -725,17 +728,18 @@ ${sphere ? `
   // aPos = w - w0 (flat; uRel = view centre - w0, a float64 difference) or the conjugate lift of w (globe); aAttr the
   // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern); aCart 1 where the
   // triangle's vP is its source point itself, not its polar coordinates (SphereMesh's cart: about z = 0); w: aW the
-  // colour plane's point of the vertex's source point, (ln |G|, arg G) * 16 / tau as vP's (vW, CARRY_FS's w option)
+  // colour plane's point G of the vertex's source point, in the form aW.z gives, the same at a triangle's three
+  // corners: 0, (ln |G|, arg G) * 16 / tau as vP's; 1, G itself; 2, 1/G (vW and vWm, CARRY_FS's w option)
   const PRE_VS = (sphere, w = false) => `
 layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
 layout(location = 2) in float aTri;
 layout(location = 4) in float aCart;
-${w ? 'layout(location = 3) in vec2 aW;\nout vec2 vW;\n' : ''}out vec2 vG; out vec2 vP;
+${w ? 'layout(location = 3) in vec3 aW;\nout vec2 vW; flat out float vWm;\n' : ''}out vec2 vG; out vec2 vP;
 flat out float vJac; flat out float vCart;
 ${sphere ? 'out vec3 vNor; out vec3 vPos;\nuniform mat4 uMVP;' : 'uniform vec2 uRel; uniform vec2 uScale;'}
 void main() {
-  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vCart = aCart;${w ? ' vW = aW;' : ''}
+  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vCart = aCart;${w ? ' vW = aW.xy; vWm = aW.z;' : ''}
 ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPos * 1.002, 1.0);' : '  gl_Position = vec4((aPos - uRel) * uScale, 0.0, 1.0);'}
 }
 `;
@@ -1224,8 +1228,7 @@ void main() {
   const COLOR_STANDIN_FS = `
 uniform vec2 uGO; uniform float uGC; uniform vec4 uVp; uniform sampler2D uWNodes;
 out vec4 o;
-vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }
-void main() {
+${CINV}void main() {
   ivec2 n = textureSize(uWNodes, 0);
   vec2 q = (gl_FragCoord.xy - uVp.xy - uGO) / uGC;
   ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
@@ -1256,15 +1259,15 @@ void main() {
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
-  // (w, with pre: the colour plane's point comes with the mesh, vW (PRE_VS's w option), mapped on the CPU: a stage
-  // without the chain, the stand-in while its programs link)
+  // (w, with pre: the colour plane's point comes with the mesh, vW in the form vWm gives (PRE_VS's w option), mapped on
+  // the CPU: a stage without the chain, the stand-in while its programs link)
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, w = false) => `
 uniform int uGs; uniform int uGt;
-${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;${w ? ' in vec2 vW;' : ''}
-${pre ? 'uniform int uPreZ; flat in float vCart;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;${w ? ' in vec2 vW; flat in float vWm;' : ''}
+${pre ? 'uniform int uPreZ; flat in float vCart;\n' + PRE_SRC : ''}${w ? CINV : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 || vCart > 0.5 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : ''}  o = vec4(dcolor(${w ? 'preSrc(vW)' : id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+${key ? PRE_KEY : ''}  o = vec4(dcolor(${w ? 'vWm > 1.5 ? cinv(vW) : vWm > 0.5 ? vW : preSrc(vW)' : id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;
   // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =

@@ -34,6 +34,18 @@
 const SphereMesh = (() => {
   const { C } = CX;
   const TAU = 2 * Math.PI;
+  // whether polar coordinates fail to stand for the points of a triangle across it: its corners (x, y) and the mean of
+  // their polar coordinates (lr, ar) = (ln r, arg) * 16 / tau, arg continuous across it. It holds 0, where ln r and arg
+  // cannot be interpolated, or their interpolation at its centroid lands over CART_TOL of its longest edge from the
+  // centroid (about 0). SphereMesh's cart and the carried colour's stand-in (carriedForm) use it
+  const CART_TOL = 0.02;
+  function polarMiss(x0, y0, x1, y1, x2, y2, lr, ar) {
+    const e0 = x0 * y1 - x1 * y0, e1 = x1 * y2 - x2 * y1, e2 = x2 * y0 - x0 * y2;
+    if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) return true;
+    const r = Math.exp(lr * TAU / 16), a = ar * TAU / 16, cx = (x0 + x1 + x2) / 3, cy = (y0 + y1 + y2) / 3;
+    const edge = Math.max(Math.hypot(x1 - x0, y1 - y0), Math.hypot(x2 - x1, y2 - y1), Math.hypot(x0 - x2, y0 - y2));
+    return Math.hypot(r * Math.cos(a) - cx, r * Math.sin(a) - cy) > CART_TOL * edge;
+  }
   const FIN = 0, INF = 1, UNDEF = 2;                                 // vertex image status
   const PENDING = 0, FINAL = 1, CULLED = 2, OUTSIDE = 3, SAT = 4, DROPPED = 5;
   const STATE_NAMES = ['pending', 'final', 'culled', 'outside', 'saturated', 'dropped'];
@@ -854,20 +866,13 @@ const SphereMesh = (() => {
       out[0] = lr * 16 / TAU; out[1] = ar * 16 / TAU; return out;
     }
     // whether the polar coordinates published for triangle k (vertices v; attr's P, arg unwrapped) fail to stand for z
-    // across it, so that it carries z itself (pub.cart): it holds z = 0, where ln |z| and arg z cannot be interpolated, or
-    // their interpolation at its centroid lands over CART_TOL of its longest edge from the centroid (about z = 0). A
-    // vertex stored about infinity (1/z) leaves the triangle to its polar coordinates, which hold there
-    const CART_TOL = 0.02;
+    // across it (polarMiss), so that it carries z itself (pub.cart): about z = 0. A triangle with a vertex stored about
+    // infinity (1/z) keeps its polar coordinates
     function polarFails(v, attr, k) {
       if (v.some((q) => PRI[q] === 1 || !Number.isFinite(ZX[q]) || !Number.isFinite(ZY[q]))) return false;
-      const x0 = ZX[v[0]], y0 = ZY[v[0]], x1 = ZX[v[1]], y1 = ZY[v[1]], x2 = ZX[v[2]], y2 = ZY[v[2]];
-      const e0 = x0 * y1 - x1 * y0, e1 = x1 * y2 - x2 * y1, e2 = x2 * y0 - x0 * y2;
-      if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) return true;
       let lr = 0, ar = 0;
       for (let j = 0; j < 3; j++) { lr += attr[k * 12 + 4 * j + 2]; ar += attr[k * 12 + 4 * j + 3]; }
-      const r = Math.exp(lr / 3 * TAU / 16), a = ar / 3 * TAU / 16, cx = (x0 + x1 + x2) / 3, cy = (y0 + y1 + y2) / 3;
-      const edge = Math.max(Math.hypot(x1 - x0, y1 - y0), Math.hypot(x2 - x1, y2 - y1), Math.hypot(x0 - x2, y0 - y2));
-      return Math.hypot(r * Math.cos(a) - cx, r * Math.sin(a) - cy) > CART_TOL * edge;
+      return polarMiss(ZX[v[0]], ZY[v[0]], ZX[v[1]], ZY[v[1]], ZX[v[2]], ZY[v[2]], lr / 3, ar / 3);
     }
     // the interpolated pattern coordinates stay within TAU_PAT px of the true ones at the edge midpoints
     function patTestOf(attr, vid, mids, S, unwrapY) {
@@ -1393,7 +1398,7 @@ const SphereMesh = (() => {
   // (alpha 0.2: K 25; a full mesh of exp(H) would take 814k nodes, e^{1/z}(D) 1.1M) refines until the node budget,
   // about 10 layers as before, rather than stopping at 5 on the work budget.
   const APP = { maxWork: 250000, maxNodes: 300000, guard: 2, workOf: (K) => Math.max(250000, 85000 * K) };
-  return { create, kOf, KCAP, APP, lift, liftConj, stagewise, atInfOf, probeStep, FIN, INF, UNDEF, FINAL, PAT_POLAR, PAT_CART };
+  return { create, kOf, KCAP, APP, lift, liftConj, stagewise, atInfOf, probeStep, polarMiss, FIN, INF, UNDEF, FINAL, PAT_POLAR, PAT_CART };
 })();
 import { CX } from './cx.js';
 import { Region } from './region.js';
