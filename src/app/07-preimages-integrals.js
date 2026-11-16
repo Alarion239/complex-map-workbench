@@ -49,6 +49,15 @@
       return t;
     });
   }
+  // preimage targets over a picture in colour (a phase portrait, the steps view's carried colour): the area fills at half
+  // strength, so the colour reads through them; curves and boundaries as drawn
+  const halfFills = (ts) => ts.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
+  // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
+  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at half strength
+  function pullLayerEdge(s, dpr) {
+    const ink = shapeInk(s);
+    return { width: pullBandW(s, dpr), alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), tint: [...GLR.hexRGB(ink.c0), 0.5 * PULL_ALPHA * dimK(s)] };
+  }
   // a second GL pass over the plane: where the map lands in each target
   function drawPullback(pane, map, targets) {
     if (!GLR.ok || typeof GLR.drawPreimage !== 'function' || !targets.length) return false;
@@ -64,8 +73,10 @@
   // ([#253] full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
   // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
   // per plane s. A point's preimages are not drawn (they are roots, not a picture)
-  // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask, 19)
-  function stagePullbacks(pane, j, inFrame) {
+  // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask and its layer, 19;
+  // over: over a picture in colour, the steps view's layer, so the area fills are at half strength and the colour reads
+  // through them, as renderColor draws the targets' preimages)
+  function stagePullbacks(pane, j, inFrame, over) {
     const by = new Map();
     for (const s of S.shapes) {
       const st = shapeStage(s);
@@ -80,7 +91,7 @@
     try {
       if (!inFrame) GLR.begin(pane.pw, pane.ph);
       cmFormAnchor('Y');
-      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: pullTargets(list), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
+      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: over ? halfFills(pullTargets(list)) : pullTargets(list), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
       pending = !!(GLR.frameStatus && GLR.frameStatus().pending);
       if (!inFrame) GLR.blit(pane.ctx);
     } catch (e) { console.error('drawPreimage', e); }
