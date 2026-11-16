@@ -1045,9 +1045,25 @@
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
   // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the distance to the lowest of
-  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size)
-  const LEGEND_HIT_PX = 8;
-  function placeKeyPop(box) {
+  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size or the context bar opens or closes)
+  const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4, LEGEND_BAR_SLIDE_MS = 260;   // (the bar's slide is 220 ms)
+  // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what it runs under the bar,
+  // down to 4 px under the plane's top, and not into a readout it has just been dropped below)
+  function clearContextBar(box) {
+    const bar = document.querySelector('.ph-ctx.in'), plot = box.parentNode;
+    if (!bar || !plot || box.classList.contains('collapsed') || /** @type {HTMLElement} */ (plot).classList.contains('pane-head')) return;
+    const c = box.getBoundingClientRect();
+    if (!c.width) return;
+    const over = c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX), room = c.top - (/** @type {HTMLElement} */ (plot).getBoundingClientRect().top + LEGEND_BAR_GAP_PX), up = Math.min(Math.ceil(over), Math.floor(room));
+    if (over <= 0 || up <= 0) return;
+    for (const e of /** @type {HTMLElement} */ (plot).querySelectorAll(':scope > .chip.readout')) {
+      const r = e.getBoundingClientRect();
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom - up && c.top - up < r.bottom) return;
+    }
+    box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
+  }
+  function placeKeyPop(box) { placeKeyPopReadout(box); clearContextBar(box); }
+  function placeKeyPopReadout(box) {
     const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');

@@ -1457,6 +1457,8 @@
         const plot = el.parentNode, ro = new ResizeObserver(() => requestAnimationFrame(() => placeKeyPop(el)));
         if (plot && !/** @type {HTMLElement} */ (plot).classList.contains('pane-head')) for (const e of /** @type {HTMLElement} */ (plot).querySelectorAll(':scope > .chip.readout')) ro.observe(e);
       } catch (e) { /* no ResizeObserver */ }
+      // (and as the context bar opens and closes: the root's ph-ctx-on and ph-ctx-tall; again when its 220 ms slide has ended, for it is placed by where it stands)
+      try { new MutationObserver(() => { requestAnimationFrame(() => placeKeyPop(el)); setTimeout(() => placeKeyPop(el), LEGEND_BAR_SLIDE_MS); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
