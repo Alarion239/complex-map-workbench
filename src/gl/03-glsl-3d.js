@@ -1295,9 +1295,12 @@ ${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): ever
                         vEdge.z * (1.0 - smoothstep(1.5 * uDpr - 0.5, 1.5 * uDpr + 0.5, eb.z)));
   a = mix(a, toLin(uCut), cliff);
   // the rim of the surface (the domain's edges at their heights): seen from the side it draws the profile. The carried
-  // surface goes on past its box's edge (the patches of CARRY_Z), so its rim is where the block's sides clip it
+  // surface, and the carried sheets, go on past their box's edge (the patches of CARRY_Z), so their rim is where the
+  // block's sides clip them
 ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
-  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}
+  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}${sheet ? `
+  // (carried sheets: the block's sides, as the carried surface's; their patches' z lies outside the box)
+  if (uCarry == 1) er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : ''}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
   // where the block's top or bottom clips the surface: the same rim as the domain's edges
   rim = max(rim, max(max(vBoxE.x * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, eb.x)),

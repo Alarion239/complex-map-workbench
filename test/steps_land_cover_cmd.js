@@ -14,9 +14,12 @@
 //   point has its patch (carried.patches).
 // - All sheets at u = 0.998 (#1654): each sheet stands over its own image under the glide's map, as the sheets-off
 //   glide's copies do (carried.sheetPlaces), so the frame has at least the sheets-off frame's pixels with its copies.
-//   Möbius then √ (arrive): of the surface pixels of the frame and of the plane it arrives at, parked, the share over
-//   32/255 apart is at most the sheets-off frame's plus ARRIVE_SLACK. (The logarithm's five sheets scale their Im heights
-//   by a percentile over every sheet, the parked plane by its median, so its relief stands apart there either way.)
+//   Of the surface pixels of the frame and of the plane it arrives at, parked, the share over 32/255 apart is at most
+//   the sheets-off frame's plus ARRIVE_SLACK: the sheets' scale, block and linear height ease into the parked plane's
+//   own over the glide, as the sheets-off carry's scale does.
+// - The same arrival in a small window about 0 (s = 900, SMALL), where the carried points reach the whole window, so the
+//   sheets-off frame is all but the parked plane: All sheets at most its share plus ARRIVE_SLACK. Most of that window is
+//   drawn by the carry's far patches, which the sheets' rim must not take for the box's edge.
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -40,7 +43,7 @@ const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: 
 const ARRIVE_SLACK = 0.05;
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
-  { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true },
+  { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true, arrive: true },
   { name: 'Möbius, √, sheets off', steps: MOB, shapes: [], sheets: false, min: 0.95 },
   { name: 'Möbius, √, All sheets', steps: MOB, shapes: [], sheets: true, min: 0.95, top: true, base: 'Möbius, √, sheets off', arrive: true },
   { name: 'z^3, sheets off', steps: [{ type: 'pown', params: { n: 3 }, on: true }], shapes: [], sheets: false, min: 0.95, top: true, rest998: true },
@@ -82,5 +85,27 @@ for (const c of CASES) {
       }
     }
   }
+}
+// the arrival in the small window: the frame at u = .998 and the plane it arrives at, parked, sheets off and on
+const SMALL = 900;
+info.small = {};
+for (const [name, steps] of [['Möbius, √', MOB], ['log', LOG]]) {
+  const r = info.small[name] = {};
+  for (const sheets of [false, true]) {
+    const ns = 'landcoversmall' + Date.now();
+    await loadView('steps', ns, { shapes: [], steps, sheets, height: 'im', srcView: { cx: 0, cy: 0, s: SMALL } });
+    await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+    await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+    await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
+    await settled({ max: 60000 });
+    const last = (await ev('__cmwSteps().planes')).length - 1;
+    await ev(`__cmwSteps({ go: ${last}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+    await surface('rest');
+    await ev(`__cmwSteps({ x: ${last - 0.002} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+    const carry = await ev('__cmwLandCarry()');
+    r[sheets ? 'on' : 'off'] = { far: await apart('rest'), carried: !!carry, sheetPlaces: !!(carry && carry.sheetPlaces) };
+  }
+  ok(`${name}, s = ${SMALL}, All sheets at u = .998: each sheet over its own image`, r.on.carried && r.on.sheetPlaces, r);
+  ok(`${name}, s = ${SMALL}, All sheets at u = .998: at most ${r.off.far} + ${ARRIVE_SLACK} of the surface pixels apart from the plane it arrives at, parked, as sheets off`, r.on.far <= r.off.far + ARRIVE_SLACK, r);
 }
 return { pass: !fails.length, fails, info };
