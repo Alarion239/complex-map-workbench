@@ -80,6 +80,10 @@ on:
         description: 'Mode fxc: the program bundle (ci/fxc_time.js capture), a path in the repository'
         required: false
         default: ci/fxc/bundle.json
+      fxcargs:
+        description: 'Mode fxc: more flags for ci/fxc_time.js (e.g. --jobs 46,2,0 --turn-only --settings 1 --scenes none for the cache mode)'
+        required: false
+        default: ''
       fxc:
         description: 'Mode fxc: time (every job of the bundle, one program at a time), contend (one program alone, with the page drawing and with other links), glide (the first glide in the app, this ref against the input reference) play (the first glide as it plays, this ref, and with a reference the reference too) or cache (programs and app scenes linked cold, then on the same Chrome profile; ci/fxc_time.js)'
         type: choice
@@ -265,7 +269,9 @@ jobs:
           python-version: '3.12'
       - run: npm ci
       - run: node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '--require-angle d3d11' }}
-      - run: node ci/fxc_time.js ${{ inputs.fxc || 'time' }} --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900 ${{ (inputs.fxc == 'glide' || inputs.fxc == 'play') && format('--ref {0}', needs.plan.outputs.reference) || '' }}
+      - env:
+          FXC_ARGS: ${{ inputs.fxcargs }}
+        run: node ci/fxc_time.js ${{ inputs.fxc || 'time' }} --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900 ${{ (inputs.fxc == 'glide' || inputs.fxc == 'play') && format('--ref {0}', needs.plan.outputs.reference) || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:
