@@ -8,8 +8,9 @@
 //   regions, the region is coloured (not black) and the pane says it is compiling; on release the plot takes its place
 //   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget;
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
-//   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: once linked, at least 99 % of a
-//   pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1, z = 0) too.
+//   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
+//   once linked, at least 99 % of a pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1,
+//   z = 0) too.
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -105,7 +106,7 @@ const inDisc = [];
 for (const r of [0.35, 0.6]) for (let a = 15; a < 360; a += 30) inDisc.push([r * Math.cos(a * Math.PI / 180), r * Math.sin(a * Math.PI / 180)]);
 const inPx = (await K.lpx(inDisc)).px.filter(Boolean).map((q) => q[4]);
 const sat = (p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]);
-info.colourIn = { wait: inWait, n: inPx.length, black: inPx.filter((p) => Math.max(p[0], p[1], p[2]) < 40).length, coloured: inPx.filter((p) => sat(p) > 40).length, pane: await ev("__cmwPaneStatus('L')") };
+info.colourIn = { wait: inWait, standIn: await standIn(), n: inPx.length, black: inPx.filter((p) => Math.max(p[0], p[1], p[2]) < 40).length, coloured: inPx.filter((p) => sat(p) > 40).length, pane: await ev("__cmwPaneStatus('L')") };
 ok('Inside regions, the program held: the region is coloured, not black, and the pane says it is compiling', inWait.ok && info.colourIn.n >= 20 && info.colourIn.black === 0 && info.colourIn.coloured >= 0.8 * info.colourIn.n && !!info.colourIn.pane && info.colourIn.pane.compiling === true, info.colourIn);
 await ev("__cmwSteps({ scope: 'all' }), 1");
 await settled({ panes: false });
@@ -139,7 +140,9 @@ await settled({ panes: false });
 const heldGrid = (await K.lpx(grid5)).px, heldRing = (await K.lpx(ring5)).px;
 info.zeroHeld = { wait: smWait, pending: await ev('GLR.frameStatus().pending'), verdict: await ev("__cmwSmVerdict('SV').map((v) => v.why)") };
 await ev('GLR.holdLinks(false), 1');
-const zLinked = await settled({ max: 30000 });
+// (the frame to match: the plane at rest drawn by the exact pass, svCarryExact)
+const zLinked = await settled({ only: true, max: 30000, until: "(() => { const r = __cmwSteps().rest; return !!r && r.a === 1 && r.path === 'inverse'; })()" });
+await settled({ panes: false });
 info.zeroHeld.linked = zLinked;
 info.zeroGrid = K.tally(heldGrid, (await K.lpx(grid5)).px, { tol: 3 });
 info.zeroRing = K.tally(heldRing, (await K.lpx(ring5)).px, { tol: 3 });
