@@ -547,9 +547,12 @@
       const k = it.w > W ? W / it.w : 1;
       let dm = XD.at(it, x0 + (W - it.w * k) / 2, yb, 'start', 'base', 'caption');
       if (k < 1) dm = `<g transform="translate(${f2(x0 + (W - it.w * k) / 2)} ${f2(yb)}) scale(${k.toFixed(4)}) translate(${f2(-(x0 + (W - it.w * k) / 2))} ${f2(-yb)})">${dm}</g>`;
+      // (the text after the display starts the same 0.55 of the type size below it as the text before ends above it, as
+      // TeX's \belowdisplayskip equals its \abovedisplayskip; it started 0.2 higher, so the formula sat closer to the
+      // sentence after it than to its own, #1758)
       const yAfter = yb + it.d * k + pt * 0.55;
       const rest = segs.slice(di + 1);
-      const b = rest.some((s) => (s.t != null ? s.t.trim() : true)) ? XD.caption(rest, x0, yAfter - pt * 0.2, W, pt, color) : { markup: '', h: 0, lines: 0 };
+      const b = rest.some((s) => (s.t != null ? s.t.trim() : true)) ? XD.caption(rest, x0, yAfter, W, pt, color) : { markup: '', h: 0, lines: 0 };
       return { markup: a.markup + dm + b.markup, h: yAfter - y0 + (b.lines ? b.h : -pt * 0.55), lines: a.lines + 1 + b.lines };
     }
     const words = []; let cur = [];
