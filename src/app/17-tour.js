@@ -86,7 +86,9 @@
   function tourDragEnd(d) {
     if (!d) return;
     const id = d.shape && typeof d.shape === 'object' ? d.shape.id : d.shape;
-    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourEmit('shape-moved', { id, plane: d.target ? 'w' : 'z' });
+    // (a target, or a shape drawn on a later plane of the steps view, is on a w plane)
+    const sh = d.shape && typeof d.shape === 'object' ? d.shape : S.shapes.find((x) => x.id === id);
+    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourEmit('shape-moved', { id, plane: d.target || shapeStage(sh) > 0 ? 'w' : 'z' });
     else if (d.mode === 'zp' && d.moved && !d.off) tourEmit('zp-moved', { kind: String(d.kind).replace(/s$/, ''), i: d.i });
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
