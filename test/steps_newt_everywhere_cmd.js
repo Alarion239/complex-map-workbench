@@ -22,7 +22,6 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 const { grab, sameAway, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_COMPARED = 1000;   // (steps_glide_look_cmd.js:54-55)
