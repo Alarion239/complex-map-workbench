@@ -78,7 +78,7 @@ const classicPath = async (extra) => {
   await open(st, '&view=classic');
   await settled({ max: START_WAIT, until: `typeof __cmwPaths === 'function'` });
   await drawn();
-  return { paths: JSON.parse(await ev(`JSON.stringify(__cmwPaths())`)), kept: await ev(`'exactImages' in (__cmwFigureState() || {})`) };
+  return { paths: await evJson(`JSON.stringify(__cmwPaths())`), kept: await ev(`'exactImages' in (__cmwFigureState() || {})`) };
 };
 const cBase = await classicPath({}), cSaved = await classicPath({ exactImages: false });
 // (the classic left pane draws the source plane, an identity map that is always forward: the image is the right pane's)
