@@ -129,6 +129,18 @@ await settled({ max: 20000, panes: false, until: loaded });
 const exWait = await settled({ only: true, max: 30000, until: "typeof __cmwStandIn === 'function' && !!__cmwStandIn() && !!__cmwStandIn().end" });
 info.expensive = { wait: exWait, standIn: await standIn() };
 ok('timing: an expensive series\' stand-in keeps to its CPU budget (250 ms and a slice)', exWait.ok && !!info.expensive.standIn && info.expensive.standIn.ms <= 280, info.expensive);
+// the Cauchy style with no closed curve or region draws the plane as paper, which waits on no program: with the plot's link still
+// held the left LED, amber for the stand-in, goes green
+const ns4 = 'lsp' + Date.now();
+await seed(ns4, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns4}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+await levelDone();
+const ledShown = await led('leftLed');
+ok('(the plot drawn from the stand-in, its program held: the left LED is amber)', /\bbusy\b/.test(ledShown.cls) && ledShown.tip === STANDIN_TIP, ledShown);
+await ev("__cmwSet('dc', 'cauchy'), 1"); await settled({ panes: false });
+const ledPaper = await led('leftLed');
+ok('the plane drawn as paper (Cauchy, no closed curve or region), its program still held: the left LED is green', /\bok\b/.test(ledPaper.cls) && ledPaper.tip === 'Up to date', ledPaper);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };

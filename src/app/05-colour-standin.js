@@ -19,10 +19,11 @@
   // (why it stopped: 'done', 'budget', 'error', 'linked'), dead}; null when there is none
   let standInJob = null;
   // the stand-in GLR.drawColorPlot gets with pane's plot of map (renderColor): the finest level done, or null when
-  // there is none to draw (the plot's program draws, or has waited less than SM_LINKING_MS; not the screen's left pane)
+  // there is none to draw (the plot's program draws, or has waited less than SM_LINKING_MS; not the screen's left pane). It
+  // also tells the LEDs whether the left pane's plot is still waiting on its program (setColourWaiting)
   function colourStandIn(pane, map) {
     const waited = pane === paneL && !offRender && !artMode && !sideDraw ? GLR.bareMs(map, ['color']) : 0;
-    setColourWaiting(waited > 0);
+    if (pane === paneL) setColourWaiting(waited > 0);
     if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
     const v = pane.view, key = mapKeyOf(map), vkey = `${v.cx},${v.cy},${v.s},${pane.w},${pane.h}`;
     let j = standInJob;

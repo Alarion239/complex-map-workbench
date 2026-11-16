@@ -510,7 +510,7 @@
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
     const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
-    if (cauchyWhy) paper(pane);
+    if (cauchyWhy) { paper(pane); setColourWaiting(false); }   // (paper waits on no program)
     else {
       // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
       cst.standIn = colourStandIn(pane, cst.map);
