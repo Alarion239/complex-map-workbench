@@ -490,9 +490,14 @@
     const names = globe ? [globe.id ? 'carryGId' : 'carryG'] : [noCutProg('regionKC', cuts), noCutProg('regionK', cuts)];
     if (names.some((n) => programLinked(n, map))) return 'ready';
     const name = globe || rtOK ? names[0] : names[1];
-    getProg(name, cur, true, map);
+    // (a renderer that links at once has it linked here; one still linking redraws the frame when it lands, as
+    // program() has a frame that waits on it do)
+    if (getProg(name, cur, true, map)) return 'ready';
     const e = progs.get(progId(name, cur, map));
-    return e && e.state === 'error' ? 'error' : 'pending';
+    if (e && e.state === 'error') return 'error';
+    framePending = true;
+    standIn(e && e.id);
+    return 'pending';
   }
   // drawRegion with st.carry {s, T, style, sectors, grid, plane, ink, dark}: the region's points in the colour plane's
   // colour (regionK; regionKC with the places from the map cache, as drawRegion's regionC: the map once per lattice
