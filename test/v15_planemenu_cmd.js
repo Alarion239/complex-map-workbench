@@ -374,7 +374,6 @@ shots.push(await shot('pm-x-dark'));
 await closeAll();
 await view(1440, 900, false);
 await nav(`http://localhost:${(/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1]}/test.html?ns=${ns}h&lang=ru`);
-await settle(1500);
 p = await w2s('L', 0.5, 0);
 await rclick(p[0], p[1]);
 m = await menu();
