@@ -1225,12 +1225,17 @@
     svHomMemo = memo;
     return out;
   }
+  // what picks the inverse programs of the steps view's frames, as a key: the planes, the chain and the shapes
+  // (svSigNow, chainSig), the window, the colour plane, the scope, the sheets, the opacity, and each visible shape's
+  // plane and, for a formula region, its expression (the programs' formula bundle)
+  const svProgKey = () => [svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity(),
+    S.shapes.filter((x) => x.visible !== false).map((x) => `${shapeStage(x) || 0}${x.kind === 'formula' ? ':' + x.expr : ''}`).join(',')].join('|');
   // whether a program of the glides the motion A crosses still links (svGlideSet of each, every one begun here when
-  // missing, in the order of travel): the set kept on A while its course, the chain, the window and the look stay
+  // missing, in the order of travel): the set kept on A while its course and svProgKey stay
   function svSetLinking(A) {
     const dir = A.to >= A.from ? 1 : -1, end = Math.round(A.to);
     const j0 = dir > 0 ? Math.floor(A.from + SV_REST_U) : Math.ceil(A.from - SV_REST_U) - 1, j1 = dir > 0 ? end - 1 : end;
-    const key = [j0, j1, dir, svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity()].join('|');
+    const key = [j0, j1, dir, svProgKey()].join('|');
     if (!A.set || A.set.key !== key) {
       const list = [];
       for (let j = j0; dir > 0 ? j <= j1 : j >= j1; j += dir) list.push(...svGlideSet(j, dir));
@@ -1253,22 +1258,24 @@
       if (svMaskOn()) GLR.inverseRequest(1, 'flat');
     } else if (k > 0 && invPlan(0, k).ok && visibleAreas().length) GLR.inverseRequest(S.alpha, 'flat');
   }
-  // At rest, the programs of the glides a press can start next, begun before it: those of the glide to the next plane
-  // (›), then of the rest of a Play from here (svPlay's course: to the range's end, from its start once at the end), in
-  // the order of travel, at most SV_SET_REST of the glides' sets (svGlideSet: the GPU layer keeps INV_KEEP inverse
-  // programs). Each is asked ahead (svInvState's ahead): a view's no pane shows, which ready (svReady) does not count,
-  // until a frame asks for it. Only where links run in the background (KHR_parallel_shader_compile), on the plane, and
+  // At rest, the programs of the glides a press can start next, begun before it: the whole set of the glide to the next
+  // plane (›), then each set of the rest of a Play from here (svPlayCourse), whole, in the order of travel, while the new
+  // programs it begins fit the GPU layer's table (GLR.invRoom: it keeps INV_KEEP inverse programs and drops the least
+  // recently used first). Each is asked ahead (svInvState's ahead): a view's no pane shows, which ready (svReady) and the
+  // start-up bar do not count, until a frame asks for it. Only where links run in the background
+  // (KHR_parallel_shader_compile), on the plane, where a press glides (not under reduced motion, where › and ▶ step), and
   // once the warm-up has started every group, nothing links and the idle job's other work is done (the last of it), so
   // the plane shown and the warm-up come first: until then the idle job looks again every SV_SET_WAIT_MS. svSetDone: the
-  // key of the sets last begun
-  const SV_SET_REST = 4, SV_SET_WAIT_MS = 500;
+  // key of the sets last begun (cleared with a lost context, whose programs went with it)
+  // (SV.restSet, a test hook's, true in the app: false begins nothing at rest; SV.ahead false neither)
+  const SV_SET_WAIT_MS = 500;
   let svSetDone = null, svSetTimer = 0;
   // (the key of the sets to begin at rest, or null when there are none or they are begun)
   function svSetNext() {
-    if (!SV.on || SV.ahead === false || SV.surf !== 'plane' || !lFlat() || !GLR.parallelCompile || !GLR.inverseState || svMotion() || (SV.drag && SV.drag.moved)) return null;
+    if (!SV.on || SV.ahead === false || SV.restSet === false || svReduced() || SV.surf !== 'plane' || !lFlat() || !GLR.parallelCompile || !GLR.inverseState || svMotion() || (SV.drag && SV.drag.moved)) return null;
     const i = Math.round(SV.g.x), P = svPlanes();
     if (Math.abs(SV.g.x - i) > SV_REST_U || P.length < 2) return null;
-    const R = svRange(), key = [i, R ? R.lo + ':' + R.hi : '', svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity()].join('|');
+    const R = svRange(), key = [i, R ? R.lo + ':' + R.hi : '', svProgKey()].join('|');
     return key === svSetDone ? null : key;
   }
   // the idle job's share: those sets begun once the warm-up is done, true; false while there are none, too little time
@@ -1281,15 +1288,18 @@
       return false;
     }
     svSetDone = key;
-    const P = svPlanes(), i = Math.round(SV.g.x), R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;
+    const P = svPlanes(), i = Math.round(SV.g.x), c = svPlayCourse(i);
     const js = i + 1 < P.length ? [i] : [];
-    for (let j = i < end ? i + 1 : start; j < end; j++) if (!js.includes(j)) js.push(j);
-    let n = 0;
+    for (let j = Math.floor(c.from + SV_REST_U); j < c.end; j++) if (!js.includes(j)) js.push(j);
+    let room = GLR.invRoom ?? Infinity;
     for (const j of js) {
-      for (const { q, b, u } of svGlideSet(j, 1)) {
-        if (n++ >= SV_SET_REST) return true;
-        q.paths.forEach((p, k) => svInvState(q, k, b, u, true, true));
-      }
+      const set = svGlideSet(j, 1);
+      // (the programs it would begin: its paths' op lists, one each, and the staged ones apart, whose state now is 'none')
+      const fresh = new Set();
+      for (const { q, b, u } of set) q.paths.forEach((p, k) => { if (svInvState(q, k, b, u, false) === 'none') fresh.add((p.inv ? p.inv.key : '') + '|' + (shapeStage(q.list[k]) > 0)); });
+      if (j !== js[0] && fresh.size > room) break;
+      room -= fresh.size;
+      for (const { q, b, u } of set) q.paths.forEach((p, k) => svInvState(q, k, b, u, true, true));
     }
     return true;
   }
@@ -3416,6 +3426,7 @@
   // made again, and the prestart runs again, so svReady counts the restored context's programs and reads ready once
   // they have linked
   function svContextRestored() {
+    svSetDone = null;
     svPolarRes.clear();
     svRingSizes.clear();
     svRingMemo = null;
@@ -3620,15 +3631,18 @@
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
   function svTogglePlay() { if (SV.play) svPause(true); else svPlay(); }
+  // a Play's course from the place x: the range's start and end (else the planes'), and where it starts, x, or the start
+  // once x is at the end or past it
+  function svPlayCourse(x) {
+    const R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : svPlanes().length - 1;
+    return { start, end, from: x >= end - SV_REST_U ? start : x };
+  }
   function svPlay() {
     const P = svPlanes();
     if (P.length < 2 || SV.play) return;
-    const R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;
     svKeepView();
-    const x = SV.anim ? SV.anim.to : SV.g.x;
+    const x = SV.anim ? SV.anim.to : SV.g.x, { start, end, from } = svPlayCourse(x);
     SV.anim = null; SV.g.set(x); SV.g.max = P.length - 1;
-    // (at the end, or past it: from the start)
-    const from = x >= end - SV_REST_U ? start : x;
     draft = null; probe = null;
     if (svReduced()) {
       SV.g.set(Math.round(from));

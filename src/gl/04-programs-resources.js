@@ -526,7 +526,8 @@ float wabs(vec2 w) {
     if (!ok || lost || !pcExt) return { done: 0, total: 0, pending: 0, groups: {}, known: true };
     const groups = ['2d', 'modes', 'globe', 'land'].map((g) => [g, warmIds(g, modes)]);
     const extra = [];
-    for (const e of progs.values()) if (e.state === 'pending' && !e.side) extra.push(e.id);
+    // (an inverse program begun ahead of any frame, e.offView, is no work of the page's until a frame asks for it)
+    for (const e of progs.values()) if (e.state === 'pending' && !e.side && !(e.inv && e.offView)) extra.push(e.id);
     const r = warmCount(groups, (id) => { const e = progs.get(id); return e && e.state; }, extra);
     r.known = groups[1][1].length > 0;
     return r;

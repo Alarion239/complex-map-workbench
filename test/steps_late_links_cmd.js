@@ -306,8 +306,8 @@ try {
   // - a glide from plane 2 to plane 0 (the motion the other way): it waits for each glide's programs, its thread never
   //   going back, and reaches plane 0;
   // those with the motion asking for its frames' own programs alone, as they come (__cmwSteps({ ahead: false }), the
-  // latch's case); as the app plays, ▶ from plane 0 has every program of both glides before it moves, then never stands
-  // still until plane 2
+  // latch's case); as the app plays, ▶ from plane 0 asks for every program of both glides before it moves: it waits at its
+  // start, then never stands still until plane 2
   {
     const slow = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${SECOND_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
     const chain = async (ns, ahead = false) => {
@@ -368,7 +368,7 @@ try {
       await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
       const p0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
       const play = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
-      ok(`${POLE_EX}, then z⁴ + z: ▶ has every program of both glides before it moves, and then never stands still until plane 2`, p0.ok && play.mid < STILL_FRAMES, { play, wait: p0 });
+      ok(`${POLE_EX}, then z⁴ + z: ▶ asks for every program of both glides before it moves, waits for them at its start, and then never stands still until plane 2`, p0.ok && play.at0 >= STILL_FRAMES && play.mid < STILL_FRAMES, { play, wait: p0 });
       info.aheadPlay = { play, wait: p0 };
     } finally {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
@@ -429,7 +429,7 @@ try {
     await lateGlide();
     const a0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
     const ahead = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
-    ok(`exp(sin z), its later frames' links late: the glide has every program of its frames before it moves, and then never stands still between the planes`, a0.ok && ahead.mid < STILL_FRAMES, { ahead, wait: a0 });
+    ok(`exp(sin z), its later frames' links late: the glide asks for every program of its frames before it moves, waits for them at its start, and then never stands still between the planes`, a0.ok && ahead.at0 >= STILL_FRAMES && ahead.mid < STILL_FRAMES, { ahead, wait: a0 });
     info.ahead = { ahead, wait: a0 };
   }
   // exp(sin z) again, at rest on plane 0: once the warm-up is done and nothing links, the idle job begins the programs
@@ -458,6 +458,7 @@ try {
     await adopted();
     const z0 = await settled({ only: true, max: WARM_MS, until: '!!__cmwSteps().restSet && GLR.pendingLinks === 0' });
     const rest = await ev('(() => { const s = window.__llRest; s.on = false; clearInterval(s.timer); return { seen: s.seen, first: s.first, readyOnce: s.readyOnce, readyFalse: s.readyFalse }; })()');
+    // (the sampler begun with the press, in one evaluation: no round trip counted as frames at plane 0)
     await ev(`(() => {
       const s = window.__llAhead = { at0: 0, mid: 0, run: 0, last: __cmwSvX(), done: false };
       const tick = () => {
@@ -466,9 +467,9 @@ try {
         if (x === 0) s.at0 = Math.max(s.at0, s.run); else if (x < 1) s.mid = Math.max(s.mid, s.run);
         if (!s.done) requestAnimationFrame(tick);
       };
+      __cmwSteps({ clock: ${PLAY_STEP_MS} }); __cmwSteps({ go: 1 });
       requestAnimationFrame(tick);
       return 1; })()`);
-    await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), 1`);
     const z1 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
     const press = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
     const got = { rest, press, waits: { z0, z1 } };
@@ -489,7 +490,7 @@ try {
     // waits })
     const landing = async (open, until = '!!window.__llLand.own && GLR.pendingLinks === 0') => {
       await open();
-      await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'in', ahead: false }), __cmwSteps({ T: 0 }), 1");
+      await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'in', restSet: false }), __cmwSteps({ T: 0 }), 1");
       await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && __cmwSteps().x === 0' });
       await ev(`__cmwSteps({ park: ${GLIDE_U} }), 1`);
       const e0 = await settled({ only: true, max: FRAME_MS, until: `(() => { const g = __cmwSteps().glide; return !!g && g.u === ${GLIDE_U} && g.path === 'inverse'; })()` });
