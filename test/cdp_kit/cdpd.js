@@ -122,8 +122,7 @@ H.ev = async (expr, timeout = 20000) => {
   return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
 };
 // evJson(expr, timeout): ev() of an expression that answers a JSON string (JSON.stringify(...) in the page), parsed. A page
-// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception, where
-// JSON.parse of ev()'s { __exc } answer would throw "[object Object]" is not valid JSON.
+// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception.
 H.evJson = async (expr, timeout) => {
   const r = await H.ev(expr, timeout);
   const what = JSON.stringify(String(expr).slice(0, 160));
@@ -219,10 +218,11 @@ H.nav = async (url) => {
 // o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
 // and the suite's log says so, so a check after it sees the page as it is. Answers { ok, ms, busy, at }; at is ms when
 // ok and -1 when not, for a check that reads the wait as a time (at >= 0). With o.only the page's quiet is not asked, only
-// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true.
+// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true. o.poll:
+// the ms between two looks (default 50), finer for a wait read as a time.
 H.settled = async (o = {}) => {
   if (o.floor) await sleep(o.floor);
-  const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null';
+  const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null', poll = o.poll || 50;
   const r = await H.ev(`await (async (until, max, panes, only) => {
     const t0 = performance.now(), frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     for (;;) {
@@ -238,7 +238,7 @@ H.settled = async (o = {}) => {
       const ms = Math.round(performance.now() - t0);
       if (!busy.length) return { ok: true, ms, busy };
       if (ms > max) return { ok: false, ms, busy };
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, ${poll}));
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
