@@ -802,7 +802,9 @@
   // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
   // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn in the
   // plot's style (the Cauchy style colours F's values as 'enhanced' does), only when the plot's program gives nothing to
-  // draw: the frame in which its link completes draws the plot. -> true when the plot or its stand-in was drawn
+  // draw: the frame in which its link completes draws the plot. st.noValue: only where F has no finite value, its
+  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. -> true when the plot or its
+  // stand-in was drawn
   function drawColorPlot(st) {
     if (!ok) return false;
     const { cp, cz, pname } = colorPlotOf(st);
@@ -810,7 +812,7 @@
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
     let P = program(pname, st.map, st.exact);
     if (!P) {
-      if (!st.standIn || !(P = program('colorStandIn'))) return false;
+      if (!st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
       standInUniforms(P, st, dpr);
       return colorPass(P, st, dpr);
@@ -838,6 +840,7 @@
       u2f(P, 'uRelC', st.view.cx - nodeO[0], st.view.cy - nodeO[1]);
     } else {
       u2f(P, 'uCenter', st.view.cx, st.view.cy);
+      u1i(P, 'uNoValue', st.noValue ? 1 : 0);
     }
     u2f(P, 'uInvScale', 1 / (st.view.s * dpr), 1 / (st.view.s * dpr));
     return colorPass(P, st, dpr);
