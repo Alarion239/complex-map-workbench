@@ -15,7 +15,8 @@ const espree = require('espree');
 function strip(text, file = 'a .ts file') {
   if (typeof mod.stripTypeScriptTypes !== 'function') throw new Error(`${file}: node ${process.version} has no module.stripTypeScriptTypes (node 22.13 or later has it)`);
   // (node warns once that the function is experimental: to stderr, which the lint JSON on stdout never sees, but
-  // silenced here so that the lint and test output stays as it was)
+  // silenced here so that the lint and test output stays as it was. The swap lasts for one synchronous call, so no
+  // other warning can arrive while it is in place.)
   const emit = process.emitWarning;
   process.emitWarning = function (w, type, ...rest) {
     const t = type && typeof type === 'object' ? type.type : type;
