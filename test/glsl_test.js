@@ -1021,6 +1021,10 @@ void main() {
     if (R.vertexShaderCompile2 !== 'ok') R.errors.push('vertex shader 2: ' + R.vertexShaderCompile2);
   } catch (e) { R.errors.push('vertex shader: ' + e.message); }
 
+  // (on SwiftShader GLSLTiers.keep left GLSLTiers.SWIFTSHADER_HANG's chains out, whose programs do not finish there:
+  // GLSLTiers.notRun, each 'name (reason)')
+  R.notOnSwiftShader = GLSLTiers.notRun;
+  for (const name of GLSLTiers.SWIFTSHADER_HANG.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.SWIFTSHADER_HANG: no chain is named ${name}`);
   for (const ch of selected) {
     const tc = performance.now();
     try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 3000)}`); }
