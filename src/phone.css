@@ -118,6 +118,8 @@ html:not(.ph) .ph-only { display: none !important; }
    folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, so the chip stops clipping) */
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
+/* the key is a button for a keyboard: its focus ring stands outside the glyph, clear of the 44 px hit area's edge */
+:root.ph .legend-chip:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 
 /* ---------- the chain bar: ‹ the step ›, the chain's sheet, then Deformation ---------- */
 :root.ph .pipe-wrap {

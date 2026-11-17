@@ -79,6 +79,61 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('classic 568×320, first load: the key is placed again, below Y\'s readout, with no reload', dropped.ok, { drop: m.drop, wait: dropped });
   ok('classic 568×320, first load: the key\'s hit area is clear of Y\'s readout and above the bar', !inter(m.reach, m.readout) && (!m.bar || m.legend.b <= m.bar.t + 0.5), { reach: m.reach, readout: m.readout, bar: m.bar });
 }
+// the folded key is a button for keyboard and screen reader (#1840): a role, a place in the focus order, a name, and aria-expanded that follows the key as a tap, Enter and Space
+// fold and unfold it. The steps view at 360 × 640 (X's key, in English and Russian) and the classic view at 568 × 320 (Y's key; X's is not drawn there).
+{
+  const axOf = async (id) => {
+    const { root } = await send('DOM.getDocument', { depth: 0 });
+    const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: '#' + id });
+    const { nodes } = await send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
+    const n = nodes && nodes[0];
+    return n && !n.ignored ? { role: n.role && n.role.value, name: n.name && n.name.value, expanded: (n.properties || []).filter((p) => p.name === 'expanded').map((p) => p.value.value)[0] } : null;
+  };
+  const key = (k, code, vk, text) => async () => { const p = { key: k, code, windowsVirtualKeyCode: vk }; await send('Input.dispatchKeyEvent', { type: 'keyDown', ...p, ...(text ? { text } : {}) }); await send('Input.dispatchKeyEvent', { type: 'keyUp', ...p }); };
+  const enter = key('Enter', 'Enter', 13, '\r'), space = key(' ', 'Space', 32, ' ');
+  const state = (id) => ev(`(() => { const e = document.getElementById('${id}'); return { exp: e.getAttribute('aria-expanded'), folded: e.classList.contains('collapsed'), tab: e.tabIndex, tag: e.tagName, role: e.getAttribute('role'), focused: document.activeElement === e }; })()`);
+  // Tab from the page's first control until the key has focus (or 80 presses): "in the phone's focus order"
+  const tabTo = async (id) => { await ev(`document.activeElement && document.activeElement.blur(), 1`); for (let i = 0; i < 80; i++) { await key('Tab', 'Tab', 9)(); if ((await state(id)).focused) return i + 1; } return 0; };
+  for (const [lang, w, h, q, ids] of [['en', 360, 640, 'steps', ['leftLegend']], ['ru', 360, 640, 'steps', ['leftLegend']], ['en', 568, 320, 'classic', ['rightLegend']]]) {
+    await view(w, h, false, true);
+    const ns = 'plk' + w + lang + q + (Date.now() % 1000000);
+    if (q === 'steps') await load(ns, ST);
+    await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=${q}` });
+    await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && ${ids.map((id) => `!!document.getElementById('${id}') && !document.getElementById('${id}').hidden`).join(' && ')}` });
+    await sleep(500);
+    for (const id of ids) {
+      const tag = `key ${id}, ${q} ${lang} ${w}×${h}`;
+      const s0 = await state(id), a0 = await axOf(id);
+      info[tag] = { s0, a0 };
+      ok(`${tag}: a folded key is a button (a native one or role=button)`, s0.folded && (s0.tag === 'BUTTON' || s0.role === 'button') && !!a0 && a0.role === 'button', { s0, a0 });
+      ok(`${tag}: it has a name`, !!a0 && !!a0.name && a0.name.length > 2, a0);
+      ok(`${tag}: it is expanded=false while folded`, s0.exp === 'false' && a0 && a0.expanded === false, { s0, a0 });
+      ok(`${tag}: it is in the focus order (tabIndex ≥ 0)`, s0.tab >= 0, s0);
+      const tabs = await tabTo(id);
+      ok(`${tag}: Tab reaches it`, tabs > 0, tabs);
+      if (!tabs) continue;
+      const ring = await ev(`(() => { const c = getComputedStyle(document.getElementById('${id}')); return { style: c.outlineStyle, w: parseFloat(c.outlineWidth) }; })()`);
+      ok(`${tag}: the key in focus shows a ring`, ring.style !== 'none' && ring.w >= 2, ring);
+      await enter();
+      const e1 = await state(id);
+      ok(`${tag}: Enter unfolds it: aria-expanded true, and focus stays`, e1.exp === 'true' && !e1.folded && e1.focused, e1);
+      await space();
+      const e2 = await state(id);
+      ok(`${tag}: Space folds it again: aria-expanded false`, e2.exp === 'false' && e2.folded && e2.focused, e2);
+      await space();
+      const e3 = await state(id);
+      ok(`${tag}: Space unfolds it`, e3.exp === 'true' && !e3.folded, e3);
+      await ev(`document.getElementById('${id}').click(), 1`);
+      const e4 = await state(id), a4 = await axOf(id);
+      ok(`${tag}: a tap folds it: aria-expanded false`, e4.exp === 'false' && e4.folded && a4 && a4.expanded === false, { e4, a4 });
+      await ev(`document.getElementById('${id}').click(), 1`);
+      const e5 = await state(id), a5 = await axOf(id);
+      ok(`${tag}: a tap unfolds it: aria-expanded true, and the tree says so`, e5.exp === 'true' && !e5.folded && a5 && a5.expanded === true, { e5, a5 });
+      ok(`${tag}: its name is the same unfolded`, a5 && a0 && a5.name === a0.name, { a0, a5 });
+    }
+    if (lang === 'ru') ok(`${q} ru: its name is Russian`, /[а-я]/i.test((info[`key leftLegend, ${q} ru ${w}×${h}`].a0 || {}).name || ''), info[`key leftLegend, ${q} ru ${w}×${h}`]);
+  }
+}
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5);
 ok('no errors', !errs.length, errs);
 return { pass: fails.length === 0, fails, info };

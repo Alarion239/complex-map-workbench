@@ -2471,9 +2471,6 @@
       SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
-    // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
-    const leg = $('leftLegend');
-    if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
     const tn = svTargetNote(), tnShow = !!tn && !ph;
     if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;

@@ -1105,6 +1105,20 @@
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
+  // (on a phone the folded key is a button: a name, a place in the focus order, aria-expanded that follows its fold; Enter and Space press it (setupPaneButtons). Off the phone
+  // (a key in a pane's head, hovered open) it is the image it was)
+  function legendKeyButton(box, name) {
+    const par = box.parentNode, btn = document.documentElement.classList.contains('ph') && !!par && !(/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    if (btn) {
+      const open = box.classList.contains('collapsed') ? 'false' : 'true';
+      if (box.getAttribute('role') !== 'button') box.setAttribute('role', 'button');
+      if (box.tabIndex !== 0) box.tabIndex = 0;
+      if (box.getAttribute('aria-expanded') !== open) box.setAttribute('aria-expanded', open);
+      if (name && box.getAttribute('aria-label') !== name) box.setAttribute('aria-label', name);
+    } else if (box.getAttribute('role') === 'button') {
+      box.setAttribute('role', 'img'); box.removeAttribute('tabindex'); box.removeAttribute('aria-expanded');
+    }
+  }
   function drawLegendSide(side) {
     const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
@@ -1126,6 +1140,7 @@
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
+    legendKeyButton(box, kind ? legendSum(kind) : '');
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
     if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');

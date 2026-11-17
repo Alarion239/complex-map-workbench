@@ -1465,9 +1465,12 @@
       // (and as the context bar opens and closes: the root's ph-ctx-on and ph-ctx-tall; again when its 220 ms slide has ended, for it is placed by where it stands)
       try {
         const rc = document.documentElement.classList, barState = () => (rc.contains('ph-ctx-on') ? 1 : 0) + (rc.contains('ph-ctx-tall') ? 2 : 0);
-        let bar0 = barState();
-        new MutationObserver(() => { const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); setTimeout(() => placeKeyPop(el), LEGEND_BAR_SLIDE_MS); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        let bar0 = barState(), ph0 = rc.contains('ph');
+        new MutationObserver(() => { if (rc.contains('ph') !== ph0) { ph0 = !ph0; legendKeyButton(el, ''); } const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); setTimeout(() => placeKeyPop(el), LEGEND_BAR_SLIDE_MS); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
       } catch (e) { /* no MutationObserver */ }
+      // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
+      try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
