@@ -1,6 +1,7 @@
 // The steps view takes the shape keys the classic page has: ⌘D duplicates the selected shape, the arrows move it
 // (Shift: ten steps) instead of stepping the chain, ⌘[ and ⌘] send it back and bring it forward; and a right click on a
-// step's chip or a Shapes row opens its ⋯ menu at the pointer. A command file for a CDP daemon (test/cdp_kit
+// step's chip or a Shapes row opens its ⋯ menu at the pointer; and the toast a run of nudges ends with, the shape and its
+// centre, holds at dpr 2, in the dark theme and at 1024 and 768 px wide. A command file for a CDP daemon (test/cdp_kit
 // README); prints { pass, of, fails }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const R = [];
@@ -102,6 +103,19 @@ await closeMenu();
 // the shape's place said after a run of nudges, in other settings: at dpr 2, in the dark theme and at 1024 and 768 px wide. On each the
 // toast names the shape and its centre as the state has them, lies whole inside the window, above the chain, covers no control, and
 // reads at 4.5:1 (WCAG AA) against its own background
+// what the toast's checks read of an element, as a function for the page: whether it lies inside the window and above the chain, the
+// controls it covers, and the contrast of its text against its own background (the toast's is opaque, so its alpha is not read)
+const MEASURE = `(t) => {
+  const r = t.getBoundingClientRect(), cs = getComputedStyle(t), strip = document.getElementById('svStrip').getBoundingClientRect();
+  const lum = (rgb) => { const v = rgb.match(/[0-9.]+/g).slice(0, 3).map((x) => { const u = x / 255; return u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
+  const a = lum(cs.color), b = lum(cs.backgroundColor), covered = [];
+  for (const e of document.querySelectorAll('button, input, select, [role=slider]')) {
+    if (!e.getClientRects().length || t.contains(e) || e.closest('#toastHost') || getComputedStyle(e).visibility === 'hidden') continue;
+    const q = e.getBoundingClientRect();
+    if (q.width && q.height && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) covered.push((e.id || e.className || e.tagName).toString().slice(0, 30));
+  }
+  return { inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, aboveChain: r.bottom <= strip.top, covered, contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+}`;
 const SETTINGS = [['dpr 2', 1440, 900, 2, false], ['dark theme', 1440, 900, 1, true], ['1024 px', 1024, 768, 1, false], ['768 px', 768, 1024, 1, false]];
 const AA = 4.5;
 const stDisc = Object.assign({}, st, { shapes: [{ id: 'd1', kind: 'disc', c: [0.5, 0.5], r: 0.6, ci: 1, visible: true }] });
@@ -119,24 +133,23 @@ for (const [name, w, h, dpr, dark] of SETTINGS) {
   // (the toast of the settled run: a slow press can let the one for the first nudge show before the second, so the wait is for the toast that matches the state now, in place)
   const toastUp = `(() => { const t = document.querySelector('#toastHost .toast'), c = __cmwShapes().shapes.find((x) => x.id === 'd1').c; return !!t && t.textContent.startsWith('Moved Disc 1 to ' + c[0].toFixed(3) + ', ' + c[1].toFixed(3) + '.') && getComputedStyle(t).opacity === '1' && getComputedStyle(t).translate === 'none'; })()`;
   await until(toastUp, 8000);
-  const m = await ev(`(() => {
-    const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), cs = getComputedStyle(t);
-    const c = __cmwShapes().shapes.find((x) => x.id === 'd1').c, strip = document.getElementById('svStrip').getBoundingClientRect();
-    const lum = (rgb) => { const v = rgb.match(/[0-9.]+/g).slice(0, 3).map((x) => { const u = x / 255; return u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-    const a = lum(cs.color), b = lum(cs.backgroundColor), covered = [];
-    for (const e of document.querySelectorAll('button, input, select, [role=slider]')) {
-      if (!e.getClientRects().length || e.closest('#toastHost') || getComputedStyle(e).visibility === 'hidden') continue;
-      const q = e.getBoundingClientRect();
-      if (q.width && q.height && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) covered.push((e.id || e.className || e.tagName).toString().slice(0, 30));
-    }
-    return { text: t.textContent, want: 'Moved Disc 1 to ' + c[0].toFixed(3) + ', ' + c[1].toFixed(3) + '.', dpr: devicePixelRatio, dark: matchMedia('(prefers-color-scheme: dark)').matches,
-      inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, aboveChain: r.bottom <= strip.top, covered,
-      contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
-  })()`);
+  const m = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), c = __cmwShapes().shapes.find((x) => x.id === 'd1').c;
+    return Object.assign({ text: t.textContent, want: 'Moved Disc 1 to ' + c[0].toFixed(3) + ', ' + c[1].toFixed(3) + '.', dpr: devicePixelRatio, dark: matchMedia('(prefers-color-scheme: dark)').matches }, (${MEASURE})(t)); })()`);
   check(`${name}: the toast says the shape and its centre, as the state has them`, m.text.replace(/\s*×?$/, '') === m.want && m.dpr === dpr && m.dark === dark, m);
   check(`${name}: the toast lies whole inside the window, above the chain, covering no control`, m.inside && m.aboveChain && m.covered.length === 0, m);
   check(`${name}: the toast's words reach ${AA}:1 against its background`, m.contrast >= AA, m);
   await until(`!document.querySelector('#toastHost .toast')`, 9000);
 }
+// the measure can fail: a box past the window's edge, one below the chain's top, one over a control and one of 1:1 contrast are each read
+// as what they are (on the last page above, 768 px wide)
+const probe = (css) => ev(`(() => { const d = document.createElement('div'); d.textContent = 'probe'; d.style.cssText = 'position:fixed;color:#000;background:#fff;' + ${JSON.stringify(css)}; document.body.append(d); const m = (${MEASURE})(d); d.remove(); return m; })()`);
+const away = await probe('left:calc(100vw - 20px);top:100px;width:200px;height:30px');
+check('the measure reads a box past the window edge as outside', away.inside === false, away);
+const low = await probe('left:300px;top:calc(100vh - 10px);width:200px;height:8px');
+check('the measure reads a box below the chain\'s top as not above the chain', low.aboveChain === false, low);
+const over = await ev(`(() => { const b = document.getElementById('undoBtn').getBoundingClientRect(), d = document.createElement('div'); d.style.cssText = 'position:fixed;left:' + b.left + 'px;top:' + b.top + 'px;width:' + b.width + 'px;height:' + b.height + 'px'; document.body.append(d); const m = (${MEASURE})(d); d.remove(); return m; })()`);
+check('the measure reads a box over a control as covering it', over.covered.length > 0, over);
+const flat = await probe('left:300px;top:100px;width:200px;height:30px;color:#777;background:#777');
+check('the measure reads text on its own colour as no contrast', flat.contrast < AA, flat);
 const fails = R.filter((r) => !r[1]);
 return { pass: R.length - fails.length, of: R.length, fails };
