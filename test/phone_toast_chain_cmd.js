@@ -69,6 +69,16 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
     ok(`${tag}: the message never covers the sheet's head or search field`, !m.headHit && !m.fieldHit, { headHit: m.headHit, fieldHit: m.fieldHit });
     ok(`${tag}: the message sits flush on the sheet's bottom edge`, Math.abs(m.toast[3] - m.sheet[3]) <= FLUSH_TOL, { toast: m.toast, sheet: m.sheet });
     ok(`${tag}: no control moves when the message shows`, JSON.stringify(ysBefore) === JSON.stringify(await ysNow()), { before: ysBefore, now: await ysNow() });
+    // (a control the browser scrolls into view, for keyboard focus, find in page or assistive technology, comes to rest above the message, not under it)
+    const into = await ev(`(() => {
+      const sb = document.querySelector('.ph-sheet[data-k="more"] .ph-link').closest('.ph-sb'), t = document.querySelector('#toastHost .toast');
+      sb.scrollTop = 0;
+      const last = [...sb.querySelectorAll('button, a, input, select')].filter((e) => e.getClientRects().length > 0).pop();
+      last.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      const r = last.getBoundingClientRect(), tr = t.getBoundingClientRect();
+      return { control: [r.top, r.bottom].map(Math.round), toast: [tr.top, tr.bottom].map(Math.round) };
+    })()`);
+    ok(`${tag}: the list's last control, scrolled into view, ends above the message`, !!into && into.control[1] <= into.toast[0] + FLUSH_TOL, into);
     await ev(`(() => { const sb = document.querySelector('.ph-sheet[data-k="more"] .ph-link').closest('.ph-sb'); sb.scrollTop = sb.scrollHeight; return 1; })()`);
     const end = await measureMore();
     ok(`${tag}: at the end of its list no control is under the message`, !!end && end.under.length === 0, end && { under: end.under });
