@@ -360,8 +360,7 @@
   // SPEC 2.2: the path of area shape s under map in a view (role 'R' | 'L' | null: thumbnail; viewKind 'flat' |
   // 'globe') -> {path: 'inverse' | 'pending' | 'forward', reason, m (normalised map), plan, prep, e}. Drawing asks
   // without o.status ('inverse' = eligible: drawInverse decides between drawn, pending and error); fix-up gating and
-  // the test hooks ask with o.status (the program's state, without starting a compile). o.stepsRest marks the steps
-  // view's plane at rest, which the exactImages switch does not turn to forward.
+  // the test hooks ask with o.status (the program's state, without starting a compile).
   function pathOf(s, map, role, viewKind = 'flat', o = {}) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse) return F('no WebGL2 inverse renderer');
@@ -370,7 +369,6 @@
     // (on a globe an identity map draws inverse too: the walk is the pixel's own point, so a region through infinity
     // covers the north pole exactly, where the lifted mesh left a hole; panels.md 11, the stage-0 globe inverse)
     if (isIdentMap(m) && viewKind !== 'globe') return F('identity map');
-    if (S.exactImages === false && !o.stepsRest) return F('exact images off');
     if (!(PHASE[role || 'R'] || {})[viewKind]) return F(`${role || 'R'} ${viewKind}: not in this phase`);
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan.ok) return F(plan.reason || 'no inverse');
@@ -403,6 +401,10 @@
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map(), invHomNewt = new Map();
+  // How many (a, k, chain) entries the map below keeps: it holds the t-free parts of the entries a session has glided between. A glide
+  // asks for its own (a, k) with the current chain, so a few pairs are in use, and eight leaves room for the pairs of a chain scrubbed
+  // back and forth; at the cap the whole map is cleared, which is safe because the next glide builds its part once
+  const INV_HOM_SKELS_MAX = 8;
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
   // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
   // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
@@ -421,7 +423,7 @@
     let bs = invHomSkels.get(sk);
     if (!bs) {
       bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
-      if (invHomSkels.size >= 8) invHomSkels.clear();
+      if (invHomSkels.size >= INV_HOM_SKELS_MAX) invHomSkels.clear();
       invHomSkels.set(sk, bs);
     }
     return bs;
@@ -473,7 +475,7 @@
   }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
-    if (!GLR.inverseRequest || !GLR.packShapes || S.exactImages === false || !PHASE.R.flat) return;
+    if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;
     if (isIdentMap(map) || !invPlan(map.a || 0, map.b || 0).ok) return;
     const list = S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area' && !s._err);
     if (!list.length) return;
@@ -545,7 +547,8 @@
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
     } else if (now - t0 >= 300) compileNote(pane);
   }
-  // the compiling note: small and quiet, in the pane's lower left corner
+  // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
+  let compileBox = null;
   function compileNote(pane) {
     const ctx = pane.ctx;
     ctx.save();
@@ -554,9 +557,12 @@
     ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const text = $t('Compiling…');
     const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    compileBox = { x: x0, y: y0, w: bw, h: bh };
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
+    // (the surface fill alone is the paper's own colour on paper in the light theme: the outline keeps the pill's shape there)
     ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = TH.lineStrong; ctx.stroke();
     ctx.fillStyle = TH.muted;
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
@@ -583,9 +589,9 @@
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
-  // fills (the fills alone, no strokes: a mask of the regions, #440)}
+  // fills (the fills alone, no strokes: a mask of the regions, #440), skip (a predicate: the shapes left out)}
   function drawScene(pane, map, role, opt = {}) {
-    const list = S.shapes.filter((s) => s.visible !== false);
+    const list = S.shapes.filter((s) => s.visible !== false && !(opt.skip && opt.skip(s)));
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
     // area shape takes its path in list order (inverse and forward passes interleave, so list order holds across paths)
     const m0 = normalizeMap(map);
@@ -598,7 +604,7 @@
     const waitRole = live ? role : opt.sm && !offRender ? 'L' : null;
     let recs = null, gf = null, timing = false, invN = 0;
     const halfDraws0 = GLR.inverseHalfDraws || 0;
-    if (GLR.ok && GLR.packShapes && S.exactImages !== false && (PHASE[role || 'R'] || {}).flat
+    if (GLR.ok && GLR.packShapes && (PHASE[role || 'R'] || {}).flat
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
       // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)

@@ -58,8 +58,13 @@
       { sel: '.sv-fchip .sv-fn', named: true, why: 'a steps-view chip\'s function name: one line, the whole name in the chip\'s label (ux on #499)' },
       { sel: '.ph-cn', named: true, why: 'the phone\'s chain name: one line, the whole name as its label or tooltip (ux on #499)' },
     ],
-    // the rows meant to be evenly spaced: sel (the row), tol (px), why
-    rows: [],
+    // the rows meant to be evenly spaced: sel (the row; its visible children, at least three, are the row's members), tol
+    // (px), why. A row of one line or one column only (a wrapped grid has no single gap)
+    rows: [
+      { sel: '.seg', tol: 1, why: 'a segmented control: its tiles touch, so every gap is the same (0)' },
+      { sel: '#svStrip .sv-track', tol: 1, why: 'the steps view\'s track: its planes and steps abut, with no stray margin between them' },
+      { sel: ':root.ph #tools', tol: 1, why: 'the phone\'s drawing tools: one rail, the buttons the same gap apart' },
+    ],
   };
 
   const vis = (e) => {
@@ -502,7 +507,12 @@
         if (!vis(row)) continue;
         const ks = [...row.children].filter(vis).map((k) => R(k.getBoundingClientRect()));
         if (ks.length < 3) continue;
-        const hz = (ks[ks.length - 1].l - ks[0].l) >= (ks[ks.length - 1].t - ks[0].t);
+        // (the direction is the members' extent, not their order in the page: a column-reverse rail has its last member on top)
+        const extent = (lo, hi) => Math.max(...ks.map((k) => k[hi])) - Math.min(...ks.map((k) => k[lo]));
+        const hz = extent('l', 'r') >= extent('t', 'b');
+        // (a row that wraps onto a second line has no one gap: only a row of one line, or one column, is declared even. A row
+        // that wraps by mistake is skipped too; the overlap and viewport checks are what see that)
+        if (Math.max(...ks.map((k) => k.t)) >= Math.min(...ks.map((k) => k.b)) && Math.max(...ks.map((k) => k.l)) >= Math.min(...ks.map((k) => k.r))) continue;
         ks.sort((p, q) => (hz ? p.l - q.l : p.t - q.t));
         const gaps = ks.slice(1).map((k, i) => +(hz ? k.l - ks[i].r : k.t - ks[i].b).toFixed(1));
         const spread = Math.max(...gaps) - Math.min(...gaps);

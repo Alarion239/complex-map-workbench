@@ -27,7 +27,7 @@ const open = async (ns, state) => {
 const parts = async () => {
   await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
   await settled({ until: '!!document.querySelector(".opts-pop")', max: 5000 });
-  const r = JSON.parse(await ev(`JSON.stringify((() => { const p = document.querySelector('.opts-pop'), seg = p.querySelector('#cauchySeg'), n = p.querySelector('.foot-note'); return { seg: !!seg, buttons: seg ? [...seg.querySelectorAll('button')].map((b) => ({ v: b.dataset.v, disabled: b.disabled, tip: b.dataset.tip, desc: b.getAttribute('aria-description'), on: b.classList.contains('on') })) : [], note: n ? n.innerText : '' }; })())`));
+  const r = await evJson(`JSON.stringify((() => { const p = document.querySelector('.opts-pop'), seg = p.querySelector('#cauchySeg'), n = p.querySelector('.foot-note'); return { seg: !!seg, buttons: seg ? [...seg.querySelectorAll('button')].map((b) => ({ v: b.dataset.v, disabled: b.disabled, tip: b.dataset.tip, desc: b.getAttribute('aria-description'), on: b.classList.contains('on') })) : [], note: n ? n.innerText : '' }; })())`);
   await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
   return r;
 };
@@ -69,7 +69,7 @@ await settled({ until: '__cmwSteps().i === 0 && !__cmwSteps().moving', max: 1500
 const d = await parts();
 info.off = d;
 ok('off z: the parts are disabled with the drawn-on-z reason', d.seg && d.buttons.every((x) => x.disabled && x.tip === OFF_Z), d);
-const ti = JSON.parse(await ev('JSON.stringify(__cmwSteps().names.title)'));
+const ti = await evJson('JSON.stringify(__cmwSteps().names.title)');
 ok('off z: the title of plane z keeps the Cauchy subject', /^Cauchy integral over /.test(ti.role), ti);
 const h = await ev(`(() => { __cmwLegend(); const c = document.querySelector('.legend-chip canvas'); return c ? c.height / 2 : -1; })()`);
 ok('off z: the key is one line of text', h > 0 && h <= KEY_LINE_MAX, h);

@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uAcc: 15, uIxRepPrev: 15,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15, uAcc: 15, uIxRepPrev: 15,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
   // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
@@ -193,9 +193,8 @@
     // TEMP-DEBUG-HOOK
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
-    // (the steps view's carried colour, CARRY_VS)
-    carry: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(false) },
-    carryId: { chain: true, vs: () => CARRY_VS, fs: () => UTIL + DCOLOR + CARRY_FS(true) },
+    // (its stand-in while it links: F's values on the app's grid, coloured the same way, COLOR_STANDIN_FS)
+    colorStandIn: { chain: false, vs: () => QUAD_VS, fs: () => FIN + UTIL + DCOLOR + COLOR_STANDIN_FS },
     // (the same on the globe, CARRY_GLOBE_VS)
     carryG: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(false) },
     carryGId: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(true) },
@@ -292,7 +291,7 @@ float wabs(vec2 w) {
   function libUse(src) {
     if (!libRe) {
       const L = GLChain.LIB;
-      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'postOf', 'uSheetW', 'uDeriv']);
+      const ids = new Set(['mapPoint', 'mapF', 'chainStep', 'chainRange', 'chainHom', 'chainHomAll', 'chainStage', 'chainIsDeriv', 'chainSheet', 'chainSheetRange', 'chainSheetHom', 'derivIn', 'uChain', 'uMode', 'uA', 'uB', 'uHi', 'uT', 'uBase', 'uPost', 'uStepT', 'stepT', 'postOf', 'uSheetW', 'uDeriv']);
       for (const m of L.matchAll(/\b(?:vec[234]|float|int|bool|void|mat[234])\s+(\w+)\s*\(/g)) ids.add(m[1]);
       for (const m of L.matchAll(/#define\s+(\w+)/g)) ids.add(m[1]);
       ids.delete('cfin');
@@ -343,9 +342,14 @@ float wabs(vec2 w) {
     const mode = modeOf(mapFor(map, ch));
     return `${name}|${ch.key}|m${mode}${d.kind ? '|' + d.kind(ch, mode) : ''}`;
   }
+  // A program of a view no pane shows (e.offView): one the warm-up started ahead of a switch to the globe or the
+  // Landscape (prestart with offView, prestartLand, and the members of its group, groupDone), until a draw asks for it
+  // (getProg). Nothing waits for it: its landing asks no pane to redraw (pollCompiles), progStatus does not count it,
+  // it holds no inverse program back (invProgram), and prestartModes starts it in no other map mode.
   // The program `name` for chain version ch (null for programs without the chain) and the draw's map (its mode: one
-  // program per mode, MAP); start: begin compiling if needed. Returns the program once it is ready, else null.
-  function getProg(name, ch, start, map) {
+  // program per mode, MAP); start: begin compiling if needed; offView: a program it starts is a view's no pane shows.
+  // Returns the program once it is ready, else null.
+  function getProg(name, ch, start, map, offView) {
     const d = DEFS[name];
     if (!d) throw new Error('unknown program ' + name);
     if (d.chain && !(ch && ch.info)) return null;
@@ -355,12 +359,12 @@ float wabs(vec2 w) {
     let e = progs.get(id);
     if (!e) {
       if (!start) return null;
-      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain), born: performance.now() };
+      e = { id, name, key, mode, chain: !!d.chain, ch: d.chain ? ch : null, state: 'pending', used: ++useClock, side: !!(sideMode && d.chain), born: performance.now(), offView: !!offView };
       progs.set(id, e);
       e.rt = d.tf === 'rt' && rtOK;
       try { const [vs, fs] = sources(name, ch, mode); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
       if (d.chain) evictProgs(name, mode);
-    }
+    } else e.offView = false;
     e.used = ++useClock;
     if (d.chain) e.ch = ch;
     if (!sideMode) e.side = false;   // a side chain's program that the current chain now uses (an example loaded)
@@ -381,20 +385,18 @@ float wabs(vec2 w) {
   // globes' (sphere, regionSC, lineSC, disc, mark) held the first frame after a switch to Sphere for 35-45 ms of main
   // thread, over 50 with the stage-0 inverse pass's start (P3 review). The app calls this when a switch to Sphere is
   // coming (the pointer over a Sphere control, or the switch itself, a frame ahead of its draw): the links run in
-  // parallel, and the first use reads a finished one or waits for the slowest only. -> the number started
-  function prestart(names) {
+  // parallel, and the first use reads a finished one or waits for the slowest only. offView: they are a view's no pane
+  // shows (e.offView). -> the number started
+  function prestart(names, offView) {
     if (!ok || lost || !pcExt) return 0;
     let n = 0;
     for (const name of names) {
-      const d = DEFS[name], id = name + '|static';
-      if (!d || d.chain || progs.has(id)) continue;
-      const e = { id, name, key: 'static', mode: 0, chain: false, ch: null, state: 'pending', used: ++useClock, side: false };
-      progs.set(id, e);
-      e.rt = d.tf === 'rt' && rtOK;
-      try { const [vs, fs] = sources(name, null); startLink(e, vs, fs, d.tf === 'rt' ? !rtOK : d.tf); n++; } catch (err) { e.state = 'error'; e.error = String(err.message || err); lastError = e.error; }
+      const d = DEFS[name];
+      if (!d || d.chain || progs.has(name + '|static')) continue;
+      // (finished by the poll when its link lands, or at its first use, whichever comes first)
+      getProg(name, null, true, null, offView);
+      n++;
     }
-    // finished by the poll when their links land (or at their first use, whichever comes first)
-    if (n) schedulePoll();
     return n;
   }
   // A deformation is coming (the app: the pointer on its toggle): the current chain's programs that the views draw now
@@ -406,12 +408,12 @@ float wabs(vec2 w) {
   let aheadMode = 1;
   const EDGE_PROGS = ['landEdgeS', 'landEdgeH', 'landEdge2'];
   // (the programs prestartModes starts, started or not: each chain program the views draw for the current chain, in
-  // each of these map modes)
+  // each of these map modes; a view's no pane shows is none of them, e.offView)
   function modesPlan(modes) {
     const out = [];
     if (sideMode || !cur.info) return out;
     for (const e of [...progs.values()]) {
-      if (!e.chain || e.inv || e.side || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
+      if (!e.chain || e.inv || e.side || e.offView || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
       for (const m of modes) {
         const mm = modeOf({ mode: m });
         if (mm) out.push({ name: e.name, mode: mm, id: progId(e.name, cur, { mode: mm }) });
@@ -470,40 +472,43 @@ float wabs(vec2 w) {
     if (n) schedulePoll();
     return n;
   }
-  // How far the current chain's programs that prestartNames was asked for have come: {done, total}. done: linked (or
-  // failed: nothing more will come of it); a program not started counts in total only. The chain's other programs still
-  // compiling are counted in total as well, so the answer is complete only when nothing of the chain is left linking:
-  // its programs that a draw starts at their first use (as the carried colour's region fills; while one links, no
-  // inverse program of the chain is started, invProgram) and its inverse programs (the exact images'; an inverse
-  // program's askKey: the key of the chain whose draw or state query asked for it last)
-  function progStatus() {
+  // How far the current chain's programs that prestartNames was asked for have come, with those prestartModes plans
+  // for the map modes `modes` (the other map modes of the programs the views draw, which the warm-up starts once
+  // nothing else links): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
+  // counts in total only. The chain's other programs still compiling are counted in total as well, so the answer is
+  // complete only when nothing of the chain is left linking: its programs that a draw starts at their first use (as the
+  // carried colour's region fills; while one links, no inverse program of the chain is started, invProgram) and its
+  // inverse programs (the exact images'; an inverse program's askKey: the key of the chain whose draw or state query
+  // asked for it last). A view's no pane shows (e.offView) is not counted
+  function progStatus(modes) {
     if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
     const w = wanted.get(cur.key), ids = [];
     // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
     if (!w) return { done: 0, total: 1 };
     for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
     const extra = [];
-    for (const e of progs.values()) if (e.state === 'pending' && (e.inv ? e.askKey === cur.key : e.chain && !e.side && e.key === cur.key)) extra.push(e.id);
-    const r = warmCount([['chain', ids]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
+    for (const e of progs.values()) if (e.state === 'pending' && !e.offView && (e.inv ? e.askKey === cur.key : e.chain && !e.side && e.key === cur.key)) extra.push(e.id);
+    const r = warmCount([['chain', ids], ['modes', warmIds('modes', modes)]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
     return { done: r.done, total: r.total };
   }
   // the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
-  // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation.
-  // -> the number started
+  // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation:
+  // a view's no pane shows until a draw asks for them (e.offView). -> the number started
   function prestartLand() {
     if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
-    let n = prestart(LAND_STATIC);
+    let n = prestart(LAND_STATIC, true);
     for (const name of LAND_CHAIN) {
       if (progs.has(progId(name, cur, { mode: 0 }))) continue;
-      getProg(name, cur, true, { mode: 0 });
+      getProg(name, cur, true, { mode: 0 }, true);
       n++;
     }
     return n;
   }
   // the static programs of the 2D views' first frame (the grid, cached fills and curves, identity fills and curves),
   // started at init and after a context restore: that frame needs them anyway, and their links overlap the app's
-  // start-up instead of each other
-  const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark'];
+  // start-up instead of each other. And the colour plot's stand-in (colorStandIn), which a first chain's coloured plane
+  // draws while that chain's own programs link: started first, it is linked well before them
+  const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark', 'colorStandIn'];
   // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'regionSC', 'lineSC', 'disc', 'mark'];
@@ -586,7 +591,8 @@ float wabs(vec2 w) {
   // first draw, and a formula's first Landscape drew its heights' program a frame or more before its surface's, which
   // held the GPU process twice (a second stall of 0.85 to 1.1 s under load; the base, one stall).
   // A member finishes only when every member of its group has compiled; the group counts as one for FRESH_MS
-  // (a group is one chain version in one map mode: a draw takes all three with the same map)
+  // (a group is one chain version in one map mode: a draw takes all three with the same map). A member started for
+  // e is a view's no pane shows when e is (e.offView)
   const GROUPS = [['landTF', 'land', 'floor'], ['landSheetTF', 'landSheet', 'floor']];
   // (the floor goes with the surface it is drawn under: All sheets' when their programs were asked for: through the
   // principal group it started the principal programs alongside the sheets', a second family compiling at a cold open)
@@ -597,7 +603,7 @@ float wabs(vec2 w) {
     for (const n of g) {
       if (n === e.name) continue;
       const q = progs.get(progId(n, e.ch, { mode: e.mode }));
-      if (!q) { getProg(n, e.ch, true, { mode: e.mode }); return false; }
+      if (!q) { getProg(n, e.ch, true, { mode: e.mode }, e.offView); return false; }
       if (q.state === 'pending' && !gl.getProgramParameter(q.p, pcExt.COMPLETION_STATUS_KHR)) return false;
     }
     return true;
@@ -633,17 +639,19 @@ float wabs(vec2 w) {
     let main = false, sided = false, waiting = false;
     for (const e of progs.values()) {
       if (e.state !== 'pending' || heldOf(e)) continue;
-      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || !e.chain || (groupDone(e) && canFinish(e)))) { (e.inv ? finishInv : finishLink)(e); if (e.chain) finishGroup(e); if (e.side) sided = true; else main = true; } else if (e.state === 'pending') waiting = true;
+      if (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (e.inv || !e.chain || (groupDone(e) && canFinish(e)))) { (e.inv ? finishInv : finishLink)(e); if (e.chain) finishGroup(e); if (e.side) sided = true; else if (!e.offView) main = true; } else if (e.state === 'pending') waiting = true;
     }
     if (waiting) schedulePoll();
-    // which draws can now redraw: main (the current chain and its history), side (side chains)
+    // which draws can now redraw: main (the current chain and its history), side (side chains); a view's no pane
+    // shows (e.offView), none
     if ((main || sided) && api.onReady) api.onReady({ main, side: sided });
   }
-  // How long the current chain's area draws (region, or tfRegion for the cached path; the deformation's
-  // start for a mode still compiling) have had nothing to draw: their own programs still linking and no earlier chain
-  // version ready to stand in. 0 as soon as a draw would find a program (one ready, or a link complete, so the frame
-  // that leaves the app's stand-in draws the GPU picture: no blank frame between), when none was asked for yet, or
-  // after a failed compile (reported, never covered up). The same program table as pendingLinks and pending().
+  // How long the current chain's draws of programs `names` (by default its area draws: region, or tfRegion for the
+  // cached path; the deformation's start for a mode still compiling) have had nothing to draw: their own programs still
+  // linking and no earlier chain version ready to stand in. 0 as soon as a draw would find a program (one ready, or a
+  // link complete, so the frame that leaves the app's stand-in draws the GPU picture: no blank frame between), when
+  // none was asked for yet, or after a failed compile (reported, never covered up). The same program table as
+  // pendingLinks and pending().
   const AREA_PROGS = ['region', 'tfRegion'];
   function drawable(e) {
     if (!e) return false;
@@ -651,12 +659,12 @@ float wabs(vec2 w) {
     if (e.state !== 'pending' || heldOf(e)) return false;
     return !pcExt || syncDepth > 0 || syncFwd > 0 || (gl.getProgramParameter(e.p, pcExt.COMPLETION_STATUS_KHR) && (!e.chain || groupDone(e)));
   }
-  function bareMs(map) {
+  function bareMs(map, names = AREA_PROGS) {
     if (!ok || lost || sideMode || !cur.info) return 0;
     const maps = modeOf(map) ? [map, startOf(map)] : [map];
-    const own = maps.flatMap((m) => AREA_PROGS.map((n) => progs.get(progId(n, cur, m)))).filter(Boolean);
+    const own = maps.flatMap((m) => names.map((n) => progs.get(progId(n, cur, m)))).filter(Boolean);
     if (!own.length || own.some((e) => e.state === 'error' || drawable(e))) return 0;
-    for (const h of hist) for (const n of AREA_PROGS) { const q = progs.get(progId(n, h, map)); if (q && q.state === 'ready') return 0; }
+    for (const h of hist) for (const n of names) { const q = progs.get(progId(n, h, map)); if (q && q.state === 'ready') return 0; }
     return performance.now() - Math.min(...own.map((e) => e.born || performance.now()));
   }
   // (tests) holdLinks(true): the current chain's forward programs stay linking (COMPLETION_STATUS held false, and no
@@ -766,8 +774,18 @@ float wabs(vec2 w) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapIn(P, map) || {};
       u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
+      if (P.loc.uStepT) gl.uniform2fv(P.loc.uStepT, stepTData(m.stepT, Math.max(1, P.ch.sigs.length)));
     }
     bindLut(P);
+  }
+  // mode 3's uStepT for steps 1..n (gl/01 STEP_T): stepT[k] = [a, b] where the map spec gives one, else (1, 0); one
+  // buffer a size, filled for each draw (a frame allocates nothing)
+  const stepTBufs = new Map();
+  function stepTData(stepT, n) {
+    let d = stepTBufs.get(n);
+    if (!d) { d = new Float32Array(2 * (n + 1)); stepTBufs.set(n, d); }
+    for (let k = 0; k <= n; k++) { const m = stepT && stepT[k]; d[2 * k] = m ? m[0] : 1; d[2 * k + 1] = m ? m[1] : 0; }
+    return d;
   }
   // a float64 value as a float32 pair (hi + lo)
   const hi32 = Math.fround;
@@ -1102,27 +1120,16 @@ float wabs(vec2 w) {
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
       data[o + pc + 4] = d.tri[t];
     }
-    // (d.dynamic: the data kept, for updatePreMesh to move its vertices frame by frame)
-    const buf = makeBuf(data, d.dynamic ? gl.DYNAMIC_DRAW : undefined);
+    const buf = makeBuf(data);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
     attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
     gl.bindVertexArray(null);
-    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [], data: d.dynamic ? data : null, stride };
+    const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
     for (const [r] of preAll) { if (preBytes <= PRE_BYTES) break; if (r !== res) destroy(r); }
     return res;
-  }
-  // (a flat dynamic mesh's vertices moved: pos as createPreMesh's (2 per vertex, 6 per triangle), the
-  // other attributes kept; one upload, no new buffer)
-  function updatePreMesh(res, pos) {
-    if (!ok || !res || !res.data || res.sph || !res.n) return false;
-    const D = res.data, st = res.stride, nv = res.count;
-    for (let v = 0; v < nv; v++) { D[v * st] = pos[2 * v]; D[v * st + 1] = pos[2 * v + 1]; }
-    gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
-    gl.bufferSubData(gl.ARRAY_BUFFER, 0, D);
-    return true;
   }
   // st: {view, dpr, color, color2, edge, ink, alpha, pattern, cell, lines, sphN, stretch, sphere: {MVP, eye},
   //      scissor [x, y, w, h] (device px of the pane, bottom-left origin),
@@ -1395,7 +1402,7 @@ float wabs(vec2 w) {
     if (P.loc.uSub) gl.uniform2fv(P.loc.uSub, tpl.subs);
     if (P.loc.uSubI) gl.uniform4fv(P.loc.uSubI, tpl.subI);
     gl.activeTexture(gl.TEXTURE1); gl.bindTexture(gl.TEXTURE_2D, gate.e.tex);
-    u1i(P, 'uCW', gate.e.W); u1i(P, 'uCP', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
+    u1i(P, 'uCW', gate.e.W); u1i(P, 'uCStride', gate.e.P); u1f(P, 'uKPx', gate.kpx); u1f(P, 'uKLim', gate.lim);
     // (uFA on unit 13: empty for the first run, which writes tex; tex for the second)
     u1i(P, 'uFA', 13); u1i(P, 'uFPass', 0);
     gl.activeTexture(gl.TEXTURE13); gl.bindTexture(gl.TEXTURE_2D, null);
@@ -1470,7 +1477,7 @@ float wabs(vec2 w) {
   }
   const fillPointsStats = () => ({ runs: fillPtsRuns, frames: { points: fillStats.points, standIn: fillStats.standIn }, reverts: fillStats.reverts });
   // the probes' settings of the carried colour, set by the test hooks only (__svCarryProbe; with no argument, read):
-  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry), oldGrid (the steps view's carried grid); {} otherwise
+  // noCarry, noKCDraw, noFill, noMask (drawRegionCarry); {} otherwise
   let carryProbe = {};
   function carryProbes(f) { if (f !== undefined) carryProbe = f || {}; return carryProbe; }
   function bindCache(P, e) {
