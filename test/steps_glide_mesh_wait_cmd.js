@@ -46,7 +46,8 @@ const restOf = async (j) => {
   return { grabbed: await grab('rest') };
 };
 // the page opened on the chain with its programs held linking, the colour plots' opacities and the globes drawn
-// recorded (window.__plotAlphas, window.__spheres)
+// recorded (window.__plotAlphas, window.__spheres; not the no-value pass, drawColorPlot's noValue, which draws only the
+// departure plane's hatch where its map has no value, under the carried colour)
 const open = async (surf, steps, T = 0) => {
   const ns = `svmw${surf}${Date.now()}`;
   await go(`http://localhost:${PORT}/gl-helpers.html`);
@@ -56,7 +57,7 @@ const open = async (surf, steps, T = 0) => {
   await ev(`(async () => { const t = performance.now() + 60000; while (!(typeof __cmwSteps === 'function' && !!window.GLR && !!document.querySelector('.sv-rail')) && performance.now() < t) await new Promise((r) => setTimeout(r, 100)); return 1; })()`);
   await ev(`(() => {
     const f = GLR.drawColorPlot, g = GLR.drawSphere; window.__plotAlphas = []; window.__spheres = [];
-    GLR.drawColorPlot = function (o) { window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); };
+    GLR.drawColorPlot = function (o) { if (!o.noValue) window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); };
     GLR.drawSphere = function (o) { window.__spheres.push({ k: o && o.carried ? 'carried' : 'globe' }); return g.apply(this, arguments); };
     return 1; })()`);
   await ev(`__cmwSet('morphPaths', false); __cmwSteps({ T: ${T}, scope: 'all', surf: '${surf}' }); 1`);
