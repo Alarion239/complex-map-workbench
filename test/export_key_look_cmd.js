@@ -6,7 +6,7 @@
 // - The key stands clear of the picture: its nearest mark or word is at least KEY_CLEAR pt right of the picture's frame,
 //   so the ring's left mark (-1, ±π) does not read as a label of the frame's right side.
 // - The key lies inside the figure: its width and its height, also in a wide window, where the picture is shorter than
-//   the key, and in Russian and Italian, whose words are longer (#1832).
+//   the key, and in Russian and Italian, whose words are longer.
 // A command file for a CDP daemon:  <runner> test/export_key_look_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -70,7 +70,7 @@ for (const [p, o] of Object.entries(PRESETS)) await look(`example 1, plane ${n -
 await view(1600, 480, false);
 await open(9);
 for (const [p, o] of Object.entries(Object.assign({ revtex: { for: 'article', cols: 2, sizeId: 'revtex', text: 10 } }, PRESETS))) await look(`example 9, wide window, ${p}`, o);
-// (#1832) the same keys in Russian and Italian, whose words are longer: "на полосу яркости" under the strip, the carried
+// the same keys in Russian and Italian, whose words are longer: "на полосу яркости" under the strip, the carried
 // key's line. Every word stays inside the figure (the words wrap to the key's column)
 for (const lang of ['ru', 'it']) {
   await view(1440, 900, false);
