@@ -112,7 +112,7 @@
     if (lLand()) {
       cutHandlesL = []; leftSphereInfo = null; render3D(pane, SV.on ? svLandRest() : undefined);
       // the relief has no place for the target preimages (they show on the Plane and the Sphere): said, not dropped silently
-      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show on the Plane and the Sphere'));
+      if (hasTargets() && GLR.ok) { const cap = $t('Target preimages show on the Plane and the Sphere'); paneCaption(pane, cap); paneSay(pane, 'land', cap); }
       return;
     }
     // X Sphere: this plane on the Riemann sphere, with its shapes or (Phase) the phase portrait (orbit only; drawing on
@@ -1382,14 +1382,67 @@
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
     return sphereView(pane, camL, CAML, Object.assign({ imageMode: true, stage: leftStage(), plane: !!xView().eq, role: 'L' }, leftGlobeOver()));
   }
-  // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
-  function sphereCaption(pane, text) {
+  // What a plane's canvas says only in drawn text, for a screen reader: the plane's description. A frame collects it
+  // (paneSay, by part, while the pane draws), and paneSaid writes it, once the frame is drawn, to a hidden span beside the
+  // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
+  // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
+  // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
+  // caption), 'pre' (the marked preimages of the later planes' points)
+  const PANE_SAY_ORDER = ['land', 'pre'];
+  const paneSayAt = new Map();   // pane → { parts, begun, el, text }
+  function paneSayOf(pane) {
+    let q = paneSayAt.get(pane);
+    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, el: null, text: '' }));
+    return q;
+  }
+  function paneSays(pane) { const q = paneSayOf(pane); q.parts = {}; q.begun = pane.begun; }
+  function paneSay(pane, part, text) { paneSayOf(pane).parts[part] = text; }
+  function paneSaid(pane) {
+    const q = paneSayOf(pane), cv = pane.ocanvas;
+    if (!cv || !cv.id || pane.begun === q.begun) return;
+    const text = PANE_SAY_ORDER.map((k) => q.parts[k]).filter(Boolean).join(' ');
+    if (text === q.text) return;
+    q.text = text;
+    if (!q.el) { q.el = h('span', { class: 'sr-only', id: cv.id + 'Say' }); cv.after(q.el); }
+    q.el.textContent = text;
+    if (text) cv.setAttribute('aria-describedby', q.el.id); else cv.removeAttribute('aria-describedby');
+  }
+  const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
+  // the boxes of the view buttons (zoom, Fit, …) over a pane, in the pane's CSS px
+  function paneButtons(pane) {
+    const cv = pane.ocanvas, host = cv && cv.parentElement;
+    if (!host) return [];
+    const c = cv.getBoundingClientRect(), out = [];
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    return out;
+  }
+  // a note at the foot of a pane, centred on a halo (what the view leaves out): its words wrap to the widest centred
+  // lines that keep CAPTION_PAD from the pane's sides and from the view buttons beside the lines (a phone's buttons stand
+  // over the foot)
+  function paneCaption(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.font = `12px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    const y = pane.h - 14;   // at the foot of the pane (the readout sits at the top, the zoom buttons at the right)
-    ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = TH.halo; ctx.strokeText(text, pane.w / 2, y);
-    ctx.fillStyle = TH.muted; ctx.fillText(text, pane.w / 2, y);
+    const foot = pane.h - 14, mid = pane.w / 2, btns = paneButtons(pane);
+    // (n lines: the width a centred line may take beside the buttons the band of n lines meets)
+    const room = (n) => {
+      const top = foot - n * CAPTION_LINE - CAPTION_PAD, bot = foot + CAPTION_PAD;
+      let half = mid - CAPTION_PAD;
+      for (const b of btns) if (b.t < bot && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
+      return 2 * half;
+    };
+    const wrap = (w) => {
+      const out = [];
+      let cur = '';
+      for (const word of text.split(' ')) { const t = cur ? cur + ' ' + word : word; if (cur && ctx.measureText(t).width > w) { out.push(cur); cur = word; } else cur = t; }
+      if (cur) out.push(cur);
+      return out;
+    };
+    let lines = wrap(room(1));
+    // (more lines take a taller band, which can meet more buttons)
+    for (let i = 0; i < 3; i++) { const next = wrap(room(lines.length)); if (next.length === lines.length) break; lines = next; }
+    ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = TH.halo; ctx.fillStyle = TH.muted;
+    lines.forEach((t, i) => { const y = foot - (lines.length - 1 - i) * CAPTION_LINE; ctx.strokeText(t, mid, y); ctx.fillText(t, mid, y); });
     ctx.restore();
   }
   // the point of the left plane under pane pixel (x, y) (CSS px) of the sphere view: the ray from the eye through

@@ -197,8 +197,9 @@
     const ov = dirty.L || dirty.R || dirty.OL || dirty.OR;
     const leg = dirty.G || dirty.R; // the legend repaints only when its key or the needle changed
     dirty.G = false;
-    if (dirty.L) { dirty.L = false; if (solo() !== 'R') try { renderLeft(); } catch (e) { console.error(e); } }
-    if (dirty.R) { dirty.R = false; if (solo() !== 'L') try { renderRight(); } catch (e) { console.error(e); } }
+    // (each plane drawn says, after it, what its canvas shows only in words: paneSays … paneSaid)
+    if (dirty.L) { dirty.L = false; if (solo() !== 'R') { paneSays(paneL); try { renderLeft(); } catch (e) { console.error(e); } paneSaid(paneL); } }
+    if (dirty.R) { dirty.R = false; if (solo() !== 'L') { paneSays(paneR); try { renderRight(); } catch (e) { console.error(e); } paneSaid(paneR); } }
     dirty.OL = dirty.OR = false;
     if (invPaneQ.drew.L && invPaneQ.drew.R) for (const k of ['L', 'R']) if (invPaneQ[k]) invPaneQ[k].share = 0.5;
     invPaneQ.L = invPaneQ.R = null; invPaneQ.drew.L = invPaneQ.drew.R = false;
