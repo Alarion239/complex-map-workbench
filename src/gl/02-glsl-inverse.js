@@ -761,8 +761,7 @@ ${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * u
   if (ixRepCont) { o = vec4(0.0, 1.0, 0.0, 0.0); return; }
   if (nCov == 0 && (ixRepFail || ixRepCap || ixRepUnres)) {
     if (uIxRepHatch == 1) { o = vec4(1.0, 0.0, 0.0, 0.0); return; }
-    float hh = (gl_FragCoord.x + uIxRepFc.x + gl_FragCoord.y + uIxRepFc.y) * 0.70710678 / (6.0 * uDpr);
-    o = vec4(mix(vec3(0.49804), vec3(0.41569), iso(hh, 1.0 / (6.0 * uDpr), uDpr)), 1.0);
+    o = vec4(nanHatch(gl_FragCoord.xy + uIxRepFc, uDpr), 1.0);
     return;
   }
 #endif

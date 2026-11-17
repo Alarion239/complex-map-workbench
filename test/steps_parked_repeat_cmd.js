@@ -37,7 +37,6 @@
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
 const PITCH = 20;          // px between the sampled pixels
 const AXIS_OFF = 10;       // px: the grid sits between the axis lines, whose ink is not the plane's colour
 const EDGE_PX = 1.5;       // px: a sample whose reference answer changes within this distance is on the image's edge and is not scored
@@ -78,11 +77,10 @@ const HELD_FRAMES = 20;        // frames watched with the second pass held
 const PENDING_FRAMES = 40;     // frames watched for the pane's pending status while tiles remain
 const CI_TEST = 1;             // the region's colour index in the cache-miss control (the scene's own: 0)
 const ready = () => settled({ max: SETTLE_LONG, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
-// the parked plane is drawn: the chain ready (__cmwSteps().ready, false while a pane's REPT draw has tiles left) and the
-// left pane's last frame not pending (its REPT stand-in); null (no frame yet) counts as pending. Waited for at most
-// PARKED_SETTLE ms, a named failure when it runs out; the held control waits HELD_SETTLE ms for it, and it must run out
+// the parked plane is drawn (test/lib/parked_kit.js's PARKED_DRAWN): waited for at most PARKED_SETTLE ms, a named
+// failure when it runs out; the held control waits HELD_SETTLE ms for it, and it must run out
 const PARKED_SETTLE = SETTLE_LONG, HELD_SETTLE = 3000;
-const PARKED_DRAWN = "__cmwSteps().ready && __cmwSteps().ready.ready && !(__cmwPaneStatus('L') || { pending: true }).pending";
+const { PARKED_DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 const settleParked = (max, panes) => settled({ max, panes, until: PARKED_DRAWN });
 await view(VIEW_W, VIEW_H, false, false);
 const stateFor = (rect, n) => ({ v3: true, v4: true, v5: true, v6: true, exactImages: true, nextId: NEXT_ID, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
@@ -94,9 +92,8 @@ const open = async (rect, n) => {
   if (rect) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stateFor(rect, n)))}); 1`);
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=en`);
   await ready();
-  if (!rect) { await ev(`__cmwExample(${names.indexOf('Newton’s method for z³ − 1')}); 1`); await settled({ max: SETTLE_LONG, panes: false }); await ready(); }
-  await ev(`__cmwSteps({ scope: 'in' }); 1`); await settled({ max: SETTLE_SHORT, panes: false });
-  await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settled({ max: SETTLE_LONG, until: '!__cmwSteps().anim && !__cmwSteps().play' });
+  if (!rect) { await loadGallery(SETTLE_LONG); await ready(); }
+  await parkInside(SETTLE_LONG);
   const st = await settleParked(PARKED_SETTLE);
   ok(`the parked plane (${rect === 'paper' ? 'no region' : rect ? 'a rect' : 'the gallery'}, ×${n}) is drawn within ${PARKED_SETTLE} ms: ready, no REPT tile pending`, st.ok, st.busy);
 };
@@ -206,8 +203,9 @@ const main = await row('gallery square', null);
 if (main) {
   ok('gallery square: no unresolved reference sample', main.unres === 0, main.unres);
   ok('gallery square: edge samples are few', main.edge <= EDGE_MAX_SHARE * (main.n + main.edge + main.unres), `${main.edge} edge of ${main.n + main.edge + main.unres}`);
-  ok('gallery square: the reference predicts every sample coloured', main.pred1 === main.n, `${main.pred1}/${main.n}`);
-  ok('gallery square: the plane colours what a chain of backward roots reaches', main.agree === main.n, `${main.agree}/${main.n} agree, plane colours ${main.got1}`);
+  // (rows over the scored samples hold only when there are some)
+  ok('gallery square: the reference predicts every sample coloured', main.n > 0 && main.pred1 === main.n, `${main.pred1}/${main.n}`);
+  ok('gallery square: the plane colours what a chain of backward roots reaches', main.n > 0 && main.agree === main.n, `${main.agree}/${main.n} agree, plane colours ${main.got1}`);
   ok('gallery square: ambiguous samples are few', main.faint <= FAINT_MAX_SHARE * (main.n + main.edge + main.unres + main.faint), `${main.faint} ambiguous`);
 }
 // the renderer's own unresolved pixels: the grey no-value hatch over the plane canvas (#1444's measure)
@@ -219,6 +217,11 @@ const hatchCount = () => ev(`(() => {
 })()`);
 {
   await open(null, CHAIN_N);
+  // (a fresh page's first open: the tile account since the page loaded, the gallery's parked plane walked once, under one
+  // key of the accumulation cache)
+  const first = await ev('typeof __cmwRept === "function" ? __cmwRept({ tileStats: true }) : null');
+  info.firstOpen = first;
+  ok('a fresh page\'s first open walks the parked plane once: one tile of the first pass, one accumulation entry kept', !!first && first.tilesA === 1 && first.kept === 1, first);
   const h0 = await hatchCount();
   ok('gallery square: the plane draws no unresolved hatch', h0.hatch === 0, h0);
   const hooked = await ev('typeof __cmwRept === "function"');

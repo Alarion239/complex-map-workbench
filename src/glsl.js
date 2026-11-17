@@ -2508,12 +2508,12 @@ ${seeded ? '' : pole ? `  vec2 v1;
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
-vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
+${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
+vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
-  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
+  if (${P}_has0 && ${P}_w0 == w) { u = ${P}_u0; return ${P}_ok0; }
   bool ok = ${P}_m0(w, t, u);
-  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
+  ${P}_has0 = true; ${P}_w0 = w; ${P}_u0 = u; ${P}_ok0 = ok;
   return ok;
 }
 // member 1: Newton deflated by member 0's u, from 2w - u
@@ -2870,8 +2870,8 @@ bool ${P}_out(vec2 v, float dv, int r, float js) {
       `${ind}if (${s('ra')}) { ixRI[0] = -1; ixRJ[0] = vec2(1.0, 0.0); }`,
       `${ind}if (${s('ra')} && ${P}_out(${cur}.u, 0.0, ${s('rn')}, 1.0)) ${s('rsp')} = -1;`,
       // (each pass of the loop solves a node, takes a child or leaves a level: at most 5 per node. The loop body is one
-      // if / else chain with no continue, and every array index it reads is >= 0, as Direct3D's compiler needs: a
-      // continue after a descent fell through to the leaf there (#1478), and HLSL evaluates both arms of ?:)
+      // if / else chain with no continue, and every array index it reads is >= 0, as Direct3D's compiler needs: there a
+      // continue after a descent falls through to the leaf, and HLSL evaluates both arms of ?:)
       `${ind}for (int ${s('it')} = 0; ${s('it')} < ${5 * NODES + 2}; ${s('it')}++) {`,
       `${i2}Lf ${R} = ${cur};`,
       `${i2}bool ${s('leaf')} = false;`,
