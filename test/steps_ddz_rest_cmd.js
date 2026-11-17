@@ -34,7 +34,7 @@ const at = async (o) => { await ev(`__cmwSteps(${JSON.stringify(o)}); 1`); await
 
 await view(1200, 800, false, false);
 await go(`http://localhost:${PORT}/test.html?ns=svddzr${Date.now()}&view=steps`);
-await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && typeof __cmwExample === 'function' && typeof __cmwLPx === 'function' && !!window.GLR" });
+await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && typeof __cmwExample === 'function' && !!window.GLR" });
 info.example = await ev(`(() => { for (let i = 0; i < 80; i++) { try { __cmwExample(i); } catch (e) { return -1; } const l = document.querySelector('#examplesBtn .exlabel'); if (l && /derivative in the chain/i.test(l.textContent)) return i; } return -1; })()`);
 ok('gallery example 15, The derivative in the chain, opens', info.example >= 0, info.example);
 await quiet();
