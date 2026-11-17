@@ -389,7 +389,7 @@ for (const [id, steps, v, modes] of CASES) {
 // 1 for sheet cuts, 2 for cuts the sheets cannot continue; a path counts only at 0 < t < 1
 {
   let GL = null;
-  try { global.Funcs = FN; GL = require('../src/glsl.js'); } catch (e) { GL = null; }
+  try { global.Funcs = FN; GL = require('./lib/glchain'); } catch (e) { GL = null; }
   if (GL && GL.build) {
     const kinds = (steps) => { const { S, built } = mk(steps); return GL.build(S, built).cutKinds; };
     const how = (m, k) => {

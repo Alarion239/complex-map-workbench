@@ -12,7 +12,7 @@ global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
 global.Curves = require('../src/curves.js');
-const GLChain = require('../src/glsl.js');
+const GLChain = require('./lib/glchain');
 global.GLChain = GLChain;
 const P = require('../src/params.js');
 let fails = 0, n = 0;

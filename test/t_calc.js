@@ -4,7 +4,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 const Calc = require('../src/calc.js');
-const GLChain = require('../src/glsl.js');
+const GLChain = require('./lib/glchain');
 const C = CX.C;
 const TAU = 2 * Math.PI;
 let bad = 0, n = 0;

@@ -294,7 +294,7 @@ check('math-7: sheetCount = sheetCountOf for q <= 24', [0.5, 0.25, 1.2, 0.1, 2 /
 // shader compiler inlines every call: two call sites put two copies of the formula's steps in the program) ----
 {
   global.Funcs = FN; global.Region = require('../src/region.js'); global.Curves = require('../src/curves.js');
-  const GLChain = require('../src/glsl.js');
+  const GLChain = require('./lib/glchain');
   const steps = [{ type: 'custom', params: Object.assign(FN.defaults('custom'), { expr: '2\\exp(0.5\\log z)+1', cut: 180 }), on: true }];
   const sh = GLChain.build(steps, steps.map(FN.build)).sheetHom || '', hom = sh.slice(sh.indexOf('vec2 chainSheetHom('));
   check('chainSheetHom: a recognized formula through its path function alone', /\bcxs1_sh\(/.test(sh) && (hom.match(/\bcxs1_sh\(/g) || []).length === 1 && !/\bcxs1_s\(/.test(hom), hom.slice(0, 400));

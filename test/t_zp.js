@@ -19,7 +19,7 @@ global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
 global.Region = require('../src/region.js');
 const Inverse = require('../src/inverse.js');
-const GLChain = require('../src/glsl.js');
+const GLChain = require('./lib/glchain');
 const F = global.Funcs;
 const { C } = CX;
 let checks = 0, failed = 0;
