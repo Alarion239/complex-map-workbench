@@ -32,6 +32,7 @@ const VIEWS = {
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
+  'export_key_look_cmd.js': steps(),   // (#1707: the classic Phase figure too, by ?view=classic)
   'export_two_planes_dialog_cmd.js': steps(),
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),
@@ -131,6 +132,7 @@ const VIEWS = {
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'steps_late_links_cmd.js': steps({ pin: true }),
+  'steps_bare_status_cmd.js': steps({ pin: true }),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
   'steps_ru_keys_cmd.js': steps(),
@@ -138,6 +140,7 @@ const VIEWS = {
   'phone_toast_bar_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
+  'steps_menu_expanded_cmd.js': steps(),
   'readout_touch_cmd.js': steps(),
   'phone_hint_globe_cmd.js': steps(),
   'steps_seg_focus_cmd.js': steps(),

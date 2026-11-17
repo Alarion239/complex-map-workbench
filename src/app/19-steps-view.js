@@ -13,7 +13,7 @@
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
-    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's)
+    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -911,13 +911,13 @@
     for (let k = 1; k < b; k++) if (stepActive(k) && (isDeriv(k) || !(built[k - 1] && built[k - 1].props && built[k - 1].props.entire))) return false;
     return true;
   }
-  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
-  // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
-  // (svSheetKeyAt) exist
+  // The pole tracks the frames of the glide into plane b are drawn from, while they are not made (null otherwise): its
+  // inverse paths h have a Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's
+  // last whole ones (svSheetKeyAt) exist. A glide through entire maps alone has none to wait for (svGlideEntire)
   function svTracksMissing(b, h) {
-    if (svGlideEntire(b) || !(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
+    if (svGlideEntire(b) || !(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return null;
     const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
-    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
+    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]) ? P : null;
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
   // the plane and of the chain's other glides, nearest first, with their meshes, as far as the caches take them (svRingAhead, svRingNext),
@@ -960,7 +960,8 @@
     // (this glide's tracks once they are whole; until then (a glide at once after an edit or a change of view, before
     // the idle moments made them), the plane's last whole tracks, for other windows (they find the same poles where the
     // windows overlap); with none, the poles a seed step finds at t itself: the same search, without the tracks through
-    // a cut. No tracks are made in a frame. A glide through entire maps alone has no poles: none, svGlideEntire)
+    // a cut. A glide's frames make no tracks; the frames that hold the glide for them do, svLinkHold. A glide through
+    // entire maps alone has no poles: none, svGlideEntire)
     const s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
     let P = svGlideEntire(b) ? { tr: [] } : svPoleTracks(b, k.win), at = null;
     if (P.k <= SV_POLE_K) {
@@ -1129,8 +1130,11 @@
   // and once it is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the
   // glide waits on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of
   // the plane before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks,
-  // and the first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a
-  // wait also starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // and the first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0. Each frame
+  // of such a wait makes the tracks for a frame's pole budget, so the wait ends within a bounded number of frames: a held
+  // play or glide asks for frame after frame, and where each takes past its deadline (a software renderer) no idle
+  // moment comes between them. Such a wait also starts the idle job (svPolesWatch), which makes plane b's tracks first
+  // (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
@@ -1138,7 +1142,13 @@
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
     const h = svHomPaths(g.b, g.u).h;
     const linking = !!h && [h, svStagedOf(), svStagedCurves()].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
-    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
+    const P = linking ? null : svTracksMissing(g.b, h);
+    if (P) {
+      svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
+      // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
+      if (P.k > SV_POLE_K) svHomMemo = null;
+    }
+    svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
     const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
@@ -1820,7 +1830,7 @@
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    if (bare) return;
+    if (bare) { glStatusNote(pane, true); return; }   // (the colour layer alone: its status is the pane's, with no note)
     if (col) colourGrid(pane);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
@@ -2189,7 +2199,7 @@
   function svChoiceBtn(cur, pairs, pick, title, cls) {
     let val = cur;
     const word = h('span', { class: 'sv-choice-t' });
-    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu',
+    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu', 'aria-expanded': 'false',
       onclick: () => { if (!svOff(b)) svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }); } }, word, h('span', { class: 'sv-choice-i', html: ICONS.chevD, 'aria-hidden': 'true' })));
     b.choices = pairs;   // (the suites pick an item by its value through it)
     Object.defineProperty(b, 'value', { get: () => val, set: (v) => {
@@ -2280,9 +2290,9 @@
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
-    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
+    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svSurfMenu() });
     // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two; ux, #1047)
-    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', onclick: () => svScopeMenu() });
+    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svScopeMenu() });
     bar.append(title, cp, scope, scopeBtn, surf1);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
@@ -4086,7 +4096,7 @@
     const chip = svChipBtn('sv-fchip', { 'data-tip': `${name} · ${$t('Edit step {k}', { k })}`,
       'aria-label': `f${sub(k)} ${name}${off ? $t(', bypassed') : ''}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); svInspect(k); } },
     `<i>f</i><sub>${k}</sub>`, name);
-    const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
+    const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
     // (a repeated block: its chips are marked, and the last one carries the count, ×N)
     const rb = repeatOf(k);

@@ -8,7 +8,7 @@ await load('clampbase' + Date.now(), { shapes: [], steps: [], srcView: { cx: 0, 
 const base = await ev('location.origin');
 for (const [lang, w, h, want] of [['ru', 1366, 768, '3'], ['it', 1366, 768, '3'], ['en', 1366, 768, '2'], ['ru', 1600, 900, '2']]) {
   await view(w, h, false, false);
-  await nav(`${base}/test.html?ns=clamp${lang}${w}&lang=${lang}`); await sleep(2200);
+  await nav(`${base}/test.html?ns=clamp${lang}${w}&lang=${lang}`);
   const v = await clamp();
   ok(`${lang} at ${w}: the chip's line clamp is ${want}`, v === want, v);
 }
