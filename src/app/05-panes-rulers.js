@@ -1408,6 +1408,7 @@
     if (text) cv.setAttribute('aria-describedby', q.el.id); else cv.removeAttribute('aria-describedby');
   }
   const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
+  const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
   // the boxes of the view buttons (zoom, Fit, …) over a pane, in the pane's CSS px
   function paneButtons(pane) {
     const cv = pane.ocanvas, host = cv && cv.parentElement;
@@ -1431,16 +1432,9 @@
       for (const b of btns) if (b.t < bot && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
       return 2 * half;
     };
-    const wrap = (w) => {
-      const out = [];
-      let cur = '';
-      for (const word of text.split(' ')) { const t = cur ? cur + ' ' + word : word; if (cur && ctx.measureText(t).width > w) { out.push(cur); cur = word; } else cur = t; }
-      if (cur) out.push(cur);
-      return out;
-    };
-    let lines = wrap(room(1));
-    // (more lines take a taller band, which can meet more buttons)
-    for (let i = 0; i < 3; i++) { const next = wrap(room(lines.length)); if (next.length === lines.length) break; lines = next; }
+    let lines = wrapWords(ctx, text, room(1));
+    // (more lines take a taller band, which can meet more buttons: wrapped again for the band, at most CAPTION_REWRAPS times)
+    for (let i = 0; i < CAPTION_REWRAPS; i++) { const next = wrapWords(ctx, text, room(lines.length)); if (next.length === lines.length) break; lines = next; }
     ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = TH.halo; ctx.fillStyle = TH.muted;
     lines.forEach((t, i) => { const y = foot - (lines.length - 1 - i) * CAPTION_LINE; ctx.strokeText(t, mid, y); ctx.fillText(t, mid, y); });
     ctx.restore();
