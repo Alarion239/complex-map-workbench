@@ -1634,8 +1634,30 @@
     // their SphereMeshes (the tiling's stand-in while a chain's first program links, smNeed's 'linking') shows those
     // meshes, with a program that carries no chain, in their points of the colour plane, mapped on the CPU, carriedW.
     // At T = 0 the meshes' own program carries no chain: drawPreMapped draws the colour itself)
-    const standIn = () => n > 0 && T > 0 && lay.every((d) => d.pre)
-      && lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ, map)) && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) })));
+    // (a glide frame past the colour plane, its programs linking: the linking SphereMeshes of the end of the glide it is
+    // nearer to (the other end when that one is the identity), asked for while the frame's own programs link (smFor's
+    // linkOf), their source points mapped by the frame's map on the CPU (carriedPos) and coloured as a plane at rest is
+    // (carriedW: the points of the colour plane, z itself at T = 0), with the program that carries no chain. The polar
+    // ring has no SphereMesh: the pane's far corners stay bare)
+    const glideStandIn = () => {
+      const ends = still || !map.mode ? null : homEnds(normalizeMap(map));
+      if (!ends) return false;
+      const near = (map.t ?? 0.5) < 0.5 ? 0 : 1, end = isIdentMap(ends[near]) ? ends[1 - near] : ends[near];
+      if (isIdentMap(end)) return false;
+      const preZ = GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, lim = 0.35 * Math.max(pane.w, pane.h) / pane.view.s, pre = [];
+      for (const x of shapes) {
+        if (x.polar) continue;
+        const r = svCarryGPU(x), smd = r ? smFor(x, r, 'SV', 'flat', end, pane, 0, true, map) : null, res = smd && smd.e ? smRes(smd.e) : null;
+        if (!res) return false;
+        pre.push({ e: smd.e, res });
+      }
+      const m = pre.length;
+      return m > 0 && pre.every((d) => carriedW(d.e, T, preZ, map)) && pre.every((d) => carriedPos(d.e, map, preZ, lim, !F))
+        && pre.every((d, i) => GLR.drawPreMapped(d.res, { map, view: pane.view, dpr: pane.dpr, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry: Object.assign({}, carry, { w: true }), key, depth: m === 1 ? 'only' : i === 0 ? 'first' : i === m - 1 ? 'last' : 'mid', preZ, posed: true }));
+    };
+    const standIn = () => (n > 0 && T > 0 && lay.every((d) => d.pre)
+      && lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ, map)) && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) }))))
+      || glideStandIn();
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
     for (let pass = 0; pass < 2; pass++) {

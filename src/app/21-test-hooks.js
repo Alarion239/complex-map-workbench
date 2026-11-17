@@ -55,6 +55,8 @@
   // the SphereMesh verdict (SPEC 8.1) of every visible area shape for the right pane's map (12.3: invariant under right-view zooms)
   window.__cmwSmVerdict = (role = 'R') => S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area').map((s) => ({ id: s.id, why: smNeed(s, gpu.get(s.id), role, normalizeMap(stageMap(role === 'SV' ? svStage() : role === 'R' ? rightStage() : leftStage()))) }));
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
+  // (the compiling note drawn on pane role now, as a frame whose program compiles draws it: its box, CSS px of the pane)
+  /** @type {any} */ (window).__cmwCompileNote = (role = 'L') => compileNote(role === 'R' ? paneR : paneL);
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
   // the colour plot's stand-in (colourStandIn): the cell of its finest level done (css px; null before one) and its
@@ -62,8 +64,9 @@
   // it runs); null when none
   /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
   // the carried colour's stand-in past T > 0 (carriedW): its latest mesh's job, the corners done of all, its evaluations,
-  // CPU ms, slices, rests, the work as last costed (ms) and why it stopped (null while it runs); null when none
-  /** @type {any} */ (window).__cmwCarried = () => { const j = carriedJob; return j ? { k: j.k, of: j.w.length / 3, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, rests: j.rests, need: +j.need.toFixed(1), end: j.end, dead: j.dead } : null; };
+  // CPU ms, slices, rests, the work as last costed (ms), why it stopped (null while it runs) and pos, a glide frame's
+  // positions last mapped (carriedPos: {n points, ms}, null before any); null when none
+  /** @type {any} */ (window).__cmwCarried = () => { const j = carriedJob; return j ? { k: j.k, of: j.w.length / 3, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, rests: j.rests, need: +j.need.toFixed(1), end: j.end, dead: j.dead, pos: carriedPosLast } : null; };
   window.__cmwPaths = () => {
     const views = [], out = [];
     if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)

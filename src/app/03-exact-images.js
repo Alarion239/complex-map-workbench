@@ -529,7 +529,8 @@
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
     } else if (now - t0 >= 300) compileNote(pane);
   }
-  // the compiling note: small and quiet, in the pane's lower left corner
+  // the compiling note: small and quiet, in the pane's lower left corner; on a phone, where the other plane's inset card
+  // covers that corner, beside the card in its row. -> its box, CSS px of the pane
   function compileNote(pane) {
     const ctx = pane.ctx;
     ctx.save();
@@ -537,13 +538,21 @@
     ctx.globalAlpha = 1;
     ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const text = $t('Compiling…');
-    const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    let x0 = 8.5;
+    const inset = document.querySelector('.panes > .pane.ph-inset');
+    if (inset && pane.canvas && !inset.contains(pane.canvas)) {
+      const r = inset.getBoundingClientRect(), c = pane.canvas.getBoundingClientRect();
+      if (x0 < r.right - c.left && x0 + bw > r.left - c.left && y0 < r.bottom - c.top && y0 + bh > r.top - c.top) x0 = Math.round(r.right - c.left + 8) + 0.5;
+    }
+
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
     ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
     ctx.fillStyle = TH.muted;
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
+    return { x: x0 - 0.5, y: y0 - 0.5, w: bw, h: bh };
   }
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
   // them (the steps view's whole-plane region); staged: the shapes of the later planes too

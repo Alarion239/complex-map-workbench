@@ -146,6 +146,42 @@
   }
   // the source point of a pre-mapped mesh's polar coordinates (px, py) (PAT_PRE's, ln |z| clamped as PRE_SRC's)
   const preSrcOf = (px, py) => { const r = Math.exp(Math.max(-GLR.PRE_LN, Math.min(GLR.PRE_LN, px / PRE_ARG))); return C(r * Math.cos(py / PRE_ARG), r * Math.sin(py / PRE_ARG)); };
+  // corner k of a pre-mapped mesh's data D (SphereMesh.publish's), in its triangle t at corner c: id, its source point's
+  // key among the mesh's points, and z(), that point. zP: its P is the source point itself, not its polar coordinates
+  // (graph paper's mesh, preZ, and SphereMesh's cart triangles)
+  function preCorner(D, k, preZ) {
+    const c = k % 3, t = (k - c) / 3, a = t * 12 + 4 * c, px = D.attr[a + 2], py = D.attr[a + 3], zP = preZ || !!(D.cart && D.cart[t]);
+    return { c, t, zP, id: (zP ? 'z' : 'p') + px + ',' + py, z: () => (zP ? C(px, py) : preSrcOf(px, py)) };
+  }
+  // ---------------- the carried colour's stand-in on a glide frame past the colour plane ----------------
+  // A glide frame's points move with u, so its stand-in is a linking SphereMesh of a plane at an end of the glide with
+  // its source points mapped by the frame's map on the CPU, each once (the colour-plane points carriedW gives the mesh do
+  // not depend on u): carriedPos puts them beside the mesh (GLR.setPrePos), once per frame map. A triangle the map
+  // stretches past lim (the carried meshes' st.lim: a point the map sends far) is left out, as drawRegion leaves it out.
+  // While the frame moves (moving), a mesh whose positions took over CARRIED_POS_MS to map keeps the ones it has (held
+  // still until the frame rests). e.posMs: the time its last positions took; carriedPosLast: {n points, ms} of the last
+  // positions mapped (the test hook's)
+  const CARRIED_POS_MS = 12;
+  let carriedPosLast = null;
+  function carriedPos(e, map, preZ, lim, moving) {
+    const key = `${mapKeyOf(map)}|${preZ ? 1 : 0}|${lim}`;
+    if (!e.res) return false;
+    if (e.res.posKey === key || (moving && e.res.posKey && e.posMs > CARRIED_POS_MS)) return true;
+    const D = e.data, n3 = 3 * D.n, F = cpuMap(map), pos = new Float32Array(2 * n3), seen = new Map(), o = e.res.org, t0 = performance.now();
+    for (let k = 0; k < n3; k++) {
+      const q = preCorner(D, k, preZ);
+      let w = seen.get(q.id);
+      if (!w) { try { w = F(q.z()); } catch (err) { w = C(NaN, NaN); } seen.set(q.id, w); }
+      pos[2 * k] = w.re - o[0]; pos[2 * k + 1] = w.im - o[1];
+      if (q.c !== 2) continue;
+      const i = 2 * (k - 2), x0 = pos[i], y0 = pos[i + 1], x1 = pos[i + 2], y1 = pos[i + 3], x2 = pos[i + 4], y2 = pos[i + 5];
+      const far = Math.max(Math.hypot(x1 - x0, y1 - y0), Math.hypot(x2 - x1, y2 - y1), Math.hypot(x0 - x2, y0 - y2));
+      if (!(far <= lim)) pos.fill(NaN, i, i + 6);
+    }
+    e.posMs = performance.now() - t0;
+    carriedPosLast = { n: seen.size, ms: +e.posMs.toFixed(1) };
+    return GLR.setPrePos(e.res, pos, key);
+  }
   // job j's G at source point z, an evaluation: [ln |G| * PRE_ARG, arg G * PRE_ARG, G's real and imaginary parts]; on a
   // pole, ln |G| at PRE_LN, arg 0 and the parts infinite
   function carriedG(j, z) {
@@ -159,17 +195,14 @@
   // points), as (ln |G|, arg G) * PRE_ARG with arg continuous across each triangle, and at a triangle's last corner the
   // form it takes (carriedForm); -> why the job stops, or null to go on
   function carriedSlice(j, t0) {
-    const D = j.e.data, A = D.attr, n3 = 3 * D.n, turn = 2 * Math.PI * PRE_ARG;
+    const D = j.e.data, n3 = 3 * D.n, turn = 2 * Math.PI * PRE_ARG;
     let te = t0;
     while (j.k < n3) {
-      const k = j.k++, c = k % 3, t = (k - c) / 3, a = t * 12 + 4 * c, px = A[a + 2], py = A[a + 3];
-      // (a triangle whose P is its source points themselves, not their polar coordinates: graph paper's mesh, and
-      // SphereMesh's cart triangles)
-      const zP = j.preZ || !!(D.cart && D.cart[t]), id = (zP ? 'z' : 'p') + px + ',' + py;
-      let g = j.seen.get(id), due;
+      const k = j.k++, q = preCorner(D, k, j.preZ), c = q.c, t = q.t, zP = q.zP;
+      let g = j.seen.get(q.id), due;
       if (!g) {
-        g = carriedG(j, zP ? C(px, py) : preSrcOf(px, py));
-        j.seen.set(id, g);
+        g = carriedG(j, q.z());
+        j.seen.set(q.id, g);
         const tn = performance.now();
         // (the work left at the rate of new points per corner so far, highest at the mesh's start, where a triangle brings
         // up to 3 new points against about 1 in 6 corners over a whole mesh: a mesh near the budget may rest first)

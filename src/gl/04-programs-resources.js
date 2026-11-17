@@ -1124,12 +1124,13 @@ float wabs(vec2 w) {
   // (regionPK; regionPKid when the colour plane is the mesh's own plane, st.carry.s = T), its depth the sheet key,
   // st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source point itself (graph paper's mesh), not
   // its polar coordinates; st.carry.w: each vertex's colour-plane point comes with the mesh (setPreW), a program
-  // without the chain (regionPW), the stand-in while regionPK links; -> true when drawn, false while its program
-  // compiles
+  // without the chain (regionPW), the stand-in while regionPK links; st.posed (flat): the vertices at the positions
+  // setPrePos gave the mesh, not the ones it was built with; -> true when drawn, false while its program compiles (and
+  // with st.posed, before setPrePos)
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
-    if (carry && st.carry.w && !res.wBuf) return false;
+    if ((carry && st.carry.w && !res.wBuf) || (st.posed && (sph || !res.gvao))) return false;
     const P = carry ? (st.carry.w ? program('regionPW') : program(st.carry.s === st.carry.T ? 'regionPKid' : 'regionPK', st.map)) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
@@ -1158,7 +1159,7 @@ float wabs(vec2 w) {
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
     const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
-    gl.bindVertexArray(res.vao);
+    gl.bindVertexArray(st.posed ? res.gvao : res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
     else if (k) {
       const dt = gl.isEnabled(gl.DEPTH_TEST);
@@ -1180,10 +1181,38 @@ float wabs(vec2 w) {
     if (!res.wBuf) { res.wBuf = gl.createBuffer(); res.bytes += w.byteLength; if (preAll.has(res)) preBytes += w.byteLength; }
     gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf);
     gl.bufferData(gl.ARRAY_BUFFER, w, gl.STATIC_DRAW);
-    gl.bindVertexArray(res.vao);
-    attrib(3, 3, 12, 0, 0);
+    for (const vao of [res.vao, res.gvao]) {
+      if (!vao) continue;
+      gl.bindVertexArray(vao);
+      attrib(3, 3, 12, 0, 0);
+    }
     gl.bindVertexArray(null);
     res.wKey = key;
+    return true;
+  }
+  // flat pre-mapped mesh res at other positions than it was built with (a glide frame's stand-in: its source points
+  // mapped by the frame's map on the CPU): pos, 2 floats a vertex in the mesh's order, less its origin (res.org), in a
+  // buffer of their own with a vertex array of its own (res.gvao: the mesh's other attributes, its colour-plane points
+  // once setPreW gave them), drawn with st.posed; key: what pos was computed for (res.posKey). -> false when res has no
+  // buffers (evicted, or a lost context: upload the mesh first) or is the globe's
+  function setPrePos(res, pos, key) {
+    if (!ok || !res || !res.vao || res.sph || !pos || pos.length < 2 * res.count) return false;
+    if (!res.posBuf) {
+      res.posBuf = gl.createBuffer(); res.bytes += pos.byteLength; if (preAll.has(res)) preBytes += pos.byteLength;
+      // (createPreMesh's flat layout: the position, then the attributes, the triangle and its cart flag, 8 floats)
+      const stride = 8 * 4;
+      res.gvao = gl.createVertexArray();
+      gl.bindVertexArray(res.gvao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
+      attrib(1, 4, stride, 2 * 4, 0); attrib(2, 1, stride, 6 * 4, 0); attrib(4, 1, stride, 7 * 4, 0);
+      if (res.wBuf) { gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf); attrib(3, 3, 12, 0, 0); }
+      gl.bindBuffer(gl.ARRAY_BUFFER, res.posBuf);
+      attrib(0, 2, 8, 0, 0);
+      gl.bindVertexArray(null);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.posBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, pos, gl.DYNAMIC_DRAW);
+    res.posKey = key;
     return true;
   }
   function destroy(res) {
@@ -1193,7 +1222,9 @@ float wabs(vec2 w) {
       if (res.vao) gl.deleteVertexArray(res.vao);
       if (res.buf) gl.deleteBuffer(res.buf);
       if (res.wBuf) gl.deleteBuffer(res.wBuf);
-      res.vao = res.buf = res.wBuf = res.wKey = null; res.n = 0; res.count = 0;
+      if (res.gvao) gl.deleteVertexArray(res.gvao);
+      if (res.posBuf) gl.deleteBuffer(res.posBuf);
+      res.vao = res.buf = res.wBuf = res.wKey = res.gvao = res.posBuf = res.posKey = null; res.n = 0; res.count = 0;
       return;
     }
     freeCache(res);

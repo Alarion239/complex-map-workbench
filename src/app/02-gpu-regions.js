@@ -680,10 +680,11 @@
   // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
   const SM_LINKING_MS = 250, SM_LINK_WORK = 20000;
   // SPEC 8.1: why shape s (drawn forward for role under the normalised map m) needs a SphereMesh, or null (role SV: the
-  // steps view's carried colour in the left pane, its fix-ups r.fix.SV)
-  function smNeed(s, r, role, m) {
+  // steps view's carried colour in the left pane, its fix-ups r.fix.SV); linkOf: the map whose programs a 'linking'
+  // mesh stands in for, when not m's (a glide frame's, whose stand-in is m's mesh at an end of the glide)
+  function smNeed(s, r, role, m, linkOf) {
     if (!smOn() || s._err || kindType(s) !== 'area' || (role !== 'R' && role !== 'L' && role !== 'SV')) return null;
-    if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
+    if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(linkOf || m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
       // (a shape drawn exactly at both ends shows today's GPU image while paused inside the step: the mesh changed
@@ -766,10 +767,11 @@
   }
   // SPEC 8.8: what to draw for forward shape s in a view -> null (today's GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the
-  // GPU image around it). allowJob: a job may be requested for this view (live panes; not a pending compile).
-  function smFor(s, r, role, kind, map, pane, R, allowJob) {
+  // GPU image around it). allowJob: a job may be requested for this view (live panes; not a pending compile). linkOf:
+  // smNeed's.
+  function smFor(s, r, role, kind, map, pane, R, allowJob, linkOf) {
     const m = normalizeMap(map);
-    const why = smNeed(s, r, role, m);
+    const why = smNeed(s, r, role, m, linkOf);
     if (!why) return null;
     const v = smView(kind, pane, R);
     if (!v) return null;
