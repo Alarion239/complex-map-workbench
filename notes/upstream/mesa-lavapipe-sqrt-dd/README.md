@@ -31,6 +31,8 @@ and `\sqrt{z+1} d d` crash and `\sqrt{z^2-1} d d` fails 6418 of 6442 values; `si
 not memory (under 400 MB), not the stack (`ulimit -s` 8 MB, 64 MB, 1 GB), and not the AVX-512 miscompile of #1735
 (`GALLIUM_OVERRIDE_CPU_CAPS=avx` and `avx2` crash the same).
 
+A Mesa 26 check is pending; it would run on the 26.04 runner, and only with Alexander's approval of the report.
+
 ## Missing before it is sendable
 - A standalone reduction: one HTML or C file that needs none of the application (the shader reduced, the draw written out).
 - A check on a current Mesa (26.x), and on another CPU.
