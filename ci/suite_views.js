@@ -32,6 +32,7 @@ const VIEWS = {
   'example_try_sv_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
+  'export_key_look_cmd.js': steps(),   // (#1707: the classic Phase figure too, by ?view=classic)
   'export_two_planes_dialog_cmd.js': steps(),
   'export_glide_cmd.js': steps(),
   'layout_invariants_cmd.js': steps(),

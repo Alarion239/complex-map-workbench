@@ -477,7 +477,7 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy ? 'busy' : 'ok');
+    setLed('L', busy || colourPending() ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : undefined);
     setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
@@ -510,7 +510,7 @@
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
     const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
-    if (cauchyWhy) paper(pane);
+    if (cauchyWhy) { paper(pane); setColourWaiting(false); }   // (paper waits on no program)
     else {
       // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
       cst.standIn = colourStandIn(pane, cst.map);
