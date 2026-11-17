@@ -173,6 +173,12 @@
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
+    // (and from plane z's own colour (T = 0): the colour of the source point itself, a program without the chain, so
+    // the SphereMeshes' carried colour never waits for the chain's links; carryId's case)
+    regionPKid: { chain: false, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true) },
+    // (past another colour plane, its stand-in while it links: each vertex's colour-plane point mapped on the CPU,
+    // setPreW, coloured the same way)
+    regionPW: { chain: false, vs: () => PRE_VS(false, true), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true, false, false, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -1085,7 +1091,7 @@ float wabs(vec2 w) {
   // d: SphereMesh.publish() -> res {kind: 'pre', n (triangles), count (vertices), sph, org}
   function createPreMesh(d) {
     if (!ok || !d || !d.n) return null;
-    const sph = !!d.pos3, pc = sph ? 3 : 2, stride = pc + 5, n = d.n;
+    const sph = !!d.pos3, pc = sph ? 3 : 2, stride = pc + 6, n = d.n;
     const data = new Float32Array(n * 3 * stride);
     for (let t = 0; t < n; t++) for (let j = 0; j < 3; j++) {
       const o = (t * 3 + j) * stride;
@@ -1093,13 +1099,13 @@ float wabs(vec2 w) {
       else { data[o] = d.pos[t * 6 + 2 * j]; data[o + 1] = d.pos[t * 6 + 2 * j + 1]; }
       const a = t * 12 + 4 * j;
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
-      data[o + pc + 4] = d.tri[t];
+      data[o + pc + 4] = d.tri[t]; data[o + pc + 5] = d.cart ? d.cart[t] : 0;
     }
     const buf = makeBuf(data);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
+    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0); attrib(4, 1, stride * 4, (pc + 5) * 4, 0);
     gl.bindVertexArray(null);
     const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
@@ -1115,12 +1121,17 @@ float wabs(vec2 w) {
   // (A depth-only pre-pass and separate passes for the layers behind and the front, which keep those layers, drew the
   // mesh three times: gl_FragDepth turns early depth tests off, and exp(exp z)(H)'s settle frames jank by 20 ms.)
   // st.carry (flat only, the steps view's carried colour): each fragment the colour plane's colour of its source point
-  // (regionPK), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source
-  // point itself (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
+  // (regionPK; regionPKid when the colour plane is the mesh's own plane, st.carry.s = T), its depth the sheet key,
+  // st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source point itself (graph paper's mesh), not
+  // its polar coordinates; st.carry.w: each vertex's colour-plane point comes with the mesh (setPreW), a program
+  // without the chain (regionPW), the stand-in while regionPK links; st.posed (flat): the vertices at the positions
+  // setPrePos gave the mesh, not the ones it was built with; -> true when drawn, false while its program compiles (and
+  // with st.posed, before setPrePos)
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
-    const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    if ((carry && st.carry.w && !res.wBuf) || (st.posed && (sph || !res.gvao))) return false;
+    const P = carry ? (st.carry.w ? program('regionPW') : program(st.carry.s === st.carry.T ? 'regionPKid' : 'regionPK', st.map)) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
@@ -1148,7 +1159,7 @@ float wabs(vec2 w) {
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
     const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
-    gl.bindVertexArray(res.vao);
+    gl.bindVertexArray(st.posed ? res.gvao : res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));
     else if (k) {
       const dt = gl.isEnabled(gl.DEPTH_TEST);
@@ -1161,13 +1172,59 @@ float wabs(vec2 w) {
     if (sc) { if (scOn) gl.scissor(prevSc[0], prevSc[1], prevSc[2], prevSc[3]); else gl.disable(gl.SCISSOR_TEST); }
     return true;
   }
+  // the carried colour's stand-in on pre-mapped mesh res: w, each vertex's colour-plane point G (PRE_VS's aW), 3 floats a
+  // vertex in the mesh's order: the point in a form its triangle shares (the third float: 0, (ln |G|, arg G) * 16 / tau,
+  // arg continuous across the triangle; 1, G; 2, 1/G); key: what w was computed for (res.wKey). -> false when res has
+  // no buffers (evicted, or a lost context: upload the mesh first)
+  function setPreW(res, w, key) {
+    if (!ok || !res || !res.vao || !w || w.length < 3 * res.count) return false;
+    if (!res.wBuf) { res.wBuf = gl.createBuffer(); res.bytes += w.byteLength; if (preAll.has(res)) preBytes += w.byteLength; }
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, w, gl.STATIC_DRAW);
+    for (const vao of [res.vao, res.gvao]) {
+      if (!vao) continue;
+      gl.bindVertexArray(vao);
+      attrib(3, 3, 12, 0, 0);
+    }
+    gl.bindVertexArray(null);
+    res.wKey = key;
+    return true;
+  }
+  // flat pre-mapped mesh res at other positions than it was built with (a glide frame's stand-in: its source points
+  // mapped by the frame's map on the CPU): pos, 2 floats a vertex in the mesh's order, less its origin (res.org), in a
+  // buffer of their own with a vertex array of its own (res.gvao: the mesh's other attributes, its colour-plane points
+  // once setPreW gave them), drawn with st.posed; key: what pos was computed for (res.posKey). -> false when res has no
+  // buffers (evicted, or a lost context: upload the mesh first) or is the globe's
+  function setPrePos(res, pos, key) {
+    if (!ok || !res || !res.vao || res.sph || !pos || pos.length < 2 * res.count) return false;
+    if (!res.posBuf) {
+      res.posBuf = gl.createBuffer(); res.bytes += pos.byteLength; if (preAll.has(res)) preBytes += pos.byteLength;
+      // (createPreMesh's flat layout: the position, then the attributes, the triangle and its cart flag, 8 floats)
+      const stride = 8 * 4;
+      res.gvao = gl.createVertexArray();
+      gl.bindVertexArray(res.gvao);
+      gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
+      attrib(1, 4, stride, 2 * 4, 0); attrib(2, 1, stride, 6 * 4, 0); attrib(4, 1, stride, 7 * 4, 0);
+      if (res.wBuf) { gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf); attrib(3, 3, 12, 0, 0); }
+      gl.bindBuffer(gl.ARRAY_BUFFER, res.posBuf);
+      attrib(0, 2, 8, 0, 0);
+      gl.bindVertexArray(null);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.posBuf);
+    gl.bufferData(gl.ARRAY_BUFFER, pos, gl.DYNAMIC_DRAW);
+    res.posKey = key;
+    return true;
+  }
   function destroy(res) {
     if (!res || !gl) return;
     if (res.kind === 'pre') {
       if (preAll.delete(res)) preBytes -= res.bytes;
       if (res.vao) gl.deleteVertexArray(res.vao);
       if (res.buf) gl.deleteBuffer(res.buf);
-      res.vao = res.buf = null; res.n = 0; res.count = 0;
+      if (res.wBuf) gl.deleteBuffer(res.wBuf);
+      if (res.gvao) gl.deleteVertexArray(res.gvao);
+      if (res.posBuf) gl.deleteBuffer(res.posBuf);
+      res.vao = res.buf = res.wBuf = res.wKey = res.gvao = res.posBuf = res.posKey = null; res.n = 0; res.count = 0;
       return;
     }
     freeCache(res);

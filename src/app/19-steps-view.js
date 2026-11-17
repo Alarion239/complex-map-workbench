@@ -1642,7 +1642,7 @@
       // (the polar ring's cells are already the map's own: no fix-up, no pre-mapped mesh)
       if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: svPolarOwnSkip(r, x), stand: null, behind: SV_POLAR_BEHIND }); continue; }
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
-      if (pre) { draws.push({ res: pre, pre: true }); continue; }
+      if (pre) { draws.push({ res: pre, pre: true, e: smd.e }); continue; }
       // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
       const oldRes = smd && smd.old ? smRes(smd.old) : null, stand = oldRes ? { box: smd.old.guardBox, res: oldRes } : null;
       fixed.push(x);
@@ -1680,11 +1680,34 @@
     // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
     // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
     // layers cannot be drawn, the front layer alone is drawn)
-    // (while the carried colour's programs link: a still frame of plane z's colour (T = 0) whose shapes are all drawn from
+    // (while the carried colour's programs link past a colour plane T > 0: a still frame whose shapes are all drawn from
     // their SphereMeshes (the tiling's stand-in while a chain's first program links, smNeed's 'linking') shows those
-    // meshes in the phase of their source points, which is that colour, with programs that carry no chain)
-    const standIn = () => T === 0 && n > 0 && lay.every((d) => d.pre)
-      && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })));
+    // meshes, with a program that carries no chain, in their points of the colour plane, mapped on the CPU, carriedW.
+    // At T = 0 the meshes' own program carries no chain: drawPreMapped draws the colour itself)
+    // (a glide frame past the colour plane, its programs linking: the linking SphereMeshes of the end of the glide it is
+    // nearer to (the other end when that one is the identity), asked for while the frame's own programs link (smFor's
+    // linkOf), their source points mapped by the frame's map on the CPU (carriedPos) and coloured as a plane at rest is
+    // (carriedW: the points of the colour plane, z itself at T = 0), with the program that carries no chain. The polar
+    // ring has no SphereMesh: the pane's far corners stay bare)
+    const glideStandIn = () => {
+      const ends = still || !map.mode ? null : homEnds(normalizeMap(map));
+      if (!ends) return false;
+      const near = (map.t ?? 0.5) < 0.5 ? 0 : 1, end = isIdentMap(ends[near]) ? ends[1 - near] : ends[near];
+      if (isIdentMap(end)) return false;
+      const preZ = GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, lim = 0.35 * Math.max(pane.w, pane.h) / pane.view.s, pre = [];
+      for (const x of shapes) {
+        if (x.polar) continue;
+        const r = svCarryGPU(x), smd = r ? smFor(x, r, 'SV', 'flat', end, pane, 0, true, map) : null, res = smd && smd.e ? smRes(smd.e) : null;
+        if (!res) return false;
+        pre.push({ e: smd.e, res });
+      }
+      const m = pre.length;
+      return m > 0 && pre.every((d) => carriedW(d.e, T, preZ, map)) && pre.every((d) => carriedPos(d.e, map, preZ, lim, !F))
+        && pre.every((d, i) => GLR.drawPreMapped(d.res, { map, view: pane.view, dpr: pane.dpr, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry: Object.assign({}, carry, { w: true }), key, depth: m === 1 ? 'only' : i === 0 ? 'first' : i === m - 1 ? 'last' : 'mid', preZ, posed: true }));
+    };
+    const standIn = () => (n > 0 && T > 0 && lay.every((d) => d.pre)
+      && lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ, map)) && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) }))))
+      || glideStandIn();
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
     for (let pass = 0; pass < 2; pass++) {
@@ -3305,7 +3328,7 @@
       if (GLR.prestartModes) GLR.prestartModes([1]);
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
-      if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
+      if (GLR.prestart) GLR.prestart(['regionP', 'keepA', 'regionPKid']);
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
       // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();
