@@ -1626,8 +1626,8 @@ const Inverse = (() => {
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
     // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
-    // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch (Newton's
-    // continuation from seeds, newtOps, cost a glide frame of z^-2 several times z^2's, #1491)
+    // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and
+    // with no Newton's method
     if (one && one.kind === 'IPOW' && !nat && one.p.n < 0) {
       const an = -one.p.n;
       if (t < 0.5) {
