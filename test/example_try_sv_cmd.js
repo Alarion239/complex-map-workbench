@@ -11,7 +11,6 @@ const byName = (re) => ev(`(() => { for (let i = 0; i < 60; i++) { try { __cmwEx
 const open = async (lang) => {
   await view(1280, 800, false, false);
   await nav(`http://localhost:${PORT}/test.html?ns=exsv${lang}${Date.now() % 1000000}&view=steps${lang === 'en' ? '' : '&lang=' + lang}`);
-  await sleep(2000);
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
 };
 const next = () => ev(`(() => { const b = document.querySelector('#svStrip .sv-next'); if (b) b.click(); return !!b; })()`);
