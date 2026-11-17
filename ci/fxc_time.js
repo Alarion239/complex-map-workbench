@@ -628,7 +628,8 @@ const SRC_SHIM = `(() => {
   window.__rafT = [];
   const raf0 = window.requestAnimationFrame.bind(window);
   window.requestAnimationFrame = (cb) => raf0((t) => { window.__rafT.push(t); return cb(t); });
-  proto.shaderSource = function (s, t) { src.set(s, t); return ss.call(this, s, t); };
+  window.__swap = null;   // { from, to }: the app source text "from" is linked as "to"
+  proto.shaderSource = function (s, t) { if (window.__swap && t === window.__swap.from) t = window.__swap.to; src.set(s, t); return ss.call(this, s, t); };
   proto.attachShader = function (p, s) { if (!att.has(p)) att.set(p, []); att.get(p).push(s); return at.call(this, p, s); };
   proto.linkProgram = function (p) { const a = (att.get(p) || []).map((s) => src.get(s) || ''); window.__srcs.push({ vs: a[0] || '', fs: a[1] || '' }); p.__idx = window.__srcs.length - 1; return lp.call(this, p); };
   // each program's first draw: the call and a finish after it (the GPU process builds a variant of the program it lacks at that draw), and
@@ -712,9 +713,11 @@ async function cacheLinkOne(prof, flags, source, timeoutMs, url, idleS) {
 }
 
 // the app scene on the profile: load, the glide, every link landed -> [{ key, name, ms, kb, hash }] in link order
-async function cacheAppPass(base, name, tree, prof, flags, timeoutMs, idleS) {
+// opts.swap: { from, to } for the shim; opts.noDraw: the page stops drawing once the glide has asked for its links (animation frames no-ops), so the links run
+// without the app's drawing competing
+async function cacheAppPass(base, name, tree, prof, flags, timeoutMs, idleS, opts = {}) {
   const sc = SCENES[name], glide = sc.phases.find(([l]) => l === 'glide')[1];
-  const H = await launch({ width: 1440, height: 900, inject: SRC_SHIM, cache: prof, flags });
+  const H = await launch({ width: 1440, height: 900, inject: SRC_SHIM + (opts.swap ? `\nwindow.__swap = ${JSON.stringify(opts.swap)};` : ''), cache: prof, flags });
   try {
     const ns = `fxc${name}${Date.now()}`;
     await H.nav(`${base}blank.html`);
@@ -749,6 +752,7 @@ async function cacheAppPass(base, name, tree, prof, flags, timeoutMs, idleS) {
     }
     await quiet(timeoutMs);
     await H.ev(glide);
+    if (opts.noDraw) { await sleep(1500); await H.ev('window.requestAnimationFrame = () => 0; 1'); }
     await quiet(timeoutMs);
     if (idleS) await sleep(idleS * 1000);
     series.push([Date.now(), storedKb(prof)]);
@@ -887,4 +891,53 @@ async function cacheStudy() {
   process.exit(0);
 }
 
-(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache ...'))).catch((e) => { console.error(e); process.exit(2); });
+// ---- the in-app bisect: which part of an inverse program stops the D3D11 program cache taking it?
+// The app's own link, its own context, its own cache: the shim swaps the program's fragment source as the app passes it to shaderSource. The
+// scene's first inverse program (the target) is linked as it is (the control), with its chain code removed (c), and with its constant loop
+// bounds made non-constant (b), each cold and then warm on a profile of its own, the page not drawing while the links run (opts.noDraw).
+async function bisectStudy() {
+  const timeoutMs = Number(opt('timeout-s', '900')) * 1000, name = opt('scene', 'expsin'), keyRe = new RegExp(opt('target', 'AFF.*SIN.*AFF'));
+  if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
+  const S = await serve(path.join(ROOT, 'dist'));
+  fs.writeFileSync(path.join(ROOT, 'dist', 'blank.html'), '<!doctype html><title>b</title>');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-bisect-')), flags = CACHE_SETTINGS[0][1];
+  const target = (recs) => recs.findIndex((r) => r.inv && keyRe.test(r.key));
+  const rows = [];
+  // control: cold (it also gives the source), then warm
+  const ctl = path.join(tmp, 'ctl');
+  const c0 = await cacheAppPass(S.base, name, ROOT, ctl, flags, timeoutMs, 0, { noDraw: true });
+  const ti = target(c0.recs);
+  if (ti < 0) throw new Error(`no inverse program matches ${keyRe}`);
+  const from = c0.srcs[ti].fs;
+  const one = (recs, i) => (recs[i] ? { s: recs[i].ms == null ? null : recs[i].ms / 1000, kb: recs[i].kb } : { s: null, kb: null });
+  const c1 = await cacheAppPass(S.base, name, ROOT, ctl, flags, timeoutMs, 0, { noDraw: true });
+  rows.push({ variant: 'control (unchanged)', cold: one(c0.recs, ti), warm: one(c1.recs, ti.constructor === Number ? c1.recs.findIndex((r) => r.hash === c0.recs[ti].hash) : -1) });
+  console.log(`[fxc] bisect control: ${JSON.stringify(rows[0])}`);
+  for (const [label, make] of [['chain code removed (c)', variantC], ['constant loop bounds made non-constant (b)', variantB]]) {
+    const to = make(from).src;
+    if (to === from) { rows.push({ variant: label, note: 'changes nothing' }); continue; }
+    const prof = path.join(tmp, label.replace(/\W+/g, '_'));
+    const swap = { from, to }, o = { swap, noDraw: true };
+    const a = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, 0, o);
+    const ai = a.recs.findIndex((r) => r.inv && keyRe.test(r.key));
+    const b = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, 0, o);
+    const bi = b.recs.findIndex((r) => r.inv && keyRe.test(r.key));
+    rows.push({ variant: label, cold: one(a.recs, ai), warm: one(b.recs, bi) });
+    console.log(`[fxc] bisect ${label}: ${JSON.stringify(rows[rows.length - 1])}`);
+  }
+  S.server.close();
+  const outFile = path.resolve(opt('out', path.join(ROOT, '.ci', 'fxc', 'bisect.json')));
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, scene: name, target: String(keyRe), rows }, null, 1));
+  const f = (v) => (v == null ? '' : v.toFixed(1));
+  const lines = [`### The in-app bisect: ${name}, the inverse program matching ${esc(String(keyRe))}`, '', 'Link seconds in the app\'s own context, cold, then in a fresh Chrome on the same profile; the page stops drawing once the glide has asked for its links. A hit: the warm link under 35 % of the cold one or under 1 s.', '',
+    '| variant | source KB | cold s | warm s | result |', '|---|---|---|---|---|'];
+  for (const r of rows) lines.push(r.note ? `| ${r.variant} | | | | ${r.note} |` : `| ${r.variant} | ${r.cold.kb == null ? '' : r.cold.kb} | ${f(r.cold.s)} | ${f(r.warm.s)} | ${r.cold.s != null && r.warm.s != null ? (r.warm.s < 1 || r.warm.s < 0.35 * r.cold.s ? 'hit' : 'miss') : ''} |`);
+  lines.push('');
+  const md = lines.join('\n');
+  summary(md);
+  console.log(md);
+  process.exit(0);
+}
+
+(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : MODE === 'bisect' ? bisectStudy() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache|bisect ...'))).catch((e) => { console.error(e); process.exit(2); });
