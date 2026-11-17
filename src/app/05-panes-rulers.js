@@ -489,7 +489,8 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : busy ? ['busy'] : ['ok']);
+    // (the left pane's own amber: its colour plot still a quick stand-in while its program links, colourPending)
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', $t('Drawing a quick preview; the exact plot is still being built')] : busy ? ['busy'] : ['ok']);
     setLed('L', ...led('L'));
     if (errStep >= 0) setLed('R', 'err', errTip); else setLed('R', ...led('R'));
   }
@@ -523,7 +524,7 @@
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
     const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
-    if (cauchyWhy) paper(pane);
+    if (cauchyWhy) { paper(pane); setColourWaiting(false); }   // (paper waits on no program)
     else {
       // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
       cst.standIn = colourStandIn(pane, cst.map);

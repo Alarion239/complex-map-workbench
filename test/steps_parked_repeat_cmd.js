@@ -263,8 +263,11 @@ const hatchCount = () => ev(`(() => {
     ok('while tiles remain, the pane reports its frame as pending', pend === true, pend);
     ok('the tiled picture is pixel-identical to the one-tile picture', p1.hash === p2.hash && p1.pixels === p2.pixels, [p1, p2]);
     // the second pass held: the continue pixels are never shown, the frame stays pending; released, the same picture
-    // (a bound of its own: the signature is new, so the plane is walked again)
-    await ev(`__cmwRept({ holdB: true, tiles: ${HELD_TILE_SOLVES} }); 1`);
+    // (a bound of its own: the signature is new, so the plane is walked again. Once the plane is drawn, the tile account
+    // is read, which empties it, in the same script as the hold, so no frame comes between: a redraw of the finished
+    // plane before the hold is a composite of its cached picture, and would count as the held draw's)
+    await settled({ max: SETTLE_LONG, panes: true });
+    await ev(`(() => { __cmwRept({ tileStats: true }); __cmwRept({ holdB: true, tiles: ${HELD_TILE_SOLVES} }); return 1; })()`);
     let heldPending = 0;
     for (let i = 0; i < HELD_FRAMES; i++) { await frames(2); if (await pendingNow()) heldPending++; }
     // (the parked settle's own condition, without the kit's pane check: it must not pass on the stand-in)
