@@ -3,7 +3,8 @@
 // and forth for FRAMES frames. Every GL draw (and clear) of those frames is timed alone, a 1-px readPixels before and
 // after it so that the GPU has finished the work before it and finishes its own, and summed per program (a hash of
 // its source and the first functions it defines) and per call site (the first frames of its JS stack). The sums are
-// therefore the GPU's time per draw kind, not a frame time (the syncs serialise the frame). Also the left pane drawn
+// therefore the GPU's time per draw kind, not a frame time (the syncs serialise the frame). An instanced draw (the
+// outlines, the chain's evaluation) is also timed with a 1 x 1 px scissor: its vertex work alone, vertexMsPerFrame. Also the left pane drawn
 // and read back five times (__cmwTime(5).left), unsynchronised per draw. The GPU gate runs it on the Mac in mode
 // suites (gpu-gate.yml), for #1074's split there; lavapipe's is on #1074.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
@@ -41,14 +42,25 @@ const WRAP = `(() => {
     const o = P[f];
     P[f] = function (...a) {
       if (!__split.on) return o.apply(this, a);
+      // (an instanced draw is timed a second time first with a 1 x 1 px scissor: its vertex work with almost no
+      // fragments, vtx; that copy draws into one pixel of the target, which the real draw then covers)
+      let vtx = null;
+      if (f.endsWith('Instanced')) {
+        const sc = this.isEnabled(this.SCISSOR_TEST), box = sc ? this.getParameter(this.SCISSOR_BOX) : null;
+        this.enable(this.SCISSOR_TEST); this.scissor(0, 0, 1, 1);
+        sync(this);
+        const v0 = performance.now(); o.apply(this, a); sync(this);
+        vtx = performance.now() - v0;
+        if (sc) this.scissor(box[0], box[1], box[2], box[3]); else this.disable(this.SCISSOR_TEST);
+      }
       sync(this);
       const t0 = performance.now(), r = o.apply(this, a);
       sync(this);
       const dt = performance.now() - t0;
       const site = (new Error().stack || '').split('\\n').slice(2, 6).map((l) => (/at (\\S+)/.exec(l) || [])[1]).filter(Boolean).join(' < ');
       const k = f + ' ' + name(this, cur.get(this));
-      const e = (__split.by[k] = __split.by[k] || {}), s = (e[site] = e[site] || { ms: 0, n: 0 });
-      s.ms += dt; s.n++;
+      const e = (__split.by[k] = __split.by[k] || {}), s = (e[site] = e[site] || { ms: 0, n: 0, vtx: 0 });
+      s.ms += dt; s.n++; if (vtx != null) s.vtx += vtx;
       return r;
     };
   }
@@ -70,7 +82,7 @@ for (const scope of ['all', 'in']) {
   await settled({ max: 600000, until: 'window.__splitDone === true' });
   const by = await ev('__split.by');
   const rows = [];
-  for (const [k, sites] of Object.entries(by || {})) for (const [site, s] of Object.entries(sites)) rows.push({ draw: k, site, msPerFrame: +(s.ms / FRAMES).toFixed(2), perFrame: +(s.n / FRAMES).toFixed(2) });
+  for (const [k, sites] of Object.entries(by || {})) for (const [site, s] of Object.entries(sites)) rows.push({ draw: k, site, msPerFrame: +(s.ms / FRAMES).toFixed(2), vertexMsPerFrame: s.vtx ? +(s.vtx / FRAMES).toFixed(2) : null, perFrame: +(s.n / FRAMES).toFixed(2) });
   rows.sort((a, b) => b.msPerFrame - a.msPerFrame);
   info[scope] = { frameMs: frame, renderer: await ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return g ? g.getParameter(e ? e.UNMASKED_RENDERER_WEBGL : g.RENDERER) : null; })()`),
     gpuMsPerFrame: +rows.reduce((t, r) => t + r.msPerFrame, 0).toFixed(2), draws: rows.slice(0, 16) };
