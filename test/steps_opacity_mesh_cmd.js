@@ -27,7 +27,7 @@ const openPage = async (meshes, alpha) => {
   await settled({});
   await ev(`document.querySelector('#svStrip .sv-plane[data-i="1"]').click(); 1`);
   await settled({ max: 15000, until: `__cmwSteps().stage === 1 && !__cmwSteps().moving && __cmwSvFixed()` });
-  await ev(`[...document.querySelectorAll('.pane-head button')].find((b) => b.textContent.trim() === 'Inside regions').click(); 1`);
+  await ev(`document.querySelector('#svHead .sv-scope [data-v="in"]').click(); 1`);
   await settled({ max: 15000, until: '__cmwSvFixed()' });
   if (meshes) await ev(`__cmwForceForward(['s2', 's3']); 1`);
   await settled({ max: 60000, until: `__cmwSvFixed() && (() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()` });
