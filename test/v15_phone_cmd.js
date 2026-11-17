@@ -25,6 +25,7 @@ const touch = async (x, y, ms = 60) => {
   await sleep(ms);
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 };
+const { pageReloaded } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'reload_wait.js'), 'utf8'))({ ev, fails, reloaded });
 // (on a phone Numbers is a row of the chain sheet; a tap on it while the sheet is closed is first the tap on
 // "N steps ▾" that opens it, as a user's, and it counts)
 const CHAIN = /\.ph-nums/;
@@ -164,7 +165,21 @@ await T('Turn on sound', 2, async () => { await tap('#hdrMoreBtn', 450); await t
 await T('Load an example', 3, async () => { await tap('#hdrMoreBtn', 450); const rows = await ev(`[...document.querySelectorAll('.ph-sheet .ph-row')].map((b) => b.textContent)`); const i = rows.findIndex((t) => /Examples/.test(t)); await tap(`.ph-sheet .ph-row:nth-of-type(${i + 1})`, 900); const n = await ev(`document.querySelectorAll('#popHost .examples .ex-item').length`); const r = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu.examples'); if (!p) return null; const b = p.getBoundingClientRect(); return { l: b.left, r: b.right, b: b.bottom, iw: innerWidth, ih: innerHeight }; })()`); if (!n) return 'no gallery'; const a = await audit('#popHost'); ok('examples gallery: every control 44 × 44', a.n === 0, a); await tap('#popHost .examples .ex-item:nth-of-type(2)', 900); const s = await st(); return (s.steps === 2 && r && r.l >= 0 && r.r <= r.iw + 1) || { s, r }; });
 await T('Swap the planes (tap the inset)', 1, async () => { const b0 = (await st()).ph.big; await tap('#paneR.ph-inset > .ph-swap', 600); const b1 = (await st()).ph.big; const p = await panes(); await tap('#paneL.ph-inset > .ph-swap', 600); taps--; return (b0 === 'L' && b1 === 'R' && p.R.w > 380 && p.L.w <= 120) || { b0, b1, p }; });
 // (setPref reloads the page: the expression answers a number, as nothing of the page can be read once it has reloaded)
-await T('Change language', 2, async () => { await tap('#hdrMoreBtn', 450); await tap('.ph-sheet .ph-seg button[data-v="ru"]', 300); await sleep(2500); await settle(500); const l = await ev('document.documentElement.dataset.lang'); await ev(`I18N.setPref('auto'); 1`); await sleep(2500); return l === 'ru' || l; });
+// (the Russian button reloads the page: the suite waits for the page the reload brings, not for a time, and its own wait after the tap is
+// not one the reload can cut off; the switch back to Auto reloads it again)
+await T('Change language', 2, async () => {
+  await tap('#hdrMoreBtn', 450);
+  const ru = await center('.ph-sheet .ph-seg button[data-v="ru"]');
+  if (!ru) { fails.push({ name: 'tap target missing', got: 'the Russian button' }); return 'no Russian button'; }
+  const old = await ev('performance.timeOrigin');
+  taps++; await touch(ru[0], ru[1]);
+  if (!(await pageReloaded(old))) return 'the page did not reload';
+  const l = await ev('document.documentElement.dataset.lang');
+  const back = await ev('performance.timeOrigin');
+  await ev(`I18N.setPref('auto'); 1`);
+  await pageReloaded(back);
+  return l === 'ru' || l;
+});
 await nav(URL0 + 'T'); await settle(600);
 
 // ---------- 3. the sheet: X | Y above it, one resize after the animation; the grabber; Esc ----------
