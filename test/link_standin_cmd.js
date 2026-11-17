@@ -167,6 +167,27 @@ info.zeroGrid = K.tally(heldGrid, (await K.lpx(grid5)).px, { tol: 3 });
 info.zeroRing = K.tally(heldRing, (await K.lpx(ring5)).px, { tol: 3 });
 ok('the SphereMeshes\' carried colour while the links are held (T = 0): the colour itself (at least 99 % of the pane within 3 levels once linked)', smWait.ok && zLinked.ok && info.zeroGrid.n >= 300 && info.zeroGrid.wrong <= 0.01 * info.zeroGrid.n, { held: info.zeroHeld, grid: info.zeroGrid });
 ok('the SphereMeshes\' carried colour about the colour\'s zero (w₁ = 1): every point within 3 levels once linked', smWait.ok && zLinked.ok && info.zeroRing.n >= 30 && info.zeroRing.wrong === 0, info.zeroRing);
+// the carried colour about z = ∞ (#1720): f = 1/z with the upper half-plane, colour plane z, w₁ at rest, bare, Inside
+// regions. w₁ = 0 is the image of z = ∞, the colour's pole, which only an unbounded region reaches: half-rings of 12
+// points about it, 4, 8 and 12 px out, on the side the region's image covers (Im w₁ < 0), held against the exact pass's
+// frame once linked
+const ns6 = 'lsf' + Date.now();
+await seed(ns6, { steps: [{ type: 'custom', params: { expr: '\\frac{1}{z}' } }], shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], sv: { at: 1, T: 0, scope: 'in', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns6}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+await ev("__cmwSteps({ T: 0, go: 1, now: true, bare: true }), 1");
+const P6 = await K.paneOf(), ring6 = [];
+for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) { const a = -Math.PI * (i + 0.5) / 12; ring6.push([px / P6.v.s * Math.cos(a), px / P6.v.s * Math.sin(a)]); }
+const infWait = await settled({ only: true, max: 30000, until: `(() => { if (!__cmwSmVerdict('SV').some((v) => v.why === 'linking')) return false; const q = ${K.pxIn(ring6)}.px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => !(Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6)).length > 0.5 * q.length; })()` });
+await settled({ panes: false });
+const heldInf = (await K.lpx(ring6)).px;
+info.infHeld = { wait: infWait, pending: await ev('GLR.frameStatus().pending'), verdict: await ev("__cmwSmVerdict('SV').map((v) => v.why)"), view: P6.v };
+await ev('GLR.holdLinks(false), 1');
+const infLinked = await settled({ only: true, max: 30000, until: "(() => { const r = __cmwSteps().rest; return !!r && r.a === 1 && r.path === 'inverse'; })()" });
+await settled({ panes: false });
+info.infHeld.linked = infLinked;
+info.infRing = K.tally(heldInf, (await K.lpx(ring6)).px, { tol: 3, note: (k) => ({ k }) });
+ok('the SphereMeshes\' carried colour about the colour\'s pole (f = 1/z, an unbounded region, w₁ = 0 the image of z = ∞): every point within 3 levels once linked', infWait.ok && infLinked.ok && info.infRing.n >= 30 && info.infRing.paper === 0 && info.infRing.wrong === 0, { held: info.infHeld, ring: info.infRing });
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };
