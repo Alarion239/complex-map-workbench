@@ -237,11 +237,13 @@ const hatchCount = () => ev(`(() => {
   // the tiled draw: the gallery in one tile; then the second pass in one tile and in tiles of TILE_TEST_SOLVES, with the
   // pane's pending status while they draw, the two pictures pixel-identical; the second pass held; a cache hit; a miss
   if (hooked) {
+    // (the picture read as the canvas's lossless PNG: getImageData's readback of the same unchanged canvas can come back
+    // different between two reads, as Chrome moves a canvas the page reads often off the GPU)
     const picture = () => ev(`(() => {
-      const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data;
+      const cs = [...document.querySelectorAll('#plotL canvas')].sort((p, q) => q.width * q.height - p.width * p.height), c = cs[0], d = c.toDataURL('image/png');
       let h = 2166136261;
-      for (let i = 0; i < d.length; i++) h = Math.imul(h ^ d[i], 16777619);
-      return { hash: h >>> 0, pixels: d.length / 4 };
+      for (let i = 0; i < d.length; i++) h = Math.imul(h ^ d.charCodeAt(i), 16777619);
+      return { hash: h >>> 0, pixels: c.width * c.height };
     })()`);
     const frames = (n) => ev(`new Promise((r) => { let k = ${n}; const f = () => (--k > 0 ? requestAnimationFrame(f) : r(1)); requestAnimationFrame(f); })`);
     const pendingNow = () => ev(`(() => { const s = __cmwPaneStatus('L'); return !!(s && s.pending); })()`);
