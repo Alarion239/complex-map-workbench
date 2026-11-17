@@ -85,7 +85,7 @@ on:
         required: false
         default: ''
       fxc:
-        description: 'Mode fxc: time (every job of the bundle, one program at a time), contend (one program alone, with the page drawing and with other links), glide (the first glide in the app, this ref against the input reference) play (the first glide as it plays, this ref, and with a reference the reference too) cache (programs and app scenes linked cold, then on the same Chrome profile) or bisect (an inverse program's source swapped in the app's own link, cold and warm; ci/fxc_time.js)'
+        description: 'Mode fxc: time (every job of the bundle, one program at a time), contend (one program alone, with the page drawing and with other links), glide (the first glide in the app, this ref against the input reference) play (the first glide as it plays, this ref, and with a reference the reference too) cache (programs and app scenes linked cold, then on the same Chrome profile) or bisect (the source of an inverse program swapped in the app own link, cold and warm; ci/fxc_time.js)'
         type: choice
         options: [time, contend, glide, play, cache, bisect]
         default: time
