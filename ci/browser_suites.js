@@ -85,6 +85,8 @@ const SUITES = {
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
   'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5', 'user5-deform-steps'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
   'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (the one carry-vs-exact suite, its parts in the shards they balance: views-1 and formulas)
+  'steps_carry_exact_cmd.js': { runs: ['glide', 'inregion', 'far', 'chains', 'planes'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
 
   // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
