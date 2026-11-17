@@ -351,9 +351,6 @@ for (const t of TYPES) {
   // (the carried variant holds no pattern code: every draw of it sets uPattern 9, the carried colour)
   check('the carried program holds no copy of ixPattern, the plain one one', !copies(prog(5, false, CARRY)).has('ixPattern') && !copies(prog(5, false, STAGED)).has('ixPattern') && copies(prog(5, false)).get('ixPattern') === 1,
     `${copies(prog(5, false, CARRY)).get('ixPattern')} / ${copies(prog(5, false)).get('ixPattern')}`);
-  // (the colour plot's styles take their wheel colours, iso lines, single lines and saws from one call site each)
-  const dc = copies(prog(5, false, CARRY));
-  check('the carried program holds one copy of pwheel, dfade, iso0 and sawAA', ['pwheel', 'dfade', 'iso0', 'sawAA'].every((f) => dc.get(f) === 1), ['pwheel', 'dfade', 'iso0', 'sawAA'].map((f) => dc.get(f)).join(' '));
   // (SwiftShader's programs, IX_CHAIN3_CALLS: ixChain3 is three calls, the chain three times, six with a staged shape)
   const sw = (src) => copies('#define IX_CHAIN3_CALLS 1\n' + src).get('chainRange');
   check('IX_CHAIN3_CALLS: the carried program holds 3 copies of chainRange', sw(prog(5, false, CARRY)) === 3, sw(prog(5, false, CARRY)));

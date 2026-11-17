@@ -237,61 +237,38 @@ vec3 dcolorAt(vec2 w, float r, float th, float lr, float flr, float faw, vec2 g,
     float h = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);  // NaN: #7F7F7F, 45 deg hatch #6A6A6A
     return mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * uDpr), uDpr));
   }
-  // Each style's wheel colours, iso lines and saws are taken from one call site each, in a loop over what the style
-  // reads (a shader compiler inlines every call: a call per style was a copy per style). The styles: 2 Phase, 1
-  // Modulus (classic: zeros black, poles white), 4 Contours, 3 Grid (pullback of the image's coordinate net), any other
-  // Tiles (enhanced: conformal squares, modulus x e^(2pi/n) and phase 2pi/n per tile).
-  bool phase = uStyle == 2, modulus = uStyle == 1, contours = uStyle == 4, grid = uStyle == 3, tiles = !(phase || modulus || contours || grid);
-  // (Modulus: its lightness; Tiles: the saws of modulus and phase, then its lightness)
-  float u = 0.0, L = 0.0;
-  if (modulus) { u = (2.0 / PI) * atan(r); L = 0.08 + 0.88 * u; }
-  float s0 = 0.0, s1 = 0.0;
-  for (int k = 0; k < (tiles ? 2 : 0); k++) { float s = sawAA(k == 0 ? xm : xp, k == 0 ? fm : fp); if (k == 0) s0 = s; else s1 = s; }
-  if (tiles) { float d = 1.0 - smoothstep(0.25, 0.6, max(fm, fp)); L = 0.62 + d * (0.20 * (s0 - 0.5) + 0.07 * (s1 - 0.5)); }
-  // the wheel colours: (lightness, neutral lightness) per style
-  vec3 p0 = vec3(0.0), p1 = vec3(0.0), p2 = vec3(0.0);
-  for (int k = 0; k < (grid ? 3 : contours ? 2 : modulus && uPal != 2 ? 0 : 1); k++) {
-    float pl = grid ? (k == 0 ? 0.90 : k == 1 ? 0.45 : 0.30) : contours ? (k == 0 ? 0.75 : uDark > 0.5 ? 0.80 : 0.55) : phase ? 0.75 : L;
-    vec3 p = pwheel(th, pl, modulus ? 0.52 : tiles ? 0.62 : 0.75, pb);
-    if (k == 0) p0 = p; else if (k == 1) p1 = p; else p2 = p;
+  if (uStyle == 2) {        // Phase
+    vec3 c = pwheel(th, 0.75, 0.75, pb);
+    if (uPhaseLines > 0.5) c = mix(c, vec3(0.0), 0.20 * iso(xp, fp, 1.0) * dfade(fp));
+    return c;
   }
-  // the iso lines with their density fades: (x, footprint, px) per style
-  float i0 = 0.0, i1 = 0.0, i2 = 0.0, i3 = 0.0, f0 = 0.0, f1 = 0.0, f2 = 0.0, f3 = 0.0;
-  float l2 = lr * 1.4426950408889634, fl2 = flr * 1.4426950408889634;
-  for (int k = 0; k < (grid ? 4 : contours ? 2 : modulus || (phase && uPhaseLines > 0.5) ? 1 : 0); k++) {
-    float x = grid ? (k == 0 ? g.x : k == 1 ? g.y : k == 2 ? g.x / 5.0 : g.y / 5.0) : contours ? (k == 0 ? xm : xp) : modulus ? l2 : xp;
-    float fw = grid ? (k == 0 ? gw.x : k == 1 ? gw.y : k == 2 ? gw.x / 5.0 : gw.y / 5.0) : contours ? (k == 0 ? fm : fp) : modulus ? fl2 : fp;
-    float px = grid ? (k < 2 ? uDpr : 1.75 * uDpr) : contours ? (k == 0 ? uDpr : 1.25 * uDpr) : 1.0;
-    float i = iso(x, fw, px), f = dfade(fw);
-    if (k == 0) { i0 = i; f0 = f; } else if (k == 1) { i1 = i; f1 = f; } else if (k == 2) { i2 = i; f2 = f; } else { i3 = i; f3 = f; }
-  }
-  // the single lines x = 0
-  float j0 = 0.0, j1 = 0.0;
-  for (int k = 0; k < (grid ? 2 : contours || tiles ? 1 : 0); k++) {
-    float j = iso0(grid ? (k == 0 ? w.x : w.y) : lr, grid ? (k == 0 ? fw0.x : fw0.y) : flr, tiles ? 1.25 : 1.75 * uDpr);
-    if (k == 0) j0 = j; else j1 = j;
-  }
-  if (phase) return uPhaseLines > 0.5 ? mix(p0, vec3(0.0), 0.20 * i0 * f0) : p0;
-  if (modulus) {
+  if (uStyle == 1) {        // Modulus (classic): zeros black, poles white
+    float u = (2.0 / PI) * atan(r);
+    float L = 0.08 + 0.88 * u;
     // (an Arb palette carries |F| itself, all but the phase-only one)
-    vec3 c = uPal == 0 ? mix(gray(L), wheel(th, L), min(1.0, 5.2 * u * (1.0 - u))) : uPal == 2 ? p0 : pb;
-    return mix(c, vec3(0.0), 0.15 * i0 * f0);
+    vec3 c = uPal == 0 ? mix(gray(L), wheel(th, L), min(1.0, 5.2 * u * (1.0 - u))) : uPal == 2 ? pwheel(th, L, 0.52, pb) : pb;
+    float l2 = lr * 1.4426950408889634, f2 = flr * 1.4426950408889634;
+    return mix(c, vec3(0.0), 0.15 * iso(l2, f2, 1.0) * dfade(f2));
   }
-  if (contours) {
-    vec3 c = mix(uPlane, p0, 0.12);
-    c = mix(c, uInk, 0.5 * i0 * f0);
-    c = mix(c, p1, i1 * f1);
-    return mix(c, uInk, j0);
+  if (uStyle == 4) {        // Contours
+    vec3 c = mix(uPlane, pwheel(th, 0.75, 0.75, pb), 0.12);
+    c = mix(c, uInk, 0.5 * iso(xm, fm, uDpr) * dfade(fm));
+    c = mix(c, pwheel(th, uDark > 0.5 ? 0.80 : 0.55, 0.75, pb), iso(xp, fp, 1.25 * uDpr) * dfade(fp));
+    return mix(c, uInk, iso0(lr, flr, 1.75 * uDpr));
   }
-  if (grid) {
-    vec3 c = mix(p0, uPlane, 0.35);
-    float g1 = max(i0 * f0, i1 * f1);
-    float g5 = max(i2 * f2, i3 * f3);
-    float g0 = max(j0, j1);
-    c = mix(c, p1, 0.85 * g1);
-    return mix(c, p2, max(g5, g0));
+  if (uStyle == 3) {        // Grid: pullback of the image's coordinate net
+    vec3 c = mix(pwheel(th, 0.90, 0.75, pb), uPlane, 0.35);
+    float l1 = max(iso(g.x, gw.x, uDpr) * dfade(gw.x), iso(g.y, gw.y, uDpr) * dfade(gw.y));
+    float l5 = max(iso(g.x / 5.0, gw.x / 5.0, 1.75 * uDpr) * dfade(gw.x / 5.0), iso(g.y / 5.0, gw.y / 5.0, 1.75 * uDpr) * dfade(gw.y / 5.0));
+    float l0 = max(iso0(w.x, fw0.x, 1.75 * uDpr), iso0(w.y, fw0.y, 1.75 * uDpr));
+    c = mix(c, pwheel(th, 0.45, 0.75, pb), 0.85 * l1);
+    return mix(c, pwheel(th, 0.30, 0.75, pb), max(l5, l0));
   }
-  return mix(p0, vec3(1.0), 0.6 * j0);
+  // Tiles (enhanced): conformal squares, modulus x e^(2pi/n) and phase 2pi/n per tile
+  float sm = sawAA(xm, fm), sp = sawAA(xp, fp);
+  float d = 1.0 - smoothstep(0.25, 0.6, max(fm, fp));
+  float L = 0.62 + d * (0.20 * (sm - 0.5) + 0.07 * (sp - 0.5));
+  return mix(pwheel(th, L, 0.62, pb), vec3(1.0), 0.6 * iso0(lr, flr, 1.25));
 }
 `;
   // fixed-in-world light rig (spec 6.9), all in linear light
