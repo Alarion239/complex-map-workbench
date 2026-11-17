@@ -93,8 +93,8 @@ html:not(.ph) .ph-only { display: none !important; }
    z = … and w = F(z) = … (no doubled z) */
 :root.ph:not(.sv) #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
-:root.ph:not(.ph-land) .plot > .chip.readout:has(> .rglobe:not([hidden])) { top: 6px; padding-top: 2px; padding-bottom: 2px; }   /* (a portrait pane has 86 px above the globe: the hint's longest wrap, four lines, reached its top edge) */
-:root.ph.ph-land .plot > .chip.readout:has(> .rglobe:not([hidden])) { max-width: max(120px, calc(50% - 160px)); }   /* (a landscape pane has no room above the globe: the hint sits in the column left of it) */
+:root.ph:not(.ph-land) .plot > .chip.readout:has(> .rglobe:not([hidden])) { top: 6px; padding-top: 2px; padding-bottom: 2px; }   /* (a portrait pane has 86 px above the globe: the 6 px top and 2 px padding keep the hint's longest wrap, four lines, above it) */
+:root.ph.ph-land .plot > .chip.readout:has(> .rglobe:not([hidden])) { --hint-col-min: 120px; --globe-half: 160px; max-width: max(var(--hint-col-min), calc(50% - var(--globe-half))); }   /* (a landscape pane has no room above the globe: the hint sits in the column left of it, as wide as the pane's half less the globe's half-width, --globe-half, and at least --hint-col-min) */
 :root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
@@ -491,7 +491,7 @@ html:not(.ph) .ph-only { display: none !important; }
    over its list, and the list's bottom inset is the message's height and a gap, so that every control scrolls clear of it; no control moves when it shows
    (in landscape it is a side panel with a top of its own, and is lifted like the others) */
 :root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { bottom: 0; padding-bottom: var(--ph-safe-b); max-height: calc(100dvh - 48px); }
-:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] > .ph-sb { padding-bottom: calc(var(--ph-toast-h, 56px) + 8px); }
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] > .ph-sb { --ph-list-inset: calc(var(--ph-toast-h, 56px) + 8px); padding-bottom: var(--ph-list-inset); scroll-padding-bottom: var(--ph-list-inset); }   /* (scroll-padding: a control the browser scrolls into view, for focus, find in page or assistive technology, comes to rest above the message too) */
 :root.ph:not(.ph-land):has(.ph-sheet[data-k="more"].open) #toastHost { bottom: var(--ph-safe-b); }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
@@ -527,7 +527,6 @@ html:not(.ph) .ph-only { display: none !important; }
    at most two lines, and the buttons below them, right-aligned, at 44 px */
 :root.ph #toastHost .toast[data-rows="two"] { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
 :root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; }
-:root.ph #toastHost .toast[data-rows="two"] > .toast-act { height: 44px; min-width: 44px; }
 :root.ph #toastHost .toast[data-rows="two"] > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 /* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
    a vertical drag on it is its own (a swipe down dismisses it) */
@@ -553,6 +552,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
+/* the scope's switch keeps the segmented control's padding (0 10px, the design spec), at every level of the head's fold but the last
+   (sv-c4's `.seg > button` below has fewer classes in its selector than this one, so this wins): its second segment is the short
+   word, so it fits at 360 px in Russian and Italian (#1596) */
+:root.ph.sv .sv-head .seg.sv-scope > button, :root.ph.sv .sv-head.sv-c4 .seg.sv-scope > button { padding: 0 10px; }
+/* the last fold of the head (the bar still short after sv-c4: w₁ at 320 px): the scope's padding gives too, as nothing else is left */
+:root.ph.sv .sv-head.sv-c5 .seg.sv-scope > button { padding: 0 5px; }
+:root.ph.sv .sv-head .sv-scope .sc-full { display: none; }
+:root.ph.sv .sv-head .sv-scope .sc-short { display: inline; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
@@ -589,7 +596,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
-/* still short (w₁'s name is wider than z's at 360 px): tighter gaps and scope buttons, the targets still 40 px tall */
+/* still short (w₁'s name is wider than z's at 360 px): tighter gaps and segmented buttons, the targets still 40 px tall (the scope's
+   keep their padding, above) */
 :root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
 :root.ph.sv .sv-head.sv-c4 .seg > button { padding: 0 5px; }
 :root.ph.sv .sv-head.sv-c4 .sv-title { margin: 0; }

@@ -33,7 +33,7 @@ await seed(ns, {
   sv: { at: 1, T: 0 }, srcView: { cx: 0, cy: 0, s: 20 },
 });
 await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
-await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && typeof __cmwLPx === 'function' && typeof __cmwGlobeSnap === 'function'` });
+await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && typeof __cmwGlobeSnap === 'function'` });
 await ev(`__cmwSet('morphPaths', false); 1`);
 // the globe's pixels: where each is, the plane point w under it, and the point z it came from
 const run = async (scope) => {
