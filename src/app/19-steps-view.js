@@ -512,8 +512,9 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
   };
-  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
-  // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
+  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
+  // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
+  // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
   // of it at the same time t (the map spec of mode 3 and its CPU twin), the planes between left out; not across a d/dz, whose
   // step is no map
@@ -1982,7 +1983,7 @@
     return onPage;
   }
   // the shapes' outlines in S.shapes order: under map, open sets dashed (spec 6.5), along the curve under map; the plane
-  // a glide reaches, from the midpoint, by the inverse pass per pixel (svReached), solid; col: as the colour plot draws
+  // a glide reaches, in every frame of the glide, by the inverse pass per pixel (svReached) at opacity u (svStrokeAt); col: as the colour plot draws
   // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
   // caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {
@@ -2301,6 +2302,10 @@
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
+    // 360 px in Russian and Italian; the segment's name stays the whole one, and the tooltip says what it does)
+    const inSeg = scope.querySelector('[data-v="in"]');
+    if (inSeg) { inSeg.setAttribute('aria-label', SCOPES[1][1]); inSeg.textContent = ''; inSeg.append(h('span', { class: 'sc-full' }, SCOPES[1][1]), h('span', { class: 'sc-short' }, $t('Inside'))); }
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -2865,18 +2870,20 @@
     }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
-    E.bar.classList.remove('sv-c3', 'sv-c4');
+    E.bar.classList.remove('sv-c3', 'sv-c4', 'sv-c5');
     const legend = $('leftLegend');
     E.head.classList.remove('sv-lg');
     if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
-      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
-      // tighten; eyes on #473)
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps tighten, and its segmented
+      // buttons' padding but the scope's, which keeps the spec's; eyes on #473; last of all the scope's padding too, on w₁
+      // at 320 px, where nothing else is left to give)
       const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
       const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
       if (short()) E.bar.classList.add('sv-c3');
       if (short()) E.bar.classList.add('sv-c4');
+      if (short()) E.bar.classList.add('sv-c5');
       return;
     }
     set(0);

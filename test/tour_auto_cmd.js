@@ -30,7 +30,7 @@ const goStep = async (path) => {
   await settled({ max: 15000, until: `(() => { const c = Tour.current(), s = document.querySelector('.tour-shade'); return !!c && c.chapter === ${JSON.stringify(chapter)} && c.step === ${i} && !!s && !!s.getAttribute('d'); })()` });
 };
 // polls until f() (an expression) is truthy; returns the ms waited, or null after max ms
-const until = async (expr, max = 8000, dt = 40) => { const t0 = Date.now(); while (Date.now() - t0 < max) { if (await ev(expr)) return Date.now() - t0; await sleep(dt); } return null; };
+const until = async (expr, max = 8000, poll = 40) => { const r = await settled({ until: expr, max, only: true, poll }); return r.at >= 0 ? r.at : null; };
 // waits for the step to change from id; returns ms since t0
 const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max) { if ((await cur()) !== id) return Date.now() - t0; await sleep(25); } return null; };
 // the moment the step shows done, polled from t0, and what the countdown then has left. The countdown runs from the step's
