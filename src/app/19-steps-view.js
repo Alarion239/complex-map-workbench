@@ -376,11 +376,11 @@
     return true;
   }
   // the plane a carry starts from: s0, unless a d/dz step lies between s0 and a plane in ts it must reach (the places,
-  // the colour plane), or All sheets draws the chain up to the last of those planes with several sheets (#1705: the map
-  // shown, so a step after them changes nothing); then z's plane. Every stage is a function of z (chainRange from plane
-  // 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist only as the preimages
+  // the colour plane), or All sheets draws several sheets of a carry from z (landSheetsMap(0): the chain up to the colour
+  // plane, so a step after it changes nothing); then z's plane. Every stage is a function of z (chainRange from plane 0
+  // crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist only as the preimages
   // of z's points
-  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet({ mode: 0, a: 0, b: Math.max(...ts) }) || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
+  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet(landSheetsMap(0)) || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
   // the longest edge a cell of the carried grid may have once placed by the glide's map, as a share of the pane's longer
   // side (svLandCarry's lim, in the plane's units): a cell stretched past it, by a pole of the map or a fold, is left
   // out, and the patches about the poles cover its place
