@@ -11,8 +11,8 @@
 //   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
 // - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
-// - z^3 - 2z + 1, a formula recognised as a chain whose first sub-step has no exact ops, at u = 0.25, 0.5 and 0.75: the
-//   inverse pass (#1693).
+// - formulas recognised as chains whose sub-step has no exact ops, z^3 - 2z + 1 (u = 0.25, 0.5, 0.75) and Γ(z) + 1
+//   (u = 0.25): the inverse pass, and the CPU reference within the same tolerance (#1693, #1805).
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -82,23 +82,28 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   ok('a non-analytic formula after the Möbius map: its straight-line glide takes the carried mesh', !!g && g.b === 3 && g.path === 'mesh', g);
 }
 
-// ---- a formula recognised as a chain whose first sub-step has no exact ops: z^3 - 2z + 1 is z^3 - 2z, then + 1 ----
-// (its homotopy walks the sub-steps: z^3 - 2z by every root to u = 0.5, then that cubic at t = 1 by its roots and the
-// sum's path, #1693; a disc, as ci/fxc_size's survey types it)
-{
+// ---- formulas recognised as chains whose sub-step has no exact ops: their NEWT op walks that sub-step's homotopy ----
+// - z^3 - 2z + 1 is z^3 - 2z, then + 1: z^3 - 2z by every root (a polynomial NEWT op) to u = 0.5, then that cubic at
+//   t = 1 by its roots and the sum's path (#1693); the GPU polishes and checks the roots on the op's own polynomial
+//   (#1805);
+// - Γ(z) + 1 is Γ, then + 1: at u = 0.25 Γ's homotopy at 0.5 by Newton (a NEWT op that is not polynomial), which walks
+//   that sub-step's own homotopy, not the formula's at the op's t (#1805).
+// Each is drawn by the inverse pass and matches the CPU reference within the default example's tolerance (a disc, as
+// ci/fxc_size's survey types it; Γ's grid of pixels every 4 px, as its image covers a small part of the pane)
+for (const [expr, us, step] of [['z^3-2z+1', [0.25, 0.5, 0.75], 8], ['gamma(z)+1', [0.25], 4]]) {
   const ns = 'gc' + Date.now();
-  await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^3-2z+1', cut: 180 }, on: true }] });
+  await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }] });
   await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
   await ready();
   await ev(HELP);
   await ev('__cmwSteps({ bare: true }), 1');
   await park(0); await ev('window.__gi.p0 = __giGrab(), 1');
-  for (const u of [0.25, 0.5, 0.75]) {
-    const g = await at(u, 'inverse');
-    // (the CPU reference, recorded: 2 to 3 % of the pixels away from the lines differ from it at every u, inside the
-    // cubic's homotopy as past it, #1805)
-    info[`z^3 - 2z + 1 u ${u}`] = { g, r: await ev('__giRef(window.__gi.p0, __giGrab(), 6, 8)') };
-    ok(`z^3 - 2z + 1, z → w₁ at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === 1, g);
+  for (const u of us) {
+    const g = await at(u, 'inverse', 120000);
+    const r = await ev(`__giRef(window.__gi.p0, __giGrab(), 6, ${step})`, 120000);
+    info[`${expr} u ${u}`] = { g, r };
+    ok(`${expr}, z → w₁ at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === 1, g);
+    ok(`${expr}, z → w₁ at u = ${u}: the CPU reference's colours away from the lines (> 6 on <= 0.2 %)`, r.n > 400 && r.over <= 0.002, r);
   }
 }
 
