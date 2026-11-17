@@ -1825,7 +1825,7 @@
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    if (bare) return;
+    if (bare) { glStatusNote(pane, true); return; }   // (the colour layer alone: its status is the pane's, with no note)
     if (col) colourGrid(pane);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
@@ -2194,7 +2194,7 @@
   function svChoiceBtn(cur, pairs, pick, title, cls) {
     let val = cur;
     const word = h('span', { class: 'sv-choice-t' });
-    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu',
+    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu', 'aria-expanded': 'false',
       onclick: () => { if (!svOff(b)) svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }); } }, word, h('span', { class: 'sv-choice-i', html: ICONS.chevD, 'aria-hidden': 'true' })));
     b.choices = pairs;   // (the suites pick an item by its value through it)
     Object.defineProperty(b, 'value', { get: () => val, set: (v) => {
@@ -2278,12 +2278,16 @@
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
+    // 360 px in Russian and Italian; the segment's name stays the whole one, and the tooltip says what it does)
+    const inSeg = scope.querySelector('[data-v="in"]');
+    if (inSeg) { inSeg.setAttribute('aria-label', SCOPES[1][1]); inSeg.textContent = ''; inSeg.append(h('span', { class: 'sc-full' }, SCOPES[1][1]), h('span', { class: 'sc-short' }, $t('Inside'))); }
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
-    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
+    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svSurfMenu() });
     // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two; ux, #1047)
-    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', onclick: () => svScopeMenu() });
+    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svScopeMenu() });
     bar.append(title, cp, scope, scopeBtn, surf1);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
@@ -2842,18 +2846,20 @@
     }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
-    E.bar.classList.remove('sv-c3', 'sv-c4');
+    E.bar.classList.remove('sv-c3', 'sv-c4', 'sv-c5');
     const legend = $('leftLegend');
     E.head.classList.remove('sv-lg');
     if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
-      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
-      // tighten; eyes on #473)
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps tighten, and its segmented
+      // buttons' padding but the scope's, which keeps the spec's; eyes on #473; last of all the scope's padding too, on w₁
+      // at 320 px, where nothing else is left to give)
       const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
       const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
       if (short()) E.bar.classList.add('sv-c3');
       if (short()) E.bar.classList.add('sv-c4');
+      if (short()) E.bar.classList.add('sv-c5');
       return;
     }
     set(0);
@@ -4085,7 +4091,7 @@
     const chip = svChipBtn('sv-fchip', { 'data-tip': `${name} · ${$t('Edit step {k}', { k })}`,
       'aria-label': `f${sub(k)} ${name}${off ? $t(', bypassed') : ''}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); svInspect(k); } },
     `<i>f</i><sub>${k}</sub>`, name);
-    const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
+    const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
     // (a repeated block: its chips are marked, and the last one carries the count, ×N)
     const rb = repeatOf(k);
