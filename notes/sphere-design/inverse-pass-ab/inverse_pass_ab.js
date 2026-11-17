@@ -217,6 +217,16 @@ const SCENES = [
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   // (want: the carried program, which a software renderer may still be linking when the panes are quiet, has drawn)
   { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5], want: '^inv\\|B5cg' },
+  // the colour plot's other styles (dcolorAt's branches; the scenes above colour 'enhanced', the tiles), in the panes
+  // and in a glide's carried colour, and two Arb palettes for the classic style (its wheel colour from pwheel, or the
+  // palette's own colour)
+  { name: 'dc-phase', view: 'steps', state: Object.assign({}, STRIP, { dc: 'phase' }), xs: [0.75] },
+  { name: 'dc-classic', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), xs: [0.75] },
+  { name: 'dc-grid', view: 'steps', state: Object.assign({}, STRIP, { dc: 'grid' }), xs: [0.75] },
+  { name: 'dc-modulus', view: 'steps', state: Object.assign({}, STRIP, { dc: 'modulus' }), xs: [0.75] },
+  { name: 'dc-classic-arbphase', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), pre: ["GLR.setPalette('arbPhase')"], xs: [0.75] },
+  { name: 'dc-classic-arb', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), pre: ["GLR.setPalette('arb')"], xs: [0.75] },
+  { name: 'dc-grid-arb', view: 'steps', state: Object.assign({}, STRIP, { dc: 'grid' }), pre: ["GLR.setPalette('arb')"], xs: [0.75] },
 ];
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
 
