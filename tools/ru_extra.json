@@ -730,5 +730,5 @@
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
  "Drawing the exact picture…": "Рисуется точное изображение…",
- "Drawing the exact picture… ({k} of {n} tiles)": "Рисуется точное изображение… (плиток: %{k} из %{n})"
+ "Drawing the exact picture… ({k} of {n} tile)\u0004Drawing the exact picture… ({k} of {n} tiles)": {"one": "Рисуется точное изображение… (плиток: %{k} из %{n})", "few": "Рисуется точное изображение… (плиток: %{k} из %{n})", "many": "Рисуется точное изображение… (плиток: %{k} из %{n})", "other": "Рисуется точное изображение… (плиток: %{k} из %{n})"}
 }

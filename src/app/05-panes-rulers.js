@@ -473,7 +473,7 @@
   // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
   // tiles { done, total }, or null before that pass's tiles are known)
   function reptTip(prog) {
-    return prog && prog.total ? $t('Drawing the exact picture… ({k} of {n} tiles)', { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
+    return prog && prog.total ? $tn('Drawing the exact picture… ({k} of {n} tile)', 'Drawing the exact picture… ({k} of {n} tiles)', prog.total, { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
   }
   function updateLeds() {
     const errStep = S.steps.findIndex((st, i) => st.on !== false && built[i] && built[i].error);
