@@ -4,7 +4,7 @@
 // u = 0.5, differ across the midpoint (the share of pixels more than DIFF_TOL apart, held_frames.js's compare) by at
 // most JUMP_K times the larger of the steps on either side of it. The control: the frames held at CONTROL_U, far apart
 // on the glide, differ on more than CONTROL_FRAC of the pixels. Inside regions and Everywhere (SCOPES). The midpoint
-// check is red on a look that switches at the midpoint (the integration branch before #1639) Inside regions only;
+// check is red on a look that switches at the midpoint Inside regions only;
 // Everywhere it passes there too, and the strokes' opacity at u is pinned by steps_glide_outline_cmd.js (strokeShare).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
