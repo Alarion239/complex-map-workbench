@@ -1604,8 +1604,9 @@ const Inverse = (() => {
     const T = C(t, 0), aff = (a, c) => opAff(a, c);
     const mobOf = (M) => (isZero(M[2]) ? opAff(div(M[0], M[3]), div(M[1], M[3])) : opMob(M));
     if (nat && nat.kind === 'chain' && b.rec) {
+      // (the sub-steps the glide has passed stand for themselves as at t = 1: their exact ops, or a polynomial's roots)
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
-      for (let i = 0; i < j; i++) { const r = stepOps(sub[i]); if (!r.ok) return r; ops.push(...r.ops); }
+      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1); if (!r.ok) return r; ops.push(...r.ops); }
       const r = homOps(sub[j], x - j);
       if (!r.ok) return r;
       return { ok: true, ops: ops.concat(r.ops) };

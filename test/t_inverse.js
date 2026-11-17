@@ -1036,7 +1036,10 @@ section('singularAfter (ζ after an injective plan)');
 // a straight-line homotopy and a step with no ops have none
 {
   const cases = [['exp', {}], ['mobius', { a: '1', b: '-1', c: '1', d: '1' }], ['affine', { a: '2i', b: '1' }], ['pown', { n: 3 }], ['sin', {}],
-    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}]];
+    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}],
+    // (a formula recognised as a chain whose first sub-step, z^3 - 2z, has no exact ops: past it, at t >= 0.5, it stands
+    // for itself by its roots as at t = 1, then the second sub-step's homotopy)
+    ['custom', { expr: 'z^3-2z+1', cut: 180 }]];
   for (const [type, params] of cases) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
