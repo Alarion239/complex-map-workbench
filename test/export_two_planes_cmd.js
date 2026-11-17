@@ -159,7 +159,8 @@ if (!tl.err) {
 }
 
 // the PDF's text layer holds every character of the labels, as the labels read: the filmstrip's subscripts (w₁=f₁(z)), and a
-// Russian figure's key ("на полосу яркости", "×1,69"); the same figure's PDF made twice embeds the same font bytes
+// Russian figure's key ("на полосу яркости", "×1,69", read in reading order across the key's lines, which may wrap); the
+// same figure's PDF made twice embeds the same font bytes
 await ready(1);
 const film = await pdfTwice({ svPic: 'film' });
 ok('the filmstrip\'s PDF builds', !film.err, film.err);
@@ -175,6 +176,6 @@ const ru = await pdfTwice({ svPic: 'plane' });
 ok('a Russian plane figure\'s PDF builds', !ru.err, ru.err);
 if (!ru.err) {
   const lr = pdfLayer(ru.a);
-  ok('a Russian figure\'s PDF shows its key\'s words in Cyrillic, and embeds its font', ['на полосу яркости', '×1,69'].every((w) => lr.shown.includes(w)) && lr.embedded, { shown: lr.shown, texts: ru.texts });
+  ok('a Russian figure\'s PDF shows its key\'s words in Cyrillic, and embeds its font', ['на полосу яркости', '×1,69'].every((w) => lr.shown.join(' ').includes(w)) && lr.embedded, { shown: lr.shown, texts: ru.texts });
 }
 return { pass: fails.length === 0, fails, info };
