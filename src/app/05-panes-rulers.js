@@ -1462,11 +1462,13 @@
         const pane = el.closest('.pane'), plot = pane && pane.querySelector('.plot'), ro = new ResizeObserver(() => { if (document.documentElement.classList.contains('ph')) requestAnimationFrame(() => placeKeyPop(el)); });
         if (plot) for (const e of plot.querySelectorAll(':scope > .chip.readout')) ro.observe(e);
       } catch (e) { /* no ResizeObserver */ }
-      // (and as the context bar opens and closes: the root's ph-ctx-on and ph-ctx-tall; again when its 220 ms slide has ended, for it is placed by where it stands)
+      // (and as the context bar opens and closes: the root's ph-ctx-on and ph-ctx-tall; again when the bar's slide has ended,
+      // its transform's transitionend, for the key is placed by where the bar stands)
       try {
         const rc = document.documentElement.classList, barState = () => (rc.contains('ph-ctx-on') ? 1 : 0) + (rc.contains('ph-ctx-tall') ? 2 : 0);
         let bar0 = barState();
-        new MutationObserver(() => { const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); setTimeout(() => placeKeyPop(el), LEGEND_BAR_SLIDE_MS); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        new MutationObserver(() => { const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        document.addEventListener('transitionend', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (e.propertyName === 'transform' && t.classList && t.classList.contains('ph-ctx')) placeKeyPop(el); });
       } catch (e) { /* no MutationObserver */ }
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }
