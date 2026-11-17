@@ -64,7 +64,10 @@ ok('NOT_ON: SwiftShader is named for its set and issue', notOn(SWIFT) && notOn(S
 ok('NOT_ON: lavapipe is named for its set and issue', notOn(LAVA) && notOn(LAVA).set === 'LAVAPIPE_CRASH' && notOn(LAVA).issue === '#1815' && notOn(LAVA).chains === T.LAVAPIPE_CRASH);
 ok('NOT_ON: neither Windows, macOS nor an NVIDIA GPU is in it', OTHERS.every((r) => !notOn(r)), OTHERS.map(notOn));
 ok('NOT_ON: each set holds chains, each with its reason', T.NOT_ON.every((n) => n.chains.size > 0 && [...n.chains].every(([k, why]) => k && why.length > 10)));
-ok('NOT_ON: lavapipe holds sheets sqrt d d', T.LAVAPIPE_CRASH.has('sheets sqrt d d'));
+ok('NOT_ON: lavapipe holds exactly the chains named, sheets sqrt d d', JSON.stringify([...T.LAVAPIPE_CRASH.keys()]) === JSON.stringify(['sheets sqrt d d']), [...T.LAVAPIPE_CRASH.keys()]);
+ok('NOT_ON: the reason names the signal and the issue that lifts the entry', /SIGSEGV/.test(T.LAVAPIPE_CRASH.get('sheets sqrt d d')) && /#1835/.test(T.LAVAPIPE_CRASH.get('sheets sqrt d d')));
+ok('NOT_ON: SwiftShader still runs sheets sqrt d d', !T.SWIFTSHADER_HANG.has('sheets sqrt d d'));
+ok('NOT_ON: llvmpipe on OpenGL is not lavapipe', !notOn('ANGLE (Mesa, llvmpipe (LLVM 20.1.2 256 bits), OpenGL 4.5 core)'));
 
 console.log(`t_glsl_tiers: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

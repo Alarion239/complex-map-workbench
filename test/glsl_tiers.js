@@ -36,20 +36,19 @@ window.GLSLTiers = (() => {
     ['dmulti#4 rational>log>arctan>deriv', 'over 120 s, unfinished'],
     ['dmulti#10 powa>root>add>root>deriv', '218 s at one core, then the GPU process is lost'],
   ]);
-  // chains whose program crashes lavapipe (Mesa's llvmpipe on Vulkan, the software renderer of a Linux machine without
-  // a GPU, here Mesa 25 with LLVM 20.1.2): the GPU process dies with SIGSEGV in the draw, 0.7 s after the link; the
-  // chain's values read back as zero and every later chain of the page errors with an empty log (#1815). Alone and
-  // in any order the chain crashes the same: it is the chain, not the run's length or memory (the GPU process
-  // holds 0.4 GB). The glsl page does not run them when its renderer is llvmpipe (NOT_ON); every other renderer runs
-  // them (the chain leaves the set when lavapipe stops crashing on it)
+  // the chains whose program crashes lavapipe (Mesa's llvmpipe on Vulkan, the software renderer of a Linux machine without
+  // a GPU; Mesa 25, LLVM 20.1.2 here): the GPU process exits with SIGSEGV in the draw, 0.7 s after the link, the chain's
+  // values read back as zero, and every later chain of the page errors with an empty log (#1815). Each is named: only the
+  // chains listed are skipped, and only on lavapipe (NOT_ON); SwiftShader, Windows, macOS and the GPUs run them. Lifting an
+  // entry, once a Mesa runs the chain: #1835 (the evidence and the draft report are in notes/upstream/mesa-lavapipe-sqrt-dd)
   const LAVAPIPE_CRASH = new Map([
-    ['sheets sqrt d d', 'the GPU process crashes in the draw, 0.7 s in; all 7172 values read as zero'],
+    ['sheets sqrt d d', 'the GPU process exits with SIGSEGV in the draw (Mesa 25 llvmpipe, LLVM 20.1.2); its 7172 values read back as zero; #1835'],
   ]);
   // the renderers that do not survive some chains, which the glsl page does not run there and lists in R.notOn with
   // their reasons: the name the summary gives the renderer, a pattern for the page's R.renderer, the issue, the set
   const NOT_ON = [
     { name: 'SwiftShader', pattern: /SwiftShader/i, issue: '#1809', set: 'SWIFTSHADER_HANG', chains: SWIFTSHADER_HANG },
-    { name: 'lavapipe', pattern: /llvmpipe/i, issue: '#1815', set: 'LAVAPIPE_CRASH', chains: LAVAPIPE_CRASH },
+    { name: 'lavapipe', pattern: /Vulkan.*llvmpipe/i, issue: '#1815', set: 'LAVAPIPE_CRASH', chains: LAVAPIPE_CRASH },
   ];
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';
