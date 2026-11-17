@@ -1,5 +1,5 @@
-// A bare glide frame records the pane's GL status (#1566): in the steps view a frame in bare mode (the colour layer alone) used to return before
-// glStatusNote, so __cmwPaneStatus('L'), and settled() with it, kept what the last frame at rest recorded, "compiling" for the whole hold of a scrub.
+// A bare glide frame records the pane's GL status (#1566): in the steps view a frame in bare mode (the colour layer alone) records the pane's status
+// (glStatusNote), so __cmwPaneStatus('L'), and settled() with it, read the frame being held, not the last frame at rest, through a scrub.
 // With the links landing late (test/lib/late_links.js: a program reads not complete for 2.5 s after its link, as on a GPU machine), the partial sums
 // of the exponential (a NEWT step the inverse pass draws), Everywhere and sheets off, bare:
 // - a scrub to 0.5 and, 1.2 s later, to 0.7, then held: each frame of the hold records the pane's status (its record is newer than the scrub that

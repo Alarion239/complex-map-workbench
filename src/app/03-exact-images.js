@@ -531,7 +531,8 @@
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
     } else if (now - t0 >= 300) compileNote(pane);
   }
-  // the compiling note: small and quiet, in the pane's lower left corner
+  // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
+  let compileBox = null;
   function compileNote(pane) {
     const ctx = pane.ctx;
     ctx.save();
@@ -540,9 +541,12 @@
     ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     const text = $t('Compiling…');
     const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
+    compileBox = { x: x0, y: y0, w: bw, h: bh };
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
+    // (the surface fill alone is the paper's own colour on paper in the light theme: the outline keeps the pill's shape there)
     ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = TH.lineStrong; ctx.stroke();
     ctx.fillStyle = TH.muted;
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();

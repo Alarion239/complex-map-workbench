@@ -149,7 +149,7 @@ await shot('p3rv_stroke');
 
 // ---- 2. a region's own pattern is not drawn in the steps view: H under [z^i, z^2], plane w1 with the Checker
 // (a saved state's pattern) is the same picture as with the Solid pattern, the carried phase of the colour plane z
-// (its exactness against the pulled-back colour is steps_carry_inregion_cmd.js's), and the region's pixels show more
+// (its exactness against the pulled-back colour is steps_carry_exact_cmd.js's, part inregion), and the region's pixels show more
 // than one colour
 const base1 = { pattern: 'sphere', alpha: 1, lines: false, unit: false };
 await load('p3rvG' + Date.now(), Object.assign({ shapes: [H], steps: [ZI, { type: 'pown', params: { n: 2 }, on: true }], srcView: { cx: 0, cy: 1, s: 60 } }, base1, { pattern: 'checker' }));
