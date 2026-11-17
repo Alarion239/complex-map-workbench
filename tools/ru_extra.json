@@ -728,5 +728,13 @@
  "Overlays": "Наложения",
  "Quality": "Качество",
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
- "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»"
+ "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
+ "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Указатель в центре, %{v} = %{z}. Шаг %{st}; с Shift — %{x}.",
+ "{v} {z}. F is infinite here.": "%{v} %{z}. Здесь функция F обращается в бесконечность.",
+ "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
+  "one": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градус.",
+  "few": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса.",
+  "many": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градусов.",
+  "other": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса."
+ }
 }

@@ -130,6 +130,20 @@
     const comp = q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
     return `(${comp})(${x})`;
   }
+  // a plane's accessible name is its head's own words: its title and its role in plain text ("w₁ · phase of f₂"), so it follows the
+  // plane shown as the head does
+  function titleName(html) {
+    const d = h('div', { html });
+    for (const s of d.querySelectorAll('sub')) s.textContent = sub(s.textContent);
+    const words = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+    return [words(d.querySelector('.ptitle')), words(d.querySelector('.rf') || d.querySelector('.prole'))].filter(Boolean).join(', ');
+  }
+  function nameCanvases(t) {
+    for (const [id, html] of [['overlayL', t.left], ['overlayR', t.right]]) {
+      const el = $(id), name = titleName(html);
+      if (el && name && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
+    }
+  }
   function updateFocusUI() {
     const t = paneTitles();
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
@@ -137,6 +151,7 @@
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
+    nameCanvases(t);
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());

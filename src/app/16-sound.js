@@ -40,7 +40,7 @@
       focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn,
       morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts,
       render3D, requestRender, setReadouts, shapeNames, snd, solo, toast, touchUI, tourEmit, tourL, tourSndMine,
-      updateDraftChips, zerosPolesTimed,
+      updateDraftChips, wText, zerosPolesTimed,
       get S() { return S; },
       get stepsView() { return SV.on; },
       get TH() { return TH; },
