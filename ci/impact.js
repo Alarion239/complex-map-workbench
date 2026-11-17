@@ -175,7 +175,7 @@ const MAC_JOBS = ['glsl', 'adv', 'inverse'].map((page) => ({ os: 'macos-latest',
 // ([#1775] Linux: Chrome's own SwiftShader, CPU WebGL2, what headless Chrome falls back to without a GPU and what the
 // figure exports render on: its library is not the GPUs' (cx_sincos, GLChain.useRenderer) and its last bits differ.
 // Its core tier, always: the glsl page in parts (its chains compile on one core), adv and inverse whole. The chains
-// SwiftShader does not finish are not run there (GLSLTiers.SWIFTSHADER_HANG))
+// SwiftShader does not finish are not run there (GLSLTiers.SWIFTSHADER_HANG, in GLSLTiers.NOT_ON))
 const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },

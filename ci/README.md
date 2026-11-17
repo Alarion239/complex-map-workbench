@@ -156,7 +156,10 @@ of machine time together. Three random d/dz chains of the `glsl` page do not fin
 core, then the GPU process is lost and every later chain errors; #1809): `GLSLTiers.SWIFTSHADER_HANG` lists them, and
 the page does not run them when its renderer is SwiftShader. The job summary names them ("not run on SwiftShader");
 Windows and macOS run them. Against a reference without that set (one from before #1775), the Linux jobs do not
-compare the `glsl` page, and the summary says why.
+compare the `glsl` page, and the summary says why. On lavapipe (Mesa's llvmpipe, a Linux machine's software renderer
+when it has no GPU) `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it (#1815), which
+made every later chain of a long run error; `GLSLTiers.LAVAPIPE_CRASH` lists it and the page does not run it there.
+Both sets are in `GLSLTiers.NOT_ON`, and the page's line in the summary gives each chain skipped with its reason.
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170

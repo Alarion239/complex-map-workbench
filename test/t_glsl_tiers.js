@@ -55,5 +55,16 @@ ok('legacy: tier all, every adv section', L.TIER === 'all' && ['direct', 'keys',
 ok('core keeps keys and main, not direct and compile', ['keys', 'main'].every(C.section) && !C.section('direct') && !C.section('compile'));
 ok('all and deep keep every section', ['direct', 'keys', 'compile', 'main'].every(T.section) && ['direct', 'compile'].every(D.section));
 
+// NOT_ON: the renderers that do not survive some chains (the glsl page runs none of those chains there)
+const SWIFT = 'ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)';
+const LAVA = 'ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) (0x00000000)), llvmpipe)';
+const OTHERS = ['ANGLE (Microsoft, Microsoft Basic Render Driver Direct3D11 vs_5_0 ps_5_0, D3D11)', 'ANGLE (Apple, ANGLE Metal Renderer: Apple M1, Unspecified Version)', 'ANGLE (NVIDIA, NVIDIA GeForce RTX 3080 Direct3D11 vs_5_0 ps_5_0, D3D11)'];
+const notOn = (r) => T.NOT_ON.find((n) => n.pattern.test(r));
+ok('NOT_ON: SwiftShader is named for its set and issue', notOn(SWIFT) && notOn(SWIFT).set === 'SWIFTSHADER_HANG' && notOn(SWIFT).issue === '#1809' && notOn(SWIFT).chains === T.SWIFTSHADER_HANG);
+ok('NOT_ON: lavapipe is named for its set and issue', notOn(LAVA) && notOn(LAVA).set === 'LAVAPIPE_CRASH' && notOn(LAVA).issue === '#1815' && notOn(LAVA).chains === T.LAVAPIPE_CRASH);
+ok('NOT_ON: neither Windows, macOS nor an NVIDIA GPU is in it', OTHERS.every((r) => !notOn(r)), OTHERS.map(notOn));
+ok('NOT_ON: each set holds chains, each with its reason', T.NOT_ON.every((n) => n.chains.size > 0 && [...n.chains].every(([k, why]) => k && why.length > 10)));
+ok('NOT_ON: lavapipe holds sheets sqrt d d', T.LAVAPIPE_CRASH.has('sheets sqrt d d'));
+
 console.log(`t_glsl_tiers: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);

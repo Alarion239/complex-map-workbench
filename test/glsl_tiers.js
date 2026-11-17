@@ -29,13 +29,28 @@ window.GLSLTiers = (() => {
   const SLOW = new Set(['dh near M 0.6z-0.5 N 12']);
   // chains whose program SwiftShader (Chrome's CPU WebGL2, the Linux GLSL jobs) does not finish: minutes of one core in
   // the GPU process, then the GPU process is lost and every later chain of the page errors (#1809). The glsl page
-  // does not run them when its renderer is SwiftShader and lists them in R.notOnSwiftShader; Windows and macOS run them
-  // (each with what it did alone on SwiftShader, 4 cores; the chain leaves the set when #1809 fixes it)
+  // does not run them when its renderer is SwiftShader (NOT_ON); Windows and macOS run them (each with what it did
+  // alone on SwiftShader, 4 cores; the chain leaves the set when #1809 fixes it)
   const SWIFTSHADER_HANG = new Map([
     ['dmulti#2 arctan>root>deriv>ijouk>pown', 'over 13 min at one core, unfinished'],
     ['dmulti#4 rational>log>arctan>deriv', 'over 120 s, unfinished'],
     ['dmulti#10 powa>root>add>root>deriv', '218 s at one core, then the GPU process is lost'],
   ]);
+  // chains whose program crashes lavapipe (Mesa's llvmpipe on Vulkan, the software renderer of a Linux machine without
+  // a GPU, here Mesa 25 with LLVM 20.1.2): the GPU process dies with SIGSEGV in the draw, 0.7 s after the link; the
+  // chain's values read back as zero and every later chain of the page errors with an empty log (#1815). Alone and
+  // in any order the chain crashes the same: it is the chain, not the run's length or memory (the GPU process
+  // holds 0.4 GB). The glsl page does not run them when its renderer is llvmpipe (NOT_ON); every other renderer runs
+  // them (the chain leaves the set when lavapipe stops crashing on it)
+  const LAVAPIPE_CRASH = new Map([
+    ['sheets sqrt d d', 'the GPU process crashes in the draw, 0.7 s in; all 7172 values read as zero'],
+  ]);
+  // the renderers that do not survive some chains, which the glsl page does not run there and lists in R.notOn with
+  // their reasons: the name the summary gives the renderer, a pattern for the page's R.renderer, the issue, the set
+  const NOT_ON = [
+    { name: 'SwiftShader', pattern: /SwiftShader/i, issue: '#1809', set: 'SWIFTSHADER_HANG', chains: SWIFTSHADER_HANG },
+    { name: 'lavapipe', pattern: /llvmpipe/i, issue: '#1815', set: 'LAVAPIPE_CRASH', chains: LAVAPIPE_CRASH },
+  ];
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';
     const r = RANDOM[page];
@@ -54,5 +69,5 @@ window.GLSLTiers = (() => {
   // the adv page's sections that are not chains: in core, keys only (direct and compile are most of its Windows time)
   const SECTIONS_CORE = ['keys', 'main'];
   const section = (s) => LEGACY || TIER !== 'core' || SECTIONS_CORE.includes(s);
-  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, SAMPLE };
+  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, LAVAPIPE_CRASH, NOT_ON, SAMPLE };
 })();
