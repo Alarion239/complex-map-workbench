@@ -2041,12 +2041,13 @@
   // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
   let svFadeCv = null;
   // the regions' colour on the globe per pixel through the inverse pass, as drawSphere's regions draw records: between
-  // two planes, step b's homotopy at u (svCarryExactHom's records); at rest on plane b past the colour plane (u null),
-  // the map into b (svCarryExact's). A point of the plane shown is walked back to plane 0 and coloured as the colour
-  // plane colours it. Null when the frame cannot take the pass; a region with no inverse plan makes it null too, unless rest
-  // is an array (at rest): those shapes are put in it and the list holds the others (possibly none)
-  function svGlobeCarryInv(pane, b, u, T, rest) {
-    const h = svInvPaths(b, u, 'globe', { r: null, rest }), carry = svCarryStyle(T);
+  // two planes, step b's homotopy at u (svCarryExactHom's records), or an All-at-once span's steps each at its own time
+  // (span, svSpanPaths); at rest on plane b past the colour plane (u null), the map into b (svCarryExact's). A point of the
+  // plane shown is walked back to plane 0 and coloured as the colour plane colours it. Null when the frame cannot take the
+  // pass; a region with no inverse plan makes it null too, unless rest is an array (at rest): those shapes are put in it
+  // and the list holds the others (possibly none)
+  function svGlobeCarryInv(pane, b, u, T, rest, span) {
+    const h = svInvPaths(b, u, 'globe', { r: null, rest }, span), carry = svCarryStyle(T);
     return h && h.list.map((x, i) => ({ inv: Object.assign(svInvArg(pane, h.paths[i], x, carry), { globeBox: u == null ? svGlobeBox(h.paths[i], x) : null }), onResult: (res) => { if (res === 'pending') requestRender('L'); } }));
   }
   // the w-box of a bounded shape's image on plane b at rest (the carried colour is drawn only where the shape's points land),
@@ -2106,7 +2107,8 @@
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
     if (rest) { leftSphereInfo = rest; return; }
-    const inv = !still && !all && map.mode === 1 && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T) : null;
+    // (all at once, the span's steps each at its own time: svSpanPaths)
+    const inv = !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && shows(a) && shows(b) ? svGlobeCarryInv(pane, b, u, T, undefined, svSpanPaths(bt)) : null;
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
