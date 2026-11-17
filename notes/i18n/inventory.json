@@ -14402,15 +14402,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.mesh_resolution",
-   "area": "chrome",
-   "file": "page.html:1711",
-   "kind": "aria",
-   "text": "Mesh resolution",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
    "id": "chrome.left_pane_surface_2",
    "area": "chrome",
    "file": "page.html:1724",

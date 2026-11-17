@@ -98,6 +98,11 @@ const pts = K.grid(P, 12, 8).filter(away);
 const heldZ = { wait: zWait, standIn: await standIn(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), px: (await K.lpx(pts)).px };
 info.colourZ = Object.assign({}, heldZ, { px: undefined });
 ok('the colour plot, its program held: plane z is drawn from the stand-in (in colour, the frame pending)', zWait.ok && heldZ.hue > 0.6 && heldZ.pending === true, info.colourZ);
+// (the left LED: amber with its own tooltip while the colour plot is not done; the right LED is the right plane's)
+const STANDIN_TIP = 'Drawing a quick preview; the exact plot is still being built';
+const led = (id) => ev(`(() => { const e = document.getElementById('${id}'); return { cls: e.className, tip: e.getAttribute('data-tip'), label: e.getAttribute('aria-label') }; })()`);
+const ledHeld = { left: await led('leftLed'), right: await led('rightLed') };
+ok('the colour plot, its program held: the left LED is amber with its own tooltip, the right one is not', /\bbusy\b/.test(ledHeld.left.cls) && ledHeld.left.tip === STANDIN_TIP && ledHeld.left.label === STANDIN_TIP && !/\bbusy\b/.test(ledHeld.right.cls), ledHeld);
 await ev('__cmwSteps({ go: 1, now: true }), 1');
 await settled({ panes: false });
 const w1Wait = await levelDone();
@@ -125,6 +130,8 @@ const linked = await settled({ max: 20000 });
 const gpuPx = (await K.lpx(pts)).px;
 info.colourMatch = K.tally(heldZ.px, gpuPx, { tol: 24 });
 ok('the colour plot, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', linked.ok && info.colourMatch.n >= 40 && info.colourMatch.wrong <= 0.1 * info.colourMatch.n, info.colourMatch);
+const ledDone = await led('leftLed');
+ok('the colour plot, once linked: the left LED is green again', /\bok\b/.test(ledDone.cls) && ledDone.tip === 'Up to date', ledDone);
 // an expensive series (about half a millisecond an evaluation): its stand-in stops within its CPU budget
 const ns3 = 'lse' + Date.now();
 await seed(ns3, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 } }], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
@@ -133,21 +140,33 @@ await settled({ max: 20000, panes: false, until: loaded });
 const exWait = await settled({ only: true, max: 30000, until: "typeof __cmwStandIn === 'function' && !!__cmwStandIn() && !!__cmwStandIn().end" });
 info.expensive = { wait: exWait, standIn: await standIn() };
 ok('timing: an expensive series\' stand-in keeps to its CPU budget (250 ms and a slice)', exWait.ok && !!info.expensive.standIn && info.expensive.standIn.ms <= 280, info.expensive);
+// the Cauchy style with no closed curve or region draws the plane as paper, which waits on no program: with the plot's link still
+// held the left LED, amber for the stand-in, goes green
+const ns4 = 'lsp' + Date.now();
+await seed(ns4, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns4}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+await levelDone();
+const ledShown = await led('leftLed');
+ok('(the plot drawn from the stand-in, its program held: the left LED is amber)', /\bbusy\b/.test(ledShown.cls) && ledShown.tip === STANDIN_TIP, ledShown);
+await ev("__cmwSet('dc', 'cauchy'), 1"); await settled({ panes: false });
+const ledPaper = await led('leftLed');
+ok('the plane drawn as paper (Cauchy, no closed curve or region), its program still held: the left LED is green', /\bok\b/.test(ledPaper.cls) && ledPaper.tip === 'Up to date', ledPaper);
 // (the carried colour's job past T > 0 (__cmwCarried), and a page condition that holds once it stopped short of its points)
 const carried = () => ev("typeof __cmwCarried === 'function' ? __cmwCarried() : null");
 const carriedShort = "(typeof __cmwCarried === 'function' && !!__cmwCarried() && !!__cmwCarried().end && __cmwCarried().end !== 'done')";
 // the carried colour past a colour plane other than z: z² then z + 0.2 conj(z) (no inverse plan), colour plane w₁, the
 // plane w₂ parked, Everywhere: while the links are held, the pane is coloured from the SphereMeshes' points' colours
-const ns4 = 'lsk' + Date.now();
-await seed(ns4, { steps: [{ type: 'pown', params: { n: 2 } }, { type: 'custom', params: { expr: 'z+0.2\\overline{z}', cut: 180 } }], sv: { at: 2, T: 1, scope: 'all', surf: 'plane' } });
-await go(`${base}/test.html?ns=${ns4}&glhold`);
+const nsk = 'lsk' + Date.now();
+await seed(nsk, { steps: [{ type: 'pown', params: { n: 2 } }, { type: 'custom', params: { expr: 'z+0.2\\overline{z}', cut: 180 } }], sv: { at: 2, T: 1, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${nsk}&glhold`);
 await settled({ max: 20000, panes: false, until: loaded });
 const onW2 = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); return s.stage === 2 && s.T === 1; })()` });
 // (in colour: at least 60 % of a 16 x 10 grid of the pane's points, read in the page. The carried job rests while its
 // work does not fit, so the wait also ends on a job that stopped short of its points (past CARRIED_MAX on a slow
 // machine): a timing row, and nothing to compare)
-const P4 = await K.paneOf(), pts4 = JSON.stringify(K.grid(P4, 16, 10));
-const carriedWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
+const P4 = await K.paneOf(), pts4 = K.grid(P4, 16, 10);
+const carriedWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = ${K.pxIn(pts4)}.px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
 const carriedPx = (await K.lpx(K.grid(P4, 16, 10))).px;
 info.carriedT1 = { onW2, wait: carriedWait, job: await carried(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
 const short4 = !!info.carriedT1.job && info.carriedT1.job.end === 'budget';
@@ -179,7 +198,7 @@ for (const [name, scene, slow] of [['zero', 'zero', 1], ['pole', 'pole', 1], ['s
   await settled({ max: 20000 * slow, panes: false, until: loaded });
   const Pw = await K.paneOf(), ring = [];
   for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring.push([px / Pw.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / Pw.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
-  const hw = await settled({ only: true, max: slow > 1 ? 90000 : 60000, until: `(() => { if (${carriedShort}) return true; const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = __cmwLPx(${JSON.stringify(ring)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+  const hw = await settled({ only: true, max: slow > 1 ? 90000 : 60000, until: `(() => { if (${carriedShort}) return true; const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = ${K.pxIn(ring)}.px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
   const job = await carried();
   if (slow > 1) {
     await send('Emulation.setCPUThrottlingRate', { rate: 1 });
@@ -205,7 +224,7 @@ const P5 = await K.paneOf(), grid5 = K.grid(P5, 24, 16);
 // (rings of 12 points about w₁ = 1, the image of the colour's zero z = 0, 4, 8 and 12 px out)
 const ring5 = [];
 for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring5.push([1 + px / P5.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / P5.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
-const smWait = await settled({ only: true, max: 30000, until: `(() => { if (!__cmwSmVerdict('SV').some((v) => v.why === 'linking')) return false; const q = __cmwLPx(${JSON.stringify(ring5)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+const smWait = await settled({ only: true, max: 30000, until: `(() => { if (!__cmwSmVerdict('SV').some((v) => v.why === 'linking')) return false; const q = ${K.pxIn(ring5)}.px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
 await settled({ panes: false });
 const heldGrid = (await K.lpx(grid5)).px, heldRing = (await K.lpx(ring5)).px;
 info.zeroHeld = { wait: smWait, pending: await ev('GLR.frameStatus().pending'), verdict: await ev("__cmwSmVerdict('SV').map((v) => v.why)") };

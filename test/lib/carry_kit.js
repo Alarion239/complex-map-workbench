@@ -1,10 +1,10 @@
-// The carried-colour suites' shared page script and pixel compare: steps_carry_inregion_cmd.js, steps_carry_far_cmd.js,
-// steps_carry_chains_cmd.js and steps_carry_planes_cmd.js. The left pane's pixels come from the page's __cmwLPx; the
-// rest is the pane's camera, the nearest of a point's 9 pixels to a reference and the bare-paper test (the example names are the
+// The carried-colour suites' shared page script and pixel compare: steps_carry_exact_cmd.js's parts. The left pane's pixels
+// come from its canvas, canvasL, read in the pane's camera; the rest is the pane's camera, the nearest of a point's 9 pixels to a reference and the bare-paper test (the example names are the
 // CDP kit's exampleNames()).
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
-// - lpx(pts): __cmwLPx(pts) answers { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels about
-//   it as [r, g, b, a] each, row by row (the centre is index 4), or null off the pane;
+// - lpx(pts): { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels of canvasL about it as
+//   [r, g, b, a] each, row by row (the centre is index 4), or null off the pane; and the camera and size they were read in;
+// - pxIn(pts): that read as a page expression, for a suite's own page condition (settled's until);
 // - paneOf(): the pane's camera (v: the view, with cx, cy, s) and its size in css px (w, h);
 // - nearest(p, ref): the least, over the 9 pixels ref of a point, of the largest channel difference (0..255) from p;
 // - bare(p): whether the centre pixel p (of a 3 x 3 read) is bare paper, its channels within 6 of each other;
@@ -27,8 +27,26 @@
 //   gives w back within 1e-7);
 // - carryRead(env): measure(), the front point's colour on a plane against plane z's (below, at its definition).
 (() => {
-  // (a page hook that throws answers { __exc }, which fails the suite here rather than reading as no pixels)
-  const lpx = async (pts) => { const r = await ev(`__cmwLPx(${JSON.stringify(pts)})`); if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc); return r; };
+  // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
+  // H/2 - (y - cy) s dpr). pxIn(pts): that read as a page expression, for a suite's own page condition (settled's until);
+  // lpx runs it, and a read that throws answers { __exc }, which fails the suite here rather than reading as no pixels)
+  const pxIn = (pts) => `(() => {
+      const c = document.getElementById('canvasL'), m = __cmwCards().main, v = m.view, d = m.dpr, W = c.width, H = c.height;
+      const img = c.getContext('2d').getImageData(0, 0, W, H).data;
+      const px = ${JSON.stringify(pts)}.map(([x, y]) => {
+        const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
+        if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
+        const out = [];
+        for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
+        return out;
+      });
+      return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
+    })()`;
+  const lpx = async (pts) => {
+    const r = await ev(pxIn(pts));
+    if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc);
+    return r;
+  };
   const paneOf = async () => { const q = await lpx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; };
   const nearest = (p, ref) => {
     let best = 1e9;
@@ -221,5 +239,5 @@
     };
     return { measure };
   };
-  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
+  return { lpx, pxIn, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
 })()
