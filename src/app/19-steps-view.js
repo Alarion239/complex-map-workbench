@@ -1812,12 +1812,18 @@
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false };
-    const plot = (k, al) => {
+    // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
+    const plot = (k, al, noValue) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true });
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
     };
     const colour = () => {
+      // (between planes, under the carried colour: the departure plane's no-value colour, its NaN hatch where its map
+      // has no value at the pixel's point, which the carried colour covers wherever a point of the glide arrives, so a
+      // pixel no point reaches shows the departure's hatch and the hatch shrinks as the points arrive (#1443's rule a);
+      // Inside regions only under the regions' mask, which keeps it inside the regions)
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) plot(a, 1, true);
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {
