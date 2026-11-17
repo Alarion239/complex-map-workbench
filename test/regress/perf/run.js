@@ -98,6 +98,13 @@ function put(name, kind, unit, reps, extra) {
   RES.metrics[name] = Object.assign({ value, unit, kind, reps: reps.map((v) => (typeof v === 'number' ? r3(v) : v)), unit_id: CURRENT_UNIT }, extra || {});
 }
 const detail = (k, v) => { RES.details[k] = v; };
+// the frame_p95 metrics of a unit as log lines: the pooled value, then the value of each rep in the order they ran. A job's
+// artifact is not always readable, and the log then says whether the side timed first is the high one
+function sampleLines(metrics, unit) {
+  return Object.entries(metrics)
+    .filter(([name, m]) => m.unit_id === unit && m.kind === 'frame_ms' && /\.frame_p95_ms$/.test(name))
+    .map(([name, m]) => `${name}: pooled ${m.value} ms, reps ${m.reps.map(String).join(' ')}`);
+}
 
 // ---------------- page helpers ----------------
 let B = null;           // the browser (cdp.launch)
@@ -1948,7 +1955,7 @@ async function main() {
     await rafCheck(`before ${u.id}`);
     const scenes = new Map(), failed = new Map();
     const sides = !RES_A ? [[RES_B, BASE_B, '', B_B]] : (refFirst(u.id) ? [[RES_A, BASE_A, ' (reference)', B_A], [RES_B, BASE_B, ' (current)', B_B]] : [[RES_B, BASE_B, ' (current)', B_B], [RES_A, BASE_A, ' (reference)', B_A]]);
-    for (const [res, base, tag, br] of sides) {
+    for (const [si, [res, base, tag, br]] of sides.entries()) {
       RES = res; BASE = base; B = br;
       const tu = Date.now();
       log(u.id + tag);
@@ -1975,6 +1982,7 @@ async function main() {
         }
       } finally { clearTimeout(timer); }
       RES.meta.units[u.id] = Math.round((Date.now() - tu) / 100) / 10;
+      if (RES_A) for (const line of sampleLines(RES.metrics, u.id)) log(`samples${tag} (timed ${si + 1} of ${sides.length}) ${line}`);
       if (RES_A) await park(br);
     }
     OPENED = null;
@@ -2022,5 +2030,5 @@ if (require.main === module) {
 // test/t_perf_attr.js
 module.exports = {
   use(browser, base) { B = browser; if (base) BASE = base.endsWith('/') ? base : base + '/'; },
-  RES, AT, refCannot, svAttrFrames, SV_ATTR_MS, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
+  RES, AT, refCannot, sampleLines, svAttrFrames, SV_ATTR_MS, settle, compileStats, waitInverseFrame, inverseDrawnCheck, openApp, paneShot, shotAtRest, dragLeg, pageNow, UNITS, INV_FIRST_DRAW_LIMIT,
 };
