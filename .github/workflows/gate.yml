@@ -299,6 +299,8 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.glsl) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240
+    env:
+      CMW_CHROME_ARGS: ${{ startsWith(matrix.os, 'ubuntu') && '--no-sandbox' || '' }}
     steps:
       - uses: actions/checkout@v5
         with:

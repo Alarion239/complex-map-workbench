@@ -22,7 +22,7 @@ const fs = require('fs');
 const path = require('path');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
-const { launch, sleep } = require('../test/regress/perf/cdp');
+const { launch, sleep, CHROME_FLAGS } = require('../test/regress/perf/cdp');
 const { parts: srcParts } = require('../test/src_text');
 
 const PAGES = [
@@ -145,9 +145,9 @@ async function runPage(base, p, side) {
       const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
-      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
+      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOnSwiftShader: R.notOnSwiftShader, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
-      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.singular ? `, ${r.singular.badCount} bad singular` : ''}`;
+      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOnSwiftShader && r.notOnSwiftShader.length ? `; not run on SwiftShader (#1809): ${r.notOnSwiftShader.join(', ')}` : ''}`;
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');
@@ -205,9 +205,19 @@ async function main() {
   }
   buildPages(ROOT, pages);
   const R = ref ? buildReference(ref) : null;
-  if (R) buildPages(R.dir, pages);
   legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
   if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
+  // (#1809) on SwiftShader, a reference without GLSLTiers.SWIFTSHADER_HANG runs the chains SwiftShader does not finish:
+  // its glsl page does not end (or loses the GPU process), so the glsl page is not compared against it
+  const unpaired = [];
+  if (R && CHROME_FLAGS.includes('--use-angle=swiftshader') && pages.some((p) => p.id === 'glsl')
+    && (legacy || !fs.readFileSync(path.join(R.dir, 'test', 'glsl_tiers.js'), 'utf8').includes('SWIFTSHADER_HANG'))) {
+    unpaired.push(`\`glsl-test.html\`: not compared on SwiftShader: the reference \`${R.sha.slice(0, 12)}\` has no \`GLSLTiers.SWIFTSHADER_HANG\`, so its glsl page runs the chains SwiftShader does not finish (#1809)`);
+    console.log(unpaired[0].replace(/`/g, ''));
+    pages = pages.filter((p) => p.id !== 'glsl');
+    if (!pages.length) { summary(`### GLSL conformance (${process.platform}): nothing to compare\n\n${unpaired[0]}.\n`); return 0; }
+  }
+  if (R) buildPages(R.dir, pages);
   const srv = await serve(path.join(ROOT, 'dist'));
   const rsrv = R ? await serve(path.join(R.dir, 'dist')) : null;
   const rows = [], details = [];
@@ -231,7 +241,7 @@ async function main() {
     }
   } finally { srv.server.close(); if (rsrv) rsrv.server.close(); }
   summary([`### GLSL conformance (${process.platform}${renderer ? `: ${esc(renderer)}` : ''}${R ? `; against \`${R.sha.slice(0, 12)}\`` : ''}): ${failed ? '❌' : '✅'}`, '',
-    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...details, ''].join('\n'));
+    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...unpaired.map((u) => `${u}.`), ...details, ''].join('\n'));
   return failed ? 1 : 0;
 }
 // (ci/impact.js reads the pages and their inputs)

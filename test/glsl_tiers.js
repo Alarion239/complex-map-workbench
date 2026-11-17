@@ -27,6 +27,15 @@ window.GLSLTiers = (() => {
   // cost there is not measured yet; on SwiftShader the program's pipeline takes about 3 times an iter() loop's, less
   // than Γ's)
   const SLOW = new Set(['dh near M 0.6z-0.5 N 12']);
+  // chains whose program SwiftShader (Chrome's CPU WebGL2, the Linux GLSL jobs) does not finish: minutes of one core in
+  // the GPU process, then the GPU process is lost and every later chain of the page errors (#1809). The glsl page
+  // does not run them when its renderer is SwiftShader and lists them in R.notOnSwiftShader; Windows and macOS run them
+  // (each with what it did alone on SwiftShader, 4 cores; the chain leaves the set when #1809 fixes it)
+  const SWIFTSHADER_HANG = new Map([
+    ['dmulti#2 arctan>root>deriv>ijouk>pown', 'over 13 min at one core, unfinished'],
+    ['dmulti#4 rational>log>arctan>deriv', 'over 120 s, unfinished'],
+    ['dmulti#10 powa>root>add>root>deriv', '218 s at one core, then the GPU process is lost'],
+  ]);
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';
     const r = RANDOM[page];
@@ -45,5 +54,5 @@ window.GLSLTiers = (() => {
   // the adv page's sections that are not chains: in core, keys only (direct and compile are most of its Windows time)
   const SECTIONS_CORE = ['keys', 'main'];
   const section = (s) => LEGACY || TIER !== 'core' || SECTIONS_CORE.includes(s);
-  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SAMPLE };
+  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, SAMPLE };
 })();

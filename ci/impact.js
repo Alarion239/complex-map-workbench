@@ -172,18 +172,29 @@ const rowOf = (f) => ROWS.find((r) => r.re.test(f)) || null;
 // nightly run, a run by hand and the label glsl-deep. macOS has a virtual GPU (minutes a page) and few machines: its
 // pages run whole, every chain, always
 const MAC_JOBS = ['glsl', 'adv', 'inverse'].map((page) => ({ os: 'macos-latest', page, part: '1/1', tier: 'all' }));
+// ([#1775] Linux: Chrome's own SwiftShader, CPU WebGL2, what headless Chrome falls back to without a GPU and what the
+// figure exports render on: its library is not the GPUs' (cx_sincos, GLChain.useRenderer) and its last bits differ.
+// Its core tier, always: the glsl page in parts (its chains compile on one core), adv and inverse whole. The chains
+// SwiftShader does not finish are not run there (GLSLTiers.SWIFTSHADER_HANG))
+const LINUX_JOBS = [
+  ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
+  { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },
+  { os: 'ubuntu-latest', page: 'inverse', part: '1/1', tier: 'core' },
+];
 const GLSL_JOBS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/8`, tier: 'all' })),
   { os: 'windows-latest', page: 'adv', part: '1/1', sections: 'direct,keys,compile', tier: 'all' },
   { os: 'windows-latest', page: 'adv', part: '1/1', sections: 'main', tier: 'all' },
   { os: 'windows-latest', page: 'inverse', part: '1/1', tier: 'all' },
   ...MAC_JOBS,
+  ...LINUX_JOBS,
 ];
 const GLSL_CORE_JOBS = [
   ...[1, 2, 3, 4].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/4`, tier: 'core' })),
   { os: 'windows-latest', page: 'adv', part: '1/1', tier: 'core' },
   { os: 'windows-latest', page: 'inverse', part: '1/1', tier: 'core' },
   ...MAC_JOBS,
+  ...LINUX_JOBS,
 ];
 const QUALITY_OS = ['ubuntu-latest', 'windows-latest', 'macos-latest'];
 // (the build's inputs: what the same-build check covers)

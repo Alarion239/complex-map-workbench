@@ -8,6 +8,8 @@ const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name
 const ALL = SHARDS.filter((s) => suitesOf(s.id).length).map((s) => s.id);
 const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 const nothing = (p) => !p.browser.length && !p.glsl.length && !p.quality.length && !p.perf;
+// ([#1775] the Linux GLSL jobs: the glsl page in LINUX_GLSL_PARTS, adv and inverse whole)
+const LINUX_GLSL_PARTS = '1/2,2/2', LINUX_N = 4;
 
 // the globs
 ok('glob: * stays in a directory', globRe('src/*.js').test('src/a.js') && !globRe('src/*.js').test('src/a/b.js'));
@@ -17,10 +19,25 @@ ok('glob: a dot is a dot', !globRe('build.py').test('buildxpy'));
 // every area names real shards, every row's effect is known
 const ids = new Set(SHARDS.map((s) => s.id));
 ok('every area names shards of ci/browser_shards.js', Object.values(AREAS).flat().every((id) => ids.has(id)), Object.values(AREAS).flat().filter((id) => !ids.has(id)));
-ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.concat(GLSL_CORE_JOBS).every((j) => ['glsl', 'adv', 'inverse'].includes(j.page)) && GLSL_JOBS.length === 14 && GLSL_CORE_JOBS.length === 9);
-// (GLSL tiers: Windows runs the core tier unless --glsl-deep, macOS every chain always)
-ok('the core jobs: Windows core (glsl in quarters, adv, inverse), macOS all', GLSL_CORE_JOBS.every((j) => j.tier === (j.os === 'macos-latest' ? 'all' : 'core')) && GLSL_CORE_JOBS.filter((j) => j.page === 'glsl' && j.os === 'windows-latest').map((j) => j.part).join() === '1/4,2/4,3/4,4/4');
-ok('the deep jobs: every chain everywhere', GLSL_JOBS.every((j) => j.tier === 'all'));
+ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.concat(GLSL_CORE_JOBS).every((j) => ['glsl', 'adv', 'inverse'].includes(j.page)) && GLSL_JOBS.length === 14 + LINUX_N && GLSL_CORE_JOBS.length === 9 + LINUX_N);
+// (GLSL tiers: Windows runs the core tier unless --glsl-deep, macOS every chain always, Linux (SwiftShader) the core
+// tier always)
+const linux = (jobs) => jobs.filter((j) => j.os === 'ubuntu-latest');
+ok('the core jobs: Windows core (glsl in quarters, adv, inverse), macOS all, Linux core', GLSL_CORE_JOBS.every((j) => j.tier === (j.os === 'macos-latest' ? 'all' : 'core')) && GLSL_CORE_JOBS.filter((j) => j.page === 'glsl' && j.os === 'windows-latest').map((j) => j.part).join() === '1/4,2/4,3/4,4/4');
+ok('the deep jobs: every chain on Windows and macOS', GLSL_JOBS.every((j) => j.tier === (j.os === 'ubuntu-latest' ? 'core' : 'all')));
+// ([#1775] Chrome's own SwiftShader, no CMW_ANGLE: the same Linux jobs in both lists, every page, glsl in parts)
+for (const [name, jobs] of [['core', GLSL_CORE_JOBS], ['deep', GLSL_JOBS]]) {
+  const L = linux(jobs);
+  ok(`the ${name} jobs: Linux (SwiftShader) runs every page's core tier`, L.length === LINUX_N && L.every((j) => j.tier === 'core' && !j.sections)
+    && L.filter((j) => j.page === 'glsl').map((j) => j.part).join() === LINUX_GLSL_PARTS && same(L.filter((j) => j.page !== 'glsl').map((j) => j.page + ' ' + j.part), ['adv 1/1', 'inverse 1/1']), L);
+}
+{
+  // (the Gate's GLSL job: Chrome on Linux needs --no-sandbox there, and no CMW_ANGLE, so that Chrome picks SwiftShader)
+  const y = require('fs').readFileSync(require('path').join(__dirname, '..', '.github/workflows/gate.yml'), 'utf8');
+  const job = (y.split(/\n {2}glsl:\n/)[1] || '').split(/\n {2}\w[\w-]*:\n/)[0];
+  ok('gate.yml: the GLSL job gives Chrome --no-sandbox on Linux', /CMW_CHROME_ARGS: \$\{\{ startsWith\(matrix\.os, 'ubuntu'\) && '--no-sandbox' \|\| '' \}\}/.test(job), job.slice(0, 300));
+  ok('gate.yml: the GLSL job sets no CMW_ANGLE (SwiftShader on Linux, the platform\'s compiler elsewhere)', job.length > 0 && !/CMW_ANGLE:/.test(job));
+}
 ok('every row has an effect', MAP.every(([g, e]) => typeof g === 'string' && e && Object.keys(e).length));
 
 // T0
@@ -120,21 +137,21 @@ for (const f of ['ci/browser.js', '.github/workflows/gate.yml', 'test/cdp_kit/cd
 
 // T2
 const cx = select(['src/cx.js']);
-ok('T2: src/cx.js -> GLSL (core on Windows), quality on Linux, perf, the core shards', cx.tier === 'T2' && cx.glsl.length === 9 && cx.glsl.some((j) => j.tier === 'core') && same(cx.quality, ['ubuntu-latest']) && cx.perf && same(cx.browser, [...AREAS.core, 'smoke']), cx);
+ok('T2: src/cx.js -> GLSL (core on Windows and Linux), quality on Linux, perf, the core shards', cx.tier === 'T2' && cx.glsl.length === 9 + LINUX_N && cx.glsl.some((j) => j.tier === 'core') && same(cx.quality, ['ubuntu-latest']) && cx.perf && same(cx.browser, [...AREAS.core, 'smoke']), cx);
 const sph = select(['src/sphere.js']);
 ok('T2: src/sphere.js is no GLSL page\'s input: no GLSL', sph.tier === 'T2' && !sph.glsl.length && sph.perf, sph.glsl);
 const inv = select(['src/inverse.js']);
-ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), inv.glsl);
+ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse', 'ubuntu-latestinverse']), inv.glsl);
 // (issue #20: the inverse's ops and patterns, out of inverse.js, are inputs of the same page only)
-for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse']), p.glsl); }
+for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse', 'ubuntu-latestinverse']), p.glsl); }
 // (issue #20: region.js's line refinement, out of it, selects what region.js selects)
 ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 // (issue #20: funcs.js's sheets and formula steps, out of it, select what funcs.js selects)
 for (const f of ['src/sheets.js', 'src/formulasteps.js']) ok(`T2: ${f} -> the same as src/funcs.js`, (() => { const a = select([f]), b = select(['src/funcs.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 // (issue #20: parse.js's symbolic calculus, out of it, selects what parse.js selects)
 ok('T2: src/symbolic.js -> the same as src/parse.js', (() => { const a = select(['src/symbolic.js']), b = select(['src/parse.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
-ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 2 && !p.browser.length && !p.quality.length; })());
-ok('--glsl-deep: every chain on Windows too (adv in its two jobs)', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 3 && p.glsl.every((j) => j.tier === 'all') && p.glslDeep; })());
+ok('T2: a GLSL test file -> its page only, no browser shards', (() => { const p = select(['test/glsl_test_adv.js']); return p.tier === 'T2' && p.glsl.every((j) => j.page === 'adv') && p.glsl.length === 3 && !p.browser.length && !p.quality.length; })());
+ok('--glsl-deep: every chain on Windows too (adv in its two jobs), Linux still core', (() => { const p = select(['test/glsl_test_adv.js'], { glslDeep: 'the label glsl-deep' }); return p.glsl.length === 4 && p.glsl.every((j) => j.tier === (j.os === 'ubuntu-latest' ? 'core' : 'all')) && p.glslDeep; })());
 ok('T2: ci/quality.js -> quality only', (() => { const p = select(['ci/quality.js']); return p.tier === 'T2' && same(p.quality, ['ubuntu-latest']) && !p.perf && !p.glsl.length; })());
 ok('a paired job chosen by its runner is forced (A/A); one chosen by the app is not', (() => { const a = select(['test/regress/perf/run.js']), b = select(['ci/quality.js', 'README.md']), c = select(['src/cx.js']), d = select(['src/cx.js', 'test/regress/perf/scenes.js']); return a.forcePerf && !a.forceQuality && b.forceQuality && !b.forcePerf && !c.forcePerf && !c.forceQuality && d.forcePerf && !d.forceQuality; })());
 ok('T2: ci/perf_busy.js (the perf shard\'s load guard) -> perf only', (() => { const p = select(['ci/perf_busy.js']); return p.tier === 'T2' && p.perf && !p.quality.length; })());
@@ -143,9 +160,9 @@ ok('T2: ci/perf_shards.js -> perf only', (() => { const p = select(['ci/perf_sha
 // T3
 for (const f of ['src/app/wrap.js', 'src/gl/wrap.js', 'src/app/01-core.js', 'build.py', 'tools/src_parts.py', 'tools/bundle.mjs']) {
   const p = select([f]);
-  ok(`T3: ${f}`, p.tier === 'T3' && p.full && same(p.browser, ALL) && p.glsl.length === 9 && p.quality.length === 3 && p.perf, p.tier);
+  ok(`T3: ${f}`, p.tier === 'T3' && p.full && same(p.browser, ALL) && p.glsl.length === 9 + LINUX_N && p.quality.length === 3 && p.perf, p.tier);
 }
-ok('T3 with --glsl-deep (a push to main, the nightly): every GLSL chain', select(['build.py'], { full: 'push', glslDeep: 'push' }).glsl.length === 14);
+ok('T3 with --glsl-deep (a push to main, the nightly): every GLSL chain', select(['build.py'], { full: 'push', glslDeep: 'push' }).glsl.length === 14 + LINUX_N);
 const unk = select(['LICENSE', 'README.md']);
 ok('T3: a path no row knows (fail safe)', unk.tier === 'T3' && unk.unknown && same(unk.browser, ALL) && unk.quality.length === 3, unk.why);
 ok('T3: a new src/ file no row knows', select(['src/new.js']).tier === 'T3' && select(['src/app/19-new-part.js']).tier === 'T3');
