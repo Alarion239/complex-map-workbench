@@ -229,9 +229,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
   // the inverse program for the current chain, B and view kind with the current formula bundle. start: begin its
   // compile when it is missing (never in side mode, never while forward programs of this chain still compile, those of
-  // a view no pane shows aside: e.offView).
+  // a view no pane shows aside: e.offView). ahead: one begun before any frame asks for it is marked as a view's no pane
+  // shows (e.offView) until one does (any ask without ahead)
   // -> {state: 'ready' | 'pending' | 'error' | 'none', P, reason}
-  function invProgram(B, globe, start, extra, invOv) {
+  function invProgram(B, globe, start, extra, invOv, ahead) {
     // (invOv: an inverse op list other than the chain's, GLChain.buildInverse of the chain with a step's homotopy at t
     // standing for the step: its own program, the chain's forward data beside it)
     const info = invOv && cur.info ? Object.assign({}, cur.info, { inverse: invOv }) : cur.info, inv = info && info.inverse;
@@ -246,7 +247,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!e) {
       if (!start || sideMode) return { state: 'none', reason: sideMode ? 'side draw' : 'not started' };
       for (const q of progs.values()) if (q.key === cur.key && q.state === 'pending' && !q.inv && !q.offView) return { state: 'pending', reason: 'forward programs first' };
-      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now() };
+      e = { id, name: globe ? 'invS' : 'inv', key: id, inv: true, ikey: ik, chain: false, state: 'pending', used: ++useClock, frame: invFrame, t0: performance.now(), offView: !!ahead };
       progs.set(id, e);
       try {
         const [vs, fs] = invSources(info, B, globe, pack ? pack.forms : [], extra);
@@ -254,7 +255,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
         startLink(e, vs, fs, false);
       } catch (err) { e.state = 'error'; e.error = String(err.message || err); if (!invFailed.has(ik)) { invFailed.add(ik); console.info('exact images: inverse program not built (' + e.error + ')'); } }
       evictInv();
-    }
+    } else if (!ahead) e.offView = false;
     e.used = ++useClock; e.frame = invFrame;
     if (!sideMode) e.askKey = cur.key;
     if (e.state === 'pending') {
@@ -550,12 +551,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
   // asking begins its compile when it is missing, as drawInverse does (st.start false: it does not, and a missing one is
-  // 'none'). For st.coldOk callers: a cold ready program counts as ready
+  // 'none'; st.ahead: one it begins is ahead of any frame, invProgram's ahead). For st.coldOk callers: a cold ready
+  // program counts as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe', look = st.look || {};
     const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? (!globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
-    const pr = /** @type {any} */ (invProgram(B, globe, st.start !== false, extra, st.inv));
+    const pr = /** @type {any} */ (invProgram(B, globe, st.start !== false, extra, st.inv, st.ahead));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }

@@ -940,7 +940,7 @@
         while (left() > 0) {
           const P = svPolesLeft();
           if (P) { svPoleMake(P, left(), 'idle'); if (P.k > SV_POLE_K && svHoldB === P.b) { svHoldB = 0; requestRender('L'); } }
-          else if (!svRingAhead(left()) && !svMeshAhead(left())) break;
+          else if (!svRingAhead(left()) && !svMeshAhead(left()) && !svSetAhead(left())) break;
         }
         if (svPolesLeft() || svRingLeft() || svMeshNext()) { idle(next); return; }
       } catch (e) { /* (a map that cannot be evaluated: nothing more to make) */ }
@@ -950,7 +950,7 @@
   }
   // the idle job started again where its inputs changed since it ended (a frame of the view calls it)
   function svPolesWatch() {
-    if (!svPoleBusy && (svPolesLeft() || svRingLeft() || svMeshNext())) svPolesAhead();
+    if (!svPoleBusy && (svPolesLeft() || svRingLeft() || svMeshNext() || svSetNext())) svPolesAhead();
   }
   // the key of the glide's frame at t in (0, 1) to plane b (svSheetKey(b) at rest)
   function svSheetKeyAt(b, t) {
@@ -1124,10 +1124,11 @@
   // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
   // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
   // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1); u null: at rest on plane b, as
-  // svCarryExact draws it. Asking begins the program's compile when it is missing, unless start is false ('none')
-  const svInvState = (h, i, b, u, start) => {
+  // svCarryExact draws it. Asking begins the program's compile when it is missing, unless start is false ('none');
+  // ahead: one it begins counts as ahead of any frame until a frame asks for it (GLR.inverseState's ahead)
+  const svInvState = (h, i, b, u, start, ahead) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0, start });
+    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0, start, ahead });
   };
   // At rest on plane a past the colour plane while the programs of its own frame link (h: its own paths, svInvPaths at
   // rest; Inside regions, the mask's fills too: the tiling's inverse program at opacity 1): the paths of the glide into a
@@ -1251,6 +1252,46 @@
       h.paths.forEach((p, i) => svInvState(h, i, k, null));
       if (svMaskOn()) GLR.inverseRequest(1, 'flat');
     } else if (k > 0 && invPlan(0, k).ok && visibleAreas().length) GLR.inverseRequest(S.alpha, 'flat');
+  }
+  // At rest, the programs of the glides a press can start next, begun before it: those of the glide to the next plane
+  // (›), then of the rest of a Play from here (svPlay's course: to the range's end, from its start once at the end), in
+  // the order of travel, at most SV_SET_REST of the glides' sets (svGlideSet: the GPU layer keeps INV_KEEP inverse
+  // programs). Each is asked ahead (svInvState's ahead): a view's no pane shows, which ready (svReady) does not count,
+  // until a frame asks for it. Only where links run in the background (KHR_parallel_shader_compile), on the plane, and
+  // once the warm-up has started every group, nothing links and the idle job's other work is done (the last of it), so
+  // the plane shown and the warm-up come first: until then the idle job looks again every SV_SET_WAIT_MS. svSetDone: the
+  // key of the sets last begun
+  const SV_SET_REST = 4, SV_SET_WAIT_MS = 500;
+  let svSetDone = null, svSetTimer = 0;
+  // (the key of the sets to begin at rest, or null when there are none or they are begun)
+  function svSetNext() {
+    if (!SV.on || SV.ahead === false || SV.surf !== 'plane' || !lFlat() || !GLR.parallelCompile || !GLR.inverseState || svMotion() || (SV.drag && SV.drag.moved)) return null;
+    const i = Math.round(SV.g.x), P = svPlanes();
+    if (Math.abs(SV.g.x - i) > SV_REST_U || P.length < 2) return null;
+    const R = svRange(), key = [i, R ? R.lo + ':' + R.hi : '', svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity()].join('|');
+    return key === svSetDone ? null : key;
+  }
+  // the idle job's share: those sets begun once the warm-up is done, true; false while there are none, too little time
+  // is left, or the warm-up or a link is still under way (then the job looks again SV_SET_WAIT_MS later)
+  function svSetAhead(ms) {
+    const key = svSetNext();
+    if (!key) return false;
+    if (ms < SV_POLE_BUDGET / 2 || !(warmDriver && warmDriver.finished()) || GLR.pendingLinks > 0) {
+      if (!svSetTimer) svSetTimer = setTimeout(() => { svSetTimer = 0; svPolesWatch(); }, SV_SET_WAIT_MS);
+      return false;
+    }
+    svSetDone = key;
+    const P = svPlanes(), i = Math.round(SV.g.x), R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;
+    const js = i + 1 < P.length ? [i] : [];
+    for (let j = i < end ? i + 1 : start; j < end; j++) if (!js.includes(j)) js.push(j);
+    let n = 0;
+    for (const j of js) {
+      for (const { q, b, u } of svGlideSet(j, 1)) {
+        if (n++ >= SV_SET_REST) return true;
+        q.paths.forEach((p, k) => svInvState(q, k, b, u, true, true));
+      }
+    }
+    return true;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
   // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
