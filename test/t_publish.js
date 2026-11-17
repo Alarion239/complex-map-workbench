@@ -16,7 +16,7 @@ const ok = (name, pass, detail) => { if (!pass) { fails++; console.log('FAIL ' +
 // the hook blocks as build.py finds them, per source file (a block never spans two files)
 const { BLOCK: RE, BLOCK_SRC, ANY, OPENER } = require('../tools/hook_marker');
 const HOOK_MAX = 300;   // lines: the longest hook block is about 240 (app.js's test helpers at the end of init)
-const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js') && !/^i18n_|^seasong/.test(n));
+const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => /\.[jt]s$/.test(n) && !/^i18n_|^seasong/.test(n));
 for (const f of new Set([...files, 'app.js', 'gl.js'])) {
   let text;
   try { text = source(f); } catch (e) { continue; }

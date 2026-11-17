@@ -184,7 +184,7 @@ float wabs(vec2 w) {
 }
 float wang(vec2 w) { return (w.x == 0.0 && w.y == 0.0) ? 0.0 : atan(w.y, w.x); }
 `;
-  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.js): uPal is the chosen
+  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.ts): uPal is the chosen
   // palette's index in Palette.LIST, 0 the wheel; an Arb palette is baked in uPalT (Palette.bake): column i is
   // arg 2pi i / W, row j is 1 - 1/(1 + |w|^0.2) = j / (H - 1)
   const DCOLOR = `
