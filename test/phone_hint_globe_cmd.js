@@ -15,8 +15,7 @@ for (const [w, h, lang] of POINTS) {
   await ev(`__cmwSteps({ surf: 'sphere', go: 0, now: true }); 1`);
   await settled({ max: 30000, until: `!!document.querySelector('#leftReadout .rglobe') && !!__cmwGlobeXY('L', 0, 1)` });
   const m = info[name] = await ev(`(() => {
-    const cv = document.getElementById('canvasL').getBoundingClientRect(), c = __cmwCam('L'), pc = GLR.camera(c, cv.width, cv.height), D = Math.hypot(...pc.eye);
-    const R = D > 1 ? Math.tan(Math.asin(1 / D)) / Math.tan((c.fov || 28 * Math.PI / 180) / 2) * cv.height / 2 : cv.height / 2;
+    const cv = document.getElementById('canvasL').getBoundingClientRect(), R = __cmwGlobeDisk('L').R;
     const ch = document.getElementById('leftReadout').getBoundingClientRect(), cx = cv.left + cv.width / 2, cy = cv.top + cv.height / 2;
     const nx = Math.max(ch.left, Math.min(cx, ch.right)), ny = Math.max(ch.top, Math.min(cy, ch.bottom)), i = __cmwGlobeXY('L', 0, 1);
     return { R: Math.round(R), chip: [ch.left, ch.top, ch.right, ch.bottom].map(Math.round), gap: Math.round(Math.hypot(nx - cx, ny - cy) - R), i: i && i.map(Math.round),
