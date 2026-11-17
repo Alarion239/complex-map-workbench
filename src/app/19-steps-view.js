@@ -1956,9 +1956,9 @@
     return onPage;
   }
   // the shapes' outlines in S.shapes order: under map, open sets dashed (spec 6.5), along the curve under map; the plane
-  // a glide reaches, in every frame of the glide, by the inverse pass per pixel (svReached) at opacity u (svStrokeAt); col: as the colour plot draws
-  // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
-  // caller copies it), else a frame of their own
+  // a glide reaches, in every frame of the glide, by the inverse pass per pixel (svReached) at opacity u (svStrokeAt);
+  // col: as the colour plot draws them (renderColor: with Outlines off, the selected shape's alone). Into the open GL
+  // frame frame, if given (the caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
     const reached = hideStrokes ? null : svReached(map0);

@@ -62,17 +62,17 @@ const snap = async (tag, hide) => {
   if (hide) { await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); }
 };
 const park = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-9 && GLR.pendingLinks === 0 && !__cmwSteps().hold` }); };
-// plane 1's outline of shape id (P1, P10: strokes hidden) carried to the frame at u (M, M0)
-const carried = (id, scope) => ev(`(() => {
+// In the page, for shape id: the held frames (P1, P10: plane 1 parked, its strokes hidden; M, M0: the frame at u, its
+// strokes hidden), the shape's ink and casing, and carry(each): each stroke pixel of plane 1's parked frame (its ink
+// within INK_TOL, where P10 differs) carried to its place in the frame at u, H_u(h^-1(w)), and each(wx, wy) called there
+// when that place is RING_R px or more inside the frame -> how many were carried off it. body measures and returns
+const onCarried = (id, body) => ev(`(() => {
   const g = __cmwSteps().glide, K = window.__heldPx, P = K.P1, P0 = K.P10, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
-  const W = c.width, H = c.height, dpr = W / g.w, v = g.view, hex = __cmwLook(${JSON.stringify(id)}, 'L').edge.replace('#', '');
-  const ink = [0, 2, 4].map((k) => parseInt(hex.slice(k, k + 2), 16));
+  const W = c.width, H = c.height, dpr = W / g.w, v = g.view, look = __cmwLook(${JSON.stringify(id)}, 'L');
+  const rgb = (h) => [0, 2, 4].map((k) => parseInt(h.replace('#', '').slice(k, k + 2), 16));
+  const ink = rgb(look.edge), halo = rgb(look.halo);
   const near = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2])) <= ${INK_TOL};
   const drawn = (D, D0, i, k = 1) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60 * k;
-  // (the stroke comes in over the glide, at opacity u: before FULL_U, the pixel has moved towards the shape's ink by
-  // TOWARD of a channel's range times u from the frame with the strokes hidden; from FULL_U, it is the ink)
-  const fromInk = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2]));
-  const inkAt = (i, k) => (k >= ${FULL_U} ? near(M, i) : ${JSON.stringify(scope)} === 'all' || fromInk(M, i) + ${TOWARD} * 255 * k <= fromInk(M0, i));
   // (h^-1(w) = (d w - b) / (a - c w))
   const { a, b, c: cc, d } = ${JSON.stringify(H1)};
   const mul = (p, q) => [p[0] * q[0] - p[1] * q[1], p[0] * q[1] + p[1] * q[0]];
@@ -81,64 +81,58 @@ const carried = (id, scope) => ev(`(() => {
     return { re: (num[0] * den[0] + num[1] * den[1]) / q, im: (num[1] * den[0] - num[0] * den[1]) / q };
   };
   const R = Math.round(${RING_R} * dpr);
-  let n = 0, hit = 0, off = 0;
-  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
-    const i = 4 * (y * W + x);
-    if (!near(P, i) || !drawn(P, P0, i)) continue;
-    const z = inv([v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s, v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s]), w = g.Hb(z);
-    const wx = Math.round(((w.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), wy = Math.round((g.h / 2 - (w.im - v.cy) * v.s) * dpr - 0.5);
-    if (!(wx >= R && wy >= R && wx < W - R && wy < H - R)) { off++; continue; }
+  const carry = (each) => {
+    let off = 0;
+    for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+      const i = 4 * (y * W + x);
+      if (!near(P, i) || !drawn(P, P0, i)) continue;
+      const w = g.Hb(inv([v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s, v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s]));
+      const wx = Math.round(((w.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), wy = Math.round((g.h / 2 - (w.im - v.cy) * v.s) * dpr - 0.5);
+      if (wx >= R && wy >= R && wx < W - R && wy < H - R) each(wx, wy); else off++;
+    }
+    return off;
+  };
+  ${body}
+})()`);
+// plane 1's outline of shape id carried to the frame at u: within RING_R px of each carried pixel, a pixel drawn there
+// (differing from M0) that, as the stroke comes in over the glide at opacity u, has moved towards the shape's ink by
+// TOWARD of a channel's range times u from M0 (Everywhere, before FULL_U, the drawn pixel alone); from FULL_U, the ink
+const carried = (id, scope) => onCarried(id, `
+  const fromInk = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2]));
+  const inkAt = (i, k) => (k >= ${FULL_U} ? near(M, i) : ${JSON.stringify(scope)} === 'all' || fromInk(M, i) + ${TOWARD} * 255 * k <= fromInk(M0, i));
+  let n = 0, hit = 0;
+  const off = carry((wx, wy) => {
     n++;
     let found = false;
     for (let dy = -R; dy <= R && !found; dy++) for (let dx = -R; dx <= R && !found; dx++) { const j = 4 * ((wy + dy) * W + wx + dx); if (inkAt(j, g.u) && drawn(M, M0, j, g.u)) found = true; }
     if (found) hit++;
-  }
-  return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, u: +g.u.toFixed(3) };
-})()`);
-// The stroke's opacity at the carried place (the frame at u M, its strokes hidden M0), for the shapes of plane 1: each stroke
-// pixel of plane 1's parked frame carried to the frame at u, the pixel within RING_R px whose drawn colour M fits
-// M0 + s (ink - M0) + t (casing - M0) (the ink over its casing over the frame, a shape's stroke at rest, each at a share of
-// its opacity) within FIT_TOL of a channel, with the largest s: the ink's share there, s = u at the stroke's middle when the
-// stroke comes in at opacity u. A pixel with no such fit (another colour drawn there, as a magenta stroke would be) has
-// share 0. -> {n, fit, med}: the carried pixels, those with a fit, the median share of all
-const strokeShare = (id) => ev(`(() => {
-  const g = __cmwSteps().glide, K = window.__heldPx, P = K.P1, P0 = K.P10, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
-  const W = c.width, H = c.height, dpr = W / g.w, v = g.view, look = __cmwLook(${JSON.stringify(id)}, 'L');
-  const rgb = (h) => [0, 2, 4].map((k) => parseInt(h.replace('#', '').slice(k, k + 2), 16));
-  const ink = rgb(look.edge), halo = rgb(look.halo);
-  const near = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2])) <= ${INK_TOL};
-  const drawn = (D, D0, i) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60;
+  });
+  return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, u: +g.u.toFixed(3) };`);
+// The stroke's opacity at the carried place, for a shape of plane 1: within RING_R px of each carried pixel, the pixel
+// whose drawn colour M fits M0 + s (ink - M0) + t (casing - M0) (the ink over its casing over the frame, a shape's stroke
+// at rest, each at a share of its opacity) within FIT_TOL of a channel, with the largest s: the ink's share there, s = u
+// at the stroke's middle when the stroke comes in at opacity u. A pixel with no such fit (another colour drawn there, as a
+// magenta stroke would be) has share 0. -> {n, fit, med}: the carried pixels, those with a fit, the median share of all
+const strokeShare = (id) => onCarried(id, `
   // (least squares for s and t in M - M0 = s a + t b, a = ink - M0, b = casing - M0; null when the fit misses by more than FIT_TOL)
   const fit = (i) => {
-    const h = [M0[i], M0[i + 1], M0[i + 2]], d = [0, 1, 2].map((k) => M[i + k] - h[k]), a = ink.map((x, k) => x - h[k]), b = halo.map((x, k) => x - h[k]);
-    const dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2], aa = dot(a, a), bb = dot(b, b), ab = dot(a, b), det = aa * bb - ab * ab;
+    const h = [M0[i], M0[i + 1], M0[i + 2]], dm = [0, 1, 2].map((k) => M[i + k] - h[k]), ai = ink.map((x, k) => x - h[k]), bi = halo.map((x, k) => x - h[k]);
+    const dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2], aa = dot(ai, ai), bb = dot(bi, bi), ab = dot(ai, bi), det = aa * bb - ab * ab;
     let s, t;
-    if (Math.abs(det) < 1e-6 * aa * Math.max(1, bb)) { s = dot(d, a) / aa; t = 0; } else { s = (dot(d, a) * bb - dot(d, b) * ab) / det; t = (dot(d, b) * aa - dot(d, a) * ab) / det; }
-    const miss = Math.max(...[0, 1, 2].map((k) => Math.abs(d[k] - s * a[k] - t * b[k])));
+    if (Math.abs(det) < 1e-6 * aa * Math.max(1, bb)) { s = dot(dm, ai) / aa; t = 0; } else { s = (dot(dm, ai) * bb - dot(dm, bi) * ab) / det; t = (dot(dm, bi) * aa - dot(dm, ai) * ab) / det; }
+    const miss = Math.max(...[0, 1, 2].map((k) => Math.abs(dm[k] - s * ai[k] - t * bi[k])));
     return miss <= ${FIT_TOL} && s >= -${SHARE_EPS} && t >= -${SHARE_EPS} && s + t <= 1 + ${SHARE_EPS} ? s : null;
   };
-  const { a, b, c: cc, d } = ${JSON.stringify(H1)};
-  const mul = (p, q) => [p[0] * q[0] - p[1] * q[1], p[0] * q[1] + p[1] * q[0]];
-  const inv = (w) => {
-    const n = mul(d, w), m = mul(cc, w), num = [n[0] - b[0], n[1] - b[1]], den = [a[0] - m[0], a[1] - m[1]], q = den[0] * den[0] + den[1] * den[1];
-    return { re: (num[0] * den[0] + num[1] * den[1]) / q, im: (num[1] * den[0] - num[0] * den[1]) / q };
-  };
-  const R = Math.round(${RING_R} * dpr), shares = [];
+  const shares = [];
   let nfit = 0;
-  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
-    const i = 4 * (y * W + x);
-    if (!near(P, i) || !drawn(P, P0, i)) continue;
-    const w = g.Hb(inv([v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s, v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s]));
-    const wx = Math.round(((w.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), wy = Math.round((g.h / 2 - (w.im - v.cy) * v.s) * dpr - 0.5);
-    if (!(wx >= R && wy >= R && wx < W - R && wy < H - R)) continue;
+  carry((wx, wy) => {
     let best = null;
     for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const s = fit(4 * ((wy + dy) * W + wx + dx)); if (s != null && (best == null || s > best)) best = s; }
     if (best != null) nfit++;
     shares.push(best == null ? 0 : best);
-  }
+  });
   shares.sort((p, q) => p - q);
-  return { n: shares.length, fit: nfit, med: shares.length ? +shares[shares.length >> 1].toFixed(3) : null };
-})()`);
+  return { n: shares.length, fit: nfit, med: shares.length ? +shares[shares.length >> 1].toFixed(3) : null };`);
 // the shapes of plane 1 the pass strokes
 const STROKED = ST.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id);
 const check = async (r, where, scope) => {
