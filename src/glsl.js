@@ -18,8 +18,11 @@ const GLChain = (() => {
   // before its first program; LIB is the library with the one chosen.
   const TRIG_BUILTIN = `float cx_sin(float x) { return abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
 float cx_cos(float x) { return abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }`;
-  // (Cody-Waite: x - q pi/2 in three parts, the first with 8 bits so that q times it is exact for |q| < 2^16; then the
-  // degree-9 and degree-10 polynomials of sin and cos on [-pi/4, pi/4]: within 1e-7 of Math.sin and Math.cos for |x| <= 200)
+  // (Cody-Waite: x - q pi/2 in three parts, the first with 8 bits so that q times it is exact for |q| < 2^16, |x| up to
+  // about 1.03e5; then the degree-9 and degree-10 polynomials of sin and cos on [-pi/4, pi/4]: within 1e-7 of Math.sin
+  // and Math.cos for |x| <= 200, 1e-6 up to 1e5. Past 1e5 the reduction leaves [-pi/4, pi/4] and the polynomials grow
+  // without bound, so cx_sin and cx_cos take the built-ins there: within [-1, 1], where float32's spacing of x is
+  // already 0.008 or more)
   const TRIG_ACCURATE = `vec2 cx_sincos(float x) {
   float q = floor(x * 0.6366197723675814 + 0.5);
   float r = ((x - q * 1.5703125) - q * 4.837512969970703e-4) - q * 7.549789954891882e-8;
@@ -29,8 +32,8 @@ float cx_cos(float x) { return abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }`;
   float m = q - 4.0 * floor(q * 0.25);
   return m < 0.5 ? vec2(s, c) : m < 1.5 ? vec2(c, -s) : m < 2.5 ? vec2(-s, -c) : vec2(-c, s);
 }
-float cx_sin(float x) { return abs(x) <= 3.4e38 ? cx_sincos(x).x : cx_nan(); }
-float cx_cos(float x) { return abs(x) <= 3.4e38 ? cx_sincos(x).y : cx_nan(); }`;
+float cx_sin(float x) { return abs(x) <= 1e5 ? cx_sincos(x).x : abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
+float cx_cos(float x) { return abs(x) <= 1e5 ? cx_sincos(x).y : abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }`;
   // (built-in sin and cos are good enough on every GPU, and cheaper: only these renderers take TRIG_ACCURATE)
   const TRIG_SOFT = /SwiftShader/i;
   let trigAccurate = false;
