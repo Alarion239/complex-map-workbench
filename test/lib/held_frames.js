@@ -32,7 +32,7 @@
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over P's window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u, the frame's
-//   camera, the sheet key, the opacity alpha and lastOpaque from the glide's record: F.g, or __cmwSteps().glide), keeps
+//   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
 //   the roots in the regions (where P is not the paper: a map many-to-one onto
 //   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
 //   composites them: front to back (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger
@@ -97,9 +97,9 @@
     return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
   };
   // (the frame's composite, as the inverse pass draws it: the covering points front to back, each at the frame's opacity
-  // g.alpha and the farthest opaque (g.lastOpaque), until less than 1/255 shows through; at opacity 1 that is the front
-  // point alone)
-  const A = g.alpha == null ? 1 : g.alpha, last = g.lastOpaque !== false;
+  // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
+  // the front point alone)
+  const A = g.alpha == null ? 1 : g.alpha;
   // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
   const ahead = (a, b) => { const sa = Math.round(a.k / 2 ** -8), sb = Math.round(b.k / 2 ** -8); return sa !== sb ? a.k < b.k : a.z.im !== b.z.im ? a.z.im > b.z.im : a.z.re > b.z.re; };
   let n = 0, over = 0, none = 0, max = 0, far = 0;
@@ -132,7 +132,7 @@
     const layers = [];
     let T = 1, unknown = false;
     for (let i = 0; i < lay.length && T >= 1 / 255; i++) {
-      const a = last && i === lay.length - 1 ? 1 : A, wt = T * a;
+      const a = i === lay.length - 1 ? 1 : A, wt = T * a;
       if (lay[i].cv === null) { if (wt * 255 > tol / 2) { unknown = true; break; } } else layers.push({ q: lay[i], wt });
       T *= 1 - a;
     }

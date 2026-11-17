@@ -12,7 +12,7 @@
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
 // - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
 // - (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere (x = 1.47, 1.82, 1.98): the inverse pass composites the two or
-//   three points over each w at the frame's opacity, and held_frames' judge, compositing them the same way, passes (#1804).
+//   three points over each w at the frame's opacity, and held_frames' judge, compositing them the same way, passes.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -275,7 +275,7 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // ---- a glide where sheets overlap, composited: (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere, colour from z ----
 // (step w2's homotopy is z^(1 + 2u) on the principal branch: two or three points of plane z over most w, drawn front to back
 // at the frame's opacity, the farthest opaque; held_frames' judge composites them the same way, from the glide record's
-// alpha and window, #1804. The judge's Newton seeds every 1/24 of the window across and 1/18 down: from the default 8 x 6
+// alpha and window. The judge's Newton seeds every 1/24 of the window across and 1/18 down: from the default 8 x 6
 // they miss the points beside the Möbius step's pole, z = -i)
 {
   const ns = 'gk' + Date.now();

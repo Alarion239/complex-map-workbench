@@ -1787,11 +1787,11 @@
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
-        // (alpha: the opacity the inverse pass composited the frame's points with, front to back, the farthest opaque
-        // (svCarryLook))
+        // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
+        // farthest opaque (svCarryLook at base 1))
         const hl = drew ? svHomPaths(b, u).h : null, look = hl ? svCarryLook(1, hl.list[0], { b, u }, T) : null;
         svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
-          alpha: look ? look.alpha : 1, lastOpaque: look ? look.lastOpaque : true };
+          ...(look && { alpha: look.alpha }) };
         if (drew) return;
       }
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
