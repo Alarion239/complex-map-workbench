@@ -21,7 +21,7 @@
 //   sheets-off frame is all but the parked plane: All sheets at most its share plus ARRIVE_SLACK. Most of that window is
 //   drawn by the carry's far patches, which the sheets' rim must not take for the box's edge. Möbius then √: bare where
 //   the parked plane has surface at most BARE_SLACK pixels more often than sheets off. √'s branch point lies outside the
-//   carried box (z = i), so it needs a pole patch of its own (svLandBranches, #1799), or its far patch's stretched cells
+//   carried box (z = i), so it needs a pole patch of its own (svLandBranches), or its far patch's stretched cells
 //   leave a hole about w = 0.
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
@@ -46,7 +46,7 @@ const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: 
 // also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All sheets;
 // arrive: the arrival row against the parked plane)
 const ARRIVE_SLACK = 0.05;
-const BARE_SLACK = 20;  // the arrival (#1799): the pixels All sheets may leave bare beyond the sheets-off frame's
+const BARE_SLACK = 20;  // the arrival: the pixels All sheets may leave bare beyond the sheets-off frame's
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
   { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true, arrive: true },

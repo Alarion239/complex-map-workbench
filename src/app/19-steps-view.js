@@ -470,10 +470,12 @@
     render3D(pane, carry);
     return true;
   }
-  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
-  // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
-  // cells, nearest the box's centre first, at most 4. Near a pole the map carries a small disc over the far plane, where
-  // the box's cells stretch past the tear limit and are left out.
+  // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each, from a ten-thousandth of a cell of
+  // the box's N x N grid to eight cells: one about each pole of the carry's map (from plane s) in plane s's carried box
+  // src, nearest the box's centre first, at most 4; one about each of the map's branch points (svLandBranches) not within
+  // a cell of one of them; and with hF, one about each pole of the height map in the far patches' ring
+  // (svLandHeightPoles). Near a pole the map carries a small disc over the far plane, where the box's cells stretch past
+  // the tear limit and are left out; about a branch point the sheets meet and the cells stretch the same way.
   // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
@@ -493,41 +495,59 @@
     const branches = svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
     return near.map(patch).concat(branches.map(patch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
   }
-  // The branch points of a glide's map from plane s (map.base): where the input of a multivalued step it applies (a root,
-  // power or logarithm, SV_SHEET_STEPS) is 0, in the carried box src or the far patches' inner ring about it (and within
-  // reach of it), nearest the box's centre first, at most LAND_BRANCHES. There the map's sheets meet and a cell of the
-  // box's grid or of a far patch is stretched past the tear limit, so the carried surface had a hole about the point
-  // (#1799); a pole patch's polar grid about it is not stretched. They do not move with the glide, so they are searched
-  // once per plane s, steps and box, as the zeros of the map from plane s to each step's input
+  // The branch points of a carry's map from plane s: where the input of a multivalued step it applies (a root, power or
+  // logarithm, SV_SHEET_STEPS) is 0, in the carried box src or the far patches' inner ring about it (and within reach of
+  // it), nearest the box's centre first, at most LAND_BRANCHES. There the map's sheets meet, and a cell of the box's grid
+  // or of a far patch about the point is stretched past the tear limit and left out, leaving a hole; a pole patch's polar
+  // grid about it is not stretched. Plane s is map.a at rest (mode 0) and map.base on a glide (modes 1 and 3).
+  // The points are the zeros of each step's input as a map from plane s: rangeF(s, k - 1), which does not move with the
+  // glide, but in an All-at-once span (mode 3) the input of a step after the span's first runs the steps before it at
+  // the glide's time (cpuMap of the span up to k - 1), so its zeros move. They are searched for (svPolesIn of the
+  // reciprocal) once per plane s, steps and box, and in a span each frame follows the last frame's points by Newton's
+  // method (svPoleAt), as the glide map's poles do (svLandPatches)
   const LAND_BRANCHES = 4, svLandBranchMemo = { key: '', pts: [] };
   function svLandBranches(map, src, reach) {
-    const base = map.base || 0, hi = map.mode === 1 ? map.hi || 0 : map.b || 0, ks = [];
+    const mode = map.mode || 0, base = mode === 0 ? map.a || 0 : map.base || 0, hi = mode === 1 ? map.hi || 0 : map.b || 0, ks = [];
     for (let k = base + 1; k <= hi; k++) if (stepActive(k) && SV_SHEET_STEPS.includes(S.steps[k - 1].type)) ks.push(k);
-    const key = JSON.stringify([chainSig[nSteps()], base, ks, src.x0, src.x1, src.y0, src.y1, reach]);
-    if (svLandBranchMemo.key === key) return svLandBranchMemo.pts;
-    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
-    const ring = { x0: x - r, x1: x + r, y0: y - r, y1: y + r }, pts = [];
-    for (const k of ks) {
-      const G = rangeF(base, k - 1);
-      const inv = (z) => { const w = G(z); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
-      for (const p of svDrain(svPolesIn(inv, ring, LAND_HEIGHT_GRID, ring, { n: 0, at: 0 }))) if (pts.every((q) => Math.hypot(q.re - p.re, q.im - p.im) > 1e-9 * (1 + r))) pts.push(p);
+    // (step k's input from plane s, and whether it moves with the glide)
+    const moves = (k) => mode === 3 && k > (map.a || 0) + 1;
+    const input = (k) => (moves(k) ? cpuMap({ mode: 3, a: map.a || 0, b: k - 1, t: map.t || 0, base, stepT: map.stepT }) : rangeF(base, k - 1));
+    const inv = (G) => (z) => { const w = G(z); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
+    const key = JSON.stringify([chainSig[nSteps()], mode, base, mode === 3 ? [map.a || 0, svStepTKey(map.stepT)] : 0, ks, src.x0, src.x1, src.y0, src.y1, reach]);
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, ring = svLandRing(src, reach), E = { n: 0, at: 0 };
+    let pts;
+    if (svLandBranchMemo.key === key) {
+      if (!ks.some(moves)) return svLandBranchMemo.pts;
+      pts = svLandBranchMemo.pts.map((p) => (moves(p.k) ? Object.assign(svDrain(svPoleAt(inv(input(p.k)), p, ring, E)) || C(p.re, p.im), { k: p.k }) : p));
+    } else {
+      pts = [];
+      for (const k of ks) {
+        for (const p of svDrain(svPolesIn(inv(input(k)), ring, LAND_ZERO_GRID, ring, E))) if (pts.every((q) => Math.hypot(q.re - p.re, q.im - p.im) > LAND_ZERO_TOL * (1 + ring.r))) pts.push(Object.assign(p, { k }));
+      }
     }
     const out = pts.sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_BRANCHES);
     Object.assign(svLandBranchMemo, { key, pts: out });
     return out;
+  }
+  // the square about the carried box src's centre that holds the far patches' inner ring and reach beyond it (r: its half
+  // side), where svLandBranches and svLandHeightPoles look
+  function svLandRing(src, reach) {
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
+    return { x0: x - r, x1: x + r, y0: y - r, y1: y + r, r };
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
   // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
   // there is a log spike that the far patches' coarse cells facet, so each gets a pole patch of its own like the glide
   // map's poles (svLandPatches). hF does not move with the glide, so they are searched once per plane s and box (hKey
   // names hF)
-  const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 64, svLandHeightMemo = { key: '', poles: [] };
+  // (LAND_ZERO_GRID: the grid a side the search for poles in the ring runs on (svPolesIn); LAND_ZERO_TOL: two points found
+  // closer than it times the ring's size are one)
+  const LAND_HEIGHT_POLES = 8, LAND_ZERO_GRID = 64, LAND_ZERO_TOL = 1e-9, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
     if (svLandHeightMemo.key === key) return svLandHeightMemo.poles;
-    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
-    const ring = { x0: x - r, x1: x + r, y0: y - r, y1: y + r };
-    const out = svDrain(svPolesIn(hF, ring, LAND_HEIGHT_GRID, ring, { n: 0, at: 0 }))
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, ring = svLandRing(src, reach);
+    const out = svDrain(svPolesIn(hF, ring, LAND_ZERO_GRID, ring, { n: 0, at: 0 }))
       .filter((p) => p.re < src.x0 || p.re > src.x1 || p.im < src.y0 || p.im > src.y1)
       .sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_HEIGHT_POLES);
     Object.assign(svLandHeightMemo, { key, poles: out });
