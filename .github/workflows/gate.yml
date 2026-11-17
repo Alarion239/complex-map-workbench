@@ -430,11 +430,11 @@ jobs:
     # (ci/browser_shards.js). GitHub's machines render WebGL in software: the suites' timing checks are reported, not
     # gated (speed is gated by the perf suite on the GPU machines); their correctness checks gate. The renderer is Mesa's
     # lavapipe (llvmpipe behind ANGLE's Vulkan back end), which draws the app 2-4 times faster than Chrome's own
-    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). The job runs on GitHub's Ubuntu 24.04
-    # image, not ubuntu-latest: the layout shards gate on the renderer their baseline was made on (ci/layout_baseline.json:
-    # this image's lavapipe, with its Vulkan and LLVM versions in the renderer's name), so on another image they fail
-    # until a new baseline is made there; and the jobs of one run must not land on two images while ubuntu-latest moves.
-    # TODO(#1507): run the job on Ubuntu 26.04 with a new layout baseline made there, and unpin it.
+    # SwiftShader there (frames of 0.2-0.4 s instead of 0.5-2 s at 1440 x 900). The job runs on GitHub's Ubuntu 26.04
+    # image by name, not ubuntu-latest: the layout shards gate on the renderer their baseline was made on
+    # (ci/layout_baseline.json: this image's lavapipe, with its Vulkan and LLVM versions in the renderer's name), so on
+    # another image they fail until a new baseline is made there; and the jobs of one run must not land on two images
+    # while ubuntu-latest moves.
     needs: plan
     if: needs.plan.outputs.browser != '[]'
     strategy:
@@ -444,10 +444,15 @@ jobs:
       max-parallel: 8
       matrix:
         shard: ${{ fromJSON(needs.plan.outputs.browser) }}
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     timeout-minutes: 120
     env:
       CMW_ANGLE: vulkan
+      # llvmpipe emits AVX code only, no AVX2, FMA or AVX-512 (#1507): LLVM 21, in Mesa 26.0.8's lavapipe, miscompiles
+      # sin∘√'s glide through sin's step (mode 1, the root in full, then sin's path) on GitHub's AMD Zen 4/5 machines,
+      # NaN at every point, while Zen 3 and Intel machines compute it. test/deform_range_gl_cmd.js and
+      # test/deform_range_cmd.js check that map, and fail on those machines without this. (#1735: the app's side.)
+      GALLIUM_OVERRIDE_CPU_CAPS: avx
       CMW_CHROME_ARGS: --no-sandbox --enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface
     steps:
       - uses: actions/checkout@v5
