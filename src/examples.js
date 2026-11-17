@@ -243,6 +243,9 @@ const Examples = (() => {
     const pop = h('div', { class: 'pop menu examples', role: 'menu', 'aria-label': $t('Examples') }, ...items.map((x) => x.b));
     $('popHost').append(pop);
     A.popEl = pop;
+    // (the button that opened the gallery says so while it is open; closePalette puts it back)
+    pop._opener = anchor;
+    if (anchor.hasAttribute('aria-expanded')) anchor.setAttribute('aria-expanded', 'true');
     placePop(pop, anchor);
     // (ex.tip: the whole description as a tooltip, where its line is cut; the melody says how to hear it there)
     for (const { b, i } of items) { const bl = EX[i].tip && b.querySelector('.ex-blurb'); if (bl && bl.scrollWidth > bl.clientWidth + 1) b.title = EX[i].blurb; }
