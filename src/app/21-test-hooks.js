@@ -39,6 +39,10 @@
   // (walls tests, #168 review) a step's parameter set as its field sets it (live, chainChanged(false)): a log's cut
   /** @type {any} */ (window).__cmwToast = (msg, label, o) => toast(msg, label, () => {}, false, o);   // (a message with an optional action that does nothing)
   /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
+  // TEMP-DEBUG-HOOK
+
+  // TEMP-DEBUG-HOOK (removed before publishing)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // (#1547) the slow-links path (GLR.slowLinks: a typed edit's prestart waits for its commit, the Landscape's warm-up for
   // its first draw) forced on (true) or off (false), or left to the renderer (null); no argument only reads it. Answers
   // whether the path is on, and the typed edit held ({ held: ms left })
