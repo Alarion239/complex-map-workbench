@@ -6,7 +6,7 @@
 //  - the key's caption follows the same map; the last plane has one name, w₂;
 //  - parked between two planes, the title names them ("z → w₁ · coloured from w₁") and the colour button is not pressed but
 //    off (aria-disabled, its reason as its description): neither Enter on it nor the C key changes the colour plane, and the key
-//    says the reason;
+//    says the reason; parked in the Landscape, the title keeps the relief's role and the colour button is off too;
 //  - the left panel groups the shapes by plane ("In z", "In w₁") with no X or Y, and the phone's probe hint names the map.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/steps_names_cmd.js
 // Prints { pass, fails, info }.
@@ -139,7 +139,7 @@ for (const lang of ['en', 'ru']) {
       await ev("document.activeElement && document.activeElement.blur(); 1");
       await key('c');
       await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-      const afterC = await ev("({ T: __cmwSteps().T, x: __cmwSteps().x, live: [...document.querySelectorAll('#svStrip [aria-live], .sv-bar [aria-live], [aria-live]')].map((e) => e.textContent).filter((t) => t.includes(" + JSON.stringify(PARK_WHY[lang]) + ")).length })");
+      const afterC = await ev("({ T: __cmwSteps().T, x: __cmwSteps().x, live: [...document.querySelectorAll('[aria-live]')].map((e) => e.textContent).filter((t) => t.includes(" + JSON.stringify(PARK_WHY[lang]) + ")).length })");
       ok(`${tag}: the C key leaves the colour plane and stays parked`, afterC.T === T && Math.abs(afterC.x - x) < 1e-9, afterC);
       ok(`${tag}: the C key says why`, afterC.live >= 1, afterC);
     }

@@ -581,8 +581,8 @@
   // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
   // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0]). The rule
   // composes, clamp(n clamp(a t - b, 0, 1) - i, 0, 1) = clamp(a n t - (b n + i), 0, 1), so it holds for a step with a time
-  // of its own as for any other (the page does not offer that today: the Split's reader and its gate refuse the steps a
-  // Split makes)
+  // of its own as for any other (the page offers no such step: the Split's reader and its gate refuse the steps a Split
+  // makes)
   function svStepTSplit(stepT, k, n) {
     const o = [], f = (stepT && stepT[k]) || [1, 0];
     if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
@@ -3067,14 +3067,16 @@
     const P = svPlanes(), x = SV.g.x;
     return [P[Math.floor(x)], P[Math.min(P.length - 1, Math.ceil(x))]];
   }
+  // says text in the steps view's live region (the colour plane set or refused, the place on the chain)
+  const svSay = (text) => { if (SV.els && SV.els.live) SV.els.live.textContent = text; };
   function svSetT(k) {
     // (#437: a step shown alone is coloured from its own plane; the button says so, and so does the key)
-    if (SV.alone) { if (SV.els && SV.els.live) SV.els.live.textContent = $t('The step shown alone is coloured from its own plane'); return; }
+    if (SV.alone) { svSay($t('The step shown alone is coloured from its own plane')); return; }
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
     save();
     tourEmit('colour-plane-set', { k });
-    if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
+    svSay(svLabel());
     // (the programs a new colour plane needs, started when the page is idle: else they link on the first glide past it,
     // 8 s on WARP for the Mountain King; tiers on #456)
     svPrestartSoon(0);
@@ -3279,7 +3281,7 @@
       } else if (lk === 'c' && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
         // (parked between two planes, the key says why it does nothing, as the colour button's reason does)
-        if (!SV.alone && svParked()) { if (SV.els && SV.els.live) SV.els.live.textContent = $t('Stop on a plane to colour from it'); }
+        if (!SV.alone && svParked()) svSay($t('Stop on a plane to colour from it'));
         else svSetT(svStage());
       }
     }, true);
