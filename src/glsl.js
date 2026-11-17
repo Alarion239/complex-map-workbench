@@ -364,14 +364,15 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
   // [issue #5] a series on the GPU: SER_GPU terms of a power or Dirichlet series in uniforms (half each way for a
-  // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable (as many as the CPU takes, so both
-  // stop at the same point and agree where the series converges slowly)
+  // Laurent series), SER_GPU_LOOP terms of any other infinite sum, its index a loop variable (as many as the CPU's
+  // SER_CAP, so both stop at the same point and agree where the series converges slowly); a finite sum: SER_GPU_FINITE
   const SER_GPU = 96, SER_GPU_LOOP = 512;
   // the terms of a finite sum on the GPU: every one, as the CPU sums them, up to SER_GPU_FINITE; past it NaN, where the
   // CPU goes on to its SER_FINITE. Every pixel of a frame takes that many terms in one draw, and a term n^{-z} is about
   // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
   // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
-  // (TDR), which is worse for the user than a blank pane
+  // (TDR), which is worse for the user than a blank pane. That bound is one sum's: a sum inside another takes up to the
+  // product of their caps a pixel (2048 x 2048, about 4.2 M terms), which it does not cover (#1845)
   const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
