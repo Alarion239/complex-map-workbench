@@ -570,8 +570,11 @@ async function playCell(base, name, tree, timeoutMs, tailMs) {
     const play = raf.filter((t) => firstS != null && t >= firstS && (endS == null || t <= endS));
     const gaps = play.slice(1).map((t, i) => t - play[i]);
     // (the landing: the plane at rest drawn by the inverse pass, svRestRec's path; none for a plane that is the colour plane, which has no such record)
+    // (the glide's own motion: the first sample whose position has left the start, its length to the end, and the holds after it began)
+    const x0 = samples.length ? samples[0][2] : null, mv = samples.find((x) => x[2] !== x0);
+    const moveS = mv ? mv[0] : null, glideS = moveS != null && endS != null ? endS - moveS : null, midHolds = stalls.filter(([a]) => moveS != null && a >= moveS - 0.3);
     const meshLanding = samples.filter((x) => endS != null && x[0] >= endS && (x[3] === 'mesh' || x[5] === 'mesh')).length;
-    return { firstS, playS: endS, landExactS: landS == null || endS == null ? null : landS - endS, meshAfterLanding: meshLanding, meshAfter: samples.filter((x) => firstS != null && x[0] > firstS && x[3] === 'mesh').length, frames: play.length, fps: play.length > 1 ? (play.length - 1) / (play[play.length - 1] - play[0]) : null, longestGapMs: gaps.length ? Math.max(...gaps) * 1000 : null, stalls, links: recs };
+    return { firstS, playS: endS, moveS, glideS, midHolds, landExactS: landS == null || endS == null ? null : landS - endS, meshAfterLanding: meshLanding, meshAfter: samples.filter((x) => firstS != null && x[0] > firstS && x[3] === 'mesh').length, frames: play.length, fps: play.length > 1 ? (play.length - 1) / (play[play.length - 1] - play[0]) : null, longestGapMs: gaps.length ? Math.max(...gaps) * 1000 : null, stalls, links: recs };
   } finally { await H.close(); }
 }
 
@@ -597,8 +600,8 @@ async function playAB() {
   fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, rows }, null, 1));
   const f = (v, d = 1) => (v == null ? 'none' : v.toFixed(d));
   const lines = ['### The first glide as it plays', '', 'Seconds from the glide\'s start. fps: the app\'s animation-frame callbacks a second from the first exact frame to the end of the play; mesh: samples after the first exact frame drawn by the carried mesh.', '',
-    '| scene | side | first exact frame | play ended | landing to the plane\'s exact frame | mesh samples after the landing | fps (longest gap ms) | mesh frames after the first exact | stalls (s) |', '|---|---|---|---|---|---|---|---|---|'];
-  for (const r of rows) lines.push(`| ${r.scene} | ${r.side} | ${r.status === 'ok' ? f(r.firstS) : r.status} | ${f(r.playS)} | ${f(r.landExactS)} | ${r.meshAfterLanding == null ? '' : r.meshAfterLanding} | ${f(r.fps)} (${f(r.longestGapMs, 0)}) | ${r.meshAfter == null ? '' : r.meshAfter} | ${(r.stalls || []).map(([a, b]) => `${a.toFixed(0)}-${b.toFixed(0)}`).join(', ')} |`);
+    '| scene | side | press to the first moving frame | the glide itself (first moving frame to its end) | holds after it moved (s) | first exact frame | play ended | landing to the plane\'s exact frame | mesh samples after the landing | fps (longest gap ms) | mesh frames after the first exact | stalls (s) |', '|---|---|---|---|---|---|---|---|---|---|---|---|'];
+  for (const r of rows) lines.push(`| ${r.scene} | ${r.side} | ${r.status === 'ok' ? f(r.moveS) : r.status} | ${f(r.glideS)} | ${(r.midHolds || []).map(([a, b]) => `${a.toFixed(0)}-${b.toFixed(0)}`).join(', ') || 'none'} | ${f(r.firstS)} | ${f(r.playS)} | ${f(r.landExactS)} | ${r.meshAfterLanding == null ? '' : r.meshAfterLanding} | ${f(r.fps)} (${f(r.longestGapMs, 0)}) | ${r.meshAfter == null ? '' : r.meshAfter} | ${(r.stalls || []).map(([a, b]) => `${a.toFixed(0)}-${b.toFixed(0)}`).join(', ')} |`);
   lines.push('', '| scene | side | inverse program | starts s | ends s | link s | what waited for it |', '|---|---|---|---|---|---|---|');
   for (const r of rows) for (const l of r.links || []) lines.push(`| ${r.scene} | ${r.side} | ${esc(l.key)} | ${f(l.start)} | ${l.end == null ? 'open' : f(l.end)} | ${l.s == null ? 'open' : f(l.s)} | ${l.waited} |`);
   lines.push('');
