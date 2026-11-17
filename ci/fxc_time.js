@@ -627,7 +627,47 @@ const SRC_SHIM = `(() => {
   window.requestAnimationFrame = (cb) => raf0((t) => { window.__rafT.push(t); return cb(t); });
   proto.shaderSource = function (s, t) { src.set(s, t); return ss.call(this, s, t); };
   proto.attachShader = function (p, s) { if (!att.has(p)) att.set(p, []); att.get(p).push(s); return at.call(this, p, s); };
-  proto.linkProgram = function (p) { const a = (att.get(p) || []).map((s) => src.get(s) || ''); window.__srcs.push({ vs: a[0] || '', fs: a[1] || '' }); return lp.call(this, p); };
+  proto.linkProgram = function (p) { const a = (att.get(p) || []).map((s) => src.get(s) || ''); window.__srcs.push({ vs: a[0] || '', fs: a[1] || '' }); p.__idx = window.__srcs.length - 1; return lp.call(this, p); };
+  // each program's first draw: the call and a finish after it (the GPU process builds a variant of the program it lacks at that draw), and
+  // what the draw binds: the draw framebuffer's targets (the component type and the red size) and the enabled vertex attributes
+  window.__draws = [];
+  const up = proto.useProgram, fin = proto.finish;
+  proto.useProgram = function (p) { this.__cur = p; return up.call(this, p); };
+  const state = (gl) => {
+    let fb = 'default';
+    try {
+      if (gl.getParameter(gl.DRAW_FRAMEBUFFER_BINDING)) {
+        const parts = [];
+        for (let i = 0; i < 4; i++) {
+          if (gl.getParameter(gl.DRAW_BUFFER0 + i) === gl.NONE) { parts.push('-'); continue; }
+          const t = gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.FRAMEBUFFER_ATTACHMENT_COMPONENT_TYPE);
+          const r = gl.getFramebufferAttachmentParameter(gl.DRAW_FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + i, gl.FRAMEBUFFER_ATTACHMENT_RED_SIZE);
+          parts.push((t === gl.FLOAT ? 'f' : t === gl.INT ? 'i' : t === gl.UNSIGNED_INT ? 'u' : t === gl.UNSIGNED_NORMALIZED ? 'n' : '?') + r);
+        }
+        fb = parts.join(',');
+      }
+    } catch (e) { fb = 'error'; }
+    const at2 = [];
+    try {
+      for (let i = 0; i < 8; i++) {
+        if (!gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_ENABLED)) continue;
+        at2.push(i + ':' + gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_SIZE) + (gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_INTEGER) ? 'I' : '') + (gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_DIVISOR) ? '/' + gl.getVertexAttrib(i, gl.VERTEX_ATTRIB_ARRAY_DIVISOR) : ''));
+      }
+    } catch (e) { at2.push('error'); }
+    return 'targets ' + fb + '; attributes ' + (at2.join(' ') || 'none');
+  };
+  for (const name of ['drawArrays', 'drawElements', 'drawArraysInstanced', 'drawElementsInstanced']) {
+    const o = proto[name];
+    proto[name] = function (...a) {
+      const p = this.__cur;
+      if (!p || p.__drawn || p.__idx == null) return o.apply(this, a);
+      p.__drawn = true;
+      const st = state(this), t0 = performance.now(), r = o.apply(this, a);
+      fin.call(this);
+      window.__draws.push({ idx: p.__idx, ms: performance.now() - t0, state: st });
+      return r;
+    };
+  }
 })();`;
 // the cache folders of a profile: [{ dir, files, kb }] (every folder under the profile, to a depth of 3, whose name has "cache")
 function cacheStats(prof) {
@@ -664,7 +704,7 @@ async function cacheLinkOne(prof, flags, source, timeoutMs, url, idleS) {
     while (!r && Date.now() - t1 < timeoutMs) { await sleep(500); r = await Promise.race([H.ev('window.__res').catch(() => null), sleep(2000).then(() => null)]); }
     if (idleS) await sleep(idleS * 1000);
     const open = storedKb(prof);   // (the cache folders while Chrome is still open, after the idle wait)
-    return r ? { s: r.ms / 1000, ok: r.ok, open } : { s: null, ok: false, open };
+    return r ? { s: r.ms / 1000, ok: r.ok, open, drawS: r.drawMs / 1000 } : { s: null, ok: false, open };
   } finally { await H.close(); }
 }
 
@@ -710,14 +750,14 @@ async function cacheAppPass(base, name, tree, prof, flags, timeoutMs, idleS) {
     if (idleS) await sleep(idleS * 1000);
     series.push([Date.now(), storedKb(prof)]);
     const prof2 = await H.ev('GLR.profile()'), srcs = await H.ev('window.__srcs'), origin = await H.ev('performance.timeOrigin');
-    const rafT = [...new Set(await H.ev('window.__rafT'))];
+    const rafT = [...new Set(await H.ev('window.__rafT'))], draws = await H.ev('window.__draws');
     // the cache KB at wall time t: the first sample at or after it
     const kbAt = (t) => { const x = series.find(([w]) => w >= t); return (x || series[series.length - 1])[1]; };
     const recs = prof2.map((r, i) => {
       const s = srcs[i] || { vs: '', fs: '' }, end = r.ms == null ? null : origin + r.t0 + r.ms;
-      return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs), grew: end == null ? null : kbAt(end + 4000) - kbAt(end), t0: r.t0, frames: r.ms == null ? null : rafT.filter((t) => t >= r.t0 && t <= r.t0 + r.ms).length };
+      return { name: r.name, key: String(r.key).slice(0, 44), inv: !!r.inv, ms: r.ms, kb: +((s.vs.length + s.fs.length) / 1024).toFixed(1), hash: sha1(s.vs + '\0' + s.fs), grew: end == null ? null : kbAt(end + 4000) - kbAt(end), t0: r.t0, frames: r.ms == null ? null : rafT.filter((t) => t >= r.t0 && t <= r.t0 + r.ms).length, draw: draws.find((d) => d.idx === i) || null };
     });
-    return { recs, open: series[series.length - 1][1] };
+    return { recs, open: series[series.length - 1][1], srcs };
   } finally { await H.close(); }
 }
 
@@ -725,7 +765,7 @@ async function cacheStudy() {
   const bundleFile = path.resolve(opt('bundle', path.join(ROOT, 'ci', 'fxc', 'bundle.json')));
   const B = JSON.parse(fs.readFileSync(bundleFile, 'utf8'));
   const timeoutMs = Number(opt('timeout-s', '900')) * 1000, budgetMs = Number(opt('budget-min', '85')) * 60000;
-  const progJobs = opt('jobs', '31,13,0,8').split(',').map(Number), scenes = opt('scenes', 'expsin,mk').split(',').filter((x) => x && x !== 'none');
+  const progJobs = opt('jobs', '31,13,0,8').split(',').map(Number).filter((n) => Number.isFinite(n)), scenes = opt('scenes', 'expsin,mk').split(',').filter((x) => x && x !== 'none');
   const src = (i) => B.sources[`${B.jobs[i].prog}:${B.jobs[i].variant}`];
   const nameOf = (i) => { const p = B.programs.find((q) => q.id === B.jobs[i].prog); return `${p.name} ${String(p.key).slice(0, 36)} (${B.jobs[i].srcKB} KB)`; };
   if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
@@ -735,6 +775,7 @@ async function cacheStudy() {
   const res = { programs: [], app: [] };
   const over = () => Date.now() - t00 > budgetMs;
   const idles = opt('idle-s', '0').split(',').map(Number);
+  let appSrcs = null;   // the first cold app pass's programs with their sources, for the standalone link of the app's own programs
   for (const [setName0, flags] of CACHE_SETTINGS.slice(0, Number(opt('settings', String(CACHE_SETTINGS.length))))) for (const idleS of idles) {
     const setName = `${setName0}, idle ${idleS} s then a graceful close`;
     // programs in turn on one profile: cold, warm; then the first (small) and the largest alone on a profile of their own
@@ -763,11 +804,30 @@ async function cacheStudy() {
       res.app.push(row);
       for (const pass of ['cold', 'warm', 'warm again', 'warm a third time'].slice(0, Number(opt('passes', '2')))) {
         if (over()) { row.passes.push({ pass, skipped: true }); continue; }
-        const { recs, open } = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, idleS);
+        const { recs, open, srcs } = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, idleS);
+        if (pass === 'cold' && !appSrcs) appSrcs = recs.map((r, i) => ({ ...r, vs: srcs[i].vs, fs: srcs[i].fs }));
         row.passes.push({ pass, recs, open, cache: cacheStats(prof) });
         console.log(`[fxc] cache ${setName.slice(0, 20)} app ${name} ${pass}: ${recs.length} links, ${(recs.reduce((a, r) => a + Math.max(0, r.ms || 0), 0) / 1000).toFixed(1)} s of link time; ${cacheLine(cacheStats(prof))}`);
       }
     }
+  }
+  // the app's own programs on the standalone page: the inverse ones and the others that hit in the app (not the transform-feedback ones, which need
+  // their varyings declared before the link), cold then warm in turn on one profile
+  const appProgs = [];
+  if (flag('app-progs') && appSrcs) {
+    const seen = new Set(), others = appSrcs.filter((r) => !r.inv && !/^tf/.test(r.name) && r.kb >= 20).sort((a, b) => b.kb - a.kb).filter((r) => (seen.has(r.hash) ? false : seen.add(r.hash))).slice(0, Number(opt('app-progs-n', '6')));
+    const inv = appSrcs.filter((r) => r.inv).slice(0, 3);
+    const list = [...inv, ...others], prof = path.join(tmp, 'ap');
+    for (const pass of ['cold', 'warm']) {
+      for (const [i, r] of list.entries()) {
+        if (over()) continue;
+        const x = await cacheLinkOne(prof, CACHE_SETTINGS[0][1], { vs: r.vs, fs: r.fs }, timeoutMs, `${S.base}blank.html`, 0);
+        if (!appProgs[i]) appProgs[i] = { name: r.name, key: r.key, inv: r.inv, kb: r.kb };
+        appProgs[i][pass] = { s: x.s, drawS: x.drawS };
+        console.log(`[fxc] cache app programs ${pass}: ${r.inv ? 'inverse ' : ''}${r.name} (${r.kb} KB) ${x.s == null ? 'timeout' : x.s.toFixed(1) + ' s link + ' + (x.drawS || 0).toFixed(1) + ' s first draw'}`);
+      }
+    }
+    res.appProgs = appProgs;
   }
   S.server.close();
   const outFile = path.resolve(opt('out', path.join(ROOT, '.ci', 'fxc', 'cache.json')));
@@ -804,6 +864,19 @@ async function cacheStudy() {
       lines.push(`| ${esc(r.key)} (${r.kb} KB) | ${cells.join(' | ')} |`);
     });
     lines.push('', `GPUCache and GPUPersistentCache after each pass: ${row.passes.map((x) => `${x.pass}: ${x.open} KB`).join('; ')}.`, '');
+  }
+  if (appProgs.length) {
+    lines.push('**The app\'s own programs on the standalone page** (link s + first draw s; one Chrome each, in turn, one profile)', '', '| program | KB | cold link + draw | warm link + draw | warm / cold (link + draw) |', '|---|---|---|---|---|');
+    for (const x of appProgs) { const c = x.cold, w = x.warm; lines.push(`| ${x.inv ? 'inverse ' : ''}${esc(x.name)} \`${esc(x.key)}\` | ${x.kb} | ${c ? `${f(c.s)} + ${f(c.drawS)}` : ''} | ${w ? `${f(w.s)} + ${f(w.drawS)}` : ''} | ${c && w && c.s != null && w.s != null ? ((w.s + (w.drawS || 0)) / Math.max(0.05, c.s + (c.drawS || 0))).toFixed(2) : ''} |`); }
+    lines.push('');
+  }
+  // the first draw of each program in the app: the cost of the draw (with a finish) and what it binds
+  for (const row of res.app) {
+    if (!row.passes[0] || row.passes[0].skipped) continue;
+    const [c, w] = row.passes;
+    lines.push(`**App, ${row.scene}; ${row.setting}: the first draw of each program** (link s, then the first draw with a finish s; cold / warm)`, '', '| # | program | KB | link s | first draw s | what the first draw binds |', '|---|---|---|---|---|---|');
+    c.recs.forEach((r, i) => { const x = w && w.recs[i] && w.recs[i].hash === r.hash ? w.recs[i] : null; if (!r.draw) return; if (r.kb < 20 && !r.inv) return; lines.push(`| ${i + 1} | ${r.inv ? 'inverse ' : ''}${esc(r.name)} \`${esc(r.key)}\` | ${r.kb} | ${f(r.ms == null ? null : r.ms / 1000)} / ${x ? f(x.ms == null ? null : x.ms / 1000) : ''} | ${f(r.draw.ms / 1000)} / ${x && x.draw ? f(x.draw.ms / 1000) : ''} | ${esc(r.draw.state)} |`); });
+    lines.push('');
   }
   const md = lines.join('\n');
   summary(md);
