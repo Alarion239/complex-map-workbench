@@ -11,7 +11,8 @@
     closePad(); // the Argand pad never outlives the popover or menu around it
     if (!popEl) return;
     const back = Commands.opener();   // (the command palette's opener, when the popover is the palette)
-    const onClose = popEl._onClose;
+    const onClose = popEl._onClose, op = popEl._opener;
+    if (op && op.getAttribute && op.getAttribute('aria-expanded') === 'true') op.setAttribute('aria-expanded', 'false');
     popEl.remove(); popEl = null;
     if (onClose) onClose();
     Commands.closed();

@@ -95,7 +95,7 @@
   // a fresh cost guard with policy options (GLR.CostGuard opts, e.g. {budget: 1e9}: measure only), for measurements
   window.__cmwGuardOpts = (o) => { if (!GLR.CostGuard) return null; guard = GLR.CostGuard(Object.assign({}, GUARD_OPTS, o || {})); for (const g of Object.values(paneG)) { g.key = ''; g.reads = []; g.demoted = false; } guardLog.length = 0; requestRender('L', 'R'); return guard.state('R'); };
   // the look drawScene gives shape id (colours as hex), the pattern cell, the right view, clipWin and the plane colour
-  window.__cmwLook = (id, side = 'R') => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); const L = side === 'L'; return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, view: Object.assign({}, L ? leftView() : V.right), win: Object.assign({}, clipWin), dpr: (L ? paneL : paneR).dpr, W: (L ? paneL : paneR).pw, H: (L ? paneL : paneR).ph, stage: L ? leftStage() : rightStage() }; };
+  window.__cmwLook = (id, side = 'R') => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); const L = side === 'L'; return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, halo: TH.halo, haloA: TH.haloA, view: Object.assign({}, L ? leftView() : V.right), win: Object.assign({}, clipWin), dpr: (L ? paneL : paneR).dpr, W: (L ? paneL : paneR).pw, H: (L ? paneL : paneR).ph, stage: L ? leftStage() : rightStage() }; };
   // P3: the z-globe's point under a pane pixel (as __cmwSphereW for the w-globe), and a globe's camera set directly
   // P3b: the shapes and targets as stored; the CSS pixel of the plane point (x, y) on a side's globe (null behind it)
   window.__cmwShapes = () => JSON.parse(JSON.stringify({ shapes: S.shapes, targets: S.targets, selected }, noRuntime)); window.__cmwStroke = (id, opt) => { const s = S.shapes.concat(S.targets).find((q) => q.id === id); const k = s && shapeStroke(s, 1, opt || {}); return k && { width: k.width, alpha: k.alpha, casing: k.casing && k.casing.width, casingAlpha: k.casing && k.casing.alpha }; };
@@ -118,6 +118,7 @@
     return out;
   };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
+  window.__cmwGlobeDisk = (side) => { const g = globeCam(side); return g ? { R: g.R, w: g.pane.w, h: g.pane.h } : null; };   // (a globe pane's silhouette radius R, and the pane's size, in CSS px: the app's own globeCam)
   // what the live panes last drew each shape with: {'R|s1': 'inverse' | 'pending' | 'forward', ...}
   window.__cmwDrawn = () => Object.fromEntries(lastPath);
   // the scissor w-box of shape id's image under the right plane's map (SPEC 4.8; null: no scissor)
@@ -268,6 +269,8 @@
   // rest; box: the last frame's block, carried or not
   // the last Landscape frame's height-axis labels, as their screen y (CSS px)
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
+  // the last Landscape frame's axis names (the plane's Re and Im, the height's), as boxes [x, y, w, h] in CSS px of the pane's canvas
+  window.__cmwLandNames = () => (render3D.names || []).map((r) => r.slice());
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
   // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).

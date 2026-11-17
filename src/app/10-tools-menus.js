@@ -210,6 +210,8 @@
     add(pop, items);
     $('popHost').append(pop);
     popEl = pop;
+    // (the button that opened a menu says so while it is open, ARIA's menu button; closePalette puts it back)
+    if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
     if (sub) {
       // (review v16 user-6) in the parent's place, its top at the item that opened it: the submenu replaces the parent
       // where the pointer already is, rather than jumping beside it (and onto whatever lies there, a divider's tooltip)
@@ -487,7 +489,7 @@
         Construct.rowMenu(s, items);   // (v16: Make free, Other point, …)
         openMenu(anchor, items);
     };
-    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'data-tip': $t('More'), html: ICONS.more,
+    const more = h('button', { class: 'icon-btn more', 'aria-label': $t('More actions for {label}', { label }), 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-tip': $t('More'), html: ICONS.more,
       onclick: (e) => { e.stopPropagation(); openMore(e.currentTarget); } });
     const name = h('span', { class: 'k' }, label);
     // the name is the row's button; the eye and ⋯ buttons sit beside it, not inside it
