@@ -482,6 +482,11 @@
     // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
     const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.b, carry.s) : [];
     carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    // (All sheets: the carry's own sheets tear along the image of the cuts of the steps the glide crosses, where one sheet
+    // meets the next. sheetSeam runs a draw with those cuts turned half a turn, svGlideSeams' first surface, whose
+    // sheets are continuous there: drawLandscape draws them before the sheets themselves, so they show in the slit alone)
+    const turned = S.sheets && !g.all && !carry.plain && SV.glideSeams !== 0 && svGlideSheets(g.b, carry.s).length ? svSheetMemo.seamList()[0] : null;
+    carry.sheetSeam = turned ? { draw: (f) => svOnSheets(turned, f) } : null;
     render3D(pane, carry);
     return true;
   }
