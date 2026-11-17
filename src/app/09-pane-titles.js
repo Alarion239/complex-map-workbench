@@ -39,7 +39,7 @@
     if (pt && ptw > room) {
       if (note && !note.hidden && !noNote) { fitTitle(side, true); return; }
       // then the plane's "Y · " tag gives way, before the title itself: with the chain empty, Y's
-      // head also holds Add function, and at 1366 px the tagged title no longer fitted, so it vanished
+      // head also holds Add function, and at 1366 px the tagged title would not fit and would vanish
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
       if (!(tag && ptw - tw <= room)) {
         if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }

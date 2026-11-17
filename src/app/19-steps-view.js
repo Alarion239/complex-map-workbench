@@ -218,7 +218,7 @@
     setOpt('sv', o);
   }
   function svLoad(onPageOpen) {
-    // (by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which clamped the place)
+    // (by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which would clamp the place)
     const o = Views.cleanSv(S.sv, svAloneOk() ? svPlanes() : svPlanesOf(S.steps));
     if (!o) return false;
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
