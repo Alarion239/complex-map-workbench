@@ -73,7 +73,13 @@ const state = () => ev(`(() => { const s = __cmwSound(), c = document.getElement
 // (CDP), so it counts up on every machine; the frame-rate checks run at full speed)
 const slow = (on) => send('Emulation.setCPUThrottlingRate', { rate: on ? 6 : 1 });
 const frames = (ms) => ev(`await __qa.frames(${ms})`);   // (a top-level await: the daemon's replMode returns {} for a bare promise)
-// from a Listen along's start: the preparation (the chip's percentages seen) until it plays (up to maxS seconds)
+// the chip's percentages, each one the page showed, recorded in the page by a MutationObserver on the chip: the preparation is prepared in 12 ms slices
+// between frames and, on a fast runner, lasts about 200 ms, and a poll through the daemon (a round trip and 150 ms) sees one value or two of it. The record
+// starts anew when the chip's "N %" appears; a page loaded afresh (the language switch) has none until this is run again
+const PREP_RECORDER = `(() => { if (window.__prep) return 1; const c = document.getElementById('sphereChipL'); if (!c) return 0; const P = window.__prep = { seen: [], open: false };
+  const read = () => { const m = /(\\d+)\\s?%/.exec(c.hidden ? '' : c.textContent || ''); if (!m) { P.open = false; return; } if (!P.open) { P.open = true; P.seen = []; } if (P.seen[P.seen.length - 1] !== +m[1]) P.seen.push(+m[1]); };
+  new MutationObserver(read).observe(c, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['hidden'] }); read(); return 1; })()`;
+// from a Listen along's start: the preparation (the chip's percentages the page showed) until it plays (up to maxS seconds)
 async function waitPlay(maxS = 40) {
   const t0 = Date.now(), seen = [];
   let s = null;
@@ -85,7 +91,8 @@ async function waitPlay(maxS = 40) {
     if (!m && !s.chip && seen.length && Date.now() - t0 > 1500) break;   // (dropped)
     await sleep(150);
   }
-  return { ms: Date.now() - t0, seen, s };
+  const rec = await ev('window.__prep ? window.__prep.seen.slice() : null');   // (every value the page showed, when the recorder was installed before the start)
+  return { ms: Date.now() - t0, seen: rec && rec.length >= seen.length ? rec : seen, polled: seen, s };
 }
 const playsFn = (s, dur) => !!s && s.play && !!s.fn && s.fn.mode === 'notes' && !!s.fn.counts && s.fn.counts.notes === COUNTS.notes
   && s.fn.counts.reps === COUNTS.reps && s.fn.counts.cracks === COUNTS.cracks && (dur == null || Math.abs(s.fn.dur - dur) < DUR_TOL);
@@ -157,6 +164,7 @@ const S0 = await pxPerUnit(), DUR0 = await durAt(S0);
 R.pxPerUnit = S0; R.durExpected = DUR0;
 // the circle's menu: Listen along, and no "Play the composition" (no score: the function is the music)
 await slow(true);
+ok('the preparation chip is recorded in the page', (await ev(PREP_RECORDER)) === 1, null);
 let items = await listenMenu(false);
 R.menuEn = items && items.map((x) => x.text);
 ok('en: the circle menu has Listen along Circle', !!items && items.some((x) => x.id === 'listen' && x.text === 'Listen along Circle'), items);
