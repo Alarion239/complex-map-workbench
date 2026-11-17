@@ -402,11 +402,22 @@
     if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
     return o;
   }
+  // the chain a glide from plane a into plane k is planned over: the chain itself, or past a d/dz step between them
+  // the chain that stands in for it (invDerivChain: the step before the d/dz off, its derivative in its place);
+  // {steps, built} or {reason}
+  function invHomBase(a, k) {
+    for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return invDerivChain(k);
+    return { steps: S.steps, built };
+  }
+  // the built steps of invHomBase(a, k), each live one decomposed once (invHomOnce); null where that chain cannot be
+  // made
   function invHomSkeleton(a, k) {
     const sk = `${a}|${k}|${chainSig[nSteps()]}`;
     let bs = invHomSkels.get(sk);
     if (!bs) {
-      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
+      const c = invHomBase(a, k);
+      if (!c.steps) return null;
+      bs = c.built.map((b, i) => (!c.steps[i] || c.steps[i].on === false ? b : invHomOnce(b)));
       if (invHomSkels.size >= INV_HOM_SKELS_MAX) invHomSkels.clear();
       invHomSkels.set(sk, bs);
     }
@@ -417,10 +428,12 @@
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared; whether the
     // step has a NEWT op at t is remembered, as finding out decomposes the step)
+    const base = invHomBase(a, k), skel = invHomSkeleton(a, k);
+    if (!base.steps || !skel) return F(base.reason || 'no chain to plan');
     const bk = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
     let hk = null, byShape = invHomNewt.get(bk);
     if (byShape === undefined) {
-      try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      try { hk = Inverse.homOps(skel[k - 1], t); } catch (e) { hk = null; }
       byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
       if (invHomNewt.size >= 4096) invHomNewt.clear();
       invHomNewt.set(bk, byShape);
@@ -428,14 +441,14 @@
     const ck = bk + (byShape ? `|${shapeKey(s)}|${winKey()}` : '');
     let h = invHoms.get(ck);
     if (!h) {
-      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      const bs = skel, bh = bs.slice();
       // (ops of its own for each plan: the anchor is set on them)
-      if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      if (!hk) try { hk = Inverse.homOps(bs[k - 1], t); } catch (e) { hk = null; }
       let anchor = null;
-      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
+      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(base.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
-      h = invOwnPlan(S.steps, bh, a, k);
+      h = invOwnPlan(base.steps, bh, a, k);
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }

@@ -987,14 +987,14 @@
     an: Funcs.composeProps(activeSteps().filter((k) => k <= T).map((k) => built[k - 1].props)).analytic });
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
-  // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
+  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath,
+  // past a d/dz over the chain that stands in for it). {list, paths}, or null with why.r
   // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
   // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
-    if (derivIn(0, b) && hom) { why.r = 'a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     const singAt = () => svSheetKeyAt(b, u).sing;
     // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation)
@@ -3224,7 +3224,7 @@
     if (SV.surf !== 'sphere' || !paneL || !GLR.inverseState || nSteps() < 1) return;
     const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), T = svT(), carry = svCarryStyle(T);
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
-      if (!b || isDeriv(b) || derivIn(0, b)) continue;
+      if (!b || isDeriv(b)) continue;
       const h = svInvPaths(b, 0.5, 'globe', { r: null });
       if (h) h.list.forEach((x, i) => GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], x, carry))));
     }

@@ -44,6 +44,7 @@ const VIEWS = {
   'phone_palette_cmd.js': steps(),
   'steps_carry_cmd.js': steps(),
   'steps_ddz_glide_cmd.js': steps(),
+  'steps_ddz_glide_after_cmd.js': steps(),
   'steps_ddz_rest_cmd.js': steps(),
   'steps_globe_key_cmd.js': steps(),
   'steps_carry_exact_cmd.js': steps(),

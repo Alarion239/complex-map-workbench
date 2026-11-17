@@ -111,6 +111,8 @@ window.__invTestRun = async (opts = {}) => {
     const f = St('custom', { expr: 'z^3-3z', cut: 180 }), d = Funcs.derivativeStep(f);
     if (!d || !d.step) throw new Error('d/dz chain: ' + ((d && d.error) || 'no derivative'));
     chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
+    // (a step after the d/dz, as a glide past it plans the chain: M(w) = (w - 1)/(w + 1), whose pole lies on the plane)
+    chains.push({ name: 'd/dz of z^3-3z > mobius', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step), St('mobius', { a: '1', b: '-1', c: '1', d: '1' })] });
   }
   // ---- shapes ----
   const SH = [];
