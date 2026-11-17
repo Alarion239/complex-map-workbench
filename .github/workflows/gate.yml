@@ -291,7 +291,7 @@ jobs:
     # split by part, are cheap);
     # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole.
     # Linux runs the core tier on SwiftShader (CPU WebGL2: Chrome's fallback without a GPU, and the figure exports'
-    # renderer), always, in four jobs: glsl in halves (11 and 8 min, both sides), adv (3 min), inverse (4-5 min); no
+    # renderer), always, in four jobs: glsl in halves (4-8 min each, both sides), adv (3 min), inverse (2-3 min); no
     # CMW_ANGLE, so Chrome picks SwiftShader, and --no-sandbox, which Chrome needs on GitHub's Linux machines.
     # A page whose shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan

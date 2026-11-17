@@ -19,7 +19,7 @@ show results sooner and can be re-run alone).
 | Quality, each of the 9 shards | 3–6 min |
 | GLSL on macOS, each page | 2–5 min |
 | GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: `direct,keys,compile` 34 min, its chains 2 min a quarter (see below) |
-| GLSL on Linux (SwiftShader, core tier, both sides) | `glsl` 1/2: 11 min, 2/2: 8 min; `adv` 3 min; `inverse` 4–5 min (measured on a 4-core container like GitHub's Linux machines, plus a minute or two of setup) |
+| GLSL on Linux (SwiftShader, core tier, both sides) | `glsl` 1/2: 7–8 min, 2/2: 4–6 min; `adv` 3 min; `inverse` 2.5–3 min |
 | Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
 | Browser, each of the 24 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
 
@@ -134,7 +134,7 @@ Each platform's job is there for its own shader compiler:
 
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
 hours there; macOS takes minutes; SwiftShader compiles a program on one core of the GPU process, so its core tier of
-the `glsl` page takes about 9 minutes a side. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a
+the `glsl` page takes about 6 minutes a side. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a
 chain moves no other):
 
 - **core**: every hand-written chain (catalog defaults, natural paths, regressions, errors, d/dz, the special
@@ -151,7 +151,7 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all | core |
 | a pull request with the label `glsl-deep` | all | all | core |
 
-On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 30 minutes
+On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 20 minutes
 of machine time together. Three random d/dz chains of the `glsl` page do not finish on SwiftShader (minutes of one
 core, then the GPU process is lost and every later chain errors; #1809): `GLSLTiers.SWIFTSHADER_HANG` lists them, and
 the page does not run them when its renderer is SwiftShader. The job summary names them ("not run on SwiftShader");
