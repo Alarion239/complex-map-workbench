@@ -337,7 +337,7 @@
   // linear heights on a carried glide: the share of the compressed height in them (HEIGHT's uHComp, st.heightComp), set
   // by drawLandscape for the frame's height passes and their caches
   let landHComp = 0;
-  // the carried sheets' seam (#1799): their box's and patches' heights made with the chain's cuts turned (landSeam, kept
+  // the carried sheets' seam: their box's and patches' heights made with the chain's cuts turned (landSeam, kept
   // between frames), and their places from slot SEAM_SLOT of landCP on (the box's, then patch i's at SEAM_SLOT + 1 + i)
   const landSeam = { box: null, p: [] }, SEAM_SLOT = 32;
   function carryPlaces(st, N, polar, slot = 0, sh = null) {
@@ -1503,7 +1503,7 @@
       }
       // (carried: the stencil marks the pixels the box's cells and the pole patches drew, so a far patch draws only where
       // they left a hole)
-      // (the carried sheets' seam, #1799: the same sheets made again with the cuts of the steps the glide crosses turned
+      // (the carried sheets' seam: the same sheets made again with the cuts of the steps the glide crosses turned
       // half a turn (st.carry.sheetSeam, whose draw runs its function with that chain), their box and their patches,
       // drawn first and behind every surface after them. Away from both cuts they take the sheets' own values and
       // places, so the sheets show there; where a sheet's grid tears along its cut's image, they fill the slit)

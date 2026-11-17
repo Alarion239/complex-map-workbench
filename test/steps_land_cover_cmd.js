@@ -19,7 +19,10 @@
 //   own over the glide, as the sheets-off carry's scale does.
 // - The same arrival in a small window about 0 (s = 900, SMALL), where the carried points reach the whole window, so the
 //   sheets-off frame is all but the parked plane: All sheets at most its share plus ARRIVE_SLACK. Most of that window is
-//   drawn by the carry's far patches, which the sheets' rim must not take for the box's edge.
+//   drawn by the carry's far patches, which the sheets' rim must not take for the box's edge. Möbius then √: bare where
+//   the parked plane has surface at most BARE_SLACK pixels more often than sheets off. √'s branch point lies outside the
+//   carried box (z = i), so it needs a pole patch of its own (svLandBranches), or its far patch's stretched cells
+//   leave a hole about w = 0.
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -43,7 +46,8 @@ const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: 
 // also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All sheets;
 // arrive: the arrival row against the parked plane)
 const ARRIVE_SLACK = 0.05;
-const SEAM_GAP = 20;    // the seam (#1799): pixels it may leave bare that the frame without it covers (edges)
+const BARE_SLACK = 20;  // the arrival: the pixels All sheets may leave bare beyond the sheets-off frame's
+const SEAM_GAP = 20;    // the seam: pixels it may leave bare that the frame without it covers (edges)
 const SLIT_MIN = 200;   // the slit the frame without the seam leaves along the cut, at least
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
@@ -109,7 +113,7 @@ for (const [name, steps] of [['Möbius, √', MOB], ['log', LOG]]) {
     const carry = await ev('__cmwLandCarry()');
     await surface('f998');
     r[sheets ? 'on' : 'off'] = { far: await apart('rest'), carried: !!carry, sheetPlaces: !!(carry && carry.sheetPlaces), seams: carry && carry.seams, bare: await bare('f998', 'rest') };
-    // (All sheets, Möbius then √: the seam, #1799, at u = 1/2 and .998, against the same frame without it)
+    // (All sheets, Möbius then √: the seam at u = 1/2 and .998, against the same frame without it)
     if (sheets && name === 'Möbius, √') {
       for (const u of [0.5, 0.998]) {
         await ev(`__cmwSteps({ glideSeams: 0, x: ${last - 1 + u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
@@ -123,7 +127,7 @@ for (const [name, steps] of [['Möbius, √', MOB], ['log', LOG]]) {
   ok(`${name}, s = ${SMALL}, All sheets at u = .998: each sheet over its own image`, r.on.carried && r.on.sheetPlaces, r);
   ok(`${name}, s = ${SMALL}, All sheets at u = .998: at most ${r.off.far} + ${ARRIVE_SLACK} of the surface pixels apart from the plane it arrives at, parked, as sheets off`, r.on.far <= r.off.far + ARRIVE_SLACK, r);
   if (name === 'Möbius, √') {
-    ok(`${name}, s = ${SMALL}, All sheets at u = .998: bare where the parked plane has surface no more often than sheets off (+ ${SEAM_GAP} px)`, r.on.bare <= r.off.bare + SEAM_GAP, r);
+    ok(`${name}, s = ${SMALL}, All sheets at u = .998: bare where the parked plane has surface no more often than sheets off (+ ${BARE_SLACK} px)`, r.on.bare <= r.off.bare + BARE_SLACK, r);
     for (const u of [0.5, 0.998]) {
       const g = r['seam ' + u];
       ok(`${name}, s = ${SMALL}, All sheets at u = ${u}: the seam's sheets are drawn`, g.seams >= 1, g);
