@@ -187,6 +187,8 @@ for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 8
   const n = `${lang} ${W} carried Landscape`;
   const cut = /\bsv-(re|rs)\b/.test(C.bar);
   ok(`${n}: the head is one row, the title, the colour plane and the surface all show`, C.hh <= 44 && C.has.title && C.has.cp && C.has.surf, C);
+  // (the scenario of #1646: at 1280 px the carried title does not fit whole, and the fold lands on the cut role: a leg that the fold never reaches would pass empty)
+  ok(`${n}: the role is shown cut to the room (sv-re), not dropped (sv-c2) or left whole over the head`, /\bsv-re\b/.test(C.bar) && !/\bsv-c2\b/.test(C.bar) && C.roleW > 0, C);
   ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !cut || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
   ok(`${n}: a role cut to the room is its whole words and an ellipsis (no word cut), and the title's tip has the whole title`, !/\bsv-re\b/.test(C.bar) || (C.cut && C.tip === C.full), C);
   ok(`${n}: the role shows more than its first word when it is cut by the room`, !/\bsv-re\b/.test(C.bar) || C.roleW > C.firstW + 36, C);

@@ -2742,8 +2742,8 @@
   // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
   const SV_FOOT_MORE = 4 + 26;
   // the shortest level of the steps head's bar (svFitHead's set: 1 the scope as a menu, 2 the colour-plane button as its
-  // wheel, 3 the surface button as its icon, 4 the title's role cut to the room left, 5 its first word) at which the Height key keeps its words: the
-  // levels up to it keep the title's role and the surface button's name
+  // wheel, 3 the surface button as its icon, 4 the title's role cut to the room left, 5 its first word) at which the Height
+  // key keeps its words: the levels up to it keep the title's role and the surface button's name
   const SV_KEY_LEVEL = 2;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
@@ -2759,7 +2759,7 @@
       act.setAttribute('aria-label', act.dataset.name);
     }
   }
-  // the title's tooltip, its whole words, while the head shows its role as one word
+  // the title's tooltip, its whole words, while the head shows its role cut (sv-re) or as one word (sv-rs)
   function svTitleTip(short) {
     const t = SV.els.title;
     if (short) t.setAttribute('data-tip', t.textContent); else t.removeAttribute('data-tip');
