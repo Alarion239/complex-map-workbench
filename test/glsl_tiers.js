@@ -28,9 +28,10 @@ window.GLSLTiers = (() => {
   // than Γ's)
   const SLOW = new Set(['dh near M 0.6z-0.5 N 12']);
   // chains whose program SwiftShader (Chrome's CPU WebGL2, the Linux GLSL jobs) does not finish: minutes of one core in
-  // the GPU process, then the GPU process is lost and every later chain of the page errors (#1809). The glsl page
-  // does not run them when its renderer is SwiftShader and lists them in R.notOnSwiftShader; Windows and macOS run them
-  // (each with what it did alone on SwiftShader, 4 cores; the chain leaves the set when #1809 fixes it)
+  // the GPU process, then the GPU process is lost and every later chain of the page errors (#1809). keep leaves them out
+  // when this page's renderer is SwiftShader and lists them, each with its reason, in notRun; Windows and macOS run them
+  // (each with what it did alone on SwiftShader, 4 cores; the chain leaves the set when #1809 fixes it). ci/glsl.js
+  // builds a reference without this set with this file, so that both sides leave the same chains out
   const SWIFTSHADER_HANG = new Map([
     ['dmulti#2 arctan>root>deriv>ijouk>pown', 'over 13 min at one core, unfinished'],
     ['dmulti#4 rational>log>arctan>deriv', 'over 120 s, unfinished'],
@@ -48,11 +49,27 @@ window.GLSLTiers = (() => {
   // ?legacy=1: the parts by the chain's index and every chain, as before this file (ci/glsl.js, against a reference
   // that predates it, runs both sides so: the same chains on both)
   const LEGACY = qs.get('legacy') === '1';
-  // the chain named name, the i-th of the page's list, runs on this page load
-  const keep = (page, name, i) => (LEGACY ? i % PARTS === PART % PARTS
-    : partOf(name, PARTS) === PART % PARTS && (TIER === 'all' || tierOf(page, name) === TIER));
+  // (the renderer of a WebGL2 context, read once: SwiftShader leaves SWIFTSHADER_HANG's chains out)
+  const SWIFTSHADER = (() => {
+    try {
+      const gl = document.createElement('canvas').getContext('webgl2'), e = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      const r = gl ? String(gl.getParameter(e ? e.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : '';
+      const lose = gl && gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+      return /SwiftShader/i.test(r);
+    } catch (e) { return false; }
+  })();
+  const notRun = [];
+  // the chain named name, the i-th of the page's list, runs on this page load (a chain of SWIFTSHADER_HANG on
+  // SwiftShader does not: it goes into notRun as 'name (reason)')
+  const keep = (page, name, i) => {
+    const mine = LEGACY ? i % PARTS === PART % PARTS
+      : partOf(name, PARTS) === PART % PARTS && (TIER === 'all' || tierOf(page, name) === TIER);
+    if (mine && SWIFTSHADER && SWIFTSHADER_HANG.has(name)) { notRun.push(`${name} (${SWIFTSHADER_HANG.get(name)})`); return false; }
+    return mine;
+  };
   // the adv page's sections that are not chains: in core, keys only (direct and compile are most of its Windows time)
   const SECTIONS_CORE = ['keys', 'main'];
   const section = (s) => LEGACY || TIER !== 'core' || SECTIONS_CORE.includes(s);
-  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, SAMPLE };
+  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, SWIFTSHADER, notRun, SAMPLE };
 })();

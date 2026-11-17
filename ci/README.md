@@ -127,10 +127,10 @@ Each platform's job is there for its own shader compiler:
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
   loops.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
-- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; #1775): CPU WebGL2. Headless Chrome falls back to it without
-  a usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` have only Vulkan's minimum accuracy,
-  so the library has its own there (`GLChain.useRenderer`, #1739), and it has its own corner cases (`atan(−0, x)`,
-  #1709). The Linux browser jobs render with lavapipe instead, which is not SwiftShader.
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`): CPU WebGL2. Headless Chrome falls back to it without a
+  usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
+  (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
+  instead, which is not SwiftShader.
 
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
 hours there; macOS takes minutes; SwiftShader compiles a program on one core of the GPU process, so its core tier of
@@ -154,9 +154,10 @@ The Gate (`gate.yml`, GitHub's machines):
 On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 20 minutes
 of machine time together. Three random d/dz chains of the `glsl` page do not finish on SwiftShader (minutes of one
 core, then the GPU process is lost and every later chain errors; #1809): `GLSLTiers.SWIFTSHADER_HANG` lists them, and
-the page does not run them when its renderer is SwiftShader. The job summary names them ("not run on SwiftShader");
-Windows and macOS run them. Against a reference without that set (one from before #1775), the Linux jobs do not
-compare the `glsl` page, and the summary says why.
+`GLSLTiers.keep` leaves them out when the page's renderer is SwiftShader. The job summary names each with its reason
+("not run on SwiftShader"); Windows and macOS run them. A reference whose `test/glsl_tiers.js` has no such set (one
+from before it) has its pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the
+same chains and the `glsl` page is compared on Linux too.
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
