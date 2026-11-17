@@ -2274,6 +2274,10 @@
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
+    // 360 px in Russian and Italian; the segment's name stays the whole one, and the tooltip says what it does)
+    const inSeg = scope.querySelector('[data-v="in"]');
+    if (inSeg) { inSeg.setAttribute('aria-label', SCOPES[1][1]); inSeg.textContent = ''; inSeg.append(h('span', { class: 'sc-full' }, SCOPES[1][1]), h('span', { class: 'sc-short' }, $t('Inside'))); }
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -2838,18 +2842,20 @@
     }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
-    E.bar.classList.remove('sv-c3', 'sv-c4');
+    E.bar.classList.remove('sv-c3', 'sv-c4', 'sv-c5');
     const legend = $('leftLegend');
     E.head.classList.remove('sv-lg');
     if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
-      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
-      // tighten; eyes on #473)
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps tighten, and its segmented
+      // buttons' padding but the scope's, which keeps the spec's; eyes on #473; last of all the scope's padding too, on w₁
+      // at 320 px, where nothing else is left to give)
       const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
       const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
       if (short()) E.bar.classList.add('sv-c3');
       if (short()) E.bar.classList.add('sv-c4');
+      if (short()) E.bar.classList.add('sv-c5');
       return;
     }
     set(0);
