@@ -568,9 +568,11 @@ float ixChecker(vec2 p, vec2 w) { return 0.5 - 0.5 * ixSq(p.x, w.x) * ixSq(p.y, 
 // vSrc: the source point relative to vQ (0, or near a saturation anchor its pattern-aligned origin: SPEC 13.12)
 // gpA: near a saturation anchor (p != 0), the log-polar cell coordinates relative to the corner nearest to log p (xy)
 // and that corner's integer shift mod 2 (zw); gpA.z = -1 otherwise
+#ifndef IX_CARRY
 vec3 ixPattern(vec2 vSrc, vec2 vQ, vec2 gK, vec4 gpA, vec2 dX, vec2 dY, bool hasLam, vec2 lam, vec2 dLX, vec2 dLY, float vJac) {
 ${PATTERN_SRC('analytic')}  return col;
 }
+#endif
 #if IX_ANC
 // ---- saturation anchors (SPEC 13.12; Inverse.anchorModel / anchorPx): z = p + delta near p = (+-1 - B) / A (tan: +-i).
 // Per anchor a, uAnc[4a..4a+3] = model (type 0 none / 1 sure / 2 cone / 3 circle, its radius m, flag, sgn), geometry
@@ -611,9 +613,10 @@ float ixLog2Det(vec4 J) {
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 #ifdef IX_CARRY
-  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
-  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
-#endif
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant). Every draw of
+  // the variant sets uPattern 9 (drawInverse), so the variant holds no pattern code
+  return ixPack(ixCarryCol(z, zf, dX, dY));
+#else
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average
@@ -622,6 +625,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   vec2 dXs = fin ? dX : vec2(1e30), dYs = fin ? dY : vec2(1e30);
   if (!zf) pv = 1e30 * vec2(cos(L.lam.y), sin(L.lam.y));
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
+#endif
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
