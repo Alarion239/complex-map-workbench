@@ -828,7 +828,7 @@
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -925,6 +925,9 @@
     const hexMix = (a, b, t) => { const A = GLR.hexRGB(a), B = GLR.hexRGB(b); return `rgb(${A.map((x, k) => Math.round(255 * (x + (B[k] - x) * t))).join(',')})`; };
     const bgAt = (y) => hexMix(TH.landTop, TH.landBottom, Math.min(1, Math.max(0, y / pane.h)));
     const taken = [];
+    // (the axis names' boxes, [x, y, w, h] in CSS px with their margins: Re and Im of the plane, the height's name; tests)
+    const names = [];
+    render3D.names = names;
     const free = (r) => r[0] > 1 && r[1] > 1 && r[0] + r[2] < pane.w - 1 && r[1] + r[3] < pane.h - 1 && !taken.some((q) => r[0] < q[0] + q[2] && q[0] < r[0] + r[2] && r[1] < q[1] + q[3] && q[1] < r[1] + r[3]);
     // seen from below the floor, the relief hangs over the floor's edges: a floor label inside the block's outline
     // on screen would print over the surface, so it is left out (floor: true)
@@ -959,7 +962,7 @@
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
       let x = cx - w / 2;
       runs.forEach(([t, it], i) => { ctx.font = fontOf(it); haloText(ctx, t, x, cy, halo || bgAt(cy)); x += ws[i]; });
-      return true;
+      return r;
     };
     const micro = `400 10px ${TH.mono}`, math12 = `500 12px ${TH.math}`;
     const minus = (s) => I18N.num(s.replace(/-/g, '−'));   // tick labels: the decimal comma in Russian
@@ -995,7 +998,7 @@
     // axis names beyond the tick labels, at the middle of each edge
     const title = (p, out, runs) => {
       const a = P(p), b = P([p[0] + out[0] * 0.06, p[1] + out[1] * 0.06, z0]);
-      if (a && b) for (const gap of [24, 34, 46]) if (label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true)) break;
+      if (a && b) for (const gap of [24, 34, 46]) { const r = label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true); if (r) { names.push(r); break; } }
     };
     const vz = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
     if (reOn) title([0, sy * ay, z0], [0, sy], [['Re ', false], [vz, true]]);
@@ -1056,7 +1059,7 @@
     };
     const tries = below ? [[r1, [dir, 0], 10], [rim(r1[1]), [dir, 0], 6], [rim(r1[1] - 16), [dir, 0], 6], [up(16), [dir, 0], 10], [r1, [0, -1], 6], [r1, [0, -1], 16]]
       : [[r1, [0, -1], 6], [r1, [0, -1], 16], [r1, [dir, 0], 10], [up(16), [dir, 0], 10]];
-    for (const [a, d, gap] of tries) if (label(tl, a, d, gap, math12, null, TH.ink2, below)) break;
+    for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
   // Y Sphere: the images on the w-globe (U-b; the phase globe is X Sphere + Phase, renderSphereLeft)
