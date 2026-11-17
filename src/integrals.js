@@ -132,10 +132,10 @@ const Integrals = (() => {
     }
     return { s, name: (names || shapeNames()).get(s.id) || Region.KINDS[s.kind].label, comps, closed: comps.every((c) => c.closed), box, bad };
   }
-  // the curves the Phase view's Cauchy style may use, in the left plane: the selected shape's, the open integral
-  // popover's, else every curve and bounded region boundary
   // the cache slot of the curves taken in plane lk: the left plane's own, or the one slot of any other plane
   const geomSlot = (lk) => (lk === leftStage() ? integ : (integ.alt = integ.alt || { gkey: '', geom: [] }));
+  // the curves the Phase view's Cauchy style may use, in the left plane: the selected shape's, the open integral
+  // popover's, else every curve and bounded region boundary
   // (lk: the plane the curves are taken in, the left plane's by default; the other plane's geometry has a cache slot of its own)
   function integralGeom(lk = leftStage()) {
     const sel = A.S.shapes.find((s) => s.id === A.selected && s.visible !== false && kindType(s) !== 'point');
