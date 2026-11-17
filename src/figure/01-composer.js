@@ -599,7 +599,8 @@
     })().catch(() => { pdfLibs = null; return null; });
     return pdfLibs;
   };
-  // the PDF: vector (glyphs are paths; the one font is the invisible text layer's, embedded), no transparency, page = figure size in bp
+  // the PDF: vector (glyphs are paths; the one font is the invisible text layer's, embedded), no transparency, page =
+  // figure size in bp
   XD.pdf = async (fig) => {
     const lib = await pdfLib();
     if (!lib) throw new Error('The PDF library could not be loaded');

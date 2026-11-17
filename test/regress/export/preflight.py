@@ -2,8 +2,9 @@
 # Preflight for the figures the app exports (notes/export-design/AS-BUILT.md; ported from notes/export-design/proto/
 # preflight.py, review-editor.md M4). The files come from the built app through the headless harness:
 #   python3 build.py && test/<you>_cdp/q.sh test/export_cmd.js (and test/export_deform_cmd.js) && python3 test/regress/export/preflight.py --latex
-# PDF:    every font embedded (the one font is the invisible text layer's), no SMask, no image interpolation, no ExtGState with CA/ca < 1, a PDF 1.3/1.4 header, and a MediaBox
-#         whose width is the target layout width in bp (1 pt = 72/72.27 bp).
+# PDF:    every font embedded (the one font is the invisible text layer's), no SMask, no image interpolation, no
+#         ExtGState with CA/ca < 1, a PDF 1.3/1.4 header, and a MediaBox whose width is the target layout width in bp
+#         (1 pt = 72/72.27 bp).
 # PNG:    colour type 0 (grey), 2 (RGB) or 3 (indexed), never alpha; a pHYs chunk (the physical size).
 # SVG:    no duplicate ids, no nested <svg>.
 # Layout: no typeset box crosses a frame line or overlaps another box (titles, ticks, point labels, captions).
