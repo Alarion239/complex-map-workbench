@@ -462,7 +462,7 @@
     try { r = Funcs.derivativeStep(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast((r && r.error) || $t('f{x} has no derivative here.', { x: sub(k) })); return null; }
     const type = Funcs.DEFS[r.step.type] ? r.step.type : 'custom';
-    // (a repeat the step ended now repeats its derivative's block, as the step's place in it stays)
+    // (a repeat the step ended repeats its derivative's block, as the step's place in it stays)
     setStepAt(k - 1, Object.assign({ type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     chainChanged(true);
     setFocus(k);
