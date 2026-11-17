@@ -21,7 +21,7 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
-    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn, set, landAsked}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn), set: the programs of the glide it is in (svSetLinking), landAsked: those of the plane it ends on begun (svLandStart)
+    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn, set, landAsked}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn), set: the programs of the glides it crosses (svSetLinking), landAsked: those of the plane it ends on begun (svLandStart)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
@@ -1183,15 +1183,16 @@
   }
   // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
   // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0); and
-  // while a motion has drawn no frame of g's glide, any program of the glide's other frames (svSetLinking), so it moves
-  // only once it has every program its frames ask for, where links run in the background (KHR_parallel_shader_compile)
+  // while a motion has not moved from its start, any program of the frames of the glides it crosses (svSetLinking), so
+  // it moves only once it has every program its frames ask for, where links run in the background
+  // (KHR_parallel_shader_compile)
   function svHolds(g) {
     svHoldB = 0;
     if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return false;
     // (SV.ahead, a test hook's, true in the app: false asks for no program ahead of the frame that draws with it, neither
     // the glide's other frames' nor the landing plane's (svLandStart): the latch's case)
     const A = svMotion(), d = A && A.drawn;
-    const whole = !!A && SV.ahead !== false && GLR.parallelCompile && !(d && d.at > g.x0 + SV_REST_U && d.at < g.x1 - SV_REST_U) && svSetLinking(A, g.x0, A.to >= A.from ? 1 : -1);
+    const whole = !!A && SV.ahead !== false && GLR.parallelCompile && !(d && Math.abs(d.at - A.from) > SV_REST_U) && svSetLinking(A);
     const h = svHomPaths(g.b, g.u).h;
     const linking = !!h && [h, svStagedOf(false, g), svStagedCurves(g)].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
     const P = linking ? null : svTracksMissing(g.b, h);
@@ -1223,11 +1224,17 @@
     svHomMemo = memo;
     return out;
   }
-  // whether a program of the glide between the planes at places j and j + 1 still links (svGlideSet, each begun here
-  // when missing, in the order of travel): its set kept on the motion A while the chain, the window and the look stay
-  function svSetLinking(A, j, dir) {
-    const key = [j, dir, svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity()].join('|');
-    if (!A.set || A.set.key !== key) A.set = { key, list: svGlideSet(j, dir) };
+  // whether a program of the glides the motion A crosses still links (svGlideSet of each, every one begun here when
+  // missing, in the order of travel): the set kept on A while its course, the chain, the window and the look stay
+  function svSetLinking(A) {
+    const dir = A.to >= A.from ? 1 : -1, end = Math.round(A.to);
+    const j0 = dir > 0 ? Math.floor(A.from + SV_REST_U) : Math.ceil(A.from - SV_REST_U) - 1, j1 = dir > 0 ? end - 1 : end;
+    const key = [j0, j1, dir, svSigNow(), chainSig[nSteps()], winKey(), svT(), SV.scope, S.sheets ? 1 : 0, svOpacity()].join('|');
+    if (!A.set || A.set.key !== key) {
+      const list = [];
+      for (let j = j0; dir > 0 ? j <= j1 : j >= j1; j += dir) list.push(...svGlideSet(j, dir));
+      A.set = { key, list };
+    }
     let linking = false;
     for (const { q, b, u } of A.set.list) for (let i = 0; i < q.paths.length; i++) if (svInvState(q, i, b, u) === 'pending') linking = true;
     return linking;
