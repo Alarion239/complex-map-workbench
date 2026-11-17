@@ -25,10 +25,10 @@ const STEPS = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on
 // (a disc on w₂ holding w₂ = 0, the cube's critical value: one piece on z, three preimages of each of its points)
 const CRIT_DISCS = [{ id: 'd3', kind: 'disc', c: [0.34, 0], r: 0.35, stage: 2 }, { id: 'd4', kind: 'disc', c: [0.5, 0], r: 0.7, stage: 2 }];
 // (the disc made large: its far piece reaches into the window)
-const BIG_DISC = Object.assign({}, { id: 'd5', kind: 'disc', c: [0.4465, 0.3], r: 0.25, stage: 2 });
+const BIG_DISC = { id: 'd5', kind: 'disc', c: [0.4465, 0.3], r: 0.25, stage: 2 };
 const WORDS = { en: '+1 off view', ru: 'ещё 1 за краем' };
-// (a camera with every piece of the disc off the window, up and to the left of it: the old corner spot was under the
-// scale chip there)
+// (a camera with every piece of the disc off the window, up and to the left of it: the words then go near the window's
+// top-left corner, where they must clear the scale chip)
 const FAR = [4.8, -5.1];
 const open = async (lang, s, extra = [], at = [0, 0], disc = true) => {
   const ns = `pulloff-${lang}-${s}-${Date.now()}`;

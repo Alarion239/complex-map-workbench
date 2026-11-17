@@ -447,7 +447,6 @@
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
-  // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
   // the inverse plan of the steps from plane j to plane st, kept per chain
   function prePlan(j, st) {
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
@@ -459,6 +458,7 @@
     }
     return plan;
   }
+  // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
   function exactPre(j, st, p) {
     if (!Inverse.pointPre) return null;
     const r = Inverse.pointPre(prePlan(j, st), C(p[0], p[1]));
@@ -583,15 +583,16 @@
   // ray from the window's centre toward the nearest piece, moved along the edge by PULL_EDGE_STEP px at a time (up to
   // PULL_EDGE_TRIES each way) until it is clear of the controls over the plane (labelChrome)
   const PULL_EDGE_PX = 24, PULL_EDGE_STEP = 24, PULL_EDGE_TRIES = 12;
+  const PULL_REACH_X = 14, PULL_REACH_Y = 30;   // px: how far the placer's spots around a label's anchor reach, margins included
   // where "+n off view" goes when no piece is in view: [x, y] on the window's edge toward z, clear of the controls
   function pullEdgeAt(pane, z, text) {
     const W = pane.w, H = pane.h, E = PULL_EDGE_PX, [tx, ty] = pane.w2s(z), dx = tx - W / 2, dy = ty - H / 2;
     const k = Math.min(dx ? (W / 2 - E) / Math.abs(dx) : Infinity, dy ? (H / 2 - E) / Math.abs(dy) : Infinity);
     const x0 = W / 2 + dx * k, y0 = H / 2 + dy * k, side = Math.abs(Math.abs(dx * k) - (W / 2 - E)) < 0.5;
     const ctx = pane.ctx;
-    ctx.save(); ctx.font = `500 12px ${TH.ui}`; const tw = ctx.measureText(text).width; ctx.restore();
+    ctx.save(); ctx.font = wordFont(); const tw = ctx.measureText(text).width; ctx.restore();
     // (the box the placer's spots around [x, y] can take, its own margins included)
-    const clear = (x, y, ch) => !ch.some((r) => x - tw - 14 < r.x1 && x + tw + 14 > r.x0 && y - 30 < r.y1 && y + 30 > r.y0);
+    const clear = (x, y, ch) => !ch.some((r) => x - tw - PULL_REACH_X < r.x1 && x + tw + PULL_REACH_X > r.x0 && y - PULL_REACH_Y < r.y1 && y + PULL_REACH_Y > r.y0);
     const ch = labelChrome(pane);
     for (let i = 0; i <= 2 * PULL_EDGE_TRIES; i++) {
       const d = PULL_EDGE_STEP * (i % 2 ? (i + 1) / 2 : -i / 2);

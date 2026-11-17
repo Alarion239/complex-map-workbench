@@ -23,6 +23,8 @@
   }
   // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, id?, rad? (marker radius), chrome?
   // (kept off labelChrome's controls), ink? (the text's colour, else the ink)}
+  // the font of a label that is a word ("+2 more"), not a name in maths
+  const wordFont = () => `500 12px ${TH.ui}`;
   function placeLabels(ctx, pane, items) {
     const r = labelReg(pane);
     for (const it of items) { r.items.push(it); r.marks.push([it.x, it.y, it.rad || 8]); }
@@ -145,7 +147,7 @@
     ctx.lineJoin = 'round'; ctx.lineWidth = 3;
     for (const g of groups) {
       const text = g.texts.join(' = ');
-      ctx.font = g.word ? `500 12px ${TH.ui}` : `italic 500 13px ${TH.math}`;
+      ctx.font = g.word ? wordFont() : `italic 500 13px ${TH.math}`;
       const tw = ctx.measureText(text).width;
       // NE, NW, SE, SW; then E, W, N, S; then the diagonals one step further out
       const cands = [[7, -7, 0], [-7 - tw, -7, 0], [7, 7 + th, 0], [-7 - tw, 7 + th, 0],
