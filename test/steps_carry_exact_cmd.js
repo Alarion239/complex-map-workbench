@@ -425,7 +425,7 @@ async function farPart() {
     ok("Joukowski key along t: its points are J's pole and the path's pole at t", keyOff.length === 0, keyOff);
     const ws = grid(P0, 8, 5, 0.9), seq = ws.map(() => []);
     for (let s = 30; s <= 70; s++) {
-      const cs = ws.map(J.candAt(s / 100)), F = await fronts(cs.map((L) => L.map((e) => e.z)), 1, (await ev(`__cmwSvKey(1, ${s / 100})`)).sing);
+      const cs = ws.map(J.candAt(s / 100)), F = await fronts(cs.map((L) => L.map((e) => e.z)), 1, null, s / 100);
       cs.forEach((L, k) => seq[k].push(F[k] < 0 ? null : L[F[k]].z));
     }
     // (a step of t moves a point by about |z| / 100: the front jumps when it moves more than a tenth of 1 + |z|, and

@@ -413,14 +413,16 @@ const Inverse = (() => {
   }
   // Inverse.keyPeriod(plan) -> the period T of the chain in z (F(z + T) = F(z)), or null: the step its leading affine
   // ops (AFF, or MOB with c = 0) u = A z + B lead to has an additive family of period p (exp, sin, cos, tan and their
-  // kin), so T = p / A
+  // kin), so T = p / A; null too where |T|^2 is not finite in float64 (an extreme A), which perReduce divides by
   function keyPeriod(plan) {
     if (!plan || !plan.ok) return null;
     let A = ONE;
     for (const o of plan.ops) {
       const af = affOf(o);
       if (af) { A = mul(af.a, A); continue; }
-      return o.fam && o.fam.type === 'add' && isFin(o.fam.p) && !isZero(A) ? div(o.fam.p, A) : null;
+      if (!(o.fam && o.fam.type === 'add' && isFin(o.fam.p) && !isZero(A))) return null;
+      const T = div(o.fam.p, A);
+      return Number.isFinite(T.re * T.re + T.im * T.im) ? T : null;
     }
     return null;
   }
@@ -1014,8 +1016,9 @@ const Inverse = (() => {
     const ms = Math.round((dd.re * F.S.re + dd.im * F.S.im) / S2);
     return Number.isFinite(ms) ? ms : 0;
   }
-  // Inverse.prepare(plan, {win, shape, sing, ref}) -> Prep. Always fills refs, key data and the shape evaluator, so a
-  // Prep with ok = false can still be used by enumerate's truth mode (opts.full) in tests.
+  // Inverse.prepare(plan, {win, shape, sing, per, ref}) -> Prep (per: the key's period, keyPeriod(plan) when undefined).
+  // Always fills refs, key data and the shape evaluator, so a Prep with ok = false can still be used by enumerate's truth
+  // mode (opts.full) in tests.
   function prepare(plan, o = {}) {
     const R_ = RG();
     const win = o.win, shape = o.shape;
