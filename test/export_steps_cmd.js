@@ -204,16 +204,18 @@ for (const crop of ['fit', 'screen']) {
 // the colour on Re z = 0 where F is real: example 9, F = (z²−1)/(z²+1), whose window [−5, 5] × [−4, 4] is symmetric about
 // 0, so an odd art width puts a column of pixel centres on Re z = 0, where F(iy) = (y²+1)/(y²−1) > 0 for |y| > 1 and
 // arg F = 0, as on the columns beside it; a driver whose atan(y, x) reads a −0 imaginary part as negative (SwiftShader)
-// would draw that column in the hue of arg π unless wang answers a zero imaginary part itself. Each odd width of the
-// sweep (AXIS_PTS): the centre column, AXIS_ROW of the art's height down, is within AXIS_JUMP (summed over the channels)
-// of each neighbour
-const AXIS_JUMP = 60, AXIS_PTS = [351, 354, 357], AXIS_ROW = 0.15;
+// would draw that column in the hue of arg π unless wang answers a zero imaginary part itself. The custom sizes AXIS_PTS
+// in turn, until AXIS_ODD of them give an art of odd width: in each, the centre column, AXIS_ROW of the art's height down,
+// is within AXIS_JUMP (summed over the channels) of each neighbour
+const AXIS_JUMP = 60, AXIS_PTS = [351, 352, 353, 354, 355, 356, 357, 358], AXIS_ODD = 2, AXIS_ROW = 0.15;
 await go(`${base}/test.html?view=steps&ns=xsvax${Date.now() % 1e7}`);
 await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
 await ev(`(__cmwExample(9), 1)`);
 await settled({ until: '__cmwSteps().planes.length > 0 && !__cmwSteps().moving', max: 15000, floor: 300 });
 const axis = [];
+const widths = [];
 for (const pt of AXIS_PTS) {
+  if (axis.length >= AXIS_ODD) break;
   await ev(`window.__xsv = null; (async () => {
     const f = await Figure.build({ for: 'homework', sizeId: 'custom', customPt: ${pt}, text: 11 });
     const m = f.svg.match(/<image[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/); if (!m) return { none: true };
@@ -224,9 +226,10 @@ for (const pt of AXIS_PTS) {
   })().then((r) => { window.__xsv = r; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
   const r = await ev('window.__xsv');
+  widths.push(r && r.w);
   if (r && r.w % 2 === 1) axis.push(Object.assign({ pt }, r));
 }
 const jump = (a, b) => Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
 info.axis = axis;
-ok('example 9, odd art widths: the column on Re z = 0, where arg F = 0, has its neighbours\' colour', axis.length >= 2 && axis.every((r) => jump(r.px[1], r.px[0]) <= AXIS_JUMP && jump(r.px[1], r.px[2]) <= AXIS_JUMP), axis);
+ok('example 9, odd art widths: the column on Re z = 0, where arg F = 0, has its neighbours\' colour', axis.length >= AXIS_ODD && axis.every((r) => jump(r.px[1], r.px[0]) <= AXIS_JUMP && jump(r.px[1], r.px[2]) <= AXIS_JUMP), { axis, widths });
 return { pass: fails.length === 0, fails, info };
