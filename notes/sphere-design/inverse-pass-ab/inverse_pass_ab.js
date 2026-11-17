@@ -4,7 +4,9 @@
 // ci/newt_ab.js and test/newt_ab_cmd.js (their tree builds, draw hook and hashes) with scenes of the leaf and one more
 // readback; if those land first, these scenes and the control belong in that tool.
 //   node notes/sphere-design/inverse-pass-ab/inverse_pass_ab.js [--base REF] [--only REGEX] [--no-control] [--keep] [--work DIR]
-// REF defaults to origin/claude/funny-darwin-l5uis3. Needs CHROME_BIN and CMW_CHROME_ARGS (ci/README.md); CMW_ANGLE picks
+//                                                               [--key-skip REGEX]
+// --key-skip: uniforms left out of an inverse draw's key (a change that drops uniforms from a program, so that one build
+// has them active and the other not, would otherwise key every draw apart). REF defaults to origin/claude/funny-darwin-l5uis3. Needs CHROME_BIN and CMW_CHROME_ARGS (ci/README.md); CMW_ANGLE picks
 // the renderer (swiftshader; vulkan with lavapipe's flags). Exit 1 on any differing record.
 // Each scene is loaded in a fresh page, moved to its place (a glide's x, the globe, a classic pane) and recorded once its
 // panes are quiet:
@@ -77,6 +79,7 @@ function tree(name, ref, edits) {
 // The page's hook, installed before the app's scripts: programs whose fragment stage holds the inverse walk, and every
 // draw read back while recording is on (window.__ab.on).
 const HOOK = `(() => {
+  const KEY_SKIP = ${JSON.stringify(opt('--key-skip', ''))};
   const P = WebGL2RenderingContext.prototype, src = new WeakMap(), invFs = new WeakMap(), uniformsOf = new WeakMap();
   const ss = P.shaderSource, at = P.attachShader;
   P.shaderSource = function (s, t) { src.set(s, t); return ss.call(this, s, t); };
@@ -112,6 +115,7 @@ const HOOK = `(() => {
       const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < n; i++) {
         const u = gl.getActiveUniform(p, i), base = u.name.replace(/\\[0\\]$/, '');
+        if (KEY_SKIP && new RegExp(KEY_SKIP).test(base)) continue;
         for (let k = 0; k < u.size; k++) list.push([u.size > 1 ? base + '[' + k + ']' : u.name, gl.getUniformLocation(p, u.size > 1 ? base + '[' + k + ']' : u.name)]);
       }
       list.sort((x, y) => (x[0] < y[0] ? -1 : 1));
