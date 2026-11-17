@@ -3,7 +3,7 @@
 // the build drops every block from the opening marker line to the next marker (tools/hook_marker.js).
 // A start marker without its end marker (a block moved out of app.js with the end left behind) drops everything
 // up to the next end marker, thousands of lines, and the published script does not parse, while every other test
-// runs the test page and passes. A marker outside a block (a plain pair, or the old wording) drops nothing and the hook
+// runs the test page and passes. A marker outside a block (a plain pair, or a lone marker) drops nothing and the hook
 // ships. This checks that every marker of the sources belongs to a block, that build.py carries the same expression,
 // builds both pages and compiles each script of the published one (syntax only), and checks that each dropped block is
 // a hook: at most HOOK_MAX lines long and holding no other start marker, and that no marker reaches the published page.
@@ -17,7 +17,7 @@ const ok = (name, pass, detail) => { if (!pass) { fails++; console.log('FAIL ' +
 const { BLOCK: RE, BLOCK_SRC, ANY, OPENER } = require('../tools/hook_marker');
 const HOOK_MAX = 300;   // lines: the longest hook block is about 240 (app.js's test helpers at the end of init)
 const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js') && !/^i18n_|^seasong/.test(n));
-for (const f of [...files, 'app.js', 'gl.js']) {
+for (const f of new Set([...files, 'app.js', 'gl.js'])) {
   let text;
   try { text = source(f); } catch (e) { continue; }
   let m, n = 0;
@@ -30,7 +30,7 @@ for (const f of [...files, 'app.js', 'gl.js']) {
   }
   const starts = (text.match(OPENER) || []).length;
   ok(`${f}: every start marker has its end (${starts} start markers, ${n} blocks)`, starts === n, { starts, n });
-  // every marker is one end of a block: a plain pair, a lone marker or the old wording would leave its code in the page
+  // every marker is one end of a block: a plain pair or a lone marker would leave its code in the page
   const markers = (text.match(ANY) || []).length;
   ok(`${f}: every hook marker belongs to a block (${markers} markers, ${n} blocks)`, markers === 2 * n, { markers, blocks: n });
 }
