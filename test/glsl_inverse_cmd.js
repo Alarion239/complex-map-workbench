@@ -8,4 +8,4 @@ await nav('http://localhost:8793/glsl-inverse-test.html');
 const r = await evp(`__invTestRun(${JSON.stringify(globalThis.__GIT || {})})`, 1800000);
 const pass = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !r.errors.length;
 return { pass, anchors: r.anchors, walk: { cases: r.cases, eligibleCases: r.eligibleCases, programs: r.programs, points: r.points, compared: r.compared, leaves: r.leaves, skipped: r.skipped, failCount: r.failCount, byChain: r.byChain, fails: r.fails.filter((f, i) => i < 12 || !r.fails.slice(0, i).some((g) => g.chain === f.chain)) },
-  rational: r.rational, clip: r.clip, fs: r.fs, flip: r.flip, errors: r.errors.slice(0, 10), ms: r.ms, logs: logs().filter((l) => l.t !== 'log-error').slice(0, 10) };
+  rational: r.rational, rept: r.rept, clip: r.clip, fs: r.fs, flip: r.flip, errors: r.errors.slice(0, 10), ms: r.ms, logs: logs().filter((l) => l.t !== 'log-error').slice(0, 10) };

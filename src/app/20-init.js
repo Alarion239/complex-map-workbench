@@ -190,6 +190,8 @@
       warmKick();
       if ((!w || w.side) && exWait.size) retryExampleThumbs();
     };
+    // a REPT draw with tiles still to draw (GLR's reptDraw): the panes are drawn again, one tile further
+    GLR.onReptPending = () => requestRender('L', 'R');
     setTheme(themePref()); // before the first readTheme, so canvases start in the saved theme
     GLR.setPalette(palPref());
     readTheme();
