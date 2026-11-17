@@ -3401,11 +3401,6 @@
   "en": "Fill opacity",
   "ru": "Непрозрачность заливки"
  },
- "chrome.mesh_resolution": {
-  "en": "Mesh resolution",
-  "ru": "Детализация",
-  "note": "Glossary: mesh quality = «детализация»; never «сетка» (that is the grid). The proto table has «Детализация сетки»: change it."
- },
  "chrome.left_pane_surface_2": {
   "en": "Left pane surface",
   "ru": "Поверхность левой панели"
