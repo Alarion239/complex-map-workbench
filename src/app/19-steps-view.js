@@ -744,8 +744,50 @@
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
   const SV_SING_BIG = 10;
+  // a point where F is unbounded without being a pole, from z, by Newton's method on u = h/h' (h = 1/F): u has a simple
+  // zero where h has a zero of any order, a pole's (order 1) or a root's (|F| ~ |z - p|^-a, 0 < a < 1, where Newton's
+  // method on h reflects about p or crawls). The point found (within box) is kept where |F| a little way from it is past
+  // big, so a start that settles on no such point (on a zero of h' alone) gives null
+  function* svSingNewton(F, z, box, big, E) {
+    const h = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? (CX.isZero(w) ? null : CX.inv(w)) : C(0, 0); };
+    const u = (p, e) => {
+      const h0 = h(p), hp = h(CX.add(p, C(e, 0))), hm = h(CX.sub(p, C(e, 0)));
+      if (!h0 || !hp || !hm) return null;
+      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
+      return CX.isZero(h0) ? C(0, 0) : CX.isFin(d) && !CX.isZero(d) ? CX.div(h0, d) : null;
+    };
+    yield* svPoleTick(E);
+    let gap = Infinity;
+    for (let i = 0; i < 16; i++) {
+      // (the differences' step: a hundredth of the last distance u gave, at most 1e-6 (1 + |z|): steps that straddle the
+      // point would read the difference across it)
+      const s = CX.abs(z), e = Math.max(1e-14 * (1 + s), Math.min(1e-6 * (1 + s), gap / 100)), u0 = u(z, e);
+      if (!u0) return null;
+      if (CX.abs(u0) < 1e-12 * (1 + s)) break;
+      if (CX.abs(u0) > 2 * gap) return null;
+      gap = CX.abs(u0);
+      const up = u(CX.add(z, C(e, 0)), e), um = u(CX.sub(z, C(e, 0)), e);
+      if (!up || !um) return null;
+      const d = CX.div(CX.sub(up, um), C(2 * e, 0));
+      if (!CX.isFin(d) || CX.isZero(d)) return null;
+      const step = CX.div(u0, d);
+      z = CX.sub(z, step);
+      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
+      yield* svPoleTick(E);
+      if (CX.abs(step) < 1e-11 * (1 + s)) break;
+    }
+    const r = 1e-6 * (1 + CX.abs(z));
+    for (let a = 0; a < 4; a++) {
+      let w = null;
+      try { w = F(CX.add(z, C(r * Math.cos(a * Math.PI / 2 + 0.3), r * Math.sin(a * Math.PI / 2 + 0.3)))); } catch (e) { w = null; }
+      if (!w || (CX.isFin(w) && !(CX.abs(w) > big))) return null;
+    }
+    return z;
+  }
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  // sing, a start Newton's method does not settle on is refined to its singular point: where |F| there is past
+  // SV_SING_BIG, by its nearest peak of |F|; else (and where that finds none) by svSingNewton, which finds a root's
+  // point (√ of a Möbius step at its pole) from a grid whose |F| next to it is small
   function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
@@ -775,6 +817,7 @@
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
       if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
+      if (!p && sing) p = yield* svSingNewton(F, at(i, j), lim, SV_SING_BIG, E);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
