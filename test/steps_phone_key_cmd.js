@@ -46,7 +46,7 @@ for (const [w, h, lang] of WIDTHS) {
   ok(`${w} ${lang}: ${w > h ? 'a landscape phone has' : 'a portrait phone has no'} ph-land`, (await ev("document.documentElement.classList.contains('ph-land')")) === (w > h), null);
   ok(`${w} ${lang}: example 1 has three planes`, nPl === 3, nPl);
   // (the example's toast is a transient overlay on the plane, over a short landscape plane too: it is dismissed, as it times out on a real page, so the probe reads the key and the buttons)
-  await ev(`(document.querySelectorAll('.toast .toast-x, .toast-x').forEach((b) => b.click()), 1)`);
+  await ev(`(document.querySelectorAll('.toast-x').forEach((b) => b.click()), 1)`);
   await settled({ until: `!document.querySelector('.toast')`, max: UI_WAIT });
   await K.sweep(ok, info, nPl, async (name, lg) => {
     name = `${w} ${lang}, ${name}`;
