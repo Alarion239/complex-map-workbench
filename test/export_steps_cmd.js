@@ -201,12 +201,13 @@ for (const crop of ['fit', 'screen']) {
     ok(`${tag}: each frame has its own ticks`, r && r.ticks >= 8, r && r.ticks);
   } else ok(`${tag}: every frame shows the camera's window, with no note`, r && !r.err && !r.boxes && !r.own && !/own window/.test(r.cap), r);
 }
-// the colour on Re z = 0 where F is real (#1709): example 9, F = (z²−1)/(z²+1), whose window [−5, 5] × [−4, 4] is symmetric
-// about 0, so an odd art width puts a column of pixel centres on Re z = 0, where F(iy) = (y²+1)/(y²−1) > 0 for |y| > 1 and
-// arg F = 0, as on the columns beside it. A driver whose atan(y, x) reads a −0 imaginary part as negative (SwiftShader)
-// drew that column in the hue of arg π. Each odd width of the sweep: the centre column, at 15% down the art, is within
-// AXIS_JUMP (summed over the channels) of each neighbour
-const AXIS_JUMP = 60, AXIS_PTS = [351, 354, 357];
+// the colour on Re z = 0 where F is real: example 9, F = (z²−1)/(z²+1), whose window [−5, 5] × [−4, 4] is symmetric about
+// 0, so an odd art width puts a column of pixel centres on Re z = 0, where F(iy) = (y²+1)/(y²−1) > 0 for |y| > 1 and
+// arg F = 0, as on the columns beside it; a driver whose atan(y, x) reads a −0 imaginary part as negative (SwiftShader)
+// would draw that column in the hue of arg π unless wang answers a zero imaginary part itself. Each odd width of the
+// sweep (AXIS_PTS): the centre column, AXIS_ROW of the art's height down, is within AXIS_JUMP (summed over the channels)
+// of each neighbour
+const AXIS_JUMP = 60, AXIS_PTS = [351, 354, 357], AXIS_ROW = 0.15;
 await go(`${base}/test.html?view=steps&ns=xsvax${Date.now() % 1e7}`);
 await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
 await ev(`(__cmwExample(9), 1)`);
@@ -218,7 +219,7 @@ for (const pt of AXIS_PTS) {
     const m = f.svg.match(/<image[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/); if (!m) return { none: true };
     const img = new Image(); img.src = m[1]; await img.decode();
     const c = document.createElement('canvas'); c.width = img.width; c.height = img.height; const g = c.getContext('2d'); g.drawImage(img, 0, 0);
-    const k = (img.width - 1) / 2, d = g.getImageData(k - 1, Math.round(img.height * 0.15), 3, 1).data;
+    const k = (img.width - 1) / 2, d = g.getImageData(k - 1, Math.round(img.height * ${AXIS_ROW}), 3, 1).data;
     return { w: img.width, px: [0, 1, 2].map((i) => [d[4 * i], d[4 * i + 1], d[4 * i + 2]]) };
   })().then((r) => { window.__xsv = r; }, (e) => { window.__xsv = { err: String(e) }; }); 1`);
   await settled({ until: 'window.__xsv != null', max: 120000, panes: false });
