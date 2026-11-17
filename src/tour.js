@@ -428,7 +428,7 @@ const Tour = (() => {
         try: { text: 'Press ›, then hover a point.', touch: 'Tap ›, then hold a point and slide.', on: 'probe', test: (e) => !e || !!e.past, ctl: ['svNext'] } },
       { id: 'inside', anchor: 'svScope', title: 'Inside regions', before: [['svPlace', { i: 0, T: -1, scope: 'all' }]],
         body: 'Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.',
-        try: { text: 'Choose Inside regions.', touch: 'Choose Inside regions.', on: 'scope-changed', test: (e) => !e || e.s === 'in', ctl: ['svScope'] } },
+        try: { text: 'Choose Inside regions.', touch: 'Choose Inside.', on: 'scope-changed', test: (e) => !e || e.s === 'in', ctl: ['svScope'] } },
       { id: 'surface', anchor: 'svSurf', title: 'Sphere and Landscape', before: [['svPlace', { i: 0, scope: 'all', surf: 'plane' }]],
         body: 'The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.',
         try: { text: 'Choose Sphere.', touch: 'Tap the surface button, then Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere', ctl: ['svSurf'] } },

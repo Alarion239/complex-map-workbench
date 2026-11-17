@@ -1,14 +1,12 @@
-// The carried-colour suites' shared page script and pixel compare: steps_carry_inregion_cmd.js, steps_carry_far_cmd.js,
-// steps_carry_chains_cmd.js and steps_carry_planes_cmd.js. The left pane's pixels come from the page's __cmwLPx; the
-// rest is the pane's camera, the nearest of a point's 9 pixels to a reference, the bare-paper test and the example list
-// of src/app/15-examples-guide.js.
+// The carried-colour suites' shared page script and pixel compare: steps_carry_exact_cmd.js's parts. The left pane's pixels
+// come from its canvas, canvasL, read in the pane's camera; the rest is the pane's camera, the nearest of a point's 9 pixels to a reference and the bare-paper test (the example names are the
+// CDP kit's exampleNames()).
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
-// - lpx(pts): __cmwLPx(pts) answers { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels about
-//   it as [r, g, b, a] each, row by row (the centre is index 4), or null off the pane;
+// - lpx(pts): { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels of canvasL about it as
+//   [r, g, b, a] each, row by row (the centre is index 4), or null off the pane; and the camera and size they were read in;
 // - paneOf(): the pane's camera (v: the view, with cx, cy, s) and its size in css px (w, h);
 // - nearest(p, ref): the least, over the 9 pixels ref of a point, of the largest channel difference (0..255) from p;
 // - bare(p): whether the centre pixel p (of a 3 x 3 read) is bare paper, its channels within 6 of each other;
-// - exampleNames(): the example names of src/app/15-examples-guide.js, in the order the page lists them;
 // - tally(got, ref, o): over the points k with got[k] and ref[k] both read (and not o.skip(k)), the count n of those, how
 //   many are wrong (nearest() over o.tol, default 14, from the 3 x 3 reference), how many sit on bare paper, the worst
 //   nearest(), and up to 6 examples (o.note(k) adds its fields to each): { n, wrong, paper, worst, ex };
@@ -28,8 +26,25 @@
 //   gives w back within 1e-7);
 // - carryRead(env): measure(), the front point's colour on a plane against plane z's (below, at its definition).
 (() => {
-  // (a page hook that throws answers { __exc }, which fails the suite here rather than reading as no pixels)
-  const lpx = async (pts) => { const r = await ev(`__cmwLPx(${JSON.stringify(pts)})`); if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc); return r; };
+  // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
+  // H/2 - (y - cy) s dpr); a read that throws answers { __exc }, which fails the suite here rather than reading as no
+  // pixels)
+  const lpx = async (pts) => {
+    const r = await ev(`(() => {
+      const c = document.getElementById('canvasL'), m = __cmwCards().main, v = m.view, d = m.dpr, W = c.width, H = c.height;
+      const img = c.getContext('2d').getImageData(0, 0, W, H).data;
+      const px = ${JSON.stringify(pts)}.map(([x, y]) => {
+        const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
+        if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
+        const out = [];
+        for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); }
+        return out;
+      });
+      return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
+    })()`);
+    if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc);
+    return r;
+  };
   const paneOf = async () => { const q = await lpx([]); return { v: q.view, w: q.pw / q.dpr, h: q.ph / q.dpr }; };
   const nearest = (p, ref) => {
     let best = 1e9;
@@ -37,7 +52,6 @@
     return best;
   };
   const bare = (p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) < 6;
-  const exampleNames = () => [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
   const tally = (got, ref, o = {}) => {
     const tol = o.tol == null ? 14 : o.tol, ex = [];
     let n = 0, wrong = 0, paper = 0, worst = 0;
@@ -223,5 +237,5 @@
     };
     return { measure };
   };
-  return { lpx, paneOf, nearest, bare, exampleNames, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
+  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
 })()

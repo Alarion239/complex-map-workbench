@@ -79,7 +79,7 @@ const Phone = (() => {
     // the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
-    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
     els.body.display.append(els.viewOpts);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
@@ -405,7 +405,7 @@ const Phone = (() => {
       kids = [text(st.name, st.used ? st.def + ' · ' + $t('Used by {n}', { n: st.used }) : st.def),
         btn('prim', $t('Edit'), () => open('tools', { tab: 'shapes', edit: st.id })),
         btn('', $t('Delete'), () => A.ctxAct('delete', st.id), st.used ? { 'aria-label': $t('Delete {label} and the {n} that use it', { label: st.name, n: st.used }) } : {}),
-        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu' })];
+        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu', 'aria-expanded': 'false' })];
     } else if (st && st.kind === 'polygon') {
       kids = [text($t('Polygon'), String(st.n)),
         btn('', '⌫ ' + $t('Last'), () => A.ctxAct('last')),
@@ -848,6 +848,7 @@ const Phone = (() => {
     const pcName = h('span', { class: 'ph-pv' }, A.palName());
     pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
     pc.setAttribute('aria-haspopup', 'menu');
+    pc.setAttribute('aria-expanded', 'false');
     const lang = A.langPref();
     // the links, the scene files and the LaTeX are rows of this sheet (a desktop menu over the
     // plane would need a key a phone has not got); "… again" only once a figure is made

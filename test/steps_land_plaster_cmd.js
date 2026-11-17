@@ -49,6 +49,20 @@ ok('Tiles after Plaster: D.phase is true, the choice is Tiles, the picture is co
 await press('phase');
 const plain = await read();
 ok('Plain: D.phase is true and the choice is Plain', plain.phase === true && plain.checked === 'phase' && plain.coloured > 0, plain);
+// the head's ⋯ pop-up takes the focus on its checked choice, opened by the pointer and by the keyboard alike (the popover rule:
+// focus moves into it): under Plaster that is Plaster, the one tabbable button of the Colouring row
+await press('plaster');
+const opener = "document.querySelector('.pane-head .opts-btn')";
+for (const how of ['pointer', 'keyboard']) {
+  await key('Escape'); await settled({ until: "!document.querySelector('.opts-pop')", max: 8000, only: true });
+  if (how === 'pointer') {
+    const at = await ev(`(() => { const r = ${opener}.getBoundingClientRect(); return [r.x + r.width / 2, r.y + r.height / 2]; })()`);
+    await click(at[0], at[1]);
+  } else { await ev(`${opener}.focus(); 1`); await key('Enter'); }
+  await settled({ until: "!!document.querySelector('.opts-pop')", max: 8000, only: true });
+  const f = await ev(`(() => { const a = document.activeElement; return { inPop: !!a && !!a.closest('.opts-pop'), v: a && a.dataset.v, on: !!a && a.classList.contains('on') }; })()`);
+  ok(`opened by the ${how}: focus is on the checked Colouring choice, Plaster`, f.inPop && f.v === 'plaster' && f.on, f);
+}
 // the Landscape's key stays its height key under Plaster, at plane 0 and at a plane past the colour plane (where a carried wheel would
 // otherwise be named), and under Tiles as the control
 // (ring: the key draws the hue ring; coloured: the key canvas's own coloured pixels; glyph: the chip's glyph is the hue wheel, a conic gradient, and the neutral ink under Plaster)
