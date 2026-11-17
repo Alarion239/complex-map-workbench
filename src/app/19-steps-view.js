@@ -3251,8 +3251,8 @@
       // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
       // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
       if (SV.surf === 'land') {
-        GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
-        GLR.prestart(['landCarryNrm', 'lineFC']);
+        if (GLR.prestartNames) GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
+        if (GLR.prestart) GLR.prestart(['landCarryNrm', 'lineFC']);
       }
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
       // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)

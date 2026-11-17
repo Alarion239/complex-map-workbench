@@ -753,6 +753,8 @@
   function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); tourEmit('sheets-shown', {}); }
   function setSheets(on) {
     setOpt('sheets', !!on);
+    // (the steps view's Landscape: its glide's carry places the sheets then, so that program starts linking now, svPrestart)
+    if (on && SV.on && SV.surf === 'land') svPrestartSoon(300);
     // the sheets of a root share |F|: they separate in Re F and Im F
     if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: SV.on ? svHeightName('text') : fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
