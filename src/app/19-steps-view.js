@@ -295,6 +295,33 @@
     draft = null; probe = null;
     requestRender('L');
   }
+  // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
+  // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
+  // sound relayout and no spoken label. A Play or a glide under way is held for the visit and goes on afterwards: a glide from
+  // where it was, its clock moved on by the visit's time; a slide (Play under reduced motion) on the plane it was on, its next
+  // step a full svSlideMs() after the visit. So a figure or a video drawn off-screen leaves the page as it found it. (They are
+  // drawn under a modal dialog, so no Play or glide starts during draw(): what is put back is what was held.)
+  // -> draw()'s result
+  async function svAtPlane(i, draw) {
+    const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left), play: SV.play, anim: SV.anim };
+    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim) return draw();
+    const visit = (k, x) => { SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
+    const t0 = performance.now();
+    if (keep.play && keep.play.slide) clearTimeout(keep.play.timer);
+    SV.play = null; SV.anim = null;
+    svKeepView();
+    visit(i, i);
+    try { return await draw(); } finally {
+      const held = performance.now() - t0;
+      for (const A of [keep.play, keep.anim]) if (A && A.t0 != null) A.t0 += held;
+      SV.play = keep.play; SV.anim = keep.anim;
+      visit(keep.i, keep.x);
+      Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at;
+      if (keep.play && keep.play.slide) keep.play.timer = setTimeout(() => svSlide(false), svSlideMs());
+      svSync();
+      requestRender('L');
+    }
+  }
   function svArrive() {
     svPolesWatch();
     const i = Math.round(SV.g.x), was = SV.at;
@@ -2247,6 +2274,10 @@
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
+    // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
+    // 360 px in Russian and Italian; the segment's name stays the whole one, and the tooltip says what it does)
+    const inSeg = scope.querySelector('[data-v="in"]');
+    if (inSeg) { inSeg.setAttribute('aria-label', SCOPES[1][1]); inSeg.textContent = ''; inSeg.append(h('span', { class: 'sc-full' }, SCOPES[1][1]), h('span', { class: 'sc-short' }, $t('Inside'))); }
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
@@ -2811,18 +2842,20 @@
     }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
     // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
-    E.bar.classList.remove('sv-c3', 'sv-c4');
+    E.bar.classList.remove('sv-c3', 'sv-c4', 'sv-c5');
     const legend = $('leftLegend');
     E.head.classList.remove('sv-lg');
     if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
-      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
-      // tighten; eyes on #473)
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps tighten, and its segmented
+      // buttons' padding but the scope's, which keeps the spec's; eyes on #473; last of all the scope's padding too, on w₁
+      // at 320 px, where nothing else is left to give)
       const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
       const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
       if (short()) E.bar.classList.add('sv-c3');
       if (short()) E.bar.classList.add('sv-c4');
+      if (short()) E.bar.classList.add('sv-c5');
       return;
     }
     set(0);
@@ -3448,6 +3481,8 @@
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
   }
+  // a slide's time on each plane (ms)
+  const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
   function svSlide(first) {
     const A = SV.play;
@@ -3460,7 +3495,7 @@
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
     }
-    A.timer = setTimeout(() => svSlide(false), svReduced() ? 2000 : svPerPlane());
+    A.timer = setTimeout(() => svSlide(false), svSlideMs());
     svSync();
   }
   // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's
