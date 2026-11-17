@@ -7,7 +7,6 @@
 //  - the pop-up is a non-modal dialog, so Tab does not trap: Shift+Tab from its first control and Tab from its last close it and
 //    return the focus to the ⋯ button (the focus does not stay in an open pop-up that sits apart from the page's Tab order).
 // Real key events (CDP Input). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
-const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const SHIFT = 8;
@@ -27,9 +26,7 @@ const tag = 'laptop', W = 1440, H = 900, phone = false;
 {
   const ns = 'svhp' + tag + Date.now();
   await view(W, H, phone, phone);
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await loadView('steps', ns, st, { lang: 'en' });
   await settled({ max: 30000, until: "window.__cmwSteps && __cmwSteps().on && !!document.querySelector('#svStrip .sv-rail')" });
   await ev(`(__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }), 1)`);
   await settled({ max: 30000, until: "window.__cmwSteps && !__cmwSteps().moving" });
@@ -64,10 +61,16 @@ const tag = 'laptop', W = 1440, H = 900, phone = false;
   info[tag + ' left'] = left;
   ok(`${tag}: ← on the first choice (Tiles) checks and focuses the last (Plaster)`, left.group === 'landPaint' && left.v === 'plaster' && left.checked, left);
   await closeIf();
-  // 3. Tab leaves the non-modal dialog by closing it, the focus back on the anchor
+  // 3. Tab leaves the non-modal dialog by closing it, the focus back on the anchor. The pop-up's tab stops are the controls the
+  // browser's own sequential order reaches in it (tabIndex 0 or more, enabled, shown), not the source's selector
+  const stopsJs = "[...document.querySelectorAll('.opts-pop *')].filter((e) => e.tabIndex >= 0 && !e.disabled && e.offsetParent !== null)";
+  await open();
+  const nStops = await ev(`${stopsJs}.length`);
+  ok(`${tag}: the pop-up has at least three tab stops (a middle one exists)`, nStops >= 3, nStops);
+  await closeIf();
   for (const [name, mods, pick] of [['Shift+Tab from the first control', SHIFT, 'first'], ['Tab from the last control', 0, 'last']]) {
     await open();
-    await ev(`(() => { const c = [...document.querySelectorAll('.opts-pop :is(button, input, select, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((e) => e.offsetParent !== null); c[${pick === 'first' ? '0' : 'c.length - 1'}].focus(); return c.length; })()`);
+    await ev(`(() => { const c = ${stopsJs}; c[${pick === 'first' ? '0' : 'c.length - 1'}].focus(); return c.length; })()`);
     await key('Tab', mods);
     await settled({ until: `!${popOpen}`, max: 3000, only: true });
     const t = await where();
@@ -75,14 +78,37 @@ const tag = 'laptop', W = 1440, H = 900, phone = false;
     ok(`${tag}: ${name} closes the pop-up and returns the focus to the ⋯ button`, t.open === false && t.anchor && t.expanded === 'false', t);
     await closeIf();
   }
+  // Tab from a control in the middle goes to the next control and the pop-up stays open
+  await open();
+  await ev(`(() => { const c = ${stopsJs}; c[1].focus(); return c.length; })()`);
+  const mid0 = await where();
+  await key('Tab');
+  const mid = await where();
+  info[tag + ' middle'] = { before: mid0, after: mid };
+  ok(`${tag}: Tab from a middle control keeps the pop-up open, the focus in it and not on the ⋯ button`, mid.open === true && mid.inPop && !mid.anchor, mid);
+  await closeIf();
+  // a control that Tab does not reach (a segmented row's unchecked choice, tabindex -1) can hold the focus too, after a click: with
+  // Plaster checked, Tiles lies before the first tab stop, and Shift+Tab from it leaves the pop-up as well
+  await open();
+  await ev(`(() => { const b = document.querySelector('#landPaint button[data-v="plaster"]'); b.click(); return 1; })()`);
+  const pl = await settled({ until: "document.querySelector('#landPaint button.on') && document.querySelector('#landPaint button.on').dataset.v === 'plaster'", max: 4000, only: true });
+  ok(`${tag}: Plaster is checked before the Shift+Tab from Tiles`, pl.ok, pl);
+  await settled({ max: 30000 });
+  await ev(`(() => { const t = document.querySelector('#landPaint button[data-v="tiles"]'); t.focus(); return t.tabIndex; })()`);
+  const tabIdx = await ev(`document.activeElement.tabIndex`);
+  ok(`${tag}: Tiles is a tabindex -1 control that holds the focus`, tabIdx === -1, tabIdx);
+  await key('Tab', SHIFT);
+  await settled({ until: `!${popOpen}`, max: 3000, only: true });
+  const tl = await where();
+  info[tag + ' tiles'] = tl;
+  ok(`${tag}: Shift+Tab from the unchecked Tiles (before the first tab stop) closes the pop-up and returns the focus to the ⋯ button`, tl.open === false && tl.anchor && tl.expanded === 'false', tl);
+  await closeIf();
 }
 // the phone: the Display sheet holds the same Colouring row, and it wraps on the arrows too
 {
   const ns = 'svhpph' + Date.now();
   await view(390, 844, true, true);
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await loadView('steps', ns, st, { lang: 'en' });
   await settled({ max: 30000, until: "window.__cmwSteps && __cmwSteps().on" });
   await ev(`(__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }), 1)`);
   await settled({ max: 30000, until: "window.__cmwSteps && !__cmwSteps().moving" });

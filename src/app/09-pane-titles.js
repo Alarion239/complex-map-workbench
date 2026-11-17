@@ -568,19 +568,22 @@
     pop.style.top = y + 'px';
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
-    // (Escape, and Tab off either end, close the pop-up and give the focus back to the anchor: it is a non-modal dialog, so Tab does
-    // not trap, and it lies apart from the page's Tab order (after the app in the document), so a Tab out of it would land on the
-    // page's last or first control with the pop-up left open)
+    // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
+    // does not trap, and it lies apart from the page's Tab order (after the app in the document), so a Tab out of it would land on
+    // the page's last or first control with the pop-up left open. A control Tab does not reach, a segmented row's unchecked choice
+    // that a click focused, counts by its place: Tab from it goes to the next stop after it in the pop-up, or leaves)
+    const tabStops = () => [...pop.querySelectorAll(':is(button, input, select, textarea, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((x) => /** @type {HTMLElement} */ (x).offsetParent !== null);
     pop.addEventListener('keydown', (e) => {
       if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); return; }
       if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
-      const stops = [...pop.querySelectorAll(':is(button, input, select, textarea, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((x) => /** @type {HTMLElement} */ (x).offsetParent !== null);
-      if (!stops.length || (e.shiftKey ? e.target !== stops[0] : e.target !== stops[stops.length - 1])) return;
+      const t = /** @type {Node} */ (e.target), stops = tabStops();
+      const next = e.shiftKey ? stops.filter((x) => x.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING).pop() : stops.find((x) => t.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (next) return;
       e.preventDefault(); closePalette(); btn.focus();
     });
     // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
     // segmented row, whose other buttons are tabindex -1)
-    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
+    if (!refresh) { const first = tabStops()[0]; if (first) /** @type {HTMLElement} */ (first).focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
