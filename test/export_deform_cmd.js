@@ -127,7 +127,7 @@ if (part('dialog')) {
     await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; __cmwFig.saveSettings(s); return 1; })()`);
     await ev('Figure.open(); 1'); await dlg(); await settle(600);
     await clickSel('#xfVSize button[data-v="1920x1080"]'); await clickSel('#xfVFps button[data-v="60"]');
-    await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '6'; s.dispatchEvent(new Event('change')); return 1; })()`); await sleep(300);
+    await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '6'; s.dispatchEvent(new Event('change')); return 1; })()`);
     const vidH = await ev(`document.getElementById('xfVideo').getBoundingClientRect().height`);
     await ev(`(document.getElementById('xfVideo').click(), 1)`);
     for (let i = 0; i < 100; i++) { await sleep(100); if (await ev(`!document.querySelector('.xf-prog').hidden && /Frame \\d+/.test(document.querySelector('.xf-progtxt').textContent)`)) break; }
