@@ -236,8 +236,9 @@ for (const T of [0, 1]) {
   await ev("__cmwSet('alpha', 1), __cmwSteps({ park: 1.5 }), 1");
   const parked = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); return Math.abs(s.x - 1.5) < 1e-9 && s.T === ${T} && s.moving; })()` });
   const Pg = await K.paneOf(), ptsG = K.grid(Pg, 16, 10);
-  // (in colour: at least 60 % of a 16 x 10 grid of the pane's points, once at least 100 of them are read)
-  const gWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = ${K.pxIn(ptsG)}.px.filter(Boolean).map((p) => p[4]); return q.length >= 100 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length >= 0.6 * q.length; })()` });
+  // (in colour: at least 60 % of a 16 x 10 grid of the pane's points, once at least 100 of them are read, in a frame of
+  // the parked place: the stand-in's positions mapped by its map (__cmwCarried().pos), not the plane drawn before the park)
+  const gWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; if (!(__cmwCarried() && __cmwCarried().pos)) return false; const q = ${K.pxIn(ptsG)}.px.filter(Boolean).map((p) => p[4]); return q.length >= 100 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length >= 0.6 * q.length; })()` });
   const gPx = (await K.lpx(K.grid(Pg, 16, 10))).px;
   const gi = info[tag] = { parked, wait: gWait, job: await carried(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(), g = s.glide; return { x: s.x, T: s.T, core: s.core, glide: g && { b: g.b, u: g.u, path: g.path, reason: g.reason } }; })()') };
   const shortG = !!gi.job && gi.job.end === 'budget';
