@@ -19,8 +19,14 @@ const LEG = async (name, id, plane) => {
   await ev(`(document.querySelector('#${id} [role="radio"][aria-checked="true"]') || document.querySelector('#${id} [role="radio"]')).focus(), 1`);
   const w0 = await where();
   ok(`${name}: the checked radio takes the focus`, w0.group === id && w0.checked, w0);
+  // (how often a radio of the group loses the focus per press: once, when the strip is rebuilt, the focus keeper gives it back, and
+  // laying the strip out moves the controls with moveBefore, which keeps the focus; a second blur is a second rebuild or a re-attach)
+  await ev(`window.__blurs = 0; document.addEventListener('focusout', (e) => { if (e.target.closest && e.target.closest('#${id}')) window.__blurs++; }, true), 1`);
   for (let i = 0; i < 2; i++) {
+    await ev('window.__blurs = 0, 1');
     await key('ArrowRight'); await settle();
+    const blurs = await ev('window.__blurs');
+    ok(`${name}: after → (${i + 1}) the radios lost the focus at most once`, blurs <= 1, blurs);
     const w = await where();
     ok(`${name}: after → (${i + 1}) the focus is on the checked radio of the group`, w.group === id && w.checked, w);
   }
