@@ -119,6 +119,24 @@ if (part('dialog')) {
     const mm = await ev(`(() => { const e = document.querySelector('.modal.xf'), v = document.getElementById('xfVideo').getBoundingClientRect(); return { sw: document.documentElement.scrollWidth, vw: innerWidth, over: e.scrollWidth - e.clientWidth, vid: [v.left, v.right] }; })()`);
     ok(`dialog Video ${w} ${dark ? 'dark' : 'light'}: no horizontal scroll, Save video on screen`, mm.sw <= mm.vw && mm.over <= 0 && mm.vid[0] >= 0 && mm.vid[1] <= mm.vw, mm);
   }
+  // (#1837) on a 360 x 640 phone (touch): Save video, and while a video is made Cancel, are touch targets of 44 px at least, and
+  // the progress meter beside them keeps MIN_METER_PX of width (the progress row has the name row's place: a row of its own)
+  {
+    const TARGET_PX = 44, MIN_METER_PX = 96;
+    await open(1, 360, 640, false);
+    await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; __cmwFig.saveSettings(s); return 1; })()`);
+    await ev('Figure.open(); 1'); await dlg(); await settle(600);
+    await clickSel('#xfVSize button[data-v="1920x1080"]'); await clickSel('#xfVFps button[data-v="60"]');
+    await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '6'; s.dispatchEvent(new Event('change')); return 1; })()`); await sleep(300);
+    const vidH = await ev(`document.getElementById('xfVideo').getBoundingClientRect().height`);
+    await ev(`(document.getElementById('xfVideo').click(), 1)`);
+    for (let i = 0; i < 100; i++) { await sleep(100); if (await ev(`!document.querySelector('.xf-prog').hidden && /Frame \\d+/.test(document.querySelector('.xf-progtxt').textContent)`)) break; }
+    const pr = await ev(`(() => { const c = document.getElementById('xfVCancel').getBoundingClientRect(), m = document.querySelector('.xf-meter').getBoundingClientRect(), v = document.getElementById('xfVideo').getBoundingClientRect();
+      return { running: !document.querySelector('.xf-prog').hidden, cancel: [Math.round(c.width), Math.round(c.height)], meter: Math.round(m.width), video: Math.round(v.height), sw: document.documentElement.scrollWidth, vw: innerWidth }; })()`);
+    ok(`dialog Video 360 x 640: Save video and Cancel are ${TARGET_PX} px touch targets, the meter keeps ${MIN_METER_PX} px`, vidH >= TARGET_PX && pr.running && pr.cancel[1] >= TARGET_PX && pr.video >= TARGET_PX && pr.meter >= MIN_METER_PX && pr.sw <= pr.vw, Object.assign({ videoBefore: vidH }, pr));
+    await ev(`(() => { const b = document.getElementById('xfVCancel'); if (b && !b.closest('[hidden]')) b.click(); return 1; })()`);
+    for (let i = 0; i < 40; i++) { await sleep(150); if (await ev(`document.querySelector('.xf-prog').hidden`)) break; }
+  }
 }
 
 if (part('preview')) {
