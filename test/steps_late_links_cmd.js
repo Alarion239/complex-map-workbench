@@ -472,7 +472,8 @@ try {
     const z1 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
     const press = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
     const got = { rest, press, waits: { z0, z1 } };
-    ok('exp(sin z) at rest: the programs of the glide a press starts next link ahead of it, begun once the warm-up and every other link are done', z0.ok && rest.seen > 0 && !!rest.first && rest.first.others.length === 0 && rest.first.warm === 'done', got);
+    // (the warm-up's phase 'land' once every group has started and a link is under way, here the ones begun ahead)
+    ok('exp(sin z) at rest: the programs of the glide a press starts next link ahead of it, begun once the warm-up has started every group and no other link is under way', z0.ok && rest.seen > 0 && !!rest.first && rest.first.others.length === 0 && ['land', 'done'].includes(rest.first.warm), got);
     ok('exp(sin z) at rest: ready stays true while those programs link', z0.ok && rest.seen > 0 && rest.readyOnce && rest.readyFalse === 0, got);
     ok(`exp(sin z), › pressed once they have landed: the glide leaves plane 0 at once, and never stands still on the way`, z0.ok && z1.ok && press.at0 < STILL_FRAMES && press.mid < STILL_FRAMES, got);
     info.restSet = got;
