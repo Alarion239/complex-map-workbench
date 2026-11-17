@@ -1053,12 +1053,12 @@
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
-  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the distance to the lowest of
-  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size or the context
-  // bar opens or closes)
+  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the
+  // distance to the lowest of them; it is recomputed each time the key is shown, and, on a phone, whenever a readout
+  // changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
-  // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what it runs under the bar,
-  // down to 4 px under the plane's top, and not into a readout it has just been dropped below)
+  // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
+  // it runs under the bar, down to 4 px under the plane's top, and not into a readout it has just been dropped below)
   function clearContextBar(box) {
     const bar = document.querySelector('.ph-ctx.in'), plot = box.parentNode;
     if (!bar || !plot || box.classList.contains('collapsed') || /** @type {HTMLElement} */ (plot).classList.contains('pane-head')) return;
