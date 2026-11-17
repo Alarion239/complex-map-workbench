@@ -103,7 +103,7 @@
   // coloured planes and its globes and relief at rest among them
   function drawLeft(pane) {
     pane.setView(leftView());
-    // (Landscape is not on this pane now: its refinement's textures go)
+    // (Landscape is not on this pane: its refinement's textures go)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
     // X Plane + Phase: the phase portrait of the map in focus
     // (its shapes outlined, the target preimages, the points and the editable cuts drawn over it, as in X Plane)

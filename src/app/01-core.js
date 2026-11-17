@@ -653,8 +653,8 @@
       }
     };
     clean(o.shapes, shapes);
-    // a saved default target (the point 0, id t0), which only the Preimage view showed, is dropped: targets now
-    // show their preimages in every view, so that untouched default is not kept
+    // a saved default target (the point 0, id t0) is dropped: targets show their preimages in every view, so that
+    // untouched default is not kept
     if (Array.isArray(o.targets)) {
       if (!o.v5) o.targets = o.targets.filter((t) => !(t && t.id === 't0' && t.kind === 'point' && Array.isArray(t.p) && t.p[0] === 0 && t.p[1] === 0 && !t.label));
       clean(o.targets, targets);
