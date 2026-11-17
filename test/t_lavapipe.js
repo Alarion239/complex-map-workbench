@@ -211,7 +211,13 @@ ok('installed without lavapipe\'s ICD file: the step fails and says so', noIcd.s
 
 // the browser job's steps (gate.yml)
 const job = (/^ {2}browser:\n([\s\S]*?)(?=^ {2}[\w-]+:\n)/m.exec(Y) || [])[1] || '';
-ok('the browser job runs on the Ubuntu 24.04 image', /^ {4}runs-on: ubuntu-24\.04$/m.test(job), (/runs-on: .*/.exec(job) || [])[0]);
+ok('the browser job runs on the Ubuntu 26.04 image', /^ {4}runs-on: ubuntu-26\.04$/m.test(job), (/runs-on: .*/.exec(job) || [])[0]);
+// (#1507: LLVM 21, in Mesa 26.0.8's lavapipe, miscompiles sin∘√'s glide on AMD Zen 4/5 machines, NaN at every point; llvmpipe
+// with AVX code only computes it, and test/deform_range_gl_cmd.js and test/deform_range_cmd.js fail on those machines without it)
+ok('the browser job has llvmpipe emit AVX code only (GALLIUM_OVERRIDE_CPU_CAPS: avx, beside CMW_ANGLE: vulkan), with the reason and the issue', /^ {6}GALLIUM_OVERRIDE_CPU_CAPS: avx$/m.test(job) && /^ {6}CMW_ANGLE: vulkan$/m.test(job) && /#1507/.test(job), (/.*GALLIUM_OVERRIDE_CPU_CAPS.*/.exec(job) || [])[0]);
+// every job that draws with lavapipe (CMW_ANGLE: vulkan, ci/lavapipe.sh) has it
+const lvpJobs = Y.split(/^ {2}(?=[\w-]+:\n)/m).filter((b) => /CMW_ANGLE: vulkan|ci\/lavapipe\.sh/.test(b));
+ok('every job that installs or draws with lavapipe sets GALLIUM_OVERRIDE_CPU_CAPS: avx', lvpJobs.length >= 1 && lvpJobs.every((b) => /^ {6}GALLIUM_OVERRIDE_CPU_CAPS: avx$/m.test(b)), lvpJobs.map((b) => b.split(':')[0]));
 const at = (re) => job.search(re);
 const order = [/name: Mesa cache key\n\s+id: mesa-key\n\s+run: ci\/lavapipe\.sh --key >> "\$GITHUB_OUTPUT"\n/, /name: Mesa cache \(restore\)\n\s+id: mesa-cache\n\s+uses: actions\/cache\/restore@v\d+\n/, /name: Mesa's Vulkan drivers \(lavapipe\)\n\s+id: mesa\n\s+run: ci\/lavapipe\.sh "\$RUNNER_TEMP\/cmw-lavapipe-debs"/, /name: Mesa cache \(save\)\n\s+if: .+\n\s+uses: actions\/cache\/save@v\d+\n/, /run: node ci\/browser\.js/].map(at);
 ok('the steps: key, restore, install, save, then the suites', order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), order);
