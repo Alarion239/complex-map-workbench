@@ -224,7 +224,7 @@
       const ic = b.querySelector('.ic-slot'); if (ic) ic.innerHTML = ICONS[{ auto: 'theme', light: 'themeLight', dark: 'themeDark' }[t]] || '';   // (the icon shows the state: half disc Auto, sun Light, moon Dark)
     }
   }
-  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.js): the
+  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.ts): the
   // wheel or one of Arb's color functions. The header's button opens a menu with a preview of each
   const PAL_NAMES = () => ({
     wheel: [$t('Wheel'), $t('The workbench\'s hue wheel: every phase equally bright')],
