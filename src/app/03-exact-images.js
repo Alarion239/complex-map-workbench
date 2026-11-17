@@ -443,6 +443,13 @@
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
+    return invHomPrep(h, s, a, k, singAt);
+  }
+  // the inverse path of shape s by the glide plan h (invHomPath's or invSpanPath's entry {plan, inv, preps, sing}) of
+  // stages (a, k]: the shape's preparation, kept per window, shape and key points, with the key's points singAt() where
+  // the plan's ops' poles are not the key's (a NEWT op, an op marked glideKey), else the plan's own (Inverse.keySing)
+  function invHomPrep(h, s, a, k, singAt) {
+    const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
     const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     const wk = winKey() + '|' + shapeKey(s) + (own ? '|' + own.map((p) => p.re + ',' + p.im).join(';') : '');
@@ -456,6 +463,38 @@
     }
     if (!prep.ok) return F(prep.reason || 'shape not eligible');
     return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
+  }
+  // The inverse path of area shape s under an All-at-once glide's map (mode 3) at u: the plan of stages (a, b] in which
+  // each active step k of the span (lo, b] stands for its homotopy at its own time t_k = HR.stepTime(stepT, k, u)
+  // (Inverse.homBuilt: no ops at t_k = 0, the step itself at 1) and every step up to lo for itself; its inverse op list
+  // (GLChain.buildInverse) and the shape's preparation (invHomPrep). Same answer as invHomPath's. Forward where a step's
+  // homotopy has no exact inverse at its time or a NEWT op (those spans keep the carried meshes)
+  function invSpanPath(s, a, lo, b, u, stepT, singAt) {
+    const F = (reason) => ({ path: 'forward', reason });
+    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
+    const ts = [];
+    for (let k = lo + 1; k <= b; k++) if (S.steps[k - 1] && S.steps[k - 1].on !== false) ts.push([k, HR.stepTime(stepT, k, u)]);
+    const ck = `span|${a}|${lo}|${b}|${ts.map(([k, t]) => k + ':' + t).join(',')}|${chainSig[nSteps()]}`;
+    let h = invHoms.get(ck);
+    if (!h) {
+      const bs = invHomSkeleton(a, b), bh = bs.slice();
+      let plan = null, inv = null;
+      for (const [k, t] of ts) {
+        if (t >= 1) continue;
+        let hk = null;
+        try { hk = Inverse.homOps(bs[k - 1], t); } catch (e) { hk = null; }
+        if (!hk || !hk.ok) { plan = { ok: false, reason: `step ${k}'s homotopy: ${(hk && hk.reason) || 'no inverse'}` }; break; }
+        if (hk.ops.some((o) => o.kind === 'NEWT')) { plan = { ok: false, reason: `step ${k}'s homotopy is inverted by Newton's method` }; break; }
+        bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
+      }
+      if (!plan) try { plan = Inverse.planChain(S.steps, bh, a, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
+      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
+      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
+      h = { plan, inv, preps: new Map(), sing: null };
+      if (invHoms.size >= 8) invHoms.clear();
+      invHoms.set(ck, h);
+    }
+    return invHomPrep(h, s, a, b, singAt);
   }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
