@@ -451,6 +451,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (Landscape draws no rulers: its plot reaches the ruler's 14 px further down; the column keeps its place on screen) */
 :root.ph.view-land .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
 :root.ph.view-land .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
+/* (a landscape plane the tall context bar leaves shorter than the three keys: Fit view stands left of Display and Sphere and
+   Display stand on its level, so the column is two keys high) */
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 60px; }
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { bottom: calc(8px + var(--ph-lift)); }
+:root.ph.ph-land.view-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
