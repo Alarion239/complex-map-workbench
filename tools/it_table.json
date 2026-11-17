@@ -3351,6 +3351,7 @@
  "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude.",
  "Outlines are drawn on the colour plane": "I contorni sono disegnati sul piano del colore",
+ "Landscape opacity": "Opacità del Paesaggio",
  "How much the Landscape's surfaces behind show through where the relief covers a point more than once.": "Quanto le superfici del Paesaggio dietro si vedono dove il rilievo copre un punto più di una volta.",
  "How much the layers behind show through where the picture covers a point more than once.": "Quanto i livelli dietro si vedono dove l'immagine copre un punto più di una volta.",
  "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Ritratto di fase di %{choice}: il colore indica $\\arg %{choice2}$.%{homDef}",

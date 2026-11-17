@@ -66,10 +66,10 @@ info.once = { one85, one50 };
 ok('from the top, a relief that covers each pixel once is pixel-identical at 85 % and at 50 % to 100 %', one85.relief > 10000 && one85.apart === 0 && one50.apart === 0, info.once);
 
 // All sheets of ∛z from the top: three sheets over each point
-await page('three', { steps: [{ type: 'root', params: { n: 3, cut: 180 }, on: true }], sheets: true, height: 'im' });
+await page('many', { steps: [{ type: 'root', params: { n: 3, cut: 180 }, on: true }], sheets: true, height: 'im' });
 await top();
-for (const v of [1, 0.85, 0.5]) { await setOpacity(v); await keep('three' + v); }
-const t85 = await apart('three1', 'three0.85'), t50 = await apart('three1', 'three0.5'), t8550 = await apart('three0.85', 'three0.5');
+for (const v of [1, 0.85, 0.5]) { await setOpacity(v); await keep('many' + v); }
+const t85 = await apart('many1', 'many0.85'), t50 = await apart('many1', 'many0.5'), t8550 = await apart('many0.85', 'many0.5');
 info.stacked = { t85, t50, t8550, K: await ev('(__cmwLandSheets().drawn || {}).K') };
 ok('from the top, where All sheets of ∛z stack three sheets, most of the relief changes at 85 %', info.stacked.K === 3 && t85.apart > 0.5 * t85.relief, info.stacked);
 ok('and at 50 %, apart from 85 %', t50.apart > 0.5 * t50.relief && t8550.apart > 0.5 * t8550.relief, info.stacked);

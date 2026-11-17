@@ -702,6 +702,7 @@
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
  "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
+ "Landscape opacity": "Непрозрачность Рельефа",
  "How much the Landscape's surfaces behind show through where the relief covers a point more than once.": "Насколько поверхности Рельефа позади просвечивают там, где рельеф покрывает точку больше одного раза.",
  "How much the layers behind show through where the picture covers a point more than once.": "Насколько слои позади просвечивают там, где картина покрывает точку больше одного раза.",
  "Phase portrait of %{choice}: the color shows $\\arg %{choice2}$.%{homDef}": "Фазовый портрет функции %{choice}: цвет показывает $\\arg %{choice2}$.%{homDef}",
