@@ -1515,21 +1515,25 @@
         for (const e of sp.steps || []) { const r = e.n > 0 ? e.n : 2 * sp.W + 1, d = q % r; q = Math.floor(q / r); if (!(e.n > 0) && d === 2 * sp.W) return true; }
         return false;
       };
-      const ssp = carried && cpBox === 2 && st.carry.sheetSeam ? Object.assign({}, sp, { map: sp.map.filter((c) => !edgeOf(c)) }) : null;
+      const ssp = carried && cpBox === 2 && st.carry.sheetSeam ? Object.assign({}, sp, { map: Array.from(sp.map.slice(0, sp.K)).filter((c) => !edgeOf(c)) }) : null;
       if (ssp) ssp.K = ssp.map.length;
       info.seams = 0;
-      if (ssp && ssp.K > 0) {
+      const drawSeam = () => {
+        if (!(ssp && ssp.K > 0)) return;
+        gl.enable(gl.STENCIL_TEST); gl.stencilMask(0x00); gl.stencilFunc(gl.EQUAL, 0, 0xff);
         st.carry.sheetSeam.draw(() => {
           const P1 = program('landSheetTF', sp.hom ? st.map : null);
           if (!P1 || !hasSheets(P1.ch.info)) return;
           const sbx = st.carry.src || st.box, M = hs.N - 1, rows = (tc) => Math.ceil(ssp.K / tc);
           const sb = landSeam.box || (landSeam.box = { tex1: floatTex() });
-          sheetCellsTF(st, ssp, P1, sbx, null, M, hs.tileC, rows(hs.tileC), mode, H, mu, aspect, sb.tex1);
+          // (the seam's heights do not move with the glide: made again only when their chain, sheets or box change)
+          const hkey = (polar, m) => [P1.ch.key, P1.ch.hash, ssp.map.join(','), sbx.x0, sbx.x1, sbx.y0, sbx.y1, polar ? polar.join(',') : '', m, mode, H, mu, landHComp].join('|');
+          if (sb.key !== hkey(null, M)) { sheetCellsTF(st, ssp, P1, sbx, null, M, hs.tileC, rows(hs.tileC), mode, H, mu, aspect, sb.tex1); sb.key = hkey(null, M); }
           if (carryPlaces(st, hs.N, null, SEAM_SLOT, { sp: ssp, tileC: hs.tileC }) !== 2) return;
           const pats = [];
           sheetPatches.forEach((p, i) => {
             const o = landSeam.p[i] || (landSeam.p[i] = { tex1: floatTex() });
-            sheetCellsTF(st, ssp, P1, sbx, p.polar, p.N - 1, p.tileC, rows(p.tileC), mode, H, mu, aspect, o.tex1);
+            if (o.key !== hkey(p.polar, p.N - 1)) { sheetCellsTF(st, ssp, P1, sbx, p.polar, p.N - 1, p.tileC, rows(p.tileC), mode, H, mu, aspect, o.tex1); o.key = hkey(p.polar, p.N - 1); }
             if (carryPlaces(st, p.N, p.polar, SEAM_SLOT + 1 + i, { sp: ssp, tileC: p.tileC }) === 2) pats.push({ p, o, slot: SEAM_SLOT + 1 + i });
           });
           use(Lp, st.map);
@@ -1555,9 +1559,11 @@
         u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1));
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
         gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
-      }
+        gl.stencilMask(0xff); gl.disable(gl.STENCIL_TEST);
+      };
       const patched = carried && sheetPatches.length > 0;
-      if (patched) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
+      const seamOn = !!(ssp && ssp.K > 0);
+      if (patched || seamOn) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE); }
       gl.drawArraysInstanced(gl.TRIANGLES, 0, !hs || clip ? 9 : 3, (hs ? hs.K : 1) * 2 * (hd.N - 1) * (hd.N - 1));
       if (patched) {
         // (a little behind the box's cells, so a patch shows only where they leave a hole)
@@ -1570,7 +1576,7 @@
           gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
         };
         for (const p of sheetPatches) if (!p.far) drawPatch(p);
-        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, seamOn ? gl.REPLACE : gl.KEEP);
         for (const p of sheetPatches) if (p.far) drawPatch(p);
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
         u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0); u1i(Lp, 'uCPS', cpBox === 2 ? 1 : 0);
@@ -1578,6 +1584,8 @@
         gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
         info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
       }
+      // (the seam after the sheets, where they left the stencil's holes)
+      drawSeam();
       const cellPx = rf ? rf.pxW * 2 * Math.max(aspect[0], aspect[1]) / (hd.N - 1) : 0;
       if (LB) {
         use(LB);
