@@ -1015,6 +1015,36 @@ void main() {
     R.vertexShaderCompile2 = gl.getShaderParameter(vs2, gl.COMPILE_STATUS) ? 'ok' : gl.getShaderInfoLog(vs2);
     if (R.vertexShaderCompile2 !== 'ok') R.errors.push('vertex shader 2: ' + R.vertexShaderCompile2);
   } catch (e) { R.errors.push('vertex shader: ' + e.message); }
+  // sin and cos as the library computes them (cx_sin, cx_cos, a vertex shader read back by transform feedback) against
+  // Math's at 2001 arguments over [-100, 100]: on SwiftShader within 1e-6, where its built-ins are off by up to 2^-11
+  // (#1739); elsewhere the error is reported (R.trig), not gated
+  try {
+    const N = 2001, xs = new Float32Array(N);
+    for (let i = 0; i < N; i++) xs[i] = -100 + 200 * i / (N - 1);
+    const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+    const P = gl.createProgram();
+    gl.attachShader(P, sh(gl.VERTEX_SHADER, '#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\nin float aX; out vec2 tfOut;\nvoid main(){ tfOut = vec2(cx_sin(aX), cx_cos(aX)); gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }'));
+    gl.attachShader(P, sh(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;\nout vec4 c;\nvoid main(){ c = vec4(0.0); }'));
+    gl.transformFeedbackVaryings(P, ['tfOut'], gl.SEPARATE_ATTRIBS);
+    gl.linkProgram(P);
+    if (!gl.getProgramParameter(P, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(P));
+    gl.useProgram(P);
+    const vao = gl.createVertexArray(), vb = gl.createBuffer(), ob = gl.createBuffer(), tf = gl.createTransformFeedback();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, xs, gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(P, 'aX');
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 1, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, ob); gl.bufferData(gl.ARRAY_BUFFER, 8 * N, gl.STREAM_READ); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf); gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, ob);
+    gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, N); gl.endTransformFeedback(); gl.disable(gl.RASTERIZER_DISCARD);
+    const out = new Float32Array(2 * N);
+    gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null); gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null); gl.bindVertexArray(null);
+    let worst = 0, at = 0;
+    for (let i = 0; i < N; i++) { const e = Math.max(Math.abs(out[2 * i] - Math.sin(xs[i])), Math.abs(out[2 * i + 1] - Math.cos(xs[i]))); if (!(e <= worst)) { worst = e; at = xs[i]; } }
+    R.trig = { accurate: R.trigAccurate, worst, at, n: N };
+    if (/SwiftShader/i.test(R.renderer) && !(worst <= 1e-6)) R.errors.push(`sin and cos on SwiftShader: off by ${worst} at ${at} (at most 1e-6)`);
+  } catch (e) { R.errors.push('trig: ' + e.message); }
 
   // (GLSLTiers.SWIFTSHADER_HANG: not on SwiftShader, where their programs do not finish)
   const swiftShader = /SwiftShader/i.test(R.renderer);
