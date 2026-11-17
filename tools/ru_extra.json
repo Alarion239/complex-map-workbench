@@ -565,6 +565,7 @@
  "Tap ›, then hold a point and slide.": "Нажмите ›, затем удерживайте точку и ведите.",
  "Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.": "Цвет только внутри нарисованных областей, на каждой плоскости: область и её образы сохраняют одни и те же цвета по всей цепочке.",
  "Choose Inside regions.": "Выберите «Внутри областей».",
+ "Choose Inside.": "Выберите «Внутри».",
  "Sphere and Landscape": "Сфера и рельеф",
  "The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.": "Та же плоскость на сфере Римана или в виде рельефа модуля. ‹ › переходят и на сфере.",
  "Choose Sphere.": "Выберите «Сфера».",
@@ -725,5 +726,6 @@
  "Colour style": "Стиль цвета",
  "Style settings": "Параметры стиля",
  "Overlays": "Наложения",
- "Quality": "Качество"
+ "Quality": "Качество",
+ "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»"
 }
