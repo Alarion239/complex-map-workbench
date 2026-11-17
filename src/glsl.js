@@ -372,7 +372,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
   // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
   // (TDR), which is worse for the user than a blank pane. Finite sums inside one another share it: a pixel takes the
-  // product of their terms, which keeps to SER_GPU_FINITE (#1845; loopGL). An infinite sum around them counts 1 there,
+  // product of their terms, which keeps to SER_GPU_FINITE (loopGL). An infinite sum around them counts 1 there,
   // its terms bounded by SER_GPU_LOOP
   const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
@@ -609,10 +609,10 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
       // values, not constants, so the loops stay loops
       const k = `${id}_k`, saved = out, inner = [];
-      // (#1845) the enclosing loops' term counts, for a finite sum inside them: a pixel takes the product of the nested
+      // the enclosing loops' term counts, for a finite sum inside them: a pixel takes the product of the nested
       // finite sums' terms, and that product, not each sum's own count, keeps to SER_GPU_FINITE (an infinite loop counts
       // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
-      // only when a sum inside it reads it, so a sum with none inside is written as before
+      // only when a sum inside it reads it, so a sum with no finite sum inside declares none
       const outerFn = idxVar.filter((e) => e.fn);
       const me = { v: n.v, k, fn: `${id}_fn`, used: false };
       out = inner;
