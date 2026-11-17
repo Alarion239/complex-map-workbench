@@ -181,12 +181,11 @@
   function openMenu(anchor, items, cls, sub) {
     const opener = sub ? sub.opener : anchor;
     // re-clicking the button that opened a menu closes it
-    if (!sub && popEl && popEl.classList.contains('menu') && popEl._opener === anchor) { closePalette(); return null; }
+    if (!sub && popOpenedFrom(anchor)) { closePalette(); return null; }
     const okey = sub ? sub.okey : focusKey(anchor);
     const ar = anchor.getBoundingClientRect(); // before closePalette detaches a submenu's parent item
     closePalette();
     const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : items.menuLabel || null });
-    pop._opener = opener;
     // (v16.1 user-5) a menu opened from a dialog (Export figure's Size and More formats) is drawn over the dialog: the
     // popovers' layer (30) is under the modal's (50), so it opened behind the dialog and its scrim, out of sight
     if (opener && opener.closest && opener.closest('.modal-bg')) pop.classList.add('over-modal');
@@ -210,8 +209,7 @@
     add(pop, items);
     $('popHost').append(pop);
     popEl = pop;
-    // (the button that opened a menu says so while it is open, ARIA's menu button; closePalette puts it back)
-    if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
+    markOpener(pop, opener);
     if (sub) {
       // (review v16 user-6) in the parent's place, its top at the item that opened it: the submenu replaces the parent
       // where the pointer already is, rather than jumping beside it (and onto whatever lies there, a divider's tooltip)

@@ -7,6 +7,14 @@
     try { localStorage.setItem(RECENT_KEY, JSON.stringify([t, ...recentTypes().filter((x) => x !== t)].slice(0, 4))); } catch (e) { /* ignore */ }
   }
   let popEl = null;
+  // the menu or popover standing now was opened from this button: pressing the button again closes it
+  function popOpenedFrom(anchor) { return !!popEl && popEl.classList.contains('menu') && popEl._opener === anchor; }
+  // the button that opened a menu or popover says so while it is open, ARIA's menu button (a button with aria-expanded);
+  // closePalette puts it back
+  function markOpener(pop, opener) {
+    pop._opener = opener;
+    if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
+  }
   function closePalette() {
     closePad(); // the Argand pad never outlives the popover or menu around it
     if (!popEl) return;
