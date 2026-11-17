@@ -2728,6 +2728,7 @@
  "{v} s per step": "{v} s per passo",
  "{what} is not holomorphic (it has no complex derivative), so this formula cannot be differentiated in z": "{what} non è olomorfa (non ha derivata complessa), quindi questa formula non si può derivare rispetto a z",
  "{w} × {h} · {fps} fps · {secs} s": "{w} × {h} · {fps} fps · {secs} s",
+ "{from} → {to} · {secs} s": "{from} → {to} · {secs} s",
  "{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).": "{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).",
  "{w}-plane": "piano {w}",
  "{w}-sphere": "sfera {w}",
