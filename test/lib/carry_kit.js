@@ -3,7 +3,8 @@
 // CDP kit's exampleNames()).
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
 // - lpx(pts): { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels of canvasL about it as
-//   [r, g, b, a] each, row by row (the centre is index 4), or null off the pane; and the camera and size they were read in;
+//   [r, g, b, a] each, row by row (the centre is index 4), or null off the pane; and the camera and size they were read in
+//   (LPX: the same reader as page source, a function of pts, for a page-side wait);
 // - paneOf(): the pane's camera (v: the view, with cx, cy, s) and its size in css px (w, h);
 // - nearest(p, ref): the least, over the 9 pixels ref of a point, of the largest channel difference (0..255) from p;
 // - bare(p): whether the centre pixel p (of a 3 x 3 read) is bare paper, its channels within 6 of each other;
@@ -29,11 +30,11 @@
   // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
   // H/2 - (y - cy) s dpr); a read that throws answers { __exc }, which fails the suite here rather than reading as no
   // pixels)
-  const lpx = async (pts) => {
-    const r = await ev(`(() => {
+  // (LPX: the reader as page source, a function of pts, for a suite's page-side waits (settled's until) too)
+  const LPX = `((pts) => {
       const c = document.getElementById('canvasL'), m = __cmwCards().main, v = m.view, d = m.dpr, W = c.width, H = c.height;
       const img = c.getContext('2d').getImageData(0, 0, W, H).data;
-      const px = ${JSON.stringify(pts)}.map(([x, y]) => {
+      const px = pts.map(([x, y]) => {
         const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
         if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null;
         const out = [];
@@ -41,7 +42,9 @@
         return out;
       });
       return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
-    })()`);
+    })`;
+  const lpx = async (pts) => {
+    const r = await ev(`${LPX}(${JSON.stringify(pts)})`);
     if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc);
     return r;
   };
@@ -237,5 +240,5 @@
     };
     return { measure };
   };
-  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
+  return { lpx, LPX, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
 })()

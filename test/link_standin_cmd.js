@@ -159,7 +159,7 @@ const onW2 = await settled({ only: true, max: 30000, until: `(() => { const s = 
 // work does not fit, so the wait also ends on a job that stopped short of its points (past CARRIED_MAX on a slow
 // machine): a timing row, and nothing to compare)
 const P4 = await K.paneOf(), pts4 = JSON.stringify(K.grid(P4, 16, 10));
-const carriedWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = __cmwLPx(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
+const carriedWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = ${K.LPX}(${pts4}).px.filter(Boolean).map((p) => p[4]); return q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.6 * q.length; })()` });
 const carriedPx = (await K.lpx(K.grid(P4, 16, 10))).px;
 info.carriedT1 = { onW2, wait: carriedWait, job: await carried(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(); return { stage: s.stage, T: s.T, core: s.core, rest: s.rest }; })()') };
 const short4 = !!info.carriedT1.job && info.carriedT1.job.end === 'budget';
@@ -191,7 +191,7 @@ for (const [name, scene, slow] of [['zero', 'zero', 1], ['pole', 'pole', 1], ['s
   await settled({ max: 20000 * slow, panes: false, until: loaded });
   const Pw = await K.paneOf(), ring = [];
   for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring.push([px / Pw.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / Pw.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
-  const hw = await settled({ only: true, max: slow > 1 ? 90000 : 60000, until: `(() => { if (${carriedShort}) return true; const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = __cmwLPx(${JSON.stringify(ring)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+  const hw = await settled({ only: true, max: slow > 1 ? 90000 : 60000, until: `(() => { if (${carriedShort}) return true; const s = __cmwSteps(); if (s.stage !== 2 || s.T !== 1) return false; const q = ${K.LPX}(${JSON.stringify(ring)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
   const job = await carried();
   if (slow > 1) {
     await send('Emulation.setCPUThrottlingRate', { rate: 1 });
@@ -225,7 +225,7 @@ for (const T of [0, 1]) {
   const parked = await settled({ only: true, max: 30000, until: `(() => { const s = __cmwSteps(); return Math.abs(s.x - 1.5) < 1e-9 && s.T === ${T} && s.moving; })()` });
   const Pg = await K.paneOf(), ptsG = JSON.stringify(K.grid(Pg, 16, 10));
   // (in colour: at least 60 % of a 16 x 10 grid of the pane's points, once at least 100 of them are read)
-  const gWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = __cmwLPx(${ptsG}).px.filter(Boolean).map((p) => p[4]); return q.length >= 100 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length >= 0.6 * q.length; })()` });
+  const gWait = await settled({ only: true, max: 60000, until: `(() => { if (${carriedShort}) return true; const q = ${K.LPX}(${ptsG}).px.filter(Boolean).map((p) => p[4]); return q.length >= 100 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length >= 0.6 * q.length; })()` });
   const gPx = (await K.lpx(K.grid(Pg, 16, 10))).px;
   const gi = info[tag] = { parked, wait: gWait, job: await carried(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(), g = s.glide; return { x: s.x, T: s.T, core: s.core, glide: g && { b: g.b, u: g.u, path: g.path, reason: g.reason } }; })()') };
   const shortG = !!gi.job && gi.job.end === 'budget';
@@ -247,7 +247,7 @@ const P5 = await K.paneOf(), grid5 = K.grid(P5, 24, 16);
 // (rings of 12 points about w₁ = 1, the image of the colour's zero z = 0, 4, 8 and 12 px out)
 const ring5 = [];
 for (const px of [4, 8, 12]) for (let i = 0; i < 12; i++) ring5.push([1 + px / P5.v.s * Math.cos((i + 0.5) * Math.PI / 6), px / P5.v.s * Math.sin((i + 0.5) * Math.PI / 6)]);
-const smWait = await settled({ only: true, max: 30000, until: `(() => { if (!__cmwSmVerdict('SV').some((v) => v.why === 'linking')) return false; const q = __cmwLPx(${JSON.stringify(ring5)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
+const smWait = await settled({ only: true, max: 30000, until: `(() => { if (!__cmwSmVerdict('SV').some((v) => v.why === 'linking')) return false; const q = ${K.LPX}(${JSON.stringify(ring5)}).px.filter(Boolean).map((p) => p[4]); return q.length > 0 && q.filter((p) => Math.max(p[0], p[1], p[2]) - Math.min(p[0], p[1], p[2]) > 40).length > 0.5 * q.length; })()` });
 await settled({ panes: false });
 const heldGrid = (await K.lpx(grid5)).px, heldRing = (await K.lpx(ring5)).px;
 info.zeroHeld = { wait: smWait, pending: await ev('GLR.frameStatus().pending'), verdict: await ev("__cmwSmVerdict('SV').map((v) => v.why)") };
@@ -261,15 +261,15 @@ info.zeroRing = K.tally(heldRing, (await K.lpx(ring5)).px, { tol: 3 });
 ok('the SphereMeshes\' carried colour while the links are held (T = 0): the colour itself (at least 99 % of the pane within 3 levels once linked)', smWait.ok && zLinked.ok && info.zeroGrid.n >= 300 && info.zeroGrid.wrong <= 0.01 * info.zeroGrid.n, { held: info.zeroHeld, grid: info.zeroGrid });
 ok('the SphereMeshes\' carried colour about the colour\'s zero (w₁ = 1): every point within 3 levels once linked', smWait.ok && zLinked.ok && info.zeroRing.n >= 30 && info.zeroRing.wrong === 0, info.zeroRing);
 // the compiling note on a phone (360 x 640, the classic view, X large and Y the inset card over its lower left corner):
-// the note X draws while its program compiles (__cmwCompileNote) is clear of the card and inside the pane
+// the note X draws while its program compiles (__cmwCompileBox('L')) is clear of the card and inside the pane
 {
   await view(360, 640, false, true);
   const nsn = 'lsn' + Date.now();
   await seed(nsn, { steps: [{ type: 'pown', params: { n: 2 } }] });
   await go(`${base}/test.html?ns=${nsn}&view=classic`);
-  await settled({ max: 30000, until: "typeof __cmwCompileNote === 'function' && !!window.GLR && GLR.pendingLinks === 0" });
+  await settled({ max: 30000, until: "typeof __cmwCompileBox === 'function' && !!window.GLR && GLR.pendingLinks === 0" });
   await settled({ max: 20000 });
-  const nb = info.phoneNote = await ev("(() => { const n = __cmwCompileNote('L'), c = document.getElementById('canvasL').getBoundingClientRect(), e = document.querySelector('.panes > .pane.ph-inset'), r = e && e.getBoundingClientRect(); return { note: n, pane: { w: c.width, h: c.height }, inset: r && { id: e.id, x0: r.left - c.left, x1: r.right - c.left, y0: r.top - c.top, y1: r.bottom - c.top } }; })()");
+  const nb = info.phoneNote = await ev("(() => { const n = __cmwCompileBox('L'), c = document.getElementById('canvasL').getBoundingClientRect(), e = document.querySelector('.panes > .pane.ph-inset'), r = e && e.getBoundingClientRect(); return { note: n, pane: { w: c.width, h: c.height }, inset: r && { id: e.id, x0: r.left - c.left, x1: r.right - c.left, y0: r.top - c.top, y1: r.bottom - c.top } }; })()");
   const clear = !!nb.inset && (nb.note.x >= nb.inset.x1 || nb.note.x + nb.note.w <= nb.inset.x0 || nb.note.y >= nb.inset.y1 || nb.note.y + nb.note.h <= nb.inset.y0);
   ok('a phone, 360 x 640: the compiling note is clear of the inset card and inside the pane', clear && nb.note.x >= 0 && nb.note.x + nb.note.w <= nb.pane.w && nb.note.y + nb.note.h <= nb.pane.h, nb);
   await view(1440, 900, false);
