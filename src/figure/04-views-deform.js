@@ -270,7 +270,7 @@
     if (keyW) {
       // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
       const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
-      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
       items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
@@ -463,7 +463,7 @@
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     let keyBottom = 0;
     if (keyW) {
-      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp);
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }
@@ -534,7 +534,7 @@
     if (keyW) {
       // (the key's ring: 12 pt of the column's half width go to its marks and margins)
       const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
-      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
       items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
