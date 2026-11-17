@@ -10,7 +10,8 @@
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
 //   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
 //   once linked, at least 99 % of a pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1,
-//   z = 0) too.
+//   z = 0) too; and about its pole: f = 1/z with the upper half-plane (an unbounded region), every point of half-rings
+//   about w₁ = 0, the image of z = ∞, within 3 levels once linked.
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };

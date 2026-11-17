@@ -125,7 +125,7 @@ function measureFlat(M, cs, pub) {
       if (pat) {
         let gx = l1 * A[0][0] + l2 * A[1][0] + l3 * A[2][0], gy = l1 * A[0][1] + l2 * A[1][1] + l3 * A[2][1];
         // (a triangle that carries its source points (cart 1) or u = 1/z (cart 2, about z = infinity): the polar
-        // coordinates of the interpolated point, as the GPU's, those of z minus those of u)
+        // coordinates of the interpolated point, as the GPU's: (ln |z|, arg z) = -(ln |u|, arg u))
         if (cart) { const r = Math.hypot(gx, gy), a = Math.atan2(gy, gx), sg = cart === 2 ? -1 : 1; gx = sg * Math.log(Math.max(r, 1e-30)) * 16 / (2 * Math.PI); gy = sg * a * 16 / (2 * Math.PI); }
         topPar[k] = ((Math.floor(gx) + Math.floor(gy)) % 2 + 2) % 2;
       }

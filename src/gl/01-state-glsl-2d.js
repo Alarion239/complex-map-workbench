@@ -610,7 +610,7 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   PAT_PRE.pre = `  vec2 g = vG;
   vec2 gw = fwidth(g);
   // (a triangle that carries its source point itself, vCart 1, or u = 1/z about infinity, vCart 2: its polar
-  // coordinates from it here, as the 'fwidth' mode's, those of z minus those of u)
+  // coordinates from it here, as the 'fwidth' mode's: (ln |z|, arg z) = -(ln |u|, arg u))
   bool cart = vCart > 0.5, inf = vCart > 1.5;
   vec2 gc = (inf ? -1.0 : 1.0) * vec2(log(max(length(vP), 1e-30)), atan(vP.y, vP.x)) * (16.0 / TAU);
   vec2 gcw = vec2(fwidth(gc.x), argWidth(vP) * (16.0 / TAU)), gvw = fwidth(vP);
