@@ -469,13 +469,17 @@
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
+  const PH_RAIL = 56;   // a phone plane's key column: 44 px wide, 8 px from the plane's right edge, and a 4 px gap
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const maxW = Math.max(80, Math.min(360, pane.w - 48));
+    // (a phone's plane keeps its keys in a column at the right, 44 px wide at 8 px from the edge: the note is centred in the room
+    // left of it and wraps to that width)
+    const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
+    const maxW = Math.max(80, Math.min(360, free - 48));
     const lines = [];
     let line = '';
     for (const w of String(text).split(' ')) {
@@ -483,9 +487,10 @@
       if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
     }
     if (line) lines.push(line);
-    const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
+    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
     const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    const x0 = Math.round(pane.w / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
+    const x0 = Math.round(free / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
+    pane.noteBox = { x: x0, y: y0, w: bw, h: bh };   // (the box as drawn, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;

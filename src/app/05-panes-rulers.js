@@ -544,6 +544,7 @@
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
     if (pane === paneL) { updatePre('L', pane, k); drawPre(pane, 'L', k); }
+    pane.noteBox = null;
     if (cauchyWhy) paneNote(pane, cauchyWhy);
     else if (cauchyIdle) paneNote(pane, $t('Cauchy style: select a closed curve or a bounded region to see its Cauchy integral.'));
     else if (cz && cz.plan && cz.plan.why === 'onCurve') paneNote(pane, $t('Cauchy style: F is not finite on the curve (a pole on it), so its Cauchy integral is not defined.'));
