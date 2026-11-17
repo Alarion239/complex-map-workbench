@@ -1,0 +1,59 @@
+'use strict';
+// node test/t_sv_sing.js : the steps view's pole search with sing (svPolesIn(F, box, n, lim, E, true), the Landscape's
+// patch search, src/app/19-steps-view.js) finds the points where F is unbounded without being a pole, and only those.
+// svSingNewton keeps a point only where Newton's method on h/h' settled and |F| near it is past SV_SING_BIG and grows
+// towards it:
+// - found: a root of a Möbius step at its pole (the dipole (z - i)/(z + i) to the powers 1/2 and 1/4: |F| ~ |z + i|^-a), the
+//   logarithm at 0, 1/sqrt(z - 1 - 2i) at 1 + 2i;
+// - not found: exp(sqrt z) and 30 exp(sqrt z), where Newton on h/h' reflects (h/h' = -2 sqrt z sends z to -z) and never
+//   settles; 20 + sqrt z at 0, a branch point where |F| stays near 20 (u settles there, |F| does not grow).
+// The search's text is taken from the app's source (its constants and the searches it calls) and run on CX.
+const C = (re, im) => ({ re, im });
+const CX = require('../src/cx.js');
+const { appText } = require('./src_text');
+
+let bad = 0, n = 0;
+const check = (name, ok, info = '') => { n++; if (!ok) { bad++; console.log('FAIL', name, info); } };
+
+const APP = appText();
+const from = APP.indexOf('  const SV_POLE_K = '), at = APP.indexOf('  function* svPolesIn(');
+if (from < 0 || at < 0) throw new Error('src/app: no SV_POLE_K or svPolesIn');
+const open = APP.indexOf(') {', at) + 2;
+let d = 0, end = -1;
+for (let k = APP.indexOf('{', open); k < APP.length; k++) { if (APP[k] === '{') d++; else if (APP[k] === '}' && --d === 0) { end = k + 1; break; } }
+const { svPolesIn, svDrain } = new Function('CX', 'C', `${APP.slice(from, end)}\nreturn { svPolesIn, svDrain };`)(CX, C);
+
+const box = (h) => ({ x0: -h, x1: h, y0: -h, y1: h });
+const found = (F, bx) => { const E = { n: 0, at: 0 }; return svDrain(svPolesIn(F, bx, 16, bx, E, true)); };
+const near = (list, p, tol = 1e-4) => list.some((z) => Math.hypot(z.re - p.re, z.im - p.im) <= tol * (1 + Math.hypot(p.re, p.im)));
+const pw = (z, a) => { const r = Math.hypot(z.re, z.im), t = Math.atan2(z.im, z.re); return C(r ** a * Math.cos(a * t), r ** a * Math.sin(a * t)); };
+const dipole = (z) => CX.div(CX.sub(z, C(0, 1)), CX.add(z, C(0, 1)));
+const fmt = (list) => list.map((z) => `${z.re.toFixed(4)}${z.im >= 0 ? '+' : ''}${z.im.toFixed(4)}i`).join(' ');
+
+for (const a of [0.5, 0.25]) for (const h of [1.7, 5.8]) {
+  const out = found((z) => pw(dipole(z), a), box(h));
+  check(`the dipole to the power ${a} on ±${h}: its point -i is found`, near(out, C(0, -1)), fmt(out));
+}
+{
+  const out = found((z) => CX.log(z), box(2));
+  check('log z on ±2: its point 0 is found', near(out, C(0, 0)), fmt(out));
+}
+{
+  const out = found((z) => CX.inv(CX.sqrt(CX.sub(z, C(1, 2)))), box(4));
+  check('1/sqrt(z - 1 - 2i) on ±4: its point 1 + 2i is found', near(out, C(1, 2)), fmt(out));
+}
+{
+  const out = found((z) => CX.exp(CX.sqrt(z)), { x0: -7.2, x1: 7.2, y0: -6.15, y1: 6.15 });
+  check('exp(sqrt z) on 14.4 x 12.3: no point (Newton on h/h\' reflects and never settles)', out.length === 0, fmt(out));
+}
+{
+  const out = found((z) => CX.mul(C(30, 0), CX.exp(CX.sqrt(z))), box(5.8));
+  check('30 exp(sqrt z) on ±5.8: no point', out.length === 0, fmt(out));
+}
+{
+  const out = found((z) => CX.add(C(20, 0), CX.sqrt(z)), box(2));
+  check('20 + sqrt z on ±2: no point at its branch point 0, where |F| stays near 20', !near(out, C(0, 0), 1e-3), fmt(out));
+}
+
+console.log(bad ? `${bad} of ${n} checks failed` : `all ${n} checks pass`);
+process.exit(bad ? 1 : 0);
