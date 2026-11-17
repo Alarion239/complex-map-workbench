@@ -1751,11 +1751,18 @@
         // cannot draw while the chain links). Any other plane's frame at rest would stand in another chain's picture
         // while this one links: a scrub held is drawn at the thread's place and a glide's or a play's frame where it
         // waits, by the carry core, which draws nothing of another chain)
-        const land = SV.surf === 'land', hold = land ? null : svLinkHold(SV.surf === 'sphere' && lGlobe() ? svGlobeHolds : svHolds);
+        // (asks: the frames asked for before the hold's own ask, svRenderMoving's held-frame test)
+        const asks = renderAsks, land = SV.surf === 'land', hold = land ? null : svLinkHold(SV.surf === 'sphere' && lGlobe() ? svGlobeHolds : svHolds);
         const at = hold == null ? -1 : Math.round(hold), onPlane = at >= 0 && Math.abs(hold - at) <= SV_REST_U;
-        if (onPlane && svPlanes()[at] === 0) { svHeldOn = null; svRestAt(at, pane, still); SV.core = 'still'; return; }
+        if (onPlane && svPlanes()[at] === 0) {
+          SV.core = 'still';
+          if (svHeldKept(['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
+          svRestAt(at, pane, still);
+          svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL;
+          return;
+        }
         SV.core = 'carry';
-        if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane, onPlane && !SV.anim && !SV.play ? null : hold);
+        if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane, onPlane && !SV.anim && !SV.play ? null : hold, asks);
         return;
       }
     }
@@ -1812,16 +1819,21 @@
   // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn), cm:
   // its cuts' inert handles (cutMarksL) }; null after any other frame
   let svHeldOn = null;
-  // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null
-  function svRenderMoving(pane, hold = null) {
+  // a held frame with the inputs of the held frame on the pane (key: the place held, the view, the pane's size, the
+  // chain), and no frame asked for since asks, would draw that frame again: the pane keeps it, its status included,
+  // and the hold's own checks are all this frame does -> true; else -> false, svHeldOn starts over for key (null: none),
+  // the frame's moving paths and cut handles put on it once drawn
+  function svHeldKept(key, asks) {
+    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; return true; }
+    svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [] };
+    return false;
+  }
+  // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
+  // frames asked for (renderAsks) before that hold asked for its own
+  function svRenderMoving(pane, hold = null, asks = renderAsks) {
     // (the globe's frame: the motion's frame drawn where it is, unless it waits, svLinkHold with svGlobeHolds)
     if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane, hold); if (hold == null) svMotionDrawn(svMotion()); return; }
-    const asks = renderAsks;
-    // (a held frame with the inputs of the held frame on the pane, and no frame asked for since, would draw that frame
-    // again: the pane keeps it, its status included, and the hold's own checks above are all this frame does)
-    const key = hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
-    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; return; }
-    svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [] };
+    if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
