@@ -80,8 +80,9 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('classic 568×320, first load: the key is placed again, below Y\'s readout, with no reload', dropped.ok, { drop: m.drop, wait: dropped });
   ok('classic 568×320, first load: the key\'s hit area is clear of Y\'s readout and above the bar', !inter(m.reach, m.readout) && (!m.bar || m.legend.b <= m.bar.t + 0.5), { reach: m.reach, readout: m.readout, bar: m.bar });
 }
-// the folded key is a button for keyboard and screen reader (#1840): a role, a place in the focus order, a name, and aria-expanded that follows the key as a tap, Enter and Space
-// fold and unfold it. The steps view at 360 × 640 (X's key, in English and Russian) and the classic view at 568 × 320 (Y's key; X's is not drawn there).
+// the folded key is a button for keyboard and screen reader: a role, a place in the focus order, a name, and
+// aria-expanded that follows the key as a tap, Enter and Space fold and unfold it. The steps view at 360 × 640 (X's
+// key, in English and Russian) and the classic view at 568 × 320 (Y's key; X's is not drawn there).
 {
   const axOf = async (id) => {
     const { root } = await send('DOM.getDocument', { depth: 0 });
