@@ -49,6 +49,15 @@ async function section(tag, w, h) {
   await ev('(document.querySelector(".sv-next").click(), 1)');
   const again = await ev(state('.sv-next'));
   ok(`${tag} the arrow again cancels, and its label returns`, !again.busy && again.label === 'Next plane' && !again.anim, again);
+  // the → key is the same glide: it waits and Esc cancels it
+  await key('ArrowRight');
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  const keyed = await ev(state('.sv-next'));
+  info[tag + 'Key'] = keyed;
+  ok(`${tag} the → key waits too: no glide, the arrow's ring`, keyed.busy && keyed.label === 'Cancel' && !keyed.anim && keyed.ring, keyed);
+  await esc();
+  const keyedEnd = await ev(state('.sv-next'));
+  ok(`${tag} Esc cancels the → key's wait, and the arrow's label returns`, !keyedEnd.busy && keyedEnd.label === 'Next plane' && !keyedEnd.anim, keyedEnd);
   return;
 }
 
