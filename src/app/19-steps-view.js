@@ -2812,10 +2812,8 @@
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
-    // (not while the view moves: the title changes half-way through a glide, and a fit then is a forced layout in a frame;
-    // a view parked between two planes is at rest and is fitted; svSync's head key holds svMoving(), so the head is fitted
-    // once when the glide settles; rework on #473)
-    if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
+    // (while the view moves the head is fitted only when its words change, once at the half of a glide, where the title names the
+    // next plane: a fit is a forced layout, so not every frame; a view parked between two planes is at rest and is fitted)
     const ph = document.documentElement.classList.contains('ph');
     const mc = $('modeChips');
     const key = [
