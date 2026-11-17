@@ -1629,8 +1629,8 @@
   // in while the mesher's job runs
   // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt, plane b's key with the glide's poles at t); all at
   // once, the span's last plane's, with that plane's poles, so the front sheet is the one the inverse pass shows where the
-  // glide lands (the first plane's key has none of a later plane's poles: with it, Joukowski's inner sheet, nearer the
-  // centre, is in front); at rest, plane b's)
+  // glide lands (the span's first plane's key lacks the later planes' poles, so where the map folds it would put the
+  // wrong sheet in front); at rest, plane b's)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;

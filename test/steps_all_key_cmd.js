@@ -20,9 +20,13 @@ const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;
 const START_WAIT = 30000, GLIDE_WAIT = 180000, DRAWN_WAIT = 120000;
 await view(1200, 800, false, false);
 const drawn = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()`;
-// the left pane's colour layer alone, below its head
-const paneRect = () => ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + 70 : r.top; return { x: Math.round(r.left) + 8, y: Math.round(t), width: Math.round(r.width) - 16, height: Math.round(r.bottom - t - 40) }; })()`);
+// the left pane's colour layer alone: the pane less CROP_SIDE at each side (its border), CROP_HEAD below its head (the
+// chips over the plane: the scale and the status) and CROP_FOOT above its foot (the view buttons), px
+const CROP_SIDE = 8, CROP_HEAD = 70, CROP_FOOT = 40;
+const paneRect = () => ev(`(() => { const r = document.getElementById('paneL').getBoundingClientRect(); const h = document.querySelector('#paneL .pane-head'); const t = h ? h.getBoundingClientRect().bottom + ${CROP_HEAD} : r.top; return { x: Math.round(r.left) + ${CROP_SIDE}, y: Math.round(t), width: Math.round(r.width) - 2 * ${CROP_SIDE}, height: Math.round(r.bottom - t - ${CROP_FOOT}) }; })()`);
 const grab = async () => { await ev('__cmwSteps({ bare: true })'); await settled({}); const i = await img(await paneRect()); await ev('__cmwSteps({ bare: false })'); return i; };
+// (the share of the pixels whose largest channel difference is over CH_TOL: a screenshot decodes to RGB or RGBA (png.js's
+// ch), which test/lib/pixel_diff.js's RGBA compare does not read)
 const share = (a, b) => { let n = 0; for (let j = 0; j < a.data.length; j += a.ch) if (Math.max(Math.abs(a.data[j] - b.data[j]), Math.abs(a.data[j + 1] - b.data[j + 1]), Math.abs(a.data[j + 2] - b.data[j + 2])) > CH_TOL) n++; return n / (a.w * a.h); };
 const open = async () => {
   const ns = 'svak' + Date.now();
