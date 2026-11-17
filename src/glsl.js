@@ -364,9 +364,16 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
   // [issue #5] a series on the GPU: SER_GPU terms of a power or Dirichlet series in uniforms (half each way for a
-  // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable (as many as the CPU takes, so both
-  // stop at the same point and agree where the series converges slowly)
+  // Laurent series), SER_GPU_LOOP terms of any other infinite sum, its index a loop variable (as many as the CPU's
+  // SER_CAP, so both stop at the same point and agree where the series converges slowly); a finite sum: SER_GPU_FINITE
   const SER_GPU = 96, SER_GPU_LOOP = 512;
+  // the terms of a finite sum on the GPU: every one, as the CPU sums them, up to SER_GPU_FINITE; past it NaN, where the
+  // CPU goes on to its SER_FINITE. Every pixel of a frame takes that many terms in one draw, and a term n^{-z} is about
+  // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
+  // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
+  // (TDR), which is worse for the user than a blank pane. That bound is one sum's: a sum inside another takes up to the
+  // product of their caps a pixel (2048 x 2048, about 4.2 M terms), which it does not cover (#1845)
+  const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
   const DIR_TMAX = 120, EM6 = '0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10';
@@ -582,14 +589,16 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       });
       return S;
     }
-    // any other sum or product: a loop over the index (a float), at most SER_GPU_LOOP terms (each way for n ∈ ℤ), its
-    // terms generated inside the loop; an infinite one stops when three terms in a row are below 1e-7 of the sum (factors
-    // within 1e-7 of 1). NaN when an infinite one reaches the cap first, when a finite one has more terms than the cap,
-    // and where the terms cancel by more than three digits.
+    // any other sum or product: a loop over the index (a float), its terms generated inside the loop. An infinite one
+    // takes at most SER_GPU_LOOP terms (each way for n ∈ ℤ) and stops when three terms in a row are below 1e-7 of the sum
+    // (factors within 1e-7 of 1); a finite one takes all its terms, at most SER_GPU_FINITE (its loop runs one pass past
+    // the last term, which finds the index past the bound and ends the sum). NaN when an infinite one reaches its cap
+    // first, when a finite one has more terms than its cap (or a bound that is not a number: it takes none), and where
+    // the terms cancel by more than three digits.
     function loopGL(n, id) {
       const prod = n.op === 'prod';
       shape.push(prod ? 'Lp' : 'L');
-      const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP);
+      const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP), fcap = uBound(SER_GPU_FINITE);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
       out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
   float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
@@ -612,7 +621,8 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
     bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
     int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-    for (int j = 0; j < ${cap}; j++) {
+    int nj = inf ? ${cap} : ${HI} - ${LO} < float(${fcap}) ? ${fcap} + 1 : 0;
+    for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
 ${inner.map((x) => '    ' + x).join('\n')}
@@ -2507,12 +2517,12 @@ ${seeded ? '' : pole ? `  vec2 v1;
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
-vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
+${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
+vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
-  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
+  if (${P}_has0 && ${P}_w0 == w) { u = ${P}_u0; return ${P}_ok0; }
   bool ok = ${P}_m0(w, t, u);
-  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
+  ${P}_has0 = true; ${P}_w0 = w; ${P}_u0 = u; ${P}_ok0 = ok;
   return ok;
 }
 // member 1: Newton deflated by member 0's u, from 2w - u
