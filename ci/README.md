@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac, and on request our Windows desktop ([RUNNERS.md](RUNNERS.md), #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate` (the Mac alone; the desktop only by hand, with *machines* `windows` or `both`); each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -139,23 +139,26 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate (`gpu-gate.yml`, our machines; the Windows laptop's runner was removed on 2026-11-01, #169, so its column
-below applies once a Windows runner is back). Its Windows laptop compiles on one core (FXC): the glsl page alone took
-over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
+The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
+with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
+minutes a side on the laptop on the nightly run of 2026-10-29, which its single job never finished. So every chain
 runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
 
 | run | Windows | macOS |
 |---|---|---|
-| a pull request (the label `gpu-gate`), a push to `main` | core, one job | all |
-| the nightly run, a run by hand | all, ten jobs | all |
+| a pull request (the label `gpu-gate`), a push to `main`, the nightly run | not run | all |
+| a run by hand, *machines* `mac` (the default) | not run | all |
+| a run by hand, *machines* `windows` | all, ten jobs | not run |
+| a run by hand, *machines* `both` | all, ten jobs | all |
 
 A page whose shader code and tests are the same as the reference's is not run unless forced: the nightly run always
 is, a run by hand only with its *force* input, so a by-hand run covers every chain only with *force*. The cold cost
-of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first nightly
-runs after this change is that cost first, not a regression.
+of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first by-hand
+run with *machines* `windows` or `both` is that cost first, not a regression.
 
 **A release tag** needs a green run of every chain (`all`) on the commit's `main`, on both systems: the GPU gate's
-nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run.
+nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run. The GPU gate's nightly run
+gives no Windows result: that one comes from a run by hand with *machines* `both` and *force*.
 
 `ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
 minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's
@@ -229,7 +232,7 @@ artifact.
   the job; the GPU machines run the suites at full speed.
 - **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
   It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
-  on the 24.04 image one file of about 18 MB) and installs them with `dpkg`. Those files are kept in an Actions cache,
+  on the 26.04 image two files, the package and `libdisplay-info3`, both `amd64v3` builds) and installs them with `dpkg`. Those files are kept in an Actions cache,
   keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
   by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
   them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
@@ -260,13 +263,20 @@ artifact.
     lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
     "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
     lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
-- **The image:** the browser jobs run on `ubuntu-24.04`, not `ubuntu-latest`. The layout gate compares the renderer's
-  name with its baseline's (24.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.318 (llvmpipe (LLVM 20.1.2 256 bits) …`), so a
-  job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
+- **The image:** the browser jobs run on `ubuntu-26.04`, by name, not `ubuntu-latest`. The layout gate compares the
+  renderer's name with its baseline's (26.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) …`),
+  so a job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
   there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
   image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
-  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine). Moving the browser
-  jobs to Ubuntu 26.04 and unpinning them is #1507.
+  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine).
+- **llvmpipe emits AVX code only** (`GALLIUM_OVERRIDE_CPU_CAPS: avx` in the browser job's env, #1507): LLVM 21, in Mesa
+  26.0.8's lavapipe, miscompiles sin∘√'s glide through sin's step (mode 1, the root in full, then sin's path) on
+  GitHub's AMD Zen 4/5 machines (EPYC 9V74, 9V45): NaN at every point, while their Zen 3 (EPYC 7763) and Intel
+  (Xeon 6975P-C) machines compute it. Each job gets one of these machines at random; without the setting,
+  `deform_range_gl_cmd.js` and `deform_range_cmd.js` fail on the Zen 4/5 ones, and `test/t_lavapipe.js` checks that
+  every job that draws with lavapipe has it. Without AVX2, FMA and AVX-512 the four slowest shards took 1 to 8 % longer
+  (each run twice on one machine: views-2 2300 → 2484 s, export-4 1470 → 1556 s, views-3 1652 → 1726 s, tour
+  1158 → 1169 s). Users on llvmpipe with such a CPU still meet the fault: #1735.
 - **A fresh Chrome per suite:** each suite starts on `about:blank` in a new profile (on a development machine one
   long-lived daemon runs many suites). A suite opens the app before it calls into it, and its first look at the console
   sees everything since Chrome started (`dist/favicon.ico` exists for that reason).
@@ -289,7 +299,7 @@ artifact.
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
-- the rows declared even are evenly spaced.
+- the rows declared even (`INTENT.rows`: the segmented controls of three members or more, the steps view's track, the phone's tool rail, in landscape a column) are evenly spaced, within 1 px; a row that wraps onto a second line is skipped; `test/layout_rows_cmd.js` moves one member of each by 3 px and expects the check to report it.
 
 It runs over the matrix of `test/lib/layout_matrix.js`:
 - **sizes:** phones 360, 390 and 412 portrait, 740×360 and 915×412 landscape; desktops 1024, 1280 and 1440;
@@ -515,4 +525,4 @@ Settings (environment variables):
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
-| `ci/RUNNERS.md` | setting up our Mac (and, again, a Windows laptop: #169) as runners |
+| `ci/RUNNERS.md` | setting up our Mac and, for runs on request, a Windows desktop (#169) as runners |

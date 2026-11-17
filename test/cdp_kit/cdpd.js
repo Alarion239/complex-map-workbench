@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 const DIR = __dirname;
 const Q = path.join(DIR, 'q');
+// a file the runner waits for (READY, N.out, FATAL; ci/browser.js polls for it and reads it as soon as it exists): written beside
+// it and renamed into place, so it appears whole (a rename within one file system is atomic), never empty or part written
+const writeWhole = (f, data) => { fs.writeFileSync(f + '.tmp', data); fs.renameSync(f + '.tmp', f); };
 fs.mkdirSync(Q, { recursive: true });
 // (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
 // and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
@@ -118,6 +121,15 @@ H.ev = async (expr, timeout = 20000) => {
   const r = await evRaw(expr, timeout);
   return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
 };
+// evJson(expr, timeout): ev() of an expression that answers a JSON string (JSON.stringify(...) in the page), parsed. A page
+// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception.
+H.evJson = async (expr, timeout) => {
+  const r = await H.ev(expr, timeout);
+  const what = JSON.stringify(String(expr).slice(0, 160));
+  if (r && typeof r === 'object' && typeof r.__exc === 'string') throw new Error(`evJson ${what}: ${r.__exc.slice(0, 300)}`);
+  if (typeof r !== 'string') throw new Error(`evJson ${what}: the page answered ${JSON.stringify(r) === undefined ? typeof r : JSON.stringify(r).slice(0, 100)}, not a JSON string`);
+  return JSON.parse(r);
+};
 const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
@@ -154,20 +166,24 @@ H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
 // It answers whether the load came in time; a page that did not load says so in the suite's log. A document whose body has stopped
-// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit.
+// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit, except a link
+// (#cmw=): it opens in a second document (the app decodes it, drops the hash, saves its figure and reloads), so a navigation of the
+// same url again lands on the page that holds that figure and asks whether to open the link instead of opening it. A link's wait
+// stays on the document its navigation brings, for the whole limit, and a document that never arrives says so.
 const GO_STALL_MS = 5000;
+H.GO_STALL_MS = GO_STALL_MS;   // (for a suite that holds a document back past it)
 H.go = async (url, ms = 15000) => {
-  const n = LOADS, t0 = Date.now();
+  const n = LOADS, t0 = Date.now(), link = /[#&]cmw=/.test(url);
   await send('Page.navigate', { url }, S);
   let ok = false, reloads = 0;
   while (!ok && Date.now() - t0 < ms) {
-    const left = ms - (Date.now() - t0), step = reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
+    const left = ms - (Date.now() - t0), step = !link && reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
     let t;
     ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
     clearTimeout(t);
-    if (!ok && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
+    if (!ok && !link && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
   }
-  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads})` });
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; the link\'s document stalled, and a link is not opened again: its figure is already saved and a second navigation would ask' : ''})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
   return ok;
 };
@@ -202,10 +218,11 @@ H.nav = async (url) => {
 // o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
 // and the suite's log says so, so a check after it sees the page as it is. Answers { ok, ms, busy, at }; at is ms when
 // ok and -1 when not, for a check that reads the wait as a time (at >= 0). With o.only the page's quiet is not asked, only
-// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true.
+// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true. o.poll:
+// the ms between two looks (default 50), finer for a wait read as a time.
 H.settled = async (o = {}) => {
   if (o.floor) await sleep(o.floor);
-  const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null';
+  const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null', poll = o.poll || 50;
   const r = await H.ev(`await (async (until, max, panes, only) => {
     const t0 = performance.now(), frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     for (;;) {
@@ -221,7 +238,7 @@ H.settled = async (o = {}) => {
       const ms = Math.round(performance.now() - t0);
       if (!busy.length) return { ok: true, ms, busy };
       if (ms > max) return { ok: false, ms, busy };
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, ${poll}));
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
@@ -375,6 +392,9 @@ H.load = async (ns, st, extra, viewName, opts = {}) => {
 H.img = async (clip) => { const p = { format: 'png' }; if (clip) p.clip = Object.assign({ scale: 1 }, clip); const r = await send('Page.captureScreenshot', p, S); return require(path.join(DIR, 'png.js'))(Buffer.from(r.data, 'base64')); };
 H.logs = (clear = true) => { const l = LOG.slice(); if (clear) LOG.length = 0; return l; };
 H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
+// exampleNames(): the examples' English names, in the order __cmwExample(i) opens them, read from the checkout this folder sits in
+// (ci/steps_scenes.js, with its unescape of a quote)
+H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js')).exampleNames(path.join(DIR, '..', '..'));
 
 (async () => {
   const t = await send('Target.createTarget', { url: 'about:blank' });
@@ -388,7 +408,7 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
   // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
   const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
-  fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
+  writeWhole(path.join(Q, 'READY'), 'ok');
   const done = new Set();
   for (;;) {
     const files = fs.readdirSync(Q).filter((f) => /^\d+\.js$/.test(f) && !done.has(f)).sort((x, y) => parseInt(x) - parseInt(y));
@@ -403,9 +423,9 @@ H.fs = fs; H.path = path; H.DIR = DIR; H.http = require('http');
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
       const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
       if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
-      fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
+      writeWhole(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }
     await sleep(80);
   }
-})().catch((e) => { fs.writeFileSync(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
+})().catch((e) => { writeWhole(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
