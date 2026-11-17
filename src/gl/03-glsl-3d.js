@@ -1191,10 +1191,19 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
+  // The relief's layers (drawLandscape at opacity below 1, landLayers): uPeelOn > 0 keeps only the fragments behind the
+  // previous layer's depth, which uPeelD holds (a 32-bit float depth). The margin is 1e-7 plus uPeelS times the
+  // fragment's depth slope: a carried frame's patches lie a polygon offset behind the box's cells they repeat (uPeelS 4),
+  // and are not a layer of their own. uFront 1: the front surface, drawn over the layers behind it, takes alpha uFrontA
+  // where a layer lies behind it (uBehind's layer 1 covers the pixel) and 1 where it covers the point alone
+  const LAND_PEEL_DECL = `uniform float uPeelS; uniform int uFront; uniform float uFrontA; uniform highp sampler2DArray uBehind;
+float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoord.xy), 1), 0).a > 0.5 ? uFrontA : 1.0; }
+`;
+  const LAND_PEEL = '  if (uPeelOn > 0 && fdep <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7 + uPeelS * fwidth(fdep)) discard;\n';
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
-uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : ''}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
+uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : `\n${PEEL_DECL}`}${LAND_PEEL_DECL}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
 ${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
@@ -1247,7 +1256,7 @@ vec2 facetW(vec2 w) {
   return w * exp(clamp(lr, -85.0, 85.0) - log(r));
 }`}
 void main() {
-${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
+${carry ? '  float fdep = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : '  float fdep = gl_FragCoord.z;\n'}${LAND_PEEL}${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
 ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
@@ -1319,8 +1328,8 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
     a = mix(a, ml, 0.65 * rim);
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
-  o = vec4(toSrgb(fogged(c, vPos)), 1.0);
-${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
+  o = vec4(toSrgb(fogged(c, vPos)), frontA());
+${carry ? '  gl_FragDepth = fdep;\n' : ''}}
 `;
   const FLOOR_VS = `
 uniform mat4 uMVP; uniform vec2 uExt; uniform float uFloorZ;
@@ -1497,6 +1506,31 @@ void main() {
   vec2 c = vec2((k == 1 || k == 2 || k == 4) ? 1.0 : -1.0, (k == 2 || k == 4 || k == 5) ? 1.0 : -1.0);
   vPos = vec3(c * uR * 1.02, 0.0);
   gl_Position = uMVP * vec4(vPos, 1.0);
+}
+`;
+  // the Landscape relief's layers behind its front surface (landLayers): uL's layers 1 .. uN-1 front to back, alpha 1
+  // where a layer covers the pixel, the last one the farthest surface. Each layer is laid at uA over the ones behind it
+  // and the farthest that covers the pixel is opaque; the nearest one's depth (uD) is written, so the front surface is
+  // drawn over them
+  const LAND_LAYERS_FS = `
+uniform highp sampler2DArray uL; uniform highp sampler2D uD; uniform int uN; uniform float uA;
+out vec4 o;
+void main() {
+  ivec2 p = ivec2(gl_FragCoord.xy);
+  vec4 cur = texelFetch(uL, ivec3(p, 1), 0);
+  if (cur.a < 0.5) discard;
+  vec3 C = vec3(0.0);
+  float T = 1.0;
+  for (int j = 1; j < 8; j++) {
+    if (j >= uN || cur.a < 0.5) break;
+    vec4 nxt = j + 1 < uN ? texelFetch(uL, ivec3(p, j + 1), 0) : vec4(0.0);
+    float a = nxt.a < 0.5 ? 1.0 : uA;
+    C += T * a * cur.rgb;
+    T *= 1.0 - a;
+    cur = nxt;
+  }
+  o = vec4(C, 1.0 - T);
+  gl_FragDepth = texelFetch(uD, p, 0).r;
 }
 `;
   const DISC_FS = `
