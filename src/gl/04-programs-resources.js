@@ -665,10 +665,10 @@ float wabs(vec2 w) {
     if (slowRenderer === null && gl && !lost) {
       let r = '';
       try {
-        // (Chrome masks RENDERER as "WebKit WebGL" and gives ANGLE's string through the debug extension; Firefox gives
-        // ANGLE's string in RENDERER, and warns that the extension is deprecated, so it is asked only when needed)
+        // (Chrome masks RENDERER as "WebKit WebGL" and gives ANGLE's string through the debug extension, asked only then:
+        // Firefox's RENDERER is already unmasked, and Firefox warns that the extension is deprecated)
         r = String(gl.getParameter(gl.RENDERER) || '');
-        if (!/Direct3D|D3D/i.test(r)) { const x = gl.getExtension('WEBGL_debug_renderer_info'); if (x) r = String(gl.getParameter(x.UNMASKED_RENDERER_WEBGL) || ''); }
+        if (/^WebKit WebGL$/i.test(r.trim())) { const x = gl.getExtension('WEBGL_debug_renderer_info'); if (x) r = String(gl.getParameter(x.UNMASKED_RENDERER_WEBGL) || ''); }
       } catch (err) { r = ''; }
       slowRenderer = /Direct3D ?11|D3D11/i.test(r);
     }
