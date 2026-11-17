@@ -14,7 +14,7 @@ function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL',
 
 const { source, fnText } = require('./src_text');
 const APP = source('app.js');
-const sb = { tweens: [], dirty: {}, clock: 0, Pane, Math };
+const sb = { tweens: [], dirty: {}, leftChanged: () => {}, clock: 0, Pane, Math };
 sb.performance = { now: () => sb.clock };
 vm.createContext(sb);
 vm.runInContext(fnText(APP, 'stepTweens') + '\n;globalThis.stepTweens = stepTweens;', sb);
