@@ -18,14 +18,15 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-// the left pane's pixels, kept in the page under tag
-const grab = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); window.__ss = window.__ss || {}; window.__ss[${JSON.stringify(tag)}] = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; return [cv.width, cv.height]; })()`);
-// the share of pixels of a more than 32/255 apart from b in a channel (null: different sizes)
-const diff = (a, b) => ev(`(() => { const A = window.__ss[${JSON.stringify(a)}], B = window.__ss[${JSON.stringify(b)}]; if (!A || !B || A.length !== B.length) return null; let n = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { n++; const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])); if (d > 32) n32++; } return +(n32 / n).toFixed(4); })()`);
+const { snap, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// the left pane's pixels, kept in the page under tag as they are now (held_frames' snap)
+const grab = snap;
+// the share of pixels of a more than 32/255 apart from b in a channel (held_frames' compare: DIFF_TOL is 32; null: different sizes)
+const diff = async (a, b) => { const q = await compare(a, b); return q && q.frac; };
 const at = (scope, i) => ev(`__cmwSteps({ scope: '${scope}', surf: 'land', go: ${i}, now: true }); 1`).then(() => settled({ max: 60000 })).then(() => ev(rAF2));
 const maskAt = (x, y) => ev(`typeof __cmwLandMask === 'function' ? __cmwLandMask(${x}, ${y}) : 'no hook'`);
 // the pane position (device px) of the surface point over (x, y), and the colour of tag's frame there
-const px = (tag, x, y) => ev(`(() => { const p = __cmwLandSurfacePx(${x}, ${y}), cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width; if (!p) return null; const i = Math.round(p[0] * k), j = Math.round(p[1] * k), A = window.__ss[${JSON.stringify(tag)}], n = 4 * (j * cv.width + i); return { at: [p[0], p[1]], c: [A[n], A[n + 1], A[n + 2]] }; })()`);
+const px = (tag, x, y) => ev(`(() => { const p = __cmwLandSurfacePx(${x}, ${y}), cv = document.getElementById('canvasL'), k = cv.width / cv.getBoundingClientRect().width; if (!p) return null; const i = Math.round(p[0] * k), j = Math.round(p[1] * k), A = window.__heldPx[${JSON.stringify(tag)}], n = 4 * (j * cv.width + i); return { at: [p[0], p[1]], c: [A[n], A[n + 1], A[n + 2]] }; })()`);
 const pickAt = (p) => ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return __cmwSound({ pick: [r.left + ${p[0]}, r.top + ${p[1]}] }); })()`);
 // the pointer over the page position (x, y): the readout's row labels
 const hoverAt = async (x, y) => {

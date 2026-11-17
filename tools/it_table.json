@@ -3234,6 +3234,7 @@
  "Tap ›, then hold a point and slide.": "Tocca ›, poi tieni premuto un punto e scorri.",
  "Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.": "Colore solo dentro le regioni che disegni, in ogni piano: una regione e le sue immagini conservano gli stessi colori lungo la catena.",
  "Choose Inside regions.": "Scegli «Dentro le regioni».",
+ "Choose Inside.": "Scegli «Dentro».",
  "Sphere and Landscape": "Sfera e Paesaggio",
  "The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.": "Lo stesso piano sulla sfera di Riemann, oppure come paesaggio del modulo. ‹ › scorrono anche sulla sfera.",
  "Choose Sphere.": "Scegli «Sfera».",
@@ -3416,5 +3417,6 @@
  "Style settings": "Impostazioni dello stile",
  "Overlays": "Sovrapposizioni",
  "Quality": "Qualità",
+ "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
  "Stop on a plane to colour from it": "Fermati su un piano per prendere il colore da lì"
 }
