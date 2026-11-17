@@ -484,9 +484,9 @@
   }
   // A plane b past a d/dz step k: its points are D(z) carried on by the steps after k, D = (f_{k-1} ∘ … ∘ f_1)′, a map of
   // z. The chain with D in step k's place, the steps before it off, plans that map from z and builds its own inverse
-  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the one live step
-  // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
-  // asked of it) or {reason}
+  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the live steps
+  // before the d/dz, the chain rule composed into one formula (Funcs.chainDerivativeStep); {steps, built, k, h} (h: its
+  // plan, invOwnPlan's, made at the first path asked of it) or {reason}
   const invDerivs = new Map();
   function invDerivChain(b) {
     const ck = `${b}|${chainSig[nSteps()]}`;
@@ -497,9 +497,9 @@
     const k = ks[0], before = [];
     for (let j = 1; k && j < k; j++) if (stepActive(j)) before.push(j);
     if (ks.length !== 1) r = { reason: ks.length ? 'more than one d/dz step' : 'no d/dz step' };
-    else if (before.length !== 1) r = { reason: before.length ? 'a d/dz step after more than one step' : 'a d/dz step of the identity' };
+    else if (!before.length) r = { reason: 'a d/dz step of the identity' };
     else {
-      const d = Funcs.derivativeStep(S.steps[before[0] - 1]);
+      const d = Funcs.chainDerivativeStep(before.map((j) => S.steps[j - 1]));
       const db = d && d.step ? Funcs.build(d.step) : null;
       if (!db || db.error) r = { reason: (d && d.error) || (db && db.error) || 'no derivative formula' };
       else {

@@ -113,6 +113,11 @@ window.__invTestRun = async (opts = {}) => {
     chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
     // (a step after the d/dz, as a glide past it plans the chain: M(w) = (w - 1)/(w + 1), whose pole lies on the plane)
     chains.push({ name: 'd/dz of z^3-3z > mobius', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step), St('mobius', { a: '1', b: '-1', c: '1', d: '1' })] });
+    // (more than one step before the d/dz: the chain rule composed into one formula, Funcs.chainDerivativeStep;
+    // [z + i/2, z³, 2z], D = 6 (z + i/2)²)
+    const before = [St('add', { c: '0.5i' }), St('pown', { n: 3 }), St('mul', { c: '2' })], dc = Funcs.chainDerivativeStep(before);
+    if (!dc || !dc.step) throw new Error('d/dz chain: ' + ((dc && dc.error) || 'no derivative'));
+    chains.push({ name: 'd/dz of z+i/2 > z^3 > 2z (the steps off, the composed derivative after them)', steps: before.map((x) => Object.assign({}, x, { on: false })).concat([Object.assign({ on: true }, dc.step)]) });
   }
   // ---- shapes ----
   const SH = [];
