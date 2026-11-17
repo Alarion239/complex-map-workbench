@@ -16,17 +16,9 @@ const CHOICE_TARGET = 48;   // (px: a colour-style choice)
 const SETTLE_FLOOR = 300;   // (ms the page stays quiet before a state is read)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
-// a control's accessible name as the browser computes it (CDP Accessibility: a name from a list of aria-labelledby ids, or a label, is
-// what a voice-control user says), for the i-th element that selector matches, in document order
-const axName = async (selector, i = 0) => {
-  const { root } = await send('DOM.getDocument', { depth: 0 });
-  const { nodeIds } = await send('DOM.querySelectorAll', { nodeId: root.nodeId, selector });
-  if (!nodeIds[i]) return null;
-  const { nodes } = await send('Accessibility.getPartialAXTree', { nodeId: nodeIds[i], fetchRelatives: false });
-  const n = nodes && nodes[0];
-  return n && !n.ignored && n.name ? n.name.value : null;
-};
-await send('Accessibility.enable', {});
+const { axOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ax_kit.js'), 'utf8'))({ send });
+// the accessible name of the i-th element that selector matches (a name from a list of aria-labelledby ids, or a label, is what a voice-control user says)
+const axName = async (selector, i = 0) => { const n = await axOf(selector, i); return n && n.name ? n.name : null; };
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
   steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 const open = async (w, lang, past) => {
