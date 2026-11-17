@@ -319,8 +319,9 @@
     const after2 = h('div', { class: 'xf-after2', hidden: true });
     const vidBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfVideo' }, $t('Save video'));
     const meter = h('i'), progTxt = h('span', { class: 'xf-progtxt', 'aria-hidden': 'true' }), progSr = h('span', { class: 'xf-sr', role: 'status' });
-    const cancelBtn = h('button', { type: 'button', class: 'btn quiet', id: 'xfVCancel' }, $t('Cancel'));
-    const meterEl = h('div', { class: 'xf-meter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
+    // (Cancel is described by the meter, so a screen reader hears what it cancels: "Cancel, button, Making the video")
+    const cancelBtn = h('button', { type: 'button', class: 'btn quiet', id: 'xfVCancel', 'aria-describedby': 'xfVMeter' }, $t('Cancel'));
+    const meterEl = h('div', { class: 'xf-meter', id: 'xfVMeter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
     const prog = h('div', { class: 'xf-prog', hidden: true }, meterEl, progTxt, cancelBtn);
     const nameLab = h('label', { class: 'xf-name' }, nameInp, extEl), footSp = h('span', { class: 'xf-sp' });
     const foot = h('div', { class: 'xf-foot' }, nameLab, prog, footSp, moreBtn, shareBtn, saveBtn, docsBtn, olBtn, vidBtn, after2, progSr);
@@ -644,6 +645,9 @@
     });
     let vRun = null;
     cancelBtn.addEventListener('click', () => { if (vRun) vRun.cancel = true; });
+    // (Save video gives Cancel the focus within the Enter that pressed it, so a held Enter's repeats land on Cancel: only a
+    // fresh press of Enter or Space cancels, a repeat of the key is ignored)
+    cancelBtn.addEventListener('keydown', (e) => { if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault(); });
     // (while a video is made its options are locked: the plan is fixed at the start; the progress takes the name row's
     // place, so the dialog does not move; the screen reader hears the start, every quarter and the end)
     const running = (on) => {

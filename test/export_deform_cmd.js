@@ -120,6 +120,21 @@ if (part('dialog')) {
   ok('Cancel stops the video: nothing saved', q.saved.length === 0, q);
   ok('after Cancel the options are free again', await ev(`[...document.querySelectorAll('#xfVideoBox button, #xfVideoBox select, #xfVideoBox input')].every((e) => !e.disabled)`), null);
   ok('after Cancel focus is back on Save video', await ev(FOCUSED) === 'xfVideo', await ev(FOCUSED));
+  // Enter held on Save video (the long video above): the press starts the video and gives Cancel the focus, and the key's
+  // auto-repeats (CDP autoRepeat keydowns, as a held key sends them) land on Cancel, which ignores them: the video goes on
+  const enter = (repeat) => send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r', autoRepeat: repeat });
+  await ev(`(() => { const t = window.__toastsNew = [], host = document.getElementById('toastHost');
+    if (host) new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) t.push(n.textContent); }).observe(host, { childList: true, subtree: true });
+    document.getElementById('xfVideo').focus(); return 1; })()`);
+  await enter(false);
+  await sleep(500);
+  for (let i = 0; i < 3; i++) { await enter(true); await sleep(40); }
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  await sleep(600);
+  q = await ev(`({ running: !document.querySelector('.xf-prog').hidden, focus: ${FOCUSED}, toasts: window.__toastsNew.slice() })`);
+  ok('Enter held on Save video: its repeats on Cancel do not cancel the video', q.running && q.focus === 'xfVCancel' && !q.toasts.some((t) => /cancelled/.test(t)), q);
+  await ev(`(() => { const b = document.getElementById('xfVCancel'); if (b && !b.closest('[hidden]')) b.click(); return 1; })()`);
+  for (let i = 0; i < 40; i++) { await sleep(150); if (await ev(`document.querySelector('.xf-prog').hidden`)) break; }
   for (const [w, h, dark] of [[760, 900, true], [360, 780, false], [360, 780, true]]) {
     await open(1, w, h, dark);
     await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; __cmwFig.saveSettings(s); return 1; })()`);
