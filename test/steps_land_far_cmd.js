@@ -1,6 +1,7 @@
 // The steps view's carried Landscape past its box: the far patch's height is smooth about the height map's poles. The
-// default page (z, exp, Möbius), Everywhere, T = w₁, the glide z → w₁ held at u = 0.25 and 0.5. Plane z outside the carried box
-// is carried into the block by the far patch (svLandFar), whose cells are coarse; the height h(F) of that region has a log
+// default page (z, exp, Möbius), Everywhere, T = w₂ (the height reads the map into T, here F, the whole chain), the glide
+// z → w₁ held at u = 0.25 and 0.5. Plane z outside the carried box is carried into the block by the far patch
+// (svLandFar), whose cells are coarse; the height h(F) of that region has a log
 // spike at each pole of exp's Möbius image (z = ±3πi, ±5πi, ...), which a coarse cell facets. Each pole in the far
 // patch's inner ring gets a pole patch of its own (svLandPatches, svLandHeightPoles). Read on the CPU from the last
 // frame's carry (__cmwLandFarErr: for each cell of a far patch outside the pole patches' discs whose centre's image is in
@@ -26,7 +27,7 @@ const FAR_N = 128;
 await view(1440, 900, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landfar${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
-await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 2, go: 0, now: true }); 1`);
 await settled({ max: 60000 });
 for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await ev(`__cmwSteps({ go: 0, now: true }); 1`);
@@ -34,11 +35,11 @@ for (const u of [0.002, 0.25, 0.5, 0.998]) {
   await hold(u);
   const tag = `held at u = ${u}`;
   const c = info[u] = {
-    carried: JSON.parse(await ev('JSON.stringify((({ u, s, polar }) => ({ u, s, polar }))(__cmwLandCarry() || {}))')),
-    err: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000)),
-    whole: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000)),
-    poles: JSON.parse(await ev(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000)),
-    covered: JSON.parse(await ev('JSON.stringify(__cmwLandCover(480, 400, true))', 120000)),
+    carried: await evJson('JSON.stringify((({ u, s, polar }) => ({ u, s, polar }))(__cmwLandCarry() || {}))'),
+    err: await evJson(`JSON.stringify(__cmwLandFarErr(${TOL}))`, 120000),
+    whole: await evJson(`JSON.stringify(__cmwLandFarErr(${TOL}, false))`, 120000),
+    poles: await evJson(`JSON.stringify(__cmwLandFarErr(${TOL}, true, 'polar'))`, 120000),
+    covered: await evJson('JSON.stringify(__cmwLandCover(480, 400, true))', 120000),
   };
   const at = (y) => (c.carried.polar || []).some(([px, py]) => Math.abs(px) < 1e-6 && Math.abs(py - y) < 1e-6);
   // (at the glide's ends the frame is the parked plane's own heights: the same bound over the cells whose images are in the

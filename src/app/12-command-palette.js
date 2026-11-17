@@ -11,7 +11,8 @@
     closePad(); // the Argand pad never outlives the popover or menu around it
     if (!popEl) return;
     const back = Commands.opener();   // (the command palette's opener, when the popover is the palette)
-    const onClose = popEl._onClose;
+    const onClose = popEl._onClose, op = popEl._opener;
+    if (op && op.getAttribute && op.getAttribute('aria-expanded') === 'true') op.setAttribute('aria-expanded', 'false');
     popEl.remove(); popEl = null;
     if (onClose) onClose();
     Commands.closed();
@@ -55,10 +56,10 @@
       C, EX, FT_WORD, HR, ICONS, PAL_NAMES, REGION_EXAMPLES, SUB, TOOLS, TeX, activeSteps, addCurveShapes, addShape,
       addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan,
       defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
-      integrateShape, inverseAction, isDerivStep, kindType, lLand, latexDocument, leftStage, loadExample, morph,
+      integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample, morph,
       morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints,
-      renumberZp, replaceSteps, robustBox, lsk, saveScene, selOf, setFocus, setHomAll, setMain, setMorphPaths, setPalette, setPanels,
-      setTheme, setTool, setView, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop,
+      renumberZp, replaceSteps, robustBox, lsk, saveScene, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels,
+      setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop,
       soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox, dhFocusAdd,
       get S() { return S; },
       get TH() { return TH; },

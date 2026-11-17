@@ -278,9 +278,10 @@
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
   }
   // ---------------- the Phase style button (issue #81) ----------------
-  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
-  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
-  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  // The phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever the plane is coloured; in the Landscape the button is there too, dimmed, and its menu
+  // leads to the Plane surface, where the styles are. Schematic glyphs, not a render of the user's function: they cost nothing
+  // and read in both themes.
   const STYLE_SVG = {
     enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
     phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
@@ -295,11 +296,12 @@
     setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
   }
-  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  // {show: the plane is coloured or is the Landscape, land: the Landscape (the styles are not its own), name, id}
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
   function styleItems(done) {
     if (lLand()) {
-      return Object.assign([{ label: $t('Styles belong to the flat Phase view'), disabled: true }, 'sep', { label: $t('Switch to Phase'), run: () => { setMain('phase'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+      const note = $t('Styles show on the Plane surface');
+      return Object.assign([{ label: note, disabled: true }, 'sep', { label: svSurfaceLabel('plane'), tip: note, run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
@@ -327,10 +329,13 @@
     }
     x.putImageData(img, 0, 0);
   }
-  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z
+  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z. The Landscape under
+  // Plaster draws the relief with no phase colours, so there is no colouring to name and the note is hidden
   function regionsNote() {
-    const note = document.querySelector('#regionsBox > .lbl');
-    if (note) note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
+    const note = /** @type {HTMLElement | null} */ (document.querySelector('#regionsBox > .lbl'));
+    if (!note) return;
+    note.hidden = S.view.main === 'land' && !lPhase();
+    note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
   }
   function buildDisplay() {
     // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)
@@ -338,6 +343,7 @@
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
+    $('patScale').setAttribute('aria-valuetext', $('patScaleVal').textContent);
     $('meshRange').min = 0; $('meshRange').max = 1000; $('meshRange').step = 1;
     $('meshRange').value = meshToPos(S.meshN);
     showMeshVal(S.meshN);
@@ -453,6 +459,7 @@
   }
   function showMeshVal(n) {
     $('meshVal').textContent = `${n}`;
+    $('meshRange').setAttribute('aria-valuetext', `${n}`);   // (the slider's value is a position on the piecewise scale)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#meshPresets button'))) b.classList.toggle('on', +b.dataset.n === n);
     $('meshNote').hidden = n < 480;
     paintFader($('meshRange'));
@@ -480,9 +487,10 @@
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
-  // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere). Not at start-up:
-  // compiles there compete with the first scene's own (example settle times)
-  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS); } catch (e) { /* the frame links them */ } }
+  // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere), as a view no pane
+  // shows until a globe frame asks for them. Not at start-up: compiles there compete with the first scene's own
+  // (example settle times)
+  function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS, true); } catch (e) { /* the frame links them */ } }
   // side 'L': X's surface in the active view (X → Y's left pane or the phase panel); 'R': Y's (X → Y)
   function setView(side, surf) {
     if (side === 'L' && lLand()) return;
@@ -930,7 +938,12 @@
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
     // the tool row, which the planes and the sheet give up)
     if (phone) {
-      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      if (document.documentElement.classList.contains('ph-sheet-on')) {
+        clear();
+        // (a sheet ends above the message's own row, whatever its height, and the portrait More sheet's list takes the height as its bottom inset)
+        toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        return;
+      }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
       if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
       host.setAttribute('data-placed', 'phone-plot');
@@ -1009,6 +1022,19 @@
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
+  // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
+  // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
+  // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
+  function fitToastRows(t) {
+    if (!t.isConnected) return;
+    const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
+    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap'; t.style.justifyContent = 'flex-start';
+    t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
+    sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
+  }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -1021,6 +1047,8 @@
     if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
     t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
+    // (a phone's message picks its rows on the next frame: its caller may still add a button, as undoToast's Show alone)
+    if (rt.contains('ph')) requestAnimationFrame(() => fitToastRows(t));
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };

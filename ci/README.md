@@ -6,7 +6,7 @@ budgets: [test/regress/README.md](../test/regress/README.md)) runs on GitHub Act
 | workflow | where | when | what it can tell |
 |---|---|---|---|
 | **Gate** (`.github/workflows/gate.yml`) | GitHub's machines: Linux, Windows, macOS | every pull request (in its [tier](#ci-tiers)), every push to `main`, by hand | correctness everywhere: unit tests, shader conformance on Direct3D 11 and Metal, image quality; until the GPU machines are registered, also the perf suite's checks (its timings only reported) |
-| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac ([RUNNERS.md](RUNNERS.md); the Windows laptop's runner was removed on 2026-11-01, #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate`; each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
+| **GPU gate** (`.github/workflows/gpu-gate.yml`) | our Mac, and on request our Windows desktop ([RUNNERS.md](RUNNERS.md), #169) | every push to `main`, nightly, by hand, pull requests labelled `gpu-gate` (the Mac alone; the desktop only by hand, with *machines* `windows` or `both`); each run after an approval | speed with the suite's own tolerances on real GPUs (desktop and the emulated phone), and the same correctness checks there; by hand with mode `suites` and the input `suites` (a regex as `ci/browser.js --only`): only those browser suites, at the dispatched ref |
 
 Both are split into many jobs (a GitHub job may run for 6 hours; the GPU machines' jobs for 5 days, but short jobs
 show results sooner and can be re-run alone).
@@ -139,23 +139,26 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
 | a pull request with the label `glsl-deep` | all | all |
 
-The GPU gate (`gpu-gate.yml`, our machines; the Windows laptop's runner was removed on 2026-11-01, #169, so its column
-below applies once a Windows runner is back). Its Windows laptop compiles on one core (FXC): the glsl page alone took
-over 170 minutes a side there on the nightly run of 2026-10-29, which its single job never finished. So every chain
+The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
+with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
+minutes a side on the laptop on the nightly run of 2026-10-29, which its single job never finished. So every chain
 runs there in ten jobs, the glsl page in eighths (`--part i/8`) and adv and inverse whole:
 
 | run | Windows | macOS |
 |---|---|---|
-| a pull request (the label `gpu-gate`), a push to `main` | core, one job | all |
-| the nightly run, a run by hand | all, ten jobs | all |
+| a pull request (the label `gpu-gate`), a push to `main`, the nightly run | not run | all |
+| a run by hand, *machines* `mac` (the default) | not run | all |
+| a run by hand, *machines* `windows` | all, ten jobs | not run |
+| a run by hand, *machines* `both` | all, ten jobs | all |
 
 A page whose shader code and tests are the same as the reference's is not run unless forced: the nightly run always
 is, a run by hand only with its *force* input, so a by-hand run covers every chain only with *force*. The cold cost
-of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first nightly
-runs after this change is that cost first, not a regression.
+of adv and inverse on the laptop is not measured yet (inverse cannot be split): a red inverse job on the first by-hand
+run with *machines* `windows` or `both` is that cost first, not a regression.
 
 **A release tag** needs a green run of every chain (`all`) on the commit's `main`, on both systems: the GPU gate's
-nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run.
+nightly run or a run by hand with *force*, and the Gate's push to `main` or nightly run. The GPU gate's nightly run
+gives no Windows result: that one comes from a run by hand with *machines* `both` and *force*.
 
 `ci/glsl.js --tier core|deep|all` runs one tier locally. A page whose browser uses no CPU for `CMW_GLSL_STALL_MIN`
 minutes (the GPU gate: 20) is stuck (a lost GPU, a hung driver): it fails as *stalled* then, not at the job's
@@ -197,9 +200,9 @@ CI (they serve `test/regress/quality/run.sh` by hand). The GLSL pages `glsl` and
 
 The perf shard `phone` emulates a phone in the same headless Chrome: a 390 × 844 mobile viewport at device pixel
 ratio 3 (the app's phone layout), touch input, and the page's main thread slowed 4× (DevTools' mid-tier mobile; the
-GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, the deformation playing,
-loading examples (`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an
-approximation of a phone, not a phone.
+GPU stays the machine's). Units: opening the app, one-finger pans, Landscape orbits, loading examples
+(`test/regress/perf/run.js`, `phone.*`). It runs on every machine of both workflows. It is an approximation of a
+phone, not a phone.
 
 ## Browser suites
 
@@ -289,7 +292,7 @@ artifact.
 - no horizontal page scroll, and nothing visible is cut by the viewport's edge;
 - targets are at least 24 px with a mouse and 44 px on touch, or spaced as WCAG 2.2's 2.5.8 allows;
 - a control focused from the keyboard shows it, and its ring isn't cut;
-- the rows declared even are evenly spaced.
+- the rows declared even (`INTENT.rows`: the segmented controls of three members or more, the steps view's track, the phone's tool rail, in landscape a column) are evenly spaced, within 1 px; a row that wraps onto a second line is skipped; `test/layout_rows_cmd.js` moves one member of each by 3 px and expects the check to report it.
 
 It runs over the matrix of `test/lib/layout_matrix.js`:
 - **sizes:** phones 360, 390 and 412 portrait, 740×360 and 915×412 landscape; desktops 1024, 1280 and 1440;
@@ -382,7 +385,7 @@ worse (reference → this change, with the rule it broke), what improved, and th
 
 ## Perf shards and their parts
 
-The perf suite's units (`node test/regress/perf/run.js --list`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`, `pointer-morph`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-morph`, `interaction-hover`, `interaction-cards`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
+The perf suite's units (`node test/regress/perf/run.js --list`; each opens the steps view and stands where it measures through `__cmwSteps`, `ci/steps_scenes.js`) are cut into shards (`ci/perf_shards.js`, each one CI job; every unit is in exactly one). The larger shards (`steps`, `pointer`, `phone`, `views`, `interaction`) also have named **parts**, a scene or a map each, whose units split their shard's exactly (the plan job's check fails when a unit is in no part or in two): `steps-first`, `steps-default`, `steps-zeta`, `steps-king`, `steps-globe`, `steps-land`, `steps-cold`, `steps-long`; `pointer-hover`, `pointer-drag`; `phone-open`, `phone-motion`; `views-phase`, `views-landscape`, `views-sphere`; `interaction-mesh`, `interaction-hover`. A part is only a unit regex: rows, kinds, limits and tolerances live in `run.js` and `compare_perf.py`, so no row is dropped and no threshold moves.
 
 - **On GitHub's machines** (the Gate) every shard is one job, as before the parts; a by-hand run's *shards* input also takes part ids.
 - **On the GPU gate** (`gpu-gate.yml`, `--leaves`) the `steps` shard stands for its eight parts, one job each (its *leaves*): a run is about 3 minutes for `steps-first`, 4 for `steps-default` and `steps-zeta`, 5–6 for `steps-king` (`steps-globe`, about 2 on lavapipe, `steps-land`, `steps-cold` and `steps-long` are not timed yet; each unit's limit is 15 minutes), plus about a minute a job for the build and the quiet wait. The *shards* input takes shard ids, part ids and two groups: `all` (or nothing) is every shard (the wave sweep), `classic` the shards that are not split; `steps` is its eight parts. A part named beside its own whole shard is covered by it; an unknown id fails the plan. The loaded-Mac guard runs once per job, and a unit's reference and current runs are in the same job.
@@ -409,6 +412,7 @@ node ci/quality.js --ref origin/main               # image quality, paired again
 node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired against main
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
+node ci/fxc_size.js --ref origin/main --json f.json   # each linked program's size with every call inlined, as Windows' FXC compiles it (#1545): fails on a new program over 100 KB, or +20 % on one over 40 KB
 node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
@@ -505,6 +509,8 @@ Settings (environment variables):
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
+| `ci/fxc_size.js` | every program the app links over a walk of it (the default example, each example's first frame, typed formulas; glides, the globe, Landscape), sized with every call inlined, as Windows' FXC compiles it (#1545): the largest, their top functions and flagged loops; `--ref` fails on a new program over 100 KB or +20 % on one over 40 KB; `test/t_fxc_size.js` tests it |
+| `ci/glsl_inline.js` | a GLSL stage as FXC sees it: its own `#if`s resolved, the inlined size of `main`, each function's copies, the constant-bound loops that call into the chain; for `ci/fxc_size.js` and unit tests; `test/t_fxc_size.js` tests it |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
@@ -512,4 +518,4 @@ Settings (environment variables):
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
-| `ci/RUNNERS.md` | setting up our Mac (and, again, a Windows laptop: #169) as runners |
+| `ci/RUNNERS.md` | setting up our Mac and, for runs on request, a Windows desktop (#169) as runners |

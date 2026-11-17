@@ -13,7 +13,6 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const names = exampleNames();
 const ex = names.indexOf('Joukowski airfoil');
@@ -55,6 +54,7 @@ if (ex >= 0) {
     await go(`http://localhost:${PORT}/test.html?view=steps&ns=rim${dpr}${Date.now()}`);
     await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvFixed === "function" && !!window.GLR' });
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
     await ev("__cmwSet('alpha', 1), 1");
     await settled({ max: 20000 });
     await ev('__cmwHideStrokes(true), 1');

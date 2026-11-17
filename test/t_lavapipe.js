@@ -213,7 +213,7 @@ ok('installed without lavapipe\'s ICD file: the step fails and says so', noIcd.s
 const job = (/^ {2}browser:\n([\s\S]*?)(?=^ {2}[\w-]+:\n)/m.exec(Y) || [])[1] || '';
 ok('the browser job runs on the Ubuntu 24.04 image', /^ {4}runs-on: ubuntu-24\.04$/m.test(job), (/runs-on: .*/.exec(job) || [])[0]);
 const at = (re) => job.search(re);
-const order = [/name: Mesa cache key\n\s+id: mesa-key\n\s+run: ci\/lavapipe\.sh --key >> "\$GITHUB_OUTPUT"\n/, /name: Mesa cache \(restore\)\n\s+id: mesa-cache\n\s+uses: actions\/cache\/restore@v4\n/, /name: Mesa's Vulkan drivers \(lavapipe\)\n\s+id: mesa\n\s+run: ci\/lavapipe\.sh "\$RUNNER_TEMP\/cmw-lavapipe-debs"/, /name: Mesa cache \(save\)\n\s+if: .+\n\s+uses: actions\/cache\/save@v4\n/, /run: node ci\/browser\.js/].map(at);
+const order = [/name: Mesa cache key\n\s+id: mesa-key\n\s+run: ci\/lavapipe\.sh --key >> "\$GITHUB_OUTPUT"\n/, /name: Mesa cache \(restore\)\n\s+id: mesa-cache\n\s+uses: actions\/cache\/restore@v\d+\n/, /name: Mesa's Vulkan drivers \(lavapipe\)\n\s+id: mesa\n\s+run: ci\/lavapipe\.sh "\$RUNNER_TEMP\/cmw-lavapipe-debs"/, /name: Mesa cache \(save\)\n\s+if: .+\n\s+uses: actions\/cache\/save@v\d+\n/, /run: node ci\/browser\.js/].map(at);
 ok('the steps: key, restore, install, save, then the suites', order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), order);
 // the save step's condition, with the key step's outputs, the restore's cache-hit and a run's outputs
 const saveIf = (/name: Mesa cache \(save\)\n\s+if: (.+)\n/.exec(job) || [])[1] || '';
