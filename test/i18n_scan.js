@@ -24,6 +24,8 @@
     'Re', 'Im', 'arg', 'Arg', 'Res', 'exp', 'ln', 'Ln', 'log', 'sin', 'cos', 'tg', 'ctg', 'sec', 'cosec', 'csc', 'sh', 'ch', 'th', 'cth', 'arcsin', 'arccos', 'arctg',
     'arcctg', 'arsh', 'arch', 'arth', 'arcth', 'sqrt', 'conj', 'abs', 'mod', 'dz', 'dw', 'id', 'const', 'sinc', 'Log', 'Sqrt', 'erf', 'Gamma', 'zeta', 'Li', 'pi', 'inf', 'iter',
     'and', 'or', 'not', 'ad', 'bc', 'az', 'cz', 'lg', 'tan', 'cot', 'sinh', 'cosh', 'tanh', 'coth', 'arctan', 'asin', 'acos', 'atan', 'acot', 'arccot',
+    // the deformation's name H_t as a canvas's accessible name reads it: the head's words, the subscript's t beside the H
+    'Ht',
   ]);
   const ATTRS = ['title', 'aria-label', 'placeholder', 'data-tip', 'data-desc', 'alt', 'aria-description', 'aria-roledescription', 'aria-valuetext'];
   // math and code: MathJax output, canvases, the LaTeX code boxes, key chips, the app's name (the hidden h1), inputs' own values
