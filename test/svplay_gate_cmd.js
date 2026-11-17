@@ -21,7 +21,7 @@ async function open(w, h, lang = '', mobile = false) {
   await ev('(__cmwExample(1), 1)');
   const o = await ev('location.origin');
   await nav(`${o}/test.html?ns=${ns}&glhold&view=steps${lang ? '&lang=' + lang : ''}`);
-  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
+  await settled({ max: 30000, only: true, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
   await ev('(__cmwSteps({ go: 0, now: true }), 1)');
   await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });
 }
