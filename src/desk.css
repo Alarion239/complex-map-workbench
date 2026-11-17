@@ -41,6 +41,11 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .iform .ftex:not(.long) { min-height: 22px; }
 .inote { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
 .inote:empty { display: none; }
+.ihint { font: var(--t-label); color: var(--muted); margin: 0 0 10px; }
+.ihint:empty { display: none; }
+.ihint-x { white-space: nowrap; font-family: var(--f-mono); }
+.ihint .ihint-use { margin-left: 4px; }
+:root.ph .ihint .ihint-use { min-width: 44px; min-height: 44px; }
 .ierr { margin: 0 0 10px; padding: 6px 8px; border-radius: var(--r-2); background: var(--error-soft); color: var(--error); font: 400 12px/16px var(--f-ui); }
 .ierr:empty { display: none; }
 /* fields: one row each, 32 px, the symbol (30 px, or as wide as it is: uₖ₊₁ =), the field, the Argand button */
@@ -208,6 +213,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sty-seg .sty-g svg { display: block; width: 15px; height: 15px; }
 .pane-head > .options > .scrub { height: 26px; padding: 0 0 0 6px; border: 1px solid var(--line); border-radius: var(--r-2, 6px); }
 .pane-head > .options > .scrub select.sel { height: 24px; border: 0; background-color: transparent; }
+.pane-head > .options > .scrub .sv-choice-num { height: 24px; min-width: 0; border: 0; background-color: transparent; }
 .pane-head > .options label.check.ic-tg { position: relative; display: inline-grid; place-items: center; width: 26px; height: 26px; min-height: 0; padding: 0;
   border: 1px solid transparent; border-radius: var(--r-2, 6px); color: var(--ink-2); cursor: pointer; }
 .pane-head > .options label.check.ic-tg:hover { background: var(--well); color: var(--ink); }
@@ -443,6 +449,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-surf1 svg { width: 12px; height: 12px; flex: 0 0 12px; }
 .sv-scope-menu { display: none; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .sv-scope-menu svg { width: 12px; height: 12px; flex: 0 0 12px; }
+.sv-scope .sc-short { display: none; }
 .sv-head.sv-sm .sv-seg.sv-scope { display: none; }
 .sv-head.sv-sm .sv-scope-menu { display: inline-flex; }
 .sv-head.sv-si .sv-surf1 .sv-surf-i { display: inline-flex; }

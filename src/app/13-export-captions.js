@@ -247,6 +247,9 @@
   // tones, the view and t change only inside one synchronous block, so no screen frame ever draws with them.
   // -> {w, h, rgb (opaque on white), land (the landscape's camera)} or null when cancelled (o.alive() false)
   let artLandBox = null;
+  // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
+  // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
+  let artLandRound = null, artCamAsp = null;
   // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
   const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
@@ -254,11 +257,12 @@
   function svCapParts(o) {
     const c = figCapParts(o);
     if (!SV.on || morphOn()) return c;
-    const q = svFigParts(), carried = !q.coloured && q.k > 0;
+    // (hName: what the Landscape's height reads, svHeightName; past the colour plane, the point of T it is carried from)
+    const q = svFigParts(), carried = !q.coloured && q.k > 0, hName = svHeightName('tex', q.k);
     // (F, the map from z into the last plane: the composite's formula in z, as the classic caption has it)
-    if (q.name === 'F') return Object.assign(c, { Fname: 'F', lvar: 'z', mapTex: c.formula ? `F(z)=${c.formula}` : null, carried });
+    if (q.name === 'F') return Object.assign(c, { Fname: 'F', lvar: 'z', mapTex: c.formula ? `F(z)=${c.formula}` : null, carried, hName });
     const Fname = q.name || q.lvar, formula = q.raw ? inlineFrac(q.raw) : null;
-    return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried });
+    return Object.assign(c, { Fname, lvar: q.arg, raw: q.raw, formula, mapTex: formula ? `${Fname}(${q.arg})=${formula}` : null, carried, hName });
   }
   // the window of the camera every plane shares (S.srcView) at the left pane's size: the figure's source window, and where a path's start is chosen on the sphere
   const MIN_PANE_PX = 20; // a pane shorter than this is not laid out (hidden): the other pane's height stands in
@@ -290,17 +294,13 @@
       const name = (j) => (j === 0 ? 'z' : `w_{${j}}`);
       return { name: name(k), prev: i ? name(P[i - 1]) : null, f: i ? `f_{${k}}` : null };
     }),
-    svArt: async (i, o) => {
-      const keep = SV.i;
-      svGo(i, true);
-      const at = SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
-        : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) };
-      try { return await artRender('L', Object.assign({}, o, at)); } finally { svGo(keep, true); }
-    },
+    svArt: (i, o) => svAtPlane(i, () => artRender('L', Object.assign({}, o, SV.surf === 'plane' ? { box: o.box || paneBox(paneL, leftView()) }
+      : { hpt: o.wpt * paneL.h / Math.max(1, paneL.w) }))),
     svPathsFig, svPathsMorph: (o) => { const f = svPathsFig(); return figMorphPaths(Object.assign({}, o, { src: f.src, z: f.z, end: f.end })); },
     // the glide along the thread as a video: the thread's range (the Play range, else all of it) in planes and the surface
     // it is drawn on, null without a step or where the left pane shows no picture of that surface; svGlideArt draws the
-    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving),
+    // left pane parked at thread position x, as the screen draws it there (svRenderMoving, svSphereMoving, svLandMoving; at a
+    // plane, that plane at rest, wherever the view is parked),
     // at o.box on the plane and at the frame's o.wpt x o.hpt in the screen's camera on the sphere and the Landscape, and
     // svGlideText is the screen's own words for that place
     svGlide: () => {
@@ -310,9 +310,15 @@
       return { surf: SV.surf, at: SV.g.x, lo: R ? R.lo : 0, hi: R ? R.hi : P.length - 1, from: svName(P[R ? R.lo : 0]), to: svName(P[R ? R.hi : P.length - 1]) };
     },
     svGlideArt: async (x, o) => {
+      // (on the sphere and the Landscape the camera is fitted at the pane's aspect, the still's, and the frame widens it)
+      const real = paneL.h > 20 ? paneL : paneR;
+      const draw = () => artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : Object.assign({ camAsp: effW('L') / Math.max(1, real.h) }, o));
+      // (at a plane the frame is that plane's picture at rest, wherever the view is parked; between two planes the glide's)
+      const k = Math.round(x);
+      if (Math.abs(x - k) <= SV_REST_U) return svAtPlane(k, draw);
       const keep = { x: SV.g.x, span: SV.span };
-      SV.span = null; SV.g.set(x);
-      try { return await artRender('L', SV.surf === 'plane' ? Object.assign({}, o, { box: o.box || paneBox(paneL, leftView()) }) : o); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+      SV.span = null; SV.g.set(x); SV.offscreen++;
+      try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; SV.offscreen--; requestRender('L'); }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
@@ -397,6 +403,8 @@
       get artGlobe() { return artGlobe; }, set artGlobe(v) { artGlobe = v; },
       get artLand() { return artLand; }, set artLand(v) { artLand = v; },
       get artLandBox() { return artLandBox; }, set artLandBox(v) { artLandBox = v; },
+      get artLandRound() { return artLandRound; }, set artLandRound(v) { artLandRound = v; },
+      get artCamAsp() { return artCamAsp; }, set artCamAsp(v) { artCamAsp = v; },
       get artMode() { return artMode; }, set artMode(v) { artMode = v; },
       get artNoLab() { return artNoLab; }, set artNoLab(v) { artNoLab = v; },
       get artSkip() { return artSkip; }, set artSkip(v) { artSkip = v; },

@@ -56,7 +56,7 @@ const LOOK_U = [0.25, 0.5, 0.75], LOOK_TOL = 3, END_X = 0.001, MIN_SAME = 20000,
 const EDGE_RUN = 16, COVER_U = [0.02, 0.98, 0.999], COVER_TOL = 0.001, SPECK_TOL = 24;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const ready = () => settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwExample === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
 // (at rest on plane i, its frame drawn)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSvX() === ${i}` }); };
@@ -181,6 +181,7 @@ async function look(c, r) {
     const ex = names.indexOf(c.example);
     ok(`${c.tag}: the example is found`, ex >= 0, names.length);
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
     await settled({ max: 60000 });
   }
   // (100 % opacity: the references are the front point's colour alone; the Opacity slider's 85 % default mixes the layers behind)
@@ -307,19 +308,34 @@ async function heldParked(c, r) {
   r.step = 'the parked camera';
   await rest(0);
   const VIEW = '(() => { const g = __cmwSteps().glide, v = g && g.view; return v ? [v.cx, v.cy, v.s] : null; })()';
-  const P = r.parked = {};
-  for (const u of c.parked) {
-    const held = (await hold(u)).ok, still = await grab('H' + u), vk = await ev(VIEW);
+  // (a scrub held at u, its frame and glide camera read, then let go and parked at u: the two frames compared; tag
+  // names the kept frames)
+  const heldThenParked = async (u, tag) => {
+    const held = (await hold(u)).ok, still = await grab(tag + 'H' + u), vk = await ev(VIEW);
     await ev('window.__svScrubUp(), 1');
     const parked = (await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim && Math.abs(__cmwSvX() - ${u}) < 1e-3` })).ok;
-    const settledP = await grab('P' + u);
-    P[u] = { held, parked, still, settledP, view: [vk, await ev(VIEW)], diff: settledP && still ? await compare('H' + u, 'P' + u) : null };
+    const settledP = await grab(tag + 'P' + u);
+    const q = { held, parked, still, settledP, view: [vk, await ev(VIEW)], diff: settledP && still ? await compare(tag + 'H' + u, tag + 'P' + u) : null };
     await rest(0);
-  }
+    return q;
+  };
+  const P = r.parked = {};
+  for (const u of c.parked) P[u] = await heldThenParked(u, '');
   for (const u of c.parked) {
     const q = P[u];
     ok(`${c.tag}: the frame parked at u = ${u} has the held frame's camera`, q.held && q.parked && !!q.view[0] && JSON.stringify(q.view[0]) === JSON.stringify(q.view[1]), q);
     ok(`${c.tag}: the frame parked at u = ${u} is the held frame's pixels (at most ${SAME_FRAC * 100} % of them > ${DIFF_TOL}/255 apart)`, q.held && q.parked && !!q.diff && q.diff.frac <= SAME_FRAC, q);
+  }
+  // (the colour layer alone, SV.bare: no point or label on it. A held frame places a point's label with no curve to keep
+  // off, as a view on the move does, and the parked frame keeps it off the curves, so the two differ by that label; the
+  // colour under it is the same pixel for pixel)
+  await ev(`__cmwSteps({ bare: true }), 1`);
+  const B = r.bare = {};
+  for (const u of c.parked) B[u] = await heldThenParked(u, 'B');
+  await ev(`__cmwSteps({ bare: false }), 1`);
+  for (const u of c.parked) {
+    const q = B[u];
+    ok(`${c.tag}: the colour layer parked at u = ${u} is the held one's, pixel for pixel`, q.held && q.parked && !!q.diff && q.diff.max === 0, q);
   }
 }
 // the frame held half-way (H) against the rest frames: its straight hard edges, and whether it has more

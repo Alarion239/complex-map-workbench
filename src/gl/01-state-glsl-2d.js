@@ -76,10 +76,10 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   // whenever there is a post); mode 3 (base, a] in full, (a, b] along their paths, the post; mode 2 the stages a and
   // b, each from base (homrange.js's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
   // LIB), so the walk stays a loop.
-  const WALK = (n, how) => `vec2 z = s;
+  const WALK = (n, how, t = 'uT') => `vec2 z = s;
   for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
     int how = ${how};
-    z = chainAt(k, z, uT, how);
+    z = chainAt(k, z, ${t}, how);
   }
   return z;`;
   const POST = '(uPost > uB && k > uB && k <= uPost) ? 1 : 0';
@@ -93,19 +93,31 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     if (k == uB) z1 = z;
   }
   return mix(z0, z1, uT);`,
-    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (stepT(k) <= 0.0 ? 0 : 2) : ${POST}`, 'stepT(k)'),
   ];
   const MAP_STAGE = [
-    'return chainRange(s, uA, uB);',
-    `vec2 z = chainRange(s, uBase, uHi - 1);
+    () => 'return chainRange(s, uA, uB);',
+    () => `vec2 z = chainRange(s, uBase, uHi - 1);
   // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
-    `vec2 z0 = chainRange(s, uBase, uA);
+    () => `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+    // (chainHomAll's walk, each step at its own time)
+    (n) => `vec2 z = chainRange(s, uBase, uA);
+  if (uT <= 0.0) return postOf(z);
+  for (int k = 1; k <= ${n}; k++) {
+    if (k > uB) break;
+    if (k > uA) z = chainHom(k, z, stepT(k));
+  }
+  return postOf(z);`,
   ];
+  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.js stepTime (the draw sets
+  // (1, 0), uT itself, for a step with no time of its own: GLR.use)
+  const STEP_T = (n) => `uniform vec2 uStepT[${n + 1}];
+float stepT(int k) { vec2 m = uStepT[min(k, ${n})]; return clamp(uT * m.x - m.y, 0.0, 1.0); }
+`;
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
@@ -120,12 +132,12 @@ bool derivIn(int a, int b) {
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
   const MAP = (info, mode) => {
-    const st = hasStages(info);
+    const st = hasStages(info), n = Math.max(1, sigsOf(info.key).length);
     return `
 const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
-${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
+${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}${mode === 3 ? STEP_T(n) : ''}
 vec2 mapPoint(vec2 s) {
-  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
+  ${st ? MAP_STAGE[mode](n) : MAP_PLAIN[mode](n)}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
@@ -411,7 +423,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `centroid out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -795,7 +807,7 @@ void main() { emit(mapPoint(srcOf(bary(aT)))); }
 `;
   // The fill's point pass (drawRegionCarry, fillPoints): for every sub-triangle t of every instance (uSub: its three
   // template corners, regionTemplate's order; uSubI: their places in the map cache and its centroid's), REGION_VS's
-  // fill cull on the same cache texture (unit 1, uCW, uCP) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
+  // fill cull on the same cache texture (unit 1, uCW, uCStride) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
   // draws from the cache is not evaluated and its four points are written as 0, one it fills as point k = 0..3, its
   // onCentreSheet(zc, s_k) with zc its centroid's source point (s_3 the centroid), written as (w, side, 1) into texel
   // instance * uP + 4 t + k of an RGBA32F texture. The fill culls by that .w, so the two never disagree; the chain runs
@@ -808,14 +820,14 @@ layout(location = 4) in float aSkip;
 uniform vec2 uSub[12];
 uniform vec4 uSubI[4];
 uniform float uKPx; uniform float uKLim;
-uniform highp sampler2D uW; uniform int uCW; uniform int uCP;
+uniform highp sampler2D uW; uniform int uCW; uniform int uCStride;
 flat out vec4 tfOut4;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
 uniform int uFPass; uniform highp sampler2D uFA;
 ${SRC}
 ${BARY}
 ${VALID}
-vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
+vec2 WC(float k) { int i = gl_InstanceID * uCStride + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
 vec4 FA(int i) { return texelFetch(uFA, ivec2(i % uRtW, i / uRtW), 0); }
 ${ON_CENTRE}${FILL_DRAWN}void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;
@@ -1196,46 +1208,44 @@ void main() {
   o = vec4(dcolor(mapF(z)), 1.0);
 }
 `;
-  // The colour carried by the points, on the GPU (the steps view's svCarry): a grid of uN cells over plane s
-  // (uCGrid: its corner and cell), each cell two triangles, drawn without buffers (gl_VertexID). A vertex places its
-  // triangle's three corners by mapPoint (the glide's map from plane s: uBase = s), so the triangle is the same in all
-  // three, and one torn across a cut or a pole (an edge over uLim on the plane) is collapsed out of the picture; the
-  // corners in a loop no compiler can unroll (uNoUnroll): one copy of the chain. vP: the point of plane s, exact in the
-  // grid (affine), where the fragment stage evaluates the map into the colour plane.
-  const CARRY_VS = `
-uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale;
-uniform vec4 uCGrid; uniform ivec2 uN; uniform float uLim;
-out vec2 vP;
+  // The colour plot's stand-in while its program links (drawColorPlot's st.standIn): w = F(z) at the nodes of a grid,
+  // texel (i, j) the node i across and j up; uGO is node (0, 0) and uGC the cell, in device px from the viewport's
+  // corner. w is interpolated at each pixel and coloured by dcolor, as the plot colours F(z): bilinear in w, or in 1/w
+  // where the cell's four nodes all have |w| > 1 (about a pole, where 1/w is close to linear); a cell with a node that
+  // is not finite takes its nearest node's value. Off the grid nothing is drawn
+  const COLOR_STANDIN_FS = `
+uniform vec2 uGO; uniform float uGC; uniform vec4 uVp; uniform sampler2D uWNodes;
+out vec4 o;
+vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }
 void main() {
-  int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
-  ivec2 c = ivec2(cell % uN.x, cell / uN.x);
-  vec2 q0 = vec2(0.0), q1 = q0, q2 = q0, p = q0;
-  bool ok = true;
-  for (int k = 0; k < max(3, uNoUnroll); k++) {
-    if (k >= 3) break;
-    ivec2 o = k == 0 ? ivec2(0) : k == 1 ? (hf == 0 ? ivec2(1, 0) : ivec2(1, 1)) : (hf == 0 ? ivec2(1, 1) : ivec2(0, 1));
-    vec2 pk = uCGrid.xy + vec2(c + o) * uCGrid.zw, qk = mapPoint(pk);
-    if (!cfin(qk)) ok = false;
-    if (k == 0) q0 = qk; else if (k == 1) q1 = qk; else q2 = qk;
-    if (k == cn) p = pk;
-  }
-  ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
-  vec2 q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
-  vP = p;
-  gl_Position = ok ? vec4(((q - uCenter) - uCenterLo) * uScale, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  ivec2 n = textureSize(uWNodes, 0);
+  vec2 q = (gl_FragCoord.xy - uVp.xy - uGO) / uGC;
+  ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
+  vec2 f = clamp(q - vec2(i), 0.0, 1.0);
+  vec2 a = texelFetch(uWNodes, i, 0).xy, b = texelFetch(uWNodes, i + ivec2(1, 0), 0).xy;
+  vec2 c = texelFetch(uWNodes, i + ivec2(0, 1), 0).xy, d = texelFetch(uWNodes, i + ivec2(1, 1), 0).xy;
+  vec2 w;
+  if (!(cfin(a) && cfin(b) && cfin(c) && cfin(d))) w = texelFetch(uWNodes, i + ivec2(step(0.5, f)), 0).xy;
+  else if (min(min(dot(a, a), dot(b, b)), min(dot(c, c), dot(d, d))) > 1.0) w = cinv(mix(mix(cinv(a), cinv(b), f.x), mix(cinv(c), cinv(d), f.x), f.y));
+  else w = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  vec3 col = dcolor(w);
+  if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(n - 1)))) discard;
+  o = vec4(col, 1.0);
 }
 `;
-  // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
-  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
-  // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
-  // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
+  // The colour carried by the points, the fragment stage of the region meshes' carry (REGION_VS's carry option), of the
+  // pre-mapped meshes' (PRE_VS) and of the globe's (CARRY_GLOBE_VS): the colour plane's colour at the image of the point
+  // p of plane s there, G = chainRange(p, uGs, uGt) (the plot's style, dcolor), exact at every fragment; id: plane s is
+  // the colour plane (G the identity), a stage without the chain. Where the map from plane s folds (several points on
+  // one pixel past the colour plane), the inverse path's sheet key of the point (PRE_KEY, its depth) picks the one the
+  // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
-  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
+  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
-  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
+  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
@@ -1284,15 +1294,16 @@ void main() {
 `;
   // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE, TIERS and SPHERE_LINES): the side away from the camera left out, so the sheet
   // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour under the globe's graticule
-  // (at the lifted point) and light, as the globe's phase portrait draws it
+  // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule 0 leaves the graticule out
   const CARRY_GLOBE_FS = (id) => {
     let t = CARRY_FS(id);
     for (const [a, b] of [
-      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye;\n'],
+      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye; uniform float uGraticule;\n'],
       ['void main() {\n', 'void main() {\n  vec3 vv = normalize(uEye - vPos);\n  if (dot(vNor, vv) < 0.0) discard;\n'],
       [`  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`, `  vec3 nn = normalize(vNor);
   float net, re, eq;
   sphereLines(nn, net, re, eq);
+  net *= uGraticule; re *= uGraticule; eq *= uGraticule;
   o = vec4(toSrgb(shade(toLin(phaseLines(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), net, re, eq)), nn, vv, 1.0)), 1.0);`],
     ]) {
       if (!t.includes(a)) throw new Error('CARRY_GLOBE_FS: ' + a.slice(0, 40));
@@ -1392,6 +1403,32 @@ void main() {
   o = vec4(dcolor(w), 1.0);
 }
 `;
+  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15: a segment, a line, a ray,
+  // a circle, an arc): curveNearAB(kind, A, B, w) is the curve's point nearest w. Shared by the preimages (PRE_FS) and
+  // the inverse pass's curves of later planes (INV_HEAD)
+  const CURVE_GEOM = `
+float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
+vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
+vec2 nearer(vec2 p, vec2 q, vec2 q2) { return dot(p - q2, p - q2) < dot(p - q, p - q) ? q2 : q; }
+// >= 0 inside the angular range that runs ccw over span degrees from the direction B.xy to B.zw (Region's sectorLevel)
+float angIn(vec2 v, float span, vec4 B) {
+  float a = crs(B.xy, v), b = -crs(B.zw, v);
+  return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
+}
+vec2 curveNearAB(int kind, vec4 A, vec4 B, vec2 w) {
+  if (kind == 11) return segNear(w, A.xy, A.zw);
+  if (kind == 12 || kind == 13) {
+    float L = dot(A.zw, A.zw);
+    float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
+    return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
+  }
+  vec2 v = w - A.xy;
+  float l = length(v);
+  vec2 q = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * A.z;
+  if (kind == 15 && angIn(v, A.w, B) < 0.0) q = nearer(w, A.xy + B.xy * A.z, A.xy + B.zw * A.z);
+  return q;
+}
+`;
   // ---------- preimages: where w = F(z) lands in target shapes of the w-plane (Preimage mode) ----------
   // Targets come in a float texture row: 6 texels per target (kind, complement, first point, point count | shape
   // parameters A | B | fill colour, alpha | edge colour, width (device px) | w-grid cell, -), then polygon and
@@ -1405,15 +1442,7 @@ uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp; uniform float uD
 uniform highp sampler2D uPts; uniform int uTN; uniform vec3 uHalo; uniform float uHaloA;
 out vec4 o;
 vec4 R(int i) { return texelFetch(uPts, ivec2(i, 0), 0); }
-float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
-vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
-vec2 nearer(vec2 p, vec2 q, vec2 q2) { return dot(p - q2, p - q2) < dot(p - q, p - q) ? q2 : q; }
-// >= 0 inside the angular range that runs ccw over span degrees from the direction B.xy to B.zw (Region's sectorLevel)
-float angIn(vec2 v, float span, vec4 B) {
-  float a = crs(B.xy, v), b = -crs(B.zw, v);
-  return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
-}
-${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
+${CURVE_GEOM}${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
 // formula fa (and fb when two) at w and at the first n - 1 of w + dx, w + dy, w - dx, w - dy, from one call site of
 // formulaLevel in a loop (issue #396: FXC inlines every call of formulaLevel, the dispatch over every level function,
 // and the gradients' calls one by one wrote them all out about 21 times). a, b: (w + dx, w + dy, w - dx, w - dy)
@@ -1463,19 +1492,7 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
 }
 // curve targets: the nearest point of the curve
 vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
-  if (kind == 11) return segNear(w, A.xy, A.zw);
-  if (kind == 12 || kind == 13) {
-    float L = dot(A.zw, A.zw);
-    float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
-    return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
-  }
-  if (kind == 14 || kind == 15) {
-    vec2 v = w - A.xy;
-    float l = length(v);
-    vec2 q = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * A.z;
-    if (kind == 15 && angIn(v, A.w, B) < 0.0) q = nearer(w, A.xy + B.xy * A.z, A.xy + B.zw * A.z);
-    return q;
-  }
+  if (kind >= 11 && kind <= 15) return curveNearAB(kind, A, B, w);
   if (kind == 16) {
     int s = 6 * uTN + int(K.z + 0.5), n = int(K.w + 0.5);   // vertices follow the records
     vec2 q = R(s).xy;

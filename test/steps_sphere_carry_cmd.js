@@ -4,10 +4,11 @@
 // at u = 0.25, 0.5 and 0.75:
 //  - the globe's last frame drew the carried colour per pixel, through the inverse pass (__cmwSvGlobe(): path
 //    'inverse': z^2's homotopy has an inverse plan);
-//  - at the globe's pixel of H_u(z0) the colour's hue is the hue at z0's pixel at rest on plane z, for at least three
-//    of four sample points (hue as chromaticity, each channel over their sum: the globe's light scales a colour with
-//    its place on the sphere, and a sample may fall on a grid line). A cross-fade of the two planes' own globes shows a
-//    blend of their colours at H_u(z0) instead.
+//  - the globe is the exact picture at u (held_frames.js's globeJudge, from plane z's parked globe: each sample point w
+//    of the sphere shows the colour of its front point z0 of H_u, lit for its place on the moving globe; at most
+//    GLOBE_OVER of at least GLOBE_MIN_N points more than GLOBE_TOL levels apart in a channel), the points H_u covers
+//    twice among them (the front one by the glide's sheet key);
+//  - control: the cross-fade of the two planes' own globes at u (a blend of their colours at w) is not.
 // The ends: at u = 0.002 (the thread set there, __cmwSteps({ x }), past the park's snap) the frame is the resting globe
 // of plane z, and at u = 0.998 that of plane w1, within a mean of 1.5 levels on the whole frame, as steps_glide_inverse
 // checks the plane's ends (the colour lines move by a fraction of a pixel): the colour is the moving point's own, not
@@ -15,16 +16,18 @@
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 // (the limits: END_MEAN, the mean over a frame's pixels of the largest channel difference (levels of 255, held_frames'
-// compare) that the moving globe may be from the resting one, as steps_glide_inverse's ends; SAT_MIN, the spread between a sample's largest and smallest
-// channel that makes it coloured and not grey paper; HUE_TOL, the chromaticity distance within which a point keeps its hue, for HUE_MIN of its
-// four samples)
-const END_MEAN = 1.5, SAT_MIN = 40, HUE_TOL = 0.06, HUE_MIN = 3;
+// compare) that the moving globe may be from the resting one, as steps_glide_inverse's ends; SAT_MIN, the spread between a
+// sample's largest and smallest channel that makes it coloured and not grey paper)
+const END_MEAN = 1.5, SAT_MIN = 40;
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { grab, compare, fade, globeJudge, GLOBE_MIN_N } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+// (quiet: the programs and jobs are ready, no glide or play is under way and the sphere is idle; __cmwSteps().moving is also
+// true for a place parked between two planes, which is a still view, so it is not the wait)
+const QUIET_UNTIL = "window.__cmwSteps && __cmwSteps().ready.ready && !__cmwSteps().anim && !__cmwSteps().play && !(window.__cmwSphere && __cmwSphere().running)";
 const quiet = () => settled({
   max: 20000,
-  until: "window.__cmwSteps && !__cmwSteps().moving && !(window.__cmwSphere && __cmwSphere().running)",
+  until: QUIET_UNTIL,
 });
 // (the left pane's colour at the globe's point (x, y) of the plane, read from the canvas; null off the pane)
 const pixelAt = (x, y) => ev(`(() => {
@@ -36,11 +39,6 @@ const pixelAt = (x, y) => ev(`(() => {
   const g = s.getContext('2d', { willReadFrequently: true }); g.drawImage(c, 0, 0);
   return Array.from(g.getImageData(px, py, 1, 1).data.slice(0, 3));
 })()`);
-const chroma = (p) => { const t = p[0] + p[1] + p[2] || 1; return [p[0] / t, p[1] / t, p[2] / t]; };
-const cdist = (p, q) => {
-  const a = chroma(p), b = chroma(q);
-  return Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]) + Math.abs(a[2] - b[2]);
-};
 const sat = (p) => Math.max(...p) - Math.min(...p);
 await view(1200, 800, false, false);
 const ns = 'svsc' + Date.now();
@@ -59,9 +57,15 @@ for (const [x, y] of Z) rest.push(await pixelAt(x, y));
 R.rest = rest;
 ok('at rest on plane z: the sample points are in colour on the globe', rest.every((p) => p && sat(p) > SAT_MIN), rest);
 ok('the frame rest settles', await grab('rest'), null);
+// (plane w1's resting globe, for the control's cross-fade and the end)
+await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
+ok('the frame rest1 settles', await grab('rest1'), null);
+await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
+// (the globe's frame drawn by the inverse pass, waited for after the thread is placed)
+const inverseDrawn = () => settled({ max: 10000, until: "__cmwSvGlobe(0, 0).path === 'inverse'" });
 await ev(`__cmwSteps({ x: 0.002 }); 1`);
 await quiet();
-for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
+await inverseDrawn();
 ok('the frame start settles', await grab('start'), null);
 R.start = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await compare('rest', 'start') };
 ok(`just past plane z the moving globe is the resting globe (a mean within ${END_MEAN} levels), with no blend`,
@@ -70,28 +74,23 @@ R.parked = {};
 for (const u of [0.25, 0.5, 0.75]) {
   await ev(`__cmwSteps({ park: ${u} }); 1`);
   await quiet();
-  let g = null;
-  for (let i = 0; i < 40; i++) {
-    g = await ev('__cmwSvGlobe(0, 0)');
-    if (g && g.path === 'inverse') break;
-    await sleep(250);
-  }
-  const rows = [];
-  for (let j = 0; j < Z.length; j++) {
-    const h = await ev(`__cmwSvGlobe(${Z[j][0]}, ${Z[j][1]})`), p = h && h.w ? await pixelAt(h.w[0], h.w[1]) : null;
-    rows.push({ z: Z[j], w: h && h.w, p, d: p && rest[j] ? +cdist(p, rest[j]).toFixed(3) : null });
-  }
-  R.parked[u] = { carried: !!(g && g.carried), u: g && g.u, rows };
+  await inverseDrawn();
+  const g = await ev('__cmwSvGlobe(0, 0)');
   ok(`u = ${u}: the globe draws the carried colour per pixel (the inverse pass)`, !!(g && g.path === 'inverse'), g);
-  const near = rows.filter((r) => r.d != null && r.d <= HUE_TOL).length;
-  ok(`u = ${u}: a point keeps its colour's hue as it moves (${HUE_MIN} of 4 within ${HUE_TOL})`, near >= HUE_MIN, rows);
+  ok(`u = ${u}: the moving globe settles`, await grab('F' + u), null);
+  const j = await globeJudge('rest', 'F' + u);
+  ok(`u = ${u}: the moving globe is the exact picture at u (globeJudge)`, j.pass, j);
+  // (H_u(z) = z^(1 + u) takes two points of plane z to each w near the negative real axis: the judge's front of them)
+  ok(`u = ${u}: points the glide covers twice are graded too`, j.several > 0, j);
+  ok(`u = ${u}: the cross-fade frame exists`, await fade('rest', 'rest1', u, 'X' + u), null);
+  const c = await globeJudge('rest', 'X' + u);
+  ok(`u = ${u}: control: a cross-fade of the two planes' globes is not the exact picture`, !c.pass && c.n >= GLOBE_MIN_N, c);
+  R.parked[u] = { carried: !!(g && g.carried), u: g && g.u, judge: j, control: c };
 }
 // (the other end: just before plane w1, against plane w1 at rest)
-await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet();
-ok('the frame rest1 settles', await grab('rest1'), null);
 await ev(`__cmwSteps({ x: 0.998 }); 1`);
 await quiet();
-for (let i = 0; i < 40 && (await ev('__cmwSvGlobe(0, 0).path')) !== 'inverse'; i++) await sleep(250);
+await inverseDrawn();
 ok('the frame end settles', await grab('end'), null);
 R.end = { path: await ev('__cmwSvGlobe(0, 0).path'), differ: await compare('rest1', 'end') };
 ok(`just before plane w1 the moving globe is the resting globe of w1 (a mean within ${END_MEAN} levels on the whole frame)`,
