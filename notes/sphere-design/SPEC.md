@@ -736,7 +736,7 @@ shapeClip, ixRange, sheetKey, compositor, ixDK, ixStop, patternColor, invLeaf) +
 |---|---|
 | view (flat) | `uCenter` (hi), `uCenterLo`, `uInvScale`, `uVp`, `uDpr` |
 | view (globe) | `uMVP`, `uEye`, light (`lightUniforms`), via `SPHERE_VS` |
-| sheet key | `uWin` (x0, y0, x1, y1 of `clipWin`), `uWinR` (half-diagonal), `uWinRs` (= R/8), `uSing[4]`, `uSingN` |
+| sheet key | `uWin` (x0, y0, x1, y1 of `clipWin`), `uWinR` (half-diagonal), `uWinRs` (= R/8), `uSing[4]`, `uSingN`, `uSingT` (the period T of 5.1, 0 for none) |
 | compositing | `uAlpha` (the shape's alpha, hover-dimmed), `uKsat` (K, capped at B) |
 | shape | `uPts` (texture unit 4: every shape's record, packed once per frame), `uShOff` (this shape's record offset), `uShape` (kind, complement, count), `uShA`, `uShB`, `uFormSlot` |
 | look | as `regionUniforms`: `uC0`, `uC1`, `uK`, `uPattern`, `uCell`, `uLines`, `uShrink`, `uGrow`, `uMid`, `uOrigin`, `uQ`, plus `uSphN` |
@@ -961,12 +961,19 @@ suite's machine for every acceptance scene.
 ### 5.1 The key D
 
 ```
-D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|))
+D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|_T))
 ```
 
 - W is the box of `clipWin`, R its half-diagonal, and rs = R/8.
 - dist is Euclidean, and 0 inside W.
 - P is the accumulation set of 3.7 (at most 4 points).
+- T is the key's period (`Inverse.keyPeriod`), or none. A chain whose first step after affine ones u = A z + B is
+  periodic (an additive family of period p: exp, sin, cos, tan and their kin) has F(z + T) = F(z) with T = p / A, so
+  its singular points come in classes modulo T. P holds one point of each class, and |z - p|_T is the distance from z
+  to the nearest point of p's class. Every copy z + kT of a point then takes the same singular terms, and the copies
+  rank by their distance to W alone. A key without T would penalise only the copies beside the listed poles, so a copy
+  beside a pole P leaves out would come in front of the copies near the window (on Strip to disk's w₂, copies 3
+  periods down). Mid-glide, T is the period of the steps before the glide's step, which the glide's map keeps.
 - With Λ and Re Λ > 60: dist ≈ e^{Re Λ}, so log2(1 + dist/R) ≈ (Re Λ − ln R)/ln 2. For p = 0 the singular term is
   log2(rs) − Re Λ/ln 2.
 

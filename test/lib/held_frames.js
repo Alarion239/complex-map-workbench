@@ -57,7 +57,7 @@
 //   o.as: refOf's as;
 // - globeJudge(base, tag, o): the steps view's globe held between plane z and a later plane, the kept frame tag, graded
 //   against the exact picture from plane z's parked globe base (both kept by grab, the camera unmoved): for each point w
-//   of a lattice of the sphere's front side every o.step degrees (default GLOBE_STEP), its pixel on tag against the
+//   of a lattice of the sphere's front side every GLOBE_STEP degrees, its pixel on tag against the
 //   pixel of its front point z0 on base (z0: H_u's points over w by Newton's method, __cmwSvGlobe's H; several: the front
 //   one by the glide's sheet key, __cmwSvKey(b, u) through Inverse.sheetKey and Inverse.front, so a judge of Inside
 //   regions holds for a map one to one only), with the globe's light (SHADE_GLOBE: c = alb k(n, v) + spec(n, v) in
@@ -323,7 +323,7 @@ ${REF}`;
     const q = r.ref;
     return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, far: q.far, pass: q.n >= minN && q.over <= maxOver };
   };
-  // the globe's judge (the header's globeJudge): a lattice of the sphere every o.step degrees, each point w's pixel on the
+  // the globe's judge (the header's globeJudge): a lattice of the sphere every GLOBE_STEP degrees, each point w's pixel on the
   // moving globe tag against the pixel of its front point z0 on plane z's parked globe base, with the globe's light
   // taken out at z0 and put back at w
   const GLOBE_TOL = 8, GLOBE_MIN_N = 300, GLOBE_OVER = 0.005, GLOBE_RANGE = 12, GLOBE_STEP = 2;
@@ -347,9 +347,9 @@ ${REF}`;
       const toSrgb = (x) => { x = cl(x); return x < 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055; };
       const px = (z) => { const q = __cmwGlobeXY('L', z.re, z.im); return q ? [q[0] * k - 0.5, q[1] * k - 0.5] : null; };
       const range = (D, x, y) => { let r = 0; for (let ch = 0; ch < 3; ch++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = D[4 * ((y + dy) * W + x + dx) + ch]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };
-      // (the glide's sheet key, as its inverse pass prepares it: __cmwSvKey(b, u)'s window, R, rs and points)
+      // (the glide's sheet key, as its inverse pass prepares it: __cmwSvKey(b, u)'s window, R, rs, points and period)
       const kk = g.u > 0 && g.u < 1 ? __cmwSvKey(g.b, g.u) : null;
-      const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])) };
+      const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])), per: kk.per && C(kk.per[0], kk.per[1]) };
       // (H's points over w by Newton's method from w, 0, four points about it and rings of 8 seeds at radii 1/2, 1 and 2;
       // two roots within SAME are one; with several, the front one by the glide's sheet key, Inverse.front; none when
       // there are several and no key)
@@ -383,7 +383,7 @@ ${REF}`;
         return best.z;
       };
       let n = 0, over = 0, max = 0, none = 0, sum = 0;
-      for (let la = -84; la <= 84; la += ${o.step || GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${o.step || GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {
+      for (let la = -84; la <= 84; la += ${GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {
         const p3 = [Math.cos(la * Math.PI / 180) * Math.cos(lo * Math.PI / 180), Math.cos(la * Math.PI / 180) * Math.sin(lo * Math.PI / 180), Math.sin(la * Math.PI / 180)];
         if (p3[2] > 0.995) continue;
         const w = C(p3[0] / (1 - p3[2]), -p3[1] / (1 - p3[2])), pw = px(w);
@@ -407,5 +407,5 @@ ${REF}`;
     if (!r || r.__exc !== undefined) return { error: r && r.__exc, n: 0, pass: false };
     return Object.assign(r, { pass: r.n >= minN && r.over <= maxOver });
   };
-  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_TOL, GLOBE_MIN_N, GLOBE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_MIN_N, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()

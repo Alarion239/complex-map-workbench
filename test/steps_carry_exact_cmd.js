@@ -59,6 +59,8 @@
 // shows, the region's or not, so it can pick a copy of z outside the region) has over 1 % wrong: the check tells the
 // two rules apart.
 // - Strip to disk (exp, then (z - 1)/(z + 1); the strip |Im z| < pi/2): planes w1 and w2, Inside regions and Everywhere;
+//   and w2 Everywhere over the whole pane against the copy nearest the centre (every point at w is a copy of one, all
+//   as near a pole: the key ranks them by their distance to the centre alone);
 // - exp, z^2, (z - i)/(z + i), z^3 with the disc |z - (0.3 + 0.2i)| < 1.2: planes w2, w3 and w4 Everywhere, w4 Inside regions;
 // - sin, (z - 1)/(z + 1), z^2, (z - i)/(z + i) with the disc |z| < 1.4: plane w4 Everywhere and Inside regions;
 // - exp, (z - 1)/(z + 1), z^3, (z - i)/(z + i), z^2 with the strip: plane w5 Everywhere and Inside regions.
@@ -455,7 +457,7 @@ async function farPart() {
     // them)
     const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
     // (the Joukowski path's candidates at t and its key's points: joukPath of the kit; the key along t reads every candidate)
-    const P0 = await paneOf(), J = joukPath(outside, () => false);
+    const P0 = await paneOf(), J = joukPath(outside);
     await keyAlongT(P0, J);
     await farFrames(P0);
   }
@@ -508,6 +510,14 @@ async function chainsPart() {
   // (the axes, which plane z and the planes past it draw over the colour, within AXIS_PX; and plane z's zero, where every
   // colour meets, within ZERO_PX: a pixel's colour there is not that of a point a pixel away)
   const AXIS_PX = 3, ZERO_PX = 12;
+  // the front where every point landing at w is a copy of one point, all equally beside a pole (a chain periodic in z):
+  // the copy nearest the key's window centre (the window win of __cmwSvKey), whatever the key's points
+  const nearest = (win) => async (lists) => lists.map((L) => {
+    const c = [(win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2];
+    let bi = -1;
+    L.forEach((z, i) => { if (bi < 0 || Math.hypot(z[0] - c[0], z[1] - c[1]) < Math.hypot(L[bi][0] - c[0], L[bi][1] - c[1])) bi = i; });
+    return bi;
+  });
   // the control's front: of the points landing at w that plane z's pane P shows, the one with the larger Im z
   const larger = (P) => async (lists) => lists.map((L) => {
     let bi = -1;
@@ -515,8 +525,9 @@ async function chainsPart() {
     return bi;
   });
 
-  // One chain (the page's steps, chainSteps) at rest on its planes: cases [{ b, scope, box }] (box: the plane's points
-  // read, 60 x 46 over [x0, x1, y0, y1]; 40 x 28 over the middle 90 % of the pane by default), inR(z) the region (a signed
+  // One chain (the page's steps, chainSteps) at rest on its planes: cases [{ b, scope, box, near }] (box: the plane's points
+  // read, 60 x 46 over [x0, x1, y0, y1]; 40 x 28 over the middle 90 % of the pane by default; near: the front point is the
+  // copy nearest the centre, nearest(), in place of the page's key), inR(z) the region (a signed
   // distance to its outline, > 0 inside). The points z are looked for over plane z's window and its size again on each side (a point the key
   // puts in front lies near the window's centre). min: the points a case compares at least. A point w is left out where
   // the page draws over the colour: where any of its points z is within EDGE of the region's outline (the outline's
@@ -528,8 +539,8 @@ async function chainsPart() {
     const cands = chainPoints(chainSteps, { x0: P.v.cx - hw, x1: P.v.cx + hw, y0: P.v.cy - hh, y1: P.v.cy + hh });
     const axis = (p) => Math.min(Math.abs(p[0]), Math.abs(p[1])) < AXIS_PX / P.v.s, zero = (z) => Math.hypot(z[0], z[1]) < ZERO_PX / P.v.s;
     const drawn = (p, b) => axis(p) || (b === 0 && zero(p)) || (!!o.drawn && o.drawn(p, b));
-    for (const { b, scope, box } of cases) for (const mesh of [false, true]) {
-      const tag = `${name}: w${b} ${scope === 'in' ? 'Inside regions' : 'Everywhere'}${mesh ? ', meshes' : ''}`;
+    for (const { b, scope, box, near } of cases) for (const mesh of [false, true]) {
+      const tag = `${name}: w${b} ${scope === 'in' ? 'Inside regions' : 'Everywhere'}${near ? ', the copy nearest the centre' : ''}${mesh ? ', meshes' : ''}`;
       const pts = box ? grid({ v: { cx: (box[0] + box[1]) / 2, cy: (box[2] + box[3]) / 2, s: 1 }, w: box[1] - box[0], h: box[3] - box[2] }, 60, 46, 1) : grid(P, 40, 28, 0.9);
       const all = (w) => {
         const L = cands(w, b), out = drawn(w, b) || L.some((e) => Math.abs(inR(e.z)) < EDGE || drawn(e.z, 0));
@@ -538,7 +549,7 @@ async function chainsPart() {
       const cand = scope === 'in' ? (w) => all(w).filter((e) => inR(e.z) > 0) : all;
       const at = { scope, go: b, now: true };
       if (mesh) await ev('window.__cmwInv = GLR.drawInverse, GLR.drawInverse = null, 1');
-      const r = await measure(at, b, P, pts, cand);
+      const r = await measure(at, b, P, pts, cand, near ? nearest((await ev(`__cmwSvKey(${b})`)).win) : undefined);
       info[tag] = r;
       info[tag].path = (await ev('__cmwSteps().rest')) || null;
       ok(`${tag}: at rest on plane ${b}, coloured from z`, r.state.x === b && r.state.T === 0, r.state);
@@ -575,9 +586,11 @@ async function chainsPart() {
     // 20 px and more)
     const LABEL = 0.7, LINE = 0.1, z0At = [[0, 0], [1, 0], [0, 0]];
     const drawn = (p, b) => Math.hypot(p[0] - z0At[b][0], p[1] - z0At[b][1]) < LABEL || (b === 0 && Math.abs(p[1] - 0.8) < LINE);
-    // (w2: the disc, the strip's image, which is small at this view; past it the front points lie past plane z's window)
+    // (w2 Inside regions: the disc, the strip's image, which is small at this view)
     const disc = [-1.3, 1.3, -1, 1];
-    await chain('Strip to disk', [EXP, MOB_STRIP], [{ b: 1, scope: 'in' }, { b: 1, scope: 'all' }, { b: 2, scope: 'in', box: disc }, { b: 2, scope: 'all', box: disc }], strip, 300, { drawn });
+    // (w2 Everywhere over the whole pane: every point landing at w is a copy z + 2 pi i k of one, each beside a pole
+    // i pi (2m + 1) of the Möbius step pulled back, as near as the others, so the front is the copy nearest the centre)
+    await chain('Strip to disk', [EXP, MOB_STRIP], [{ b: 1, scope: 'in' }, { b: 1, scope: 'all' }, { b: 2, scope: 'in', box: disc }, { b: 2, scope: 'all', box: disc }, { b: 2, scope: 'all', near: true }], strip, 300, { drawn });
   }
   // ---- exp, z^2, Cayley, z^3 with a disc ----
   {

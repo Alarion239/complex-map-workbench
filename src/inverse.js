@@ -387,20 +387,49 @@ const Inverse = (() => {
     const R = Math.hypot(win.x1 - win.x0, win.y1 - win.y0) / 2;
     return { R, rs: R / 8 };
   }
-  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|)), c the centre
+  // Inverse.sheetKey(prep, z, lam) -> D = log2(1 + |z - c|/R) + sum over P of max(0, log2(rs/|z - p|_per)), c the centre
   // of W (the point nearest the window's centre in front, continuous across W's edges: a distance to W itself would
   // tie every point inside it and flip sheets along its sides; |z - c| >= dist(z, W), so every lower bound the walk
   // takes from dist(z, W) stays one). P: the accumulation set and the poles pulled back (keySing)
+  // (per: the key's period, or null. A chain periodic in z, F(z + per) = F(z), has its points P in classes modulo per,
+  // one listed for each; a point's distance to p is then its distance to the nearest point of p's class, so every copy
+  // z + k per of a point beside a pole takes the same penalty and the copies rank by their distance to c alone)
   function sheetKey(prep, z, lam) {
-    const { win, R, rs, sing } = prep;
+    const { win, R, rs, sing, per } = prep;
     if (lam && lam.re > LAM_CUT) return (lam.re - Math.log(R)) / LN2;
     if (!isFin(z)) return Infinity;
     let D = Math.log2(1 + Math.hypot(z.re - (win.x0 + win.x1) / 2, z.im - (win.y0 + win.y1) / 2) / R);
     if (sing) for (const p of sing) {
       if (lam && lam.re < -LAM_CUT && p.re === 0 && p.im === 0) D += Math.max(0, Math.log2(rs) - lam.re / LN2);
-      else D += Math.max(0, Math.log2(rs / Math.hypot(z.re - p.re, z.im - p.im)));
+      else D += Math.max(0, Math.log2(rs / abs(perReduce(sub(z, p), per))));
     }
     return D;
+  }
+  // d reduced modulo the period per (null: d): d - k per with k the integer nearest the component of d along per
+  function perReduce(d, per) {
+    if (!per) return d;
+    const k = Math.round((d.re * per.re + d.im * per.im) / (per.re * per.re + per.im * per.im));
+    return k === 0 ? d : C(d.re - k * per.re, d.im - k * per.im);
+  }
+  // Inverse.keyPeriod(plan) -> the period T of the chain in z (F(z + T) = F(z)), or null: the step its leading affine
+  // ops (AFF, or MOB with c = 0) u = A z + B lead to has an additive family of period p (exp, sin, cos, tan and their
+  // kin), so T = p / A
+  function keyPeriod(plan) {
+    if (!plan || !plan.ok) return null;
+    let A = ONE;
+    for (const o of plan.ops) {
+      const af = affOf(o);
+      if (af) { A = mul(af.a, A); continue; }
+      return o.fam && o.fam.type === 'add' && isFin(o.fam.p) && !isZero(A) ? div(o.fam.p, A) : null;
+    }
+    return null;
+  }
+  // Inverse.keyClasses(sing, per) -> sing with one point of each class modulo per (the first, in sing's order)
+  function keyClasses(sing, per) {
+    if (!per) return sing.slice();
+    const out = [];
+    for (const p of sing) if (!out.some((q) => abs(perReduce(sub(p, q), per)) < 1e-9 * (1 + abs(p)))) out.push(p);
+    return out;
   }
   // tie point of a candidate (its z, or a far point in its direction when z overflowed)
   const tieZ = (a) => (isFin(a.z) ? a.z : (a.lam ? C(Math.cos(a.lam.im) * 1e300, Math.sin(a.lam.im) * 1e300) : C(0, 0)));
@@ -611,14 +640,15 @@ const Inverse = (() => {
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
-  // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
+  // Inverse.keySing(plan, win, per) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
-  // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points
-  function keySing(plan, win) {
+  // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points.
+  // per (default keyPeriod(plan)): the key's period, one point of each class modulo it (keyClasses)
+  function keySing(plan, win, per = keyPeriod(plan)) {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }
     try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
-    return acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))).slice(0, 4);
+    return keyClasses(acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))), per).slice(0, 4);
   }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
@@ -990,13 +1020,14 @@ const Inverse = (() => {
     const R_ = RG();
     const win = o.win, shape = o.shape;
     const { R, rs } = keyParts(win);
-    const prep = { ok: false, reason: null, refs: [], rspec: [], need: [], N: [], inner: -1, stopOp: -1, stopMob: null, win, R, rs, sing: [], convex: false,
+    const prep = { ok: false, reason: null, refs: [], rspec: [], need: [], N: [], inner: -1, stopOp: -1, stopMob: null, win, R, rs, sing: [], per: null, convex: false,
       shape, prim: null, fam: [], cRef: null, ev: null };
     if (!plan || !plan.ok) { prep.reason = plan ? plan.reason : 'no plan'; return prep; }
     const ops = plan.ops, N = ops.length;
     const rf = refsOf(plan, win, o.ref);
     prep.refs = rf.refs; prep.cRef = rf.cRef;
-    prep.sing = o.sing ? o.sing.slice(0, 4) : keySing(plan, win);
+    prep.per = o.per !== undefined ? o.per : keyPeriod(plan);
+    prep.sing = o.sing ? keyClasses(o.sing, prep.per).slice(0, 4) : keySing(plan, win, prep.per);
     prep.fam = ops.map((x) => x.fam);
     if (!shape) { prep.reason = 'no shape'; return prep; }
     prep.ev = shapePx(shape);
@@ -1729,7 +1760,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
