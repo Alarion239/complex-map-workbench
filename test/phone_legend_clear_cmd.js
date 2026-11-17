@@ -100,7 +100,8 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
     if (q === 'steps') await load(ns, ST);
     await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=${q}` });
     await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && ${ids.map((id) => `!!document.getElementById('${id}') && !document.getElementById('${id}').hidden`).join(' && ')}` });
-    await sleep(500);
+    // (the key drawn: drawLegendSide names it, on any build)
+    await settled({ max: SETTLE_MAX, panes: false, until: ids.map((id) => `!!document.getElementById('${id}').getAttribute('aria-label')`).join(' && ') });
     for (const id of ids) {
       const tag = `key ${id}, ${q} ${lang} ${w}×${h}`;
       const s0 = await state(id), a0 = await axOf(id);
@@ -112,8 +113,13 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
       const tabs = await tabTo(id);
       ok(`${tag}: Tab reaches it`, tabs > 0, tabs);
       if (!tabs) continue;
-      const ring = await ev(`(() => { const c = getComputedStyle(document.getElementById('${id}')); return { style: c.outlineStyle, w: parseFloat(c.outlineWidth) }; })()`);
-      ok(`${tag}: the key in focus shows a ring`, ring.style !== 'none' && ring.w >= 2, ring);
+      // (the app's ring, not the browser's default one: solid, 2 px, 2 px out, in the focus colour, --focus or the accent)
+      const ring = await ev(`(() => {
+        const c = getComputedStyle(document.getElementById('${id}')), p = document.createElement('i');
+        p.style.color = 'var(--focus, var(--accent))'; document.body.appendChild(p); const want = getComputedStyle(p).color; p.remove();
+        return { style: c.outlineStyle, w: parseFloat(c.outlineWidth), offset: parseFloat(c.outlineOffset), color: c.outlineColor, want };
+      })()`);
+      ok(`${tag}: the key in focus shows the app's focus ring (solid, 2 px, 2 px out, the focus colour)`, ring.style === 'solid' && ring.w === 2 && ring.offset === 2 && ring.color === ring.want, ring);
       await enter();
       const e1 = await state(id);
       ok(`${tag}: Enter unfolds it: aria-expanded true, and focus stays`, e1.exp === 'true' && !e1.folded && e1.focused, e1);
