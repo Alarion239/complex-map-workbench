@@ -122,8 +122,7 @@ H.ev = async (expr, timeout = 20000) => {
   return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
 };
 // evJson(expr, timeout): ev() of an expression that answers a JSON string (JSON.stringify(...) in the page), parsed. A page
-// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception, where
-// JSON.parse of ev()'s { __exc } answer would throw "[object Object]" is not valid JSON.
+// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception.
 H.evJson = async (expr, timeout) => {
   const r = await H.ev(expr, timeout);
   const what = JSON.stringify(String(expr).slice(0, 160));

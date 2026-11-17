@@ -24,11 +24,12 @@ const names = exampleNames();
 const { GI_REF } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const { holdIdle, releaseIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 const ready = () => settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
-// (the page's helpers: the left pane's pixels, and the comparison of a frame with the CPU reference)
+// (the page's helpers: the left pane's pixels, and the comparison of a frame with the CPU reference; the pixel compare,
+// __pxDiff, is test/lib/pixel_diff.js's, which GI_REF defines)
 const HELP = `window.__gi = window.__gi || {};
 window.__giGrab = () => { const cv = document.querySelector('#canvasL'), c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); return { W: c.width, H: c.height, d: g.getImageData(0, 0, c.width, c.height).data }; };
-window.__giStat = (A, B) => { let n = 0, over = 0, sum = 0, max = 0; for (let i = 0; i < A.d.length; i += 4) { n++; let m = 0; for (let c = 0; c < 3; c++) { const d = Math.abs(A.d[i + c] - B.d[i + c]); sum += d; m = Math.max(m, d); } max = Math.max(max, m); if (m > 6) over++; } return { n, max, mean: +(sum / 3 / n).toFixed(3), over: +(over / n).toFixed(5) }; };
-window.__giSmooth = (A, B) => { const W = A.W, H = A.H; let n = 0, over = 0; for (let y = 3; y < H - 3; y += 3) for (let x = 3; x < W - 3; x += 3) { if (__giRange(A.d, W, x, y) > 12 || __giRange(B.d, W, x, y) > 12) continue; n++; const i = 4 * (y * W + x); let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > 6) over++; } return { n, over: +(over / Math.max(1, n)).toFixed(5) }; };
+window.__giStat = (A, B) => { const q = __pxDiff(A.d, B.d, { tol: 6 }); return { n: q.n, max: q.max, mean: +q.chMean.toFixed(3), over: +q.frac.toFixed(5) }; };
+window.__giSmooth = (A, B) => { const q = __pxDiff(A.d, B.d, { W: A.W, H: A.H, tol: 6, step: 3, edge: [3, 3], away: 12 }); return { n: q.n, over: +q.frac.toFixed(5) }; };
 ${GI_REF}
 1`;
 // the frame at thread place x, once a frame there was drawn (by either path), and its record
@@ -219,7 +220,7 @@ for (const [expr, us, step] of [['z^3-2z+1', [0.25, 0.5, 0.75], 8], ['gamma(z)+1
     const pts = (L) => JSON.stringify(L.map((p) => p.join(',')).sort());
     return { idle, key, rest, ok: idle.k === 0 && pts(key) === pts(rest) };
   };
-  const heldOver = () => ev(`(() => { const A = window.__gi.f, B = __giGrab(); let over = 0; for (let i = 0; i < A.d.length; i += 4) { let m = 0; for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(A.d[i + c] - B.d[i + c])); if (m > ${HELD_DIFF}) over++; } return over / (A.d.length / 4); })()`);
+  const heldOver = () => ev(`(() => { const A = window.__gi.f, B = __giGrab(); return __pxDiff(A.d, B.d, { tol: ${HELD_DIFF} }).frac; })()`);
   for (const x of [0.25, 0.5, 0.75]) {
     await load(ex, x, 'in', true);
     const r = await first(x, true);
