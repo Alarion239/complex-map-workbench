@@ -1,6 +1,5 @@
-// The Sound control on a landscape phone 768 to 1023 px wide (#1636): 900 × 400 with touch (:root.ph.ph-land), in the steps view and the classic one,
-// in English, Russian and Italian. The bar's own rule hid #soundPh there while sound was on (the phone bar shows ⋯ alone), and the menu's #soundBtn
-// is hidden while the bar's button is meant to stand in for it, so with sound on the bar had no Sound button. Now:
+// The Sound control on a landscape phone 768 to 1023 px wide: 900 × 400 with touch (:root.ph.ph-land), in the steps view and the classic one,
+// in English, Russian and Italian. While sound is on the bar's own button stands in for the menu's (hidden) #soundBtn:
 //  - sound on: #soundPh is in the bar, a button in Chrome's accessibility tree named «Sound» («Звук», «Suono») with pressed true, a 44 px target
 //    inside the bar and under no other element; a touch on it turns the sound off (aria-pressed false, the button goes);
 //  - sound off: the bar has no Sound button (control), and ⋯ opens the sheet whose Sound switch is in the tree with the same name, checked false;
@@ -12,22 +11,11 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const NAMES = { en: 'Sound', ru: 'Звук', it: 'Suono' };
 const VIEW_W = 900, VIEW_H = 400, WAIT_MS = 20000, SET_MS = 10000, TARGET_PX = 44, TAP_MS = 60;
-// a node's role, name and pressed (or checked) state as the accessibility tree has it
-const axOf = async (sel) => {
-  const { root } = await send('DOM.getDocument', { depth: 0 });
-  const { nodeId } = await send('DOM.querySelector', { nodeId: root.nodeId, selector: sel });
-  if (!nodeId) return null;
-  const { nodes } = await send('Accessibility.getPartialAXTree', { nodeId, fetchRelatives: false });
-  const n = nodes && nodes[0];
-  if (!n || n.ignored) return null;
-  const st = (n.properties || []).find((p) => p.name === 'pressed' || p.name === 'checked');
-  return { role: n.role && n.role.value, name: n.name && n.name.value, state: st ? String(st.value.value) : null };
-};
+const { axOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ax_kit.js'), 'utf8'))({ send });
 const boxOf = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2), bar = document.getElementById('top') || document.querySelector('.top'), b = bar.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, hit: !!at && (at === e || e.contains(at)), inBar: r.left >= b.left - 0.5 && r.right <= b.right + 0.5 && r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5, display: getComputedStyle(e).display }; })()`);
 const touch = async (x, y) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(TAP_MS); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
 const tapSel = async (sel) => { const b = await boxOf(sel); if (!b) return false; await touch(b.l + b.w / 2, b.t + b.h / 2); return true; };
 const snd = (on) => ev(`Sound.set({ on: ${on} }), 1`);
-await send('Accessibility.enable', {});
 for (const v of ['steps', 'classic']) for (const [lang, label] of Object.entries(NAMES)) {
   const tag = `${lang} ${v}`;
   await view(VIEW_W, VIEW_H, false, true);
