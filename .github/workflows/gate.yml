@@ -1,6 +1,6 @@
 # The gate on GitHub's machines (ci/README.md): unit tests (Linux), the functional browser suites (Linux), GLSL
-# conformance (Windows, macOS; only the pages whose shader code or tests changed), image quality (Linux, Windows,
-# macOS), each change measured against its
+# conformance (Windows, macOS, Linux on SwiftShader; only the pages whose shader code or tests changed), image quality
+# (Linux, Windows, macOS), each change measured against its
 # reference (the PR's base, or the previous main) on the same machine. Speed is gated on our own machines with real
 # GPUs (.github/workflows/gpu-gate.yml); until they are registered (the variable GPU_RUNNERS), the paired perf suite
 # runs here on Windows (desktop units and an emulated phone), and by hand (Run workflow, perf) on Windows and macOS.
@@ -283,13 +283,17 @@ jobs:
 
   glsl:
     name: GLSL (${{ matrix.os }}, ${{ matrix.page }}${{ matrix.tier == 'core' && ' core' || '' }}${{ matrix.sections && format(' {0}', matrix.sections) || '' }} ${{ matrix.part }})
-    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
-    # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
+    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS, Chrome's own SwiftShader on
+    # Linux), paired: the reference's pages run on the same machine, and this change fails only where it is worse (GPUs
+    # differ near removable singularities).
     # Windows renders in software (WARP: glsl 1/8 8-24 min, inverse whole 34-35 min, adv's direct/keys/compile 34 min,
     # its chains 2 min a quarter), so glsl runs in eighths and adv in two jobs (its sections; its chains, which alone
     # split by part, are cheap);
-    # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
-    # shader code and tests are the same as the reference's is not run (ci/glsl.js).
+    # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole.
+    # Linux runs the core tier on SwiftShader (CPU WebGL2: Chrome's fallback without a GPU, and the figure exports'
+    # renderer), always, in four jobs: glsl in halves (11 and 8 min, both sides), adv (3 min), inverse (4-5 min); no
+    # CMW_ANGLE, so Chrome picks SwiftShader, and --no-sandbox, which Chrome needs on GitHub's Linux machines.
+    # A page whose shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
     if: needs.plan.outputs.glsl != '[]'
     strategy:
