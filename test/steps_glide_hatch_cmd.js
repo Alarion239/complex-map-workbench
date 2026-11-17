@@ -4,10 +4,11 @@
 // scene: one step, Everywhere): parked plane 0 hatches the inside of M, where the map is undefined. At u = DEPART_U the
 // glide frame's hatch-grey pixels (the channels within GREY_SPREAD of each other and within GREY_LO..GREY_HI) inside M's
 // main cardioid and period-2 bulb (shrunk by INSET, away from M's boundary) are at least HATCH_MIN of plane 0's, and
-// plane 0 has at least MIN_HATCH of them. And the hatch shrinks as the points arrive: at u = ARRIVE_U the glide's points
-// cover the part of the period-2 bulb outside the unit disc (the map is onto the outside of the unit disc), so the
-// frame has at least SHRINK_MIN fewer hatch-grey pixels there than at DEPART_U (inside the unit disc no point arrives,
-// and the hatch stays: what the plane past the glide shows there is #1443's).
+// plane 0 has at least MIN_HATCH of them. And the hatch shrinks as the points arrive: at u = ARRIVE_U the frame has at
+// least SHRINK_MIN fewer hatch-grey pixels than at DEPART_U in the same region, the whole inset cardioid and bulb, counted
+// as one (the glide's points cover the part of the period-2 bulb outside the unit disc, the map being onto the outside of
+// the unit disc; inside the unit disc no point arrives, and the hatch stays: what the plane past the glide shows there
+// is #1443's). The glide is drawn by the carried meshes (path 'mesh'), the one path this suite covers.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -15,7 +16,8 @@ const DEPART_U = 1e-4, ARRIVE_U = 0.998, HATCH_MIN = 0.9, SHRINK_MIN = 0.03, MIN
 const GREY_SPREAD = 3, GREY_LO = 100, GREY_HI = 130, INSET = 0.9;
 const SETTLE_MS = 60000;
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const names = exampleNames();
 const EXAMPLE = names.indexOf('The Douady–Hubbard map');
 ok('the example The Douady–Hubbard map is in the guide', EXAMPLE >= 0, names.length);
 await view(1200, 800, false, false);
@@ -35,6 +37,7 @@ ok(`the glide frame at u = ${DEPART_U} settles`, await park(DEPART_U), null);
 const rec = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u, view: g.view, w: g.w, h: g.h }; })()');
 info.glide = rec && { path: rec.path, u: rec.u };
 ok(`the frame at u = ${DEPART_U} is a glide frame`, !!rec && Math.abs(rec.u - DEPART_U) < 1e-9, rec);
+ok('the glide is drawn by the carried meshes (path \'mesh\', the path this suite covers)', !!rec && rec.path === 'mesh', rec && rec.path);
 ok(`the glide frame at u = ${ARRIVE_U} settles`, await park(ARRIVE_U), null);
 // the hatch-grey pixels of frame tag inside M's main cardioid (|1 - sqrt(1 - 4c)| < INSET) and its period-2 bulb
 // (|c + 1| < INSET / 4), the frames sharing the glide's camera
