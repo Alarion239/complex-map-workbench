@@ -188,7 +188,7 @@ const Inspector = (() => {
       const inv = h('button', { class: 'icon-btn txt', 'data-tip': $t('Replace with the inverse'), 'aria-label': $t('Replace with the inverse function'), html: '<i>f</i><sup>−1</sup>', onclick: () => A.inverseAction(k) });
       if (deriv) inv.hidden = true;
       const byp = h('button', { class: 'icon-btn bypass', html: ICONS.bypass, onclick: () => A.toggleBypass(k) });
-      const more = h('button', { class: 'icon-btn more', 'aria-haspopup': 'menu', 'data-tip': $t('Inverse, bypass, move, duplicate, presets, remove'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), html: ICONS.more, onclick: (e) => A.stepMenu(e.currentTarget, k, { full: true }) });
+      const more = h('button', { class: 'icon-btn more', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-tip': $t('Inverse, bypass, move, duplicate, presets, remove'), 'aria-label': $t('More actions for f{x}', { x: sub(k) }), html: ICONS.more, onclick: (e) => A.stepMenu(e.currentTarget, k, { full: true }) });
       // (the head keeps the name whole: Show alone and More; Inverse and Bypass are in More)
       const head = h('div', { class: 'ihead' }, h('span', { class: 'idx', html: fsub(k) }), h('span', { class: 'ty', html: typeIcon(st.type) }), h('span', { class: 'ttl ttl-btn', role: 'button', tabindex: 0, 'data-tip': $t('Replace this step'), 'aria-label': $t('Replace f{x} {name}', { x: sub(k), name: d.label }), 'aria-haspopup': 'dialog', onclick: (e) => A.replacePalette(e.currentTarget, k), onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); A.replacePalette(e.currentTarget, k); } } }, d.label), mvL, mvR, lens, more);
       const ftex = h('div', { class: 'ftex' });
