@@ -3670,7 +3670,7 @@
     if (!svLoad(true)) svAdopt();
     SV.ready = true;
     svApply();
-    // (#leftLegend carries a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
+    // (#leftLegend carries a label: an image's, for axe's aria-prohibited-attr)
     const legend = $('leftLegend');
     if (legend && !legend.getAttribute('role')) legend.setAttribute('role', 'img');
     svPrestartSoon(1500);

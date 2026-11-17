@@ -3,20 +3,16 @@
 // differ in shape, not only in hue, and a busy LED keeps 3:1 against the bar at the pulse's lowest opacity, light and
 // dark. The classic view has both LEDs (left, right); the steps view has the left; a phone shows none.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
-const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const BAD = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], srcView: { cx: 0, cy: 0, s: 90 },
   steps: [{ type: 'custom', params: { expr: '\\frac{', cut: 180 }, on: true }] };
-const open = async (view, w, h, mobile, st) => {
-  const ns = `led${view}${w}x${Date.now()}`;
-  await view_(w, h, mobile);
-  await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st || Object.assign({}, BAD, { steps: [{ type: 'pown', params: { n: 2 }, on: true }] })))}); 1`);
-  await go(view === 'classic' ? `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=classic` : `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
-  await settled({ max: 30000, until: `typeof __cmwBusy === 'function' && !!document.getElementById('leftLed') && !!document.getElementById('ledLive')${view === 'steps' ? " && typeof __cmwSteps === 'function' && __cmwSteps().ready.ready" : ''}` });
+const open = async (viewName, w, h, mobile, st) => {
+  const ns = `led${viewName}${w}x${Date.now()}`;
+  await view(w, h, false, mobile);
+  await loadView(viewName, ns, st || Object.assign({}, BAD, { steps: [{ type: 'pown', params: { n: 2 }, on: true }] }), { lang: 'en' });
+  await settled({ max: 30000, until: `typeof __cmwBusy === 'function' && !!document.getElementById('leftLed') && !!document.getElementById('ledLive')${viewName === 'steps' ? " && typeof __cmwSteps === 'function' && __cmwSteps().ready.ready" : ''}` });
 };
-const view_ = (w, h, mobile) => view(w, h, false, mobile);
 // what a LED looks like and says: its shape (a fill or a ring, the corner radius), role, label and place in the tab order
 const led = (id) => ev(`(() => { const e = document.getElementById('${id}'); if (!e) return null; const c = getComputedStyle(e), m = /rgba?\\(([^)]*)\\)/.exec(c.backgroundColor), a = m ? (m[1].split(',')[3] === undefined ? 1 : +m[1].split(',')[3]) : 1; return { cls: e.className, fill: a > 0, ring: c.boxShadow !== 'none', radius: c.borderTopLeftRadius, anim: c.animationName, role: e.getAttribute('role'), tab: e.tabIndex, label: e.getAttribute('aria-label'), tip: e.getAttribute('data-tip'), shown: e.getClientRects().length > 0 }; })()`);
 const shape = (l) => JSON.stringify([l.fill, l.ring, l.radius]);
@@ -76,7 +72,6 @@ const announced = async (leg, tipOf) => {
 await open('classic', 1280, 800, false);
 const cl = await states('classic', [['L', 'leftLed'], ['R', 'rightLed']]);
 info.classic = cl;
-ok('classic: busy, up to date and failed are three shapes (not hue alone): left', true);
 await announced('classic', { busy: cl.leftLed.busy.tip, ok: cl.leftLed.ok.tip });
 // the failed state, from a step that does not parse
 await open('classic', 1280, 800, false, BAD);
