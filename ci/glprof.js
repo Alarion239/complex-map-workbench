@@ -32,7 +32,8 @@ const SC = require('./steps_scenes');
 const { launch, sleep } = require('../test/regress/perf/cdp');
 const { typedWalk } = require('./glprof_typed');
 
-const argv = process.argv.slice(2);
+// (FXC_ARGS: more flags from the environment, for the workflow's input fxcargs)
+const argv = process.argv.slice(2).concat((process.env.FXC_ARGS || '').split(/\s+/).filter(Boolean));
 const opt = (name, def) => { const i = argv.indexOf('--' + name); return i >= 0 ? argv[i + 1] : def; };
 const flag = (name) => argv.includes('--' + name);
 const OUT = path.resolve(opt('out', path.join(ROOT, '.ci', 'glprof', 'glprof.json')));
@@ -268,11 +269,11 @@ const totals = (p) => { const a = flat(p); return { links: a.length, s: sec(a.ma
 const f1 = (v) => (v == null ? '' : v.toFixed(1));
 function typedRow(st) {
   const progs = st ? st.programs : [];
-  return { links: progs.length, s: sec(progs.map((x) => x.ms)), long: st ? st.longMs : null, first: st ? st.firstS : undefined, timedOut: !!(st && st.timedOut) };
+  return { links: progs.length, s: sec(progs.map((x) => x.ms)), long: st ? st.longMs : null, first: st ? st.firstS : undefined, timedOut: !!(st && st.timedOut), typed: st && st.typedLinks != null ? st : null };
 }
 function typedTables(runs, sides) {
   const out = [''];
-  const cell = (r) => `${r.links}, ${f1(r.s)}, ${r.long == null ? '' : r.long}${r.first === undefined ? '' : ', ' + (r.first === null ? 'none' : f1(r.first))}${r.timedOut ? ' (timed out)' : ''}`;
+  const cell = (r) => `${r.links}, ${f1(r.s)}, ${r.long == null ? '' : r.long}${r.first === undefined ? '' : ', ' + (r.first === null ? 'none' : f1(r.first))}${r.timedOut ? ' (timed out)' : ''}${r.typed ? ` [typing: ${r.typed.typedLinks} links, ${f1(r.typed.typedLinkS)} s, ${r.typed.typedOpen} still linking when the glide asked]` : ''}`;
   for (const r of runs) {
     out.push(`#### Typed formulas: run ${r.run} (${r.side})`, '', 'Each cell: links, link seconds, longest main-thread task (ms), and for a glide the seconds to its first exact frame.', '',
       '| step | cold | warm |', '|---|---|---|');
@@ -309,7 +310,7 @@ const mean = (a) => a.reduce((s, x) => s + x, 0) / Math.max(1, a.length);
     const tag = order.length > 1 ? `run ${i + 1} (${s.side}) ` : '';
     fs.rmSync(CACHE, { recursive: true, force: true });   // cold: nothing cached
     if (CLEAR_METAL) clearMetal();
-    const walkPass = TYPED ? typedWalk({ launch, settler, sleep, SC, cache: CACHE, speeds: SPEEDS, budgetS: TYPED_BUDGET_S, filter: TYPED_FILTER, maxChars: 100, stepS: STEP_S, log: console.log }) : pass;
+    const walkPass = TYPED ? typedWalk({ launch, settler, sleep, SC, cache: CACHE, speeds: SPEEDS, budgetS: TYPED_BUDGET_S, filter: TYPED_FILTER, maxChars: 100, stepS: STEP_S, log: console.log, noPaste: flag('typed-no-paste'), glideAfterMs: opt('typed-glide-after-ms', '') ? Number(opt('typed-glide-after-ms', '')) : null }) : pass;
     const cold = await walkPass('cold', s.base, tag);
     if (CLEAR_METAL) console.log(`[glprof] after the cold pass, Chrome's Metal cache: ${metalCaches().map((c) => `${c.dir} (${c.kb} KB)`).join(', ') || 'none found'}`);
     const warm = await walkPass('warm', s.base, tag);

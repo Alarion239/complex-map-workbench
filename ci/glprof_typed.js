@@ -54,10 +54,10 @@ const exactNow = (globe) => (globe
   : '(() => { const g = __cmwSteps().glide; return !!g && g !== window.__gpRec0 && g.path === "inverse"; })()');
 
 // -> async (name, base, tag) => { pass, renderer, steps } as glprof's pass()
-function typedWalk({ launch, settler, sleep, SC, cache, speeds, budgetS, filter, maxChars, stepS, log }) {
+function typedWalk({ launch, settler, sleep, SC, cache, speeds, budgetS, filter, maxChars, stepS, log, noPaste, glideAfterMs }) {
   const skipped = new Set();   // 'variant|label' left out by the cold pass's budget
   const corpus = CORPUS.filter((c) => !filter || filter.test(c.label));
-  const variants = [{ ms: 0, name: 'pasted' }, ...speeds.map((ms) => ({ ms, name: `typed at ${ms} ms` }))];
+  const variants = [...(noPaste ? [] : [{ ms: 0, name: 'pasted' }]), ...speeds.map((ms) => ({ ms, name: `typed at ${ms} ms` }))];
 
   async function variantPass(name, base, tag, v) {
     const B = await launch({ cache: `${cache}-typed${v.ms}`, inject: PROBE });
@@ -89,7 +89,7 @@ function typedWalk({ launch, settler, sleep, SC, cache, speeds, budgetS, filter,
       await mark();
       await done('start (the opening formula)');
       // a glide, its first exact frame timed from the statement on; then it is run to its end
-      const glide = async (label, globe) => {
+      const glide = async (label, globe, extra = {}) => {
         await B.ev(`window.__gpRec0 = ${globe ? 'null' : '__cmwSteps().glide'}; 1`);
         await mark();
         const t1 = Date.now();
@@ -103,7 +103,7 @@ function typedWalk({ launch, settler, sleep, SC, cache, speeds, budgetS, filter,
           if (still > 10 || Date.now() - t1 > stepS * 1000) break;
           await sleep(50);
         }
-        const st = await done(label, { firstS });
+        const st = await done(label, { firstS, ...extra });
         await B.until(`!(${SC.moving()})`, stepS * 1000, 250).catch(() => {});
         return st;
       };
@@ -124,7 +124,19 @@ function typedWalk({ launch, settler, sleep, SC, cache, speeds, budgetS, filter,
           await B.until(`!!${FIELD}`, 30000, 100);
           await mark();
           if (!v.ms) await B.ev(setField(c.expr, true));
-          else {
+          else if (glideAfterMs != null) {
+            // typed, the field still focused, and a glide glideAfterMs after the last keystroke: how many links the typing started, and how many were still
+            // linking when the glide asked (its first exact frame is timed from there)
+            const n0 = (await B.ev('GLR.profile()')).length;
+            await B.ev(setField('', false));
+            for (let n = 1; n <= c.expr.length; n++) { await B.ev(setField(c.expr.slice(0, n), false)); await sleep(v.ms); }
+            await sleep(glideAfterMs);
+            const typed = (await B.ev('GLR.profile()')).slice(n0);
+            await glide(`${c.label}: typed at ${v.ms} ms, a glide ${glideAfterMs / 1000} s after the last key`, false,
+              { typedLinks: typed.length, typedLinkS: typed.reduce((a, x) => a + Math.max(0, x.ms || 0), 0) / 1000, typedOpen: typed.filter((x) => x.ms === null).length });
+            await B.ev(SC.glideBack());
+            continue;
+          } else {
             await B.ev(setField('', false));
             for (let n = 1; n <= c.expr.length; n++) { await B.ev(setField(c.expr.slice(0, n), false)); await sleep(v.ms); }
             await B.ev(setField(c.expr, true));
