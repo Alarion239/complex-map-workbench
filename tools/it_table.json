@@ -3416,5 +3416,7 @@
  "Colour style": "Stile del colore",
  "Style settings": "Impostazioni dello stile",
  "Overlays": "Sovrapposizioni",
- "Quality": "Qualità"
+ "Quality": "Qualità",
+ "Drawing the exact picture…": "Disegno dell'immagine esatta…",
+ "Drawing the exact picture… ({k} of {n} tiles)": "Disegno dell'immagine esatta… ({k} di {n} tasselli)"
 }

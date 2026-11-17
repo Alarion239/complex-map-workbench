@@ -470,15 +470,28 @@
       $('hairL').hidden = true; $('hairR').hidden = true;
     }
   }
+  // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
+  // tiles { done, total }, or null before that pass's tiles are known)
+  function reptTip(prog) {
+    return prog && prog.total ? $t('Drawing the exact picture… ({k} of {n} tiles)', { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
+  }
   function updateLeds() {
     const errStep = S.steps.findIndex((st, i) => st.on !== false && built[i] && built[i].error);
     const busy = fixJob.running || !!lineJob.running || sm.running;
-    setHairline(!!busy);
+    // a pane whose last frame left a REPT draw drawing its tiles (paneGl's rept): its LED busy and its plot aria-busy
+    // until the frame that draws the final picture
+    const rept = (r) => (paneGl[r] && paneGl[r].rept ? paneGl[r] : null);
+    for (const r of ['L', 'R']) {
+      const el = $(r === 'L' ? 'plotL' : 'plotR');
+      if (el) { if (rept(r)) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy'); }
+    }
+    setHairline(!!busy || !!rept('L') || !!rept('R'));
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy ? 'busy' : 'ok');
-    setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : busy ? ['busy'] : ['ok']);
+    setLed('L', ...led('L'));
+    if (errStep >= 0) setLed('R', 'err', errTip); else setLed('R', ...led('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)

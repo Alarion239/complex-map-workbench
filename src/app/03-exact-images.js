@@ -527,9 +527,13 @@
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
-    const rept = !!(GLR.reptPendingTake && GLR.reptPendingTake());
-    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    const rp = GLR.reptPendingTake ? GLR.reptPendingTake() : null, rept = !!rp;
+    const was = paneGl[role], reptProg = rp && rp.prog ? rp.prog : null;
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
+    // (the LEDs, the plots' aria-busy and the hairline follow a REPT draw's cue: updateLeds, when it starts, moves on a
+    // tile or ends)
+    if (rept !== !!(was && was.rept) || reptTip(reptProg) !== reptTip(was && was.reptProg)) updateLeds();
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)

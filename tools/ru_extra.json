@@ -727,5 +727,7 @@
  "Style settings": "Параметры стиля",
  "Overlays": "Наложения",
  "Quality": "Качество",
- "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»"
+ "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
+ "Drawing the exact picture…": "Рисуется точное изображение…",
+ "Drawing the exact picture… ({k} of {n} tiles)": "Рисуется точное изображение… (плиток: %{k} из %{n})"
 }

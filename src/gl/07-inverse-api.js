@@ -827,6 +827,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a REPT draw answered 'pending' since the last GLR.reptPendingTake (a pane's frame begins and ends several GL frames,
   // and each begin clears frameStatus().pending: the pane's status takes this once a frame)
   let reptPendFlag = false;
+  // the tiles of the second pass a pending REPT draw has done and has in all ({ done, total }), taken with the flag; null
+  // while its second pass's tiles are not known yet (the first pass, the queries)
+  let reptProg = null;
   const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0 };
   const reptTileOf = () => GLChain.reptTile();
   const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
@@ -1014,7 +1017,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
     gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, prevTex);
     const Q = E.phase === 'done' && ok && program('reptAcc');
-    if (!Q) { restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending'; }
+    if (!Q) {
+      restoreSc(); framePending = true; reptPendFlag = true;
+      reptProg = E.phase === 'B' ? { done: E.next, total: E.tilesB.length } : null;
+      reptKick();
+      return 'pending';
+    }
     use(Q);
     gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, E.src.tex);
     u2f(Q, 'uAccOff', ax0, ay0);
@@ -1288,7 +1296,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // (tests: the tile bound and the first pass's budget, 0 for their own; pass B held; the tile account since the last
     // read, reset by it)
     setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
-    holdReptB: (on) => { reptHoldB = !!on; }, reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
+    holdReptB: (on) => { reptHoldB = !!on; }, reptPendingTake: () => { const r = reptPendFlag ? { prog: reptProg } : null; reptPendFlag = false; reptProg = null; return r; },
     reptTiles: () => { const r = Object.assign({ kept: reptAccs.size }, reptStat); for (const k of Object.keys(reptStat)) reptStat[k] = 0; return r; },
     setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, reptHatchFill, reptMarkCount, packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
