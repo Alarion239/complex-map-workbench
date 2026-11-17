@@ -338,7 +338,7 @@
     add('series finite 2000 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2000} n^{-z}' })]);
     // (exactly the cap's 2048 terms: the last one is taken and the sum is done)
     add('series finite 2048 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2048} n^{-z}' })]);
-    // [#1845] finite sums inside one another share the budget: a pixel takes the product of their terms. 32 x 64 = 2048,
+    // finite sums inside one another share the budget: a pixel takes the product of their terms. 32 x 64 = 2048,
     // the budget, against the CPU; 33 x 64 = 2112, past it: blank on the GPU (gpuBlank), though each sum alone is within
     add('series nested 32 x 64 terms (the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{32} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
     add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
