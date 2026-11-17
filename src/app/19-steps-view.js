@@ -2904,6 +2904,7 @@
           keep -= w0 - legend.getBoundingClientRect().width;
           continue;
         }
+        // (level 4 starts its search afresh: the search below leaves roleN as it is when no word fits)
         if (l === 3) roleN = 0;
         set(++l);
         if (l === 4) {
