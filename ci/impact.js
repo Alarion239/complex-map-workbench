@@ -384,6 +384,8 @@ function select(files, opts = {}) {
     browser: shards, glsl: glslJobs, quality: quality ? (isFull ? QUALITY_OS : ['ubuntu-latest']) : [], perf,
     forceQuality: quality && forceQuality, forcePerf: perf && forcePerf,
   };
+  // DEMO ONLY (#1818, not for merging): the plan keeps only the Linux GLSL jobs and the smoke shard, to spare the runners
+  Object.assign(plan, { glsl: plan.glsl.filter((j) => j.os === 'ubuntu-latest'), quality: [], perf: false, browser: plan.browser.filter((id) => id === 'smoke') });
   plan.skipped = [
     ...allShards.filter((id) => !browser.has(id)).map((id) => `browser ${id}`),
     ...GLSL.PAGES.filter((p) => !glsl.has(p.id)).map((p) => `GLSL ${p.id}`),
