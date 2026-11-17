@@ -1,11 +1,11 @@
-// The undo history names a Split as the Split (#1649). A formula step split into steps (the Split offer in the Inspector), then Undo
+// The undo history names a Split as the Split. A formula step split into steps (the Split offer in the Inspector), then Undo
 // and Redo: the Undo and Redo messages (a toast, or the steps view's live region when the focus is on its thread) and the
 // buttons' tips say "split f₂ into f₂–f₄: Integer power → Translation → Sine", in the
 // words of the Split's own message ("Split f₂ into f₂–f₄: …"), not "add f₅ Sine". In English, Russian and Italian:
 // - the Split's own message names the range and the new steps (the control: what the history must name);
 // - Undo's message is "Undid: <the Split>.", Redo's is "Redid: <the Split>.";
 // - the Undo button's tip after the Split, and the Redo button's after the Undo, name the Split too.
-// A control: a step added by the palette's way (the steps view's + Step) is still "add f₄ …", not a Split.
+// A control: a step added by the palette's way (the steps view's + Step) is "add f₄ …", not a Split.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -16,8 +16,8 @@ const F1 = (expr) => ({ type: 'custom', params: { expr, cut: 180 }, on: true });
 // step 2 of exp, <formula>, ×2 is a formula that splits into n steps, f₂ to f₍₁₊ₙ₎ (the chain's thread has 4 planes, 3 + n - 1 after)
 const SPLIT_K = 2, PLANES_BEFORE = 4;
 const CASES = [
-  { expr: '\\sin(z^2+1)', n: 3, last: 'f₄' },   // three steps: the history once said "add f₂–f₄"
-  { expr: '2\\sin z', n: 2, last: 'f₃' },       // two steps: it once said "add f₃ Sine", one step added
+  { expr: '\\sin(z^2+1)', n: 3, last: 'f₄' },   // splits into three steps (Undo and Redo name the range f₂–f₄)
+  { expr: '2\\sin z', n: 2, last: 'f₃' },       // splits into two steps (a Split into n steps adds n − 1, here one: the shape of a step added)
 ];
 const chainOf = (expr) => [{ type: 'exp', params: {}, on: true }, F1(expr), { type: 'mul', params: { c: '2' }, on: true }];
 // by language: the Split's own message (the chain is its group 1), and the frames the history puts the Split in
@@ -70,7 +70,7 @@ for (const C of CASES) for (const [lang, L] of Object.entries(langs(C.last))) {
   const redid = await said(L.redid);
   ok(`${lang} ${C.n} steps: Redo's message names the Split`, redid.includes(`${L.redid}${named}.`), redid);
 }
-// the control, in English: a step added is still "add f…", so the Split's wording is not used for any longer chain
+// the control, in English: a step added is "add f…", so the Split's wording is not used for any longer chain
 await open('en', CASES[0].expr);
 await ev(`__cmwAddStep('exp'), 1`);
 await until(`__cmwSteps().planes.length === ${PLANES_BEFORE + 1}`);
