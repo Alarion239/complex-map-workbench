@@ -25,7 +25,7 @@ for (const [pattern, patternScale, lines] of [['checker', 2, false], ['stretch',
   let payload = null;
   for (let i = 0; i < 50 && !payload; i++) { await sleep(100); payload = await ev('window.__rgLink || null'); }
   ok('a link encodes', typeof payload === 'string' && /^\d\./.test(payload), payload);
-  await nav(`${U}/gl-helpers.html`); await sleep(300);
+  await nav(`${U}/gl-helpers.html`);
   await go(`${U}/test.html?ns=rgph-l1-${Date.now() % 1000000}#cmw=${payload}`);
   for (let i = 0; i < 100; i++) { await sleep(200); try { if ((await ev(`typeof __cmwRegions === 'function' && !location.hash && __cmwShapes().shapes.length === 1`)) === true) break; } catch (e) { /* the page reloads */ } }
   await settle(800);
