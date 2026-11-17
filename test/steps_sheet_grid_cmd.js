@@ -228,7 +228,7 @@ ok('on the Landscape surface the Height group holds the Height choice, the Scale
 ok('on the Landscape surface the Colouring choice is under Colour style', !!styleIds && styleIds.includes('landPaint'), styleIds);
 const overlays = await ev(idsIn('Overlays'));
 ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !!overlays && !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
-// (#1641) the Style row is in Colour style, and the Landscape's Colouring is named by that group's heading
+// The Style row is in Colour style, and the Landscape's Colouring is named by that group's heading
 const styleRow = await ev(`(() => { const r = document.querySelector('.ph-sheet .ph-style'), g = r && r.closest('.ph-grp'), lp = document.getElementById('landPaint'), lab = lp && lp.getAttribute('aria-labelledby'), head = lab && document.getElementById(lab);
   return { shown: !!r && r.getClientRects().length > 0, group: g && g.querySelector('h3') && g.querySelector('h3').textContent, labelledBy: head ? head.textContent : null }; })()`);
 ok('on the Landscape surface the Style row is in the Colour style group', styleRow.shown && styleRow.group === 'Colour style', styleRow);
