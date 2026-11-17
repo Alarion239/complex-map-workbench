@@ -371,8 +371,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // CPU goes on to its SER_FINITE. Every pixel of a frame takes that many terms in one draw, and a term n^{-z} is about
   // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
   // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
-  // (TDR), which is worse for the user than a blank pane. That bound is one sum's: a sum inside another takes up to the
-  // product of their caps a pixel (2048 x 2048, about 4.2 M terms), which it does not cover (#1845)
+  // (TDR), which is worse for the user than a blank pane. Finite sums inside one another share it: a pixel takes the
+  // product of their terms, which keeps to SER_GPU_FINITE (#1845; loopGL). An infinite sum around them counts 1 there,
+  // its terms bounded by SER_GPU_LOOP
   const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
@@ -600,18 +601,29 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       shape.push(prod ? 'Lp' : 'L');
       const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP), fcap = uBound(SER_GPU_FINITE);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
-      out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
-  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
+      const head = `  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
+  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x`, at = out.length;
+      out.push(`${head};`);
       // one loop body for every case (a constant-bound loop written out per case would be four copies of the term code, which
       // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
       // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
       // values, not constants, so the loops stay loops
       const k = `${id}_k`, saved = out, inner = [];
+      // (#1845) the enclosing loops' term counts, for a finite sum inside them: a pixel takes the product of the nested
+      // finite sums' terms, and that product, not each sum's own count, keeps to SER_GPU_FINITE (an infinite loop counts
+      // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
+      // only when a sum inside it reads it, so a sum with none inside is written as before
+      const outerFn = idxVar.filter((e) => e.fn);
+      const me = { v: n.v, k, fn: `${id}_fn`, used: false };
       out = inner;
-      idxVar.push({ v: n.v, k });
+      idxVar.push(me);
       let t;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
+      for (const e of outerFn) e.used = true;
       const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (a finite side's terms: within the cap alone, or with the enclosing finite sums' counts, their product)
+      const fits = outerFn.length ? `(${HI} - ${LO} + 1.0) * ${outerFn.map((e) => e.fn).join(' * ')} <= float(${fcap})` : `${HI} - ${LO} < float(${fcap})`;
       // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
       // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
       // the sum, as the CPU does: Expr's tailOf)
@@ -621,7 +633,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
     bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
     int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-    int nj = inf ? ${cap} : ${HI} - ${LO} < float(${fcap}) ? ${fcap} + 1 : 0;
+    int nj = inf ? ${cap} : ${fits} ? ${fcap} + 1 : 0;
     for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }

@@ -338,6 +338,11 @@
     add('series finite 2000 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2000} n^{-z}' })]);
     // (exactly the cap's 2048 terms: the last one is taken and the sum is done)
     add('series finite 2048 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2048} n^{-z}' })]);
+    // [#1845] finite sums inside one another share the budget: a pixel takes the product of their terms. 32 x 64 = 2048,
+    // the budget, against the CPU; 33 x 64 = 2112, past it: blank on the GPU (gpuBlank), though each sum alone is within
+    add('series nested 32 x 64 terms (the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{32} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
+    add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
+    chains[chains.length - 1].gpuBlank = true;
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -945,6 +950,19 @@ void main() {
               continue;
             }
           }
+        }
+        // (a chain past the GPU's budget, gpuBlank: its whole chain's row must be blank on the GPU, whatever the CPU finds
+        // there; its other rows are not compared)
+        if (ch.gpuBlank) {
+          if (!(row.mode === 0 && row.a === 0 && row.b === n)) continue;
+          const kb = (ri * P + p) * 4;
+          R.compared++;
+          if (Number.isFinite(out[kb]) || Number.isFinite(out[kb + 1])) {
+            R.failCount++;
+            R.failByChain[ch.name] = (R.failByChain[ch.name] || 0) + 1;
+            if (R.failures.length < 50) R.failures.push({ chain: ch.name, row: rowName(row), point: [Z[p].re, Z[p].im], cpu: [e.w.re, e.w.im], gpu: [out[kb], out[kb + 1]], wantBlank: true });
+          }
+          continue;
         }
         R.compared++;
         if (stageRow) { if (row.mode === 4) R.comparedSheet = (R.comparedSheet || 0) + 1; else R.comparedDeriv = (R.comparedDeriv || 0) + 1; }
