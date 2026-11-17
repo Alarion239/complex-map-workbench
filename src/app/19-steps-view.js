@@ -999,13 +999,13 @@
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     // (an All-at-once glide keys its sheets by its last plane, as its carried meshes do: svCarryRegions)
     const singAt = span ? () => svSheetKey(b).sing : () => svSheetKeyAt(b, u).sing;
-    // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation;
-    // in an All-at-once glide such a region keeps the carried meshes)
-    if (span && list.some((x) => x !== SV_ALL && shapeStage(x))) { why.r = 'a region of a later plane in an All-at-once glide'; return null; }
+    // (a region of a later plane takes the whole plane's path: its test is in the pass, on its own plane at rest, not in
+    // the path's preparation)
     let whole = null;
     // (a plane at rest whose step has no exact inverse is drawn as the glide's last frame is: the homotopy's inverse at t = 1)
     const restHom = () => svSheetKey(b).sing;
-    const viaHom = (x, t, sing) => (span ? invSpanPath(x, 0, span.a, b, t, span.stepT, sing) : shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, t, sing)) : invHomPath(x, 0, b, t, sing));
+    const via = (x, t, sing) => (span ? invSpanPath(x, 0, span.a, b, t, span.stepT, sing) : invHomPath(x, 0, b, t, sing));
+    const viaHom = (x, t, sing) => (shapeStage(x) ? whole || (whole = via(SV_ALL, t, sing)) : via(x, t, sing));
     const paths = list.map((x) => {
       if (hom) return viaHom(x, u, singAt);
       const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
@@ -1110,9 +1110,9 @@
   // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
   // lack parts of an unbounded region's image). The pullbacks of regions of later planes keep their own opacity and band,
   // which only the mask's pass (svStagedMask) draws, so such a frame keeps a mask made of the inverse pass alone
-  function svExactGlide(b, u) {
+  function svExactGlide(b, u, span) {
     if (!GLR.inverseState) return false;
-    const h = svHomPaths(b, u).h;
+    const h = svHomPaths(b, u, span).h;
     return !!h && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
   }
   // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
@@ -1144,9 +1144,9 @@
     svHomMemo = null;
     const g = svBetween();
     if (g.u <= SV_REST_U || g.b === g.a || !(g.map.mode === 1 || g.map.mode === 3) || isDeriv(g.b) || !GLR.inverseState) return null;
-    // (an All-at-once frame: its span's paths alone, no shapes of later planes, no pole tracks of its own)
+    // (an All-at-once frame: its span's paths, no pole tracks of its own)
     const span = svSpanPaths(g), h = svHomPaths(g.b, g.u, span).h;
-    const linking = !!h && [h].concat(span ? [] : [svStagedOf(), svStagedCurves()]).some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
+    const linking = !!h && [h, svStagedOf(), svStagedCurves()].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
     svHoldB = !linking && !span && svTracksMissing(g.b, h) ? g.b : 0;
     if (svHoldB) svPolesWatch();
     if (!linking && !svHoldB) return null;
@@ -1800,7 +1800,7 @@
     // the outlines over it, in one frame and one copy to the page, #545)
     // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
     // (with a region of a later plane, the mask stays but is the inverse pass's too: svStagedMask draws every region)
-    const exact = svMaskOn() && !still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u);
+    const exact = svMaskOn() && !still && (map.mode === 1 || map.mode === 3) && !isDeriv(b) && svExactGlide(b, u, svSpanPaths(bt));
     const mask = svMaskOn() && !(exact && !svStagedOf());
     if (mask && svMask(pane, map, still ? a : undefined, {
       exact,
@@ -1870,7 +1870,7 @@
   // regions and Everywhere. The pulled-back regions' band is the mask's (svStagedMask); the earlier planes' strokes are
   // the outline pass's (svShapeMap)
   function svReached(map0) {
-    if (map0.mode !== 1) return null;
+    if (map0.mode !== 1 && map0.mode !== 3) return null;
     const g = svBetween();
     if (g.near !== g.b) return null;
     const m = new Map();
@@ -1881,8 +1881,8 @@
   // (svHomPaths)}, or null (at rest, a d/dz step, or no inverse paths)
   function svStagedFrame() {
     const g = svBetween();
-    if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
-    const h = svHomPaths(g.b, g.u).h;
+    if (g.a === g.b || !(g.map.mode === 1 || g.map.mode === 3) || isDeriv(g.b)) return null;
+    const h = svHomPaths(g.b, g.u, svSpanPaths(g)).h;
     return h ? { g, h } : null;
   }
   // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level)
@@ -1896,7 +1896,7 @@
     const { g } = f;
     const list = S.shapes.filter((x) => x.visible !== false && SV_STAGED_CURVES.has(x.kind) && shapeStage(x) > 0 && !derivIn(0, shapeStage(x)));
     if (!list.length) return null;
-    const whole = invHomPath(SV_ALL, 0, g.b, g.u, () => svSheetKeyAt(g.b, g.u).sing);
+    const whole = g.all ? invSpanPath(SV_ALL, 0, g.a, g.b, g.u, g.stepT, () => svSheetKey(g.b).sing) : invHomPath(SV_ALL, 0, g.b, g.u, () => svSheetKeyAt(g.b, g.u).sing);
     return whole.path === 'inverse' ? { list, paths: list.map(() => whole) } : null;
   }
   // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, nearer(x):

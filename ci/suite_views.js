@@ -99,6 +99,7 @@ const VIEWS = {
   'steps_split_remap_cmd.js': steps({ pin: true }),
   'steps_split_all_cmd.js': steps({ pin: true }),
   'steps_all_exact_cmd.js': steps(),
+  'steps_all_regions_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
