@@ -103,6 +103,11 @@ const pts = K.grid(P, 12, 8).filter(away);
 const heldZ = { wait: zWait, standIn: await standIn(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), px: (await K.lpx(pts)).px };
 info.colourZ = Object.assign({}, heldZ, { px: undefined });
 ok('the colour plot, its program held: plane z is drawn from the stand-in (in colour, the frame pending)', zWait.ok && heldZ.hue > 0.6 && heldZ.pending === true, info.colourZ);
+// (the left LED: amber with its own tooltip while the colour plot is not done; the right LED is the right plane's)
+const STANDIN_TIP = 'Drawing a quick preview; the exact plot is still being built';
+const led = (id) => ev(`(() => { const e = document.getElementById('${id}'); return { cls: e.className, tip: e.getAttribute('data-tip'), label: e.getAttribute('aria-label') }; })()`);
+const ledHeld = { left: await led('leftLed'), right: await led('rightLed') };
+ok('the colour plot, its program held: the left LED is amber with its own tooltip, the right one is not', /\bbusy\b/.test(ledHeld.left.cls) && ledHeld.left.tip === STANDIN_TIP && ledHeld.left.label === STANDIN_TIP && !/\bbusy\b/.test(ledHeld.right.cls), ledHeld);
 await ev('__cmwSteps({ go: 1, now: true }), 1');
 await settled({ panes: false });
 const w1Wait = await levelDone();
@@ -130,6 +135,8 @@ const linked = await settled({ max: 20000 });
 const gpuPx = (await K.lpx(pts)).px;
 info.colourMatch = K.tally(heldZ.px, gpuPx, { tol: 24 });
 ok('the colour plot, once linked: the stand-in had its colours (at least 90 % of the points within 24 levels)', linked.ok && info.colourMatch.n >= 40 && info.colourMatch.wrong <= 0.1 * info.colourMatch.n, info.colourMatch);
+const ledDone = await led('leftLed');
+ok('the colour plot, once linked: the left LED is green again', /\bok\b/.test(ledDone.cls) && ledDone.tip === 'Up to date', ledDone);
 // an expensive series (about half a millisecond an evaluation): its stand-in stops within its CPU budget
 const ns3 = 'lse' + Date.now();
 await seed(ns3, { steps: [{ type: 'custom', params: { expr: '\\sum_{n=1}^{10000} \\frac{z^n}{n}', cut: 180 } }], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
@@ -267,6 +274,18 @@ ok('the SphereMeshes\' carried colour about the colour\'s zero (w₁ = 1): every
   ok('a phone, 360 x 640: the compiling note is clear of the inset card and inside the pane', clear && nb.note.x >= 0 && nb.note.x + nb.note.w <= nb.pane.w && nb.note.y + nb.note.h <= nb.pane.h, nb);
   await view(1440, 900, false);
 }
+// the Cauchy style with no closed curve or region draws the plane as paper, which waits on no program: with the plot's link still
+// held the left LED, amber for the stand-in, goes green
+const ns6 = 'lsp' + Date.now();
+await seed(ns6, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns6}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+await levelDone();
+const ledShown = await led('leftLed');
+ok('(the plot drawn from the stand-in, its program held: the left LED is amber)', /\bbusy\b/.test(ledShown.cls) && ledShown.tip === STANDIN_TIP, ledShown);
+await ev("__cmwSet('dc', 'cauchy'), 1"); await settled({ panes: false });
+const ledPaper = await led('leftLed');
+ok('the plane drawn as paper (Cauchy, no closed curve or region), its program still held: the left LED is green', /\bok\b/.test(ledPaper.cls) && ledPaper.tip === 'Up to date', ledPaper);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
 return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };

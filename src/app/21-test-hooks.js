@@ -55,10 +55,11 @@
   // the SphereMesh verdict (SPEC 8.1) of every visible area shape for the right pane's map (12.3: invariant under right-view zooms)
   window.__cmwSmVerdict = (role = 'R') => S.shapes.filter((s) => s.visible !== false && kindType(s) === 'area').map((s) => ({ id: s.id, why: smNeed(s, gpu.get(s.id), role, normalizeMap(stageMap(role === 'SV' ? svStage() : role === 'R' ? rightStage() : leftStage()))) }));
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
-  // (the compiling note drawn on pane role now, as a frame whose program compiles draws it: its box, CSS px of the pane)
-  /** @type {any} */ (window).__cmwCompileNote = (role = 'L') => compileNote(role === 'R' ? paneR : paneL);
+  // (the compiling note drawn on pane role now, as a frame whose program compiles draws it: its box, __cmwCompileBox's)
+  /** @type {any} */ (window).__cmwCompileNote = (role = 'L') => { compileNote(role === 'R' ? paneR : paneL); return compileBox ? Object.assign({}, compileBox) : null; };
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
+  window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
   // the colour plot's stand-in (colourStandIn): the cell of its finest level done (css px; null before one) and its
   // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
   // it runs); null when none
@@ -123,6 +124,7 @@
     return out;
   };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
+  window.__cmwGlobeDisk = (side) => { const g = globeCam(side); return g ? { R: g.R, w: g.pane.w, h: g.pane.h } : null; };   // (a globe pane's silhouette radius R, and the pane's size, in CSS px: the app's own globeCam)
   // what the live panes last drew each shape with: {'R|s1': 'inverse' | 'pending' | 'forward', ...}
   window.__cmwDrawn = () => Object.fromEntries(lastPath);
   // the scissor w-box of shape id's image under the right plane's map (SPEC 4.8; null: no scissor)
@@ -273,6 +275,8 @@
   // rest; box: the last frame's block, carried or not
   // the last Landscape frame's height-axis labels, as their screen y (CSS px)
   window.__cmwLandTicks = () => (render3D.ticks || []).slice();
+  // the last Landscape frame's axis names (the plane's Re and Im, the height's), as boxes [x, y, w, h] in CSS px of the pane's canvas
+  window.__cmwLandNames = () => (render3D.names || []).map((r) => r.slice());
   // the left key's kind and the caption it draws now (the key is drawn here, so a read never waits for a frame)
   window.__cmwLegend = () => { drawLegend(); return { kind: legendKind('L'), caption: legendState.L.caption || null, ring: legendState.L.ring }; };
   // The camera of the steps view's Landscape (the source plane's view) and its mirror V.left: __cmwLandViews() answers { src, left } ({ cx, cy, s } each, a copy).
@@ -402,7 +406,6 @@
 
   // TEMP-DEBUG-HOOK (removed before publishing)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
-  /** @type {any} */ (window).__cmwLPx = (pts) => { const v = paneL.view, d = paneL.dpr, W = paneL.pw, H = paneL.ph, img = paneL.canvas.getContext('2d').getImageData(0, 0, W, H).data; const px = pts.map(([x, y]) => { const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d); if (i < 1 || j < 1 || i >= W - 1 || j >= H - 1) return null; const out = []; for (let b = -1; b <= 1; b++) for (let a = -1; a <= 1; a++) { const n = 4 * ((j + b) * W + i + a); out.push([img[n], img[n + 1], img[n + 2], img[n + 3]]); } return out; }); return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px }; };   // (the left pane's pixels at points of its plane: for each [x, y], the 3 x 3 device pixels around it, [r, g, b, a] each, row by row, or null off the pane; and the view they were read in)
   /** @type {any} */ (window).__cmwSvRingMade = (j) => { const P = svPlanes(); let made = 0, left = 0, unbuilt = 0; for (let k = 0; k + 1 < P.length; k++) { if (j != null && k !== j) continue; for (const { key } of svGlideRingKeys(k)) { const m = svRingSizes.get(key); if (m === undefined) left++; else { made++; if (m && m.polar && !svPolarRes.has(svPolarId(m))) unbuilt++; } } } return { made, left, unbuilt, glides: Math.max(0, P.length - 1), polar: svPolarRes.size, sizes: svRingSizes.size }; };   // (__cmwSvRingMade: the ring sizes of every glide of the chain (of glide j alone, given j), made or left, and the made polar ones whose mesh is not built, at the view the frames between planes draw in; the polar meshes kept and the sizes kept)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)

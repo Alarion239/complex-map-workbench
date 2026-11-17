@@ -60,7 +60,6 @@ await closes('juliai', 'N = 3 over two steps');
 // the Russian lines say nothing of a card or a bracket either
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await nav(`http://localhost:${PORT}/test.html?ns=exrpru${Date.now() % 1000000}&view=steps&lang=ru`);
-await settle(2000);
 for (const [k, re] of [['julia', /Множество Жюлиа, которое сохраняет/], ['rabbit', /Кролик Дуади/], ['newton', /Метод Ньютона для/], ['juliai', /Множество Жюлиа для z² \+ i/]]) {
   const i = await byName(re);
   ok(`ru ${k}: the example exists`, i >= 0, i);

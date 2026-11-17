@@ -504,14 +504,16 @@
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
-  function glStatusNote(pane) {
+  // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
+  function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
-    if (st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
     paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
+    if (quiet) return;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
@@ -530,7 +532,8 @@
     } else if (now - t0 >= 300) compileNote(pane);
   }
   // the compiling note: small and quiet, in the pane's lower left corner; on a phone, where the other plane's inset card
-  // covers that corner, beside the card in its row. -> its box, CSS px of the pane
+  // covers that corner, beside the card in its row (compileBox: where it was last drawn, in the pane's CSS px)
+  let compileBox = null;
   function compileNote(pane) {
     const ctx = pane.ctx;
     ctx.save();
@@ -545,14 +548,15 @@
       const r = inset.getBoundingClientRect(), c = pane.canvas.getBoundingClientRect();
       if (x0 < r.right - c.left && x0 + bw > r.left - c.left && y0 < r.bottom - c.top && y0 + bh > r.top - c.top) x0 = Math.round(r.right - c.left + 8) + 0.5;
     }
-
+    compileBox = { x: x0, y: y0, w: bw, h: bh };
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
+    // (the surface fill alone is the paper's own colour on paper in the light theme: the outline keeps the pill's shape there)
     ctx.fillStyle = withAlpha(TH.surface, 0.82); ctx.fill();
+    ctx.lineWidth = 1; ctx.strokeStyle = TH.lineStrong; ctx.stroke();
     ctx.fillStyle = TH.muted;
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
-    return { x: x0 - 0.5, y: y0 - 0.5, w: bw, h: bh };
   }
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
   // them (the steps view's whole-plane region); staged: the shapes of the later planes too
