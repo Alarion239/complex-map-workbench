@@ -1202,7 +1202,6 @@
     if (!globe && !(svCarryShapes() || []).length) return false;
     return GLR.carryState(map, globe) === 'pending';
   }
-  }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
   // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
   // (H_u on the glide's first plane), view, w, h (the pane's css size)}
