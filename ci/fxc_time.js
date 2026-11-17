@@ -940,4 +940,84 @@ async function bisectStudy() {
   process.exit(0);
 }
 
-(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : MODE === 'bisect' ? bisectStudy() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache|bisect ...'))).catch((e) => { console.error(e); process.exit(2); });
+// ---- the function-by-function profile of an inverse program, in the app's own link (the page not drawing)
+// The target program's fragment source is split by top-level function. Each function in turn has its body swapped for a stub of its type (a
+// zero of its return type, nothing for void) and is linked cold and then warm on a profile of its own: what the stub saves is what the function
+// cost (FXC inlines every call, so what it reaches costs with it), and a variant that hits warm is cacheable. Also the control (unchanged)
+// and the floor (every function but main stubbed).
+function splitFunctions(src) {
+  // (scanning copy: comments and preprocessor lines blanked, offsets kept)
+  const clean = src.replace(/\/\*[\s\S]*?\*\//g, (m) => m.replace(/[^\n]/g, ' ')).replace(/\/\/[^\n]*/g, (m) => ' '.repeat(m.length)).replace(/^[ \t]*#[^\n]*/gm, (m) => ' '.repeat(m.length));
+  const out = [];
+  let depth = 0, hdr0 = 0, open = null;
+  for (let i = 0; i < clean.length; i++) {
+    const c = clean[i];
+    if (c === '{') {
+      if (depth === 0) open = { m: /(?:^|\s)(\w+)\s+(\w+)\s*\(([\s\S]*)\)\s*$/.exec(clean.slice(hdr0, i)), start: i };
+      depth++;
+    } else if (c === '}') {
+      depth--;
+      if (depth === 0) { if (open && open.m && open.m[2] !== 'main') out.push({ name: open.m[2], ret: open.m[1], start: open.start, end: i }); hdr0 = i + 1; open = null; }
+    } else if (c === ';' && depth === 0) hdr0 = i + 1;
+  }
+  return out;
+}
+const zeroOf = (t) => (t === 'void' ? '' : t === 'float' ? '0.0' : t === 'int' ? '0' : t === 'uint' ? '0u' : t === 'bool' ? 'false' : /^vec[234]$/.test(t) ? `${t}(0.0)` : /^ivec[234]$/.test(t) ? `${t}(0)` : /^uvec[234]$/.test(t) ? `${t}(0u)` : /^bvec[234]$/.test(t) ? `${t}(false)` : /^mat[234](x[234])?$/.test(t) ? `${t}(0.0)` : null);
+// the source with the given functions' bodies stubbed (from the end, so the offsets hold)
+function stubFunctions(src, fns) {
+  let out = src;
+  for (const f of fns.slice().sort((a, b) => b.start - a.start)) {
+    const z = zeroOf(f.ret);
+    if (z == null) continue;
+    out = `${out.slice(0, f.start + 1)} ${z === '' ? '' : `return ${z};`} ${out.slice(f.end)}`;
+  }
+  return out;
+}
+
+async function profileStudy() {
+  const timeoutMs = Number(opt('timeout-s', '900')) * 1000, budgetMs = Number(opt('budget-min', '85')) * 60000;
+  const name = opt('scene', 'expsin'), keyRe = new RegExp(opt('target', 'AFF.*SIN.*AFF')), top = Number(opt('top', '24'));
+  if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
+  const S = await serve(path.join(ROOT, 'dist'));
+  fs.writeFileSync(path.join(ROOT, 'dist', 'blank.html'), '<!doctype html><title>b</title>');
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-profile-')), flags = CACHE_SETTINGS[0][1], t00 = Date.now();
+  const find = (recs) => recs.findIndex((r) => r.inv && keyRe.test(r.key));
+  const cell = async (label, swap) => {
+    const prof = path.join(tmp, label.replace(/\W+/g, '_').slice(0, 40) + Date.now()), o = { swap, noDraw: true };
+    const a = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, 0, o), ai = find(a.recs);
+    const b = await cacheAppPass(S.base, name, ROOT, prof, flags, timeoutMs, 0, o), bi = find(b.recs);
+    const row = { variant: label, kb: ai >= 0 ? a.recs[ai].kb : null, cold: ai >= 0 && a.recs[ai].ms != null ? a.recs[ai].ms / 1000 : null, warm: bi >= 0 && b.recs[bi].ms != null ? b.recs[bi].ms / 1000 : null, text: ai >= 0 ? a.srcs[ai].fs : null };
+    console.log(`[fxc] profile ${label}: ${row.kb} KB, cold ${row.cold == null ? '-' : row.cold.toFixed(1)} s, warm ${row.warm == null ? '-' : row.warm.toFixed(1)} s`);
+    return row;
+  };
+  // the control, which also gives the source
+  const ctl = await cell('control (unchanged)', null);
+  const rows = [ctl];
+  if (!ctl.text) throw new Error(`no inverse program matches ${keyRe}`);
+  const from = ctl.text, fns = splitFunctions(from);
+  console.log(`[fxc] profile: ${fns.length} top-level functions in ${(from.length / 1024).toFixed(1)} KB`);
+  const sized = fns.filter((f) => zeroOf(f.ret) != null).map((f) => ({ ...f, kb: (f.end - f.start) / 1024 })).sort((a, b) => b.kb - a.kb);
+  const floor = stubFunctions(from, fns);
+  rows.push({ ...(await cell('floor: every function but main stubbed', { from, to: floor })), floor: true });
+  for (const f of sized.slice(0, top)) {
+    if (Date.now() - t00 > budgetMs) { console.log(`[fxc] profile: over the budget, ${f.name} and the rest skipped`); break; }
+    rows.push({ ...(await cell(`${f.ret} ${f.name}`, { from, to: stubFunctions(from, [f]) })), fnKb: f.kb });
+  }
+  S.server.close();
+  const outFile = path.resolve(opt('out', path.join(ROOT, '.ci', 'fxc', 'profile.json')));
+  fs.mkdirSync(path.dirname(outFile), { recursive: true });
+  fs.writeFileSync(outFile, JSON.stringify({ when: new Date().toISOString(), machine: `${os.platform()} ${os.cpus()[0].model}`, scene: name, target: String(keyRe), functions: fns.length, rows: rows.map(({ text, ...r }) => r) }, null, 1));
+  const f1 = (v) => (v == null ? '' : v.toFixed(1)), c0 = ctl.cold;
+  const hit = (r) => (r.cold != null && r.warm != null ? (r.warm < 1 || r.warm < 0.35 * r.cold ? 'hit' : 'miss') : '');
+  const lines = [`### The function-by-function profile of ${name}'s inverse program ${esc(String(keyRe))}`, '', `${fns.length} top-level functions in ${(from.length / 1024).toFixed(1)} KB. Each row stubs one function's body (a zero of its return type), the page not drawing; link seconds cold, then in a fresh Chrome on the same profile. Saved: the control's cold link minus this row's. One run per row: the spread of the control is about 1 s.`, '',
+    '| stubbed | its body KB | program KB | cold s | warm s | saved s | warm result |', '|---|---|---|---|---|---|---|'];
+  const body = rows.slice(1).sort((a, b) => (c0 - (a.cold == null ? c0 : a.cold) > c0 - (b.cold == null ? c0 : b.cold) ? -1 : 1));
+  for (const r of [ctl, ...body]) lines.push(`| ${esc(r.variant)} | ${r.fnKb == null ? '' : r.fnKb.toFixed(1)} | ${r.kb == null ? '' : r.kb} | ${f1(r.cold)} | ${f1(r.warm)} | ${r === ctl || r.cold == null || c0 == null ? '' : (c0 - r.cold).toFixed(1)} | ${hit(r)} |`);
+  lines.push('');
+  const md = lines.join('\n');
+  summary(md);
+  console.log(md);
+  process.exit(0);
+}
+
+(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : MODE === 'bisect' ? bisectStudy() : MODE === 'profile' ? profileStudy() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache|bisect|profile ...'))).catch((e) => { console.error(e); process.exit(2); });
