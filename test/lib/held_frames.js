@@ -16,7 +16,9 @@
 //   the first plane's held one until it is true. The same applies to a suite's own wait on a parked thread;
 // - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still),
 //   with the pane's camera then and the glide's record of that frame as __heldAt[tag] = { v, g }; true when they did;
-// - compare(a, b): two kept frames' difference, each pixel's largest channel difference (RGB, 0..255): the share of the
+// - snap(tag): canvasL's pixels kept now, as grab keeps them, without waiting for a still frame (a frame read while it
+//   changes, a mesher's job running);
+// - compare(a, b): two kept frames' difference (test/lib/pixel_diff.js's pixelDiff, as sameAway's and compareKept's), each pixel's largest channel difference (RGB, 0..255): the share of the
 //   pixels more than DIFF_TOL apart (frac), the largest (max) and the mean (mean); and each frame's mean luminance
 //   (lum, Rec. 601 weights) and mean alpha (alpha); win { x: [x0, x1], y: [y0, y1] } (fractions of the pane): only
 //   the pixels in that window;
@@ -69,8 +71,8 @@
 //   frame's __giRange spans more than 12 levels is left out), only where keep holds (the source of a page function of
 //   the device pixel (x, y); every pixel without it): { n compared, max, over: the share of n more than tol apart }.
 (() => {
-  // (the page script of the exact reference, as written for steps_glide_inverse_cmd.js)
-  const RANGE = `window.__giRange = (P, W, x, y) => { let r = 0; for (let c = 0; c < 3; c++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = P[4 * ((y + dy) * W + x + dx) + c]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };`;
+  // (the pixel compare and the colour lines' test, __pxDiff and __giRange in a page: test/lib/pixel_diff.js)
+  const PD = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'pixel_diff.js'), 'utf8')), RANGE = PD.SCRIPT;
   const REF = `window.__giRef = (P, F, tol = 6, step = 10) => {
   const g = F.g || __cmwSteps().glide, H = g.H, v = g.view, pv = P.v || v, W = F.W, Ht = F.H, dpr = W / g.w, C = (re, im) => ({ re, im });
   const s2w = (x, y) => C(v.cx + (x / dpr - g.w / 2) / v.s, v.cy - (y / dpr - g.h / 2) / v.s);
@@ -145,17 +147,22 @@
     })()`);
     return settled({ max: 60000, panes: links, until: `${links ? 'GLR.pendingLinks === 0 && ' : ''}Math.abs(__cmwSvX() - ${x}) < ${HOLD_EPS} && __cmwSteps().moving && ${UNHELD}` });
   };
+  // (the page code that keeps canvasL's pixels d as the frame tag, with the pane's camera and the glide's record)
+  const KEEP = (tag) => `window.__heldPx[${JSON.stringify(tag)}] = d;
+    (window.__heldAt || (window.__heldAt = {}))[${JSON.stringify(tag)}] = { v: Object.assign({}, __cmwCards().main.view), g: typeof __cmwSteps === 'function' ? __cmwSteps().glide : null };`;
+  const PIXELS = "const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__heldPx || (window.__heldPx = {});";
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
-      const same = await ev(`(() => { const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__heldPx || (window.__heldPx = {}), p = g._prev;
-        g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false; g[${JSON.stringify(tag)}] = d;
-        (window.__heldAt || (window.__heldAt = {}))[${JSON.stringify(tag)}] = { v: Object.assign({}, __cmwCards().main.view), g: typeof __cmwSteps === 'function' ? __cmwSteps().glide : null };
+      const same = await ev(`(() => { ${PIXELS} const p = g._prev;
+        g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false;
+        ${KEEP(tag)}
         return true; })()`);
       if (same) return true;
       await sleep(100);
     }
     return false;
   };
+  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`);
   const wordsOff = () => ev(`(() => { const p = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = p[k]; p[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
   const kept = {};
   const keep = async (tag) => {
@@ -166,39 +173,23 @@
   const compareKept = (a, b) => {
     const A = kept[a], B = kept[b];
     if (!A || !B || A.length !== B.length) return null;
-    let apart = 0, over = 0, max = 0;
+    const q = PD.pixelDiff(A, B, { tol: DIFF_TOL });
+    // (shown: the frame is not one colour, its channels spread over more than DIFF_TOL)
     const lo = [[255, 255, 255], [255, 255, 255]], hi = [[0, 0, 0], [0, 0, 0]];
-    for (let i = 0; i < A.length; i += 4) {
-      let m = 0;
-      for (let c = 0; c < 3; c++) {
-        m = Math.max(m, Math.abs(A[i + c] - B[i + c]));
-        lo[0][c] = Math.min(lo[0][c], A[i + c]); hi[0][c] = Math.max(hi[0][c], A[i + c]);
-        lo[1][c] = Math.min(lo[1][c], B[i + c]); hi[1][c] = Math.max(hi[1][c], B[i + c]);
-      }
-      if (m) apart++;
-      if (m > DIFF_TOL) over++;
-      if (m > max) max = m;
+    for (let i = 0; i < A.length; i += 4) for (let c = 0; c < 3; c++) {
+      lo[0][c] = Math.min(lo[0][c], A[i + c]); hi[0][c] = Math.max(hi[0][c], A[i + c]);
+      lo[1][c] = Math.min(lo[1][c], B[i + c]); hi[1][c] = Math.max(hi[1][c], B[i + c]);
     }
     const shown = [0, 1].map((k) => Math.max(...[0, 1, 2].map((c) => hi[k][c] - lo[k][c])) > DIFF_TOL);
-    return { apart, frac: +(over / (A.length / 4)).toFixed(5), max, shown };
+    return { apart: q.apart, frac: +q.frac.toFixed(5), max: q.max, shown };
   };
   const compare = (a, b, win = null) => ev(`(() => {
+    ${RANGE}
     const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}];
     if (!A || !B || A.length !== B.length) return null;
-    const lum = (P, i) => 0.299 * P[i] + 0.587 * P[i + 1] + 0.114 * P[i + 2];
-    let over = 0, max = 0, sum = 0, la = 0, lb = 0, aa = 0, ab = 0, n = 0;
-    const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height, win = ${JSON.stringify(win)};
-    const x0 = win ? Math.round(win.x[0] * W) : 0, x1 = win ? Math.round(win.x[1] * W) : W, y0 = win ? Math.round(win.y[0] * H) : 0, y1 = win ? Math.round(win.y[1] * H) : H;
-    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
-      const i = 4 * (y * W + x);
-      n++;
-      const m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
-      if (m > ${DIFF_TOL}) over++;
-      if (m > max) max = m;
-      sum += m; la += lum(A, i); lb += lum(B, i); aa += A[i + 3]; ab += B[i + 3];
-    }
+    const cv = document.getElementById('canvasL'), q = __pxDiff(A, B, { W: cv.width, H: cv.height, tol: ${DIFF_TOL}, win: ${JSON.stringify(win)} });
     const r = (v) => +v.toFixed(4);
-    return { frac: r(over / n), max, mean: r(sum / n), lum: [r(la / n), r(lb / n)], alpha: [r(aa / n), r(ab / n)], px: n };
+    return { frac: r(q.frac), max: q.max, mean: r(q.mean), lum: q.lum.map(r), alpha: q.alpha.map(r), px: q.n };
   })()`);
   // the straight hard edges of a kept frame: the pixels more than DIFF_TOL apart (their largest channel difference) from
   // the next row's (h, a horizontal edge) or the next column's (v, a vertical one), in runs of at least `run` pixels
@@ -308,15 +299,10 @@ ${REF}`;
   // channel }
   const sameAway = (a, b, tol, keep) => ev(`(() => {
     ${RANGE}
-    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), W = c.width, H = c.height, K = ${keep || 'null'};
+    const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], c = document.getElementById('canvasL'), K = ${keep || 'null'};
     if (!A || !B || A.length !== B.length) return null;
-    let n = 0, over = 0, max = 0;
-    for (let y = 2; y < H - 3; y++) for (let x = 2; x < W - 3; x++) {
-      if ((K && !K(x, y)) || __giRange(A, W, x, y) > 12 || __giRange(B, W, x, y) > 12) continue;
-      const i = 4 * (y * W + x), m = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2]));
-      n++; if (m > max) max = m; if (m > ${tol}) over++;
-    }
-    return { n, max, over: +(over / Math.max(1, n)).toFixed(5) };
+    const q = __pxDiff(A, B, { W: c.width, H: c.height, tol: ${tol}, edge: [2, 3], away: 12, keep: K || undefined });
+    return { n: q.n, max: q.max, over: +q.frac.toFixed(5) };
   })()`);
   const JUDGE_TOL = 6, JUDGE_MIN_N = 1000, JUDGE_OVER = 0.002, JUDGE_SEEDS_MS = 120000;
   const fade = (a, b, t, tag) => ev(`(() => {
@@ -421,5 +407,5 @@ ${REF}`;
     if (!r || r.__exc !== undefined) return { error: r && r.__exc, n: 0, pass: false };
     return Object.assign(r, { pass: r.n >= minN && r.over <= maxOver });
   };
-  return { hold, UNHELD, grab, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_TOL, GLOBE_MIN_N, GLOBE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_TOL, GLOBE_MIN_N, GLOBE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
