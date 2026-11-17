@@ -6,6 +6,8 @@
 // - the surface is one button, named "Surface: …", that opens a menu of the three, the shown one checked; a pick
 //   changes the surface;
 // - on a phone the head's controls are in the header and the surface button is the same one;
+// - (#1596) on a phone at 360 px, in en, ru and it, each segment of the scope switch keeps the segmented control's 10 px of padding
+//   each side of its label;
 // - (#364) switching through every Phase style leaves the style buttons where they are, classic and steps view, desk and
 //   phone, en/ru/it.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -82,16 +84,24 @@ ok('on a phone the header holds the same surface button, 40 px or more, with its
 // (phone on #473) at 360 px (and 390 in ru) the surface button stays clear of the header's ⋯: a tap on its right edge and
 // on its middle lands on it; short of room it is its icon and ▾, still named "Surface: …"
 // (eyes on #473: on every plane, w₁'s and w₂'s names are wider than z's)
-for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2]]) {
+// (#1596) the scope switch's segments keep the segmented control's inner padding (0 10px, notes/DESIGN_SPEC.md) at 360 px, and at
+// 320 px in en, ru and it on every plane (where the head is at its tightest), on every plane: the space between a label and its segment's edge, each side; a head that has folded the switch to a menu button
+// shows none to measure
+const SEG_PAD = 10, LAST_PAD = 5, scopePad = [];   // (LAST_PAD: what the scope keeps in the head's last fold, sv-c5, where the bar would otherwise scroll)
+for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2], [360, 'it', 0], [360, 'en', 2], [360, 'ru', 2], [320, 'en', 0], [320, 'en', 1], [320, 'en', 2], [320, 'ru', 0], [320, 'ru', 1], [320, 'ru', 2], [320, 'it', 0], [320, 'it', 1], [320, 'it', 2]]) {
   await open(w, 800, true, lang);
   for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-surf1')`)); i++) await sleep(100);
   await ev(`__cmwSteps({ go: ${go}, now: true }); 1`);
   await settle(800);
   const t = await ev(`(() => { const s = document.querySelector('#svHead .sv-surf1'), m = document.getElementById('hdrMoreBtn'), r = s.getBoundingClientRect(), mr = m.getBoundingClientRect();
     const at = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && !!e.closest('.sv-surf1'); };
-    return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height) }; })()`);
+    const pad = [...document.querySelectorAll('#svHead .sv-scope > button')].filter((b) => b.getClientRects().length).map((b) => { const g = document.createRange(); g.selectNodeContents(b); const tr = g.getBoundingClientRect(), br = b.getBoundingClientRect(); return { text: ([...b.children].find((c) => c.getClientRects().length) || b).textContent.trim(), left: Math.round((tr.left - br.left) * 10) / 10, right: Math.round((br.right - tr.right) * 10) / 10 }; });
+    const bar = document.getElementById('svHead');
+    return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height), pad, scrolls: bar.scrollWidth > bar.clientWidth + 1, c4: bar.classList.contains('sv-c4'), c5: bar.classList.contains('sv-c5') }; })()`);
+  if (w <= 360) { scopePad.push(...t.pad); ok(`phone ${w} ${lang} plane ${go}: the header does not scroll sideways`, t.scrolls === false, t); ok(`phone ${w} ${lang} plane ${go}${t.c5 ? ' (sv-c5, the last fold)' : ''}: each scope segment's label keeps ${t.c5 ? LAST_PAD : SEG_PAD} px of padding on both sides`, t.pad.every((x) => x.left >= (t.c5 ? LAST_PAD : SEG_PAD) - 0.5 && x.right >= (t.c5 ? LAST_PAD : SEG_PAD) - 0.5), t.pad); }
   ok(`phone ${w} ${lang} plane ${go}: the surface button is the hit target at its right edge and middle, clear of ⋯, named`, t.right && t.mid && t.gap >= 0 && /: /.test(t.name || '') && t.h >= 40, t);
 }
+ok('the scope switch showed (not folded to its menu button) on a phone in at least one language and plane', scopePad.length >= 2, scopePad);
 // (#364) a style's extra options never shift the style row: switching through every style leaves the style buttons'
 // rects unchanged, in the classic Phase head and in the steps view's head (1024, 1440), and in a phone's Display sheet
 // (390), in en, ru and it
@@ -106,6 +116,8 @@ for (const lang of ['en', 'ru', 'it']) {
       await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}s${lang}${w}${steps ? 1 : 0}&lang=${lang}${steps ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
       if (!steps) { await ev(`__cmwSetMain('phase'), 1`); await settle(800); }
       if (mobile) { await ev(`Phone.open('display'), 1`); await settle(1000); }
+      // (the style row is built after the page's first layout, later on a loaded runner than the fixed wait above: wait for it, at most 15 s)
+      await settled({ only: true, max: 15000, until: `(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); return !!g && g.querySelectorAll('button, [role=radio]').length >= 3; })()` });
       const n = await ev(`(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); return g ? g.querySelectorAll('button, [role=radio]').length : 0; })()`);
       const seen = [];
       for (let i = 0; i < n; i++) {
@@ -126,8 +138,8 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(W, H, false, false);
-  // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
-  const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
+  // (waits on a condition: the state the next step reads, polled every 100 ms for up to 15 s)
+  const until = async (expr) => (await settled({ until: expr, max: 15000, only: true, poll: 100 })).ok;
   await seed(`${ns}land${lang}${W}`, LAND);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
   await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
