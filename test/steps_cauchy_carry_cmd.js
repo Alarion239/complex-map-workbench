@@ -104,6 +104,37 @@ for (const [show, z0] of [['both', [0.55, 0.3]], ['both', [1.9, 0.45]], ['out', 
   const turned = await pixel(-z0[1], z0[0]);
   ok(`${show}, z0 = ${z0}: negative control: the colour of F(z0) is not the colour of i·z0 on plane z`, !near(turned, onW), { turned, onW });
 }
+// Switching to the Cauchy style, then stepping to plane 1 at once, with links that land late (test/lib/late_links.js, LATE_LINK_MS):
+// the Cauchy style's carried programs are variants of their own (CARRY_CAUCHY), linked as the style is chosen, so no frame
+// of the glide or of plane 1 at rest waits on them with nothing drawn. With the chain [z, z + 1/z] the glide to plane 1 is the
+// identity's, so every frame past z shows the points of SWITCH_PTS (outside the circle, where the Cauchy colour 1/z is not the
+// stages' colour z) in their final colour: the glide's frames and plane 1 at rest, never a blank plane. While the programs
+// link the glide waits on plane z (svLinkHold), whose frames are the late-link stand-in (svCarryRegions' standIn: plane z's
+// meshes in the phase of their points) or the final picture, and are drawn (not blank).
+const LATE_LINK_MS = 2500, SWITCH_FRAMES = 40, SWITCH_MS = 60000;
+const SWITCH_PTS = [[1.6, 0.4], [-1.5, -0.6], [0.3, -1.4], [1.3, 1.1], [-1.2, 1.2]];
+await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LATE_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
+await open(Object.assign({}, stateId, { dc: 'phase' }));
+await ev('(__cmwSteps({ T: 0 }), 1)');
+await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+const phaseOut = await pixels(SWITCH_PTS);
+await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+await ev('(__cmwSteps({ T: 0, go: 1 }), 1)');
+const seen = [];
+for (let i = 0; i < SWITCH_FRAMES; i++) seen.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
+await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+const finalOut = await pixels(SWITCH_PTS);
+await parkAt(0);
+const plotOut = await pixels(SWITCH_PTS);
+const blankAt = (f) => f.px.every((p) => !coloured(p));
+const finalAt = (f) => f.px.every((p, k) => !differ(p, finalOut[k]));
+info.switch = { phaseOut, finalOut, plotOut, links: await ev('JSON.stringify(window.__lateLinks || null)'), frames: seen.map((f) => [f.x, blankAt(f) ? 'blank' : finalAt(f) ? 'final' : f.px.map((p) => p.slice(0, 3).join(',')).join(' ')]) };
+ok('switch: the links were late (the control: a link reads not complete for a while)', /"early":[1-9]/.test(info.switch.links), info.switch.links);
+ok('switch: plane 1 at rest is plane z\'s Cauchy plot at the points outside the circle', SWITCH_PTS.every((_, k) => !differ(finalOut[k], plotOut[k])), info.switch);
+ok('switch: negative control: those points\' colour before the switch (the stages\' colour) is not the Cauchy colour', SWITCH_PTS.some((_, k) => differ(phaseOut[k], finalOut[k])), info.switch);
+ok('switch: the thread reached plane 1 within the frames sampled', seen.some((f) => f.x === 1), info.switch.frames);
+ok('switch: every frame past z is the final picture (never blank, never the stages\' colour)', seen.every((f) => f.x === 0 || finalAt(f)), info.switch.frames);
+ok('switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', seen.every((f) => f.x !== 0 || !blankAt(f)), info.switch.frames);
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warn') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors or warnings', !errs.length, errs.slice(0, 4).map((x) => String(x.m).slice(0, 300)));
 return { pass: fails.length === 0, fails, info };

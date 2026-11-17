@@ -1248,11 +1248,11 @@ void main() {
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
-  // The carried colour of a point sa of plane s: dcolor of the stages (uGs, uGt] at sa. With cz (the flat plane's carried colour,
-  // not the globe's, and not the identity) and the Cauchy style (uCT >= 0) it is the Cauchy integral's colour at sa instead,
-  // F the stages (0, uCT] (the whole chain, uCT its length): the one chain call serves both, the range chosen by uCT,
-  // and the curve's edges and poles are those of the plot on plane z
-  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = !id) => `
+  // The carried colour of a point sa of plane s: dcolor of the stages (uGs, uGt] at sa. cz: the Cauchy style's variant (the
+  // flat plane's carried colour while the style is Cauchy, CARRY_CAUCHY): with uCT >= 0 it is the Cauchy integral's colour at
+  // sa instead, F the stages (0, uCT] (the whole chain, uCT its length): the one chain call serves both, the range chosen
+  // by uCT, and the curve's edges and poles are those of the plot on plane z. Without cz the program has none of it
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = false) => `
 uniform int uGs; uniform int uGt;${cz ? ' uniform int uCT; uniform vec2 uEdgeO;' : ''}
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
 ${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
@@ -1302,7 +1302,7 @@ void main() {
   // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour under the globe's graticule
   // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule 0 leaves the graticule out
   const CARRY_GLOBE_FS = (id) => {
-    let t = CARRY_FS(id, true, false, false, false, false);
+    let t = CARRY_FS(id);
     for (const [a, b] of [
       ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye; uniform float uGraticule;\n'],
       ['void main() {\n', 'void main() {\n  vec3 vv = normalize(uEye - vPos);\n  if (dot(vNor, vv) < 0.0) discard;\n'],

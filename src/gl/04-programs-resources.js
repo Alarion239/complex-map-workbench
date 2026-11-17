@@ -139,7 +139,8 @@
   const REGION_K_VS = (fetch, sheet, clip, centre) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip, centre: !!centre });
   // (centre: vP read at the pixel centre, not at the centroid of the pixel's covered samples; the vertex stage's and the
   // fragment stage's qualifiers match)
-  const REGION_K_FS = (clip, key, centre) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre);
+  // (cz: the Cauchy style's variant, CARRY_CAUCHY below)
+  const REGION_K_FS = (clip, key, centre, cz) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre, !!cz);
   const PEEL_PROGS = ['regionK', 'regionKC', 'regionKN', 'regionKCN', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
   const REGION_KM_FS = (key) => () => UTIL + CARRY_MASK_FS(key);
   // chain: the program includes the chain (one per chain structure); the others compile once
@@ -250,6 +251,11 @@
   // whose keys are a tie order apart, would not compare): each tessellated-mesh program has a variant 'P' that writes it
   PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true, /^regionKC?N$/.test(n)) }); });
   ['regionKSm', 'regionKSCptm'].forEach((n) => { DEFS[n.slice(0, -1) + 'Pm'] = Object.assign({}, DEFS[n], { fs: REGION_KM_FS(true) }); });
+  // CARRY_CAUCHY: the carried colour's programs with the Cauchy integral compiled in (name + 'Z'; regionPKZ), drawn only while
+  // the style is Cauchy with its residue data (carryCauchyOn): the others have none of CAUCHY_CORE, which FXC would inline
+  // into every carried program (#1187)
+  PEEL_PROGS.forEach((n) => ['', 'P'].forEach((p) => { DEFS[n + p + 'Z'] = Object.assign({}, DEFS[n + p], { fs: REGION_K_FS(/clip/i.test(n), p === 'P', /^regionKC?N$/.test(n), true) }); }));
+  DEFS.regionPKZ = Object.assign({}, DEFS.regionPK, { fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true, false, false, true) });
   // vertex-stage subset of UTIL (no derivatives)
   const UTIL_V = `
 float wabs(vec2 w) {
@@ -1120,7 +1126,7 @@ float wabs(vec2 w) {
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
-    const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    const P = carry ? program(carryCauchyOn(st.carry) ? 'regionPKZ' : 'regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
