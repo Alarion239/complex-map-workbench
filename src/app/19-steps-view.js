@@ -760,10 +760,18 @@
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
   const SV_SING_BIG = 10;
+  // svSingNewton's limits: at most SV_SING_ITERS Newton steps; a point is kept only where |F| at SV_SING_R (1 + |z|)
+  // from it is past big at each of four points, and grows towards it by more than SV_SING_GROW from ten times as far
+  // (|F| ~ r^-a grows by 10^a: a root's a is at least about 0.2 where |F| at that distance is past SV_SING_BIG, and a
+  // bounded branch point, 20 + √z at 0, does not grow); the four points are turned SV_SING_TURN from the axes, so that a
+  // cut along an axis does not take one
+  const SV_SING_ITERS = 16, SV_SING_R = 1e-6, SV_SING_GROW = 10 ** 0.1, SV_SING_TURN = 0.3;
   // a point where F is unbounded without being a pole, from z, by Newton's method on u = h/h' (h = 1/F): u has a simple
   // zero where h has a zero of any order, a pole's (order 1) or a root's (|F| ~ |z - p|^-a, 0 < a < 1, where Newton's
-  // method on h reflects about p or crawls). The point found (within box) is kept where |F| a little way from it is past
-  // big, so a start that settles on no such point (on a zero of h' alone) gives null
+  // method on h reflects about p or crawls). It is the point Newton's method settles on (u or its step under 1e-12 or
+  // 1e-11 of 1 + |z|), within box, where |F| next to it is past big and grows towards it; null otherwise: a start that
+  // does not settle (Newton on u reflects where u's zero is not simple, as exp(√z)'s u = -2√z sends z to -z), that
+  // leaves the box, or that settles on no such point (a zero of h' alone)
   function* svSingNewton(F, z, box, big, E) {
     const h = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? (CX.isZero(w) ? null : CX.inv(w)) : C(0, 0); };
     const u = (p, e) => {
@@ -773,13 +781,14 @@
       return CX.isZero(h0) ? C(0, 0) : CX.isFin(d) && !CX.isZero(d) ? CX.div(h0, d) : null;
     };
     yield* svPoleTick(E);
-    let gap = Infinity;
-    for (let i = 0; i < 16; i++) {
-      // (the differences' step: a hundredth of the last distance u gave, at most 1e-6 (1 + |z|): steps that straddle the
-      // point would read the difference across it)
+    let gap = Infinity, settled = false;
+    for (let i = 0; i < SV_SING_ITERS && !settled; i++) {
+      // (the differences' step: a hundredth of the last distance u gave, at most 1e-6 (1 + |z|) and at least 1e-14 (1 + |z|),
+      // where float64 differences still resolve: steps that straddle the point would read the difference across it)
       const s = CX.abs(z), e = Math.max(1e-14 * (1 + s), Math.min(1e-6 * (1 + s), gap / 100)), u0 = u(z, e);
       if (!u0) return null;
-      if (CX.abs(u0) < 1e-12 * (1 + s)) break;
+      if (CX.abs(u0) < 1e-12 * (1 + s)) { settled = true; break; }
+      // (a step more than twice the last: Newton's method moving away from the zero, not towards it)
       if (CX.abs(u0) > 2 * gap) return null;
       gap = CX.abs(u0);
       const up = u(CX.add(z, C(e, 0)), e), um = u(CX.sub(z, C(e, 0)), e);
@@ -790,13 +799,15 @@
       z = CX.sub(z, step);
       if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
       yield* svPoleTick(E);
-      if (CX.abs(step) < 1e-11 * (1 + s)) break;
+      if (CX.abs(step) < 1e-11 * (1 + s)) settled = true;
     }
-    const r = 1e-6 * (1 + CX.abs(z));
+    if (!settled) return null;
+    const m = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? CX.abs(w) : Infinity; };
+    const r = SV_SING_R * (1 + CX.abs(z));
     for (let a = 0; a < 4; a++) {
-      let w = null;
-      try { w = F(CX.add(z, C(r * Math.cos(a * Math.PI / 2 + 0.3), r * Math.sin(a * Math.PI / 2 + 0.3)))); } catch (e) { w = null; }
-      if (!w || (CX.isFin(w) && !(CX.abs(w) > big))) return null;
+      const c = Math.cos(a * Math.PI / 2 + SV_SING_TURN), sn = Math.sin(a * Math.PI / 2 + SV_SING_TURN);
+      const near = m(CX.add(z, C(r * c, r * sn))), far = m(CX.add(z, C(10 * r * c, 10 * r * sn)));
+      if (near == null || far == null || !(near > big) || (near < Infinity && !(near > SV_SING_GROW * far))) return null;
     }
     return z;
   }
