@@ -317,8 +317,8 @@
       const k = Math.round(x);
       if (Math.abs(x - k) <= SV_REST_U) return svAtPlane(k, draw);
       const keep = { x: SV.g.x, span: SV.span };
-      SV.span = null; SV.g.set(x);
-      try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; }
+      SV.span = null; SV.g.set(x); SV.offscreen++;
+      try { return await draw(); } finally { SV.g.set(keep.x); SV.span = keep.span; SV.offscreen--; requestRender('L'); }
     },
     svGlideText: (x) => { const keep = { x: SV.g.x, span: SV.span }; SV.span = null; SV.g.set(x); try { return svReadout(); } finally { SV.g.set(keep.x); SV.span = keep.span; } },
     // the window all the planes share (the camera), the surface they are drawn on, and the map that carries z to plane
