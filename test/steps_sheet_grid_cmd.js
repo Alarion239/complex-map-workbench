@@ -16,6 +16,17 @@ const CHOICE_TARGET = 48;   // (px: a colour-style choice)
 const SETTLE_FLOOR = 300;   // (ms the page stays quiet before a state is read)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
+// a control's accessible name as the browser computes it (CDP Accessibility: a name from a list of aria-labelledby ids, or a label, is
+// what a voice-control user says), for the i-th element that selector matches, in document order
+const axName = async (selector, i = 0) => {
+  const { root } = await send('DOM.getDocument', { depth: 0 });
+  const { nodeIds } = await send('DOM.querySelectorAll', { nodeId: root.nodeId, selector });
+  if (!nodeIds[i]) return null;
+  const { nodes } = await send('Accessibility.getPartialAXTree', { nodeId: nodeIds[i], fetchRelatives: false });
+  const n = nodes && nodes[0];
+  return n && !n.ignored && n.name ? n.name.value : null;
+};
+await send('Accessibility.enable', {});
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
   steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 const open = async (w, lang, past) => {
@@ -57,13 +68,17 @@ const numChoice = () => ev(`(() => {
   const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), sheet = document.querySelector('.ph-sheet').getBoundingClientRect();
   return { tag: b.tagName, popup: b.getAttribute('aria-haspopup'), h: r.height, rowFree: row.right - r.right, inside: r.right <= sheet.right && r.left >= sheet.left, name: b.getAttribute('aria-label') };
 })()`);
-const slider = () => ev(`(() => {
+const slider = async () => {
+  const r = await sliderRead();
+  return r && Object.assign(r, { named: await axName('.ph-sheet .fader-row input[type="range"]') });
+};
+const sliderRead = () => ev(`(() => {
   const row = document.querySelector('.ph-sheet .fader-row'); if (!row) return null;
   const rng = row.querySelector('input[type="range"]'), v = row.querySelector('.fval'), lab = row.querySelector('.fl'), r = (e) => e.getBoundingClientRect(), pr = r(row.parentElement);
   return { rowFree: pr.width - r(row).width, rngW: r(rng).width, rowW: r(row).width, rngH: r(rng).height, valRight: r(row).right - r(v).right, valLeftOfLabel: r(v).left < r(lab).right,
     tab: getComputedStyle(v).fontVariantNumeric, text: v.textContent, vt: rng.getAttribute('aria-valuetext'),
     ranges: [...document.querySelectorAll('.ph-sheet input[type="range"]')].filter((i) => i.getClientRects().length && /opacity|alpha/i.test(i.id + ' ' + i.className)).length,
-    labShown: lab.getClientRects().length > 0, named: (document.getElementById(rng.getAttribute('aria-labelledby')) || {}).textContent, groupLabel: row.closest('.ph-grp').firstElementChild.textContent };
+    labShown: lab.getClientRects().length > 0, groupLabel: row.closest('.ph-grp').firstElementChild.textContent };
 })()`);
 // the sheet's controls: each visible control's kind and its name, and the targets that are too small (a checkbox is its label's target)
 const controls = () => ev(`(() => {
@@ -151,6 +166,15 @@ info.sliderTexts = said;
 ok('the sheet shows the opacity, grid step and mesh sliders', ['opacityRange', 'patScale', 'meshRange'].every((id) => said.some((x) => x.id.includes(id))), said);
 ok('each slider\'s aria-valuetext is its readout\'s text (opacity "85 %", grid step "×1", mesh "240")', said.length > 0 && said.every((x) => x.text && x.said === x.text), said);
 ok('the readout is not the raw slider position (the mesh slider\'s position is not 240)', said.some((x) => x.id === 'meshRange' && x.value !== x.text), said);
+// (#1642, label in name: a voice-control user says what they see) each slider's accessible name contains its visible label
+const sliderRows = await ev(`(() => [...document.querySelectorAll('.ph-sheet input[type="range"]')].map((i, k) => {
+  const row = i.closest('.fader-row'), fl = row && row.querySelector('.fl');
+  return i.getClientRects().length ? { k, id: i.id || i.className, visible: fl && fl.getClientRects().length ? fl.textContent.trim() : null } : null;
+}).filter(Boolean))()`);
+const sliderNames = [];
+for (const r of sliderRows) sliderNames.push({ id: r.id, visible: r.visible, name: (await axName('.ph-sheet input[type="range"]', r.k)) || '' });
+info.sliderNames = sliderNames;
+ok('each slider\'s accessible name contains its visible label (the mesh slider\'s "Mesh quality")', sliderNames.some((x) => x.id === 'meshRange' && x.visible) && sliderNames.every((x) => !x.visible || x.name.toLowerCase().includes(x.visible.toLowerCase())), sliderNames);
 // a style chosen in the open sheet refills it: the settings that style has (n for Tiles, the grid step for Grid) replace the old style's
 const styleControls = () => ev(`(() => ({ n: !!document.querySelector('.ph-sheet #secSel'), step: !!document.querySelector('.ph-sheet #dcGridSel'),
   checked: (document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]') || {}).dataset && document.querySelector('.ph-sheet .sty-seg [aria-checked="true"]').dataset.v }))()`);

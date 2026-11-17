@@ -296,7 +296,7 @@
     }
     return probeTeachUntil > now ? `<span class="rhint rteach">${SV.on ? $t('Hold and slide to read {f}', { f: svMapCall('html') }) : $t('Hold and slide to read F(z)')}</span>` : '';
   };
-  const idleLeft = () => (lGlobe() ? `<span class="rhint">${globeHint('L')}</span>`
+  const idleLeft = () => (lGlobe() ? `<span class="rhint rglobe">${globeHint('L')}</span>`
     : lLand() ? `<span class="rhint">${tool !== 'select' && tool !== 'formula' ? $t('Draw in X → Y (1)') : landSheetsHint() || (touchUI() ? $t('Drag to orbit, pinch to zoom') : $t('Drag to orbit, Shift-drag to pan'))}</span>` : rk('', paneL ? scaleText(paneL) : '') + probeTeach());
   // the idle right readout: the scale, a drawing hint, or how to draw on or turn the w-globe (a short hint in the UI face)
   function idleRight() {
@@ -357,8 +357,15 @@
       for (const s of ['L', 'R']) { const d = footDue[s]; footDue[s] = 0; if (d) layoutFootNow(s, d === 2); }
     });
   }
-  // (laying the strip out moves its controls out of the page and back, which drops the focus to the body: the control that had
-  // it takes it again)
+  // the strip's children made exactly `list`, in that order. A control already in the strip is moved where it belongs with
+  // moveBefore, which keeps its focus (replaceChildren takes the controls out of the page and puts them back: the focused one
+  // is blurred); a browser without it sets the whole list at once, and layoutFootNow gives the focus back
+  function setKids(f, list) {
+    if (typeof f.moveBefore !== 'function') { f.replaceChildren(...list); return; }
+    list.forEach((k, i) => { const at = f.children[i]; if (at === k) return; if (k.parentNode === f) f.moveBefore(k, at || null); else f.insertBefore(k, at || null); });
+    while (f.children.length > list.length) f.lastElementChild.remove();
+  }
+  // (a browser without moveBefore blurs the strip's focused control when it is laid out: the control that had it takes it again)
   function layoutFootNow(side, force) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), a = document.activeElement;
     layoutFootRun(side, force);
@@ -433,7 +440,7 @@
     else {
       if (!ft.widths) {
         // natural widths, measured once per build with every control inline on one row
-        if (f.childElementCount !== kids.length || [...f.children].some((c, i) => c !== kids[i])) f.replaceChildren(...kids);
+        if (f.childElementCount !== kids.length || [...f.children].some((c, i) => c !== kids[i])) setKids(f, kids);
         f.classList.add('measuring');
         const ws = kids.map((c) => c.getBoundingClientRect().width);
         f.classList.remove('measuring');
@@ -497,7 +504,7 @@
     // the row stays last, beside ⋯; it sits at the head's right, so a style that changes the title, and with it how many
     // toggles fit, moves only the toggles)
     const inl = kids.slice(0, n), styl = inHead && inl.length && inl[0].id === 'dcSeg';
-    f.replaceChildren(...(pat ? [pat] : []), ...(styl ? [...inl.slice(1), inl[0]] : inl), ...(b ? [b] : []));
+    setKids(f, [...(pat ? [pat] : []), ...(styl ? [...inl.slice(1), inl[0]] : inl), ...(b ? [b] : [])]);
     f.classList.toggle('collapsed', !n);
     if (inHead) { fitTitle(side); ft.pre = pre; }   // (the head's room changed with the controls: the title is fitted again)
     if (open) {
@@ -562,7 +569,9 @@
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
     pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
-    if (!refresh) { const first = pop.querySelector('button, input, select'); if (first) first.focus({ preventScroll: true }); }
+    // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
+    // segmented row, whose other buttons are tabindex -1)
+    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null

@@ -141,7 +141,7 @@ for (const w of [1024, 1440]) {
   await ev(`document.getElementById('undoBtn').disabled, 1`);
   // (reads it once the page has booted: after a load or a language switch, fixed sleeps ran out on a machine that draws
   // in software, and the snapshot threw)
-  const snap = async () => { for (let i = 0; i < 300 && (await ev(`typeof __cmwState === 'function' && !!document.getElementById('undoBtn')`)) !== true; i++) await sleep(200); return JSON.parse(await ev(snapOf)); };
+  const snap = async () => { for (let i = 0; i < 300 && (await ev(`typeof __cmwState === 'function' && !!document.getElementById('undoBtn')`)) !== true; i++) await sleep(200); return await evJson(snapOf); };
   const before = await snap();
   await setLang('ru');
   await sleep(4500); await settle(1500);

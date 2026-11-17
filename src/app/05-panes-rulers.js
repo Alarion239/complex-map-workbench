@@ -72,6 +72,8 @@
   // ---------------- panes ----------------
   let paneL, paneR;
   let cutHandlesL = [];
+  let cutMarksL = [];   // the cuts' handles on a frame between two planes: drawn like the editable ones, never hit-tested
+
   let hoverCut = 0;
   // the zeros and poles of a 'zp' step in its input plane (drawZpHandles): screen positions, the hovered one and the
   // selected one (Delete removes it); {k, kind: 'zeros' | 'poles', i}
@@ -109,8 +111,8 @@
     // X Landscape: the relief of the height over X
     if (lLand()) {
       cutHandlesL = []; leftSphereInfo = null; render3D(pane, SV.on ? svLandRest() : undefined);
-      // the relief has no place for the target preimages (they show in X Plane and Sphere): said, not dropped silently
-      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show in X → Y and Phase (1, 2)'));
+      // the relief has no place for the target preimages (they show on the Plane and the Sphere): said, not dropped silently
+      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show on the Plane and the Sphere'));
       return;
     }
     // X Sphere: this plane on the Riemann sphere, with its shapes or (Phase) the phase portrait (orbit only; drawing on
@@ -246,6 +248,7 @@
     zpHandlesL = [];
     if (showL && !sphL) {
       drawCutHandles(paneL, cutHandlesL);
+      drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // ([#253] a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
@@ -474,7 +477,7 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy ? 'busy' : 'ok');
+    setLed('L', busy || colourPending() ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : undefined);
     setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
@@ -507,7 +510,7 @@
     // (the steps view draws the Cauchy style on plane z only, where its curve lies: with the colour plane elsewhere, or no
     // curve selected, the plane is paper with its reason)
     const cauchyWhy = SV.on && !hv ? svCauchyWhy(cz) : '';
-    if (cauchyWhy) paper(pane);
+    if (cauchyWhy) { paper(pane); setColourWaiting(false); }   // (paper waits on no program)
     else {
       // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
       cst.standIn = colourStandIn(pane, cst.map);
@@ -817,7 +820,7 @@
     render3D.pick = carry && carry.rest == null ? null : info && !figMode ? { cam: view, box, info, mask, w: pane.w, h: pane.h, F: carry ? svLandPickF(carry, src) : hv ? hv.F : focusF() } : render3D.pick;
     glStatusNote(pane);
   }
-  render3D.linear = undefined; render3D.ticks = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
+  render3D.linear = undefined; render3D.ticks = undefined; render3D.names = undefined; render3D.carried = undefined; render3D.box = undefined; render3D.mask = undefined; render3D.floor = undefined; render3D.muScales = undefined; render3D.muH = undefined; render3D.sheetsInfo = undefined; render3D.pick = undefined;
   // the Landscape's Inside-regions mask m (the frame's, null without) at the point (x, y) of its plane: its alpha 0 to 1,
   // null with no mask, and outside its box null, or with clamp the alpha of the nearest edge texel (the shader's);
   // px: the mask's pixels (RGBA, row by row) when the caller has read them for many points, else this point's is read
@@ -914,6 +917,9 @@
     const hexMix = (a, b, t) => { const A = GLR.hexRGB(a), B = GLR.hexRGB(b); return `rgb(${A.map((x, k) => Math.round(255 * (x + (B[k] - x) * t))).join(',')})`; };
     const bgAt = (y) => hexMix(TH.landTop, TH.landBottom, Math.min(1, Math.max(0, y / pane.h)));
     const taken = [];
+    // (the axis names' boxes, [x, y, w, h] in CSS px with their margins: Re and Im of the plane, the height's name; tests)
+    const names = [];
+    render3D.names = names;
     const free = (r) => r[0] > 1 && r[1] > 1 && r[0] + r[2] < pane.w - 1 && r[1] + r[3] < pane.h - 1 && !taken.some((q) => r[0] < q[0] + q[2] && q[0] < r[0] + r[2] && r[1] < q[1] + q[3] && q[1] < r[1] + r[3]);
     // seen from below the floor, the relief hangs over the floor's edges: a floor label inside the block's outline
     // on screen would print over the surface, so it is left out (floor: true)
@@ -948,7 +954,7 @@
       ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillStyle = color;
       let x = cx - w / 2;
       runs.forEach(([t, it], i) => { ctx.font = fontOf(it); haloText(ctx, t, x, cy, halo || bgAt(cy)); x += ws[i]; });
-      return true;
+      return r;
     };
     const micro = `400 10px ${TH.mono}`, math12 = `500 12px ${TH.math}`;
     const minus = (s) => I18N.num(s.replace(/-/g, '−'));   // tick labels: the decimal comma in Russian
@@ -984,7 +990,7 @@
     // axis names beyond the tick labels, at the middle of each edge
     const title = (p, out, runs) => {
       const a = P(p), b = P([p[0] + out[0] * 0.06, p[1] + out[1] * 0.06, z0]);
-      if (a && b) for (const gap of [24, 34, 46]) if (label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true)) break;
+      if (a && b) for (const gap of [24, 34, 46]) { const r = label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true); if (r) { names.push(r); break; } }
     };
     const vz = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
     if (reOn) title([0, sy * ay, z0], [0, sy], [['Re ', false], [vz, true]]);
@@ -1045,7 +1051,7 @@
     };
     const tries = below ? [[r1, [dir, 0], 10], [rim(r1[1]), [dir, 0], 6], [rim(r1[1] - 16), [dir, 0], 6], [up(16), [dir, 0], 10], [r1, [0, -1], 6], [r1, [0, -1], 16]]
       : [[r1, [0, -1], 6], [r1, [0, -1], 16], [r1, [dir, 0], 10], [up(16), [dir, 0], 10]];
-    for (const [a, d, gap] of tries) if (label(tl, a, d, gap, math12, null, TH.ink2, below)) break;
+    for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
   // Y Sphere: the images on the w-globe (U-b; the phase globe is X Sphere + Phase, renderSphereLeft)
@@ -1161,7 +1167,7 @@
     const stretch = { shrink: GLR.hexRGB(TH.stretchShrink), grow: GLR.hexRGB(TH.stretchGrow), mid: GLR.hexRGB(TH.stretchMid) };
     const smR = regionsOn ? globeRpx(pane, c, base) : 0;   // the globe's radius, device px (SphereMesh's view)
     let recs = null;
-    if (regionsOn && GLR.packShapes && GLR.drawInverse && S.exactImages !== false && PHASE[role].globe
+    if (regionsOn && GLR.packShapes && GLR.drawInverse && PHASE[role].globe
       && S.shapes.some((s) => s.visible !== false && kindType(s) === 'area')) {
       const m0 = normalizeMap(map);
       if ((m0.mode || 0) === 0 && invPlan(m0.a || 0, m0.b || 0).ok) {

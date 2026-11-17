@@ -303,9 +303,6 @@
       // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
       // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
       cauchyShow: 'both', cauchyPlus: false,
-      // exact images (SPEC 10.1): mapped areas drawn per pixel through the inverse of the chain where it has one; an
-      // internal switch (no visible option), kept in saved state
-      exactImages: true,
       // v15: the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
       // (S.sv, the steps view's {at, T, scope, surf, speed} (#366): absent until ?view=steps writes it, so the default
@@ -696,7 +693,7 @@
     st.cauchyPlus = !!st.cauchyPlus;
     delete st.deriv;
     st.sheets = !!st.sheets;
-    st.exactImages = st.exactImages !== false;
+    delete st.exactImages;   // (exact images are always on: an old save's switch is read and ignored)
     st.params = Params.sanitize(o.params);
     { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }   // (#366)
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
