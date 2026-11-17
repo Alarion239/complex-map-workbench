@@ -40,7 +40,7 @@ const PARK_WORD = { en: { col: 'coloured from', carried: 'colour carried from' }
 
 for (const lang of ['en', 'ru']) {
   await view(1440, 900, false);
-  await nav(`${U}/test.html?ns=stepnames-${lang}-${Date.now()}&view=steps&lang=${lang}`); await settle(2500);
+  await nav(`${U}/test.html?ns=stepnames-${lang}-${Date.now()}&view=steps&lang=${lang}`);
   await logs();
   ok(`${lang}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   ok(`${lang}: Cayley, then cube loads`, await ev('__cmwExample(8)'), null);
@@ -209,7 +209,7 @@ const SHEETS = [
 for (const [lang, steps, want] of SHEETS) {
   await view(1440, 900, false);
   const ns = `stepsheets-${lang}-${steps[0].params.n}-${Date.now()}`;
-  await nav(`${U}/gl-helpers.html`); await sleep(300);
+  await nav(`${U}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify({ v3: true, v4: true, nextId: 50, focus: 0, steps, sheets: true, height: 'im', shapes: [{ id: 's1', kind: 'disc', c: [0.3, 0.2], r: 1, ci: 0, visible: true }] }))}); 1`);
   await nav(`${U}/test.html?ns=${ns}&view=steps&lang=${lang}`);
   for (let i = 0; i < 80 && !(await ev('typeof __cmwSteps === "function" && __cmwSteps().on')); i++) await sleep(250);
