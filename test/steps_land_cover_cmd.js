@@ -34,6 +34,8 @@ const surface = async (keep) => {
 // the share of the surface pixels of the frame now or of the frame kept as tag (saturation over 30) that are over 32/255
 // apart from each other in a channel
 const apart = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, e = window.__lcKeep[${JSON.stringify(tag)}]; const sat = (a, i) => Math.max(a[i], a[i + 1], a[i + 2]) - Math.min(a[i], a[i + 1], a[i + 2]) > 30; let n = 0, far = 0; for (let i = 0; i < d.length; i += 4) { if (!sat(d, i) && !sat(e, i)) continue; n++; if (Math.max(Math.abs(d[i] - e[i]), Math.abs(d[i + 1] - e[i + 1]), Math.abs(d[i + 2] - e[i + 2])) > 32) far++; } return +(far / Math.max(n, 1)).toFixed(4); })()`);
+// the pixels bare (saturation 30 or less) in the kept frame tag where the kept frame ref has surface
+const bare = (tag, ref) => ev(`(() => { const A = window.__lcKeep[${JSON.stringify(tag)}], B = window.__lcKeep[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > 30; let n = 0; for (let i = 0; i < A.length; i += 4) if (sat(B, i) && !sat(A, i)) n++; return n; })()`);
 const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
 const LOG = [{ type: 'log', params: { cut: 180, k: 0 }, on: true }];
 const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
@@ -41,6 +43,8 @@ const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: 
 // also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All sheets;
 // arrive: the arrival row against the parked plane)
 const ARRIVE_SLACK = 0.05;
+const SEAM_GAP = 20;    // the seam (#1799): pixels it may leave bare that the frame without it covers (edges)
+const SLIT_MIN = 200;   // the slit the frame without the seam leaves along the cut, at least
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
   { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true, arrive: true },
@@ -103,9 +107,29 @@ for (const [name, steps] of [['Möbius, √', MOB], ['log', LOG]]) {
     await surface('rest');
     await ev(`__cmwSteps({ x: ${last - 0.002} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const carry = await ev('__cmwLandCarry()');
-    r[sheets ? 'on' : 'off'] = { far: await apart('rest'), carried: !!carry, sheetPlaces: !!(carry && carry.sheetPlaces) };
+    await surface('f998');
+    r[sheets ? 'on' : 'off'] = { far: await apart('rest'), carried: !!carry, sheetPlaces: !!(carry && carry.sheetPlaces), seams: carry && carry.seams, bare: await bare('f998', 'rest') };
+    // (All sheets, Möbius then √: the seam, #1799, at u = 1/2 and .998, against the same frame without it)
+    if (sheets && name === 'Möbius, √') {
+      for (const u of [0.5, 0.998]) {
+        await ev(`__cmwSteps({ glideSeams: 0, x: ${last - 1 + u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+        await surface('ns' + u);
+        await ev(`__cmwSteps({ glideSeams: 1, x: ${last - 1 + u} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
+        await surface('s' + u);
+        r['seam ' + u] = { slit: await bare('ns' + u, 's' + u), added: await bare('s' + u, 'ns' + u), seams: (await ev('__cmwLandCarry()') || {}).seams };
+      }
+    }
   }
   ok(`${name}, s = ${SMALL}, All sheets at u = .998: each sheet over its own image`, r.on.carried && r.on.sheetPlaces, r);
   ok(`${name}, s = ${SMALL}, All sheets at u = .998: at most ${r.off.far} + ${ARRIVE_SLACK} of the surface pixels apart from the plane it arrives at, parked, as sheets off`, r.on.far <= r.off.far + ARRIVE_SLACK, r);
+  if (name === 'Möbius, √') {
+    ok(`${name}, s = ${SMALL}, All sheets at u = .998: bare where the parked plane has surface no more often than sheets off (+ ${SEAM_GAP} px)`, r.on.bare <= r.off.bare + SEAM_GAP, r);
+    for (const u of [0.5, 0.998]) {
+      const g = r['seam ' + u];
+      ok(`${name}, s = ${SMALL}, All sheets at u = ${u}: the seam's sheets are drawn`, g.seams >= 1, g);
+      ok(`${name}, s = ${SMALL}, All sheets at u = ${u}: the seam only adds surface (at most ${SEAM_GAP} px bare that the frame without it covers)`, g.added <= SEAM_GAP, g);
+      if (u === 0.5) ok(`${name}, s = ${SMALL}, All sheets at u = ${u}: without it the slit along the cut is open (at least ${SLIT_MIN} px bare where the frame has surface)`, g.slit >= SLIT_MIN, g);
+    }
+  }
 }
 return { pass: !fails.length, fails, info };

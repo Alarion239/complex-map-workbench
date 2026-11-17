@@ -467,6 +467,11 @@
     // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
     const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.b, carry.s) : [];
     carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    // (All sheets: the carry's own sheets tear along the image of the cuts of the steps the glide crosses, where one sheet
+    // meets the next, #1799. sheetSeam runs a draw with those cuts turned half a turn, svGlideSeams' first surface, whose
+    // sheets are continuous there: drawLandscape draws them before the sheets themselves, so they show in the slit alone)
+    const turned = S.sheets && !g.all && !carry.plain && SV.glideSeams !== 0 && svGlideSheets(g.b, carry.s).length ? svSheetMemo.seamList()[0] : null;
+    carry.sheetSeam = turned ? { draw: (f) => svOnSheets(turned, f) } : null;
     render3D(pane, carry);
     return true;
   }
@@ -490,7 +495,31 @@
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
-    return near.map(patch).concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    const branches = svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
+    return near.map(patch).concat(branches.map(patch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+  }
+  // The branch points of a glide's map from plane s (map.base): where the input of a multivalued step it applies (a root,
+  // power or logarithm, SV_SHEET_STEPS) is 0, in the carried box src or the far patches' inner ring about it (and within
+  // reach of it), nearest the box's centre first, at most LAND_BRANCHES. There the map's sheets meet and a cell of the
+  // box's grid or of a far patch is stretched past the tear limit, so the carried surface had a hole about the point
+  // (#1799); a pole patch's polar grid about it is not stretched. They do not move with the glide, so they are searched
+  // once per plane s, steps and box, as the zeros of the map from plane s to each step's input
+  const LAND_BRANCHES = 4, svLandBranchMemo = { key: '', pts: [] };
+  function svLandBranches(map, src, reach) {
+    const base = map.base || 0, hi = map.mode === 1 ? map.hi || 0 : map.b || 0, ks = [];
+    for (let k = base + 1; k <= hi; k++) if (stepActive(k) && SV_SHEET_STEPS.includes(S.steps[k - 1].type)) ks.push(k);
+    const key = JSON.stringify([chainSig[nSteps()], base, ks, src.x0, src.x1, src.y0, src.y1, reach]);
+    if (svLandBranchMemo.key === key) return svLandBranchMemo.pts;
+    const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = LAND_FAR_NEAR * LAND_FAR_LAP * Math.min(src.x1 - src.x0, src.y1 - src.y0) / 2 + reach;
+    const ring = { x0: x - r, x1: x + r, y0: y - r, y1: y + r }, pts = [];
+    for (const k of ks) {
+      const G = rangeF(base, k - 1);
+      const inv = (z) => { const w = G(z); return w && CX.isFin(w) && !CX.isZero(w) ? CX.inv(w) : null; };
+      for (const p of svDrain(svPolesIn(inv, ring, LAND_HEIGHT_GRID, ring, { n: 0, at: 0 }))) if (pts.every((q) => Math.hypot(q.re - p.re, q.im - p.im) > 1e-9 * (1 + r))) pts.push(p);
+    }
+    const out = pts.sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_BRANCHES);
+    Object.assign(svLandBranchMemo, { key, pts: out });
+    return out;
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
   // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
