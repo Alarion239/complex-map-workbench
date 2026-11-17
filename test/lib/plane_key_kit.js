@@ -1,7 +1,7 @@
 // What the steps view's per-plane key suites share (steps_plane_key_cmd.js on a laptop, steps_phone_key_cmd.js on a phone):
 // the page they open (example 1 in the steps view), parking the thread and T, the pane's legend, and the sweep over every
 // surface, place of T and plane that checks the key's kind and caption. An expression for eval in a suite:
-// `const K = eval(fs.readFileSync(...))` (the suite's own view, go, ev, settled and sleep are used; call view() first).
+// `const K = eval(fs.readFileSync(...))` (the suite's own view, go, ev, evJson, settled and sleep are used; call view() first).
 ({
   PLANE: ['z', 'w₁', 'w₂'],
   START_WAIT: 120000,   // how long the page may take to start up, ms
