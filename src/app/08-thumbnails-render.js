@@ -1,10 +1,16 @@
   // ---------------- render scheduling ----------------
   const dirty = { L: false, R: false, OL: false, OR: false, P: false, G: false }; // G: the legend chip
-  let rafId = 0;
+  // renderAsks: how many times a frame of the left pane has been asked for by a change (requestRender, a view tween, a
+  // motion remapped onto an edited chain); the frames a held glide draws over and over count only through their place,
+  // the view and the chain (svRenderMoving keeps the held frame on the pane while none of these changed)
+  let rafId = 0, renderAsks = 0;
   function requestRender(...which) {
-    for (const w of which.length ? which : ['L', 'R']) if (w) dirty[w] = true;
+    for (const w of which.length ? which : ['L', 'R']) if (w) { dirty[w] = true; if (w === 'L') renderAsks++; }
     if (!rafId) { rafId = requestAnimationFrame(frame); rafReqT = performance.now(); }
   }
+  // the left pane's picture changed in the frame under way: drawn in it, and counted (renderAsks) so that a held frame
+  // is not kept over it. Every direct write of dirty.L that changes what the pane shows goes through here
+  function leftChanged() { dirty.L = true; renderAsks++; }
   let lastInputT = 0, motionInT = 0;
   // motionInT: the last CONTINUOUS input (a wheel, a pointer moved with a button down, a range slider's input, a held
   // key); a hover or a single click is not motion (interacting(): a ready inverse program is not held back for it)
@@ -297,7 +303,7 @@
       tw.view.cx = v.cx; tw.view.cy = v.cy; tw.view.s = v.s;
       if (u >= 1) { tweens.splice(i, 1); if (tw.onDone) tw.onDone(); }
     }
-    dirty.L = true; dirty.R = true;
+    leftChanged(); dirty.R = true;
   }
   // compute a fitted view for a pane without applying it
   function fittedView(pane, k, extraKs, F) {
