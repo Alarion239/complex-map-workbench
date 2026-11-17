@@ -27,8 +27,8 @@ await view(1440, 900, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 // (at rest on plane i, the idle job done: its results change the cells a frame draws, so frames compared are kept after it)
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000, until: '!__cmwSvKey().busy' }); await ev(rAF2); };
-const carried = async () => JSON.parse(await ev('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)'));
-const heightAt = async (x, y) => JSON.parse(await ev(`JSON.stringify(typeof __cmwLandHeightAt === 'function' ? __cmwLandHeightAt(${x}, ${y}) : 'no hook')`));
+const carried = async () => await evJson('JSON.stringify(typeof __cmwLandCarry === "function" ? __cmwLandCarry() : null)');
+const heightAt = async (x, y) => await evJson(`JSON.stringify(typeof __cmwLandHeightAt === 'function' ? __cmwLandHeightAt(${x}, ${y}) : 'no hook')`);
 const near = (v, w) => Array.isArray(v) && Math.hypot(v[0] - w[0], v[1] - w[1]) <= 1e-6 * (1 + Math.hypot(w[0], w[1]));
 const step = (type, params) => ({ type, params: params || {}, on: true });
 const P = step('custom', { expr: 'z^2 + 1', cut: 180 }), ROOT = step('root', { n: 2 }), EXP = step('exp');
@@ -44,7 +44,7 @@ async function frame(steps, T, plane, tag, o = {}) {
   await settled({ max: 60000 });
   await ev(`(document.querySelector('#heightSeg button[data-v="${height}"]') || {}).click?.(), 1`);
   await rest(plane);
-  const st = JSON.parse(await ev('JSON.stringify({ T: __cmwSteps().T, planes: __cmwSteps().planes, height: (document.querySelector("#heightSeg [aria-pressed=true], #heightSeg .on") || {}).dataset?.v || null })'));
+  const st = await evJson('JSON.stringify({ T: __cmwSteps().T, planes: __cmwSteps().planes, height: (document.querySelector("#heightSeg [aria-pressed=true], #heightSeg .on") || {}).dataset?.v || null })');
   ok(`${tag}: the frame is still`, await grab(tag), null);
   await keep(tag);
   return Object.assign(st, { carry: await carried() });

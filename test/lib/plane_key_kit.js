@@ -1,7 +1,7 @@
 // What the steps view's per-plane key suites share (steps_plane_key_cmd.js on a laptop, steps_phone_key_cmd.js on a phone):
 // the page they open (example 1 in the steps view), parking the thread and T, the pane's legend, and the sweep over every
 // surface, place of T and plane that checks the key's kind and caption. An expression for eval in a suite:
-// `const K = eval(fs.readFileSync(...))` (the suite's own view, go, ev, settled and sleep are used; call view() first).
+// `const K = eval(fs.readFileSync(...))` (the suite's own view, go, ev, evJson, settled and sleep are used; call view() first).
 ({
   PLANE: ['z', 'w₁', 'w₂'],
   START_WAIT: 120000,   // how long the page may take to start up, ms
@@ -19,7 +19,7 @@
     return ev('__cmwSteps().planes.length');
   },
   next: () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1))))'),
-  legend: async () => JSON.parse(await ev('JSON.stringify(__cmwLegend())')),
+  legend: async () => await evJson('JSON.stringify(__cmwLegend())'),
   // T at plane T, the thread parked at plane i (settled); -> the legend
   park: async function (T, i) {
     await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${i}, now: true }), 1)`);
