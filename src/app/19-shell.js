@@ -132,12 +132,7 @@
     // Phase colors (issue 8): the palette menu, with a preview of each
     const pb = $('palBtn');
     if (pb) {
-      pb.setAttribute('aria-expanded', 'false');
-      pb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, palItems());
-        pb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { pb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
+      pb.addEventListener('click', (e) => openMenu(e.currentTarget, palItems()));
       syncPalBtn();
     }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,

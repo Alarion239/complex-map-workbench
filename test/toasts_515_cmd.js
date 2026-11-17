@@ -18,7 +18,7 @@ for (const [w, h] of [[1280, 800], [1440, 900]]) CASES.push(['en', 'steps', w, h
 for (const [lang, vw, w, h] of CASES) {
   const at = `${lang} ${vw} ${w}`;
   await view(w, h, false);
-  await nav(`${U}?ns=toast515-${lang}-${vw}-${w}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`); await settle(2500);
+  await nav(`${U}?ns=toast515-${lang}-${vw}-${w}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`);
   await ev(LIB);
   await add('sine'); await add('exponential');
   // (a slow page can show the toast and drop it before the measure: another step brings a fresh one)
