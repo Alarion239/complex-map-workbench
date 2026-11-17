@@ -1452,11 +1452,12 @@
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
-      // (on a phone the chip lies in the plot, folded: it stays below the readout as it changes size. The readouts are the plot's own elements and the chip stays
-      // as long as the page does, so the observer is never disconnected; on a laptop the chip is placed when it is pressed, as before)
+      // (on a phone the chip lies in the plot, folded: it stays below the readout as it changes size. The readouts are the pane's own plot's elements, wherever the chip stands
+      // when this runs (in the pane's head until the layout places the keys), and they and the chip stay as long as the page does, so the observer is never disconnected; it
+      // acts only while the root is .ph, and on a laptop the chip is placed when it is pressed, as before)
       try {
-        const plot = el.parentNode, ro = new ResizeObserver(() => { if (document.documentElement.classList.contains('ph')) requestAnimationFrame(() => placeKeyPop(el)); });
-        if (plot && !/** @type {HTMLElement} */ (plot).classList.contains('pane-head')) for (const e of /** @type {HTMLElement} */ (plot).querySelectorAll(':scope > .chip.readout')) ro.observe(e);
+        const pane = el.closest('.pane'), plot = pane && pane.querySelector('.plot'), ro = new ResizeObserver(() => { if (document.documentElement.classList.contains('ph')) requestAnimationFrame(() => placeKeyPop(el)); });
+        if (plot) for (const e of plot.querySelectorAll(':scope > .chip.readout')) ro.observe(e);
       } catch (e) { /* no ResizeObserver */ }
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
     }

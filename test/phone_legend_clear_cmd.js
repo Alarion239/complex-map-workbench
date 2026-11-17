@@ -9,7 +9,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
-const VIEWPORTS = [[360, 640], [390, 844], [430, 932], [568, 320]], HIT_PX = 8, STILL_MS = 150, SETTLE_MAX = 5000, GAP_PX = 1, CUT_MAX = 1;
+const VIEWPORTS = [[360, 640], [390, 844], [430, 932], [568, 320]], HIT_PX = 8, STILL_MS = 150, SETTLE_MAX = 5000, GAP_PX = 1, CUT_MAX = 1, TWO_LINE_PX = 36;
 const measure = () => ev(`(() => {
   const rect = (e, pad = 0) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left - pad, t: r.top - pad, r: r.right + pad, b: r.bottom + pad }; };
   const lg = document.getElementById('leftLegend'), x = document.querySelector('.cm-x'), chip = document.querySelector('#draftChipL.cm-on'), ro = document.querySelector('#plotL > .chip.readout');
@@ -61,6 +61,23 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('568×320: the key is placed again, below the readout, once the readout has two lines', dropped.ok, { drop: m.drop, wait: dropped });
   ok('568×320: the two-line readout reaches the folded legend (control)', !!m.readout && !!home.reach && m.readout.r > home.reach.l && m.readout.b > home.reach.t, { readout: m.readout, reach: home.reach });
   ok('568×320: the legend\'s hit area is clear of the two-line readout', !inter(m.reach, m.readout), { reach: m.reach, readout: m.readout, drop: m.drop });
+}
+// the classic view at 568 × 320 on its first load, a construction tool in hand: X and Y side by side, and Y's own readout of two lines ("Draw a target in Y ...") beside
+// the folded key of the plane Y (#rightLegend): the page, which attached its observer on this first load, places the key below the readout; no state is loaded, no page loaded twice
+{
+  const [w, h] = [568, 320];
+  await view(w, h, false, true);
+  const ns = 'plc3' + (Date.now() % 1000000);
+  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
+  await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
+  await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
+  const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('rightLegend').style.getPropertyValue('--lg-drop') !== ''` });
+  const m = await ev(`(() => { const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }; const lg = document.getElementById('rightLegend'), ro = document.querySelector('#plotR > .chip.readout'), bar = document.querySelector('.ph-ctx.in'), r = rect(lg); return { legend: r, reach: r && { l: r.l - ${HIT_PX}, t: r.t - ${HIT_PX}, r: r.r + ${HIT_PX}, b: r.b + ${HIT_PX} }, readout: rect(ro), text: ro ? ro.textContent.trim().slice(0, 40) : null, bar: rect(bar), planes: [...document.querySelectorAll('.pane')].map((p) => Math.round(p.getBoundingClientRect().width)), drop: lg.style.getPropertyValue('--lg-drop') }; })()`);
+  info['classic first load, real readout'] = m;
+  ok('classic 568×320, first load: X and Y are both shown', m.planes.length === 2 && m.planes.every((x) => x > 0), m.planes);
+  ok('classic 568×320, first load: Y\'s readout has two lines and reaches the folded key (control)', !!m.readout && m.readout.b - m.readout.t > TWO_LINE_PX && m.readout.r > m.reach.l, { readout: m.readout, reach: m.reach });
+  ok('classic 568×320, first load: the key is placed again, below Y\'s readout, with no reload', dropped.ok, { drop: m.drop, wait: dropped });
+  ok('classic 568×320, first load: the key\'s hit area is clear of Y\'s readout and above the bar', !inter(m.reach, m.readout) && (!m.bar || m.legend.b <= m.bar.t + 0.5), { reach: m.reach, readout: m.readout, bar: m.bar });
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5);
 ok('no errors', !errs.length, errs);
