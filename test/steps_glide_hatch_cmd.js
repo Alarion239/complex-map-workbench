@@ -16,7 +16,6 @@ const DEPART_U = 1e-4, ARRIVE_U = 0.998, HATCH_MIN = 0.9, SHRINK_MIN = 0.03, MIN
 const GREY_SPREAD = 3, GREY_LO = 100, GREY_HI = 130, INSET = 0.9;
 const SETTLE_MS = 60000;
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 const EXAMPLE = names.indexOf('The Douady–Hubbard map');
 ok('the example The Douady–Hubbard map is in the guide', EXAMPLE >= 0, names.length);
