@@ -524,8 +524,9 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
   };
-  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
-  // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
+  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
+  // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
+  // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
   // of it at the same time t (the map spec of mode 3 and its CPU twin), the planes between left out; not across a d/dz, whose
   // step is no map
@@ -1856,12 +1857,18 @@
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false };
-    const plot = (k, al) => {
+    // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
+    const plot = (k, al, noValue) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true });
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
     };
     const colour = () => {
+      // (between planes, under the carried colour: the departure plane's no-value colour, its NaN hatch where its map
+      // has no value at the pixel's point, which the carried colour covers wherever a point of the glide arrives, so a
+      // pixel no point reaches shows the departure's hatch and the hatch shrinks as the points arrive (#1443's rule a);
+      // Inside regions only under the regions' mask, which keeps it inside the regions)
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) plot(a, 1, true);
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {
@@ -1945,31 +1952,31 @@
   }
   // Inside regions between two planes: the alpha of the regions of later planes (all: and of the colour's plane) in the
   // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
-  // map), at the opacity they have at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA),
-  // which writes alpha alone under the caller's write mask. Nothing when none is visible or the pass cannot draw them
+  // map), which writes alpha alone under the caller's write mask. A region's look goes from the one it has at rest on
+  // the glide's first plane to the one it has on the plane the glide reaches, by its share of its own look (svStagedOf's
+  // own): its own opacity at 1, pulled back (stagePullbacks: PULL_ALPHA, and the boundary band, the mask's more opaque
+  // line that drawPreimage draws at rest, so the carried colour shows stronger there) at 0, mixed in between. Nothing
+  // when none is visible or the pass cannot draw them
   function svStagedMask(pane, all) {
     const st = svStagedOf(all);
     if (!st) return;
-    // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
-    // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
-    // opaque line that drawPreimage draws at rest, so the carried colour shows stronger there)
-    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => (st.nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
-    const later = st.list.map((x, i) => i).filter((i) => !st.nearer(st.list[i]));
-    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A }));
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => { const p = PULL_ALPHA * dimK(x); return p + st.own(x) * (1 - p); });
+    const pulled = st.list.map((x, i) => i).filter((i) => st.own(st.list[i]) < 1);
+    svDrawInverse(pane, pulled.map((i) => st.list[i]), pulled.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A * (1 - st.own(x)) }));
   }
-  // The shapes of the plane the glide reaches, in the frames where it is the nearer plane (from the midpoint on), that the
-  // inverse pass strokes with the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour over its
-  // casing), where it puts a region's boundary or the curve itself: Map shape -> its inverse path, or null. Inside
-  // regions and Everywhere. The pulled-back regions' band is the mask's (svStagedMask); the earlier planes' strokes are
-  // the outline pass's (svShapeMap)
+  // The shapes of the plane the glide reaches, which the inverse pass strokes where it puts a region's boundary or the
+  // curve itself, with the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour over its casing)
+  // at the shape's share of its own look (svStagedOf's own: u), so the stroke comes in over the glide: Map shape ->
+  // { path: its inverse path, k: that share }, or null. Inside regions and Everywhere. The pulled-back regions' band is
+  // the mask's (svStagedMask); the earlier planes' strokes are the outline pass's (svShapeMap)
   function svReached(map0) {
     if (map0.mode !== 1) return null;
-    const g = svBetween();
-    if (g.near !== g.b) return null;
-    const m = new Map();
-    for (const q of [svStagedOf(), svStagedCurves()]) if (q) q.list.forEach((x, i) => { if (shapeStage(x) === g.b) m.set(x, q.paths[i]); });
+    const g = svBetween(), m = new Map();
+    for (const q of [svStagedOf(), svStagedCurves()]) if (q) q.list.forEach((x, i) => { if (shapeStage(x) === g.b) m.set(x, { path: q.paths[i], k: g.u }); });
     return m.size ? m : null;
   }
+  // stroke st (shapeStroke's) at the share k of its opacity, its casing too
+  const svStrokeAt = (st, k) => Object.assign({}, st, { alpha: st.alpha * k }, st.casing ? { casing: Object.assign({}, st.casing, { alpha: st.casing.alpha * k }) } : {});
   // the frame between two planes whose shapes of later planes the inverse pass draws: {g: svBetween's (by default the
   // thread's place), h: its paths (svHomPaths)}, or null (at rest, a d/dz step, or no inverse paths)
   function svStagedFrame(g = svBetween()) {
@@ -1991,8 +1998,9 @@
     const whole = invHomPath(SV_ALL, 0, g.b, g.u, () => svSheetKeyAt(g.b, g.u).sing);
     return whole.path === 'inverse' ? { list, paths: list.map(() => whole) } : null;
   }
-  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, nearer(x):
-  // whether region x is on a plane up to the nearer one}, or null when there is none or the pass cannot draw them.
+  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, own(x): the
+  // share of its own plane's look region x has in this frame, 1 on a plane up to the glide's first, u on the plane it
+  // reaches, 0 past it}, or null when there is none or the pass cannot draw them.
   // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
   // regions (svInvPaths). all: the regions of the colour's plane too (Inside regions); g: the frame's place (svStagedFrame)
   function svStagedOf(all, g) {
@@ -2003,7 +2011,7 @@
     const whole = h.list.indexOf(SV_ALL);
     const list = whole < 0 ? h.list.filter((x) => all || shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
     if (!list.length) return null;
-    return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), nearer: (x) => shapeStage(x) <= g.near };
+    return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), own: (x) => (shapeStage(x) <= g.a ? 1 : shapeStage(x) === g.b ? g.u : 0) };
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
@@ -2058,16 +2066,16 @@
     return onPage;
   }
   // the shapes' outlines in S.shapes order: under map, open sets dashed (spec 6.5), along the curve under map; the plane
-  // a glide reaches, from the midpoint, by the inverse pass per pixel (svReached), solid; col: as the colour plot draws
-  // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
-  // caller copies it), else a frame of their own
+  // a glide reaches, in every frame of the glide, by the inverse pass per pixel (svReached) at opacity u (svStrokeAt);
+  // col: as the colour plot draws them (renderColor: with Outlines off, the selected shape's alone). Into the open GL
+  // frame frame, if given (the caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
-    const reached = hideStrokes ? null : svReached(map0), stroke = (x) => shapeStroke(x, pane.dpr, { plane: shapeStage(x) });
+    const reached = hideStrokes ? null : svReached(map0);
     for (const s of hideStrokes ? [] : S.shapes) {
       if (!outlineShown(s, !col)) continue;
       const p = reached && reached.get(s);
-      if (p) { svDrawInverse(pane, [s], [p], svT(), { open: true }, null, null, stroke); continue; }
+      if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k)); continue; }
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
