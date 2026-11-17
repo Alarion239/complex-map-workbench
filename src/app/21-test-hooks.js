@@ -261,10 +261,9 @@
   // o.fast its first pass's budget (GLR.setReptFastNodes; 0: its own), o.holdB its second pass held (GLR.holdReptB);
   // o.tileStats: the tile account since the last read (GLR.reptTiles); o.lose: the GL context lost, then restored at
   // the next task (WEBGL_lose_context); o.ci: the first shape's colour index (a look change, the cache's control);
-  // o.land: the Landscape mask's unresolved pixels
-  // (null: no mask); o.ws [[re, im]]: the CPU
-  // twin of the left plane's REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the
-  // most and the total root solves, the pruned children, and the pixels covered, empty and unresolved
+  // o.land: the Landscape mask's unresolved pixels (null: no mask); o.ws [[re, im]]: the CPU twin of the left plane's
+  // REPT searches (Inverse.enumerate) at those plane points, per shape drawn by a REPT plan: the most and the total root
+  // solves, the pruned children, and the pixels covered, empty and unresolved
   window.__cmwRept = (o) => {
     if (o && o.tileStats) return GLR.reptTiles();
     if (o && o.lose) {

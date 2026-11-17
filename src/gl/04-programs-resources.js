@@ -265,8 +265,7 @@ void main() {
     reptHatch: { chain: false, vs: () => QUAD_VS, fs: () => UTIL + `uniform float uDpr;
 out vec4 o;
 void main() {
-  float h = (gl_FragCoord.x + gl_FragCoord.y) * 0.70710678 / (6.0 * uDpr);
-  o = vec4(mix(vec3(0.49804), vec3(0.41569), iso(h, 1.0 / (6.0 * uDpr), uDpr)), 1.0);
+  o = vec4(nanHatch(gl_FragCoord.xy, uDpr), 1.0);
 }
 ` },
   };

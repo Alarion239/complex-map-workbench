@@ -37,8 +37,8 @@ const names = exampleNames();
 // ms a link reads not complete; the waits (ms) for a page, for the chain's programs, for a glide's frame, for a play to
 // its end and for the parked plane
 const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000, PLAY_MS = 120000, PARKED_MS = 60000;
-const NEWT_EX = 'Partial sums of the exponential', POLES_EX = 'Poles of the Gamma function', REPT_EX = 'Newton’s method for z³ − 1', GLIDE_U = 0.5;
-const PARKED_DRAWN = "__cmwSteps().ready && __cmwSteps().ready.ready && !(__cmwPaneStatus('L') || { pending: true }).pending";
+const NEWT_EX = 'Partial sums of the exponential', POLES_EX = 'Poles of the Gamma function', GLIDE_U = 0.5;
+const { PARKED_DRAWN, GALLERY: REPT_EX, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 // (a page whose frames leave no idle moment: each idle callback runs for its timeout, at once when it has none, with no
 // time left)
@@ -80,10 +80,9 @@ try {
     ok(`${REPT_EX}: the example is found`, ex >= 0, names.length);
     await go(`${BASE}/test.html?ns=lr${Date.now()}&lang=en&view=steps`);
     await settled({ max: READY_MS, until: loaded });
-    await ev(`__cmwExample(${ex}), 1`); await settled({ max: READY_MS, panes: false });
-    await ev("__cmwSteps({ scope: 'in' }), 1"); await settled({ max: READY_MS, panes: false });
+    await loadGallery(READY_MS);
     await ev('__cmwRept({ tileStats: true })');
-    await ev('__cmwSteps({ go: 1, now: true }), 1'); await settled({ max: READY_MS, until: '!__cmwSteps().anim && !__cmwSteps().play' });
+    await parkInside(READY_MS);
     const st = await settled({ max: PARKED_MS, until: PARKED_DRAWN });
     const tiles = await ev('__cmwRept({ tileStats: true })');
     const threw = logs(false).map((l) => String(l.m || '')).filter((m) => /inverse pass failed/.test(m)).map((m) => m.slice(0, 200));

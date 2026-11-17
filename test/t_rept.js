@@ -1,4 +1,4 @@
-// A Repeat chain's exact plane (#1472, #1323 PR P): the REPT op (InvOps' REPT section) that stands for n copies of one
+// A Repeat chain's exact plane (#1472, #1323): the REPT op (InvOps' REPT section) that stands for n copies of one
 // rational step of degree 3, and its CPU twin's search (Inverse.enumerate).
 //  1. routing: Newton's step for z^3 - 1 repeated 20 times (gallery 28) is one REPT op; other repeats keep their path;
 //     a plan that holds a REPT op and another op is refused with its reason;
@@ -18,7 +18,7 @@
 //  6. the budget: REPEAT_NODES_MAX is at least NODES_MARGIN times the most solves a gallery pixel needs, and a starved
 //     budget reads unresolved, never empty;
 //  7. the GLSL: the chain's inverse program holds the REPT walker, a loop with no continue and no stack index that can be
-//     negative. These two source rows are proxies for Direct3D's compiler fault (#1478): they guard the shape of code it
+//     negative. These two source rows are proxies for Direct3D's compiler fault: they guard the shape of code it
 //     miscompiled, which this machine's GL does not reproduce; the evidence for the fault itself is the Gate's Windows
 //     GLSL job.
 // node test/t_rept.js [-v]

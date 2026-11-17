@@ -1347,7 +1347,7 @@ const InvOps = (() => {
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
     opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
-    ENCL_EPS, ENCL_CELLS_MAX, REPT_ESC_GROW, opRept, reptForm, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEval, reptEscR, reptEscF
+    REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF
   };
 })();
 import { CX } from './cx.js';
