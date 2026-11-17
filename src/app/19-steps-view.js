@@ -3538,8 +3538,11 @@
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
   function svGateNeeded() {
-    return !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
   }
+  // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
+  let svGateOff = false;
+  const svGateOffSet = (off) => { svGateOff = !!off; };
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
   // start() now, or once the chain is prepared; btn is the control the wait shows on
