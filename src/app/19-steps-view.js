@@ -2602,7 +2602,7 @@
   const svSurface = () => (SV.on ? SV.surf : null);
   // a surface's name as the Surface control reads it: 'Surface: Plane'
   function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape') }[v]}`; }
-  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') { prestartGlobe(); svPrestartSoon(300); } svApply(); tourEmit('surface-changed', { s: v }); }
+  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
   function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
   // the scope switch again, for the phone's Display sheet (the sheet shows it full width; svSync keeps it with the head's)
@@ -3238,6 +3238,12 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
+      // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
+      // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
+      if (SV.surf === 'land') {
+        GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
+        GLR.prestart(['landCarryNrm', 'lineFC']);
+      }
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
       // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();

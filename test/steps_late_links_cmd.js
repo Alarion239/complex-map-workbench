@@ -16,7 +16,10 @@
 //   is started in map mode 1 (no pane draws one);
 // - on a fresh page, the Landscape shown while the warm-up links its programs: from the pane's first frame of it on,
 //   they are the pane's (GLR.pending() reads none of them offView) and ready counts them (its programs part is never
-//   complete while one of them links).
+//   complete while one of them links);
+// - on a fresh page, the Landscape shown and the warm-up run to its end (#1569): no landTF, land or floor of the chain in
+//   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
+//   linked before ▶.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -165,6 +168,29 @@ try {
     const smp = await ev('(() => { const s = window.__llLand; s.on = false; clearInterval(s.timer); return { n: s.n, linking: s.linking, bad: s.bad }; })()');
     ok(`${NEWT_EX}, the Landscape shown while the warm-up links its programs: they are the pane's, and ready counts them while one links`, r5.ok && r6.ok && !!smp && smp.linking > 0 && smp.bad.length === 0, { bad: smp && smp.bad, samples: smp && { n: smp.n, linking: smp.linking }, wait: [r5, r6] });
     info.land = smp && { n: smp.n, linking: smp.linking };
+  }
+  // the partial sums with the Landscape shown in the steps view, the warm-up run to its end (#1569): the steps view draws
+  // the Landscape's heights in map mode 0 only (at rest, and under a glide's carry), so the warm-up links no landTF, land
+  // or floor of the chain in another map mode; and the programs the Landscape's glide draws with (landCarryTF and
+  // landCarry in mode 1, landCarryNrm, and lineFC for the floor's outlines) are linked before ▶, from that idle time
+  {
+    const ex = names.indexOf(NEWT_EX), GLIDE_LAND = ['landCarryTF|m1', 'landCarry|m1', 'landCarryNrm|m0', 'lineFC|m0'];
+    await go(`${BASE}/test.html?ns=llg${Date.now()}&lang=en&view=steps`);
+    await settled({ max: READY_MS, until: loaded });
+    await ev(`__cmwExample(${ex}), 1`);
+    await adopted();
+    await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all', surf: 'land' }), 1");
+    const r7 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    // (each program as name|mode and its state; the chain's own, and the programs of no chain)
+    const progs = await ev(`(() => { const k = '|' + GLR.chainKey + '|m'; return GLR.landProgs().map((x) => {
+      const sp = x.lastIndexOf(' '), id = x.slice(0, sp), st = x.slice(sp + 1), name = id.slice(0, id.indexOf('|')), at = id.indexOf(k);
+      if (id.endsWith('|static')) return name + '|m0 ' + st;
+      return at > 0 ? name + '|m' + id.slice(at + k.length).split('|')[0] + ' ' + st : null; }).filter(Boolean); })()`);
+    const twins = progs.filter((x) => /^(landTF|land|floor)\|m[1-9]/.test(x));
+    ok(`${NEWT_EX}, the Landscape shown in the steps view: the warm-up links no landTF, land or floor in another map mode than 0`, r7.ok && twins.length === 0, { twins, wait: r7 });
+    const missing = GLIDE_LAND.filter((n) => !progs.includes(n + ' ready'));
+    ok(`${NEWT_EX}, the Landscape shown in the steps view: the programs its glide draws with are linked before ▶`, r7.ok && missing.length === 0, { missing, wait: r7 });
+    info.landGlide = { programs: progs.length, twins: twins.length, missing };
   }
 } finally {
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
