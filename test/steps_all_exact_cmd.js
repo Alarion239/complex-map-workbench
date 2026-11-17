@@ -8,6 +8,8 @@
 //    inverse pass's, All at once, and the frame just short of the last plane is the plane at rest on all but ARRIVE_MAX of
 //    the pane (no pop when it lands); not for z³ last, whose homotopy z^(1 + 2t) still differs from z³ in a wedge by its
 //    cut there (3.2 % of the pane at u = 0.9945 a step at a time, as all at once);
+//  - the same at the Opacity slider's OPACITY (< 1) for z³ with the colour plane z: a frame's opacity goes from its first
+//    plane's look to its last plane's (svCarryAlpha), the span's first plane z, as a step's frame goes from z;
 //  - a span with a step whose homotopy is inverted by Newton's method ([cos, 1 z]) keeps the carried meshes, with the reason.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -20,6 +22,7 @@ const MUL = (c) => ({ type: 'mul', params: { c }, on: true });
 // [f, 1 z] against [f]
 const SAME = [{ name: 'z³', f: POW(3), s: 80 }, { name: 'eᶻ', f: EXP, s: 80 }, { name: 'sin z', f: SIN, s: 80 }];
 const SAME_U = [0.3, 0.7];
+const OPACITY = 0.5;               // the Opacity slider's value of the opacity rows
 const SAME_MAX = 0.002;            // the share of the pane the two frames may differ in by more than DIFF_TOL
 // composed spans
 const CHAINS = [
@@ -34,7 +37,7 @@ const START_WAIT = 30000, GLIDE_WAIT = 180000, DRAWN_WAIT = 120000;   // ms
 await view(1200, 800, false, false);
 const drawn = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()`;
 const rec = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, all: q.all, mode: q.between && q.between.mode, rec: q.glide && { all: q.glide.all, u: q.glide.u, path: q.glide.path, reason: q.glide.reason } }; })()');
-const open = async (steps, s, homAll) => {
+const open = async (steps, s, homAll, alpha = 1) => {
   const ns = 'svae' + Date.now();
   const st = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s }, homAll };
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
@@ -42,7 +45,7 @@ const open = async (steps, s, homAll) => {
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')` });
   await adopted();
-  await ev(`__cmwSet('alpha', 1), __cmwSet('morphPaths', false), 1`);
+  await ev(`__cmwSet('alpha', ${alpha}), __cmwSet('morphPaths', false), 1`);
   await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true })`); await settled({});
   await ev('__cmwSteps({ T: 0 })'); await settled({});
   return ev('__cmwSteps().planes.length - 1');
@@ -58,17 +61,17 @@ const frozenPast = async (n, x) => {
   await settled({ max: DRAWN_WAIT, until: drawn });
   return rec();
 };
-// ---- [f, 1 z] all at once against [f] a step at a time, at the same u ----
-for (const c of SAME) for (const u of SAME_U) {
+// ---- [f, 1 z] all at once against [f] a step at a time, at the same u (and z³ at the slider's OPACITY) ----
+for (const c of SAME.concat([Object.assign({}, SAME[0], { name: `z³ at opacity ${OPACITY}`, alpha: OPACITY })])) for (const u of SAME_U) {
   const tag = `${c.name}, u ${u}`;
-  await open([c.f, MUL('1')], c.s, true);
+  await open([c.f, MUL('1')], c.s, true, c.alpha);
   const g = await frozenPast(2, 2 * u);
   ok(`${tag}: [f, 1 z] all at once: a frame between the planes, the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.all && g.rec.path === 'inverse', g);
   ok(`${tag}: the All-at-once frame settles`, await grab('A'), null);
   await keep('A');
   // (the span's progress is x / 2; step 1 runs at that time, step 2 is the identity)
   const at = g.x / 2;
-  await open([c.f], c.s, false);
+  await open([c.f], c.s, false, c.alpha);
   await ev(`__cmwSteps({ x: ${at} }), 1`);
   await settled({ max: DRAWN_WAIT, until: `Math.abs(__cmwSteps().x - ${at}) < 1e-12 && ${drawn}` });
   const h = await rec();

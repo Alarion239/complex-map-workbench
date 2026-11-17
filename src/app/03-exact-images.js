@@ -435,19 +435,27 @@
       if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
-      let plan, inv;
-      try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
-      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
-      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
-      h = { plan, inv, preps: new Map(), sing: null };
-      if (invHoms.size >= 8) invHoms.clear();
-      invHoms.set(ck, h);
+      h = invHomEntry(ck, bh, a, k);
     }
     return invHomPrep(h, s, a, k, singAt);
   }
-  // the inverse path of shape s by the glide plan h (invHomPath's or invSpanPath's entry {plan, inv, preps, sing}) of
-  // stages (a, k]: the shape's preparation, kept per window, shape and key points, with the key's points singAt() where
-  // the plan's ops' poles are not the key's (a NEWT op, an op marked glideKey), else the plan's own (Inverse.keySing)
+  const INV_HOMS_MAX = 8;   // the glide plans kept in invHoms (a glide makes one for each u)
+  // a glide plan's entry {plan, inv, preps, sing} for the built steps bh over stages (a, b], kept in invHoms under ck:
+  // the plan (Inverse.planChain, unless plan is given: a step's homotopy with no inverse), its inverse op list
+  // (GLChain.buildInverse), and the shape preparations and key points invHomPrep keeps on it
+  function invHomEntry(ck, bh, a, b, plan = null) {
+    let inv = null;
+    if (!plan) try { plan = Inverse.planChain(S.steps, bh, a, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
+    try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
+    if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
+    const h = { plan, inv, preps: new Map(), sing: null };
+    if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
+    invHoms.set(ck, h);
+    return h;
+  }
+  // the inverse path of shape s by the glide plan entry h (invHomEntry's) over stages (a, k]: the shape's preparation
+  // (Inverse.prepare), kept on h per window, shape and sheet-key points. The sheet key's points are singAt()'s when the
+  // plan has an op whose poles move with t (a NEWT op, an op marked glideKey), else the plan's own (Inverse.keySing)
   function invHomPrep(h, s, a, k, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
@@ -478,7 +486,7 @@
     let h = invHoms.get(ck);
     if (!h) {
       const bs = invHomSkeleton(a, b), bh = bs.slice();
-      let plan = null, inv = null;
+      let plan = null;
       for (const [k, t] of ts) {
         if (t >= 1) continue;
         let hk = null;
@@ -487,12 +495,7 @@
         if (hk.ops.some((o) => o.kind === 'NEWT')) { plan = { ok: false, reason: `step ${k}'s homotopy is inverted by Newton's method` }; break; }
         bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
       }
-      if (!plan) try { plan = Inverse.planChain(S.steps, bh, a, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
-      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
-      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
-      h = { plan, inv, preps: new Map(), sing: null };
-      if (invHoms.size >= 8) invHoms.clear();
-      invHoms.set(ck, h);
+      h = invHomEntry(ck, bh, a, b, plan);
     }
     return invHomPrep(h, s, a, b, singAt);
   }

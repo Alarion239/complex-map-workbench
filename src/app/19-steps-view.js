@@ -1052,17 +1052,16 @@
   // the look of a carried fill whose own opacity is base: full-opacity fills take the slider's, a dimmed one (a pulled-back
   // shape) keeps its own and draws every layer at it
   // The opacity of a carried layer, and the opacity its buffer size is chosen for: base is the fill's own (1, or less for a
-  // pulled-back shape); glide is {b, u} for a frame of step b's glide at u. With the sheets off a glide frame of the whole
-  // plane starts as the colour plane T looks (the front member alone, opacity 1) and ends as a plane past T looks (the
-  // slider's opacity): from plane T it goes from 1 to the slider's, linear in u; from a plane before T it is 1, from a
-  // plane past T the slider's. A frame at rest, All sheets and a shape's own layers take the slider's.
+  // pulled-back shape); glide is {a, b, u} for a frame between planes a and b at u (a step's glide: a = b - 1; an
+  // All-at-once span's: its first plane). With the sheets off a glide frame of the whole plane goes from plane a's look to
+  // plane b's, linear in u: a plane at or before the colour plane T looks as T does (the front member alone, opacity 1),
+  // a plane past T has the slider's opacity. A frame at rest, All sheets and a shape's own layers take the slider's.
   const svCarryAlpha = (base, shape, glide, T) => {
     if (base < 1) return { alpha: base, alphaOwn: base };
     const slider = svOpacity();
     if (shape !== SV_ALL || S.sheets || !glide) return { alpha: slider, alphaOwn: slider };
-    const a = glide.b - 1;
-    if (a < T) return { alpha: 1, alphaOwn: 1 };
-    return { alpha: a === T ? 1 + (slider - 1) * glide.u : slider, alphaOwn: slider };
+    const look = (k) => (k <= T ? 1 : slider), la = look(glide.a), lb = look(glide.b);
+    return { alpha: la + (lb - la) * glide.u, alphaOwn: la === 1 && lb === 1 ? 1 : slider };
   };
   const svCarryLook = (base, shape, glide, T) => Object.assign(svCarryAlpha(base, shape, glide, T), { lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
   // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {width, alpha, ...} draws its boundary alone (GLR.drawInverse's edge);
@@ -1088,8 +1087,8 @@
   // not ('error' when it threw). A shape drawn already stays: the next path draws over it
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
   // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
-  // (alphaOf, edgeOf: svInvArg's)
-  function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b) {
+  // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide)
+  function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b, a = b - 1) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
     if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
@@ -1102,7 +1101,7 @@
     for (let i = 0; i < list.length; i++) {
       let res = 'error';
       try {
-        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { b, u: t } : null), { nr }));
+        res = GLR.drawInverse(Object.assign({ viewKind: 'flat', view: pane.view }, svInvArg(pane, paths[i], list[i], carry, alphaOf, edgeOf, t != null ? { a, b, u: t } : null), { nr }));
       } catch (e) {
         // (a throw answers 'error': the caller draws the frame by the carried mesh, and the glide's record names why)
         console.error('steps view carried colour', e);
@@ -1112,13 +1111,14 @@
     return 'drawn';
   }
   // A frame between planes a and b as svCarryExact draws a plane: per pixel, by the inverse pass, the front point z of
-  // plane 0 with H_u(F_{b-1}(z)) = w (invHomPath: step b's homotopy at u inverted by its own ops), in the colour
-  // dcolor(F_T(z)). So the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1.
-  // Into the open GL frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
+  // plane 0 with H_u(F_{b-1}(z)) = w (invHomPath: step b's homotopy at u inverted by its own ops), or, for an All-at-once
+  // span (span: svSpanPaths'), with each step of the span at its own time (invSpanPath), in the colour dcolor(F_T(z)). So
+  // the glide shows the exact picture of the map at u, which meets each plane's own at u = 0 and 1. Into the open GL
+  // frame. False (nothing drawn) unless every shape takes that path; why: the first reason not
   function svCarryExactHom(pane, b, u, T, frame, why, span) {
     const m = svHomPaths(b, u, span), h = m.h;
     if (!h) { why.r = m.why.r; return false; }
-    const res = svDrawInverse(pane, h.list, h.paths, T, frame, u, null, null, b);
+    const res = svDrawInverse(pane, h.list, h.paths, T, frame, u, null, null, b, span ? span.a : b - 1);
     if (res !== 'drawn') { why.r = 'inverse pass ' + res; return false; }
     return true;
   }
@@ -1132,7 +1132,8 @@
     const h = svHomPaths(b, u).h;
     return !!h && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
   }
-  // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
+  // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, sk, h, why } for the frame's other
+  // readers; sk: the span's key, '' for a step's frame)
   let svHomMemo = null;
   // (span: an All-at-once glide's {a, stepT}, svSpanPaths; its frames' paths are kept apart from a step's at the same b and u)
   function svHomPaths(b, u, span) {
@@ -1143,11 +1144,12 @@
   // the span of an All-at-once frame g (svBetween's) for the inverse paths: {a: its first plane, stepT}, or null
   const svSpanPaths = (g) => (g.all ? { a: g.a, stepT: g.stepT } : null);
   // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
-  // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
-  // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1)
-  const svInvState = (h, i, b, u) => {
+  // the glide frame between planes a and b at u (a = b - 1 unless given), as the carried colour draws it there
+  // (svCarryExactHom): with that frame's look, whose opacity picks the program's B class (svCarryAlpha: sheets off before
+  // the colour plane, opacity 1)
+  const svInvState = (h, i, b, u, a = b - 1) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
+    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { a, b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' shapes, svStagedOf and svStagedCurves, which draws their mask and strokes),
@@ -1193,7 +1195,7 @@
     if (g.u <= SV_REST_U || g.b === g.a || !(g.map.mode === 1 || g.map.mode === 3) || isDeriv(g.b) || !GLR.inverseState) return false;
     // (an All-at-once frame: its span's paths alone, no shapes of later planes, no pole tracks of its own)
     const span = svSpanPaths(g), h = svHomPaths(g.b, g.u, span).h;
-    const linking = !!h && [h].concat(span ? [] : [svStagedOf(false, g), svStagedCurves(g)]).some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending'));
+    const linking = !!h && [h].concat(span ? [] : [svStagedOf(false, g), svStagedCurves(g)]).some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending'));
     const P = linking || span ? null : svTracksMissing(g.b, h);
     if (P) {
       svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
@@ -1864,7 +1866,8 @@
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
-    // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
+    // (mask: the regions' mask drawn under the colour; none for a step's frame the inverse pass draws, svExactGlide; an
+    // All-at-once frame keeps the mask of the regions' images)
     // (with a region of a later plane, the mask stays but is the inverse pass's too: svStagedMask draws every region)
     const exact = svMaskOn() && !still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u);
     const mask = svMaskOn() && !(exact && !svStagedOf());
