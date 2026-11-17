@@ -1700,12 +1700,17 @@
       if (svMoving()) {
         probeMoving();
         if (svJump(pane, still)) return;
-        // (a glide waiting for its programs (svLinkHold, svGlobeHold): on the plane it started from, that plane's frame at
-        // rest, drawn as it is at rest (svRestAt); held between two planes, the frame there)
+        // (a glide waiting for its programs (svLinkHold, svGlobeHold): on plane z, that plane's frame as it is at rest
+        // (svRestAt: its plot, plane z's own colours whatever chain's programs draw it, which the carry core's frame at
+        // u = 0 cannot draw while the chain links). Any other plane's frame at rest would stand in another chain's
+        // picture while this one links: a scrub held is drawn at the thread's place and a glide's or a play's frame where
+        // its clock holds it, by the carry core, which draws nothing of another chain)
         const hold = SV.surf === 'land' ? null : SV.surf === 'sphere' && lGlobe() ? svGlobeHold() : svLinkHold();
-        if (hold != null && Math.abs(hold - Math.round(hold)) <= SV_REST_U) { svRestAt(Math.round(hold), pane, still); SV.core = 'still'; return; }
+        const at = hold == null ? -1 : Math.round(hold), onPlane = at >= 0 && Math.abs(hold - at) <= SV_REST_U;
+        if (onPlane && svPlanes()[at] === 0) { svRestAt(at, pane, still); SV.core = 'still'; return; }
+        const drawAt = onPlane && !SV.anim && !SV.play ? null : hold;
         SV.core = 'carry';
-        if (!svLandMoving(pane)) svRenderMoving(pane, hold);
+        if (!svLandMoving(pane)) svRenderMoving(pane, drawAt);
         return;
       }
     }

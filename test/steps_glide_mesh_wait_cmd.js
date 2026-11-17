@@ -13,8 +13,10 @@
 //   path 'mesh'), with no colour plot under it;
 // - plane, a chain with a cut before such a step ([√z, z + 0.2 conj(z)]: the glide from w1 to w2 is the carried meshes',
 //   which fill the sheets torn at the cut), only the fill's programs held linking (GLR.holdLinks(true, names): the
-//   glide's other programs linked): a scrub at x = 1.5 is plane w1's frame at rest, the glide waiting for the fill too;
-//   let go, the carried meshes draw it;
+//   glide's other programs linked): a scrub at x = 1.5 waits for the fill too, its frame neutral (at least NEUTRAL of its
+//   pixels grey: the paper, its grid and rulers; plane w1's frame at rest would stand in another chain's picture while
+//   a chain links, so a held scrub off plane z is not drawn as it), no colour plot drawn; and the glide from w1 played
+//   on the stepped clock for CUT_FRAMES frames is still on w1; let go, the carried meshes draw it;
 // - Sphere, opened again with every program held, a scrub held at x = 0.75: the frame is plane z's globe at rest (as
 //   above), and each frame draws one kind of globe (GLR.drawSphere, with the carried mesh or plain), not the carried
 //   mesh's attempt and then plane w1's plain globe faded over it; the links let go, the frame at x = 0.75 is the
@@ -29,8 +31,11 @@ const { grab, compare, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'l
 // frame; PLAY_FRAMES: the frames a played glide is given, each two rAFs, so 2 PLAY_FRAMES CLOCK_MS ms of glide time, more
 // than a Normal glide's; HOLD_OFF: the share of a held frame's pixels that may be more than DIFF_TOL from the rest frame
 // (the rest frame's own redraws differ by none); PAPER_LUM: a frame's mean luminance under which it is not the bare
-// paper, about 253)
-const FRAMES = 6, CLOCK_MS = 16, PLAY_FRAMES = 120, HOLD_OFF = 0.005, PAPER_LUM = 245;
+// paper, about 253; NEUTRAL: the share of grey pixels, channels within 20 of each other, of a frame with no picture)
+const FRAMES = 6, CLOCK_MS = 16, PLAY_FRAMES = 120, HOLD_OFF = 0.005, PAPER_LUM = 245, NEUTRAL = 0.95;
+// (the cut glide's play: CUT_FRAMES frames on a CUT_CLOCK_MS clock, the same glide time in fewer frames, each a frame
+// of plane w1 at rest)
+const CUT_FRAMES = 30, CUT_CLOCK_MS = 64;
 const frames = (n, x) => ev(`(async () => { for (let i = 0; i < ${n}; i++) { ${x == null ? '' : `window.__spheres.push('|'); __cmwSteps({ x: ${x} });`} await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); } return 1; })()`);
 const CONJ = { type: 'custom', params: { expr: 'z+0.2*conj(z)', cut: 180 }, on: true }, ROOT = { type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true };
 const scene = (steps) => ({ v3: true, v4: true, v5: true, v6: true, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } });
@@ -42,7 +47,7 @@ const restOf = async (j) => {
 };
 // the page opened on the chain with its programs held linking, the colour plots' opacities and the globes drawn
 // recorded (window.__plotAlphas, window.__spheres)
-const open = async (surf, steps) => {
+const open = async (surf, steps, T = 0) => {
   const ns = `svmw${surf}${Date.now()}`;
   await go(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(scene(steps)))}); 1`);
@@ -54,7 +59,7 @@ const open = async (surf, steps) => {
     GLR.drawColorPlot = function (o) { window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); };
     GLR.drawSphere = function (o) { window.__spheres.push({ k: o && o.carried ? 'carried' : 'globe' }); return g.apply(this, arguments); };
     return 1; })()`);
-  await ev(`__cmwSet('morphPaths', false); __cmwSteps({ T: 0, scope: 'all', surf: '${surf}' }); 1`);
+  await ev(`__cmwSet('morphPaths', false); __cmwSteps({ T: ${T}, scope: 'all', surf: '${surf}' }); 1`);
 };
 // the frames drawn with the thread at x, read: the opacities of their colour plots, the globes drawn, the thread, the
 // frame against the rest frame
@@ -70,10 +75,13 @@ const at = async (x) => {
     const D = W.flat(), mixed = W.filter((w) => new Set(w).size > 1).length;
     return { seq: W.map((w) => w.map((k) => k[0]).join('')).join('|'), mixed, x: s.x, alphas: [...new Set(window.__plotAlphas)].map((a) => +a.toFixed(3)), spheres: D.length, kinds: [...new Set(D)], glide: s.glide && { b: s.glide.b, path: s.glide.path, u: s.glide.u }, pending: GLR.pendingLinks };
   })()`);
-  r.vsRest = d && { off: +d.frac.toFixed(4), lum: d.lum.map((v) => +v.toFixed(1)) };
+  // (null where no rest frame is kept on this page)
+  r.vsRest = d && d.frac != null ? { off: +d.frac.toFixed(4), lum: d.lum.map((v) => +v.toFixed(1)) } : null;
   return r;
 };
 const partial = (r) => r.alphas.some((a) => a > 0 && a < 1);
+// the share of grey pixels of the frame kept as tag (held_frames' grab)
+const grey = (tag) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}]; let n = 0; for (let i = 0; i < P.length; i += 4) if (Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) < 20) n++; return +(n / (P.length / 4)).toFixed(4); })()`);
 const asRest = (r) => !!r.vsRest && r.vsRest.off <= HOLD_OFF;
 
 await view(1200, 800, false, false);
@@ -119,13 +127,19 @@ await open('plane', [ROOT, CONJ]);
   ok('cut: the glide\'s carried colour has a fill (its programs other than the cached one)', names.length > 0, names);
   await ev(`GLR.holdLinks(true, ${JSON.stringify(names)}); 1`);
   await settled({ max: 60000, panes: false, until: `GLR.pending().every((p) => ${JSON.stringify(names)}.some((n) => p.id.includes(n)))` });
-  info['cut rest'] = await restOf(1);
   const r = info['cut fill held x=1.5'] = await at(1.5);
-  ok('cut, the fill\'s programs alone linking, a scrub at x = 1.5: the frame is plane w1\'s at rest, the glide waiting for the fill', info['cut rest'].grabbed && asRest(r) && Math.abs(r.x - 1.5) < 1e-9, r);
+  r.grey = await grey('held1.5');
+  ok(`cut, the fill's programs alone linking, a scrub at x = 1.5: its frame neutral (${100 * NEUTRAL} % grey) with no colour plot`, r.grey >= NEUTRAL && r.alphas.length === 0 && Math.abs(r.x - 1.5) < 1e-9, r);
+  await ev(`__cmwSteps({ go: 1, now: true, clock: ${CUT_CLOCK_MS} }); __cmwSteps({ go: 2 }); 1`);
+  await frames(CUT_FRAMES);
+  const p = info['cut fill played'] = await ev('(() => { const s = __cmwSteps(); return { x: s.x, anim: !!s.anim }; })()');
+  ok(`cut, the fill's programs alone linking, the glide from w1 played for ${CUT_FRAMES} stepped frames: it waits on w1 for the fill`, Math.abs(p.x - 1) < 1e-6 && p.anim, p);
+  await ev('__cmwSteps({ clock: 0, go: 1, now: true }); 1');
   await ev('GLR.holdLinks(false), 1');
   await settled({ max: 60000, until: 'GLR.pendingLinks === 0' });
   const q = info['cut linked x=1.5'] = await at(1.5);
-  ok('cut, linked, a scrub at x = 1.5: the carried meshes draw it', !!q.glide && q.glide.b === 2 && q.glide.path === 'mesh' && !asRest(q), q);
+  q.grey = await grey('held1.5');
+  ok('cut, linked, a scrub at x = 1.5: the carried meshes draw it', !!q.glide && q.glide.b === 2 && q.glide.path === 'mesh' && q.grey < NEUTRAL, q);
 }
 
 // ---- the Sphere ----
