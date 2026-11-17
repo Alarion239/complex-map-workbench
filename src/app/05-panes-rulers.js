@@ -459,6 +459,31 @@
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
+    ledSay(side, state, el.getAttribute('data-tip'));
+  }
+  // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
+  // with its pane's title before it when the pane has one. A page that starts up to date says nothing, and a state that
+  // comes and goes within the wait is not said
+  const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
+  let ledSayT = 0;
+  function ledSay(side, state, tip) {
+    const key = state + '|' + tip;
+    if (ledNow[side] && ledNow[side].key === key) return;
+    ledNow[side] = { key, tip };
+    clearTimeout(ledSayT);
+    ledSayT = setTimeout(ledFlush, LED_SAY_MS);
+  }
+  function ledFlush() {
+    const parts = [];
+    for (const side of ['L', 'R']) {
+      const n = ledNow[side], el = $(side === 'L' ? 'leftLed' : 'rightLed');
+      if (!n || !el || !el.getClientRects().length || (ledSaid[side] === undefined ? 'ok|' + $t('Up to date') : ledSaid[side]) === n.key) continue;
+      ledSaid[side] = n.key;
+      const t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'), name = t && t.getClientRects().length ? t.textContent.trim() : '';
+      parts.push(name ? `${name}: ${n.tip}` : n.tip);
+    }
+    const live = $('ledLive');
+    if (live && parts.length) live.textContent = parts.join('. ');
   }
   // a hairline runs along the top of the plots when work takes longer than 300 ms
   let hairTimer = 0;

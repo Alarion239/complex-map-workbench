@@ -3607,8 +3607,9 @@
     if (!svLoad(true)) svAdopt();
     SV.ready = true;
     svApply();
-    // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
-    for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
+    // (#leftLegend carries a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
+    const legend = $('leftLegend');
+    if (legend && !legend.getAttribute('role')) legend.setAttribute('role', 'img');
     svPrestartSoon(1500);
   }
 

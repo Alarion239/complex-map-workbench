@@ -480,9 +480,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane-head .led { margin-left: 6px; margin-right: 4px; }
 .led { display: inline-block; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
 .led.ok { background: var(--good); }
-.led.busy { background: var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
-.led.err { background: var(--error); }
-@keyframes led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* (the three states differ in shape as well as hue: a filled dot is up to date, a ring is busy, a filled square is failed) */
+.led.busy { background: transparent; box-shadow: inset 0 0 0 1.5px var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
+.led.err { background: var(--error); border-radius: 1px; }
+/* (the lowest opacity keeps the busy ring at 3:1 against the bar in light and dark) */
+@keyframes led-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.75; transform: scale(0.8); } }
 @container pane (max-width: 519px) {
   .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
   .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
@@ -1816,7 +1818,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   :root { --t-fast: 0ms; --t-med: 0ms; --t-slow: 0ms; --t-view: 0ms; --t-hom: 0ms; }
   *, *::before, *::after { transition-duration: 0ms !important; scroll-behavior: auto !important; }
-  .led.busy { animation: none; opacity: 1; }
+  .led.busy { animation: none; opacity: 1; transform: none; }
   .hairline::before { animation: none; width: 100%; opacity: 0.6; }
   #warmBar.indet > i { animation: none; width: 100%; opacity: 0.6; }
   .pop, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
@@ -2028,7 +2030,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             </div>
             <div class="pane-title" id="leftTitle"></div>
             <div class="grow"></div>
-            <span class="led" id="leftLed" title="Up to date"></span>
+            <span class="led" id="leftLed" role="img" tabindex="0" title="Up to date"></span>
           </div>
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerLY" aria-hidden="true"></canvas>
@@ -2057,7 +2059,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             </div>
             <div class="pane-title" id="rightTitle"></div>
             <div class="grow"></div>
-            <span class="led" id="rightLed" title="Up to date"></span>
+            <span class="led" id="rightLed" role="img" tabindex="0" title="Up to date"></span>
           </div>
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerRY" aria-hidden="true"></canvas>
@@ -2121,6 +2123,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>
 <div id="sndLive" class="sr-only" aria-live="polite"></div>
+<div id="ledLive" class="sr-only" aria-live="polite"></div>
 <div id="popHost"></div>
 <div id="toastHost" aria-live="polite"></div>
 <div id="tip" role="tooltip" hidden></div>
