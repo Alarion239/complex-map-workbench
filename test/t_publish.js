@@ -14,7 +14,7 @@ const { source } = require('./src_text');
 let fails = 0;
 const ok = (name, pass, detail) => { if (!pass) { fails++; console.log('FAIL ' + name, detail === undefined ? '' : JSON.stringify(detail).slice(0, 400)); } };
 // the hook blocks as build.py finds them, per source file (a block never spans two files)
-const { OPEN: START, BLOCK: RE, BLOCK_SRC, ANY } = require('../tools/hook_marker');
+const { BLOCK: RE, BLOCK_SRC, ANY, OPENER } = require('../tools/hook_marker');
 const HOOK_MAX = 300;   // lines: the longest hook block is about 240 (app.js's test helpers at the end of init)
 const files = fs.readdirSync(path.join(ROOT, 'src')).filter((n) => n.endsWith('.js') && !/^i18n_|^seasong/.test(n));
 for (const f of [...files, 'app.js', 'gl.js']) {
@@ -26,19 +26,28 @@ for (const f of [...files, 'app.js', 'gl.js']) {
     n++;
     const lines = m[0].split('\n').length - 2, from = text.slice(0, m.index).split('\n').length + 1;
     ok(`${f}:${from}: a hook block of ${lines} lines (at most ${HOOK_MAX})`, lines <= HOOK_MAX, m[0].slice(0, 200));
-    ok(`${f}:${from}: one start marker per block`, m[0].split(START).length === 2, m[0].slice(0, 200));
+    ok(`${f}:${from}: one start marker per block`, (m[0].match(OPENER) || []).length === 1, m[0].slice(0, 200));
   }
-  const starts = text.split(START).length - 1;
+  const starts = (text.match(OPENER) || []).length;
   ok(`${f}: every start marker has its end (${starts} start markers, ${n} blocks)`, starts === n, { starts, n });
   // every marker is one end of a block: a plain pair, a lone marker or the old wording would leave its code in the page
   const markers = (text.match(ANY) || []).length;
   ok(`${f}: every hook marker belongs to a block (${markers} markers, ${n} blocks)`, markers === 2 * n, { markers, blocks: n });
 }
+// a pair in either spelling is one block, and a plain pair is none
+{
+  const strip = (t) => t.replace(RE, '\n');
+  const code = (a, b) => `a;\n  ${a}\n  hook();\n  ${b}\nb;\n`;
+  ok('a TEST-HOOK pair is dropped', strip(code('// TEST-HOOK (dropped from the published page by build.py)', '// TEST-HOOK')) === 'a;\nb;\n', strip(code('// TEST-HOOK (dropped from the published page by build.py)', '// TEST-HOOK')));
+  ok('a TEMP-DEBUG-HOOK pair is dropped too', strip(code('// TEMP-DEBUG-HOOK (removed before publishing)', '// TEMP-DEBUG-HOOK')) === 'a;\nb;\n', strip(code('// TEMP-DEBUG-HOOK (removed before publishing)', '// TEMP-DEBUG-HOOK')));
+  ok('a plain pair is dropped by neither', strip(code('// TEST-HOOK', '// TEST-HOOK')).includes('hook();') && strip(code('// TEMP-DEBUG-HOOK', '// TEMP-DEBUG-HOOK')).includes('hook();'), null);
+  ok('a plain pair counts as two markers and no block', (code('// TEST-HOOK', '// TEST-HOOK').match(ANY) || []).length === 2 && (code('// TEST-HOOK', '// TEST-HOOK').match(RE) || []).length === 0, null);
+}
 // the pages themselves
 execFileSync(process.env.PYTHON || 'python3', [path.join(ROOT, 'build.py')], { cwd: ROOT, stdio: 'pipe' });
 const py = fs.readFileSync(path.join(ROOT, 'build.py'), 'utf8');
 ok('build.py drops the blocks by the same expression', py.includes(`re.sub(r'${BLOCK_SRC}'`), null);
-ok('build.py checks that no hook marker is left in the published script', /assert 'TEST-HOOK' not in pub_js/.test(py), null);
+ok('build.py checks that no hook marker is left in the published script, in either spelling', /assert 'TEST-HOOK' not in pub_js and 'TEMP-DEBUG-HOOK' not in pub_js/.test(py), null);
 const pub = fs.readFileSync(path.join(ROOT, 'dist', 'complex-map-workbench.html'), 'utf8');
 const scripts = [...pub.matchAll(/<script>\n?([\s\S]*?)<\/script>/g)].map((x) => x[1]);
 ok('the published page has its scripts', scripts.length >= 2, scripts.length);

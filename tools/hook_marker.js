@@ -7,9 +7,12 @@
 // regular expression, its own copy in Python). The opening text is the build's contract: test/t_publish.js checks that
 // every marker in the sources belongs to a block, that build.py carries this expression, and that no marker reaches the
 // published page.
+// "// TEMP-DEBUG-HOOK (removed before publishing)" to "// TEMP-DEBUG-HOOK" is an alias of that pair, dropped the same way
+// (issue #1865 removes it).
 const OPEN = '// TEST-HOOK (dropped from the published page by build.py)';
 const CLOSE = '// TEST-HOOK';
 // (the expression's source, written the same for JavaScript and Python)
-const BLOCK_SRC = '\\n[ \\t]*// TEST-HOOK \\(dropped from the published page by build\\.py\\).*?// TEST-HOOK\\n';
-// (ANY: a marker in either spelling, "TEMP-DEBUG-HOOK" included, so that one outside a block is counted and fails t_publish)
-module.exports = { OPEN, CLOSE, BLOCK_SRC, BLOCK: new RegExp(BLOCK_SRC, 'gs'), ANY: /\/\/ (?:TEMP-DEBUG-HOOK|TEST-HOOK)\b/g };
+const OPEN_SRC = '(?:TEST-HOOK \\(dropped from the published page by build\\.py\\)|TEMP-DEBUG-HOOK \\(removed before publishing\\))';
+const BLOCK_SRC = '\\n[ \\t]*// ' + OPEN_SRC + '.*?// (?:TEST-HOOK|TEMP-DEBUG-HOOK)\\n';
+// ANY: a marker in either spelling, so that one outside a block is counted and fails t_publish; OPENER: an opening line in either
+module.exports = { OPEN, CLOSE, OPEN_SRC, BLOCK_SRC, BLOCK: new RegExp(BLOCK_SRC, 'gs'), ANY: /\/\/ (?:TEMP-DEBUG-HOOK|TEST-HOOK)\b/g, OPENER: new RegExp('// ' + OPEN_SRC, 'g') };
