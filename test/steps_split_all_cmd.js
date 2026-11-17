@@ -73,7 +73,11 @@ info.overPx = diff(o0, o1);
 ok('the pane with its points and trails is unchanged by the Split', info.overPx >= 0 && info.overPx <= PX_EQUAL_MAX, [info.overPx, where(o0, o1)]);
 ok('the trails are the same one homotopy over the span (Tend 1, from the first plane)', JSON.stringify(p0.src) === JSON.stringify(p1.src) && !!p1.src && p1.src.seq === false && p1.src.Tend === 1 && p1.src.startId === true, [p0.src, p1.src]);
 ok('the plane the thread is on is unchanged', p0.i === p1.i, [p0.i, p1.i]);
-ok('the head and the key name the same maps', JSON.stringify(p0.names) === JSON.stringify(p1.names), [p0.names, p1.names]);
+// (the head names the plane the thread is nearest to; the Split keeps the thread's share u of the span and numbers the planes anew, so the
+// plane nearest may carry another number after it: the head follows the thread, the key keeps its colour plane)
+const headAt = (q) => { const m = /<sub>(\d+)<\/sub>/.exec(q.names.title.name); return m ? +m[1] : null; };
+ok('the head names the plane the thread is nearest to, before and after the Split', headAt(p0) === Math.round(p0.x) && headAt(p1) === Math.round(p1.x), [headAt(p0), p0.x, headAt(p1), p1.x]);
+ok('the key names the same colour plane across the Split', p0.names.key === p1.names.key, [p0.names.key, p1.names.key]);
 // the glide goes on to its plane, then the next glide uses the sub-steps: no step times of its own
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
 await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS); await quiet();
