@@ -84,7 +84,8 @@ for (const [T, to] of [[0, 1], [0, 2], [nPlanes - 1, 1], [nPlanes - 1, 2]]) {
   const carried = wk && wk.carried ? wk.carried.text : null;
   const tag = `T ${T}, to plane ${to}`;
   ok(`${tag}: the figure's key line is ${carried ? 'the pane\'s' : 'absent'}`, r && r.info && (r.info.keyLine || null) === carried, { carried, got: r && r.info && r.info.keyLine });
-  ok(`${tag}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<clipPath id="[^"]*-key"/.test(r.svg) === !!carried, null);
+  // (the ring is the key's group of sectors, <g id="…-key">)
+  ok(`${tag}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<g id="[^"]*-key"><path\b/.test(r.svg) === !!carried, null);
   info[`key ${tag}`] = carried;
   ok(`${tag}: a carried key is ${T === 0 ? 'present' : 'absent'}`, !!carried === (T === 0), carried);
 }
