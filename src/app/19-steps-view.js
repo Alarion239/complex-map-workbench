@@ -463,10 +463,14 @@
     // Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions, where
     // plane b shows the principal sheet's image of the regions)
     const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
-    // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
-    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
+    // (the seams first: drawLandscape draws the opaque copies in this order, then the principal surface over them, then
+    // the translucent ones. band: the cut's angle when a seam may draw a band about it alone (svSeamCut), else null.
+    // alpha: the copies and their seams fade in over the glide, none at plane a and whole from u = 1/2 on (#1652), so the
+    // frame leaves plane a as it is parked and has plane b's sheets well before it parks there; the principal sheet's
+    // seam (the first) is its own surface and stays opaque. SV.glideFade: a test's fixed alpha)
     const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.b, carry.s) : [];
-    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    const t = Math.min(1, Math.max(0, g.u / 0.5)), fade = SV.glideFade != null ? SV.glideFade : t * t * (3 - 2 * t);
+    carry.copies = [...seams.map((v, n) => ({ draw: (f) => svOnSheets(v, f), band, alpha: n ? fade : 1 })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null, alpha: fade }))];
     render3D(pane, carry);
     return true;
   }
