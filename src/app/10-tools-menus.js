@@ -213,7 +213,7 @@
     // (the button that opened a menu says so while it is open, ARIA's menu button; closePalette puts it back)
     if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
     if (sub) {
-      // in the parent's place, its top at the item that opened it: the submenu replaces the parent
+      // in the parent's place, its top at the item that opened it: the submenu takes the parent's place
       // where the pointer already is, rather than jumping beside it (and onto whatever lies there, a divider's tooltip)
       const pw = pop.offsetWidth, ph = pop.offsetHeight;
       let x = sub.at ? sub.at.left : ar.right + 2;

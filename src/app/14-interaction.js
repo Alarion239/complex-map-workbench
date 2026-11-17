@@ -259,7 +259,7 @@
       if (is3DSide(side)) { const c = camOf(side); if (c && (!globeEdit(side) || gTurnPress[side])) tweenCam(c, camBaseOf(c)); return; }
       // a flat plane: centre the view at the point, when the press pressed empty plane (a left pan that
       // did not move); one that drew, picked, or moved a shape, a mark or a cut handle leaves the view where it is (this
-      // replaces the double-click zoom; the branch cut still moves by its red handle only)
+      // is the plane's double-click zoom; the branch cut still moves by its red handle only)
       const lp = lastPress;
       if (!lp || lp.side !== side || (lp.mode !== 'panL' && lp.mode !== 'panR') || lp.far || lp.pb) return;
       if (Construct.isTool(tool)) return;
@@ -488,7 +488,7 @@
         return true;
       }
       if (draft && draft.pending) dropPending();
-      const cmZ = tool !== 'point' && cmHere(side) ? Construct.drawStart(pane, side, tool, x, y) : null;   // (the press binds the start [C19])
+      const cmZ = tool !== 'point' && cmHere(side) ? Construct.drawStart(pane, side, tool, x, y) : null;   // (the press binds the start)
       const zz = cmZ || snapZ(pane, z);
       if (tool === 'point') { addShape(newShape('point', { p: [zz.re, zz.im] }, target), target); return true; }
       const shape = newShape(tool === 'lasso' ? 'polygon' : tool, tool === 'curve' || tool === 'lasso' ? { pts: [[zz.re, zz.im]] } : Region.defaultsFor(tool, zz, zz), target);

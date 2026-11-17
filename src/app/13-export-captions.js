@@ -121,7 +121,7 @@
   let tempInsp = false;
   function selectStep(k) {
     setSel(k);
-    // (the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
+    // (the Inspector edits what was selected last: a step chosen in the chain takes the place of the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     svFSync();
     if (Params.syncUnused) Params.syncUnused();   // (Use in names the selected step)
