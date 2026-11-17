@@ -333,6 +333,11 @@
     Cy('carry mul affine recip', [S('mul', { c: '0.8+0.6i' }), S('affine', { a: '1.2-0.4i', b: '0.5' }), S('recip')]);
     Cy('carry custom disk map squared, cubic', [S('custom', { expr: '((z-0.3)/(1-0.3*z))^2', cut: 180 }), S('custom', { expr: 'z^3-0.5z', cut: 180 })]);
     Cy('carry sin pown 2 mobius', [S('mul', { c: '0.5' }), S('sin'), S('pown', { n: 2 }), S('mobius', { a: '1', b: '0.3', c: '0.1', d: '1' })]);
+    // [#1570] a finite sum of more terms than an infinite one's cap (Σ_{n≤2000} n^{−z}, no Dirichlet plan for a finite
+    // bound): every term, as the CPU sums it, on Re z from −2 to 5
+    add('series finite 2000 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2000} n^{-z}' })]);
+    // (exactly the cap's 2048 terms: the last one is taken and the sum is done)
+    add('series finite 2048 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2048} n^{-z}' })]);
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
