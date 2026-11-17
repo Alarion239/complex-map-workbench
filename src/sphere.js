@@ -853,21 +853,26 @@ const SphereMesh = (() => {
       else { const r = Math.hypot(ZX[i], ZY[i]); lr = r > 0 ? Math.log(r) : -1e4; ar = Math.atan2(ZY[i], ZX[i]); }
       out[0] = lr * 16 / TAU; out[1] = ar * 16 / TAU; return out;
     }
-    // whether the polar coordinates published for triangle k (vertices v; attr's P, arg unwrapped) fail to stand for z
-    // across it, so that it carries z itself (pub.cart): it holds z = 0, where ln |z| and arg z cannot be interpolated, or
-    // their interpolation at its centroid lands over CART_TOL of its longest edge from the centroid (about z = 0). A
-    // vertex stored about infinity (1/z) leaves the triangle to its polar coordinates, which hold there
+    // how the polar coordinates published for triangle k (vertices v; attr's P, arg unwrapped) stand for its source points
+    // across it: 0 where they do; 1 where they fail about z = 0, so that it carries z itself (pub.cart 1); 2 where its
+    // vertices are all stored about infinity (1/z) and they fail about z = infinity, so that it carries u = 1/z (pub.cart
+    // 2). They fail where the triangle holds the point (z = 0, or u = 0), where ln |z| and arg z cannot be interpolated, or
+    // where their interpolation at its centroid lands over CART_TOL of its longest edge from the centroid, both taken in
+    // z, or in u for 2 (the polar coordinates of u are minus those of z). A triangle with vertices stored both ways keeps
+    // its polar coordinates
     const CART_TOL = 0.02;
     function polarFails(v, attr, k) {
-      if (v.some((q) => PRI[q] === 1 || !Number.isFinite(ZX[q]) || !Number.isFinite(ZY[q]))) return false;
-      const x0 = ZX[v[0]], y0 = ZY[v[0]], x1 = ZX[v[1]], y1 = ZY[v[1]], x2 = ZX[v[2]], y2 = ZY[v[2]];
+      const inf = v.every((q) => PRI[q] === 1), X = inf ? UX : ZX, Y = inf ? UY : ZY, sg = inf ? -1 : 1;
+      if (v.some((q) => (!inf && PRI[q] === 1) || !Number.isFinite(X[q]) || !Number.isFinite(Y[q]))) return 0;
+      const x0 = X[v[0]], y0 = Y[v[0]], x1 = X[v[1]], y1 = Y[v[1]], x2 = X[v[2]], y2 = Y[v[2]];
+      const mode = inf ? 2 : 1;
       const e0 = x0 * y1 - x1 * y0, e1 = x1 * y2 - x2 * y1, e2 = x2 * y0 - x0 * y2;
-      if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) return true;
+      if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) return mode;
       let lr = 0, ar = 0;
       for (let j = 0; j < 3; j++) { lr += attr[k * 12 + 4 * j + 2]; ar += attr[k * 12 + 4 * j + 3]; }
-      const r = Math.exp(lr / 3 * TAU / 16), a = ar / 3 * TAU / 16, cx = (x0 + x1 + x2) / 3, cy = (y0 + y1 + y2) / 3;
+      const r = Math.exp(sg * lr / 3 * TAU / 16), a = sg * ar / 3 * TAU / 16, cx = (x0 + x1 + x2) / 3, cy = (y0 + y1 + y2) / 3;
       const edge = Math.max(Math.hypot(x1 - x0, y1 - y0), Math.hypot(x2 - x1, y2 - y1), Math.hypot(x0 - x2, y0 - y2));
-      return Math.hypot(r * Math.cos(a) - cx, r * Math.sin(a) - cy) > CART_TOL * edge;
+      return Math.hypot(r * Math.cos(a) - cx, r * Math.sin(a) - cy) > CART_TOL * edge ? mode : 0;
     }
     // the interpolated pattern coordinates stay within TAU_PAT px of the true ones at the edge midpoints
     function patTestOf(attr, vid, mids, S, unwrapY) {
@@ -1230,8 +1235,9 @@ const SphereMesh = (() => {
     // descending, then source y ascending: the tie rule of 5.2). Flat: pos = w - w0 (w0 = the view centre), globe:
     // pos3 = the conjugate lift; attr per vertex (g.x, g.y, P.x, P.y): g = (z - Q_t) / cell with Q_t a multiple of
     // 10 cells per triangle, P = the polar coordinates (arg unwrapped from the first vertex) or, for graph paper and the
-    // triangles where they cannot stand for z (cart, polarFails), the absolute source point; tri: the area scale
-    // 0.5 log2 |dw / dz| per triangle; cart: 1 for a triangle whose P is its source points, not their polar coordinates.
+    // triangles where they cannot stand for z (cart, polarFails), the absolute source point z, or u = 1/z about infinity;
+    // tri: the area scale 0.5 log2 |dw / dz| per triangle; cart: 1 for a triangle whose P is its source points z, 2 for
+    // one whose P is u = 1/z, 0 where P is their polar coordinates.
     let pubCache = null, pub = null;
     // the publication in phases (leaves, their clipped triangles, the order, the arrays), each resumable: -> true when
     // the data is ready (deadline: a time in ms on the performance clock)
@@ -1328,10 +1334,13 @@ const SphereMesh = (() => {
             }
             attr[k * 12 + 4 * j] = gx; attr[k * 12 + 4 * j + 1] = gy; attr[k * 12 + 4 * j + 2] = px; attr[k * 12 + 4 * j + 3] = py;
           }
-          // (polar coordinates that cannot stand for z across the triangle: it carries z itself, pub.cart)
-          if (patId !== 4 && polarFails(v, attr, k)) {
-            for (let j = 0; j < 3; j++) { attr[k * 12 + 4 * j + 2] = ZX[v[j]]; attr[k * 12 + 4 * j + 3] = ZY[v[j]]; }
-            pub.cart[k] = 1;
+          // (polar coordinates that cannot stand for the source points across the triangle: it carries z itself, or u =
+          // 1/z about infinity, pub.cart)
+          const pf = patId !== 4 ? polarFails(v, attr, k) : 0;
+          if (pf) {
+            const X = pf === 2 ? UX : ZX, Y = pf === 2 ? UY : ZY;
+            for (let j = 0; j < 3; j++) { attr[k * 12 + 4 * j + 2] = X[v[j]]; attr[k * 12 + 4 * j + 3] = Y[v[j]]; }
+            pub.cart[k] = pf;
           }
           // the area scale: image area over source area (Area scale pattern)
           const i0 = v[0], i1 = v[1], i2 = v[2];

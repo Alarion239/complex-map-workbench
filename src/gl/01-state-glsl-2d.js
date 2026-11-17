@@ -609,14 +609,15 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   // point itself. Footprints by fwidth, as the 'fwidth' mode. The pattern formulas (PAT_CHAIN) are the shared text.
   PAT_PRE.pre = `  vec2 g = vG;
   vec2 gw = fwidth(g);
-  // (a triangle that carries its source point itself, vCart: its polar coordinates from it here, as the 'fwidth' mode's)
-  vec2 gc = vec2(log(max(length(vP), 1e-30)), atan(vP.y, vP.x)) * (16.0 / TAU);
+  // (a triangle that carries its source point itself, vCart 1, or u = 1/z about infinity, vCart 2: its polar
+  // coordinates from it here, as the 'fwidth' mode's: (ln |z|, arg z) = -(ln |u|, arg u))
+  bool cart = vCart > 0.5, inf = vCart > 1.5;
+  vec2 gc = (inf ? -1.0 : 1.0) * vec2(log(max(length(vP), 1e-30)), atan(vP.y, vP.x)) * (16.0 / TAU);
   vec2 gcw = vec2(fwidth(gc.x), argWidth(vP) * (16.0 / TAU)), gvw = fwidth(vP);
-  bool cart = vCart > 0.5;
   vec2 gp = cart ? gc : vP, gpw = cart ? gcw : gvw;
   vec2 rt = preRT(gp);
   float rr = rt.x, th = rt.y;
-  vec2 sa = uPattern == 4 || cart ? vP : preSrc(gp);
+  vec2 sa = uPattern == 4 ? vP : inf ? preInv(vP) : cart ? vP : preSrc(gp);
   vec2 fs = uPattern == 4 ? fwidth(vP) : gw * uCell;
   float gr = rr / uCell, fgr = fwidth(gr);
   float ra = th * (12.0 / PI), fra = gpw.y * 1.5;
@@ -627,9 +628,12 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
 `;
   // a pre-mapped mesh's polar pattern coordinates gp = (ln |z|, arg z) * 16 / tau back to (|z|, arg z) (preRT) and to the
   // source point z (preSrc): PAT_PRE.pre's and CARRY_FS's pre option's one conversion (ln |z| clamped to [-80, 80], so
-  // its exp stays a finite float32: e^88.7 is past the largest)
+  // its exp stays a finite float32: e^88.7 is past the largest); preInv: the source point z = 1/u of a triangle that
+  // carries u about infinity (vCart 2), |u|^2 under 1e-30 sent to z = 1e15, the largest |z| it gives above that (finite
+  // for cfin, which takes |z| from 1e30 on as no value)
   const PRE_SRC = `vec2 preRT(vec2 gp) { return vec2(exp(clamp(gp.x * (TAU / 16.0), -80.0, 80.0)), gp.y * (TAU / 16.0)); }
 vec2 preSrc(vec2 gp) { vec2 rt = preRT(gp); return rt.x * vec2(cos(rt.y), sin(rt.y)); }
+vec2 preInv(vec2 u) { float q = dot(u, u); return q > 1e-30 ? vec2(u.x, -u.y) / q : vec2(1e15, 0.0); }
 `;
   const PAT_CHAIN = `  if (uPattern == 1) {              // Checker
     col = mix(mix(c0, c1, checker(g, gw)), 0.5 * (c0 + c1), m);
@@ -723,7 +727,8 @@ ${sphere ? `
   // ---- pre-mapped triangles (SPEC 8.7, P5): SphereMesh's leaves, mapped on the CPU, drawn far to near ----
   // aPos = w - w0 (flat; uRel = view centre - w0, a float64 difference) or the conjugate lift of w (globe); aAttr the
   // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern); aCart 1 where the
-  // triangle's vP is its source point itself, not its polar coordinates (SphereMesh's cart: about z = 0)
+  // triangle's vP is its source point itself, not its polar coordinates (SphereMesh's cart: about z = 0), 2 where it is
+  // u = 1/z (about z = infinity)
   const PRE_VS = (sphere) => `
 layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
@@ -1247,7 +1252,7 @@ void main() {
   // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh) or vCart is (a triangle about z = 0), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
+  // mesh) or vCart is 1 (a triangle about z = 0), or u = 1/z where vCart is 2 (about z = infinity), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
   // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
@@ -1259,7 +1264,7 @@ uniform int uGs; uniform int uGt;
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
 ${pre ? 'uniform int uPreZ; flat in float vCart;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 || vCart > 0.5 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 || (vCart > 0.5 && vCart < 1.5) ? vP : vCart > 1.5 ? preInv(vP) : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
 }
 `;

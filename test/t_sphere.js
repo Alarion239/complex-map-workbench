@@ -79,6 +79,11 @@ add('recip_ext_zoom0', 'recip_ext', { cx: 0, cy: 0, s: 180 * 128 });
 add('zi_H_guard3', 'zi_H', { guard: 3 });
 add('logH_guard3', 'logH', { guard: 3 });
 add('expH_guard3', 'expH', { guard: 3 });
+// the polar pattern about z = infinity (#1720): 1/z on the upper half-plane, whose image is the lower one, with w = 0 the
+// image of z = infinity in the middle of the view (the triangles about it carry u = 1/z, SphereMesh's cart 2)
+CASES.push({ name: 'recipH_polar', base: 'recipH_polar', F: chain(step('recip')), shape: Hp, left: { cx: 0, cy: 1, s: 60 }, view: { kind: 'flat', W, H, cx: 0, cy: -0.4, s: 190 },
+  truth: (w) => w.im < 0, pattern: 'polar',
+  parity: (w) => { const r = abs(w), g = 16 / TAU / r; return { gx: -Math.log(r) * 16 / TAU, gy: -Math.atan2(w.im, w.re) * 16 / TAU, gradx: g, grady: g }; } });
 const sph = (name, base, extra = {}) => CASES.push(Object.assign({ name, base }, BASE[base], extra, { view: { kind: 'sphere', R: 180 } }));
 sph('zi_H_sphere', 'zi_H');
 sph('logH_sphere', 'logH');
@@ -108,7 +113,7 @@ function measureFlat(M, cs, pub) {
     const area = (P[1][0] - P[0][0]) * (P[2][1] - P[0][1]) - (P[2][0] - P[0][0]) * (P[1][1] - P[0][1]);
     if (!area) continue;
     const A = [0, 1, 2].map((j) => cs.pattern === 'polar' ? [pub.attr[t * 12 + 4 * j + 2], pub.attr[t * 12 + 4 * j + 3]] : [pub.attr[t * 12 + 4 * j], pub.attr[t * 12 + 4 * j + 1]]);
-    const cart = cs.pattern === 'polar' && !!(pub.cart && pub.cart[t]);
+    const cart = cs.pattern === 'polar' && pub.cart ? pub.cart[t] : 0;
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const X = x + 0.5, Y = y + 0.5;
       const l1 = ((P[1][0] - X) * (P[2][1] - Y) - (P[2][0] - X) * (P[1][1] - Y)) / area;
@@ -119,8 +124,9 @@ function measureFlat(M, cs, pub) {
       count[k]++;
       if (pat) {
         let gx = l1 * A[0][0] + l2 * A[1][0] + l3 * A[2][0], gy = l1 * A[0][1] + l2 * A[1][1] + l3 * A[2][1];
-        // (a triangle that carries its source points (cart): the polar coordinates of the interpolated point, as the GPU's)
-        if (cart) { const r = Math.hypot(gx, gy), a = Math.atan2(gy, gx); gx = Math.log(Math.max(r, 1e-30)) * 16 / (2 * Math.PI); gy = a * 16 / (2 * Math.PI); }
+        // (a triangle that carries its source points (cart 1) or u = 1/z (cart 2, about z = infinity): the polar
+        // coordinates of the interpolated point, as the GPU's: (ln |z|, arg z) = -(ln |u|, arg u))
+        if (cart) { const r = Math.hypot(gx, gy), a = Math.atan2(gy, gx), sg = cart === 2 ? -1 : 1; gx = sg * Math.log(Math.max(r, 1e-30)) * 16 / (2 * Math.PI); gy = sg * a * 16 / (2 * Math.PI); }
         topPar[k] = ((Math.floor(gx) + Math.floor(gy)) % 2 + 2) % 2;
       }
     }
@@ -155,6 +161,30 @@ function measureFlat(M, cs, pub) {
     r.ziHole = [hc, hn];
   }
   return r;
+}
+// recipH_polar (f = 1/z, so u = 1/z is w itself): the source point each published triangle stands for at its image
+// centroid w_c, decoded from its P as the GPU does (polar coordinates, z itself for cart 1, u for cart 2), against u =
+// w_c: { n, bad } with bad the triangles off by more than tol of their longest edge, and the worst share
+function recipCentroids(pub, tol) {
+  const ox = pub.origin[0], oy = pub.origin[1], K = TAU / 16;
+  let bad = 0, worst = 0;
+  for (let t = 0; t < pub.n; t++) {
+    const w = [0, 1, 2].map((j) => [pub.pos[t * 6 + 2 * j] + ox, pub.pos[t * 6 + 2 * j + 1] + oy]);
+    const wc = [(w[0][0] + w[1][0] + w[2][0]) / 3, (w[0][1] + w[1][1] + w[2][1]) / 3];
+    const edge = Math.max(...[0, 1, 2].map((j) => Math.hypot(w[(j + 1) % 3][0] - w[j][0], w[(j + 1) % 3][1] - w[j][1])));
+    let px = 0, py = 0;
+    for (let j = 0; j < 3; j++) { px += pub.attr[t * 12 + 4 * j + 2] / 3; py += pub.attr[t * 12 + 4 * j + 3] / 3; }
+    const c = pub.cart ? pub.cart[t] : 0;
+    let u = [px, py];
+    if (c !== 2) {
+      const z = c === 1 ? [px, py] : [Math.exp(px * K) * Math.cos(py * K), Math.exp(px * K) * Math.sin(py * K)], q = z[0] * z[0] + z[1] * z[1];
+      u = [z[0] / q, -z[1] / q];
+    }
+    const e = Math.hypot(u[0] - wc[0], u[1] - wc[1]) / edge;
+    worst = Math.max(worst, e);
+    if (e > tol) bad++;
+  }
+  return { n: pub.n, bad, worst: +worst.toFixed(4) };
 }
 // chord deviation of every drawn unclipped leaf whose image meets the view (geodesic 1/4, 3/4 edge points, interior)
 function chordDev(M, cs) {
@@ -302,6 +332,7 @@ for (const cs of sel) {
     ok(`${cs.name}: IoU >= 0.999, 0 holes, 0 spill`, good, { iou: +m.iou.toFixed(5), hole: m.hole, spill: m.spill });
     if (m.parN) ok(`${cs.name}: parity >= 0.999`, m.parBad <= 0.001 * m.parN, [m.parBad, m.parN]);
     if (m.ziHole) ok(`${cs.name}: the z^i hole stays empty`, m.ziHole[0] === 0, m.ziHole);
+    if (cs.name === 'recipH_polar') { const rc = recipCentroids(pub, 0.025); ok(`${cs.name}: about z = infinity every triangle's source point at its centroid is 1/w there (within 2.5 % of its longest edge: SphereMesh's CART_TOL, 2 %, and float32's rounding)`, rc.bad === 0, rc); }
   } else {
     console.log(line);
     if (cs.base === 'zi_H') { const h = sphereHole(pub); ok(`${cs.name}: hole cap samples covered 0`, h[0] === 0, h); }
@@ -311,7 +342,7 @@ for (const cs of sel) {
   if (rec) ok(`${cs.name}: nodes and evals within 1.5x of the recorded`, st.nodes <= 1.5 * rec[0] && st.evals <= 1.5 * rec[1], { nodes: st.nodes, evals: st.evals, rec });
   if (cs.view.kind === 'flat') ok(`${cs.name}: within the 1.5 s CPU budget of a mesh (x load ${LOAD.toFixed(2)})`, st.ms <= 1500 * LOAD, Math.round(st.ms));
 }
-if (sel.length > 3 && !filt.length) ok(`the ${nFlat} flat acceptance runs pass`, nFlat === 40 && flatOk === 40, [flatOk, nFlat]);
+if (sel.length > 3 && !filt.length) ok(`the ${nFlat} flat acceptance runs pass`, nFlat === 41 && flatOk === 41, [flatOk, nFlat]);
 
 // determinism: the same input gives the same buffers (also when run in different slices)
 {
