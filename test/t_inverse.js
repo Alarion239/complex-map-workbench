@@ -1079,6 +1079,28 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${JSON.stringify(params)} at t = ${t}: exact ops (no NEWT) that compose to H_t and find z over H_t(z)`, h.ok && !/NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
     }
   }
+  // a recognised chain past its first sub-step, a polynomial with no exact ops (z^3 - 2z): the passed sub-step's NEWT op
+  // inverts it as at t = 1, so walking the ops' preimages back from H_t(z) finds z, as well as the ops composing to H_t;
+  // the polynomial chain z^3 - 2z + 1 (NEWT, AFF) and the rational 1/(z^3 - 2z) (NEWT, MOB), whose whole formula has no
+  // ops at t = 1
+  for (const expr of ['z^3-2z+1', '1/(z^3-2z)']) {
+    const b = Funcs.build(St('custom', { expr, cut: 180 }));
+    for (const t of [0.5, 0.667, 0.75, 0.999]) {
+      const h = Inverse.homOps(b, t), H = b.hom(t), kinds = h.ok ? h.ops.map((o) => o.kind).join() : h.reason;
+      let e = 0, miss = 0;
+      for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4), C(1.9, 0.1), C(-1.2, -1.5)]) {
+        const v = H(z);
+        if (!h.ok || !CX.isFin(v)) continue;
+        let w = z;
+        for (const o of h.ops) w = o.fwd(w);
+        e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+        let us = [v];
+        for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => h.ops[i].pre(x).map((m) => m.u));
+        if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
+      }
+      check(`homOps ${expr} at t = ${t}: past its first sub-step the ops compose to H_t and find z over H_t(z)`, h.ok && /NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
+    }
+  }
   const lin = Funcs.build(St('custom', { expr: 'z+0.2*conj(z)' }));
   check('homOps: a straight-line homotopy has none', !Inverse.homOps(lin, 0.5).ok);
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
