@@ -950,6 +950,9 @@
       // (above the context bar's row while one is open: the bar stands on the strip, so its height is the room it takes)
       const bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx')), barH = document.documentElement.classList.contains('ph-ctx-on') && bar ? bar.offsetHeight : 0;
       st.bottom = Math.round(H0() - sb.top + barH + 8) + 'px';
+      // (a landscape plane is too short to hold the message above a construction chip: it stands right of the chip, left of the keys' column)
+      const chip = document.documentElement.classList.contains('ph-land') ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
+      if (chip) st.left = Math.round(chip.right + 8) + 'px'; else st.removeProperty('left');
       toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }

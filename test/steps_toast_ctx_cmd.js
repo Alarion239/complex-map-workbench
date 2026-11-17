@@ -1,7 +1,8 @@
 // A phone's message in the steps view lies above the context bar's row, not over it (#1523): with the bar open for a selected shape (its Edit
 // row) or for the orthogonal circle (the tall bar: ⌫ and × over Whole | Inside | Outside | Between), a message that shows covers no control of
 // the bar, and the plane's keys stand clear of the bar and the message. At 360 × 640 and 740 × 360, in English and Russian. Control: with no bar
-// open the message is 8 px above the thread's strip as before. In the steps view (ci/suite_views.js).
+// open the message is 8 px above the thread's strip as before. The plane's keys stay inside the plane and can be pressed with the message up, and on a landscape phone
+// (740 × 360, 844 × 390), where the plane is too short to lift them above it, the message does not move them: it stands between the construction chip and the keys' column. In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -9,7 +10,7 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
 const MSG = { en: ['Added f₃: Exponential, and a longer second part', 'Undo'], ru: ['Добавлен шаг f₃ (Экспонента) и продолжение сообщения', 'Отменить'] };
-const VIEWPORTS = [[360, 640], [740, 360]], GAP = 8, STILL_MS = 150, SETTLE_MAX = 5000, MSG_MS = 60000, OVERLAP_PX = 1;
+const VIEWPORTS = [[360, 640], [740, 360], [844, 390]], GAP = 8, STILL_MS = 150, SETTLE_MAX = 5000, MSG_MS = 60000, OVERLAP_PX = 1;
 // the toast, the bar, the strip, the plot and the plane's keys, in viewport px, and what the page finds at each button's centre
 const measure = () => ev(`(() => {
   const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
@@ -17,7 +18,9 @@ const measure = () => ev(`(() => {
   const hits = (root) => root ? [...root.querySelectorAll('button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { t: b.textContent.trim() || b.getAttribute('aria-label') || b.className, hit: !!at && (at === b || b.contains(at)) }; }) : [];
   return { toast: rect(t), bar: bar && !bar.hidden && bar.classList.contains('in') ? rect(bar) : null, tall: !!bar && bar.classList.contains('tall'), strip: rect(document.getElementById('svStrip')), plot: rect(document.getElementById('plotL')),
     placed: document.getElementById('toastHost').dataset.placed || null, barHits: hits(bar), toastHits: hits(t),
-    keys: [...document.querySelectorAll('.viewstack, .ph-col')].filter((e) => e.getClientRects().length).map(rect) };
+    keys: [...document.querySelectorAll('.viewstack, .ph-col')].filter((e) => e.getClientRects().length).map(rect),
+    keyBtns: [...document.querySelectorAll('.viewstack button, .ph-col button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { name: b.getAttribute('aria-label') || b.className.split(' ')[0], l: r.left, t: r.top, r: r.right, b: r.bottom, hit: !!at && (at === b || b.contains(at)) }; }),
+    chip: rect(document.querySelector('#plotL > .draft-chip.cm-on')), q: rect(document.querySelector('#plotL .cm-q')) };
 })()`);
 // (the message and the bar at rest: the same boxes twice, STILL_MS apart)
 const still = async () => { let a = JSON.stringify(await measure()); for (let i = 0; i < SETTLE_MAX / STILL_MS; i++) { await sleep(STILL_MS); const b = JSON.stringify(await measure()); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
@@ -31,6 +34,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0 && !!document.querySelector('#shapeList .shape[data-id="s1"]')` });
   if (mode === 'edit') await ev(`__cmwSelect('s1'), 1`); else if (mode === 'tall') await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
   if (mode !== 'none') await settled({ max: 5000, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
+  const base = await still();   // (the bar open and no message yet: where the plane's keys stand)
   await ev(`(__cmwToast(${JSON.stringify(MSG[lang][0])}, ${JSON.stringify(MSG[lang][1])}, { ms: ${MSG_MS} }), 1)`);
   await settled({ max: 5000, panes: false, until: `document.getElementById('toastHost').dataset.placed === 'phone-plot'` });
   const m = await still();
@@ -45,6 +49,12 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   } else ok(`${tag}: the message stands ${GAP} px above the strip`, Math.abs(m.strip.t - GAP - m.toast.b) <= 1, { toast: m.toast, strip: m.strip });
   ok(`${tag}: the message's own buttons can be pressed`, m.toastHits.length >= 2 && m.toastHits.every((x) => x.hit), m.toastHits);
   ok(`${tag}: the plane's keys stand clear of the message and the bar`, m.keys.every((k) => !inter(k, m.toast) && !inter(k, m.bar)), { keys: m.keys, toast: m.toast, bar: m.bar });
+  // (ux on #1729: a landscape phone's plane is 236 to 266 px tall, so the keys, lifted by the bar and the message, left the plot at its top)
+  const inPlot = (k) => !!m.plot && k.t >= m.plot.t - 0.5 && k.b <= m.plot.b + 0.5 && k.l >= m.plot.l - 0.5 && k.r <= m.plot.r + 0.5;
+  const fitted = base.keyBtns.filter((k) => !!base.plot && k.t >= base.plot.t - 0.5);   // (the keys the plane holds without the message)
+  ok(`${tag}: the keys that stood inside the plane without the message still do, and can be pressed`, fitted.length >= 2 && fitted.every((k) => { const n = m.keyBtns.find((x) => x.name === k.name); return !!n && inPlot(n) && n.hit; }), { fitted, now: m.keyBtns, plot: m.plot });
+  if (w > h) ok(`${tag}: a message does not move the keys of a landscape plane (the bar's lift only)`, m.keyBtns.length === base.keyBtns.length && m.keyBtns.every((k, i) => Math.abs(k.t - base.keyBtns[i].t) <= 1 && Math.abs(k.l - base.keyBtns[i].l) <= 1), { base: base.keyBtns, now: m.keyBtns });
+  if (w > h && m.chip) ok(`${tag}: the message covers neither the construction chip nor its ?`, !inter(m.toast, m.chip) && !inter(m.toast, m.q), { toast: m.toast, chip: m.chip, q: m.q });
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5);
 ok('no errors', !errs.length, errs);
