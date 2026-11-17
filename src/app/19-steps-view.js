@@ -36,7 +36,7 @@
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
-  SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svOffscreen): the page is not written
+  SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
@@ -308,23 +308,31 @@
   // put back is what was held.) -> draw()'s result
   async function svAtPlane(i, draw) {
     const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left), play: SV.play, anim: SV.anim };
-    SV.offscreen++;
-    if (i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim) { try { return await draw(); } finally { SV.offscreen--; } }
+    // (stay: the view is at rest on plane i with nothing playing, so draw() needs no visit)
+    const stay = i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim;
     const visit = (k, x) => { SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
     const t0 = performance.now();
-    if (keep.play && keep.play.slide) clearTimeout(keep.play.timer);
-    SV.play = null; SV.anim = null;
-    svKeepView();
-    visit(i, i);
-    try { return await draw(); } finally {
-      const held = performance.now() - t0;
-      for (const A of [keep.play, keep.anim]) if (A && A.t0 != null) A.t0 += held;
-      SV.play = keep.play; SV.anim = keep.anim;
-      visit(keep.i, keep.x);
-      SV.offscreen--;
-      Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at;
-      if (keep.play && keep.play.slide) keep.play.timer = setTimeout(() => svSlide(false), svSlideMs());
-      requestRender('L');
+    // (the counter goes up just before the try whose finally takes it down: a throw in either visit cannot leave it up)
+    SV.offscreen++;
+    try {
+      if (!stay) {
+        if (keep.play && keep.play.slide) clearTimeout(keep.play.timer);
+        SV.play = null; SV.anim = null;
+        svKeepView();
+        visit(i, i);
+      }
+      return await draw();
+    } finally {
+      if (stay) SV.offscreen--;
+      else {
+        const held = performance.now() - t0;
+        for (const A of [keep.play, keep.anim]) if (A && A.t0 != null) A.t0 += held;
+        SV.play = keep.play; SV.anim = keep.anim;
+        try { visit(keep.i, keep.x); } finally { SV.offscreen--; }
+        Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at;
+        if (keep.play && keep.play.slide) keep.play.timer = setTimeout(() => svSlide(false), svSlideMs());
+        requestRender('L');
+      }
     }
   }
   function svArrive() {
