@@ -13,7 +13,7 @@ let pass = 0, fail = 0;
 const ok = (name, cond, got) => { if (cond) pass++; else { fail++; console.log('FAIL ' + name + (got !== undefined ? ' ' + JSON.stringify(got) : '')); } };
 const job = (name) => { const m = new RegExp(`^ {2}${name}:\\n([\\s\\S]*?)(?=^ {2}[\\w-]+:\\n|(?![\\s\\S]))`, 'm').exec(Y); return m ? m[1] : ''; };
 
-ok('mode offers suites beside gate and glprof', /options: \[gate, glprof, suites\]\n\s+default: gate\n/.test(Y));
+ok('mode offers suites beside gate and glprof', /options: \[gate, glprof, suites, fxc\]\n\s+default: gate\n/.test(Y));
 ok('the input suites exists and is optional', /\n {6}suites:\n\s+description: [^\n]*\n\s+required: false\n\s+default: ''\n/.test(Y));
 
 // the plan's check of the expression, run with bash
