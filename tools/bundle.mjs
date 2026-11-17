@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { source, parts } = require(path.join(ROOT, 'test', 'src_text.js'));
 const arg = (k, d) => (process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : d);
 const mode = arg('--mode', 'test'), out = arg('--out', path.join(ROOT, 'dist', `bundle-${mode}.js`));
-const HOOK = /\n[ \t]*\/\/ TEMP-DEBUG-HOOK \(removed before publishing\).*?\/\/ TEMP-DEBUG-HOOK\n/gs;
+const { BLOCK: HOOK } = require(path.join(ROOT, 'tools', 'hook_marker.js'));   // the test hooks the published bundle drops
 const SRC = path.join(ROOT, 'src');
 const plugin = {
   name: 'cmw-src',

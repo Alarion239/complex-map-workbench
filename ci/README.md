@@ -470,8 +470,8 @@ checks that pass in CI (30 Oct, f4e601a).
 `test/landscape_walls_cmd.js` stays in `EXCLUDED` (`ci/browser_suites.js`): its speckle, cold-open and perf parts need
 `r1/` and `base/` builds (the base is v16.3.1, `ci/reference.js` builds it) and a GPU, and the whole suite takes about
 25 min on a Mac GPU. Its mesh and motion parts read the Landscape grid back through the hooks in `src/gl/`
-(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEMP-DEBUG-HOOK` blocks that `build.py`
-strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
+(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEST-HOOK` blocks (`tools/hook_marker.js`) that
+the build strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
 and the motion part (on this build only) run on lavapipe:
 
 ```sh

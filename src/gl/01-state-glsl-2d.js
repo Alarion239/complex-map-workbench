@@ -866,14 +866,14 @@ ${TF_EMIT(rt)}
 ${SRC}
 void main() { emit(mapPoint(srcOf(mix(aP.xy, aP.zw, aT.x)))); }
 `;
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // (tests, GLR.evalMap: points through mapPoint, read back by transform feedback; test.html only)
   const EVAL_VS = `
 layout(location = 0) in vec2 aP;
 out vec2 tfOut;
 void main() { tfOut = mapPoint(aP); gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }
 `;
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   const TF_FS = `
 out vec4 o;
 void main() { o = vec4(0.0); }

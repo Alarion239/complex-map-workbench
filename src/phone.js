@@ -1034,10 +1034,10 @@ const Phone = (() => {
   return {
     init, open, close, chain, refreshDisplay: () => refreshDisplay(), swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
   };
 })();
 import { $, h } from './util.js';

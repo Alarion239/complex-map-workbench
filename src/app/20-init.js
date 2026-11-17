@@ -119,10 +119,10 @@
     fromLink(!hadSaved);
     window.addEventListener('hashchange', () => fromLink(false));
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   window.__cmwP = () => ({ params: JSON.parse(JSON.stringify(S.params)), steps: JSON.parse(JSON.stringify(S.steps)), shapes: JSON.parse(JSON.stringify(S.shapes)), targets: JSON.parse(JSON.stringify(S.targets)), errors: built.map((b) => (b && b.error) || ''), sig: chainSig[chainSig.length - 1], hi, n: hist.length, figure: figureState() });
   window.__cmwPOpen = (st, how) => openFigure(st, how || 'link');
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // (#385) init() is the start-up: the area wiring is in its area's part, as a setup…() called here at the point the
   // start-up had it (the order of the listeners and the layout's reads), so a change to one area's wiring runs that
   // area's shards (ci/impact.js); new wiring goes there too (test/t_init_wiring.js)
@@ -132,10 +132,10 @@
     MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)
     Integrals.init(integralsApi());   // the integrals (src/integrals.js)
     Examples.init(examplesApi());   // the examples and the guide (src/examples.js)
-    // TEMP-DEBUG-HOOK (removed before publishing)
+    // TEST-HOOK (dropped from the published page by build.py)
     // (the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
-    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
+    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEST-HOOK
     // i18n (notes/i18n/DESIGN.md 2): English does nothing here
     I18N.applyPage();
     I18N.applyStatic($('app'));
@@ -324,7 +324,7 @@
     if (svMorphT != null) { svPlaceAt(svMorphT); svMorphT = null; }
     tourWire();
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // the tour's adapter, and a tap on every call the tour makes into it (test/tour_cmd.js)
   window.__tourApi = tourApi;
   window.__tourTap = (() => {
