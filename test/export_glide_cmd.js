@@ -4,6 +4,8 @@
 // parked frame of the glide matches the pane the screen draws at the same thread position; the thread's place, Play range
 // and the pane are as they were afterwards; the dialog lists Video and says where it goes and how long it is. The same on the
 // sphere and the Landscape: the glide is recorded in the screen's 3D camera at the frame's own aspect.
+// At a whole thread position a frame is that plane's picture, wherever the view is parked, and the view stays parked there
+// (its spoken label too), and a running Play goes on. A recording changes nothing on the page behind the dialog.
 // A command file for a CDP daemon:  <runner> test/export_glide_cmd.js
 const fails = [], info = {};
 // a pixel of the frame is 'drawn' where it differs from the frame's own paper by more than this (summed over r, g, b)
@@ -425,5 +427,98 @@ for (const surf of ['sphere', 'land']) {
   info['paths on and off'] = Object.assign({ heads }, pr);
   ok('Paths on: the pane draws paths at the parked place, and none with Paths off', heads > 0 && pr.headsOn > 0 && pr.headsOff === 0, info['paths on and off']);
   ok(`the glide's frame draws the paths with Paths on and not with Paths off (over ${PATHS_MIN_SHARE} of its pixels differ)`, pr.share > PATHS_MIN_SHARE, info['paths on and off']);
+}
+// a frame at a whole thread position is that plane's picture wherever the view is parked: the frames at every plane drawn
+// with the view parked at that plane are the references; each is drawn again with the view parked at the last plane (the frames
+// of the other planes) and parked between the first two planes (the frames of every plane), and must match its reference to
+// SAME_PLANE_MAD. The control: the references of z and the last plane differ by more than SAME_PLANE_MAD, so the bound tells
+// planes apart (on the Landscape too, whose frames are mostly paper).
+// Afterwards the view is where it was parked, and its spoken label (the strip's live region) is what it said before the frames
+{
+  const SAME_PLANE_MAD = 1, FRAME_PT = 240, PARK_BETWEEN = 0.5;
+  for (const surf of ['plane', 'sphere', 'land']) {
+    await open(1, surf);
+    const n = await ev('__cmwSteps().planes.length');
+    // the frame at x drawn into window.__xglRef[key] -> its mean difference (of 255) from window.__xglRef[ref], or null when ref is absent
+    const frameAt = (x, key, ref) => ev(`await (async () => {
+      const a = await __cmwFig.glideArt(${x}, { wpt: ${FRAME_PT}, hpt: ${surf === 'plane' ? 'undefined' : FRAME_PT * 9 / 16}, dpi: 96 });
+      (window.__xglRef = window.__xglRef || {})[${JSON.stringify(key)}] = a.rgb;
+      const b = ${ref ? `window.__xglRef[${JSON.stringify(ref)}]` : "null"};
+      if (!b || b.length !== a.rgb.length) return null;
+      let d = 0; for (let i = 0; i < b.length; i++) d += Math.abs(a.rgb[i] - b[i]);
+      return d / b.length;
+    })()`, 120000);
+    const parkAt = async (x) => {
+      await ev(`(__cmwSteps({ go: ${Math.round(x)}, now: true }), ${x === Math.round(x) ? 1 : `__cmwSteps({ park: ${x} })`}, 1)`);
+      await settled({ until: `!__cmwSteps().anim && Math.abs(__cmwSteps().x - ${x}) < ${POS_TOL}`, max: SETTLE_MAX_MS });
+    };
+    for (let k = 0; k < n; k++) { await parkAt(k); await frameAt(k, `${surf}${k}`); }
+    const ctl = await frameAt(n - 1, 'ctl', `${surf}0`);
+    ok(`${surf}: the reference frames of z and the last plane differ (control, mean difference over ${SAME_PLANE_MAD})`, ctl > SAME_PLANE_MAD, ctl);
+    const spoken = () => ev(`(document.querySelector('#stage > [aria-live]') || {}).textContent`);
+    for (const at of [n - 1, PARK_BETWEEN]) {
+      await parkAt(at);
+      const said = await spoken();
+      for (let k = 0; k < n; k++) {
+        if (k === at) continue;
+        const where = at === PARK_BETWEEN ? `parked at ${at}` : `parked at plane ${at}`;
+        const d = await frameAt(k, 'tmp', `${surf}${k}`);
+        info[`${surf} frame at ${k}, ${where}`] = d;
+        ok(`${surf}, ${where}: the frame at plane ${k} is that plane's (mean difference under ${SAME_PLANE_MAD})`, d != null && d < SAME_PLANE_MAD, d);
+      }
+      const back = await ev('({ x: __cmwSteps().x, i: __cmwSteps().i })');
+      ok(`${surf}: the view is where it was parked (${at}) after the frames`, Math.abs(back.x - at) < POS_TOL, back);
+      const after = await spoken();
+      ok(`${surf}: parked at ${at}, the spoken label is unchanged by the frames`, typeof said === 'string' && said.length > 0 && after === said, { said, after });
+    }
+  }
+}
+// a frame at a whole thread position leaves a running Play running, in both of Play's kinds: a glide, and a slide (a plane a
+// tick, Play's kind under reduced motion, emulated here). With Play looping, a frame at plane 1 is drawn; afterwards Play is
+// the same kind, its button says Pause (its words do not change while the frame is drawn), and the thread's position goes on
+// moving (the waits are the page's own, settled's only: a Play is never quiet)
+for (const [kind, reduced] of [['glide', false], ['slide', true]]) {
+  await open(1, 'plane');
+  if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }, { name: 'prefers-reduced-motion', value: 'reduce' }] });
+  await ev(`(__cmwSteps({ loop: true }), __cmwSteps({ play: true }), 1)`);
+  await settled({ until: '!!__cmwSteps().play', max: SETTLE_MAX_MS, only: true });
+  const r = await ev(`await (async () => {
+    const before = __cmwSteps().play, b = document.querySelector('#svStrip .sv-play');
+    // (the button's words while the frame is drawn: it never says Play)
+    const flips = [], mo = new MutationObserver(() => flips.push(b.getAttribute('aria-label')));
+    mo.observe(b, { attributes: true, attributeFilter: ['aria-label'] });
+    await __cmwFig.glideArt(1, { wpt: 240, dpi: 96 });
+    mo.disconnect();
+    return { before, play: __cmwSteps().play, label: b && b.getAttribute('aria-label'), flips, x: __cmwSteps().x };
+  })()`, 120000);
+  const moved = await settled({ until: `Math.abs(__cmwSteps().x - ${r.x}) > ${POS_TOL}`, max: SETTLE_MAX_MS, only: true });
+  info[`${kind}: Play after a frame`] = Object.assign({ moved: moved.ok }, r);
+  ok(`Play as a ${kind}: still a ${kind} after a frame at a plane, its button says Pause (and never Play while the frame is drawn), and the thread moves on`, r.before === kind && r.play === kind && r.label === 'Pause' && r.flips.length === 0 && moved.ok === true, info[`${kind}: Play after a frame`]);
+  await ev(`(__cmwSteps({ play: false }), __cmwSteps({ loop: false }), 1)`);
+  if (reduced) await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-color-scheme', value: 'light' }] });
+}
+// a recording leaves the page behind the dialog alone: with the view parked at the last plane and between the first two, a
+// video of the thread is made while the strip (its slider, buttons and plane marks), the pane's name and the live region are
+// watched; nothing in them changes, and the pane's name is what it was
+{
+  await open(1, 'plane');
+  for (const at of [2, 0.5]) {
+    await ev(`(__cmwSteps({ go: ${Math.round(at)}, now: true }), ${at % 1 ? `__cmwSteps({ park: ${at} })` : 1}, 1)`);
+    await settled({ until: `!__cmwSteps().anim && Math.abs(__cmwSteps().x - ${at}) < ${POS_TOL}`, max: SETTLE_MAX_MS });
+    const m = await ev(`await (async () => {
+      const log = [], pane = document.getElementById('paneL'), live = document.querySelector('#stage > [aria-live]');
+      const mo = new MutationObserver((ms) => { for (const x of ms) log.push((x.target.id || x.target.className || x.target.nodeName) + ' ' + x.type + ' ' + (x.attributeName || '')); });
+      mo.observe(document.getElementById('svStrip'), { subtree: true, attributes: true, childList: true, characterData: true });
+      mo.observe(pane, { attributes: true, attributeFilter: ['aria-label'] });
+      mo.observe(live, { subtree: true, childList: true, characterData: true });
+      const before = pane.getAttribute('aria-label');
+      await __cmwFig.makeVideo({ video: ${JSON.stringify(VIDEO_OPT)} });
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      mo.disconnect();
+      return { n: log.length, first: log.slice(0, 6), before, after: pane.getAttribute('aria-label') };
+    })()`, VIDEO_WAIT_MS);
+    info[`recording parked at ${at}: page changes`] = m;
+    ok(`parked at ${at}: a recording changes nothing in the strip, the pane's name or the live region`, m.n === 0 && m.after === m.before && !!m.before, m);
+  }
 }
 return { pass: fails.length === 0, fails, info };

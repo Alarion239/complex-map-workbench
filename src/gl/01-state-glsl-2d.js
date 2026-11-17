@@ -1200,12 +1200,14 @@ void main() {
   o = col;
 }
 `;
+  // (uNoValue = 1: only where F has no finite value, its no-value colour, the NaN hatch or infinity's white; nothing elsewhere)
   const COLORPLOT_FS = `
-uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp;
+uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp; uniform int uNoValue;
 out vec4 o;
 void main() {
-  vec2 z = uCenter + (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
-  o = vec4(dcolor(mapF(z)), 1.0);
+  vec2 z = uCenter + (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale, w = mapF(z);
+  if (uNoValue == 1 && abs(w.x) < 3e38 && abs(w.y) < 3e38) discard;
+  o = vec4(dcolor(w), 1.0);
 }
 `;
   // The colour plot's stand-in while its program links (drawColorPlot's st.standIn): w = F(z) at the nodes of a grid,
