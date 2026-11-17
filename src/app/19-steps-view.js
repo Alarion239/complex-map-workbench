@@ -512,8 +512,9 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
   };
-  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
-  // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
+  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
+  // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
+  // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
   // of it at the same time t (the map spec of mode 3 and its CPU twin), the planes between left out; not across a d/dz, whose
   // step is no map
@@ -1955,7 +1956,7 @@
     return onPage;
   }
   // the shapes' outlines in S.shapes order: under map, open sets dashed (spec 6.5), along the curve under map; the plane
-  // a glide reaches, from the midpoint, by the inverse pass per pixel (svReached), solid; col: as the colour plot draws
+  // a glide reaches, in every frame of the glide, by the inverse pass per pixel (svReached) at opacity u (svStrokeAt); col: as the colour plot draws
   // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
   // caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {

@@ -11,12 +11,19 @@
 // than a background already near that ink. And the strokes stack in the shapes' order, as at rest: where the line l0 of
 // plane 0, listed after the disc c1 of plane 1, crosses c1's outline (the pixels of l0's ink in plane 1's parked frame
 // with c1's ink within CROSS_R px), the frame at U_END has l0's ink at the same pixel (within 1 px) for at least
-// STACK_MIN of at least MIN_CROSS of them. Inside regions and Everywhere (SCOPES).
+// STACK_MIN of at least MIN_CROSS of them. And the stroke comes in at opacity u (strokeShare), held at SHARE_U and HOLD_U:
+// where plane 1's stroke is carried, the drawn pixel is the frame with the strokes hidden plus a share s of the ink and a
+// share of the casing, with the median s u within SHARE_TOL, and weaker at the first HOLD_U than at the last. So a stroke
+// drawn whole from the midpoint, or not at all before it, or in another colour, fails in both scopes. Inside regions and
+// Everywhere (SCOPES); each failure names its scope.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const HIT_MIN = 0.9, MIN_RING = 100, RING_R = 3, INK_TOL = 24, HOLD_U = [0.6, 0.75], U_END = 0.998, SCOPES = ['in', 'all'];
 const CROSS_R = 4, STACK_MIN = 0.95, MIN_CROSS = 40, FULL_U = 0.95, TOWARD = 0.05;
+// the stroke's opacity (strokeShare): the fit's tolerance (of 255) and slack in s and t; held at SHARE_U too
+// (SHARE_TOL: the median share's distance from u, which keeps the shares at HOLD_U apart; SHARE_FIT_MIN: the carried pixels with a fit)
+const FIT_TOL = 14, SHARE_EPS = 0.05, SHARE_U = 0.3, SHARE_TOL = 0.06, SHARE_FIT_MIN = 0.9;
 await view(1200, 800);
 // (step 1, h(z) = (a z + b) / (c z + d), the Cayley map: its coefficients as [re, im], for the inverse the check carries
 // plane 1's outline back with)
@@ -51,7 +58,7 @@ const { hold, grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_fr
 const snap = async (tag, hide) => {
   await ev(`__cmwHideStrokes(${!!hide}), __cmwSteps({ bare: false }), 1`);
   await settled({ max: 20000 });
-  ok(`the frame ${tag} settles`, await grab(tag), null);
+  ok(`[${SCOPE_NOW}] the frame ${tag} settles`, await grab(tag), null);
   if (hide) { await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); }
 };
 const park = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-9 && GLR.pendingLinks === 0 && !__cmwSteps().hold` }); };
@@ -88,10 +95,56 @@ const carried = (id, scope) => ev(`(() => {
   }
   return { n, hit, off, frac: +(hit / Math.max(1, n)).toFixed(3), path: g.path, u: +g.u.toFixed(3) };
 })()`);
+// The stroke's opacity at the carried place (the frame at u M, its strokes hidden M0), for the shapes of plane 1: each stroke
+// pixel of plane 1's parked frame carried to the frame at u, the pixel within RING_R px whose drawn colour M fits
+// M0 + s (ink - M0) + t (casing - M0) (the ink over its casing over the frame, a shape's stroke at rest, each at a share of
+// its opacity) within FIT_TOL of a channel, with the largest s: the ink's share there, s = u at the stroke's middle when the
+// stroke comes in at opacity u. A pixel with no such fit (another colour drawn there, as a magenta stroke would be) has
+// share 0. -> {n, fit, med}: the carried pixels, those with a fit, the median share of all
+const strokeShare = (id) => ev(`(() => {
+  const g = __cmwSteps().glide, K = window.__heldPx, P = K.P1, P0 = K.P10, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
+  const W = c.width, H = c.height, dpr = W / g.w, v = g.view, look = __cmwLook(${JSON.stringify(id)}, 'L');
+  const rgb = (h) => [0, 2, 4].map((k) => parseInt(h.replace('#', '').slice(k, k + 2), 16));
+  const ink = rgb(look.edge), halo = rgb(look.halo);
+  const near = (D, i) => Math.max(Math.abs(D[i] - ink[0]), Math.abs(D[i + 1] - ink[1]), Math.abs(D[i + 2] - ink[2])) <= ${INK_TOL};
+  const drawn = (D, D0, i) => Math.abs(D[i] - D0[i]) + Math.abs(D[i + 1] - D0[i + 1]) + Math.abs(D[i + 2] - D0[i + 2]) > 60;
+  // (least squares for s and t in M - M0 = s a + t b, a = ink - M0, b = casing - M0; null when the fit misses by more than FIT_TOL)
+  const fit = (i) => {
+    const h = [M0[i], M0[i + 1], M0[i + 2]], d = [0, 1, 2].map((k) => M[i + k] - h[k]), a = ink.map((x, k) => x - h[k]), b = halo.map((x, k) => x - h[k]);
+    const dot = (p, q) => p[0] * q[0] + p[1] * q[1] + p[2] * q[2], aa = dot(a, a), bb = dot(b, b), ab = dot(a, b), det = aa * bb - ab * ab;
+    let s, t;
+    if (Math.abs(det) < 1e-6 * aa * Math.max(1, bb)) { s = dot(d, a) / aa; t = 0; } else { s = (dot(d, a) * bb - dot(d, b) * ab) / det; t = (dot(d, b) * aa - dot(d, a) * ab) / det; }
+    const miss = Math.max(...[0, 1, 2].map((k) => Math.abs(d[k] - s * a[k] - t * b[k])));
+    return miss <= ${FIT_TOL} && s >= -${SHARE_EPS} && t >= -${SHARE_EPS} && s + t <= 1 + ${SHARE_EPS} ? s : null;
+  };
+  const { a, b, c: cc, d } = ${JSON.stringify(H1)};
+  const mul = (p, q) => [p[0] * q[0] - p[1] * q[1], p[0] * q[1] + p[1] * q[0]];
+  const inv = (w) => {
+    const n = mul(d, w), m = mul(cc, w), num = [n[0] - b[0], n[1] - b[1]], den = [a[0] - m[0], a[1] - m[1]], q = den[0] * den[0] + den[1] * den[1];
+    return { re: (num[0] * den[0] + num[1] * den[1]) / q, im: (num[1] * den[0] - num[0] * den[1]) / q };
+  };
+  const R = Math.round(${RING_R} * dpr), shares = [];
+  let nfit = 0;
+  for (let y = 2; y < H - 2; y++) for (let x = 2; x < W - 2; x++) {
+    const i = 4 * (y * W + x);
+    if (!near(P, i) || !drawn(P, P0, i)) continue;
+    const w = g.Hb(inv([v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s, v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s]));
+    const wx = Math.round(((w.re - v.cx) * v.s + g.w / 2) * dpr - 0.5), wy = Math.round((g.h / 2 - (w.im - v.cy) * v.s) * dpr - 0.5);
+    if (!(wx >= R && wy >= R && wx < W - R && wy < H - R)) continue;
+    let best = null;
+    for (let dy = -R; dy <= R; dy++) for (let dx = -R; dx <= R; dx++) { const s = fit(4 * ((wy + dy) * W + wx + dx)); if (s != null && (best == null || s > best)) best = s; }
+    if (best != null) nfit++;
+    shares.push(best == null ? 0 : best);
+  }
+  shares.sort((p, q) => p - q);
+  return { n: shares.length, fit: nfit, med: shares.length ? +shares[shares.length >> 1].toFixed(3) : null };
+})()`);
+// the shapes of plane 1 the pass strokes
+const STROKED = ST.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id);
 const check = async (r, where, scope) => {
-  for (const id of ST.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id)) {
+  for (const id of STROKED) {
     const q = r[`${id} ${where}`] = await carried(id, scope);
-    ok(`${id}'s stroke ${where} is plane 1's parked stroke carried there (at least ${HIT_MIN * 100} % of ${MIN_RING}+ pixels, its ink within ${RING_R} px)`, q.n >= MIN_RING && q.frac >= HIT_MIN, q);
+    ok(`[${scope}] ${id}'s stroke ${where} is plane 1's parked stroke carried there (at least ${HIT_MIN * 100} % of ${MIN_RING}+ pixels, its ink within ${RING_R} px)`, q.n >= MIN_RING && q.frac >= HIT_MIN, q);
   }
 };
 // where l0 crosses c1's outline in plane 1's parked frame P1 (l0's ink with c1's within CROSS_R px): how many of those
@@ -111,24 +164,35 @@ const stacked = () => ev(`(() => {
   }
   return { n, kept, frac: +(kept / Math.max(1, n)).toFixed(3) };
 })()`);
+let SCOPE_NOW = '';
 for (const scope of SCOPES) {
+  SCOPE_NOW = scope;
   const r = info[scope] = {};
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: '${scope}', surf: 'plane' }), 1`);
   await ev(`__cmwSteps({ go: 1, now: true }), 1`);
   await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSteps().x === 1 && GLR.pendingLinks === 0` });
   await snap('P1'); await snap('P10', true);
   await park(0);
-  for (const u of HOLD_U) {
+  for (const u of [SHARE_U, ...HOLD_U]) {
     r[`hold ${u}`] = await hold(u);
     await snap('M'); await snap('M0', true);
-    await check(r, `held at u = ${u}`, scope);
+    if (u !== SHARE_U) await check(r, `held at u = ${u}`, scope);
+    for (const id of STROKED) {
+      const q = r[`share ${id} ${u}`] = await strokeShare(id);
+      ok(`[${scope}] ${id}'s stroke held at u = ${u} comes in at opacity u: the ink's median share where plane 1's stroke is carried is u within ${SHARE_TOL} (a stroke drawn whole, not drawn, or in another colour is not), with a fit at ${SHARE_FIT_MIN * 100} % of ${MIN_RING}+ pixels`, q.n >= MIN_RING && q.fit >= SHARE_FIT_MIN * q.n && Math.abs(q.med - u) <= SHARE_TOL, q);
+    }
     await ev('window.__svScrubUp(), 1');
     await park(0);
+  }
+  // (the opacity grows with u: weaker at the first HOLD_U than at the last, each shape)
+  for (const id of STROKED) {
+    const lo = r[`share ${id} ${HOLD_U[0]}`], hi = r[`share ${id} ${HOLD_U[HOLD_U.length - 1]}`];
+    ok(`[${scope}] ${id}'s stroke is weaker at u = ${HOLD_U[0]} than at u = ${HOLD_U[HOLD_U.length - 1]} (the ink's median share)`, lo.med != null && hi.med != null && lo.med < hi.med, { lo, hi });
   }
   await park(U_END);
   await snap('M'); await snap('M0', true);
   await check(r, `parked at u = ${U_END}`, scope);
   const q = r.stack = await stacked();
-  ok(`at u = ${U_END} the strokes stack as at rest: l0 over c1's outline where they cross (at least ${STACK_MIN * 100} % of ${MIN_CROSS}+ pixels)`, q.n >= MIN_CROSS && q.frac >= STACK_MIN, q);
+  ok(`[${scope}] at u = ${U_END} the strokes stack as at rest: l0 over c1's outline where they cross (at least ${STACK_MIN * 100} % of ${MIN_CROSS}+ pixels)`, q.n >= MIN_CROSS && q.frac >= STACK_MIN, q);
 }
 return { pass: fails.length === 0, fails, info };
