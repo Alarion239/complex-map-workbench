@@ -28,6 +28,7 @@ ok('the page shows the steps view', await isSteps(), null);
 await ev(`__cmwSet('morphPaths', false), 1`);
 // the kept frames (grab) and the moving globe against the exact picture (globeJudge): test/lib/held_frames.js
 const { grab, globeJudge } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { SCRIPT: PIXEL_DIFF } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'pixel_diff.js'), 'utf8'));
 const compare = (P, F) => globeJudge(P, F, { tol: TOL, minN: N_MIN, maxOver: OVER_MAX });
 // (a kept frame read in the page: its pixels, the canvas's size and its device pixels per CSS pixel)
 const FRAME = `const frame = (t) => { const c = document.getElementById('canvasL'); return { W: c.width, H: c.height, k: c.width / c.getBoundingClientRect().width, d: window.__heldPx[t] }; };`;
@@ -135,11 +136,10 @@ ok('at rest past the colour plane the globe shows the carried colour (the invers
 await ev(`__cmwSteps({ x: 1.998 }); 1`);
 await settled({ max: 60000, until: 'Math.abs(__cmwSteps().x - 1.998) < 1e-9 && GLR.pendingLinks === 0' });
 ok('the globe just before w2 settles', await grab('F'), null);
+// (the mean over the frame's pixels of their channels' differences: test/lib/pixel_diff.js)
 R.endPastT = await ev(`(() => {
-  const A = window.__heldPx.E, B = window.__heldPx.F;
-  let sum = 0;
-  for (let i = 0; i < A.length; i += 4) sum += (Math.abs(A[i] - B[i]) + Math.abs(A[i + 1] - B[i + 1]) + Math.abs(A[i + 2] - B[i + 2])) / 3;
-  return { mean: +(sum / (A.length / 4)).toFixed(3), path: __cmwSvGlobe(0, 0).path };
+  ${PIXEL_DIFF}
+  return { mean: +__pxDiff(window.__heldPx.E, window.__heldPx.F).chMean.toFixed(3), path: __cmwSvGlobe(0, 0).path };
 })()`);
 ok(`just before w2 the moving globe is w2's resting globe (a mean within ${END_MEAN} levels)`, R.endPastT.path === 'inverse' && R.endPastT.mean <= END_MEAN, R.endPastT);
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
