@@ -19,7 +19,7 @@ const names = async (focus) => {
   const ns = `fpn${focus}x${Date.now()}`;
   await go(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st(focus)))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${focus ? 'classic' : 'steps'}`);
+  await go(focus ? `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=classic` : `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwPointName === 'function' && typeof __cmwCards === 'function' && __cmwP().steps.length === 2 && __cmwCards().focus === ${focus}` });
   const name = (id, primes) => ev(`__cmwPointName(${JSON.stringify(id)}, ${primes})`);
   return { z1: await name('sa', 1), z2: await name('sa', 2), w1: await name('sb', 1), w0: await name('sb', 0) };
