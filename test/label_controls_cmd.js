@@ -17,7 +17,7 @@ const under = (l) => ev(`(() => {
   const nx = Math.max(1, Math.ceil((x1 - x0) / ${PROBE_PX})), ny = Math.max(1, Math.ceil((y1 - y0) / ${PROBE_PX}));
   for (let i = 0; i <= nx; i++) for (let j = 0; j <= ny; j++) {
     const e = document.elementFromPoint(x0 + (x1 - x0) * i / nx, y0 + (y1 - y0) * j / ny);
-    if (e && e !== plot && e.tagName !== 'CANVAS' && plot.contains(e)) found.set(e, (e.id || String(e.className)).split(' ')[0] || e.tagName);
+    if (e && e !== plot && e.tagName !== 'CANVAS' && plot.contains(e)) found.set(e, (e.id || e.getAttribute('class') || '').split(' ')[0] || e.tagName);
   }
   return [...found.values()];
 })()`);
