@@ -99,7 +99,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   const MAP_STAGE = [
     () => 'return chainRange(s, uA, uB);',
     () => `vec2 z = chainRange(s, uBase, uHi - 1);
-  // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.ts lerpE: review v16 math-2)
+  // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.ts lerpE)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
     () => `vec2 z0 = chainRange(s, uBase, uA);
