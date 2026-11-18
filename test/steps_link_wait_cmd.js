@@ -24,7 +24,8 @@ if (ex >= 0) {
   await ev(`__cmwExample(${ex}); 1`);
   await adopted();
   await settled({ max: 30000 });
-  await ev(`__cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true }); 1`);
+  // (the Play gate off: this suite watches the hold of a glide that has started; the gate's waits are svplay_gate_cmd.js's)
+  await ev(`__cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true, gate: false }); 1`);
   await settled({ max: 30000 });
   await ev(`(() => {
     const R = window.__lkw = { frames: [], last: null, done: false, t0: performance.now(), draw: GLR.drawInverse, state: GLR.inverseState };

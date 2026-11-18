@@ -119,7 +119,8 @@ await ev('(__cmwSteps({ T: 0 }), 1)');
 await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
 const phaseOut = await pixels(SWITCH_PTS);
 await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
-await ev('(__cmwSteps({ T: 0, go: 1 }), 1)');
+// (the Play gate off: the hold of the glide that has started waits on plane z, which this leg watches; the gate's waits are svplay_gate_cmd.js's)
+await ev('(__cmwSteps({ T: 0, go: 1, gate: false }), 1)');
 const seen = [];
 for (let i = 0; i < SWITCH_FRAMES; i++) seen.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
 await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });

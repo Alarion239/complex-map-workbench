@@ -41,8 +41,8 @@
 //   (its thread still never goes back), and it ends within seconds of the link landing.
 // - z + 1/z, then z⁴ + z, on a fresh page whose links land 20 s late, with the Play gate on: ▶, then the main thread stalled
 //   for longer than the play lasts in the same task (a link or compile blocking it): the gate starts no play, so the thread
-//   stays on plane 0 through the stall, no live region says "Stopped at", and the play's first frame moves it only when the
-//   chain is ready; it reaches plane 2.
+//   stays on plane 0 through the stall, no live region says "Stopped at", and the play's first frame moves it only after the
+//   chain has been ready; it reaches plane 2.
 // Every other leg switches the Play gate (svplay_gate_cmd.js) off (__cmwSteps({ gate: false })): it waits before any motion
 // starts, and those legs watch the hold that follows one.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
@@ -362,8 +362,8 @@ try {
       await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), __cmwAddStep('custom', { expr: 'z^4+z', cut: 180 }, 1), 1");
       await settled({ only: true, max: READY_MS, until: '__cmwSteps().planes.length === 3' });
       await ev('__cmwSteps({ go: 0, now: true }), 1');
-      // (at every animation frame: the thread's moves, the chain's readiness at its first, and whether a live region has said "Stopped at")
-      await ev(`(() => { const s = window.__llGate = { stopped: 0, moved: 0, last: __cmwSvX(), done: false }; const t = () => { const x = __cmwSvX(); if (x !== s.last) { s.moved++; if (!s.first) s.first = { ready: __cmwSteps().ready.ready, pending: GLR.pendingLinks }; } s.last = x; if ([...document.querySelectorAll('.sr-only[aria-live]')].some((e) => /Stopped at/.test(e.textContent))) s.stopped++; if (!s.done) requestAnimationFrame(t); }; requestAnimationFrame(t); return 1; })()`);
+      // (at every animation frame: the thread's moves, whether the chain has been ready by its first, and whether a live region has said "Stopped at")
+      await ev(`(() => { const s = window.__llGate = { stopped: 0, moved: 0, last: __cmwSvX(), done: false }; const t = () => { const x = __cmwSvX(); const rd = __cmwSteps().ready.ready; if (rd) s.everReady = true; if (x !== s.last) { s.moved++; if (!s.first) s.first = { ready: !!s.everReady, pending: GLR.pendingLinks }; } s.last = x; if ([...document.querySelectorAll('.sr-only[aria-live]')].some((e) => /Stopped at/.test(e.textContent))) s.stopped++; if (!s.done) requestAnimationFrame(t); }; requestAnimationFrame(t); return 1; })()`);
       // (the idle callbacks of a page whose frames are slow are given time, as in the legs above)
       await record('requestIdleCallback');
       const pending = await ev('GLR.pendingLinks');
@@ -376,7 +376,7 @@ try {
       const got = { pending, stalled, mid, fin, waits: { settledOn, reached } };
       ok(`${POLE_EX}, then z⁴ + z, links ${GATE_LINK_MS} ms late: ▶ then a ${STALL_MS} ms stall leaves the thread on plane 0 with the links pending`, pending > 0 && stalled.pending > 0 && stalled.x === 0, got);
       ok(`${POLE_EX}, then z⁴ + z, ▶ then a ${STALL_MS} ms stall: no live region says "Stopped at" while the play waits for the links`, mid.stopped === 0 && (mid.x === 0 || !mid.busy), got);
-      ok(`${POLE_EX}, then z⁴ + z, ▶ then a ${STALL_MS} ms stall: the play begins only when the chain is ready, and arrives at plane 2`, reached.ok && fin.x === 2 && !!fin.first && fin.first.ready === true, got);
+      ok(`${POLE_EX}, then z⁴ + z, ▶ then a ${STALL_MS} ms stall: the play begins only once the chain has been ready, and arrives at plane 2`, reached.ok && fin.x === 2 && !!fin.first && fin.first.ready === true, got);
       info.gateStall = got;
     } finally {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
