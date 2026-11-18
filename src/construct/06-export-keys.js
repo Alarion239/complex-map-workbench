@@ -317,11 +317,11 @@
     if (lastToast && lastToast.isConnected) lastToast.remove();
     lastToast = null;
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   function debug() {
     return { chipBot: Object.assign({}, chipBot), hover: draftC && draftC.hover, chipRect: lastChip, rail: rail ? { side: rail.side, stretch: rail.stretch ? { a: rail.stretch.a, b: rail.stretch.b, k: rail.stretch.k } : null } : null, freeChip: freeChip ? freeChip.text : null, ring: ring ? { side: ring.side, z: ring.z, ref: ring.ref, cls: ring.cls, chip: ring.chip, warn: ring.warn } : null, draft: draftC ? { tool: draftC.tool, side: draftC.side, picks: draftC.picks.map((p) => ({ cls: p.cls, z: p.z, ref: p.ref, role: p.role })), curve1: draftC.curve1 && draftC.curve1.ref, hoverT: draftC.hoverT ? { cls: draftC.hoverT.cls, k: draftC.hoverT.k, z: draftC.hoverT.z } : null, rings: draftC.tool === 'touch' && draftC.picks[0] && draftC.picks[0].role === 'P' ? ringsOf(draftC.picks[0].z).map((r) => ({ k: r.k, tp: r.tp })) : null, hint: draftC.tool === 'touch' && draftC.picks[0] && draftC.picks[0].role === 'T' ? hintForm(draftC.picks[0].z) : null } : null, fill: fillMode, seg: segMode, events: events.map((e) => e.type) };
   }
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // (every entry point is inert until the app's adapter arrives: init() builds the tools before Construct.ui runs)
   const g = (f, d) => (...a) => (A && api ? f(...a) : d);
   return {
@@ -333,9 +333,9 @@
     row: g(row, false), rowMenu: g(rowMenu), markLinks: g(markLinks), orderRows: g(orderRows), linked: g(linked, new Set()),
     fixedName: (s) => (A ? fixedName(s) : null), defText: g(defText, null), reasonText: g(reasonText, ''), refName: g(refName, ''), shapeLabel: g(shapeLabel, ''), pointName: g(pointName, ''), followsText: g(followsText, ''), phrase: g(phrase, null), menuItems: g(menuItems, []),
     inspectorSig: g(inspectorSig, null), inspectorBuild, inspectorFill, usedBy: g((id) => { try { return [...graph().users(id)]; } catch (e) { return []; } }, []), setFill, paletteActs: g(paletteActs, []), CAPTIONS,
-    // TEMP-DEBUG-HOOK (removed before publishing)
+    // TEST-HOOK (dropped from the published page by build.py)
     debug,
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     pointMark: (s) => (s.helper ? 'helper' : s.def && s.def.op !== 'glider' ? 'ring' : null),
     get api() { return api; },
     get events() { return events.slice(); },

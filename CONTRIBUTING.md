@@ -52,6 +52,10 @@ ruff check
 - **No new globals without a reason.** A file exposes one name (`const Tour = (() => { ... return api; })()`); the
   linter reads those names from `src/` itself. A file that also runs in the node unit tests exports itself with
   `module.exports` and is then listed in `types/globals.d.ts`.
+- **A pure file of `src/` may be TypeScript** (`src/<name>.ts`, issue #20), with erasable syntax only: annotations,
+  `type` and `interface`, `as`; no `enum`, `namespace` or parameter property. Its importers still name it
+  `./<name>.js` (esbuild and tsc resolve it), tsc checks it, and ESLint, the unit tests and the test pages read it
+  without its types (`tools/ts_strip.js`, node's own type stripping, which keeps every line and column).
 - **Comments describe the code as it is now:** what it does, its contract (inputs, outputs, units, invariants) and,
   where the code can't show it, why it must be this way. Link a spec in `notes/` where it explains a decision.
 - **A comment never tells the code's history.** No "was", "used to", "previously", "no longer", "now" or "instead of
