@@ -29,6 +29,7 @@ const VIEWS = {
   'sv_cut_curve_sphere_cmd.js': steps(),
   'sv_cut_ring_dash_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
+  'led_a11y_cmd.js': steps({ pin: true }),
   'example_try_sv_cmd.js': steps(),
   'example_try_keys_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
@@ -79,6 +80,7 @@ const VIEWS = {
   'steps_land_specks_cmd.js': steps({ pin: true }),
   'steps_land_plaster_cmd.js': steps({ pin: true }),
   'steps_land_poles_cmd.js': steps(),
+  'steps_land_sing_cmd.js': steps(),
   'steps_land_far_cmd.js': steps(),
   'steps_land_box_cmd.js': steps({ pin: true }),
   'steps_land_cover_cmd.js': steps(),
@@ -367,6 +369,7 @@ const VIEWS = {
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
   'kit_load_wait_cmd.js': steps({ pin: true }),
+  'kit_settled_faces_cmd.js': steps({ pin: true }),
   'kit_settled_cmd.js': steps({ pin: true }),
   'kit_nav_cause_cmd.js': steps({ pin: true }),
   'kit_reloaded_cmd.js': steps({ pin: true }),
