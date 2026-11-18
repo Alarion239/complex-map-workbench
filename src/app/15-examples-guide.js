@@ -958,6 +958,9 @@
       // (its place once its eased move ends: its foot at bottom, its height as it stands)
       const key = land ? box($('leftLegend')) : null, tb = key ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       if (key && tb && tb.right > key.left && tb.left < key.right && foot > key.top && foot - tb.height < key.bottom) st.right = Math.round(window.innerWidth - key.left + 8) + 'px';
+      // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
+      const mt = /** @type {HTMLElement} */ (host.firstElementChild);
+      if (toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth) { fitToastRows(mt); return; }
       toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
@@ -1035,6 +1038,7 @@
   // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
   // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
   // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
+  const toastFitW = new WeakMap();   // (the width a message picked its rows at)
   function fitToastRows(t) {
     if (!t.isConnected) return;
     const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
@@ -1043,6 +1047,7 @@
     t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
     sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    toastFitW.set(t, t.clientWidth);
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
   }
   function toast(msg, actionLabel, action, isUndo, o) {

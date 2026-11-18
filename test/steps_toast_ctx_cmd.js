@@ -9,6 +9,8 @@ const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const ST = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }, { id: 's2', kind: 'rect', a: [-2, -1], b: [1, 0.5] }], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' } };
+const SHORT = { en: 'Added f₃', ru: 'Шаг f₃ добавлен' };   // (a message that fits one row)
+const ONE_ROW_MAX = 60;   // a one-row message is 56 px tall (its padding and a 44 px button), px
 const SHOW = { en: 'Show alone', ru: 'Показать отдельно' };   // (the second action of a message that adds a step)
 const MSG = { en: ['Added f₃: Exponential, and a longer second part', 'Undo'], ru: ['Добавлен шаг f₃ (Экспонента) и продолжение сообщения', 'Отменить'] };
 const VIEWPORTS = [[360, 640], [740, 360], [667, 375], [844, 390]], GAP = 8, STILL_MS = 150, SETTLE_MAX = 5000, MSG_MS = 60000, OVERLAP_PX = 1;
@@ -25,7 +27,7 @@ const measure = () => ev(`(() => {
     keys: [...document.querySelectorAll('.viewstack, .ph-col')].filter((e) => e.getClientRects().length).map(rect),
     keyBtns: [...document.querySelectorAll('.viewstack button, .ph-col button')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return { name: b.getAttribute('aria-label') || b.className.split(' ')[0], l: r.left, t: r.top, r: r.right, b: r.bottom, hit: !!at && (at === b || b.contains(at)) }; }),
     chip: rect(document.querySelector('#plotL > .draft-chip.cm-on')), q: rect(document.querySelector('#plotL .cm-q')),
-    legend: legendHit(), words: wordsOf(t),
+    legend: legendHit(), words: wordsOf(t), rows: t && t.dataset.rows || null,
     // (the chip's prompt and its ×, whether the page finds it; the bar's title; every button of the message inside its box and the screen)
     chipText: (document.querySelector('#plotL > .draft-chip.cm-on .cm-t') || {}).textContent || null,
     chipX: (() => { const x = document.querySelector('#plotL > .draft-chip.cm-on .cm-x'), r = rect(x); if (!r) return null; const at = document.elementFromPoint((r.l + r.r) / 2, (r.t + r.b) / 2); return !!at && x.contains(at); })(),
@@ -35,8 +37,9 @@ const measure = () => ev(`(() => {
 // (the message and the bar at rest: the same boxes twice, STILL_MS apart)
 const still = async () => { let a = JSON.stringify(await measure()); for (let i = 0; i < SETTLE_MAX / STILL_MS; i++) { await sleep(STILL_MS); const b = JSON.stringify(await measure()); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
 const inter = (a, b) => !!a && !!b && Math.min(a.r, b.r) - Math.max(a.l, b.l) > OVERLAP_PX && Math.min(a.b, b.b) - Math.max(a.t, b.t) > OVERLAP_PX;
-for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode of ['edit', 'tall', 'none']) for (const acts of w > h && mode === 'tall' ? [1, 2] : [1]) {
-  const tag = `${lang} ${w}×${h} ${mode === 'edit' ? 'Edit row' : mode === 'tall' ? 'tall bar' : 'no bar (control)'}${acts === 2 ? ' with two actions' : ''}`;
+for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode of ['edit', 'tall', 'none']) for (const variant of w > h && mode === 'tall' ? ['long', 'two', 'short'] : ['long']) {
+  const acts = variant === 'two' ? 2 : 1;
+  const tag = `${lang} ${w}×${h} ${mode === 'edit' ? 'Edit row' : mode === 'tall' ? 'tall bar' : 'no bar (control)'}${variant === 'two' ? ' with two actions' : variant === 'short' ? ' with a short message' : ''}`;
   await view(w, h, false, true);
   const ns = 'stc' + w + lang + mode + (Date.now() % 1000000);
   await load(ns, ST);
@@ -46,7 +49,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   if (mode !== 'none') await settled({ max: 5000, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
   const base = await still();   // (the bar open and no message yet: where the plane's keys stand)
   // (a message that adds a step offers Show alone as well as Undo: its second action is added before the message picks its rows, as the page does)
-  await ev(`(__cmwToast(${JSON.stringify(MSG[lang][0])}, ${JSON.stringify(MSG[lang][1])}, { ms: ${MSG_MS} }), ${acts === 2 ? `(() => { const t = document.querySelector('#toastHost .toast'), b = document.createElement('button'); b.className = 'toast-act'; b.textContent = ${JSON.stringify(SHOW[lang])}; t.querySelector('.toast-act').before(b); })(), ` : ''}1)`);
+  await ev(`(__cmwToast(${JSON.stringify(variant === 'short' ? SHORT[lang] : MSG[lang][0])}, ${JSON.stringify(MSG[lang][1])}, { ms: ${MSG_MS} }), ${acts === 2 ? `(() => { const t = document.querySelector('#toastHost .toast'), b = document.createElement('button'); b.className = 'toast-act'; b.textContent = ${JSON.stringify(SHOW[lang])}; t.querySelector('.toast-act').before(b); })(), ` : ''}1)`);
   await settled({ max: 5000, panes: false, until: `document.getElementById('toastHost').dataset.placed === 'phone-plot'` });
   const m = await still();
   info[tag] = m;
@@ -69,6 +72,8 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   // (the folded colour key is a control: with the message up it can be pressed, and the message is not over it)
   if (base.legend && base.legend.hit) ok(`${tag}: the folded colour key can still be pressed with the message up, and the message does not lie over it`, !!m.legend && m.legend.hit && !inter(m.toast, m.legend), { base: base.legend, now: m.legend, toast: m.toast });
   ok(`${tag}: the message's words are whole (the two-line clamp cuts nothing)`, !!m.words && !m.words.cut, m.words);
+  // (the message picks its rows at the width it stands at: a short one takes one row where the placement gives it room, not two with the second empty)
+  if (variant === 'short') ok(`${tag}: a short message takes one row`, m.rows === 'one' && m.toast.b - m.toast.t <= ONE_ROW_MAX, { rows: m.rows, toast: m.toast });
   ok(`${tag}: every button of the message lies inside its box and the screen`, m.btnsIn === true, { toast: m.toast, btnsIn: m.btnsIn });
   // (a landscape phone's tall bar leaves a message little room beside the construction chip: the chip steps aside, and the bar's title says its prompt; elsewhere the chip's ×
   // can be pressed with the message up)
@@ -76,7 +81,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   if (w > h && mode === 'tall') ok(`${tag}: the construction chip steps aside, and the bar's title says its prompt`, !m.chip && !!norm(base.chipText) && norm(m.barTitle) === norm(base.chipText), { chip: m.chip, chipText: base.chipText, barTitle: m.barTitle });
   else if (base.chipX !== null && base.chipX !== undefined) ok(`${tag}: the construction chip's × can be pressed with the message up`, m.chipX === true, { base: base.chipX, now: m.chipX });
   // (the key unfolding while the message is up: the message moves off it, and the key can still be pressed)
-  if (w > h && mode === 'tall' && acts === 1) {
+  if (variant === 'long' && w > h && mode === 'tall') {
     await ev(`document.getElementById('leftLegend').click(), 1`);
     await settled({ max: 5000, panes: false, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
     const u = await still();
