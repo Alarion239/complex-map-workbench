@@ -9,7 +9,8 @@
 //     under 100 KB and growth under the limits are not. A program only this walk linked, of a name and a key the
 //     reference's walk linked too, is listed apart and never failed;
 // (f) the ids: the variants of an inverse program that share GLR.profile()'s 40 characters of key, and one chain key in
-//     two scenes, are told apart; sources that share an id are one program at the larger size of each stage.
+//     two scenes, are told apart; sources that share an id are one program at the larger size of each stage;
+// (g) a stage is sized without the inverse program's SwiftShader-only define.
 // Run: node test/t_fxc_size.js
 const { preprocess, inline } = require('../ci/glsl_inline.js');
 const { compare, programs, LIMITS } = require('../ci/fxc_size.js');
@@ -114,6 +115,16 @@ void main() {
   eq(ids, [`${base}|B3 @ typed f`, `${base}|B5 @ typed f`, `${base}|B5 @ typed g`, `${base}|carry,B5 @ typed f`], '(f) one id per variant and scene');
   const f3 = P.find((p) => p.id === `${base}|B3 @ typed f`), g5 = P.find((p) => p.id === `${base}|B5 @ typed g`);
   eq([f3.sources, f3.links, f3.fs.size, g5.sources, g5.links], [2, 2, inline(longer).size, 1, 2], '(f) two sources of one id: one program, the larger; one source linked twice: one source');
+}
+
+// (g) a stage is sized as Direct3D 11 gets it: without the inverse program's SwiftShader-only define (IX_CHAIN3_CALLS),
+//     which a walk on SwiftShader picks up
+{
+  const body = 'const int IX_B = 5;\nfloat c(float x) { return x * x; }\n#ifdef IX_CHAIN3_CALLS\nfloat t(float x) { return c(x) + c(x + 1.0) + c(x + 2.0); }\n' +
+    '#else\nfloat t(float x) { float s = 0.0; for (int k = 0; k < 3 * uOne; k++) s += c(x + float(k)); return s; }\n#endif\nvoid main() { o = vec4(t(1.0)); }\n';
+  const link = (fs) => ({ step: 'typed f: glide', name: 'inv', mode: 0, key: 'inv|k', inv: true, vs: 'void main() { gl_Position = vec4(0.0); }', fs });
+  const [sw] = programs([link('#define IX_CHAIN3_CALLS 1\n' + body)]), [gpu] = programs([link(body)]);
+  eq([sw.fs.size, sw.fs.top.find((t) => t[0] === 'c')[1]], [gpu.fs.size, 1], '(g) the SwiftShader-only define is left out: c once, as without it');
 }
 
 console.log(`${n - fails} of ${n} checks pass`);

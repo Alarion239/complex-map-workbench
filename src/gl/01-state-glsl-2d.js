@@ -7,6 +7,7 @@
   let maxTex = 4096;
   let pcExt = null;        // KHR_parallel_shader_compile
   let rtOK = false;        // EXT_color_buffer_float: map caches are drawn into their RG32F texture (tfEntry)
+  let swiftShader = false; // the renderer is SwiftShader (its shader compiler, Subzero, links a loop around the chain slowly)
   let syncDepth = 0;       // > 0: chain programs are waited for (tests)
   let syncFwd = 0;         // > 0: chain and static programs are waited for, inverse ones as before (exports)
   // side mode (GLR.side): setChain and the draws use a chain that is not the user's (example thumbnails) without
@@ -182,9 +183,12 @@ float wabs(vec2 w) {
   if (m > 1e18 || m < 1e-18) return m * length(w / m);
   return length(w);
 }
-float wang(vec2 w) { return (w.x == 0.0 && w.y == 0.0) ? 0.0 : atan(w.y, w.x); }
+// arg w in [-pi, pi], 0 at w = 0. A zero imaginary part is answered here, 0 or pi by the real part's sign, whatever the zero's
+// sign: a driver's atan(y, x) may read -0 as a negative y (SwiftShader gives pi for atan(-0, x > 0)), and the colour on the
+// real axis must not depend on which zero the arithmetic left there
+float wang(vec2 w) { return w.y == 0.0 ? (w.x < 0.0 ? PI : 0.0) : atan(w.y, w.x); }
 `;
-  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.js): uPal is the chosen
+  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.ts): uPal is the chosen
   // palette's index in Palette.LIST, 0 the wheel; an Arb palette is baked in uPalT (Palette.bake): column i is
   // arg 2pi i / W, row j is 1 - 1/(1 + |w|^0.2) = j / (H - 1)
   const DCOLOR = `
@@ -873,14 +877,14 @@ ${TF_EMIT(rt)}
 ${SRC}
 void main() { emit(mapPoint(srcOf(mix(aP.xy, aP.zw, aT.x)))); }
 `;
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // (tests, GLR.evalMap: points through mapPoint, read back by transform feedback; test.html only)
   const EVAL_VS = `
 layout(location = 0) in vec2 aP;
 out vec2 tfOut;
 void main() { tfOut = mapPoint(aP); gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }
 `;
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   const TF_FS = `
 out vec4 o;
 void main() { o = vec4(0.0); }
@@ -1257,13 +1261,19 @@ void main() {
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
-  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
-uniform int uGs; uniform int uGt;
+  // The carried colour of a point sa of plane s: dcolor of the stages (uGs, uGt] at sa. cz: the Cauchy style's variant (the
+  // flat plane's carried colour while the style is Cauchy, CARRY_CAUCHY): with uCT >= 0 it is the Cauchy integral's colour at
+  // sa instead, F the stages (0, uCT] (the whole chain, uCT its length): the one chain call serves both, the range chosen
+  // by uCT, and the curve's edges and poles are those of the plot on plane z. Without cz the program has none of it
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = false) => `
+uniform int uGs; uniform int uGt;${cz ? ' uniform int uCT; uniform vec2 uEdgeO;' : ''}
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
-${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+${key ? PRE_KEY : ''}${cz ? `  bool cz = uCT >= 0;
+  vec2 sw = carryW(sa);
+  o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }
 `;
   // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
@@ -1372,32 +1382,42 @@ void main() {
   // curve's centre), as the quadrature's nodes, so z - p keeps float32 precision near the curve.
   // uShow.x: 0 both halves, 1 only inside (f+), 2 only outside; uShow.y: the outside's sign, -1 f- = sum n PP (F = f+ + f-),
   // +1 the integral itself (-f-)
-  const CAUCHYF_FS = `
-uniform vec2 uCenter; uniform vec2 uRelC; uniform vec2 uInvScale; uniform vec4 uVp;
-uniform highp sampler2D uEdges; uniform int uEdgeN;
+  // the Cauchy integral by the residue theorem (the plan's poles and principal parts, the polygon's edges as a texture row
+  // [ax, ay, bx, by] relative to the origin uEdgeO, in the sampler named by edges): cauchyWind is the winding number of the
+  // curve about zr (how many times it encloses the point), cauchyVal the integral's value there (false: neutral, a pole
+  // under the point or a value that cancels to rounding), given the map's value sw at the point where fexpr is the name of a
+  // value the caller already holds, or an expression of the point z (the plot's, evaluated only inside the curve); cauchyCol is its colour. The
+  // part shown (uShow.x: 0 both, 1 inside, 2 outside) and the outside's sign (uShow.y) as the style's control sets them
+  // the carried colour's map value at z: the stages (uGs, uGt], or with the Cauchy style (uCT >= 0) the whole chain (0, uCT]; one chain call for both
+  const CARRY_W = `
+vec2 carryW(vec2 z) { bool cz = uCT >= 0; return chainRange(z, cz ? 0 : uGs, cz ? uCT : uGt); }
+`;
+  const CAUCHY_CORE = (fexpr, edges = 'uEdges') => `
+uniform highp sampler2D ${edges}; uniform int uEdgeN;
 uniform int uPoleN; uniform vec4 uPole[16]; uniform vec4 uCoef[32]; uniform vec2 uShow;
-out vec4 o;
 vec2 cmx(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
-void main() {
-  vec2 off = (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
-  vec2 z = uCenter + off, zr = uRelC + off;
+int cauchyWind(vec2 zr) {
   int wn = 0;
   for (int j = 0; j < uEdgeN; j++) {
-    vec4 e = texelFetch(uEdges, ivec2(j, 0), 0);
+    vec4 e = texelFetch(${edges}, ivec2(j, 0), 0);
     float side = (e.z - e.x) * (zr.y - e.y) - (zr.x - e.x) * (e.w - e.y);
     if (e.y <= zr.y) { if (e.w > zr.y && side > 0.0) wn++; }
     else if (e.w <= zr.y && side < 0.0) wn--;
   }
+  return wn;
+}
+vec3 cauchyGrey() { return mix(uPlane, vec3(0.5), 0.6); }
+bool cauchyShown(int wn) { bool inside = wn != 0; return !((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)); }
+bool cauchyVal(vec2 z, vec2 zr, int wn, vec2 sw, out vec2 w) {
+  w = vec2(0.0);
   bool inside = wn != 0;
-  vec3 grey = mix(uPlane, vec3(0.5), 0.6);
-  if ((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)) { o = vec4(grey, 1.0); return; }
   vec2 pp = vec2(0.0);
   for (int k = 0; k < max(16, uNoUnroll); k++) {   // (a bound no compiler can know: FXC links a loop, not 16 copies, #72)
     if (k >= uPoleN) break;
     vec4 P = uPole[k];
     vec2 d = zr - P.xy;
     float d2 = dot(d, d);
-    if (d2 < 1e-20 * (1.0 + dot(P.xy, P.xy))) { o = vec4(grey, 1.0); return; }
+    if (d2 < 1e-20 * (1.0 + dot(P.xy, P.xy))) return false;
     vec2 u = vec2(d.x, -d.y) / d2;
     vec2 t = u, s = cmx(uCoef[2 * k].xy, t);
     if (P.z > 1.5) { t = cmx(t, u); s += cmx(uCoef[2 * k].zw, t); }
@@ -1405,11 +1425,25 @@ void main() {
     if (P.z > 3.5) { t = cmx(t, u); s += cmx(uCoef[2 * k + 1].zw, t); }
     pp += P.w * s;
   }
-  vec2 nf = inside ? float(wn) * mapF(z) : vec2(0.0);
-  vec2 w = inside ? nf - pp : -uShow.y * pp;
+  vec2 nf = inside ? float(wn) * ${fexpr} : vec2(0.0);
+  w = inside ? nf - pp : -uShow.y * pp;
   // a value that cancels to float32 rounding (F against its own principal parts) is 0: neutral, not noise
-  if (!(wabs(w) > 4e-6 * (wabs(nf) + wabs(pp)))) { o = vec4(grey, 1.0); return; }
-  o = vec4(dcolor(w), 1.0);
+  return wabs(w) > 4e-6 * (wabs(nf) + wabs(pp));
+}
+vec3 cauchyCol(vec2 z, vec2 zr, vec2 sw) {
+  int wn = cauchyWind(zr);
+  vec2 w;
+  if (!cauchyShown(wn) || !cauchyVal(z, zr, wn, sw, w)) return cauchyGrey();
+  return dcolor(w);
+}
+`;
+  const CAUCHYF_FS = `
+uniform vec2 uCenter; uniform vec2 uRelC; uniform vec2 uInvScale; uniform vec4 uVp;
+${CAUCHY_CORE('mapF(z)')}
+out vec4 o;
+void main() {
+  vec2 off = (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
+  o = vec4(cauchyCol(uCenter + off, uRelC + off, vec2(0.0)), 1.0);
 }
 `;
   // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15: a segment, a line, a ray,
