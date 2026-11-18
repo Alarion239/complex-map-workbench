@@ -81,7 +81,7 @@ const Phone = (() => {
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
     els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
-    els.body.display.append(els.style, els.viewOpts);
+    els.body.display.append(els.viewOpts);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
@@ -238,7 +238,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  function merged() { const p = $('panes'); return p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
+  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;
@@ -764,7 +765,7 @@ const Phone = (() => {
     const land = kids.some((k) => k.matches('#viewSeg'));   // (the Landscape: Reset camera follows its View choice; elsewhere it has a group of its own)
     const groups = [
       { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
-      { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
+      { name: $t('Colour style'), label: '#landPaint', rows: [matches('.ph-style'), matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
       { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
       { name: $t('View'), rows: [matches('.cam-reset')] },
@@ -778,7 +779,8 @@ const Phone = (() => {
         const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
         // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
         if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
-        // (a choice whose buttons name the kind alone, the Landscape's Height, is named by its group's label: said once)
+        // (a choice whose buttons name the kind alone, the Landscape's Height, or that the group's label names better than its own word, the
+        // Landscape's Colouring, is named by the group's label: said once)
         if (grp.label) for (const r of ks) if (r.matches(grp.label)) r.setAttribute('aria-labelledby', head.id);
         return h('section', { class: 'ph-grp' }, head, ...ks);
       });
@@ -798,7 +800,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
