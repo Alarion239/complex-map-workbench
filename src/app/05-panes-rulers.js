@@ -343,7 +343,7 @@
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
     // (the steps view's plane name with a real subscript: the corner is 18 px wide, which cut the Unicode one)
     const cornerHtml = !show ? '' : side === 'L' ? (SV.on ? svNameHtml(leftStage()) : wHtml(leftStage())) : (yAtF() ? '<i>w</i>' : wHtml(rightStage()));
-    if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml; seen.corner = cornerHtml; }
+    if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml ? `<span>${cornerHtml}</span>` : ''; seen.corner = cornerHtml; }   // (one grid item: the letter and its subscript share a line, not a row each)
     if (!show) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const [xw, xh] = rulerDims(rx), [yw, yh] = rulerDims(ry);
@@ -459,6 +459,38 @@
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
+    ledSay(side, state, el.getAttribute('data-tip'));
+  }
+  // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
+  // with its pane's title before it when the pane has one. A page that starts up to date says nothing, and a state that
+  // comes and goes within the wait is not said
+  const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
+  let ledSayT = 0;
+  function ledSay(side, state, tip) {
+    // (what is said again is a different state, or a different error: busy is one state whatever its tip)
+    const key = state === 'err' ? 'err|' + tip : state;
+    const same = !!ledNow[side] && ledNow[side].key === key;
+    ledNow[side] = { key, tip };
+    if (same) return;
+    clearTimeout(ledSayT);
+    ledSayT = setTimeout(ledFlush, LED_SAY_MS);
+  }
+  function ledFlush() {
+    const parts = [];
+    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'); return !!el && el.getClientRects().length > 0; };
+    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two LEDs are shown:
+    // the words alone would not say which pane they are about)
+    const two = shown('L') && shown('R');
+    for (const side of ['L', 'R']) {
+      const n = ledNow[side];
+      if (!n || !shown(side) || (ledSaid[side] === undefined ? 'ok' : ledSaid[side]) === n.key) continue;
+      ledSaid[side] = n.key;
+      const t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'), title = t && t.getClientRects().length ? t.textContent.trim() : '';
+      const name = title || (two ? (side === 'L' ? 'X' : 'Y') : '');
+      parts.push(name ? `${name}: ${n.tip}` : n.tip);
+    }
+    const live = $('ledLive');
+    if (live && parts.length) live.textContent = parts.join('. ');
   }
   // a hairline runs along the top of the plots when work takes longer than 300 ms
   let hairTimer = 0;
@@ -630,14 +662,17 @@
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
     const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
-    const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
-    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
+    const sheetMap = landSheetsMap(carry ? carry.s : null);
+    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet(sheetMap) ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svHeightMap(carry.a), svHeightF(carry.a));
       const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
       mu = logLerp(ma, mb, carry.u);
     }
+    // (the height ruler's labels step by this scale, the surface's own before All sheets' spread: between planes the
+    // planes' scales blended as the surface's are, so the labels on arrival are the parked plane's)
+    const rulerMu = mu;
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
     // ones into stacked plates), so the height is nearly linear in the value and every turn keeps its pitch; the
@@ -809,7 +844,7 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
-    if (info && !artMode) draw3DLabels(pane, info, box);
+    if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, hmap: carry.hmap, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
@@ -907,8 +942,9 @@
   function haloText(ctx, t, x, y, halo) { ctx.save(); ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = halo || TH.landTop; ctx.strokeText(t, x, y); ctx.restore(); ctx.fillText(t, x, y); }
   // Labels of the landscape (spec 6.9), projected each frame: ticks on the two floor edges facing the camera, the
   // axis names, and a height ruler (values of the plotted quantity through the height map) on the back corner
-  // that sits on the block's silhouette, so its labels never cover the relief.
-  function draw3DLabels(pane, info, box) {
+  // that sits on the block's silhouette, so its labels never cover the relief. mu: the median |F| (or |Re F|, |Im F|)
+  // the ruler's labels step by (render3D's)
+  function draw3DLabels(pane, info, box, mu) {
     const ctx = pane.ctx;
     const [ax, ay] = info.aspect || [1, 1];
     const z0 = info.floorZ, eye = info.eye;
@@ -1012,7 +1048,7 @@
     let vals;                                     // [value, label], in order of priority
     if (S.height === 'log' || !S.height) vals = [1, 10, 0.1, 100, 0.01].map((m) => [m, fmt(m)]);
     else {
-      const b = Axes.niceStep(medianAbs(box));
+      const b = Axes.niceStep(mu);
       vals = (S.height === 'abs' ? [1, 0, 4, 2, 10, 0.5] : [0, 1, -1, 4, -4, 2, -2]).map((m) => [m * b, fmt(m * b)]);
     }
     ctx.strokeStyle = TH.rulerTick;
@@ -1502,6 +1538,13 @@
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // (the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
+      // (on a phone the chip lies in the plot, folded: it stays below the readout as it changes size. The readouts are the pane's own plot's elements, wherever the chip stands
+      // when this runs (in the pane's head until the layout places the keys), and they and the chip stay as long as the page does, so the observer is never disconnected; it
+      // acts only while the root is .ph, and on a laptop the chip is placed when it is pressed, as before)
+      try {
+        const pane = el.closest('.pane'), plot = pane && pane.querySelector('.plot'), ro = new ResizeObserver(() => { if (document.documentElement.classList.contains('ph')) requestAnimationFrame(() => placeKeyPop(el)); });
+        if (plot) for (const e of plot.querySelectorAll(':scope > .chip.readout')) ro.observe(e);
+      } catch (e) { /* no ResizeObserver */ }
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
