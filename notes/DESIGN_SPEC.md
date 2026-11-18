@@ -316,7 +316,7 @@ The ink family is the images of vertical lines; the accent family is the images 
 | Default | 28px (24 compact), padding 0 10px, `--surface`, 1px `--line-strong`, `--r-2`, `--t-label` `--ink`. Hover: border `--ink-2`. Active: `--well`. |
 | Primary | `--accent` background and border, `--accent-ink` text, weight 600. Hover: `--accent-hover`. At most one per region ("Add", "Add function"). |
 | Ghost | Transparent, `--muted`. Hover: `--well` background, `--ink` text. |
-| Icon | 28 (24 / 20) square, 16px icon in `--ink-2`, ghost behavior. A pressed toggle uses `--well` with an `--ink` icon. Always has `aria-label` and a tooltip. |
+| Icon | 28 (24 / 20) square, 16px icon in `--ink-2`, ghost behavior. A pressed toggle uses `--well` with an `--ink` icon. A pane head's trigger that holds a pop-up open (the Display options ⋯, the Regions button, the key chip) adds a 1px inset `--ink-2` ring, because `--well` alone is about 1.06:1 on the head and a pressed state needs 3:1 (`test/head_press_cmd.js`). Always has `aria-label` and a tooltip. |
 | Danger | Ghost style. Hover: `--error-soft` background, `--error` text. Used in menus and editors only. |
 | Disabled | Opacity 0.4, `cursor: default`, no hover change. |
 
