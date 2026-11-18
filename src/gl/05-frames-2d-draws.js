@@ -847,12 +847,14 @@
   // elsewhere, and no stand-in. -> true when the plot or its stand-in was drawn
   function drawColorPlot(st) {
     if (!ok) return false;
-    const cp = cauchyUsable(st.cauchy) ? st.cauchy : null;
-    const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
-    const pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
+    let cp = cauchyUsable(st.cauchy) ? st.cauchy : null;
+    let cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
+    let pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
     const dpr = st.dpr || 1;
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
     let P = program(pname, st.map, st.exact);
+    // (the Cauchy plot's program is still linking: the plot in the phase of its points, the style the plane had, until it lands)
+    if (!P && pname !== 'color') { cp = cz = null; pname = 'color'; P = program(pname, st.map, st.exact); }
     if (!P) {
       if (pname !== 'color' || !st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
