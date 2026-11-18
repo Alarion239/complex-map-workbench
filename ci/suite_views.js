@@ -104,6 +104,7 @@ const VIEWS = {
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
+  'steps_phone_inset_cmd.js': steps(),
   'steps_listen_cmd.js': steps({ pin: true }),
   'steps_why_cmd.js': steps(),
   'steps_labels_cmd.js': steps(),
