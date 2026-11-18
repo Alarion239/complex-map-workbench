@@ -1012,6 +1012,10 @@
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
+    // (a glide past a d/dz is planned over the chain that stands in for it, the steps before the d/dz off (invHomBase), so
+    // a region of a later plane, tested where F_{0->k}(z) lies in it, would be tested against z: such a frame keeps the
+    // carried mesh)
+    if (hom && derivIn(0, b - 1) && list.some((x) => x !== SV_ALL && shapeStage(x))) { why.r = 'a region of a plane before a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     const singAt = () => svSheetKeyAt(b, u).sing;
     // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation)
