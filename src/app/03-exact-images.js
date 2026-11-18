@@ -402,9 +402,9 @@
     if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
     return o;
   }
-  // the chain a glide from plane a into plane k is planned over: the chain itself, or past a d/dz step between them
-  // the chain that stands in for it (invDerivChain: the step before the d/dz off, its derivative in its place);
-  // {steps, built} or {reason}
+  // the chain a glide from plane a into plane k is planned over: the chain itself; or, with a d/dz step between them,
+  // the chain that stands in for it (invDerivChain: the step before the d/dz off, its derivative in its place).
+  // {steps, built}, or {reason} where no such chain can be made
   function invHomBase(a, k) {
     for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return invDerivChain(k);
     return { steps: S.steps, built };
