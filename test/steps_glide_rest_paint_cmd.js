@@ -30,27 +30,20 @@ await ev(`__cmwExample(${EXAMPLE}); 1`);
 await settled({ max: SETTLE_MS, until: '__cmwSteps().ready.ready' });
 await ev(`__cmwSet('morphPaths', false), __cmwHideStrokes(true), __cmwSteps({ scope: 'all', surf: 'plane', bare: false }), 1`);
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
-// (each frame's camera [cx, cy, s]: a glide frame's, its record's view; a parked plane's, __cmwSteps().win)
-const cams = {};
-const cam = () => ev('(() => { const s = __cmwSteps(), g = s.glide; return g ? [g.view.cx, g.view.cy, g.view.s] : s.win; })()');
 const park = async (x) => {
   await ev(`__cmwSteps({ x: ${x} }), 1`);
   await settled({ max: SETTLE_MS, until: `Math.abs(__cmwSteps().x - ${x}) < 1e-12 && GLR.pendingLinks === 0 && !__cmwSteps().hold` });
-  cams['X' + x] = await cam();
   return grab('X' + x);
 };
 for (const x of [0, ARRIVE_U, 0.5]) ok(`the frame at x = ${x} settles`, await park(x), null);
 const rec = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u, w: g.w, h: g.h }; })()');
 info.glide = rec;
-info.cams = cams;
 ok('the frame at u = 0.5 is a glide frame', !!rec && Math.abs(rec.u - 0.5) < 1e-9, rec);
 ok('the glide is drawn by the carried meshes (path \'mesh\', the Douady–Hubbard glide\'s)', !!rec && rec.path === 'mesh', rec && rec.path);
-// (parked plane 1: the thread let go, the glide run to its end; a held x keeps the plane the thread was let go on)
-await ev('window.__svScrubUp(), 1');
+// (parked plane 1: the glide run to its end; a held x keeps the plane the thread was last let go on)
 await ev(`__cmwSteps({ go: 1, now: true }), 1`);
 const at1 = await settled({ max: SETTLE_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1 && __cmwSteps().i === 1 && GLR.pendingLinks === 0' });
 ok('the thread parks on plane 1', at1.ok, at1);
-cams.X1 = await cam();
 ok('parked plane 1 settles', await grab('X1'), null);
 const paperRGB = await ev(`(() => { const s = __cmwP().shapes[0]; const h = s ? __cmwLook(s.id, 'L').plane : null; return h ? [0, 2, 4].map((k) => parseInt(h.replace('#', '').slice(k, k + 2), 16)) : null; })()`);
 info.paper = paperRGB;
@@ -71,14 +64,16 @@ for (const u of PAPER_U) {
 // its own camera, how many show frame ref's pixel at the same w by ref's camera (each channel within MATCH_TOL of one
 // in its 3 x 3 neighbourhood)
 const disc = (tag, ref) => ev(`(() => {
-  const ct = ${JSON.stringify(cams)}[${JSON.stringify(tag)}], cr = ${JSON.stringify(cams)}[${JSON.stringify(ref)}], cw = ${rec ? rec.w : 0}, ch = ${rec ? rec.h : 0};
+  // (each frame's camera, as grab() kept it: a glide frame's is its record's, the view its colour was drawn with)
+  const cam = (k) => { const a = window.__heldAt[k]; return (a.g && a.g.view) || a.v; };
+  const ct = cam(${JSON.stringify(tag)}), cr = cam(${JSON.stringify(ref)}), cw = ${rec ? rec.w : 0}, ch = ${rec ? rec.h : 0};
   const D = window.__heldPx[${JSON.stringify(tag)}], R = window.__heldPx[${JSON.stringify(ref)}], c = document.getElementById('canvasL'), W = c.width, H = c.height, dpr = W / cw;
   const esc = (cr, ci) => { let x = 0, y = 0; for (let k = 0; k < ${ESCAPE_N}; k++) { const t = x * x - y * y + cr; y = 2 * x * y + ci; x = t; if (x * x + y * y > 4) return true; } return false; };
   let n = 0, hit = 0;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
-    const re = ct[0] + ((x + 0.5) / dpr - cw / 2) / ct[2], im = ct[1] - ((y + 0.5) / dpr - ch / 2) / ct[2];
+    const re = ct.cx + ((x + 0.5) / dpr - cw / 2) / ct.s, im = ct.cy - ((y + 0.5) / dpr - ch / 2) / ct.s;
     if (Math.hypot(re, im) >= ${DISC_IN} || !esc(re, im)) continue;
-    const rx = Math.round(((re - cr[0]) * cr[2] + cw / 2) * dpr - 0.5), ry = Math.round((ch / 2 - (im - cr[1]) * cr[2]) * dpr - 0.5);
+    const rx = Math.round(((re - cr.cx) * cr.s + cw / 2) * dpr - 0.5), ry = Math.round((ch / 2 - (im - cr.cy) * cr.s) * dpr - 0.5);
     if (rx < 1 || ry < 1 || rx >= W - 1 || ry >= H - 1) continue;
     n++;
     const i = 4 * (y * W + x);
