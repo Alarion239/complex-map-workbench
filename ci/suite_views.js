@@ -45,6 +45,7 @@ const VIEWS = {
   'phone_export_steps_cmd.js': steps(),
   'phone_landscape_cmd.js': steps(),
   'phone_palette_cmd.js': steps(),
+  'sound_steps_cmd.js': steps(),   // (Hear the function in the steps view; one check opens the classic view)
   'steps_carry_cmd.js': steps(),
   'steps_ddz_glide_cmd.js': steps(),
   'steps_ddz_rest_cmd.js': steps(),
@@ -109,6 +110,7 @@ const VIEWS = {
   'steps_split_remap_cmd.js': steps({ pin: true }),
   'steps_split_all_cmd.js': steps({ pin: true }),
   'steps_all_key_cmd.js': steps(),
+  'steps_split_history_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
   'steps_empty_cmd.js': steps(),
   'steps_head_cmd.js': steps(),
@@ -118,6 +120,7 @@ const VIEWS = {
   'steps_labels_cmd.js': steps(),
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
+  'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
   'steps_land_caption_cmd.js': steps(),
   'pre_more_said_cmd.js': steps(),
