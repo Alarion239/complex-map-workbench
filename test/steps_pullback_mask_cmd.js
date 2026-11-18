@@ -6,19 +6,23 @@
 // - at rest on plane 0, and at the glide 0 -> 1 held at u = 0.5 (the inverse pass's frame, where the region of plane 2
 //   is past the plane the glide reaches): at the points of a grid inside each disc (within INNER of its radius, clear
 //   of its boundary), the Inside regions pixel fitted as paper + s (Everywhere - paper) over the three channels gives s;
-//   the median s of each disc is at least FULL (the region of plane 1 at rest and the one of plane 2 both ways: 0.42
-//   before #1889, the mask's PULL_ALPHA);
+//   the median s of each disc is at least FULL;
 // - the control: the disc of plane 0 gives s of at least FULL too;
 // - the paper: the median of points outside every disc under Inside regions, at least PAPER_N of them; a sample counts
 //   where its Everywhere pixel is at least MIN_DIFF from the paper (sum of the channels), at least MIN_N of them a disc;
 // - both scopes are read with the layer of the later planes' regions left out (__cmwHideStrokes, which leaves it out with
 //   the strokes: Everywhere draws a fill in it over the colour), so the fit compares colour with colour; and Inside regions
 //   read with that layer shown is the same at the points of the pulled-back discs (median channel sum within FILL_D: the
-//   layer is the region's boundary band alone there).
+//   layer is the region's boundary band alone there);
+// - in the light theme at rest, a circle on plane 1 (a curve of a later plane, its preimage drawn by the layer) with
+//   the disc of plane 0 hovered (its row's pointerenter), which dims every other shape (dimK): along the circle's
+//   preimage Inside regions draws its line as Everywhere does (median channel sum within HOVER_D of Everywhere's), its
+//   ink dimmed, not left out with the fills; the control: the hover changes the line (more than HOVER_D from the frame
+//   with nothing hovered);
 // - on the globe (surf 'sphere'), at rest on plane 0, light theme: at the points of each disc that face the camera, the
 //   Inside regions pixel is the Everywhere one (median channel sum apart at most GLOBE_D, read with the layer left out):
-//   the globe's mask holds the pulled-back regions too, so its colour is kept inside them (#1894: the regions' globe
-//   alone showed there, plain); and with the layer shown, Inside regions is the same there (the band alone, FILL_D).
+//   the globe's mask holds the pulled-back regions too, so its colour is kept inside them; and with the layer shown,
+//   Inside regions is the same there (the band alone, FILL_D).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -36,7 +40,7 @@ const px = (pts) => ev(`(() => {
     return [img[n], img[n + 1], img[n + 2], img[n + 3]];
   });
 })()`);
-const FULL = 0.95, INNER = 0.55, MIN_DIFF = 60, MIN_N = 12, PAPER_N = 12, FILL_D = 3;
+const FULL = 0.95, INNER = 0.55, MIN_DIFF = 60, MIN_N = 12, PAPER_N = 12, FILL_D = 3, HOVER_D = 12;
 await view(1200, 800);
 const DISCS = [
   { id: 'o0', kind: 'disc', c: [-0.9, -0.45], r: 0.4, ci: 2, visible: true, stage: 0 },
@@ -45,11 +49,14 @@ const DISCS = [
 ];
 // (each disc's place on plane 0: its centre less the translations up to its plane)
 const SHIFT = [0, 0.5, 0.75];
+const CIRCLE = { id: 'k1', kind: 'circle', c: [0.55, 0.85], r: 0.3, ci: 5, visible: true, stage: 1 };
+// the points of the circle's preimage on plane 0
+const ring = () => Array.from({ length: 48 }, (_, i) => [CIRCLE.c[0] - SHIFT[1] + CIRCLE.r * Math.cos(Math.PI * i / 24), CIRCLE.c[1] + CIRCLE.r * Math.sin(Math.PI * i / 24)]);
 const ST = {
   pattern: 'phase', outline: false, lines: false, unit: false, alpha: 1, v3: true, v4: true, v5: true, nextId: 50,
   srcView: { cx: 0, cy: 0, s: 150 },
   steps: [{ type: 'mobius', params: { a: '1', b: '0.5', c: '0', d: '1' }, on: true }, { type: 'mobius', params: { a: '1', b: '0.25', c: '0', d: '1' }, on: true }],
-  shapes: DISCS, targets: [],
+  shapes: DISCS.concat([CIRCLE]), targets: [],
 };
 // the grid points of disc d within INNER of its radius on the frame's plane, shifted by its region's place there
 const inside = (d, shift) => {
@@ -118,6 +125,18 @@ for (const theme of ['light', 'dark']) {
   await ev(`document.documentElement.setAttribute('data-theme', '${theme}'), __cmwSet('morphPaths', false), __cmwSteps({ T: 0, surf: 'plane', go: 0, now: true }), 1`);
   await settled({ max: 60000, until: '!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0' });
   info[`${theme} rest`] = await measure(`${theme}, at rest on plane 0`, SHIFT);
+  if (theme === 'light') {
+    const read = async (scope) => { await ev(`__cmwHideStrokes(false), __cmwSteps({ scope: '${scope}' }), 1`); await settled({ max: 60000, until: 'GLR.pendingLinks === 0' }); return px(ring()); };
+    const hover = (on) => ev(`(() => { const r = document.querySelector('.shape[data-id="o0"] .shape-row'); if (!r) return false; r.dispatchEvent(new PointerEvent('${on ? 'pointerenter' : 'pointerleave'}')); return true; })()`);
+    const sum = (P, Q) => median(P.map((p, i) => (p && Q[i] ? Math.abs(p[0] - Q[i][0]) + Math.abs(p[1] - Q[i][1]) + Math.abs(p[2] - Q[i][2]) : null)).filter((v) => v != null));
+    const plain = await read('in');
+    ok('light, at rest: the row of the disc of plane 0 is there to hover', await hover(true), null);
+    const A = await read('all'), I = await read('in');
+    await hover(false);
+    const h = info.hover = { inVsAll: sum(I, A), hoverVsPlain: sum(I, plain), n: I.filter(Boolean).length };
+    ok(`light, at rest, another shape hovered: control: the hover changes the circle's line (more than ${HOVER_D} from the frame with nothing hovered)`, h.n >= 40 && h.hoverVsPlain > HOVER_D, h);
+    ok(`light, at rest, another shape hovered: Inside regions draws the circle of plane 1's line as Everywhere does (within ${HOVER_D}), its ink dimmed, not left out with the fills`, h.n >= 40 && h.inVsAll <= HOVER_D, h);
+  }
   // (the glide 0 -> 1 at u = 0.5: plane 0's points moved by half the first step, so every region's place moves by +0.25)
   await ev('__cmwSteps({ x: 0.5 }), 1');
   await settled({ max: 60000, until: 'Math.abs(__cmwSteps().x - 0.5) < 1e-9 && GLR.pendingLinks === 0' });
