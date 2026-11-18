@@ -42,10 +42,10 @@ const NatPaths = (() => {
     const s = CX.add(C(1, 0), CX.scale(CX.sub(alpha, C(1, 0)), t));
     return (z) => CX.pow(z, s, theta, k);
   };
-  // A real exponent a < 0 glides in two phases: z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2 (the exponent runs
-  // from 1 to |a|, never 0), then the elliptic Möbius arc from the identity to w -> 1/w applied to z^|a|; at t = 1 that is
-  // 1/z^|a| = z^a on the same branch. The test hook's powOnePhase restores the one-phase exponent 1 + (a - 1) t, which is
-  // the constant map z^0 at t = 1/(1 - a).
+  // A real exponent a < 0 glides in two phases: z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2 (the exponent
+  // runs from 1 to |a|, never 0), then the elliptic Möbius arc from the identity to w -> 1/w applied to z^|a|; at t = 1
+  // that is 1/z^|a| = z^a on the same branch. The test hook's powOnePhase restores the one-phase exponent
+  // 1 + (a - 1) t, which is the constant map z^0 at t = 1/(1 - a).
   let onePhase = false;
   const setOnePhase = (on) => { onePhase = !!on; };
   const twoPhaseNeg = (alpha) => !onePhase && alpha.im === 0 && alpha.re < 0;

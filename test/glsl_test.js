@@ -344,8 +344,8 @@
     add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
     chains[chains.length - 1].gpuBlank = true;
   }
-  // 14. the two-phase glide of a real negative exponent (last, so every chain above keeps its place and its --part): the
-  // rows at the times of NEGPOW_TS, the phase switch (1/2) and the one-phase path's zero (2/3, 1/3) among them
+  // 14. the two-phase glide of a real negative exponent (last, so every chain above keeps its place and its --part):
+  // the rows at the times of NEGPOW_TS, the phase switch (1/2) and the one-phase path's zero (2/3, 1/3) among them
   const NEGPOW_TS = [0.25, 0.5, 0.6, 2 / 3, 0.75, 1];
   const addNeg = (name, steps) => chains.push({ name, steps, ts: NEGPOW_TS });
   addNeg('negpow powa -1/2', [S('powa', { alpha: '-0.5' })]);

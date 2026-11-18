@@ -1,12 +1,13 @@
 // The steps view's glide of a real negative exponent (z^(-1/2), z^(-3/2)): the homotopy takes z^{|a|}'s path, then the
 // Möbius arc to 1/w, so no frame is a constant map and the end frames are the parked plane's.
 // For each case (the powa step, the Formula z^(-1/2), the powa step with a = -3/2) in the plane, the sphere and the
-// Landscape, the plane z glides to the step's plane (w1), coloured from z (T = 0: the frames past the colour plane are the
-// homotopy's own picture, by the inverse pass; a glide toward the colour plane is a cross-fade of the two planes' plots):
+// Landscape, the plane z glides to the step's plane (w1), coloured from z (T = 0: the frames past the colour plane are
+// the homotopy's own picture, by the inverse pass; a glide toward the colour plane is a cross-fade of the two planes'
+// plots):
 // - no blank frame: at the u of U_ROW (K1 and K2 pass through the old constant map at 2/3) the frame's coloured pixels
 //   are at least COVER_MIN of parked w1's;
-// - control: with __svCarryProbe set to the powOnePhase preset (the one-phase exponent 1 + (a - 1) t) the same row fails
-//   near 1/(1 - a), in each view;
+// - control: with __svCarryProbe set to the powOnePhase preset (the one-phase exponent 1 + (a - 1) t) the same row
+//   fails near 1/(1 - a), in each view;
 // - end frames (plane and sphere): at u of U_END every pixel the glide colours is within COLOUR_TOL of parked w1's
 //   (all but at most WRONG_MAX of them); the control with the colour channels shifted fails.
 // The Landscape's end frames are not judged here: they need the shared same-u reference of #1317 (results' landEnd).
@@ -46,8 +47,8 @@ const seedCase = async (c, i) => {
   await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && !!window.GLR` });
 };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await quiet(); };
-// the coverage row of one case and view, parked w1's frame as the reference (exp: the expected share at u of parked's own,
-// expected at u = 1, both computed on the window); probe: a __svCarryProbeSettings name or null
+// the coverage row of one case and view, parked w1's frame as the reference (exp: the expected share at u of parked's
+// own, expected at u = 1, both computed on the window); probe: a __svCarryProbeSettings name or null
 const row = async (c, v, probe) => {
   await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 0 }); 1`); await quiet();
   await grab('p1'); const ref = await colouredN('p1');
@@ -73,7 +74,8 @@ for (const [i, c] of CASES.entries()) {
     R[c.name][v] = r;
     ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of the expected share of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
     if (v === 'plane') {
-      // the reference follows u: for |a| < 1 the expected share at U_CTRL[0] (phase 1, a wider sector) differs from the one at U_CTRL[1]
+      // the reference follows u: for |a| < 1 the expected share at U_CTRL[0] (phase 1, a wider sector) differs from the
+      // one at U_CTRL[1]
       const win = await windowOf(), eP = await expected(c.a, 1, win), e0 = (await expected(c.a, U_CTRL[0], win)) / eP, e1 = (await expected(c.a, U_CTRL[1], win)) / eP;
       const exps = Object.entries(r.rows).map(([u, x]) => ({ u, exp: x.exp })), minExp = Math.min(...exps.map((x) => x.exp));
       R[c.name].expectedAt = { [U_CTRL[0]]: e0, [U_CTRL[1]]: e1, minExpOverRow: minExp };
@@ -81,9 +83,9 @@ for (const [i, c] of CASES.entries()) {
       ok(`${c.name} plane: the expected share is above 0 at every u of the row (min ${minExp})`, minExp > 0, exps);
       if (Math.abs(c.a) < 1) {
         ok(`${c.name} plane: the expected share follows u (u=${U_CTRL[0]}: ${e0}, u=${U_CTRL[1]}: ${e1}, differing by more than ${EXPECT_DIFF_MIN})`, followsU(e0, e1), R[c.name].expectedAt);
-        // the frame-based wrong-u control: the glide's coloured share at u (n / parked's) is within SHARE_TOL of the expected
-        // share at that u, at both ends of U_CTRL; the frame the glide drew at U_CTRL[1], judged against the expected
-        // share at U_CTRL[0], is not
+        // the frame-based wrong-u control: the glide's coloured share at u (n / parked's) is within SHARE_TOL of the
+        // expected share at that u, at both ends of U_CTRL; the frame the glide drew at U_CTRL[1], judged against the
+        // expected share at U_CTRL[0], is not
         const share = (u) => r.rows[u].n / r.ref;
         R[c.name].shares = { [U_CTRL[0]]: share(U_CTRL[0]), [U_CTRL[1]]: share(U_CTRL[1]) };
         ok(`${c.name} plane: the glide's coloured share is the expected share at u=${U_CTRL[0]} (${share(U_CTRL[0])} vs ${e0}) and u=${U_CTRL[1]} (${share(U_CTRL[1])} vs ${e1}), within ${SHARE_TOL}`, Math.abs(share(U_CTRL[0]) - e0) <= SHARE_TOL && Math.abs(share(U_CTRL[1]) - e1) <= SHARE_TOL, R[c.name].shares);
@@ -95,8 +97,8 @@ for (const [i, c] of CASES.entries()) {
       }
     }
     if (v === 'land') {
-      // (the Landscape's end frames are judged against the shared same-u reference of #1317, whose rows are #1317's: here
-      // the coverage rows and the control above, and a note of what is not measured)
+      // (the Landscape's end frames are judged against the shared same-u reference of #1317, whose rows are #1317's:
+      // here the coverage rows and the control above, and a note of what is not measured)
       R[c.name].landEnd = 'not measured here: the Landscape end frames need the shared refImage of #1317';
       continue;
     }

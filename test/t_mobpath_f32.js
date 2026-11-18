@@ -1,8 +1,8 @@
 // A float32 model of the GPU's evaluation of the elliptic Möbius path A^t (w -> 1/w's path, A = [0 1; 1 0]) near t = 1,
 // where cos(t pi/2) is small: the direct form cosh(t lam) I + sinh(t lam) J loses its relative accuracy to the absolute
 // error of the GPU's cos (a trig bound E and the argument's rounding), the reflected form A^t = A A^-s with s = 1 - t
-// (cosh(s lam) near 1 and sinh(s lam) by series, cosh lam and sinh lam precomputed in double) does not. The model injects
-// E into every trig value. Run: node test/t_mobpath_f32.js
+// (cosh(s lam) near 1 and sinh(s lam) by series, cosh lam and sinh lam precomputed in double) does not. The model
+// injects E into every trig value. Run: node test/t_mobpath_f32.js
 global.CX = require('../src/cx.js');
 const { C } = CX;
 let checks = 0, failed = 0;

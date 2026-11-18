@@ -237,8 +237,9 @@ vec2 cx_mobstep(vec2 z, vec4 ab, vec4 cd, vec4 q, vec4 r) {
 // P = (I + J)/2, Q = (I - J)/2 (Q1 = -P1, Q2 = -P2). Once Re(t lam) is large, cosh - sinh cancels catastrophically
 // in float32, so the projector form is used there (it has no cancellation: |e^{-2 t lam}| < 1/e). For t > 1/2 the
 // reflected form A^t = A A^{-s}, s = 1 - t, is used otherwise: cosh(s lam) is near 1 and sinh(s lam) is small and by
-// series, so the absolute error of the GPU's cos and sin near cos(t pi/2) = 0 does not reach the relative error of the path:
-// A^t = U I + V J with U = ch C - sh S, V = sh C - ch S (ch = cosh lam, sh = sinh lam, C = cosh(s lam), S = sinh(s lam)).
+// series, so the absolute error of the GPU's cos and sin near cos(t pi/2) = 0 does not reach the relative error of the
+// path: A^t = U I + V J with U = ch C - sh S, V = sh C - ch S (ch = cosh lam, sh = sinh lam, C = cosh(s lam),
+// S = sinh(s lam)).
 void cx_mobmat(float t, vec4 p0, vec4 p1, vec4 p2, vec4 p3, vec4 p4, vec4 p5, vec4 p6,
                out vec2 m0, out vec2 m1, out vec2 m2, out vec2 m3) {
   if (p0.x < 1.5) {
@@ -2408,21 +2409,22 @@ bool ${P}_one_b(inout Lf L, int b) {
   }
   // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
   // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
-  // a_0; _ev, a(u) - w and its derivative (Horner); _start, de points on the circle of Fujiwara's bound; _aberth, Aberth's
-  // sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's iteration in float32,
-  // whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton on H_t itself
-  // (newtCoreFns, chainHom) and kept when it differs from every earlier one, once per w. With the NEWT roots pass
+  // a_0; _ev, a(u) - w and its derivative (Horner); _poly, H_t(u) = a(u); _start, de points on the circle of Fujiwara's
+  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's
+  // iteration in float32, whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton
+  // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
+  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
+  // from every earlier one, once per w. With the NEWT roots pass
   // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
   // own w, and finds them itself elsewhere and where a root read misses w
-  function newtPolyFns(o, j, c, D, H, rd) {
+  function newtPolyFns(o, j, c, D, rd) {
     const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
     const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
     { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
 #endif`).join('\n');
-    return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, false)}vec2 ${P}_a(int k, vec2 w) {
+    return `vec2 ${P}_a(int k, vec2 w) {
   vec4 v = uInv[${c + 1} + k / 2];
   vec2 a = (k & 1) == 0 ? v.xy : v.zw;
   return k == 0 ? a - w : a;
@@ -2435,7 +2437,8 @@ void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
     q = cmul(q, u) + ${P}_a(k, w);
   }
 }
-void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
+vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
   vec2 ad = ${P}_a(de, w);
   float R = 0.0;
   for (int k = 1; k <= ${D}; k++) {
@@ -2591,13 +2594,17 @@ ${seeded ? '' : pole ? `  vec2 v1;
       // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is InvOps.opNewt's full step; the
       // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
       case 'NEWT': {
-        const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        // (a NEWT op of a recognised formula's sub-step j walks that sub-step's own homotopy, recPlan's cxs<step>r<j>_h,
+        // at the op's t; a polynomial NEWT op its own polynomial, newtPolyFns)
         const D = newtDeg(o);
-        if (D) return newtPolyFns(o, j, c, D, H, rd);
+        if (D) return newtPolyFns(o, j, c, D, rd);
+        const sub = o.op && o.op.sub != null ? `cxs${o.step}r${o.op.sub}_h` : null;
+        const H = sub ? (u, t) => `${sub}(${u}, ${t})` : (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        const decl = sub ? `vec2 ${sub}(vec2 z, float t);\n` : '';
         const bk = newtBack(o);
-        if (bk) return newtSeededFns(o, j, c, bk, H, rd);
+        if (bk) return decl + newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
-        return `vec2 chainHom(int i, vec2 z, float t);
+        return `${decl}vec2 chainHom(int i, vec2 z, float t);
 ${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
 vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {

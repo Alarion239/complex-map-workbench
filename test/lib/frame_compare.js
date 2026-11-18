@@ -1,12 +1,15 @@
-// The pane-frame compare of the glide suites that read canvasL's pixels (steps_negpow_glide_cmd.js). An expression for eval
-// in a suite, which supplies ev: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'frame_compare.js'), 'utf8'))`.
+// The pane-frame compare of the glide suites that read canvasL's pixels (steps_negpow_glide_cmd.js). An expression for
+// eval in a suite, which supplies ev:
+// `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'frame_compare.js'), 'utf8'))`.
 // - grab(tag): the left pane's pixels, kept in the page under tag;
 // - coloured(tag): the number of pixels of a kept frame in a phase colour (max - min channel over SAT_MIN);
-// - expected(a, u, win): the share of the plane window win ({ x0, x1, y0, y1 }, NG x NG points w) that has a member under
-//   the glide of z^a (a real, < 0) at u, computed on the CPU from the glide's own phases: the principal z^e (e = |a|) reaches
-//   the sector |arg w| < pi e (all of the plane for e >= 1); for u >= 1/2 the Möbius arc's inverse is applied to w first;
+// - expected(a, u, win): the share of the plane window win ({ x0, x1, y0, y1 }, NG x NG points w) that has a member
+//   under the glide of z^a (a real, < 0) at u, computed on the CPU from the glide's own phases: the principal z^e
+//   (e = |a|) reaches the sector |arg w| < pi e (all of the plane for e >= 1); for u >= 1/2 the Möbius arc's inverse
+//   is applied to w first;
 // - compare(a, b, shift): over the pixels frame a colours, { n, wrong }: how many, and the share of them more than
-//   COLOUR_TOL (per channel, of 255) from frame b's pixel after a's channels are moved by shift; null when the frames differ in size.
+//   COLOUR_TOL (per channel, of 255) from frame b's pixel after a's channels are moved by shift; null when the frames
+//   differ in size.
 (() => {
   const SAT_MIN = 60;
   const COLOUR_TOL = 32;

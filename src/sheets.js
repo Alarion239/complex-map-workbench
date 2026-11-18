@@ -230,7 +230,7 @@ const Sheets = (host) => {
   // its path runs on that sheet, with the local cut opposite its input at the cell centre. GPU twin: chainSheetHom.
   // How a deformation map applies step k: 0 not at all, 1 in full, 2 its path at t. Map mode 1 (step hi at t): the
   // steps (base, hi) in full, hi at t; mode 3 (all at once): (base, a] in full, (a, b] at t; both: the post (b, post]
-  // in full when post > b (homrange.js state / cpuMap). The steps of the bracket not begun are not applied.
+  // in full when post > b (homrange.ts state / cpuMap). The steps of the bracket not begun are not applied.
   function sheetMapHow(map, k) {
     const mode = map.mode || 0, base = map.base || 0, a = map.a || 0, hi = map.hi || 0, b = map.b || 0, post = map.post || 0;
     if (mode === 1) { if (k > base && k < hi) return 1; if (k === hi) return 2; }
