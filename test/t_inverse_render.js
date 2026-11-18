@@ -358,6 +358,15 @@ console.log('--- (h) golden emulation');
     check('a Möbius step with c = 0 before exp: the key\'s period is pi i', !!per && Math.abs(per.re) < 1e-12 && Math.abs(Math.abs(per.im) - Math.PI) < 1e-12, per);
     check('a Möbius step with c = 0 before exp: one key point of each class modulo the period', sing.length === 1, sing);
   }
+  // an affine scale so small that the period's |T|^2 overflows float64 (a = 1e-300 before exp): no period, and the key
+  // stays a number
+  {
+    const steps = [{ type: 'mobius', params: { a: '1e-300', b: '0', c: '0', d: '1' } }, { type: 'exp' }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }];
+    const plan = planOf(steps), win = { x0: -8.4, x1: 8.4, y0: -6, y1: 6 }, R = Math.hypot(16.8, 12) / 2;
+    const per = Inverse.keyPeriod(plan), sing = Inverse.keySing(plan, win, per);
+    const D = Inverse.sheetKey({ win, R, rs: R / 8, sing, per }, C(1, 2), null);
+    check('an affine scale of 1e-300 before exp: no period (|T|^2 is not finite), and the key is a number', per === null && Number.isFinite(D), { per, D });
+  }
 }
 
 // ---------------------------------------------------------------------------------------------------------------
