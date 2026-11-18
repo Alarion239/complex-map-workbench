@@ -24,7 +24,8 @@ const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 const SV = { dc: 'phase', sv: { at: 99, T: 0, scope: 'in' } };
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 // wait until every SphereMesh job has published and the canvas is still. `want`: the least number of meshes and of
-// builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet)
+// builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet). A wait
+// that runs out its ms fails the suite, naming the want and the last read, so a timed-out read is never taken as data
 const settle = async (ms = 120000, want = {}) => {
   const t0 = Date.now();
   let s = null;
@@ -33,7 +34,10 @@ const settle = async (ms = 120000, want = {}) => {
     s = await evJson('JSON.stringify(__cmwSphere())');
     const there = s.entries.length >= (want.entries || 0) && s.stats.built >= (want.built || 0);
     if (!s.running && !s.jobs.length && there && Date.now() - t0 > 1200) break;
-    if (Date.now() - t0 > ms) break;
+    if (Date.now() - t0 > ms) {
+      ok(`settle: the meshes settled with ${JSON.stringify(want)} within ${ms} ms`, false, { running: s.running, jobs: s.jobs.length, entries: s.entries.length, stats: s.stats });
+      break;
+    }
   }
   await sleep(400);
   await ev(rAF2);
@@ -43,7 +47,7 @@ const settle = async (ms = 120000, want = {}) => {
 // hooks below are not defined yet (an early run fails with "ReferenceError: __cmwSmVerdict is not defined"). So wait for the hooks this suite
 // calls, as long as it takes, and fail with the hook that never came rather than a ReferenceError later. Then count what the
 // app draws (watchDraws below).
-const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSmReset', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
+const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
 // The steps view's rest frame is the exact pass's, so a scene whose frame must be the meshes' (loadReady's fwd) has its shapes
 // forced forward (the test hook), and the exact image is read with none forced
 let curIds = [];
@@ -209,8 +213,8 @@ ok('8.8: the app drew the mesh before the rest frame was grabbed', await meshDra
 await grab('rest0');
 const rL = await ev('(() => { const r = document.getElementById("canvasL").getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()');
 const cxL = rL[0] + rL[2] / 2, cyL = rL[1] + rL[3] / 2;
-await ev('__cmwSmReset ? 1 : 0');
 const st0 = await evJson('JSON.stringify(__cmwSphere())');
+const win0 = await ev('JSON.stringify(__cmwLook("s1", "L").win)');
 // a 45% pan of plane z (re-centres the meshing window at rest); a middle-button drag pans the pane
 const last = await ev('__cmwSteps().i');
 await ev('__cmwSteps({ go: 0, now: true }); 1');
@@ -219,6 +223,9 @@ await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cxL, y: cyL });
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cxL, y: cyL, button: 'middle', buttons: 4, clickCount: 1 });
 for (let i = 1; i <= 12; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cxL - 0.45 * rL[2] * i / 12, y: cyL, button: 'middle', buttons: 4 }); await sleep(16); }
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cxL - 0.45 * rL[2], y: cyL, button: 'middle', buttons: 0, clickCount: 1 });
+// (the window re-centres at the gesture's end, a moment after the release and only while plane z is shown
+// (sourceViewChanged.apply): stay on z until it has, or 10 s have passed)
+for (let i = 0; i < 200 && (await ev('JSON.stringify(__cmwLook("s1", "L").win)')) === win0; i++) await sleep(50);
 R.panWin = await ev('JSON.stringify(__cmwLook("s1", "L").win)');
 // (back on the last plane, once the app has drawn a frame of it: the frames below are read while the rebuild runs)
 await ev(`window.__p5f = window.__p5w.frames; __cmwSteps({ go: ${last}, now: true }); 1`);
@@ -245,7 +252,14 @@ const diff = (a, b) => ev(`(() => { const A = window.__p5[${JSON.stringify(a)}],
 R.panFrames = { n: nDur, restVsTruth: await diff('rest1', 'truth1'), duringVsRest: [], duringVsTruth: [] };
 for (let k = 0; k < nDur; k++) { R.panFrames.duringVsRest.push(await diff('dur' + k, 'rest1')); R.panFrames.duringVsTruth.push(await diff('dur' + k, 'truth1')); }
 R.pan = { before: st0.entries.length, during: during.slice(0, 6), after: st1.entries.map((e) => ({ why: e.why, n: e.n, partial: e.partial })), maxSlice: +st1.stats.maxSlice.toFixed(1), built: st1.stats.built };
-ok('8.8: a re-centred window rebuilds the mesh', st1.stats.built >= 2, st1.stats);
+// (the meshing window re-centres at the gesture's end when the pan moved it far enough (sourceViewChanged); then the
+// region's mesh is the new window's: built for the panned view, with the new window in its key. The old mesh, built
+// for the view before the pan with the old window, stands in while it builds)
+const winKey = (w) => { const q = JSON.parse(w); return `${q.x0},${q.x1},${q.y0},${q.y1}`; };
+const v0 = st0.entries.length === 1 ? st0.entries[0].view : null, v1 = st1.entries.length === 1 ? st1.entries[0].view : null;
+R.pan.mesh = { win0, panWin: R.panWin, view0: v0 && [v0.cx, v0.cy, v0.s], view1: v1 && [v1.cx, v1.cy, v1.s] };
+ok('8.8: the pan re-centred the meshing window', R.panWin !== win0, R.pan.mesh);
+ok('8.8: a re-centred window rebuilds the mesh (one mesh, built for the panned view and the new window)', !!v0 && !!v1 && v1.cx !== v0.cx && st1.entries[0].key.includes(winKey(R.panWin)) && !st1.entries[0].key.includes(winKey(win0)), { mesh: R.pan.mesh, key: st1.entries.map((e) => e.key), stats: st1.stats });
 ok('8.8: the exact image was drawn', truthOk);
 ok('8.8: the slices of the rebuild stay within 6 ms', st1.stats.maxSlice <= 6, st1.stats.maxSlice);
 ok('8.8: the rest frame after the rebuild matches the exact image (<= 0.5 % of pixels > 8/255)', R.panFrames.restVsTruth && R.panFrames.restVsTruth.frac8 <= 0.005, R.panFrames.restVsTruth);
