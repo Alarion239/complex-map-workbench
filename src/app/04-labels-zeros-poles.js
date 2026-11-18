@@ -40,7 +40,7 @@
   // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
-  // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
+  // a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
   // (no re-pick, so no side flips). A full placement is a function of the view alone (the parked-frame rule), so the
   // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
   const labelSlots = new Map();
@@ -181,7 +181,7 @@
     if (!lite) pruneLabelSlots();
     if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
-  // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
+  // (a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
   // as they are)
   const primesOf = (s, p) => (p > 0 ? Math.max(0, p - shapeStage(s)) : p || 0);
   function drawPoints(pane, F, opt = {}) {
@@ -189,7 +189,7 @@
     const ctx = pane.ctx;
     let pi = 0;
     const labels = [];
-    // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
+    // (opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
     // (opt.lite: a view on the move, a glide or a scrub, has no curves to keep the labels off: sampling every curve through the
     // plane's map costs up to 600 evaluations a curve. Its labels keep their last full placement's offsets, so they do not
@@ -206,7 +206,7 @@
       if (x < -20 || y < -20 || x > pane.w + 20 || y > pane.h + 20) continue;
       const ink = shapeInk(s);
       if (mk) {
-        // (v16 review picture-10) the same outer extent as a dot (r 4 and its halo reach 5 px): a 1.5 px ring at r 3.5
+        // the same outer extent as a dot (r 4 and its halo reach 5 px): a 1.5 px ring at r 3.5
         // inside a 3.5 px halo (1 px each side of the ring), unfilled, so it reads hollow on any pattern
         const rr = mk === 'helper' ? (opt.thin ? 2 : 2.75) : (opt.thin ? 2.4 : 3.5);
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
@@ -254,7 +254,7 @@
       } else if (c.kind === 'seg') {
         [x0, y0] = pane.w2s(c.a); [x1, y1] = pane.w2s(c.b);
       } else if (c.kind === 'circle' || c.kind === 'vline') {
-        // [issue #5] a series' region of convergence: dashed, in the cut ink, over its halo
+        // a series' region of convergence: dashed, in the cut ink, over its halo
         ctx.setLineDash([6, 4]);
         for (const [style, w, a] of [[TH.halo, thin ? 2.5 : 3.5, TH.haloA], [TH.cut, thin ? 1.25 : 1.75, 1]]) {
           ctx.strokeStyle = style; ctx.lineWidth = w; ctx.globalAlpha = a;
@@ -288,7 +288,7 @@
       for (const z of b.zp.zeros) {
         if (!CX.isFin(z)) continue;
         const [x, y] = pane.w2s(z);
-        if (thin && offEdge(pane, x, y, 4 * sc + 2)) continue;   // (review design-20: a card never shows half a mark)
+        if (thin && offEdge(pane, x, y, 4 * sc + 2)) continue;   // (a card never shows half a mark)
         ctx.fillStyle = TH.zero; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.5 * sc;
         ctx.beginPath(); ctx.arc(x, y, 4 * sc, 0, TAU); ctx.stroke(); ctx.fill();
       }
@@ -748,7 +748,7 @@
     const ctx = pane.ctx;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || s.kind === 'cgrid' || s.kind === 'pgrid') continue;
-      const F = shapeF(s, F0, k);   // ([#253] a later plane's shape: its image, from its own plane)
+      const F = shapeF(s, F0, k);   // (a later plane's shape: its image, from its own plane)
       if (!F) continue;
       const r = gpu.get(s.id);
       if (!r || !r.polys) continue;
@@ -818,7 +818,7 @@
   // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
   // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
   const ZP_KINDS = ['zeros', 'poles'];
-  // [UX54] by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
+  // by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
   const zpSym = (kind, i, st) => (kind === 'zeros' ? 'ζ' : 'p') + sub(Constr.zpNum(st, kind, i));
   // (the marks are drawn with every overlay frame: a field's text is parsed once)
   const zpParsed = new Map();
@@ -832,7 +832,7 @@
   };
   const zpSame = (a, k, kind, i) => !!a && a.k === k && a.kind === kind && a.i === i;
   const zpItems = (st, kind) => Funcs.splitList(st.params[kind]);
-  // (review verify-4, design-17 / math-14: a zero or pole field shows the true minus, U+2212, as the Parameters' value
+  // (a zero or pole field shows the true minus, U+2212, as the Parameters' value
   // fields do; the stored text keeps the ASCII hyphen, so a field's text is read back through zpRaw)
   const zpShow = (raw) => String(raw).replace(/-/g, '−');
   const numShow = zpShow;
@@ -893,7 +893,7 @@
       }
       if (dr && dr.off) {
         ctx.globalAlpha = 1;
-        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });   // (v16 [C12])
+        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });
         ctx.font = `11px ${TH.mono}`;
         const cw = ctx.measureText(msg).width + 12;
         chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
@@ -993,7 +993,7 @@
     if (!st || st.type !== 'zp') return;
     const list = zpItems(st, kind);
     if (i < 0 || i >= list.length) return;
-    cmZeroRemoved(k, kind, i);   // (v16 [C12])
+    cmZeroRemoved(k, kind, i);
     list.splice(i, 1);
     zpWrite(st, kind, list);
     if (zpSame(zpSel, k, kind, i)) zpSel = null;
@@ -1140,7 +1140,7 @@
     const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }), html: ICONS.close,
       onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
     const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': kind === 'zeros' ? $t('Zero {sym}: drag it in the input plane', { sym }) : $t('Pole {sym}: drag it in the input plane', { sym }) }, sym);
-    // (v15, review design-8: every zero and pole row has its Argand button, named by the indexed symbol)
+    // (every zero and pole row has its Argand button, named by the indexed symbol)
     const arg = h('button', { class: 'icon-btn argand', type: 'button', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: sym }), html: ICONS.argand,
       onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     return h('div', { class: 'pf zp-item' }, lab, h('div', { class: 'pair' }, input, arg, del));
@@ -1152,7 +1152,7 @@
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
-    // ([issue #6] the same function written another way: a repeat it ends stays)
+    // (the same function written another way: a repeat it ends stays)
     setStepAt(k - 1, Object.assign({ type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     zpSel = null;
     chainChanged(true);
@@ -1161,14 +1161,14 @@
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
     return null;
   }
-  // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
+  // a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
   // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger
   const fingerNow = () => (ptrTouch != null ? ptrTouch : touchUI());
   function handleAt(pane, sel, x, y) {
     const finger = ptrTouch;
     let best = null, bd = Infinity;
     for (const [key, hz] of Region.handlesOf(sel)) {
-      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; v16.3: nor a fixed shape's)
+      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; nor a fixed shape's)
       const [hx, hy] = pane.w2s(hz);
       if (finger) { const d = Math.hypot(hx - x, hy - y); if (d < 22 && d < bd) { bd = d; best = key; } }
       else if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) return key;
@@ -1181,7 +1181,7 @@
     const ctx = pane.octx;
     const k = shapeInk(s).edge, hr = fingerNow() ? 6 : 3.5;
     for (const [key, z] of Region.handlesOf(s)) {
-      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
+      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
       ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
       ctx.beginPath();
