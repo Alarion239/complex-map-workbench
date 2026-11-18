@@ -55,6 +55,8 @@
     for (const s of S.targets || []) live.add(s.id);
     for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
   }
+  // (each box grown by CTRL_PAD px, so that a label does not sit against a control's edge)
+  const CTRL_PAD = 4;
   // the boxes of the controls over a plane's canvas, in the plane's pixels (what the labels' boxes are in): the plot's children that are not
   // canvases, shown and with a box. A label drawn under one is covered by it. Not the progress hairline along the top of the plots (it is no
   // control), nor the readout chip: its width follows the pointer, and a resting picture's labels do not depend on where the pointer was.
@@ -67,7 +69,7 @@
       if (c.tagName === 'CANVAS' || c.classList.contains('hairline') || c.classList.contains('readout')) continue;
       const r = c.getBoundingClientRect();
       if (r.width < 1 || r.height < 1 || getComputedStyle(c).visibility === 'hidden') continue;
-      out.push({ x0: r.left - pr.left, x1: r.right - pr.left, y0: r.top - pr.top, y1: r.bottom - pr.top });
+      out.push({ x0: r.left - pr.left - CTRL_PAD, x1: r.right - pr.left + CTRL_PAD, y0: r.top - pr.top - CTRL_PAD, y1: r.bottom - pr.top + CTRL_PAD });
     }
     return out;
   }

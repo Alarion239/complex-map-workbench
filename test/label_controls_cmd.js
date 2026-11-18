@@ -61,8 +61,9 @@ for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru',
   await settled({ max: SETTLE_MS, until: `${LIFT_STOPPED} && /ph-(ctx|toast)-on/.test(document.documentElement.className)` });
   await settled({ max: SETTLE_MS });
   const lifted = await ev('__cmwLabelsPlaced()');
-  const hit = lifted.length === 1 ? await under(lifted[0]) : null;
+  const hit = lifted.length === 1 ? await under(lifted[0]) : [];
   info[tag] = { rest, lifted, hit };
-  ok(`${tag}: once the keys have stopped rising the label is drawn and lies under no control`, lifted.length === 1 && hit.length === 0, { label: lifted[0], hit });
+  // (the lifted column covers the point itself, so its label may be dropped: it is never left under a control)
+  ok(`${tag}: once the keys have stopped rising the label lies under no control (a point under them may have none)`, lifted.length <= 1 && hit.length === 0, { lifted, hit });
 }
 return { pass: fails.length === 0, fails, info };
