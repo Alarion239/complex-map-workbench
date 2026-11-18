@@ -283,7 +283,7 @@
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
     svFollowRing();
-    const P = svPlanes();
+    const P = svPlanes(), moving = !!(SV.anim || SV.play);
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
     svKeepView();
@@ -298,13 +298,17 @@
     // (a press while the wait runs cancels it: on the button that shows it, that is all; elsewhere the new glide waits instead)
     const btn = i > from ? SV.els.next : SV.els.prev;
     if (SV.gate) { const same = SV.gate.btn === btn; svGateEnd(); if (same) return; }
+    // (from rest, the motion's frames may be drawn ahead while it waits; a press during a motion retargets it live)
+    const ms = per * Math.min(2, Math.max(0.35, Math.abs(i - from))), M = moving ? null : { from, to: i, ms, eased: true, span: svSpanOf(from, i) };
+    if (svAhead && (!M || svAhead.key !== svAheadKey(paneL, M))) svAheadDrop();
     // (the Landscape steps a plane at a time, with no frames between planes: an arrow or a plane of the strip there waits
     // for nothing, and no wait holds back its at-rest refinement)
-    if (SV.surf !== 'land' && svGateNeeded()) { svGated(btn, () => svGo(i)); return; }
+    if (SV.surf !== 'land' && svGateNeeded(M)) { svGated(btn, () => svGo(i), M); return; }
     SV.span = svSpanOf(from, i);
-    SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
+    SV.anim = { from, to: i, t0: performance.now(), ms };
     draft = null; probe = null;
     requestRender('L');
+    svAheadSay(M);
   }
   // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
   // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
@@ -345,6 +349,8 @@
   }
   function svArrive() {
     svPolesWatch();
+    // (the motion whose frames were drawn ahead ended: they go, unless a play paused on them, which may resume)
+    if (svAhead && svAhead.A && !svAhead.paused) svAheadDrop();
     const i = Math.round(SV.g.x), was = SV.at;
     SV.span = null;
     SV.g.set(i);
@@ -1752,6 +1758,7 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
+    if (svAhead && (svAhead.state === 'probe' || svAhead.state === 'fill')) svAhead.live++;
     cutMarksL = [];
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; } SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
@@ -1804,16 +1811,214 @@
   // its cuts' inert handles (cutMarksL) }; null after any other frame
   let svHeldOn = null;
   // the render-ahead frames' key (#1339): every input a glide frame's pixels depend on but its place, and the motion M whose
-  // places the frames are drawn at (HomRange.aheadPlaces' from, to, ms and ease): the chain, its order and the span it glides, the
-  // camera and the pane, the theme, the colour and display options, the view's scope, surface, colour plane and look, the
-  // shapes and the selection. Frames drawn ahead under another key are dropped
+  // places the frames are drawn at (HomRange.aheadPlaces' from, to, ms and ease, and the span it glides): the chain and its
+  // order, the camera and the pane, the theme, the colour and display options, the view's scope, surface, colour plane and
+  // look, the shapes, the targets, the selection and the language (the frames hold the labels). Frames drawn ahead under
+  // another key are dropped. With M null, the chain's frames whatever the motion (svAheadCost's)
   function svAheadKey(pane, M) {
-    return JSON.stringify([chainSig[nSteps()], svStepsSig(), !!S.homAll, SV.span, S.srcView, pane.w, pane.h, pane.dpr, TH,
+    return JSON.stringify([chainSig[nSteps()], svStepsSig(), !!S.homAll, S.srcView, pane.w, pane.h, pane.dpr, TH,
       S.dc, S.sectors, S.dcGrid, S.pattern, S.unit, S.sheets, S.outline, svOpacity(), SV.scope, SV.surf, svT(), SV.bare,
-      hideStrokes, selected, S.shapes, M.from, M.to, M.ms, M.eased]);
+      hideStrokes, selected, S.shapes, S.targets, I18N.lang].concat(M ? [M.from, M.to, M.ms, M.eased, M.span] : []));
   }
+  // ---- the render-ahead frames (#1339) ----
+  // A glide or a play whose frames cost more than AHEAD_MS to draw is drawn ahead, while the gate waits (svGated): frame k
+  // of its schedule (HomRange.aheadPlaces: the place k·AHEAD_DT ms in, eased as svFrame eases a glide, linear as
+  // svPlayFrame plays) is drawn off-screen as the screen draws it there (svRenderMoving) and kept as an ImageBitmap, and the
+  // motion then shows frame floor(elapsed / AHEAD_DT) (HomRange.aheadIndex), one drawImage a frame (svAheadShow). A frame
+  // is kept only when it is the exact frame at its own place: no hold, and between two planes the inverse pass's at its u.
+  // One that is not is drawn again, at most AHEAD_TRIES times. The first AHEAD_PROBE frames decide: at a median cost of at
+  // most AHEAD_MS (to the GPU's finish) the motion plays live, as it would without them; the cost is kept for the chain,
+  // so a later motion of it decides at once (svAheadPlan); past AHEAD_WAIT_MAX_MS to draw them all, past the memory budget to keep them, or a frame
+  // that cannot be drawn exactly, it plays live too, and the live region says why, once a chain and reason. Only on the flat
+  // plane, without reduced motion, and only for a motion the gate starts from rest (svGo, svPlay): a press during a motion,
+  // a scrub, a speed change, a Split and an edit play live
+  const AHEAD_DT = 1000 / 60, AHEAD_MS = 14, AHEAD_PROBE = 3, AHEAD_TRIES = 3, AHEAD_WAIT_MAX_MS = 3000;
+  // (test hook: { ms, waitMs, cap }, each in place of AHEAD_MS, AHEAD_WAIT_MAX_MS and aheadBudget's when not null)
+  const svAheadTest = { ms: null, waitMs: null, cap: null };
+  const svAheadTune = (o) => { for (const k of Object.keys(svAheadTest)) if (o && k in o) svAheadTest[k] = o[k] == null ? null : +o[k]; };
+  const aheadMs = () => (svAheadTest.ms != null ? svAheadTest.ms : AHEAD_MS);
+  const aheadWaitMs = () => (svAheadTest.waitMs != null ? svAheadTest.waitMs : AHEAD_WAIT_MAX_MS);
+  // the memory budget of a motion's frames (bytes): 256 MB, 512 MB where the browser reports 8 GB or more
+  const aheadBudget = () => (svAheadTest.cap != null ? svAheadTest.cap : (/** @type {any} */ (navigator).deviceMemory >= 8 ? 512 : 256) * 2 ** 20);
+  // the frames of the motion the gate waits on or plays: { M (from, to, ms, eased, span), key (svAheadKey), xs (the places),
+  // N (the frames shown, 0..N−1: the motion ends at N), slots (by k: { bm, mf, cm, rec }), n (slots made), kept (each
+  // slot made's glide path, kept when the slots go), tries (of the frame drawn next), costs (the probe frames' ms), state
+  // ('probe', 'fill', 'done' or 'live'), why (the reason it plays live: 'time', 'memory' or 'exact'; none when its frames
+  // are cheap), t0 (the fill's start), cv (the scratch canvas), busy (a slice is posted), A (the motion record it shows,
+  // once it shows one), paused ({el, x}: the play paused on it), shown, rejects, live (frames the screen drew while it
+  // filled) }; or null
+  let svAhead = null;
+  // a chain's frame cost as its probe measured it (ms, by svAheadKey with no motion), and the reasons to play live said
+  const svAheadCost = new Map(), svAheadSaid = new Set();
+  // what the measured cost of M's chain says of motion M: null (not measured), 'live' (cheap: it plays live, as without
+  // frames ahead), 'ahead' (its frames are drawn ahead), or the reason it plays live ('time', 'memory'). So a chain is
+  // measured once: a later motion of it waits on no probe
+  function svAheadPlan(M) {
+    const c = svAheadCost.get(svAheadKey(paneL, null));
+    if (c == null) return null;
+    const N = Math.max(1, Math.ceil(M.ms / AHEAD_DT));
+    return c <= aheadMs() ? 'live' : c * N > aheadWaitMs() ? 'time' : N * paneL.pw * paneL.ph * 4 > aheadBudget() ? 'memory' : 'ahead';
+  }
+  // whether motion M can be drawn ahead
+  const svAheadCan = (M) => !!M && M.ms > 0 && SV.surf === 'plane' && lFlat() && !!GLR.ok && typeof OffscreenCanvas === 'function' && typeof MessageChannel === 'function' && !svReduced();
+  function svAheadDrop() {
+    const R = svAhead;
+    svAhead = null;
+    if (R) for (const s of R.slots) if (s && s.bm) s.bm.close();
+  }
+  // the gate's part for motion M (svReady(M)), or null when M is played live without waiting on its frames
+  function svAheadPart(M) {
+    if (!svAheadCan(M)) return null;
+    const plan = svAheadPlan(M);
+    if (plan && plan !== 'ahead') return null;
+    const R = svAhead;
+    if (!R || R.key !== svAheadKey(paneL, M)) return { done: 0, total: 1 };
+    return { done: R.state === 'done' || R.state === 'live' ? 1 : Math.min(0.99, R.n / R.N), total: 1 };
+  }
+  // the frames of motion M made or going on: the fill's next slice posted, a frame a task through a MessageChannel, so the
+  // gate's ring paints and Esc is read between two
+  let svAheadCh = null;
+  function svAheadRun(M) {
+    const key = svAheadKey(paneL, M);
+    if (!svAhead || svAhead.key !== key) {
+      svAheadDrop();
+      const xs = HomRange.aheadPlaces(M.from, M.to, M.ms, M.eased, AHEAD_DT);
+      svAhead = { M, key, xs, N: xs.length - 1, slots: [], kept: [], n: 0, tries: 0, costs: [], state: svAheadPlan(M) === 'ahead' ? 'fill' : 'probe', why: null, t0: performance.now(), cv: null, busy: false, A: null, paused: null, shown: 0, rejects: 0, live: 0 };
+    }
+    const R = svAhead;
+    if ((R.state === 'probe' || R.state === 'fill') && !R.busy) {
+      if (!svAheadCh) { svAheadCh = new MessageChannel(); svAheadCh.port1.onmessage = () => { svAheadSlice(); }; }
+      R.busy = true;
+      svAheadCh.port2.postMessage(0);
+    }
+  }
+  // the frames given up: the motion plays live (why: the reason said, none when its frames are cheap)
+  function svAheadLive(R, why) {
+    R.state = 'live'; R.why = why;
+    for (const s of R.slots) if (s && s.bm) s.bm.close();
+    R.slots = []; R.cv = null;
+  }
+  // one slice of the fill: frame R.n drawn, and the next slice posted until the frames are made or given up (R.busy stays
+  // set until it ends: the gate's poll posts no slice while one waits on the GPU)
+  async function svAheadSlice() {
+    const R = svAhead;
+    if (!R) return;
+    let next = false;
+    try { next = await svAheadFrame(R); } finally { R.busy = false; }
+    if (svAhead !== R) return;
+    if (next) svAheadRun(R.M);
+    else if (R.state === 'done' || R.state === 'live') svGateTick();
+  }
+  // -> whether another frame is to be drawn
+  async function svAheadFrame(R) {
+    const g = SV.gate;
+    // (cancelled, or the gate waits on another motion or an edited chain: svGateTick starts that one's)
+    if (!g || !g.M || R.state === 'done' || R.state === 'live' || svAheadKey(paneL, g.M) !== R.key) return false;
+    const k = R.n, t0 = performance.now(), s = svAheadDraw(R, k);
+    if (!s) {
+      R.rejects++;
+      if (++R.tries >= AHEAD_TRIES) { svAheadLive(R, 'exact'); return false; }
+      return true;
+    }
+    R.tries = 0; R.slots[k] = s; R.n++; R.kept.push(s.rec ? s.rec.path : null);
+    if (R.state === 'probe') {
+      // (a probe frame's cost runs to the GPU's finish: the fence is polled every few ms, so it reads a little high, and a
+      // frame near AHEAD_MS is drawn ahead rather than played live)
+      await GLR.gpuDone(1000);
+      if (svAhead !== R) return false;
+      R.costs.push(performance.now() - t0);
+      if (R.costs.length >= AHEAD_PROBE || R.n >= R.N) {
+        svAheadCost.set(svAheadKey(paneL, null), R.costs.slice().sort((a, b) => a - b)[R.costs.length >> 1]);
+        const plan = svAheadPlan(R.M);
+        if (plan === 'ahead') R.state = 'fill'; else svAheadLive(R, plan === 'live' ? null : plan);
+      }
+    } else if (performance.now() - R.t0 > aheadWaitMs()) svAheadLive(R, 'time');
+    if (R.state !== 'live' && R.n >= R.N) { R.state = 'done'; R.cv = null; }
+    return R.state === 'probe' || R.state === 'fill';
+  }
+  // draw() run as the screen draws motion M at k·AHEAD_DT ms, at place x: a copy of the motion record at that time is the
+  // motion (so the frame is a glide's, with the glide's light points, and svLinkHold and svMotionDrawn write to the copy),
+  // under SV.offscreen. Everything the frame writes is put back, the pane's pending frame (dirty.L) and renderAsks too, so a
+  // visit asks for no live frame. -> draw(the copy)'s result
+  function svAheadVisit(M, k, x, draw) {
+    const keep = { x: SV.g.x, span: SV.span, anim: SV.anim, play: SV.play, mf: mfDrawn, cm: cutMarksL, ch: cutHandlesL, rec: svGlideRec, rest: svRestRec, held: svHeldOn, hb: svHoldB, dirty: dirty.L, asks: renderAsks };
+    const A = { from: M.from, to: M.to, ms: M.ms, t0: 0, el: 0, held: null, drawn: null };
+    svSetElapsed(A, k * AHEAD_DT);
+    SV.offscreen++;
+    try {
+      SV.anim = A; SV.play = null; SV.span = M.span; SV.g.set(x);
+      mfDrawn = null; cutMarksL = []; svGlideRec = null; svRestRec = null; svHeldOn = null;
+      return draw(A);
+    } finally {
+      SV.anim = keep.anim; SV.play = keep.play; SV.span = keep.span; SV.g.set(keep.x);
+      mfDrawn = keep.mf; cutMarksL = keep.cm; cutHandlesL = keep.ch; svGlideRec = keep.rec; svRestRec = keep.rest; svHeldOn = keep.held; svHoldB = keep.hb;
+      dirty.L = keep.dirty; renderAsks = keep.asks;
+      SV.offscreen--;
+    }
+  }
+  // frame k of R drawn off-screen (svAheadVisit) into R's scratch canvas through a proxy of the left pane, its labels
+  // placed at once -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it
+  // is not the exact frame at its place
+  function svAheadDraw(R, k) {
+    const pane = paneL, M = R.M, x = R.xs[k];
+    if (!R.cv || R.cv.width !== pane.pw || R.cv.height !== pane.ph) R.cv = new OffscreenCanvas(pane.pw, pane.ph);
+    const p = svProxy(pane, /** @type {any} */ (R.cv));
+    p.labels = null;
+    return svAheadVisit(M, k, x, (A) => {
+      svRenderMoving(p);
+      if (p.labels) flushLabels(p, p.labels);
+      const bt = svBetween(x, M.span), still = bt.u <= SV_REST_U || bt.b === bt.a;
+      const exact = !A.held && (still ? !svRestRec || svRestRec.path === 'inverse'
+        : !!svGlideRec && svGlideRec.path === 'inverse' && svGlideRec.b === bt.b && svGlideRec.u === bt.u);
+      return exact ? { bm: R.cv.transferToImageBitmap(), mf: mfDrawn, cm: cutMarksL, rec: svGlideRec } : null;
+    });
+  }
+  // the motion under way is R's (its schedule, unremapped) -> the frame it shows now, or null
+  function svAheadNow(pane) {
+    const R = svAhead, A = svMotion();
+    if (!R || R.state !== 'done' || !A || SV.offscreen || (SV.drag && SV.drag.moved)) return null;
+    const M = R.M;
+    if (A.from !== M.from || A.to !== M.to || A.ms !== M.ms || (A === SV.anim) !== M.eased || A.e0 || A.held) return null;
+    if (svAheadKey(pane, M) !== R.key) { svAheadDrop(); return null; }
+    R.A = A;
+    return R.slots[HomRange.aheadIndex(svElapsed(A), AHEAD_DT, R.N - 1)] || null;
+  }
+  // the frame of the motion under way drawn ahead, shown on the pane: one copy, and the frame's records (its moving paths,
+  // cuts' marks and glide record) as the frame drawn live leaves them. False when it has none
+  function svAheadShow(pane) {
+    const s = svAheadNow(pane);
+    if (!s) return false;
+    svHeldOn = null;
+    pane.setView(S.srcView);
+    pane.begin(TH.plane);
+    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(s.bm, 0, 0); pane.ctx.restore();
+    pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    mfDrawn = s.mf; cutMarksL = s.cm; cutHandlesL = []; svGlideRec = s.rec;
+    svMotionDrawn(svMotion());
+    svAhead.shown++;
+    return true;
+  }
+  // the live region says once, for a chain and reason, why motion M, just started, plays live: its frames given up
+  // (svAheadLive's why), or its chain's measured cost (svAheadPlan's)
+  function svAheadSay(M) {
+    const R = svAhead, live = SV.els && SV.els.live;
+    if (!M || !live || !svAheadCan(M)) return;
+    const plan = svAheadPlan(M), why = R && R.state === 'live' && R.key === svAheadKey(paneL, M) ? R.why : plan === 'time' || plan === 'memory' ? plan : null;
+    if (!why) return;
+    const said = svAheadKey(paneL, null) + why;
+    if (svAheadSaid.has(said)) return;
+    svAheadSaid.add(said);
+    const msg = why === 'time' ? $t('Playing live: preparing the frames would take too long.') : why === 'memory' ? $t('Playing live: the frames would not fit in memory.') : $t('Playing live: a frame could not be prepared exactly.');
+    // (after the play's own words, "Playing from … to …"; a glide's replace what the region said before it)
+    live.textContent = SV.play && live.textContent ? `${live.textContent} ${msg}` : msg;
+  }
+  // (test hook) the frames' state: null, or { state, why, n, N, costs, shown, rejects, live, recs: each slot made's glide
+  // path, slots: how many are held }
+  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, costs: R.costs.map((c) => +c.toFixed(2)), shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length }; };
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); svMotionDrawn(svMotion()); return; }
+    // (a motion whose frames were drawn ahead shows them)
+    if (svAheadShow(pane)) return;
     const asks = renderAsks, hold = svLinkHold();
     // (a held frame with the inputs of the held frame on the pane, and no frame asked for since, would draw that frame
     // again: the pane keeps it, its status included, and the hold's own checks above are all this frame does)
@@ -3418,7 +3623,7 @@
   // (test hook: the idle jobs count as unfinished while set)
   let svJobsHold = false;
   const svJobsHoldSet = (on) => { svJobsHold = !!on; };
-  function svReady() {
+  function svReady(M) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
@@ -3428,6 +3633,9 @@
     if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
     if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
+    // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
+    const ahead = M ? svAheadPart(M) : null;
+    if (ahead) parts.ahead = ahead;
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
     return { done, total, parts, ready: total > 0 && done === total };
@@ -3607,8 +3815,8 @@
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
-  function svGateNeeded() {
-    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+  function svGateNeeded(M) {
+    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady(M).ready;
   }
   // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
   let svGateOff = false;
@@ -3617,11 +3825,12 @@
   const svGateWaiting = () => !!SV.gate;
   // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
   const svGateDraws = () => !!SV.gate && SV.surf === 'plane' && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
-  // start() now, or once the chain is prepared; btn is the control the wait shows on
-  function svGated(btn, start) {
+  // start() now, or once the chain is prepared; btn is the control the wait shows on, M the motion start() starts from
+  // rest (its frames drawn ahead, svAheadPart), or none
+  function svGated(btn, start, M) {
     if (SV.gate) return;
-    if (!svGateNeeded()) { start(); return; }
-    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
+    if (!svGateNeeded(M)) { start(); return; }
+    SV.gate = { btn, start, M, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
     svPrestartSoon(0);
     if (svGateDraws()) requestRender('L');
     svGateTick();
@@ -3630,15 +3839,18 @@
   function svGateRetry() {
     const g = SV.gate;
     if (!g) return;
-    const { btn, start } = g;
-    svGateEnd();
-    svGated(btn, start);
+    const { btn, start, M } = g;
+    svGateEnd(true);
+    svGated(btn, start, M);
     if (SV.gate) { SV.gate.shown = true; svGateSync(); }
   }
-  function svGateEnd() {
+  // (keep: the wait ends to start the motion, or to wait again (Retry), and the frames drawn ahead stay; else it is cancelled,
+  // and they go)
+  function svGateEnd(keep) {
     const g = SV.gate;
     if (!g) return;
     clearTimeout(g.timer);
+    if (!keep) svAheadDrop();
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
@@ -3660,7 +3872,7 @@
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
-    const r = svReady();
+    const r = svReady(g.M);
     B.toggleAttribute('aria-busy', true);
     B.dataset.wait = g.hung ? 'hung' : 'busy';
     g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
@@ -3673,7 +3885,9 @@
     const g = SV.gate;
     if (!g) return;
     if (svPlanes().length < 2) { svGateEnd(); return; }
-    if (!svGateNeeded()) { svGateEnd(); g.start(); return; }
+    if (!svGateNeeded(g.M)) { svGateEnd(true); g.start(); return; }
+    // (all else ready: the motion's frames are drawn ahead)
+    if (g.M && svAheadPart(g.M) && svReady().ready) svAheadRun(g.M);
     const t = performance.now() - g.t0;
     if (!g.shown && t >= SV_GATE_SHOW_MS) {
       g.shown = true;
@@ -3687,24 +3901,39 @@
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }
+  // the play's schedule from where the view is: { start, end (the range's ends), x (where it is), from (where it plays from) }
+  function svPlayFrom() {
+    const P = svPlanes(), R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1, x = SV.anim ? SV.anim.to : SV.g.x;
+    // (at the end, or past it: from the start)
+    return { start, end, x, from: x >= end - SV_REST_U ? start : x };
+  }
   function svPlay() {
     if (SV.play || svPlanes().length < 2) return;
-    svGated(SV.els.play, svPlayNow);
+    // (from rest, its frames may be drawn ahead while it waits; resumed where a play paused on frames drawn ahead, it goes
+    // on with that play's schedule and frames)
+    const R = svAhead, q = svPlayFrom();
+    const resume = R && R.paused && R.state === 'done' && Math.abs(SV.g.x - R.paused.x) < 1e-12 && R.key === svAheadKey(paneL, R.M) ? { M: R.M, el: R.paused.el } : null;
+    const M = SV.anim || svReduced() ? null : resume ? resume.M : { from: q.from, to: q.end, ms: svPerPlane() * (q.end - q.from), eased: false, span: svSpanOf(q.from, q.end) };
+    if (svAhead && (!M || svAhead.key !== svAheadKey(paneL, M))) svAheadDrop();
+    if (svAhead) svAhead.paused = null;
+    svGated(SV.els.play, () => svPlayNow(resume), M);
   }
-  function svPlayNow() {
+  // (resume: { M, el }, a play paused on frames drawn ahead, which goes on at el ms into its schedule M)
+  function svPlayNow(resume) {
     const P = svPlanes();
     if (P.length < 2 || SV.play) return;
-    const R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;
+    const { start, end, x, from } = svPlayFrom();
     svKeepView();
-    const x = SV.anim ? SV.anim.to : SV.g.x;
     SV.anim = null; SV.g.set(x); SV.g.max = P.length - 1;
-    // (at the end, or past it: from the start)
-    const from = x >= end - SV_REST_U ? start : x;
     draft = null; probe = null;
     if (svReduced()) {
       SV.g.set(Math.round(from));
       SV.play = { slide: true, start, end, timer: 0, steps: S.steps };
       svSlide(true);
+    } else if (resume) {
+      SV.span = resume.M.span;
+      SV.play = { from: resume.M.from, to: resume.M.to, start, t0: 0, ms: resume.M.ms, steps: S.steps };
+      svSetElapsed(SV.play, resume.el);
     } else {
       SV.g.set(from);
       SV.span = svSpanOf(from, end);
@@ -3714,6 +3943,8 @@
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    const A = SV.play;
+    if (!A.slide) svAheadSay({ from: A.from, to: A.to, ms: A.ms, eased: false, span: SV.span });
   }
   // a slide's time on each plane (ms)
   const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
@@ -3772,8 +4003,12 @@
     if (!A) return;
     SV.play = null;
     if (A.slide) clearTimeout(A.timer);
+    // (a play on frames drawn ahead keeps them, and where it paused, for a resume: svPlay)
+    const R = svAhead && svAhead.A === A ? svAhead : null;
+    if (R) R.paused = { el: svElapsed(A), x: NaN };
     // (parked between two planes, the full apply the crossings skipped is done now, once)
     if (settle) { if (A.slide) { svArrive(); } else { svLetGo(); if (svParked()) svApply(); } }
+    if (R && svAhead === R) R.paused.x = SV.g.x;
     svSync();
   }
   // a phone's Playback sheet (a long press on ▶): the speed, the loop and the paths
