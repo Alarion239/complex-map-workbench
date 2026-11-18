@@ -122,17 +122,24 @@ if (part('dialog')) {
   ok('after Cancel focus is back on Save video', await ev(FOCUSED) === 'xfVideo', await ev(FOCUSED));
   // Enter held on Save video (the long video above): the press starts the video and gives Cancel the focus, and the key's
   // auto-repeats (CDP autoRepeat keydowns, as a held key sends them) land on Cancel, which ignores them: the video goes on
+  // (its meter moves on after the key is let go). Cancel is described by the meter (aria-describedby)
   const enter = (repeat) => send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r', autoRepeat: repeat });
   await ev(`(() => { const t = window.__toastsNew = [], host = document.getElementById('toastHost');
     if (host) new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) t.push(n.textContent); }).observe(host, { childList: true, subtree: true });
     document.getElementById('xfVideo').focus(); return 1; })()`);
   await enter(false);
-  await sleep(500);
+  const onCancel = await settled({ until: `document.activeElement && document.activeElement.id === 'xfVCancel'`, max: 10000, panes: false });
   for (let i = 0; i < 3; i++) { await enter(true); await sleep(40); }
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
-  await sleep(600);
-  q = await ev(`({ running: !document.querySelector('.xf-prog').hidden, focus: ${FOCUSED}, toasts: window.__toastsNew.slice() })`);
-  ok('Enter held on Save video: its repeats on Cancel do not cancel the video', q.running && q.focus === 'xfVCancel' && !q.toasts.some((t) => /cancelled/.test(t)), q);
+  // (the meter's value as the key is let go; then the video either moves on or stops)
+  const meterAt = await ev(`+document.getElementById('xfVMeter').getAttribute('aria-valuenow')`);
+  const went = await settled({ until: `document.querySelector('.xf-prog').hidden || +document.getElementById('xfVMeter').getAttribute('aria-valuenow') > ${meterAt}`, max: 30000, panes: false });
+  q = await ev(`({ running: !document.querySelector('.xf-prog').hidden, focus: ${FOCUSED}, toasts: window.__toastsNew.slice(),
+    meter: +document.getElementById('xfVMeter').getAttribute('aria-valuenow'),
+    describedBy: document.getElementById('xfVCancel').getAttribute('aria-describedby'), meterRole: document.getElementById('xfVMeter').getAttribute('role') })`);
+  Object.assign(q, { onCancel: onCancel.ok, meterAt, went: went.ok });
+  ok('Enter held on Save video: its repeats on Cancel do not cancel the video', onCancel.ok && went.ok && q.running && q.meter > meterAt && q.focus === 'xfVCancel' && !q.toasts.some((t) => /cancelled/.test(t)), q);
+  ok('while the video is made, Cancel is described by its meter', q.describedBy === 'xfVMeter' && q.meterRole === 'progressbar', q);
   await ev(`(() => { const b = document.getElementById('xfVCancel'); if (b && !b.closest('[hidden]')) b.click(); return 1; })()`);
   for (let i = 0; i < 40; i++) { await sleep(150); if (await ev(`document.querySelector('.xf-prog').hidden`)) break; }
   for (const [w, h, dark] of [[760, 900, true], [360, 780, false], [360, 780, true]]) {

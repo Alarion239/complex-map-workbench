@@ -646,8 +646,8 @@
     let vRun = null;
     cancelBtn.addEventListener('click', () => { if (vRun) vRun.cancel = true; });
     // (Save video gives Cancel the focus within the Enter that pressed it, so a held Enter's repeats land on Cancel: only a
-    // fresh press of Enter or Space cancels, a repeat of the key is ignored)
-    cancelBtn.addEventListener('keydown', (e) => { if (e.repeat && (e.key === 'Enter' || e.key === ' ')) e.preventDefault(); });
+    // fresh press of Enter cancels, a repeat is ignored. Space acts on its release, so a held Space presses one button once)
+    cancelBtn.addEventListener('keydown', (e) => { if (e.repeat && e.key === 'Enter') e.preventDefault(); });
     // (while a video is made its options are locked: the plan is fixed at the start; the progress takes the name row's
     // place, so the dialog does not move; the screen reader hears the start, every quarter and the end)
     const running = (on) => {
