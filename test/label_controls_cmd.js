@@ -2,6 +2,8 @@
 // (the legend chips, the view buttons, the phone's button column), and a label whose best spot was under a button
 // had its text covered. A point of z near the right edge of the plane, where the buttons are, at 360 × 640 (en and ru) and 1280 × 800:
 // its label is drawn (not dropped), and no label's box overlaps the box of a control over the plane.
+// On a phone the plane's key column and view stack ride up above the context bar (a selected shape) and above a message with a
+// transition: once they have stopped, the label of a point that was clear of them at rest is still clear of them.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -39,5 +41,28 @@ for (const [W, H, mobile, lang, near] of [[360, 640, true, 'en', [1.4, -1.45]], 
     info[tag].under.push(hit);
     ok(`${tag}: the label "${l.text}" lies under no control over the plane`, hit.length === 0, { label: l, hit });
   }
+}
+// the keys' lift: a point clear of the column at rest, the shape selected (the context bar) or a message shown (the toast), at 360 × 640
+const LIFT_PT = [1.45, -0.645];
+// no transition of the plane's keys is still running (the lift has stopped)
+const LIFT_STOPPED = `!document.getAnimations().some((a) => a.transitionProperty === 'bottom')`;
+for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru', 'selected', "__cmwSelect('pt')"], ['en', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"], ['ru', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"]]) {
+  const tag = `360x640 ${lang}, ${what}`;
+  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'pt', kind: 'point', p: LIFT_PT, ci: 0, visible: true }],
+    steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+  await view(360, 640, false, true);
+  await loadView('steps', `lblcls${lang}${what.length}`, st, { lang });
+  await settled({ max: SETTLE_MS, until: 'typeof __cmwSteps === "function" && __cmwSteps().on && typeof __cmwLabelsPlaced === "function" && document.fonts.status === "loaded"' });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  await settled({ max: SETTLE_MS, until: '(__cmwLabelsPlaced() || []).length > 0' });
+  const rest = await ev('__cmwLabelsPlaced()');
+  ok(`${tag}: at rest the point's label is drawn and lies under no control`, rest.length === 1 && (await under(rest[0])).length === 0, rest);
+  await ev(`${act}; 1`);
+  await settled({ max: SETTLE_MS, until: `${LIFT_STOPPED} && /ph-(ctx|toast)-on/.test(document.documentElement.className)` });
+  await settled({ max: SETTLE_MS });
+  const lifted = await ev('__cmwLabelsPlaced()');
+  const hit = lifted.length === 1 ? await under(lifted[0]) : null;
+  info[tag] = { rest, lifted, hit };
+  ok(`${tag}: once the keys have stopped rising the label is drawn and lies under no control`, lifted.length === 1 && hit.length === 0, { label: lifted[0], hit });
 }
 return { pass: fails.length === 0, fails, info };
