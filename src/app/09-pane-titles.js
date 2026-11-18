@@ -1059,19 +1059,28 @@
   // changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
-  // it runs under the bar, down to 4 px under the plane's top, and not into a readout it has just been dropped below)
+  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
+  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
+  // placeKeyPopReadout gives the chip its whole height back)
   function clearContextBar(box) {
-    const bar = document.querySelector('.ph-ctx.in'), plot = box.parentNode;
-    if (!bar || !plot || box.classList.contains('collapsed') || /** @type {HTMLElement} */ (plot).classList.contains('pane-head')) return;
+    const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
+    if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
     const c = box.getBoundingClientRect();
     if (!c.width) return;
-    const over = c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX), room = c.top - (/** @type {HTMLElement} */ (plot).getBoundingClientRect().top + LEGEND_BAR_GAP_PX), up = Math.min(Math.ceil(over), Math.floor(room));
-    if (over <= 0 || up <= 0) return;
-    for (const e of /** @type {HTMLElement} */ (plot).querySelectorAll(':scope > .chip.readout')) {
+    const over = Math.ceil(c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX));
+    if (over <= 0) return;
+    let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
-      if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom - up && c.top - up < r.bottom) return;
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
     }
-    box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
+    const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
+    if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
+    if (over > up) {
+      const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
+      box.style.maxHeight = `${Math.max(0, Math.floor(c.height - (over - up) - edges))}px`;
+      box.style.overflowY = 'auto';
+    }
   }
   function placeKeyPop(box) { placeKeyPopReadout(box); clearContextBar(box); }
   function placeKeyPopReadout(box) {
@@ -1079,7 +1088,7 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y');
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
