@@ -12,7 +12,9 @@
 //  - the frame is drawn by the inverse pass and the judge passes: at least JUDGE_MIN_N pixels compared, at most JUDGE_OVER
 //    of them more than JUDGE_TOL apart in a channel (the colour lines are left out);
 //  - negative control: the cross-fade of plane z's and plane w1's parked frames at the same u (the picture a glide that
-//    blended the two planes would show) does not pass the same judge.
+//    blended the two planes would show) does not pass the same judge;
+//  - the inverse pass's sheet key has the period of the steps view's key at u (__cmwSvKey(1, u)): the steps before the
+//    glide's step, none here, not exp's path's own 2 pi i / u.
 //
 // ---- part inregion ----
 // The steps view's carried colour, against the exact colour pulled back pixel by pixel. Each case is a plane w1
@@ -131,8 +133,10 @@ async function glidePart() {
   for (const u of HELD_U) {
     { const h = await hold(u); ok(`u = ${u}: the thread is held`, h.ok, h); }
     ok(`u = ${u}: the moving frame settles`, await grab('M' + u), null);
-    const g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, b: g.b }; })()');
+    const g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, b: g.b, per: g.per }; })()');
     ok(`u = ${u}: the frame is the inverse pass's`, !!g && g.path === 'inverse', g);
+    const kper = (await ev(`__cmwSvKey(1, ${u})`)).per;
+    ok(`u = ${u}: the inverse pass's sheet key has the period of the steps view's key at u`, !!g && JSON.stringify(g.per) === JSON.stringify(kper), { pass: g && g.per, key: kper });
     const j = await judge('R0', 'M' + u);
     info['judge u=' + u] = j;
     ok(`u = ${u}: the carried colour is the exact picture's (judge passes)`, j.pass, j);
