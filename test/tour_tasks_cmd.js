@@ -13,7 +13,7 @@ const flat = (t) => t.replace(/[₀-₉]/g, (c) => String(c.charCodeAt(0) - 0x20
 logs();
 const open = async (ns, w, h, dark, mobile, lang) => {
   await view(w, h, dark, mobile);
-  await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : '')); await settle(1600);
+  await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : ''));
   await ev('Tour.dismissSuggestion()');
 };
 const startAt = async (chapter, step) => { await ev(`Tour.start({ chapter: '${chapter}', step: ${step} })`); await settle(1500); };
