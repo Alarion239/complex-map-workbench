@@ -1,8 +1,9 @@
 // The example "A residue by integration" opens on its plane with the circle |z − i| = 1 and the pole at i in view and nothing over
 // them, and its Try line asks for the Line integral, which no device opens by itself: on a touch device the line names the gesture
 // (hold a finger on the circle), elsewhere the curve's menu. The line closes when the user opens the integral. The circle's box
-// is read from the plane's view (Pane.w2sxy) against the plane's own rect (#overlayL), on a desktop, on phones in portrait and
-// in landscape down to 568 × 320, in en, ru and it, and the Try line's text (.tl-text) is not cut in its lane.
+// is mapped from the plane's view (__cmwSteps().win: its centre and scale) about the centre of the plane's own rect
+// (#overlayL), on a desktop, on phones in portrait and in landscape at 740 × 360, 600 × 320 and 568 × 320 (each in en, ru
+// and it), and the Try line's text (.tl-text) is not cut in its lane.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -33,8 +34,11 @@ const legs = [
   ['phone landscape 740×360 ru', 740, 360, true, 'ru', false],
   ['phone landscape 740×360 it', 740, 360, true, 'it', false],
   ['phone landscape 600×320', 600, 320, true, 'en', false],
+  ['phone landscape 600×320 ru', 600, 320, true, 'ru', false],
+  ['phone landscape 600×320 it', 600, 320, true, 'it', false],
   ['phone landscape 568×320', 568, 320, true, 'en', false],
   ['phone landscape 568×320 ru', 568, 320, true, 'ru', false],
+  ['phone landscape 568×320 it', 568, 320, true, 'it', false],
 ];
 for (const [name, w, h, touch, lang, open] of legs) {
   await view(w, h, false, touch);
