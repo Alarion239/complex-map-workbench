@@ -6,7 +6,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 try { global.Recognize = require('../src/recognize.js'); } catch (e) { /* optional */ }
 const FN = require('../src/funcs.js');
-const HomRange = require('../src/homrange.js');
+const HomRange = require('../src/homrange.ts');
 const { C } = CX;
 let checks = 0, failed = 0;
 const check = (name, cond, got) => { checks++; if (!cond) { failed++; if (failed < 60) console.log('FAIL', name, got === undefined ? '' : JSON.stringify(got)); } };
