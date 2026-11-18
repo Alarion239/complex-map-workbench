@@ -651,13 +651,18 @@
   async function carriedKey(carried, kx, y, keyW, tp, lw = 0.5) {
     const R = keyW / 2 - KEY_RING_ROOM, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
     const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, lw), ...ringMarks(kx, ky, R, tp)];
-    const lns = [];
-    let cur = '';
-    for (const wd of carried.text.split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
-    if (cur) lns.push(cur);
+    const lns = keyWrap(carried.text, keyW - 2, (t) => XD.tex(keyWithName(t, carried.from), tp));
     const y0 = ky + R + 1.5 + lh + 2;
     lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, carried.from), tp), kx, y0 + j * lh, 'middle', 'top', 'key')));
     return { items, bottom: y0 + lns.length * lh + 2 };
+  }
+  // a key's words in lines no wider than w pt, each as set by tex(line) (a word wider than w is a line of its own)
+  function keyWrap(text, w, tex) {
+    const lns = [];
+    let cur = '';
+    for (const wd of String(text).split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && tex(nx).w > w) { lns.push(cur); cur = wd; } else cur = nx; }
+    if (cur) lns.push(cur);
+    return lns;
   }
   // the marks 1, i, -1, -i round a ring (offsets in pt, tp the tick text's size)
   const ringMarks = (kx, ky, R, tp) => [
@@ -727,11 +732,16 @@
       // (the key's reach above and below the ring's centre, from its parts' heights as they are set below: its top mark
       // and title, and its last line. The ring is centred on the picture; a key taller than a wide picture moves up as far
       // as the figure's top allows and the figure grows to hold the rest, so every line of it is inside the figure)
-      const ht = (it) => it.a + it.d, sh = 6;
+      const ht = (it) => it.a + it.d, sh = 6, lh = tp * KEY_LINE;
+      // (the pane's key's words under the strip, "per band" and the caption, each wrapped to the column: a language's words
+      // may be wider than it, as Russian "на полосу яркости"; a wrapped one takes a line of lh more for each line it adds)
+      const perTex = (t) => XD.tex(keyTxt(t), tp), capTex = (t) => XD.tex(keyWithName(t, sv.name), tp);
+      const per = sv && !sv.plain ? keyWrap(sv.perBand, keyW - 2, perTex) : [], cap = sv ? keyWrap(sv.caption, keyW - 2, capTex) : [];
+      const linesH = (lns, tex) => (lns.length - 1) * lh + ht(tex(lns[lns.length - 1]));
       const above = sv ? R + 1.5 + ht(XD.tex('i', tp)) : R + 12 + ht(XD.tex(`\\arg ${A.fname()}`, tp));
       const below = !sv ? R + 1.5 + ht(XD.tex('-\\pi/2', tp))
-        : sv.plain ? R + 1.5 + tp * 1.3 + 2 + ht(XD.tex(keyWithName(sv.caption, sv.name), tp))
-          : Math.max(R + 1.5 + tp * 2.5 + sh + 1.5 + ht(XD.tex(keyTxt(sv.perBand), tp)), R + 1.5 + tp * 2.5 + sh + 1.5 + tp * 1.3 + 2 + ht(XD.tex(keyWithName(sv.caption, sv.name), tp)));
+        : sv.plain ? R + 1.5 + tp * 1.3 + 2 + linesH(cap, capTex)
+          : Math.max(R + 1.5 + tp * 2.5 + sh + 1.5 + linesH(per, perTex), R + 1.5 + tp * 2.5 + sh + 1.5 + per.length * lh + 2 + linesH(cap, capTex));
       let ky = top + h / 2;
       if (ky + below > top + h + bottom) ky = Math.max(above + 1, top + h + bottom - below);
       keyBottom = ky + below + 2;
@@ -749,10 +759,10 @@
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
           items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="${P.lw.frame}"/>`);
           items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          items.push(XD.at(XD.tex(keyTxt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
-          yy = sy + sh + 1.5 + tp * 1.3;
+          per.forEach((ln, j) => items.push(XD.at(perTex(ln), kx, sy + sh + 1.5 + j * lh, 'middle', 'top', 'key')));
+          yy = sy + sh + 1.5 + per.length * lh;
         }
-        items.push(XD.at(XD.tex(keyWithName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
+        cap.forEach((ln, j) => items.push(XD.at(capTex(ln), kx, yy + 2 + j * lh, 'middle', 'top', 'key')));
       } else {
         items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
         items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'));

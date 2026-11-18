@@ -183,10 +183,12 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
-  // view's scope switch does; without it ← → stop at the ends)
+  // (opt.cls: more classes; opt.loop: ↑ ↓ move too, as the steps view's scope switch does. The arrows ← → wrap in every row, as a
+  // radiogroup's do: from the last radio on to the first, from the first back to the last. Home and End check the first and the
+  // last choice. opt.wrap false: a row whose change is costly (Language, which reloads the page) stops at its ends, and Home and
+  // End leave it alone, so no one key press reaches the far choice)
   function seg(id, value, options, onchange, label, opt) {
-    const o = opt || {};
+    const o = opt || {}, wrap = o.wrap !== false;
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title, aria] of options) {
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
@@ -199,12 +201,20 @@
       if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
     });
     el.addEventListener('keydown', (e) => {
+      const bs = [...el.children];
+      if (wrap && (e.key === 'Home' || e.key === 'End')) {
+        const b = bs[e.key === 'Home' ? 0 : bs.length - 1];
+        b.click(); b.focus(); e.preventDefault();
+        return;
+      }
       const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
-      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      const i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
       if (i < 0) return;
-      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
-      bs[j].click(); bs[j].focus(); e.preventDefault();
+      e.preventDefault();
+      const j = wrap ? (i + (next ? 1 : bs.length - 1)) % bs.length : i + (next ? 1 : -1);
+      if (j < 0 || j >= bs.length) return;
+      bs[j].click(); bs[j].focus();
     });
     return el;
   }
@@ -568,10 +578,22 @@
     pop.style.top = y + 'px';
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
-    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
+    // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
+    // does not trap, and it lies apart from the page's Tab order (after the app in the document), so a Tab out of it would land on
+    // the page's last or first control with the pop-up left open. A control Tab does not reach, a segmented row's unchecked choice
+    // that a click focused, counts by its place: Tab from it goes to the next stop after it in the pop-up, or leaves)
+    const tabStops = () => [...pop.querySelectorAll(':is(button, input, select, textarea, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((x) => /** @type {HTMLElement} */ (x).offsetParent !== null);
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); return; }
+      if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = /** @type {Node} */ (e.target), stops = tabStops();
+      const next = e.shiftKey ? stops.filter((x) => x.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING).pop() : stops.find((x) => t.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (next) return;
+      e.preventDefault(); closePalette(); btn.focus();
+    });
     // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
     // segmented row, whose other buttons are tabindex -1)
-    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
+    if (!refresh) { const first = tabStops()[0]; if (first) /** @type {HTMLElement} */ (first).focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
@@ -604,15 +626,21 @@
     const si = GLR.sheetInfo(m, W);
     return si ? sheetUniq(m, W, si.K) : [0];
   }
-  function multiSheet() {
+  // the sheets of map m (the focused map, endMap, unless a caller names the map it shows), or null when it has one
+  function multiSheet(m = endMap()) {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
     // (a map GLR.sheetInfo cannot describe throws: no sheets)
-    try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
+    try { ms = GLR.sheetInfo(m, S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
+    const list = sheetUniq(m, ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
+  // the map whose sheets the Landscape draws with All sheets (render3D), given the plane s a steps-view carry starts from
+  // (null for none): the carry's colour map, the chain from s to the colour plane (svColourMap); while the deformation
+  // shows, the focused map (endMap); else the map shown (focusMap: in the steps view the shown plane's map into the colour
+  // plane). A step after the colour plane is in none of them, so it adds no sheets
+  function landSheetsMap(s = null) { return s != null ? svColourMap(s) : homView() ? endMap() : focusMap(); }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
   function deformOneSheet() { return !!S.sheets && morphOn() && !deformSheetsOk(); }
@@ -626,18 +654,18 @@
     try { return !!Funcs.sheetMapPieces(S.steps, built, { mode: 3, base: leftStage(), a: R.lo, b: R.b, post: R.p1, t: 0.5 }); } catch (e) { return false; }
   }
   // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
-  // sheets off, a deformation with no sheet form, or no multivalued step in the map in focus), else {K: the surfaces
-  // drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom} (one per multivalued piece of the
-  // map in focus: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
+  // sheets off, a deformation with no sheet form, or no multivalued step in the map it draws the sheets of,
+  // landSheetsMap), else {K: the surfaces drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom}
+  // (one per multivalued piece of that map: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
   // log). hom: the deformation shows, and H_t is drawn on the sheets that become these sheets of F (at most these:
   // a step not begun adds its sheets when it starts; notes/v16-user5/SHEETS-DESIGN.md)
   function sheetsShown() {
     if (!S.sheets || !lLand()) return null;
     const hom = morphOn();
     if (hom && !deformSheetsOk()) return null;
-    const ms = multiSheet();
+    const carry = SV.on && SV.surf === 'land' ? svLandCarryNow() : null, m = landSheetsMap(carry ? carry.s : null), ms = multiSheet(m);
     if (!ms) return null;
-    const m = endMap(), a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
+    const a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
     try {
       for (const e of Funcs.sheetSteps(S.steps, built)) {
         if (e.k <= a || e.k > b) continue;
@@ -1055,15 +1083,18 @@
   }
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
-  // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
-  // to the lowest of them; it is recomputed each time the key is shown)
+  // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
+  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the distance to the lowest of
+  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size)
+  const LEGEND_HIT_PX = 8;
   function placeKeyPop(box) {
     const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
     box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
-    if (!el || (!head && box.classList.contains('collapsed'))) return;
+    if (!el) return;
+    const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
     // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
@@ -1078,9 +1109,12 @@
       let drop = 0;
       for (const e of plot.querySelectorAll(sel)) {
         const r = e.getBoundingClientRect();
-        if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
+        if (r.width && r.left < c.right + reach && c.left - reach < r.right && r.top < c.bottom + reach && c.top - reach < r.bottom) drop = Math.max(drop, r.bottom + 6 + reach - c.top);
       }
       if (drop <= 0) return;
+      // (a folded chip does not go under the context bar: the readout it would touch is the lesser harm)
+      const bar = reach ? document.querySelector('.ph-ctx.in') : null;
+      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) return;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
     }
   }
