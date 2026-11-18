@@ -13,6 +13,8 @@
 // - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
 // - formulas recognised as chains whose sub-step has no exact ops, z^3 - 2z + 1 (u = 0.25, 0.5, 0.75) and Γ(z) + 1
 //   (u = 0.25): the inverse pass, and the CPU reference within the same tolerance (#1693, #1805).
+// - a Repeat × N whose block step has no exact ops (cos three times; [exp, cos] twice): the inverse pass, its NEWT op
+//   walking the block step's own homotopy.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -90,8 +92,8 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
 // - Γ(z) + 1 is Γ, then + 1: at u = 0.25 Γ's homotopy at 0.5 by Newton (a NEWT op that is not polynomial), which walks
 //   that sub-step's own homotopy, not the formula's at the op's t (#1805).
 // Each is drawn by the inverse pass and matches the CPU reference within the default example's tolerance (a disc, as
-// ci/fxc_size's survey types it; Γ's grid of pixels every 4 px, as its image covers a small part of the pane)
-for (const [expr, us, step] of [['z^3-2z+1', [0.25, 0.5, 0.75], 8], ['gamma(z)+1', [0.25], 4]]) {
+// ci/fxc_size's survey types it; Γ's grid of pixels every 3 px, as its image covers a small part of the pane)
+for (const [expr, us, step] of [['z^3-2z+1', [0.25, 0.5, 0.75], 8], ['gamma(z)+1', [0.25], 3]]) {
   const ns = 'gc' + Date.now();
   await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr, cut: 180 }, on: true }] });
   await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
@@ -105,6 +107,26 @@ for (const [expr, us, step] of [['z^3-2z+1', [0.25, 0.5, 0.75], 8], ['gamma(z)+1
     info[`${expr} u ${u}`] = { g, r };
     ok(`${expr}, z → w₁ at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === 1, g);
     ok(`${expr}, z → w₁ at u = ${u}: the CPU reference's colours away from the lines (> 6 on <= 0.2 %)`, r.n > 400 && r.over <= 0.002, r);
+  }
+}
+
+// ---- a Repeat × N whose block step has no exact ops: its NEWT op walks that block step's homotopy, as its program names
+// the block's homotopies (cxs<k>r<j>, j < len) ----
+// cos repeated 3 times (len 1: cos, cos, cos) on its glide z → w₁ at u = 0.4 and 0.6, inside its second cos (the NEWT op
+// of sequence step 1, block step 0), and the block [exp, cos] twice (len 2: cos, exp, cos) on its glide w₁ → w₂ at
+// u = 0.2, inside its first cos (sequence step 0, block step 1): each frame is drawn by the inverse pass, so its program
+// compiles. (Past 2/3 of the glide these chains need more families than the pass holds and take the carried mesh)
+for (const [steps, b, us] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], 1, [0.4, 0.6]], [[{ type: 'exp' }, { type: 'cos', repeat: { n: 2, len: 2 } }], 2, [0.2]]]) {
+  const ns = 'gr' + Date.now(), name = `${steps.map((st) => st.type).join(', ')} repeated (len ${steps[steps.length - 1].repeat.len})`;
+  await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: steps.map((st) => ({ ...st, on: true })) });
+  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await ready();
+  await ev(HELP);
+  await ev('__cmwSteps({ bare: true }), 1');
+  for (const u of us) {
+    const g = await at(b - 1 + u, 'inverse', 120000);
+    info[`${name} x ${b - 1 + u}`] = g;
+    ok(`${name}, glide ${b} at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === b, g);
   }
 }
 

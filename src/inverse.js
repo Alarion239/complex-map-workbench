@@ -1606,9 +1606,13 @@ const Inverse = (() => {
     const mobOf = (M) => (isZero(M[2]) ? opAff(div(M[0], M[3]), div(M[1], M[3])) : opMob(M));
     if (nat && nat.kind === 'chain' && b.rec) {
       // (the sub-steps the glide has passed stand for themselves as at t = 1: their exact ops, or a polynomial's roots.
-      // A NEWT op names its sub-step (sub): its homotopy is that sub-step's at the op's t, not the formula's)
+      // A NEWT op names its sub-step (sub) as the GLSL names its functions (GLChain's recPlan and repPlan, cxs<k>r<sub>):
+      // its homotopy is that sub-step's at the op's t, not the formula's. A recognised formula's sub-step i is its own;
+      // a Repeat × N's sequence runs the block's last step, then the block N - 1 times, so its sub-step i is block step
+      // len - 1 for i = 0, else (i - 1) mod len)
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
-      const mark = (r, i) => { for (const o of r.ops) if (o.kind === 'NEWT') o.sub = i; return r.ops; };
+      const len = b.repeat ? b.repeat.block.length : 0, own = (i) => (!len ? i : i === 0 ? len - 1 : (i - 1) % len);
+      const mark = (r, i) => { for (const o of r.ops) if (o.kind === 'NEWT') o.sub = own(i); return r.ops; };
       for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1); if (!r.ok) return r; ops.push(...mark(r, i)); }
       const r = homOps(sub[j], x - j);
       if (!r.ok) return r;
