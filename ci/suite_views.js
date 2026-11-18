@@ -268,6 +268,7 @@ const VIEWS = {
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'steps_cauchy_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
+  'steps_cauchy_carry_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)
   'steps_phone_key_cmd.js': steps({ pin: true }),
   'steps_canvas_stack_cmd.js': steps({ pin: true }),
