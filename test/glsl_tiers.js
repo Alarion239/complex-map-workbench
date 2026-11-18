@@ -28,15 +28,11 @@ window.GLSLTiers = (() => {
   // than Γ's)
   const SLOW = new Set(['dh near M 0.6z-0.5 N 12']);
   // chains whose program SwiftShader (Chrome's CPU WebGL2, the Linux GLSL jobs) does not finish: minutes of one core in
-  // the GPU process, then the GPU process is lost and every later chain of the page errors (#1809). keep leaves them out
-  // when this page's renderer is SwiftShader and lists them, each with its reason, in notRun; Windows and macOS run them
-  // (each with what it did alone on SwiftShader, 4 cores; the chain leaves the set when #1809 fixes it). ci/glsl.js
-  // builds a reference without this set with this file, so that both sides leave the same chains out
-  const SWIFTSHADER_HANG = new Map([
-    ['dmulti#2 arctan>root>deriv>ijouk>pown', 'over 13 min at one core, unfinished'],
-    ['dmulti#4 rational>log>arctan>deriv', 'over 120 s, unfinished'],
-    ['dmulti#10 powa>root>add>root>deriv', '218 s at one core, then the GPU process is lost'],
-  ]);
+  // the GPU process, then the GPU process is lost and every later chain of the page errors. keep leaves them out when this
+  // page's renderer is SwiftShader and lists them, each with its reason, in notRun; Windows and macOS run them (each with
+  // what it did alone on SwiftShader, 4 cores). ci/glsl.js builds a reference without this set with this file, so that
+  // both sides leave the same chains out. None is listed now
+  const SWIFTSHADER_HANG = new Map([]);
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';
     const r = RANDOM[page];
