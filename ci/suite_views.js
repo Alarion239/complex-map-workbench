@@ -149,6 +149,7 @@ const VIEWS = {
   'phone_toast_bar_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
   'steps_menu_expanded_cmd.js': steps(),
+  'example_integral_phone_cmd.js': steps({ pin: true }),
   'menu_buttons_expanded_cmd.js': steps({ pin: true }),
   'readout_touch_cmd.js': steps(),
   'phone_hint_globe_cmd.js': steps(),
