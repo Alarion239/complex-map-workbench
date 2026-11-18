@@ -459,6 +459,38 @@
     el.setAttribute('data-tip', tip || { ok: $t('Up to date'), busy: $t('Refining near cuts and poles'), err: $t('Evaluation failed') }[state]);
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
+    ledSay(side, state, el.getAttribute('data-tip'));
+  }
+  // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
+  // with its pane's title before it when the pane has one. A page that starts up to date says nothing, and a state that
+  // comes and goes within the wait is not said
+  const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
+  let ledSayT = 0;
+  function ledSay(side, state, tip) {
+    // (what is said again is a different state, or a different error: busy is one state whatever its tip)
+    const key = state === 'err' ? 'err|' + tip : state;
+    const same = !!ledNow[side] && ledNow[side].key === key;
+    ledNow[side] = { key, tip };
+    if (same) return;
+    clearTimeout(ledSayT);
+    ledSayT = setTimeout(ledFlush, LED_SAY_MS);
+  }
+  function ledFlush() {
+    const parts = [];
+    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'); return !!el && el.getClientRects().length > 0; };
+    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two LEDs are shown:
+    // the words alone would not say which pane they are about)
+    const two = shown('L') && shown('R');
+    for (const side of ['L', 'R']) {
+      const n = ledNow[side];
+      if (!n || !shown(side) || (ledSaid[side] === undefined ? 'ok' : ledSaid[side]) === n.key) continue;
+      ledSaid[side] = n.key;
+      const t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'), title = t && t.getClientRects().length ? t.textContent.trim() : '';
+      const name = title || (two ? (side === 'L' ? 'X' : 'Y') : '');
+      parts.push(name ? `${name}: ${n.tip}` : n.tip);
+    }
+    const live = $('ledLive');
+    if (live && parts.length) live.textContent = parts.join('. ');
   }
   // a hairline runs along the top of the plots when work takes longer than 300 ms
   let hairTimer = 0;
@@ -630,8 +662,8 @@
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
     const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
-    const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
-    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
+    const sheetMap = landSheetsMap(carry ? carry.s : null);
+    const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet(sheetMap) ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
     if (carry && S.height !== 'log') {
       const ma = medianAbs(landBox(carry.va), svHeightMap(carry.a), svHeightF(carry.a));
