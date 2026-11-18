@@ -530,12 +530,23 @@
     // (a REPT draw still drawing its tiles in any of the pane's GL frames: pending too)
     const rp = GLR.reptPendingTake ? GLR.reptPendingTake() : null, rept = !!rp;
     const was = paneGl[role], reptProg = rp && rp.prog ? rp.prog : null;
-    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    // (reptT: when the pane's REPT cue started; note: the text of the pane's corner note, when one was drawn)
+    const reptT = rept ? (was && was.rept ? was.reptT : now) : null;
+    paneGl[role] = { pending: !!(st && st.pending) || rept, rept, reptProg, reptT, note: null, refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
     invPendN = 0;
     // (the LEDs, the plots' aria-busy and the hairline follow a REPT draw's cue: updateLeds, when it starts, moves on a
     // tile or ends)
     if (rept !== !!(was && was.rept) || reptTip(reptProg) !== reptTip(was && was.reptProg)) updateLeds();
     if (quiet) return;
+    // (where the pane's LED is not laid out, a phone's head: the cue's words as the pane's corner note, CUE_DELAY_MS after
+    // it starts, so a sighted user sees the picture is still drawing; a frame is asked for then)
+    if (rept) {
+      const led = $(role === 'L' ? 'leftLed' : 'rightLed');
+      if (led && !led.offsetWidth) {
+        if (now - reptT >= CUE_DELAY_MS) { const text = reptTip(reptProg); cornerNote(pane, text); paneGl[role].note = text; }
+        else if (reptT === now) setTimeout(() => requestRender(role), CUE_DELAY_MS + 20);
+      }
+    }
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)
     if (!st || !st.pending) gpuWait.delete(pane);
     // (the first waiting frame: one more frame when the 1.5 s are up, if nothing landed by then)
@@ -555,15 +566,16 @@
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
   let compileBox = null;
-  function compileNote(pane) {
+  function compileNote(pane) { compileBox = cornerNote(pane, $t('Compiling…')); }
+  // a small quiet note of text in the pane's lower left corner: its box, in the pane's CSS px
+  function cornerNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `11px ${TH.ui}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-    const text = $t('Compiling…');
     const bw = Math.ceil(ctx.measureText(text).width) + 14, bh = 18, x0 = 8.5, y0 = Math.round(pane.h - bh - 8) + 0.5;
-    compileBox = { x: x0, y: y0, w: bw, h: bh };
+    const box = { x: x0, y: y0, w: bw, h: bh };
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 9); else ctx.rect(x0, y0, bw, bh);
     // (the surface fill alone is the paper's own colour on paper in the light theme: the outline keeps the pill's shape there)
@@ -572,6 +584,7 @@
     ctx.fillStyle = TH.muted;
     ctx.fillText(text, x0 + 7, y0 + bh / 2 + 0.5);
     ctx.restore();
+    return box;
   }
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
   // them (the steps view's whole-plane region); staged: the shapes of the later planes too
