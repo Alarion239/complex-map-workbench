@@ -115,7 +115,7 @@ const VIEWS = {
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
-  'steps_land_lscale_cmd.js': steps(),
+  'steps_land_lscale_cmd.js': steps({ pin: true }),
   'steps_land_caption_cmd.js': steps(),
   'pre_more_said_cmd.js': steps(),
   'compile_pill_cmd.js': steps({ pin: true }),

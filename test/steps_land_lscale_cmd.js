@@ -5,38 +5,43 @@
 // - set to its minimum and to its maximum, it reads that value, and each setting redraws the pane: the frame differs from
 //   the same session's frame at the default scale by more than the redraw tolerance (a control that does nothing fails);
 // - set back to the default, the frame is the default frame again (within the same tolerance);
-// - the same holds held at 0.5.
+// - the same holds held at 0.5;
+// - a saved state with a non-default scale (lscale: the Landscape's height scale, 2) opens with the slider at it and the relief drawn at it: the
+//   frame is the one the slider gives at that value, and differs from the frame at the default scale.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-await view(1440, 900, false, false);
+const VIEW_W = 1440, VIEW_H = 900;   // the laptop
+const LOAD_WAIT = 30000, SETTLE_WAIT = 60000, UI_WAIT = 5000;   // the longest waits for the page, for a frame, and for a pop-up, ms
+const HELD_U = 0.5, T_LAST = 2;   // where the held frame is parked, and the colour plane (w₂) the Landscape shows
+await view(VIEW_W, VIEW_H, false, false);
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const { grab, compare } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const LSCALE_MIN = 0.25, LSCALE_MAX = 2, LSCALE_DEFAULT = 1;
 // the share of pixels more than 32/255 apart: a changed relief moves far more than the redraw noise
 const SAME_MAX = 0.005, CHANGED_MIN = 0.02;
-const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
-const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2); };
+const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }); 1`); await settled({ max: SETTLE_WAIT }); await ev(rAF2); };
+const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await settled({ max: SETTLE_WAIT }); await ev(rAF2); };
 // the pane's options pop-up holds the slider: opened the way a pointer does
-const openOptions = () => ev(`(() => { if (!document.getElementById('lscaleRange')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); } })(), 1`).then(() => settled({ max: 5000 }));
+const openOptions = () => ev(`(() => { if (!document.getElementById('lscaleRange')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); } })(), 1`).then(() => settled({ max: UI_WAIT }));
 const slider = async () => JSON.parse(await ev(`JSON.stringify((() => { const e = document.getElementById('lscaleRange'); return e ? { value: +e.value, min: +e.min, max: +e.max } : null; })())`));
 // the slider moved the way a pointer would: its value set and an input event dispatched
 const setScale = async (v) => {
   await ev(`(() => { const e = document.getElementById('lscaleRange'); e.value = ${v}; e.dispatchEvent(new Event('input', { bubbles: true })); })(), 1`);
-  await settled({ max: 60000 });
+  await settled({ max: SETTLE_WAIT });
   await ev(rAF2);
 };
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=landlscale${Date.now()}`);
-await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
-await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, T: 2, now: true }); 1`);
-await settled({ max: 60000 });
+await settled({ max: LOAD_WAIT, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, T: ${T_LAST}, now: true }); 1`);
+await settled({ max: SETTLE_WAIT });
 const share = async (a, b) => { const c = await compare(a, b); return c && c.frac; };
 info.runs = {};
 for (const where of ['rest', 'held']) {
   const r = info.runs[where] = {};
-  if (where === 'rest') await rest(0); else { await rest(0); await park(0.5); }
+  if (where === 'rest') await rest(0); else { await rest(0); await park(HELD_U); }
   await openOptions();
   const s0 = await slider();
   r.initial = s0;
@@ -59,5 +64,26 @@ for (const where of ['rest', 'held']) {
   const back = await share(`${where}-back`, `${where}-base`);
   r.back = back;
   ok(`${where}: back at the default scale, the default frame is drawn again (≤ ${SAME_MAX * 100} % differ)`, back != null && back <= SAME_MAX, r.back);
+}
+// a saved state carrying lscale opens at that scale
+await loadView('steps', 'landlscalesaved' + Date.now(), { lscale: LSCALE_MAX, shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } });
+await settled({ max: LOAD_WAIT, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, T: ${T_LAST}, now: true }); 1`);
+await settled({ max: SETTLE_WAIT });
+await rest(0);
+await openOptions();
+const saved = info.saved = { slider: await slider() };
+ok('saved: the slider is present', !!saved.slider, saved.slider);
+if (saved.slider) {
+  ok(`saved: a state with lscale ${LSCALE_MAX} opens with the slider at it`, saved.slider.value === LSCALE_MAX, saved.slider);
+  await grab('saved-load');
+  await setScale(LSCALE_DEFAULT);
+  await grab('saved-default');
+  saved.changed = await share('saved-load', 'saved-default');
+  ok(`saved: the relief at the saved scale differs from the default scale's (> ${CHANGED_MIN * 100} % of pixels)`, saved.changed != null && saved.changed > CHANGED_MIN, saved.changed);
+  await setScale(LSCALE_MAX);
+  await grab('saved-again');
+  saved.again = await share('saved-again', 'saved-load');
+  ok(`saved: the frame as loaded is the one the slider gives at ${LSCALE_MAX} (≤ ${SAME_MAX * 100} % differ)`, saved.again != null && saved.again <= SAME_MAX, saved.again);
 }
 return { pass: fails.length === 0, fails, info };
