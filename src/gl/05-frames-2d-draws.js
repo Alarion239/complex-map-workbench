@@ -6,9 +6,13 @@
     try {
       gl = canvas.getContext('webgl2', { alpha: true, premultipliedAlpha: true, antialias: true, depth: true, stencil: true, preserveDrawingBuffer: false, powerPreference: 'high-performance' });
       if (!gl) return false;
+      // (the GLSL library's sin and cos for this renderer, before the first program: GLChain.useRenderer, #1739)
+      GLChain.useRenderer(gl);
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
       rtOK = !!gl.getExtension('EXT_color_buffer_float');
+      const dri = gl.getExtension('WEBGL_debug_renderer_info');
+      swiftShader = /SwiftShader/i.test(String(gl.getParameter(dri ? dri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
       ok = true;
       prestart(PRESTART_2D);
       canvas.addEventListener('webglcontextlost', (e) => {

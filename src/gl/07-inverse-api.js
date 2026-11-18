@@ -133,7 +133,8 @@
   // plane uGs is shaded with the colour plane's colour of it, dcolor(G(z)), G the stages (uGs, uGt] (the forward
   // chain's chainRange, compiled in beside the walker), its footprints from the walk's dz across and down a pixel
   // (dcolorD: the screen's derivatives mean nothing inside the walk). G at z and z + dX; with uGan (G analytic) the
-  // footprint down is G'(z) dY from the one across, else G at z + dY too
+  // footprint down is G'(z) dY from the one across, else G at z + dY too (ixChain3, one chain call site). One dcolorD
+  // call site: z and its footprints themselves when G is the identity (uGs >= uGt)
   const INV_CARRY = { carry: true, pre: '', main: '' };
   // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
   // test adds weigh on the programs that never draw one)
@@ -150,9 +151,13 @@
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
-  if (uGs >= uGt) return dcolorD(z, dX, dY);
-  vec2 w = chainRange(z, uGs, uGt), wx = chainRange(z + dX, uGs, uGt) - w;
-  return dcolorD(w, wx, uGan && dot(dX, dX) > 0.0 ? cmul(cdiv(wx, dX), dY) : chainRange(z + dY, uGs, uGt) - w);
+  vec2 w = z, wx = dX, wy = dY;
+  if (uGs < uGt) {
+    bool an = uGan && dot(dX, dX) > 0.0;
+    ixChain3(z, dX, dY, uGs, uGt, an, w, wx, wy);
+    if (an) wy = cmul(cdiv(wx, dX), dY);
+  }
+  return dcolorD(w, wx, wy);
 }
 `;
   }
@@ -179,7 +184,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function invSources(info, B, globe, forms, extra) {
     const vs = globe ? SPHERE_VS : QUAD_VS;
     const L = GLChain.LIB;
-    let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (extra && extra.pre || '');
+    let main = extra && extra.main ? extra.main : INV_MAIN(globe), pre = (globe ? INV_GLOBE_PRE : '') + (swiftShader ? '#define IX_CHAIN3_CALLS 1\n' : '') + (extra && extra.pre || '');
     if (coldNonce && !extra) {
       const tag = `uIxNonce${coldNonce++}_${Math.floor(Math.random() * 1e9)}`;
       pre += `uniform float ${tag};\n`;
@@ -1052,7 +1057,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // All sheets for map (GPU map spec) with window W: {K (surfaces drawn, at most 24), total, W, infinite} or null
     // when the current chain cannot draw it (no multivalued step in (a, b], a homotopy, a d/dz in (a, b] with a > 0,
     // or no chainSheetRange in the chain's GLSL)
-    // TEMP-DEBUG-HOOK
+    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    // TEST-HOOK (dropped from the published page by build.py)
     // (tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
     // transform feedback: a Float32Array of pairs, or null while the program compiles or without WebGL
     evalMap(map, pts) {
@@ -1098,8 +1104,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       if (kind) d.vs = () => UTIL_V + HEIGHT + LAND_TF_VS(kind);
       try { return sources(name, cur, mode || 0); } finally { d.vs = save; }
     },
-    // TEMP-DEBUG-HOOK
-    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    // TEST-HOOK
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },
     onRestore: null, onLost: null, onReady: null,
