@@ -37,11 +37,13 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const step = (type, params) => ({ type, params: params || {}, on: true });
 const ROOT = step('root', { n: 2, cut: 180 }), CUBIC = step('custom', { expr: 'z^3-3z', cut: 180 });
 await view(1440, 900, false, false);
-// (the share of the kept frame tag that is paper: every channel over 250)
-const paper = (tag) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}]; let n = 0, p = 0; for (let i = 0; i < P.length; i += 4) { n++; if (P[i] > 250 && P[i + 1] > 250 && P[i + 2] > 250) p++; } return +(p / n).toFixed(4); })()`);
+// PAPER: the page's white, a channel over it is paper
+const PAPER = 250;
+// (the share of the kept frame tag that is paper: every channel over PAPER)
+const paper = (tag) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}]; let n = 0, p = 0; for (let i = 0; i < P.length; i += 4) { n++; if (P[i] > ${PAPER} && P[i + 1] > ${PAPER} && P[i + 2] > ${PAPER}) p++; } return +(p / n).toFixed(4); })()`);
 // (the share of the kept frame tag that is coloured: saturation over SAT; with half: the top or bottom half's paper)
 const coloured = (tag) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}]; let n = 0, c = 0; for (let i = 0; i < P.length; i += 4) { n++; if (Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT}) c++; } return +(c / n).toFixed(4); })()`);
-const halfPaper = (tag, top) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}], cv = document.getElementById('canvasL'), W = cv.width, H = cv.height; let n = 0, p = 0; for (let y = ${top ? 0 : 'Math.ceil(H / 2)'}; y < ${top ? 'Math.floor(H / 2)' : 'H'}; y++) for (let x = 0; x < W; x++) { const i = 4 * (y * W + x); n++; if (P[i] > 250 && P[i + 1] > 250 && P[i + 2] > 250) p++; } return +(p / n).toFixed(4); })()`);
+const halfPaper = (tag, top) => ev(`(() => { const P = window.__heldPx[${JSON.stringify(tag)}], cv = document.getElementById('canvasL'), W = cv.width, H = cv.height; let n = 0, p = 0; for (let y = ${top ? 0 : 'Math.ceil(H / 2)'}; y < ${top ? 'Math.floor(H / 2)' : 'H'}; y++) for (let x = 0; x < W; x++) { const i = 4 * (y * W + x); n++; if (P[i] > ${PAPER} && P[i + 1] > ${PAPER} && P[i + 2] > ${PAPER}) p++; } return +(p / n).toFixed(4); })()`);
 const at = async (x, tag) => {
   await ev(`__cmwSteps({ x: ${x} }); 1`);
   await settled({ max: 60000 });
