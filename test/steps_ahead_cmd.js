@@ -2,20 +2,23 @@
 // then shows them, one copy a frame. z^-2 (pown's closed-form path, the inverse pass's frames) with a disc about 0,
 // Everywhere, on the plane, at the fast speed; the cost at most which a motion plays live is set to 0 (ahead: { ms: 0 })
 // and the wait's cap lifted, so the frames are drawn ahead on any machine:
-// - made: the glide 0 -> 1 waits until every frame is made, each the inverse pass's at its place;
+// - first: the chain's first motion starts at once, with no wait (its cost is not known: the base's glide), and its frame
+//   cost is measured after it ends, in idle moments;
+// - made: the next glide 0 -> 1 waits until every frame is made, each the inverse pass's at its place;
 // - (a) the same: during that glide (SV.anim set, its clock still), frame k drawn ahead is the left pane drawn live as
 //   the screen draws the glide's frame k, byte for byte, at k = 0, 1, N/2 and N-1; control: frame k+1 is not;
 // - (b) cost: a frame shown from them costs at most 14 ms to draw (__cmwTime, the pane read back), and it was shown
 //   from them;
-// - shown: with the clock running, the glide shows its frames, and its glide record is the frame's;
-// - (c) an edit drops them: the colour's sectors changed mid-glide, the next frame is drawn live;
+// - shown: with the clock running, the glide shows its frames, and they go at its end;
 // - live frames: the visits that make the frames ask for none (they put dirty.L and renderAsks back): at most LIVE_MAX
 //   frames are drawn on the screen while the frames are made, the page's own (a program landing, a status note's
 //   timer; 2 on lavapipe), not one a frame made;
-// - (d) a budget of 0 bytes: the glide plays live and the live region says why, once; control: with the default budget it
-//   says nothing of the kind;
+// - (d) a budget of 0 bytes: the glide plays live at once and says why once, after the plane's label it arrives at
+//   ("<label>. The glide draws as it goes: …"); control: with the default budget it says nothing of the kind;
+// - play: a Play (no loop) that plays live for time says why after the words of its stop, which stay, with a full stop;
 // - cancel: Esc while the frames are made drops them, and no glide starts;
 // - resume: Play paused on its frames and pressed again plays on at once with the same frames;
+// - (c) an edit drops them: the colour's sectors changed mid-glide, the next frame is drawn live;
 // - a hold while they are made is never kept: the zeta example, Inside regions, every pole track dropped once frames are
 //   made (a frame's pole search tiny, the idle job held): the hold is met, every frame kept is the inverse pass's and the
 //   live frame, and the glide starts on frames all exact, or plays live.
@@ -26,7 +29,10 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const { holdIdle, releaseIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 const goOk = async (url) => { if (!(await go(url))) throw new Error('no load event for ' + url); };
-const FRAME_MS = 14, WAIT_MS = 120000, LIVE_MAX = 2, MEMORY = 'Playing live: the frames would not fit in memory.';
+const FRAME_MS = 14, WAIT_MS = 120000, LIVE_MAX = 2;
+const MEMORY = 'The glide draws as it goes: its frames would not fit in memory.', TIME = 'The glide draws as it goes: its frames would take too long to prepare.';
+// every text the steps view's live region says, from now on, in window.__live
+const WATCH = `(() => { window.__live = []; const el = document.querySelector('#stage > .sr-only[aria-live]'); new MutationObserver(() => __live.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true }); return 1; })()`;
 const STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 }, sv: { speed: 'fast' },
   shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [{ type: 'pown', params: { n: -2 }, on: true }] };
 const openState = async (tag) => {
@@ -37,7 +43,7 @@ const openState = async (tag) => {
   const r = await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwAhead === "function" && typeof __cmwTime === "function" && !!window.GLR' });
   if (!r.ok) throw new Error('the page hooks are not up after the navigation: ' + JSON.stringify(r));
 };
-const S = () => ev('(() => { const s = __cmwSteps(); return { x: s.x, anim: !!s.anim, moving: s.moving, ahead: s.ahead, glide: s.glide && { path: s.glide.path, b: s.glide.b, u: s.glide.u }, ready: s.ready.ready, speed: s.speed, live: (document.querySelector("#stage > .sr-only[aria-live]") || {}).textContent || null }; })()');
+const S = () => ev('(() => { const s = __cmwSteps(); return { x: s.x, anim: !!s.anim, moving: s.moving, ahead: s.ahead, glide: s.glide && { path: s.glide.path, b: s.glide.b, u: s.glide.u }, ready: s.ready.ready, speed: s.speed, cost: s.aheadCost, play: s.play, live: (document.querySelector("#stage > .sr-only[aria-live]") || {}).textContent || null }; })()');
 // at rest on plane i, everything ready
 const rest = async (i) => {
   await ev(`__cmwSteps({ go: ${i}, now: true }), 1`);
@@ -53,9 +59,24 @@ await view(900, 600, false, false);
 await openState('ahead');
 await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane', ahead: { ms: 0, waitMs: ${WAIT_MS} } }), 1`);
 await rest(0);
+await ev(WATCH);
 info.speed = (await S()).speed;
 
-// ---- made, (a), (b) and the live frames: the glide 0 -> 1 with its clock still (1e-6 ms a frame) ----
+// ---- first: the chain's first motion starts at once (its cost is not known), and the cost is measured after it ----
+{
+  const s0 = await S();
+  ok('first: the chain\'s frame cost is not known yet', s0.cost === null, s0);
+  const now = await ev('(() => { const s = __cmwSteps({ clock: 1000 / 60, go: 1 }); return { anim: !!s.anim, ahead: s.ahead, moving: s.moving }; })()');
+  info.first = { now };
+  ok('first: the first glide starts at once, in the press\'s own task (no wait, as without frames ahead)', now.anim && !now.ahead, now);
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  const m = await settled({ max: WAIT_MS, until: '__cmwSteps().aheadCost !== null' });
+  info.first.cost = (await S()).cost;
+  ok('first: its frame cost is measured once it has ended', m.ok && info.first.cost > 0, info.first);
+}
+
+// ---- made, (a), (b) and the live frames: the glide 0 -> 1, the chain's cost known, with its clock still (1e-6 ms a frame) ----
+await rest(0);
 {
   const up = await glide(1, 1e-6);
   const s = await S();
@@ -91,42 +112,40 @@ info.speed = (await S()).speed;
   ok('shown: the glide ends on plane 1, and its frames go', end.x === 1 && !end.ahead, end);
 }
 
-// ---- (c) an edit drops them: the glide 1 -> 0, its clock still, the colour's sectors changed ----
-{
-  const up = await glide(0, 1e-6);
-  const s = await S();
-  ok('(c) the glide starts on frames drawn ahead', up.ok && s.anim && !!s.ahead && s.ahead.state === 'done', s.ahead);
-  const t0 = await ev('__cmwTime(1).left'), s0 = await S();
-  ok('(c) control: before the edit, a frame is shown from them', !!s0.ahead && s0.ahead.shown > 0, s0.ahead);
-  await ev("__cmwSet('sectors', 7), 1");
-  const t1 = await ev('__cmwTime(1).left'), s1 = await S();
-  info.c = { t0, t1, after: s1.ahead, glide: s1.glide };
-  ok('(c) after the edit, the frames are dropped and the frame is drawn live, mid-glide', !s1.ahead && s1.anim && t1 > 0, info.c);
-  await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
-  await settled({ max: 60000, until: '!__cmwSteps().moving' });
-}
-
-// ---- (d) a budget of 0 bytes: live, said once; control: the default budget said nothing ----
+// ---- (d) a budget of 0 bytes: the glide plays live at once and says why after the label of the plane it reaches; once ----
 {
   await rest(0);
-  const said0 = info.made && (await S()).live;
-  ok('(d) control: with the default budget the live region does not say the glide plays live', !String(said0 || '').startsWith('Playing live'), said0);
-  await ev('__cmwSteps({ ahead: { cap: 0 } }), 1');
-  const up = await glide(1, 1e-6);
-  const s = await S();
-  info.d = { live: s.live, ahead: s.ahead };
-  // (after (c)'s edit the chain's frame cost is measured again: its probe frames are dropped once the budget is read)
-  ok('(d) a budget of 0: the glide plays live for want of memory, with no frame held', up.ok && s.anim && (!s.ahead || (s.ahead.state === 'live' && s.ahead.why === 'memory' && s.ahead.slots === 0)), info.d);
-  ok('(d) the live region says why: memory', s.live === MEMORY, s.live);
-  await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
+  const said0 = await ev('__live.slice()');
+  ok('(d) control: with the default budget the live region never said a glide draws as it goes', !said0.some((t) => t.includes('The glide draws as it goes')), said0);
+  await ev('__cmwSteps({ ahead: { cap: 0 } }), __live = [], 1');
+  const now = await ev('(() => { const s = __cmwSteps({ clock: 1000 / 60, go: 1 }); return { anim: !!s.anim, ahead: s.ahead }; })()');
+  ok('(d) a budget of 0: the glide plays live at once, with no frame drawn ahead', now.anim && !now.ahead, now);
   await settled({ max: 60000, until: '!__cmwSteps().moving' });
-  await glide(0, 1e-6);
-  const again = await S();
-  info.dAgain = { live: again.live, ahead: again.ahead };
-  ok('(d) the second glide does not say it again', !String(again.live || '').includes(MEMORY), info.dAgain);
-  ok('(d) the second glide decides at once from the chain\'s measured cost: no probe frame', again.anim && !again.ahead, info.dAgain);
-  await ev('__cmwSteps({ clock: 1000 / 60, ahead: { cap: null } }), 1');
+  const texts = await ev('__live.slice()');
+  info.d = { now, texts };
+  ok('(d) it says why after the label of the plane it reaches, with a full stop between', texts.length > 0 && texts[texts.length - 1].endsWith('. ' + MEMORY) && texts[texts.length - 1].length > MEMORY.length + 2, texts);
+  ok('(d) it says it once', texts.filter((t) => t.includes(MEMORY)).length === 1, texts);
+  await ev('__live = [], __cmwSteps({ go: 0 }), 1');
   await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  const again = await ev('__live.slice()');
+  info.dAgain = again;
+  ok('(d) the second glide does not say it again', !again.some((t) => t.includes(MEMORY)), again);
+  await ev('__cmwSteps({ ahead: { cap: null } }), 1');
+}
+
+// ---- play: a Play (no loop) that plays live for time says why with the words of its stop ----
+{
+  await rest(0);
+  await ev('__cmwSteps({ ahead: { waitMs: 1 }, loop: false }), __live = [], 1');
+  const now = await ev('(() => { const s = __cmwSteps({ clock: 1000 / 60, play: true }); return { play: s.play, ahead: s.ahead }; })()');
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+  const texts = await ev('__live.slice()');
+  info.play = { now, texts };
+  ok('play: it plays live at once', now.play === 'glide' && !now.ahead, now);
+  const t = texts.find((x) => x.includes(TIME));
+  ok('play: it says why once, after the words of its stop and a full stop: the last words said', !!t && t === texts[texts.length - 1] && t.startsWith('Stopped at ') && t.endsWith('. ' + TIME) && texts.filter((x) => x.includes(TIME)).length === 1, texts);
+  ok('play: "Playing from … to …" is never joined to it', !texts.some((x) => x.startsWith('Playing from') && x.includes(TIME)), texts);
+  await ev(`__cmwSteps({ ahead: { waitMs: ${WAIT_MS} } }), 1`);
 }
 
 // ---- Cancel (Esc) while the frames are made: they go, and no glide starts ----
@@ -159,7 +178,23 @@ info.speed = (await S()).speed;
   info.resume = { up: up.ok, a0, paused: { x: paused.x, ahead: paused.ahead && paused.ahead.state }, again: again.ahead && again.ahead.state, a1 };
   ok('resume: the play runs on frames drawn ahead', up.ok && !!a0 && a0.state === 'done' && a0.shown > 0, info.resume);
   ok('resume: paused, its frames stay', !!paused.ahead && paused.ahead.state === 'done', info.resume);
-  ok('resume: pressed again, it plays at once on the same frames (none made again)', !!a1 && a1.state === 'done' && a1.n === a0.n && a1.costs.join() === a0.costs.join() && a1.shown > a0.shown, info.resume);
+  ok('resume: pressed again, it plays at once (no wait) on the same frames (none made again)', again.play === 'glide' && !!a1 && a1.state === 'done' && a1.n === a0.n && a1.recs.length === a0.recs.length && a1.shown > a0.shown, info.resume);
+  await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
+  await settled({ max: 60000, until: '!__cmwSteps().moving' });
+}
+
+// ---- (c) an edit drops them: the glide 0 -> 1, its clock still, the colour's sectors changed ----
+{
+  await rest(0);
+  const up = await glide(1, 1e-6);
+  const s = await S();
+  ok('(c) the glide starts on frames drawn ahead', up.ok && s.anim && !!s.ahead && s.ahead.state === 'done', s.ahead);
+  const t0 = await ev('__cmwTime(1).left'), s0 = await S();
+  ok('(c) control: before the edit, a frame is shown from them', !!s0.ahead && s0.ahead.shown > 0, s0.ahead);
+  await ev("__cmwSet('sectors', 7), 1");
+  const t1 = await ev('__cmwTime(1).left'), s1 = await S();
+  info.c = { t0, t1, after: s1.ahead, glide: s1.glide };
+  ok('(c) after the edit, the frames are dropped and the frame is drawn live, mid-glide', !s1.ahead && s1.anim && t1 > 0, info.c);
   await ev('__cmwSteps({ clock: 1000 / 60 }), 1');
   await settled({ max: 60000, until: '!__cmwSteps().moving' });
 }
@@ -175,12 +210,21 @@ info.speed = (await S()).speed;
   await ev(`__cmwExample(${ex}), 1`);
   await ev(`__cmwSteps({ scope: 'in', ahead: { ms: 0, waitMs: ${WAIT_MS} } }), 1`);
   await rest(0);
+  // (the chain's first glides play live, and its cost is measured after them: the glide below draws its frames ahead)
+  for (let i = 0; i < 2 && (await S()).cost === null; i++) {
+    await ev(`__cmwSteps({ clock: 1000 / 60, go: ${i % 2 ? 0 : 1} }), 1`);
+    await settled({ max: WAIT_MS, until: '!__cmwSteps().moving' });
+    await settled({ max: WAIT_MS, until: '__cmwSteps().aheadCost !== null' });
+  }
+  info.holdCost = (await S()).cost;
+  ok('hold: the zeta chain\'s frame cost is measured', info.holdCost > 0, info.holdCost);
+  await rest(0);
   await settled({ max: 120000, until: 'GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
   await holdIdle();
   await ev('__cmwSteps({ clock: 1e-6 }), __cmwSteps({ go: 1 }), 1');
   const made = await settled({ max: WAIT_MS, until: '(() => { const a = __cmwSteps().ahead; return !!a && a.n >= 2; })()' });
   await ev('__cmwSteps({ poleFrameMs: 0.001, dropTracks: true }), 1');
-  const met = await settled({ max: WAIT_MS, until: '(() => { const a = __cmwSteps().ahead; return !a || a.rejects > 0 || a.state !== "probe" && a.state !== "fill"; })()' });
+  const met = await settled({ max: WAIT_MS, until: '(() => { const a = __cmwSteps().ahead; return !a || a.rejects > 0 || a.state !== "fill"; })()' });
   const R = (await S()).ahead;
   info.hold = { made: made.ok, met: met.ok, ahead: R };
   ok('hold: the hold is met while the frames are made (a frame drawn is not kept)', !!R && R.rejects > 0, R);

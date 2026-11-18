@@ -313,7 +313,7 @@
     SV.anim = { from, to: i, t0: performance.now(), ms };
     draft = null; probe = null;
     requestRender('L');
-    svAheadSay(M);
+    svAheadStart(M);
   }
   // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
   // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
@@ -367,7 +367,8 @@
     if (was !== i) { const n = svPlanes().length; tourEmit('plane-changed', { i, n, last: i === n - 1 }); }
     if (typeof sndRelayout === 'function') sndRelayout();
     const live = SV.els && SV.els.live;
-    if (live) live.textContent = svLabel();
+    if (live) live.textContent = svAheadTail(svLabel());
+    if (svAheadProbeM && !SV.anim && !SV.play) svAheadProbe();
   }
   // (parked: left between two planes on the thread, the picture of the deformation there)
   const svParked = () => !SV.anim && !SV.play && !(SV.drag && SV.drag.moved) && Math.abs(SV.g.x - Math.round(SV.g.x)) > SV_REST_U;
@@ -1770,7 +1771,7 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
-    if (svAhead && (svAhead.state === 'probe' || svAhead.state === 'fill')) svAhead.live++;
+    if (svAhead && svAhead.state === 'fill') svAhead.live++;
     cutMarksL = [];
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; } SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
@@ -1845,12 +1846,14 @@
   // svPlayFrame plays) is drawn off-screen as the screen draws it there (svRenderMoving) and kept as an ImageBitmap, and the
   // motion then shows frame floor(elapsed / AHEAD_DT) (HomRange.aheadIndex), one drawImage a frame (svAheadShow). A frame
   // is kept only when it is the exact frame at its own place: no hold, and between two planes the inverse pass's at its u.
-  // One that is not is drawn again, at most AHEAD_TRIES times. The first AHEAD_PROBE frames decide: at a median cost of at
-  // most AHEAD_MS (to the GPU's finish) the motion plays live, as it would without them; the cost is kept for the chain,
-  // so a later motion of it decides at once (svAheadPlan); past AHEAD_WAIT_MAX_MS to draw them all, past the memory budget to keep them, or a frame
-  // that cannot be drawn exactly, it plays live too, and the live region says why, once a chain and reason. Only on the flat
-  // plane, without reduced motion, and only for a motion the gate starts from rest (svGo, svPlay): a press during a motion,
-  // a scrub, a speed change, a Split and an edit play live
+  // One that is not is drawn again, at most AHEAD_TRIES times. What a motion does is decided from its chain's frame cost,
+  // measured once (svAheadProbe): the first motion of a chain plays live at once, as it would without frames ahead, and
+  // AHEAD_PROBE of its frames are drawn off-screen in idle moments after it ends, their median kept (svAheadCost). A later
+  // motion of the chain then decides at once (svAheadPlan): at most AHEAD_MS it plays live; past AHEAD_WAIT_MAX_MS to draw
+  // its frames, or past the memory budget to keep them, it plays live and says why once a chain and reason, with the next
+  // words the view says (svAheadTail); else the gate waits while its frames are drawn. Only on the flat plane, without
+  // reduced motion, and only for a motion started from rest (svGo, svPlay): a press during a motion, a scrub, a speed
+  // change, a Split and an edit play live
   const AHEAD_DT = 1000 / 60, AHEAD_MS = 14, AHEAD_PROBE = 3, AHEAD_TRIES = 3, AHEAD_WAIT_MAX_MS = 3000;
   // (test hook: { ms, waitMs, cap }, each in place of AHEAD_MS, AHEAD_WAIT_MAX_MS and aheadBudget's when not null)
   const svAheadTest = { ms: null, waitMs: null, cap: null };
@@ -1861,8 +1864,8 @@
   const aheadBudget = () => (svAheadTest.cap != null ? svAheadTest.cap : (/** @type {any} */ (navigator).deviceMemory >= 8 ? 512 : 256) * 2 ** 20);
   // the frames of the motion the gate waits on or plays: { M (from, to, ms, eased, span), key (svAheadKey), xs (the places),
   // N (the frames shown, 0..N−1: the motion ends at N), slots (by k: { bm, mf, cm, rec }), n (slots made), kept (each
-  // slot made's glide path, kept when the slots go), tries (of the frame drawn next), costs (the probe frames' ms), state
-  // ('probe', 'fill', 'done' or 'live'), why (the reason it plays live: 'time', 'memory' or 'exact'; none when its frames
+  // slot made's glide path, kept when the slots go), tries (of the frame drawn next), state ('fill', 'done' or
+  // 'live'), why (the reason it plays live: 'time', 'memory' or 'exact'; none when its frames
   // are cheap), t0 (the fill's start), cv (the scratch canvas), busy (a slice is posted), A (the motion record it shows,
   // once it shows one), paused ({el, x}: the play paused on it), shown, rejects, live (frames the screen drew while it
   // filled) }; or null
@@ -1888,8 +1891,7 @@
   // the gate's part for motion M (svReady(M)), or null when M is played live without waiting on its frames
   function svAheadPart(M) {
     if (!svAheadCan(M)) return null;
-    const plan = svAheadPlan(M);
-    if (plan && plan !== 'ahead') return null;
+    if (svAheadPlan(M) !== 'ahead') return null;
     const R = svAhead;
     if (!R || R.key !== svAheadKey(paneL, M)) return { done: 0, total: 1 };
     return { done: R.state === 'done' || R.state === 'live' ? 1 : Math.min(0.99, R.n / R.N), total: 1 };
@@ -1902,10 +1904,10 @@
     if (!svAhead || svAhead.key !== key) {
       svAheadDrop();
       const xs = HomRange.aheadPlaces(M.from, M.to, M.ms, M.eased, AHEAD_DT);
-      svAhead = { M, key, xs, N: xs.length - 1, slots: [], kept: [], n: 0, tries: 0, costs: [], state: svAheadPlan(M) === 'ahead' ? 'fill' : 'probe', why: null, t0: performance.now(), cv: null, busy: false, A: null, paused: null, shown: 0, rejects: 0, live: 0 };
+      svAhead = { M, key, xs, N: xs.length - 1, slots: [], kept: [], n: 0, tries: 0, state: 'fill', why: null, t0: performance.now(), cv: null, busy: false, A: null, paused: null, shown: 0, rejects: 0, live: 0 };
     }
     const R = svAhead;
-    if ((R.state === 'probe' || R.state === 'fill') && !R.busy) {
+    if (R.state === 'fill' && !R.busy) {
       if (!svAheadCh) { svAheadCh = new MessageChannel(); svAheadCh.port1.onmessage = () => { svAheadSlice(); }; }
       R.busy = true;
       svAheadCh.port2.postMessage(0);
@@ -1917,43 +1919,31 @@
     for (const s of R.slots) if (s && s.bm) s.bm.close();
     R.slots = []; R.cv = null;
   }
-  // one slice of the fill: frame R.n drawn, and the next slice posted until the frames are made or given up (R.busy stays
-  // set until it ends: the gate's poll posts no slice while one waits on the GPU)
-  async function svAheadSlice() {
+  // one slice of the fill: frame R.n drawn, and the next slice posted until the frames are made or given up
+  function svAheadSlice() {
     const R = svAhead;
     if (!R) return;
     let next = false;
-    try { next = await svAheadFrame(R); } finally { R.busy = false; }
+    try { next = svAheadFrame(R); } finally { R.busy = false; }
     if (svAhead !== R) return;
     if (next) svAheadRun(R.M);
     else if (R.state === 'done' || R.state === 'live') svGateTick();
   }
   // -> whether another frame is to be drawn
-  async function svAheadFrame(R) {
+  function svAheadFrame(R) {
     const g = SV.gate;
     // (cancelled, or the gate waits on another motion or an edited chain: svGateTick starts that one's)
     if (!g || !g.M || R.state === 'done' || R.state === 'live' || svAheadKey(paneL, g.M) !== R.key) return false;
-    const k = R.n, t0 = performance.now(), s = svAheadDraw(R, k);
+    const k = R.n, s = svAheadDraw(R, k);
     if (!s) {
       R.rejects++;
       if (++R.tries >= AHEAD_TRIES) { svAheadLive(R, 'exact'); return false; }
       return true;
     }
     R.tries = 0; R.slots[k] = s; R.n++; R.kept.push(s.rec ? s.rec.path : null);
-    if (R.state === 'probe') {
-      // (a probe frame's cost runs to the GPU's finish: the fence is polled every few ms, so it reads a little high, and a
-      // frame near AHEAD_MS is drawn ahead rather than played live)
-      await GLR.gpuDone(1000);
-      if (svAhead !== R) return false;
-      R.costs.push(performance.now() - t0);
-      if (R.costs.length >= AHEAD_PROBE || R.n >= R.N) {
-        svAheadCost.set(svAheadKey(paneL, null), R.costs.slice().sort((a, b) => a - b)[R.costs.length >> 1]);
-        const plan = svAheadPlan(R.M);
-        if (plan === 'ahead') R.state = 'fill'; else svAheadLive(R, plan === 'live' ? null : plan);
-      }
-    } else if (performance.now() - R.t0 > aheadWaitMs()) svAheadLive(R, 'time');
-    if (R.state !== 'live' && R.n >= R.N) { R.state = 'done'; R.cv = null; }
-    return R.state === 'probe' || R.state === 'fill';
+    if (performance.now() - R.t0 > aheadWaitMs()) svAheadLive(R, 'time');
+    else if (R.n >= R.N) { R.state = 'done'; R.cv = null; }
+    return R.state === 'fill';
   }
   // draw() run as the screen draws motion M at k·AHEAD_DT ms, at place x: a copy of the motion record at that time is the
   // motion (so the frame is a glide's, with the glide's light points, and svLinkHold and svMotionDrawn write to the copy),
@@ -2017,23 +2007,56 @@
     svAhead.shown++;
     return true;
   }
-  // the live region says once, for a chain and reason, why motion M, just started, plays live: its frames given up
-  // (svAheadLive's why), or its chain's measured cost (svAheadPlan's)
-  function svAheadSay(M) {
-    const R = svAhead, live = SV.els && SV.els.live;
-    if (!M || !live || !svAheadCan(M)) return;
-    const plan = svAheadPlan(M), why = R && R.state === 'live' && R.key === svAheadKey(paneL, M) ? R.why : plan === 'time' || plan === 'memory' ? plan : null;
-    if (!why) return;
-    const said = svAheadKey(paneL, null) + why;
-    if (svAheadSaid.has(said)) return;
-    svAheadSaid.add(said);
-    const msg = why === 'time' ? $t('Playing live: preparing the frames would take too long.') : why === 'memory' ? $t('Playing live: the frames would not fit in memory.') : $t('Playing live: a frame could not be prepared exactly.');
-    // (after the play's own words, "Playing from … to …"; a glide's replace what the region said before it)
-    live.textContent = SV.play && live.textContent ? `${live.textContent} ${msg}` : msg;
+  // motion M started: why it plays live is said once for a chain and reason, with the next words the view says (its
+  // frames given up, svAheadLive's why, or its chain's measured cost, svAheadPlan's), and a chain whose cost is not known is
+  // measured once the motion ends (svAheadProbe)
+  let svAheadNote = null;
+  function svAheadStart(M) {
+    if (!M || !svAheadCan(M)) return;
+    const R = svAhead, plan = svAheadPlan(M);
+    if (plan == null) { svAheadProbeM = M; return; }
+    const why = R && R.state === 'live' && R.key === svAheadKey(paneL, M) ? R.why : plan === 'time' || plan === 'memory' ? plan : null;
+    if (!why || svAheadSaid.has(svAheadKey(paneL, null) + why)) return;
+    svAheadSaid.add(svAheadKey(paneL, null) + why);
+    svAheadNote = why === 'time' ? $t('The glide draws as it goes: its frames would take too long to prepare.') : why === 'memory' ? $t('The glide draws as it goes: its frames would not fit in memory.') : $t('The glide draws as it goes: a frame could not be prepared exactly.');
   }
-  // (test hook) the frames' state: null, or { state, why, n, N, costs, shown, rejects, live, recs: each slot made's glide
-  // path, slots: how many are held }
-  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, costs: R.costs.map((c) => +c.toFixed(2)), shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length }; };
+  // words the view says, with the note of the motion that just started after them (m: the note, taken already)
+  function svAheadTail(text, m = svAheadNote) {
+    svAheadNote = null;
+    return m ? `${text}. ${m}` : text;
+  }
+  // The chain's frame cost measured after motion svAheadProbeM ended: AHEAD_PROBE of its frames between its ends drawn
+  // off-screen (svAheadDraw), one an idle moment, each timed to the GPU's finish (the fence is polled every few ms, so a
+  // frame near AHEAD_MS reads a little high and is drawn ahead rather than played live), their median kept as the chain's
+  // cost. A frame that is not exact is not timed (at most AHEAD_TRIES); a motion, a wait or an edit ends it, and the next
+  // motion's end measures the chain again
+  let svAheadProbeM = null, svAheadProbing = false;
+  const svAheadIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(() => f(), { timeout: 2000 }) : setTimeout(f, 50));
+  function svAheadProbe() {
+    const M = svAheadProbeM;
+    if (!M || svAheadProbing || !svAheadCan(M) || svAheadPlan(M) != null) { svAheadProbeM = null; return; }
+    svAheadProbeM = null; svAheadProbing = true;
+    const key = svAheadKey(paneL, null), xs = HomRange.aheadPlaces(M.from, M.to, M.ms, M.eased, AHEAD_DT), N = xs.length - 1;
+    const R = { M, xs, N, cv: null }, ks = [N >> 2, N >> 1, (3 * N) >> 2].map((k) => Math.max(1, Math.min(N - 1, k)));
+    const costs = [];
+    let fails = 0;
+    const step = async () => {
+      if (SV.anim || SV.play || SV.gate || (SV.drag && SV.drag.moved) || svAheadKey(paneL, null) !== key || !svAheadCan(M)) { svAheadProbing = false; return; }
+      const t0 = performance.now(), f = svAheadDraw(R, ks[costs.length]);
+      if (!f) { svAheadProbing = ++fails < AHEAD_TRIES; if (svAheadProbing) svAheadIdle(step); return; }
+      f.bm.close();
+      await GLR.gpuDone(1000);
+      costs.push(performance.now() - t0);
+      if (costs.length < AHEAD_PROBE) { svAheadIdle(step); return; }
+      svAheadProbing = false;
+      if (svAheadKey(paneL, null) === key) svAheadCost.set(key, costs.sort((a, b) => a - b)[costs.length >> 1]);
+    };
+    svAheadIdle(step);
+  }
+  // (test hooks) the frames' state: null, or { state, why, n, N, shown, rejects, live, recs: each slot made's glide path,
+  // slots: how many are held }; and the chain's measured frame cost (ms), null while it is not measured
+  const svAheadCostNow = () => { const c = svAheadCost.get(svAheadKey(paneL, null)); return c == null ? null : +c.toFixed(2); };
+  const svAheadHook = () => { const R = svAhead; return R && { state: R.state, why: R.why, n: R.n, N: R.N, shown: R.shown, rejects: R.rejects, live: R.live, recs: R.kept.slice(), slots: R.slots.filter(Boolean).length }; };
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); svMotionDrawn(svMotion()); return; }
     // (a motion whose frames were drawn ahead shows them)
@@ -3979,7 +4002,7 @@
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
     const A = SV.play;
-    if (!A.slide) svAheadSay({ from: A.from, to: A.to, ms: A.ms, eased: false, span: SV.span });
+    if (!A.slide) svAheadStart({ from: A.from, to: A.to, ms: A.ms, eased: false, span: SV.span });
   }
   // a slide's time on each plane (ms)
   const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
@@ -4013,14 +4036,18 @@
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
     const r = Math.round(SV.g.x);
-    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) SV.els.live.textContent = svLabel(); }
+    // (a play's note goes with the words of its stop, which stay; a loop has none, and says it at its first crossing)
+    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) SV.els.live.textContent = SV.loop ? svAheadTail(svLabel()) : svLabel(); }
     dirty.L = true;
     svSync();
     if (v < 1) return true;
     if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.held = A.drawn = null; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
+    // (the note of the play's start goes with the words of its stop, not the arrival's they replace)
+    const note = svAheadNote;
+    svAheadNote = null;
     svArrive();
-    if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
+    if (SV.els.live) SV.els.live.textContent = svAheadTail($t('Stopped at {p}', { p: svName(svStage()) }), note);
     svSync();
     return false;
   }
@@ -4044,6 +4071,7 @@
     // (parked between two planes, the full apply the crossings skipped is done now, once)
     if (settle) { if (A.slide) { svArrive(); } else { svLetGo(); if (svParked()) svApply(); } }
     if (R && svAhead === R) R.paused.x = SV.g.x;
+    if (svAheadProbeM) svAheadProbe();
     svSync();
   }
   // a phone's Playback sheet (a long press on ▶): the speed, the loop and the paths
