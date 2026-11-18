@@ -183,10 +183,12 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
-  // view's scope switch does; without it ← → stop at the ends)
+  // (opt.cls: more classes; opt.loop: ↑ ↓ move too, as the steps view's scope switch does. The arrows ← → wrap in every row, as a
+  // radiogroup's do: from the last radio on to the first, from the first back to the last. Home and End check the first and the
+  // last choice. opt.wrap false: a row whose change is costly (Language, which reloads the page) stops at its ends, and Home and
+  // End leave it alone, so no one key press reaches the far choice)
   function seg(id, value, options, onchange, label, opt) {
-    const o = opt || {};
+    const o = opt || {}, wrap = o.wrap !== false;
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title, aria] of options) {
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
@@ -199,12 +201,20 @@
       if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
     });
     el.addEventListener('keydown', (e) => {
+      const bs = [...el.children];
+      if (wrap && (e.key === 'Home' || e.key === 'End')) {
+        const b = bs[e.key === 'Home' ? 0 : bs.length - 1];
+        b.click(); b.focus(); e.preventDefault();
+        return;
+      }
       const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
-      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      const i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
       if (i < 0) return;
-      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
-      bs[j].click(); bs[j].focus(); e.preventDefault();
+      e.preventDefault();
+      const j = wrap ? (i + (next ? 1 : bs.length - 1)) % bs.length : i + (next ? 1 : -1);
+      if (j < 0 || j >= bs.length) return;
+      bs[j].click(); bs[j].focus();
     });
     return el;
   }
@@ -568,10 +578,22 @@
     pop.style.top = y + 'px';
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
-    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
+    // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
+    // does not trap, and it lies apart from the page's Tab order (after the app in the document), so a Tab out of it would land on
+    // the page's last or first control with the pop-up left open. A control Tab does not reach, a segmented row's unchecked choice
+    // that a click focused, counts by its place: Tab from it goes to the next stop after it in the pop-up, or leaves)
+    const tabStops = () => [...pop.querySelectorAll(':is(button, input, select, textarea, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((x) => /** @type {HTMLElement} */ (x).offsetParent !== null);
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); return; }
+      if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = /** @type {Node} */ (e.target), stops = tabStops();
+      const next = e.shiftKey ? stops.filter((x) => x.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING).pop() : stops.find((x) => t.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (next) return;
+      e.preventDefault(); closePalette(); btn.focus();
+    });
     // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
     // segmented row, whose other buttons are tabindex -1)
-    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
+    if (!refresh) { const first = tabStops()[0]; if (first) /** @type {HTMLElement} */ (first).focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
