@@ -3,7 +3,8 @@
 // on the Plane (the caption, then the hue wheel's reading), on the Sphere, and the Height key on the Landscape (its caption, then
 // its contours); in the classic view, Y's Regions key (its fill, read from the element its aria-describedby names: the box has
 // no role there until #1847). Each read with the key unfolded, at 360 × 640, in en and ru.
-// The words are compared with the page's own: __cmwLegend()'s caption and the strings the key draws ($t).
+// The words are compared with the page's own: __cmwLegend()'s caption and the strings the key draws ($t); and the box's name
+// is its kind's (the Height key on the Landscape, else the Colour key), whatever surface the view came from.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -42,6 +43,7 @@ for (const lang of ['en', 'ru']) {
     const ax = await axOf('leftLegend');
     info[tag] = { lg, ax };
     ok(`${tag}: the key is the ${kind} key`, lg && lg.kind === kind, lg);
+    ok(`${tag}: the key box is named for its kind (${kind === '3d' ? 'Height key' : 'Colour key'})`, !!ax && ax.name === (await ev(`$t(${JSON.stringify(kind === '3d' ? 'Height key' : 'Colour key')})`)), ax);
     ok(`${tag}: the key box has a description`, !!ax && !ax.ignored && ax.description.length > 0, ax);
     if (!ax || !ax.description) continue;
     ok(`${tag}: the description starts with the caption the key draws`, !!lg.caption && ax.description.startsWith(lg.caption), [ax.description, lg.caption]);
