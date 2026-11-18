@@ -20,7 +20,7 @@ const open = async (w, h, mobile, flag) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${flag ? '&view=steps' : ''}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` }); await settle(500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 };
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
@@ -32,7 +32,7 @@ const press = (k) => ev(`document.body.dispatchEvent(new KeyboardEvent('keydown'
 
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const kdown = (k, mods = {}) => ev(`(document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: '${k}', bubbles: true, cancelable: true }, ${JSON.stringify(mods)}))); 1`);
-const until = async (f, ms = 15000) => { const t0 = Date.now(); for (;;) { const s = await S(); if (f(s)) return { s, ms: Date.now() - t0 }; if (Date.now() - t0 > ms) return { s, ms: Date.now() - t0, timeout: true }; await sleep(25); } };
+const until = async (expr, max = 15000) => { const r = await settled({ until: expr, max, only: true, poll: 25 }); return { s: await S(), ms: r.ms, timeout: !r.ok }; };
 const nodes = () => ev(`[...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`);
 
 // the thread's place sampled in the page once a frame for ms (the heavy __cmwSteps() poll starves the frames and aliases a loop): its
@@ -49,7 +49,7 @@ const watchX = async (ms) => {
 const CLOCK = 40;
 const rateAt = async (speed) => {
   await ctl({ go: 0, now: true, clock: CLOCK });
-  await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = '${speed}'; e.dispatchEvent(new Event('change')); })(); 1`);
+  await choose('.sv-speed', speed);
   await ev(`window.__rt = { s: [], done: false }; (() => { const t0 = performance.now(); const tick = () => { const x = __cmwSvX(); window.__rt.s.push(x); if (x >= 1.999 || performance.now() - t0 > 60000) { window.__rt.done = true; return; } requestAnimationFrame(tick); }; requestAnimationFrame(tick); __cmwSteps({ play: true }); })(); 1`);
   let rt = null;
   for (let i = 0; i < 700; i++) { await sleep(100); rt = await ev(`window.__rt`); if (rt && rt.done) break; }
@@ -70,7 +70,7 @@ ok('the Loop toggle is 36 px high, as the speed select', lh >= 35.5 && lh <= 37,
 ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold for speed and loop\\. Glide order: (Step by step|All at once)$/.test(document.querySelector('.sv-play').getAttribute('aria-description'))`), 'desc');
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'fast');
 const tClick = Date.now();
 // (the glide is 0.9 s of frame time and the button's label follows on a frame: from the press, every frame is looked at
 // until the glide runs and the button says Pause, at most 5 s, so a page whose frames are slow is read while it plays)
@@ -87,7 +87,7 @@ const p1 = await ev(`await new Promise((res) => {
 // (read in the frame the glide was seen in: a loaded renderer may have drawn the whole 0.9 s glide by the time a later read comes back)
 ok('starting says where it plays from and to, in the live region', /Playing from z to w/.test(p1.live), p1.live);
 ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && p1.buttonLabel === 'Pause', p1);
-const e1 = await until((s) => !s.play); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
+const e1 = await until('!__cmwSteps().play'); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
@@ -104,13 +104,13 @@ ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x
 { const r = await rateAt('slow'), n = await rateAt('normal');
   ok('the speeds are what they say: slow about 0.5 planes a second, normal about 1.1', r.n >= 3 && n.n >= 3 && r.rate > 0.45 && r.rate < 0.55 && n.rate > 1.0 && n.rate < 1.2, { slow: r, normal: n }); }
 await ctl({ go: 0, now: true });
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'slow');
 await ev(`document.querySelector('.sv-play').click(); 1`);
 await sleep(1000);
 const sl = await S();
 ok('a play at slow is still going a second in', sl.play === 'glide', sl);
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
-const e2 = await until((s) => !s.play);
+await choose('.sv-speed', 'fast');
+const e2 = await until('!__cmwSteps().play');
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
@@ -130,7 +130,7 @@ await rest();
 
 // pause between two planes (more than the eighth that snaps): it parks there, and a state loaded afterwards is adopted
 await ctl({ go: 0, now: true });
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'slower');
 // (paused from inside the page the moment it passes 0.3, so no poll's lag decides where; ev does not wait for a promise, so the page
 // leaves its answer in window.__midR. A frame gap that carries it past 0.7 (a cold start) is tried again, at most three times)
 let midR = null, pk = null;
@@ -149,16 +149,17 @@ await ev(`(__cmwExample(3), 1)`); await sleep(2500); await settle(500);
 const ad = await S();
 ok('… and a state loaded after that is adopted (back on its first plane, not left parked)', Math.abs(ad.x - Math.round(ad.x)) < 1e-9 && ad.i === 0 && !ad.moving, ad);
 // an example loaded under a Play, Loop on: Play stops and the new example's view is adopted (rework on #460)
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'slow'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'slow');
 await ctl({ go: 0, now: true });
 await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'true' || document.querySelector('.sv-loop').click(); 1`);
 await ctl({ play: true });
 await sleep(600);
 await ev(`(__cmwExample(5), 1)`); await sleep(2500); await settle(500);
+await adopted();
 const xl = await S();
 ok('an example loaded while playing (Loop on) stops Play and shows its view from the first plane', xl.play === null && xl.i === 0 && Math.abs(xl.x - Math.round(xl.x)) < 1e-9 && !xl.moving, xl);
 await ev(`document.querySelector('.sv-loop').getAttribute('aria-pressed') === 'false' || document.querySelector('.sv-loop').click(); 1`);
-await ev(`(() => { const e = document.querySelector('.sv-speed'); e.value = 'fast'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-speed', 'fast');
 await open(1280, 800, false, true);
 await ctl({ scope: 'all' });
 
@@ -190,7 +191,7 @@ const bd = await ev(`(() => { const b = document.querySelector('.sv-band'); retu
 ok('the band shows, the clear button and the ring name it', !bd.hidden && /w₁/.test(bd.label) && bd.x === 'Clear the range' && /range z to w₁/.test(bd.vt), bd);
 ok('the range is saved as S.homRange', JSON.stringify((await S()).homRange) === '[1,1]', (await S()).homRange);
 await ctl({ play: true });
-const e3 = await until((s) => !s.play);
+const e3 = await until('!__cmwSteps().play');
 ok('play keeps to the range: it stops on w₁, not at w₂', !e3.timeout && e3.s.i === 1 && Math.abs(e3.s.x - 1) < 1e-9, e3.s);
 await ev(`document.querySelector('.sv-loop').click(); 1`);
 await ctl({ play: true });
@@ -260,7 +261,7 @@ ok('Tab stays in the sheet', await ev(`!!document.activeElement.closest('.sv-she
 ok('… and the release is not a press: nothing plays', (await S()).play === null, await S());
 await ev(`document.querySelector('.sv-sheet .sv-loop').click(); 1`);
 ok('the sheet\'s Loop sets it', (await S()).loop === true, await S());
-await ev(`(() => { const e = document.querySelector('.sv-sheet .sv-speed'); e.value = 'slower'; e.dispatchEvent(new Event('change')); })(); 1`);
+await choose('.sv-sheet .sv-speed', 'slower');
 ok('the sheet\'s Speed sets the state\'s speed too (one setting), and the strip\'s select follows', (await S()).svSpeed === 'slower' && await ev(`document.querySelector('#svStrip .sv-speed').value === 'slower'`), await S());
 await ctl({ loop: false });
 await ev(`document.querySelector('.sv-sheet .btn.small').click(); 1`);
@@ -291,9 +292,9 @@ const nw = await ev(`(() => { const x = document.querySelector('.sv-bandx'), r =
 ok('360 px: the × is 44×44, inside the screen, and hit-tests on itself, with the range ending on the last plane', nw.l >= 0 && nw.r <= nw.iw + 0.5 && nw.w >= 43.5 && nw.h >= 43.5 && nw.hit, nw);
 await ctl({ range: null });
 
-// ---- without the flag: no ▶ ----
+// ---- with ?view=classic: no ▶ ----
 await open(1280, 800, false, false);
-ok('without ?view=steps there is no ▶ and no band', await ev(`!document.querySelector('.sv-play') && !document.querySelector('.sv-band')`), 'classic');
+ok('with ?view=classic there is no ▶ and no band', await ev(`!document.querySelector('.sv-play') && !document.querySelector('.sv-band')`), 'classic');
 
 info.checks = 'play along the thread: ▶, the speed, loop, keys, range (Shift-drag, ring keys, clear), reduced motion, phone sheet, classic';
 return { pass: fails.length === 0, fails, info };

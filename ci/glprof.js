@@ -8,12 +8,12 @@
 // current, ... (--rounds N: N pairs, default 2), each a cold and a warm pass: whatever the machine keeps between runs
 // falls on both sides alike. --clear-metal-cache (macOS): before each cold pass, empty the Metal shader cache macOS keeps
 // for Chrome outside its profile (see metalCaches); without it a fresh profile is not cold on the Mac (#237).
-// The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are on by default: their inverse programs too); then on the
+// The walk: every example's first frame (until __cmwExample says there is no such example) (exact images are always on: their inverse programs too); then on the
 // first example, the steps view's main planes (Phase, Landscape, X → Y), the Sphere and the glide. --walk extended (#238's Windows list)
 // adds: the glide of the All sheets and Γ/ζ examples, the series examples (a Σ step, a power series), the gallery
 // opened (its thumbnails' time), the Mountain King in the Landscape, and on every pass the first minute from the page's load (the start-up bar shown, the
-// links pending, the page's long tasks, when the default example's exact image was first drawn). --walk mountain: after
-// the start only the Mountain King (#395, #355): its first frame, its Landscape and its glide. --walk steps (#439): the steps view (stepsWalk). --variant unroll (#238 item 3): a
+// links pending, the page's long tasks, when the default example's exact image is first drawn). --walk mountain: after
+// the start only the Mountain King: its first frame, its Landscape and its glide. --walk steps (#439): the steps view (stepsWalk). --variant unroll: a
 // second side, this build with the loop guards of #206 stripped (max(N, uNoUnroll) -> N, K * uIxOne -> K), so FXC sees
 // constant trip counts again: the unrolling hypothesis measured on one machine, the sides in turn (#196's uniform series
 // bounds are not undone by it). Each step waits until every link it started has landed (or --step-timeout, default
@@ -58,12 +58,8 @@ function walk() {
 // --walk extended: the examples by their English names in src/app/15-examples-guide.js (their indices move as examples
 // are added), each opened, then deformed and closed again; [label, statement, false, {until, measure}]: until, a
 // condition polled from the statement on (its time is the step's firstS); measure, read once the links have landed
-function exampleIndex(name) {
-  const src = fs.readFileSync(path.join(ROOT, 'src', 'app', '15-examples-guide.js'), 'utf8');
-  const names = [...src.matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
-  return names.indexOf(name);
-}
-// (#238 item 2: the All sheets and the Γ/ζ examples deformed; item 3: a Σ step and a power series)
+const exampleIndex = (name) => SC.exampleNames(ROOT).indexOf(name);
+// (the All sheets and the Γ/ζ examples deformed; a Σ step and a power series)
 const EXTENDED_EXAMPLES = ['Sheets of the logarithm', 'Zeros of the zeta function', 'Poles of the Gamma function', 'Zeta as a Dirichlet series', 'Partial sums of the exponential', 'The dilogarithm from its series'];
 // (#395, #355) the Mountain King: its first frame (mode 0, colour), its Landscape (landTF and landEdgeS of mode 0) and
 // its glide (mode 1, colour)
@@ -115,7 +111,7 @@ function extended() {
 }
 // (#238 items 8 and 4) from the page's first script on: the start-up bar's visibility, the links pending and the long
 // tasks, every 100 ms for 60 s, read with the start step; and when the right pane first drew its exact image (the
-// default example has exact images on: their inverse programs, cold on the cold pass) with nothing pending
+// default example draws exact images: their inverse programs, cold on the cold pass) with nothing pending
 const STARTUP = `(() => {
   const t0 = performance.now(), lt = [], tl = [];
   let exactMs = null;

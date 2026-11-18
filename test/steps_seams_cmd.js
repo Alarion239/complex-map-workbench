@@ -4,12 +4,19 @@
 //    wide from the colour's left edge, in the rows 10 CSS px or more from the top and bottom, a smooth seam changes colour between vertically adjacent pixels about once a row
 //    (a seam of slope s px per row crosses |s| pixels of a row); a sawtooth along it, a torn triangle drawn whole on one
 //    sheet, crosses it at every tooth's slanted edge. In the worst 20 rows the mean count of such jumps per row is at
-//    most 1.5. The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
+//    most 1.5. A seam along the rows (20 px or more of the band jumping in one row: the cut's image on the real axis)
+//    crosses its row along the whole band, however straight, so a frame whose worst rows hold such a row is read along
+//    the seam instead: per column, the jumps between horizontally adjacent pixels in the 40 px band across it, the
+//    worst 20 columns' mean, at most 1.5 too The same holds in every frame of the 2 s after a chain change (a step put first, the seam then between
 //    w2 and w3), while the fill's programs link: the fill draws only with its mask, never a torn triangle whole
-//  - cracks: Square root and its sheets, Everywhere, parked half-way between z and w1, where the cut's image is the two
-//    rays from 0 at 135° and 225°: across each ray, no pixel of the paper's grey (max - min channel under 20) between
-//    two coloured ones (max - min channel over 40) 3 px either side
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
+//  - cracks: z^2 then its square root and z^3 then its cube root, coloured from z, Everywhere, parked half-way between z
+//    and w1, where the root's cut, carried into the picture, runs through the fill with a sheet on each side of it: along
+//    the cut's image, in the colour layer alone, no pixel of the paper's grey (max - min channel under 20) between two coloured ones (max - min
+//    channel over 40) 3 px either side; a control draws a one-pixel line of paper along the cut's image and the same scan
+//    must count it
+//  - cut curves: Square root and its sheets, strokes hidden: the frame a hair short of plane 1 draws the parked plane 1's
+//    cut curves (the same banks, both ways within 2 px), with controls that must fail the same comparison
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the images shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -49,9 +56,14 @@ const park = async (x, scope) => {
   await park(1.5, 'all');
   // (the fill draws through its mask, started with it: that program made, then a frame drawn with it)
   await settled({ max: 30000, until: 'GLR.chainProgs().includes("regionKSCptm")' });
-  await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
+  // (the colour layer alone is read, here and once settled after the chain change: a frame between two planes draws the
+  // cut's curves, the dashed bank along the seam, with the strokes hidden as the parked plane does, each dash a jump)
+  await ev('__cmwHideStrokes(true); __cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
   ok('teeth: the frame is drawn with the fill\'s mask', await drawn(), null);
   const TEETH = `(() => {
+    // (a jump: colour distance over JUMP between vertically adjacent pixels; the band is BAND px; the mean is over the
+    // worst WORST rows; a row with LONG_RUN px or more jumping holds a seam along the rows)
+    const JUMP = 60, BAND = 40, WORST = 20, LONG_RUN = 20;
     const c = document.getElementById('canvasL'), W = c.width, H = c.height, d = c.getContext('2d').getImageData(0, 0, W, H).data;
     const at = (x, y) => (y * W + x) * 4, sat = (i) => Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]);
     const dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
@@ -60,92 +72,237 @@ const park = async (x, scope) => {
       let e = -1;
       for (let x = Math.floor(W * 0.2); x < Math.floor(W * 0.6); x++) if (sat(at(x, y)) > 40) { e = x; break; }
       if (e < 0) continue;
-      let n = 0;
-      for (let x = e; x < Math.min(W, e + 40); x++) if (dist(at(x, y), at(x, y + 1)) > 60) n++;
-      per.push([y, n]);
+      let n = 0, run = 0, longest = 0;
+      const xs = [];
+      for (let x = e; x < Math.min(W, e + BAND); x++) {
+        if (dist(at(x, y), at(x, y + 1)) > JUMP) { n++; longest = Math.max(longest, ++run); xs.push(x - e); } else run = 0;
+      }
+      per.push([y, n, longest, e, xs]);
     }
     // (rows within 10 CSS px of the top and bottom edge are left out: the frame's own edge crosses the band there, a
     // horizontal step that is not the seam)
     // (the worst 20 rows in a row: the teeth of a sawtooth stand where the torn triangles are, not along the whole seam)
     let worst = 0, worstY = -1;
-    for (let i = 0; i + 20 <= per.length; i++) { let s = 0; for (let j = i; j < i + 20; j++) s += per[j][1]; if (s / 20 > worst) { worst = s / 20; worstY = per[i][0]; } }
+    for (let i = 0; i + WORST <= per.length; i++) { let s = 0; for (let j = i; j < i + WORST; j++) s += per[j][1]; if (s / WORST > worst) { worst = s / WORST; worstY = per[i][0]; } }
+    // (a seam along the rows crosses its row along the whole band, however straight, so there the same count is made
+    // along the seam: per column, the jumps between horizontally adjacent pixels in the band across the seam, and the
+    // worst columns' mean)
+    let mode = 'rows', perCol = null, span = 0;
+    const hr = per.filter((q) => q[0] >= worstY && q[0] < worstY + WORST && q[2] >= LONG_RUN).sort((a, b) => b[1] - a[1])[0];
+    if (hr) {
+      const yw = hr[0], x0 = hr[3], jumps = (x, y) => dist(at(x, y), at(x, y + 1)) > JUMP;
+      let x1 = x0;
+      while (x1 < W - 1 && [-2, -1, 0, 1, 2].some((k) => jumps(x1, yw + k))) x1++;
+      span = x1 - x0;
+      if (span >= LONG_RUN) {
+        const cnt = [];
+        for (let x = x0; x < x1; x++) { let n = 0; for (let y = yw - BAND / 2; y < yw + BAND / 2; y++) if (dist(at(x, y), at(x + 1, y)) > JUMP) n++; cnt.push(n); }
+        let w = 0;
+        for (let i = 0; i + WORST <= cnt.length; i++) { let t = 0; for (let j = i; j < i + WORST; j++) t += cnt[j]; w = Math.max(w, t / WORST); }
+        mode = 'columns'; perCol = +w.toFixed(2);
+      }
+    }
+    // (for the log: the rows of the worst window and the 20 rows with the most jumps as [y, jumps, longest run, left edge x,
+    // the jumps' x offsets from the edge], and how many rows hold each jump count)
+    const hist = {};
+    for (const q of per) hist[q[1]] = (hist[q[1]] || 0) + 1;
+    const rowsDump = { window: per.filter((q) => q[0] >= worstY && q[0] < worstY + WORST), top: per.slice().sort((a, b) => b[1] - a[1]).slice(0, WORST), hist };
     const g = __cmwSteps().glide || {};
-    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: +worst.toFixed(2), worstY, W, H };
+    return { label: __cmwSteps().label, path: g.path, reason: g.reason, rows: per.length, perRow: mode === 'columns' ? perCol : +worst.toFixed(2), mode, rowsPerRow: +worst.toFixed(2), span, worstY, W, H, rowsDump };
   })()`;
-  const teeth = () => ev(TEETH);
-  info.teeth = await teeth();
+  let keepSettled = null;
+  // (the rows behind a reading go to info.teethRows[key], not into the check's own record)
+  info.teethRows = {};
+  const teeth = async (key) => { const t = await ev(TEETH); if (key) info.teethRows[key] = t.rowsDump; delete t.rowsDump; return t; };
+  info.teeth = await teeth('parked');
+  keepSettled = await ev(`document.getElementById('canvasL').toDataURL('image/png')`);
   // (the same frame without the cut fill: what the seam looks like where no torn triangle is drawn; for reference)
   await ev('GLR.carryProbes({ noFill: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('without the fill: the frame is drawn', await drawn(), null);
-  info.teethNoFill = await teeth();
+  info.teethNoFill = await teeth('noFill');
   // (and with the fill drawn without its mask: the sawtooth; for reference)
   await ev('GLR.carryProbes({ noMask: true }); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('without the mask: the frame is drawn', await drawn(), null);
-  info.teethNoMask = await teeth();
+  info.teethNoMask = await teeth('noMask');
   await ev('GLR.carryProbes({}); __cmwHideStrokes(true); 1'); await settled({ max: 20000 });
   ok('teeth: the colour has a left edge in most rows', info.teeth.rows > info.teeth.H * 0.8, info.teeth);
   ok('teeth: exp then log, parked between w1 and w2: the seam along the cut is smooth (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', info.teeth.perRow != null && info.teeth.perRow <= 1.5, info.teeth);
   // (the first frames after a chain change: a step put first, the same seam now between w2 and w3, parked there at
   // once. The window is what is checked: every animation frame of the 2 s after the park, on the page's clock, while
-  // the new chain's programs link; a frame with no colour edge yet has no rows and does not count)
+  // the new chain's programs link; a frame with no colour edge yet has no rows and does not count. The colour layer
+  // alone is read (bare): a frame held on plane w2 at rest while the inverse pass's program links (svLinkHold) has the
+  // cut's dashed handle along the very rows the scan reads, each dash a jump)
   await ev(`__cmwAddStep('mul', { c: '1' }, 0), 1`);
   await settled({ max: 20000, panes: false, until: '__cmwSteps().planes.length === 4' });
-  await ev(`__cmwSteps({ T: 0 }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
+  await ev(`__cmwSteps({ T: 0, bare: true }); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', park: 2.5 });
     window.__seamsAfter = []; window.__seamsDone = false;
-    { const t0 = performance.now(), tick = () => { window.__seamsAfter.push(${TEETH});
+    window.__seamsWorst = null;
+    { const t0 = performance.now(), tick = () => { const t = ${TEETH}; delete t.rowsDump; window.__seamsAfter.push(t);
+        if (t.perRow != null && (!window.__seamsWorst || t.perRow > window.__seamsWorst.perRow)) window.__seamsWorst = { perRow: t.perRow, url: document.getElementById('canvasL').toDataURL('image/png') };
         if (performance.now() - t0 < 2000) requestAnimationFrame(tick); else window.__seamsDone = true; };
       requestAnimationFrame(tick); } 1`);
   await settled({ max: 30000, panes: false, until: 'window.__seamsDone === true' });
+  await ev(`__cmwSteps({ bare: false }); 1`);
   const after = (await ev('__seamsAfter.map((t) => ({ label: t.label, rows: t.rows, perRow: t.perRow }))')).filter((t) => t.rows > 0);
   info.afterChange = { frames: after.length, perRow: after.map((t) => t.perRow) };
   ok('teeth: frames were drawn in the 2 s after a chain change', after.length > 0, info.afterChange);
+  // (the frames the numbers come from, kept as shots/steps_seams-*.png for a look: the settled seam and the worst frame of the window)
+  const keep = (name, url) => { if (!url) return; fs.mkdirSync(DIR + '/shots', { recursive: true }); fs.writeFileSync(`${DIR}/shots/${name}.png`, Buffer.from(url.split(',')[1], 'base64')); };
+  keep('steps_seams-parked-w1w2', keepSettled);
+  keep('steps_seams-window-worst', await ev('window.__seamsWorst && window.__seamsWorst.url'));
   const worst = after.reduce((w, t) => (t.perRow > w.perRow ? t : w), { perRow: 0 });
   ok('teeth: in the 2 s after a chain change, no frame shows a sawtooth along the seam (at most 1.5 colour jumps per row next to it, in its worst 20 rows)', worst.perRow <= 1.5, worst);
   // (and once settled, the seam is drawn: the colour reaches it in most rows)
-  await settled({ max: 30000 }); await ev('__cmwHideStrokes(true), 1'); await settled({ max: 20000 });
+  await settled({ max: 30000 }); await ev('__cmwHideStrokes(true); __cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
   ok('after the chain change: the frame is drawn', await drawn(), null);
-  info.afterSettled = await teeth();
+  info.afterSettled = await teeth('afterSettled');
+  await ev(`__cmwSteps({ bare: false }); 1`);
   ok('after the chain change: the colour has a left edge in most rows, and the seam is smooth', info.afterSettled.rows > info.afterSettled.H * 0.8 && info.afterSettled.perRow <= 1.5, info.afterSettled);
+  // (parked on w2 itself, the colour layer alone (the cut's handle is drawn along the seam): the log's cut is the
+  // negative real axis there, a horizontal seam, its place in each column the row where the colour passes from the sheet
+  // above to the sheet below. The inverse pass orders the two sheets by their keys, so that place is the same row in
+  // every column, to a pixel; a staircase of teeth is a place that wanders)
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', park: 2, bare: true }); 1`); await settled({ max: 30000 });
+  info.atW2 = await ev(`(() => {
+    // (columns from 5 % of the width to 20 CSS px short of the origin; the two sheets are read 10 CSS px above and below the cut)
+    const COL0 = 0.05, ORIGIN_GAP = 20, SHEET_GAP = 10;
+    const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
+    const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), ox = (o[0] - r.left) * k, yc = Math.round((o[1] - r.top) * k), m = Math.round(SHEET_GAP * k);
+    const at = (x, y) => (y * W + x) * 4, dist = (i, j) => Math.hypot(d[i] - d[j], d[i + 1] - d[j + 1], d[i + 2] - d[j + 2]);
+    const ys = [];
+    for (let x = Math.round(COL0 * W); x < ox - ORIGIN_GAP * k; x++) {
+      const a = at(x, yc - m), b = at(x, yc + m);
+      if (dist(a, b) < 60) continue;
+      let y = yc - m;
+      while (y < yc + m && dist(at(x, y), a) <= dist(at(x, y), b)) y++;
+      ys.push(y);
+    }
+    return { cols: ys.length, spread: ys.length ? Math.max(...ys) - Math.min(...ys) : null, yc, k, label: __cmwSteps().label };
+  })()`);
+  await ev(`__cmwSteps({ bare: false }); 1`);
+  ok('parked on w2: the seam along the cut is on one row in every column, to a pixel (no teeth)', info.atW2.cols > 100 && info.atW2.spread <= Math.ceil(info.atW2.k), info.atW2);
 }
 
-// cracks: Square root and its sheets
+// cracks: z^n then its n-th root
 {
-  const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+  // (each case: z^n then its n-th root, cut 180, coloured from z, Everywhere, parked half-way between z and w1. The z plane
+  // covers the picture there more than once, so the root's cut, carried into the picture (its preimage under z^n, moved
+  // half-way), runs through the fill with a sheet on each side of it)
+  const CRACK_CASES = [{ name: 'Square root', n: 2 }, { name: 'Cube root', n: 3 }];
+  // The cut's image is sampled every STEP device px from ORIGIN device px out from 0, and each sample's pixels within
+  // HALF px across it are read; a pixel is a crack when its saturation (max - min channel) is under CRACK_SAT while the
+  // pixels FLANK px to both sides of it, across the cut's image, are over FLANK_SAT. The fill lies on both sides of a
+  // sample when the pixels HALF + FLANK px to both sides of it are over FLANK_SAT: TWO_SIDED of the samples at least, so
+  // that the rule reads a gap between two sheets, never the edge of the fill. The control, a line of PAPER one device
+  // pixel wide drawn along the cut's image, is counted at CAUGHT of the samples at least
+  const STEP = 0.5, ORIGIN = 30, HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500, TWO_SIDED = 0.95, CAUGHT = 0.9;
+  const PAPER = [236, 240, 242, 255];
+  // (the scan of the frame along the cut's image, window.__seamsCut's tracks of plane points; paper: draw the control first)
+  const SCAN = (paper) => `(() => {
+    const STEP = ${STEP}, ORIGIN = ${ORIGIN}, HALF = ${HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT}, PAPER = ${JSON.stringify(paper)};
+    const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height, g = c.getContext('2d');
+    const dev = (w) => { const p = __cmwW2S('L', w[0], w[1]); return [(p[0] - r.left) * k, (p[1] - r.top) * k]; };
+    const o = dev([0, 0]), edge = HALF + FLANK + 1;
+    // ([point, unit normal] along each track, in the canvas and ORIGIN px or more from 0)
+    const samples = [];
+    for (const t of window.__seamsCut) {
+      const P = t.map(dev);
+      for (let i = 0; i + 1 < P.length; i++) {
+        const a = P[i], b = P[i + 1], len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+        if (!(len > 0)) continue;
+        const n = [(a[1] - b[1]) / len, (b[0] - a[0]) / len];
+        for (let s = 0; s < len; s += STEP) {
+          const p = [a[0] + (b[0] - a[0]) * s / len, a[1] + (b[1] - a[1]) * s / len];
+          if (p[0] >= edge && p[1] >= edge && p[0] < W - edge && p[1] < H - edge && Math.hypot(p[0] - o[0], p[1] - o[1]) >= ORIGIN) samples.push([p, n]);
+        }
+      }
+    }
+    if (PAPER) { const im = g.createImageData(1, 1); im.data.set(PAPER); for (const [p] of samples) g.putImageData(im, Math.round(p[0]), Math.round(p[1])); }
+    const d = g.getImageData(0, 0, W, H).data;
+    const sat = (x, y) => { const i = (Math.round(y) * W + Math.round(x)) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
+    const at = (p, n, t) => [p[0] + t * n[0], p[1] + t * n[1]];
+    let twoSided = 0, cracks = 0, first = null;
+    for (const [p, n] of samples) {
+      if (sat(...at(p, n, -HALF - FLANK)) > FLANK_SAT && sat(...at(p, n, HALF + FLANK)) > FLANK_SAT) twoSided++;
+      for (let t = -HALF; t <= HALF; t++) {
+        const q = at(p, n, t);
+        if (sat(...q) < CRACK_SAT && sat(...at(q, n, -FLANK)) > FLANK_SAT && sat(...at(q, n, FLANK)) > FLANK_SAT) { cracks++; if (!first) first = q.map(Math.round); break; }
+      }
+    }
+    return { label: __cmwSteps().label, samples: samples.length, twoSided, cracks, first };
+  })()`;
+  for (const kase of CRACK_CASES) {
+    const ns = 'seamc' + kase.n + Date.now();
+    await seed(ns, { steps: [{ id: 'f1', type: 'pown', params: { n: kase.n } }, { id: 'f2', type: 'root', params: { n: kase.n, cut: 180, k: 0 } }], shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.6, ci: 1, visible: true }], focus: 2 });
+    await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+    await ready();
+    await ev('__cmwSteps({ T: 0 }); 1'); await settled({ max: 20000 });
+    await park(0.5, 'all');
+    // (the cut's image as the strokes draw it, read with them shown)
+    await ev('__cmwHideStrokes(false), 1'); await settled({ max: 20000 }); await drawn();
+    const tracks = await ev(`(window.__seamsCut = __cmwCutCurves().filter((cut) => cut.step === 2).flatMap((cut) => (cut.w.length && Array.isArray(cut.w[0][0]) ? cut.w : [cut.w])).filter((t) => t.length > 1)).length`);
+    ok(`cracks: ${kase.name}: the cut's image is drawn`, tracks > 0, tracks);
+    // (the colour layer alone is read: a crack is a gap in the fill, and the cut's curve with its paper-coloured halo is
+    // drawn over the fill, strokes hidden or not)
+    await ev('__cmwHideStrokes(true); __cmwSteps({ bare: true }); 1'); await settled({ max: 20000 });
+    ok(`cracks: ${kase.name}: the colour layer alone is drawn`, await drawn(), null);
+    const got = info['cracks' + kase.n] = await ev(SCAN(null));
+    ok(`cracks: ${kase.name}, parked half-way: the cut's image was sampled`, got.samples > MIN_SAMPLES, got);
+    ok(`cracks: ${kase.name}, parked half-way: the fill lies on both sides of the cut's image`, got.twoSided >= TWO_SIDED * got.samples, got);
+    ok(`cracks: ${kase.name}, parked half-way: no uncovered pixel along the cut's image`, got.cracks === 0, got);
+    // the control: the same scan counts a crack drawn along the cut's image
+    const control = info['cracksControl' + kase.n] = await ev(SCAN(PAPER));
+    ok(`cracks (control): ${kase.name}: a one-pixel line of paper along the cut's image is counted`, control.cracks >= CAUGHT * control.samples && control.samples > MIN_SAMPLES, control);
+    await ev('__cmwSteps({ bare: false }); 1');
+  }
+}
+// cut curves: Square root and its sheets, strokes hidden
+{
+  // (BANK_PX: how far a sample of the frame's bank may lie from the parked bank's polyline, for samples within FAR_PX px of
+  // the pane's origin: the bank's far end runs tens of thousands of px out, where a quarter of the samples differ by their
+  // own spacing; END_EPS: how far a step the frame is from its plane; CUT_BANKS: the two banks of a ray cut, the solid one
+  // and the dashed one, what the frame draws of Square root's cut)
+  const BANK_PX = 2, FAR_PX = 3000, END_EPS = 1e-4, CUT_BANKS = 2;
+  const names = exampleNames();
   const ex = names.indexOf('Square root and its sheets');
-  ok('cracks: the example is found', ex >= 0, names.length);
+  ok('cut curves: the example is found', ex >= 0, names.length);
   if (ex >= 0) {
-    await go(`http://localhost:${PORT}/test.html?view=steps&ns=seamsq${Date.now()}`);
+    await go(`http://localhost:${PORT}/test.html?view=steps&ns=seamcut${Date.now()}`);
     await ready();
     await ev(`__cmwExample(${ex}); 1`); await settled({ max: 20000 });
-    await park(0.5, 'all');
-    // The ray is scanned from RAY_START px out to RAY_END of the smaller canvas side, over +-RAY_HALF px across it; a pixel is a crack when its
-    // own saturation is under CRACK_SAT while the pixels FLANK px to both sides of the ray are above FLANK_SAT.
-    const RAY_START = 30, RAY_END = 0.45, RAY_HALF = 4, FLANK = 3, CRACK_SAT = 20, FLANK_SAT = 40, MIN_SAMPLES = 500;
-    info.cracks = await ev(`(() => {
-      const RAY_START = ${RAY_START}, RAY_END = ${RAY_END}, RAY_HALF = ${RAY_HALF}, FLANK = ${FLANK}, CRACK_SAT = ${CRACK_SAT}, FLANK_SAT = ${FLANK_SAT};
-      const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, W = c.width, H = c.height;
-      const d = c.getContext('2d').getImageData(0, 0, W, H).data, o = __cmwW2S('L', 0, 0), O = [(o[0] - r.left) * k, (o[1] - r.top) * k];
-      const sat = (x, y) => { x = Math.round(x); y = Math.round(y); if (x < 0 || y < 0 || x >= W || y >= H) return -1; const i = (y * W + x) * 4; return Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]); };
-      const out = {};
-      for (const a0 of [135, 225]) {
-        const A = a0 * Math.PI / 180, u = [Math.cos(A), -Math.sin(A)], n = [-u[1], u[0]];
-        let samples = 0, cracks = 0, first = null;
-        for (let rr = RAY_START; rr < Math.min(W, H) * RAY_END; rr++) for (let t = -RAY_HALF; t <= RAY_HALF; t++) {
-          const p = [O[0] + rr * u[0] + t * n[0], O[1] + rr * u[1] + t * n[1]], s = sat(...p);
-          if (s < 0) continue;
-          samples++;
-          if (s < CRACK_SAT && sat(p[0] - FLANK * n[0], p[1] - FLANK * n[1]) > FLANK_SAT && sat(p[0] + FLANK * n[0], p[1] + FLANK * n[1]) > FLANK_SAT) { cracks++; if (!first) first = [Math.round(p[0]), Math.round(p[1])]; }
-        }
-        out[a0] = { samples, cracks, first };
-      }
-      const g = __cmwSteps().glide || {};
-      return { label: __cmwSteps().label, path: g.path, reason: g.reason, O: O.map(Math.round), out };
-    })()`);
-    for (const a0 of ['135', '225']) {
-      const q = info.cracks.out[a0];
-      ok(`cracks: Square root, parked half-way, the ray at ${a0}° was sampled`, q.samples > MIN_SAMPLES, q);
-      ok(`cracks: Square root, parked half-way: no uncovered pixel along the cut's image at ${a0}°`, q.cracks === 0, q);
-    }
+    // The cut curves of the frame END_EPS of a step short of plane 1, strokes hidden, are the parked plane 1's (strokes
+    // hidden): the same count, the same solid and dashed banks, and every sample of a bank within BANK_PX px of the parked
+    // bank's polyline (the frame samples a quarter as many points). The controls, each a frame that must fail the same
+    // comparison: the plane 0 parked (a plane that draws its cut as a ray and keeps no banks: a frame with the cut
+    // dropped), and the frame's own banks with one removed.
+    const cutsOf = async () => await evJson('JSON.stringify(__cmwCutCurves().map((c) => ({ step: c.step, solid: c.solid, s: c.s.filter(Boolean) })))');
+    const segDist = (p, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0; return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy); };
+    const polyDist = (p, poly) => { let m = Infinity; for (let i = 1; i < poly.length; i++) m = Math.min(m, segDist(p, poly[i - 1], poly[i])); return m; };
+    // (both ways: every frame sample lies within BANK_PX of the reference polyline, and every reference sample within
+    // FAR_PX of the origin lies within BANK_PX of the frame's polyline, so a bank that stops short or a half-drawn one
+    // fails the second)
+    const near = (a, b) => a.every((p) => Math.abs(p[0]) > FAR_PX || Math.abs(p[1]) > FAR_PX || polyDist(p, b) <= BANK_PX);
+    const sameCuts = (frame, ref) => frame.length === ref.length && frame.every((c, i) => c.step === ref[i].step && c.solid === ref[i].solid && c.s.length > 1 && ref[i].s.length > 1 && near(c.s, ref[i].s) && near(ref[i].s, c.s));
+    // (the strokes are hidden at the frames compared: the page's own state is read back, after the frame has settled)
+    const hidden = async () => { await settled({ max: 20000 }); return (await ev('__cmwHideStrokesGet()')) === true; };
+    await park(1, 'all'); ok('cut curves: the strokes are hidden at the parked plane 1', await hidden(), null); const parked1 = await cutsOf();
+    await ev(`__cmwSteps({ x: ${1 - END_EPS} }); 1`); await settled({ max: 20000 }); ok('cut curves: the frame next to plane 1 is drawn', await drawn(), null);
+    ok('cut curves: the strokes are hidden at the frame next to plane 1', await hidden(), null);
+    const nearEnd = await cutsOf();
+    await park(0, 'all'); const parked0 = await cutsOf();
+    info.cutCurves = { parked1: parked1.length, nearEnd: nearEnd.length, parked0: parked0.length };
+    ok('cut curves: the parked plane 1 draws the cut\'s two banks', parked1.length === CUT_BANKS, info.cutCurves);
+    ok(`cut curves: the frame ${END_EPS} short of plane 1, strokes hidden, draws the parked plane 1's cut curves (the same count and banks, within ${BANK_PX} px)`, sameCuts(nearEnd, parked1), info.cutCurves);
+    ok('cut curves: the control: a frame that drops the cut (the plane 0 parked, which keeps no banks) is not the parked plane 1\'s', !sameCuts(parked0, parked1), info.cutCurves);
+    ok('cut curves: the control: the frame with one of its banks dropped is not the parked plane 1\'s', !sameCuts(nearEnd.slice(1), parked1), { kept: nearEnd.length - 1 });
+    // the reverse controls: a frame whose banks are cut to their first half passes the frame-to-reference direction alone
+    // and fails the two-way comparison
+    const half = nearEnd.map((c) => ({ ...c, s: c.s.slice(0, Math.max(2, c.s.length >> 1)) }));
+    ok('cut curves: the control: banks cut to their first half still lie on the parked ones (one way)', half.every((c, i) => near(c.s, parked1[i].s)), null);
+    ok('cut curves: the control: banks cut to their first half are not the parked plane 1\'s (the reverse check)', !sameCuts(half, parked1), null);
+    // the strokes control: with the strokes shown, the same read reports them shown
+    await ev('__cmwHideStrokes(false); 1');
+    ok('cut curves: the control: with the strokes shown the hidden check fails', !(await hidden()), null);
   }
 }
 return { pass: fails.length === 0, fails, info };

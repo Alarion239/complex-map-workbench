@@ -6,6 +6,8 @@
 // - the surface is one button, named "Surface: …", that opens a menu of the three, the shown one checked; a pick
 //   changes the surface;
 // - on a phone the head's controls are in the header and the surface button is the same one;
+// - (#1596) on a phone at 360 px, in en, ru and it, each segment of the scope switch keeps the segmented control's 10 px of padding
+//   each side of its label;
 // - (#364) switching through every Phase style leaves the style buttons where they are, classic and steps view, desk and
 //   phone, en/ru/it.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -21,7 +23,10 @@ const open = async (w, h, mobile, lang) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` });
+  // (the steps view's head built and its chain on: a slow start takes longer than any fixed wait)
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('svHead') && !!document.querySelector('#paneL .pane-head')" });
+  await settle(500);
 };
 // the head's items, as laid out: each shown item's box, whether it is on the bar's row, cut or overlapping the next
 const LAYOUT = `(() => {
@@ -79,16 +84,24 @@ ok('on a phone the header holds the same surface button, 40 px or more, with its
 // (phone on #473) at 360 px (and 390 in ru) the surface button stays clear of the header's ⋯: a tap on its right edge and
 // on its middle lands on it; short of room it is its icon and ▾, still named "Surface: …"
 // (eyes on #473: on every plane, w₁'s and w₂'s names are wider than z's)
-for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2]]) {
+// (#1596) the scope switch's segments keep the segmented control's inner padding (0 10px, notes/DESIGN_SPEC.md) at 360 px, and at
+// 320 px in en, ru and it on every plane (where the head is at its tightest), on every plane: the space between a label and its segment's edge, each side; a head that has folded the switch to a menu button
+// shows none to measure
+const SEG_PAD = 10, LAST_PAD = 5, scopePad = [];   // (LAST_PAD: what the scope keeps in the head's last fold, sv-c5, where the bar would otherwise scroll)
+for (const [w, lang, go] of [[360, 'en', 0], [360, 'ru', 0], [390, 'ru', 0], [360, 'en', 1], [360, 'ru', 1], [360, 'it', 1], [360, 'it', 2], [360, 'it', 0], [360, 'en', 2], [360, 'ru', 2], [320, 'en', 0], [320, 'en', 1], [320, 'en', 2], [320, 'ru', 0], [320, 'ru', 1], [320, 'ru', 2], [320, 'it', 0], [320, 'it', 1], [320, 'it', 2]]) {
   await open(w, 800, true, lang);
   for (let i = 0; i < 60 && !(await ev(`!!document.querySelector('#svHead .sv-surf1')`)); i++) await sleep(100);
   await ev(`__cmwSteps({ go: ${go}, now: true }); 1`);
   await settle(800);
   const t = await ev(`(() => { const s = document.querySelector('#svHead .sv-surf1'), m = document.getElementById('hdrMoreBtn'), r = s.getBoundingClientRect(), mr = m.getBoundingClientRect();
     const at = (x, y) => { const e = document.elementFromPoint(x, y); return !!e && !!e.closest('.sv-surf1'); };
-    return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height) }; })()`);
+    const pad = [...document.querySelectorAll('#svHead .sv-scope > button')].filter((b) => b.getClientRects().length).map((b) => { const g = document.createRange(); g.selectNodeContents(b); const tr = g.getBoundingClientRect(), br = b.getBoundingClientRect(); return { text: ([...b.children].find((c) => c.getClientRects().length) || b).textContent.trim(), left: Math.round((tr.left - br.left) * 10) / 10, right: Math.round((br.right - tr.right) * 10) / 10 }; });
+    const bar = document.getElementById('svHead');
+    return { right: at(r.right - 3, r.top + r.height / 2), mid: at(r.left + r.width / 2, r.top + r.height / 2), gap: Math.round(mr.left - r.right), name: s.getAttribute('aria-label'), h: Math.round(r.height), pad, scrolls: bar.scrollWidth > bar.clientWidth + 1, c4: bar.classList.contains('sv-c4'), c5: bar.classList.contains('sv-c5') }; })()`);
+  if (w <= 360) { scopePad.push(...t.pad); ok(`phone ${w} ${lang} plane ${go}: the header does not scroll sideways`, t.scrolls === false, t); ok(`phone ${w} ${lang} plane ${go}${t.c5 ? ' (sv-c5, the last fold)' : ''}: each scope segment's label keeps ${t.c5 ? LAST_PAD : SEG_PAD} px of padding on both sides`, t.pad.every((x) => x.left >= (t.c5 ? LAST_PAD : SEG_PAD) - 0.5 && x.right >= (t.c5 ? LAST_PAD : SEG_PAD) - 0.5), t.pad); }
   ok(`phone ${w} ${lang} plane ${go}: the surface button is the hit target at its right edge and middle, clear of ⋯, named`, t.right && t.mid && t.gap >= 0 && /: /.test(t.name || '') && t.h >= 40, t);
 }
+ok('the scope switch showed (not folded to its menu button) on a phone in at least one language and plane', scopePad.length >= 2, scopePad);
 // (#364) a style's extra options never shift the style row: switching through every style leaves the style buttons'
 // rects unchanged, in the classic Phase head and in the steps view's head (1024, 1440), and in a phone's Display sheet
 // (390), in en, ru and it
@@ -103,6 +116,8 @@ for (const lang of ['en', 'ru', 'it']) {
       await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}s${lang}${w}${steps ? 1 : 0}&lang=${lang}${steps ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
       if (!steps) { await ev(`__cmwSetMain('phase'), 1`); await settle(800); }
       if (mobile) { await ev(`Phone.open('display'), 1`); await settle(1000); }
+      // (the style row is built after the page's first layout, later on a loaded runner than the fixed wait above: wait for it, at most 15 s)
+      await settled({ only: true, max: 15000, until: `(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); return !!g && g.querySelectorAll('button, [role=radio]').length >= 3; })()` });
       const n = await ev(`(() => { const g = [...document.querySelectorAll('#dcSeg')].find((e) => e.getClientRects().length); return g ? g.querySelectorAll('button, [role=radio]').length : 0; })()`);
       const seen = [];
       for (let i = 0; i < n; i++) {
@@ -123,8 +138,8 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
   const LAND = Object.assign({}, st, { shapes: [], height: 'im', sheets: true,
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(W, H, false, false);
-  // (waits on a condition, counter-bounded: the state the next step reads, polled every 100 ms)
-  const until = async (expr, n = 150) => { for (let i = 0; i < n; i++) { if (await ev(expr)) return true; await sleep(100); } return false; };
+  // (waits on a condition: the state the next step reads, polled every 100 ms for up to 15 s)
+  const until = async (expr) => (await settled({ until: expr, max: 15000, only: true, poll: 100 })).ok;
   await seed(`${ns}land${lang}${W}`, LAND);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
   await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
@@ -150,18 +165,47 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
   if (W === 1460) okl('Landscape, All sheets: the scope is a menu button and the Height key is unfolded again, the bar fitting beside it', fold.sm && !fold.keyFolded && title.hh < 48, fold);
   okl('the fold order: the Height key is a glyph while the scope is a menu button, unless the bar fits beside the unfolded key (one row)', !fold.sm || fold.keyFolded || fold.glyph || title.hh < 48, fold);
   okl('the fold order: the role goes last (sv-c2 only with sv-c1 and sv-sm)', !fold.c2 || (fold.c1 && fold.sm && fold.si), fold);
-  okl('the folded scope is one menu button, haspopup=menu, named "Scope: Everywhere", its words "Everywhere"',
-    fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Scope: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
+  okl('the folded scope is one menu button, haspopup=menu, named "Where colour shows: Everywhere", its words "Everywhere"',
+    fold.sm ? fold.menuShown && !fold.segShown && fold.popup === 'menu' && (lang !== 'en' || (fold.name === 'Where colour shows: Everywhere' && fold.text === 'Everywhere')) : !fold.menuShown && fold.segShown, fold);
   if (lang === 'en' && fold.sm) {
     await ev(`document.querySelector('.sv-scope-menu').click(); 1`);
     await until(`!!document.querySelector('.pop.menu [role=menuitemradio]')`);
     const sm = await ev(`(() => { const m = document.querySelector('.pop.menu'); return m && { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
-    okl('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Scope' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
+    okl('the scope button opens a menu of the two, Everywhere checked', sm && sm.label === 'Where colour shows' && sm.items.join() === 'Everywhere:true,Inside regions:false', sm);
     await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Inside/.test(b.textContent)).click(); 1`);
     await until(`__cmwSteps().scope === 'in' && /Inside/.test(document.querySelector('.sv-scope-menu').textContent)`);
     const after = await ev(`(() => { const m = document.querySelector('.sv-scope-menu'); return { scope: __cmwSteps().scope, name: m.getAttribute('aria-label'), text: m.textContent.trim() }; })()`);
-    okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Scope: Inside regions' && after.text === 'Inside', after);
+    okl('a pick changes the scope, and the button names it', after.scope === 'in' && after.name === 'Where colour shows: Inside regions' && after.text === 'Inside', after);
   }
+}
+const SV_ELL = 12, SV_MORE = 40;   // (the ellipsis' room, and the room a cut role has beyond its first word: svFitHead's SV_ROLE_ELL and SV_ROLE_MORE)
+// the Landscape carried past the colour plane, ln|w₁| on w₂: the title's role is long ("landscape of ln|w₁|, carried from w₁")
+// and the head gives it the room that is left, not a first word with the room left empty
+for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 800]]) {
+  await view(W, H, false, false);
+  const CARRY = Object.assign({}, st, { shapes: [], height: 'log', steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] });
+  await seed(`${ns}carry${lang}`, CARRY);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}carry${lang}&lang=${lang}&view=steps` });
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'" });
+  await ev(`__cmwSteps({ T: 1, surf: 'land', go: 2, now: true }); 1`);
+  await settled({ max: 60000, until: "__cmwSteps().i === 2 && __cmwSteps().surf === 'land' && !__cmwSteps().moving" });
+  await settled({ max: 60000 });
+  const C = await ev(`(() => { const b = document.getElementById('svHead'), t = b.querySelector('.sv-title'), role = t.querySelector('.sv-role'), head = document.querySelector('#paneL .pane-head'), hr = head.getBoundingClientRect();
+    const kids = [...b.children, ...[...head.children].filter((c) => c !== b)].filter((c) => c.getClientRects().length && c.getBoundingClientRect().width > 0.5);
+    const sp = [...head.children].find((c) => c.classList.contains('grow')), wordW = (text) => { const r = document.createElement('span'); r.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:400 13px ' + getComputedStyle(role).fontFamily; r.textContent = text; document.body.appendChild(r); const w = r.getBoundingClientRect().width; r.remove(); return Math.round(w); };
+    const words = role.textContent.trim().split(' '), re = b.classList.contains('sv-re'), rs = b.classList.contains('sv-rs'), shown = re ? [...role.children].filter((w) => !w.classList.contains('sv-wx')).length : rs ? 1 : words.length;
+    return { hh: Math.round(hr.height), empty: sp ? Math.round(sp.getBoundingClientRect().width) : -1, has: { title: !!t.getClientRects().length, cp: !!b.querySelector('.sv-cp').getClientRects().length, surf: !!b.querySelector('.sv-surf1').getClientRects().length, styles: !!document.getElementById('dcSeg') && document.getElementById('dcSeg').getClientRects().length > 0 },
+      cut: role.classList.contains('sv-cut') && getComputedStyle(role, '::after').content.replace(/"/g, '') === '…' && role.scrollWidth <= role.clientWidth + 1, tip: t.getAttribute('data-tip'), firstW: wordW(words[0]), nextW: shown < words.length ? wordW(words[shown]) : 0, bar: b.className, full: t.textContent, shown: t.innerText, roleW: Math.round(role.getBoundingClientRect().width), tnote: !!document.querySelector('#svTnote') && !document.querySelector('#svTnote').hidden,
+      hw: Math.round(head.clientWidth), kids: kids.map((c) => (c.id || String(c.className).slice(0, 14)) + ':' + Math.round(c.getBoundingClientRect().left - hr.left) + '+' + Math.round(c.getBoundingClientRect().width)), T: __cmwSteps().T, surf: __cmwSteps().surf, stage: __cmwSteps().stage }; })()`);
+  info[`carry${lang}`] = C;
+  const n = `${lang} ${W} carried Landscape`;
+  const cut = /\bsv-(re|rs)\b/.test(C.bar);
+  ok(`${n}: the head is one row, the title, the colour plane and the surface all show`, C.hh <= 44 && C.has.title && C.has.cp && C.has.surf, C);
+  // (the scenario: at 1280 px the carried title does not fit whole, and the fold lands on the cut role: a leg that the fold never reaches would pass empty)
+  ok(`${n}: the role is shown cut to the room (sv-re), not dropped (sv-c2) or left whole over the head`, /\bsv-re\b/.test(C.bar) && !/\bsv-c2\b/.test(C.bar) && C.roleW > 0, C);
+  ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !cut || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
+  ok(`${n}: a role cut to the room is its whole words and an ellipsis (no word cut), and the title's tip has the whole title`, !/\bsv-re\b/.test(C.bar) || (C.cut && C.tip === C.full), C);
+  ok(`${n}: the role shows more than its first word when it is cut by the room`, !/\bsv-re\b/.test(C.bar) || C.roleW >= C.firstW + SV_MORE, C);
 }
 info.runs = runs.map((r) => `${r.n}: ${r.hh} px, ${r.bar.replace('sv-head', '').trim() || 'whole'}`);
 info.checks = 'steps view head: one row at 1024/1280/1440 in en/ru/it on every plane, the surface menu, the phone';

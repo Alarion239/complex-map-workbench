@@ -1,16 +1,15 @@
-// Acceptance checks: the degenerate Möbius note, a Cyrillic letter in a number's
-// value field, the language switch keeps a selection other than the plane shown, the F
-// list's fractions in display style. The first, fourth and sixth checks are in v15_desktop_cmd.js, the tenth in
-// tour_cmd.js. Run: test/<you>_cdp/q.sh test/v151_cmd.js
-// Probe: the t labels while playing, the degenerate Möbius note, Cyrillic in a value
-// field, the language switch with another plane shown, the F list's fractions.
+// v15.1 acceptance (review-v15-verify): verify-3 (the degenerate Möbius note), verify-7 (a Cyrillic letter in a number's
+// value field), verify-8 (the language switch keeps a selection other than the plane shown), verify-9 (the F
+// list's fractions in display style). Run: test/<you>_cdp/q.sh test/v151_cmd.js
+// v15.1 probe: verify-1 (t labels while playing), verify-3 (degenerate Möbius note), verify-7 (Cyrillic in a value
+// field), verify-8 (language switch with another plane shown), verify-9 (the F list's fractions).
 const P = { port: (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1], tag: 'v151' }, base = `http://localhost:${P.port}/test.html`, out = { port: P.port };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const open = async (ns, st, q = '') => {
   await nav(`http://localhost:${P.port}/__blank_for_storage`);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await nav(`${base}?ns=${ns}${q}`); await settle(1500);
+  await go(`${base}?ns=${ns}${q}`); await settle(1500);
 };
 const SH = [{ id: 's1', kind: 'formula', expr: '|\\Im z| < 0.8' }];
 await view(1440, 900, false);
@@ -18,10 +17,10 @@ let ns;
 // verify-3: f1 = (z + 1)/(az + 1) with a = 1 -> constant; then b = -1, a = -1, c = 1, d = 1 (constant -1, z = -1)
 ns = 'pr3' + Date.now();
 await open(ns, { shapes: SH, steps: [{ type: 'mobius', params: { a: '-1', b: '-1', c: '1', d: '1' }, on: true }], sel: 1 });
-await ev('__cmwCardsNow && 1'); await settle(600);
+await settled({ until: "!!document.querySelector('#propsPanel .insp-step[data-k=\"1\"] .isub')", max: 8000 });
 out.v3 = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] .isub'); return e ? { text: e.textContent, html: e.innerHTML } : null; })()`);
 await shot(`pr-${P.tag}-v3`, { x: 1140, y: 40, width: 300, height: 360 });
-await nav(`${base}?ns=${ns}&lang=ru`); await settle(1500);
+await nav(`${base}?ns=${ns}&lang=ru`);
 out.v3ru = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] .isub'); return e ? e.textContent : null; })()`);
 await shot(`pr-${P.tag}-v3ru`, { x: 1140, y: 40, width: 300, height: 360 });
 // verify-7: a number a; its value field gets the Cyrillic «с» (no c exists), then «а» (a: itself), then 2*«с» with c existing

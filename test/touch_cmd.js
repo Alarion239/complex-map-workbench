@@ -526,7 +526,7 @@ await section('C', async () => {
   // Russian: the tile, the chips, the rows, the reason, a caption
   await view(1440, 900, false, false);
   await load(NS + 'ru', SA);
-  await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}ru&lang=ru`);
   info.ruTile = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="touch"]'), s = b.querySelector('span'); const lh = parseFloat(getComputedStyle(s).lineHeight); return { label: s.textContent, w: s.clientWidth, sw: s.scrollWidth, h: s.getBoundingClientRect().height, lh, tip: b.dataset.tip, bw: b.getBoundingClientRect().width, bottom: s.getBoundingClientRect().bottom - b.getBoundingClientRect().bottom }; })()`);
   ok('C RU tile «Касание» fits the 52 px tile', info.ruTile.label === 'Касание' && info.ruTile.sw <= info.ruTile.w + 1 && info.ruTile.h <= 2 * info.ruTile.lh + 1 && info.ruTile.bottom <= 0 && info.ruTile.tip === 'Касающаяся окружность  J' && info.ruTile.bw <= 56, info.ruTile);
   await tool('touch');
@@ -663,7 +663,7 @@ await section('D', async () => {
   if (x) { await touch(x[0], x[1]); await settle(250); }
   ok('D phone: the chip\'s × cancels and leaves the tool', !!x && !((await CI()).draft || {}).curve1 && (await ev('__cmwCI({shapes:true}).tool')) === 'select', [x, (await CI()).draft]);
   // Russian sheet
-  await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}ph&lang=ru`);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
   await ev(`Phone.tab('construct')`); await settle(200);
@@ -699,7 +699,7 @@ await section('E', async () => {
   ok('E EN: the disc bounded by the circle through … touching … at …', /the disc bounded by the circle through .+ touching the circle .+ at /.test(en), en);
   ok('E EN: the outside of the circle through … touching … at …', /the outside of the circle through .+ touching the circle .+ at /.test(en), en);
   ok('E EN: the tangent to {c} at {a}; the tangent to {c} through {p}', /the tangent to the circle .+ at \$?z_\{0\}/.test(en) && /the tangent to the circle .+ through \$?z_\{1\}/.test(en), en);
-  await nav(`${U}?ns=${NS}e1&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}e1&lang=ru`);
   info.capRu = await cap();
   const ru = info.capRu || '';
   ok('E RU: окружность, проходящая через … и касающаяся окружности … в точке …', /окружност[ьи], проходящ(ая|ей) через .+ и[ ~]касающ(аяся|ейся) окружности .+ в[ ~]точке/.test(ru), ru);

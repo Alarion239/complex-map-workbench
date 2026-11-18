@@ -11,6 +11,41 @@ const GLChain = (() => {
   // Helper library. Public names (see the interface): cmul cdiv cinv cexp clog cpowr cpow cipow csqrtp
   // csin ccos ctan csinh ccosh ctanh casin cacos catan casinh cacosh catanh cfin carg.
   // Internal helpers are prefixed cx_ to stay out of the includer's namespace.
+  // cx_sin and cx_cos: the GPU's built-ins (TRIG_BUILTIN), or, on a renderer whose built-ins keep only Vulkan's minimum
+  // accuracy, sin and cos to float32's (TRIG_ACCURATE): SwiftShader, Chrome's software WebGL where a GPU is blocked or
+  // missing, is off by up to 2^-11 absolute (about 5e-4), enough to move the inverse renderer's leaves and to draw a
+  // region where it is not (#1739: a wedge at z^1.5's parked glide frame). useRenderer chooses one for the context,
+  // before its first program; LIB is the library with the one chosen.
+  const TRIG_BUILTIN = `float cx_sin(float x) { return abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
+float cx_cos(float x) { return abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }`;
+  // (Cody-Waite: x - q pi/2 in three parts, the first with 8 bits so that q times it is exact for |q| < 2^16, |x| up to
+  // about 1.03e5; then the degree-9 and degree-10 polynomials of sin and cos on [-pi/4, pi/4]: within 1e-7 of Math.sin
+  // and Math.cos for |x| <= 200, 1e-6 up to 1e5. Past 1e5 the reduction leaves [-pi/4, pi/4] and the polynomials grow
+  // without bound, so cx_sin and cx_cos take the built-ins there: within [-1, 1], where float32's spacing of x is
+  // already 0.008 or more)
+  const TRIG_ACCURATE = `vec2 cx_sincos(float x) {
+  float q = floor(x * 0.6366197723675814 + 0.5);
+  float r = ((x - q * 1.5703125) - q * 4.837512969970703e-4) - q * 7.549789954891882e-8;
+  float r2 = r * r;
+  float s = r + r * r2 * (-0.16666667 + r2 * (0.008333331 + r2 * (-0.00019840874 + r2 * 2.7525562e-6)));
+  float c = 1.0 + r2 * (-0.5 + r2 * (0.041666638 + r2 * (-0.0013888378 + r2 * 2.4760495e-5)));
+  float m = q - 4.0 * floor(q * 0.25);
+  return m < 0.5 ? vec2(s, c) : m < 1.5 ? vec2(c, -s) : m < 2.5 ? vec2(-s, -c) : vec2(-c, s);
+}
+float cx_sin(float x) { return abs(x) <= 1e5 ? cx_sincos(x).x : abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
+float cx_cos(float x) { return abs(x) <= 1e5 ? cx_sincos(x).y : abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }`;
+  // (built-in sin and cos are good enough on every GPU, and cheaper: only these renderers take TRIG_ACCURATE)
+  const TRIG_SOFT = /SwiftShader/i;
+  let trigAccurate = false;
+  // the renderer's name (a WebGL context's UNMASKED_RENDERER, or the string): true when it takes TRIG_ACCURATE
+  function useRenderer(r) {
+    if (r && typeof r === 'object' && typeof r.getExtension === 'function') {
+      const d = r.getExtension('WEBGL_debug_renderer_info');
+      r = d ? r.getParameter(d.UNMASKED_RENDERER_WEBGL) : r.getParameter(r.RENDERER);
+    }
+    trigAccurate = TRIG_SOFT.test(String(r || ''));
+    return trigAccurate;
+  }
   const LIB = `
 const float CX_PI = 3.141592653589793;
 // [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
@@ -28,8 +63,7 @@ bool cx_isnan(float x) { return (floatBitsToUint(x) & 0x7fffffffu) > 0x7f800000u
 bool cx_isinf(vec2 z) { highp uvec2 u = floatBitsToUint(z) & 0x7fffffffu; return max(u.x, u.y) == 0x7f800000u; }
 bool cx_signbit(float x) { return (floatBitsToUint(x) & 0x80000000u) != 0u; }
 // sin/cos of +-inf is NaN (as Math.sin/cos); GPU built-ins return a finite value there
-float cx_sin(float x) { return abs(x) <= 3.4e38 ? sin(x) : cx_nan(); }
-float cx_cos(float x) { return abs(x) <= 3.4e38 ? cos(x) : cx_nan(); }
+${TRIG_BUILTIN}
 float cx_sinh(float x) {
   float ax = abs(x);
   if (ax < 0.25) { float x2 = x * x; return x * (1.0 + x2 / 6.0 * (1.0 + x2 / 20.0 * (1.0 + x2 / 42.0))); }
@@ -331,7 +365,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // linear homotopy (1-t) z + t f(z); exact identity at t = 0 even where f overflows float32
   const LIN = (P) => `if (t == 0.0) return z;\n  vec2 w = ${P}_f(z);\n  return z * (1.0 - t) + w * t;`;
   // a step's path with the t = 1 shortcut, the map itself there (exactly): every path but a straight line's (LIN, whose
-  // z (1 - t) + f(z) t is not f(z) where z is infinite) and a plan that handles t = 1 in its own body (own1, issue #355)
+  // z (1 - t) + f(z) t is not f(z) where z is infinite) and a plan that handles t = 1 in its own body (own1)
   const exactAt1 = (pl) => !pl.h.startsWith('if (t == 0.0)');
   const withOne = (P, pl) => (!exactAt1(pl) || pl.own1 ? pl.h : `if (t == 1.0) return ${P}_f(z);\n  ${pl.h}`);
 
@@ -364,9 +398,17 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   const putC = (put, cell, v) => put(cell.c, v.re, v.im);
 
   // [issue #5] a series on the GPU: SER_GPU terms of a power or Dirichlet series in uniforms (half each way for a
-  // Laurent series), SER_GPU_LOOP terms of any other sum, its index a loop variable (as many as the CPU takes, so both
-  // stop at the same point and agree where the series converges slowly)
+  // Laurent series), SER_GPU_LOOP terms of any other infinite sum, its index a loop variable (as many as the CPU's
+  // SER_CAP, so both stop at the same point and agree where the series converges slowly); a finite sum: SER_GPU_FINITE
   const SER_GPU = 96, SER_GPU_LOOP = 512;
+  // the terms of a finite sum on the GPU: every one, as the CPU sums them, up to SER_GPU_FINITE; past it NaN, where the
+  // CPU goes on to its SER_FINITE. Every pixel of a frame takes that many terms in one draw, and a term n^{-z} is about
+  // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
+  // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
+  // (TDR), which is worse for the user than a blank pane. Finite sums inside one another share it: a pixel takes the
+  // product of their terms, which keeps to SER_GPU_FINITE (loopGL). An infinite sum around them counts 1 there,
+  // its terms bounded by SER_GPU_LOOP
+  const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
   const DIR_TMAX = 120, EM6 = '0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10';
@@ -582,27 +624,40 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       });
       return S;
     }
-    // any other sum or product: a loop over the index (a float), at most SER_GPU_LOOP terms (each way for n ∈ ℤ), its
-    // terms generated inside the loop; an infinite one stops when three terms in a row are below 1e-7 of the sum (factors
-    // within 1e-7 of 1). NaN when an infinite one reaches the cap first, when a finite one has more terms than the cap,
-    // and where the terms cancel by more than three digits.
+    // any other sum or product: a loop over the index (a float), its terms generated inside the loop. An infinite one
+    // takes at most SER_GPU_LOOP terms (each way for n ∈ ℤ) and stops when three terms in a row are below 1e-7 of the sum
+    // (factors within 1e-7 of 1); a finite one takes all its terms, at most SER_GPU_FINITE (its loop runs one pass past
+    // the last term, which finds the index past the bound and ends the sum). NaN when an infinite one reaches its cap
+    // first, when a finite one has more terms than its cap (or a bound that is not a number: it takes none), and where
+    // the terms cancel by more than three digits.
     function loopGL(n, id) {
       const prod = n.op === 'prod';
       shape.push(prod ? 'Lp' : 'L');
-      const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP);
+      const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP), fcap = uBound(SER_GPU_FINITE);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
-      out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
-  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
-      // one loop body for every case (a constant-bound loop written out per case was four copies of the term code, which
+      const head = `  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
+  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x`, at = out.length;
+      out.push(`${head};`);
+      // one loop body for every case (a constant-bound loop written out per case would be four copies of the term code, which
       // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
       // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
       // values, not constants, so the loops stay loops
       const k = `${id}_k`, saved = out, inner = [];
+      // the enclosing loops' term counts, for a finite sum inside them: a pixel takes the product of the nested
+      // finite sums' terms, and that product, not each sum's own count, keeps to SER_GPU_FINITE (an infinite loop counts
+      // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
+      // only when a sum inside it reads it, so a sum with no finite sum inside declares none
+      const outerFn = idxVar.filter((e) => e.fn);
+      const me = { v: n.v, k, fn: `${id}_fn`, used: false };
       out = inner;
-      idxVar.push({ v: n.v, k });
+      idxVar.push(me);
       let t;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
+      for (const e of outerFn) e.used = true;
       const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (a finite side's terms: within the cap alone, or with the enclosing finite sums' counts, their product)
+      const fits = outerFn.length ? `(${HI} - ${LO} + 1.0) * ${outerFn.map((e) => e.fn).join(' * ')} <= float(${fcap})` : `${HI} - ${LO} < float(${fcap})`;
       // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
       // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
       // the sum, as the CPU does: Expr's tailOf)
@@ -612,7 +667,8 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
     bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
     int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-    for (int j = 0; j < ${cap}; j++) {
+    int nj = inf ? ${cap} : ${fits} ? ${fcap} + 1 : 0;
+    for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
 ${inner.map((x) => '    ' + x).join('\n')}
@@ -839,17 +895,28 @@ vec2 cx_digamma(vec2 z) {
   return acc + clog(z, CX_PI, 0.0) - 0.5 * cinv(z) - ser;
 }
 `;
+  // The entries of ZETA_LIB's table of ln k (k < ZETA_LN_K_COUNT, four to a uniform row; the host fills it, logK in src/gl/04-programs-resources.js)
+  const ZETA_LN_K_COUNT = 132;
   // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
   const ZETA_LIB = `
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
+// ln k for k < ${ZETA_LN_K_COUNT}, four to a row: the host fills it once with the GPU's own log (logK, src/gl/04-programs-resources.js), so a term
+// reads what log(float(k)) gives, not a log of its own. Entry 0 (unused by the sums) is 1 once the host has filled it; a program
+// whose host did not (a test page's) holds zeros there and takes the log itself
+uniform highp vec4 uLogK[${ZETA_LN_K_COUNT / 4}];
+float cx_lnk(int k, bool tab) {
+  if (tab && k < ${ZETA_LN_K_COUNT}) return uLogK[k >> 2][k & 3];
+  return log(float(k));
+}
 const float CX_EMC[6] = float[6](0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10);
 // Euler–Maclaurin, N = |Im s| + 10, six Bernoulli terms; P_j N^{1-2j} kept as one factor Q (no overflow). Re s >= 0
 vec2 cx_zetaEM(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 1; k < max(200, uNoUnroll); k++) { if (k >= N) break; sum += cexp(-s * log(float(k))); }
+  bool tab = uLogK[0].x != 0.0;
+  for (int k = 1; k < max(200, uNoUnroll); k++) { if (k >= N) break; sum += cexp(-s * cx_lnk(k, tab)); }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN);
   sum += 0.5 * Nms + cdiv(Nms * fN, s - vec2(1.0, 0.0));
@@ -865,7 +932,8 @@ vec2 cx_zetaEMd(vec2 s) {
   if (s.x == 1.0 && s.y == 0.0) return vec2(cx_inf());
   int N = int(ceil(abs(s.y))) + 10;
   vec2 sum = vec2(0.0);
-  for (int k = 2; k < max(200, uNoUnroll); k++) { if (k >= N) break; float lk = log(float(k)); sum -= cexp(-s * lk) * lk; }
+  bool tab = uLogK[0].x != 0.0;
+  for (int k = 2; k < max(200, uNoUnroll); k++) { if (k >= N) break; float lk = cx_lnk(k, tab); sum -= cexp(-s * lk) * lk; }
   float fN = float(N), lnN = log(fN);
   vec2 Nms = cexp(-s * lnN), r = cinv(s - vec2(1.0, 0.0));
   sum -= 0.5 * lnN * Nms + cmul(Nms * fN, r * lnN + cmul(r, r));
@@ -943,7 +1011,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   return cexp(acc);
 }
 `;
-  // (issue #72) the parts a source calls and those they need, in order: Γ no longer brings ζ
+  // the parts a source calls and those they need, in order: Γ does not bring ζ
   // along, nor w^e (a series) Γ and ζ
   const specialLib = (src) => {
     const zeta = /\bcx_zetad?\(/.test(src), fact = /\bcx_(fact|binom)\(/.test(src);
@@ -1022,8 +1090,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // z + (t/t0)(H_t0(z) - z), as the CPU
       case 'gzoom': {
         const p = A.cell(), fp = A.cell(), ll = A.cell(), g = A.cell();
-        // (issue #355: one call of f, at the point below t0 too and at t = 1, where the path is f(z) itself: FXC
-        // inlines every call, and a formula's f can be tens of KB; the values are the former ones, H(max(t, t0)))
+        // (one call of f, at the point below t0 too and at t = 1, where the path is f(z) itself: FXC
+        // inlines every call, and a formula's f can be tens of KB; the values are H(max(t, t0)))
         return {
           own1: true, h: `${T0}float t0 = ${g.x}, tt = t == 1.0 ? 1.0 : max(t, t0);\n  vec2 fa = ${P}_f(t == 1.0 ? z : ${p.v} + (z - ${p.v}) * tt);\n  if (t == 1.0) return fa;\n  vec2 h = ${p.v} * (1.0 - tt) + ${fp.v} * tt + cmul(cexp(${ll.v} * (tt - 1.0)), fa - ${fp.v}) / tt;\n  return t < t0 ? z + (h - z) * (t / t0) : h;`,
           write(put, b) { const d = Funcs.natData(b); for (const [cell, k] of [[p, 'p'], [fp, 'fp'], [ll, 'll']]) putC(put, cell, d ? d[k] : C(0, 0)); put(g.c, d && d.t0 ? d.t0 : 1e-3, 0); },
@@ -1261,8 +1329,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       }
       case 'zeta':
         return { sig: [type], f: 'return cx_zeta(z);', h: LIN(P), write() {} };
-      // [issue #260] Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
-      // uniform; neither loop unrolls, issue #72), then back by the square root nearest each orbit point. float32 holds
+      // Φ_M(z) = φ_z(z) and φ_c(z) as CX.bottcher: the orbit to |w| > 10⁴ kept in an array (N ≤ 64, a
+      // uniform; neither loop unrolls), then back by the square root nearest each orbit point. float32 holds
       // w² to 10⁸ and c/w² without overflow. φ_c is NaN where |φ_c| ≤ e^{G_c(0)}, a uniform. (The escape test on |w|²
       // and the roots by length(), whose argument stays below 10⁸ here, not by cx_abs and csqrtp: 1.7 times faster on
       // SwiftShader; the root keeps csqrtp's form, with no cancellation)
@@ -1406,8 +1474,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
     if (n === 1) h += `return ${subs[0].Q}_h(z, t);`;
     else {
       h += `float s = t * ${n}.0;\n  `;
-      // (issue #355: a sub-step whose path is its map at 1 goes through the path at min(s - j, 1), so its map is
-      // written once in the path, not again for the later sub-steps: the same values)
+      // (a sub-step whose path is its map at 1 goes through the path at min(s - j, 1), so its map is
+      // written once in the path, not again for the later sub-steps)
       subs.forEach(({ Q, pl }, j) => { h += j === n - 1 ? `return ${Q}_h(z, s - ${j}.0);` : exactAt1(pl) ? `z = ${Q}_h(z, min(s - ${j}.0, 1.0));\n  if (s < ${j + 1}.0) return z;\n  ` : `if (s < ${j + 1}.0) return ${Q}_h(z, s - ${j}.0);\n  z = ${Q}_f(z);\n  `; });
     }
     // (own1 below: every sub-step's path is its map at 1, so is this one, and the shortcut that would write every map
@@ -1446,8 +1514,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
     const h = `if (t <= 0.0) return z;\n  if (t >= 1.0) return ${P}_f(z);\n  float s = t * (1.0 + ${nc.x} * ${len}.0);\n  if (s < 1.0) return ${last}_h(z, s);\n  z = ${last}_f(z); s -= 1.0;\n`
       + `  for (int k = 0; k < ${passes}; k++) {\n${subs.map(({ Q }) => `    if (s < 1.0) return ${Q}_h(z, s);\n    z = ${Q}_f(z); s -= 1.0;`).join('\n')}\n  }\n  return z;`;
     const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
+    // (own1: the path answers t >= 1 with the map itself, so it takes no t = 1 shortcut and chainAt no copy of it
+    // without one: the loop on a uniform trip count is written twice, in the map and the path; a third copy made
+    // Metal's compiler run it wrong, #1911)
     return {
-      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: true,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
     };
@@ -1502,7 +1573,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       return { kind: 'powc', get v() { return vOf(); }, get n() { const v = vOf(); return intOf(v) ? 1 : Funcs.sheetCount(v); } };
     };
     // a branch node: its sheet (one digit of c) and its local cut (opposite its input at the centre)
-    // (v16.1 review math-3: the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
+    // (the sheet numbered from the formula's own cut theta, Funcs' sheetOff: rc.y = theta)
     function node(bn, inC) {
       const rc = A.cell(), i = rads.length;
       rads.push(rc);
@@ -1595,7 +1666,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // with e = 1 + (alpha - 1)t, log through cxs0_lh (P_h of the step, on (th, s))
       const g = type === 'root' ? (x) => `cpowr(${x}, e, th, s)` : type === 'powa' ? (x) => `cpow(${x}, e, th, s)` : (x) => `cxs0_lh(${x}, th, s, u)`;
       const ge = type === 'root' ? (t) => `float e = 1.0 + (${al.x} - 1.0) * ${t};` : type === 'powa' ? (t) => `vec2 e = vec2(1.0 + (${al.x} - 1.0) * ${t}, ${al.y} * ${t});` : (t) => `float u = 1.0 - ${t};`;
-      // (v16.1 review math-3) the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
+      // the sheet numbered from the step's own cut and branch (Funcs' sheetOff): rc.y = its cut
       // + 2 pi k, the digit shifted by floor((rc.y - arg c0) / 2 pi), c0 the input at the cell centre (0 by default)
       const kk = type === 'root' ? (((v.k | 0) % n) + n) % n : v.k | 0, Th = (v.cut ?? 180) * Math.PI / 180 + 2 * Math.PI * kk;
       const sOf = (s0) => `${s0} + floor((${rc.y} - carg(p.xy)) / (2.0 * CX_PI))`;
@@ -1620,11 +1691,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
       const rads = [];
       const n = subs.length;
       // the path at 0 < t < 1 (the deformation's sheets): its steps' paths in turn, step q on [q/n, (q+1)/n] (recPlan,
-      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits
+      // Funcs' homPair): the steps before in full, step q at x - q, the steps after it only read their digits. With
+      // full, every step in full, as _s does: chainSheetHom reaches the steps through _sh alone, so each step's sheet
+      // function has one call site there (a shader compiler inlines every call)
       subs.forEach(({ Q, sp }, q) => {
         if (!sp) {
           body += `  p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n`;
-          hbody += `  if (j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
+          hbody += `  if (full || j > ${q}) p = vec4(${Q}_f(p.xy), ${Q}_f(p.zw));\n  else if (j == ${q} && x > ${q}.0) p = vec4(${Q}_h(p.xy, x - ${q}.0), ${Q}_h(p.zw, x - ${q}.0));\n`;
           return;
         }
         fn += sp.fn;
@@ -1633,17 +1706,17 @@ vec2 cx_binom(vec2 a, vec2 b) {
         body += sp.custom ? `  ${sp.apply()}\n` : `  { float s0 = cxs0_dig(${sp.rads[0]}, c); ${sp.apply(['s0'])} }\n`;
         if (sp.custom) {
           const hom = sp.homCall ? sp.homCall(`x - ${q}.0`) : 'p = vec4(cx_nan());';
-          hbody += `  if (j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+          hbody += `  if (full || j > ${q}) ${sp.apply()}\n  else if (j == ${q} && x > ${q}.0) ${hom}\n  else { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
         } else {
-          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
+          hbody += `  { float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (full || j > ${q}) ${sp.apply(['s0'])}\n    else if (j == ${q} && x > ${q}.0) ${sp.homApply(['s0'], `(x - ${q}.0)`)}\n  }\n`;
         }
       });
       return {
         rads, custom: true, apply: () => `p = ${P}_s(p, c);`,
-        homCall: (t) => `p = ${P}_sh(p, c, ${t});`,
+        homCall: (t, full = 'false') => `p = ${P}_sh(p, c, ${t}, ${full});`,
         fn: `${fn}vec4 ${P}_s(vec4 p, inout highp int c) {\n${body}  return p;\n}\n`,
         // (the path's function goes with chainSheetHom, into the sheet programs only: GLChain's sheetHom)
-        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
+        hfn: `${hfn}vec4 ${P}_sh(vec4 p, inout highp int c, float t, bool full) {\n  float x = t * ${n}.0;\n  int j = min(${n - 1}, int(floor(x)));\n${hbody}  return p;\n}\n`,
         write(put) { for (const { sp } of subs) if (sp) sp.write(put); },
       };
     }
@@ -1723,6 +1796,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // at t = 1 every homotopy equals the map itself (exactly so on the CPU up to float64 rounding)
       const h = withOne(P, plan);
       src += `vec2 ${P}_h(vec2 z, float t) {\n  ${h}\n}\n`;
+      // (the path without its t = 1 shortcut, for chainAt)
+      if (h !== plan.h) src += `vec2 ${P}_hr(vec2 z, float t) {\n  ${plan.h}\n}\n`;
     }
     // a d/dz step is not a map of w: chainStep and chainHom give NaN there (callers mix chainStage(k - 1) and
     // chainStage(k) instead)
@@ -1734,16 +1809,20 @@ vec2 cx_binom(vec2 a, vec2 b) {
     for (const { P, k } of maps) src += `  if (i == ${k}) return ${P}_h(z, t);\n`;
     for (const k of dks) src += `  if (i == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
-    // (issue #72) chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
+    // chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
     // map and path written once. The map modes 1-3 (gl.js MAP) walk the chain in one loop through it: ANGLE's
     // Direct3D 11 back end hands the code to FXC, which inlines every call, so chainRange, chainHom and postOf each
-    // carried a copy of every step (6 to 8, and more, per deformation program). A path with the t = 1 shortcut is
-    // the map at t = 1 (exactly), so in full it is the path at 1 and the map is not written again; a straight-line
-    // path (no shortcut: z (1 - t) + f(z) t is not f(z) where z is infinite) calls the map itself.
+    // carried a copy of every step (6 to 8, and more, per deformation program). A step in full, or on its path at
+    // t = 1 (where a path with the t = 1 shortcut is the map exactly), is its map; elsewhere a path with the shortcut
+    // is taken without it (_hr), so the map and the path are each written once. (Not the path at a constant
+    // t = 1.0: LLVM 21, in Mesa 26's llvmpipe, compiles that loop to NaN on AMD Zen 4/5 machines when a root's
+    // path at 1.0 comes before sin's at t, #1735.) A straight-line path (no shortcut: z (1 - t) + f(z) t is not f(z)
+    // where z is infinite) is taken as it is.
     src += 'vec2 chainAt(int k, vec2 z, float t, int how) {\n  if (how == 0) return z;\n';
     for (const { P, k, plan } of maps) {
       src += plan.h.startsWith('if (t == 0.0)') ? `  if (k == ${k}) return how == 1 ? ${P}_f(z) : ${P}_h(z, t);\n`
-        : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
+        : withOne(P, plan) !== plan.h ? `  if (k == ${k}) return how == 1 || t == 1.0 ? ${P}_f(z) : ${P}_hr(z, t);\n`
+          : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
     }
     for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
@@ -1815,18 +1894,21 @@ vec2 cx_binom(vec2 a, vec2 b) {
         dks.forEach((d, i) => {
           const p = i ? dks[i - 1] : 0;
           const inner = (t) => (p ? `cxs0_sg${p}(zc, ${t}, combo)` : `vec4(zc, ${t})`);
+          // (the 8 points round zc, then the 8 round z, through one call of cxs0_sraw and of the inner cxs0_sg: SwiftShader and FXC
+          // inline every call, so each call site is another copy of the callee, and two sites per nesting level would double the
+          // program, to a first draw of minutes on SwiftShader. Each sum adds its points in the order of two calls)
           src += `vec4 cxs0_sg${d}(vec2 zc, vec2 z, int combo) {\n`
             + `  float R = ${flt(GPU_REL(i + 1))};\n  float rc = R * (1.0 + cx_abs(zc)), rz = R * (1.0 + cx_abs(z));\n  vec2 ac = vec2(0.0), az = vec2(0.0);\n`
-            + '  for (int j = 0; j < 8; j++) {\n    vec2 u = cxs0_u8(j), uc = vec2(u.x, -u.y);\n'
-            + `    ac += cmul(cxs0_sraw(${inner('zc + rc * u')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
-            + `    az += cmul(cxs0_sraw(${inner('z + rz * u')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
+            + '  for (int j = 0; j < 16; j++) {\n    vec2 u = cxs0_u8(j & 7), uc = vec2(u.x, -u.y);\n'
+            + `    vec2 v = cmul(cxs0_sraw(${inner('(j < 8 ? zc + rc * u : z + rz * u)')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
+            + '    if (j < 8) ac += v; else az += v;\n'
             + '  }\n  return vec4(ac / (8.0 * rc), az / (8.0 * rz));\n}\n';
         });
       }
       src += 'vec2 chainSheet(vec2 zc, vec2 z, int b, int combo) {\n  vec4 p = vec4(zc, z);\n  int base = 0;\n';
       [...dks].reverse().forEach((d, i) => { src += `  ${i ? 'else ' : ''}if (b >= ${d}) { p = cxs0_sg${d}(zc, z, combo); base = ${d}; }\n`; });
       src += '  return cxs0_sraw(p, base, b, combo, 0).zw;\n}\n';
-      // (one call of cxs0_sraw, chainSheet's for a <= 0, else the range's: FXC inlines every call, issue #395)
+      // (one call of cxs0_sraw, chainSheet's for a <= 0, else the range's: FXC inlines every call)
       src += 'vec2 chainSheetRange(vec2 zc, vec2 z, int a, int b, int combo) {\n  vec4 p = vec4(zc, z);\n  int base = a, d0 = a;\n  if (a <= 0) {\n    base = 0; d0 = 0;\n'
         + [...dks].reverse().map((d, i) => `    ${i ? 'else ' : ''}if (b >= ${d}) { p = cxs0_sg${d}(zc, z, combo); base = ${d}; }\n`).join('') + '  }\n'
         + (dks.length ? `  else if (${dks.map((d) => `(a < ${d} && b >= ${d})`).join(' || ')}) return vec2(cx_nan());\n` : '') + '  return cxs0_sraw(p, base, b, combo, d0).zw;\n}\n';
@@ -1849,9 +1931,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
       + '  if (mode == 1) { if (k > base && k < hi) return 1; if (k == hi) return 2; }\n'
       + '  else if (mode == 3) { if (k > base && k <= a) return 1; if (k > a && k <= b) return 2; }\n'
       + '  if (post > b && k > b && k <= post) return 1;\n  return 0;\n}\n';
-    // end > 0 (F's last step, v16.1 review math-5): F's digits, every live step in (base, end]; a step the map does not
+    // end > 0 (F's last step): F's digits, every live step in (base, end]; a step the map does not
     // apply yet reads its digits and does not act (Funcs.sheetMapEval's end)
-    // (cxs0_dom: after a call, the least side value of z against a cut it was continued across (a path's dom: positive
+    // (cxs0_dom: after a call, the least side value of z against a cut it is continued across (a path's dom: positive
     // on zc's side of its cut, where the continuation is the path itself); 1e30 where no path has one)
     let hcFns = 'float cxs0_dom = 1e30;\n';
     const shHead = sh.length;
@@ -1869,8 +1951,9 @@ vec2 cx_binom(vec2 a, vec2 b) {
       } else if (!sp) {
         sh += `  if (h == 1 || (h == 2 && t >= 1.0)) p = vec4(${P}_f(p.xy), ${P}_f(p.zw));\n  else if (h == 2 && t > 0.0) p = vec4(${P}_h(p.xy, t), ${P}_h(p.zw, t));\n`;
       } else if (sp.custom) {
-        const hom = sp.homCall ? sp.homCall('t') : 'p = vec4(cx_nan());';
-        sh += `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) ${hom}\n  else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        // (a recognized formula, which has a path: the step in full and its path through the one call of _sh)
+        const dig = `else if (h == 2 || (h == 0 && ${k} > base && ${k} <= end)) { ${sp.rads.map((r) => `cxs0_dig(${r}, c);`).join(' ')} }\n`;
+        sh += sp.homCall ? `  if (h == 1 || (h == 2 && t > 0.0)) ${sp.homCall('t', 'h == 1 || t >= 1.0')}\n  ${dig}` : `  if (h == 1 || (h == 2 && t >= 1.0)) ${sp.apply()}\n  else if (h == 2 && t > 0.0) p = vec4(cx_nan());\n  ${dig}`;
       } else {
         sh += `  if (h > 0) {\n    float s0 = cxs0_dig(${sp.rads[0]}, c);\n    if (h == 1 || t >= 1.0) ${sp.apply(['s0'])}\n    else if (t > 0.0) ${sp.homApply(['s0'], 't')}\n  }\n  else if (${k} > base && ${k} <= end) cxs0_dig(${sp.rads[0]}, c);\n`;
       }
@@ -1919,13 +2002,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
     const sheetList = Funcs.sheetSteps ? Funcs.sheetSteps(steps, built) : [];
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
-    // on / off flags are taken now (stepOps reads only the built steps).
+    // on / off flags are taken as they are at the call (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
     let inverse;
     return {
       key: JSON.stringify(['glc1', sigs]),
       source: src,
-      // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md): GLSL to put after
+      // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md; standards-ok: a spec path in notes/): GLSL to put after
       // source in the programs that call it
       sheetHom: sh,
       get inverse() {
@@ -2154,12 +2237,17 @@ void ixAncTan(vec2 w) {
   };
   // a polynomial NEWT op's degree (InvOps.opNewt with deg: its members are every root of H_t(u) = w), or 0
   const newtDeg = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.deg) || 0;
-  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn, or a polynomial one's coefficients two to a cell
+  // a NEWT op's pole {p, res, reg} (InvOps.opNewt's pole: member 1 starts from the root the pole puts over w), or null; its
+  // cells follow the op's t: (p, res), (reg)
+  const newtPole = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.pole) || null;
+  const IX_NEWT_POLE_CELLS = 2;
+  // uInv cells of op o: a NEWT op's t, then its seeding ops' cells in turn, or a polynomial one's coefficients two to a cell,
+  // or its pole's
   const ixSlots = (o) => {
     const D = newtDeg(o);
     if (D) return IX_SLOTS.NEWT + Math.ceil((D + 1) / 2);
     const bk = o.kind === 'NEWT' && newtBack(o);
-    return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0);
+    return (IX_SLOTS[o.kind] || 0) + (bk ? bk.ops.reduce((a, q) => a + (IX_SLOTS[q.kind] || 0), 0) : 0) + (newtPole(o) ? IX_NEWT_POLE_CELLS : 0);
   };
   // the member loop's bound of a finite family op: a seeded NEWT op has 1 + seeds members, an unseeded one 2 + the ladder's, a polynomial one its degree
   const ixFinMax = (o) => {
@@ -2178,7 +2266,8 @@ void ixAncTan(vec2 w) {
   const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
-  // capped at a quarter of 1 + |u|; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at grid stage ks
+  // InvOps.opNewt's full step with _fd's derivative; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at
+  // grid stage ks
   // (InvOps.opNewt's fixed grid: the stages k / NEWT_K up to k0 = floor(NEWT_K t), ug the root at k0, IX_NR_NONE when
   // the walk failed by then), then one step at t, polished, kept when it hits w; _walk0, member 0 from w; _m0, member
   // 0 where the NEWT roots pass (IX_NR_N, uNrTex0: (ug, u) for the pixel's own w) has it: a stored member that misses w
@@ -2191,9 +2280,7 @@ bool ${P}_step(inout vec2 u, vec2 w, float t) {
   vec2 hu = ${H('u', 't')};
   vec2 d = ${P}_fd(u, hu, t);
   if (!(dot(d, d) > 0.0)) return false;
-  vec2 st = cdiv(hu - w, d);
-  float sl = cx_abs(st), mx = 0.25 * (1.0 + cx_abs(u));
-  u -= sl > mx ? st * (mx / sl) : st;
+  u -= cdiv(hu - w, d);
   return ixFin(u);
 }
 bool ${P}_polish(inout vec2 u, vec2 w, float t) {
@@ -2206,13 +2293,24 @@ bool ${P}_polish(inout vec2 u, vec2 w, float t) {
   }
   return ok;
 }
+bool ${P}_settle(inout vec2 u, vec2 w, float t) { return ${P}_polish(u, w, t) && ${P}_hit(u, w, t); }
+bool ${P}_land(inout vec2 u, vec2 w, float t) {
+  bool ok = true;
+  for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
+    if (!ok) break;
+    vec2 p = u;
+    ok = ${P}_step(u, w, t);
+    if (ok && cx_abs(u - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(u))) break;
+  }
+  return ok && ${P}_settle(u, w, t);
+}
 bool ${P}_walkg(vec2 w, float t, int ks, inout vec2 u, out vec2 ug) {
   int k0 = min(${Inverse.NEWT_K}, int(floor(${Inverse.NEWT_K}.0 * t)));
   bool ok = true;
   for (int k = 1; k <= ${Inverse.NEWT_K}; k++) { if (k > k0) break; if (k > ks && ok) ok = ${P}_step(u, w, float(k) / ${Inverse.NEWT_K}.0); }
   ug = ok ? u : vec2(${IX_NR_NONE});
   if (ok) ok = ${P}_step(u, w, t);
-  return ok && ${P}_polish(u, w, t) && ${P}_hit(u, w, t);
+  return ok && ${P}_settle(u, w, t);
 }
 bool ${P}_walk0(vec2 w, float t, out vec2 u) {
   vec2 ug;
@@ -2267,7 +2365,7 @@ void ${P}_roots(vec2 w, float t) {
     vec2 v;
     bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
-    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    okv = okv && ${P}_settle(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
   }
@@ -2384,7 +2482,7 @@ ${fetch('uNrPrev')}
   }
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
-    bool ok = i < de && ixFin(v) && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    bool ok = i < de && ixFin(v) && ${P}_settle(v, w, t);
     for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
@@ -2421,7 +2519,7 @@ ${Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
   // root at its last grid stage kp (uNrPrev0.xy, uNrPrev1.x) when kp is at most this frame's k0, else from w (the root
   // found is the full walk's either way); o = (the root at k0, member 0), o1 = (k0, 0, member 1: deflated, an op with
   // no seeding ops), IX_NR_NONE where none
-  function newtGridMain(j, c, seeded) {
+  function newtGridMain(j, c, seeded, pole) {
     const P = `ix${j}`, K = Inverse.NEWT_K, NONE = `vec2(${IX_NR_NONE})`;
     return `
 void main() {
@@ -2443,7 +2541,9 @@ void main() {
   o = vec4(ug, ok ? u : ${NONE});
 #if IX_NR_N >= 2
   vec2 v = ${NONE};
-${seeded ? '' : `  vec2 v1;
+${seeded ? '' : pole ? `  vec2 v1;
+  if (${P}_pole2(w, t, ok, u, v1)) v = v1;
+` : `  vec2 v1;
   if (ok && ${P}_defl(w, t, u, v1)) v = v1;
 `}  o1 = vec4(float(k0), 0.0, v);
 #endif
@@ -2463,23 +2563,22 @@ ${seeded ? '' : `  vec2 v1;
       case 'X': return `bool ${P}_one(inout Lf L) { return false; }\n`;
       // (Inverse's opNewt walks: step o.step's homotopy, chainHom, which the carried colour's program compiles in after
       // this, hence its declaration; member 0 continued in t from w, member 1 deflated by member 0. A Newton step takes
-      // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is capped at a quarter of
-      // 1 + |u|; the members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not
-      // walk again)
+      // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is InvOps.opNewt's full step; the
+      // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
       case 'NEWT': {
         const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
         const D = newtDeg(o);
         if (D) return newtPolyFns(o, j, c, D, H, rd);
         const bk = newtBack(o);
         if (bk) return newtSeededFns(o, j, c, bk, H, rd);
-        const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL;
+        const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
         return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_ok = false;
-vec2 ${P}_w = vec2(0.0), ${P}_u = vec2(0.0);
+${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
+vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
-  if (${P}_has && ${P}_w == w) { u = ${P}_u; return ${P}_ok; }
+  if (${P}_has0 && ${P}_w0 == w) { u = ${P}_u0; return ${P}_ok0; }
   bool ok = ${P}_m0(w, t, u);
-  ${P}_has = true; ${P}_w = w; ${P}_u = u; ${P}_ok = ok;
+  ${P}_has0 = true; ${P}_w0 = w; ${P}_u0 = u; ${P}_ok0 = ok;
   return ok;
 }
 // member 1: Newton deflated by member 0's u, from 2w - u
@@ -2494,7 +2593,18 @@ bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
   }
   return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
 }
-vec2 ${P}_r[${NB}];
+${pole ? `// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
+// hits w and, when member 0 exists (k0), differs from it
+bool ${P}_pole2(vec2 w, float t, bool k0, vec2 u, out vec2 v) {
+  vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
+  vec2 d = w - (1.0 - t) * pa.xy - t * pb.xy;
+  v = vec2(0.0);
+  if (!(dot(d, d) > 0.0)) return false;
+  v = pa.xy + t * cdiv(pa.zw, d);
+  bool okv = ${P}_land(v, w, t);
+  return okv && !(k0 && cx_abs(v - u) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(u)));
+}
+` : ''}vec2 ${P}_r[${NB}];
 bool ${P}_k[${NB}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
@@ -2502,7 +2612,7 @@ void ${P}_roots(vec2 w, float t) {
   vec2 u, v = vec2(0.0);
   ${P}_k[0] = ${P}_root(w, t, u);
   ${P}_r[0] = u;
-  ${P}_k[1] = ${P}_k[0] && ${P}_defl(w, t, u, v);
+  ${P}_k[1] = ${pole ? `${P}_pole2(w, t, ${P}_k[0], u, v)` : `${P}_k[0] && ${P}_defl(w, t, u, v)`};
   ${P}_r[1] = v;
   vec4 an = uInv[${c}];
   bool anch = an.y >= an.w;
@@ -2511,14 +2621,7 @@ void ${P}_roots(vec2 w, float t) {
   float lad[${NL}] = float[${NL}](${Inverse.NEWT_LADDER.map((d) => d.toFixed(6)).join(', ')});
   for (int i = 0; i < ${NL}; i++) {
     vec2 v = lo + vec2(0.0, span * lad[i]);
-    bool okv = true;
-    for (int it = 0; it < ${Inverse.NEWT_LAD}; it++) {
-      if (!okv) break;
-      vec2 p = v;
-      okv = ${P}_step(v, w, t);
-      if (okv && cx_abs(v - p) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(v))) break;
-    }
-    okv = okv && ${P}_polish(v, w, t) && ${P}_hit(v, w, t);
+    bool okv = ${P}_land(v, w, t);
     for (int m = 0; m < ${NB}; m++) { if (m >= i + 2) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
     ${P}_r[i + 2] = v; ${P}_k[i + 2] = okv;
   }
@@ -2784,6 +2887,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         put(c, p.t, p.anchor ? p.anchor.y1 : -1, p.anchor ? p.anchor.re : 0, p.anchor ? p.anchor.y0 : 0);
         let cell = c + IX_SLOTS.NEWT;
         for (const q of p.back || []) { invOpValues(q, put, cell); cell += IX_SLOTS[q.kind] || 0; }
+        if (p.pole) { put(cell, p.pole.p.re, p.pole.p.im, p.pole.res.re, p.pole.res.im); put(cell + 1, p.pole.reg.re, p.pole.reg.im, 0, 0); }
         break;
       }
       case 'QUAD': put(c, p.a.re, p.a.im, p.b.re, p.b.im); put(c + 1, p.c.re, p.c.im, 0, 0); break;
@@ -2840,7 +2944,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       // targets; another's member 0 on the grid and member 1, two)
       const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
-        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq)) };
+        : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
@@ -2862,7 +2966,12 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
     };
   }
 
-  return { LIB, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, INV_LIB, seriesTrust };
+  const LIB_ACCURATE = LIB.replace(TRIG_BUILTIN, TRIG_ACCURATE);
+  return {
+    get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
+    useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
+    INV_LIB, seriesTrust,
+  };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

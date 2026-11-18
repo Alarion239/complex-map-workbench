@@ -2,12 +2,13 @@
 # Preflight for the figures the app exports (notes/export-design/AS-BUILT.md; ported from notes/export-design/proto/
 # preflight.py, review-editor.md M4). The files come from the built app through the headless harness:
 #   python3 build.py && test/<you>_cdp/q.sh test/export_cmd.js (and test/export_deform_cmd.js) && python3 test/regress/export/preflight.py --latex
-# PDF:    no fonts, no SMask, no image interpolation, no ExtGState with CA/ca < 1, a PDF 1.3/1.4 header, and a MediaBox
-#         whose width is the target layout width in bp (1 pt = 72/72.27 bp).
+# PDF:    every font embedded (the one font is the invisible text layer's), no SMask, no image interpolation, no
+#         ExtGState with CA/ca < 1, a PDF 1.3/1.4 header, and a MediaBox whose width is the target layout width in bp
+#         (1 pt = 72/72.27 bp).
 # PNG:    colour type 0 (grey), 2 (RGB) or 3 (indexed), never alpha; a pHYs chunk (the physical size).
 # SVG:    no duplicate ids, no nested <svg>.
 # Layout: no typeset box crosses a frame line or overlaps another box (titles, ticks, point labels, captions).
-# --latex: every snippet compiled with latexmk in the document class it was made for (amsart, REVTeX two-column,
+# --latex: every snippet compiled with latexmk in the document class it is made for (amsart, REVTeX two-column,
 #         Letter with 1 in margins at 11 pt, Beamer 16:9): no errors, no overfull boxes, and the measured
 #         \linewidth / \columnwidth / \textwidth equal to the width the figure claims.
 # Round 3 (notes/export-design/ROUND3.md):
@@ -16,7 +17,7 @@
 # Video:  every out/*.mp4 parsed box by box (ftyp, mvhd, tkhd, mdhd, stsd/avc1/avcC, stts, stss, stsz, stco, mdat): the
 #         duration, the frame count, the frame rate and the codec match video-<view>.json, the sizes add up to mdat, the
 #         first sample is a key frame; with QuickLook (macOS qlmanage) a thumbnail is decoded independently.
-# --latex now compiles every snippet (PDF and PNG) with pdfLaTeX and XeLaTeX, the English ones in English documents
+# --latex compiles every snippet (PDF and PNG) with pdfLaTeX and XeLaTeX, the English ones in English documents
 #         and the Russian ones (-ru-) in Russian ones, with \listoffigures (the short captions).
 # Exit status 1 on any failure. Options: --dir DIR (default: out/ next to this file), --latex.
 import argparse
@@ -55,8 +56,9 @@ for pdf in sorted(OUT.glob('*.pdf')):
     n = pdf.name
     d = pdf.read_bytes()
     if have['pdffonts']:
+        # (pdffonts' columns: name, type (one or two words), encoding, then emb, sub, uni and the object id)
         fonts = run(['pdffonts', str(pdf)]).stdout.strip().splitlines()[2:]
-        check(n, not fonts, f'fonts: {len(fonts)}')
+        check(n, all(ln.split()[-5] == 'yes' for ln in fonts), f'fonts: {len(fonts)}, every one embedded')
     if have['pdfimages']:
         imgs = run(['pdfimages', '-list', str(pdf)]).stdout.strip().splitlines()[2:]
         kinds = sorted({ln.split()[2] + '/' + ln.split()[5] for ln in imgs})

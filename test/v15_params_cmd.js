@@ -33,12 +33,11 @@ const typeIn = async (sel, text) => {
   await settle(300);
   return true;
 };
-// (a step's fields are in the Inspector; a click on the step's card selects it there)
-// (the card in the classic chain, the chip in the steps view's thread, where a toast covers the thread until it goes)
+// (a step's fields are in the Inspector; a click on the step's chip in the thread selects it there, once a
+// toast that covers the thread has gone)
 const inStep = async (k, inner) => {
-  const steps = await ev(`document.documentElement.classList.contains('sv')`);
-  if (steps) await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
-  await clickSel(steps ? `#svStrip .sv-step[data-k="${k}"] .sv-fchip` : `#pipeline .card[data-k="${k}"]`);
+  await settled({ until: `!document.querySelector('.sv-strip.sv-toast')`, max: 12000 });
+  await clickSel(`#svStrip .sv-step[data-k="${k}"] .sv-fchip`);
   await settle(300); return `#propsPanel .insp-step[data-k="${k}"] ${inner}`;
 };
 const bound = async () => ev(`(()=>{const p=__cmwP(); const sh=p.shapes; return {
@@ -118,7 +117,6 @@ ok('the curve follows', b.fcurve.expr === `Re z = (${A})`, b.fcurve.expr);
 ok('the radius follows (2a)', b.disc.r === 2 * A, b.disc.r);
 ok('the region formula follows', b.formula.expr === `|z - (${A})| < 0.5`, b.formula.expr);
 ok('the steps read the new value', /;a=/.test(b.sig) && b.sig.endsWith(`;a=${A}`), b.sig.slice(-30));
-const zero = await ev(`(()=>{ const z = __cmwZp(); return z ? z.params.zeros : null })()`);
 ok('the zero keeps its formula', b.zeros === 'a', b.zeros);
 ok('the drag is one undo step', b.hi === hiBeforeDrag + 1, { hi: b.hi, was: hiBeforeDrag });
 await shot('v15p-2-dragged');
@@ -126,7 +124,6 @@ await shot('v15p-2-dragged');
 const restL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), restR = await ev(`__cmwRenderOff('R', 320, 240, 1)`);
 await ev('new Promise((r) => setTimeout(r, 400))');
 await nav(origin + '/test.html?ns=' + NS);
-await settle(1500);
 const freshL = await ev(`__cmwRenderOff('L', 320, 240, 1)`), freshR = await ev(`__cmwRenderOff('R', 320, 240, 1)`);
 ok('rest frame after the drag = a fresh load (X)', restL === freshL, restL.length + ' vs ' + freshL.length);
 ok('rest frame after the drag = a fresh load (Y)', restR === freshR, restR.length + ' vs ' + freshR.length);
@@ -150,7 +147,6 @@ const figure = (await P()).figure;
 const payload = await ev(`await Params.encodeLink(__cmwP().figure)`);
 info.linkLength = (origin + '/test.html#cmw=' + payload).length;
 await nav(origin + '/test.html?ns=' + NS + '-link#cmw=' + payload);
-await settle(2500);
 let L = await P();
 ok('a link opens on a fresh page', L.params.length === 1 && L.params[0].value === A && L.steps[0].params.b === 'a i' && L.shapes.some((x) => x.bind && x.bind.expr === 'Re z = a'), { p: L.params, b: L.steps[0].params.b });
 ok('the link is gone from the address bar', !(await ev('location.hash')), null);
@@ -160,7 +156,6 @@ await ev(`Params.set('a', 1.25), 1`);
 await settle(500);
 await ev('new Promise((r) => setTimeout(r, 400))');
 await nav(origin + '/test.html?ns=' + NS + '-link#cmw=' + payload);
-await settle(1500);
 const ask = await ev(`(document.querySelector('#toastHost [role=alertdialog]') || {}).textContent || ''`);
 ok('a link over existing work asks first', /Open it in place of yours/.test(ask) && (await P()).params[0].value === 1.25, ask);
 await ev(`(()=>{ const b = [...document.querySelectorAll('#toastHost [role=alertdialog] button')].find((x) => x.textContent === 'Open'); b.click(); return 1 })()`);
@@ -175,7 +170,6 @@ ok('Undo after opening brings the work back', undoBtn && L.params[0].value === 1
 const oldState = { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], steps: [{ type: 'exp', params: {}, on: true }], rightMode: 'image', nextId: 2, focus: 0 };
 const oldPayload = await ev(`await Params.encodeLink(${JSON.stringify(oldState)})`);
 await nav(origin + '/test.html?ns=' + NS + '-old#cmw=' + oldPayload);
-await settle(2500);
 L = await P();
 ok('a link of an older build opens', L.steps.length === 1 && L.steps[0].type === 'exp' && L.shapes.length === 1 && L.params.length === 0, { s: L.steps, p: L.params });
 await grab();
@@ -185,8 +179,7 @@ const scenePath = path.join(DIR, 'shots', 'v15p-scene.cmw.json');
 fs.mkdirSync(path.dirname(scenePath), { recursive: true });
 fs.writeFileSync(scenePath, await ev(`Params.scene(${JSON.stringify(figure)})`));
 await nav(origin + '/test.html?ns=' + NS + '-scene');
-await settle(1500);
-await ev(`(()=>{ document.getElementById('shareBtn').click(); return 1 })()`);   // (Open scene… is Share's)
+await ev(`(()=>{ document.getElementById('shareBtn').click(); return 1 })()`);   // ([v17 D5] Open scene… is Share's)
 await settle(200);
 await ev(`(()=>{ const it = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /Open scene/.test(x.textContent)); if (it) it.click(); return !!it })()`);
 await settle(200);
@@ -203,7 +196,6 @@ await grab();
 
 // 7. the Russian interface keeps them (the language switch reloads with the saved state)
 await nav(origin + '/test.html?ns=' + NS);
-await settle(1200);
 await ev(`I18N.setPref('ru'), 1`);
 await settle(3500);
 b = await bound();

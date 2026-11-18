@@ -1,7 +1,6 @@
 // @ts-check
 'use strict';
-// The settle-time line refinement of the regions (SPEC 9.1, P4: Region.Lines): moved out of region.js (issue #20, the
-// file-size budget) as a factory region.js calls where it stood, with the names of region.js it reads (each declared
+// The settle-time line refinement of the regions (SPEC 9.1, P4: Region.Lines), a factory region.js calls, with the names of region.js it reads (each declared
 // before that point); region.js takes Lines and defaultsFor back.
 const RegionLines = (host) => {
   const { NOPACE, REACH, REF_RATIO, TAIL_LIM, clipLine, drain, expandBox, sampleCurveGen } = host;
@@ -77,7 +76,7 @@ const RegionLines = (host) => {
       const ch = Math.hypot(wb.re - wa.re, wb.im - wa.im), dev = Math.hypot(wm.re - (wa.re + wb.re) / 2, wm.im - (wa.im + wb.im) / 2);
       return dev > 0.25 * ch && dev > 1e-9 * Math.max(Math.hypot(wa.re, wa.im), Math.hypot(wb.re, wb.im), Math.hypot(wm.re, wm.im));
     }
-    // A long curve (line, ray, half-plane boundary) whose image is no longer resolved by its samples far out (exp of a
+    // A long curve (line, ray, half-plane boundary) whose image is not resolved by its samples far out (exp of a
     // vertical line, sin and cos: the samples land at unrelated angles of a periodic image and draw chords across it)
     // ends where the run of unresolved segments begins: walking out from the window, the first 3 segments in a row
     // that are unresolved under every map, both ends outside expandBox(win, CUT_BOX). A single unresolved segment (a
@@ -105,10 +104,10 @@ const RegionLines = (host) => {
       if (lo === 0 && hi === n - 1) return pts;
       return pts.slice(2 * lo, 2 * hi + 2);
     }
-    // (v16.1) A kept segment with an end outside the window whose image bends within it is halved until, under every
+    // A kept segment with an end outside the window whose image bends within it is halved until, under every
     // map, each piece's image midpoint is within BEND of its chord: the GPU draws a segment as 8 straight pieces, so a
     // geometric tail step of exp along a vertical line (up to 1.8 rad of the unit circle) drew chords up to 1 px inside
-    // the circle at 150 px per unit (gate v16: curves exp_imag_axis). Only segments the cut test calls resolved under
+    // the circle at 150 px per unit (curves exp_imag_axis). Only segments the cut test calls resolved under
     // every map are halved (one it keeps unresolved is a pole crossed far out); at most FAR_DEPTH halvings per segment
     // and FAR_EVAL map evaluations per curve. Inside the window today's samples (diag / 700) are kept as they are.
     const BEND = 1 / 32, FAR_DEPTH = 6, FAR_EVAL = 8192;
@@ -442,8 +441,8 @@ const RegionLines = (host) => {
     // Dash arc lengths for createLines' segment order (P4 review): per segment, the arc length of the polyline's image
     // under F at the segment start and the segment's image length. A long polyline (a sample farther than LONG_R x R
     // from c: lines, rays, half-plane boundaries, formula contours to the mesh's outer box) is measured from an anchor
-    // near the view, the point of the polyline nearest c (the window centre) in the source, instead of its first
-    // sample: reach tails start up to 1e19 (image) or 1e28 (source) away, where float32 no longer resolves a dash
+    // near the view, the point of the polyline nearest c (the window centre) in the source, not its first
+    // sample: reach tails start up to 1e19 (image) or 1e28 (source) away, where float32 does not resolve a dash
     // period. The anchor is a source point, the same for today's samples and the refined ones (they agree near the
     // view), so the dash phase does not move when the refined samples are swapped in. A bounded polyline keeps today's
     // origin, its first sample. R: the window's half-diagonal. -> Float32Array [arc0, len0, arc1, len1, ...]

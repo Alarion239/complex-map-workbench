@@ -60,7 +60,7 @@ await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="
 sh = await shapes();
 ok('an empty name restores the automatic one', sh.find((s) => s.id === 'a').name === null && /^Disc 1$/.test((await ev(ROWS)).find((r) => r.id === 'a').k), [sh, await ev(ROWS)]);
 // Italian: the half-plane's words, and no row cut off at the name
-await nav(`${(await ev('location.href')).split('?')[0]}?ns=shaperowsit${Date.now()}&lang=it`); await settle(1500);
+await nav(`${(await ev('location.href')).split('?')[0]}?ns=shaperowsit${Date.now()}&lang=it`);
 const it = await ev(ROWS);
 info.it = it.map((r) => r.k);
 return { pass: fails.length === 0, fails, info };

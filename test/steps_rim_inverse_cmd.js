@@ -1,3 +1,4 @@
+// (Set to 100 % opacity: the front point's colour alone is read; the Opacity slider's 85 % default mixes the layers behind.)
 // The steps view's inverse frame at the image of a path's cut is smooth, with no streaks inside: the Joukowski airfoil,
 // Everywhere, the colour on w₁, parked at x = 1/4, once the tiling's fix-up has landed. The path tears along the lower
 // unit semicircle, and the points just inside it land on the lower lobe's rim. Two measures of the left pane's pixels,
@@ -12,7 +13,6 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const names = exampleNames();
 const ex = names.indexOf('Joukowski airfoil');
@@ -54,6 +54,8 @@ if (ex >= 0) {
     await go(`http://localhost:${PORT}/test.html?view=steps&ns=rim${dpr}${Date.now()}`);
     await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && typeof __cmwSvFixed === "function" && !!window.GLR' });
     await ev(`__cmwExample(${ex}); 1`);
+    await adopted();
+    await ev("__cmwSet('alpha', 1), 1");
     await settled({ max: 20000 });
     await ev('__cmwHideStrokes(true), 1');
     await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true, T: 1, bare: true })}); 1`);

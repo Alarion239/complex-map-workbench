@@ -39,7 +39,7 @@ const tool = async (id) => { await ev(`(() => { const b = [...document.querySele
 const scale = async () => { const a = await W(0, 0), b = await W(1, 0); return b[0] - a[0]; };
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim()).join(' | ')`);
 // a namespace's saved state is cleared first, so every run starts from the default scene
-const fresh = async (ns, q = '') => { await nav(U + '?ns=w1mclean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); await settle(1200); };
+const fresh = async (ns, q = '') => { await nav(U + '?ns=w1mclean'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (k.endsWith(':${ns}')) localStorage.removeItem(k); return 1; })()`); await nav(U + '?ns=' + ns + q); };
 const st0 = (extra) => Object.assign({ v3: true, v4: true, unit: true, snap: true, shapes: [], steps: [], nextId: 10, focus: 0 }, extra || {});
 async function section(k, f) { try { await f(); } catch (e) { fails.push({ name: k + ' threw', got: String(e && e.stack || e).slice(0, 600) }); } await grab(); }
 logs();

@@ -67,8 +67,8 @@ async function waitFor(files, child, ms) {
   }
 }
 
-// (#504 item 4) the renderer, asked once, of the first run's own Chrome (before its suite), in place of a separate
-// gpu_probe.js start on every browser job: the same JSON in the log, the same line in the summary, and no WebGL2 fails
+// the renderer, asked once, of the first run's own Chrome (before its suite), so a browser job needs no separate
+// gpu_probe.js start: the same JSON in the log, the same line in the summary, and no WebGL2 fails
 // the job with the same error. -> null until asked, then { webgl2, renderer, vendor, parallelCompile }
 let PROBE = null;
 const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|basic render|warp|microsoft basic|software/i;
@@ -92,10 +92,11 @@ async function runOne(file, run, port) {
   const daemon = path.join(COPY, 'cdpd.js');
   fs.writeFileSync(daemon, fs.readFileSync(daemon, 'utf8').replace(/localhost:8793/g, `localhost:${port}`));
   const env = Object.assign({}, process.env, {
-    // the suites that take the server from the environment (sound_*: CMW_PORT; export, mv_views: CMW_BASE)
+    // the suites that take the server from the environment (sound_*: CMW_PORT; export: CMW_BASE)
     CMW_PORT: String(port), CMW_BASE: `http://localhost:${port}/`,
-    // (#620) a ported suite opens every page in the steps view (ci/suite_views.js steps({ pin: true }), pin_view.js)
-    CMW_VIEW: VIEWS[file] && VIEWS[file].pin ? 'steps' : (process.env.CMW_VIEW || ''),
+    // every page opens in the steps view (pin_view.js), except those of a suite tagged classic(why) or port(...) in
+    // ci/suite_views.js, which stay on the classic views until the steps view has what they test
+    CMW_VIEW: VIEWS[file] && VIEWS[file].view !== 'steps' ? 'classic' : (process.env.CMW_VIEW || ''),
   }, run.env || {});
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
@@ -151,6 +152,8 @@ function keepShots(file, run) {
 function failures(out) {
   if (out == null || typeof out !== 'object' || Array.isArray(out)) return null;
   if (out.__daemonError) return [{ name: 'the suite threw', detail: out.__daemonError }];
+  // (#1328) answers the kit could not give as data that the suite did not read: a page exception, a wait that ran out
+  const kit = Array.isArray(out.kitFaults) && out.kitFaults.length ? [{ name: 'the kit answered a page exception or a wait that ran out, and the suite read on', detail: out.kitFaults }] : [];
   // (a suite whose fails are names keeps each check's detail in out.info[name]: the release smokes)
   const info = out.info && typeof out.info === 'object' && !Array.isArray(out.info) ? out.info : {};
   const item = (f) => (Array.isArray(f) ? { name: String(f[0]), detail: f[2] } : typeof f === 'string' ? { name: f, detail: info[f] }
@@ -159,7 +162,8 @@ function failures(out) {
   const verdict = typeof out.pass === 'boolean' ? out.pass : typeof out.ok === 'boolean' ? out.ok
     : typeof out.pass === 'number' && typeof out.of === 'number' ? out.pass === out.of : list ? !list.length : null;
   if (verdict == null) return null;
-  if (list && list.length) return list;
+  if (list && list.length) return list.concat(kit);
+  if (verdict && kit.length) return kit;
   return verdict ? [] : [{ name: typeof out.pass === 'number' ? `${out.pass} of ${out.of} checks passed` : 'the suite says it failed', detail: out }];
 }
 // the entry of a list (TIMING, SOFTWARE, KNOWN) that a failed check matches: by name, and, when the entry has a

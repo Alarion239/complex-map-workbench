@@ -39,8 +39,8 @@ const Expr = (() => {
   // Russian notation (notes/i18n/DESIGN.md 6), accepted in either language: tg, ctg, sh, ch, th, ... and Ln (the
   // principal branch, as Log). Kept out of LATEX_CMDS and PLAIN so the English 'Try \\sin or \\sinh' suggestions
   // stay as they are. Longest-first matching keeps theta and cosh whole; of these names only cosec starts with an
-  // existing name (cos), and cos e c was an error before, so no formula that parsed before parses differently.
-  // (GLOSSARY 2.1 also lists the plain arsinh, arcosh, artanh: review math-16; none is a prefix of another name)
+  // existing name (cos), and cos e c is an error, so no formula that parses is read differently.
+  // (GLOSSARY 2.1 also lists the plain arsinh, arcosh, artanh; none is a prefix of another name)
   const RU_NAMES = { arctg: 'f:atan', arsh: 'f:asinh', arch: 'f:acosh', arth: 'f:atanh', cosec: 'f:csc', ctg: 'f:cot', cth: 'f:coth', tg: 'f:tan', sh: 'f:sinh', ch: 'f:cosh', th: 'f:tanh', Ln: 'f:log', arsinh: 'f:asinh', arcosh: 'f:acosh', artanh: 'f:atanh' };
   // tokenize(src, rel, ru): ru = false is the base tokenizer exactly. The Russian forms (these names, 0{,}5,
   // \text{или}) only take effect where it stops with an error, and RU_USED records that one did, so a formula that
@@ -57,7 +57,7 @@ const Expr = (() => {
   const UNSUPPORTED = {
     arcctg: () => $t('arcctg (arccot) is not available: write arctg(1/z)'), arccot: () => $t('arccot is not available: write arctan(1/z)'),
     acot: () => $t('acot is not available: write arctan(1/z)'), lg: () => $t('lg (the base-10 logarithm) is not available: write ln(z)/ln(10)'),
-    // arcoth z = artanh(1/z) for the principal branches (review math-16)
+    // arcoth z = artanh(1/z) for the principal branches
     arcth: () => $t('arcth (arcoth) is not available: write arth(1/z)'), arcoth: () => $t('arcoth is not available: write artanh(1/z)'),
   };
   const UNSUPPORTED_NAMES = Object.keys(UNSUPPORTED).sort((a, b) => b.length - a.length);
@@ -65,10 +65,10 @@ const Expr = (() => {
   const commaHint = (src, pos) => (COMMA_UI() && src[pos] === ',' && /\d/.test(src[pos - 1] || '') && /\d/.test(src[pos + 1] || '')
     ? $t('Use a decimal point: 0.5, not 0,5 (a comma separates conditions)') : null);
   const LETTERS = { z: 'v:z', w: 'v:z', x: 'v:x', y: 'v:y', r: 'v:r', i: 'c:i', e: 'c:e' };
-  // ---- shared numbers (v15, src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1.1) ----
+  // ---- shared numbers (src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1.1) ----
   // Expr.setNames({get(name) -> number | undefined, display(name)}) turns on names: a letter the parser does not read
   // (a, k, A, a1, a_1, alpha, \alpha, α) is a shared number, read as its value (a num node with .param). Only text
-  // that was an error without names reads differently: a run of letters is a name only when the base tokenizer
+  // that is an error without names reads differently: a run of letters is a name only when the base tokenizer
   // cannot read the whole run (xi stays x i, chi stays ch i). Without the hook (node tests) nothing changes.
   let NAMES = null, NAMED = null;
   const setNames = (h) => { NAMES = h || null; };
@@ -143,19 +143,19 @@ const Expr = (() => {
     return { t, pos };
   }
 
-  // [issue #4] Γ, ζ (and ψ, written digamma) are functions when an opening parenthesis follows them (\Gamma(z),
+  // Γ, ζ (and ψ, written digamma) are functions when an opening parenthesis follows them (\Gamma(z),
   // \zeta\left(s\right), Γ(z), zeta(s), Gamma(z), gamma(z), digamma(z)); otherwise a Greek letter stays a shared
   // number's name, so ζ₁ and γ keep reading as before
   const SPECIAL_FN = { Gamma: 'gamma', gamma: 'gamma', zeta: 'zeta', digamma: 'digamma', 'Γ': 'gamma', 'ζ': 'zeta' };
   const callsAt = (src, j) => /^\s*(\(|\\left\s*\(|\\left\b)/.test(src.slice(j));
   // ζ′ as \zeta'(s), ζ'(s) or zeta'(s) (the derivative step writes it so): the length of the prime and the call, or 0
   const primeAt = (src, j) => { const m = /^\s*(?:'|′|\^\{?\\prime\}?)/.exec(src.slice(j)); return m && callsAt(src, j + m[0].length) ? m[0].length : 0; };
-  // [issue #5] sums and products: \sum_{n=0}^{\infty} …, \prod_{k=1}^{N} …, Σ_{n≥1} …, \sum_{n\in\mathbb{Z}} …, and the plain
+  // sums and products: \sum_{n=0}^{\infty} …, \prod_{k=1}^{N} …, Σ_{n≥1} …, \sum_{n\in\mathbb{Z}} …, and the plain
   // sum(expr, n, a, b) and prod(…). The index (a letter other than z w x y r i e) is bound inside its sum: a scan of
   // the text finds the indices first, and the tokenizer reads those letters as the index everywhere (Expr.parse then
   // refuses one used outside its sum), so a formula without a sum reads exactly as before.
   let BOUND = new Set();
-  // [issue #6] letters bound by the caller (parse(src, {bound: ['u']}): the rule of a recurrence in its u)
+  // letters bound by the caller (parse(src, {bound: ['u']}): the rule of a recurrence in its u)
   let EXTRA_BOUND = [];
   const SUM_CMD = { sum: 'sum', prod: 'prod', 'Σ': 'sum', '∑': 'sum', '∏': 'prod' };
   function scanIdx(src) {
@@ -210,7 +210,7 @@ const Expr = (() => {
     const toks = [];
     let i = 0;
     const n = src.length;
-    // [issue #5] the tokens of a sum's header: the sum, then (lower limit) (upper limit), each tokenized in place
+    // the tokens of a sum's header: the sum, then (lower limit) (upper limit), each tokenized in place
     const sub = (text, at) => {
       const sp = NAMED ? NAMED.spans.length : 0;
       const out = tokenize(text, false, ru, true).slice(0, -1).map((tk) => Object.assign(tk, { pos: tk.pos + at }));
@@ -255,7 +255,7 @@ const Expr = (() => {
         // ψ as \operatorname{\psi}(z) (a bare \psi stays a name)
         const op = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*\\psi\s*\}/.exec(src.slice(i + m[0].length));
         if (op && callsAt(src, i + m[0].length + op[0].length)) { toks.push({ t: 'func', v: 'digamma', pos: i }); i += m[0].length + op[0].length; continue; }
-        // ([issue #6] \operatorname{iter}(…), as toTex writes a recurrence inside a formula)
+        // (\operatorname{iter}(…), as toTex writes a recurrence inside a formula)
         const opi = (name === 'operatorname' || name === 'mathrm') && /^\s*\{\s*iter\s*\}/.exec(src.slice(i + m[0].length));
         if (opi && callsAt(src, i + m[0].length + opi[0].length)) { toks.push({ t: 'iterfn', pos: i }); i += m[0].length + opi[0].length; continue; }
         const spec = LATEX_CMDS[name] || (ru ? ruName(name) : undefined);
@@ -272,7 +272,7 @@ const Expr = (() => {
             return d[a.length][b.length];
           };
           if (RU_ONLY() && Object.prototype.hasOwnProperty.call(UNSUPPORTED, name)) throw new ParseError(UNSUPPORTED[name](), i);
-          // in Russian the suggestions include the Russian names: \tgh -> \tg or \th (GLOSSARY 2.4, review math-15)
+          // in Russian the suggestions include the Russian names: \tgh -> \tg or \th (GLOSSARY 2.4)
           const near = (RU_ONLY() ? Object.keys(LATEX_CMDS).concat(Object.keys(RU_NAMES)) : Object.keys(LATEX_CMDS)).filter((k) => typeof LATEX_CMDS[k] !== 'string' || !LATEX_CMDS[k].startsWith('skip'))
             .map((k) => [k, dist(name, k)]).filter(([, dd]) => dd <= 2).sort((a, b) => a[1] - b[1] || a[0].length - b[0].length).slice(0, 2).map(([k]) => '\\' + k);
           throw new ParseError($t('Unknown command \\%{name}.%{try}', { name, try: near.length ? $t(' Try {x}.', { x: near.join($t(' or ')) }) : '' }), i);
@@ -303,15 +303,15 @@ const Expr = (() => {
       // a number, with an exponent only when [eE] is directly followed by digits (1e-12, 2.5E+3), so that
       // a bare e stays Euler's number (2e^{z}, 2e, e z)
       const num = /^(\d+\.?\d*|\.\d+)([eE][+-]?\d+)?/.exec(src.slice(i));
-      // 0{,}5: the decimal comma of Russian TeX (I18N.texNum) reads as 0.5 (it was an error before)
+      // 0{,}5: the decimal comma of Russian TeX (I18N.texNum) reads as 0.5
       const dc = ru && num && /^\d+$/.test(num[0]) && /^\{,\}(\d+)/.exec(src.slice(i + num[0].length));
       if (dc) { RU_USED = true; const s = num[0] + '.' + dc[1]; toks.push({ t: 'num', v: parseFloat(s), s, pos: i }); i += num[0].length + dc[0].length; continue; }
       if (num) { toks.push({ t: 'num', v: parseFloat(num[0]), s: num[0], pos: i }); i += num[0].length; continue; }
       if (/[A-Za-z]/.test(ch)) {
         const rest = src.slice(i);
-        // [issue #5] sum( prod( binom( (only so, a call), inf as a sum's limit, and a sum's index (not where a name of
+        // sum( prod( binom( (only so, a call), inf as a sum's limit, and a sum's index (not where a name of
         // the plain language starts: n in "not")
-        // ([issue #6] and iter( : a recurrence, iter(g, u, u₀, N))
+        // (and iter( : a recurrence, iter(g, u, u₀, N))
         const fw = !/[A-Za-z]/.test(src[i - 1] || '') && /^(sum|prod|binom|iter)(?=\s*\()/.exec(rest);
         if (fw) { toks.push({ t: { sum: 'sumfn', prod: 'prodfn', binom: 'binom', iter: 'iterfn' }[fw[1]], pos: i }); i += fw[1].length; continue; }
         const iw = BOUND.size && !/[A-Za-z]/.test(src[i - 1] || '') && /^inf(?:inity)?(?![A-Za-z])/.exec(rest);
@@ -443,7 +443,7 @@ const Expr = (() => {
       while (peek().t === 'and' || (allowRel && isOp(peek(), ','))) {
         const sep = next(), b = parseNot();
         // Russian only (review ui-1): |z| < 0,5 is |z| < 0 and 5; a comma between digits that leaves a condition on one
-        // side and a bare number on the other was a decimal comma, and the message says to use the point (English
+        // side and a bare number on the other is a decimal comma, and the message says to use the point (English
         // keeps its messages; a list with no condition at all, 1,0,-1, parses as before)
         const hint = sep.t === 'op' && commaHint(src, sep.pos);
         if (hint && hasCmp(a) !== hasCmp(b)) throw new ParseError(hint, sep.pos);
@@ -500,7 +500,7 @@ const Expr = (() => {
     }
     function parsePow() {
       let base = parsePrimary();
-      // [issue #5] n! (postfix, before a power: n!^2 is (n!)^2)
+      // n! (postfix, before a power: n!^2 is (n!)^2)
       while (isOp(peek(), '!')) { next(); base = { t: 'call', f: 'fact', a: base }; }
       if (isOp(peek(), '^')) { next(); return { t: 'pow', a: base, b: parseExponent() }; }
       return base;
@@ -553,7 +553,7 @@ const Expr = (() => {
           if (tk.v === 'e') return { t: 'num', v: C(Math.E, 0), name: 'e' };
           return { t: 'num', v: C(Math.PI, 0), name: 'pi' };
         case 'var': return { t: 'var', n: tk.v };
-        // [issue #5] a sum's index, a sum or product (its body: the factors that follow, up to + or −), binomials
+        // a sum's index, a sum or product (its body: the factors that follow, up to + or −), binomials
         case 'idx': return { t: 'idx', v: tk.v };
         case 'sum': {
           expect('('); limDepth++; const lo = parseAdd(); limDepth--; expect(')');
@@ -576,7 +576,7 @@ const Expr = (() => {
           expect(')');
           return { t: 'sum', op: tk.t === 'sumfn' ? 'sum' : 'prod', v: ix.v, lo, hi, a };
         }
-        // [issue #6] iter(g, u, u₀, N): u₀, then u ↦ g(u, z) N times (Expr.iterate): the Mandelbrot set is
+        // iter(g, u, u₀, N): u₀, then u ↦ g(u, z) N times (Expr.iterate): the Mandelbrot set is
         // |iter(u^2+z, u, 0, 64)| ≤ 2, a filled Julia set |iter(u^2+c, u, z, 64)| ≤ 2
         case 'iterfn': {
           expect('(');
@@ -667,7 +667,7 @@ const Expr = (() => {
     return ast;
   }
 
-  // [issue #5] every index inside a sum that binds it; the limits of a sum may use the indices of the sums around it
+  // every index inside a sum that binds it; the limits of a sum may use the indices of the sums around it
   function checkIdx(n, scope) {
     if (n.t === 'idx' && !scope.includes(n.v)) throw new ParseError($t('{x} is the index of a sum: use it inside the sum', { x: n.v }), 0);
     if (n.t === 'sum' || n.t === 'iter') { checkIdx(n.lo, scope); checkIdx(n.hi, scope); checkIdx(n.a, scope.concat(n.v)); return; }
@@ -714,10 +714,10 @@ const Expr = (() => {
     arg: (a) => C(Math.atan2(a.im, a.re), 0),
     gamma: CX.gamma, zeta: CX.zeta, digamma: CX.digamma, zetad: CX.zetaDeriv, fact: CX.fact,
   };
-  // [issue #6] a recurrence: at most ITER_CAP steps (the GPU's loop), ∞ past ITER_ESC. The GPU's limit is 1e18 (float32
+  // a recurrence: at most ITER_CAP steps (the GPU's loop), ∞ past ITER_ESC. The GPU's limit is 1e18 (float32
   // squares |u| in cx_abs), so between 1e18 and 1e150 the CPU keeps a value the GPU reads as ∞: both far off any picture
   const ITER_CAP = 256, ITER_ESC = 1e150;
-  // [issue #5] the plans of the sums compiled so far (seriesInfo reads them)
+  // the plans of the sums compiled so far (seriesInfo reads them)
   const PLANS = new WeakMap();
   function compile(ast, { theta = Math.PI } = {}) {
     // the indices of the sums being built, innermost last: each a cell its terms read
@@ -759,7 +759,7 @@ const Expr = (() => {
           }
           if (!depends(n.a)) {
             const base = A(C(0, 0));
-            // [issue #5] an exponent made of a sum's index (2^n, (−1)^n): exact at the integers; a negative one as (1/base)^|n|,
+            // an exponent made of a sum's index (2^n, (−1)^n): exact at the integers; a negative one as (1/base)^|n|,
             // which underflows to 0 where base^|n| overflows (2^{−1030}, not 1/∞ = NaN), as the GPU's cx_ipow32
             const ib = CX.inv(base);
             if (!usesZ(n.b)) return (z) => { const b = B(z); return b.im === 0 && Number.isInteger(b.re) && Math.abs(b.re) <= 1100 ? (b.re < 0 ? CX.ipow(ib, -b.re) : CX.ipow(base, b.re)) : CX.exp(CX.mul(b, CX.log(base))); };
@@ -803,7 +803,7 @@ const Expr = (() => {
       scope.push({ v, cell });
       try { const f = build(node); return (k) => { cell.v = C(k, 0); return f(C(0, 0)); }; } finally { scope.pop(); }
     }
-    // [issue #6] u_0 = lo, u_{k+1} = a(u_k, z), the value u_hi; ∞ once |u_k| passes ITER_ESC (an orbit that escapes),
+    // u_0 = lo, u_{k+1} = a(u_k, z), the value u_hi; ∞ once |u_k| passes ITER_ESC (an orbit that escapes),
     // NaN unless N is a whole number from 0 to ITER_CAP
     function buildIter(n) {
       const U0 = build(n.lo), NN = build(n.hi);
@@ -846,7 +846,7 @@ const Expr = (() => {
     return build(ast);
   }
 
-  // ---------- [issue #5] series ----------
+  // ---------- series ----------
   // A sum of an infinite number of terms stops when the last SER_WIN terms are below SER_TOL of the sum (a product:
   // its factors within SER_TOL of 1). After SER_CAP terms (SER_CAP_CONST for a sum without z, computed once) it is kept
   // only when its terms fall like those of a convergent series (tailOk), otherwise it is NaN: never a partial sum of a
@@ -1327,7 +1327,7 @@ const Expr = (() => {
     return v;
   }
 
-  // [issue #5] a sum or product with constant limits and at most UNROLL terms, written out (its index replaced by each
+  // a sum or product with constant limits and at most UNROLL terms, written out (its index replaced by each
   // value): so a finite sum of powers is a polynomial to classify and polyExpand. Anything else stays as it is.
   const UNROLL = 4096;
   // (k a number, or a tree: the index replaced by it)
@@ -1340,7 +1340,7 @@ const Expr = (() => {
   }
   const size = (n) => 1 + kids(n).reduce((s, x) => s + size(x), 0);
   const countIdx = (n, v) => (n.t === 'idx' ? (n.v === v ? 1 : 0) : (n.t === 'sum' || n.t === 'iter') && n.v === v ? countIdx(n.lo, v) + countIdx(n.hi, v) : kids(n).reduce((s, x) => s + countIdx(x, v), 0));
-  // [issue #6] a recurrence with a constant N written out as u_N (u replaced by u_{k−1} in the rule, N times) while the
+  // a recurrence with a constant N written out as u_N (u replaced by u_{k−1} in the rule, N times) while the
   // tree stays below UNROLL_NODES nodes: so u² + z from u_0 = z is a polynomial of degree 2^N for classify and
   // polyExpand, and its derivative is that of the polynomial
   const UNROLL_NODES = 20000;
@@ -1428,14 +1428,14 @@ const Expr = (() => {
           const a = go(n.a);
           return K({ analytic: a.analytic, branch: true });
         }
-        // [issue #5] an infinite power, Laurent or Dirichlet series is analytic where it converges; nothing more is
+        // an infinite power, Laurent or Dirichlet series is analytic where it converges; nothing more is
         // claimed (entire only if R = ∞ were proven); any other sum guarantees nothing
         case 'sum': {
           try { compile(n); } catch (e) { return K({}); }
           const p = PLANS.get(n);
           return K({ analytic: !!p && !usesZ(n.lo) && !usesZ(n.hi) });
         }
-        // [issue #6] a recurrence too long to write out: u_N is analytic (entire) when u_0 and the rule are, in u and z
+        // a recurrence too long to write out: u_N is analytic (entire) when u_0 and the rule are, in u and z
         case 'iter': {
           if (depends(n.hi)) return K({});
           const a = go(n.lo), b = go(subst(n.a, n.v, { t: 'var', n: 'z' }));
@@ -1637,10 +1637,10 @@ const Expr = (() => {
           return { s: `${a.p < 4 || n.a.t === 'div' ? paren(a.s) : a.s}^{${b.s}}`, p: 3 };
         }
         case 'root': return { s: `\\sqrt[${go(n.n).s}]{${go(n.a).s}}`, p: 4 };
-        // [issue #5] the sum takes the factors after it, so it is wrapped as a factor (p 0); −∞ … ∞ is n ∈ ℤ
+        // the sum takes the factors after it, so it is wrapped as a factor (p 0); −∞ … ∞ is n ∈ ℤ
         case 'idx': return { s: n.v, p: 4 };
         case 'binom': return { s: `\\binom{${go(n.a).s}}{${go(n.b).s}}`, p: 4 };
-        // [issue #6] u_N, with u_0 and the rule in u_k (the whole formula); inside a formula iter(g, u, u_0, N), as typed
+        // u_N, with u_0 and the rule in u_k (the whole formula); inside a formula iter(g, u, u_0, N), as typed
         case 'iter': {
           const v = n.v, N = go(n.hi).s;
           if (n !== ast) return { s: `\\operatorname{iter}\\left(${go(n.a).s},\\ ${v},\\ ${go(n.lo).s},\\ ${N}\\right)`, p: 4 };
@@ -1691,7 +1691,7 @@ const Expr = (() => {
   }
   const hasSeries = (n) => hasT(n, 'sum');
   const hasIter = (n) => hasT(n, 'iter');
-  // [issue #6] the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
+  // the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
   return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();

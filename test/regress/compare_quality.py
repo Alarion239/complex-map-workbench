@@ -12,11 +12,15 @@ Gated per run (tolerances in quality/tolerances.json):
   golden_diff must stay <= max                        (bounded controls; absolute, against the golden PNG)
   the globes (group 'sphere'): their golden_diff is reported (info), never gated, and a globe that did not render
                                                       is a warning, not a failure (#385 follow-up: report-only)
-  opacity_min must not drop by more than tol          (mask-type runs of the SPEC 12.4 scenes)
-  color_off   must not grow by more than tol          (SPEC 12.4 scenes: interior pixels in a wrong colour)
+  opacity_min must not drop by more than tol          (where a run reports it: the fill opacity)
+  color_off   must not grow by more than tol          (where a run reports it: interior pixels in a wrong colour)
   hole_leak   must not grow                            (zi_H*: fill pixels inside the hole |w| < e^-pi)
   the run must exist, have settled, show the pinned view and raise no GL error / runner error.
 A gated metric that has a baseline value and no current value (null: nothing could be scored) FAILS.
+A run scored by another classifier than the baseline's (its 'classifier', metrics.js: the steps view's runs are scored
+for coverage, 'cover', where the baseline may hold 'mask' runs) is not compared on the gated metrics the new classifier
+does not report (absent from its metrics, not null): those rows are n/a with the reason, and a warning names the
+change until a baseline scored the same way is accepted (run_quality.js --accept). The metrics both report are gated.
 A change in the good direction larger than tol is reported as IMPROVED (never a failure).
 A run that is not in the baseline yet (a scene added after the baseline was recorded) is reported as NEW with its
 values and is not compared with a baseline, until a baseline that contains it is accepted (run_quality.js
@@ -160,7 +164,7 @@ def main(argv=None):
             summary[rid] = 'INFO'
             continue
         if b is None:
-            # a scene added after the baseline was recorded: shown with its values, not compared with a baseline; but
+            # a scene the baseline does not hold: shown with its values, not compared with a baseline; but
             # a run that did not render is not new, it is broken
             news.append((rid, c))
             if not c.get('ok', False):
@@ -179,6 +183,10 @@ def main(argv=None):
                 warns.append(f'{rid}: {p}')
         bmet, cmet = b.get('metrics', {}), c.get('metrics', {})
         o = dict(ov.get(c.get('scene', ''), {}), **ov.get(rid, {}))
+        bcls, ccls = b.get('classifier'), c.get('classifier')
+        unreported = [k for k in gated if bcls != ccls and k in bmet and k not in cmet]
+        if unreported:
+            warns.append(f"{rid}: scored by the '{ccls}' classifier, the baseline by '{bcls}': {', '.join(unreported)} not compared (accept a baseline scored the same way)")
 
         def spec(k, base_spec, o=o):
             s = dict(base_spec)
@@ -190,7 +198,9 @@ def main(argv=None):
                 continue
             s = spec(k, s0)
             bv, cv = bmet.get(k), cmet.get(k)
-            if s.get('min_n') and (bmet.get(s['n_key'], 0) < s['min_n'] or cmet.get(s['n_key'], 0) < s['min_n']):
+            if k in unreported:
+                status, d = (f"n/a (not reported by the '{ccls}' classifier; the baseline's was '{bcls}')", None)
+            elif s.get('min_n') and (bmet.get(s['n_key'], 0) < s['min_n'] or cmet.get(s['n_key'], 0) < s['min_n']):
                 status, d = (f"n/a (n<{int(s['min_n'])})", None)
             else:
                 status, d = judge(bv, cv, s['better'], s['tol'])

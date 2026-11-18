@@ -119,7 +119,7 @@ await pick(300);
 // rail-9: the chip leaves the picks' band (RU, dark)
 await view(1366, 768, true, false);
 await load(NS + 'r9', U0({ shapes: [{ id: 'C', kind: 'circle', c: [0.5, 0.3], r: 1.3, ci: 0, visible: true }], nextId: 40 }));
-await nav(`${BASE}/test.html?ns=${NS}r9&lang=ru`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}r9&lang=ru`);
 await tool('perp');
 { const at = async (d) => A(d, 1.3, [0.5, 0.3]); let q = await at(200); await move(q[0], q[1]); await settle(100); await click(q[0], q[1]); await settle(200);
   q = await at(100); await move(q[0], q[1]); await settle(150);
@@ -139,7 +139,6 @@ await settle(1200);
   const st = await ST(), K = st.list.find((x) => x.def && x.def.op === 'circle3');
   ok('rail-5: three globe picks on C are gliders and the circle is C', K && Math.abs(K.r - 0.8) < 1e-12 && st.list.filter((x) => x.def && x.def.op === 'glider').length === 3, sum(st));
   await key('Escape');
-  // (Orthogonal on the globe says to switch to the plane after a press: the classic view's hint, in ux165_fix_classic_cmd.js)
   // (before any press: the chip of a tool that picks a curve says where the curve is picked)
   const q = await pt(60);
   for (const t of ['perp', 'touch', 'hyper', 'meet']) {
@@ -148,26 +147,24 @@ await settle(1200);
     ok(`rail-5: ${t} on the globe, before a press, says to switch to the plane`, /^Switch to the plane to pick the curve/.test(await mchip() || ''), await mchip());
   }
 }
-// user-1, user-5, regress-3: z^2 + a from the palette
+// z^2 + a from the palette
 await view(1366, 768, false, false);
-await nav(`${BASE}/test.html?ns=${NS}pal`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}pal`);
 await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); await key('Enter'); await settle(800);
-{ const sv = await svClassOn(), headSel = sv ? '#plotL' : '.pipe-head', placed = sv ? 'plot' : 'head';   // (the chain's head, or the steps view's plot, above its thread)
+{ const headSel = '#plotL', placed = 'plot';   // (the plot, above the thread)
   const t = await ev(`(() => { const e = [...document.querySelectorAll('.prm')].find((x) => x.offsetParent); return e ? e.textContent : ''; })()`);
   ok('user-1: the number just added with its step is not "Not used yet"', !/Not used yet/.test(t), t);
   const add = await rect('.prm-add'), row = await ev(`(() => { const r = [...document.querySelectorAll('.prm-row')].filter((x) => x.offsetParent).pop(); return r ? Math.round(r.getBoundingClientRect().bottom) : null; })()`);
   ok('user-5: + Number sits right under the last number', add && row != null && add[1] - row <= 8, [add, row]);
   const tr = await ev(`(() => { const t = document.querySelector('#toastHost .toast'); if (!t) return null; const r = t.getBoundingClientRect(), h = document.querySelector(${JSON.stringify(headSel)}).getBoundingClientRect(); return [r.top >= h.top - 1 && r.bottom <= h.bottom + 1 && (!document.getElementById('svStrip') || !document.getElementById('svStrip').offsetParent || r.bottom <= document.getElementById('svStrip').getBoundingClientRect().top + 1), document.getElementById('toastHost').getAttribute('data-placed')]; })()`);
-  ok('regress-3: the "Added" message sits in the chain head (in the steps view, over the plot, above the thread)', tr && tr[0] && tr[1] === placed, tr); }
+  ok('the "Added" message sits over the plot, above the thread', tr && tr[0] && tr[1] === placed, tr); }
 // regress-1, regress-2: example 8 with the deformation; example 10's "Opened" toast and M
 await openEx(8); await key('m'); await settle(1200);
-// (regress-1, the deformation bar's one row, is the classic view's transport: ux165_fix_classic_cmd.js)
 await key('m'); await settle(500);
 await openEx(10); await key('m'); await settle(1200);
 { const t = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), d = document.querySelector('.tdock:not([hidden])'); if (!t || !d) return null; const a = t.getBoundingClientRect(), b = d.getBoundingClientRect(); return a.bottom <= b.top || a.top >= b.bottom; })()`);
   ok('regress-2: the toast is not over the deformation bar', t !== false, t); }
 await key('m'); await settle(500);
-// (regress-5, the planes staying put when Listen starts the melody, is in ux165_fix_classic_cmd.js)
 // regress-9: a Tab focus shows the tip; a focus the app moves does not
 await ev(`document.getElementById('undoBtn').focus(), 1`); await settle(400);
 ok('regress-9: no tip for a focus the app moves', await ev(`document.getElementById('tip').hidden`));
@@ -187,17 +184,17 @@ await view(412, 860, true, true);
 // (a phone that has not probed yet: the Point taps above, on a phone, count as a finger on the plane, cmw-probe-learned,
 // which ends the teaching for good; ux165_plane_cmd.js clears it the same way)
 await ev(`sessionStorage.clear(), localStorage.removeItem('cmw-probe-learned'), 1`);
-await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`);
 { const c = await ev(`(() => { const e = document.getElementById('leftReadout'); return [e.textContent, e.scrollWidth <= e.clientWidth + 1]; })()`);
   // (the same line, worded for the steps view's one plane)
   ok('user-4: the Russian line is whole', (await svClassOn() ? /Удерживайте и ведите, чтобы прочитать F\(z\)/ : /Удерживайте палец\s— F\(z\)/).test(c[0]) && c[1], c);
   await sleep(8500);
   ok('regress-4: the line is gone after 8 s', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`)));
-  await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
+  await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`);
   ok('regress-4: not again in the same session', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`))); }
 // user-3: Orthogonal on the phone: Y's view stays
 await view(412, 860, false, true);
-await nav(`${BASE}/test.html?ns=${NS}u3`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}u3`);
 { const yv = () => ev(`(() => { const a = __cmwW2S('R', 0, 0), b = __cmwW2S('R', 1, 0); return Math.round((b[0] - a[0]) * 100) / 100; })()`);
   const y0 = await yv(); await tool('perp');
   for (const d of [200, 250, 300]) { const p = await A(d); await tap(p[0], p[1]); await settle(300); }

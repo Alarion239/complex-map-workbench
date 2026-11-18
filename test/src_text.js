@@ -3,7 +3,7 @@
 // src/app.js, src/gl.js, src/figure.js, src/sound.js and src/construct.js are kept as ordered parts: src/<name>/wrap.js holds the closure's first and last lines
 // around an "// @parts" line, and the parts src/<name>/NN-*.js take that line's place, joined in file name order. The
 // joined text is the old single file byte for byte. tools/src_parts.py does the same for build.py and the Python.
-//   const { appText, glText, source } = require('./src_text');
+//   const { appText, glText, source, fnText, braced } = require('./src_text');
 const fs = require('fs');
 const path = require('path');
 
@@ -23,7 +23,7 @@ function parts(file, dir = SRC) {
 // What a module file (ES modules, phase 4 of issue #20) carries around its code, which a test that evaluates the text as a
 // script must not see: `import ... from '...';` lines (plain, default, `* as`, multi-line, or bare `import '...';`) and
 // `export { ... };` lines, each standing at the start of a line, wherever in the file they are (the codemod puts the block
-// at the end of a file so that no line number above it changes). Both go; the rest is as it was: an indented one, or
+// at the end of a file so that no line number above it changes). Both go; the rest is unchanged: an indented one, or
 // `import(` as a call, stays. A file with neither is returned as it is.
 const IMPORT_RE = /^import\s*(?:[\w$*{][^;'"]*?\bfrom\s*)?(['"])[^'"\n]+\1[ \t]*;?[ \t]*\r?\n?/gm;
 const EXPORT_RE = /^export\s*\{[^}]*\}[ \t]*(?:from\s*['"][^'"\n]+['"][ \t]*)?;?[ \t]*\r?\n?/gm;
@@ -31,7 +31,9 @@ function stripEsm(text) {
   return text.replace(IMPORT_RE, '').replace(EXPORT_RE, '');
 }
 
-// the text of src/<file>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line.
+// the text of src/<file>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line. A
+// TypeScript file comes without its types (tools/ts_strip.js: the same lines and columns), and src/<x>.js names
+// src/<x>.ts where only that exists, as the bundler resolves the modules' './<x>.js' imports.
 //   source(file)                      the app's own src/
 //   source(file, dir)                 another copy of src/ (a snapshot)
 //   source(file, { esm: 'strip' })    without the import lines and export { } lines of a module file (a script's text, for
@@ -44,11 +46,38 @@ function source(file, a, b) {
 }
 function joined(file, dir) {
   const p = parts(file, dir);
-  if (!p) return fs.readFileSync(path.join(dir, file), 'utf8');
+  if (!p) {
+    const ts = /\.js$/.test(file) && !fs.existsSync(path.join(dir, file)) && fs.existsSync(path.join(dir, file.replace(/\.js$/, '.ts'))) ? file.replace(/\.js$/, '.ts') : file;
+    const text = fs.readFileSync(path.join(dir, ts), 'utf8');
+    return /\.ts$/.test(ts) ? require('../tools/ts_strip').strip(text, ts) : text;
+  }
   const wrap = fs.readFileSync(path.join(dir, file.replace(/\.js$/, ''), 'wrap.js'), 'utf8');
   const m = PARTS_RE.exec(wrap);
   if (!m) throw new Error(`${file}: wrap.js has no // @parts line`);
   return wrap.slice(0, m.index) + p.map((f) => fs.readFileSync(f, 'utf8')).join('') + wrap.slice(m.index + m[0].length);
 }
 
-module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, appText: () => source('app.js'), glText: () => source('gl.js') };
+// the text from `at` (an index of text) to the brace that closes the first one after it (braces inside strings must balance)
+function braced(text, at, what) {
+  let d = 0;
+  for (let k = text.indexOf('{', at); k < text.length; k++) { const c = text[k]; if (c === '{') d++; else if (c === '}' && --d === 0) return text.slice(at, k + 1); }
+  throw new Error('unbalanced ' + what);
+}
+// a function of text by its name: from `function name(` to its closing brace. It is found as the app's closures nest it, behind
+// opts.indent (two spaces); { indent: '' } finds it at any depth. Its body opens at the `) {` that ends the parameters, so a
+// default `o = {}` does not start it. A name that is not there, or whose braces do not balance, throws; { soft: true } gives ''
+// for it instead, for a test that checks the text with a regex.
+function fnText(text, name, opts = {}) {
+  const i = text.indexOf(`${opts.indent === undefined ? '  ' : opts.indent}function ${name}(`);
+  try {
+    if (i < 0) throw new Error('no function ' + name);
+    const open = text.indexOf(') {', i) + 2;
+    if (open < 2) throw new Error('no body for ' + name);
+    return text.slice(i, open) + braced(text, open, name);
+  } catch (e) {
+    if (opts.soft) return '';
+    throw e;
+  }
+}
+
+module.exports = { SRC, SPLIT, PARTS_RE, parts, source, stripEsm, braced, fnText, appText: () => source('app.js'), glText: () => source('gl.js') };

@@ -723,7 +723,7 @@ const Curves = (() => {
         // the centre on the side of corners 0 and 2: they connect, the curve cuts off corners 1 and 3
         if ((cv >= 0) === (v[0] >= 0)) out.push([e[0], e[1]], [e[2], e[3]]); else out.push([e[3], e[0]], [e[1], e[2]]);
       }
-      // suspect cells and their neighbours: marched again on a 4 x 4 grid (their arcs replaced); the region grows across
+      // suspect cells and their neighbours: marched again on a 4 x 4 grid (their arcs are the new ones); the region grows across
       // every edge on which the finer grid finds more crossings than this one did (two curves closer than a cell pass
       // between this grid's vertices unseen)
       if (depth < maxDepth && !over()) {

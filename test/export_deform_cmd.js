@@ -22,6 +22,7 @@ const open = async (exN, w = 1440, h = 900, dark = false) => {
   await go(`${base}/test.html?view=steps&ns=xdf${Date.now() % 1e7}${ns++}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${exN}), 1)`);
+  await adopted();
   await settled({ until: '__cmwSteps().planes.length > 0', max: 15000, floor: 300 });
   await ev(`(__cmwSteps({ surf: 'plane' }), __cmwSteps({ go: 0, now: true }), __cmwSet('wKey', false), 1)`);
   await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
@@ -83,7 +84,8 @@ if (part('dialog')) {
   ok('dialog Video: no Window choice (the glide is the pane as on screen), the Length menu is per step, the summary line', !q.win && q.len.aria === 'Length of each step' && q.len.opts.join() === '2:2 s per step,3:3 s per step,4:4 s per step,6:6 s per step' && /→.*· [0-9.,]+ s/.test(q.sum || ''), q);
   ok('dialog Video: the name is the scene\'s (the steps view has one video of the thread)', q.name === 'strip-to-disk', q.name);
   await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '2'; s.dispatchEvent(new Event('change')); return 1; })()`);
-  for (let i = 0; i < 40; i++) { await sleep(200); if (await ev(`!!document.querySelector('.xf-poster').getAttribute('src')`)) break; }
+  // (the hint is rewritten when the poster of the chosen size is drawn, so it is what is waited on: a poster of the earlier size may be showing)
+  for (let i = 0; i < 40; i++) { await sleep(200); if (await ev(`!!document.querySelector('.xf-poster').getAttribute('src') && /1280 × 720/.test(document.querySelector('.xf-hint').textContent)`)) break; }
   q = await ev(`(() => ({ hidden: ['xfOverleaf', 'xfDocs', 'xfMore'].map((id) => document.getElementById(id).hidden), vid: !document.getElementById('xfVideo').hidden, poster: !!document.querySelector('.xf-poster').getAttribute('src'), ext: document.querySelector('.xf-ext').textContent, hint: document.querySelector('.xf-hint').textContent }))()`);
   ok('dialog Video: a poster frame, Save video, the destinations put away', q.hidden.every(Boolean) && q.vid && q.poster && q.ext === '.mp4' && /1280 × 720/.test(q.hint), q);
   await shot('export-dlg-glide-1440');
@@ -117,12 +119,31 @@ if (part('dialog')) {
     const mm = await ev(`(() => { const e = document.querySelector('.modal.xf'), v = document.getElementById('xfVideo').getBoundingClientRect(); return { sw: document.documentElement.scrollWidth, vw: innerWidth, over: e.scrollWidth - e.clientWidth, vid: [v.left, v.right] }; })()`);
     ok(`dialog Video ${w} ${dark ? 'dark' : 'light'}: no horizontal scroll, Save video on screen`, mm.sw <= mm.vw && mm.over <= 0 && mm.vid[0] >= 0 && mm.vid[1] <= mm.vw, mm);
   }
+  // (#1837) on a 360 x 640 phone (touch): Save video, and while a video is made Cancel, are touch targets of 44 px at least, and
+  // the progress meter beside them keeps MIN_METER_PX of width (the progress row has the name row's place: a row of its own)
+  {
+    const TARGET_PX = 44, MIN_METER_PX = 96;
+    await open(1, 360, 640, false);
+    await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; __cmwFig.saveSettings(s); return 1; })()`);
+    await ev('Figure.open(); 1'); await dlg(); await settle(600);
+    await clickSel('#xfVSize button[data-v="1920x1080"]'); await clickSel('#xfVFps button[data-v="60"]');
+    await ev(`(() => { const s = document.getElementById('xfVLen'); s.value = '6'; s.dispatchEvent(new Event('change')); return 1; })()`);
+    const vidH = await ev(`document.getElementById('xfVideo').getBoundingClientRect().height`);
+    await ev(`(document.getElementById('xfVideo').click(), 1)`);
+    for (let i = 0; i < 100; i++) { await sleep(100); if (await ev(`!document.querySelector('.xf-prog').hidden && /Frame \\d+/.test(document.querySelector('.xf-progtxt').textContent)`)) break; }
+    const pr = await ev(`(() => { const c = document.getElementById('xfVCancel').getBoundingClientRect(), m = document.querySelector('.xf-meter').getBoundingClientRect(), v = document.getElementById('xfVideo').getBoundingClientRect();
+      return { running: !document.querySelector('.xf-prog').hidden, cancel: [Math.round(c.width), Math.round(c.height)], meter: Math.round(m.width), video: Math.round(v.height), sw: document.documentElement.scrollWidth, vw: innerWidth }; })()`);
+    ok(`dialog Video 360 x 640: Save video and Cancel are ${TARGET_PX} px touch targets, the meter keeps ${MIN_METER_PX} px`, vidH >= TARGET_PX && pr.running && pr.cancel[1] >= TARGET_PX && pr.video >= TARGET_PX && pr.meter >= MIN_METER_PX && pr.sw <= pr.vw, Object.assign({ videoBefore: vidH }, pr));
+    await ev(`(() => { const b = document.getElementById('xfVCancel'); if (b && !b.closest('[hidden]')) b.click(); return 1; })()`);
+    for (let i = 0; i < 40; i++) { await sleep(150); if (await ev(`document.querySelector('.xf-prog').hidden`)) break; }
+  }
 }
 
 if (part('preview')) {
   const pvState = () => ev(`(() => { const d = __cmwFig.dialog(); if (!d || !d.preview) return null; const sk = document.getElementById('xfPvSeek');
     return Object.assign(d.preview.state(), { note: d.preview.note(), poster: !document.querySelector('.xf-poster').hidden, canvas: !document.querySelector('.xf-pvcv').hidden, btn: document.getElementById('xfPvPlay').getAttribute('aria-label'),
       seek: [+sk.value, +sk.max, sk.getAttribute('aria-valuetext')], time: document.querySelector('.xf-pvtime').textContent, stats: __cmwFig.previewStats() }); })()`);
+  const { scrubberKeys } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'preview_scrubber.js'), 'utf8'))({ ev, key, settled, pvState });
   const filled = `(() => { const d = __cmwFig.dialog(); const s = d && d.preview && d.preview.state(); return !!(s && s.total > 0 && s.ready === s.total); })()`;
   // in the page: the preview's picture at timeline index k against the saved video's frame k, decoded, and against the exact
   // render at its t, all at the preview's size; mean abs difference of 255
@@ -155,6 +176,9 @@ if (part('preview')) {
   await ev(`(() => { const b = document.getElementById('xfPvPlay'); b.click(); return 1; })()`); await sleep(300);
   const p1 = await pvState(); await sleep(400); const p2 = await pvState();
   ok('preview: the button pauses it', p1 && p2 && p1.btn === 'Play' && typeof p1.i === 'number' && p1.i === p2.i, { p1, p2 });
+  // the scrubber takes the keyboard, paused (the steps view's preview has its own page, so its own run of the check)
+  const { mid, k0, k1, k2, k3 } = await scrubberKeys();
+  ok('preview: the scrubber takes the keyboard (Right: one frame on; End; Home), paused', k0.i === mid && !k0.playing && k1.i === mid + 1 && !k1.playing && k2.i === k2.n - 1 && k3.i === 0 && k3.seek[0] === 0, { mid, n: k2.n, k0: k0.i, k1: k1.i, k2: k2.i, k3: k3.i });
   await key('Escape'); await settle(300);
   ok('preview: closing the dialog stops it', (await ev('!__cmwFig.dialog()')) === true, null);
 }

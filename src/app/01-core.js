@@ -21,11 +21,12 @@
     undo: svgI('<path d="M5.5 3.5l-3 3 3 3M2.5 6.5h7a3.5 3.5 0 0 1 0 7H6"/>'),
     redo: svgI('<path d="M10.5 3.5l3 3-3 3M13.5 6.5h-7a3.5 3.5 0 0 0 0 7H10"/>'),
     theme: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M8 2.25a5.75 5.75 0 0 1 0 11.5z" fill="currentColor" stroke="none"/>'),
+    themeLight: svgI('<circle cx="8" cy="8" r="2.75"/><path d="M8 1.5v1.75M8 12.75v1.75M1.5 8h1.75M12.75 8h1.75M3.4 3.4l1.25 1.25M11.35 11.35l1.25 1.25M3.4 12.6l1.25-1.25M11.35 4.65l1.25-1.25"/>'),
+    themeDark: svgI('<path d="M13 9.4A5.5 5.5 0 0 1 6.6 3 5.5 5.5 0 1 0 13 9.4z"/>'),
     bypass: svgI('<path d="M1.5 11h3.5M11 11h3.5M5 11C5 5 11 5 11 11"/><rect x="6.5" y="9.5" width="3" height="3"/>'),
     play: svgI('<path d="M5 3.5v9l7.5-4.5z"/>', true),
     pause: svgI('<rect x="4.5" y="3.5" width="2.25" height="9"/><rect x="9.25" y="3.5" width="2.25" height="9"/>', true),
     search: svgI('<circle cx="7" cy="7" r="4.25"/><path d="M10.25 10.25l3.25 3.25"/>'),
-    grip: svgI('<circle cx="6" cy="4" r="1"/><circle cx="10" cy="4" r="1"/><circle cx="6" cy="8" r="1"/><circle cx="10" cy="8" r="1"/><circle cx="6" cy="12" r="1"/><circle cx="10" cy="12" r="1"/>', true),
     panelL: svgI('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M6 2.5v11"/>'),
     panelR: svgI('<rect x="2" y="2.5" width="12" height="11" rx="1.5"/><path d="M10 2.5v11"/>'),
     // reset view: a circular arrow turning back (an ellipse with a dot read as the visibility eye)
@@ -36,12 +37,12 @@
     argand: svgI('<path d="M2.5 8h11M8 2.5v11"/><circle cx="11" cy="5" r="1.6" fill="currentColor" stroke="none"/>'),
     help: svgI('<circle cx="8" cy="8" r="6"/><path d="M6.3 6.3a1.8 1.8 0 1 1 2.4 1.7c-.5.2-.7.6-.7 1.1v.4"/><circle cx="8" cy="11.6" r=".8" fill="currentColor" stroke="none"/>'),
     snap: svgI('<path d="M4 2.5v5.5a4 4 0 0 0 8 0V2.5M4 5h2.5M9.5 5H12"/>'),
-    // (#247) the pane head's toggles: the shapes' outlines over the portrait, the view's outline in Y
+    // the pane head's toggles: the shapes' outlines over the portrait, the view's outline in Y
     outlines: svgI('<path d="M3.5 12.5L2.75 6.25 8 2.75l5.25 3.5-1 6.25z" stroke-dasharray="2.2 1.7"/>'),
     fov: svgI('<rect x="2.25" y="3.25" width="11.5" height="9.5" rx="1" stroke-dasharray="2.4 1.7"/>'),
     unit: svgI('<circle cx="8" cy="8" r="5.5" stroke-dasharray="2 2"/><circle cx="8" cy="8" r="1" fill="currentColor" stroke="none"/>'),
     sliders: svgI('<path d="M2.5 5h11M2.5 11h11"/><circle cx="6" cy="5" r="1.75" fill="var(--surface)"/><circle cx="10" cy="11" r="1.75" fill="var(--surface)"/>'),
-    // ([v17 D5] the header's Settings and Share; the Language setting's globe, in Settings and the phone's sheet)
+    // (the header's Settings and Share; the Language setting's globe, in Settings and the phone's sheet)
     globe: svgI('<circle cx="8" cy="8" r="5.75"/><path d="M2.25 8h11.5M8 2.25c-2.2 2.9-2.2 8.6 0 11.5M8 2.25c2.2 2.9 2.2 8.6 0 11.5"/>'),
     gear: svgI('<circle cx="8" cy="8" r="2.1"/><path d="M8 1.75v1.6M8 12.65v1.6M14.25 8h-1.6M3.35 8h-1.6M12.42 3.58l-1.13 1.13M4.71 11.29l-1.13 1.13M12.42 12.42l-1.13-1.13M4.71 4.71L3.58 3.58"/><circle cx="8" cy="8" r="4.4"/>'),
     share: svgI('<circle cx="4.25" cy="8" r="1.9"/><circle cx="11.75" cy="3.9" r="1.9"/><circle cx="11.75" cy="12.1" r="1.9"/><path d="M5.9 7.1l4.2-2.3M5.9 8.9l4.2 2.3"/>'),
@@ -68,13 +69,13 @@
   };
 
   // ---------------- TeX via MathJax (falls back to the formula as plain text) ----------------
-  // ([#465] until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
+  // (until MathJax has loaded, or where it cannot typeset, a node shows the formula read as text (texTitle:
   // «кривая, 5 точек», |Im z| < π/2), never its TeX source; MathJax replaces it once it is ready)
   const TeX = (() => {
     const cache = new Map();
     let ready = false;
     const pending = new Set();
-    // (#288) MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one
+    // MathJax 4's STIX2 font loads its rarer ranges (Cyrillic, Fraktur, …) on demand: a formula that needs one
     // not yet loaded throws with e.retry, a promise. Its nodes show the fallback and are set again when it settles,
     // as often as the formula needs ranges, at most RETRIES times (a range that cannot load: the formula read as
     // text). MathJax throws only for the first formula that asks for a range still loading: another one with a letter
@@ -182,7 +183,7 @@
       axis: hx('--axis', '#2E3D47'), label: hx('--axis-label', hx('--label', '#4A606C')), rulerTick: hx('--ruler-tick', '#3E4C56'),
       cut: hx('--cut', '#CC3311'), pole: hx('--pole', '#A0153E'), zero: hx('--zero', '#121A20'), probe: hx('--probe', '#121A20'), halo: hx('--halo', plane), fov: hx('--fov', '#2E3D47'),
       dcLine: hx('--dc-line', '#FFFFFF'), dcCasing: hx('--dc-casing', '#0B1114'),
-      landTop: hx('--land-top', '#F5F8F9'), landBottom: hx('--land-bottom', '#DCE4E7'), landFloor: hx('--land-floor', '#FAFCFC'), landBox: hx('--land-box', '#B3BEC4'),
+      landTop: hx('--land-top', '#F5F8F9'), landBottom: hx('--land-bottom', '#DCE4E7'), landFloor: hx('--land-floor', '#FAFCFC'), landBox: hx('--land-box', '#B3BEC4'), landFootprint: hx('--land-footprint', '#6B7E87'),
       landMod: hx('--land-mod-line', '#18232A'), landArg: hx('--land-arg-line', '#FFFFFF'), plaster: hx('--plaster', '#ECEEEC'), landShadow: hx('--land-shadow', '#2E3D47'),
       hemiSky: hx('--hemi-sky', '#E6EEF4'), hemiGround: hx('--hemi-ground', '#8C9296'),
       stretchShrink: hx('--stretch-shrink', '#2E69B2'), stretchGrow: hx('--stretch-grow', '#D79628'), stretchMid: hx('--stretch-mid', '#E9F0F2'),
@@ -242,7 +243,7 @@
   const LS_KEY = lsk('complex-map-workbench-v1');
   let S = null;
   // the whole state replaced (a saved session loaded, a reset, the tour's practice, an example's thumbnail drawn in a
-  // scratch state): the one place S itself is reassigned (#20 phase 3, step 5)
+  // scratch state): the one place S itself is reassigned
   function setState(next) { S = next; }
   // a pane hidden or shown: side 'L' (the tools and X) or 'R' (Y and the chain); the caller lays out and saves
   function setHidden(side, on) { if (side === 'L') S.hideLeft = on; else S.hideRight = on; }
@@ -263,7 +264,7 @@
   function setStepAt(i, st) { S.steps[i] = st; }
   // the rest of S: the display and view options (pattern, dc, landPlain, height, sheets, view, srcView, clipWin,
   // homRange, ...) set or removed by name, a part of the view (pane null: the view's own key, as main), and the next
-  // shape's id taken (the old S.nextId++)
+  // shape's id taken
   function setOpt(key, v) { S[key] = v; }
   function deleteOpt(key) { delete S[key]; }
   function setViewOpt(pane, key, v) { if (pane) S.view[pane][key] = v; else S.view[key] = v; }
@@ -286,29 +287,26 @@
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
-      alpha: 0.85, meshN: 240, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
-      patternScale: 1, hcap: 2.2, spin: false, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
+      alpha: 0.85, meshN: 240, v3: true, v4: true, hideLeft: false, hideRight: false, solo: null, dc: 'enhanced',
+      patternScale: 1, dcGrid: 0.5, morphSecs: 1.6, homAll: false, height: 'log', outline: true,
       srcView: { cx: 0, cy: 0, s: 60 }, nextId: 1,
       // w-plane targets, drawn in the right plane in Image mode; their preimages show in the left plane in every
       // mode (none by default); the optional Riemann sphere view of the left plane; Landscape: all sheets of a
       // multivalued map (S.sheets) with a window of 2W + 1 sheets for log and irrational powers (S.sheetW)
       targets: [], sheets: false, sheetW: 2, v5: true,
-      // U-b: the left pane is X (domain of the map in focus), the right pane Y (its codomain), each with its own
-      // surface; Phase paints X (Views in view.js; old saves are migrated by Views.migrate). wKey: the colour key of
+      // the left pane is X (domain of the map in focus), the right pane Y (its codomain), each with its own
+      // surface; Phase paints X (Views in view.js; a saved state without `view` is migrated by Views.migrate). wKey: the colour key of
       // the phase portrait painted in the Y plane (the Key switch in X's legend chip). landPlain: the relief paints
-      // Plain whatever the style (an old landscape's default 'phase' material, kept without rewriting dc; cleared
+      // Plain whatever the style (a landscape saved with the default 'phase' material, kept without rewriting dc; cleared
       // when a style is picked)
       view: Views.blank(), v6: true, wKey: false, landPlain: false,
-      // the Cauchy style (#235): which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
+      // the Cauchy style: which halves of the picture show ('both', 'in' = f+ inside only, 'out' = outside only) and the
       // sign of the outside (false: f-, the outer function; true: the integral itself, -f-)
       cauchyShow: 'both', cauchyPlus: false,
-      // exact images (SPEC 10.1): mapped areas drawn per pixel through the inverse of the chain where it has one; an
-      // internal switch (no visible option), kept in saved state
-      exactImages: true,
-      // v15: the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
+      // the shared numbers (src/params.js; constructions/DESIGN.md 1.5)
       params: [],
-      // (S.sv, the steps view's {at, T, scope, surf, speed} (#366): absent until ?view=steps writes it, so the default
-      // view's saves are the same bytes as before; sanitizeState repairs it, Views.cleanSv)
+      // (S.sv, the steps view's {at, T, scope, surf, speed}: absent until ?view=steps writes it, so the default
+      // view's saves are free of it; sanitizeState repairs it, Views.cleanSv)
     };
   }
   // target colors skip c4 (magenta), the palette ink nearest the pole color: roots must not read as poles
@@ -318,7 +316,7 @@
   let selected = null;
   let tool = 'select';
   let draft = null;
-  // [v16.5 UX09, UX14] the last press on a plane was a finger (or a pen): larger handles, grab and close radii
+  // the last press on a plane came from a finger (or a pen): larger handles, grab and close radii
   let ptrTouch = null;
   let probe = null; // {z (in left plane)}
   // the deformation transport (open: the right plane shows the homotopy at T in every view; closed: t = end)
@@ -327,8 +325,8 @@
   // undo history of {s: shapes, steps and nextId as JSON, focus}. The focus of the current entry follows
   // the live focus at the start of every user input (noteFocus), so undo returns to the step focused before the action.
   let hist = [], hi = -1;
-  let exAt = -1;   // (v16.5 UX25: the history entry an example opened at; the Examples button names it until an edit)
-  // (v16: and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
+  let exAt = -1;   // (the history entry an example opened at; the Examples button names it until an edit)
+  // (and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
   // (the steps view's place rides the entry like the focus: moving between planes is not an undo step, undo returns to the place it left)
   const svCopy = () => { if (typeof svStore === 'function') svStore(); return S.sv ? JSON.parse(JSON.stringify(S.sv)) : null; };
@@ -348,12 +346,12 @@
   function restore(e) {
     const o = JSON.parse(e.s), was = S.steps;
     setShapes(o.shapes); setSteps(o.steps); setOpt('nextId', o.nextId);
-    Funcs.typedKeep(was, S.steps); // (Russian: a list text typed and refused stays refused after an undo: verify-1)
+    Funcs.typedKeep(was, S.steps); // (Russian: a list text typed and refused stays refused after an undo)
     setTargets(Array.isArray(o.targets) ? o.targets : []);
     setParams(Array.isArray(o.params) ? o.params : []);
     bindsAll();
     paramsRestored();
-    // shapes that no longer exist give back their GPU meshes, lines and map caches
+    // shapes that are gone give back their GPU meshes, lines and map caches
     const keep = new Set(S.shapes.map((x) => x.id));
     for (const id of [...gpu.keys()]) if (!keep.has(id)) dropShapeGPU(id);
     if (selected && !keep.has(selected) && !S.targets.some((x) => x.id === selected)) selected = null;
@@ -366,13 +364,13 @@
     dismissUndoToast();
     chainChanged(true); shapesChanged(true);
     if (refocus) setFocus(f);
-    HR.resolve(S, true); buildDock(); updateBracket();
+    HR.resolve(S, true);
     updateUndo(); exLabelSync(); save(); histSay();
   }
-  // [v16.5 UX14, UX15] an open polygon's points and a construction's own picks are undone first, one at a time
+  // an open polygon's points and a construction's own picks are undone first, one at a time
   const polyDraftOpen = () => !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
   const draftUndoable = () => polyDraftOpen() || !!Construct.undoPickable();
-  // ([v16.5 fix regress-7] it runs in every overlay frame (a pick or a polygon point changes Undo): the buttons are
+  // (it runs in every overlay frame (a pick or a polygon point changes Undo): the buttons are
   // touched only when what they show changed)
   let undoKey = '';
   function updateUndo() {
@@ -394,44 +392,62 @@
     return true;
   }
   let saveT = 0, storageWarned = false;
-  let figureSwap = false;   // v15: a link or a scene was written for the reload that opens it (nothing else is saved)
-  // ([v16.5 check app-1, app-2] the header search's words are never cut: where its field is too narrow for them (an
-  // example's name beside Examples, Italian's longer label, "Ctrl K"), it shows its short label (Russian, Italian) when
-  // that fits, else its icon and shortcut alone (named by its aria-label and tooltip), and the example's name takes the
-  // room. Measured in a frame when the header's width, the example's name or the fonts change; a phone has no field)
+  let figureSwap = false;   // set while a link or a scene is written for the reload that opens it (nothing else is saved)
+  // (no word of the bar is cut: where it does not fit, words give way one level at a time, in this
+  // order, until it does: the words of Export, Share, Theme and Sound (together), an open example's name, the view tabs' and
+  // Deformation's words, the search's full label, its short label (Russian, Italian), then its icon and shortcut alone (named
+  // by its aria-label and tooltip). Measured in a frame when the header's width, the example's name or the fonts change; a
+  // phone has no field)
   let hdrFitRaf = 0;
   function hdrFit() {
     hdrFitRaf = 0;
     const f = $('cmdBtn'), top = f && f.closest('.top');   // (its parent is the phone's menu, display: contents here)
     if (!top) return;
-    top.classList.remove('cmd-short', 'cmd-cut', 'share-icon');
+    const LEVELS = ['hw-off', 'ex-off', 'tabs-off', 'cmd-short', 'cmd-cut'];
+    top.classList.remove(...LEVELS);
     if (document.documentElement.classList.contains('ph')) return;
     const t = f.querySelector('.cmd-text');
-    const cut = () => !!t && t.clientWidth > 0 && t.scrollWidth > t.clientWidth + 0.5;
-    if (cut()) {
-      if (f.querySelector('.ct-s')) top.classList.add('cmd-short');
-      if (!f.querySelector('.ct-s') || cut()) { top.classList.remove('cmd-short'); top.classList.add('cmd-cut'); }
+    const ex = $('examplesBtn'), exName = ex && ex.querySelector('.exlabel');
+    const clipped = (/** @type {Element | null} */ e) => !!e && e.clientWidth > 0 && e.scrollWidth > e.clientWidth + 0.5;
+    // (a name longer than Examples' own width cap ends in an ellipsis by design; one cut for want of room does not fit)
+    const capped = () => !!ex && ex.offsetWidth >= parseFloat(getComputedStyle(ex).maxWidth) - 1;
+    const fits = () => !(top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1) || clipped(t) || (clipped(exName) && !capped()));
+    // (each word gives way only where the bar does not fit, in this order: the words of Export, Share, Theme and Sound, together;
+    // an open example's name; the view tabs' and Deformation's words; the search's full label, its short label, its icon alone)
+    for (const level of LEVELS) {
+      if (fits()) break;
+      if (level === 'cmd-short' && !f.querySelector('.ct-s')) continue;
+      top.classList.add(level);
+      if (level === 'cmd-short' && fits()) break;
+      if (level === 'cmd-short') top.classList.remove(level);
     }
-    // ([v17 D5] Share's word gives way, while Examples' own word or the field is squeezed, or the bar overflows)
-    const ex = $('examplesBtn');
-    const tight = () => top.scrollWidth > top.clientWidth + 0.5 || f.scrollWidth > f.clientWidth + 1 || (!!ex && ex.scrollWidth > ex.clientWidth + 1);
-    if (tight()) top.classList.add('share-icon');
   }
   const hdrFitSoon = () => { if (!hdrFitRaf) hdrFitRaf = requestAnimationFrame(hdrFit); };
+  // Runs fn when the faces have settled and again after each later face load: the font sheet applies after first paint, and
+  // document.fonts.ready can resolve before it does, so a fit measured then used the fallback faces. faceGen counts the
+  // settles, for fits that skip an unchanged key.
+  let faceGen = 0;
+  const FACE_SETTLE_MS = 60; // quiet time after a face load before the fits re-run (a sheet loads several faces in a burst)
+  function onFontsSettled(fn) {
+    if (!document.fonts) return;
+    let timer = 0;
+    if (document.fonts.ready) document.fonts.ready.then(() => { faceGen++; fn(); });
+    if (document.fonts.addEventListener) document.fonts.addEventListener('loadingdone', () => { clearTimeout(timer); timer = setTimeout(() => { faceGen++; fn(); }, FACE_SETTLE_MS); });
+  }
   function hdrFitInit() {
     const f = $('cmdBtn'), top = f && f.closest('.top'), xl = document.querySelector('#examplesBtn .exlabel');
     if (!top) return;
     new ResizeObserver(hdrFitSoon).observe(top);
     if (xl) new MutationObserver(hdrFitSoon).observe(xl, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['class'] });
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(hdrFitSoon);
+    onFontsSettled(hdrFitSoon);
     hdrFitSoon();
   }
-  // (v16.5 UX25: the open example's name shows after Examples until the first edit; exAt is the entry it opened at)
+  // (the open example's name shows after Examples until the first edit; exAt is the entry it opened at)
   function exLabelSync() {
     const xl = document.querySelector('#examplesBtn .exlabel');
     if (xl) xl.classList.toggle('stale', hi !== exAt);
   }
-  // (v16.5 UX79) what one undo step did, in words, from its two snapshots: "add f₃ Sine", "add pole p₂ of f₁",
+  // what one undo step did, in words, from its two snapshots: "add f₃ Sine", "add pole p₂ of f₁",
   // "delete Disc 1", "change a"; '' when it cannot be said briefly
   function histWhat(a, b) {
     if (!a || !b) return '';
@@ -474,7 +490,7 @@
     for (const key of ['shapes', 'targets']) {
       const ma = new Map((A[key] || []).map((q) => [q.id, q])), mb = new Map((B[key] || []).map((q) => [q.id, q]));
       const nameOf = (q) => namesB.get(q.id) || namesA.get(q.id) || (Region.KINDS[q.kind] ? Region.KINDS[q.kind].label : String(q.kind));
-      // ([v16.5 check app-8] the unit circle or an axis made a shape for a point put on it goes with that point: one
+      // (the unit circle or an axis made a shape for a point put on it goes with that point: one
       // undo step "add z0", not "add 2 shapes")
       const disp = (q) => !!(q && q.fixed && !q.def && !q.at);
       const only = (ids, m) => { const own = ids.filter((id) => !disp(m.get(id))); return own.length && own.length < ids.length ? own : ids; };
@@ -524,19 +540,19 @@
   // the panels the user chose at docked widths; narrow windows close the drawers at run time only
   const dockPref = { L: false, R: false };
   const noRuntime = (k, v) => (typeof k === 'string' && k[0] === '_' ? undefined : v);
-  // (v16 review regress-1) noRuntime, and the uid and zero ids of steps no shape refers to are left out of saves,
-  // links and scene files, so a scene without constructions saves the same bytes as in v15.1
+  // noRuntime, and the uid and zero ids of steps no shape refers to are left out of saves,
+  // links and scene files, so a scene without constructions carries no construction fields
   const cmSaveReplacer = (o) => (Constr.idReplacer ? Constr.idReplacer(o) : noRuntime);
   function writeState() {
     clearTimeout(saveT); saveT = 0;
     if (!S || tourHold || figureSwap) return null;
-    if (S.homRange) HR.resolve(S, true);   // (v16: the bracket's indices current, SPEC 7)
-    if (typeof svStore === 'function') svStore();   // (#366: the steps view's place)
+    if (S.homRange) HR.resolve(S, true);   // (the bracket's indices current, SPEC 7)
+    if (typeof svStore === 'function') svStore();   // (the steps view's place)
     // the points carry their numbers in every save (a first-run scene has none yet; a load would give them the same
     // numbers, so the saved work comes back as it was written)
     numberPoints();
     const out = Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
-    // (v15.1: the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
+    // (the phone's inset draws its plane's view smaller; the saved view is the one the plane shows large,
     // build/phone-swap.md)
     if (Phone.largeView) {
       const lv = Phone.largeView('L'), rv = Phone.largeView('R');
@@ -575,7 +591,7 @@
   function shapeOk(s) {
     if (s.kind === 'formula' || s.kind === 'fcurve') return typeof s.expr === 'string';
     if (s.kind === 'curve' || s.kind === 'polygon') return Array.isArray(s.pts) && s.pts.length >= (s.kind === 'polygon' ? 3 : 2) && s.pts.every(isXY);
-    // ([issue #260] a ray's angle p/q or a turn in [0, 1), an equipotential's level > 1; c: null (M) or a point)
+    // (a ray's angle p/q or a turn in [0, 1), an equipotential's level > 1; c: null (M) or a point)
     if (s.kind === 'dhray' || s.kind === 'dheq') return (s.kind === 'dhray' ? Region.dhAngle(s.theta) != null : isNum(s.r) && s.r > 1) && (s.c == null || isXY(s.c));
     const t = Region.defaultsFor(s.kind, C(0, 0), C(1, 1));
     return Object.keys(t).every((k) => (Array.isArray(t[k]) ? isXY(s[k]) : isNum(s[k])));
@@ -589,7 +605,7 @@
       o.v4 = true; o.alpha = 0.85; o.meshN = 240;
       for (const sh of o.shapes) { if (!sh || typeof sh !== 'object') continue; const i = OLD_PALETTE.indexOf(sh.color); if (i >= 0) { sh.ci = i; delete sh.color; } else if (!sh.color) sh.ci = sh.ci || 0; }
     }
-    delete o.quality;
+    delete o.quality; delete o.hcap; delete o.spin;
     let dropped = 0;
     const steps = [];
     for (const st of o.steps) {
@@ -604,10 +620,10 @@
         if (q.type === 'choice') { if (q.choices.some((c) => c[0] === v)) params[key] = v; } else if (q.type === 'int' || q.type === 'angle') { if (num) params[key] = Number(v); } else if (typeof v === 'string' || isNum(v)) params[key] = String(v);
       }
       steps.push({ type: st.type, params, on: st.on !== false });
-      if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (v16: step uids and zero ids)
+      if (typeof st.uid === 'string') steps[steps.length - 1].uid = st.uid;   // (step uids and zero ids)
       if (st.zpIds && typeof st.zpIds === 'object') steps[steps.length - 1].zpIds = st.zpIds;
-      if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // ([UX54] checked by Constr.syncSteps)
-      // ([issue #6] a repeat on its block's last step: n passes of len steps that are all in the chain; by: N bound to a
+      if (st.zpNums && typeof st.zpNums === 'object') steps[steps.length - 1].zpNums = st.zpNums;   // (checked by Constr.syncSteps)
+      // (a repeat on its block's last step: n passes of len steps that are all in the chain; by: N bound to a
       // shared number)
       const rp = st.repeat;
       if (rp && typeof rp === 'object' && Number.isInteger(rp.n) && rp.n >= 1 && rp.n <= Funcs.REPEAT_MAX && Number.isInteger(rp.len) && rp.len >= 1 && rp.len <= steps.length) steps[steps.length - 1].repeat = Object.assign({ n: rp.n, len: rp.len }, typeof rp.by === 'string' && rp.by ? { by: rp.by } : {});
@@ -629,16 +645,16 @@
         if ('label' in sh && typeof sh.label !== 'string') delete sh.label;
         if ('undef' in sh && typeof sh.undef !== 'string') delete sh.undef;
         if ('undefHid' in sh) { if (sh.undefHid && sh.undef) sh.undefHid = true; else delete sh.undefHid; }
-        // v15: fields written as formulas of the shared numbers (the fields keep their last values)
-        // ([#253] a domain shape drawn in a plane of the chain: its stage, 1 … the steps; else the z-plane)
+        // fields written as formulas of the shared numbers (the fields keep their last values)
+        // (a domain shape drawn in a plane of the chain: its stage, 1 … the steps; else the z-plane)
         if ('stage' in sh && !(out === shapes && Number.isInteger(sh.stage) && sh.stage >= 1 && sh.stage <= steps.length)) delete sh.stage;
         if ('bind' in sh) { const b = sh.bind && typeof sh.bind === 'object' && !Array.isArray(sh.bind) ? sh.bind : {}; sh.bind = {}; for (const [k, v] of Object.entries(b)) if (typeof v === 'string' && v.trim() && (k === 'expr' || k in sh)) sh.bind[k] = v.slice(0, 2000); if (!Object.keys(sh.bind).length) delete sh.bind; }
         out.push(sh);
       }
     };
     clean(o.shapes, shapes);
-    // earlier builds kept a default target (the point 0, id t0) that only the Preimage view showed; targets now
-    // show their preimages in every view, so that untouched default is dropped
+    // a saved default target (the point 0, id t0) is dropped: targets show their preimages in every view, so that
+    // untouched default is not kept
     if (Array.isArray(o.targets)) {
       if (!o.v5) o.targets = o.targets.filter((t) => !(t && t.id === 't0' && t.kind === 'point' && Array.isArray(t.p) && t.p[0] === 0 && t.p[1] === 0 && !t.label));
       clean(o.targets, targets);
@@ -646,15 +662,15 @@
     let next = Math.max(isNum(o.nextId) ? Math.floor(o.nextId) : 1, maxId + 1);
     for (const sh of shapes.concat(targets)) if (!sh.id) { while (ids.has('s' + next)) next++; sh.id = 's' + next++; ids.add(sh.id); }
     o.shapes = shapes; o.steps = steps; o.nextId = next; o.targets = targets;
-    cmLoad(o);   // (v16 constructions: refs, fallbacks, one recompute)
+    cmLoad(o);   // (refs, fallbacks, one recompute)
     numberPoints(shapes);
-    // the views of earlier builds (rightMode, sphereMode, leftSphere, material, spherePlane) -> o.view (panels.md 10)
+    // the keys that name a view in a saved state (rightMode, sphereMode, leftSphere, material, spherePlane) -> o.view (panels.md 10)
     Views.migrate(o);
     const b = blankState();
     const st = Object.assign(b, o);
     const d0 = blankState();
     st.focus = Number.isInteger(st.focus) ? Math.max(0, Math.min(steps.length, st.focus)) : 0;
-    // (v16 deformation range, SPEC 7) {a, b, ua, ub}: integers 1 <= a <= b <= steps, ua and ub strings or null. The saved
+    // {a, b, ua, ub}: integers 1 <= a <= b <= steps, ua and ub strings or null. The saved
     // indices are current (writeState resolves first) and a save leaves out the uids of steps no shape refers to, so the
     // ends are taken by index and given the loaded steps' uids; the normal form follows at the first read
     if ('homRange' in st) {
@@ -667,8 +683,8 @@
         st.homRange = o2;
       } else delete st.homRange;
     }
-    // the Morph, Preimage and Integral views of earlier builds are now parts of every view: they open as Image
-    // (F′ is a d/dz step of the chain now, so the old F | F′ switch is dropped)
+    // a saved Morph, Preimage or Integral view is a part of every view: it opens as Image
+    // (F′ is a d/dz step of the chain, so a saved F | F′ switch is dropped)
     st.view = Views.clean(st.view);
     st.v6 = true;
     st.wKey = !!st.wKey;
@@ -677,12 +693,12 @@
     st.cauchyPlus = !!st.cauchyPlus;
     delete st.deriv;
     st.sheets = !!st.sheets;
-    st.exactImages = st.exactImages !== false;
+    delete st.exactImages;   // (exact images are always on: a saved switch is ignored)
     st.params = Params.sanitize(o.params);
-    { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }   // (#366)
+    { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }
     st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
     st.v5 = true;
-    // (#363) regions are filled by the phase of z alone: a saved or linked pattern (checker, stretch, ...) opens as the
+    // regions are filled by the phase of z alone: a saved or linked pattern (checker, stretch, ...) opens as the
     // phase; its cell (patternScale) stays the grid lines' spacing
     st.pattern = 'phase';
     if (!DC_STYLES.some((p) => p[0] === st.dc)) st.dc = d0.dc;
@@ -697,12 +713,12 @@
     if ('sectors' in st && ![8, 12, 16, 24].includes(st.sectors)) delete st.sectors;
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
     if ('fov' in st) st.fov = st.fov !== false;
-    for (const k of ['lines', 'unit', 'snap', 'spin', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
-    // v15: the selected step or F (old saves: none, so the step shown alone or the last step)
+    for (const k of ['lines', 'unit', 'snap', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
+    // the selected step or F (absent: the step shown alone or the last step)
     if (!(st.sel === 'F' || (Number.isInteger(st.sel) && st.sel >= 0 && st.sel <= st.steps.length))) st.sel = null;
     st.alpha = isNum(st.alpha) ? Math.max(0.2, Math.min(1, st.alpha)) : d0.alpha;
     st.patternScale = isNum(st.patternScale) && st.patternScale > 0 ? 2 ** Math.max(-2, Math.min(2, Math.round(Math.log2(st.patternScale)))) : 1;
-    for (const k of ['hcap', 'dcGrid']) if (!isNum(st[k]) || st[k] <= 0) st[k] = d0[k];
+    if (!isNum(st.dcGrid) || st.dcGrid <= 0) st.dcGrid = d0.dcGrid;
     const okView = (v) => v && isNum(v.cx) && isNum(v.cy) && isNum(v.s) && v.s > 0;
     if (!okView(st.srcView)) st.srcView = d0.srcView;
     if (!okView(st.rightView)) st.rightView = null;
@@ -719,7 +735,7 @@
   let chainSig = ['0'];
   // stage maps G_k as CPU functions of z (G_0 = id; a d/dz step k gives G_k = G_{k−1}′), rebuilt with the chain
   let stageFns = [];
-  // [issue #6] the repeats follow their steps: each block is the steps it held at the last rebuild (by object), so an
+  // the repeats follow their steps: each block is the steps it held at the last rebuild (by object), so an
   // insert inside it widens it, a removal narrows it, and a removed last step hands the repeat to the step before (its
   // n is the step's own, as edited; an ended repeat stays ended). After an undo or a load the steps are new objects
   // and the saved repeats stand as they are.
@@ -754,7 +770,7 @@
     repeatMemo = [];
     S.steps.forEach((st, i) => { if (st.repeat) repeatMemo.push({ holder: st, n: st.repeat.n, by: st.repeat.by, members: S.steps.slice(i + 1 - st.repeat.len, i + 1) }); });
   }
-  // [#253] the shapes of a plane of the chain follow its step (Funcs.stageFollow): an insert before it moves it on, a
+  // the shapes of a plane of the chain follow its step (Funcs.stageFollow): an insert before it moves it on, a
   // removal back; after an undo or a load the steps are new objects and the saved stages stand
   let stageMemo = null;
   function stagesFollow() {
@@ -771,7 +787,7 @@
   function rebuild() {
     repeatsFollow();
     stagesFollow();
-    // ([issue #6] a repeat's last step runs its block n times: Funcs.applyRepeats)
+    // (a repeat's last step runs its block n times: Funcs.applyRepeats)
     built = Funcs.applyRepeats(S.steps, S.steps.map((st) => Funcs.build(st)));
     chainSig = ['0'];
     let acc = '';
@@ -836,9 +852,9 @@
   const activeSteps = () => S.steps.map((_, i) => i + 1).filter((k) => stepActive(k));
   // a focused d/dz step differentiates a function of z: its input plane is the z-plane
   const focusDeriv = () => S.focus > 0 && isDeriv(S.focus);
-  // ((#366 prototype) the steps view shows one plane of the chain: its stage, 19)
+  // (the steps view shows one plane of the chain: its stage, 19)
   const leftStage = () => (SV.on ? svStage(Math.round(SV.g.x)) : S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
-  // ([#383] while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
+  // (while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
   // exports, its variable's name, its overlays; trans.at is -1 except then, 08)
   const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
   // Y shows F, the whole chain's plane (not a focused step's, not a step the glide rests on)
@@ -846,9 +862,9 @@
   // the stage ‹ › rest Y on (whole chain, none focused), else -1; the map to it is named F_j, the first j steps' composite
   const parkedAt = () => (S.focus === 0 && trans.at >= 0 ? trans.at : -1);
   const fNameTex = () => (S.focus === 0 ? (parkedAt() >= 0 ? `F_{${parkedAt()}}` : 'F') : `f_{${S.focus}}`);
-  // ---- the panes' views (U-b, panels.md 2): X on the left, Y on the right ----
-  // lPlain: X Plane with the shapes (the plane of earlier builds' left pane); lColor: X Plane + Phase (the phase
-  // portrait, earlier the right pane's Phase view); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
+  // ---- the panes' views (panels.md 2): X on the left, Y on the right ----
+  // lPlain: X Plane with the shapes; lColor: X Plane + Phase (the phase
+  // portrait); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
   // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays). rImage: Y Plane (the images,
   // the targets); rGlobe: Y Sphere.
   // (merged views, merged-views.md: X's picture follows the top bar's view: X → Y shows the shapes on X's Plane or
@@ -873,6 +889,10 @@
   const landMaterial = () => (!lPhase() ? 'plaster' : S.dc === 'phase' || S.landPlain ? 'phase' : 'tiles');
   // the function whose domain the left pane shows
   const focusF = () => (SV.on ? svF() : S.focus === 0 ? stageF(parkedAt() >= 0 ? parkedAt() : nSteps()) : focusDeriv() ? stageF(S.focus) : (stepFn(S.focus) || ((z) => z)));
+  // the map the Cauchy integral is taken of: the whole chain (the steps view's colour plane T does not change it); the classic views take the focus's
+  const cauchyF = () => (SV.on ? stageF(nSteps()) : focusF());
+  // the plane the Cauchy integral's curve is taken in: z in the steps view, whichever plane the thread is parked at, else the left plane
+  const cauchyStage = () => (SV.on ? 0 : leftStage());
   // its name: F, fₖ, or wₖ (a d/dz step's stage, a function of z)
   const fnText = () => (S.focus === 0 ? 'F' : focusDeriv() ? `w${sub(S.focus)}` : `f${sub(S.focus)}`);
   // Y's variable (P13): w at focus 0, w_k at focus k (the plane the map in focus lands in)

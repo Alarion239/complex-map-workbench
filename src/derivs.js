@@ -1,7 +1,7 @@
 // @ts-check
 'use strict';
 // Derivatives (f′ of one step as a custom formula on the same branch) and the polynomial algebra they and the natural
-// paths use: moved out of funcs.js (issue #20, the file-size budget), which takes these names back at the top of its
+// paths use. funcs.js takes these names at the top of its
 // closure (const { ... } = Derivs). build and fmtDeg are funcs.js's own: it hands them over once, Derivs.init.
 const Derivs = (() => {
   const { C } = CX;
@@ -200,7 +200,7 @@ const Derivs = (() => {
           break;
         }
         case 'conj': return { error: $t('Conjugation z̄ is not holomorphic, so it has no complex derivative') };
-        // ([issue #260] Φ′ is not a formula of the language: d/dz after Φ_M or φ_c uses the circle formula)
+        // (Φ′ is not a formula of the language: d/dz after Φ_M or φ_c uses the circle formula)
         case 'dh': case 'bottcher': return { error: $t('Φ has no derivative formula here; d/dz after it is computed numerically') };
         case 'poly': ast = polyAst(polyDer(CX.polyTrim(v.co))); break;
         case 'rational': {
@@ -223,7 +223,7 @@ const Derivs = (() => {
           cut = v.cut;
           const src = Expr.parse(v.expr);
           // a rational formula is differentiated on its expanded numerator and denominator: (P′Q − PQ′)/Q²,
-          // which reads 2i/(z+i)² for (z−i)/(z+i) instead of an unsimplified quotient rule
+          // which reads 2i/(z+i)² for (z−i)/(z+i), not an unsimplified quotient rule
           const cls = Expr.classify(src), pq = cls.rational && !cls.branch ? ratOf(src) : null;
           if (pq) {
             const [P, Q] = pq;

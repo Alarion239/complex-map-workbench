@@ -1,8 +1,7 @@
 // @ts-check
 'use strict';
 // funcs.js's formula steps: a custom formula recognized as catalog steps shown as visible steps (splitSteps, the
-// rows, labels and moves of the split; notes/formula-steps/DESIGN.md 2). Moved out of funcs.js (issue #20, the
-// file-size budget) as a factory funcs.js calls where it stood, with the names of funcs.js it reads (each declared
+// rows, labels and moves of the split; notes/formula-steps/DESIGN.md 2), a factory funcs.js calls, with the names of funcs.js it reads (each declared
 // before the call, or a function declaration); it returns the ones funcs.js exports
 const FormulaSteps = (host) => {
   const { DEFS, DEG, REC_CACHE_MAX, build, buildVals, mulLabel, recProbe } = host;
@@ -399,7 +398,7 @@ const FormulaSteps = (host) => {
     // (an unexpected failure of the reader or the gate is no offer, never an error in the search or the Inspector)
     const res = splitCached(Recognize.key(ast, cut) + '\u0001' + expr, () => { try { return splitMake(ast, cut, expr, hasP ? null : b); } catch (e) { return splitNone('R1'); } });
     if (!hasP || res.kind === 'none') return res;
-    // shared numbers: the structure was decided at generic values; at the current ones the formula may change kind
+    // shared numbers: the structure is decided at generic values; at the current ones the formula may change kind
     // (\frac{az+1}{z+a} at a = 1): the offer stays, its button is disabled (R5), so nothing flickers while a slider moves
     const vk = JSON.stringify(Expr.toTex(ast).s) + JSON.stringify(res.pnames.map((nm) => { let v = null; (function walk(n) { if (!n || typeof n !== 'object' || v) return; if (n.t === 'num' && n.param === nm) { v = n.v; return; } walk(n.a); walk(n.b); walk(n.n); })(ast); return v; }));
     if (!res.hold || res.hold.k !== vk) {
@@ -421,6 +420,18 @@ const FormulaSteps = (host) => {
     if (T < j + 1) return j + (T - j) * n;
     return T + n - 1;
   }
+  // the steps view's place after a split (the steps view's analogue of splitMorphT): step k (1-based) of the chain became n
+  // steps and j (0-based, -1 when the step is bypassed and has no plane) is its unit [j, j+1) among the planes. In o, x is the
+  // thread's place in planes (taken only while it rests: o.rest), T the colour plane's stage (-1: the last plane), alone the step
+  // shown alone (0: none) and back the whole chain's place under it, {i, T}. A stage past the formula's goes up by n-1 and its own
+  // plane goes to its last new step; a place in planes keeps its picture, so the frame is the same
+  function splitSvPlace(o, k, n, j) {
+    const stage = (s) => (s < k ? s : s + n - 1);
+    const plane = (x) => (j < 0 ? x : splitMorphT(x, j, n));
+    const r = { x: o.x, T: o.T < 0 ? o.T : stage(o.T), alone: o.alone > k ? o.alone + n - 1 : o.alone, back: o.back ? { i: plane(o.back.i), T: o.back.T < 0 ? o.back.T : stage(o.back.T) } : null };
+    if (!o.alone && o.rest) r.x = plane(o.x);
+    return r;
+  }
   // the reason a formula is not offered as steps, in words (R1–R5)
   function splitReason(sp) {
     switch (sp && sp.reason) {
@@ -431,7 +442,7 @@ const FormulaSteps = (host) => {
       default: return $t('Not a chain of catalog steps');
     }
   }
-  return { shortCx, splitLabel, splitMorphT, splitMoves, splitNames, splitReason, splitRowsVar, splitStepTex, splitSteps, splitSubRows };
+  return { shortCx, splitLabel, splitMorphT, splitSvPlace, splitMoves, splitNames, splitReason, splitRowsVar, splitStepTex, splitSteps, splitSubRows };
 };
 import { CX } from './cx.js';
 import { Expr } from './parse.js';

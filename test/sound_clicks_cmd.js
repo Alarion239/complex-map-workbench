@@ -19,7 +19,7 @@ const loadHere = async (ns, st, extra) => {
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
   await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
-  return ev(`({cards: __qa.cards(), lamps: __qa.lamps()})`);
+  return ev(`({lamps: __qa.lamps()})`);
 };
 const OUT = path.join(DIR, 'rec');
 fs.mkdirSync(OUT, { recursive: true });

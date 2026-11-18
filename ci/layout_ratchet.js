@@ -3,7 +3,7 @@
 // The layout ratchet (#470): the violations of test/layout_invariants_cmd.js may not grow beyond ci/layout_baseline.json,
 // and the baseline only shrinks, as ci/lint_ratchet.js does for lint. A violation is a row of the suite's report, keyed
 // by its boxes' structure (test/lib/layout.js key()); the baseline holds, per run (en, ru, it), the matrix and renderer it
-// was made over, the states that did not open, and each row's key with the number of matrix points it was seen at. A
+// is made over, the states that did not open, and each row's key with the number of matrix points it is seen at. A
 // key the baseline lacks fails; a key the baseline has and the run did not see is fixed: lower the baseline. The counts
 // are reported, not gated (on software GL a row is seen at a point or two more or less from run to run). Another
 // matrix needs --init; the suite gates only on the baseline's renderer (CI's lavapipe), and so does check here.

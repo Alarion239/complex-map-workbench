@@ -17,7 +17,7 @@
 //   links, invLinks, invDraws   counters; frames also count their draws with an inverse program (frame field inv)
 //   ledBusy     number of times an LED turned busy (a fix-up / refinement job started)
 //   status().pending  the app's GLR.frameStatus().pending: the last frame could not draw everything with its own
-//               programs because one is still compiling (a stand-in or nothing was drawn; onReady redraws). A view
+//               programs because one is still compiling (a stand-in or nothing is drawn; onReady redraws). A view
 //               is not settled while it is true (the app draws nothing while it waits for a compile)
 (() => {
   if (window.__perf) return;
@@ -131,7 +131,7 @@
   G.linkProgram = function (p) {
     try {
       const inv = (shadersOf.get(p) || []).some((sh) => INV_RE.test(srcOf.get(sh) || ''));
-      const rec = { t: now(), ready: null, inv };
+      const rec = { t: now(), ready: null, inv, src: (shadersOf.get(p) || []).map((sh) => srcOf.get(sh) || '') };
       progRec.set(p, rec);
       if (P.progs.length < 20000) P.progs.push(rec);
       P.links++; if (inv) P.invLinks++;
@@ -314,6 +314,8 @@
   P.framesSince = (since, until = Infinity) => P.frames.filter((f) => f.t0 >= since && f.t0 <= until).map((f) => [+f.t0.toFixed(2), +f.cpu.toFixed(3), +f.gpu.toFixed(3), f.draws, f.n, +f.ts.toFixed(2), +f.t1.toFixed(2), f.inv]);
   // programs linked at page times in [since, until]: [t, ready (null: never seen complete), inv]
   P.progsSince = (since, until = Infinity) => P.progs.filter((r) => r.t >= since && r.t <= until).map((r) => [+r.t.toFixed(2), r.ready === null ? null : +r.ready.toFixed(2), r.inv]);
+  // the programs linked since `since`, each as its shaders' lengths, first uniform names and first function names (identifies a program in a log)
+  P.linkNames = (since) => P.progs.filter((r) => r.t >= since).map((r) => r.src.map((x) => x.length + ' u:' + [...new Set((x.match(/\buniform\s+\w+\s+(\w+)/g) || []).map((m) => m.split(/\s+/).pop()))].slice(0, 12).join(',') + ' f:' + [...new Set((x.match(/^\s*(?:vec[234]|float|void|int|bool)\s+(\w+)\s*\(/gm) || []).map((m) => m.trim().split(/[\s(]+/)[1]))].slice(0, 10).join(',')).join(' | '));
   P.counters = () => ({ links: P.links, invLinks: P.invLinks, invDraws: P.invDraws, ledBusy: P.ledBusy, draws: P.draws });
   P.evtsSince = (since, until = Infinity) => P.evts.filter((e) => e[3] >= since && e[3] <= until).map((e) => [e[0], +e[1].toFixed(3), +e[2].toFixed(4)]);
   P.clear = () => { P.frames.length = 0; P.evts.length = 0; cur = null; };
