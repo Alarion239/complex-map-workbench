@@ -4,13 +4,14 @@
 // the column of three keys plus the bar at 740 x 360 and 667 x 375; 844 x 390 has room, and the same arrangement holds there.
 // Also: a press at the folded colour key's centre reaches it, nothing of the bar or the construction chip over it, down to
 // 568 x 320 in Russian and Italian; with the globe shown, the hint card stays clear of the globe's disk. Where the plane above
-// the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys themselves do not fit and only these two are checked.
+// the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
+// what is left beside them, is not checked.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const MARGIN = 2;   // the keys stand at least this far from the header and from the bar, px
-const ROOM = 140;   // the plane above the bar holds the keys and the unfolded colour key only when it is this tall, px
+const ROOM = 140;   // the plane above the bar holds the unfolded colour key beside the keys only when it is this tall, px
 const SLACK = 0.5;  // layout rounding, px
 const meet = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 const geometry = () => ev(`(() => {
@@ -42,7 +43,7 @@ for (const [w, h, lang, surf] of CASES) {
   const g = await geometry();
   info[name] = g;
   const roomy = g.barTop - g.headBottom >= ROOM;
-  for (const k of roomy ? g.keys : []) {
+  for (const k of g.keys) {
     const tag = `${name}: ${k.name}`;
     ok(`${tag} is on the page`, k.shown, k);
     if (!k.shown) continue;
@@ -51,7 +52,11 @@ for (const [w, h, lang, surf] of CASES) {
     ok(`${tag} stands above the context bar`, bottom <= g.barTop - MARGIN + SLACK, [bottom, g.barTop]);
     ok(`${tag} takes a press at its centre`, k.press, k);
   }
-  const shown = roomy ? g.keys.filter((k) => k.shown) : [];
+  // (the construction chip, which stops short of the keys, stands above the bar)
+  const chip = await ev(`(() => { const c = document.querySelector('.draft-chip.cm-on'); if (!c) return null; const r = c.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10); })()`);
+  info[`${name} chip`] = chip;
+  ok(`${name}: the construction chip is on the page and stands above the bar`, !!chip && chip[3] <= g.barTop + SLACK, { chip, barTop: g.barTop });
+  const shown = g.keys.filter((k) => k.shown);
   const overlap = [];
   for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) {
     const a = shown[i].r, b = shown[j].r;
@@ -72,7 +77,7 @@ for (const [w, h, lang, surf] of CASES) {
     const hit = (await geometry()).keys.filter((k) => k.shown && meet(k.r, lg)).map((k) => k.name);
     info[`${name} key ${st}`] = lgx;
     if (roomy || !open) ok(`${name}: the ${st} colour key overlaps no plane key`, hit.length === 0, { lg, hit });
-    ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
+    if (roomy || !open) ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
   }
   if (surf === 'sphere') {
     // the hint card stays clear of the globe's disk (phone_hint_globe_cmd's rule), with the tall bar in
