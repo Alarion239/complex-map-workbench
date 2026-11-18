@@ -184,9 +184,11 @@
     }
   }
   // (opt.cls: more classes; opt.loop: ↑ ↓ move too, as the steps view's scope switch does. The arrows ← → wrap in every row, as a
-  // radiogroup's do: from the last radio on to the first, from the first back to the last)
+  // radiogroup's do: from the last radio on to the first, from the first back to the last. Home and End check the first and the
+  // last choice. opt.wrap false: a row whose change is costly (Language, which reloads the page) stops at its ends, and Home and
+  // End leave it alone, so no one key press reaches the far choice)
   function seg(id, value, options, onchange, label, opt) {
-    const o = opt || {};
+    const o = opt || {}, wrap = o.wrap !== false;
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title, aria] of options) {
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
@@ -199,12 +201,20 @@
       if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
     });
     el.addEventListener('keydown', (e) => {
+      const bs = [...el.children];
+      if (wrap && (e.key === 'Home' || e.key === 'End')) {
+        const b = bs[e.key === 'Home' ? 0 : bs.length - 1];
+        b.click(); b.focus(); e.preventDefault();
+        return;
+      }
       const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
-      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      const i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
       if (i < 0) return;
-      const j = (i + (next ? 1 : bs.length - 1)) % bs.length;
-      bs[j].click(); bs[j].focus(); e.preventDefault();
+      e.preventDefault();
+      const j = wrap ? (i + (next ? 1 : bs.length - 1)) % bs.length : i + (next ? 1 : -1);
+      if (j < 0 || j >= bs.length) return;
+      bs[j].click(); bs[j].focus();
     });
     return el;
   }

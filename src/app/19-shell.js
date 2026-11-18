@@ -161,7 +161,7 @@
     const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
     const themeName = { auto: $t('Auto'), light: $t('Light'), dark: $t('Dark') };
     const kids = [sep($t('Theme'), true), h('button', { type: 'button', id: 'setTheme', class: 'set-link', 'aria-haspopup': 'menu', onclick: (e) => openThemeMenu(e.currentTarget) }, $t('Theme: {name}', { name: themeName[curTheme] })),
-      sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
+      sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'), { wrap: false })];
     if (SND) {
       const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });
       sw.checked = !!SND.prefs().on;

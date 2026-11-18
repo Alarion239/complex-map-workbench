@@ -103,6 +103,54 @@ const tag = 'laptop', W = 1440, H = 900, phone = false;
   info[tag + ' tiles'] = tl;
   ok(`${tag}: Shift+Tab from the unchecked Tiles (before the first tab stop) closes the pop-up and returns the focus to the ⋯ button`, tl.open === false && tl.anchor && tl.expanded === 'false', tl);
   await closeIf();
+  // Home and End on a segmented row check and focus its first and last choice
+  await open();
+  await ev(`(() => { const b = document.querySelector('#landPaint button[data-v="tiles"]'); b.click(); b.focus(); return 1; })()`);
+  const t0w = await settled({ until: "document.querySelector('#landPaint button.on') && document.querySelector('#landPaint button.on').dataset.v === 'tiles'", max: 4000, only: true });
+  ok(`${tag}: Tiles is checked before End`, t0w.ok, t0w);
+  await settled({ max: 30000 });
+  await ev(`document.querySelector('#landPaint button.on').focus(), 1`);
+  await key('End');
+  const endW = await settled({ until: "document.querySelector('#landPaint button.on') && document.querySelector('#landPaint button.on').dataset.v === 'plaster'", max: 4000, only: true });
+  await settled({ max: 30000 });
+  const endF = await where();
+  ok(`${tag}: End on the Colouring row checks and focuses the last choice (Plaster)`, endW.ok && endF.group === 'landPaint' && endF.v === 'plaster', endF);
+  await key('Home');
+  const homeW = await settled({ until: "document.querySelector('#landPaint button.on') && document.querySelector('#landPaint button.on').dataset.v === 'tiles'", max: 4000, only: true });
+  await settled({ max: 30000 });
+  const homeF = await where();
+  ok(`${tag}: Home on the Colouring row checks and focuses the first choice (Tiles)`, homeW.ok && homeF.group === 'landPaint' && homeF.v === 'tiles', homeF);
+  // the ⋯ button looks pressed while the pop-up is open (its background changes, with a transition), and plain again when it closes
+  const bgOf = `getComputedStyle(${opener}).backgroundColor`;
+  const PLAIN = 'rgba(0, 0, 0, 0)';
+  await closeIf();
+  await ev(`${opener}.blur(); 1`);
+  const pl0 = await settled({ until: `${bgOf} === ${JSON.stringify(PLAIN)}`, max: 3000, only: true });
+  ok(`${tag}: the ⋯ button is plain (transparent) with the pop-up closed`, pl0.ok, pl0);
+  const plain = PLAIN;
+  await open();
+  const pr = await settled({ until: `${bgOf} !== ${JSON.stringify(plain)}`, max: 3000, only: true });
+  ok(`${tag}: the ⋯ button looks pressed (its background differs from ${plain}) while the pop-up is open`, pr.ok, pr);
+  await closeIf();
+  await ev(`${opener}.blur(); 1`);
+  const rel = await settled({ until: `${bgOf} === ${JSON.stringify(plain)}`, max: 3000, only: true });
+  ok(`${tag}: the ⋯ button is plain again once the pop-up is closed`, rel.ok, rel);
+  // the Language row of Settings does not wrap: its change reloads the page, so no arrow past its end may reach it
+  await ev(`window.__keepMarker = 1; document.getElementById('settingsBtn').click(); 1`);
+  const lw = await settled({ until: "!!document.querySelector('#setLang button[data-v=\"auto\"]')", max: 8000, only: true });
+  ok(`${tag}: Settings shows the Language row`, lw.ok, lw);
+  const langState = () => ev(`({ kept: window.__keepMarker === 1, on: (document.querySelector('#setLang button.on') || {}).dataset ? document.querySelector('#setLang button.on').dataset.v : null, focus: document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.v : null })`);
+  const quiet = async () => { await ev(`window.__langT0 = performance.now(); 1`); await settled({ until: 'performance.now() - window.__langT0 > 1500', max: 6000, only: true }); };
+  const first = await ev(`(() => { const b = document.querySelector('#setLang button[data-v="auto"]'); b.focus(); return document.querySelector('#setLang button.on').dataset.v; })()`);
+  ok(`${tag}: the Language row starts on Auto`, first === 'auto', first);
+  await key('ArrowLeft');
+  await quiet();
+  const l1 = await langState();
+  ok(`${tag}: ← on Auto stays on Auto (no wrap to Italiano, the page is not reloaded)`, l1.kept && l1.on === 'auto' && l1.focus === 'auto', l1);
+  await key('End');
+  await quiet();
+  const l2 = await langState();
+  ok(`${tag}: End on the Language row does not jump to its last choice`, l2.kept && l2.on === 'auto' && l2.focus === 'auto', l2);
 }
 // the phone: the Display sheet holds the same Colouring row, and it wraps on the arrows too
 {
