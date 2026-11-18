@@ -405,8 +405,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head .pat-btn .disp-sw { width: 18px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
 .pane-head .pat-btn.tight { padding: 0 4px; }
 .pane-head .pat-btn.tight .disp-caret { display: none; }
-/* (a head trigger that holds its pop-up open: the well fill, which is about 1.06:1 on the head, and a 1px --ink-2 ring inside it, 8:1 or more: the mark that is seen) */
-.pane-head .pat-btn[aria-expanded="true"], .pane-head > .options > .opts-btn[aria-expanded="true"] { background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-2); }
+/* (a head trigger that holds its pop-up open, whatever menu or pop-up it is: the well fill, which is about 1.06:1 on the head, and a 1px --ink-2 ring inside it, 8:1 or more: the mark that is seen) */
+.pane-head button[aria-haspopup][aria-expanded="true"] { background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-2); }
 .disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
 .disp-pop.pat-pop { width: 300px; }
 .cp-pop > .lbl { white-space: normal; text-wrap: pretty; }
