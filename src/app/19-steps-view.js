@@ -1050,8 +1050,7 @@
   }
   // The steps view's colour opacity (the Opacity slider; read through regionLook, which the regions' mask passes keep
   // at the slider's value): how much the layers behind show through where the picture covers a point more than once.
-  // The farthest layer stays opaque, so a point covered once keeps its colour
-  const SV_OPACITY_MIN = 0.3;
+  // The farthest layer stays opaque, so a point covered once keeps its colour (SV_OPACITY_MIN, its least: 01-core.js)
   const svOpacity = () => Math.max(SV_OPACITY_MIN, regionLook().alpha);
   // the Landscape's own opacity (S.landAlpha, its Opacity slider): how much its surfaces behind show through; opaque by
   // default, so a relief costs one pass until it is set

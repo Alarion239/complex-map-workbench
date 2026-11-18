@@ -1235,7 +1235,8 @@
   // Depth (with the stencil the carried patches use): the front surface's in texture 0, the second layer's in 1, kept for
   // the composite, the others alternating in 2 and 0 (free once the second layer is peeled). The colour layers are carryLayers' (peelTarget; the two never draw in one frame), on unit LAND_PEEL_UNIT + 1
   // while the layers are composited and the front surface drawn
-  const LAND_PEEL_FRONT = 3, LAND_PEEL_UNIT = SAMPLER_UNITS.uPeelD;   // (uBehind: the next unit)
+  const LAND_ALPHA_MIN = 0.01;
+  const LAND_PEEL_UNIT = SAMPLER_UNITS.uPeelD;   // (uBehind: the next unit; LAND_PEEL_FRONT: 03-glsl-3d.js)
   let landPeel = null, landPeelBad = false;
   let landLayerFrames = 0;   // the frames landLayers composited (the tests read it: landLayerFrames)
   function landPeelFree() {
@@ -1506,7 +1507,9 @@
     const cpBox = st.carry && hs ? carryPlaces(st, hs.N, null, 0, { sp, tileC: hs.tileC }) : 0, carried = cpBox > 0;
     // (the copies' heights, once a frame: the relief's layers draw the copies once each)
     const copyH = [];
-    // the relief, once (or once per layer at opacity below 1: landLayers)
+    // the whole relief (the carried surface and its copies, or the sheets or the principal surface, their patches and
+    // the refinement), drawn once, or once per pass of landLayers at opacity below 1: one function, so that every pass
+    // draws the same surface
     const relief = () => {
       // (the patches lie a little behind the box's cells; nearer in the farthest surface's pass, which keeps the
       // fragments farthest away)
@@ -1680,9 +1683,12 @@
       }
     };
     // opacity below 1 (st.opacity): each surface lets the ones behind it show through (landLayers), else the relief opaque
-    const alpha = st.opacity >= 0 && st.opacity < 1 ? Math.max(st.opacity, 0.01) : 1;
+    // (the layers: as many as the colour behind them still shows through by a level of 255 or more, (1 - a)^n >= 1/255, from
+    // the front and the farthest, 2, to LAND_PEEL_FRONT peeled and the farthest; a at least LAND_ALPHA_MIN, where that
+    // count is finite. A carried frame's margin: LAND_PEEL_SLOPE)
+    const alpha = st.opacity >= 0 && st.opacity < 1 ? Math.max(st.opacity, LAND_ALPHA_MIN) : 1;
     const nL = alpha < 1 ? Math.min(LAND_PEEL_FRONT + 1, Math.max(2, Math.ceil(Math.log(1 / 255) / Math.log(1 - alpha)))) : 1;
-    info.layers = nL > 1 && landLayers(nL, alpha, st.carry ? 4 : 0, (l) => { lay = l; relief(); }) ? nL : 1;
+    info.layers = nL > 1 && landLayers(nL, alpha, st.carry ? LAND_PEEL_SLOPE : 0, (l) => { lay = l; relief(); }) ? nL : 1;
     lay = LAY0;
     if (info.layers === 1) relief();
     if (below && !st.reliefOnly) {

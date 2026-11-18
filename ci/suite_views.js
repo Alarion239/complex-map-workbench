@@ -112,7 +112,7 @@ const VIEWS = {
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
   'steps_land_caption_cmd.js': steps(),
-  'steps_land_opacity_cmd.js': steps(),
+  'steps_land_opacity_cmd.js': steps({ pin: true }),
   'compile_pill_cmd.js': steps({ pin: true }),
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),

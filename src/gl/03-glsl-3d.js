@@ -1179,6 +1179,18 @@ vec3 albedo(vec2 w) {
 }
 vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smoothstep(uFogNear, uFogFar, length(uEye - pos))); }
 `;
+  // The relief's layers (landLayers): at most LAND_PEEL_FRONT peeled behind the front surface, then the farthest
+  const LAND_PEEL_FRONT = 3, LAND_PEEL_SLOPE = 4;
+  // The relief's layers (drawLandscape at opacity below 1, landLayers): uPeelOn > 0 keeps only the fragments behind the
+  // previous layer's depth, which uPeelD holds (a 32-bit float depth). The margin is 1e-7 plus uPeelS times the
+  // fragment's depth slope: a carried frame's patches lie a polygon offset behind the box's cells they repeat (uPeelS
+  // LAND_PEEL_SLOPE, covering the offset's slope term), and are not a layer of their own. uFront 1: the front surface,
+  // drawn over the layers behind it, takes alpha uFrontA where a layer lies behind it (uBehind's layer 1 covers the
+  // pixel) and 1 where it covers the point alone
+  const LAND_PEEL_DECL = `uniform float uPeelS; uniform int uFront; uniform float uFrontA; uniform highp sampler2DArray uBehind;
+float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoord.xy), 1), 0).a > 0.5 ? uFrontA : 1.0; }
+`;
+  const LAND_PEEL = '  if (uPeelOn > 0 && fdep <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7 + uPeelS * fwidth(fdep)) discard;\n';
   // sheet: the covering surface (All sheets): F on the triangle's own sheet, with the cuts of its cell (chainSheet).
   // The mesh follows the true surface to a quarter of a pixel where it is refined (REFINE), so F at the fragment's own
   // z is the surface's value at its height there; where it is not (a wall coarser than its pixels while something
@@ -1191,15 +1203,6 @@ vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smooths
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
-  // The relief's layers (drawLandscape at opacity below 1, landLayers): uPeelOn > 0 keeps only the fragments behind the
-  // previous layer's depth, which uPeelD holds (a 32-bit float depth). The margin is 1e-7 plus uPeelS times the
-  // fragment's depth slope: a carried frame's patches lie a polygon offset behind the box's cells they repeat (uPeelS 4),
-  // and are not a layer of their own. uFront 1: the front surface, drawn over the layers behind it, takes alpha uFrontA
-  // where a layer lies behind it (uBehind's layer 1 covers the pixel) and 1 where it covers the point alone
-  const LAND_PEEL_DECL = `uniform float uPeelS; uniform int uFront; uniform float uFrontA; uniform highp sampler2DArray uBehind;
-float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoord.xy), 1), 0).a > 0.5 ? uFrontA : 1.0; }
-`;
-  const LAND_PEEL = '  if (uPeelOn > 0 && fdep <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7 + uPeelS * fwidth(fdep)) discard;\n';
   const LAND_FS = (sheet, plain, lite, carry = false) => `
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
@@ -1521,7 +1524,7 @@ void main() {
   if (cur.a < 0.5) discard;
   vec3 C = vec3(0.0);
   float T = 1.0;
-  for (int j = 1; j < 8; j++) {
+  for (int j = 1; j < ${LAND_PEEL_FRONT + 1}; j++) {
     if (j >= uN || cur.a < 0.5) break;
     vec4 nxt = j + 1 < uN ? texelFetch(uL, ivec3(p, j + 1), 0) : vec4(0.0);
     float a = nxt.a < 0.5 ? 1.0 : uA;

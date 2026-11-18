@@ -1423,13 +1423,13 @@
     $('alphaVal').textContent = I18N.num(S.alpha.toFixed(2));
     for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity:not([data-land])'))) syncOpacityRange(q);
     requestRender('L', 'R'); save();
-  }  // the Landscape's own opacity, S.landAlpha: the one setter of its Opacity slider (the .sv-opacity range marked data-land)
+  }
+  // the Landscape's own opacity, S.landAlpha: the one setter of its Opacity slider (the .sv-opacity range marked data-land)
   function setLandOpacity(v) {
     setOpt('landAlpha', v);
     for (const q of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll('.sv-opacity[data-land]'))) syncOpacityRange(q);
     requestRender('L', 'R'); save();
   }
-
   function setupViewControls() {
     // the panes' Plane | Sphere radios (U4)
     for (const side of ['L', 'R']) {

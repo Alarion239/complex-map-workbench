@@ -284,6 +284,8 @@
     }
   }
   const regionLook = () => solidKeep || { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+  // the steps view's Opacity sliders' least, the plane's (svOpacity) and the Landscape's (svLandOpacity, a saved landAlpha)
+  const SV_OPACITY_MIN = 0.3;
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
@@ -712,8 +714,8 @@
     if (!['log', 'abs', 're', 'im'].includes(st.height)) st.height = d0.height;
     if ('sectors' in st && ![8, 12, 16, 24].includes(st.sectors)) delete st.sectors;
     if ('lscale' in st) { if (isNum(st.lscale)) st.lscale = Math.max(0.25, Math.min(2, st.lscale)); else delete st.lscale; }
-    // (the Landscape's own opacity, svLandOpacity: 0.3, the slider's least, to 1)
-    if ('landAlpha' in st) { if (isNum(st.landAlpha)) st.landAlpha = Math.max(0.3, Math.min(1, st.landAlpha)); else delete st.landAlpha; }
+    // (the Landscape's own opacity, svLandOpacity: SV_OPACITY_MIN to 1)
+    if ('landAlpha' in st) { if (isNum(st.landAlpha)) st.landAlpha = Math.max(SV_OPACITY_MIN, Math.min(1, st.landAlpha)); else delete st.landAlpha; }
     if ('fov' in st) st.fov = st.fov !== false;
     for (const k of ['lines', 'unit', 'snap', 'outline', 'hideLeft', 'hideRight', 'compact', 'chev', 'unitLevel']) if (k in st) st[k] = !!st[k];
     // v15: the selected step or F (old saves: none, so the step shown alone or the last step)
