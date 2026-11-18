@@ -455,13 +455,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.view-land .pane:not(.ph-inset) .viewstack { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
 :root.ph.view-land .pane:not(.ph-inset) .ph-col { bottom: calc(60px + var(--ruler) + var(--ph-lift)); }
 /* (a landscape plane the tall context bar leaves shorter than the three keys: Fit view stands left of Display, in the 60 px lane
-   right of the 44 px key (8 + 44 + 8), and Sphere and Display stand on its level, so the column is two keys high; the colour key,
-   folded or open, moves one more lane left so Fit view never covers it, and the readout stops short of it) */
+   right of the 44 px key (8 + 44 + 8), and Sphere and Display stand on its level, so the column is two keys high; the colour key
+   moves up to the top row, clear of the construction chip below it and of Fit view, and the readout stops short of it, except the
+   globe's hint card, which keeps its own column) */
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 60px; }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { bottom: calc(8px + var(--ph-lift)); }
 :root.ph.ph-land.view-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
-:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip { right: 112px; }
-:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout { max-width: calc(100% - 176px); }
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip { top: 4px; }
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
 :root.ph.ph-kb .ph-sb { padding-bottom: calc(16px + var(--ph-kb, 0px)); }
