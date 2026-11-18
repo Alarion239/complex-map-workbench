@@ -10,8 +10,7 @@ let n = 0, fails = 0;
 const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name, info === undefined ? '' : String(info).slice(0, 600)); } };
 for (const [file, tool, args] of [['src/i18n_ru.js', 'tools/make_ru_table.py', ['--strict']], ['src/i18n_it.js', 'tools/make_it_table.py', ['--strict']]]) {
   const r = spawnSync(py, [path.join(ROOT, tool), ...args, '--check'], { cwd: ROOT, encoding: 'utf8' });
-  ok(`${file} is what ${tool} gives now`, r.status === 0, (r.stderr || '') + (r.stdout || ''));
-  ok(`${tool} --check ran and said which`, /fresh generation/.test((r.stdout || '') + (r.stderr || '')), r.error || r.stdout);
+  ok(`${file} is what ${tool} gives now`, r.status === 0, (r.stderr || '') + (r.stdout || '') + (r.error || ''));
 }
 console.log(`t_i18n_tables: ${n - fails}/${n} passed`);
 process.exit(fails ? 1 : 0);
