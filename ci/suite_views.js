@@ -151,6 +151,7 @@ const VIEWS = {
   'steps_arrows_cmd.js': steps(),
   'ruler_corner_cmd.js': steps(),
   'steps_menu_expanded_cmd.js': steps(),
+  'example_integral_phone_cmd.js': steps({ pin: true }),
   'menu_buttons_expanded_cmd.js': steps({ pin: true }),
   'settings_theme_menu_cmd.js': steps({ pin: true }),
   'readout_touch_cmd.js': steps(),
