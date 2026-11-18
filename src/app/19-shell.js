@@ -5,8 +5,9 @@
   // a theme picked from the header's menu, Settings' entry or the phone's sheet
   function pickTheme(v) { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }
   // the theme's one menu, from the header button and from Settings: Auto, Light, Dark, the current one checked
-  function openThemeMenu(btn) {
-    svChoiceMenu(btn, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], curTheme, $t('Theme'), pickTheme);
+  // (opener: the control that holds the menu when btn leaves the page as it opens, Settings' link with its popover)
+  function openThemeMenu(btn, opener) {
+    svChoiceMenu(btn, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], curTheme, $t('Theme'), pickTheme, opener);
   }
   // the header: the icons, the command field, its fit (init: before the view controls)
   function setupHeader() {
@@ -154,15 +155,15 @@
       run: () => { const a = h('a', { href: file, download: file }); document.body.append(a); a.click(); a.remove(); } };
   }
   function openSettings(btn) {
-    if (popEl && popEl.classList.contains('set-pop')) { closePalette(); btn.focus(); return; }   // (a re-click closes)
+    if (popEl && (popEl.classList.contains('set-pop') || popEl._opener === btn)) { closePalette(); btn.focus(); return; }   // (a re-click closes, Settings' Theme menu too)
     closePalette();
     const sep = (t, first) => h('div', { class: 'opts-h' + (first ? '' : ' opts-sep') }, t);
     // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English, review eng-12; the languages'
     // own names are never translated)
     const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
     const themeName = { auto: $t('Auto'), light: $t('Light'), dark: $t('Dark') };
-    const kids = [sep($t('Theme'), true), h('button', { type: 'button', id: 'setTheme', class: 'set-link', 'aria-haspopup': 'menu', onclick: (e) => openThemeMenu(e.currentTarget) }, $t('Theme: {name}', { name: themeName[curTheme] })),
-      sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
+    const kids = [sep($t('Theme'), true), h('button', { type: 'button', id: 'setTheme', class: 'set-link', 'aria-haspopup': 'menu', onclick: (e) => openThemeMenu(e.currentTarget, btn) }, $t('Theme: {name}', { name: themeName[curTheme] })),
+      sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'), { wrap: false })];
     if (SND) {
       const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });
       sw.checked = !!SND.prefs().on;
