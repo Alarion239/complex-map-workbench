@@ -736,5 +736,7 @@
   "few": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса.",
   "many": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градусов.",
   "other": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса."
- }
+ },
+ "Marked preimages of {name}: {k} of {n}": "Отмеченные прообразы %{name}: %{k} из %{n}",
+ "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие"
 }

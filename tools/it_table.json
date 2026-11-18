@@ -3417,5 +3417,7 @@
  "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
   "one": "{v} {z}. Modulo {modulus}, argomento {n} grado.",
   "other": "{v} {z}. Modulo {modulus}, argomento {n} gradi."
- }
+ },
+ "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
+ "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre"
 }
