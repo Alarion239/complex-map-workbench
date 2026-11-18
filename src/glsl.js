@@ -1502,8 +1502,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
     const h = `if (t <= 0.0) return z;\n  if (t >= 1.0) return ${P}_f(z);\n  float s = t * (1.0 + ${nc.x} * ${len}.0);\n  if (s < 1.0) return ${last}_h(z, s);\n  z = ${last}_f(z); s -= 1.0;\n`
       + `  for (int k = 0; k < ${passes}; k++) {\n${subs.map(({ Q }) => `    if (s < 1.0) return ${Q}_h(z, s);\n    z = ${Q}_f(z); s -= 1.0;`).join('\n')}\n  }\n  return z;`;
     const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
+    // (own1: the path answers t >= 1 with the map itself, so it takes no t = 1 shortcut and chainAt no copy of it
+    // without one: the loop on a uniform trip count is written twice, in the map and the path; a third copy made
+    // Metal's compiler run it wrong, #1911)
     return {
-      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: true,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
     };
