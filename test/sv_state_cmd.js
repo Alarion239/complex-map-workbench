@@ -34,7 +34,7 @@ await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 const w = await saved();
 info.written = w;
 ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in' && w.speed === 'slow', w);
-// undo: an example replaces the state, undo brings the place back
+// undo: an example takes over the state, undo brings the place back
 await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);
 await ev('__cmwSteps({ go: 1, now: true })'); await sleep(300);
 await ev('(__cmwExample(3), 1)'); await sleep(2500);

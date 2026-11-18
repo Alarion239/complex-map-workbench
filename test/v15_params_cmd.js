@@ -179,7 +179,7 @@ const scenePath = path.join(DIR, 'shots', 'v15p-scene.cmw.json');
 fs.mkdirSync(path.dirname(scenePath), { recursive: true });
 fs.writeFileSync(scenePath, await ev(`Params.scene(${JSON.stringify(figure)})`));
 await nav(origin + '/test.html?ns=' + NS + '-scene');
-await ev(`(()=>{ document.getElementById('shareBtn').click(); return 1 })()`);   // ([v17 D5] Open scene… is Share's)
+await ev(`(()=>{ document.getElementById('shareBtn').click(); return 1 })()`);   // (Open scene… is Share's)
 await settle(200);
 await ev(`(()=>{ const it = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /Open scene/.test(x.textContent)); if (it) it.click(); return !!it })()`);
 await settle(200);

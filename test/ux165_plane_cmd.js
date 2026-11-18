@@ -457,7 +457,7 @@ await section('L86', async () => {
   ok('UX92/UX95 a strip: "Goes on forever; drawn faded towards the edge."', gId !== fId && n2 === 'Goes on forever; drawn faded towards the edge.', { n2, fId, gId });
   // UX86: the Phase style
   await key('2'); await settle(900);
-  // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
+  // (learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
   // a real click opens it when the style control is not inline, and it is closed after)
   const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
@@ -499,7 +499,7 @@ await section('P51', async () => {
   await shot('ux94-phone-snap');
   await key('Escape'); await settle(200);
   // UX95: the Display sheet's region section is "Regions" (#35; #363: the regions' display, as Y's head button names it)
-  // ([v17 D5, #82]: a heading of the sheet, no longer the left panel's #secDisplay)
+  // (a heading of the sheet, not the left panel's #secDisplay)
   // (the sheet's headings exist only while it is open)
   await tapSel('.ph-dsp'); await settle(400);
   const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
