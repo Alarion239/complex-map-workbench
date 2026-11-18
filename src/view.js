@@ -1,5 +1,7 @@
 'use strict';
 // A 2D complex-plane pane: view transform, resizing, axes.
+// the relative difference under which two view scales count as equal, for Pane.tweenAt
+const PAN_EPS = 1e-9;
 class Pane {
   // canvas: the drawn plane; overlay (optional): a transparent canvas on top for probes and handles
   constructor(canvas, overlay) {
@@ -13,6 +15,7 @@ class Pane {
     this.octx = overlay ? overlay.getContext('2d', { willReadFrequently: true }) : this.ctx;
     this.view = { cx: 0, cy: 0, s: 80 };
     this.w = 300; this.h = 300; this.dpr = 1;
+    this.begun = 0;   // the frames begun (begin)
   }
   // cw, ch: the CSS size when the caller already knows it (from a ResizeObserver), so no layout is forced
   resize(cw, ch) {
@@ -47,6 +50,22 @@ class Pane {
     v.cy = z.im + (y - this.h / 2) / s;
     v.s = s;
   }
+  // The view a tween from view a to view b is at, for the eased time e in [0, 1]: the scale moves in log space,
+  // s(e) = a.s·(b.s/a.s)^e, and the centre by the weight g(e) = (1 − a.s/s(e)) / (1 − a.s/b.s), c(e) = a.c + (b.c − a.c)·g(e).
+  // s is in pixels per world unit, so the world point p that a and b put at the same screen offset,
+  // (p − a.c)·a.s = (p − b.c)·b.s, keeps that offset (p − c(e))·s(e) all along, as a wheel zoom keeps the point under the
+  // cursor. g is written with expm1, which is accurate however far away p is because the formula never forms p. Scales
+  // within PAN_EPS of each other (|den| < PAN_EPS, den = a.s/b.s − 1 below) are the same scale: p is over 1/PAN_EPS pan lengths away and g differs
+  // from e by less than PAN_EPS/4 of the pan, so g = e, a plain eased pan, as it is for a target of scale 0 (den infinite),
+  // where the ratio would be ∞/∞. e ≤ 0 is a and e ≥ 1 is b, exactly.
+  static tweenAt(a, b, e) {
+    if (e <= 0) return { cx: a.cx, cy: a.cy, s: a.s };
+    if (e >= 1) return { cx: b.cx, cy: b.cy, s: b.s };
+    const L = Math.log(b.s / a.s);
+    const den = Math.expm1(-L);   // a.s/b.s − 1
+    const g = Math.abs(den) < PAN_EPS || !Number.isFinite(den) ? e : Math.expm1(-L * e) / den;
+    return { cx: a.cx + (b.cx - a.cx) * g, cy: a.cy + (b.cy - a.cy) * g, s: a.s * Math.exp(L * e) };
+  }
   fitBox(b, margin = 0.08) {
     if (!b || !(b.x1 > b.x0) || !(b.y1 > b.y0)) return false;
     const w = (b.x1 - b.x0) * (1 + 2 * margin), h = (b.y1 - b.y0) * (1 + 2 * margin);
@@ -63,6 +82,7 @@ class Pane {
   }
   begin(bg) {
     this.labels = null; // the label queue of the frame being replaced (app.js placeLabels)
+    this.begun++;   // (the plane's description is a begun frame's: paneSaid)
     const c = this.ctx;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = bg;

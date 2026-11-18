@@ -15,13 +15,14 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LINK_MS = 400;
 await view(1200, 800, false, false);
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const ex = names.indexOf('Sheets of the logarithm');
 ok('the example is found', ex >= 0, names.length);
 if (ex >= 0) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=lkw${Date.now()}`);
   await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true }); 1`);
   await settled({ max: 30000 });

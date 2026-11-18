@@ -20,6 +20,7 @@
 // TEXT (?filter=; to time a few chains' shaders on one platform). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
@@ -145,9 +146,9 @@ async function runPage(base, p, side) {
       const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
-      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, maxSlots: R.maxSlots, maxSlotsChain: R.maxSlotsChain, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
+      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, maxSlots: R.maxSlots, maxSlotsChain: R.maxSlotsChain, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOnSwiftShader: R.notOnSwiftShader, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
-      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed, max ${r.maxSlots} uniform slots (${r.maxSlotsChain})${r.singular ? `, ${r.singular.badCount} bad singular` : ''}`;
+      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed, max ${r.maxSlots} uniform slots (${r.maxSlotsChain})${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOnSwiftShader && r.notOnSwiftShader.length ? `; not run on SwiftShader (#1809): ${r.notOnSwiftShader.join('; ')}` : ''}`;
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');
@@ -205,9 +206,21 @@ async function main() {
   }
   buildPages(ROOT, pages);
   const R = ref ? buildReference(ref) : null;
-  if (R) buildPages(R.dir, pages);
   legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
   if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
+  // (#1809) a reference whose test/glsl_tiers.js has no SWIFTSHADER_HANG would run on SwiftShader the chains whose
+  // programs do not finish there: its pages are built with this change's test/glsl_tiers.js, which leaves them out as
+  // this side does (elsewhere it leaves nothing out), so both sides run the same chains; the reference's file is put
+  // back after the build
+  const notes = [];
+  const refTiers = R && !legacy ? path.join(R.dir, 'test', 'glsl_tiers.js') : null;
+  const overlay = !!refTiers && !fs.readFileSync(refTiers, 'utf8').includes('SWIFTSHADER_HANG');
+  if (overlay) {
+    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own has no \`SWIFTSHADER_HANG\`, #1809): both sides run the same chains.`);
+    console.log(notes[0].replace(/`/g, ''));
+    fs.copyFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), refTiers);
+  }
+  try { if (R) buildPages(R.dir, pages); } finally { if (overlay) execFileSync('git', ['checkout', '--', 'test/glsl_tiers.js'], { cwd: R.dir }); }
   const srv = await serve(path.join(ROOT, 'dist'));
   const rsrv = R ? await serve(path.join(R.dir, 'dist')) : null;
   const rows = [], details = [];
@@ -231,7 +244,7 @@ async function main() {
     }
   } finally { srv.server.close(); if (rsrv) rsrv.server.close(); }
   summary([`### GLSL conformance (${process.platform}${renderer ? `: ${esc(renderer)}` : ''}${R ? `; against \`${R.sha.slice(0, 12)}\`` : ''}): ${failed ? '❌' : '✅'}`, '',
-    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...details, ''].join('\n'));
+    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...notes, ...details, ''].join('\n'));
   return failed ? 1 : 0;
 }
 // (ci/impact.js reads the pages and their inputs)

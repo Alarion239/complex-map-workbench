@@ -20,7 +20,7 @@ const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'E
 const fresh = async (ns, w, h, dark, mobile, extra = '') => {
   await view(w, h, !!dark, !!mobile);
   await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
-  await nav(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
+  await go(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
 };
 const withState = async (ns, w, h, mobile, st) => { await view(w, h, false, !!mobile); await load(`ux165p-${ns}-${Date.now()}`, st); await settle(); };
 const box = (sel) => ev(`(() => { const e = typeof ${JSON.stringify(sel)} === 'string' ? document.querySelector(${JSON.stringify(sel)}) : null; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom), top: !!t && (t === e || e.contains(t)) }; })()`);
@@ -126,7 +126,7 @@ await grab();
 // ---------------- Back closes the top layer; Back from the bare app leaves ----------------
 await view(412, 860, false, true);
 await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
-await nav(`${U}?ns=ux165p-back-${Date.now()}`); await settle();
+await go(`${U}?ns=ux165p-back-${Date.now()}`); await settle();
 const st = () => ev(`({ url: location.href, sheet: Phone.sheet(), pop: !!document.querySelector('#popHost > *'), modal: !!document.querySelector('.modal-bg') })`);
 const layers = [
   ['the ⋯ sheet', async () => { await tap('#hdrMoreBtn'); }, (s) => s.sheet === 'more'],
