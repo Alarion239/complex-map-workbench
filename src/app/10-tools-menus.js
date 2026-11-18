@@ -178,11 +178,13 @@
   // items: {label, icon?, swatch?, key?, danger?, run} | 'sep' ; a 'kids' array opens a submenu beside its item.
   // run() may return the element that should take the focus; otherwise it goes back to the menu's opener.
   // sub (internal): {opener, okey, parent, label} for a submenu, so Esc and ← lead back to a live element.
+  // items.opener: the control that holds the menu when the anchor leaves the page as the menu opens (a link in a popover
+  // that closes first): it says aria-expanded while the menu is open, and Esc and a choice return the focus to it.
   function openMenu(anchor, items, cls, sub) {
-    const opener = sub ? sub.opener : anchor;
+    const opener = sub ? sub.opener : items.opener || anchor;
     // re-clicking the button that opened a menu closes it
     if (!sub && popEl && popEl.classList.contains('menu') && popEl._opener === anchor) { closePalette(); return null; }
-    const okey = sub ? sub.okey : focusKey(anchor);
+    const okey = sub ? sub.okey : focusKey(opener);
     const ar = anchor.getBoundingClientRect(); // before closePalette detaches a submenu's parent item
     closePalette();
     const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : items.menuLabel || null });
