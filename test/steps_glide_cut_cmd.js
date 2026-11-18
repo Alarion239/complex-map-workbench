@@ -202,14 +202,18 @@ ok('the control: the parked chip against itself: no pixel fails', rows['the park
 ok('the control: the parked plane against itself: no pixel fails', rows['the parked plane against itself'].fail === 0, rows['the parked plane against itself']);
 ok(`the control: the parked plane against itself shifted ${SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the parked plane against itself'].failShift > CONTROL_FACTOR * SAME_FRAC, rows['the parked plane against itself']);
 ok(`the control: the same glide frame against plane 1: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the glide frame against plane 1'].fail > CONTROL_FACTOR * SAME_FRAC, rows['the glide frame against plane 1']);
-// The arrival: the glide frame ARRIVE_EPS short of plane 1 against the parked plane 1, by the same measure, along plane 1's cut (the image of the cut,
-// __cmwCutCurves, a vertical line here) from ARRIVE_PX px left of it to the handle's disc (DISC_R right of it; the chip beyond, labelled z0 on the
-// glide and z0' at rest, is left out), over the pane's rows:
-// - beside the line (its LINE_PX px each side left out): every sheet's colour arrives (#1413), so the colour on either side of the cut is the parked
-//   plane's. Control: the principal sheet alone (__cmwSteps({ glideSheets: 1 })), which leaves the paper on one side;
-// - the solid bank's rows, the line with its casing: control, the parked plane 1 against itself shifted SHIFT_PX px. (The dashed bank's line is pinned
-//   by its dash phase below: its dashes' ends are anti-aliased a fraction of a pixel apart, which this measure reads.)
-// ARRIVE_EPS: the glide's map moves the line about 0.15 px between u = 1 - 1e-4 and 1, so the frame is taken a hundredth of that away
+// The arrival: the glide frame ARRIVE_EPS short of plane 1 against the parked plane 1, by the same measure, along plane
+// 1's cut (the image of the cut, __cmwCutCurves, a vertical line here) from ARRIVE_PX px left of it to the handle's
+// disc (DISC_R right of it; the chip beyond, labelled z0 on the glide and z0' at rest, is left out), over the pane's
+// rows:
+// - beside the line (its LINE_PX px each side left out): every sheet's colour arrives (#1413), so the colour on either
+//   side of the cut is the parked plane's. Control: the principal sheet alone (__cmwSteps({ glideSheets: 1 })), which
+//   leaves the paper on one side;
+// - the solid bank's rows, the line with its casing: control, the parked plane 1 against itself shifted SHIFT_PX px.
+//   (The dashed bank's line is pinned by its dash phase below: its dashes' ends are anti-aliased a fraction of a pixel
+//   apart, which this measure reads.)
+// ARRIVE_EPS: the glide's map moves the line about 0.15 px between u = 1 - 1e-4 and 1, so the frame is taken a
+// hundredth of that away
 const ARRIVE_PX = 12, LINE_PX = 3, ARRIVE_EPS = 1e-6;
 await frameAt('__cmwSteps({ park: 1 })'); await grab('parked1');
 const banks1 = await ev(`(() => { const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), k = cv.width / r.width; const box = (cs) => { const ps = cs.flatMap((c) => c.s.filter(Boolean)); if (!ps.length) return null; const xs = ps.map((q) => q[0] * k), ys = ps.map((q) => q[1] * k); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; }; const cs = __cmwCutCurves().filter((c) => c.step === 1); return { all: box(cs), solid: box(cs.filter((c) => c.solid)) }; })()`);

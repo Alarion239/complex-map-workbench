@@ -474,9 +474,9 @@
     const g = svBetween();
     if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
     const mapOf = (s) => svGlideMap(g, s), carry = svLandCarry(mapOf, g.a, g.b, g.u);
-    // (onto a plane b coloured by its own variable: the other sheets' copies of the carried surface, svGlideSheets, as the
-    // Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions, where
-    // plane b shows the principal sheet's image of the regions)
+    // (onto a plane b coloured by its own variable: the other sheets' copies of the carried surface, svGlideSheets, as
+    // the Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions,
+    // where plane b shows the principal sheet's image of the regions)
     const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
     // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
     // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
@@ -1756,14 +1756,15 @@
   // so it covers plane b as plane b does at rest, every sheet's image and not the principal one's alone. (A plane past
   // the colour plane carries the principal sheet's points at rest, and so does a glide onto it; under Inside regions
   // plane b shows the principal sheet's image of the regions, and so does a glide onto it.)
-  // A combo is the chain with each multivalued step's sheet (its k, which the GPU reads as data, so the programs are the
-  // same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW, the
-  // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
-  // are svGlideSheets(b)'s, nearest the principal sheet first (the sum of the offsets' distances from 0, a root's
-  // around its circle of sheets), made once per chain. A chain with more combos leaves the farthest ones out.
-  // svGlideSheets(b, from) moves the steps in (from, b] alone: a Landscape glide carries the points of plane from, which
-  // no step before it moves. SV.glideSheets 1 (a test hook's) draws the chain as it is alone, on the Plane and on the
-  // Landscape.
+  // A combo is the chain with each multivalued step's sheet (its k, which the GPU reads as data, so the programs are
+  // the same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW,
+  // the window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most
+  // SV_GLIDE_SHEETS_MAX − 1, are svGlideSheets(b)'s, nearest the principal sheet first (the sum of the offsets'
+  // distances from 0, a root's around its circle of sheets), made once per chain. A chain with more combos leaves the
+  // farthest ones out.
+  // svGlideSheets(b, from) moves the steps in (from, b] alone: a Landscape glide carries the points of plane from,
+  // which no step before it moves. SV.glideSheets 1 (a test hook's) draws the chain as it is alone, on the Plane and on
+  // the Landscape.
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
   // digits), so a copy of it would be a chain of its own to compile: its principal sheet alone is carried.
@@ -1771,6 +1772,10 @@
   // SV_SHEET_W_MAX, SV_SHEET_W_DEFAULT when unset), the same bounds as the GPU's sheet plan (sheetPlan)
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
   const SV_SHEET_W_MIN = 1, SV_SHEET_W_MAX = 4, SV_SHEET_W_DEFAULT = 2;
+  // a step's cut in degrees: its own, else the default every multivalued step starts with (SV_CUT, the negative real
+  // axis); SV_HALF_TURN: a seam's cut turned from it (svGlideSeams)
+  const SV_CUT = 180, SV_HALF_TURN = 180;
+  const svCut = (st) => (st.params.cut == null ? SV_CUT : +st.params.cut);
   let svSheetMemo = { key: '', list: [] };
   function svGlideSheets(b, from = 0) {
     const W = Math.max(SV_SHEET_W_MIN, Math.min(SV_SHEET_W_MAX, Math.round(S.sheetW) || SV_SHEET_W_DEFAULT));
@@ -1790,11 +1795,12 @@
     for (const d of radix) combos = combos.flatMap((c) => d.offs.map((o) => c.concat(o)));
     const far = (c) => c.reduce((t, o, i) => t + radix[i].far(o), 0);
     combos = combos.slice(1).map((c, i) => ({ c, i, f: far(c) })).sort((x, y) => x.f - y.f || x.i - y.i).slice(0, SV_GLIDE_SHEETS_MAX - 1).map((x) => x.c);
-    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and stagesFollow,
-    // which change the user's chain; turn: each of those steps' cuts turned half a turn too, svGlideSeams)
+    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and
+    // stagesFollow, which change the user's chain; turn: each of those steps' cuts turned half a turn too,
+    // svGlideSeams)
     const variant = (offs, tag, turn) => {
       const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
-      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; if (turn) st.params.cut = (st.params.cut == null ? 180 : +st.params.cut) + 180; });
+      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; if (turn) st.params.cut = svCut(st) + SV_HALF_TURN; });
       const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
       return { offs, steps, built: bs, sig: chainSig.map((g) => `${g}|${tag}`), gl: GLR.ok ? GLChain.build(steps, bs) : null };
     };
@@ -1820,7 +1826,7 @@
   function svSeamCut(b, from) {
     const st = S.steps[b - 1];
     if (from !== b - 1 || !st || !SV_SHEET_STEPS.includes(st.type)) return null;
-    const c = (((st.params.cut == null ? 180 : +st.params.cut) % 360) + 360) % 360;
+    const c = ((svCut(st) % 360) + 360) % 360;
     return c % 90 === 0 ? c : null;
   }
   // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'

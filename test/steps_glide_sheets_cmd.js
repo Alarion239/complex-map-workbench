@@ -7,17 +7,18 @@
 //   - no frame leaves paper where the copies' images cover the plane: its paper share is at most PAPER_MAX (one sheet
 //     leaves the left half paper, about 0.5);
 //   - at u = 1 − TINY the frame is as close to the plane it arrives at, parked, as the frame at u = TINY is to the
-//     plane it leaves (no sheet is missing at either end): the share of pixels more than DIFF_TOL apart (held_frames.js)
-//     at most SAME_FRAC over the departure's. (A glide frame and a parked plane are drawn by different passes, whose
-//     colour bands meet a pixel apart: a few per cent of the pane at either end, with the principal sheet alone too;
-//     one sheet missing on arrival is half the pane);
+//     plane it leaves (no sheet is missing at either end): the share of pixels more than DIFF_TOL apart
+//     (held_frames.js) at most SAME_FRAC over the departure's. (A glide frame and a parked plane are drawn by different
+//     passes, whose colour bands meet a pixel apart: a few per cent of the pane at either end, with the principal sheet
+//     alone too; one sheet missing on arrival is half the pane);
 // - each frame between the planes is coloured as the parked plane it arrives at: its share of pixels of saturation over
 //   SAT (no paper, no black) at least the parked plane's less COLOUR_TOL;
 // - the K = 1 control (__cmwSteps({ glideSheets: 1 }): the principal combo alone) leaves the left half paper again, so
 //   the rows above read the sheets the glide draws;
-// - the logarithm (an infinitely sheeted step), zoomed out to LOG_SCALE px per unit: the glide's record names the sheets
-//   it draws (sheetKs), the window −W..W about the principal sheet, each once (W = S.sheetW, 2), and near u = 1 the
-//   frame is as much paper above the real axis as below it, within SYM_TOL (the window of sheets is symmetric about 0);
+// - the logarithm (an infinitely sheeted step), zoomed out to LOG_SCALE px per unit: the glide's record names the
+//   sheets it draws (sheetKs), the window −W..W about the principal sheet, each once (W = S.sheetW, 2), and near u = 1
+//   the frame is as much paper above the real axis as below it, within SYM_TOL (the window of sheets is symmetric
+//   about 0);
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copies (its record's sheets 1), and at u = 1 − TINY the frame is as close
 //   to the parked plane as at u = TINY to the plane it leaves, within SAME_FRAC.

@@ -583,11 +583,11 @@ void main() {
   tfOut = cfin(q) ? vec4(q, 0.0, 1.0) : vec4(0.0);
 }
 `;
-  // the carried All sheets' places sheet by sheet: each sheet's cells' corners (LAND_SHEET_TF_VS's tiles: 2M x 2M texels a
-  // combo, uTileC tiles a row, M = uN - 1 cells a side, over the box uBox or a pole's patch, CARRY_ZIN) moved by the glide's
-  // map on that sheet (mapSheet, the map's uniforms: its steps applied from the stage uBase, with the digits of the
-  // sheets' heights, (uSheetA, uSheetB]), so each sheet stands over its own image: (place x, y, 0, finite). LAND_SHEET_VS
-  // reads them with uCPS 1
+  // the carried All sheets' places sheet by sheet: each sheet's cells' corners (LAND_SHEET_TF_VS's tiles: 2M x 2M
+  // texels a combo, uTileC tiles a row, M = uN - 1 cells a side, over the box uBox or a pole's patch, CARRY_ZIN) moved
+  // by the glide's map on that sheet (mapSheet, the map's uniforms: its steps applied from the stage uBase, with the
+  // digits of the sheets' heights, (uSheetA, uSheetB]), so each sheet stands over its own image: (place x, y, 0,
+  // finite). LAND_SHEET_VS reads them with uCPS 1
   const LAND_CARRY_PLACE_S_TF_VS = () => SHEET_MAP + `
 uniform int uN; uniform vec4 uBox; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
 out vec4 tfOut;
@@ -991,9 +991,9 @@ uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
 // the carried sheets (uCarry 1, the steps view's glide): the cells' corners' places under the glide's map (uCP) in the
-// block over uCBox, each sheet's own on it (uCPS 1, LAND_CARRY_PLACE_S_TF_VS, in uT1's tiles) or, until that program has
-// run, the principal sheet's grid's for every sheet (uN x uN, LAND_CARRY_PLACE_TF_VS); a triangle with a corner not finite
-// or an edge over uCLim on the plane (torn across a cut or a pole of the map) is left out
+// block over uCBox, each sheet's own on it (uCPS 1, LAND_CARRY_PLACE_S_TF_VS, in uT1's tiles) or, until that program
+// has run, the principal sheet's grid's for every sheet (uN x uN, LAND_CARRY_PLACE_TF_VS); a triangle with a corner not
+// finite or an edge over uCLim on the plane (torn across a cut or a pole of the map) is left out
 // A pole's patch (uPatch 1): the same, over the grid of the patch (CARRY_Z, uPolar), whose cells carry their own heights
 // uCP and uT1 are the patch's too
 uniform highp sampler2D uCP; uniform int uCarry; uniform vec4 uCBox; uniform float uCLim; uniform int uPatch;
@@ -1035,8 +1035,8 @@ void emitV(vec3 q, vec3 nrm, vec2 w, vec3 boxE, int k, ivec2 c, ivec2 s0, int L,
     float nz = max(nrm.z, 1e-6);
     vec3 tx = vec3(dx, -nrm.x / nz * rest.x), ty = vec3(dy, -nrm.y / nz * rest.y);
     if (uPatch == 1 || uCPS == 1) {
-      // (a patch's cells are not the plane's grid, and a sheet on its own places is moved by its own map: the slopes come
-      // from the cell's four corners, each at its place and height)
+      // (a patch's cells are not the plane's grid, and a sheet on its own places is moved by its own map: the slopes
+      // come from the cell's four corners, each at its place and height)
       ivec2 o = ivec2(combo % uTileC, combo / uTileC) * (2 * M) + 2 * c;
       vec3 P00 = vec3(((p00.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o, 0).x);
       vec3 P10 = vec3(((p10.xy - uCBox.xy) / uCBox.zw - 0.5) * 2.0 * uAspect, texelFetch(uT1, o + ivec2(1, 0), 0).x);
@@ -1233,12 +1233,15 @@ vec3 cueTint(vec3 c, float s) {
 // its fragment stage stays the base's, r3 cold opens: with this in it, a heavy formula's first Landscape held the GPU
 // process 0.7 to 0.8 s where the base did not stall; the base cells are the flat ones, a wall is refined)
 ${lite ? '' : `// the inverse of the linear height (modes 4, 5) with its compressed share uHComp: h = (1 - c) x + c (2/pi) atan x, by
-// Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps)
+// Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps:
+// LIN_INV_STEPS; LIN_INV_EDGE keeps the compressed inverse's tan finite)
+const int LIN_INV_STEPS = 6;
+const float LIN_INV_EDGE = 0.999;
 float linInv(float h) {
   float c = clamp(uHComp, 0.0, 1.0);
   if (c <= 0.0) return h;
-  float x = mix(h, tan(0.5 * PI * clamp(h, -0.999, 0.999)), c);
-  for (int i = 0; i < 6; i++) x -= ((1.0 - c) * x + c * (2.0 / PI) * atan(x) - h) / ((1.0 - c) + c * (2.0 / PI) / (1.0 + x * x));
+  float x = mix(h, tan(0.5 * PI * clamp(h, -LIN_INV_EDGE, LIN_INV_EDGE)), c);
+  for (int i = 0; i < LIN_INV_STEPS; i++) x -= ((1.0 - c) * x + c * (2.0 / PI) * atan(x) - h) / ((1.0 - c) + c * (2.0 / PI) / (1.0 + x * x));
   return x;
 }
 vec2 facetW(vec2 w) {
