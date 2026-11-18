@@ -1645,12 +1645,15 @@
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands
   // in while the mesher's job runs
-  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt); all at once, the span's first plane's, whose
-  // window the glide starts from; at rest, plane b's)
+  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt, plane b's key with the glide's poles at t); all at
+  // once, the key of the span's top plane, map.b, with that plane's poles, so the front sheet is the one the inverse pass
+  // shows where the span ends, at plane b: an upward glide lands on that sheet, while a downward one, which ends at the
+  // span's first plane, keeps plane b's key to the end (the first plane's key lacks the later planes' poles, so where the
+  // map folds it would put the wrong sheet in front on the way); at rest, plane b's)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;
-    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.a) : svSheetKey(b);
+    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.b) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
