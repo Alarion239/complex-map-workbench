@@ -145,10 +145,13 @@ async function walk(base, root, at) {
   return { renderer: done[0].renderer, ms: Date.now() - t0, steps: done.flatMap((d) => d.steps), links: done.flatMap((d) => d.links), memory };
 }
 
-// one stage sized: { src (characters), size (inlined), top: [[function, copies, own]...], loops }
+// one stage sized: { src (characters), size (inlined), top: [[function, copies, own]...], loops }. It is sized as Direct3D 11
+// gets it: without the inverse program's SwiftShader-only define (IX_CHAIN3_CALLS, set from the renderer string by
+// src/gl/07-inverse-api.js's invSources), which a walk on SwiftShader picks up
+const SWIFTSHADER_ONLY = /^#define IX_CHAIN3_CALLS\b.*$/m;
 function stage(src) {
   if (!src) return { src: 0, size: 0, top: [], loops: [] };
-  const r = inline(src);
+  const r = inline(src.replace(SWIFTSHADER_ONLY, ''));
   const top = [...r.copies].map(([fn, k]) => [fn, k, r.own.get(fn)]).sort((a, b) => b[1] * b[2] - a[1] * a[2]).slice(0, 8);
   return { src: src.length, size: r.size, top, loops: r.loops };
 }

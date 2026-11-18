@@ -7,6 +7,7 @@
   let maxTex = 4096;
   let pcExt = null;        // KHR_parallel_shader_compile
   let rtOK = false;        // EXT_color_buffer_float: map caches are drawn into their RG32F texture (tfEntry)
+  let swiftShader = false; // the renderer is SwiftShader (its shader compiler, Subzero, links a loop around the chain slowly)
   let syncDepth = 0;       // > 0: chain programs are waited for (tests)
   let syncFwd = 0;         // > 0: chain and static programs are waited for, inverse ones as before (exports)
   // side mode (GLR.side): setChain and the draws use a chain that is not the user's (example thumbnails) without
