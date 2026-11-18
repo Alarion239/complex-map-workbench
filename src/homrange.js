@@ -209,6 +209,20 @@ const HomRange = (function (factory) {
     };
     return g;
   }
-  return { make, glider };
+  // ---- the arrows' glide: the place goes from its start to its end by the cubic ease in and out of v, the share of the
+  // glide's time gone (svFrame)
+  const ease3 = (v) => (v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2);
+  // ---- the render-ahead frames' schedule (#1339): the places a motion shows, fixed when it starts, one every dt ms of its
+  // ms (the display's frame time): x_k = from + (to - from) e(v_k), v_k = min(1, k dt / ms), k = 0 … N, N = ceil(ms / dt),
+  // e the arrows' ease (eased) or v itself (Play's linear motion), so x_0 = from and x_N = to. aheadIndex(el, dt, N): the
+  // place a frame el ms into the motion shows, k = floor(el / dt) and at most N: a late frame shows a later place, never one
+  // between two
+  function aheadPlaces(from, to, ms, eased, dt) {
+    const N = Math.max(1, Math.ceil(ms / dt)), xs = [];
+    for (let k = 0; k <= N; k++) { const v = Math.min(1, (k * dt) / ms); xs.push(from + (to - from) * (eased ? ease3(v) : v)); }
+    return xs;
+  }
+  const aheadIndex = (el, dt, N) => Math.max(0, Math.min(N, Math.floor(el / dt)));
+  return { make, glider, ease3, aheadPlaces, aheadIndex };
 });
 export { HomRange, HomRange as 'module.exports' };

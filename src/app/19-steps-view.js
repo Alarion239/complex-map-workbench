@@ -380,7 +380,7 @@
       // (SV.clock, a test hook's, null in the app: the glide's time advances that many ms a frame instead of by the wall
       // clock, so a suite reads its frames mid-glide however long each one takes to draw)
       const A = SV.anim, el = SV.clock ? (A.el = (A.el || 0) + SV.clock) : performance.now() - A.t0;
-      const v = Math.min(1, el / A.ms), e0 = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
+      const v = Math.min(1, el / A.ms), e0 = HomRange.ease3(v);
       // (A.e0: the ease's value when a Split remapped the glide; it goes on from there, so the place has no jump)
       const e = A.e0 ? (e0 - A.e0) / Math.max(1e-9, 1 - A.e0) : e0;
       SV.g.set(A.from + (A.to - A.from) * e);
@@ -1803,6 +1803,15 @@
   // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn), cm:
   // its cuts' inert handles (cutMarksL) }; null after any other frame
   let svHeldOn = null;
+  // the render-ahead frames' key (#1339): every input a glide frame's pixels depend on but its place, and the motion M whose
+  // places the frames are drawn at (HomRange.aheadPlaces' from, to, ms and ease): the chain, its order and the span it glides, the
+  // camera and the pane, the theme, the colour and display options, the view's scope, surface, colour plane and look, the
+  // shapes and the selection. Frames drawn ahead under another key are dropped
+  function svAheadKey(pane, M) {
+    return JSON.stringify([chainSig[nSteps()], svStepsSig(), !!S.homAll, SV.span, S.srcView, pane.w, pane.h, pane.dpr, TH,
+      S.dc, S.sectors, S.dcGrid, S.pattern, S.unit, S.sheets, S.outline, svOpacity(), SV.scope, SV.surf, svT(), SV.bare,
+      hideStrokes, selected, S.shapes, M.from, M.to, M.ms, M.eased]);
+  }
   function svRenderMoving(pane) {
     if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); svMotionDrawn(svMotion()); return; }
     const asks = renderAsks, hold = svLinkHold();
