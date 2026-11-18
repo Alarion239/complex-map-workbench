@@ -18,11 +18,14 @@ const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFra
 // the relief's pixels a frame needs for its comparison to mean something; MOST: the share of the relief's pixels that
 // "most" means; GLIDE_SHOWS: the pixels the glide's layers must change (a sheet behind showing through, not an edge)
 const SETTLE_MAX = 90000, RELIEF_MIN = 10000, MOST = 0.5, GLIDE_SHOWS = 1000;
+// the longest waits for the page's hooks (LOAD_MAX), the Display options' popover (POP_MAX), a camera move's frame
+// (CAM_MAX) and the saved state (SAVE_MAX)
+const LOAD_MAX = 30000, POP_MAX = 15000, CAM_MAX = 60000, SAVE_MAX = 10000;
 await view(1200, 800, false, false);
 const page = async (tag, st, x) => {
   const ns = 'landop' + tag + Date.now();
   await loadView('steps', ns, Object.assign({ shapes: [], srcView: { cx: 0, cy: 0, s: 90 }, rightMode: '3d' }, st));
-  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await settled({ max: LOAD_MAX, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true, clock: 0 }); 1`);
   await settled({ max: SETTLE_MAX });
   if (x != null) { await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: SETTLE_MAX }); }
@@ -32,7 +35,7 @@ const page = async (tag, st, x) => {
 const setOpacity = async (v, x) => {
   if (!(await ev(`!!document.querySelector('#popHost #opacityRange')`))) {
     await ev(`document.querySelector('.pane-head .opts-btn[aria-label="Display options"]').click(); 1`);
-    await settled({ max: 15000, until: `!!document.querySelector('#popHost #opacityRange')` });
+    await settled({ max: POP_MAX, until: `!!document.querySelector('#popHost #opacityRange')` });
   }
   const t0 = await ev('performance.now()');
   await ev(`(() => { const r = document.querySelector('#popHost #opacityRange'); r.value = '${v}'; r.dispatchEvent(new Event('input', { bubbles: true })); return 1; })()`);
@@ -47,7 +50,7 @@ const apart = (a, b) => ev(`(() => { const A = window.__k[${JSON.stringify(a)}].
 // the camera from the top (the View control's Top: pitch 88°)
 const top = async () => {
   await ev(`__cmwCam('L', { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 }); 1`);
-  await settled({ max: 60000 }); await ev(rAF2);
+  await settled({ max: CAM_MAX }); await ev(rAF2);
   return ev(`__cmwCam('L').pitch`);
 };
 
@@ -62,7 +65,7 @@ info.layers = at;
 ok('the relief draws one layer at 100 %, 3 at 85 % and 4 at 50 %', at[1].layers === 1 && at[0.85].layers === 3 && at[0.5].layers === 4, at);
 ok('and composites the layers at 85 % and at 50 %', at[0.85].frames > at[1].frames && at[0.5].frames > at[0.85].frames, at);
 const lsState = `JSON.parse(localStorage.getItem('complex-map-workbench-v1:' + new URLSearchParams(location.search).get('ns')) || '{}')`;
-await settled({ max: 10000, until: `${lsState}.landAlpha === 0.5` });
+await settled({ max: SAVE_MAX, until: `${lsState}.landAlpha === 0.5` });
 const saved = await ev(`(() => { const s = ${lsState}; return { landAlpha: s.landAlpha, alpha: s.alpha }; })()`);
 ok('the setting is the page state\'s landAlpha, saved, and the plane\'s opacity is left at its 85 %', saved.landAlpha === 0.5 && (saved.alpha === undefined || saved.alpha === 0.85), saved);
 const one85 = await apart('one1', 'one0.85'), one50 = await apart('one1', 'one0.5');

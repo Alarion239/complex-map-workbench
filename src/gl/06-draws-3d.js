@@ -1684,7 +1684,7 @@
     };
     // opacity below 1 (st.opacity): each surface lets the ones behind it show through (landLayers), else the relief opaque
     // (the layers: as many as the colour behind them still shows through by a level of 255 or more, (1 - a)^n >= 1/255, from
-    // the front and the farthest, 2, to LAND_PEEL_FRONT peeled and the farthest; a at least LAND_ALPHA_MIN, where that
+    // the front and the farthest, 2, to LAND_PEEL_FRONT nearest and the farthest; a at least LAND_ALPHA_MIN, where that
     // count is finite. A carried frame's margin: LAND_PEEL_SLOPE)
     const alpha = st.opacity >= 0 && st.opacity < 1 ? Math.max(st.opacity, LAND_ALPHA_MIN) : 1;
     const nL = alpha < 1 ? Math.min(LAND_PEEL_FRONT + 1, Math.max(2, Math.ceil(Math.log(1 / 255) / Math.log(1 - alpha)))) : 1;

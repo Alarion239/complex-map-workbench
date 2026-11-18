@@ -1179,7 +1179,8 @@ vec3 albedo(vec2 w) {
 }
 vec3 fogged(vec3 lin, vec3 pos) { return mix(lin, toLin(uFogCol), 0.15 * smoothstep(uFogNear, uFogFar, length(uEye - pos))); }
 `;
-  // The relief's layers (landLayers): at most LAND_PEEL_FRONT peeled behind the front surface, then the farthest
+  // The relief's layers (landLayers): at most LAND_PEEL_FRONT nearest surfaces (the front one, then the ones peeled
+  // behind it), then the farthest
   const LAND_PEEL_FRONT = 3, LAND_PEEL_SLOPE = 4;
   // The relief's layers (drawLandscape at opacity below 1, landLayers): uPeelOn > 0 keeps only the fragments behind the
   // previous layer's depth, which uPeelD holds (a 32-bit float depth). The margin is 1e-7 plus uPeelS times the
