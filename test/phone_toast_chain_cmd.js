@@ -50,21 +50,28 @@ const measureMore = (k = 'more') => ev(`(() => {
 // the toast's words wrap at a phone's width rather than being cut (#1329, ux's ruling): the text span may overflow by at most one
 // pixel, and its text is at most two lines (lines = its text's line boxes, 18 px apart); English, which fits on one line at 360 px,
 // keeps the one-line control
-const FACE_HOLD_MS = 1000, FACES_MAX_MS = 15000;   // how long the first leg's font files are held, and the bound on waiting for the faces
-const FACES_SETTLED = `(document.body.offsetHeight, document.fonts.status === 'loaded')`;   // (the layout is flushed first: a face is requested when its text is laid out)
 const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, TOAST_GAP = 12, BTN_GAP_MAX = TOAST_GAP + 1, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, TOAST_ONE_ROW_H = 56, X_EDGE_MAX = 12, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
+const FACE_HOLD_MS = 60000, FACES_MAX_MS = 15000;   // the first leg's font files wait for the suite's release (this long at most), and the bound on waiting for the faces after it
+const FACES_SETTLED = `(document.body.offsetHeight, document.fonts.status === 'loaded')`;   // (the layout is flushed first: a face is requested when its text is laid out)
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
-  // (the first leg's font files land late, as on a slow network: the Language row's words change width when they do)
-  await holdFaces(lang === 'en' && w === PHONE_360[0] ? FACE_HOLD_MS : 0);
+  // (the first leg's font files land late, as on a slow network: the Language row's words change width when they do; the suite
+  // reads the sheet before they land, then lets them go; the hold starts once the page has loaded, which waits for the faces its first text needs)
+  const late = lang === 'en' && w === PHONE_360[0];
+  await holdFaces(0);
   await fresh(w, h, lang);
+  await holdFaces(late ? FACE_HOLD_MS : 0);
   ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   await ev(`document.getElementById('hdrMoreBtn').click(); 1`);
   await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="more"].open')` });
-  // (the sheet's words need their script's face, fetched when they are first laid out: the controls are read once it has landed)
-  await settled({ max: FACES_MAX_MS, panes: false, until: FACES_SETTLED });
-  let m = null, ysBefore = null;
   const ysNow = () => ev(`[...(document.querySelector('.ph-sheet[data-k="more"]') || document.body).querySelectorAll('button')].filter((b) => b.getClientRects().length > 0).map((b) => { const r = b.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); })`);
+  // (the sheet's words need their script's face, fetched when they are first laid out: the controls are read once it has landed)
+  const early = late ? await ysNow() : null;
+  await releaseFaces();
+  await settled({ max: FACES_MAX_MS, panes: false, until: FACES_SETTLED });
+  // (the control of the hold: the faces moved the sheet's controls, so reading the page before they landed would have been wrong)
+  if (late) ok(`${tag}: the late font files move the sheet's controls (the hold has an effect)`, JSON.stringify(early) !== JSON.stringify(await ysNow()), { early, landed: await ysNow() });
+  let m = null, ysBefore = null;
   for (let i = 0; i < 3 && !m; i++) { ysBefore = await ysNow(); await ev(`__cmwAddStep('exp')`); if (await shown()) { await (h > w ? flushOnSheet('more') : madeWay('more')); m = await measureMore(); } }
   info[tag] = m;
   ok(`${tag}: it is open and a toast shows`, !!m && m.open, m);
