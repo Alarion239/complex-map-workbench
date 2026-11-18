@@ -188,9 +188,9 @@
     // the map cache passes: a point draw into the cache texture (rt), else transform feedback
     tfRegion: { chain: true, vs: () => TF_REGION_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
     tfLine: { chain: true, vs: () => TF_LINE_VS(rtOK), fs: () => (rtOK ? RT_FS : TF_FS), tf: 'rt' },
-    // TEMP-DEBUG-HOOK (removed before publishing)
+    // TEST-HOOK (dropped from the published page by build.py)
     evalPt: { chain: true, vs: () => EVAL_VS, fs: () => TF_FS, tf: true },
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
     // (its stand-in while it links: F's values on the app's grid, coloured the same way, COLOR_STANDIN_FS)
@@ -741,10 +741,10 @@ float wabs(vec2 w) {
   const uM4 = (P, n, m) => gl.uniformMatrix4fv(L_(P, n), false, m);
   function use(P, map) {
     gl.useProgram(P.p);
-    // TEMP-DEBUG-HOOK (removed before publishing)
+    // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lwLog = []: [name, time] of each program's first use, for the cold-open timing
     try { if (api._lwLog && !P.used1) api._lwLog.push([P.name || '', performance.now()]); } catch (e) { /* api is not built yet */ }
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     P.used1 = true;
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
