@@ -727,6 +727,7 @@
  "Style settings": "Параметры стиля",
  "Overlays": "Наложения",
  "Quality": "Качество",
+ "split f{x} into f{x}–f{x2}: {chain}": "разложение f%{x} на шаги f%{x}–f%{x2}: %{chain}",
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
  "Marked preimages of {name}: {k} of {n}": "Отмеченные прообразы %{name}: %{k} из %{n}",
