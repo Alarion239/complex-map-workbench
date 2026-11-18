@@ -729,5 +729,7 @@
  "Quality": "Качество",
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
+ "Marked preimages of {name}: {k} of {n}": "Отмеченные прообразы %{name}: %{k} из %{n}",
+ "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие",
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней"
 }
