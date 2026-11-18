@@ -67,8 +67,6 @@
   function sndInit(...args) { return SH.sndInit(...args); }
   function sndMorphStart(...args) { return SH.sndMorphStart(...args); }
   function sndMorphArrive(...args) { return SH.sndMorphArrive(...args); }
-  function sndScrub(...args) { return SH.sndScrub(...args); }
-  function sndScrubEnd(...args) { return SH.sndScrubEnd(...args); }
   function sndMotion(...args) { return SH.sndMotion(...args); }
   function sndFAt(...args) { return SH.sndFAt(...args); }
   function sndMove(...args) { return SH.sndMove(...args); }
@@ -97,7 +95,7 @@
   function sndIsSong(...args) { return SH.sndIsSong(...args); }
 
   let escSound = false;   // (set by setupEscSound's Esc handler, read by setupKeys' after it)
-  // (#385) the Esc that stops a sound (init: before setupKeys)
+  // the Esc that stops a sound (init: before setupKeys)
   function setupEscSound() {
     // Esc stops anything playing, whoever else handles that Esc (the export dialog, the palette, the tour, a menu):
     // first, in the capture phase, and without taking the key from them. During a tour, the Esc that stops a

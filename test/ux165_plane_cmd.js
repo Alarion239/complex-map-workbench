@@ -328,7 +328,7 @@ await section('L67', async () => {
   await laptop();
   await load(NS + 'j', { shapes: [], steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true }], srcView: { cx: 0, cy: 0, s: 80 } });
   await settle(800);
-  await clickSel('#pipeline .card[data-k="1"]'); await settle(300);
+  await clickSel('#svStrip .sv-step[data-k="1"] .sv-fchip'); await settled({ until: "!!document.querySelector('#propsPanel .insp-step[data-k=\"1\"]')", max: 8000 });
   info.l67 = await ev(`(() => { const c = document.querySelector('#propsPanel .sheet-ctl'); if (!c) return null; const p = c.parentElement; return { t: p.textContent.replace(/\\s+/g, ' ').trim(), order: [...p.children].map((e) => e.classList.contains('sh-prev') ? '‹' : e.tagName === 'INPUT' ? 'k' : e.classList.contains('sheet-ctl') ? 'ctl' : '?').join(' '), btns: [...p.querySelectorAll('button')].map((b) => b.getAttribute('aria-label') || b.textContent) }; })()`);
   ok('UX67 the step editor has ‹ k of 2 › · Show all sheets', info.l67 && info.l67.order === '‹ k ctl' && /^‹ ?of 2 ?›/.test(info.l67.t) && /Show all sheets/.test(info.l67.t), info.l67);
   const kNow = () => ev(`document.querySelector('#propsPanel .sheet-ctl').parentElement.querySelector('input').value`);
@@ -459,7 +459,7 @@ await section('L86', async () => {
   // UX86: the Phase style
   await key('2'); await settle(900);
   // (v16.5 UX20, learn: on a desktop Phase's option bar is behind the plane's Display options button in the pane head;
-  // a real click opens it when the style control is not inline, as mv_views_cmd does, and it is closed after)
+  // a real click opens it when the style control is not inline, and it is closed after)
   const optsB = await ev(`(() => { if (document.getElementById('dcSeg')) return null; const e = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (!e || !e.getClientRects().length || e.getAttribute('aria-expanded') === 'true') return null; const r = e.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   if (Array.isArray(optsB)) { await click(optsB[0], optsB[1]); await settle(300); }
   // (#247: the row shows "Grid"; the style's name, its accessible name and tooltip, stays "Pulled-back grid")
@@ -501,8 +501,11 @@ await section('P51', async () => {
   await key('Escape'); await settle(200);
   // UX95: the Display sheet's region section is "Regions" (#35; #363: the regions' display, as Y's head button names it)
   // ([v17 D5, #82]: a heading of the sheet, no longer the left panel's #secDisplay)
+  // (the sheet's headings exist only while it is open)
+  await tapSel('.ph-dsp'); await settle(400);
   const disp = await ev(`(() => { const hs = [...document.querySelectorAll('h3.ph-h')].map((c) => c.textContent); return hs.includes('Regions') && !hs.includes('Display') ? 'Regions' : hs.join('|'); })()`);
   ok('UX95 phone: no second "Display" in the Display sheet', disp === 'Regions', disp);
+  await key('Escape'); await settle(200);
 });
 
 // ------------------------------------------------------------------- layout: the two-line readout, Snap, the touch ×
@@ -608,7 +611,7 @@ await section('L47', async () => {
 await section('RU', async () => {
   await laptop();
   await load(NS + 'ru', SD, `localStorage.setItem('cmw-lang', 'ru')`);
-  await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1500);
+  await go(`${U}?ns=${NS}ru&lang=ru`); await settle(1500);
   info.ruLang = await ev(`I18N.lang`);
   await tool('hyper');
   info.ruChip = await chipT();

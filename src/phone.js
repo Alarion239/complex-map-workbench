@@ -76,14 +76,12 @@ const Phone = (() => {
     // Display: this view's options and the unit circle, then (in the X → Y view) the regions' display, lent from
     // page.html's #regionsHome (not a section of the region tools)
     els.viewOpts = h('div', { class: 'ph-vopts' });
-    els.regions = h('div', { class: 'ph-regions' });
-    els.regionsH = h('h3', { class: 'ph-h' }, $t('Regions'));
     // the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
-    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
-    els.body.display.append(els.style, els.viewOpts, els.regionsH, els.regions);
+    els.body.display.append(els.viewOpts);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
@@ -148,22 +146,10 @@ const Phone = (() => {
     // the views: the inset only in X → Y; the plane chips and the Sphere keys follow
     const panes = $('panes');
     new MutationObserver(() => { if (on) syncPanes(); }).observe(panes, { attributes: true, attributeFilter: ['class'] });
-    for (const id of ['leftTabs', 'rightTabs', 'viewSwitch']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
+    for (const id of ['leftTabs', 'rightTabs']) new MutationObserver(() => { if (on) syncPanes(); }).observe($(id), { subtree: true, attributes: true, attributeFilter: ['class'] });
     if (Params.on) { Params.on('change', syncNums); Params.on('structure', syncNums); }
     window.addEventListener('keydown', (e) => { if (on && kind && e.key === 'Escape' && !document.querySelector('#popHost .pop, .modal-bg')) { close(); } });
     kbInit();
-    // the transport shows the chosen speed only; a tap on it moves on, 1× → 2× → ½× → 1×
-    document.addEventListener('click', (e) => {
-      if (!on) return;
-      const tg = /** @type {HTMLElement} */ (e.target), b = /** @type {HTMLElement | null} */ (tg.closest && tg.closest('.tdock #speedSeg > button.on'));
-      if (!b) return;
-      const ORDER = ['1.6', '0.8', '3.2'];
-      const nx = ORDER[(ORDER.indexOf(b.dataset.v) + 1) % ORDER.length];
-      const t = /** @type {HTMLElement | null} */ (b.parentNode.querySelector(`button[data-v="${nx}"]`));
-      if (!t) return;
-      e.preventDefault(); e.stopPropagation();
-      t.click();
-    }, true);
   }
   const BOTH_ICON = '<svg viewBox="0 0 18 18" width="18" height="18" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="2.5" width="12" height="5.5" rx="1"/><rect x="3" y="10" width="12" height="5.5" rx="1"/></svg>';
   const GRID = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="2" y="2" width="5" height="5" rx="1"/><rect x="9" y="2" width="5" height="5" rx="1"/><rect x="2" y="9" width="5" height="5" rx="1"/><rect x="9" y="9" width="5" height="5" rx="1"/></svg>';
@@ -231,7 +217,6 @@ const Phone = (() => {
     park(els.crow, wrap, $('pipeline'));
     park(els.nums, els.body.chain);
     park($('pipeline'), els.body.chain);
-    park($('morphBtn'), wrap);
     park(els.undo, $('secDraw'), $('secDraw').firstChild);
     for (const id of ['secFormula', 'secShapes']) { const d = /** @type {HTMLDetailsElement} */ ($(id)); if (d) d.open = true; }
     A.showPanels(true);
@@ -253,7 +238,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  function merged() { const p = $('panes'); return p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
+  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;
@@ -392,17 +378,6 @@ const Phone = (() => {
   // The planes give a message its row only while no finger is down: a plane that shrinks under a
   // press moves the drawing the finger is on. The change waits for the lift (or 1.5 s, should a lift never come).
   let fingers = 0, layoutT = 0;
-  // the sheet's bottom edge moves up to make room for the message (phone.css, a 220 ms transition): the card the app scrolled
-  // into view for the step just added is scrolled into view again once the edge has stopped. With no transition (reduced
-  // motion, or the edge already there) that is at once
-  function scrollNewCardAfterResize(sheet) {
-    void sheet.offsetHeight;   // (a style flush: it starts the transition that is to be waited for)
-    const moving = sheet.getAnimations().filter((a) => a.transitionProperty === 'bottom');
-    Promise.all(moving.map((a) => a.finished.catch(() => null))).then(() => {
-      const card = els.sheet === sheet && sheet.querySelector('#pipeline .card[aria-selected="true"]');
-      if (card) card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
-    });
-  }
   function barLayout() {
     if (fingers > 0) { clearTimeout(layoutT); layoutT = setTimeout(() => { fingers = 0; barLayout(); }, 1500); return; }
     clearTimeout(layoutT);
@@ -410,9 +385,6 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
-    // a sheet gives up the message's row (phone.css): the card the app scrolled into view for the step just added (bornCards,
-    // before the message and the sheet's new edge) is scrolled into view again once the sheet has its new size
-    if (wantToast && els.sheet && c.contains('ph-sheet-on')) scrollNewCardAfterResize(els.sheet);
     syncPanes(); A.resize();
   }
   function ctx(force) {
@@ -434,7 +406,7 @@ const Phone = (() => {
       kids = [text(st.name, st.used ? st.def + ' · ' + $t('Used by {n}', { n: st.used }) : st.def),
         btn('prim', $t('Edit'), () => open('tools', { tab: 'shapes', edit: st.id })),
         btn('', $t('Delete'), () => A.ctxAct('delete', st.id), st.used ? { 'aria-label': $t('Delete {label} and the {n} that use it', { label: st.name, n: st.used }) } : {}),
-        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu' })];
+        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu', 'aria-expanded': 'false' })];
     } else if (st && st.kind === 'polygon') {
       kids = [text($t('Polygon'), String(st.n)),
         btn('', '⌫ ' + $t('Last'), () => A.ctxAct('last')),
@@ -645,8 +617,8 @@ const Phone = (() => {
     else if (k === 'edit') { const sm = els.body.edit.querySelector('.split-offer:not([hidden]) > summary'); if (sm) sm.scrollIntoView({ block: 'nearest', behavior: 'auto' }); }
     const f = els.sheet.querySelector('.ph-sh .ph-x');
     if (!SPLIT.has(k) && f) f.focus({ preventScroll: true });
-    // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, the first control)
-    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, .sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
+    // (the Display sheet is the colour panel: it opens at its top, and focus starts on the current style, or on the Landscape's current Colouring, the first control)
+    if (k === 'display') { els.body.display.scrollTop = 0; const c = els.viewOpts.querySelector('.sty-seg > .on, #landPaint [aria-checked="true"]') || els.viewOpts.querySelector('.sty-seg > button, input, select, button'); if (c) c.focus({ preventScroll: true }); }
   }
   function close(now) {
     if (!kind) return;
@@ -783,25 +755,76 @@ const Phone = (() => {
     els.style.querySelector('.ph-rl').textContent = $t('Style: {name}', { name: st.name });
     els.style.setAttribute('aria-disabled', String(st.land));
   }
+  // the Display sheet's controls in groups, each under a small-caps label: the steps view's scope switch, the colour style,
+  // that style's settings, the Landscape's height (Height, Scale, View), the opacity, then the overlays (outlines and the unit
+  // circle); a group with no control shows no label
+  // each group: its label and the rows it holds, in the order they show; a row goes to the first group that has a predicate for it,
+  // and rows no group names go to the last (the overlays)
+  const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);
+  function displayGroups(kids) {
+    const land = kids.some((k) => k.matches('#viewSeg'));   // (the Landscape: Reset camera follows its View choice; elsewhere it has a group of its own)
+    const groups = [
+      { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
+      { name: $t('Colour style'), label: '#landPaint', rows: [matches('.ph-style'), matches('.sty-seg, #landPaint')] },
+      { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
+      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
+      { name: $t('View'), rows: [matches('.cam-reset')] },
+      { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
+      { name: $t('Overlays'), rows: [] },
+    ];
+    const slot = (k) => { for (let g = 0; g < groups.length; g++) { const i = groups[g].rows.findIndex((m) => m(k)); if (i >= 0) return [g, i]; } return [groups.length - 1, 0]; };
+    const placed = kids.map((k) => [k, ...slot(k)]);
+    return groups.map((grp, g) => [grp, g, placed.filter((p) => p[1] === g).sort((x, y) => x[2] - y[2]).map((p) => p[0])]).filter(([, , ks]) => ks.length)
+      .map(([grp, g, ks]) => {
+        const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
+        // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
+        if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
+        // (a choice whose buttons name the kind alone, the Landscape's Height, or that the group's label names better than its own word, the
+        // Landscape's Colouring, is named by the group's label: said once)
+        if (grp.label) for (const r of ks) if (r.matches(grp.label)) r.setAttribute('aria-labelledby', head.id);
+        return h('section', { class: 'ph-grp' }, head, ...ks);
+      });
+  }
   function fillDisplay(side) {
     els.dispSide = side;
     paintStyle();
     const kids = A.footKids(side), unit = $('unitBox'), reg = A.regionsView() ? $('regionsBox') : null;
     homeDisplay();
-    const tn = A.targetNote();
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...kids, ...(unit ? [unit] : []));
-    if (reg) { A.regionsNote(); els.regions.append(reg); }
-    els.regionsH.hidden = !reg;
+    const tn = A.targetNote(), scope = A.scopeSeg();
+    // the regions' display and the mesh quality are groups like the rest. One opacity: the regions box's own slider
+    // drives the same value as the opacity group's in the steps view, so it is hidden there (the classic views keep it)
+    const alpha = reg && $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row'));
+    if (alpha) alpha.hidden = !!scope;
+    if (reg) A.regionsNote();
     // (mesh quality, the laptop's Settings', is at the end of this sheet on a phone: the
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
-    if (mesh) els.body.display.append(mesh);
+    const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
+      ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
+  }
+  // the open Display sheet is filled again from the strips as they now are (a colour style chosen in it has its own
+  // settings). A focus that was inside the sheet stays there, on what it was on: the checked choice of the same segmented
+  // control, else the control with the same id, else the sheet's first control; the sheet keeps its scroll position
+  function refreshDisplay() {
+    if (!on || kind !== 'display' || !els.viewOpts) return;
+    const body = els.body.display, top = body.scrollTop, was = document.activeElement;
+    const held = !!was && was !== document.body && body.contains(was);
+    const group = held && was.closest('[role="radiogroup"]'), gid = group && group.id, wid = held && was.id;
+    fillDisplay(els.dispSide);
+    body.scrollTop = top;
+    if (!held) return;
+    const now = (gid && body.querySelector(`#${CSS.escape(gid)} [aria-checked="true"]`)) || (wid && body.querySelector(`#${CSS.escape(wid)}`)) || body.querySelector('button, input, select, [tabindex]');
+    if (now) /** @type {HTMLElement} */ (now).focus();
   }
   function homeDisplay() {
     const home = $('regionsHome');
     if (!home) return;
     for (const id of ['unitBox', 'regionsBox']) { const b = $(id); if (b && b.parentNode !== home && els.body.display.contains(b)) home.append(b); }
+    const alpha = $('alphaRange') && /** @type {HTMLElement | null} */ ($('alphaRange').closest('.fader-row')); if (alpha) alpha.hidden = false;
+    const mesh = $('meshGroup'), settings = $('settingsHome');
+    if (mesh && settings && els.body.display.contains(mesh)) settings.append(mesh);
   }
 
   // More (⋯): sound, theme, phase colours, language; examples, export, LaTeX, search, the tour and the guide
@@ -828,6 +851,7 @@ const Phone = (() => {
     const pcName = h('span', { class: 'ph-pv' }, A.palName());
     pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
     pc.setAttribute('aria-haspopup', 'menu');
+    pc.setAttribute('aria-expanded', 'false');
     const lang = A.langPref();
     // the links, the scene files and the LaTeX are rows of this sheet (a desktop menu over the
     // plane would need a key a phone has not got); "… again" only once a figure is made
@@ -1013,12 +1037,12 @@ const Phone = (() => {
     backInit();
   }
   return {
-    init, open, close, chain, swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
+    init, open, close, chain, refreshDisplay: () => refreshDisplay(), swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
   };
 })();
 import { $, h } from './util.js';

@@ -40,7 +40,7 @@
   // published page)
   let labelProbe = null;
   function setLabelProbe(f) { labelProbe = f; }
-  // (#1059) a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
+  // a point's label keeps the offset of its last full placement, per point id: on the move it is drawn there
   // (no re-pick, so no side flips). A full placement is a function of the view alone (the parked-frame rule), so the
   // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
   const labelSlots = new Map();
@@ -58,7 +58,7 @@
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
     const lite = !!r.lite;
-    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles
+    // hard obstacles: markers (points, roots, curve ends), handles of the selected shape and the cut handles (a frame between two planes' marks too)
     const marks = r.marks;
     const hard = [];
     const sel = pane === paneL && lFlat() && leftStage() === 0 ? S.shapes.find((x) => x.id === selected)
@@ -66,7 +66,7 @@
     if (sel) {
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
-    if (pane === paneL && lFlat()) for (const hd of cutHandlesL) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
@@ -181,7 +181,7 @@
     if (!lite) pruneLabelSlots();
     if (labelProbe) pane.labelsPlaced = placed;   // (what the last pass put down, kept only where a probe is set: the suites compare it at rest and after a glide)
   }
-  // ([#252] a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
+  // (a point of plane s seen in plane k > s is its image under k − s steps: that many primes; Hₜ's marks (< 0)
   // as they are)
   const primesOf = (s, p) => (p > 0 ? Math.max(0, p - shapeStage(s)) : p || 0);
   function drawPoints(pane, F, opt = {}) {
@@ -189,7 +189,7 @@
     const ctx = pane.ctx;
     let pi = 0;
     const labels = [];
-    // ([#253] opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
+    // (opt.k: the plane drawn; a shape of a later plane is not, of an earlier one its image)
     const list = opt.list || S.shapes.filter((s) => !!shapeF(s, F, opt.k));
     // (opt.lite: a view on the move, a glide or a scrub, has no curves to keep the labels off: sampling every curve through the
     // plane's map costs up to 600 evaluations a curve. Its labels keep their last full placement's offsets, so they do not
@@ -206,7 +206,7 @@
       if (x < -20 || y < -20 || x > pane.w + 20 || y > pane.h + 20) continue;
       const ink = shapeInk(s);
       if (mk) {
-        // (v16 review picture-10) the same outer extent as a dot (r 4 and its halo reach 5 px): a 1.5 px ring at r 3.5
+        // the same outer extent as a dot (r 4 and its halo reach 5 px): a 1.5 px ring at r 3.5
         // inside a 3.5 px halo (1 px each side of the ring), unfilled, so it reads hollow on any pattern
         const rr = mk === 'helper' ? (opt.thin ? 2 : 2.75) : (opt.thin ? 2.4 : 3.5);
         ctx.strokeStyle = TH.halo; ctx.lineWidth = 3.5; ctx.beginPath(); ctx.arc(x, y, rr, 0, TAU); ctx.stroke();
@@ -254,7 +254,7 @@
       } else if (c.kind === 'seg') {
         [x0, y0] = pane.w2s(c.a); [x1, y1] = pane.w2s(c.b);
       } else if (c.kind === 'circle' || c.kind === 'vline') {
-        // [issue #5] a series' region of convergence: dashed, in the cut ink, over its halo
+        // a series' region of convergence: dashed, in the cut ink, over its halo
         ctx.setLineDash([6, 4]);
         for (const [style, w, a] of [[TH.halo, thin ? 2.5 : 3.5, TH.haloA], [TH.cut, thin ? 1.25 : 1.75, 1]]) {
           ctx.strokeStyle = style; ctx.lineWidth = w; ctx.globalAlpha = a;
@@ -277,9 +277,7 @@
         ctx.beginPath();
         for (let t = 8; t < L; t += 7) { const px = x0 + ux * t, py = y0 + uy * t; ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54); }
         ctx.stroke();
-        // branch point
-        ctx.fillStyle = TH.halo; ctx.lineWidth = 1.5;
-        ctx.beginPath(); ctx.arc(x0, y0, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+        branchDot(pane, c.p);
       }
     }
     const sc = thin ? 0.66 : 1;
@@ -290,7 +288,7 @@
       for (const z of b.zp.zeros) {
         if (!CX.isFin(z)) continue;
         const [x, y] = pane.w2s(z);
-        if (thin && offEdge(pane, x, y, 4 * sc + 2)) continue;   // (review design-20: a card never shows half a mark)
+        if (thin && offEdge(pane, x, y, 4 * sc + 2)) continue;   // (a card never shows half a mark)
         ctx.fillStyle = TH.zero; ctx.strokeStyle = TH.halo; ctx.lineWidth = 2.5 * sc;
         ctx.beginPath(); ctx.arc(x, y, 4 * sc, 0, TAU); ctx.stroke(); ctx.fill();
       }
@@ -392,10 +390,11 @@
     return out;
   }
   // a curve given as screen points (null where there is none), stroked halo then cut ink, the pen lifted at a gap or a
-  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs)
-  function strokeCurves(pane, curves, dash) {
+  // jump of more than a quarter of the pane, and each distinct arc stroked once (distinctArcs); dash, the dash pattern, starts
+  // dashOffset px into it on every arc (the offset holds for a bank drawn as one run: an arc after a pen lift starts at it too)
+  function strokeCurves(pane, curves, dash, dashOffset = 0) {
     const ctx = pane.ctx;
-    ctx.setLineDash(dash || []);
+    ctx.setLineDash(dash || []); ctx.lineDashOffset = dashOffset;
     const arcs = distinctArcs(curves.map((pts) => {
       let pen = null;
       return pts.flatMap((q) => {
@@ -414,7 +413,7 @@
       }
       ctx.stroke();
     }
-    ctx.setLineDash([]); ctx.globalAlpha = 1;
+    ctx.setLineDash([]); ctx.lineDashOffset = 0; ctx.globalAlpha = 1;
   }
   // (CUT_FLAT: under the 1.75 px stroke's half width, so a split chord never shows; CUT_DEPTH: a turn between two samples
   // is under 1.5 rad and 2^6 pieces of it are under 0.03 rad, which a circle of 100 px keeps within CUT_FLAT; CUT_BEND: a
@@ -471,11 +470,12 @@
   // globe's), the plane's own scale without it; step thins the samples (cutBank). pre = { k, jMin, H }: the cuts of the
   // steps from jMin on, which live in planes after the picture's, drawn as their preimages in plane k (the exact curves
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
-  // as drawCarriedCuts draws them. While the strokes are hidden (the tests' __cmwHideStrokes) none is drawn
-  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1) {
+  // as drawCarriedCuts draws them. look = { own, marks } makes the picture the cut's look at rest as well: with own(j0) true for the plane j0 a cut lives in, the hatches on the closed side of each
+  // cut's solid bank and the dot at the image of its branch point (the marks of the plane the cut lives in); marks, an array (or null: no handles), takes the editable cuts' handles
+  // ({ x, y, step, deg }, for drawCutHandles: drawn, never hit-tested)
+  function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1, look = null) {
     if (artMode) return;
     carriedCuts = [];
-    if (hideStrokes) return;
     pane.ctx.save();
     pane.ctx.lineCap = 'round'; pane.ctx.lineJoin = 'round';
     for (let j = 1; j <= S.steps.length; j++) {
@@ -484,10 +484,25 @@
       for (const c of b.cuts) {
         if (c.kind !== 'ray') continue;
         const win = stageWin(j - 1);
-        for (const side of [-1, 1]) {
-          const { pts, ws } = cutBank(pane, c, F, side, win, proj, step);
+        // (the clockwise bank is dashed under the solid one: where the two coincide, as along the whole ray of a cut at the start of a glide, the dashes are left out, so the
+        // line is the single one the plane at rest draws; the dashes after a run left out at the bank's start keep their phase from that start, as the plane at rest
+        // draws them, by the run's length as the dash offset)
+        const banks = [-1, 1].map((side) => cutBank(pane, c, F, side, win, proj, step)), solid = banks[1].pts;
+        banks.forEach(({ pts, ws }, i) => {
+          const side = i ? 1 : -1;
           carriedCuts.push({ step: j, solid: side > 0, w: ws, s: pts });
-          strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
+          if (side > 0) { strokeCurves(pane, [pts], []); } else {
+            const kept = pts.map((q, k) => (q && solid[k] && Math.hypot(q[0] - solid[k][0], q[1] - solid[k][1]) < CUT_COINCIDE_PX ? null : q));
+            let lead = 0;
+            for (let k = 1; k < pts.length && !kept[k - 1] && pts[k - 1] && pts[k]; k++) lead += Math.hypot(pts[k][0] - pts[k - 1][0], pts[k][1] - pts[k - 1][1]);
+            strokeCurves(pane, [kept], [6, 4], lead);
+          }
+          if (look && look.own && look.own(j - 1) && side > 0) hatchCurve(pane, pts);
+        });
+        if (look && look.own && look.own(j - 1)) branchDot(pane, F(c.p), proj);
+        if (look && look.marks && c.editable) {
+          const h = cutHandleAt(pane, F, c, st, win, proj, !!(look.own && look.own(j - 1)));
+          if (h) look.marks.push({ x: h.s[0], y: h.s[1], step: j, deg: st.params.cut ?? 180 });
         }
       }
     }
@@ -508,6 +523,77 @@
     pane.ctx.restore();
   }
   let carriedCuts = [];
+  const CUT_COINCIDE_PX = 1;   // screen px: samples of a cut's two banks this close are one point
+  // the hatches of a cut's closed side along the screen polyline pts (null where it breaks), as drawCuts hatches a ray: a stroke every 7 px of arc length from 8 px on,
+  // 5 px long, turned toward the clockwise side. Only the stretch of each segment inside the pane and HATCH_PAD px around it is stroked (a bank runs tens of thousands of px
+  // out), the strokes keeping their place on the arc
+  const HATCH_PAD = 20;
+  function hatchCurve(pane, pts) {
+    const ctx = pane.ctx;
+    ctx.save();
+    ctx.strokeStyle = TH.cut; ctx.globalAlpha = 1; ctx.lineWidth = 1.25; ctx.setLineDash([]);
+    ctx.beginPath();
+    let run = 0;
+    for (let i = 1; i < pts.length; i++) {
+      const a = pts[i - 1], b = pts[i];
+      if (!a || !b) { run = 0; continue; }
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (!(L > 0)) continue;
+      const dx = b[0] - a[0], dy = b[1] - a[1];
+      // (the parameter range of the segment inside the padded pane, by slabs)
+      let lo = 0, hi = 1;
+      for (const [p0, d, size] of [[a[0], dx, pane.w], [a[1], dy, pane.h]]) {
+        if (d === 0) { if (p0 < -HATCH_PAD || p0 > size + HATCH_PAD) hi = -1; continue; }
+        const t0 = (-HATCH_PAD - p0) / d, t1 = (size + HATCH_PAD - p0) / d;
+        lo = Math.max(lo, Math.min(t0, t1)); hi = Math.min(hi, Math.max(t0, t1));
+      }
+      if (hi >= lo) {
+        const ux = dx / L, uy = dy / L, nx = -uy, ny = ux;
+        // (the first stroke at or after the visible stretch's start: the strokes are at arc lengths 8 + 7 n)
+        for (let t = 8 + 7 * Math.max(0, Math.ceil((run + lo * L - 8) / 7)); t - run < hi * L; t += 7) {
+          if (t - run < 0) continue;
+          const k = t - run, px = a[0] + ux * k, py = a[1] + uy * k;
+          ctx.moveTo(px, py); ctx.lineTo(px + (nx - ux) * 3.54, py + (ny - uy) * 3.54);
+        }
+      }
+      run += L;
+    }
+    ctx.stroke();
+    ctx.restore();
+  }
+  // the dot at a cut's branch point, drawn as drawCuts draws it
+  function branchDot(pane, w, proj) {
+    if (!CX.isFin(w)) return;
+    const [x, y] = proj ? proj(w) || [NaN, NaN] : pane.w2s(w), ctx = pane.ctx;
+    if (!Number.isFinite(x)) return;
+    ctx.save();
+    ctx.fillStyle = TH.halo; ctx.strokeStyle = TH.cut; ctx.lineWidth = 1.5; ctx.globalAlpha = 1;
+    ctx.beginPath(); ctx.arc(x, y, 3.5, 0, TAU); ctx.fill(); ctx.stroke();
+    ctx.restore();
+  }
+  // where the editable cut c of step st has its handle in the picture F draws, { s: [x, y] on the screen, q: its point on the ray } or null: on the plane the cut lives in (own), where drawCuts puts it (a third of the view's
+  // smaller side along the solid bank from the branch point, st.handleR if the step has one that is in view and 20 px from it); on a later plane where drawCarriedCuts does (a third of the
+  // plane's window, pulled in along the ray until it is in view and 20 px clear of the branch point's image)
+  function cutHandleAt(pane, F, c, st, win, proj, own) {
+    const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);   // (d1: the ray's solid bank, the counter-clockwise one, on which the handle stays through the whole glide: it is the ray itself at the start and the plane's own solid bank at the end)
+    const to = (w) => (CX.isFin(w) ? (proj ? proj(w) : pane.w2s(w)) : null);
+    const at = (R) => { const q = CX.add(c.p, CX.scale(d1, R)), s = to(F(q)); return s ? { s, q } : null; };
+    if (own) {
+      const bx = pane.box();
+      let R = Math.min(bx.x1 - bx.x0, bx.y1 - bx.y0) * 0.33;
+      if (st.handleR > 0) { const h = at(st.handleR), p0 = to(o); if (h && p0 && !offEdge(pane, h.s[0], h.s[1], 24) && Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) >= 20) R = st.handleR; }
+      return at(R);
+    }
+    // (a branch point that lands at infinity, as log's: nothing to keep clear of)
+    const p0 = to(o) || [Infinity, Infinity];
+    let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
+    for (let tries = 0; tries < 14; tries++, R *= 0.7) {
+      const h = at(R);
+      if (!h || offEdge(pane, h.s[0], h.s[1], 24) || Math.hypot(h.s[0] - p0[0], h.s[1] - p0[1]) < 20) continue;
+      return h;
+    }
+    return null;
+  }
   // The cuts of the steps before plane k (each a ray in its own plane) in plane k, steps view: the image of each bank of the
   // ray under the steps between (the seam where the picture jumps), the counter-clockwise bank solid and the clockwise one
   // dashed, and for the editable cuts a handle on the solid curve (the ray's handle point carried the same way, pulled in
@@ -532,18 +618,8 @@
           strokeCurves(pane, [pts], side > 0 ? [] : [6, 4]);
         }
         if (!c.editable) continue;
-        const d1 = C(Math.cos(c.ang + 1e-7), Math.sin(c.ang + 1e-7)), o = F(c.p);
-        // (a branch point that lands at infinity, as log's: nothing to keep clear of)
-        const [ox, oy] = CX.isFin(o) ? pane.w2s(o) : [Infinity, Infinity];
-        let R = st.handleR > 0 ? st.handleR : Math.min(win.x1 - win.x0, win.y1 - win.y0) * 0.33;
-        for (let tries = 0; tries < 14; tries++, R *= 0.7) {
-          const q = CX.add(c.p, CX.scale(d1, R)), w = F(q);
-          if (!CX.isFin(w)) continue;
-          const [x, y] = pane.w2s(w);
-          if (offEdge(pane, x, y, 24) || Math.hypot(x - ox, y - oy) < 20) continue;
-          handles.push({ x, y, step: j, p: c.p, deg: st.params.cut ?? 180, F, q, from: j - 1, to: k });
-          break;
-        }
+        const h = cutHandleAt(pane, F, c, st, win, null, false);
+        if (h) handles.push({ x: h.s[0], y: h.s[1], step: j, p: c.p, deg: st.params.cut ?? 180, F, q: h.q, from: j - 1, to: k });
       }
     }
     drawCutPreimages(pane, k, handles);
@@ -672,7 +748,7 @@
     const ctx = pane.ctx;
     for (const s of S.shapes) {
       if (s.visible === false || kindType(s) === 'point' || s.kind === 'cgrid' || s.kind === 'pgrid') continue;
-      const F = shapeF(s, F0, k);   // ([#253] a later plane's shape: its image, from its own plane)
+      const F = shapeF(s, F0, k);   // (a later plane's shape: its image, from its own plane)
       if (!F) continue;
       const r = gpu.get(s.id);
       if (!r || !r.polys) continue;
@@ -714,11 +790,12 @@
     ctx.fillStyle = color || TH.ink; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
     ctx.fillText(text, x + 6, y + 0.5);
   }
-  function drawCutHandles(pane, handles) {
+  // the cut handles on pane's overlay; inert: marks that take no press (a frame between two planes'), never drawn hot
+  function drawCutHandles(pane, handles, inert = false) {
     const ctx = pane.octx;
     for (const hd of handles) {
-      const dragging = drag && drag.mode === 'cut' && drag.step === hd.step;
-      const hot = hoverCut === hd.step || dragging;
+      const dragging = !inert && drag && drag.mode === 'cut' && drag.step === hd.step;
+      const hot = (!inert && hoverCut === hd.step) || dragging;
       if (dragging && !hd.F && !hd.fwd) {
         const [bx, by] = pane.w2s(hd.p);
         const r = 40, ang = hd.deg * DEG;
@@ -741,7 +818,7 @@
   // A zero is a filled dot in the zero ink with a pip, a pole a cross in the pole colour, labelled ζ₁, ζ₂, … and p₁, p₂, …
   // as on the card (shape handles are white squares and circles; target roots are rings in the target's colour).
   const ZP_KINDS = ['zeros', 'poles'];
-  // [UX54] by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
+  // by its number, kept for life (Constr.zpNum: st.zpNums, else its place)
   const zpSym = (kind, i, st) => (kind === 'zeros' ? 'ζ' : 'p') + sub(Constr.zpNum(st, kind, i));
   // (the marks are drawn with every overlay frame: a field's text is parsed once)
   const zpParsed = new Map();
@@ -755,7 +832,7 @@
   };
   const zpSame = (a, k, kind, i) => !!a && a.k === k && a.kind === kind && a.i === i;
   const zpItems = (st, kind) => Funcs.splitList(st.params[kind]);
-  // (review verify-4, design-17 / math-14: a zero or pole field shows the true minus, U+2212, as the Parameters' value
+  // (a zero or pole field shows the true minus, U+2212, as the Parameters' value
   // fields do; the stored text keeps the ASCII hyphen, so a field's text is read back through zpRaw)
   const zpShow = (raw) => String(raw).replace(/-/g, '−');
   const numShow = zpShow;
@@ -816,7 +893,7 @@
       }
       if (dr && dr.off) {
         ctx.globalAlpha = 1;
-        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });   // (v16 [C12])
+        const msg = Construct.zpOffNote(dr.k, dr.kind, dr.i) || $t('Release to remove {t}', { t });
         ctx.font = `11px ${TH.mono}`;
         const cw = ctx.measureText(msg).width + 12;
         chip(ctx, x + 14 + cw > pane.w - 4 ? x - 14 - cw : x + 14, Math.min(pane.h - 14, y + 18), msg, TH.error, TH.error);
@@ -839,7 +916,7 @@
     const lists = { zeros: zpItems(st, 'zeros'), poles: zpItems(st, 'poles') };
     // (two columns while every value fits one, as zpFields lays them out)
     const wide = ZP_KINDS.some((kind) => lists[kind].some((raw) => raw.length > 8));
-    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#pipeline .card[data-k="${k}"] input[data-zp], #propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
+    for (const el of /** @type {NodeListOf<HTMLInputElement>} */ (document.querySelectorAll(`#propsPanel .insp-step[data-k="${k}"] input[data-zp]`))) {
       const row = el.closest('.zp-item');
       if (row) row.classList.toggle('wide1', wide);
       if (document.activeElement === el) continue;
@@ -848,19 +925,11 @@
       if (v != null && el.value !== zpShow(v)) { el.value = zpShow(v); el.classList.remove('bad'); }
     }
   }
-  // the card's parameter fields again (after a zero or pole was added or removed), keeping the field list's scroll
-  function refreshZpCard(k) {
+  // the Inspector's parameter fields of step k, rebuilt after a zero or pole is added or removed
+  function refreshZpFields(k) {
     const st = S.steps[k - 1];
     if (!st || st.type !== 'zp') return;
-    for (const [sel, pre] of [[`#pipeline .card[data-k="${k}"] .params`, 'p']]) {
-      const el = document.querySelector(sel);
-      if (!el) continue;
-      const top = el.scrollTop;
-      el.innerHTML = '';
-      el.append(zpFields(st, k, pre));
-      el.scrollTop = top;
-    }
-    if (insp) insp.refreshParams(k);   // (the Inspector's editor)
+    if (insp) insp.refreshParams(k);
   }
   function zpSet(k, kind, i, v) {
     const st = S.steps[k - 1];
@@ -904,7 +973,7 @@
     zpSel = { k, kind, i: list.length - 1 };
     if (selected) { selected = null; buildShapeList(); }
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     return list.length - 1;
   }
   // the Inspector's Add zero / Add pole (DESIGN.md 2.4): a new zero or pole at the visible centre of the step's
@@ -916,7 +985,7 @@
     commit();
     requestRender('OL');
     sndSay(kind === 'zeros' ? $t('Added zero {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }) : $t('Added pole {mark} of {f}.', { mark: zpSym(kind, i, S.steps[k - 1]), f: `f${sub(k)}` }));
-    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"], #pipeline .card[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
+    const inp = document.querySelector(`#propsPanel .insp-step[data-k="${k}"] input[data-zp="${kind}:${i}"]`);
     if (inp) inp.scrollIntoView({ block: 'nearest' });
   }
   function zpRemove(k, kind, i) {
@@ -924,16 +993,106 @@
     if (!st || st.type !== 'zp') return;
     const list = zpItems(st, kind);
     if (i < 0 || i >= list.length) return;
-    cmZeroRemoved(k, kind, i);   // (v16 [C12])
+    cmZeroRemoved(k, kind, i);
     list.splice(i, 1);
     zpWrite(st, kind, list);
     if (zpSame(zpSel, k, kind, i)) zpSel = null;
     else if (zpSel && zpSel.k === k && zpSel.kind === kind && zpSel.i > i) zpSel.i--;
     zpHover = null;
     chainChanged(false);
-    refreshZpCard(k);
+    refreshZpFields(k);
     commit();
     requestRender('OL');
+  }
+  function paramField(st, k, q, pre = 'p') {
+    const val = st.params[q.key] ?? q.def;
+    // (the step in the chain at this moment: an Undo while the field is being typed puts new step objects in the chain, and the field follows them)
+    const live = () => (S.steps.includes(st) ? st : S.steps[k - 1] && S.steps[k - 1].type === st.type ? S.steps[k - 1] : st);
+    const upd = (v) => { live().params[q.key] = v; chainChanged(false); syncParam(k, q.key, pre); };
+    let input, extra = null, before = null;
+    const id = `${pre}${k}_${q.key}`;
+    if (q.type === 'choice') {
+      input = h('select', { class: 'inp', id, onchange: (e) => { upd(e.target.value); commit(); } }, ...q.choices.map(([v, l]) => h('option', { value: v }, l)));
+      input.value = val;
+    } else if (q.type === 'int' || q.type === 'angle') {
+      input = h('input', { class: 'inp', id, type: 'number', step: '1', value: val, min: q.min });
+      // an empty or unreadable field (Number('') is 0) is flagged and never applied; leaving it shows the value in use again
+      const unread = () => input.value.trim() === '' || !!(input.validity && input.validity.badInput) || !Number.isFinite(Number(input.value));
+      input.addEventListener('input', () => {
+        if (unread()) {
+          input.classList.add('bad'); input.setAttribute('aria-invalid', 'true');
+          input.setAttribute('data-tip', $t('Enter a number; {label} stays {choice}', { label: q.label, choice: st.params[q.key] ?? q.def }));
+          return;
+        }
+        const v = Number(input.value);
+        const okInt = q.type !== 'int' || (Number.isInteger(v) && (q.min == null || v >= q.min));
+        input.classList.toggle('bad', !okInt); input.setAttribute('aria-invalid', String(!okInt));
+        if (!okInt) input.setAttribute('data-tip', $t('Uses {choice}: {label} must be a whole number{choice2}', { choice: Math.max(q.min ?? -Infinity, Math.round(v)), label: q.label, choice2: q.min != null ? ` ≥ ${q.min}` : '' })); else input.removeAttribute('data-tip');
+        upd(q.type === 'int' ? Math.round(v) : v);
+      });
+      input.addEventListener('change', () => {
+        if (unread()) input.value = st.params[q.key] ?? q.def;
+        const v = Number(input.value);
+        if (q.type === 'int' && Number.isFinite(v)) { const r = Math.min(q.max ?? Infinity, Math.max(q.min ?? -Infinity, Math.round(v))); if (r !== v) { input.value = r; upd(r); } }
+        input.classList.remove('bad'); input.removeAttribute('data-tip'); input.removeAttribute('aria-invalid');
+        commit();
+        // (a sheet typed into the field, in the Inspector or on a card, as ‹ › below; Square root's Try line)
+        if (q.key === 'k' && q.type === 'int') tourEmit('sheet-changed', { k, sheet: Math.round(Number(input.value)) || 0 });
+      });
+      if (q.key === 'cut' && pre === 'p') input.dataset.cutStep = k;
+      // a step's sheet: "‹ 0 of 2 ›": ‹ › step through the sheets ("of n" for a root), and Show all sheets opens Landscape
+      // with All sheets on, the one view that draws them
+      if (q.key === 'k' && q.type === 'int') {
+        const n = st.type === 'root' ? Math.max(2, Math.round(+st.params.n || 2)) : 0;
+        const go = (d) => { let v = Math.round(Number(st.params.k) || 0) + d; if (n) v = ((v % n) + n) % n; input.value = v; upd(v); commit(); tourEmit('sheet-changed', { k, sheet: v }); };
+        before = h('button', { class: 'icon-btn sh-prev', type: 'button', 'aria-label': $t('Previous sheet'), 'data-tip': $t('Previous sheet'), onclick: (e) => { e.preventDefault(); go(-1); } }, '‹');
+        extra = h('div', { class: 'sheet-ctl' },
+          n ? h('span', { class: 'sh-of' }, $t('of {n}', { n })) : null,
+          h('button', { class: 'icon-btn sh-next', type: 'button', 'aria-label': $t('Next sheet'), 'data-tip': $t('Next sheet'), onclick: (e) => { e.preventDefault(); go(1); } }, '›'),
+          h('button', { class: 'btn ghost small sh-all', type: 'button', 'data-tip': $t('Landscape draws every sheet of the map as one surface'), onclick: (e) => { e.preventDefault(); showAllSheets(); } }, $t('Show all sheets')));
+      }
+    } else {
+      // (a number field (a complex value or a list of them) shows the true minus, U+2212, as the zero
+      // and pole fields and the Parameters' value fields do; the stored text keeps the hyphen. A formula field is as typed.)
+      const num = q.type === 'cx' || q.type === 'coeffs' || q.type === 'cxlist';
+      const raw = () => (num ? input.value.replace(/−/g, '-') : input.value);
+      input = h('input', { class: 'inp', id, value: num ? numShow(val) : val, spellcheck: 'false', autocapitalize: 'off', autocorrect: 'off', autocomplete: 'off', 'data-fx': '' });
+      if (num) input.dataset.num = '1';
+      // (the letters the field binds, a series' n, a recurrence's u: never offered as new numbers)
+      if (q.bound) input.dataset.bound = q.bound.join(',');
+      // (a series' a_n or a recurrence's rule, or a field of a chain whose last change took over 8 ms, is applied
+      // after a pause of 4× that cost, 150 to 250 ms for a_n and the rule, at most 250 ms for the others: one rebuild
+      // per pause, not per key; the text stays live, Enter and leaving the field apply it at once)
+      // (the pause belongs to the step typed on: if an example or chain switch has replaced it by the time the pause ends,
+      // the text is dropped, not given by live() to the new chain's step of the same type at k)
+      let due = 0, typedOn = null;
+      const apply = () => { if (due) { clearTimeout(due); due = 0; } const on = typedOn; typedOn = null; if (on && live() !== on) return; upd(raw()); };
+      input.addEventListener('input', () => {
+        // (the tour's event for the user's typing in a formula field, not for the text a rebuild writes back)
+        if (q.type === 'expr' || q.type === 'seq') tourEmit('formula-edited', { k, key: q.key });
+        if (q.type === 'cx') { try { Expr.constValue(raw()); input.classList.remove('bad'); } catch (e) { input.classList.add('bad'); } }
+        if (q.type === 'coeffs' || q.type === 'cxlist') Funcs.typedList(live(), q.key, raw());
+        const cost = chainCost();
+        if (q.type !== 'seq' && cost <= 8) { apply(); return; }
+        clearTimeout(due);
+        typedOn = live();
+        due = setTimeout(apply, Math.min(250, Math.max(q.type === 'seq' ? 150 : 0, 4 * cost)));
+      });
+      input.addEventListener('change', () => { if (due) apply(); if (num && input.value !== numShow(raw())) input.value = numShow(raw()); commit(); });
+      if (q.type === 'cx') extra = h('button', { class: 'icon-btn argand', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: q.label }), html: ICONS.argand, onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
+    }
+    input.dataset.pkey = q.key;
+    // (a label in subscripts, aₙ, uₖ₊₁: its name for a screen reader in letters, "u k+1")
+    if (q.say) input.setAttribute('aria-label', q.say);
+    const wide = q.type === 'expr' || q.type === 'coeffs' || q.type === 'seq';
+    const sym = PSYM[q.key];
+    const labelText = sym ? sym[0] : q.label;
+    // (a word before the symbol, "Cut angle θ", "Sheet k", "Power n", so a phone, which has no tooltips,
+    // says what the field is; the symbol keeps its own span, where a step's index goes)
+    const word = paramWord(st, q);
+    const lab = h('label', { class: 'pl' + (word ? ' worded' : ''), for: id, 'data-tip': sym ? sym[1] : q.tip || q.label }, ...(word ? [h('span', { class: 'pw' }, word), ' ', h('span', { class: 'ps' }, labelText)] : [labelText]));
+    if (q.type === 'int' || q.type === 'angle') scrubbable(lab, input, 1, q.type === 'int');
+    return h('div', { class: 'pf' + (wide ? ' wide' : '') + (q.type === 'cx' ? ' cx' : '') + (word ? ' worded' : '') }, lab, extra ? h('div', { class: 'pair' }, before, input, extra) : input);
   }
   // the parameter fields of a 'zp' card: a, the + zero / + pole buttons, then one field per zero and per pole
   function zpFields(st, k, pre) {
@@ -973,7 +1132,7 @@
     // (a field emptied, or holding a list '0.5, 0.5i': the card again, one field per item, so fields and handles
     // keep their indices)
     input.addEventListener('change', () => {
-      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpCard(k); syncZpFields(k); }
+      if (Funcs.splitList(input.value).filter((x) => x.trim()).length !== 1) { refreshZpFields(k); syncZpFields(k); }
       else if (input.value !== zpShow(zpRaw(input))) input.value = zpShow(zpRaw(input));
       commit();
     });
@@ -981,7 +1140,7 @@
     const del = h('button', { class: 'icon-btn zp-del', type: 'button', 'data-tip': $t('Remove {sym}', { sym }), 'aria-label': kind === 'zeros' ? $t('Remove zero {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }) : $t('Remove pole {i} of f{k}', { i: Constr.zpNum(st, kind, i), k: sub(k) }), html: ICONS.close,
       onclick: (e) => { e.stopPropagation(); zpRemove(k, kind, i); } });
     const lab = h('label', { class: 'pl zp-sym ' + kind, for: id, 'data-tip': kind === 'zeros' ? $t('Zero {sym}: drag it in the input plane', { sym }) : $t('Pole {sym}: drag it in the input plane', { sym }) }, sym);
-    // (v15, review design-8: every zero and pole row has its Argand button, named by the indexed symbol)
+    // (every zero and pole row has its Argand button, named by the indexed symbol)
     const arg = h('button', { class: 'icon-btn argand', type: 'button', 'data-tip': $t('Pick on an Argand diagram'), 'aria-label': $t('Pick {label} on an Argand diagram', { label: sym }), html: ICONS.argand,
       onclick: (e) => { e.preventDefault(); e.stopPropagation(); if (padEl) closePad(); else openArgandPad(e.currentTarget, input); } });
     return h('div', { class: 'pf zp-item' }, lab, h('div', { class: 'pair' }, input, arg, del));
@@ -993,23 +1152,23 @@
     let r;
     try { r = to ? Funcs.toZerosPoles(st) : Funcs.fromZerosPoles(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast(((r && r.error) || $t('This step cannot be rewritten.')).replace(/\.?$/, '.')); return null; }
-    // ([issue #6] the same function written another way: a repeat it ends stays)
+    // (the same function written another way: a repeat it ends stays)
     setStepAt(k - 1, Object.assign({ type: r.step.type, params: Object.assign(Funcs.defaults(r.step.type), r.step.params), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     zpSel = null;
     chainChanged(true);
     setFocus(k);
     commit();
     undoToast(to ? $t('f{k} is now given by its zeros and poles ({note}): drag them in its input plane.', { k: sub(k), note: r.note }) : $t('f{x} is now given by its coefficients.', { x: sub(k) }));
-    return cardButton(k);
+    return null;
   }
-  // [v16.5 UX09] a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
+  // a finger: handles drawn 12 px and grabbed within 22 px (the nearest wins), as zeros and poles are; a
   // mouse: 7 px marks grabbed within 8 px. Before any press, a coarse pointer counts as a finger
   const fingerNow = () => (ptrTouch != null ? ptrTouch : touchUI());
   function handleAt(pane, sel, x, y) {
     const finger = ptrTouch;
     let best = null, bd = Infinity;
     for (const [key, hz] of Region.handlesOf(sel)) {
-      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; v16.3: nor a fixed shape's)
+      if (sel.def || sel.fixed || (sel.at && sel.at[key])) continue;   // (a bound handle is no handle; nor a fixed shape's)
       const [hx, hy] = pane.w2s(hz);
       if (finger) { const d = Math.hypot(hx - x, hy - y); if (d < 22 && d < bd) { bd = d; best = key; } }
       else if (Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8) return key;
@@ -1022,7 +1181,7 @@
     const ctx = pane.octx;
     const k = shapeInk(s).edge, hr = fingerNow() ? 6 : 3.5;
     for (const [key, z] of Region.handlesOf(s)) {
-      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (v16; v16.3 user-1: a fixed unit circle or axis)
+      if (s.def || s.fixed || (s.at && s.at[key])) continue;   // (a fixed unit circle or axis)
       const [x, y] = pane.w2s(z);
       ctx.fillStyle = TH.surface; ctx.strokeStyle = k; ctx.lineWidth = 1.5;
       ctx.beginPath();

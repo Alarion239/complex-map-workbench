@@ -61,7 +61,7 @@
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return true;
   }
-  // ([#253] full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
+  // (full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
   // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
   // per plane s. A point's preimages are not drawn (they are roots, not a picture)
   // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask, 19)
@@ -75,7 +75,7 @@
     }
     if (!by.size || !GLR.ok || typeof GLR.drawPreimage !== 'function') return false;
     // (one frame for every plane's pass, one blit: a pass per plane s, never a blit per plane; its pending is the
-    // caller's, since a card is cached as final only when nothing it drew is still linking)
+    // caller's)
     let pending = false;
     try {
       if (!inFrame) GLR.begin(pane.pw, pane.ph);
@@ -429,7 +429,7 @@
     if (labels.length) placeLabels(ctx, pane, labels);
   }
 
-  // ---------------- [#252] the preimages of a point of a later plane ----------------
+  // ---------------- the preimages of a point of a later plane ----------------
   // A point of plane s seen in plane j < s: the solutions z of rangeF(j, s)(z) = p over the visible window (as the
   // targets' roots are found). The PRE_SHOW nearest to the view's centre are drawn, hollow and named a₍₁₎, a₍₂₎ …;
   // the others are counted ("+k more"). The search runs once the view and the chain settle; while the point moves
@@ -441,7 +441,7 @@
   const prePoints = (j) => S.shapes.filter((s) => s.visible !== false && s.kind === 'point' && !s._atInf && shapeStage(s) > j);
   const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
   // the solutions follow their points' moves (an entry keeps the p it was solved for)
-  // ([#291] option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
+  // (option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
   // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
   // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
@@ -505,7 +505,7 @@
     const P = preOf[side];
     P.hits = [];
     if (artMode || P.sig !== preSig(j)) return;
-    const ctx = pane.ctx, labels = [], b = pane.box(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const ctx = pane.ctx, labels = [], said = [], b = pane.box(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
     for (const e of P.list) {
       const s = S.shapes.find((x) => x.id === e.id);
       if (!s) continue;
@@ -525,8 +525,12 @@
       if (vis.length && (rest > 0 || e.more)) {
         const [x, y] = pane.w2s(vis[Math.min(PRE_SHOW, vis.length) - 1].z);
         labels.push({ x: x + 14, y: y + 14, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
+        // (the same count in words, in the plane's description: paneSay)
+        const k = Math.min(PRE_SHOW, vis.length);
+        said.push(rest > 0 ? $t('Marked preimages of {name}: {k} of {n}', { name, k, n: k + rest }) : $t('Marked preimages of {name}: {k}, and there may be more', { name, k }));
       }
     }
+    if (said.length) paneSay(pane, 'pre', said.join('. ') + '.');
     if (labels.length) placeLabels(ctx, pane, labels);
   }
   // the dot under (x, y) in a pane, or null
@@ -543,7 +547,7 @@
     const w = rangeF(d.j, d.s)(z);
     if (!CX.isFin(w)) return;
     const e = preOf.L.list.find((q) => q.id === d.id);
-    // ([#291] an exact list: every dot follows at once, the dragged one under the pointer)
+    // (an exact list: every dot follows at once, the dragged one under the pointer)
     const ex = e && e.exact ? exactPre(d.j, d.s, [w.re, w.im]) : null;
     if (ex) { e.sols = ex.zs.map((zz, i) => ({ z: zz, mult: ex.mult[i] })); e.p = [w.re, w.im]; }
     else if (e) {
@@ -559,22 +563,22 @@
   }
   // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
   const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more, exact: !!e.exact })), trackMs: preOf[side].trackMs, hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
 
   // the shapes' names as their rows show them ("Circle 1")
-  // ([v16.5 fix regress-10] of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
+  // (of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
   // rows did when it existed)
   function shapeNames(list) {
     const counts = {}, names = new Map(), pv = { n: 0 };
     for (const s of list || S.shapes) { const nk = nameKind(s); if (!fixedNm(s)) counts[nk] = (counts[nk] || 0) + 1; names.set(s.id, rowName(s, counts, pv, false)); }
     return names;
   }
-  // (v16 review user-4, picture-8) a point's row is named as the plane labels it (z₀, or the user's label), so the names
+  // a point's row is named as the plane labels it (z₀, or the user's label), so the names
   // in the definitions ("midpoint of z₀, z₂") are the names in the list; a helper (no label in the plane) by its
   // meet; a hidden point, which has no plane label, keeps "Point n". pv counts the visible points as drawPoints does
-  // ([v16.5 fix rail-4] the unit circle or an axis made a fixed shape: by that name, "The unit circle" as a row title, and
+  // (the unit circle or an axis made a fixed shape: by that name, "The unit circle" as a row title, and
   // no number, so the user's own circles stay Circle 1, 2, …; Construct.fixedName is the one rule)
   const fixedNm = (s) => (Construct.fixedName ? Construct.fixedName(s) : null);
   const capFirst = (t) => (t ? t.charAt(0).toUpperCase() + t.slice(1) : t);
@@ -595,7 +599,7 @@
   let intPop = null;   // {id (shape), el, cx, cy (where it opened), it (the integral), x (winding, zeros and poles), timer}
   let lastPan = { t: 0, moved: false };   // a right-button pan just ended: its contextmenu opens nothing
   let holdMenuT = -Infinity;   // when a long press opened the menu: the touch's own contextmenu event opens nothing more
-  // ---- the planes' context menu (v15, src/planemenu.js): what it needs from the app ----
+  // ---- the planes' context menu (src/planemenu.js): what it needs from the app ----
   function planeMenuApi() {
     const paneOf = (side) => (side === 'R' ? paneR : paneL);
     const viewOf = (side) => (side === 'R' ? V.right : leftView());
@@ -643,7 +647,7 @@
           list.splice(i, 1);
           zpWrite(st, kind, list);
           zpSel = { k, kind: other, i: j };
-          chainChanged(false); refreshZpCard(k); commit(); requestRender('OL');
+          chainChanged(false); refreshZpFields(k); commit(); requestRender('OL');
           return j;
         },
         hit: (x, y, r) => { if (!lFlat() || !zpStep()) return null; const m = zpHit(x, y, r); return m ? { k: m.k, kind: m.kind, i: m.i } : null; },
@@ -652,18 +656,18 @@
         edit(k, kind, i) { inspectStep(k); const el = /** @type {HTMLInputElement | null} */ (this.field(k, kind, i)); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
       },
       cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
-      // step k in the Inspector (v15: a click on its card does the same)
+      // step k in the Inspector (a click on its card does the same)
       inspect: (k) => inspectStep(k),
-      resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'T', 'OL'); },
+      resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },
       // the shape under the pointer: X's shapes at stage 0, Y's targets where they are edited
       shapeAt(side, x, y) {
         const target = side === 'R';
         if (target ? !(rImage() && targetsEditable()) : !lFlat()) return null;
         const pane = paneOf(side);
         pane.setView(viewOf(side));
-        // ([#252] X's shapes of the plane it shows)
+        // (X's shapes of the plane it shows)
         const z = pane.s2w(x, y), tol = 7 / pane.view.s, list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin;
-        // ([v16.5 UX56] a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
+        // (a point first, as a press picks it: a point on a curve is the menu's subject, not the curve; the
         // other shapes there are named as where it lies)
         const rank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
         const cands = list.filter((s) => s.visible !== false).reverse().sort((a, b) => rank(a) - rank(b));
@@ -725,7 +729,7 @@
   // a drawing in progress: a polygon's vertices, a shape being dragged out (on a plane or a globe), a construction's
   // picks (or its picked curve)
   const drawing = () => !!draft || !!(drag && (drag.mode === 'draw' || drag.mode === 'gdraw')) || Construct.drafting();
-  // a right-click (or a long press) while drawing cancels the drawing, as Esc does, and opens no menu (issue #13).
+  // a right-click (or a long press) while drawing cancels the drawing, as Esc does, and opens no menu.
   // True when there was one
   function cancelDrawing() {
     if (!drawing()) return false;
@@ -735,7 +739,7 @@
       drag = null;
     }
     if (draft && draft.kind === 'lasso' && !draft.target) snd.loop = null;
-    if (draft && draft.pending) dropPending();   // ([UX47] a two-click shape's snapped start binds nothing)
+    if (draft && draft.pending) dropPending();   // (a two-click shape's snapped start binds nothing)
     draft = null;
     Construct.cancel();
     requestRender('L', 'OL', 'OR', rGlobe() ? 'R' : null);
@@ -743,16 +747,16 @@
   }
   // a right-click that did not pan: it cancels a drawing, else opens the plane menu there
   const rightClickAt = (pane, side, x, y, touch) => cancelDrawing() || planeMenuAt(pane, side, x, y, touch);
-  // centre a flat plane's view at z (a double-click on the plane, issue #13)
+  // centre a flat plane's view at z (a double-click on the plane)
   function centerView(side, z) {
     if (side === 'L' ? !lFlat() : !rImage()) return;
     if (side === 'L') { const v = leftView(); v.cx = z.re; v.cy = z.im; if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L', 'OL', 'OR'); }
     else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
     save();
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   window.__cmwPlaneMenu = () => ({ stage: (k, re, im) => { const w = stageF(k)(C(re, im)); return [w.re, w.im]; }, w2s: (side, re, im) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const [x, y] = p.w2s(C(re, im)), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; }, s2w: (side, cx, cy) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const r = p.ocanvas.getBoundingClientRect(), w = p.s2w(cx - r.left, cy - r.top); return [w.re, w.im]; }, view: (side) => Object.assign({}, side === 'R' ? V.right : leftView()), steps: () => JSON.parse(JSON.stringify(S.steps)), hist: () => ({ hi, n: hist.length }), shapes: () => JSON.parse(JSON.stringify(S.shapes)), targets: () => JSON.parse(JSON.stringify(S.targets)), selected: () => selected, drag: () => (drag ? drag.mode : null), focus: () => S.focus, leftStage: () => leftStage(), curveBox: (id) => { const g = INT.shapeGeom(S.shapes.find((x) => x.id === id), true); return g ? g.box : null; } });
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // GPU Cauchy style of the Phase view: N nodes on the subject's boundary, shared by its components by length
   const cauchyCache = { key: '', val: null };
 
@@ -781,7 +785,7 @@
       if (nm !== calcChipState.cauchy) { calcChipState.cauchy = nm; buildRightFoot(); updateFocusUI(); }
     }
     // the targets' readings, in every view, while there are targets; not over the merged deformation, whose plane is
-    // Y's at time t, not X (merged-views review: the z-plane roots were listed as "in view" over a w-plane picture)
+    // Y's at time t, not X (the z-plane roots would be listed as "in view" over a w-plane picture)
     const want = hasTargets() && solo() !== 'L' && !(S.view.main === 'xy' && morphOn());
     let html = '';
     if (want) {
@@ -826,7 +830,7 @@
         if (shown > 6) rows.push($tn('<div class="cm">and {n} more</div>', '<div class="cm">and {n} more</div>', shown - 6));
         if (roots.err) rows.push(`<div class="cn err">${roots.err}</div>`);
       }
-      // (v16.5 UX20, V01: what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
+      // (what the area and curve targets show is a note in Y's pane head, or on a phone in Y's title
       // chip, never a row over the plane: targetNote)
       // over the w-globe the chip keeps to its headings, so the scene stays visible
       const compact = rGlobe();
@@ -837,7 +841,7 @@
     if (el.hidden === show) el.hidden = !show;
     targetNote(want);
   }
-  // (v16.5 UX20, V01) the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
+  // the one-time note of the area and curve targets: in Y's pane head on a desktop ("Preimage shaded
   // in X"); on a phone in Y's title chip ("Shaded in X (the inset)", idleRight), and the inset pulses once when a
   // preimage first appears in it
   function targetText(o) {
@@ -849,7 +853,7 @@
     // (a desktop's head note is short, so it keeps its place beside the title: what is shaded or drawn is its tooltip)
     return $t('Preimage in X');
   }
-  // ([v16.5 fix regress-7] it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
+  // (it runs at the end of every Y render, a deformation or a pan frame: keyed on what it says,
   // it returns at once while that is unchanged)
   let targetNoteKey = '';
   function targetNote(want) {
@@ -886,7 +890,7 @@
   // reassign as getters (and setters for the state they write)
   function integralsApi() {
     return {
-      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
       rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,
@@ -901,7 +905,7 @@
       get sndP() { return sndP; },
     };
   }
-  // the app calls the module by the old names (as untyped calls: their types stay the module's own)
+  // the app calls the module by plain function names (as untyped calls: their types stay the module's own)
   const INT = /** @type {any} */ (Integrals);
   function curvePieces(...args) { return INT.curvePieces(...args); }
   function sphereProj(...args) { return INT.sphereProj(...args); }
@@ -913,7 +917,7 @@
   function integrateSelected(...args) { return INT.integrateSelected(...args); }
   function cauchyPlot(...args) { return INT.cauchyPlot(...args); }
   function cauchyDraw(...args) { return INT.cauchyDraw(...args); }
-  // (#235) what the Cauchy style shows for the selected curve: 'plain' (F inside, 0 outside: no pole inside), 'split'
+  // what the Cauchy style shows for the selected curve: 'plain' (F inside, 0 outside: no pole inside), 'split'
   // (poles inside: f+ inside, f- outside), 'numeric' (the quadrature: a singularity the pole count does not cover),
   // 'undefined' (F is not finite on the curve), or null (no closed curve)
   function cauchyKind() {

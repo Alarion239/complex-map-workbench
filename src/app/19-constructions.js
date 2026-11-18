@@ -1,4 +1,4 @@
-  // ---------------- v16 constructions: the model (notes/constructions-v16/SPEC.md 20.2, CORE) ----------------
+  // ---------------- constructions: the model (notes/constructions-v16/SPEC.md 20.2, CORE) ----------------
   // Shapes may carry s.at (bound handles) and s.def (circle3, meet, glider, midpoint, bisector); Constr (constr.js)
   // writes their geometry in topological order. cmSync runs at the start of shapesChanged / targetsChanged and after
   // every chain change (zeros of f1, image refs), so every path that moves a source (a drag, a number, undo, load, a
@@ -19,7 +19,7 @@
       // F(z0) of the whole chain: the map to the last plane
       F: (z) => Fk(nSteps())(z),
       Fk,
-      // (review math-11: one component per traced branch, each with its level function for the float64 Newton step,
+      // (one component per traced branch, each with its level function for the float64 Newton step,
       // traced on the z-plane's window plus a margin, never joined into one polyline)
       trace: (s) => {
         try {
@@ -82,7 +82,7 @@
     Constr.applyFreed(S, plan.freed);
     return plan;
   }
-  // a zero or pole of step k is removed: its bindings are freed, its constructions become undefined [C12]
+  // a zero or pole of step k is removed: its bindings are freed, its constructions become undefined
   function cmZeroRemoved(k, kind, i) {
     if (!cmOn()) return null;
     const st = S.steps[k - 1];
@@ -94,7 +94,7 @@
     if (plan.undef.length || plan.freed.length) cmEmit('zpRemoved', { zref, undef: plan.undef, freed: plan.freed });
     return plan;
   }
-  // (review math-10, SPEC 2.2 [C5]) the anchor the GPU packs the exact forms at, in float64: the centre of the view of
+  // (SPEC 2.2) the anchor the GPU packs the exact forms at, in float64: the centre of the view of
   // the plane whose forms are packed ('X': the shapes, at the z-window's centre; 'Y': the targets, at Y's centre; or a
   // point), so float32 sees only small numbers near the view at any radius and any distance from the first point
   function cmFormAnchor(which) {
@@ -105,7 +105,7 @@
     else if (which === 'Y') xy = [V.right.cx, V.right.cy];
     GLR.setFormAnchor(xy && xy.every(Number.isFinite) ? xy : null);
   }
-  // the interface's API (SPEC 20.2): every call that changes S records undo as v15's gestures do
+  // the interface's API (SPEC 20.2): every call that changes S records undo as the gestures do
   let cmGesture = false;
   function cmApi() {
     const find = (id) => S.shapes.find((x) => x.id === id) || S.targets.find((x) => x.id === id) || null;
@@ -113,7 +113,7 @@
     const done = (ids, live, structural) => {
       // (a construction is an edit of the chain shown, not another chain: the steps view stays on its plane)
       if (SV.on && SV.sig != null) SV.sig = svSigNow();
-      // (v16.3 review user-4: a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag)
+      // (a live frame recomputes once, in shapesChanged / targetsChanged, as a free point's drag)
       const r = live && !structural ? null : cmSync({ all: true });
       const st = structural || !!(r && (r.kindChanged.length || r.undefChanged.length));
       if (ids.some((id) => !isT(id))) shapesChanged(st);
@@ -141,20 +141,20 @@
       setDef(id, patch) {
         const s = find(id);
         if (!s) return;
-        if (patch.def && Constr.wouldCycle && Constr.wouldCycle(S, id, patch.def.args)) return false;   // (review math-6: no cycles)
+        if (patch.def && Constr.wouldCycle && Constr.wouldCycle(S, id, patch.def.args)) return false;   // (no cycles)
         if (patch.def) s.def = patch.def;
         if (!s.def) return;
         for (const k of ['fill', 'index', 'seed']) if (k in patch) s.def[k] = patch[k];
-        // (v16.3 review math-5: Use complement keeps the meet points on the shape where they are, in the same step)
+        // (Use complement keeps the meet points on the shape where they are, in the same step)
         if ('flip' in patch) { if (Constr.setFlip) Constr.setFlip(S, id, patch.flip); else s.def.flip = patch.flip; }
         if ('t' in patch) s.t = patch.t;
-        // (v16.3 review user-4: a glider's live drag frame is not structural: the rows are updated, not rebuilt)
+        // (a glider's live drag frame is not structural: the rows are updated, not rebuilt)
         done([id], !!patch.live, !patch.live || !!patch.def);
       },
-      makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // ([v16.5 rail] live: a pull mid-drag, the release commits)
+      makeFree(id, o = {}) { const s = find(id); if (!s) return; delete s.def; delete s.at; delete s.helper; delete s.owner; if (s.cHid) { delete s.cHid; if (!s.undefHid) s.visible = true; } delete s.cundef; delete s._g; delete s._atInf; done([id], !!o.live, true); },   // (live: a pull mid-drag, the release commits)
       // a gesture moved a source (live: a motion frame; the gesture's end calls end())
       moved(changed, o = {}) { cmGesture = cmGesture || !!o.live; const r = cmSync(changed || { all: true }); if (r && r.ids.length) { shapesChanged(!!(r.kindChanged.length || r.undefChanged.length)); targetsChanged(false); } return r; },
-      end() { cmGesture = false; commit(); if (rightAuto && autoFit()) fitRight(); requestRender('L', 'R', 'T'); },
+      end() { cmGesture = false; commit(); if (rightAuto && autoFit()) fitRight(); requestRender('L', 'R'); },
       remove(ids) {
         const plan = cmDeletePlan(ids);
         const del = new Set(plan.del);
@@ -172,7 +172,7 @@
       env: cmEnv,
     };
   }
-  // ---------------- v16 constructions: the interface's adapter (construct.js; SPEC 20, INTERFACE) ----------------
+  // ---------------- constructions: the interface's adapter (construct.js; SPEC 20, INTERFACE) ----------------
   function cmUiApi() {
     const paneOf = (side) => (side === 'R' ? paneR : paneL);
     return {
@@ -184,14 +184,14 @@
       select: (id) => { selected = id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL', 'OR', 'P'); },
       hoverShape: (id) => { hoverShape = id; requestRender('L', 'R'); },
       snapZ, snapOn: () => !!S.snap, altHeld: () => altHeld,
-      // [v16.5 rail] the drag in progress; ending it without its release; back to the last undo step (Esc, a second
+      // the drag in progress; ending it without its release; back to the last undo step (Esc, a second
       // finger: the press state, no step); a sound cue
       drag: () => drag, abortDrag: () => { drag = null; }, revert: () => { if (hist[hi]) restore(hist[hi]); }, cue: (n) => soundCue(n), snapTick: () => { if (sndP.on && sndP.snap) soundCue('snap'); },
       leftStage, planeShapes, lFlat, targetsEditable, zpStep,
       yWhole: () => S.focus === 0 && !morphOn() && rImage(),
       kindType, shapeInk, swatchStyle, shapeNames, pointLabel, nextPointNum, targetLabel,
       nextCi: (target, k = 0) => (target ? TARGET_CI[(S.targets.length + k) % TARGET_CI.length] : (S.shapes.length + k) % 8),   // (the colour newShape will give; k shapes later)
-      capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption: review picture-7)
+      capPhrase: (s, cs) => shapePhrase(s, 0, cs),   // (a curve named by its maths in a caption)
       newShape, deleteShape, requestRender, commit, shapesChanged, targetsChanged, buildShapeList, toast, undoToast, tourEmit, bindField,
     };
   }
@@ -199,7 +199,7 @@
   function paramFormulas() {
     const out = [];
     S.steps.forEach((st, i) => { for (const [key] of stepTexts(st)) out.push({ label: `f${sub(i + 1)}`, get: () => st.params[key], set: (t) => { st.params[key] = t; } }); });
-    // ([issue #6] a repeat's N bound to a number: renamed with it; a removed number leaves its value, rounded)
+    // (a repeat's N bound to a number: renamed with it; a removed number leaves its value, rounded)
     S.steps.forEach((st, i) => {
       if (!st.repeat || !st.repeat.by) return;
       out.push({ label: `f${sub(i + 1)}`, get: () => st.repeat.by, set: (t) => {
@@ -212,7 +212,7 @@
     for (const x of S.shapes.concat(S.targets)) if (x.bind) for (const key of Object.keys(x.bind)) out.push({ label: names.get(x.id) || $t('a target'), get: () => x.bind[key], set: (t) => { x.bind[key] = t; } });
     return out;
   }
-  // (v16.5 UX65) an unused number's way into a formula: + a appended to the selected formula step, else the last one
+  // an unused number's way into a formula: + a appended to the selected formula step, else the last one
   function paramUseIn(nm) {
     const ks = [];
     S.steps.forEach((st, i) => { if (st.type === 'custom') ks.push(i + 1); });
@@ -243,7 +243,7 @@
   function paramsRestored() { zpParsed.clear(); Params.render(); }
   // a number changed (a slider, play, a field, undo): the steps and the shapes that use it follow; a drag or play
   // frame is motion (motion-quality frames; the renderer's rest pass follows when it stops)
-  // ([#241] a slider of a number a costly chain uses (its last change took over 8 ms: a series re-planned) is applied
+  // (a slider of a number a costly chain uses (its last change took over 8 ms: a series re-planned) is applied
   // once a frame, at its latest value, the names of the frame's events together; a change at rest applies at once)
   const liveQ = { names: null, raf: 0 };
   function onParamChange(ev) {
