@@ -433,6 +433,8 @@
     }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
+      // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
+      // drag runs the continuation alone, cutPull)
       if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
     }
     if (editDown(pane, 'L', z, x, y)) return;

@@ -5,7 +5,7 @@
 //   - parked half-way between w₁ and w₂ (u = .5), on the Sphere and on the plane: the banks are the exact image at u (the
 //     rest samples moved by the homotopy z + t·2, that is +1), in the same ink at full opacity (one stroke, no fade),
 //     sampled at every fourth rest sample while the picture moves;
-//   - the θ handle is absent on the Sphere's frame parked half-way, takes presses on the plane's (#1644), and is back at rest on a plane.
+//   - the θ handle is absent on the Sphere's frame parked half-way, takes presses on the plane's, and is back at rest on a plane.
 // - chain B: z + 1 (Möbius), then the logarithm (cut 180°): the cut lives in plane w₁, past the glide z → w₁, so it is
 //   drawn as its preimage on plane z (the real half-line left of −1), and mid-glide those samples are carried by the
 //   homotopy (+ u): the frames at u = .5 are the parked samples + .5, at u = 1 they are the cut's own ray on plane w₁ (the

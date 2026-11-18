@@ -1,4 +1,4 @@
-// A frame parked between two planes turns a cut by its handle (#1644). Square root, its cut on plane z at 180°, the glide z -> w₁ parked at
+// A frame parked between two planes turns a cut by its handle. Square root, its cut on plane z at 180°, the glide z -> w₁ parked at
 // x = MID_U:
 // - the frame draws one handle that takes presses (__cmwCutHandles) and no inert mark (__cmwCutMarks), at the frame's image of its point on
 //   the ray (the glide's map at u, __cmwSteps().glide.Hb, within AT_PX);
@@ -12,6 +12,11 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const MID_U = 0.5, TO_DEG = 225, ARC_N = 30, AT_PX = 1.5, TOL_DEG = 1, BLOCK = 8, TOL = 6, SAME_FRAC = 0.01, CTL_FRAC = 0.02;
+// (SAME_FRAC and CTL_FRAC: on lavapipe the frame after the drag is 0 % of the blocks apart from the reopened page's, and the
+// frame before it 5.3 %; the bounds sit between, with that margin on each side)
+// (MOVE_GAP_MS: a frame's time between two of the drag's moves, pacing the synthetic input as a hand would; there is no
+// condition to wait on between moves)
+const MOVE_GAP_MS = 16;
 // the page with the root's cut and sheet, parked at MID_U
 const openParked = async (cut, k) => {
   await view(1200, 800, false, false);
@@ -52,7 +57,7 @@ if (s0.handles.length === 1 && s0.hasHb) {
   const before = await blocks(), v0 = s0.win;
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x, y: h.y });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: h.x, y: h.y, button: 'left', clickCount: 1 });
-  for (const p of pts) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(16); }
+  for (const p of pts) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: p[0], y: p[1], button: 'left', buttons: 1 }); await sleep(MOVE_GAP_MS); }
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: target[0], y: target[1], button: 'left', clickCount: 1 });
   await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim` });
   const s1 = await state();
