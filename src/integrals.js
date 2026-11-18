@@ -368,7 +368,6 @@ const Integrals = (() => {
     }
     return items;
   }
-  // TEMP-DEBUG-HOOK
   // a complex value for copying: components within tol read 0
   const cxCopy = (w, tol) => {
     if (!CX.isFin(w)) return '';

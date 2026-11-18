@@ -10,7 +10,7 @@
     const [y0, y1] = pick(full.y0, full.y1, rob.y0, rob.y1);
     const b = { x0, x1, y0, y1 };
     const w = b.x1 - b.x0, hh = b.y1 - b.y0, m = Math.max(w, hh, 1e-9);
-    // (review math-9: an image that is a point up to rounding, a constant map, is framed ±1 around it, not zoomed to
+    // (an image that is a point up to rounding, a constant map, is framed ±1 around it, not zoomed to
     // the rounding scale; the floor is relative to the point, 1e-9 of max(1, |w|))
     const c = Math.max(1, Math.abs((b.x0 + b.x1) / 2), Math.abs((b.y0 + b.y1) / 2));
     if (Math.max(w, hh) < 1e-9 * c) { const mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2; return { x0: mx - 1, x1: mx + 1, y0: my - 1, y1: my + 1 }; }
@@ -19,7 +19,7 @@
     return b;
   }
   // CPU samples of what a stage shows, restricted to the part that comes from the visible z-window
-  // ([#253] k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
+  // (k: the plane sampled; a shape of a later plane is left out, of an earlier one its image is sampled)
   // (at most this many mesh vertices and this many points of a polygon go into a fit's samples)
   const MESH_SAMPLE_CAP = 2500, POLY_SAMPLE_CAP = 400;
   // the font size (px) of the sphere's marks (0, infinity, 1, i, -1, -i) on a pane
@@ -34,7 +34,7 @@
     for (const s of S.shapes) {
       if (s.visible === false) continue;
       const t = kindType(s);
-      // ([v16.5 fix user-3] the curves and points of a construction, and the unit circle or an axis made a shape, are
+      // (the curves and points of a construction, and the unit circle or an axis made a shape, are
       // lines to build with: Y's fit follows the user's own shapes and regions, never a large orthogonal circle's image)
       if ((s.def || s.fixed) && t !== 'area') continue;
       const F = shapeF(s, F0, k);
@@ -80,7 +80,7 @@
   let zpHandlesL = [], zpHover = null, zpSel = null;
   // (k: the stage the left plane shows, default its own: z's view is S.srcView, a later stage's V.left)
   function leftView(k = leftStage()) { return k === 0 || (SV.on && svGliding()) ? S.srcView : V.left; }
-  // (v15.1, build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
+  // (build/phone-swap.md: on a phone the inset draws its plane's view smaller; before the views are parked,
   // replaced or saved, the inset gets its large view back, and it is drawn small again when the task ends)
   function phHold() { if (Phone.hold) Phone.hold(); }
   // a lost context (GPU reset) usually comes back: say so, and keep the unsupported message for a failed init
@@ -103,9 +103,9 @@
   // coloured planes and its globes and relief at rest among them
   function drawLeft(pane) {
     pane.setView(leftView());
-    // (Landscape is not on this pane now: its refinement's textures go, issue #50)
+    // (Landscape is not on this pane: its refinement's textures go)
     if (!lLand() && GLR.releaseLandscape) GLR.releaseLandscape();
-    // X Plane + Phase: the phase portrait of the map in focus (U-b; earlier the right pane's Phase view)
+    // X Plane + Phase: the phase portrait of the map in focus
     // (its shapes outlined, the target preimages, the points and the editable cuts drawn over it, as in X Plane)
     if (lColor()) { leftSphereInfo = null; cutHandlesL = renderColor(pane) || []; if (hasTargets()) { updateRoots(); drawRoots(pane); } return; }
     // X Landscape: the relief of the height over X
@@ -158,10 +158,10 @@
     syncModeChips();
     const poly = !!(draft && draft.kind === 'polygon' && draft.pts && draft.pts.length);
     const cl = $('draftChipL'), cr = $('draftChipR');
-    const cmSide = Construct.chipSide();   // (v16: a construction tool's chip)
+    const cmSide = Construct.chipSide();   // (a construction tool's chip)
     if (cl) { const on = (poly && !draft.target) || cmSide === 'L'; if (cl.hidden === on) cl.hidden = !on; }
     if (cr) { const on = (poly && !!draft.target) || cmSide === 'R'; if (cr.hidden === on) cr.hidden = !on; }
-    // [v16.5 UX14, UX95] how to close and back up, in the words of the pointer in use (a finger has no Enter)
+    // how to close and back up, in the words of the pointer in use (a finger has no Enter)
     if (poly) {
       const sp = (draft.target ? cr : cl) && (draft.target ? cr : cl).firstElementChild;
       const txt = fingerNow() ? $t('Tap the first point to close · Undo removes the last point') : $t('Click the first point or press Enter to close · ⌫ removes the last point');
@@ -178,10 +178,10 @@
       let msg = '';
       if (drawing && lLand()) msg = $t('Drawing is off on {where}; choose X → Y (1) to draw.', { where });
       else if (drawing && lGlobe() && GLOBE_OFF.has(tool)) msg = $t('{toolName} draws in Plane, not on the sphere.', { toolName });
-      // (v16.5 UX71) listening: the chip says what plays, and its Stop button ends it (Esc too)
+      // listening: the chip says what plays, and its Stop button ends it (Esc too)
       let act = null;
       if (!msg) { msg = listenChipMsg(); if (msg) act = { stop: true }; }
-      // (review v16 verify-7: the Mountain King's hint, with its Listen button, in X's title row, over no plane; only
+      // (the Mountain King's hint, with its Listen button, in X's title row, over no plane; only
       // where that row is not shown, here, while nothing else is said here)
       const q = pieceHint(), inHead = syncPieceHint(q);
       if (!msg && q && !inHead) { act = q; msg = q.msg; }
@@ -201,11 +201,11 @@
     const sr = $('sphereChipR');
     if (sr) {
       const toolName = (TOOLS.find((t) => t[0] === tool) || [])[1] || '';
-      // (the merged deformation plane or globe draws nothing: said, merged-views review)
+      // (the merged deformation plane or globe draws nothing: said)
       const on = tool !== 'select' && solo() !== 'L' && (morphOn() || (rGlobe() && GLOBE_OFF.has(tool)));
       const msg = !on ? '' : morphOn() ? $t('Drawing is off in the deformation (M).') : $t('{toolName} draws in Plane (⇧3), not on the sphere.', { toolName });
       if (sr.firstChild.textContent !== msg) sr.firstChild.textContent = msg;
-      // (v16.5 UX102) the way out is a button: the deformation turns off and the chosen tool stays
+      // the way out is a button: the deformation turns off and the chosen tool stays
       const want = on && morphOn();
       let ab = sr.querySelector('.chip-act');
       if (want && !ab) { ab = h('button', { class: 'toast-act chip-act chip-draw', type: 'button', 'data-tip': $t('Turn the deformation off and draw  M'), onclick: () => { const tl = tool; closeTransport(); if (tool !== tl) setTool(tl); updateDraftChips(); } }, $t('Turn off and draw')); sr.append(ab); }
@@ -216,7 +216,7 @@
     syncGlobeTools();
   }
   // Annulus, Sector and Polar grid are dimmed while X shows its globe (panels.md 9.2: tooltip 'Draw in Plane')
-  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden (merged-views review)
+  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden
   let globeToolsOff = null;
   function syncGlobeTools() {
     const merged = S.view.main === 'xy' && morphOn(), off = lGlobe();
@@ -227,7 +227,7 @@
       if (b.dataset.tool === 'select') continue;
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
-      // (dimmed, it says so: a press still explains, so it stays focusable; ux's wave 12 sweep, axe's contrast)
+      // (dimmed, it says so: a press still explains, so it stays focusable)
       if (g) b.setAttribute('aria-disabled', 'true'); else b.removeAttribute('aria-disabled');
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
       b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
@@ -251,7 +251,7 @@
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
       if (leftStage() === 0) { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); Construct.drawOverlay(paneL, 'L'); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
-      // ([#253] a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
+      // (a plane of the chain: its own shapes' handles and the draft; constructions are the z-plane's)
       else { drawHandles(paneL, planeShapes()); if (!draft || !draft.target) drawDraft(paneL); if (tool !== 'select' && probe) drawCrosshair(paneL, draft && !draft.target && draft.cursor || probe); }
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
@@ -270,7 +270,7 @@
       paneR.setView(V.right);
       drawHandles(paneR, S.targets);
       if (draft && draft.target) drawDraft(paneR);
-      Construct.drawOverlay(paneR, 'R');   // (v16)
+      Construct.drawOverlay(paneR, 'R');
       if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
     }
     if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
@@ -360,7 +360,7 @@
       const len = horiz ? W : Hh;
       const toPx = (val) => (horiz ? pane.w / 2 + (val - v.cx) * v.s : pane.h / 2 - (val - v.cy) * v.s);
       const lo = horiz ? v.cx - pane.w / 2 / v.s : v.cy - pane.h / 2 / v.s, hi = horiz ? v.cx + pane.w / 2 / v.s : v.cy + pane.h / 2 / v.s;
-      // ([v16.5 UX105] the UI face: "0.5", as the old mono face (B612 Mono) could not set it: "0. 5"; an imaginary label's i in the maths italic, so the
+      // (the UI face: "0.5", since the mono face (B612 Mono) cannot set it: "0. 5"; an imaginary label's i in the maths italic, so the
       // turned label "2i" never reads "21")
       ctx.font = `${small ? 9 : 10}px ${TH.ui}`;
       // labels at the 1-2-5 step that keeps them >= 72px (bottom) or 48px (left) apart, rounded up, and further up
@@ -626,7 +626,7 @@
     // surface of the focused map instead of its cut principal branch; while deforming, H_t on the sheets that become
     // F's (notes/v16-user5/SHEETS-DESIGN.md), unless a step it applies has no sheet form (deformSheetsOk)
     const hv = !carry && typeof homView === 'function' ? homView() : null;
-    // (v16.1 review math-5: while deforming, F's digits, given F's last step; math-6: a single-valued F, as √ then z²,
+    // (while deforming, F's digits, given F's last step; a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
     const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
@@ -645,8 +645,8 @@
     // principal one's, x 0.8, within 1..4.5), so a helicoid reads as one. Cached per chain, focus, box, height, window.
     let lscale = S.lscale || 1;
     render3D.linear = false;
-    // (while deforming with sheets, v16.1 review math-4: the same block as F's static All sheets, and a scale that ends
-    // at F's (verify-2, below: it follows H_t), so the end frame is the static one; the linear height then has a
+    // (while deforming with sheets, the same block as F's static All sheets, and a scale that ends
+    // at F's (below: it follows H_t), so the end frame is the static one; the linear height then has a
     // soft knee instead of the clamp (the Knee modes: linear up to the scale, levelling off to 1.25 of it), so values of
     // H_t far beyond F's sheets, as sin z at t = 0 of sin √z, level off smoothly instead of meeting the clamp in walls,
     // and a log window keeps its pitch instead of the compressed height's plates)
@@ -695,16 +695,16 @@
         return { mu: logLerp(ra.mu, rb.mu, carry.u), boost: logLerp(ra.boost, rb.boost, carry.u) };
       })() : scaleOf(fm, box);
       mu = c.mu;
-      // (v16.1 verify-2: F's scale for every t flattened H_t where F's sheets are much taller, as log then sin, where
-      // H_t looked like one flat sheet, and walled it where they are much lower, as sin √z near t = 0. The scale now
-      // follows H_t: the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
+      // (the scale follows H_t: F's scale for every t would flatten H_t where F's sheets are much taller, as log then sin, where
+      // H_t would look like one flat sheet, and wall it where they are much lower, as sin √z near t = 0. The scale is
+      // the same percentile over the drawn surfaces at 9 times of the transport (each computed once, when
       // first needed), interpolated in log between them; the last is F's own (at the end the surfaces are F's, bit for
-      // bit), so the end frame is still the static one. The block (boost) stays F's.)
-      // (v16.2, review rv162-1: with many sheets one time's scale is K x 144 evaluations, about 8 ms at K = 24 on the
-      // Mac, so computing each inside the frame that first needs it dropped frames on the first play. The 8 times are
-      // now filled in idle time, one row of 12 points at a time, from the frame that opens the key on, ahead of t; a
+      // bit), so the end frame is the static one. The block (boost) stays F's.)
+      // (with many sheets one time's scale is K x 144 evaluations, about 8 ms at K = 24 on the
+      // Mac, so computing each inside the frame that first needs it would drop frames on the first play. The 8 times are
+      // filled in idle time, one row of 12 points at a time, from the frame that opens the key on, ahead of t; a
       // frame that needs a time not yet filled finishes it from where the idle work stopped. Same points, same values,
-      // same percentile: the scale is unchanged, only when it is computed moves.)
+      // same percentile as computing each in its own frame: only when the scale is computed differs.)
       if (hv && c.mu > 0 && typeof Funcs.sheetMapEval === 'function') {
         const L = morphLen(), N = 8, T = Math.max(0, Math.min(L, +hv.t || 0));
         const hk = `${key}|${rangeKey()}|${allAtOnce() ? 1 : 0}|${L}|${leftStage()}|${sheets.end}`;
@@ -1054,7 +1054,7 @@
     for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
-  // Y Sphere: the images on the w-globe (U-b; the phase globe is X Sphere + Phase, renderSphereLeft)
+  // Y Sphere: the images on the w-globe (the phase globe is X Sphere + Phase, renderSphereLeft)
   function renderSphere(pane) {
     // the Morph transport (homView): the regions under H_t
     const hv = typeof homView === 'function' ? homView() : null;
@@ -1120,7 +1120,7 @@
       return info && Object.assign({}, info, { carried });
     }
     // (o.maskRegions: drawn over the regions' globe already on the pane, in its colour inside the regions alone: no
-    // backdrop, shadow or marks of its own, #440)
+    // backdrop, shadow or marks of its own)
     const over = !!o.maskRegions;
     if (!over) pane.begin(TH.plane);
     if (!GLR.ok) { if (!over) noGL(pane); return null; }
@@ -1149,12 +1149,12 @@
     }
     GLR.begin(pane.pw, pane.ph);
     const imageMode = o.imageMode;
-    // ((#440) o.maskRegions: the globe in colour, kept inside the regions, which are lifted as in image mode for its mask)
+    // (o.maskRegions: the globe in colour, kept inside the regions, which are lifted as in image mode for its mask)
     const regionsOn = imageMode || !!o.maskRegions;
     const regions = [], lines = [];
     // o.hom: the homotopy at time t (Morph transport): image mode lifts the shapes under H_t, phase mode paints H_t
     const hom = o.hom || null;
-    // ((#366 prototype) o.lineMap: the steps view's glide moves the shapes in either paint, 19)
+    // (o.lineMap: the steps view's glide moves the shapes in either paint, 19)
     const map = o.lineMap || (hom && imageMode ? (hom.imageMap || hom.map) : stageMap(o.stage));   // shapes live in the z-plane
     const cell = patternCell();
     // the same map cache keys as drawScene: orbiting the globe re-evaluates nothing (spec 8.1); homotopy frames go
@@ -1228,7 +1228,7 @@
     // the deformation on Y's globe (merged-views.md: one globe): X's outline in grey under H_t(X), where the paths start
     // (at a focused step, the image of X at the step's input stage)
     if (hom && imageMode && role === 'R') {
-      // (v16: with a bracket, H_0(∂X) = Q o P(∂X) through H0Map, SPEC 5.3)
+      // (with a bracket, H_0(∂X) = Q o P(∂X) through H0Map, SPEC 5.3)
       const base = S.focus > 0 ? S.focus - 1 : 0, bm = hom.range && hom.H0Map ? hom.H0Map : stageMap(base), bk = mapKeyOf(bm);
       for (const s of S.shapes) {
         if (s.visible === false || kindType(s) === 'point' || shapeStage(s)) continue;
@@ -1348,7 +1348,7 @@
   // It starts below the equator, looking up at the south pole: the domain's shapes usually sit near 0.
   const CAML = { yaw: -60 * DEG, pitch: -24 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const camL = Object.assign({ vyaw: 0, vpitch: 0 }, CAML);
-  // the globe's pre passes: the targets' (pre) and ([#253]) those of the shapes of later planes (fills at half strength
+  // the globe's pre passes: the targets' (pre) and those of the shapes of later planes (fills at half strength
   // over a phase portrait, as the targets')
   function preAll(pre, half) {
     const out = pre && pre.targets.length ? [pre] : [];
@@ -1370,8 +1370,8 @@
     if (carried) return carried;
     const net = leftNet(), pre = leftPre();
     // X Sphere + Phase: the phase portrait of the map in focus on the globe (or of H_t with the transport open), the
-    // shapes outlined (earlier the right pane's Sphere > Phase)
-    // ((#366 prototype) the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
+    // shapes outlined
+    // (the steps view's Inside regions on the globe, 19: the globe of regions carries the pulled-back
     // shapes of later planes as every globe does; the colour globe kept inside the regions does not repeat them)
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
@@ -1402,7 +1402,7 @@
     const P = solo() === 'R' ? paneR : paneL;
     return { x0: v.cx - P.w / 2 / v.s, x1: v.cx + P.w / 2 / v.s, y0: v.cy - P.h / 2 / v.s, y1: v.cy + P.h / 2 / v.s };
   }
-  // (#385) the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
+  // the view controls: the view switch, Plane | Sphere, the Key switch, the Display options
   // The fill opacity, S.alpha: the one setter of the regions' Opacity slider (#alphaRange) and the steps view's colour
   // popover (the .sv-opacity ranges, which show it in whole percents), each kept at the value
   function setFillOpacity(v) {
@@ -1437,7 +1437,7 @@
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
   }
-  // (#385) the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
+  // the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
   function setupPaneButtons() {
     $('leftFit').addEventListener('click', () => {
       if (!lFlat()) { const c = camOf('L'); if (c) tweenCam(c, camBaseOf(c)); return; }
@@ -1447,13 +1447,13 @@
       tweenView(leftView(), target, 260, () => sourceViewChanged());
     });
     $('rightFit').addEventListener('click', () => { if ($('rightFit').getAttribute('aria-disabled') === 'true') return; rightAuto = true; fitRight(true, morphOn()); requestRender('R'); });
-    // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (merged-views
-    // review: on a 356 px plot the key covered a third of the landscape); a tap on a folded or unfolded chip toggles
+    // On a touch phone the legend chips start folded to their colour wheel and a tap unfolds them (on a 356 px plot the key covers a third of the landscape);
+    // a tap on a folded or unfolded chip toggles
     for (const id of ['leftLegend', 'rightLegend']) {
       const el = $(id);
       if (!el) continue;
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
-      // ([#337] the pop-up in a pane head opens below the probe's readout and the notes it would cover)
+      // (the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
       // (on a phone the chip lies in the plot, folded: it stays below the readout as it changes size. The readouts are
       // the pane's own plot's elements, wherever the chip stands when this runs (in the pane's head until the layout
@@ -1474,7 +1474,7 @@
       // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
       try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
       el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
-      el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (#365: on a laptop Phase's key lies open on the plot)
+      el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
       $(side + 'ZoomIn').innerHTML = ICONS.plus;
