@@ -78,7 +78,9 @@ bound. Rev 2 therefore:
   formula shape, an unrecognised unbounded formula under a window family, member indices beyond 2²⁰ (precision).
   A curve of a later plane stroked by its polylines at rest (a freehand curve, a formula curve, an external ray, an
   equipotential) has no 64-vertex limit: its polylines are simplified to fit 1024 vertices (`GLR.INV_CURVE_MAX`), and
-  one that still does not fit is left out of the frames between planes.
+  one that still does not fit is left out of the frames between planes. An open region of a later plane is stroked
+  dashed, as at rest, by its outline's polylines at rest within the same 1024 vertices, each vertex with its arc at
+  rest; an outline that does not fit is stroked solid, by the region's level.
 - Frames of a **playing** homotopy (morph, transitions) keep today's GPU path, as do all shapes during the first frames
   of a pending compile.
 
