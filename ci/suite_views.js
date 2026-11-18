@@ -207,6 +207,7 @@ const VIEWS = {
   'shape_rows_cmd.js': steps({ pin: true }),
   'stage_shapes_cmd.js': steps({ pin: true }),
   'steps_pullback_layer_cmd.js': steps({ pin: true }),
+  'steps_pullback_mask_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
   'ux165_fix_cmd.js': steps({ pin: true }),
   'ux165_merge_classic_cmd.js': classic('Y\'s head with its "Y · " tag: the classic right pane; the steps view has one plane and no such head'),

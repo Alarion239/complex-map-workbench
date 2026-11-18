@@ -20,7 +20,7 @@
   function preimageTargets(areasOnly) {
     return pullTargets((S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area')));
   }
-  // the opacity of a pulled-back region's fill
+  // the opacity of a pulled-back region's fill over a picture (a mask takes it opaque: pullTargets' asMask)
   const PULL_ALPHA = 0.42;
   // a pulled-back region's boundary band (the shader's PRE_FS): its alpha, and the share of its width (at least one css
   // pixel) it is drawn at
@@ -29,7 +29,9 @@
   const pullBandW = (s, dpr) => Math.max(dpr, PULL_EDGE_MIN * pullWidth(s, dpr));
   // the width (device px) of a pulled-back region's boundary: 2 css px, 2.75 for the selected one
   const pullWidth = (s, dpr) => (s.id === selected ? 2.75 : 2) * dpr;
-  function pullTargets(list) {
+  // (asMask: drawn into the regions' mask, the steps view's Inside regions, where a region's fill is opaque, as the plane's
+  // own regions are, so the colour kept inside it is as strong as Everywhere's; dimK still dims it)
+  function pullTargets(list, asMask) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
     const keep = nv > 256 ? 256 / nv : 1;
@@ -40,7 +42,7 @@
         t.pts = Array.from({ length: n }, (_, i) => s.pts[Math.round(i * (s.pts.length - 1) / Math.max(1, n - 1))]);
       }
       const ink = shapeInk(s), area = kindType(s) === 'area';
-      let a = area ? PULL_ALPHA : 1;
+      let a = area && !asMask ? PULL_ALPHA : 1;
       a *= dimK(s);
       t.color = GLR.hexRGB(area ? ink.c0 : ink.edge);
       t.edge = GLR.hexRGB(ink.edge);
@@ -52,11 +54,18 @@
   // preimage targets over a picture in colour (a phase portrait, the steps view's carried colour): the area fills at half
   // strength, so the colour reads through them; curves and boundaries as drawn
   const halfFills = (ts) => ts.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
+  // the share of a pulled-back region's fill that the steps view's layer over the colour draws: half Everywhere, so the
+  // colour reads through it; none Inside regions, where the mask keeps the colour inside the region at full strength and
+  // the layer is the region's boundary band alone, as the outline of a region of the plane itself is
+  const pullLayerFill = () => (svMaskOn() ? 0 : 0.5);
+  // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share; curves as drawn
+  const layerFills = (ts) => { const k = pullLayerFill(); return ts.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * k }) : t)); };
   // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
-  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at half strength
+  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at pullLayerFill's
+  // share
   function pullLayerEdge(s, dpr) {
     const ink = shapeInk(s);
-    return { width: pullBandW(s, dpr), alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), tint: [...GLR.hexRGB(ink.c0), 0.5 * PULL_ALPHA * dimK(s)] };
+    return { width: pullBandW(s, dpr), alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
   }
   // a second GL pass over the plane: where the map lands in each target
   function drawPullback(pane, map, targets) {
@@ -74,8 +83,8 @@
   // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
   // per plane s. A point's preimages are not drawn (they are roots, not a picture)
   // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask and its layer, 19;
-  // over: over a picture in colour, the steps view's layer, so the area fills are at half strength and the colour reads
-  // through them, as renderColor draws the targets' preimages)
+  // over: over a picture in colour, the steps view's layer, so the area fills are at pullLayerFill's share and the
+  // colour reads through them; with neither, inside withSolidRegions, the regions' mask, where the fills are opaque)
   function stagePullbacks(pane, j, inFrame, over) {
     const by = new Map();
     for (const s of S.shapes) {
@@ -91,7 +100,7 @@
     try {
       if (!inFrame) GLR.begin(pane.pw, pane.ph);
       cmFormAnchor('Y');
-      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: over ? halfFills(pullTargets(list)) : pullTargets(list), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
+      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: over ? layerFills(pullTargets(list)) : pullTargets(list, regionsAsMask()), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
       pending = !!(GLR.frameStatus && GLR.frameStatus().pending);
       if (!inFrame) GLR.blit(pane.ctx);
     } catch (e) { console.error('drawPreimage', e); }
