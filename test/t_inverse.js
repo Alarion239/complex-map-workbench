@@ -1105,6 +1105,32 @@ section('singularAfter (ζ after an injective plan)');
   }
   const lin = Funcs.build(St('custom', { expr: 'z+0.2*conj(z)' }));
   check('homOps: a straight-line homotopy has none', !Inverse.homOps(lin, 0.5).ok);
+  // a recognised formula's NEWT op names its sub-step (sub), whose own homotopy the GPU walks; a NEWT op that is not
+  // polynomial keys it (@j), as its program calls that sub-step's homotopy (#1805)
+  {
+    const sub = (expr, t) => Inverse.homOps(Funcs.build(St('custom', { expr, cut: 180 })), t).ops.filter((o) => o.kind === 'NEWT').map((o) => [o.sub, Inverse.opSig(o)]);
+    const g25 = sub('gamma(z)+1', 0.25), g75 = sub('gamma(z+1)', 0.75), p25 = sub('z^3-2z+1', 0.25), p75 = sub('z^3-2z+1', 0.75);
+    check('homOps: Γ(z) + 1 at t = 0.25, its NEWT op names sub-step 0 and keys it', g25.length === 1 && g25[0][0] === 0 && /@0$/.test(g25[0][1]), g25);
+    check('homOps: Γ(z + 1) at t = 0.75, its NEWT op names sub-step 1 and keys it', g75.length === 1 && g75[0][0] === 1 && /@1$/.test(g75[0][1]), g75);
+    check('homOps: z^3 - 2z + 1 at t = 0.25 and 0.75, its polynomial NEWT op names sub-step 0 (its key is its degree)', p25.length === 1 && p25[0][0] === 0 && p25[0][1] === 'NEWT^3' && p75.length === 1 && p75[0][0] === 0 && p75[0][1] === 'NEWT^3', { p25, p75 });
+  }
+  // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
+  // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
+  // Repeated cos (len 1, N = 3: cos, cos, cos) at t = 0.5 and 0.8, and the block [exp, cos] twice (len 2: cos, exp, cos)
+  // at t = 0.2 and 0.9
+  for (const [steps, ts] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], [0.5, 0.8]], [[{ type: 'exp' }, { type: 'cos', repeat: { n: 2, len: 2 } }], [0.2, 0.9]]]) {
+    const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st))), b = built[built.length - 1], block = b.repeat.block;
+    for (const t of ts) {
+      const news = Inverse.homOps(b, t).ops.filter((o) => o.kind === 'NEWT'), bad = [];
+      for (const o of news) {
+        const st = block[o.sub];
+        if (!st) { bad.push({ sub: o.sub, len: block.length }); continue; }
+        const H = st.hom(o.p.t);
+        for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4)]) { const v = H(z), e = CX.abs(CX.sub(o.fwd(z), v)) / (1 + CX.abs(v)); if (!(e < 1e-12)) bad.push({ sub: o.sub, step: st.def.id, e }); }
+      }
+      check(`homOps: ${steps.map((st) => st.type).join(', ')} repeated (len ${block.length}) at t = ${t}: each NEWT op names the block step whose homotopy it walks`, news.length > 0 && bad.length === 0, { subs: news.map((o) => o.sub), bad: bad.slice(0, 3) });
+    }
+  }
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
 }
 
