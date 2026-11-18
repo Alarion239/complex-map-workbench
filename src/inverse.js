@@ -413,7 +413,10 @@ const Inverse = (() => {
   }
   // Inverse.keyPeriod(plan) -> the period T of the chain in z (F(z + T) = F(z)), or null: the step its leading affine
   // ops (AFF, or MOB with c = 0) u = A z + B lead to has an additive family of period p (exp, sin, cos, tan and their
-  // kin), so T = p / A; null too where |T|^2 is not finite in float64 (an extreme A), which perReduce divides by
+  // kin), so T = p / A; null too where |T|^2 reaches KEY_PER_MAX2, so that both reductions modulo T can divide by it:
+  // perReduce here in float64, and the inverse pass's dot(uSingT, uSingT) in float32 (02-glsl-inverse.js), whose
+  // largest value is about 3.4e38
+  const KEY_PER_MAX2 = 1e37;
   function keyPeriod(plan) {
     if (!plan || !plan.ok) return null;
     let A = ONE;
@@ -422,7 +425,7 @@ const Inverse = (() => {
       if (af) { A = mul(af.a, A); continue; }
       if (!(o.fam && o.fam.type === 'add' && isFin(o.fam.p) && !isZero(A))) return null;
       const T = div(o.fam.p, A);
-      return Number.isFinite(T.re * T.re + T.im * T.im) ? T : null;
+      return T.re * T.re + T.im * T.im < KEY_PER_MAX2 ? T : null;
     }
     return null;
   }
