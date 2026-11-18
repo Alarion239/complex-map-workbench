@@ -127,7 +127,7 @@ class Quality(unittest.TestCase):
         self.assertEqual(rc, 0, out)
 
     def test_metric_the_new_classifier_does_not_report_is_not_compared(self):
-        # the baseline scored expH.mask with the 'mask' classifier (opacity_min, color_off); the run now uses 'cover',
+        # a baseline run of expH.mask scored by the 'mask' classifier (opacity_min, color_off), a current one by 'cover',
         # which reports neither: those rows are n/a with the reason, and a warning names the change
         def run(cls, metrics):
             return dict(qrun('expH.mask', metrics=metrics), classifier=cls, strict=True)
