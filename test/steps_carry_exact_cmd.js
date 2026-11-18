@@ -40,7 +40,8 @@
 // Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
 // - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (drawn by the inverse pass; the front
 //   point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
-// - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered.
+// - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered; and the
+//   glide's key at t = 0.999 puts the copy of a point in front that plane w1's key does at rest.
 //
 // ---- part chains ----
 // The steps view's colour at rest on the planes past the colour plane of long chains, coloured from z ("colour of z,
@@ -483,6 +484,14 @@ async function farPart() {
     // (at once: under 5 ms, where making the tracks again is a whole grid search per seed step, tens of ms or more)
     ok("tan all parked 0.5: the glide's pole tracks are kept for it (a second key at once)", k.again < 5, k);
     ok('tan all parked 0.5: no point of the inner 90 % on the bare paper', paper === 0 && info['tan all parked 0.5'].n > 1000, info['tan all parked 0.5']);
+    // The glide's key as t -> 1 meets plane w1's: of the 13 copies atan w + k pi (k = -6 .. 6) landing at w, the front
+    // point under the key at t = 0.999 is the one at rest (the glide's key has the period of tan's path at t, pi / t)
+    const atan = ([x, y]) => [(Math.atan2(2 * x, 1 - x * x - y * y)) / 2, Math.log((x * x + (y + 1) * (y + 1)) / (x * x + (y - 1) * (y - 1))) / 4];
+    const ws = [[5, 0], [8, 1], [-6, 0.5], [3, 3]], lists = ws.map((w) => { const a = atan(w); return Array.from({ length: 13 }, (_, i) => [a[0] + (i - 6) * Math.PI, a[1]]); });
+    const near1 = await fronts(lists, 1, null, 0.999), rest = await fronts(lists, 1, null);
+    const jumps = ws.map((w, j) => ({ w, glide: lists[j][near1[j]], rest: lists[j][rest[j]] })).filter((e, j) => near1[j] !== rest[j]);
+    info['tan key at t = 0.999'] = { per: (await ev('__cmwSvKey(1, 0.999)')).per, rest: (await ev('__cmwSvKey(1)')).per, jumps };
+    ok("tan: the glide's front point at t = 0.999 is plane w1's at rest", rest.every((i) => i >= 0) && jumps.length === 0, info['tan key at t = 0.999']);
   }
   // The warm draw of the glide's carried colour (svWarmCarry) waits until the chain and the input have been still for 2 s:
   // on a renderer that makes a program's machine code at its first draw it takes the main thread for a second or more,

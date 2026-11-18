@@ -996,9 +996,9 @@
       }
     }
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
-    // (the period: the steps before b's, which h_{b,t} keeps whatever step b's path does, Inverse.keyPeriod; one point
-    // of each class modulo it, as at rest)
-    const per = b > 1 ? Inverse.keyPeriod(invPlan(0, b - 1)) : null;
+    // (the period: the glide map's at t, invHomPer, which meets plane b's as t -> 1; one point of each class modulo it,
+    // as at rest)
+    const per = invHomPer(0, b, t);
     return Object.assign({}, k, { sing: Inverse.keyClasses(acc.concat(poles), per).slice(0, 4), per });
   }
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a

@@ -412,6 +412,25 @@
     }
     return bs;
   }
+  // The period in z of the glide's map H_t o F_{k-1} from plane a, or null: Inverse.keyPeriod of its plan at t (step k
+  // standing for its homotopy, as invHomPath's plan), so the steps before k's where they have one, which H_t keeps,
+  // and where they are affine, that of step k's path at t (tan's, tan(t z) / t about its centre, has pi / t): the key
+  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Kept per (a, k, t, chain), as a
+  // glide's frames ask for each t a few times
+  const invHomPers = new Map();
+  function invHomPer(a, k, t) {
+    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    if (invHomPers.has(ck)) return invHomPers.get(ck);
+    let plan = null;
+    try {
+      const bs = invHomSkeleton(a, k), hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
+      if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(S.steps, bh, a, k); }
+    } catch (e) { plan = null; }
+    const per = plan && plan.ok ? Inverse.keyPeriod(plan) : k - 1 > a ? Inverse.keyPeriod(invPlan(a, k - 1)) : null;
+    if (invHomPers.size >= 4096) invHomPers.clear();
+    invHomPers.set(ck, per);
+    return per;
+  }
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -449,8 +468,8 @@
     let prep = h.preps.get(wk);
     if (!prep) {
       try {
-        // (the key's period: the steps before k's, which the path of step k at t keeps, as svSheetKeyAt's)
-        const per = k - 1 > a ? Inverse.keyPeriod(invPlan(a, k - 1)) : null;
+        // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
+        const per = invHomPer(a, k, t);
         if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, per) };
         prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v, per });
       } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
