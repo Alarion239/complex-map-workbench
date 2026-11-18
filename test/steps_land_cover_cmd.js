@@ -17,9 +17,9 @@
 //   Of the surface pixels of the frame and of the plane it arrives at, parked, the share over 32/255 apart is at most
 //   the sheets-off frame's plus ARRIVE_SLACK: the sheets' scale, block and linear height ease into the parked plane's
 //   own over the glide, as the sheets-off carry's scale does.
-// - The same arrival in a small window about 0 (s = 900, SMALL), where the carried points reach the whole window, so the
-//   sheets-off frame is all but the parked plane: All sheets at most its share plus ARRIVE_SLACK. Most of that window is
-//   drawn by the carry's far patches, which the sheets' rim must not take for the box's edge.
+// - The same arrival in a small window about 0 (s = 900, SMALL), where the carried points reach the whole window, so
+//   the sheets-off frame is all but the parked plane: All sheets at most its share plus ARRIVE_SLACK. Most of that
+//   window is drawn by the carry's far patches, which the sheets' rim must not take for the box's edge.
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -31,15 +31,15 @@ const surface = async (keep) => {
   if (keep) await ev(`window.__lcKeep = window.__lcKeep || {}; window.__lcKeep[${JSON.stringify(keep)}] = (() => { const cv = document.getElementById('canvasL'); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; })(); 1`);
   return ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let n = 0, top = -1; for (let y = 0; y < cv.height; y++) for (let x = 0; x < cv.width; x++) { const i = (y * cv.width + x) * 4; if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 30) { n++; if (top < 0) top = y; } } return { n, top }; })()`);
 };
-// the share of the surface pixels of the frame now or of the frame kept as tag (saturation over 30) that are over 32/255
-// apart from each other in a channel
+// the share of the surface pixels of the frame now or of the frame kept as tag (saturation over 30) that are over
+// 32/255 apart from each other in a channel
 const apart = (tag) => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, e = window.__lcKeep[${JSON.stringify(tag)}]; const sat = (a, i) => Math.max(a[i], a[i + 1], a[i + 2]) - Math.min(a[i], a[i + 1], a[i + 2]) > 30; let n = 0, far = 0; for (let i = 0; i < d.length; i += 4) { if (!sat(d, i) && !sat(e, i)) continue; n++; if (Math.max(Math.abs(d[i] - e[i]), Math.abs(d[i + 1] - e[i + 1]), Math.abs(d[i + 2] - e[i + 2])) > 32) far++; } return +(far / Math.max(n, 1)).toFixed(4); })()`);
 const ANN = [{ id: 'a1', kind: 'annulus', c: [0, 0], r: 1, r2: 3, visible: true }];
 const LOG = [{ type: 'log', params: { cut: 180, k: 0 }, on: true }];
 const MOB = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
 // (min: the share of the plane's surface pixels the carried frame must have, at u = .002 and, with rest998, at .998; top:
-// also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All sheets;
-// arrive: the arrival row against the parked plane)
+// also the topmost row within 3 px of the plane's; sheets off, the footprint is the baseline of the same chain's All
+// sheets; arrive: the arrival row against the parked plane)
 const ARRIVE_SLACK = 0.05;
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },

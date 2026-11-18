@@ -327,12 +327,12 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
   }
-  // the carried All sheets' places, bound to unit 11 (uCP) for the sheets' draw and run every frame, as the places change
-  // with the glide; the box's in landCP[0], a patch's in slot i + 1. sh ({sp: the sheets' plan, tileC: their heights'
-  // tiles a row}): each sheet's cells' corners at their image under the glide's map on that sheet, in the tiles of its
-  // heights (LAND_CARRY_PLACE_S_TF_VS), so each sheet stands over its own image; 2. Without sh, or until that program
-  // has compiled: the grid of N points a side over the box src, or a pole's patch (polar, CARRY_Z), at its image on the
-  // principal sheet, where every sheet stands (LAND_CARRY_PLACE_TF_VS); 1. 0 when neither program is ready
+  // the carried All sheets' places, bound to unit 11 (uCP) for the sheets' draw and run every frame, as the places
+  // change with the glide; the box's in landCP[0], a patch's in slot i + 1. sh ({sp: the sheets' plan, tileC: their
+  // heights' tiles a row}): each sheet's cells' corners at their image under the glide's map on that sheet, in the
+  // tiles of its heights (LAND_CARRY_PLACE_S_TF_VS), so each sheet stands over its own image; 2. Without sh, or until
+  // that program has compiled: the grid of N points a side over the box src, or a pole's patch (polar, CARRY_Z), at its
+  // image on the principal sheet, where every sheet stands (LAND_CARRY_PLACE_TF_VS); 1. 0 when neither program is ready
   // (CP_NONE, CP_PRINCIPAL, CP_SHEETS)
   const landCP = [], CP_NONE = 0, CP_PRINCIPAL = 1, CP_SHEETS = 2;
   // linear heights on a carried glide: the share of the compressed height in them (HEIGHT's uHComp, st.heightComp), set
