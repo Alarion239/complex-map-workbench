@@ -74,6 +74,13 @@ const SUITES = {
     runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }],
     logLine: (o) => 'GLOBE-SPLIT ' + JSON.stringify(o.info),
   },
+  // (#1074: the globe's outlines by the piece pass, the same picture to the byte as per vertex and at most half its GPU
+  // time, at the device pixel ratio 1 and at the Mac screen's 2. logLine: the costs in one line of the log, for the GPU
+  // gate's mode suites on the Mac)
+  'sv_globe_pieces_cmd.js': {
+    runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }],
+    logLine: (o) => 'GLOBE-PIECES ' + JSON.stringify(Object.fromEntries(Object.entries(o.info || {}).filter(([k]) => / cost$/.test(k)))),
+  },
   'steps_seams_cmd.js': {
     runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }],
     keepShots: true,

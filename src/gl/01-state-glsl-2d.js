@@ -892,7 +892,52 @@ void main() { o = vec4(tfOut, 0.0, 1.0); }
   // evaluation on the uncached one (homotopies). True ends and sharp turns get round caps.
   // Dashes: aArc = (arc length at the segment start, segment length) along the mapped curve in plane units,
   // computed on the CPU per map; uArcPx converts to device px.
-  const LINE_VS = (variant, fetch) => `
+  // piece: the globe's piece pass (variant 'S', fetch 'tex'): one point per piece (aTpl, aIdx its first vertex's) that
+  // writes what all its vertices share, whatever the stroke's width (LINE_PIECE_OUT), into texel i = instance * uM +
+  // piece of four layers (LINE_PIECE_FS); LINE_PIECES_VS draws the casing and the stroke from them. The same arithmetic
+  // as the per-vertex program's, so the picture is the same to the bit
+  const LINE_OUT = `
+out vec2 vLocal;
+out vec2 vSrc;
+flat out float vLen;
+flat out float vHalf;
+flat out vec2 vCap;
+flat out float vArcA;
+`;
+  const LINE_PIECE_OUT = `
+flat out vec4 vPc0;   // q0, q1 (device px from the centre)
+flat out vec4 vPc1;   // nA, nB (the join normals)
+flat out vec4 vPc2;   // d, len, drawn (1) or culled (0)
+flat out vec4 vPc3;   // the depths of q0 and q1, capA, capB
+uniform int uM; uniform int uRtW; uniform vec2 uRtSz;
+void pieceAt() {
+  int i = gl_InstanceID * uM + gl_VertexID;
+  gl_Position = vec4((vec2(float(i % uRtW), float(i / uRtW)) + 0.5) / uRtSz * 2.0 - 1.0, 0.0, 1.0);
+  gl_PointSize = 1.0;
+}
+`;
+  // a vertex of a piece from q0, q1, d, n, len, nA, nB, capA, capB, zc0, zc1 and its source points s0, s1 (w0, w1 for 'F')
+  const LINE_EMIT = (variant) => `
+  float hw = 0.5 * uWidth + 1.0;
+  bool atEnd = aTpl.z > 0.5;
+  float side = aTpl.w;
+  vec2 q;
+  if (!atEnd) {
+    if (capA) q = q0 - d * hw + n * side * hw;
+    else { vec2 nm = normalize(nA + n); q = q0 + nm * (side * hw / dot(nm, n)); }
+  } else {
+    if (capB) q = q1 + d * hw + n * side * hw;
+    else { vec2 nm = normalize(nB + n); q = q1 + nm * (side * hw / dot(nm, n)); }
+  }
+  vLocal = vec2(dot(q - q0, d), side * hw);
+  vCap = vec2(capA ? 1.0 : 0.0, capB ? 1.0 : 0.0);
+  vSrc = ${variant === 'F' ? 'atEnd ? w1 : w0' : 'srcOf(atEnd ? s1 : s0)'};
+  vLen = len; vHalf = 0.5 * uWidth;
+  vArcA = (aArc.x + aArc.y * aTpl.x) * uArcPx;
+  float zc = atEnd ? zc1 : zc0;
+  gl_Position = vec4(q / (0.5 * uPx), ${variant === 'S' ? 'zc - 0.0004' : variant === 'F' ? 'zc' : '0.0'}, 1.0);
+`;
+  const LINE_VS = (variant, fetch, part = '') => `
 layout(location = 0) in vec4 aTpl;   // t0, t1, end (0/1), side (-1/1)
 layout(location = 6) in vec4 aIdx;   // template point indices of t0, t1, midpoint
 layout(location = 2) in vec4 aP;     // P0.xy, P1.xy (relative to the origin)
@@ -901,12 +946,7 @@ layout(location = 11) in vec4 aN;    // the previous segment's start, the next s
 layout(location = 12) in vec2 aArc;  // arc length at the segment start, segment length (dashes)
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uPx; uniform float uWidth; uniform float uDpr;
 uniform mat4 uMVP; uniform vec4 uBox; uniform vec2 uAspect; uniform float uFloorZ; uniform vec4 uClip; uniform float uArcPx;
-out vec2 vLocal;
-out vec2 vSrc;
-flat out float vLen;
-flat out float vHalf;
-flat out vec2 vCap;
-flat out float vArcA;
+${part === 'piece' ? LINE_PIECE_OUT : LINE_OUT}
 ${SRC}
 ${FETCH(fetch)}
 ${fetch === 'tex' ? 'vec2 Wn(int inst, int k) { int i = inst * uP + k; return texelFetch(uW, ivec2(i % uTexW, i / uTexW), 0).xy; }' : ''}
@@ -986,12 +1026,9 @@ ${fetch === 'tex' && variant === '' ? `  // pile-ups (13.14): where a map compre
       if (len2(qE - q0) < cq && len2(qH - q0) < cq && floor(q0 / cq) == floor(qP / cq)) good = false;
     }
   }
-` : ''}  if (!good) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+` : ''}  if (!good) { ${part === 'piece' ? 'vPc0 = vPc1 = vPc2 = vPc3 = vec4(0.0); pieceAt();' : 'gl_Position = vec4(2.0, 2.0, 2.0, 1.0);'} return; }
   vec2 d = len > 1e-6 ? (q1 - q0) / len : vec2(1.0, 0.0);
   vec2 n = vec2(-d.y, d.x);
-  float hw = 0.5 * uWidth + 1.0;
-  bool atEnd = aTpl.z > 0.5;
-  float side = aTpl.w;
   // joins: a neighbour piece shares the end point; both cut along the bisector of their normals
   bool capA = true, capB = true;
   vec2 nA = n, nB = n;
@@ -1023,21 +1060,45 @@ ${variant !== 'F' ? `
       if (lb >= 0.02 * uDpr && (firstB || lb >= 0.25 * uDpr || (dotOwn == -1 ? !segDot(0) : dotOwn == 0))) { nB = vec2(-e.y, e.x) / lb; capB = dot(nB, n) < 0.35; }
     }
   }` : ''}
-  vec2 q;
-  if (!atEnd) {
-    if (capA) q = q0 - d * hw + n * side * hw;
-    else { vec2 nm = normalize(nA + n); q = q0 + nm * (side * hw / dot(nm, n)); }
-  } else {
-    if (capB) q = q1 + d * hw + n * side * hw;
-    else { vec2 nm = normalize(nB + n); q = q1 + nm * (side * hw / dot(nm, n)); }
-  }
-  vLocal = vec2(dot(q - q0, d), side * hw);
-  vCap = vec2(capA ? 1.0 : 0.0, capB ? 1.0 : 0.0);
-  vSrc = ${variant === 'F' ? 'atEnd ? w1 : w0' : 'srcOf(atEnd ? s1 : s0)'};
-  vLen = len; vHalf = 0.5 * uWidth;
-  vArcA = (aArc.x + aArc.y * aTpl.x) * uArcPx;
-  float zc = atEnd ? c1.z / c1.w : c0.z / c0.w;
-  gl_Position = vec4(q / (0.5 * uPx), ${variant === 'S' ? 'zc - 0.0004' : variant === 'F' ? 'zc' : '0.0'}, 1.0);
+  float zc0 = c0.z / c0.w, zc1 = c1.z / c1.w;
+${part === 'piece' ? `  vPc0 = vec4(q0, q1); vPc1 = vec4(nA, nB); vPc2 = vec4(d, len, 1.0);
+  vPc3 = vec4(zc0, zc1, capA ? 1.0 : 0.0, capB ? 1.0 : 0.0);
+  pieceAt();` : LINE_EMIT(variant)}
+}
+`;
+  const LINE_PIECE_FS = `
+flat in vec4 vPc0;
+flat in vec4 vPc1;
+flat in vec4 vPc2;
+flat in vec4 vPc3;
+layout(location = 0) out vec4 o0;
+layout(location = 1) out vec4 o1;
+layout(location = 2) out vec4 o2;
+layout(location = 3) out vec4 o3;
+void main() { o0 = vPc0; o1 = vPc1; o2 = vPc2; o3 = vPc3; }
+`;
+  // the globe's casing and stroke drawn from the piece pass's layers (uPc; texel i = instance * uM + piece): the same
+  // vertices, in the same order, as the per-vertex program 'lineSC'
+  const LINE_PIECES_VS = `
+layout(location = 0) in vec4 aTpl;
+layout(location = 6) in vec4 aIdx;
+layout(location = 2) in vec4 aP;
+layout(location = 12) in vec2 aArc;
+uniform vec2 uPx; uniform float uWidth; uniform float uArcPx;
+uniform highp sampler2DArray uPc; uniform int uM; uniform int uPcW;
+${LINE_OUT}
+${SRC}
+void main() {
+  int i = gl_InstanceID * uM + int(aIdx.x + 0.5);
+  ivec2 t = ivec2(i % uPcW, i / uPcW);
+  vec4 p2 = texelFetch(uPc, ivec3(t, 2), 0);
+  if (p2.w < 0.5) { gl_Position = vec4(2.0, 2.0, 2.0, 1.0); return; }
+  vec4 p0 = texelFetch(uPc, ivec3(t, 0), 0), p1 = texelFetch(uPc, ivec3(t, 1), 0), p3 = texelFetch(uPc, ivec3(t, 3), 0);
+  vec2 q0 = p0.xy, q1 = p0.zw, nA = p1.xy, nB = p1.zw, d = p2.xy, n = vec2(-d.y, d.x);
+  float len = p2.z, zc0 = p3.x, zc1 = p3.y;
+  bool capA = p3.z > 0.5, capB = p3.w > 0.5;
+  vec2 s0 = mix(aP.xy, aP.zw, aTpl.x), s1 = mix(aP.xy, aP.zw, aTpl.y);
+${LINE_EMIT('S')}
 }
 `;
   const LINE_FS = `

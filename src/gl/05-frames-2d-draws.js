@@ -30,7 +30,7 @@
         // every GPU object is gone: forget them and let the app rebuild its meshes
         progs.clear(); tplCache.clear();
         sphereGeo = emptyVAO = markVAO = markBuf = lutTex = palTex = tfObj = scratch = nodeTex = nodeKey = standInTex = standInKey = ptsTex = rtFbo = null;
-        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
+        peel = null; peelOn = 0; peelSeen = 0; peelQ = null; pcTex = pcFbo = null; pcW = pcH = 0; invTex = halfTex = halfFbo = null; invTexKey = ''; halfW = halfH = 0; invUpWarm = false; invFailed.clear(); tqPending.length = 0; tqActive = null; tqChecked = false; tqExt = null;
         scratchBytes = 0;
         lands.clear(); lastLand = landS = null;
         // (the refinement's programs are warmed again one per frame, and its read-back buffer is gone)
@@ -657,6 +657,76 @@
       gl.bindVertexArray(null);
     } finally { if (st.sync) syncDepth--; }
   }
+  // The globe's outlines from their cached values (lineSC) compute each piece's ends, joins and culls at every one of
+  // its six vertices, in both the casing's pass and the stroke's: 3.3 of a held glide frame's 9 ms on the Mac (M4, #1074),
+  // all of it vertex work. With float targets, linePieces computes them once per piece into the four RGBA32F layers of
+  // pcTex (texel i = instance * M + piece), and linePc draws each pass from them: the same vertices in the same order,
+  // the same picture. pieces: false (tests, linePiecesOn) draws per vertex.
+  let pcTex = null, pcFbo = null, pcW = 0, pcH = 0, pieces = true, pcPasses = 0;
+  const PC_UNIT = 15;
+  // -> the target for count pieces, or null when it does not fit or is not complete
+  function pieceTarget(count) {
+    const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(count / W));
+    if (H > maxTex) return null;
+    if (pcTex && pcW === W && pcH >= H) return pcTex;
+    if (pcTex) { gl.deleteTexture(pcTex); pcTex = null; }
+    if (!pcFbo) pcFbo = gl.createFramebuffer();
+    gl.activeTexture(gl.TEXTURE0 + PC_UNIT);
+    const t = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, t);
+    gl.texStorage3D(gl.TEXTURE_2D_ARRAY, 1, gl.RGBA32F, W, H, 4);
+    for (const [k, v] of [[gl.TEXTURE_MIN_FILTER, gl.NEAREST], [gl.TEXTURE_MAG_FILTER, gl.NEAREST], [gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE], [gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE]]) gl.texParameteri(gl.TEXTURE_2D_ARRAY, k, v);
+    const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pcFbo);
+    for (let j = 0; j < 4; j++) gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0 + j, t, 0, j);
+    gl.drawBuffers([gl.COLOR_ATTACHMENT0, gl.COLOR_ATTACHMENT1, gl.COLOR_ATTACHMENT2, gl.COLOR_ATTACHMENT3]);
+    const good = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    if (!good) { gl.deleteTexture(t); pieces = false; return null; }
+    pcTex = t; pcW = W; pcH = H;
+    return t;
+  }
+  // The piece pass of the lines res (template size M, cache entry e) on the globe m (drawSphere's: MVP), drawn by
+  // linePieces into pcTex; the framebuffer, viewport and switches are restored after it. -> linePc with its uniforms
+  // set but the width's, colour's, fade's and dash's, or null (nothing drawn: draw per vertex)
+  function piecePass(res, M, e, m, dpr) {
+    if (!pieces || !rtOK) return null;
+    const Q = getProg('linePieces', cur, true), D = getProg('linePc', cur, true);
+    if (!Q || !D) return null;
+    const count = M * res.n, T = pieceTarget(count);
+    if (!T) return null;
+    use(Q);
+    bindCache(Q, e);
+    uM4(Q, 'uMVP', m.MVP);
+    u2f(Q, 'uPx', fw, fh);
+    u1f(Q, 'uDpr', dpr);
+    originUniforms(Q, res.org);
+    u1i(Q, 'uM', M); u1i(Q, 'uRtW', pcW); u2f(Q, 'uRtSz', pcW, pcH);
+    const fb = gl.getParameter(gl.FRAMEBUFFER_BINDING);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, pcFbo);
+    const caps = [gl.BLEND, gl.DEPTH_TEST, gl.CULL_FACE, gl.SCISSOR_TEST].filter((c) => gl.isEnabled(c));
+    for (const c of caps) gl.disable(c);
+    const masked = !maskRGB || !maskA;
+    if (masked) gl.colorMask(true, true, true, true);
+    gl.viewport(0, 0, pcW, pcH);
+    gl.bindVertexArray(linePieceVAO(res, M));
+    gl.drawArraysInstanced(gl.POINTS, 0, M, res.n);
+    gl.bindVertexArray(null);
+    gl.bindFramebuffer(gl.FRAMEBUFFER, fb);
+    gl.viewport(vpX, vpY, fw, fh);
+    for (const c of caps) gl.enable(c);
+    if (masked) gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    pcPasses++;
+    use(D);
+    gl.activeTexture(gl.TEXTURE0 + PC_UNIT);
+    gl.bindTexture(gl.TEXTURE_2D_ARRAY, T);
+    u1i(D, 'uPc', PC_UNIT); u1i(D, 'uM', M); u1i(D, 'uPcW', pcW);
+    u2f(D, 'uPx', fw, fh);
+    originUniforms(D, res.org);
+    return D;
+  }
+  // (tests) whether the globe's outlines take the piece pass (on: true or false sets it), and the piece passes drawn
+  function linePiecesOn(on) { if (on !== undefined) pieces = !!on; return { on: pieces, passes: pcPasses }; }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,
   //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}}
   // arc.data: per segment (in createLines order) the arc length of the mapped curve at the segment start and the
@@ -674,20 +744,24 @@
       let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
       if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
       if (!P) return;
-      use(P, st.map);
-      if (e) bindCache(P, e);
-      if (sph || flo) {
-        const m = sph ? st.sphere : st.floor;
-        uM4(P, 'uMVP', m.MVP);
-        u2f(P, 'uPx', fw, fh);
-        u1f(P, 'uDpr', dpr);
-        originUniforms(P, res.org);
-        if (flo) {
-          u4f(P, 'uBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0); u2f(P, 'uAspect', m.aspect[0], m.aspect[1]); u1f(P, 'uFloorZ', m.floorZ);
-          const cl = m.clip || m.box;
-          u4f(P, 'uClip', cl.x0, cl.y0, cl.x1, cl.y1);
-        }
-      } else view2D(P, st.view, dpr, res.org);
+      const D = sph && e ? piecePass(res, M, e, st.sphere, dpr) : null;
+      if (D) P = D;
+      else {
+        use(P, st.map);
+        if (e) bindCache(P, e);
+        if (sph || flo) {
+          const m = sph ? st.sphere : st.floor;
+          uM4(P, 'uMVP', m.MVP);
+          u2f(P, 'uPx', fw, fh);
+          u1f(P, 'uDpr', dpr);
+          originUniforms(P, res.org);
+          if (flo) {
+            u4f(P, 'uBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0); u2f(P, 'uAspect', m.aspect[0], m.aspect[1]); u1f(P, 'uFloorZ', m.floorZ);
+            const cl = m.clip || m.box;
+            u4f(P, 'uClip', cl.x0, cl.y0, cl.x1, cl.y1);
+          }
+        } else view2D(P, st.view, dpr, res.org);
+      }
       fadeUniforms(P, st.fade);
       gl.bindVertexArray(lineVAO(res, M));
       const dash = !sph && !flo && st.dash && st.arc && st.arc.data && res.arcs && st.arc.data.length >= 2 * res.n ? st.dash : null;

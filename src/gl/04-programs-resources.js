@@ -182,6 +182,10 @@
     line0: { chain: false, vs: () => FIN + LINE_VS('', 'local'), fs: () => FADE + LINE_FS },
     lineS: { chain: true, vs: () => LINE_VS('S', 'chain'), fs: () => FADE + LINE_FS },
     lineSC: { chain: false, vs: () => FIN + LINE_VS('S', 'tex'), fs: () => FADE + LINE_FS },
+    // (with float targets: the globe's outlines in two passes, linePieces once per drawLines and linePc for each of
+    // the casing and the stroke)
+    linePieces: { chain: false, vs: () => FIN + LINE_VS('S', 'tex', 'piece'), fs: () => LINE_PIECE_FS },
+    linePc: { chain: false, vs: () => LINE_PIECES_VS, fs: () => FADE + LINE_FS },
     lineF: { chain: false, vs: () => FIN + LINE_VS('F', 'abs'), fs: () => FADE + LINE_FS },
     lineFM: { chain: true, vs: () => LINE_VS('F', 'chain'), fs: () => FADE + LINE_FS },
     lineFC: { chain: false, vs: () => FIN + LINE_VS('F', 'tex'), fs: () => FADE + LINE_FS },
@@ -486,7 +490,7 @@ float wabs(vec2 w) {
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark', 'colorStandIn'];
   // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
-  const GLOBE_PROGS = ['sphere', 'regionSC', 'lineSC', 'disc', 'mark'];
+  const GLOBE_PROGS = ['sphere', 'regionSC', 'lineSC', 'linePieces', 'linePc', 'disc', 'mark'];
   const LAND_STATIC = ['landNrm'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
@@ -1039,6 +1043,23 @@ float wabs(vec2 w) {
     gl.bindVertexArray(v);
     gl.bindBuffer(gl.ARRAY_BUFFER, tpl.buf);
     attrib(0, 4, 32, 0, 0); attrib(6, 4, 32, 16, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
+    attrib(2, 4, 4 * LSTRIDE, 0, 1); attrib(10, 2, 4 * LSTRIDE, 16, 1); attrib(11, 4, 4 * LSTRIDE, 24, 1);
+    gl.bindVertexArray(null);
+    res.vaos.set(key, v);
+    return v;
+  }
+  // the globe's piece pass (linePieces): one point per piece, its first vertex in the template (6 vertices of 8 floats
+  // per piece), and the segment's attributes per instance
+  function linePieceVAO(res, M) {
+    const key = 'p' + M;
+    let v = res.vaos.get(key);
+    if (v) return v;
+    const tpl = lineTemplate(M);
+    v = gl.createVertexArray();
+    gl.bindVertexArray(v);
+    gl.bindBuffer(gl.ARRAY_BUFFER, tpl.buf);
+    attrib(0, 4, 6 * 32, 0, 0); attrib(6, 4, 6 * 32, 16, 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
     attrib(2, 4, 4 * LSTRIDE, 0, 1); attrib(10, 2, 4 * LSTRIDE, 16, 1); attrib(11, 4, 4 * LSTRIDE, 24, 1);
     gl.bindVertexArray(null);
