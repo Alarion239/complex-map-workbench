@@ -1,7 +1,8 @@
 // The steps view's glide of a real negative exponent (z^(-1/2), z^(-3/2)): the homotopy takes z^{|a|}'s path, then the
 // Möbius arc to 1/w, so no frame is a constant map and the end frames are the parked plane's.
 // For each case (the powa step, the Formula z^(-1/2), the powa step with a = -3/2) in the plane, the sphere and the
-// Landscape, the plane z glides to the step's plane (w1):
+// Landscape, the plane z glides to the step's plane (w1), coloured from z (T = 0: the frames past the colour plane are the
+// homotopy's own picture, by the inverse pass; a glide toward the colour plane is a cross-fade of the two planes' plots):
 // - no blank frame: at the u of U_ROW (K1 and K2 pass through the old constant map at 2/3) the frame's coloured pixels
 //   are at least COVER_MIN of parked w1's;
 // - control: with __svCarryProbe set to the powOnePhase preset (the one-phase exponent 1 + (a - 1) t) the same row fails
@@ -44,14 +45,15 @@ const seedCase = async (c, i) => {
   await settled({ max: 60000, until: `typeof __cmwSteps === 'function' && !!window.GLR` });
 };
 const park = async (x) => { await ev(`__cmwSteps({ park: ${x} }); 1`); await quiet(); };
-// the coverage row of one case and view, parked w1's frame as the reference; probe: a __svCarryProbeSettings name or null
+// the coverage row of one case and view, parked w1's frame as the reference (exp: the expected share at u of parked's own,
+// expected at u = 1, both computed on the window); probe: a __svCarryProbeSettings name or null
 const row = async (c, v, probe) => {
-  await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 1 }); 1`); await quiet();
+  await ev(`__svCarryProbe = ${probe ? `__svCarryProbeSettings.${probe}` : 'null'}; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 0 }); 1`); await quiet();
   await grab('p1'); const ref = await colouredN('p1');
-  const win = await windowOf(), low = [], rows = {};
+  const win = await windowOf(), low = [], rows = {}, expP = await expected(c.a, 1, win);
   for (const u of rowOf(c)) {
     await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
-    await park(u); await grab('u'); const n = await colouredN('u'), exp = await expected(c.a, u, win);
+    await park(u); await grab('u'); const n = await colouredN('u'), exp = (await expected(c.a, u, win)) / expP;
     rows[u] = { n, exp };
     if (!(n >= COVER_MIN * exp * ref)) low.push({ u, n, exp, ref });
   }
@@ -71,7 +73,7 @@ for (const [i, c] of CASES.entries()) {
     ok(`${c.name} ${v}: no blank frame (coloured pixels >= ${COVER_MIN} of the expected share of parked w1's at every u of the row)`, r.ref > 0 && r.low.length === 0, r);
     if (v === 'plane') {
       // the reference follows u: for |a| < 1 the expected share at U_CTRL[0] (phase 1, a wider sector) differs from the one at U_CTRL[1]
-      const win = await windowOf(), e0 = await expected(c.a, U_CTRL[0], win), e1 = await expected(c.a, U_CTRL[1], win);
+      const win = await windowOf(), eP = await expected(c.a, 1, win), e0 = (await expected(c.a, U_CTRL[0], win)) / eP, e1 = (await expected(c.a, U_CTRL[1], win)) / eP;
       const exps = Object.entries(r.rows).map(([u, x]) => ({ u, exp: x.exp })), minExp = Math.min(...exps.map((x) => x.exp));
       R[c.name].expectedAt = { [U_CTRL[0]]: e0, [U_CTRL[1]]: e1, minExpOverRow: minExp };
       // (an expected share of 0 at some u makes that u's coverage row vacuous: n >= 0)
@@ -97,7 +99,7 @@ for (const [i, c] of CASES.entries()) {
       continue;
     }
     // the end frames: what the glide colours is parked w1's colour
-    await ev(`__svCarryProbe = null; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 1 }); 1`); await quiet();
+    await ev(`__svCarryProbe = null; __cmwSteps({ go: 1, now: true, surf: '${v}', scope: 'all', T: 0 }); 1`); await quiet();
     await grab('p1');
     for (const u of U_END) {
       await ev(`__cmwSteps({ go: 0, now: true }); 1`); await quiet();
