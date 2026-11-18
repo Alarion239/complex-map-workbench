@@ -6,15 +6,18 @@
   PLANE: ['z', 'w₁', 'w₂'],
   START_WAIT: 120000,   // how long the page may take to start up, ms
   START_POLL: 500,      // how often the start-up wait looks, ms
+  MATHJAX_WAIT: 30000,  // how long the page may take to load its typesetter, ms
+  SETTLE_WAIT: 15000,   // how long the planes may take to build and the thread to reach a plane, ms
+  NS_RANGE: 1e7,        // the range of the number that makes each run's storage namespace its own
   // opens example 1 in the steps view (in `lang` when given); -> the number of planes
   open: async function (ns, port, lang) {
     this.lang = lang || 'en';
-    await go(`http://localhost:${port}/test.html?view=steps&ns=${ns}${Date.now() % 1e7}${lang ? '&lang=' + lang : ''}`);
-    await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps', max: 30000 });
+    await go(`http://localhost:${port}/test.html?view=steps&ns=${ns}${Date.now() % this.NS_RANGE}${lang ? '&lang=' + lang : ''}`);
+    await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps', max: this.MATHJAX_WAIT });
     // (a slow runner is still starting up when that wait ends: wait for the hooks the suites call, as long as it takes)
     for (let t0 = Date.now(); Date.now() - t0 < this.START_WAIT && !(await ev('typeof __cmwSteps === "function" && typeof __cmwLegend === "function" && typeof __cmwExample === "function"').catch(() => false)); ) await sleep(this.START_POLL);
     await ev(`(__cmwExample(1), 1)`);
-    await settled({ until: '__cmwSteps().planes.length > 1', max: 15000 });
+    await settled({ until: '__cmwSteps().planes.length > 1', max: this.SETTLE_WAIT });
     await ev(`(__cmwSteps({ surf: 'plane' }), 1)`);
     return ev('__cmwSteps().planes.length');
   },
@@ -23,7 +26,7 @@
   // T at plane T, the thread parked at plane i (settled); -> the legend
   park: async function (T, i) {
     await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${i}, now: true }), 1)`);
-    await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: 15000 });
+    await settled({ until: `!__cmwSteps().moving && __cmwSteps().i === ${i}`, max: this.SETTLE_WAIT });
     return this.legend();
   },
   // what the key shows on the surface (plane, sphere, land) with T at plane T and the thread at plane i: on a plane up to T the
