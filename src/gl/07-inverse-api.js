@@ -176,15 +176,20 @@
   // (its variant for a shape of a later plane, uShStage and the boundary draw compiled in: the chain's range evaluations the
   // test adds weigh on the programs that never draw one)
   const INV_CARRY_STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  // (CARRY_CAUCHY: each with the Cauchy integral compiled in, drawn only while the style is Cauchy with its residue data)
+  const INV_CARRY_CZ = Object.assign({}, INV_CARRY, { cz: true }), INV_CARRY_STAGED_CZ = Object.assign({}, INV_CARRY_STAGED, { cz: true });
+  // the carried colour's variant for st: staged or not, Cauchy or not
+  const carryExtra = (st, staged) => (carryCauchyOn(st.carry) ? (staged ? INV_CARRY_STAGED_CZ : INV_CARRY_CZ) : staged ? INV_CARRY_STAGED : INV_CARRY);
   // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
   const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
-  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') : '');
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + (extra.cz ? 'cz' : '') : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
   }
-  function invCarryFns() {
-    return DCOLOR.replace('uniform float uDpr;', '') + `
+  // (cz: the Cauchy style's variant, CARRY_CAUCHY; without it the function has none of CAUCHY_CORE)
+  function invCarryFns(cz) {
+    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + `
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
@@ -195,6 +200,26 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (an) wy = cmul(cdiv(wx, dX), dY);
   }
   return dcolorD(w, wx, wy);
+}
+`;
+    return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
+uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
+` + CARRY_W + `
+vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
+  if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
+  bool cz = uCT >= 0;
+  if (!cz && uGs >= uGt) return dcolorD(z, dX, dY);
+  vec2 w = carryW(z), wx = carryW(z + dX) - w;
+  if (cz) {
+    // the Cauchy integral at z and z + dX (the winding number of z for both), its footprint down from the one across (it is analytic on each side of the curve)
+    vec2 zr = z - uEdgeO, c0, c1;
+    int wn = cauchyWind(zr);
+    if (!cauchyShown(wn) || !cauchyVal(z, zr, wn, w, c0)) return cauchyGrey();
+    if (!cauchyVal(z + dX, zr + dX, wn, w + wx, c1)) c1 = c0;
+    vec2 cx = c1 - c0;
+    return dcolorD(c0, cx, dot(dX, dX) > 0.0 ? cmul(cdiv(cx, dX), dY) : vec2(0.0));
+  }
+  return dcolorD(w, wx, uGan && dot(dX, dX) > 0.0 ? cmul(cdiv(wx, dX), dY) : chainRange(z + dY, uGs, uGt) - w);
 }
 `;
   }
@@ -229,7 +254,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     const nrN = globe ? 0 : nrCount(info.inverse.nr);
     if (nrN) pre = nrDecl(nrN, !!(extra && extra.nrPass)) + pre;
-    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns() : '') + info.inverse.walker + main;
+    const fs = pre + L + info.inverse.lib + UTIL + (globe ? SHADE_GLOBE : '') + (extra && extra.carry ? invCarrySrc(info) : '') + INV_HEAD(B, formsSrc(forms)) + (extra && extra.carry ? invCarryFns(!!extra.cz) : '') + info.inverse.walker + main;
     return [HEAD + vs, HEAD + fs];
   }
   function finishInv(e) {
@@ -596,7 +621,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe', look = st.look || {};
-    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? (!globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id))) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? carryExtra(st, !globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id)))) : st.extra;
     const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
@@ -610,7 +635,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     let B = invB(look.alphaOwn ?? look.alpha ?? 1);
     // (st.carry: {s, T, style, sectors, grid, plane, ink, dark}: the carried colour's variant, on the plane and the
     // globe)
-    const extra = st.carry ? (!globe && stagedOf(st, rec) ? INV_CARRY_STAGED : INV_CARRY) : st.extra;
+    const extra = st.carry ? carryExtra(st, !globe && stagedOf(st, rec)) : st.extra;
     let pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
     // A program that is still compiling, or ready but never drawn (cold: its first draw builds the Metal pipeline, a
     // 75-205 ms stall of the GPU process), is not drawn in a frame that defers cold programs: a live pane in motion
@@ -728,6 +753,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
+      carryCauchy(P, st.carry);
       bindLut(P);
     }
     if (P.loc.uLut) { gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, lut()); }
@@ -1005,7 +1031,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)

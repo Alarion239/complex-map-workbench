@@ -13,7 +13,7 @@ const seen = [];
 logs();   // the console from earlier commands of this daemon is not ours
 for (const [w, h] of [[1440, 900], [1024, 700]]) {
   await view(w, h, false, false);
-  await nav(U + `?ns=lit${w}`); await settle(1500);
+  await nav(U + `?ns=lit${w}`);
   await ev('Tour.dismissSuggestion()');
   await ev('Tour.auto(false)');
   await ev(`Tour.start({ chapter: 'basics' })`); await settle(1400);
