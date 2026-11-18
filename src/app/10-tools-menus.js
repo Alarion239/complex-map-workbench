@@ -372,6 +372,8 @@
     if (nudgeRun && nudgeRun.id === s.id && nudgeRun.hi === hi && now - nudgeRun.t < 1500 && hi > 0) { hist.pop(); hi = hist.length - 1; }
     commit();
     nudgeRun = { id: s.id, hi, t: now };
+    // (the same event the end of a drag emits, so a Try that asks to drag a shape is done from the keyboard too)
+    tourShapeMoved(s.id, isTarget(s));
     // (and once the run stops, the shape's place is said once: the toast host is a live region)
     clearTimeout(nudgeSayT);
     nudgeSayT = setTimeout(() => {

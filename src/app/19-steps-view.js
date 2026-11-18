@@ -3269,8 +3269,8 @@
     SV.g.max = P.length - 1;
     svLetGo();
   }
-  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it), C makes the shown
-  // plane the colour plane (not while typing)
+  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it, with a plane or its row in
+  // the Shapes list focused), C makes the shown plane the colour plane (not while typing)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -3299,9 +3299,10 @@
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; ← → always step the chain, the sound probe's arrows being Alt / Option +
-      // arrow, except while a shape is selected, which they nudge while the focus is on a plane (14-interaction.js))
+      // arrow, except while a shape is selected, which they nudge while the focus is on a plane or a row of the Shapes list
+      // (14-interaction.js))
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR')))) return;
+      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR, #shapeList')))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
