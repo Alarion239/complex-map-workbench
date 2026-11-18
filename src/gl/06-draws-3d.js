@@ -298,8 +298,8 @@
   // the height step over which a carried triangle is left out (LAND_CARRY_VS): 0.3 H for Re F and Im F (modes 2 to 7)
   const carryStep = (mode, H) => (mode >= 2 ? 0.3 * H : 3e38);
   const carryReady = (map) => !!(program('landCarryTF', map) && program('landCarryNrm') && program('landCarry', map));
-  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when given
-  // (another sheet's copy, landCopies), else into landC)
+  // (polar [x, y, r0, r1]: a patch about a pole (CARRY_Z), into the textures of o, else the box's grid into o when
+  // given (another sheet's copy, landCopies), else into landC)
   function carryHeights(st, N, mode, H, mu, aspect, polar, o) {
     const c = st.carry, b = st.box, sb = c.src || b, bytes = N * N * 16;
     const P1 = program('landCarryTF', c.map), P2 = program('landCarryNrm');
@@ -350,8 +350,8 @@
   // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each
   const landCopies = [];
   // a seam's band (st.carry.copies' band): the part of the carried box sb within SEAM_CELLS cells of the principal grid
-  // (N points a side) of the ray from 0 at angle deg (0, 90, 180 or 270), where every surface's cells tear; on a grid of
-  // SEAM_N points a side. null when the ray misses sb
+  // (N points a side) of the ray from 0 at angle deg (0, 90, 180 or 270), where every surface's cells tear; on a grid
+  // of SEAM_N points a side. null when the ray misses sb
   const SEAM_N = 96, SEAM_CELLS = 3;
   function seamBand(sb, deg, N) {
     const d = SEAM_CELLS * Math.max(sb.x1 - sb.x0, sb.y1 - sb.y0) / (N - 1);
