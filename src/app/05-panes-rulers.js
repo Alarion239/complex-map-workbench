@@ -1327,7 +1327,7 @@
     const limb = artCamAsp ? GLR.globeLimb(info.eye, (p) => project(pane, info.MVP, p)) : null, centre = limb ? project(pane, info.MVP, [0, 0, 0]) : null;
     for (const [lab, p] of pts) {
       const f = facing(p);
-      const u = Math.max(0, Math.min(1, (f - 0.05) / 0.25)), a = u * u * (3 - 2 * u);   // smoothstep(0.05, 0.3, n·v)
+      const a = smoothstep(0.05, 0.3, f);
       if (a <= 0) continue;
       // poles: just beyond the globe; equator points: just above the |z| = 1 line, so the label never sits on it
       let q = project(pane, info.MVP, p[2] === 0 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));

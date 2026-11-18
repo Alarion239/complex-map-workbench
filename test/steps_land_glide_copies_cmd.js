@@ -4,8 +4,8 @@
 // carry.copies). The copies fade in over the glide: none leaving plane a, as plane a parked with All sheets off shows
 // the principal sheet alone, and whole from u = 1/2 on (alpha smoothstep(0, 1/2, u)). The Landscape, Everywhere, Im
 // heights, the colour plane the last plane (so the plane a glide arrives at is coloured by its own variable), the
-// pane's words off (held_frames.js wordsOff). Square root alone (from plane z) and z³ − 3z then square root (from plane
-// w₁: the cubic's step is before the carry's source and has no copy), the glide onto the square root's plane at
+// pane's words off (held_frames.js wordsOff). Square root alone (from plane z) and z³ − 3z then square root (from
+// plane w₁: the cubic's step is before the carry's source and has no copy), the glide onto the square root's plane at
 // u = NEAR, 1/2 and 1 − NEAR, each frame drawn as it is and with the principal combo alone
 // (__cmwSteps({ glideSheets: 1 }), the K = 1 control):
 // - every frame between the planes draws one copy, the root's other sheet, and the control none;
