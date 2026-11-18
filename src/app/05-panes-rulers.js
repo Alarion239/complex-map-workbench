@@ -694,7 +694,7 @@
       // frame depends on u alone and a glide parks on the plane's own look. A plane whose height map at rest (its rest
       // carry's, else svHeightMap) has sheets has their scale and block and, with Re or Im heights, the linear height
       // (lw 1); one without has the plane's median and the compressed height (lw 0), the sheets-off carry's scale
-      const restSheets = (k) => { try { return !!GLR.sheetInfo((svLandRest(k) || { hmap: svHeightMap(k) }).hmap, sheets.W); } catch (e) { return false; } };
+      const restSheets = (k) => !!(GLR.sheetInfo && GLR.sheetInfo((svLandRest(k) || { hmap: svHeightMap(k) }).hmap, sheets.W));
       const ofPlane = (k, v) => (restSheets(k)
         ? Object.assign({ lw: lin ? 1 : 0 }, scaleOf(svHeightMap(k <= carry.T ? k : carry.s), landBox(v)))
         : { mu: medianAbs(landBox(v), svHeightMap(k), svHeightF(k)), boost: 1, lw: 0 });

@@ -1220,12 +1220,15 @@ vec3 cueTint(vec3 c, float s) {
 // its fragment stage stays the base's, r3 cold opens: with this in it, a heavy formula's first Landscape held the GPU
 // process 0.7 to 0.8 s where the base did not stall; the base cells are the flat ones, a wall is refined)
 ${lite ? '' : `// the inverse of the linear height (modes 4, 5) with its compressed share uHComp: h = (1 - c) x + c (2/pi) atan x, by
-// Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps)
+// Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps:
+// LIN_INV_STEPS; LIN_INV_EDGE keeps the compressed inverse's tan finite)
+const int LIN_INV_STEPS = 6;
+const float LIN_INV_EDGE = 0.999;
 float linInv(float h) {
   float c = clamp(uHComp, 0.0, 1.0);
   if (c <= 0.0) return h;
-  float x = mix(h, tan(0.5 * PI * clamp(h, -0.999, 0.999)), c);
-  for (int i = 0; i < 6; i++) x -= ((1.0 - c) * x + c * (2.0 / PI) * atan(x) - h) / ((1.0 - c) + c * (2.0 / PI) / (1.0 + x * x));
+  float x = mix(h, tan(0.5 * PI * clamp(h, -LIN_INV_EDGE, LIN_INV_EDGE)), c);
+  for (int i = 0; i < LIN_INV_STEPS; i++) x -= ((1.0 - c) * x + c * (2.0 / PI) * atan(x) - h) / ((1.0 - c) + c * (2.0 / PI) / (1.0 + x * x));
   return x;
 }
 vec2 facetW(vec2 w) {

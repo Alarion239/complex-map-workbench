@@ -12,7 +12,7 @@
 //   sheets off on its principal sheet alone (__cmwSteps({ glideSheets: 1 }): sheets off, a glide onto a plane coloured
 //   by its own variable also draws the other sheets' copies, steps_land_glide_copies), and the logarithm's singular
 //   point has its patch (carried.patches).
-// - All sheets at u = 0.998 (#1654): each sheet stands over its own image under the glide's map, as the sheets-off
+// - All sheets at u = 0.998: each sheet stands over its own image under the glide's map, as the sheets-off
 //   glide's copies do (carried.sheetPlaces), so the frame has at least the sheets-off frame's pixels with its copies.
 //   Of the surface pixels of the frame and of the plane it arrives at, parked, the share over 32/255 apart is at most
 //   the sheets-off frame's plus ARRIVE_SLACK: the sheets' scale, block and linear height ease into the parked plane's
