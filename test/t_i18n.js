@@ -435,8 +435,9 @@ eq(I18N._resolve({ nav: nav(['ru-RU', 'en']) }), 'ru', 'phase 2b: ru-RU resolves
   ok(n >= 20, 'leftovers: ' + n);
   // the strings phase 2b wrapped (they were left in English): each is in the shipped table
   // ('Domain plane' and 'Image plane' are not keys: the canvases are named "X, the z-plane: domain of F" and "Y, the
-  // w-plane: image of F" (notes/i18n/ru/v165-ux-plane.json), so no source holds them and the table has none)
-  for (const k of ['Display options', 'Reset camera', 'Snap while drawing', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Pause', 'Play', 'Show', 'Hide',
+  // w-plane: image of F" (notes/i18n/ru/v165-ux-plane.json), so no source holds them and the table has none; nor is
+  // 'Snap while drawing': the snap button is named "Snap to grid and figures")
+  for (const k of ['Display options', 'Reset camera', 'Bypass this step', 'guaranteed', 'Theme: {name}', 'Pause', 'Play', 'Show', 'Hide',
     'Radii must be 0 or more', 'Use a whole number from 1 to 60', 'Half-strip to half-plane', 'Principal branch', 'WebGL2 is unavailable, so regions cannot be drawn']) ok(Object.prototype.hasOwnProperty.call(RU_ALL, k), 'phase 2b wrapped string in the table: ' + k);
 }
 // ---------------- the review checks (notes/i18n/ledger-2b.json) ----------------
