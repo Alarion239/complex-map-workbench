@@ -1,5 +1,5 @@
   // ---------------- program management ----------------
-  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
+  const SAMPLER_UNITS = { uLut: 0, uW: 1, uT1: 2, uT2: 3, uNodes: 4, uEdges: 4, uPts: 4, uWNodes: 4, uCEdges: 13, uE0: 5, uE1: 6, uE2: 7, uLv: 8, uLst: 9, uRf: 10, uCP: 11, uLp: 11, uPq: 12, uPv: 13, uPalT: 14, uFT: 12, uMask: 15,
     // (the NEWT roots pass, 07-inverse-api.js: the main inverse program reads uNrTex*, the roots program uNrPrev*; never both)
     uNrTex0: 6, uNrTex1: 7, uNrTex2: 8, uNrTex3: 9, uNrTex4: 10, uNrTex5: 11, uNrPrev0: 6, uNrPrev1: 7, uNrPrev2: 8, uNrPrev3: 9, uNrPrev4: 10, uNrPrev5: 11 };
   // ZETA_LIB's table uLogK of ln k (k = 0 .. 131, four to a uniform row; entry 0 is 1, the mark that it is filled). The GPU draws it once,
@@ -139,7 +139,8 @@
   const REGION_K_VS = (fetch, sheet, clip, centre) => REGION_VS(false, fetch, { carry: true, sheet: !!sheet, clip: !!clip, own: !!sheet && !clip, centre: !!centre });
   // (centre: vP read at the pixel centre, not at the centroid of the pixel's covered samples; the vertex stage's and the
   // fragment stage's qualifiers match)
-  const REGION_K_FS = (clip, key, centre) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre);
+  // (cz: the Cauchy style's variant, CARRY_CAUCHY below)
+  const REGION_K_FS = (clip, key, centre, cz) => () => UTIL + DCOLOR + CARRY_FS(false, !!key, false, !!clip, !centre, !!cz);
   const PEEL_PROGS = ['regionK', 'regionKC', 'regionKN', 'regionKCN', 'regionKS', 'regionKSclip', 'regionKSCpt', 'regionKSCclippt'];
   const REGION_KM_FS = (key) => () => UTIL + CARRY_MASK_FS(key);
   // chain: the program includes the chain (one per chain structure); the others compile once
@@ -251,6 +252,11 @@
   // whose keys are a tie order apart, would not compare): each tessellated-mesh program has a variant 'P' that writes it
   PEEL_PROGS.forEach((n) => { DEFS[n + 'P'] = Object.assign({}, DEFS[n], { fs: REGION_K_FS(/clip/i.test(n), true, /^regionKC?N$/.test(n)) }); });
   ['regionKSm', 'regionKSCptm'].forEach((n) => { DEFS[n.slice(0, -1) + 'Pm'] = Object.assign({}, DEFS[n], { fs: REGION_KM_FS(true) }); });
+  // CARRY_CAUCHY: the carried colour's programs with the Cauchy integral compiled in (name + 'Z'; regionPKZ), drawn only while
+  // the style is Cauchy with its residue data (carryCauchyOn): the others have none of CAUCHY_CORE, which FXC would inline
+  // into every carried program (#1187)
+  PEEL_PROGS.forEach((n) => ['', 'P'].forEach((p) => { DEFS[n + p + 'Z'] = Object.assign({}, DEFS[n + p], { fs: REGION_K_FS(/clip/i.test(n), p === 'P', /^regionKC?N$/.test(n), true) }); }));
+  DEFS.regionPKZ = Object.assign({}, DEFS.regionPK, { fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true, false, false, true) });
   // vertex-stage subset of UTIL (no derivatives)
   const UTIL_V = `
 float wabs(vec2 w) {
@@ -1121,7 +1127,7 @@ float wabs(vec2 w) {
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
-    const P = carry ? program('regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    const P = carry ? program(carryCauchyOn(st.carry) ? 'regionPKZ' : 'regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
@@ -1136,7 +1142,7 @@ float wabs(vec2 w) {
       u2f(P, 'uScale', 2 * v.s * dpr / fw, 2 * v.s * dpr / fh);
     }
     // (origin [0, 0]: uQ = 0, the attributes are already reduced; the pattern origin is 0)
-    if (carry) { u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); dcUniforms(P, st.carry, st.dpr || 1); u1i(P, 'uPreZ', st.preZ ? 1 : 0); }
+    if (carry) { u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); dcUniforms(P, st.carry, st.dpr || 1); carryCauchy(P, st.carry); u1i(P, 'uPreZ', st.preZ ? 1 : 0); }
     else regionUniforms(P, Object.assign({}, st, { fade: null }), [0, 0]);
     const sc = st.scissor;
     const scOn = sc ? gl.isEnabled(gl.SCISSOR_TEST) : false, prevSc = sc && scOn ? gl.getParameter(gl.SCISSOR_BOX) : null;
