@@ -51,14 +51,28 @@ const measureMore = (k = 'more') => ev(`(() => {
 // pixel, and its text is at most two lines (lines = its text's line boxes, 18 px apart); English, which fits on one line at 360 px,
 // keeps the one-line control
 const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, TOAST_GAP = 12, BTN_GAP_MAX = TOAST_GAP + 1, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, TOAST_ONE_ROW_H = 56, X_EDGE_MAX = 12, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
+const FACES_MAX_MS = 15000;   // the bound on waiting for the faces
+const FACES_SETTLED = `(document.body.offsetHeight, document.fonts.status === 'loaded')`;   // (the layout is flushed first: a face is requested when its text is laid out)
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
+  // (the first leg's font faces land late, as on a slow network: the Language row's words change width when they do. The page's Google
+  // Fonts stylesheet is switched off while the sheet opens and the sheet read, then on: its faces are fetched (or, under CMW_VENDOR=1,
+  // decoded) when it is on, so the late landing is the same with and without vendoring)
+  const late = lang === 'en' && w === PHONE_360[0];
+  const fontSheets = (on) => ev(`[...document.querySelectorAll('link[rel="stylesheet"][href*="fonts.googleapis.com"]')].map((l) => { l.disabled = ${!on}; return 1; }).length`);
   await fresh(w, h, lang);
+  if (late) ok(`${tag}: the page has its font stylesheet to switch`, (await fontSheets(false)) === 1, null);
   ok(`${tag}: the steps view is on`, await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
   await ev(`document.getElementById('hdrMoreBtn').click(); 1`);
   await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="more"].open')` });
-  let m = null, ysBefore = null;
   const ysNow = () => ev(`[...(document.querySelector('.ph-sheet[data-k="more"]') || document.body).querySelectorAll('button')].filter((b) => b.getClientRects().length > 0).map((b) => { const r = b.getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round); })`);
+  // (the sheet's words need their script's face, fetched when they are first laid out: the controls are read once it has landed)
+  const early = late ? await ysNow() : null;
+  if (late) await fontSheets(true);
+  await settled({ max: FACES_MAX_MS, panes: false, until: FACES_SETTLED });
+  // (the control of the switch: the faces moved the sheet's controls, so reading the page before they landed would have been wrong)
+  if (late) ok(`${tag}: the faces landing late move the sheet's controls (the switch has an effect)`, JSON.stringify(early) !== JSON.stringify(await ysNow()), { early, landed: await ysNow() });
+  let m = null, ysBefore = null;
   for (let i = 0; i < 3 && !m; i++) { ysBefore = await ysNow(); await ev(`__cmwAddStep('exp')`); if (await shown()) { await (h > w ? flushOnSheet('more') : madeWay('more')); m = await measureMore(); } }
   info[tag] = m;
   ok(`${tag}: it is open and a toast shows`, !!m && m.open, m);
@@ -69,6 +83,16 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
     ok(`${tag}: the message never covers the sheet's head or search field`, !m.headHit && !m.fieldHit, { headHit: m.headHit, fieldHit: m.fieldHit });
     ok(`${tag}: the message sits flush on the sheet's bottom edge`, Math.abs(m.toast[3] - m.sheet[3]) <= FLUSH_TOL, { toast: m.toast, sheet: m.sheet });
     ok(`${tag}: no control moves when the message shows`, JSON.stringify(ysBefore) === JSON.stringify(await ysNow()), { before: ysBefore, now: await ysNow() });
+    // (a control the browser scrolls into view, for keyboard focus, find in page or assistive technology, comes to rest above the message, not under it)
+    const into = await ev(`(() => {
+      const sb = document.querySelector('.ph-sheet[data-k="more"] .ph-link').closest('.ph-sb'), t = document.querySelector('#toastHost .toast');
+      sb.scrollTop = 0;
+      const last = [...sb.querySelectorAll('button, a, input, select')].filter((e) => e.getClientRects().length > 0).pop();
+      last.scrollIntoView({ block: 'nearest', behavior: 'instant' });
+      const r = last.getBoundingClientRect(), tr = t.getBoundingClientRect();
+      return { control: [r.top, r.bottom].map(Math.round), toast: [tr.top, tr.bottom].map(Math.round) };
+    })()`);
+    ok(`${tag}: the list's last control, scrolled into view, ends above the message`, !!into && into.control[1] <= into.toast[0] + FLUSH_TOL, into);
     await ev(`(() => { const sb = document.querySelector('.ph-sheet[data-k="more"] .ph-link').closest('.ph-sb'); sb.scrollTop = sb.scrollHeight; return 1; })()`);
     const end = await measureMore();
     ok(`${tag}: at the end of its list no control is under the message`, !!end && end.under.length === 0, end && { under: end.under });

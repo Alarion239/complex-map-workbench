@@ -3416,5 +3416,8 @@
  "Colour style": "Stile del colore",
  "Style settings": "Impostazioni dello stile",
  "Overlays": "Sovrapposizioni",
- "Quality": "Qualità"
+ "Quality": "Qualità",
+ "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
+ "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
+ "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre"
 }
