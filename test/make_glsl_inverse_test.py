@@ -14,7 +14,7 @@ root = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from tools.src_parts import source  # noqa: E402  (gl.js is joined from src/gl/, as build.py does)
 src = root / 'src'
-parts = [(root / 'test' / 'module_stubs.js').read_text(encoding='utf-8')] + [source(f, src, esm='strip') for f in ['cx.js', 'symbolic.js', 'parse.js', 'derivs.js', 'natpaths.js', 'sheets.js', 'formulasteps.js', 'funcs.js', 'invops.js', 'invpatterns.js', 'inverse.js', 'calc.js', 'glsl.js', 'regionlines.js', 'region.js', 'constrpoc.js', 'constrortho.js', 'constr.js', 'palette.js', 'gl.js']]   # (constr.js: the exact-form rows)
+parts = [(root / 'test' / 'module_stubs.js').read_text(encoding='utf-8')] + [source(f, src, esm='strip') for f in ['cx.js', 'symbolic.js', 'parse.js', 'derivs.js', 'natpaths.js', 'sheets.js', 'formulasteps.js', 'funcs.js', 'invops.js', 'invpatterns.js', 'inverse.js', 'calc.js', 'glsl.js', 'regionlines.js', 'region.js', 'constrpoc.js', 'constrortho.js', 'constr.js', 'palette.ts', 'gl.js']]   # (constr.js: the exact-form rows)
 # (test/module_stubs.js: stand-ins for the modules left out, which the sources do not check for)
 fx = {k: (root / 'test' / 'fixtures' / f'region_fs_{k}.glsl').read_text(encoding='utf-8') for k in ['flat', 'sphere']}
 parts.append('window.__REGION_FS_FIXTURES = ' + json.dumps(fx) + ';')

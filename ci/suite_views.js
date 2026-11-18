@@ -30,6 +30,7 @@ const VIEWS = {
   'sv_cut_ring_dash_cmd.js': steps(),
   'pin_view_cmd.js': steps({ pin: true }),   // (the pin itself: it opens no URL that names the steps view)
   'example_try_sv_cmd.js': steps(),
+  'example_try_keys_cmd.js': steps(),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
   'export_key_look_cmd.js': steps(),   // (#1707: the classic Phase figure too, by ?view=classic)
@@ -45,6 +46,7 @@ const VIEWS = {
   'phone_palette_cmd.js': steps(),
   'steps_carry_cmd.js': steps(),
   'steps_ddz_glide_cmd.js': steps(),
+  'steps_ddz_rest_cmd.js': steps(),
   'steps_globe_key_cmd.js': steps(),
   'steps_carry_exact_cmd.js': steps(),
   'steps_rim_inverse_cmd.js': steps(),
@@ -56,6 +58,7 @@ const VIEWS = {
   'gl_uniform_units_cmd.js': steps(),
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
+  'steps_glide_negpow_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
@@ -93,6 +96,7 @@ const VIEWS = {
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
   'steps_glide_later_cmd.js': steps({ pin: true }),
   'steps_glide_hatch_cmd.js': steps({ pin: true }),
+  'steps_glide_rest_paint_cmd.js': steps({ pin: true }),
   'steps_glide_outline_cmd.js': steps({ pin: true }),
   'steps_glide_blend_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
@@ -111,6 +115,7 @@ const VIEWS = {
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
   'steps_land_caption_cmd.js': steps(),
+  'pre_more_said_cmd.js': steps(),
   'compile_pill_cmd.js': steps({ pin: true }),
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),
@@ -269,6 +274,7 @@ const VIEWS = {
   'tour_tasks_classic_cmd.js': classic('the classic views\' tour task lines: Y\'s drag and the classic desk cases; the steps view\'s are tour_tasks_cmd'),
   'steps_cauchy_cmd.js': steps(),
   'steps_cauchy_parts_cmd.js': steps(),
+  'steps_cauchy_carry_cmd.js': steps(),
   'steps_plane_key_cmd.js': steps({ pin: true }),   // (its page, in test/lib/plane_key_kit.js, asks ?view=steps itself)
   'steps_phone_key_cmd.js': steps({ pin: true }),
   'steps_canvas_stack_cmd.js': steps({ pin: true }),
