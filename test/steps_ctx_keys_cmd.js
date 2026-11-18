@@ -5,13 +5,13 @@
 // Also: a press at the folded colour key's centre reaches it, nothing of the bar or the construction chip over it, down to
 // 568 x 320 in Russian and Italian; with the globe shown, the hint card stays clear of the globe's disk. Where the plane above
 // the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
-// what is left beside them, is not checked.
+// what is left beside them, is checked only to lie over the keys (#1915 holds it).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const MARGIN = 2;   // the keys stand at least this far from the header and from the bar, px
-const ROOM = 140;   // the plane above the bar holds the unfolded colour key beside the keys only when it is this tall, px
+const ROOM = 140;   // the plane above the bar holds the unfolded colour key (74 px) beside a row of keys (44 px) only when it is this tall, px: the 320 px tall phones' 106 px is not, a 360 px tall phone's 146 px is
 const SLACK = 0.5;  // layout rounding, px
 const meet = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 const geometry = () => ev(`(() => {
@@ -81,6 +81,9 @@ for (const [w, h, lang, surf] of CASES) {
     if (roomy || !open) ok(`${name}: with the colour key ${st}, a press at every plane key's centre reaches it`, covered.length === 0, covered);
     if (roomy || !open) ok(`${name}: the ${st} colour key overlaps no plane key`, hit.length === 0, { lg, hit });
     if (roomy || !open) ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
+    // (#1915: below ROOM the unfolded card cannot stand beside the keys and lies over them; this row states that, so it fails, and is turned
+    // into the rule above for every size, when the card gets room)
+    if (!roomy && open) ok(`${name}: (#1915) the unfolded colour key lies over plane keys at this height, as it does today`, hit.length > 0, { lg, hit });
   }
   if (surf === 'sphere') {
     // the hint card stays clear of the globe's disk (phone_hint_globe_cmd's rule), with the tall bar in
