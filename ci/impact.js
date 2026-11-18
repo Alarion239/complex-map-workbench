@@ -119,6 +119,7 @@ const MAP = [
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
+  ['tools/js_blank_comments.js', ui('i18n')],                                 // (the Russian table generator's comment blanker)
   ['tools/melodies/**', ui('sound')],
   ['tools/join_src.js', T0],
   ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
