@@ -636,7 +636,7 @@
     P.hits = [];
     if (side === 'L') drawPullOff(pane, j);
     if (artMode || P.sig !== preSig(j)) return;
-    const ctx = pane.ctx, labels = [], b = pane.box();
+    const ctx = pane.ctx, labels = [], said = [], b = pane.box();
     for (const e of P.list) {
       const s = S.shapes.find((x) => x.id === e.id);
       if (!s) continue;
@@ -656,8 +656,12 @@
       if (vis.length && (rest > 0 || e.more)) {
         const [x, y] = pane.w2s(vis[Math.min(PRE_SHOW, vis.length) - 1].z);
         labels.push({ x: x + PRE_MORE_PX, y: y + PRE_MORE_PX, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
+        // (the same count in words, in the plane's description: paneSay)
+        const k = Math.min(PRE_SHOW, vis.length);
+        said.push(rest > 0 ? $t('Marked preimages of {name}: {k} of {n}', { name, k, n: k + rest }) : $t('Marked preimages of {name}: {k}, and there may be more', { name, k }));
       }
     }
+    if (said.length) paneSay(pane, 'pre', said.join('. ') + '.');
     if (labels.length) placeLabels(ctx, pane, labels);
   }
   // the dot under (x, y) in a pane, or null
@@ -1019,7 +1023,7 @@
   // reassign as getters (and setters for the state they write)
   function integralsApi() {
     return {
-      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
+      C, ICONS, SND, V, armOutside, cauchyCache, cauchyF, cauchyStage, closePalette, copyText, cxShort, fnHtml, focusF, hasCalc, intLabel,
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
       rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,
