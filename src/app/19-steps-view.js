@@ -2069,7 +2069,8 @@
     for (const s of hideStrokes ? [] : S.shapes) {
       if (!outlineShown(s, !col)) continue;
       const p = reached && reached.get(s);
-      if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k)); continue; }
+      // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
+      if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
