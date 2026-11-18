@@ -1,8 +1,8 @@
-// Phase colours (issue 8, src/palette.js): Palette.arb against Arb's own color_function (examples/complex_plot.c,
+// Phase colours (issue 8, src/palette.ts): Palette.arb against Arb's own color_function (examples/complex_plot.c,
 // compiled with doubles for z: the values below are its output), the baked texels against Palette.arb (what the
 // shaders' arbc() reads), the list the shaders index (uPal 0 the wheel, 2 the phase-only palette) and Palette.shade.
 // Run: node test/t_palette.js
-const P = require('../src/palette.js');
+const P = require('../src/palette.ts');
 let fails = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { fails++; console.log('FAIL', name, info); } }
 // [Re z, Im z, mode, Arb's R, G, B]

@@ -224,7 +224,7 @@
       const ic = b.querySelector('.ic-slot'); if (ic) ic.innerHTML = ICONS[{ auto: 'theme', light: 'themeLight', dark: 'themeDark' }[t]] || '';   // (the icon shows the state: half disc Auto, sun Light, moon Dark)
     }
   }
-  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.js): the
+  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.ts): the
   // wheel or one of Arb's color functions. The header's button opens a menu with a preview of each
   const PAL_NAMES = () => ({
     wheel: [$t('Wheel'), $t('The workbench\'s hue wheel: every phase equally bright')],
@@ -608,10 +608,10 @@
     // (the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
     const ch = +read('cmw-chain-h2'); if (ch) document.documentElement.style.setProperty('--chain-h', ch + 'px');
     else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names, saved before v15)
-    // TEMP-DEBUG-HOOK (removed before publishing)
+    // TEST-HOOK (dropped from the published page by build.py)
     // the quality and perf suites render their scenes at the v14 pane geometry (a 272 px chain), so their golden images
     // and baselines stay valid (test/regress/quality/run_quality.js, test/regress/perf/run.js set window.__cmwChainH)
-    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
+    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEST-HOOK
     const sp = +read('cmw-split'); if (sp) panes.style.setProperty('--split', String(sp));
     const drag1 = (el, onMove, onEnd) => el.addEventListener('pointerdown', (e) => {
       e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('active');
