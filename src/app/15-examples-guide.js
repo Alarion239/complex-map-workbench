@@ -929,7 +929,7 @@
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('right'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
     const phone = document.documentElement.classList.contains('ph');
     if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
@@ -951,8 +951,13 @@
       const bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx')), barH = document.documentElement.classList.contains('ph-ctx-on') && bar ? bar.offsetHeight : 0;
       st.bottom = Math.round(H0() - sb.top + barH + 8) + 'px';
       // (a landscape plane is too short to hold the message above a construction chip: it stands right of the chip, left of the keys' column)
-      const chip = document.documentElement.classList.contains('ph-land') ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
+      const land = document.documentElement.classList.contains('ph-land'), chip = land ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
       if (chip) st.left = Math.round(chip.right + 8) + 'px'; else st.removeProperty('left');
+      // (and left of the folded colour key at the plane's top, where the message reaches up to it: a key is a control)
+      st.removeProperty('right');
+      // (its place once its eased move ends: its foot at bottom, its height as it stands)
+      const key = land ? box($('leftLegend')) : null, tb = key ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      if (key && tb && tb.right > key.left && tb.left < key.right && foot > key.top && foot - tb.height < key.bottom) st.right = Math.round(window.innerWidth - key.left + 8) + 'px';
       toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
