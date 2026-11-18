@@ -1831,11 +1831,12 @@
       GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
     };
     const colour = () => {
-      // (between planes, under the carried colour: the departure plane's no-value colour, its NaN hatch where its map
-      // has no value at the pixel's point, which the carried colour covers wherever a point of the glide arrives, so a
-      // pixel no point reaches shows the departure's hatch and the hatch shrinks as the points arrive (#1443's rule a);
-      // Inside regions only under the regions' mask, which keeps it inside the regions)
-      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) plot(a, 1, true);
+      // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
+      // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
+      // (#1443's rule b: no blank, and at the arrival plane b's parked picture), and over it the departure plane's
+      // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
+      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions)
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { plot(b, 1); plot(a, 1, true); }
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {

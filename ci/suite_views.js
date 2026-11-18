@@ -94,6 +94,7 @@ const VIEWS = {
   'steps_glide_strokes_cmd.js': steps({ pin: true }),
   'steps_glide_later_cmd.js': steps({ pin: true }),
   'steps_glide_hatch_cmd.js': steps({ pin: true }),
+  'steps_glide_rest_paint_cmd.js': steps({ pin: true }),
   'steps_glide_outline_cmd.js': steps({ pin: true }),
   'steps_glide_blend_cmd.js': steps({ pin: true }),
   'steps_chain_cmd.js': steps(),
