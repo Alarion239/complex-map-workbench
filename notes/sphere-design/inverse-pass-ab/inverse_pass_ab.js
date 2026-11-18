@@ -3,9 +3,10 @@
 // bit. A one-off review script for the leaf's call-site merges (issue #1546), not run by CI. It is #1410's
 // ci/newt_ab.js and test/newt_ab_cmd.js (their tree builds, draw hook and hashes) with scenes of the leaf and one more
 // readback; if those land first, these scenes and the control belong in that tool.
-//   node notes/sphere-design/inverse-pass-ab/inverse_pass_ab.js [--base REF] [--only REGEX] [--no-control] [--keep] [--work DIR]
-// REF defaults to origin/claude/funny-darwin-l5uis3. Needs CHROME_BIN and CMW_CHROME_ARGS (ci/README.md); CMW_ANGLE picks
-// the renderer (swiftshader; vulkan with lavapipe's flags). Exit 1 on any differing record.
+//   node notes/sphere-design/inverse-pass-ab/inverse_pass_ab.js [--base REF] [--only TEXT] [--no-control] [--keep] [--work DIR]
+// REF defaults to origin/claude/funny-darwin-l5uis3; --only keeps the places whose name (scene@x) contains TEXT. Needs
+// CHROME_BIN and CMW_CHROME_ARGS (ci/README.md); CMW_ANGLE picks the renderer (swiftshader; vulkan with lavapipe's
+// flags). Exit 1 on any differing record.
 // Each scene is loaded in a fresh page, moved to its place (a glide's x, the globe, a classic pane) and recorded once its
 // panes are quiet:
 //   - every inverse program's draw is drawn again into an RGBA32F target, blending off, and read back as raw float32
@@ -29,7 +30,7 @@ const { launch, sleep } = require(path.join(ROOT, 'test', 'regress', 'perf', 'cd
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
 const BASE = opt('--base', 'origin/claude/funny-darwin-l5uis3');
-const ONLY = argv.includes('--only') ? new RegExp(opt('--only')) : null;
+const ONLY = argv.includes('--only') ? opt('--only') : null;
 // the control's edits of src/gl/02-glsl-inverse.js: [text, the same moved by one part in 10^7]
 const CONTROL = [
   ['    else dl = vec2(lxp - lxm, lyp - l) * 0.5;', '    else dl = vec2(lxp - lxm, lyp - l) * 0.5000001;'],
@@ -208,14 +209,22 @@ const SCENES = [
   { name: 'globe-a0.3', view: 'steps', state: Object.assign({}, STRIP, { alpha: 0.3 }), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   { name: 'staged-a0.3', view: 'steps', state: Object.assign({}, STRIP, { alpha: 0.3, shapes: STRIP.shapes.concat([{ id: 's3', kind: 'disc', c: [0, 0.3], r: 0.4, stage: 1, ci: 2, visible: true }]) }), xs: [0.5] },
   // a typed formula's NEWT op (want: its carried program has drawn, as for globe-terms below)
-  { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5], want: '^inv\\|B5c:k2' },
+  { name: 'sinzz', view: 'steps', state: typed('sin(z)/z'), xs: [0.5], want: 'inv|B5c:k2' },
   // the globe
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   // (want: the carried program, which a software renderer may still be linking when the panes are quiet, has drawn)
-  { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5], want: '^inv\\|B5cg' },
+  { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5], want: 'inv|B5cg' },
 ];
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
 
+// fn (a function's source) called in the page with args as values (Runtime.callFunctionOn's arguments): what the page
+// gets from here is data, never code built from it
+async function call(H, fn, ...args) {
+  const { result } = await H.send('Runtime.evaluate', { expression: 'globalThis' });
+  const r = await H.send('Runtime.callFunctionOn', { objectId: result.objectId, functionDeclaration: fn, arguments: args.map((value) => ({ value })), returnByValue: true });
+  if (r.exceptionDetails) throw new Error(r.exceptionDetails.exception ? r.exceptionDetails.exception.description : r.exceptionDetails.text);
+  return r.result.value;
+}
 // quiet: no link pending, no pane pending, compiling or refining, no running animation, and `until`
 async function quiet(H, until, max) {
   const t0 = Date.now();
@@ -232,7 +241,7 @@ async function quiet(H, until, max) {
 async function recordPlace(H, base, sc, x) {
   const ns = 'iab' + Date.now();
   await H.nav(base + 'blank.html');
-  await H.ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(savedState(sc.state)))}); 1`);
+  await call(H, 'function (k, v) { localStorage.setItem(k, v); }', `complex-map-workbench-v1:${ns}`, JSON.stringify(savedState(sc.state)));
   // (a page that is still busy when its time is up is recorded all the same: its transient keys leave the core; one
   // that has not started is opened once more, as a loaded machine can starve a software renderer's first links)
   const ready = sc.view === 'steps' ? "typeof __cmwSteps === 'function'" : "typeof __cmwPaneStatus === 'function'";
@@ -251,7 +260,11 @@ async function recordPlace(H, base, sc, x) {
   await H.ev(x != null ? `__cmwSteps({ x: ${x} }), 1` : '__cmwHideStrokes(false), 1');
   settled = await quiet(H, x != null ? `__cmwSteps().x === ${x}` : null, PLACE_MAX_MS) && settled;
   if (x != null && !await H.ev(`__cmwSteps().x === ${x}`)) throw new Error(`${sc.name}@${x}: the glide did not reach its place`);
-  if (sc.want) settled = await quiet(H, `Object.keys(window.__ab.rec).some((k) => new RegExp(${JSON.stringify(sc.want)}).test(k))`, WANT_MAX_MS) && settled;
+  // (want: the start of a key that must be recorded, given to the page as a value)
+  if (sc.want) {
+    await call(H, 'function (p) { window.__ab.want = p; }', sc.want);
+    settled = await quiet(H, 'Object.keys(window.__ab.rec).some((k) => k.startsWith(window.__ab.want))', WANT_MAX_MS) && settled;
+  }
   await sleep(FRAMES_PAUSE_MS);
   if (!settled) await H.ev("window.__ab.rec.unsettled = { h: '1', blank: false }, 1");
   return H.ev(`(() => { const rec = window.__ab.rec; for (const id of ['canvasL', 'canvasR']) { const cv = document.getElementById(id); if (!cv || !cv.width) continue; const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } rec[id + '|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; } return JSON.stringify(rec); })()`).then(JSON.parse);
@@ -267,7 +280,7 @@ async function record(name, dir) {
     for (const sc of SCENES) {
       for (const x of sc.xs) {
         const key = `${sc.name}@${x}`;
-        if (ONLY && !ONLY.test(key)) continue;
+        if (ONLY && !key.includes(ONLY)) continue;
         const a = await recordPlace(H, base, sc, x), b = await recordPlace(H, base, sc, x);
         const NOTES = ['error', 'unsettled'], keys = new Set([...Object.keys(a), ...Object.keys(b)].filter((k) => !NOTES.includes(k)));
         const core = {}, transient = [];
