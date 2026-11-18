@@ -131,6 +131,10 @@
     const p = pathOf(s, stageMap(rightStage()), 'R', 'flat');
     return p.e ? invBox(p.e, p.plan, s) : null;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // (-> whether example i is now the current one: false past the last example)
   window.__cmwExample = (i) => { loadExample(i); return currentExample === i; };
   // the selection, the step shown alone, the temporary Inspector and X's view
