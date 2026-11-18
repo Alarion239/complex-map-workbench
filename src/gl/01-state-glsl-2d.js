@@ -7,6 +7,7 @@
   let maxTex = 4096;
   let pcExt = null;        // KHR_parallel_shader_compile
   let rtOK = false;        // EXT_color_buffer_float: map caches are drawn into their RG32F texture (tfEntry)
+  let swiftShader = false; // the renderer is SwiftShader (its shader compiler, Subzero, links a loop around the chain slowly)
   let syncDepth = 0;       // > 0: chain programs are waited for (tests)
   let syncFwd = 0;         // > 0: chain and static programs are waited for, inverse ones as before (exports)
   // side mode (GLR.side): setChain and the draws use a chain that is not the user's (example thumbnails) without
@@ -76,10 +77,10 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   // whenever there is a post); mode 3 (base, a] in full, (a, b] along their paths, the post; mode 2 the stages a and
   // b, each from base (homrange.js's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
   // LIB), so the walk stays a loop.
-  const WALK = (n, how) => `vec2 z = s;
+  const WALK = (n, how, t = 'uT') => `vec2 z = s;
   for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
     int how = ${how};
-    z = chainAt(k, z, uT, how);
+    z = chainAt(k, z, ${t}, how);
   }
   return z;`;
   const POST = '(uPost > uB && k > uB && k <= uPost) ? 1 : 0';
@@ -93,19 +94,31 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
     if (k == uB) z1 = z;
   }
   return mix(z0, z1, uT);`,
-    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (uT <= 0.0 ? 0 : 2) : ${POST}`),
+    (n) => WALK(n, `k <= uBase ? 0 : k <= uA ? 1 : k <= uB ? (stepT(k) <= 0.0 ? 0 : 2) : ${POST}`, 'stepT(k)'),
   ];
   const MAP_STAGE = [
-    'return chainRange(s, uA, uB);',
-    `vec2 z = chainRange(s, uBase, uHi - 1);
+    () => 'return chainRange(s, uA, uB);',
+    () => `vec2 z = chainRange(s, uBase, uHi - 1);
   // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
-    `vec2 z0 = chainRange(s, uBase, uA);
+    () => `vec2 z0 = chainRange(s, uBase, uA);
   vec2 z1 = uA > 0 && derivIn(uA, uB) ? chainStage(uB, s) : chainRange(z0, uA, uB);
   return mix(z0, z1, uT);`,
-    'vec2 z = chainRange(s, uBase, uA); return postOf(uT <= 0.0 ? z : chainHomAll(z, uA, uB, uT));',
+    // (chainHomAll's walk, each step at its own time)
+    (n) => `vec2 z = chainRange(s, uBase, uA);
+  if (uT <= 0.0) return postOf(z);
+  for (int k = 1; k <= ${n}; k++) {
+    if (k > uB) break;
+    if (k > uA) z = chainHom(k, z, stepT(k));
+  }
+  return postOf(z);`,
   ];
+  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.js stepTime (the draw sets
+  // (1, 0), uT itself, for a step with no time of its own: GLR.use)
+  const STEP_T = (n) => `uniform vec2 uStepT[${n + 1}];
+float stepT(int k) { vec2 m = uStepT[min(k, ${n})]; return clamp(uT * m.x - m.y, 0.0, 1.0); }
+`;
   const DERIV_IN = (n) => `
 bool derivIn(int a, int b) {
   for (int k = 1; k <= ${Math.max(1, n)}; k++) { if (k > b) break; if (k > a && chainIsDeriv(k)) return true; }
@@ -120,12 +133,12 @@ bool derivIn(int a, int b) {
   // the map mode a program is compiled for: 1, 2, 3 as in mapPoint, anything else the plain chain (0)
   const modeOf = (map) => { const m = (map && map.mode) || 0; return m === 1 || m === 2 || m === 3 ? m : 0; };
   const MAP = (info, mode) => {
-    const st = hasStages(info);
+    const st = hasStages(info), n = Math.max(1, sigsOf(info.key).length);
     return `
 const int uMode = ${mode}; uniform int uA; uniform int uB; uniform int uHi; uniform float uT; uniform int uBase; uniform int uPost;
-${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}
+${mode === 1 || mode === 3 ? POST_OF : ''}${st && mode === 2 ? DERIV_IN(sigsOf(info.key).length) : ''}${mode === 3 ? STEP_T(n) : ''}
 vec2 mapPoint(vec2 s) {
-  ${st ? MAP_STAGE[mode] : MAP_PLAIN[mode](Math.max(1, sigsOf(info.key).length))}
+  ${st ? MAP_STAGE[mode](n) : MAP_PLAIN[mode](n)}
 }
 // the plotted function of the color plot, landscape and phase sphere (derivatives are d/dz steps of the chain)
 vec2 mapF(vec2 z) { return mapPoint(z); }
@@ -170,9 +183,12 @@ float wabs(vec2 w) {
   if (m > 1e18 || m < 1e-18) return m * length(w / m);
   return length(w);
 }
-float wang(vec2 w) { return (w.x == 0.0 && w.y == 0.0) ? 0.0 : atan(w.y, w.x); }
+// arg w in [-pi, pi], 0 at w = 0. A zero imaginary part is answered here, 0 or pi by the real part's sign, whatever the zero's
+// sign: a driver's atan(y, x) may read -0 as a negative y (SwiftShader gives pi for atan(-0, x > 0)), and the colour on the
+// real axis must not depend on which zero the arithmetic left there
+float wang(vec2 w) { return w.y == 0.0 ? (w.x < 0.0 ? PI : 0.0) : atan(w.y, w.x); }
 `;
-  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.js): uPal is the chosen
+  // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.ts): uPal is the chosen
   // palette's index in Palette.LIST, 0 the wheel; an Arb palette is baked in uPalT (Palette.bake): column i is
   // arg 2pi i / W, row j is 1 - 1/(1 + |w|^0.2) = j / (H - 1)
   const DCOLOR = `
@@ -411,7 +427,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `centroid out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -795,7 +811,7 @@ void main() { emit(mapPoint(srcOf(bary(aT)))); }
 `;
   // The fill's point pass (drawRegionCarry, fillPoints): for every sub-triangle t of every instance (uSub: its three
   // template corners, regionTemplate's order; uSubI: their places in the map cache and its centroid's), REGION_VS's
-  // fill cull on the same cache texture (unit 1, uCW, uCP) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
+  // fill cull on the same cache texture (unit 1, uCW, uCStride) and uniforms (uKPx, uKLim, aSkip); a sub-triangle the fill
   // draws from the cache is not evaluated and its four points are written as 0, one it fills as point k = 0..3, its
   // onCentreSheet(zc, s_k) with zc its centroid's source point (s_3 the centroid), written as (w, side, 1) into texel
   // instance * uP + 4 t + k of an RGBA32F texture. The fill culls by that .w, so the two never disagree; the chain runs
@@ -808,14 +824,14 @@ layout(location = 4) in float aSkip;
 uniform vec2 uSub[12];
 uniform vec4 uSubI[4];
 uniform float uKPx; uniform float uKLim;
-uniform highp sampler2D uW; uniform int uCW; uniform int uCP;
+uniform highp sampler2D uW; uniform int uCW; uniform int uCStride;
 flat out vec4 tfOut4;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
 uniform int uFPass; uniform highp sampler2D uFA;
 ${SRC}
 ${BARY}
 ${VALID}
-vec2 WC(float k) { int i = gl_InstanceID * uCP + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
+vec2 WC(float k) { int i = gl_InstanceID * uCStride + int(k + 0.5); return texelFetch(uW, ivec2(i % uCW, i / uCW), 0).xy; }
 vec4 FA(int i) { return texelFetch(uFA, ivec2(i % uRtW, i / uRtW), 0); }
 ${ON_CENTRE}${FILL_DRAWN}void main() {
   int v = gl_VertexID, t = v / 4, k = v - 4 * t;
@@ -854,14 +870,14 @@ ${TF_EMIT(rt)}
 ${SRC}
 void main() { emit(mapPoint(srcOf(mix(aP.xy, aP.zw, aT.x)))); }
 `;
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // (tests, GLR.evalMap: points through mapPoint, read back by transform feedback; test.html only)
   const EVAL_VS = `
 layout(location = 0) in vec2 aP;
 out vec2 tfOut;
 void main() { tfOut = mapPoint(aP); gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }
 `;
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   const TF_FS = `
 out vec4 o;
 void main() { o = vec4(0.0); }
@@ -1188,63 +1204,69 @@ void main() {
   o = col;
 }
 `;
+  // (uNoValue = 1: only where F has no finite value, its no-value colour, the NaN hatch or infinity's white; nothing elsewhere)
   const COLORPLOT_FS = `
-uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp;
+uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp; uniform int uNoValue;
 out vec4 o;
 void main() {
-  vec2 z = uCenter + (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
-  o = vec4(dcolor(mapF(z)), 1.0);
+  vec2 z = uCenter + (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale, w = mapF(z);
+  if (uNoValue == 1 && abs(w.x) < 3e38 && abs(w.y) < 3e38) discard;
+  o = vec4(dcolor(w), 1.0);
 }
 `;
-  // The colour carried by the points, on the GPU (the steps view's svCarry): a grid of uN cells over plane s
-  // (uCGrid: its corner and cell), each cell two triangles, drawn without buffers (gl_VertexID). A vertex places its
-  // triangle's three corners by mapPoint (the glide's map from plane s: uBase = s), so the triangle is the same in all
-  // three, and one torn across a cut or a pole (an edge over uLim on the plane) is collapsed out of the picture; the
-  // corners in a loop no compiler can unroll (uNoUnroll): one copy of the chain. vP: the point of plane s, exact in the
-  // grid (affine), where the fragment stage evaluates the map into the colour plane.
-  const CARRY_VS = `
-uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale;
-uniform vec4 uCGrid; uniform ivec2 uN; uniform float uLim;
-out vec2 vP;
+  // The colour plot's stand-in while its program links (drawColorPlot's st.standIn): w = F(z) at the nodes of a grid,
+  // texel (i, j) the node i across and j up; uGO is node (0, 0) and uGC the cell, in device px from the viewport's
+  // corner. w is interpolated at each pixel and coloured by dcolor, as the plot colours F(z): bilinear in w, or in 1/w
+  // where the cell's four nodes all have |w| > 1 (about a pole, where 1/w is close to linear); a cell with a node that
+  // is not finite takes its nearest node's value. Off the grid nothing is drawn
+  const COLOR_STANDIN_FS = `
+uniform vec2 uGO; uniform float uGC; uniform vec4 uVp; uniform sampler2D uWNodes;
+out vec4 o;
+vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }
 void main() {
-  int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
-  ivec2 c = ivec2(cell % uN.x, cell / uN.x);
-  vec2 q0 = vec2(0.0), q1 = q0, q2 = q0, p = q0;
-  bool ok = true;
-  for (int k = 0; k < max(3, uNoUnroll); k++) {
-    if (k >= 3) break;
-    ivec2 o = k == 0 ? ivec2(0) : k == 1 ? (hf == 0 ? ivec2(1, 0) : ivec2(1, 1)) : (hf == 0 ? ivec2(1, 1) : ivec2(0, 1));
-    vec2 pk = uCGrid.xy + vec2(c + o) * uCGrid.zw, qk = mapPoint(pk);
-    if (!cfin(qk)) ok = false;
-    if (k == 0) q0 = qk; else if (k == 1) q1 = qk; else q2 = qk;
-    if (k == cn) p = pk;
-  }
-  ok = ok && length(q0 - q1) <= uLim && length(q1 - q2) <= uLim && length(q2 - q0) <= uLim;
-  vec2 q = cn == 0 ? q0 : cn == 1 ? q1 : q2;
-  vP = p;
-  gl_Position = ok ? vec4(((q - uCenter) - uCenterLo) * uScale, 0.0, 1.0) : vec4(2.0, 2.0, 2.0, 1.0);
+  ivec2 n = textureSize(uWNodes, 0);
+  vec2 q = (gl_FragCoord.xy - uVp.xy - uGO) / uGC;
+  ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
+  vec2 f = clamp(q - vec2(i), 0.0, 1.0);
+  vec2 a = texelFetch(uWNodes, i, 0).xy, b = texelFetch(uWNodes, i + ivec2(1, 0), 0).xy;
+  vec2 c = texelFetch(uWNodes, i + ivec2(0, 1), 0).xy, d = texelFetch(uWNodes, i + ivec2(1, 1), 0).xy;
+  vec2 w;
+  if (!(cfin(a) && cfin(b) && cfin(c) && cfin(d))) w = texelFetch(uWNodes, i + ivec2(step(0.5, f)), 0).xy;
+  else if (min(min(dot(a, a), dot(b, b)), min(dot(c, c), dot(d, d))) > 1.0) w = cinv(mix(mix(cinv(a), cinv(b), f.x), mix(cinv(c), cinv(d), f.x), f.y));
+  else w = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+  vec3 col = dcolor(w);
+  if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(n - 1)))) discard;
+  o = vec4(col, 1.0);
 }
 `;
-  // its fragment stage: the colour plane's colour at the point's image there, G = chainRange(p, uGs, uGt) (the plot's
-  // style, dcolor), exact at every fragment; id: plane s is the colour plane (G the identity), a stage without the chain.
-  // Where the map from plane s folds (several points on one pixel past the colour plane), the inverse path's sheet key
-  // of the point (PRE_KEY, its depth) picks the one the exact image shows, not the grid's order
+  // The colour carried by the points, the fragment stage of the region meshes' carry (REGION_VS's carry option), of the
+  // pre-mapped meshes' (PRE_VS) and of the globe's (CARRY_GLOBE_VS): the colour plane's colour at the image of the point
+  // p of plane s there, G = chainRange(p, uGs, uGt) (the plot's style, dcolor), exact at every fragment; id: plane s is
+  // the colour plane (G the identity), a stage without the chain. Where the map from plane s folds (several points on
+  // one pixel past the colour plane), the inverse path's sheet key of the point (PRE_KEY, its depth) picks the one the
+  // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
   // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
   // triangle's branch was continued across left out)
-  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it, so a
+  // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
-  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as CARRY_VS and PRE_VS write it (the two
+  // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
   // stages' qualifiers must match for the program to link): exact where the places are linear across a triangle's
   // edge, the grid's identity)
-  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false) => `
-uniform int uGs; uniform int uGt;
+  // The carried colour of a point sa of plane s: dcolor of the stages (uGs, uGt] at sa. cz: the Cauchy style's variant (the
+  // flat plane's carried colour while the style is Cauchy, CARRY_CAUCHY): with uCT >= 0 it is the Cauchy integral's colour at
+  // sa instead, F the stages (0, uCT] (the whole chain, uCT its length): the one chain call serves both, the range chosen
+  // by uCT, and the curve's edges and poles are those of the plot on plane z. Without cz the program has none of it
+  const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = false) => `
+uniform int uGs; uniform int uGt;${cz ? ' uniform int uCT; uniform vec2 uEdgeO;' : ''}
 ${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
-${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : ''}  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);
+${key ? PRE_KEY : ''}${cz ? `  bool cz = uCT >= 0;
+  vec2 sw = carryW(sa);
+  o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }
 `;
   // the carried colour on the globe: the whole sphere of plane s as a grid of uN cells in (phi, theta), z =
@@ -1284,15 +1306,16 @@ void main() {
 `;
   // its fragment stage: CARRY_FS on the globe (needs SHADE_GLOBE, TIERS and SPHERE_LINES): the side away from the camera left out, so the sheet
   // key (PRE_KEY's depth) orders only the sheets that land on the visible side, and the colour under the globe's graticule
-  // (at the lifted point) and light, as the globe's phase portrait draws it
+  // (at the lifted point) and light, as the globe's phase portrait draws it; uGraticule 0 leaves the graticule out
   const CARRY_GLOBE_FS = (id) => {
     let t = CARRY_FS(id);
     for (const [a, b] of [
-      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye;\n'],
+      ['in vec2 vP;\n', 'in vec2 vP; in vec3 vNor; in vec3 vPos;\nuniform vec3 uEye; uniform float uGraticule;\n'],
       ['void main() {\n', 'void main() {\n  vec3 vv = normalize(uEye - vPos);\n  if (dot(vNor, vv) < 0.0) discard;\n'],
       [`  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`, `  vec3 nn = normalize(vNor);
   float net, re, eq;
   sphereLines(nn, net, re, eq);
+  net *= uGraticule; re *= uGraticule; eq *= uGraticule;
   o = vec4(toSrgb(shade(toLin(phaseLines(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), net, re, eq)), nn, vv, 1.0)), 1.0);`],
     ]) {
       if (!t.includes(a)) throw new Error('CARRY_GLOBE_FS: ' + a.slice(0, 40));
@@ -1352,32 +1375,42 @@ void main() {
   // curve's centre), as the quadrature's nodes, so z - p keeps float32 precision near the curve.
   // uShow.x: 0 both halves, 1 only inside (f+), 2 only outside; uShow.y: the outside's sign, -1 f- = sum n PP (F = f+ + f-),
   // +1 the integral itself (-f-)
-  const CAUCHYF_FS = `
-uniform vec2 uCenter; uniform vec2 uRelC; uniform vec2 uInvScale; uniform vec4 uVp;
-uniform highp sampler2D uEdges; uniform int uEdgeN;
+  // the Cauchy integral by the residue theorem (the plan's poles and principal parts, the polygon's edges as a texture row
+  // [ax, ay, bx, by] relative to the origin uEdgeO, in the sampler named by edges): cauchyWind is the winding number of the
+  // curve about zr (how many times it encloses the point), cauchyVal the integral's value there (false: neutral, a pole
+  // under the point or a value that cancels to rounding), given the map's value sw at the point where fexpr is the name of a
+  // value the caller already holds, or an expression of the point z (the plot's, evaluated only inside the curve); cauchyCol is its colour. The
+  // part shown (uShow.x: 0 both, 1 inside, 2 outside) and the outside's sign (uShow.y) as the style's control sets them
+  // the carried colour's map value at z: the stages (uGs, uGt], or with the Cauchy style (uCT >= 0) the whole chain (0, uCT]; one chain call for both
+  const CARRY_W = `
+vec2 carryW(vec2 z) { bool cz = uCT >= 0; return chainRange(z, cz ? 0 : uGs, cz ? uCT : uGt); }
+`;
+  const CAUCHY_CORE = (fexpr, edges = 'uEdges') => `
+uniform highp sampler2D ${edges}; uniform int uEdgeN;
 uniform int uPoleN; uniform vec4 uPole[16]; uniform vec4 uCoef[32]; uniform vec2 uShow;
-out vec4 o;
 vec2 cmx(vec2 a, vec2 b) { return vec2(a.x * b.x - a.y * b.y, a.x * b.y + a.y * b.x); }
-void main() {
-  vec2 off = (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
-  vec2 z = uCenter + off, zr = uRelC + off;
+int cauchyWind(vec2 zr) {
   int wn = 0;
   for (int j = 0; j < uEdgeN; j++) {
-    vec4 e = texelFetch(uEdges, ivec2(j, 0), 0);
+    vec4 e = texelFetch(${edges}, ivec2(j, 0), 0);
     float side = (e.z - e.x) * (zr.y - e.y) - (zr.x - e.x) * (e.w - e.y);
     if (e.y <= zr.y) { if (e.w > zr.y && side > 0.0) wn++; }
     else if (e.w <= zr.y && side < 0.0) wn--;
   }
+  return wn;
+}
+vec3 cauchyGrey() { return mix(uPlane, vec3(0.5), 0.6); }
+bool cauchyShown(int wn) { bool inside = wn != 0; return !((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)); }
+bool cauchyVal(vec2 z, vec2 zr, int wn, vec2 sw, out vec2 w) {
+  w = vec2(0.0);
   bool inside = wn != 0;
-  vec3 grey = mix(uPlane, vec3(0.5), 0.6);
-  if ((inside && uShow.x > 1.5) || (!inside && uShow.x > 0.5 && uShow.x < 1.5)) { o = vec4(grey, 1.0); return; }
   vec2 pp = vec2(0.0);
   for (int k = 0; k < max(16, uNoUnroll); k++) {   // (a bound no compiler can know: FXC links a loop, not 16 copies, #72)
     if (k >= uPoleN) break;
     vec4 P = uPole[k];
     vec2 d = zr - P.xy;
     float d2 = dot(d, d);
-    if (d2 < 1e-20 * (1.0 + dot(P.xy, P.xy))) { o = vec4(grey, 1.0); return; }
+    if (d2 < 1e-20 * (1.0 + dot(P.xy, P.xy))) return false;
     vec2 u = vec2(d.x, -d.y) / d2;
     vec2 t = u, s = cmx(uCoef[2 * k].xy, t);
     if (P.z > 1.5) { t = cmx(t, u); s += cmx(uCoef[2 * k].zw, t); }
@@ -1385,11 +1418,51 @@ void main() {
     if (P.z > 3.5) { t = cmx(t, u); s += cmx(uCoef[2 * k + 1].zw, t); }
     pp += P.w * s;
   }
-  vec2 nf = inside ? float(wn) * mapF(z) : vec2(0.0);
-  vec2 w = inside ? nf - pp : -uShow.y * pp;
+  vec2 nf = inside ? float(wn) * ${fexpr} : vec2(0.0);
+  w = inside ? nf - pp : -uShow.y * pp;
   // a value that cancels to float32 rounding (F against its own principal parts) is 0: neutral, not noise
-  if (!(wabs(w) > 4e-6 * (wabs(nf) + wabs(pp)))) { o = vec4(grey, 1.0); return; }
-  o = vec4(dcolor(w), 1.0);
+  return wabs(w) > 4e-6 * (wabs(nf) + wabs(pp));
+}
+vec3 cauchyCol(vec2 z, vec2 zr, vec2 sw) {
+  int wn = cauchyWind(zr);
+  vec2 w;
+  if (!cauchyShown(wn) || !cauchyVal(z, zr, wn, sw, w)) return cauchyGrey();
+  return dcolor(w);
+}
+`;
+  const CAUCHYF_FS = `
+uniform vec2 uCenter; uniform vec2 uRelC; uniform vec2 uInvScale; uniform vec4 uVp;
+${CAUCHY_CORE('mapF(z)')}
+out vec4 o;
+void main() {
+  vec2 off = (gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw) * uInvScale;
+  o = vec4(cauchyCol(uCenter + off, uRelC + off, vec2(0.0)), 1.0);
+}
+`;
+  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15: a segment, a line, a ray,
+  // a circle, an arc): curveNearAB(kind, A, B, w) is the curve's point nearest w. Shared by the preimages (PRE_FS) and
+  // the inverse pass's curves of later planes (INV_HEAD)
+  const CURVE_GEOM = `
+float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
+vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
+vec2 nearer(vec2 p, vec2 q, vec2 q2) { return dot(p - q2, p - q2) < dot(p - q, p - q) ? q2 : q; }
+// >= 0 inside the angular range that runs ccw over span degrees from the direction B.xy to B.zw (Region's sectorLevel)
+float angIn(vec2 v, float span, vec4 B) {
+  float a = crs(B.xy, v), b = -crs(B.zw, v);
+  return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
+}
+vec2 curveNearAB(int kind, vec4 A, vec4 B, vec2 w) {
+  if (kind == 11) return segNear(w, A.xy, A.zw);
+  if (kind == 12 || kind == 13) {
+    float L = dot(A.zw, A.zw);
+    float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
+    return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
+  }
+  vec2 v = w - A.xy;
+  float l = length(v);
+  vec2 q = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * A.z;
+  if (kind == 15 && angIn(v, A.w, B) < 0.0) q = nearer(w, A.xy + B.xy * A.z, A.xy + B.zw * A.z);
+  return q;
 }
 `;
   // ---------- preimages: where w = F(z) lands in target shapes of the w-plane (Preimage mode) ----------
@@ -1405,15 +1478,7 @@ uniform vec2 uCenter; uniform vec2 uInvScale; uniform vec4 uVp; uniform float uD
 uniform highp sampler2D uPts; uniform int uTN; uniform vec3 uHalo; uniform float uHaloA;
 out vec4 o;
 vec4 R(int i) { return texelFetch(uPts, ivec2(i, 0), 0); }
-float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
-vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
-vec2 nearer(vec2 p, vec2 q, vec2 q2) { return dot(p - q2, p - q2) < dot(p - q, p - q) ? q2 : q; }
-// >= 0 inside the angular range that runs ccw over span degrees from the direction B.xy to B.zw (Region's sectorLevel)
-float angIn(vec2 v, float span, vec4 B) {
-  float a = crs(B.xy, v), b = -crs(B.zw, v);
-  return span >= 360.0 ? 1.0 : (span <= 180.0 ? min(a, b) : max(a, b));
-}
-${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
+${CURVE_GEOM}${forms || 'float formulaLevel(int f, vec2 w) { return -1.0; }\n'}
 // formula fa (and fb when two) at w and at the first n - 1 of w + dx, w + dy, w - dx, w - dy, from one call site of
 // formulaLevel in a loop (issue #396: FXC inlines every call of formulaLevel, the dispatch over every level function,
 // and the gradients' calls one by one wrote them all out about 21 times). a, b: (w + dx, w + dy, w - dx, w - dy)
@@ -1463,19 +1528,7 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
 }
 // curve targets: the nearest point of the curve
 vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
-  if (kind == 11) return segNear(w, A.xy, A.zw);
-  if (kind == 12 || kind == 13) {
-    float L = dot(A.zw, A.zw);
-    float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
-    return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
-  }
-  if (kind == 14 || kind == 15) {
-    vec2 v = w - A.xy;
-    float l = length(v);
-    vec2 q = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * A.z;
-    if (kind == 15 && angIn(v, A.w, B) < 0.0) q = nearer(w, A.xy + B.xy * A.z, A.xy + B.zw * A.z);
-    return q;
-  }
+  if (kind >= 11 && kind <= 15) return curveNearAB(kind, A, B, w);
   if (kind == 16) {
     int s = 6 * uTN + int(K.z + 0.5), n = int(K.w + 0.5);   // vertices follow the records
     vec2 q = R(s).xy;

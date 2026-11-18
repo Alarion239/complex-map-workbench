@@ -382,7 +382,7 @@ Labels are verbs in sentence case ("Add function", "Clear chain", "Reset camera"
 |---|---|
 | Image | "View outline" checkbox |
 | Phase | Style segmented [Tiles · Phase · Modulus · Contours · Grid], a sectors *n* scrubber (8/12/16/24, default 12), a Grid step scrubber (only in Grid style), and a "Region outline" checkbox |
-| Landscape | Height segmented [log \|F\| · \|F\| · Re F · Im F], Material segmented [Phase · Tiles · Plaster], a Scale scrubber (0.25–2), a "Unit level" checkbox, views [3/4 · Top · Front], and Reset camera |
+| Landscape | Height segmented [log \|F\| · \|F\| · Re F · Im F]; in the steps view the kind alone [log \|·\| · \|·\| · Re · Im], since there the title, the Height key and the ruler name the map the height reads; each of these buttons is named in words that start with its label ("Re, real part"); on a phone the Display sheet shows the control under a visible "Height" caption; Material segmented [Phase · Tiles · Plaster], a Scale scrubber (0.25–2), a "Unit level" checkbox, views [3/4 · Top · Front], and Reset camera |
 | Sphere | Segmented [Regions · Phase], a "Plane" checkbox, and Reset |
 | Morph | Replaced by the transport (6.11) |
 
@@ -642,7 +642,7 @@ The instrument is calm. There are no entrance animations, no staggered reveals a
 | Interaction | Motion |
 |---|---|
 | Hover on a control | Color and border change at `--t-fast`. Nothing moves. |
-| Fit, reset view, example load | The view tweens over `--t-view` with `--ease-out`: center linear, scale interpolated in log space. |
+| Fit, reset view, example load, zoom to zeros/poles | The view tweens over `--t-view` with `--ease-out` as one zoom about a fixed point: the scale is interpolated in log space, and the center moves so that the world point the start and end views put at the same screen position stays there throughout, as under a wheel zoom (`Pane.tweenAt`). With the scale unchanged it is a plain eased pan. |
 | Wheel zoom | Cursor-anchored. Each notch eases to its target over 120ms (log scale). A trackpad pinch applies immediately. |
 | **Chain change** (add, remove, invert, reorder, bypass, preset, example) | **The image plane morphs from the old image to the new one along that step's homotopy** over `--t-hom` with `--ease-inout`, at mesh ≤ 160, then swaps to full resolution. This is the signature moment. Continuous edits (typing, scrubbing, dragging a cut) update live with no tween. |
 | Popover, menu or palette open | Opacity 0→1 plus a 4px translate from the anchor side, `--t-med` `--ease-out`. Close is `--t-fast`, opacity only. Palette results don't animate. |
