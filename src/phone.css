@@ -263,6 +263,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .seg::before { display: none; }
 :root.ph .ph-sheet .seg > button.on { background: var(--seg-on, var(--surface)); color: var(--ink); box-shadow: var(--shadow-1); }
 :root.ph .ph-sheet .icon-btn { width: 44px; height: 44px; }
+:root.ph .ph-sheet .cam-reset { width: fit-content; min-width: 44px; align-self: flex-start; justify-self: start; padding: 0 12px; gap: 8px; display: inline-flex; align-items: center; color: var(--ink); font: var(--t-body); }
+:root.ph .ph-sheet .cam-reset .cr-t { display: inline; }
 :root.ph .ph-sheet .fader-stops > button { min-width: 44px; }
 /* the Russian mesh stops are staggered on two rows for the laptop's narrow left panel (page.html); in a
    phone's sheet, 44 px tall, the second row would run 28 px under the tip below it. The sheet has room for the five on one

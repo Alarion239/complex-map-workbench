@@ -1,9 +1,9 @@
   // ---------------- init ----------------
-  // ---------------- v15: shared numbers, links and scene files (src/params.js; constructions/DESIGN.md 1) ----------------
+  // ---------------- shared numbers, links and scene files (src/params.js; constructions/DESIGN.md 1) ----------------
   // A step's text fields keep the names (Funcs.build reads them through the parser's name scope); a shape's field that
   // holds names keeps its text in s.bind[key] and its value in the field itself (s.expr: the text with the values
   // written in), so the renderers and every cache keyed by a shape see plain values.
-  // ([#241] seq: a series' a_n, a recurrence's u_0 and rule, whose bound letters, n and u, are never names)
+  // (seq: a series' a_n, a recurrence's u_0 and rule, whose bound letters, n and u, are never names)
   const FX_TYPES = ['cx', 'coeffs', 'cxlist', 'expr', 'seq'];
   // the text fields of a step: [key, text, {bound}] (the third: the options of Params.namesIn for that field)
   function stepTexts(st) {
@@ -12,7 +12,7 @@
     for (const q of d.params) if (FX_TYPES.includes(q.type) && typeof st.params[q.key] === 'string') out.push([q.key, st.params[q.key], { bound: q.bound || [] }]);
     return out;
   }
-  // [#240] the letters the chain's steps bind (a recurrence's u): not new numbers while it holds them
+  // the letters the chain's steps bind (a recurrence's u): not new numbers while it holds them
   const chainBinds = () => [...new Set(S.steps.flatMap((st) => { const d = Funcs.DEFS[st.type]; return d ? d.params.flatMap((q) => q.bound || []) : []; }))];
   // the names a step's fields use, with their values: part of the chain signature, so every cache keyed by it (cards,
   // fits, paths) sees a new value; the GPU programs keep their structure (the values are uniforms)
@@ -20,7 +20,7 @@
     if (!S.params || !S.params.length) return '';
     let out = '';
     for (const [, v, o] of stepTexts(st)) for (const nm of Params.namesIn(v, o)) { const c = Params.getC(nm); out += `;${nm}=${c && c.im ? Params.reprC(c) : Params.get(nm)}`; }
-    // ([issue #6] Repeat × N's N bound to a number: its value is the number of passes)
+    // (Repeat × N's N bound to a number: its value is the number of passes)
     if (st.repeat && st.repeat.by) out += `;${st.repeat.by}=${Params.get(st.repeat.by)}`;
     return out;
   }
@@ -34,8 +34,8 @@
     s.expr = s.bind && s.bind.expr ? Params.resolve(text) : text;
   }
   // the bound fields of shape s again (only those that use one of names, all when names is null): true if one changed.
-  // A value outside the field's range (a radius ≤ 0) or a formula with no value makes the shape undefined (review
-  // math-2): s.undef says why, the shape is not drawn (hidden; s.undefHid remembers that the rule hid it), and it comes
+  // A value outside the field's range (a radius ≤ 0) or a formula with no value makes the shape undefined:
+  // s.undef says why, the shape is not drawn (hidden; s.undefHid remembers that the rule hid it), and it comes
   // back as soon as the numbers give a valid value again. So the picture never depends on how a slider moved.
   const BIND_LIM = { r: [1e-9, Infinity], r1: [0, Infinity], r2: [0, Infinity], n: [1, 60, 1], nc: [1, 60, 1], nr: [1, 60, 1] };
   function applyBinds(s, names) {
@@ -66,7 +66,7 @@
         if (touched && x !== s[key]) { s[key] = x; ch = true; }
       } catch (e) { bad = bad || (e && e.message) || $t('{x} has no value here', { x: src }); }
     }
-    // ([#299 review] an equipotential of the Julia set of a bound c: a c that lifts the critical level to the curve's
+    // (an equipotential of the Julia set of a bound c: a c that lifts the critical level to the curve's
     // level or past it leaves no curve, and says so as any value out of range does)
     if (!bad && s.kind === 'dheq' && Array.isArray(s.c)) {
       const rho = CX.dhCritRho(C(s.c[0], s.c[1]), 64);
@@ -108,7 +108,7 @@
     undoToast($t('Added the complex number {x}', { x: Params.display(nm) }));
     return nm;
   }
-  // every bound field and every number by formula from the numbers' current values (review math-3: a state, a link or a
+  // every bound field and every number by formula from the numbers' current values (a state, a link or a
   // scene opens with its formulas as the truth; the stored values are only a cache)
   function bindsAll() {
     if (!S) return;

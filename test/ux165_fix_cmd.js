@@ -119,7 +119,7 @@ await pick(300);
 // rail-9: the chip leaves the picks' band (RU, dark)
 await view(1366, 768, true, false);
 await load(NS + 'r9', U0({ shapes: [{ id: 'C', kind: 'circle', c: [0.5, 0.3], r: 1.3, ci: 0, visible: true }], nextId: 40 }));
-await nav(`${BASE}/test.html?ns=${NS}r9&lang=ru`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}r9&lang=ru`);
 await tool('perp');
 { const at = async (d) => A(d, 1.3, [0.5, 0.3]); let q = await at(200); await move(q[0], q[1]); await settle(100); await click(q[0], q[1]); await settle(200);
   q = await at(100); await move(q[0], q[1]); await settle(150);
@@ -149,7 +149,7 @@ await settle(1200);
 }
 // z^2 + a from the palette
 await view(1366, 768, false, false);
-await nav(`${BASE}/test.html?ns=${NS}pal`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}pal`);
 await key('k', 4); await settle(300); await type('z^2 + a'); await settle(400); await key('Enter'); await settle(800);
 { const headSel = '#plotL', placed = 'plot';   // (the plot, above the thread)
   const t = await ev(`(() => { const e = [...document.querySelectorAll('.prm')].find((x) => x.offsetParent); return e ? e.textContent : ''; })()`);
@@ -184,17 +184,17 @@ await view(412, 860, true, true);
 // (a phone that has not probed yet: the Point taps above, on a phone, count as a finger on the plane, cmw-probe-learned,
 // which ends the teaching for good; ux165_plane_cmd.js clears it the same way)
 await ev(`sessionStorage.clear(), localStorage.removeItem('cmw-probe-learned'), 1`);
-await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`);
 { const c = await ev(`(() => { const e = document.getElementById('leftReadout'); return [e.textContent, e.scrollWidth <= e.clientWidth + 1]; })()`);
   // (the same line, worded for the steps view's one plane)
   ok('user-4: the Russian line is whole', (await svClassOn() ? /Удерживайте и ведите, чтобы прочитать F\(z\)/ : /Удерживайте палец\s— F\(z\)/).test(c[0]) && c[1], c);
   await sleep(8500);
   ok('regress-4: the line is gone after 8 s', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`)));
-  await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`); await settle(1500);
+  await nav(`${BASE}/test.html?ns=${NS}ph&lang=ru`);
   ok('regress-4: not again in the same session', !/Удерживайте/.test(await ev(`document.getElementById('leftReadout').textContent`))); }
 // user-3: Orthogonal on the phone: Y's view stays
 await view(412, 860, false, true);
-await nav(`${BASE}/test.html?ns=${NS}u3`); await settle(1500);
+await nav(`${BASE}/test.html?ns=${NS}u3`);
 { const yv = () => ev(`(() => { const a = __cmwW2S('R', 0, 0), b = __cmwW2S('R', 1, 0); return Math.round((b[0] - a[0]) * 100) / 100; })()`);
   const y0 = await yv(); await tool('perp');
   for (const d of [200, 250, 300]) { const p = await A(d); await tap(p[0], p[1]); await settle(300); }
