@@ -25,6 +25,7 @@
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
+    sheetsSeen: null,   // All sheets as svCheck saw it last (null: not yet)
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
@@ -183,6 +184,10 @@
     // (and the thread parks on z with it: the style's control is in the pane of the colour plane, which the view shows only while it is the plane the thread is on)
     if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy' && !SV.alone && P.length > 1) { if (SV.T !== P[0]) SV.T = P[0]; if (SV.i !== 0) { SV.dcSeen = S.dc; svGo(0, true); } }
     SV.dcSeen = S.dc;
+    // (All sheets ticked by any of its writers, the check, a tour step's look or an example, with the Landscape shown: its
+    // glide's carry places the sheets then, so that program starts linking at once, svPrestart)
+    if (S.sheets && SV.sheetsSeen === false && SV.surf === 'land') svPrestartSoon(300);
+    SV.sheetsSeen = !!S.sheets;
     // (another chain loaded with the state, an example or a link: its glide's programs are started too)
     if (SV.sig != null && sig !== SV.sig) svPrestartSoon(300);
     svAdopt(SV.sig != null && sig !== SV.sig);
@@ -405,10 +410,11 @@
     return true;
   }
   // the plane a carry starts from: s0, unless a d/dz step lies between s0 and a plane in ts it must reach (the places,
-  // the colour plane), or All sheets draws a multivalued chain; then z's plane. Every stage is a function of z
-  // (chainRange from plane 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist
-  // only as the preimages of z's points
-  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet() || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
+  // the colour plane), or All sheets draws several sheets of a carry from z (landSheetsMap(0): the chain up to the colour
+  // plane, so a step after it changes nothing); then z's plane. Every stage is a function of z (chainRange from plane 0
+  // crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist only as the preimages
+  // of z's points
+  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet(landSheetsMap(0)) || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
   // the longest edge a cell of the carried grid may have once placed by the glide's map, as a share of the pane's longer
   // side (svLandCarry's lim, in the plane's units): a cell stretched past it, by a pole of the map or a fold, is left
   // out, and the patches about the poles cover its place
@@ -485,11 +491,14 @@
   // at rest. False when the Landscape is not on the pane
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
-    const g = svBetween();
-    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
-    const mapOf = (s) => svGlideMap(g, s);
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    render3D(pane, svLandCarryNow());
     return true;
+  }
+  // the carry the Landscape draws now (render3D's), undefined for a plane's own relief at rest
+  function svLandCarryNow() {
+    const g = svBetween();
+    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) return svLandRest(g.near);
+    return svLandCarry((s) => svGlideMap(g, s), g.a, g.b, g.u);
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
   // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
@@ -1652,12 +1661,15 @@
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands
   // in while the mesher's job runs
-  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt); all at once, the span's first plane's, whose
-  // window the glide starts from; at rest, plane b's)
+  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt, plane b's key with the glide's poles at t); all at
+  // once, the key of the span's top plane, map.b, with that plane's poles, so the front sheet is the one the inverse pass
+  // shows where the span ends, at plane b: an upward glide lands on that sheet, while a downward one, which ends at the
+  // span's first plane, keeps plane b's key to the end (the first plane's key lacks the later planes' poles, so where the
+  // map folds it would put the wrong sheet in front on the way); at rest, plane b's)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;
-    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.a) : svSheetKey(b);
+    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.b) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
@@ -1771,8 +1783,9 @@
   // pictures at rest cross-faded, each drawn as the plane draws at rest (the classic core's pull-back on a coloured
   // plane, else the carry core's exact pass or its meshes), plane a's on the pane and plane b's over it at opacity u
   // from a canvas of its own. The glide's record: path 'inverse' when both ends are exact (a coloured plane's plot, or
-  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. False for
-  // any other frame (the Landscape's jump is svLandMoving's)
+  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. The cuts
+  // are each end's, faded with it; while the glide is under way, the handles of the plane it is nearest to, inert. False
+  // for any other frame (the Landscape's jump is svLandMoving's)
   let svJumpCv = null;
   function svJump(pane, still) {
     if (SV.surf === 'land') return false;
@@ -1795,12 +1808,18 @@
       if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
       return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
     };
-    const ends = [end(bt.x0, pane)];
+    // (each end's cut handles, as its draw leaves them: the editable ones of the classic core at rest (cutHandlesL), or
+    // the inert ones of the carry core, which draws them so while a scrub holds the thread (cutMarksL))
+    const handles = [];
+    const drawEnd = (j, p) => { cutHandlesL = []; cutMarksL = []; const e = end(j, p); handles.push(cutHandlesL.concat(cutMarksL)); return e; };
+    const ends = [drawEnd(bt.x0, pane)];
     svJumpCv = svCanvas(svJumpCv, pane);
-    ends.push(end(bt.x1, svProxy(pane, svJumpCv)));
+    ends.push(drawEnd(bt.x1, svProxy(pane, svJumpCv)));
     svFadeOver(pane, svJumpCv, bt.u);
-    // (the cut handles are cleared, as they are mid-glide)
+    // (no handle takes a press mid-glide; while the glide is under way the plane it is nearest to shows its handles
+    // inert, as a glide frame between two other planes does (cutMarksL); a frame parked between the planes shows none)
     cutHandlesL = [];
+    cutMarksL = svGliding() ? handles[bt.u < 0.5 ? 0 : 1] : [];
     const exact = (e) => e === 'plot' || e === 'inverse';
     svGlideRec = { b: bt.b, u: bt.u, path: ends.every(exact) ? 'inverse' : ends.includes('none') ? 'none' : 'mesh', reason: 'a d/dz step', ends, key: null, H: bt.F, Hb: null, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
     SV.core = 'carry';
@@ -2179,8 +2198,9 @@
     const h = svHomPaths(g.b, g.u).h;
     return h ? { g, h } : null;
   }
-  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level)
-  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve']);
+  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level; a freehand
+  // curve, a formula curve, an external ray and an equipotential by their polylines at rest, invTrace)
+  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve', 'cgrid', 'pgrid', 'fcurve', 'dhray', 'dheq']);
   // the curves of later planes of the frame between two planes, with their inverse path, the whole plane's (a shape of
   // a later plane is tested on its own plane, svInvPaths): {list, paths}, or null when there is none or the pass cannot
   // draw them
@@ -2913,7 +2933,7 @@
   const svSurface = () => (SV.on ? SV.surf : null);
   // a surface's name as the Surface control reads it: 'Surface: Plane'
   function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape') }[v]}`; }
-  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') { prestartGlobe(); svPrestartSoon(300); } svApply(); tourEmit('surface-changed', { s: v }); }
+  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
   function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
   // the scope switch again, for the phone's Display sheet (the sheet shows it full width; svSync keeps it with the head's)
@@ -3576,6 +3596,12 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
+      // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
+      // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
+      if (SV.surf === 'land') {
+        if (GLR.prestartNames) GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
+        if (GLR.prestart) GLR.prestart(['landCarryNrm', 'lineFC']);
+      }
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
       // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();
@@ -3788,7 +3814,8 @@
     if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
-    E.play.setAttribute('aria-pressed', String(on));
+    // (a plain button, Cancel, while the press waits: a "not pressed" toggle named Cancel would be read as one)
+    if (SV.gate && SV.gate.shown && SV.gate.btn === E.play) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
@@ -3851,6 +3878,8 @@
     if (!g) return;
     clearTimeout(g.timer);
     if (!keep) svAheadDrop();
+    // (the keyboard user who acted in the message goes back to the control the wait is on, not to the page)
+    if (g.toast && g.toast.contains(document.activeElement)) g.btn.focus();
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
@@ -3868,7 +3897,7 @@
     if (!g || !g.shown) return;
     const B = g.btn;
     if (!g.keep) {
-      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description'].map((k) => [k, B.getAttribute(k)]) };
+      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
@@ -3877,6 +3906,7 @@
     B.dataset.wait = g.hung ? 'hung' : 'busy';
     g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
     B.style.setProperty('--wait', String(g.fill));
+    B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
@@ -3896,7 +3926,12 @@
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
       g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
-      if (g.toast) { g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel'))); }
+      if (g.toast) {
+        g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
+        // (Retry and the message's ✕ end the message, not the wait: the focus moves to the button before the message goes)
+        const msg = g.toast, btn = g.btn;
+        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
+      }
     }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
