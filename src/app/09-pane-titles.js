@@ -183,10 +183,12 @@
       if (!segRaf) segRaf = requestAnimationFrame(placeSegs);
     }
   }
-  // (opt.cls: more classes; opt.loop: the arrows ← → ↑ ↓ all move, and from the last radio on to the first, as the steps
-  // view's scope switch does; without it ← → stop at the ends)
+  // (opt.cls: more classes; opt.loop: ↑ ↓ move too, as the steps view's scope switch does. The arrows ← → wrap in every row, as a
+  // radiogroup's do: from the last radio on to the first, from the first back to the last. Home and End check the first and the
+  // last choice. opt.wrap false: a row whose change is costly (Language, which reloads the page) stops at its ends, and Home and
+  // End leave it alone, so no one key press reaches the far choice)
   function seg(id, value, options, onchange, label, opt) {
-    const o = opt || {};
+    const o = opt || {}, wrap = o.wrap !== false;
     const el = h('div', { class: 'seg small' + (o.cls ? ' ' + o.cls : ''), id: id || null, role: 'radiogroup', 'aria-label': label });
     for (const [v, l, title, aria] of options) {
       el.append(h('button', { type: 'button', 'data-v': v, role: 'radio', title: title || null, 'aria-label': aria || null, onclick: () => { setSeg(el, v); onchange(v); } }, l));
@@ -199,12 +201,20 @@
       if (on) { segPending.set(el, on); if (!segRaf) segRaf = requestAnimationFrame(placeSegs); }
     });
     el.addEventListener('keydown', (e) => {
+      const bs = [...el.children];
+      if (wrap && (e.key === 'Home' || e.key === 'End')) {
+        const b = bs[e.key === 'Home' ? 0 : bs.length - 1];
+        b.click(); b.focus(); e.preventDefault();
+        return;
+      }
       const next = e.key === 'ArrowRight' || (o.loop && e.key === 'ArrowDown');
       if (!next && e.key !== 'ArrowLeft' && !(o.loop && e.key === 'ArrowUp')) return;
-      const bs = [...el.children], i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
+      const i = o.loop ? bs.indexOf(/** @type {HTMLElement} */ (e.target)) : bs.findIndex((b) => b.classList.contains('on'));
       if (i < 0) return;
-      const j = o.loop ? (i + (next ? 1 : bs.length - 1)) % bs.length : Math.max(0, Math.min(bs.length - 1, i + (next ? 1 : -1)));
-      bs[j].click(); bs[j].focus(); e.preventDefault();
+      e.preventDefault();
+      const j = wrap ? (i + (next ? 1 : bs.length - 1)) % bs.length : i + (next ? 1 : -1);
+      if (j < 0 || j >= bs.length) return;
+      bs[j].click(); bs[j].focus();
     });
     return el;
   }
@@ -245,7 +255,7 @@
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
       // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
       if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
-        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        const why = cauchyOffZWhy();
         /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
       }
     }
@@ -568,10 +578,22 @@
     pop.style.top = y + 'px';
     const mo = new MutationObserver(() => { if (!pop.isConnected) { btn.setAttribute('aria-expanded', 'false'); mo.disconnect(); } });
     mo.observe($('popHost'), { childList: true });
-    pop.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); } });
+    // (Escape, and a Tab that would leave the pop-up, close it and give the focus back to the anchor: it is a non-modal dialog, so Tab
+    // does not trap, and it lies apart from the page's Tab order (after the app in the document), so a Tab out of it would land on
+    // the page's last or first control with the pop-up left open. A control Tab does not reach, a segmented row's unchecked choice
+    // that a click focused, counts by its place: Tab from it goes to the next stop after it in the pop-up, or leaves)
+    const tabStops = () => [...pop.querySelectorAll(':is(button, input, select, textarea, [tabindex]):not([tabindex="-1"]):not(:disabled)')].filter((x) => /** @type {HTMLElement} */ (x).offsetParent !== null);
+    pop.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') { e.preventDefault(); closePalette(); btn.focus(); return; }
+      if (e.key !== 'Tab' || e.altKey || e.ctrlKey || e.metaKey) return;
+      const t = /** @type {Node} */ (e.target), stops = tabStops();
+      const next = e.shiftKey ? stops.filter((x) => x.compareDocumentPosition(t) & Node.DOCUMENT_POSITION_FOLLOWING).pop() : stops.find((x) => t.compareDocumentPosition(x) & Node.DOCUMENT_POSITION_FOLLOWING);
+      if (next) return;
+      e.preventDefault(); closePalette(); btn.focus();
+    });
     // (focus moves into the pop-up, whichever way it was opened, onto the first control Tab would reach: the checked choice of a
     // segmented row, whose other buttons are tabindex -1)
-    if (!refresh) { const first = pop.querySelector(':is(button, input, select):not([tabindex="-1"]):not(:disabled)'); if (first) first.focus({ preventScroll: true }); }
+    if (!refresh) { const first = tabStops()[0]; if (first) /** @type {HTMLElement} */ (first).focus({ preventScroll: true }); }
     armOutside(btn);
   }
   // the focused map has a multivalued step the Landscape can show all sheets of (GLR.sheetInfo): {infinite} or null
@@ -842,6 +864,8 @@
     syncOpacityRange(rng);
     return row;
   }
+  // why the Cauchy style and its parts are not offered while the colour plane is not z (the integral is drawn on z, where its curve lies)
+  function cauchyOffZWhy() { return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z'); }
   // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
   // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
   // button named and titled in words that start with its visible label ("Re, real part"; the modulus, |·|, is symbols
@@ -872,18 +896,18 @@
     if (lPhase() || (SV.on && !lLand())) {
       const land = lLand();
       if (!land) f.append(styleSeg());
-      if (S.dc === 'cauchy' && lColor()) {
+      if (S.dc === 'cauchy' && (lColor() || SV.on)) {
         const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
         // (#235: with poles inside the curve, which halves show; the words say what the picture is)
-        // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
+        // (the steps view offers the parts on every plane whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
         const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
         const offZ = SV.on && svT() !== 0;
-        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
+        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
         if (parts) {
           if (partsWhy) for (const b of parts.querySelectorAll('button')) { b.disabled = true; b.dataset.tip = partsWhy; b.setAttribute('aria-description', partsWhy); }
           f.append(parts);
         }
-        const noteHtml = SV.on && svT() !== 0 ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+        const noteHtml = SV.on && svT() !== 0 ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
           : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
           : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
           : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
@@ -1053,15 +1077,18 @@
   }
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
-  // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
-  // to the lowest of them; it is recomputed each time the key is shown)
+  // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
+  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the distance to the lowest of
+  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size)
+  const LEGEND_HIT_PX = 8;
   function placeKeyPop(box) {
     const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
     box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
-    if (!el || (!head && box.classList.contains('collapsed'))) return;
+    if (!el) return;
+    const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
     // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
@@ -1076,9 +1103,12 @@
       let drop = 0;
       for (const e of plot.querySelectorAll(sel)) {
         const r = e.getBoundingClientRect();
-        if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
+        if (r.width && r.left < c.right + reach && c.left - reach < r.right && r.top < c.bottom + reach && c.top - reach < r.bottom) drop = Math.max(drop, r.bottom + 6 + reach - c.top);
       }
       if (drop <= 0) return;
+      // (a folded chip does not go under the context bar: the readout it would touch is the lesser harm)
+      const bar = reach ? document.querySelector('.ph-ctx.in') : null;
+      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) return;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
     }
   }

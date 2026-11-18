@@ -112,7 +112,7 @@
     if (lLand()) {
       cutHandlesL = []; leftSphereInfo = null; render3D(pane, SV.on ? svLandRest() : undefined);
       // the relief has no place for the target preimages (they show on the Plane and the Sphere): said, not dropped silently
-      if (hasTargets() && GLR.ok) sphereCaption(pane, $t('Target preimages show on the Plane and the Sphere'));
+      if (hasTargets() && GLR.ok) { const cap = $t('Target preimages show on the Plane and the Sphere'); paneCaption(pane, cap); paneSay(pane, 'land', cap); }
       return;
     }
     // X Sphere: this plane on the Riemann sphere, with its shapes or (Phase) the phase portrait (orbit only; drawing on
@@ -343,7 +343,7 @@
     // write the corner only when it changes: a write followed by a layout read forced a layout every frame
     // (the steps view's plane name with a real subscript: the corner is 18 px wide, which cut the Unicode one)
     const cornerHtml = !show ? '' : side === 'L' ? (SV.on ? svNameHtml(leftStage()) : wHtml(leftStage())) : (yAtF() ? '<i>w</i>' : wHtml(rightStage()));
-    if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml; seen.corner = cornerHtml; }
+    if (corner && seen.corner !== cornerHtml) { corner.innerHTML = cornerHtml ? `<span>${cornerHtml}</span>` : ''; seen.corner = cornerHtml; }   // (one grid item: the letter and its subscript share a line, not a row each)
     if (!show) return;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     const [xw, xh] = rulerDims(rx), [yw, yh] = rulerDims(ry);
@@ -638,6 +638,9 @@
       const mb = carry.b == null ? ma : medianAbs(landBox(carry.vb), svHeightMap(carry.b), svHeightF(carry.b));
       mu = logLerp(ma, mb, carry.u);
     }
+    // (the height ruler's labels step by this scale, the surface's own before All sheets' spread: between planes the
+    // planes' scales blended as the surface's are, so the labels on arrival are the parked plane's)
+    const rulerMu = mu;
     // all sheets with height Re F / Im F: the scale from the 90th percentile of the values over every surface drawn
     // (the sheets of log stack 2 pi i apart: the principal branch's scale, or even the median, flattened the outer
     // ones into stacked plates), so the height is nearly linear in the value and every turn keeps its pitch; the
@@ -809,7 +812,7 @@
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     if (info && (artMode || artCam)) artLand = { MVP: info.MVP, aspect: info.aspect, floorZ: info.floorZ, eye: info.eye, top: info.top, heightOf: info.heightOf, mask: mask && mask.cut ? mask : null, box, w: pane.w, h: pane.h };
-    if (info && !artMode) draw3DLabels(pane, info, box);
+    if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, hmap: carry.hmap, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
@@ -907,8 +910,9 @@
   function haloText(ctx, t, x, y, halo) { ctx.save(); ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = halo || TH.landTop; ctx.strokeText(t, x, y); ctx.restore(); ctx.fillText(t, x, y); }
   // Labels of the landscape (spec 6.9), projected each frame: ticks on the two floor edges facing the camera, the
   // axis names, and a height ruler (values of the plotted quantity through the height map) on the back corner
-  // that sits on the block's silhouette, so its labels never cover the relief.
-  function draw3DLabels(pane, info, box) {
+  // that sits on the block's silhouette, so its labels never cover the relief. mu: the median |F| (or |Re F|, |Im F|)
+  // the ruler's labels step by (render3D's)
+  function draw3DLabels(pane, info, box, mu) {
     const ctx = pane.ctx;
     const [ax, ay] = info.aspect || [1, 1];
     const z0 = info.floorZ, eye = info.eye;
@@ -1012,7 +1016,7 @@
     let vals;                                     // [value, label], in order of priority
     if (S.height === 'log' || !S.height) vals = [1, 10, 0.1, 100, 0.01].map((m) => [m, fmt(m)]);
     else {
-      const b = Axes.niceStep(medianAbs(box));
+      const b = Axes.niceStep(mu);
       vals = (S.height === 'abs' ? [1, 0, 4, 2, 10, 0.5] : [0, 1, -1, 4, -4, 2, -2]).map((m) => [m * b, fmt(m * b)]);
     }
     ctx.strokeStyle = TH.rulerTick;
@@ -1382,14 +1386,61 @@
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
     return sphereView(pane, camL, CAML, Object.assign({ imageMode: true, stage: leftStage(), plane: !!xView().eq, role: 'L' }, leftGlobeOver()));
   }
-  // a one-line note at the top of a sphere view, on a halo (what the globe leaves out)
-  function sphereCaption(pane, text) {
+  // What a plane's canvas says only in drawn text, for a screen reader: the plane's description. A frame collects it
+  // (paneSay, by part, while the pane draws), and paneSaid writes it, once the frame is drawn, to a hidden span beside the
+  // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
+  // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
+  // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
+  // caption), 'pre' (the marked preimages of the later planes' points)
+  const PANE_SAY_ORDER = ['land', 'pre'];
+  const paneSayAt = new Map();   // pane → { parts, begun, el, text }
+  function paneSayOf(pane) {
+    let q = paneSayAt.get(pane);
+    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, el: null, text: '' }));
+    return q;
+  }
+  function paneSays(pane) { const q = paneSayOf(pane); q.parts = {}; q.begun = pane.begun; }
+  function paneSay(pane, part, text) { paneSayOf(pane).parts[part] = text; }
+  function paneSaid(pane) {
+    const q = paneSayOf(pane), cv = pane.ocanvas;
+    if (!cv || !cv.id || pane.begun === q.begun) return;
+    const text = PANE_SAY_ORDER.map((k) => q.parts[k]).filter(Boolean).join(' ');
+    if (text === q.text) return;
+    q.text = text;
+    if (!q.el) { q.el = h('span', { class: 'sr-only', id: cv.id + 'Say' }); cv.after(q.el); }
+    q.el.textContent = text;
+    if (text) cv.setAttribute('aria-describedby', q.el.id); else cv.removeAttribute('aria-describedby');
+  }
+  const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
+  const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
+  // the boxes of the view buttons (zoom, Fit, …) over a pane, in the pane's CSS px
+  function paneButtons(pane) {
+    const cv = pane.ocanvas, host = cv && cv.parentElement;
+    if (!host) return [];
+    const c = cv.getBoundingClientRect(), out = [];
+    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    return out;
+  }
+  // a note at the foot of a pane, centred on a halo (what the view leaves out): its words wrap to the widest centred
+  // lines that keep CAPTION_PAD from the pane's sides and from the view buttons beside the lines (a phone's buttons stand
+  // over the foot)
+  function paneCaption(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.font = `12px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-    const y = pane.h - 14;   // at the foot of the pane (the readout sits at the top, the zoom buttons at the right)
-    ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = TH.halo; ctx.strokeText(text, pane.w / 2, y);
-    ctx.fillStyle = TH.muted; ctx.fillText(text, pane.w / 2, y);
+    const foot = pane.h - 14, mid = pane.w / 2, btns = paneButtons(pane);
+    // (n lines: the width a centred line may take beside the buttons the band of n lines meets)
+    const room = (n) => {
+      const top = foot - n * CAPTION_LINE - CAPTION_PAD, bot = foot + CAPTION_PAD;
+      let half = mid - CAPTION_PAD;
+      for (const b of btns) if (b.t < bot && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
+      return 2 * half;
+    };
+    let lines = wrapWords(ctx, text, room(1));
+    // (more lines take a taller band, which can meet more buttons: wrapped again for the band, at most CAPTION_REWRAPS times)
+    for (let i = 0; i < CAPTION_REWRAPS; i++) { const next = wrapWords(ctx, text, room(lines.length)); if (next.length === lines.length) break; lines = next; }
+    ctx.lineJoin = 'round'; ctx.lineWidth = 4; ctx.strokeStyle = TH.halo; ctx.fillStyle = TH.muted;
+    lines.forEach((t, i) => { const y = foot - (lines.length - 1 - i) * CAPTION_LINE; ctx.strokeText(t, mid, y); ctx.fillText(t, mid, y); });
     ctx.restore();
   }
   // the point of the left plane under pane pixel (x, y) (CSS px) of the sphere view: the ray from the eye through
@@ -1455,6 +1506,13 @@
       try { if (matchMedia('(pointer: coarse)').matches && el.parentNode && !/** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.add('collapsed'); } catch (e) { /* no media queries */ }
       // (the pop-up in a pane head opens below the probe's readout and the notes it would cover)
       for (const ev of ['pointerenter', 'focusin', 'click']) el.addEventListener(ev, () => requestAnimationFrame(() => placeKeyPop(el)));
+      // (on a phone the chip lies in the plot, folded: it stays below the readout as it changes size. The readouts are the pane's own plot's elements, wherever the chip stands
+      // when this runs (in the pane's head until the layout places the keys), and they and the chip stay as long as the page does, so the observer is never disconnected; it
+      // acts only while the root is .ph, and on a laptop the chip is placed when it is pressed, as before)
+      try {
+        const pane = el.closest('.pane'), plot = pane && pane.querySelector('.plot'), ro = new ResizeObserver(() => { if (document.documentElement.classList.contains('ph')) requestAnimationFrame(() => placeKeyPop(el)); });
+        if (plot) for (const e of plot.querySelectorAll(':scope > .chip.readout')) ro.observe(e);
+      } catch (e) { /* no ResizeObserver */ }
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
