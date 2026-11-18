@@ -13,6 +13,8 @@
 // - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
 // - (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere (x = 1.47, 1.82, 1.98): the inverse pass composites the two or
 //   three points over each w at the frame's opacity, and held_frames' judge, compositing them the same way, passes.
+// - z^3 - 2z + 1, a formula recognised as a chain whose first sub-step has no exact ops, at u = 0.25, 0.5 and 0.75: the
+//   inverse pass (#1693).
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -81,6 +83,26 @@ for (const [x, ref] of [[0.001, 'p0'], [0.999, 'p1']]) {
   const g = await at(2.5, 'mesh');
   info.lin = g;
   ok('a non-analytic formula after the Möbius map: its straight-line glide takes the carried mesh', !!g && g.b === 3 && g.path === 'mesh', g);
+}
+
+// ---- a formula recognised as a chain whose first sub-step has no exact ops: z^3 - 2z + 1 is z^3 - 2z, then + 1 ----
+// (its homotopy walks the sub-steps: z^3 - 2z by every root to u = 0.5, then that cubic at t = 1 by its roots and the
+// sum's path, #1693; a disc, as ci/fxc_size's survey types it)
+{
+  const ns = 'gc' + Date.now();
+  await loadView('steps', ns, { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^3-2z+1', cut: 180 }, on: true }] });
+  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await ready();
+  await ev(HELP);
+  await ev('__cmwSteps({ bare: true }), 1');
+  await park(0); await ev('window.__gi.p0 = __giGrab(), 1');
+  for (const u of [0.25, 0.5, 0.75]) {
+    const g = await at(u, 'inverse');
+    // (the CPU reference, recorded: 2 to 3 % of the pixels away from the lines differ from it at every u, inside the
+    // cubic's homotopy as past it, #1805)
+    info[`z^3 - 2z + 1 u ${u}`] = { g, r: await ev('__giRef(window.__gi.p0, __giGrab(), 6, 8)') };
+    ok(`z^3 - 2z + 1, z → w₁ at u = ${u}: drawn by the inverse pass`, !!g && g.path === 'inverse' && g.b === 1, g);
+  }
 }
 
 // ---- the fallback, per step ----
