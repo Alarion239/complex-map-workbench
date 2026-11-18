@@ -1755,7 +1755,8 @@
     cutMarksL = [];
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; } SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
-    if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
+    if (svGateDraws() || (svPaint() === 'push' && SV.surf === 'plane' && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
     svHeldOn = null;
     SV.core = 'still'; still(pane);
   }
@@ -3605,12 +3606,15 @@
   const svGateOffSet = (off) => { svGateOff = !!off; };
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
+  // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
+  const svGateDraws = () => !!SV.gate && SV.surf === 'plane' && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
   // start() now, or once the chain is prepared; btn is the control the wait shows on
   function svGated(btn, start) {
     if (SV.gate) return;
     if (!svGateNeeded()) { start(); return; }
     SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
     svPrestartSoon(0);
+    if (svGateDraws()) requestRender('L');
     svGateTick();
   }
   // (restart: Retry keeps the ring shown, with no pause before it)
@@ -3628,6 +3632,7 @@
     clearTimeout(g.timer);
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
+    requestRender('L');
     if (g.keep) {
       g.btn.replaceChildren(...g.keep.kids);
       for (const [k, v] of g.keep.attrs) { if (v == null) g.btn.removeAttribute(k); else g.btn.setAttribute(k, v); }

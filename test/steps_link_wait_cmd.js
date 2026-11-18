@@ -8,6 +8,8 @@
 // - while the link is pending the thread stays on plane 0;
 // - once it has linked, the glide runs, its frames between the planes drawn by the inverse pass (one at least: a
 //   software renderer's first draw of the program takes most of the glide's time), and arrives on plane 1.
+// It runs with the Play gate off (__cmwSteps({ gate: false })): it watches the hold of a glide that is already under way, which a press
+// the gate holds back would never start; the gate's own waits are svplay_gate_cmd.js's and the gate leg of steps_late_links_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
