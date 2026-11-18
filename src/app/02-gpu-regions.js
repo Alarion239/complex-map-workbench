@@ -1201,6 +1201,29 @@
   // caller has one), as GLR.drawLines takes it; null for a closed set
   const OPEN_DASH = [5, 3.5];
   function openDash(r, map, F) { return r.open ? { dash: OPEN_DASH, arc: arcOf(r, F || cpuMap(map), mapKeyOf(map)) } : null; }
+  // The polylines the inverse pass strokes a traced curve of a later plane by (GLR.packShapes' opts.trace: a freehand
+  // curve, a formula curve, an external ray, an equipotential): its own samples at rest (shapeGPU's r.polys), each
+  // simplified to within TRACE_TOL of its sampling window's diagonal (Calc.simplifyOpen, ends kept). When they don't
+  // fit in the pass's GLR.INV_CURVE_MAX vertices, the tolerance doubles, at most TRACE_DOUBLINGS times; a shape still
+  // over the limit after that is refused by GLR.packShapes, and the glide leaves it out as before. traces keeps, for
+  // each r.polys array, {lines (arrays of [x, y]), tol (the tolerance used), base (TRACE_TOL's)}
+  const TRACE_TOL = 1 / 8000, TRACE_DOUBLINGS = 24, traces = new WeakMap();
+  function invTrace(s) {
+    const r = shapeGPU(s), polys = r && r.polys;
+    if (!polys || !polys.length) return null;
+    let rec = traces.get(polys);
+    if (!rec) {
+      const w = winOf(s), base = TRACE_TOL * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
+      let tol = base, lines = [];
+      for (let k = 0; ; k++, tol *= 2) {
+        lines = polys.map((p) => Calc.simplifyOpen(p, tol).map((z) => [z.re, z.im]));
+        if (lines.reduce((n, p) => n + p.length, 0) <= GLR.INV_CURVE_MAX || k === TRACE_DOUBLINGS) break;
+      }
+      rec = { lines, tol, base };
+      traces.set(polys, rec);
+    }
+    return rec.lines;
+  }
   // whether a plane draws shape s's outline: a visible curve or region, every one with Outlines on, else the selected
   // one alone; all: every one whatever Outlines says
   const outlineShown = (s, all) => s.visible !== false && kindType(s) !== 'point' && (all || S.outline || s.id === selected);
