@@ -6,9 +6,9 @@
 // as the next statement on its line or at the start of the next line. A condition wait between them (`shapesIn()`, `hooked()`)
 // is another matter. A fixed wait that waits for something nav's quiet does not cover says so with `nav-sleep: <what it waits
 // for>` in a comment on either of those lines.
-// The sites found before this test are kept in test/nav_waits_baseline.json, a count for each suite, a ratchet that only goes
-// down: the test fails on a suite with more sites than its entry (a new one: wait on a condition, or give the reason), and on
-// an entry above the sites found (lower it: `node test/t_nav_waits.js write`), so the list cannot go stale.
+// test/nav_waits_baseline.json counts the sites a suite may still hold, and it is empty by design: every fixed wait after nav()
+// waits on a condition or gives its reason, so the test fails on any new site (wait on a condition, or give the reason), and on
+// an entry above the sites found (lower it: `node test/t_nav_waits.js write`), so the file cannot go stale.
 // Run: node test/t_nav_waits.js   (write: rewrite the baseline from the sites found now)
 const fs = require('fs');
 const path = require('path');

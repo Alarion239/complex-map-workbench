@@ -629,7 +629,7 @@
     // (while deforming, F's digits, given F's last step; a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
-    const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const sheetW = sheetWOf(S.sheetW);
     const sheetMap = carry ? svColourMap(carry.s) : hv ? endMap() : focusMap();
     const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet() ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
