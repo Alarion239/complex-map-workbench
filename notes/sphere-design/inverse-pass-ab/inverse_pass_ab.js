@@ -51,8 +51,13 @@ function tree(name, ref, edits) {
   const dir = path.join(work, name);
   fs.mkdirSync(dir);
   if (ref) {
-    const r = sh('sh', ['-c', `git archive "${ref}" | tar -x -C "${dir}"`], ROOT);
+    // (two calls with their arguments as argv, no shell: ref reaches git as one argument, after --end-of-options)
+    const tar = path.join(work, name + '.tar');
+    const r = sh('git', ['archive', '-o', tar, '--end-of-options', ref], ROOT);
     if (!r.ok) throw new Error(`${name}: git archive ${ref}: ${r.out}`);
+    const x = sh('tar', ['-x', '-f', tar, '-C', dir], ROOT);
+    if (!x.ok) throw new Error(`${name}: tar: ${x.out}`);
+    fs.rmSync(tar);
   } else {
     for (const f of sh('git', ['ls-files'], ROOT).out.split('\n').filter(Boolean)) {
       if (!fs.existsSync(path.join(ROOT, f))) continue;
