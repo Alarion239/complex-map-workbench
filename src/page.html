@@ -1532,7 +1532,12 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
   .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
   .xf-foot .xf-sp { display: none; }
-  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; }
+  /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
+     a row of its own, so its meter is not squeezed beside the destinations) */
+  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
+  .xf-prog { flex: 1 1 100%; }
+  .xf-prog .btn { min-height: 44px; }
+  .xf-meter { min-width: 96px; }
 }
 .modal p, .modal li { max-width: 68ch; }
 .guide-nav { display: grid; gap: 8px; margin: 12px 0 4px; }
