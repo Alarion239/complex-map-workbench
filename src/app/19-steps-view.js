@@ -2694,8 +2694,9 @@
     if (r !== E.fadeR) { E.fadeR = r; E.rail.classList.toggle('fade-r', r); }
   }
   // a button's menu of choices, the current one checked (a menu's keys are its own: svKeys leaves them alone)
-  function svChoiceMenu(btn, pairs, cur, label, pick) {
-    openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true }));
+  // opener: the control that holds the menu, when btn leaves the page as the menu opens (openMenu's items.opener)
+  function svChoiceMenu(btn, pairs, cur, label, pick, opener) {
+    openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true, opener }));
   }
   // the shown plane's surface, 'plane' | 'sphere' | 'land' (the Surface menu's choice and the command palette's), and null outside the steps view
   const svSurface = () => (SV.on ? SV.surf : null);
