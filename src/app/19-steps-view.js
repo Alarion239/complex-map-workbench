@@ -1013,14 +1013,15 @@
   };
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
-  // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
+  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath).
+  // {list, paths}, or null with why.r
   // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
   // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
-    if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
+    if (derivIn(0, b) && hom) { why.r = 'a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     const singAt = () => svSheetKeyAt(b, u).sing;
     // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation)
@@ -1030,6 +1031,7 @@
     const viaHom = (x, t, sing) => (shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, t, sing)) : invHomPath(x, 0, b, t, sing));
     const paths = list.map((x) => {
       if (hom) return viaHom(x, u, singAt);
+      if (derivIn(0, b)) return invDerivPath(x, b);
       const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
       // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is)
       const m = normalizeMap(stageMap(b));
@@ -1077,13 +1079,13 @@
     return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape, glide, carry.T),
       carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
   };
-  // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
-  // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
-  // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
-  // (opened if need be). False (nothing more drawn) unless every shape takes that path: a region of a later plane, a
-  // map with no inverse, a program still compiling
+  // At rest on plane a that is not coloured (past the colour plane T, or before it with a d/dz step between): exactly,
+  // by the tiling's inverse pass (GLR.drawInverse, its carried colour variant): at each pixel w of plane a, the shapes'
+  // points z with F_a(z) = w, the front one's colour, so the colour is the points' own wherever they reach, with no grid,
+  // no window and no stray sheet. Into the open GL frame (opened if need be). False (nothing more drawn) unless every
+  // shape takes that path: a region of a later plane, a map with no inverse, a program still compiling
   function svCarryExact(pane, a, T, frame) {
-    const h = a > T ? svInvPaths(a, null, 'flat', { r: null }) : null;
+    const h = !svColoured(a) ? svInvPaths(a, null, 'flat', { r: null }) : null;
     // (a path of the homotopy's inverse at t = 1, which has a NEWT op: its roots pass runs at t = 1)
     const nt = !!h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'));
     return !!h && (nt ? svDrawInverse(pane, h.list, h.paths, T, frame, 1, null, null, a) : svDrawInverse(pane, h.list, h.paths, T, frame)) === 'drawn';
@@ -1831,11 +1833,12 @@
       GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
     };
     const colour = () => {
-      // (between planes, under the carried colour: the departure plane's no-value colour, its NaN hatch where its map
-      // has no value at the pixel's point, which the carried colour covers wherever a point of the glide arrives, so a
-      // pixel no point reaches shows the departure's hatch and the hatch shrinks as the points arrive (#1443's rule a);
-      // Inside regions only under the regions' mask, which keeps it inside the regions)
-      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) plot(a, 1, true);
+      // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
+      // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
+      // (#1443's rule b: no blank, and at the arrival plane b's parked picture), and over it the departure plane's
+      // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
+      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions)
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { plot(b, 1); plot(a, 1, true); }
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {
@@ -3269,8 +3272,8 @@
     SV.g.max = P.length - 1;
     svLetGo();
   }
-  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it), C makes the shown
-  // plane the colour plane (not while typing)
+  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it, with a plane or its row in
+  // the Shapes list focused), C makes the shown plane the colour plane (not while typing)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
@@ -3299,9 +3302,10 @@
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; ← → always step the chain, the sound probe's arrows being Alt / Option +
-      // arrow, except while a shape is selected, which they nudge while the focus is on a plane (14-interaction.js))
+      // arrow, except while a shape is selected, which they nudge while the focus is on a plane or a row of the Shapes list
+      // (14-interaction.js))
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR')))) return;
+      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR, #shapeList')))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
