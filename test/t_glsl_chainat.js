@@ -43,5 +43,18 @@ for (const [name, steps] of Object.entries(CHAINS)) {
   }
 }
 
+// A Repeat block's step (repPlan) handles t = 1 in its own path (t >= 1 is its map), so it takes no shortcut and no
+// _hr copy: its loop, whose trip count is a uniform, is written twice in the program (its map and its path), not three
+// times. A third copy made Metal's compiler run the loop wrong (#1911: 'repeat mobius x4' off by 10^3-10^4 on macOS)
+{
+  const steps = [S('affine', { a: '0.5', b: '0' }), Object.assign(S('mobius', { a: '1', b: '0.3', c: '-0.3', d: '1' }), { repeat: { n: 4, len: 1 } })];
+  const gc = GLChain.build(steps, Funcs.applyRepeats(steps, steps.map((x) => Funcs.build(x))));
+  const src = gc.source, at = fnBody(src, 'chainAt') || '', h = fnBody(src, 'cxs2_h') || '';
+  ok('a repeated step: no _hr copy of its path', !fnBody(src, 'cxs2_hr'), src.slice(src.indexOf('vec2 cxs2_f'), src.indexOf('vec2 chainStep')));
+  ok('a repeated step: its path takes no t = 1 shortcut (its own body handles t >= 1)', !h.includes('if (t == 1.0)'), h);
+  ok('a repeated step: its uniform-bounded loop is written twice (its map and its path)', (src.match(/for \(int k = 0; k < int\(uChain\[\d+\]\.x\); k\+\+\)/g) || []).length === 2, (src.match(/for \(int k = 0; k < int\(uChain\[\d+\]\.x\); k\+\+\)/g) || []).length);
+  ok('a repeated step: in chainAt, its path (at 1.0 in full, which the path answers with its map)', at.includes('if (k == 2) return cxs2_h(z, how == 1 ? 1.0 : t);'), at);
+}
+
 console.log(`t_glsl_chainat: ${pass} passed, ${fail} failed`);
 process.exit(fail ? 1 : 0);
