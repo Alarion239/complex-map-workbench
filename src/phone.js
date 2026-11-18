@@ -238,7 +238,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  function merged() { const p = $('panes'); return p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
+  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;

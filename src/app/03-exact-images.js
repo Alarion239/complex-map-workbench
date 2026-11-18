@@ -435,16 +435,28 @@
       if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
-      let plan, inv;
-      try { plan = Inverse.planChain(S.steps, bh, a, k); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
-      try { inv = plan.ok ? GLChain.buildInverse(S.steps, bh) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
-      if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
-      h = { plan, inv, preps: new Map(), sing: null };
+      h = invOwnPlan(S.steps, bh, a, k);
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
+    const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
+    return invOwnPath(h, s, a, k, own);
+  }
+  // A chain that stands in for the chain itself from plane a to plane b (a glide's homotopy in its step's place,
+  // invHomPath; a d/dz step's derivative formula, invDerivPath), planned with its own inverse program:
+  // {plan, inv, preps, sing}, plan.ok false with the reason where the plan or the program cannot be made
+  function invOwnPlan(steps, bs, a, b) {
+    let plan, inv;
+    try { plan = Inverse.planChain(steps, bs, a, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
+    try { inv = plan.ok ? GLChain.buildInverse(steps, bs) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
+    if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
+    return { plan, inv, preps: new Map(), sing: null };
+  }
+  // the inverse path of area shape s from plane a to plane b through h (invOwnPlan's), prepared once for each window and
+  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing)
+  function invOwnPath(h, s, a, b, own) {
+    const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
-    const own = singAt && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
     const wk = winKey() + '|' + shapeKey(s) + (own ? '|' + own.map((p) => p.re + ',' + p.im).join(';') : '');
     let prep = h.preps.get(wk);
     if (!prep) {
@@ -455,7 +467,46 @@
       h.preps.set(wk, prep);
     }
     if (!prep.ok) return F(prep.reason || 'shape not eligible');
-    return { path: 'inverse', reason: null, m: { mode: 0, a, b: k }, plan: h.plan, prep, inv: h.inv };
+    return { path: 'inverse', reason: null, m: { mode: 0, a, b }, plan: h.plan, prep, inv: h.inv };
+  }
+  // A plane b past a d/dz step k: its points are D(z) carried on by the steps after k, D = (f_{k-1} ∘ … ∘ f_1)′, a map of
+  // z. The chain with D in step k's place, the steps before it off, plans that map from z and builds its own inverse
+  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the one live step
+  // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
+  // asked of it) or {reason}
+  const invDerivs = new Map();
+  function invDerivChain(b) {
+    const ck = `${b}|${chainSig[nSteps()]}`;
+    let r = invDerivs.get(ck);
+    if (r) return r;
+    const ks = [];
+    for (let j = 1; j <= b; j++) if (stepActive(j) && isDeriv(j)) ks.push(j);
+    const k = ks[0], before = [];
+    for (let j = 1; k && j < k; j++) if (stepActive(j)) before.push(j);
+    if (ks.length !== 1) r = { reason: ks.length ? 'more than one d/dz step' : 'no d/dz step' };
+    else if (before.length !== 1) r = { reason: before.length ? 'a d/dz step after more than one step' : 'a d/dz step of the identity' };
+    else {
+      const d = Funcs.derivativeStep(S.steps[before[0] - 1]);
+      const db = d && d.step ? Funcs.build(d.step) : null;
+      if (!db || db.error) r = { reason: (d && d.error) || (db && db.error) || 'no derivative formula' };
+      else {
+        const steps = S.steps.map((st, i) => (i + 1 < k && st ? Object.assign({}, st, { on: false }) : i + 1 === k ? Object.assign({ on: true }, d.step) : st));
+        const bs = built.slice();
+        bs[k - 1] = db;
+        r = { steps, built: bs, k };
+      }
+    }
+    if (invDerivs.size >= 8) invDerivs.clear();
+    invDerivs.set(ck, r);
+    return r;
+  }
+  // the inverse path of area shape s on plane b past a d/dz step, at rest (pathOf's answer, with its own plan and program)
+  function invDerivPath(s, b) {
+    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return { path: 'forward', reason: 'no inverse renderer' };
+    const c = invDerivChain(b);
+    if (!c.steps) return { path: 'forward', reason: c.reason };
+    if (!c.h) c.h = invOwnPlan(c.steps, c.built, 0, b);
+    return invOwnPath(c.h, s, 0, b, null);
   }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
@@ -467,6 +518,18 @@
     GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
     if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
   }
+  // the words of text in lines no wider than maxW as ctx sets them (its font), each word on the line until the next would
+  // pass maxW (a word wider than maxW is a line of its own)
+  function wrapWords(ctx, text, maxW) {
+    const lines = [];
+    let line = '';
+    for (const w of String(text).split(' ')) {
+      const t = line ? line + ' ' + w : w;
+      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   function paneNote(pane, text) {
@@ -476,13 +539,7 @@
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const maxW = Math.max(80, Math.min(360, pane.w - 48));
-    const lines = [];
-    let line = '';
-    for (const w of String(text).split(' ')) {
-      const t = line ? line + ' ' + w : w;
-      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
-    }
-    if (line) lines.push(line);
+    const lines = wrapWords(ctx, text, maxW);
     const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
     const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
     const x0 = Math.round(pane.w / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
