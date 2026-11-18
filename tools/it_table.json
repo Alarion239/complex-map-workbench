@@ -3419,5 +3419,10 @@
  "Quality": "Qualità",
  "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
  "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
- "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre"
+ "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre",
+ "dashed: {x}": "tratteggiato: {x}",
+ "grey: {x}": "in grigio: {x}",
+ "the start": "l'inizio",
+ "hue: the argument, red at 1, counterclockwise": "tinta: l'argomento, rosso in 1, in senso antiorario",
+ "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞"
 }

@@ -730,5 +730,10 @@
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
  "Marked preimages of {name}: {k} of {n}": "Отмеченные прообразы %{name}: %{k} из %{n}",
- "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие"
+ "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие",
+ "dashed: {x}": "пунктир: %{x}",
+ "grey: {x}": "серым: %{x}",
+ "the start": "начало",
+ "hue: the argument, red at 1, counterclockwise": "оттенок: аргумент, красный в 1, против часовой стрелки",
+ "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞"
 }
