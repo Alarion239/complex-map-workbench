@@ -139,10 +139,10 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(W, H, false, false);
   // (waits on a condition: the state the next step reads, polled every 100 ms for up to 15 s)
-  const until = async (expr) => (await settled({ until: expr, max: 15000, only: true, poll: 100 })).ok;
+  const until = async (expr, faces) => (await settled({ until: expr, faces, max: 15000, only: true, poll: 100 })).ok;
   await seed(`${ns}land${lang}${W}`, LAND);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
-  await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
+  await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title')`, true);
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
   // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
   await until(`(() => { const b = document.getElementById('svHead'), k = b.className + '|' + b.querySelector('.sv-title').innerText, r = window.__fk !== k; window.__fk = k;
@@ -186,7 +186,7 @@ for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 8
   const CARRY = Object.assign({}, st, { shapes: [], height: 'log', steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] });
   await seed(`${ns}carry${lang}`, CARRY);
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}carry${lang}&lang=${lang}&view=steps` });
-  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'" });
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title')", faces: true });
   await ev(`__cmwSteps({ T: 1, surf: 'land', go: 2, now: true }); 1`);
   await settled({ max: 60000, until: "__cmwSteps().i === 2 && __cmwSteps().surf === 'land' && !__cmwSteps().moving" });
   await settled({ max: 60000 });

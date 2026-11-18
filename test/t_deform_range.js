@@ -1,4 +1,4 @@
-// The deformation range (notes/deform-range/SPEC.md 13.1) against the shipped module src/homrange.js: the exact ends
+// The deformation range (notes/deform-range/SPEC.md 13.1) against the shipped module src/homrange.ts: the exact ends
 // (H_0 = post o pre and H_end = F, bit for bit, every bracket and order, every focus), the GPU spec's CPU twin, the
 // continuity at the segment nodes, today's maps and keys unchanged without a bracket, the normal form and the uid
 // resolution of chain edits, and the worked numbers of design-math 10. Run: node test/t_deform_range.js
@@ -6,7 +6,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 try { global.Recognize = require('../src/recognize.js'); } catch (e) { /* optional */ }
 const FN = require('../src/funcs.js');
-const HomRange = require('../src/homrange.js');
+const HomRange = require('../src/homrange.ts');
 const { C } = CX;
 let checks = 0, failed = 0;
 const check = (name, cond, got) => { checks++; if (!cond) { failed++; if (failed < 60) console.log('FAIL', name, got === undefined ? '' : JSON.stringify(got)); } };
