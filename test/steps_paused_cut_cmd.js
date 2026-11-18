@@ -7,6 +7,7 @@
 // - the picture follows: the parked frame after the drag is the frame of a page that opens with the cut there, parked at the same place (in
 //   blocks of BLOCK px, at most SAME_FRAC of them with a mean channel more than TOL levels apart); control: the frame before the drag differs
 //   from it in more than CTL_FRAC of them;
+// - hovering the handle lights it, as at rest (the overlay about it changes, and comes back when the pointer leaves);
 // - the frame is still parked there, and the drag panned nothing (the view's centre within 1e-9).
 // Paths are off (their points are picked per view, not per chain). The branch point of the square root's cut is 0. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -17,6 +18,9 @@ const MID_U = 0.5, TO_DEG = 225, ARC_N = 30, AT_PX = 1.5, TOL_DEG = 1, BLOCK = 8
 // (MOVE_GAP_MS: a frame's time between two of the drag's moves, pacing the synthetic input as a hand would; there is no
 // condition to wait on between moves)
 const MOVE_GAP_MS = 16;
+// (HOVER_PX: the half side of the overlay square read about the handle; HOVER_OFF: px away, off it; HOVER_MIN: the changed
+// values below which the handle reads as unlit, a few stray antialiased ones)
+const HOVER_PX = 14, HOVER_OFF = 60, HOVER_MIN = 20;
 // the page with the root's cut and sheet, parked at MID_U
 const openParked = async (cut, k) => {
   await view(1200, 800, false, false);
@@ -54,6 +58,22 @@ if (s0.handles.length === 1 && s0.hasHb) {
   const a1 = TO_DEG * Math.PI / 180, from = a0 < 0 ? a0 + 2 * Math.PI : a0;
   const arc = Array.from({ length: ARC_N + 1 }, (_, i) => { const t = from + (a1 - from) * i / ARC_N; return [R * Math.cos(t), R * Math.sin(t)]; });
   const pts = await scr(arc), target = pts[pts.length - 1];
+  // hovering the handle lights it on the parked frame as at rest: the overlay's pixels within HOVER_PX of the handle with
+  // the pointer on it differ from those with the pointer HOVER_OFF px away (more than HOVER_MIN of them), and come back
+  // when it leaves
+  const patch = () => ev(`(() => { const o = document.getElementById('overlayL'), r = o.getBoundingClientRect(), d = o.width / r.width, R = ${HOVER_PX};
+    return Array.from(o.getContext('2d').getImageData(Math.round((${h.x} - r.left - R) * d), Math.round((${h.y} - r.top - R) * d), Math.round(2 * R * d), Math.round(2 * R * d)).data); })()`);
+  const pointAt = async (x, y) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }); await settled({ max: 10000, until: '!__cmwSteps().anim' }); };
+  const differ = (A, B) => A.filter((v, i) => v !== B[i]).length;
+  await pointAt(h.x + HOVER_OFF, h.y + HOVER_OFF);
+  const off = await patch();
+  await pointAt(h.x, h.y);
+  const on = await patch();
+  await pointAt(h.x + HOVER_OFF, h.y + HOVER_OFF);
+  const back = await patch();
+  info.hover = { on: differ(off, on), back: differ(off, back) };
+  ok(`hovering the handle lights it on the parked frame (more than ${HOVER_MIN} of the overlay's values near it change)`, info.hover.on > HOVER_MIN, info.hover);
+  ok('the pointer leaving the handle puts its look back', info.hover.back === 0, info.hover);
   const before = await blocks(), v0 = s0.win;
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: h.x, y: h.y });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: h.x, y: h.y, button: 'left', clickCount: 1 });

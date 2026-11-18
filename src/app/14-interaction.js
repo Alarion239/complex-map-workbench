@@ -1186,7 +1186,8 @@
     }
     // hover
     if (side === 'L') probeHover = { pane, e };
-    if (side === 'L' && SV.on && svMoving()) { probeMoving(); return; }
+    // (a frame between two planes probes nothing; a parked one's cut handle still lights under the pointer)
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); cutHover(pane, side, x, y); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
@@ -1224,8 +1225,7 @@
       return;
     }
     if (side === 'L') {
-      const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
-      if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); }
+      cutHover(pane, side, x, y);
       const zh = zpHit(x, y);
       if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
@@ -1284,6 +1284,12 @@
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
   // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
   let probeHover = null, probeHeld = false;
+  // the left pane's cut handle under the pointer (x, y) is the lit one (hoverCut, none: 0); a change sets the cursor and
+  // draws the overlay again, where the handle is drawn lit or not
+  function cutHover(pane, side, x, y) {
+    const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
+    if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); requestRender('OL'); }
+  }
   function probeMoving() {
     if (probe) { probe = null; setReadouts(null); }
     probeHeld = !!probeHover;
