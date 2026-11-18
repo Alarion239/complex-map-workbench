@@ -2,7 +2,7 @@
 // clear of the globe: its rectangle does not meet the disk of the sphere (the top edge) and does not hide the sphere's `i` mark. Over the
 // portrait and landscape phone sizes in English, Russian and Italian (the longest words). The globe's disk is the app's own: the
 // pane's centre and the radius globeCam gives, from the camera. A command file for a CDP daemon (test/cdp_kit README); prints
-// { pass, fails, info }.
+// { pass, fails, info }. With a construction tool picked on the landscape globe, the construction chip stands clear of the hint card too (the last block).
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -24,5 +24,31 @@ for (const [w, h, lang] of POINTS) {
   ok(`${name}: the hint card is on the page`, m.shown, m);
   ok(`${name}: the hint card is clear of the globe's disk (gap ≥ 0 px)`, m.gap >= 0, m);
   ok(`${name}: the hint card does not hide the i mark`, m.i && !m.iHidden, m);
+}
+// With a construction tool picked on the landscape globe, the construction chip ("Switch to the plane to pick the curve · Perpendicular ×")
+// stands in the same left column as the hint card: the two boxes do not overlap (no line of the card shows behind the chip's words), the
+// card is still clear of the disk, and both are shown. Perpendicular has the tall context bar. Every landscape size, in English, Russian
+// and Italian, light and dark.
+const CHIP_CASES = [[568, 320], [600, 320], [640, 360], [667, 375], [740, 360]];
+const meets = (a, b) => Math.min(a[2], b[2]) - Math.max(a[0], b[0]) > 0.5 && Math.min(a[3], b[3]) - Math.max(a[1], b[1]) > 0.5;
+for (const [w, h] of CHIP_CASES) for (const lang of ['en', 'ru', 'it']) for (const dark of [false, true]) {
+  const name = `${w}x${h} ${lang} ${dark ? 'dark' : 'light'}, Perpendicular on the globe`;
+  await view(w, h, dark, true);
+  await go(`http://localhost:${PORT}/test.html?view=steps&lang=${lang}&ns=hc${w}${Date.now() % 100000}`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#constructTools .tool[data-tool=perp]")' });
+  await ev(`__cmwSteps({ surf: 'sphere', go: 0, now: true }); 1`);
+  await settled({ max: 30000, until: `!!document.querySelector('#leftReadout .rglobe') && !!window.__cmwGlobeDisk` });
+  await ev(`document.querySelector('#constructTools .tool[data-tool="perp"]').click(); 1`);
+  await settled({ max: 20000, until: 'document.documentElement.classList.contains("ph-ctx-tall") && !!document.querySelector(".ph-ctx.in") && !document.getElementById("draftChipL").hidden' });
+  const m = info[name] = await ev(`(() => {
+    const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10); };
+    const cv = document.getElementById('canvasL').getBoundingClientRect(), R = __cmwGlobeDisk('L').R, cx = cv.left + cv.width / 2, cy = cv.top + cv.height / 2;
+    const card = document.getElementById('leftReadout'), chip = document.getElementById('draftChipL'), c = card.getBoundingClientRect();
+    const nx = Math.max(c.left, Math.min(cx, c.right)), ny = Math.max(c.top, Math.min(cy, c.bottom));
+    return { card: box(card), chip: box(chip), cardShown: c.width > 0, chipShown: chip.getClientRects().length > 0, gap: Math.round(Math.hypot(nx - cx, ny - cy) - R) };
+  })()`);
+  ok(`${name}: the hint card and the construction chip are shown`, m.cardShown && m.chipShown, m);
+  ok(`${name}: the hint card and the construction chip do not overlap`, !meets(m.card, m.chip), m);
+  ok(`${name}: the hint card is clear of the globe's disk (gap ≥ 0 px)`, m.gap >= 0, m);
 }
 return { pass: fails.length === 0, fails, info };
