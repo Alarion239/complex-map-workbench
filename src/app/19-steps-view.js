@@ -25,6 +25,7 @@
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
+    sheetsSeen: null,   // All sheets as svCheck saw it last (null: not yet)
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
@@ -181,6 +182,10 @@
     // (and the thread parks on z with it: the style's control is in the pane of the colour plane, which the view shows only while it is the plane the thread is on)
     if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy' && !SV.alone && P.length > 1) { if (SV.T !== P[0]) SV.T = P[0]; if (SV.i !== 0) { SV.dcSeen = S.dc; svGo(0, true); } }
     SV.dcSeen = S.dc;
+    // (All sheets ticked by any of its writers, the check, a tour step's look or an example, with the Landscape shown: its
+    // glide's carry places the sheets then, so that program starts linking at once, svPrestart)
+    if (S.sheets && SV.sheetsSeen === false && SV.surf === 'land') svPrestartSoon(300);
+    SV.sheetsSeen = !!S.sheets;
     // (another chain loaded with the state, an example or a link: its glide's programs are started too)
     if (SV.sig != null && sig !== SV.sig) svPrestartSoon(300);
     svAdopt(SV.sig != null && sig !== SV.sig);

@@ -43,8 +43,8 @@
 //   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
 //   linked before ▶;
 // - a chain with sheets (z, Möbius, √), the Landscape shown with All sheets off and the warm-up run to its end, then All
-//   sheets ticked by its check: the program that places the sheets under the glide's carry (landCarryPlace) linked
-//   before ▶.
+//   sheets ticked by its check, or set as a tour step's look sets it: the program that places the sheets under the
+//   glide's carry (landCarryPlace) linked before ▶.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -399,24 +399,29 @@ try {
     info.landGlide = { programs: progs.length, twins: twins.length, missing };
   }
   // a chain with sheets (z, Möbius, √) with the Landscape shown in the steps view, All sheets off, the warm-up run to its
-  // end; All sheets then ticked by its check (in the plane's options): the glide's carry places the sheets
-  // (landCarryPlace), linked from the idle time after the tick as the glide's other programs are; control: the check is
-  // there and ticks it
-  {
+  // end; All sheets then ticked, by its check (in the plane's options) or set as a tour step's look sets it (the option
+  // alone, __cmwSet): the glide's carry places the sheets (landCarryPlace), linked from the idle time after the tick as
+  // the glide's other programs are; control: the option is on
+  info.landSheets = {};
+  const TICK = {
+    'by its check': `(() => {
+      if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); }
+      const c = document.getElementById('sheetsChk'); if (!c) return false; c.click(); return c.checked; })()`,
+    'as a tour step sets it': "(__cmwSet('sheets', true), __cmwFigureState().sheets === true)",
+  };
+  for (const [how, tick] of Object.entries(TICK)) {
     const CHAIN = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
     await loadView('steps', 'llsheets' + Date.now(), { shapes: [], steps: CHAIN, sheets: false, height: 'im' });
     await settled({ max: READY_MS, until: loaded });
     await adopted();
     await ev("__cmwSteps({ scope: 'all', surf: 'land' }), 1");
     const r8 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
-    const ticked = await ev(`(() => {
-      if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); }
-      const c = document.getElementById('sheetsChk'); if (!c) return false; c.click(); return c.checked; })()`);
+    const ticked = await ev(tick);
     const r9 = await settled({ max: WARM_MS, until: 'GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
     const place = await ev(`GLR.landProgs().filter((x) => x.startsWith('landCarryPlace|') && x.includes('|' + GLR.chainKey + '|m1'))`);
-    ok('z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up, control: its check is there and ticks it', r8.ok && ticked, { ticked, wait: r8 });
-    ok("z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up: the sheets' places its glide draws with are linked before ▶", ticked && r9.ok && place.some((x) => x.endsWith(' ready')), { place, wait: r9 });
-    info.landSheets = { ticked, place };
+    ok(`z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up ${how}, control: the option is on`, r8.ok && ticked, { ticked, wait: r8 });
+    ok(`z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up ${how}: the sheets' places its glide draws with are linked before ▶`, ticked && r9.ok && place.some((x) => x.endsWith(' ready')), { place, wait: r9 });
+    info.landSheets[how] = { ticked, place };
   }
 } finally {
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
