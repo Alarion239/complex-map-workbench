@@ -8,7 +8,7 @@
     for (let i = 0; i < ks.length;) { let j = i; while (j + 1 < ks.length && ks[j + 1] === ks[j] + 1) j++; out.push(j > i ? `${f(ks[i])}–${f(ks[j])}` : f(ks[i])); i = j + 1; }
     return out.join(', ');
   }
-  // ---------------- [issue #6] Repeat × N: a block of steps applied N times ----------------
+  // ---------------- Repeat × N: a block of steps applied N times ----------------
   // step.repeat = {n, len} on a block's last step (Funcs.applyRepeats). N is 1 … Funcs.REPEAT_MAX (typed, or the arrow
   // keys), or the name of a shared number whose value, rounded, is N (repeat.by: its slider or Play runs the passes; the
   // GPU keeps one program, N a uniform). The Inspector's Repeat row sets it and ends it.
@@ -20,7 +20,7 @@
     chainChanged(true); commit();
     repeatMoved(k, rp);
   }
-  // ([#398] the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
+  // (the tour's event for a user's Repeat: the block set, or its N changed; not a repeat a loaded scene brings)
   const repeatMoved = (k, rp) => tourEmit('repeat-changed', { k, n: rp ? rp.n : 0, len: rp ? rp.len : 0, by: rp && rp.by ? rp.by : null });
   // the repeat that text typed into an N field asks for (a whole number, or the name of a shared number), or null when it
   // is no change (the Inspector's Repeat row)
@@ -103,7 +103,7 @@
   // their normal forms; disabled with the reason when the d/dz rule moves b past the item's end or f_k is bypassed
   function deformItems(k) {
     const n = nSteps(), cur = homRangeOk(), off = S.steps[k - 1] && S.steps[k - 1].on === false, ph = brPhone();
-    // (review v16 user-2: F is italic like f_k; the start, 'from f₃(w₁)', is set in the label's math face)
+    // (F is italic like f_k; the start, 'from f₃(w₁)', is set in the label's math face)
     const itF = (x) => x.replace(/(^|[\s(])F(?=$|[\s,.)])/g, '$1<i>F</i>');
     const cand = [
       [{ a: k, b: k }, itF($t('Only {f}, inside F', { f: fsub(k) })), $t('Only {f}, inside F', { f: fUni(k) })],
@@ -261,7 +261,7 @@
   // short symbols for parameter labels (the full name is the tooltip)
   const PSYM = { cut: ['θ', $t('Cut angle, in degrees')], k: ['k', $t('Sheet (branch index)')], branch: ['br', $t('Branch')],
     co: ['aₖ', $t('Coefficients aₙ, …, a₀, highest degree first')], p: ['p', $t('Numerator coefficients, highest degree first')], q: ['q', $t('Denominator coefficients, highest degree first')] };
-  // (v16.5 UX33) the word before a field's symbol: the cut, the sheet, the power or root index, the zeros-and-poles factor
+  // the word before a field's symbol: the cut, the sheet, the power or root index, the zeros-and-poles factor
   function paramWord(st, q) {
     if (q.key === 'cut') return $t('Cut angle');
     if (q.key === 'k') return $t('Sheet');
@@ -306,7 +306,7 @@
     soundCue('stepAdd');
     addedToast(at + 1, 1, null, o && o.msg);
   }
-  // (D1, issue #23) the palette's Replace: steps k0+1 … k0+count give way to what run(k0) inserts, as one undo step; a
+  // the palette's Replace: steps k0+1 … k0+count give way to what run(k0) inserts, as one undo step; a
   // step shown alone stays shown, now the first new step when it was one of the replaced
   function replaceSteps(k0, count, run, name) {
     const f = S.focus, old = count === 1 ? defOf(S.steps[k0]).label : '', n0 = S.steps.length - count;
@@ -320,7 +320,7 @@
     tourEmit('step-replaced', { k: k0 + 1, type: S.steps[k0].type });
     return r;
   }
-  // (UX01) after a step is added, moved or duplicated: the step shown alone, if any, stays shown (its index moved by
+  // after a step is added, moved or duplicated: the step shown alone, if any, stays shown (its index moved by
   // the n new steps at k, or by the move), and step k is selected for the Inspector
   function keepShown(k, n, from) {
     let f = S.focus;
@@ -369,10 +369,10 @@
   function duplicateStep(k) {
     const st = S.steps[k - 1];
     const cp = JSON.parse(JSON.stringify(st));
-    delete cp.repeat;   // ([issue #6] the copy is a step after the block, not a second repeat)
+    delete cp.repeat;   // (the copy is a step after the block, not a second repeat)
     spliceSteps(k, 0, cp);
     chainChanged(true);
-    keepShown(k + 1, 1);   // (v16.5 UX01)
+    keepShown(k + 1, 1);
     commit();
     addedToast(k + 1, 1, 'dup');
   }
@@ -383,7 +383,7 @@
     const [st] = spliceSteps(k - 1, 1);
     spliceSteps(j, 0, st);
     chainChanged(true);
-    keepShown(j + 1, 0, k);   // (v16.5 UX01: a step shown alone stays shown, wherever it moved)
+    keepShown(j + 1, 0, k);   // (a step shown alone stays shown, wherever it moved)
     commit();
     tourEmit('step-moved', { k: j + 1, from: k });
     undoToast($t('Moved {name} to f{x}.', { name: defOf(st).label, x: sub(j + 1) }));
@@ -462,7 +462,7 @@
     try { r = Funcs.derivativeStep(st); } catch (e) { r = { error: e.message || String(e) }; }
     if (!r || r.error || !r.step) { sndError(); toast((r && r.error) || $t('f{x} has no derivative here.', { x: sub(k) })); return null; }
     const type = Funcs.DEFS[r.step.type] ? r.step.type : 'custom';
-    // ([issue #6] a repeat the step ended now repeats its derivative's block, as the step's place in it stays)
+    // (a repeat the step ended repeats its derivative's block, as the step's place in it stays)
     setStepAt(k - 1, Object.assign({ type, params: Object.assign(Funcs.defaults(type), r.step.params || {}), on: st.on !== false }, st.repeat ? { repeat: { ...st.repeat } } : {}));
     chainChanged(true);
     setFocus(k);
