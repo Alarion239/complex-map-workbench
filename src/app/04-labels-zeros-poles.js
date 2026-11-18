@@ -56,8 +56,9 @@
     for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
   }
   // the boxes of the controls over a plane's canvas, in the plane's pixels (what the labels' boxes are in): the plot's children that are not
-  // canvases, shown and with a box. A label drawn under one is covered by it. Not the readout chip: its width follows the pointer, and a
-  // resting picture's labels do not depend on where the pointer was
+  // canvases, shown and with a box. A label drawn under one is covered by it. Not the progress hairline along the top of the plots (it is no
+  // control), nor the readout chip: its width follows the pointer, and a resting picture's labels do not depend on where the pointer was.
+  // Called once for each full placement (a picture at rest or after a change), never for a frame of a drag, a glide or a scrub (lite)
   function controlBoxes(pane) {
     const plot = pane.ocanvas && pane.ocanvas.parentElement;
     if (!plot) return [];
@@ -82,7 +83,7 @@
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
     if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
-    // (the plane's own controls, over its canvas: the readout and legend chips, the view buttons, the phone's button column. Read at a full
+    // (the plane's own controls, over its canvas: the legend chips, the view buttons, the phone's button column. Read at a full
     // placement only: a pass on the move keeps the offsets of the last one)
     if (!lite) hard.push(...controlBoxes(pane));
     // soft obstacles: the curves, as a 4px occupancy grid
