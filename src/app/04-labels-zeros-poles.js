@@ -22,7 +22,8 @@
     return out;
   }
   // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, id?, rad? (marker radius), chrome?
-  // (kept off labelChrome's controls), ink? (the text's colour, else the ink)}
+  // (kept off labelChrome's controls), avoid? (boxes in css px the label keeps off where it can: each one a spot crosses
+  // costs AVOID_COST), ink? (the text's colour, else the ink)}
   // the font of a label that is a word ("+2 more"), not a name in maths
   const wordFont = () => `500 12px ${TH.ui}`;
   function placeLabels(ctx, pane, items) {
@@ -61,7 +62,7 @@
   const labelSlots = new Map();
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
-  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4;
+  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4, AVOID_COST = 1;
   // (the points that are gone, deleted or replaced with the chain, lose their offsets)
   function pruneLabelSlots() {
     if (!labelSlots.size) return;
@@ -131,8 +132,8 @@
     for (const it of r.items) {
       const g = groups.find((q) => Math.abs(q.x - it.x) < 2.5 && Math.abs(q.y - it.y) < 2.5);
       const word = /\s|[a-z]{3,}/i.test(it.text) && !/^[a-z][′″‴⁽]?/i.test(it.text.slice(0, 2)) ? true : !!it.word;
-      if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; g.chrome = g.chrome || !!it.chrome; }
-      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id, chrome: !!it.chrome, ink: it.ink });
+      if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; g.chrome = g.chrome || !!it.chrome; g.avoid = g.avoid.concat(it.avoid || []); }
+      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id, chrome: !!it.chrome, avoid: it.avoid || [], ink: it.ink });
     }
     // (an item with chrome set keeps off the controls drawn over the plane, labelChrome)
     const chrome = groups.some((g) => g.chrome) ? labelChrome(pane) : [];
@@ -171,8 +172,8 @@
         // a label nearer another marker than its own reads as that marker's: allowed only as a last resort
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
-        const cc = curveCost(x0, y0, x1, y1);
-        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) };
+        const cc = curveCost(x0, y0, x1, y1), av = g.avoid.filter(hit).length;
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) + AVOID_COST * av };
       };
       const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
       let x, y;

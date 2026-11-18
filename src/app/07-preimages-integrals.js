@@ -533,14 +533,16 @@
     return e;
   }
   // the pieces of region s that show in the window b: a piece shows where its preimage point is in the window, or where a
-  // point of the window lies in it. A sample of the window (PULL_GRID) that the map takes into the region is followed
-  // back to the region's point p along the segment between them (PULL_WALK steps, each preimage the nearest to the last,
-  // inside the region, which holds no critical value), and so names its piece: the index of the preimage of p it reaches.
+  // point of the window lies in it. A sample of the window (PULL_GRID, and its border every PULL_EDGE_GAP css px of the
+  // pane, wpx by hpx, so that a piece that shows only at a corner or an edge is met) that the map takes into the region
+  // is followed back to the region's point p along the segment between them (PULL_WALK steps, each preimage the nearest
+  // to the last, inside the region, which holds no critical value), and so names its piece: the index of the preimage of
+  // p it reaches.
   // A Set of indices into e.zs, kept per region and window; while the view moves (interacting), the region's last answer
   // stands, and at most PULL_FOLLOW samples are followed back
-  const PULL_GRID = [24, 16], PULL_WALK = 16, PULL_FOLLOW = 64;
+  const PULL_GRID = [24, 16], PULL_EDGE_GAP = 8, PULL_WALK = 16, PULL_FOLLOW = 64;
   const pullSeenCache = new Map(), pullSeenLast = new Map();
-  function pullSeen(j, s, e, b) {
+  function pullSeen(j, s, e, b, wpx, hpx) {
     const st = shapeStage(s), rk = JSON.stringify([j, st, chainSig[nSteps()], s]), key = rk + JSON.stringify([b.x0, b.x1, b.y0, b.y1].map((v) => +v.toPrecision(6)));
     let seen = pullSeenCache.get(key);
     if (seen) return seen;
@@ -552,10 +554,14 @@
       const near = (list, u) => { let bi = -1, bd = Infinity; list.forEach((q, i) => { const d = CX.abs(CX.sub(q, u)); if (d < bd) { bd = d; bi = i; } }); return bi; };
       // (the samples in the region, those nearest a piece not yet seen first: a piece that shows reaches in from its side)
       const [nx, ny] = PULL_GRID, hits = [], unseen = e.zs.filter((z, k) => !seen.has(k));
-      for (let gi = 0; gi < nx; gi++) for (let gj = 0; gj < ny; gj++) {
-        const u = C(b.x0 + (b.x1 - b.x0) * (gi + 0.5) / nx, b.y0 + (b.y1 - b.y0) * (gj + 0.5) / ny), w0 = F(u);
+      const at = (fx, fy) => {
+        const u = C(b.x0 + (b.x1 - b.x0) * fx, b.y0 + (b.y1 - b.y0) * fy), w0 = F(u);
         if (CX.isFin(w0) && inside(w0) > 0) hits.push({ u, w0, d: Math.min(...unseen.map((q) => CX.abs(CX.sub(q, u)))) });
-      }
+      };
+      for (let gi = 0; gi < nx; gi++) for (let gj = 0; gj < ny; gj++) at((gi + 0.5) / nx, (gj + 0.5) / ny);
+      const ex = Math.max(2, Math.ceil(wpx / PULL_EDGE_GAP)), ey = Math.max(2, Math.ceil(hpx / PULL_EDGE_GAP));
+      for (let k = 0; k <= ex; k++) { at(k / ex, 0); at(k / ex, 1); }
+      for (let k = 1; k < ey; k++) { at(0, k / ey); at(1, k / ey); }
       hits.sort((p, q) => p.d - q.d);
       for (const h of hits.slice(0, PULL_FOLLOW)) {
         if (seen.size >= e.zs.length) break;
@@ -607,17 +613,19 @@
     pullOffDrawn = [];
     if (artMode) return;
     const b = pane.box(), labels = [];
+    // (the axes, which the words keep off where they can)
+    const [ax, ay] = pane.w2s(C(0, 0)), axes = [{ x0: ax - 1.5, x1: ax + 1.5, y0: 0, y1: pane.h }, { x0: 0, x1: pane.w, y0: ay - 1.5, y1: ay + 1.5 }];
     for (const s of S.shapes) {
       if (s.visible === false || shapeStage(s) <= j || kindType(s) !== 'area') continue;
       const e = pullOffPre(j, s);
       if (!e || !e.zs.length) continue;
-      const seen = pullSeen(j, s, e, b), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
+      const seen = pullSeen(j, s, e, b, pane.w, pane.h), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
       const n = offs.length;
       if (!(n > 0)) continue;
       const text = $t('+{n} off view', { n });
       const dOff = (z) => Math.min(...offs.map((q) => CX.abs(CX.sub(z, q))));
       const [x, y] = vis.length ? pane.w2s(vis.slice().sort((p, q) => dOff(p) - dOff(q))[0]) : pullEdgeAt(pane, offs.slice().sort(byCentre(b))[0], text);
-      labels.push({ x, y, text, word: true, chrome: true, ink: shapeInk(s).edge });
+      labels.push({ x, y, text, word: true, chrome: true, avoid: axes, ink: shapeInk(s).edge });
       pullOffDrawn.push({ id: s.id, n, all: e.zs.length, text, x, y });
     }
     if (labels.length) placeLabels(pane.ctx, pane, labels);

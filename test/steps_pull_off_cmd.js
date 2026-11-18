@@ -10,6 +10,10 @@
 //  - a disc on w₂ about 0, the cube's critical value, is not counted (0.34, r 0.35, and 0.5, r 0.7): its preimage on z is
 //    one piece, round z = i, though a point in it has three preimages;
 //  - the same disc made large (r 0.25): its third piece reaches into the window's top-left, so nothing is off view;
+//  - smaller (r 0.18, at 1280 x 800): its third piece shows only as a sliver at the window's top-left corner (the
+//    control counts the pane's pixels in it, from w₂ = ((z − i)/(z + i))³), so nothing is off view either;
+//  - the words keep off the axes, in English and Russian (at the default camera they sit beside the piece at -0.447 +
+//    0.124i, by the imaginary axis);
 //  - on w₂, the disc's own plane, nothing is counted (the count is for pullbacks only).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -26,14 +30,16 @@ const STEPS = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on
 const CRIT_DISCS = [{ id: 'd3', kind: 'disc', c: [0.34, 0], r: 0.35, stage: 2 }, { id: 'd4', kind: 'disc', c: [0.5, 0], r: 0.7, stage: 2 }];
 // (the disc made large: its far piece reaches into the window)
 const BIG_DISC = { id: 'd5', kind: 'disc', c: [0.4465, 0.3], r: 0.25, stage: 2 };
+// (the disc a little smaller: its far piece shows only at the window's top-left corner, at 1280 x 800)
+const SLIVER_DISC = { id: 'd6', kind: 'disc', c: [0.4465, 0.3], r: 0.18, stage: 2 }, SLIVER_VIEW = [1280, 800];
 const WORDS = { en: '+1 off view', ru: 'ещё 1 за краем' };
 // (a camera with every piece of the disc off the window, up and to the left of it: the words then go near the window's
 // top-left corner, where they must clear the scale chip)
 const FAR = [4.8, -5.1];
-const open = async (lang, s, extra = [], at = [0, 0], disc = true) => {
+const open = async (lang, s, extra = [], at = [0, 0], disc = true, size = [1440, 900]) => {
   const ns = `pulloff-${lang}-${s}-${Date.now()}`;
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0 }, ...(disc ? [DISC] : []), ...extra], steps: STEPS, nextId: 50, focus: 0, srcView: { cx: at[0], cy: at[1], s } };
-  await view(1440, 900, false, false);
+  await view(size[0], size[1], false, false);
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
@@ -56,6 +62,8 @@ for (const lang of ['en', 'ru']) {
   const [W, H] = await paneSize(), lab = (await placed()).find((q) => q.text === WORDS[lang]);
   info[`${lang} z placed`] = lab;
   ok(`${lang}: the placer drew "${WORDS[lang]}" in the pane`, !!lab && lab.x >= 0 && lab.y >= 0 && lab.x1 <= W && lab.y1 <= H, [lab, W, H]);
+  // (the axes run through the pane's centre at this camera, centred on 0)
+  ok(`${lang}: the words keep off the axes`, !!lab && !(lab.x < W / 2 && lab.x1 > W / 2) && !(lab.y < H / 2 && lab.y1 > H / 2), [lab, W, H]);
 }
 // no piece in view: all 3 counted, the words at the window's edge
 await open('en', 90, [], FAR);
@@ -76,6 +84,29 @@ await open('en', 90, [BIG_DISC], [0, 0], false);
 const big = await off();
 info['en z, large'] = big;
 ok('the large disc, whose far piece reaches into the window, is not counted', Array.isArray(big) && !big.some((e) => e.id === 'd5'), big);
+// the smaller disc: its far piece shows only at the window's corner, so none is off view either
+await open('en', 90, [SLIVER_DISC], [0, 0], false, SLIVER_VIEW);
+const sl = await off();
+// (the control: the pane's pixels in the far piece, z with ((z − i)/(z + i))³ in the disc whose cube root is nearest the
+// far preimage's, from the camera at 0, 90 px a unit)
+const peek = await ev(`(() => {
+  const r = document.getElementById('canvasL').getBoundingClientRect(), W = r.width, H = r.height, c = ${JSON.stringify(SLIVER_DISC.c)}, R = ${SLIVER_DISC.r};
+  const mul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]], div = (a, b) => { const q = b[0] * b[0] + b[1] * b[1]; return [(a[0] * b[0] + a[1] * b[1]) / q, (a[1] * b[0] - a[0] * b[1]) / q]; };
+  const m = Math.hypot(c[0], c[1]) ** (1 / 3), a0 = Math.atan2(c[1], c[0]) / 3, roots = [0, 1, 2].map((k) => [m * Math.cos(a0 + 2 * Math.PI * k / 3), m * Math.sin(a0 + 2 * Math.PI * k / 3)]);
+  // (the far preimage: z = i (1 + t)/(1 - t) farthest from 0)
+  const zOf = (t) => mul([0, 1], div([1 + t[0], t[1]], [1 - t[0], -t[1]])), far = roots.reduce((p, q) => (Math.hypot(...zOf(q)) > Math.hypot(...zOf(p)) ? q : p));
+  let n = 0;
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const z = [(x + 0.5 - W / 2) / 90, -(y + 0.5 - H / 2) / 90], t = div([z[0], z[1] - 1], [z[0], z[1] + 1]), w = mul(mul(t, t), t);
+    if (Math.hypot(w[0] - c[0], w[1] - c[1]) >= R) continue;
+    const near = roots.reduce((p, q) => (Math.hypot(t[0] - q[0], t[1] - q[1]) < Math.hypot(t[0] - p[0], t[1] - p[1]) ? q : p));
+    if (near === far) n++;
+  }
+  return { n, W, H };
+})()`);
+info['en z, sliver'] = { sl, peek };
+ok(`the smaller disc's far piece shows in the window at ${SLIVER_VIEW.join(' x ')} (the control: some of the pane's pixels lie in it)`, peek.n > 0, peek);
+ok('the smaller disc, whose far piece shows only at the window\'s corner, is not counted', Array.isArray(sl) && !sl.some((e) => e.id === 'd6'), { sl, peek });
 // the control: zoomed out, every piece is in the window
 await open('en', 30);
 const all = await off();
