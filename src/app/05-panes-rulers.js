@@ -467,7 +467,7 @@
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
   function ledSay(side, state, tip) {
-    // (what is said again is a different state, or a different error: the words of the other states are the state's name)
+    // (what is said again is a different state, or a different error: busy is one state whatever its tip)
     const key = state === 'err' ? 'err|' + tip : state;
     const same = !!ledNow[side] && ledNow[side].key === key;
     ledNow[side] = { key, tip };
@@ -477,11 +477,16 @@
   }
   function ledFlush() {
     const parts = [];
+    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'); return !!el && el.getClientRects().length > 0; };
+    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two LEDs are shown:
+    // the words alone would not say which pane they are about)
+    const two = shown('L') && shown('R');
     for (const side of ['L', 'R']) {
-      const n = ledNow[side], el = $(side === 'L' ? 'leftLed' : 'rightLed');
-      if (!n || !el || !el.getClientRects().length || (ledSaid[side] === undefined ? 'ok' : ledSaid[side]) === n.key) continue;
+      const n = ledNow[side];
+      if (!n || !shown(side) || (ledSaid[side] === undefined ? 'ok' : ledSaid[side]) === n.key) continue;
       ledSaid[side] = n.key;
-      const t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'), name = t && t.getClientRects().length ? t.textContent.trim() : '';
+      const t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'), title = t && t.getClientRects().length ? t.textContent.trim() : '';
+      const name = title || (two ? (side === 'L' ? 'X' : 'Y') : '');
       parts.push(name ? `${name}: ${n.tip}` : n.tip);
     }
     const live = $('ledLive');

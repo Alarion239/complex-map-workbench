@@ -7,10 +7,10 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const BAD = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], srcView: { cx: 0, cy: 0, s: 90 },
   steps: [{ type: 'custom', params: { expr: '\\frac{', cut: 180 }, on: true }] };
-const open = async (viewName, w, h, mobile, st) => {
+const open = async (viewName, w, h, mobile, st, lang) => {
   const ns = `led${viewName}${w}x${Date.now()}`;
   await view(w, h, false, mobile);
-  await loadView(viewName, ns, st || Object.assign({}, BAD, { steps: [{ type: 'pown', params: { n: 2 }, on: true }] }), { lang: 'en' });
+  await loadView(viewName, ns, st || Object.assign({}, BAD, { steps: [{ type: 'pown', params: { n: 2 }, on: true }] }), { lang: lang || 'en' });
   await settled({ max: 30000, until: `typeof __cmwBusy === 'function' && !!document.getElementById('leftLed') && !!document.getElementById('ledLive')${viewName === 'steps' ? " && typeof __cmwSteps === 'function' && __cmwSteps().ready.ready" : ''}` });
 };
 // what a LED looks like and says: its shape (a fill or a ring, the corner radius), role, label and place in the tab order
@@ -54,8 +54,10 @@ const announced = async (leg, tipOf) => {
   // where there are two; the steps view's hidden right LED says nothing)
   const shown = await ev(`['L', 'R'].map((side) => { const led = document.getElementById(side === 'L' ? 'leftLed' : 'rightLed'), t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'); return { led: led.getClientRects().length > 0, title: t && t.getClientRects().length ? t.textContent.trim() : '' }; })`);
   const said = await live();
-  const lines = shown.filter((x) => x.led).map((x) => (x.title ? x.title + ': ' : '') + tipOf.busy);
-  ok(`${leg}: each shown LED's words come once, with its pane's title when it shows one`, lines.length === (leg === 'classic' ? 2 : 1) && said === lines.join('. '), { shown, said, lines });
+  // (a pane whose title is hidden at this width is named by its letter when two LEDs are shown, X and Y: the words alone would not say which)
+  const two = shown.filter((x) => x.led).length > 1;
+  const lines = shown.map((x, i) => ({ x, i })).filter((e) => e.x.led).map((e) => { const name = e.x.title || (two ? ['X', 'Y'][e.i] : ''); return (name ? name + ': ' : '') + tipOf.busy; });
+  ok(`${leg}: each shown LED's words come once, with its pane's title (its letter when the title is hidden and two LEDs are shown)`, lines.length === (leg.startsWith('classic') ? 2 : 1) && said === lines.join('. '), { shown, said, lines });
   ok(`${leg}: #ledLive is a polite live region`, await ev(`document.getElementById('ledLive').getAttribute('aria-live') === 'polite'`));
   await busy(false);
   const s2 = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(tipOf.ok)})` });
@@ -84,6 +86,20 @@ const sizes = (a, b, c) => new Set([shape(a), shape(b), shape(c)]).size;
 ok('classic: ok, busy and err are three different shapes (a viewer without hue tells them apart)', sizes(okL, cl.leftLed.busy, err) === 3, { ok: shape(okL), busy: shape(cl.leftLed.busy), err: shape(err) });
 const errLive = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(err.tip)})` });
 ok('classic: a failed step is announced', errLive.ok, await live());
+// ---- the classic view in Russian at the same width: the right pane's title is hidden, and its LED is named X / Y
+await open('classic', 1280, 800, false, undefined, 'ru');
+{
+  const hidden = await ev(`(() => { const t = document.querySelector('#rightTitle .ptitle'); return !t || !t.getClientRects().length; })()`);
+  ok('classic ru: the right pane head shows no title at 1280 px (the case this leg is for)', hidden, hidden);
+  await busy(true);
+  await settled({ max: 4000, only: true, until: `document.querySelector('#leftLed').classList.contains('busy')` });
+  const busyTip = (await led('leftLed')).tip;
+  await busy(false);
+  await settled({ max: 4000, only: true, until: `document.querySelector('#leftLed').classList.contains('ok')` });
+  const okTip = (await led('leftLed')).tip;
+  ok('classic ru: the LED tips are the Russian ones', /[а-яё]/i.test(busyTip) && /[а-яё]/i.test(okTip), { busyTip, okTip });
+  await announced('classic ru', { busy: busyTip, ok: okTip });
+}
 // ---- the steps view: the left LED
 await open('steps', 1280, 800, false);
 const sv = await states('steps', [['L', 'leftLed']]);
