@@ -1,10 +1,5 @@
 {
- "constr_cmd.js": 5,
- "fix163_cmd.js": 1,
- "perp_cmd.js": 23,
- "smoke_cmd.js": 1,
  "sv_state_cmd.js": 3,
- "touch_cmd.js": 3,
  "tour_auto_cmd.js": 2,
  "tour_cmd.js": 5,
  "tour_lit_cmd.js": 1,
