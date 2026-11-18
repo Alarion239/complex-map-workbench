@@ -4,11 +4,12 @@
 // programs held linking (?glhold, GLR.holdLinks).
 // - Plane, plane z at rest (the reference): not the bare paper (its mean luminance under PAPER_LUM);
 // - plane, a scrub held at x = 0.05, 0.5 and 0.95 (__cmwSteps({ x })): the frame is plane z's at rest (at most HOLD_OFF
-//   of its pixels more than DIFF_TOL apart, held_frames' compare), no colour plot is drawn at a partial opacity
+//   of its pixels more than DIFF_TOL apart, held_frames' compare), its chrome is plane z's at rest (the rulers' pixels,
+//   the scale in the left readout and the rulers' corner, chrome()), no colour plot is drawn at a partial opacity
 //   (GLR.drawColorPlot's alpha), and the thread stays where it was put;
 // - plane, a glide played (__cmwSteps({ go: 1 })) on the stepped clock (__cmwSteps({ clock })) for PLAY_FRAMES frames,
-//   longer than a glide: the thread is still on plane z, the frame is plane z's at rest, and no frame drew a colour plot
-//   at a partial opacity;
+//   longer than a glide: the thread is still on plane z, the frame and its chrome are plane z's at rest, and no frame
+//   drew a colour plot at a partial opacity;
 // - the links let go: the held glide arrives on w1, and a scrub at x = 0.5 is the carried meshes' (the glide record's
 //   path 'mesh'), with no colour plot under it;
 // - plane, a chain with a cut before such a step ([√z, z + 0.2 conj(z)]: the glide from w1 to w2 is the carried meshes',
@@ -39,11 +40,18 @@ const CUT_FRAMES = 30, CUT_CLOCK_MS = 64;
 const frames = (n, x) => ev(`(async () => { for (let i = 0; i < ${n}; i++) { ${x == null ? '' : `window.__spheres.push('|'); __cmwSteps({ x: ${x} });`} await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r))); } return 1; })()`);
 const CONJ = { type: 'custom', params: { expr: 'z+0.2*conj(z)', cut: 180 }, on: true }, ROOT = { type: 'root', params: { n: 2, cut: 180, k: 0 }, on: true };
 const scene = (steps) => ({ v3: true, v4: true, v5: true, v6: true, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } });
-// plane j at rest grabbed as 'rest'
+// the left pane's chrome: the rulers' pixels (a hash of each), the left readout's text (the scale) and the rulers' corner
+const chrome = () => ev(`(() => {
+  const h = (id) => { const c = document.getElementById(id); if (!c || !c.width) return null; const P = c.getContext('2d').getImageData(0, 0, c.width, c.height).data; let x = 2166136261; for (let i = 0; i < P.length; i++) x = Math.imul(x ^ P[i], 16777619); return (x >>> 0).toString(16); };
+  const t = (id) => { const e = document.getElementById(id); return e ? e.textContent.trim() : null; };
+  return { rx: h('rulerLX'), ry: h('rulerLY'), scale: t('leftReadout'), corner: t('cornerL') };
+})()`);
+const sameChrome = (a, b) => !!a && !!b && !!a.rx && ['rx', 'ry', 'scale', 'corner'].every((k) => a[k] === b[k]);
+// plane j at rest grabbed as 'rest', with its chrome
 const restOf = async (j) => {
   await ev(`__cmwSteps({ go: ${j}, now: true }); 1`);
   await frames(2);
-  return { grabbed: await grab('rest') };
+  return { grabbed: await grab('rest'), chrome: await chrome() };
 };
 // the page opened on the chain with its programs held linking, the colour plots' opacities and the globes drawn
 // recorded (window.__plotAlphas, window.__spheres; not the no-value pass, drawColorPlot's noValue, which draws only the
@@ -78,6 +86,7 @@ const at = async (x) => {
   })()`);
   // (null where no rest frame is kept on this page)
   r.vsRest = d && d.frac != null ? { off: +d.frac.toFixed(4), lum: d.lum.map((v) => +v.toFixed(1)) } : null;
+  r.chrome = await chrome();
   return r;
 };
 const partial = (r) => r.alphas.some((a) => a > 0 && a < 1);
@@ -98,6 +107,7 @@ info['plane rest'] = await restOf(0);
 for (const x of [0.05, 0.5, 0.95]) {
   const r = info[`plane held x=${x}`] = await at(x);
   ok(`plane, links held, a scrub at x = ${x}: the frame is plane z's at rest (at most ${100 * HOLD_OFF} % of pixels more than ${DIFF_TOL} apart)`, asRest(r), r);
+  ok(`plane, links held, a scrub at x = ${x}: the rulers, the scale and the rulers' corner are plane z's at rest`, sameChrome(r.chrome, info['plane rest'].chrome), { held: r.chrome, rest: info['plane rest'].chrome });
   ok(`plane, links held, a scrub at x = ${x}: no colour plot at a partial opacity`, !partial(r), r);
   ok(`plane, links held, a scrub at x = ${x}: the thread stays at ${x}`, Math.abs(r.x - x) < 1e-9, r);
 }
@@ -107,8 +117,10 @@ await frames(PLAY_FRAMES);
   const held = await grab('played'), d = held ? await compare('played', 'rest') : null;
   const r = info['plane played, held'] = await ev(`(() => { const s = __cmwSteps(); return { x: s.x, anim: !!s.anim, alphas: [...new Set(window.__plotAlphas)].map((a) => +a.toFixed(3)) }; })()`);
   r.vsRest = d && { off: +d.frac.toFixed(4) };
+  r.chrome = await chrome();
   ok(`plane, links held, a glide played for ${PLAY_FRAMES} stepped frames: the thread is still on plane z`, r.x < 1e-6 && r.anim, r);
   ok('plane, links held, a glide played: the frame is plane z\'s at rest', asRest(r), r);
+  ok('plane, links held, a glide played: the rulers, the scale and the rulers\' corner are plane z\'s at rest', sameChrome(r.chrome, info['plane rest'].chrome), { held: r.chrome, rest: info['plane rest'].chrome });
   ok('plane, links held, a glide played: no frame drew a colour plot at a partial opacity', !partial(r), r);
 }
 await ev('GLR.holdLinks(false), 1');

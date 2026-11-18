@@ -27,6 +27,7 @@
     dcSeen: '',      // the phase style svCheck saw last
     sheetsSeen: null,   // All sheets as svCheck saw it last (null: not yet)
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
+    restHeld: -1,    // the plane whose frame at rest the left pane holds for a waiting glide (svDrawPlane), -1 for any other frame: the pane's stage (leftStage), so its rulers, scale and corner, handles and probe are that plane's, as its picture is
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
     ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
@@ -1765,7 +1766,7 @@
   // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
-    svHoldB = 0; svRedrawDue = false;
+    svHoldB = 0; svRedrawDue = false; SV.restHeld = -1;
     cutMarksL = [];
     if (svMoving()) {
       if (svParked()) svCheck();
@@ -1781,7 +1782,7 @@
         const asks = renderAsks, land = SV.surf === 'land', hold = land ? null : svLinkHold(SV.surf === 'sphere' && lGlobe() ? svGlobeHolds : svHolds);
         const at = hold == null ? -1 : Math.round(hold), onPlane = at >= 0 && Math.abs(hold - at) <= SV_REST_U;
         if (onPlane && svPlanes()[at] === 0) {
-          SV.core = 'still';
+          SV.core = 'still'; SV.restHeld = at;
           if (svHeldKept(['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
           svRestAt(at, pane, still);
           svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL;
