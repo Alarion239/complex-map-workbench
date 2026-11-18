@@ -1,4 +1,4 @@
-  // ---------------- the page's shell: the header, its menus and Settings, the panels and drawers (#385) ----------------
+  // ---------------- the page's shell: the header, its menus and Settings, the panels and drawers ----------------
   // (the area wiring init() calls, at the point where it had it; the theme the header's menu sets, which the phone's More
   // sheet reads and sets too)
   let curTheme = 'auto';
@@ -19,7 +19,7 @@
   // the panels' sections: always open off the phone layout (:root.ph), toggles on it
   function setupSections() {
     // off the phone layout the panel sections are always open: their summaries are headings, not Tab stops or toggles.
-    // ([#348] the phone is :root.ph, as Phone sets it, landscape phones up to 1023 px wide included, not a width query;
+    // (the phone is :root.ph, as Phone sets it, landscape phones up to 1023 px wide included, not a width query;
     // the sections follow the class when it changes)
     const isPhone = () => document.documentElement.classList.contains('ph');
     let wasPhone = null;
@@ -58,9 +58,9 @@
       if (py + ph > window.innerHeight - 12) py = Math.max(12, e.clientY - ph - 2);
       pop.style.left = px + 'px'; pop.style.top = py + 'px';
     });
-    // (v16.5 UX80) a message is placed clear of the planes' controls when it shows and when the layout changes
+    // a message is placed clear of the planes' controls when it shows and when the layout changes
     { const th = $('toastHost'); if (th) new MutationObserver(() => refreshToasts()).observe(th, { childList: true }); window.addEventListener('resize', () => requestAnimationFrame(refreshToasts));
-      // ([v16.5 fix regress-2] and whenever the layout under a toast changes while it stays up: the deformation's dock
+      // (and whenever the layout under a toast changes while it stays up: the deformation's dock
       // opening or closing, the learning lane showing or hiding, a panel: each resizes a plot or the chain; one rAF, and
       // only while a toast shows)
       if (th) {
@@ -83,7 +83,7 @@
       }
       drawerWas = now; wideWas = wide;
       if (oneDock() && !S.hideLeft && !S.hideRight) applyLayout();   // (one docked panel from 1024 to 1279)
-      // (review regress-1: back at 1280 or more, both panels follow the user's choice again)
+      // (back at 1280 or more, both panels follow the user's choice again)
       const one = oneDock();
       if (oneWas && !one && window.innerWidth >= 1280 && (S.hideLeft !== dockPref.L || S.hideRight !== dockPref.R)) { setHidden('L', dockPref.L); setHidden('R', dockPref.R); applyLayout(); }
       oneWas = one;
@@ -112,7 +112,7 @@
   // the header's buttons and menus: undo and redo, help, sound, export, share, examples, the theme, the palette, Settings
   function setupHeaderButtons() {
     $('undoBtn').addEventListener('click', () => {
-      // [v16.5 UX15] a construction's last pick, [UX14] an open polygon's last point, before any finished work
+      // a construction's last pick, an open polygon's last point, before any finished work
       const w = Construct.undoPick();
       if (w != null) { toast(w ? $t('Undid the pick: {x}', { x: w }) : $t('Undid the last pick')); updateUndo(); return; }
       if (polyBack()) return;
@@ -132,12 +132,7 @@
     // Phase colors (issue 8): the palette menu, with a preview of each
     const pb = $('palBtn');
     if (pb) {
-      pb.setAttribute('aria-expanded', 'false');
-      pb.addEventListener('click', (e) => {
-        const pop = openMenu(e.currentTarget, palItems());
-        pb.setAttribute('aria-expanded', String(!!pop));
-        if (pop) { const mo = new MutationObserver(() => { if (!pop.isConnected) { pb.setAttribute('aria-expanded', 'false'); mo.disconnect(); } }); mo.observe($('popHost'), { childList: true }); }
-      });
+      pb.addEventListener('click', (e) => openMenu(e.currentTarget, palItems()));
       syncPalBtn();
     }
     // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
@@ -147,7 +142,7 @@
     const sb = $('settingsBtn');
     if (sb) sb.addEventListener('click', () => openSettings(sb));
   }
-  // [#21] the offline page: build.py writes its size into the live page (<meta name="cmw-offline">) and pages.yml
+  // the offline page: build.py writes its size into the live page (<meta name="cmw-offline">) and pages.yml
   // publishes it beside index.html, so the entry is a same-origin download. The offline page itself, the test page
   // and a copy opened from disk have no such entry (null)
   function offlinePage() {

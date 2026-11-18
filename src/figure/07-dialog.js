@@ -161,7 +161,7 @@
     for (const t of ['pointerup', 'pointercancel']) stage.addEventListener(t, (e) => { if (e.pointerType !== 'mouse') { clearTimeout(loupeT); loupeT = setTimeout(() => { loupe.hidden = true; }, 1600); } });
     stage.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') loupe.hidden = true; });
     // ---- the controls ----
-    const sizeBtn = h('button', { type: 'button', class: 'xf-select', id: 'xfSize', 'aria-haspopup': 'menu' });
+    const sizeBtn = h('button', { type: 'button', class: 'xf-select', id: 'xfSize', 'aria-haspopup': 'menu', 'aria-expanded': 'false' });
     const textSel = h('select', { class: 'xf-select xf-text', id: 'xfText', 'aria-label': $t('Text size'), onchange: () => { set.text[set.for] = +textSel.value; changed(); } }, ...[10, 11, 12].map((v) => h('option', { value: String(v) }, $t('Text {v} pt', { v }))));
     const customRow = h('div', { class: 'xf-custom', hidden: true });
     // \the\linewidth prints pt; 6.5in, 16.5cm, 165mm and bp are read too (TeX points: 72.27 per inch)
@@ -310,7 +310,7 @@
     const fitName = () => { nameInp.style.width = `${Math.min(40, Math.max(8, nameInp.value.length + 1))}ch`; };
     fitName();
     const extEl = h('span', { class: 'xf-ext' }, '.pdf');
-    const moreBtn = h('button', { type: 'button', class: 'btn quiet xf-more', id: 'xfMore', 'aria-haspopup': 'menu' }, $t('More formats '), h('span', { html: ICON.down }));
+    const moreBtn = h('button', { type: 'button', class: 'btn quiet xf-more', id: 'xfMore', 'aria-haspopup': 'menu', 'aria-expanded': 'false' }, $t('More formats '), h('span', { html: ICON.down }));
     // the plain Save names the format; Copy image and the LaTeX button are the two others (the phone also gets Share first)
     const saveBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfSave' }, $t('Save {format}', { format: 'PDF' }));
     const shareBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfShare', hidden: !canShareFiles() }, $t('Share PNG…'));

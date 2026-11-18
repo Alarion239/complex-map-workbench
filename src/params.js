@@ -593,7 +593,7 @@ const Params = (() => {
     const playBtn = h('button', { class: 'icon-btn prm-play', type: 'button', 'aria-pressed': String(playing.has(nm)), disabled: p.expr ? true : null,
       'data-tip': playing.has(nm) ? $t('Pause') : isComplex(p) ? $t('Play: {x} circles the origin', { x: d }) : $t('Play: {x} runs between its ends', { x: d }), 'aria-label': playing.has(nm) ? $t('Pause {x}', { x: d }) : $t('Play {x}', { x: d }),
       html: playing.has(nm) ? ICON.pause : ICON.play, 'data-prm-focus': 'p:' + nm, onclick: () => togglePlay(nm) });
-    const moreBtn = h('button', { class: 'icon-btn prm-more', type: 'button', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for {x}', { x: d }), html: ICON.more, 'data-prm-focus': 'm:' + nm,
+    const moreBtn = h('button', { class: 'icon-btn prm-more', type: 'button', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-tip': $t('More'), 'aria-label': $t('More for {x}', { x: d }), html: ICON.more, 'data-prm-focus': 'm:' + nm,
       onclick: (e) => menu(m, p, e.currentTarget) });
     const l1 = h('div', { class: 'prm-l1' }, nameBtn, cxBadge, h('span', { class: 'prm-eq' }, '='), val, playBtn, h('span', { class: 'prm-sp' }), moreBtn);
     if (m.open && m.open.name === nm && m.open.what === 'rename') l1.replaceChild(renameEd(m, p), nameBtn);
