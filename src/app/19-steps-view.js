@@ -1004,7 +1004,8 @@
     an: Funcs.composeProps(activeSteps().filter((k) => k <= T).map((k) => built[k - 1].props)).analytic });
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
-  // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
+  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath).
+  // {list, paths}, or null with why.r
   // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
   // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
