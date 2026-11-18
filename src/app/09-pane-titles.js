@@ -1050,6 +1050,7 @@
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
     drawLegendSide('L'); drawLegendSide('R');
   }
+  const KEY_GUTTER = 4;   // px between an unfolded key and its plane's edge
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the unfolded chip drops below the readout it would touch. The drop, --lg-drop, is the distance
@@ -1062,10 +1063,10 @@
     box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
     if (!el || (!head && box.classList.contains('collapsed'))) return;
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
-    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a gutter, KEY_GUTTER)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
     if (head && c0.width) {
-      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      const lo = pr.left + KEY_GUTTER - c0.left, hi = pr.right - KEY_GUTTER - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
       if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
     }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
@@ -1077,9 +1078,13 @@
         const r = e.getBoundingClientRect();
         if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom && c.top < r.bottom) drop = Math.max(drop, r.bottom + 6 - c.top);
       }
-      if (drop <= 0) return;
+      if (drop <= 0) break;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
     }
+    // (the card stays inside the plane: a readout that wraps to more lines would drop it past the plane's foot, so the drop
+    // gives up what the card needs, down to none, and the card then overlaps the readout's last lines, which take no press)
+    const over = el.getBoundingClientRect().bottom - (plot.getBoundingClientRect().bottom - KEY_GUTTER), dropNow = parseFloat(box.style.getPropertyValue('--lg-drop')) || 0;
+    if (over > 0 && dropNow > 0) box.style.setProperty('--lg-drop', `${Math.max(0, dropNow - Math.ceil(over))}px`);
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);

@@ -34,10 +34,11 @@ const probe = (pad = 0) => ev(`(() => {
       return ['top', 'right', 'bottom', 'left'].map((d) => r(-parseFloat(ps[d]) - bw)); })(),
     // (the readout chip of the plane: the folded key stands clear of it)
     readout: (() => { const ro = document.getElementById('leftReadout'); if (!ro || !ro.getClientRects().length) return null; return touches(ro.getBoundingClientRect(), 0); })(),
-    // (the 44 px hit area: the key on top at the centre and 21.5 px out from it on each side, the padded box clear of every other button)
+    // (the 44 px hit area: the key on top at the centre and 21.5 px out from it on each side, the padded box clear of every other
+    // button that takes a press: the phone's readout is a button with pointer-events none, and the folded key is checked against it above)
     hit: [[0, 0], [-${OUT}, 0], [${OUT}, 0], [0, -${OUT}], [0, ${OUT}]].map(([dx, dy]) => onTop(b.left + b.width / 2 + dx, b.top + b.height / 2 + dy)),
     meets: [...document.querySelectorAll('button, [role="button"], a[href], input, select, summary')].filter((e) => e.getClientRects().length && !k.contains(e)).map((e) => { const q2 = e.getBoundingClientRect(); return { e, q2 }; })
-      .filter(({ q2 }) => q2.width > 0 && touches(q2, ${pad})).map(({ e }) => (e.id || e.className || e.tagName) + '') };
+      .filter(({ e, q2 }) => q2.width > 0 && getComputedStyle(e).pointerEvents !== 'none' && touches(q2, ${pad})).map(({ e }) => (e.id || e.className || e.tagName) + '') };
 })()`);
 for (const [w, h, lang] of WIDTHS) {
   await view(w, h, false, true);
