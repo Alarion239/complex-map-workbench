@@ -21,16 +21,18 @@
 // Douady–Hubbard map, plane 1 its parameter plane): the curves the pass strokes by their polylines at rest, a freehand
 // curve of more than 64 vertices, a formula curve, an external ray of M and an equipotential, and the two grids, by
 // their records, and a disc, so that Inside regions draws by the inverse pass; with no crossing to stack, so no
-// stacking check. At device pixel ratio 2: a grid's 1 px line at alpha 0.8 inks no whole pixel at 1.
+// stacking check. At device pixel ratio 2: a grid's 1 px line at alpha 0.8 inks no whole pixel at 1. And each curve
+// stroked by its polylines has at most GLR.INV_CURVE_MAX vertices, simplified at a tolerance of at most TRACE_PX px.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const HIT_MIN = 0.9, MIN_RING = 100, RING_R = 3, INK_TOL = 24, HOLD_U = [0.6, 0.75], U_END = 0.998, SCOPES = ['in', 'all'];
 const CROSS_R = 4, STACK_MIN = 0.95, MIN_CROSS = 40, FULL_U = 0.95, TOWARD = 0.05;
+// (the curves stroked by their polylines at rest, and how far those polylines may be from the samples: TRACE_PX CSS px)
+const TRACED = ['curve', 'fcurve', 'dhray', 'dheq'], TRACE_PX = 0.5;
 // the stroke's opacity (strokeShare): the fit's tolerance (of 255) and slack in s and t; held at SHARE_U too
 // (SHARE_TOL: the median share's distance from u, which keeps the shares at HOLD_U apart; SHARE_FIT_MIN: the carried pixels with a fit)
 const FIT_TOL = 14, SHARE_EPS = 0.05, SHARE_U = 0.3, SHARE_TOL = 0.06, SHARE_FIT_MIN = 0.9;
-await view(1200, 800);
 // (step 1, h(z) = (a z + b) / (c z + d), the Cayley map: its coefficients as [re, im], for the inverse the check carries
 // plane 1's outline back with)
 const H1 = { a: [1, 0], b: [0, -1], c: [1, 0], d: [0, 1] };
@@ -178,11 +180,27 @@ const stacked = () => ev(`(() => {
 })()`);
 let SCOPE_NOW = '';
 for (const sc of SCENES) {
+  // (each scene sets its own device pixel ratio: sc.dpr, else the run's, view()'s)
   if (sc.dpr) await send('Emulation.setDeviceMetricsOverride', { width: 1200, height: 800, deviceScaleFactor: sc.dpr, mobile: false });
+  else await view(1200, 800);
   await load(`svoutline-${sc.tag}-${Date.now()}`, sc.st);
   await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
   ok(`[${sc.tag}] the page shows the steps view`, await isSteps(), null);
   STROKED = sc.st.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id);
+  // (a traced curve's polylines, as the pass strokes them, __cmwTrace: within the pass's GLR.INV_CURVE_MAX vertices,
+  // at the base tolerance, which is at most TRACE_PX CSS px at plane 1's camera, and every sample at rest within that
+  // tolerance of them)
+  for (const id of sc.st.shapes.filter((x) => x.stage === 1 && TRACED.includes(x.kind)).map((x) => x.id)) {
+    const q = info[`trace ${id}`] = await ev(`(() => {
+      const T = __cmwTrace(${JSON.stringify(id)}), s = __cmwLook(${JSON.stringify(id)}, 'L').view.s;
+      if (!T) return null;
+      const segD = (x, y, a, b) => { const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy, u = L > 0 ? Math.max(0, Math.min(1, ((x - a[0]) * dx + (y - a[1]) * dy) / L)) : 0; return Math.hypot(x - a[0] - u * dx, y - a[1] - u * dy); };
+      let dev = 0;
+      T.samples.forEach((p, k) => { const l = T.lines[k]; for (let i = 0; i + 1 < p.length; i += 2) { let m = Infinity; for (let j = 1; j < l.length; j++) m = Math.min(m, segD(p[i], p[i + 1], l[j - 1], l[j])); if (l.length === 1) m = Math.hypot(p[i] - l[0][0], p[i + 1] - l[0][1]); dev = Math.max(dev, m); } });
+      return { n: T.n, max: GLR.INV_CURVE_MAX, tol: T.tol, base: T.base, px: +(T.base * s).toFixed(3), dev, samples: T.samples.reduce((k, p) => k + p.length / 2, 0) };
+    })()`);
+    ok(`[${sc.tag}] ${id}'s polylines for the pass: at most GLR.INV_CURVE_MAX vertices, at the base tolerance (at most ${TRACE_PX} px at rest), every sample within it`, !!q && q.n <= q.max && q.tol === q.base && q.px <= TRACE_PX && q.dev <= q.tol * (1 + 1e-9), q);
+  }
   for (const scope of SCOPES) {
     SCOPE_NOW = `${sc.tag}, ${scope}`;
     const r = info[SCOPE_NOW] = {};

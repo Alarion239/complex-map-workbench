@@ -95,6 +95,9 @@
   // a fresh cost guard with policy options (GLR.CostGuard opts, e.g. {budget: 1e9}: measure only), for measurements
   window.__cmwGuardOpts = (o) => { if (!GLR.CostGuard) return null; guard = GLR.CostGuard(Object.assign({}, GUARD_OPTS, o || {})); for (const g of Object.values(paneG)) { g.key = ''; g.reads = []; g.demoted = false; } guardLog.length = 0; requestRender('L', 'R'); return guard.state('R'); };
   // the look drawScene gives shape id (colours as hex), the pattern cell, the right view, clipWin and the plane colour
+  // a traced curve of a later plane as the inverse pass strokes it (invTrace): {tol (used), base (TRACE_TOL's), n (its
+  // vertices), samples (shapeGPU's r.polys, flat), lines (the simplified polylines)}, or null
+  window.__cmwTrace = (id) => { const s = S.shapes.find((x) => x.id === id), lines = s && invTrace(s), rec = lines && traces.get(shapeGPU(s).polys); return rec ? { tol: rec.tol, base: rec.base, n: lines.reduce((k, p) => k + p.length, 0), samples: shapeGPU(s).polys.map((p) => Array.from(p)), lines } : null; };
   window.__cmwLook = (id, side = 'R') => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); const L = side === 'L'; return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, halo: TH.halo, haloA: TH.haloA, view: Object.assign({}, L ? leftView() : V.right), win: Object.assign({}, clipWin), dpr: (L ? paneL : paneR).dpr, W: (L ? paneL : paneR).pw, H: (L ? paneL : paneR).ph, stage: L ? leftStage() : rightStage() }; };
   // P3: the z-globe's point under a pane pixel (as __cmwSphereW for the w-globe), and a globe's camera set directly
   // P3b: the shapes and targets as stored; the CSS pixel of the plane point (x, y) on a side's globe (null behind it)
