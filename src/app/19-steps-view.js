@@ -3571,7 +3571,8 @@
     if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
-    E.play.setAttribute('aria-pressed', String(on));
+    // (a plain button, Cancel, while the press waits: a "not pressed" toggle named Cancel would be read as one)
+    if (SV.gate && SV.gate.shown && SV.gate.btn === E.play) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
@@ -3630,6 +3631,8 @@
     const g = SV.gate;
     if (!g) return;
     clearTimeout(g.timer);
+    // (the keyboard user who acted in the message goes back to the control the wait is on, not to the page)
+    if (g.toast && g.toast.contains(document.activeElement)) g.btn.focus();
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
@@ -3647,7 +3650,7 @@
     if (!g || !g.shown) return;
     const B = g.btn;
     if (!g.keep) {
-      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description'].map((k) => [k, B.getAttribute(k)]) };
+      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
@@ -3656,6 +3659,7 @@
     B.dataset.wait = g.hung ? 'hung' : 'busy';
     g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
     B.style.setProperty('--wait', String(g.fill));
+    B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
@@ -3673,7 +3677,12 @@
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
       g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
-      if (g.toast) { g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel'))); }
+      if (g.toast) {
+        g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
+        // (Retry and the message's ✕ end the message, not the wait: the focus moves to the button before the message goes)
+        const msg = g.toast, btn = g.btn;
+        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
+      }
     }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);

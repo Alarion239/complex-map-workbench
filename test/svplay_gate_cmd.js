@@ -84,10 +84,24 @@ await settled({ max: 14000, only: true, until: '!!document.querySelector("#toast
 const hung = await ev('Array.from(document.querySelectorAll("#toastHost .toast button")).map((b) => b.textContent)');
 info.hung = hung;
 ok('after 10 s: the message offers Retry and Cancel', hung.includes('Retry') && hung.includes('Cancel'), hung);
-await ev('(Array.from(document.querySelectorAll("#toastHost .toast button")).find((b) => b.textContent === "Retry").click(), 1)');
+// (the keyboard user acts on the message: the focus goes back to the button the wait is on, never to the page)
+const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
+const FOCUS_ON = (sel) => `(() => { const a = document.activeElement; return a ? a.matches(${JSON.stringify(sel)}) : false; })()`;
+ok('Retry in the message takes the focus', await ev(FOCUS_IN_MSG('Retry')), null);
+await key('Enter');
 const retry = await ev(state('.sv-play'));
+ok('after Retry by the keyboard the focus is on Play, which is not "pressed" while it is Cancel', await ev(FOCUS_ON('.sv-play')) && (await ev('document.querySelector(".sv-play").getAttribute("aria-pressed")')) === null, await ev('document.activeElement && document.activeElement.className'));
 info.retry = retry;
 ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
+// the message again after 10 s more: Cancel by the keyboard ends the wait with the focus on Play, whose "pressed" state is back
+await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+ok('Cancel in the message takes the focus', await ev(FOCUS_IN_MSG('Cancel')), null);
+await key('Enter');
+const cancelled2 = await ev(state('.sv-play'));
+ok('after Cancel by the keyboard the wait is over and the focus is on Play', !cancelled2.busy && cancelled2.label === 'Play' && (await ev(FOCUS_ON('.sv-play'))), cancelled2);
+ok('Play has its "pressed" state back', (await ev('document.querySelector(".sv-play").getAttribute("aria-pressed")')) === 'false', null);
+await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 3000, only: true, until: BUSY });
 await ev(`(${WATCH_PLAY}, 1)`);
 await ev('(GLR.holdLinks(false), 1)');
 await settled({ max: 40000, only: true, until: 'window.__played === true' });
