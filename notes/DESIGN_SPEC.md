@@ -250,7 +250,7 @@ body { margin: 0; background: var(--bg); color: var(--ink); font: var(--t-body);
 | `--r-3` | 4px | panels, planes, cards, shape rows |
 | `--r-4` | 6px | popovers, palette, menus, modal, drawers |
 
-Circles are used only for the LED, point markers and radio dots. There are no pills.
+Circles are used only for the LED's up-to-date dot, point markers and radio dots. There are no pills.
 
 **Elevation.**
 
@@ -363,7 +363,7 @@ Labels are verbs in sentence case ("Add function", "Clear chain", "Reset camera"
 └──┴─────────────────────────────────────────────────────┘
 ```
 - **Head.** 32px, `--panel`, 1px `--line` bottom border, padding 0 6 0 10. Left plane: the title in `--t-math` (*z*-plane, *w*₁-plane), then the role in `--t-body` `--muted` ("domain", or "input of *f*₂" when a step is focused), and on the right two icon toggles moved from Display, Snap (magnet) and Unit circle. Right plane: the mode control first, then the right-aligned title "*w* = *F*(*z*) after 2 steps" or "*w*₂-plane, output of *f*₂" (hidden below 520px). Delete the floating `.overlay-note`; the role text replaces it.
-- **LED** (6px circle at the far right, with a tooltip): `--good` current; `--warn` computing or refining, pulsing opacity 1 → 0.35 over 1.2s (steady under reduced motion); `--error` evaluation failed, with the step named ("f₂ is undefined on part of this view").
+- **LED** (6px, at the far right, with a tooltip; the three states differ in shape as well as hue): a filled `--good` dot is current; a `--warn` ring (1.5px, transparent inside) is computing or refining, pulsing opacity 1 → 0.75 with scale 1 → 0.8 over 1.2s (steady and unscaled under reduced motion, still a ring; 0.75 keeps the ring at 3:1 against the bar in light and dark); a filled `--error` square (1px corners) is evaluation failed, with the step named ("f₂ is undefined on part of this view"). It is a focusable image named by its state, the last Tab stop of its pane head (absent where the head hides it, and on the phone, where the compile chip carries the state). Its changes are also said politely in `#ledLive` (`aria-live="polite"`, visually hidden) 500 ms after the last change, with the pane's title, or its letter X or Y when two LEDs show and the title is hidden: a page that starts up to date says nothing, and busy is one state whatever its tip.
 - **Rulers** (18px, `--panel`, 1px `--line` edge against the plot; two small 2D canvases redrawn only on view or probe change). Ticks: minor 3px, medium 5px, major 7px, `--ruler-tick`, 1 device px, following the 6.1 tiers, dropped when closer than 6px. Labels: `--t-micro` `--axis-label` at the 1-2-5 step with ≥ 72px (bottom) or ≥ 48px (left, rotated −90°) spacing, dropped within 12px of an end. The bottom-left corner shows the plane variable in STIX italic 12. **Cursor markers:** a 5×4 `--accent` triangle points into the plot at the probe on both rulers; the linked plane marks the probe's image.
 - **Readout chip** (top-left, 8px inset, level 2, 24px tall, `--t-readout`; field names in `--muted`, values in `--ink`).
 
@@ -652,7 +652,7 @@ The instrument is calm. There are no entrance animations, no staggered reveals a
 | Drawer, rail, panel collapse | Width or transform over `--t-med`. Canvases scale as bitmaps and re-render once on `transitionend`. |
 | Card insert, remove, reorder | Insert: width 0→240 plus opacity over `--t-slow`. Remove: the reverse over `--t-med`, then a toast. Reorder: FLIP over `--t-med`. |
 | Lamp changes | The row flashes `--accent-soft` for 600ms. The lamp switches instantly, the way an indicator does. |
-| LED while computing | Opacity pulse 1→0.35 over 1.2s, only while refining. |
+| LED while computing | Ring pulse, opacity 1→0.75 and scale 1→0.8 over 1.2s, only while refining. |
 | Cut drag | The protractor fades in over 80ms. A snap gives a 1px highlight on the snapped degree tick. |
 | Readout copy | The chip text reads "Copied" for 900ms. |
 | 3D orbit | Inertia ×0.90 per frame. Reset is a 400ms `--ease-std` tween. |
@@ -660,7 +660,7 @@ The instrument is calm. There are no entrance animations, no staggered reveals a
 - **Linked highlighting.** Shape row → that shape on both planes. Card → its singularities and its matrix row. Matrix column → its lamp; matrix row → its card. Hovering either plane probes both planes, the thumbnails (a 4px dot), the landscape and the sphere.
 - **Keyboard.** Tool letters (5.2); `T` focuses the formula field; ⌘K opens the palette and `+` opens it filtered to functions; `1`–`5` switch right-plane modes; `Z` fits both planes; `[` `]` toggle panels; `?` opens the guide; Esc cancels a draft or closes a popover; Delete removes the selection; Enter closes a polygon; ⌘Z / ⇧⌘Z undo and redo.
 - **Cursors.** `crosshair` with drawing tools, `grab`/`grabbing` for pan and orbit, `move` over shapes, `ew-resize` on scrub labels, `row-resize`/`col-resize` on gutters.
-- **Reduced motion** (`prefers-reduced-motion: reduce`). Every duration becomes 0, except opacity fades capped at 80ms. The LED is steady. There is no inertia, no chain homotopy, no morph autoplay and no turntable.
+- **Reduced motion** (`prefers-reduced-motion: reduce`). Every duration becomes 0, except opacity fades capped at 80ms. The LED is steady (the ring, unscaled). There is no inertia, no chain homotopy, no morph autoplay and no turntable.
 
 ---
 
