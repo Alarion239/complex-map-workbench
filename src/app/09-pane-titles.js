@@ -1120,15 +1120,10 @@
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
-  // (#1905) the key's canvas has no words a screen reader reaches: what it draws (paintLegend's st.say) is the key box's
-  // description, in a hidden span inside the box (#leftLegendSay, #rightLegendSay; inside, so it moves with the box and is
-  // never an item of a pane head's row), written only when the words change
-  function legendSaid(box, text) {
-    let el = $(box.id + 'Say');
-    if (!el) { el = h('span', { class: 'sr-only', id: box.id + 'Say' }); box.append(el); }
-    if (el.textContent !== text) el.textContent = text;
-    if (text) { if (box.getAttribute('aria-describedby') !== el.id) box.setAttribute('aria-describedby', el.id); } else box.removeAttribute('aria-describedby');
-  }
+  // the key's canvas has no words a screen reader reaches: what it draws (paintLegend's st.say) is the key box's
+  // description (srSay), in a hidden span inside the box (#leftLegendSay, #rightLegendSay; inside, so it moves with the
+  // box and is never an item of a pane head's row)
+  function legendSaid(box, text) { srSay(box, text, (sp) => box.append(sp)); }
   function drawLegendSide(side) {
     const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
@@ -1370,7 +1365,7 @@
       // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws unchanged
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
-      if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); say.push($t('contours') + ' ' + I18N.num('×1.69')); }
+      if (kind === '3d') { const f = I18N.num('×1.69'); word($t('contours'), sy - 9); num(f, sy + 19); say.push($t('contours') + ' ' + f); }
       else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); say.push(keyFactor(n) + ' ' + $t('per band')); }
     }
     // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
