@@ -115,7 +115,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
-   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, so the chip stops clipping) */
+   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
 
@@ -263,6 +263,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .seg::before { display: none; }
 :root.ph .ph-sheet .seg > button.on { background: var(--seg-on, var(--surface)); color: var(--ink); box-shadow: var(--shadow-1); }
 :root.ph .ph-sheet .icon-btn { width: 44px; height: 44px; }
+:root.ph .ph-sheet .cam-reset { width: fit-content; min-width: 44px; align-self: flex-start; justify-self: start; padding: 0 12px; gap: 8px; display: inline-flex; align-items: center; color: var(--ink); font: var(--t-body); }
+:root.ph .ph-sheet .cam-reset .cr-t { display: inline; }
 :root.ph .ph-sheet .fader-stops > button { min-width: 44px; }
 /* the Russian mesh stops are staggered on two rows for the laptop's narrow left panel (page.html); in a
    phone's sheet, 44 px tall, the second row would run 28 px under the tip below it. The sheet has room for the five on one
@@ -517,6 +519,10 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctseg > .ph-cb { flex: 1 1 0; min-width: 0; padding: 0 4px; }
 /* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
 :root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
+/* the construction chip stands at the plane's left and ends short of the folded legend's hit area (the key's 30 px glyph, 60 px from the plane's right edge,
+   pressed 8 px out from it), so the × that cancels it is never under the key; its words take a third line before they are cut */
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { left: 8px; translate: none; max-width: calc(100% - 110px); }
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on .cm-chip > .cm-t { -webkit-line-clamp: 3; }
 /* the phone's messages (a toast with its Undo) take the context bar's row over the tool row, which the planes give up
    while one shows: a message covers no part of a plane */
 :root.ph #toastHost { left: 0; right: 0; translate: none; width: auto; max-width: none; align-items: stretch; gap: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); }

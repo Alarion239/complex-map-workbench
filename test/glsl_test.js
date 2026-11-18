@@ -338,6 +338,11 @@
     add('series finite 2000 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2000} n^{-z}' })]);
     // (exactly the cap's 2048 terms: the last one is taken and the sum is done)
     add('series finite 2048 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2048} n^{-z}' })]);
+    // finite sums inside one another share the budget: a pixel takes the product of their terms. 32 x 64 = 2048,
+    // the budget, against the CPU; 33 x 64 = 2112, past it: blank on the GPU (gpuBlank), though each sum alone is within
+    add('series nested 32 x 64 terms (the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{32} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
+    add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
+    chains[chains.length - 1].gpuBlank = true;
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -696,6 +701,8 @@
   if (!gl) { R.errors.push('no webgl2'); R.done = true; return; }
   if (!gl.getExtension('EXT_color_buffer_float')) { R.errors.push('no EXT_color_buffer_float'); R.done = true; return; }
   R.renderer = (() => { const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })();
+  // (the library's sin and cos for this renderer, as the app chooses them: GLChain.useRenderer)
+  R.trigAccurate = GLChain.useRenderer(R.renderer);
   const VS = '#version 300 es\nvoid main(){ vec2 p = vec2(gl_VertexID == 1 ? 3.0 : -1.0, gl_VertexID == 2 ? 3.0 : -1.0); gl_Position = vec4(p, 0.0, 1.0); }';
   const MAIN = `
 uniform highp sampler2D uPts;
@@ -946,6 +953,19 @@ void main() {
             }
           }
         }
+        // (a chain past the GPU's budget, gpuBlank: its whole chain's row must be blank on the GPU, whatever the CPU finds
+        // there; its other rows are not compared)
+        if (ch.gpuBlank) {
+          if (!(row.mode === 0 && row.a === 0 && row.b === n)) continue;
+          const kb = (ri * P + p) * 4;
+          R.compared++;
+          if (Number.isFinite(out[kb]) || Number.isFinite(out[kb + 1])) {
+            R.failCount++;
+            R.failByChain[ch.name] = (R.failByChain[ch.name] || 0) + 1;
+            if (R.failures.length < 50) R.failures.push({ chain: ch.name, row: rowName(row), point: [Z[p].re, Z[p].im], cpu: [e.w.re, e.w.im], gpu: [out[kb], out[kb + 1]], wantBlank: true });
+          }
+          continue;
+        }
         R.compared++;
         if (stageRow) { if (row.mode === 4) R.comparedSheet = (R.comparedSheet || 0) + 1; else R.comparedDeriv = (R.comparedDeriv || 0) + 1; }
         if (row.mode === 5) R.comparedSheetRange = (R.comparedSheetRange || 0) + 1;
@@ -1020,6 +1040,41 @@ void main() {
     R.vertexShaderCompile2 = gl.getShaderParameter(vs2, gl.COMPILE_STATUS) ? 'ok' : gl.getShaderInfoLog(vs2);
     if (R.vertexShaderCompile2 !== 'ok') R.errors.push('vertex shader 2: ' + R.vertexShaderCompile2);
   } catch (e) { R.errors.push('vertex shader: ' + e.message); }
+  // sin and cos as the library computes them (cx_sin, cx_cos, a vertex shader read back by transform feedback) against
+  // Math's at 2001 arguments over [-100, 100] and at a few up to 1e5: on SwiftShader within 1e-6, where its built-ins are
+  // off by up to 2^-11 (#1739); elsewhere the error is reported (R.trig), not gated. And at the arguments the app reaches
+  // far out (zoomed in to s = 1e9, sin(1/z) takes Re(1/z) up to 1e10; cexp and cpowr large parts), up to 3e38: within
+  // [-1, 1] on every renderer whose sin and cos are the library's own (R.trigAccurate)
+  try {
+    const NG = 2001, NEAR = [1e3, 12345.678, 54321.5, 99999], FAR = [1.1e5, 1e6, 5e7, 1e8, 1e9, 1e10, 1e20, 3e38];
+    const xs = new Float32Array([...Array.from({ length: NG }, (_, i) => -100 + 200 * i / (NG - 1)), ...NEAR, ...NEAR.map((x) => -x), ...FAR, ...FAR.map((x) => -x)]);
+    const N = xs.length, NA = NG + 2 * NEAR.length;
+    const sh = (type, src) => { const o = gl.createShader(type); gl.shaderSource(o, src); gl.compileShader(o); if (!gl.getShaderParameter(o, gl.COMPILE_STATUS)) throw new Error(gl.getShaderInfoLog(o)); return o; };
+    const P = gl.createProgram();
+    gl.attachShader(P, sh(gl.VERTEX_SHADER, '#version 300 es\nprecision highp float;\n' + GLChain.LIB + '\nin float aX; out vec2 tfOut;\nvoid main(){ tfOut = vec2(cx_sin(aX), cx_cos(aX)); gl_Position = vec4(0.0, 0.0, 0.0, 1.0); gl_PointSize = 1.0; }'));
+    gl.attachShader(P, sh(gl.FRAGMENT_SHADER, '#version 300 es\nprecision highp float;\nout vec4 c;\nvoid main(){ c = vec4(0.0); }'));
+    gl.transformFeedbackVaryings(P, ['tfOut'], gl.SEPARATE_ATTRIBS);
+    gl.linkProgram(P);
+    if (!gl.getProgramParameter(P, gl.LINK_STATUS)) throw new Error(gl.getProgramInfoLog(P));
+    gl.useProgram(P);
+    const vao = gl.createVertexArray(), vb = gl.createBuffer(), ob = gl.createBuffer(), tf = gl.createTransformFeedback();
+    gl.bindVertexArray(vao);
+    gl.bindBuffer(gl.ARRAY_BUFFER, vb); gl.bufferData(gl.ARRAY_BUFFER, xs, gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(P, 'aX');
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 1, gl.FLOAT, false, 0, 0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, ob); gl.bufferData(gl.ARRAY_BUFFER, 8 * N, gl.STREAM_READ); gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, tf); gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, ob);
+    gl.enable(gl.RASTERIZER_DISCARD); gl.beginTransformFeedback(gl.POINTS); gl.drawArrays(gl.POINTS, 0, N); gl.endTransformFeedback(); gl.disable(gl.RASTERIZER_DISCARD);
+    const out = new Float32Array(2 * N);
+    gl.getBufferSubData(gl.TRANSFORM_FEEDBACK_BUFFER, 0, out);
+    gl.bindBufferBase(gl.TRANSFORM_FEEDBACK_BUFFER, 0, null); gl.bindTransformFeedback(gl.TRANSFORM_FEEDBACK, null); gl.bindVertexArray(null);
+    let worst = 0, at = 0, outside = null;
+    for (let i = 0; i < NA; i++) { const e = Math.max(Math.abs(out[2 * i] - Math.sin(xs[i])), Math.abs(out[2 * i + 1] - Math.cos(xs[i]))); if (!(e <= worst)) { worst = e; at = xs[i]; } }
+    for (let i = NA; i < N; i++) if (!(Math.abs(out[2 * i]) <= 1 && Math.abs(out[2 * i + 1]) <= 1) && !outside) outside = { x: xs[i], sin: out[2 * i], cos: out[2 * i + 1] };
+    R.trig = { accurate: R.trigAccurate, worst, at, n: N, outside };
+    if (/SwiftShader/i.test(R.renderer) && !(worst <= 1e-6)) R.errors.push(`sin and cos on SwiftShader: off by ${worst} at ${at} (at most 1e-6)`);
+    if (R.trigAccurate && outside) R.errors.push(`sin and cos of the library outside [-1, 1]: ${JSON.stringify(outside)}`);
+  } catch (e) { R.errors.push('trig: ' + e.message); }
 
   // (on SwiftShader GLSLTiers.keep left GLSLTiers.SWIFTSHADER_HANG's chains out, whose programs do not finish there:
   // GLSLTiers.notRun, each 'name (reason)')
