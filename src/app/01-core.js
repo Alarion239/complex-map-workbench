@@ -796,7 +796,7 @@
     if (typeof Funcs.stageFunctions === 'function') { try { stageFns = Funcs.stageFunctions(S.steps, built); } catch (e) { console.error('stageFunctions', e); stageFns = null; } }
     if (!Array.isArray(stageFns) || stageFns.length !== S.steps.length + 1) stageFns = localStageFunctions();
     if (GLR.ok) {
-      try { GLR.setChain(GLChain.build(S.steps, built)); } catch (e) { console.error('GLChain', e); GLR.refuseChain(String((e && e.message) || e)); }
+      try { GLR.setChain(GLChain.build(S.steps, built)); } catch (e) { console.error('GLChain', e); }
     }
   }
   const nSteps = () => S.steps.length;
