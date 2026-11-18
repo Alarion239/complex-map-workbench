@@ -953,11 +953,13 @@
       // (a landscape plane is too short to hold the message above a construction chip: it stands right of the chip, left of the keys' column)
       const land = document.documentElement.classList.contains('ph-land'), chip = land ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
       if (chip) st.left = Math.round(chip.right + 8) + 'px'; else st.removeProperty('left');
-      // (and left of the folded colour key at the plane's top, where the message reaches up to it: a key is a control)
+      // (and left of any control of the plane that its box would reach, the colour key and the plane's keys: a message is never over a control. Its place is
+      // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
-      // (its place once its eased move ends: its foot at bottom, its height as it stands)
-      const key = land ? box($('leftLegend')) : null, tb = key ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
-      if (key && tb && tb.right > key.left && tb.left < key.right && foot > key.top && foot - tb.height < key.bottom) st.right = Math.round(window.innerWidth - key.left + 8) + 'px';
+      const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
+      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
+      if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
       // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
       const mt = /** @type {HTMLElement} */ (host.firstElementChild);
       if (toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth) { fitToastRows(mt); return; }
