@@ -403,7 +403,8 @@
     return o;
   }
   // the chain a glide from plane a into plane k is planned over: the chain itself; or, with a d/dz step between them,
-  // the chain that stands in for it (invDerivChain: the step before the d/dz off, its derivative in its place).
+  // the chain that stands in for it (invDerivChain: every live step before the d/dz off, and in the d/dz's place the
+  // derivative of their composition, by the chain rule).
   // {steps, built}, or {reason} where no such chain can be made
   function invHomBase(a, k) {
     for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return invDerivChain(k);

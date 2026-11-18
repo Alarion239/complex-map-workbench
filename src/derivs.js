@@ -124,13 +124,6 @@ const Derivs = (() => {
   // one cut for the whole formula (a step's, else 180°): {step, note} or {error}; one step is derivativeStep's
   const CHAIN_PROBES = [C(0.31, 0.72), C(-0.45, 0.23), C(0.83, -0.51), C(1.37, 0.41), C(-0.9, -0.6), C(0.12, -1.3)];
   const CHAIN_TOL = 1e-9;
-  function substZ(ast, by) {
-    if (!ast || typeof ast !== 'object') return ast;
-    if (ast.t === 'var' && ast.n === 'z') return by;
-    const o = Object.assign({}, ast);
-    for (const k of Object.keys(o)) if (o[k] && typeof o[k] === 'object' && o[k].t) o[k] = substZ(o[k], by);
-    return o;
-  }
   // (f and g agree at CHAIN_PROBES: within CHAIN_TOL, relatively, at each probe where g is finite, at least 3 of them)
   function agrees(f, g) {
     let n = 0;
@@ -156,7 +149,7 @@ const Derivs = (() => {
     });
     if (ms.some((m) => !m)) return { error: 'a step before the d/dz has no formula to compose' };
     let G = XN.z(), D = null;
-    bs.forEach((b, j) => { const t = substZ(ds[j].ast, G); D = D ? XN.mul(D, t) : t; G = substZ(ms[j], G); });
+    bs.forEach((b, j) => { const t = Expr.substZ(ds[j].ast, G); D = D ? XN.mul(D, t) : t; G = Expr.substZ(ms[j], G); });
     const dfs = ds.map((d) => Expr.compile(d.ast, { theta: d.cut * DEG }));
     const ref = (z) => {
       let g = z, p = C(1, 0);
