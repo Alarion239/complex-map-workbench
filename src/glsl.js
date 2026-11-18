@@ -1879,11 +1879,14 @@ vec2 cx_binom(vec2 a, vec2 b) {
         dks.forEach((d, i) => {
           const p = i ? dks[i - 1] : 0;
           const inner = (t) => (p ? `cxs0_sg${p}(zc, ${t}, combo)` : `vec4(zc, ${t})`);
+          // (the 8 points round zc, then the 8 round z, through one call of cxs0_sraw and of the inner cxs0_sg: SwiftShader and FXC
+          // inline every call, so each call site is another copy of the callee, and two sites per nesting level would double the
+          // program, to a first draw of minutes on SwiftShader. Each sum adds its points in the order of two calls)
           src += `vec4 cxs0_sg${d}(vec2 zc, vec2 z, int combo) {\n`
             + `  float R = ${flt(GPU_REL(i + 1))};\n  float rc = R * (1.0 + cx_abs(zc)), rz = R * (1.0 + cx_abs(z));\n  vec2 ac = vec2(0.0), az = vec2(0.0);\n`
-            + '  for (int j = 0; j < 8; j++) {\n    vec2 u = cxs0_u8(j), uc = vec2(u.x, -u.y);\n'
-            + `    ac += cmul(cxs0_sraw(${inner('zc + rc * u')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
-            + `    az += cmul(cxs0_sraw(${inner('z + rz * u')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
+            + '  for (int j = 0; j < 16; j++) {\n    vec2 u = cxs0_u8(j & 7), uc = vec2(u.x, -u.y);\n'
+            + `    vec2 v = cmul(cxs0_sraw(${inner('(j < 8 ? zc + rc * u : z + rz * u)')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
+            + '    if (j < 8) ac += v; else az += v;\n'
             + '  }\n  return vec4(ac / (8.0 * rc), az / (8.0 * rz));\n}\n';
         });
       }
