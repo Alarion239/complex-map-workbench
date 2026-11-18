@@ -1978,8 +1978,9 @@
       // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
       // (#1443's rule b: no blank, and at the arrival plane b's parked picture), and over it the departure plane's
       // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
-      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions)
-      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { plot(b, 1); plot(a, 1, true); }
+      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
+      // 0 (a test hook's) leaves plane b's picture out, so that a pixel no point reaches shows the paper)
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); }
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       // (the other sheets' copies first, svGlideSheets, the farthest from the principal sheet first: where they meet, a
