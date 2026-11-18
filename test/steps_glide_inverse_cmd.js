@@ -11,6 +11,8 @@
 //   default's two) takes the carried mesh; the Mountain King's glide from z to u takes the inverse pass (its homotopy
 //   runs a Möbius path, then a power path), its glide from u to F the carried mesh (its formula has no inverse).
 // - the NEWT roots pass (the partial sum of the exponential) draws in the glide's frames without reading GL state back.
+// - (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere (x = 1.47, 1.82, 1.98): the inverse pass composites the two or
+//   three points over each w at the frame's opacity, and held_frames' judge, compositing them the same way, passes.
 // - formulas recognised as chains whose sub-step has no exact ops, z^3 - 2z + 1 (u = 0.25, 0.5, 0.75) and Γ(z) + 1
 //   (u = 0.25): the inverse pass, and the CPU reference within the same tolerance (#1693, #1805).
 // - a Repeat × N whose block step has no exact ops (cos three times; [exp, cos] twice): the inverse pass, its NEWT op
@@ -23,7 +25,7 @@ const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const names = exampleNames();
-const { GI_REF } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { GI_REF, grab, judge } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const { holdIdle, releaseIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 const ready = () => settled({ max: 60000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
 // (the page's helpers: the left pane's pixels, and the comparison of a frame with the CPU reference; the pixel compare,
@@ -318,5 +320,27 @@ for (const [steps, b, us] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], 1, [
   const log = await ev('window.__nrLog.slice(0, 40)'), drawn = log.filter((e) => e[0] === 'drawn');
   info['newt roots'] = log;
   ok('Partial sums of the exponential: the NEWT roots pass draws in the glide\'s frames and reads no GL state back (no getParameter in GLR.newtRoots after its first call)', drawn.length > 1 && drawn.slice(1).every((e) => e[1] === 0), log);
+}
+// ---- a glide where sheets overlap, composited: (z - i)/(z + i), then z^3, gliding w1 -> w2 Everywhere, colour from z ----
+// (step w2's homotopy is z^(1 + 2u) on the principal branch: two or three points of plane z over most w, drawn front to back
+// at the frame's opacity, the farthest opaque; held_frames' judge composites them the same way, from the glide record's
+// alpha and window. The judge's Newton seeds every 1/24 of the window across and 1/18 down: from the default 8 x 6
+// they miss the points beside the Möbius step's pole, z = -i)
+{
+  const ns = 'gk' + Date.now();
+  await loadView('steps', ns, { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] });
+  await go(`${BASE}/test.html?ns=${ns}&lang=en&view=steps`);
+  await ready();
+  await ev('__cmwSteps({ bare: true }), 1');
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); __cmwSteps({ T: 0 }); 1`);
+  await settled({ max: 30000, until: '__cmwSvFixed()' });
+  ok("Cayley, z^3: plane z's parked frame settles", await grab('R0'), null);
+  for (const x of [1.47, 1.82, 1.98]) {
+    const g = await at(x, 'inverse');
+    ok(`Cayley, z^3 at x = ${x}: the moving frame settles`, await grab('M'), null);
+    const j = await judge('R0', 'M', { seeds: [24, 18], step: 8 });
+    info[`Cayley, z^3 x ${x}`] = { g, j };
+    ok(`Cayley, z^3, w1 → w2 at x = ${x}: drawn by the inverse pass, its sheets composited, and the exact picture (held_frames' judge)`, !!g && g.path === 'inverse' && g.b === 2 && j.pass, { g, j });
+  }
 }
 return { pass: fails.length === 0, fails, info };
