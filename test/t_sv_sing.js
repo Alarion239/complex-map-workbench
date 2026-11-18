@@ -6,11 +6,13 @@
 // - found: a root of a Möbius step at its pole (the dipole (z - i)/(z + i) to the powers 1/2 and 1/4: |F| ~ |z + i|^-a), the
 //   logarithm at 0, 1/sqrt(z - 1 - 2i) at 1 + 2i;
 // - not found: exp(sqrt z) and 30 exp(sqrt z), where Newton on h/h' reflects (h/h' = -2 sqrt z sends z to -z) and never
-//   settles; 20 + sqrt z at 0, a branch point where |F| stays near 20 (u settles there, |F| does not grow).
+//   settles; 20 + sqrt z at 0, a branch point where |F| stays near 20.
+// Each of the two clauses alone rejects all three (their |F| does not grow towards the points either, and Newton on h/h'
+// does not settle at 20 + sqrt z's 0, where h/h' has a zero of order 1/2), so these rows hold the pair, not each clause.
 // The search's text is taken from the app's source (its constants and the searches it calls) and run on CX.
 const C = (re, im) => ({ re, im });
 const CX = require('../src/cx.js');
-const { appText } = require('./src_text');
+const { appText, braced } = require('./src_text');
 
 let bad = 0, n = 0;
 const check = (name, ok, info = '') => { n++; if (!ok) { bad++; console.log('FAIL', name, info); } };
@@ -18,9 +20,7 @@ const check = (name, ok, info = '') => { n++; if (!ok) { bad++; console.log('FAI
 const APP = appText();
 const from = APP.indexOf('  const SV_POLE_K = '), at = APP.indexOf('  function* svPolesIn(');
 if (from < 0 || at < 0) throw new Error('src/app: no SV_POLE_K or svPolesIn');
-const open = APP.indexOf(') {', at) + 2;
-let d = 0, end = -1;
-for (let k = APP.indexOf('{', open); k < APP.length; k++) { if (APP[k] === '{') d++; else if (APP[k] === '}' && --d === 0) { end = k + 1; break; } }
+const open = APP.indexOf(') {', at) + 2, end = open + braced(APP, open, 'svPolesIn').length;
 const { svPolesIn, svDrain } = new Function('CX', 'C', `${APP.slice(from, end)}\nreturn { svPolesIn, svDrain };`)(CX, C);
 
 const box = (h) => ({ x0: -h, x1: h, y0: -h, y1: h });
