@@ -130,7 +130,7 @@ for (const c of CASES) {
       } else {
         const dA = every[k].d;
         ok(`${tag}: each preimage over the paper keeps the region's colour (differs by more than ${PRE_D})`, d.slice(0, n1).every((x, j) => own[j] || (x > PRE_D && x < Infinity)), { d: d.slice(0, n1), own });
-        ok(`${tag}: each preimage in the plane's own regions has no fill over the colour (differs by at most ${FILL_K} of Everywhere's)`, d.slice(0, n1).every((x, j) => !own[j] || x <= FILL_K * dA[j]), { d: d.slice(0, n1), own, dAll: dA.slice(0, n1) });
+        ok(`${tag}: each preimage in the plane's own regions has no fill over the colour (differs by at most ${FILL_K} of Everywhere's; at least one such preimage where the plane has regions of its own)`, (!c.own.length || own.some(Boolean)) && d.slice(0, n1).every((x, j) => !own[j] || x <= FILL_K * dA[j]), { d: d.slice(0, n1), own, dAll: dA.slice(0, n1) });
       }
       const e = read[k + true + 'edge'].map((seg, j) => Math.max(...seg.map((p, i) => diff(p, read[k + false + 'edge'][j][i]))));
       info[tag].edge = e;

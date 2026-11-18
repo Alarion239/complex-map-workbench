@@ -51,15 +51,18 @@
       return t;
     });
   }
+  // preimage targets ts (pullTargets') with their area fills at the share k of their opacity; curves and boundaries as
+  // drawn (an area by its kind: a curve's alpha is dimK's, below 1 too while another shape is hovered)
+  const fillsAt = (ts, k) => ts.map((t) => (kindType(t) === 'area' ? Object.assign(t, { alpha: t.alpha * k }) : t));
   // preimage targets over a picture in colour (a phase portrait, the steps view's carried colour): the area fills at half
-  // strength, so the colour reads through them; curves and boundaries as drawn
-  const halfFills = (ts) => ts.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
+  // strength, so the colour reads through them
+  const halfFills = (ts) => fillsAt(ts, 0.5);
   // the share of a pulled-back region's fill that the steps view's layer over the colour draws: half Everywhere, so the
   // colour reads through it; none Inside regions, where the mask keeps the colour inside the region at full strength and
   // the layer is the region's boundary band alone, as the outline of a region of the plane itself is
   const pullLayerFill = () => (svMaskOn() ? 0 : 0.5);
-  // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share; curves as drawn
-  const layerFills = (ts) => { const k = pullLayerFill(); return ts.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * k }) : t)); };
+  // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share
+  const layerFills = (ts) => fillsAt(ts, pullLayerFill());
   // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
   // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at pullLayerFill's
   // share
