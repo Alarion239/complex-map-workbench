@@ -245,7 +245,7 @@
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
       // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
       if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
-        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        const why = cauchyOffZWhy();
         /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
       }
     }
@@ -842,6 +842,8 @@
     syncOpacityRange(rng);
     return row;
   }
+  // why the Cauchy style and its parts are not offered while the colour plane is not z (the integral is drawn on z, where its curve lies)
+  function cauchyOffZWhy() { return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z'); }
   // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
   // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
   // button named and titled in words that start with its visible label ("Re, real part"; the modulus, |·|, is symbols
@@ -872,18 +874,18 @@
     if (lPhase() || (SV.on && !lLand())) {
       const land = lLand();
       if (!land) f.append(styleSeg());
-      if (S.dc === 'cauchy' && lColor()) {
+      if (S.dc === 'cauchy' && (lColor() || SV.on)) {
         const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
         // (#235: with poles inside the curve, which halves show; the words say what the picture is)
-        // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
+        // (the steps view offers the parts on every plane whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
         const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
         const offZ = SV.on && svT() !== 0;
-        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
+        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
         if (parts) {
           if (partsWhy) for (const b of parts.querySelectorAll('button')) { b.disabled = true; b.dataset.tip = partsWhy; b.setAttribute('aria-description', partsWhy); }
           f.append(parts);
         }
-        const noteHtml = SV.on && svT() !== 0 ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+        const noteHtml = SV.on && svT() !== 0 ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
           : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
           : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
           : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
@@ -1059,19 +1061,28 @@
   // changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
-  // it runs under the bar, down to 4 px under the plane's top, and not into a readout it has just been dropped below)
+  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
+  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
+  // placeKeyPopReadout gives the chip its whole height back)
   function clearContextBar(box) {
-    const bar = document.querySelector('.ph-ctx.in'), plot = box.parentNode;
-    if (!bar || !plot || box.classList.contains('collapsed') || /** @type {HTMLElement} */ (plot).classList.contains('pane-head')) return;
+    const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
+    if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
     const c = box.getBoundingClientRect();
     if (!c.width) return;
-    const over = c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX), room = c.top - (/** @type {HTMLElement} */ (plot).getBoundingClientRect().top + LEGEND_BAR_GAP_PX), up = Math.min(Math.ceil(over), Math.floor(room));
-    if (over <= 0 || up <= 0) return;
-    for (const e of /** @type {HTMLElement} */ (plot).querySelectorAll(':scope > .chip.readout')) {
+    const over = Math.ceil(c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX));
+    if (over <= 0) return;
+    let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
-      if (r.width && r.left < c.right && c.left < r.right && r.top < c.bottom - up && c.top - up < r.bottom) return;
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
     }
-    box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
+    const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
+    if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
+    if (over > up) {
+      const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
+      box.style.maxHeight = `${Math.max(0, Math.floor(c.height - (over - up) - edges))}px`;
+      box.style.overflowY = 'auto';
+    }
   }
   function placeKeyPop(box) { placeKeyPopReadout(box); clearContextBar(box); }
   function placeKeyPopReadout(box) {
@@ -1079,7 +1090,7 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y');
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so

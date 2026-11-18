@@ -467,6 +467,18 @@
     GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
     if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
   }
+  // the words of text in lines no wider than maxW as ctx sets them (its font), each word on the line until the next would
+  // pass maxW (a word wider than maxW is a line of its own)
+  function wrapWords(ctx, text, maxW) {
+    const lines = [];
+    let line = '';
+    for (const w of String(text).split(' ')) {
+      const t = line ? line + ' ' + w : w;
+      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   function paneNote(pane, text) {
@@ -476,13 +488,7 @@
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const maxW = Math.max(80, Math.min(360, pane.w - 48));
-    const lines = [];
-    let line = '';
-    for (const w of String(text).split(' ')) {
-      const t = line ? line + ' ' + w : w;
-      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
-    }
-    if (line) lines.push(line);
+    const lines = wrapWords(ctx, text, maxW);
     const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
     const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
     const x0 = Math.round(pane.w / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle

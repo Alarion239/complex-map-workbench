@@ -42,6 +42,43 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   const back = await still();
   ok(`${tag}: with the bar gone the key is back where it was`, !!back.legend && Math.abs(back.legend.t - home.legend.t) <= 1 && Math.abs(back.legend.l - home.legend.l) <= 1, { back: back.legend, home: home.legend });
 }
+// the classic view at 568 × 320, a construction tool in hand: Y's open Regions key (#rightLegend) lies below Y's two-line
+// readout, with less room above the bar than the key is tall. The key ends above the bar, inside the plane and clear of
+// the readout, and what does not fit scrolls (its whole height is in reach); with the bar gone it is whole again
+{
+  const tag = 'classic 568×320 tall bar, Y\'s key';
+  await view(568, 320, false, true);
+  const ns = 'ploc' + (Date.now() % 1000000);
+  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
+  await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
+  const measureY = () => ev(`(() => {
+    const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
+    const lg = document.getElementById('rightLegend'), cs = getComputedStyle(lg);
+    return { legend: rect(lg), open: !lg.classList.contains('collapsed'), bar: rect(document.querySelector('.ph-ctx.in')), plot: rect(document.getElementById('plotR')), readout: rect(document.querySelector('#plotR > .chip.readout')),
+      scrollH: lg.scrollHeight, clientH: lg.clientHeight, overflowY: cs.overflowY };
+  })()`);
+  const stillY = () => kit.still(measureY, STILL_MS, SETTLE_MAX);
+  await ev(`document.getElementById('rightLegend').click(), 1`);
+  await settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
+  const home = await stillY();
+  ok(`${tag}: the key is unfolded, with no bar open (control)`, home.open && !home.bar && !!home.legend, home);
+  await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
+  await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
+  const m = await stillY();
+  info[tag] = { home, m };
+  ok(`${tag}: the bar is open and the key is still unfolded`, !!m.bar && m.open, m);
+  if (m.bar && m.legend) {
+    ok(`${tag}: the room above the bar is less than the key's height (control)`, !!m.readout && m.bar.t - m.readout.b < home.legend.b - home.legend.t, { home: home.legend, readout: m.readout, bar: m.bar });
+    ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar });
+    ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
+    ok(`${tag}: the key is clear of the readout`, !inter(m.legend, m.readout), { legend: m.legend, readout: m.readout });
+    ok(`${tag}: what does not fit scrolls, so the whole key is in reach`, m.scrollH <= m.clientH + EPS || m.overflowY === 'auto', { scrollH: m.scrollH, clientH: m.clientH, overflowY: m.overflowY });
+  }
+  await ev(`document.querySelector('[data-tool="select"]').click(), 1`);
+  await settled({ max: SETTLE_MAX, panes: false, until: `!document.querySelector('.ph-ctx.in')` });
+  const back = await stillY();
+  ok(`${tag}: with the bar gone the key is whole again`, !!back.legend && Math.abs(back.legend.b - back.legend.t - (home.legend.b - home.legend.t)) <= 1 && back.scrollH <= back.clientH + EPS, { back, home: home.legend });
+}
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5);
 ok('no errors', !errs.length, errs);
 return { pass: fails.length === 0, fails, info };
