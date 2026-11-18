@@ -155,7 +155,7 @@ On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `invers
 of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
 finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
 the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
-macOS run them. It is empty. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+macOS run them. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
 every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
 sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
 (`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its

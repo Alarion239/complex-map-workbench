@@ -30,7 +30,7 @@ window.GLSLTiers = (() => {
   // chains whose program SwiftShader (Chrome's CPU WebGL2, the Linux GLSL jobs) does not finish: minutes of one core in
   // the GPU process, then the GPU process is lost and every later chain of the page errors. keep leaves them out when this
   // page's renderer is SwiftShader and lists them, each with its reason, in notRun; Windows and macOS run them. ci/glsl.js
-  // builds a reference without this set with this file, so that both sides leave the same chains out. None is listed now
+  // builds a reference without this set with this file, so that both sides leave the same chains out
   const SWIFTSHADER_HANG = new Map([]);
   // the chains whose program crashes lavapipe (Mesa's llvmpipe on Vulkan, the software renderer of a Linux machine without
   // a GPU; Mesa 25, LLVM 20.1.2 here): the GPU process exits with SIGSEGV in the draw, 0.7 s after the link, the chain's
@@ -68,7 +68,7 @@ window.GLSLTiers = (() => {
       return r;
     } catch (e) { return ''; }
   })();
-  const SWIFTSHADER = /SwiftShader/i.test(RENDERER), NOT_ON_HERE = NOT_ON.find((n) => n.pattern.test(RENDERER)) || null;
+  const NOT_ON_HERE = NOT_ON.find((n) => n.pattern.test(RENDERER)) || null;
   const notRun = [];
   // the chain named name, the i-th of the page's list, runs on this page load (a chain of this renderer's NOT_ON set
   // does not: it goes into notRun as 'name (reason)')
@@ -81,5 +81,5 @@ window.GLSLTiers = (() => {
   // the adv page's sections that are not chains: in core, keys only (direct and compile are most of its Windows time)
   const SECTIONS_CORE = ['keys', 'main'];
   const section = (s) => LEGACY || TIER !== 'core' || SECTIONS_CORE.includes(s);
-  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, LAVAPIPE_CRASH, NOT_ON, NOT_ON_HERE, SWIFTSHADER, RENDERER, notRun, SAMPLE };
+  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, LAVAPIPE_CRASH, NOT_ON, NOT_ON_HERE, RENDERER, notRun, SAMPLE };
 })();

@@ -208,15 +208,20 @@ async function main() {
   const R = ref ? buildReference(ref) : null;
   legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
   if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
-  // (#1809) a reference whose test/glsl_tiers.js has no SWIFTSHADER_HANG would run on SwiftShader the chains whose
-  // programs do not finish there: its pages are built with this change's test/glsl_tiers.js, which leaves them out as
-  // this side does (elsewhere it leaves nothing out), so both sides run the same chains; the reference's file is put
-  // back after the build
+  // (#1809, #1815) a reference whose test/glsl_tiers.js lacks one of the sets of chains a renderer does not survive
+  // (SWIFTSHADER_HANG, LAVAPIPE_CRASH), or has other chains in it, would run on that renderer chains this side leaves out:
+  // its pages are built with this change's test/glsl_tiers.js, so both sides run the same chains; the reference's file is
+  // put back after the build
   const notes = [];
   const refTiers = R && !legacy ? path.join(R.dir, 'test', 'glsl_tiers.js') : null;
-  const overlay = !!refTiers && !fs.readFileSync(refTiers, 'utf8').includes('SWIFTSHADER_HANG');
+  const setOf = (text, name) => (new RegExp(`const ${name} = new Map\\(\\[(.*?)\\]\\);`, 's').exec(text) || [])[1];
+  const sets = ['SWIFTSHADER_HANG', 'LAVAPIPE_CRASH'];
+  const overlay = !!refTiers && (() => {
+    const mine = fs.readFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), 'utf8'), theirs = fs.readFileSync(refTiers, 'utf8');
+    return sets.some((n) => setOf(theirs, n) === undefined || setOf(theirs, n) !== setOf(mine, n));
+  })();
   if (overlay) {
-    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own has no \`SWIFTSHADER_HANG\`, #1809): both sides run the same chains.`);
+    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own lacks ${sets.join(' or ')}, or lists other chains, #1809 #1815): both sides run the same chains.`);
     console.log(notes[0].replace(/`/g, ''));
     fs.copyFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), refTiers);
   }
