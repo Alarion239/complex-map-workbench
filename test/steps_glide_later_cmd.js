@@ -11,6 +11,11 @@
 // - each pixel of the parked frame the regions draw (where the same frame with no shapes differs) is drawn within
 //   STROKE_R px of its image under H_u in the moving frame (where the same frame with no shapes differs), for at least
 //   HIT_MIN of at least MIN_SAMPLES of them. The frames with no shapes are another page's, carried over as bytes.
+// And the layer a region of a later plane has over the colour (LAYER: f = z² and a disc on w₁, Everywhere; Joukowski, its
+// region on z and a disc on w₁, Inside regions, where the outer preimage lies in z's own region): in a window about a
+// preimage, the glide's first frame (u = 0.002, the inverse pass's) is the parked frame on z within END_FRAC of the
+// pixels and with a mean difference at most LAYER_SHARE of the layer's own (the parked frame against the same frame
+// without that region, the control: more than LAYER_CTL of the pixels and a mean of more than LAYER_MEAN apart).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -113,5 +118,38 @@ for (const u of LOOK_U) {
   const e = r['edge u=' + u] = await carried(u, EDGE_DIFF);
   ok(`glide from plane 0: the boundaries at u = ${u} are the parked boundaries carried by H_u (the pixels more than ${EDGE_DIFF}/765 off the frame with no shapes: at least ${HIT_MIN * 100} % of ${MIN_EDGE}+ pixels within ${STROKE_R} px)`, e.n >= MIN_EDGE && e.frac >= HIT_MIN, e);
   ok(`glide from plane 0: the later planes' pullbacks at u = ${u} are the parked pullbacks carried by H_u (at least ${HIT_MIN * 100} % of ${MIN_SAMPLES}+ pixels within ${STROKE_R} px)`, q.n >= MIN_SAMPLES && q.frac >= HIT_MIN, q);
+}
+
+// ---- the layer of a later plane's region, at the glide's start ----
+const LAYER_SHARE = 0.35, LAYER_CTL = 0.01, LAYER_MEAN = 3;
+const sh = (id, o) => Object.assign({ id, ci: 0, visible: true }, o);
+const LAYER = [
+  { key: 'z², Everywhere', scope: 'all', view: { cx: 0, cy: 0, s: 120 }, steps: [{ type: 'pown', params: { n: 2 }, on: true }], own: [],
+    later: sh('L1', { kind: 'disc', c: [2, 0], r: 0.4, ci: 1, stage: 1 }), at: [1.4142, 0.07], r: 0.25 },
+  { key: 'Joukowski, Inside regions', scope: 'in', view: { cx: 0, cy: 0, s: 70 }, steps: [{ type: 'joukowski', params: {}, on: true }],
+    own: [sh('j1', { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true }), sh('j2', { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888, ci: 2 })],
+    later: sh('L1', { kind: 'disc', c: [1.5, 0.3], r: 0.25, ci: 1, stage: 1 }), at: [2.6463, 0.6926], r: 0.8 },
+];
+// a window of the left canvas (fractions) about the plane point at, r on each side
+const winOf = ([re, im], r) => ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(), a = __cmwPlaneMenu().w2s('L', ${re - r}, ${im + r}), b = __cmwPlaneMenu().w2s('L', ${re + r}, ${im - r});
+  return { x: [(a[0] - c.left) / c.width, (b[0] - c.left) / c.width], y: [(a[1] - c.top) / c.height, (b[1] - c.top) / c.height] }; })()`);
+for (const L of LAYER) {
+  const open = async (shapes) => {
+    await load('svlayer' + Date.now(), Object.assign({}, ST, { srcView: L.view, steps: L.steps, shapes }));
+    await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
+    await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: '${L.scope}', surf: 'plane', go: 0, now: true }), 1`);
+    await settled({ max: 60000, until: `!__cmwSteps().moving && __cmwSteps().x === 0 && __cmwSteps().scope === '${L.scope}' && GLR.pendingLinks === 0` });
+  };
+  await open(L.own); await still('Q0');
+  const q0 = await pack(['Q0']);
+  await open(L.own.concat([L.later])); await still('Q');
+  await at(LOOK_U[0]); await still('QM');
+  const g = await ev(`(({ path, reason }) => ({ path, reason }))(__cmwSteps().glide)`);
+  await unpack(q0);
+  const win = await winOf(L.at, L.r);
+  const c = info[`layer ${L.key}`] = { g, win, start: await compare('Q', 'QM', win), control: await compare('Q', 'Q0', win) };
+  ok(`${L.key}: the glide's first frame is the inverse pass's`, g.path === 'inverse', c);
+  ok(`${L.key}: the glide's first frame (u = ${LOOK_U[0]}) keeps the layer of the later plane's region as the parked frame on z draws it (about a preimage, at most ${END_FRAC * 100} % of the pixels > ${DIFF_TOL}/255 apart, a mean difference at most ${LAYER_SHARE} of the layer's own)`, !!c.start && !!c.control && c.start.frac <= END_FRAC && c.start.mean <= LAYER_SHARE * c.control.mean, c);
+  ok(`${L.key}: control: the parked frame without that region differs there (more than ${LAYER_CTL * 100} % of the pixels > ${DIFF_TOL}/255 apart, a mean of more than ${LAYER_MEAN})`, !!c.control && c.control.frac > LAYER_CTL && c.control.mean > LAYER_MEAN, c);
 }
 return { pass: fails.length === 0, fails, info };
