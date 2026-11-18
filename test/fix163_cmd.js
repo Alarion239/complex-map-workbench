@@ -162,7 +162,7 @@ await view(1440, 900, false, false);
 
 // ---------------------------------------------------------------- U12: a touch tap on a tile, the chip before the curve
 {
-  await nav(`http://localhost:${PORT}/test.html?ns=${NS}u12`); await settle(1500);
+  await nav(`http://localhost:${PORT}/test.html?ns=${NS}u12`);
   const r = await ev(`(() => { const b = document.querySelector('#constructTools .tool[data-tool="perp"]'); const q = b.getBoundingClientRect(); return [q.left + q.width / 2, q.top + q.height / 2]; })()`);
   // touch input needs touch emulation on, or Input.dispatchTouchEvent never returns
   await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });

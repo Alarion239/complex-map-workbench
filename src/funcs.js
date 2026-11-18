@@ -1603,11 +1603,11 @@ const Funcs = (() => {
   }
 
   // ---------------- whole Riemann surfaces and the deformation's sheets (src/sheets.js) ----------------
-  const { SHEET_MAX, branchNode, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets } = Sheets({ DEG, PI, circleAt, circleRel, isLive });
+  const { SHEET_MAX, branchNode, sheetOffsets, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets } = Sheets({ DEG, PI, circleAt, circleRel, isLive });
 
   return {
     DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
+    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, sheetOffsets, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitSvPlace, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();
