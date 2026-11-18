@@ -17,7 +17,7 @@ const lit = () => ev('Tour.lit()');
 logs();
 const open = async (ns, w, h, dark, mobile, lang) => {
   await view(w, h, dark, mobile);
-  await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : '')); await settle(1600);
+  await nav(U + '?ns=' + ns + (lang ? '&lang=' + lang : ''));
   await ev('Tour.dismissSuggestion()');
 };
 // a step by its 'chapter/id', its index read from the tour's chapters (which differ between the views)
@@ -392,7 +392,7 @@ check('after Esc: both off again', await ev(`!Tour.isActive() && Sound.prefs().o
 await goStep('sound/strings');
 const sb2 = await center('.ts-act');
 if (sb2) { await click(sb2[0], sb2[1]); await settle(400); }
-await nav(U + '?ns=au1'); await settle(1800);
+await nav(U + '?ns=au1');
 check('after a reload mid-chapter: both off again', await ev(`Sound.prefs().on === false && Sound.prefs().sonify === false`), await ev('Sound.prefs()'));
 
 } catch (e) { check('the Sound chapter at 1440' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
