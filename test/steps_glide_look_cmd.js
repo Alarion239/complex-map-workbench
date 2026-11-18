@@ -23,8 +23,9 @@
 //   pixels more than 3 CSS px from the edge of H_u's image on the sheets the glide draws (the log step's homotopy
 //   H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut along (-inf, 0] on sheet k onto the sector
 //   s - 1/s + rho e^(i phi), |phi - 2 pi k s| < s pi; the glide draws the sheets k its record names, sheetKs, the log
-//   step's offset in each combo drawn): inside them, none is the bare paper (the commonest colour outside them), and outside them none is drawn,
-//   at most COVER_TOL of each (one sheet's sector leaves part of the view outside it; the sheets' may cover it all);
+//   step's offset in each combo drawn): inside them, none is the bare paper (the commonest colour outside them), and
+//   outside them none is drawn, at most COVER_TOL of each (one sheet's sector leaves part of the view outside it; the
+//   sheets' may cover it all);
 // - the ends: the frames at x = END_X (a case's end, if it names one) from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
 //   SAME_FRAC more than LOOK_TOL apart); the logarithm's inside H_u's image only;

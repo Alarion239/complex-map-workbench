@@ -1,29 +1,31 @@
 // The steps view's Landscape glide over a multivalued step draws every sheet, as the plane it arrives at does: the
 // glide's frames are the copies of the carried surface, one per sheet combo of the steps the glide crosses, each placed
 // by the glide's map continued on its combo, at its heights and in its colour on it (svGlideSheets, GLR.drawLandscape's
-// carry.copies). The copies fade in over the glide (#1652): none leaving plane a, as plane a parked with All sheets off
-// shows the principal sheet alone, and whole from u = 1/2 on (alpha smoothstep(0, 1/2, u)). The Landscape, Everywhere, Im heights, the colour plane the last plane (so the
-// plane a glide arrives at is coloured by its own variable), the pane's words off (held_frames.js wordsOff). Square
-// root alone (from plane z) and z³ − 3z then square root (from plane w₁: the cubic's step is before the carry's source
-// and has no copy), the glide onto the square root's plane at u = NEAR, 1/2 and 1 − NEAR, each frame drawn as it is and
-// with the principal combo alone (__cmwSteps({ glideSheets: 1 }), the K = 1 control):
+// carry.copies). The copies fade in over the glide: none leaving plane a, as plane a parked with All sheets off shows
+// the principal sheet alone, and whole from u = 1/2 on (alpha smoothstep(0, 1/2, u)). The Landscape, Everywhere, Im
+// heights, the colour plane the last plane (so the plane a glide arrives at is coloured by its own variable), the
+// pane's words off (held_frames.js wordsOff). Square root alone (from plane z) and z³ − 3z then square root (from plane
+// w₁: the cubic's step is before the carry's source and has no copy), the glide onto the square root's plane at
+// u = NEAR, 1/2 and 1 − NEAR, each frame drawn as it is and with the principal combo alone
+// (__cmwSteps({ glideSheets: 1 }), the K = 1 control):
 // - every frame between the planes draws one copy, the root's other sheet, and the control none;
 // - departure, u = NEAR: the frame is plane a parked (All sheets off), at most END_FRAC of its pixels apart;
 // - the copies' alpha (carried.copyAlpha) is under ALPHA_NEAR at u = NEAR, 1 from u = 1/2 on, and never falls as u
 //   grows (u = 0.05, 0.1, ..., 0.95);
-// - at u = 1/4 (alpha 1/2), where the copy shows, the frame is the half-and-half blend of the same frame with the copies
-//   opaque (__cmwSteps({ glideFade: 1 })) and without them (glideFade: 0): a pixel blends once, also where a copy folds
-//   over itself or its seam's surface lies on it (every translucent copy's depth is drawn first, then each one's colour
-//   with LEQUAL and a stencil of one blend a pixel). At most BLEND_SHARE of those pixels more than BLEND_TOL from the
-//   blend (a pre-pass per copy alone left 0.43 % there, along the seam);
+// - at u = 1/4 (alpha 1/2), where the copy shows, the frame is the half-and-half blend of the same frame with the
+//   copies opaque (__cmwSteps({ glideFade: 1 })) and without them (glideFade: 0): a pixel blends once, also where a
+//   copy folds over itself or its seam's surface lies on it (every translucent copy's depth is drawn first, then each
+//   one's colour with LEQUAL and a stencil of one blend a pixel). At most BLEND_SHARE of those pixels more than
+//   BLEND_TOL from the blend;
 // - arrival, u = 1 − NEAR: the frame is plane b parked, at most END_FRAC of its pixels more than DIFF_TOL apart
 //   (held_frames.js), and the control at least MISS further from it
 //   (the other sheet's half of the relief is missing). The view is a small window about 0 (S.srcView.s = SCALE), which
 //   the square root maps onto a disc that covers it: the carried points reach the whole of plane b's window.
-// - the seam where the two sheets meet: every surface drawn tears along the image of the cut, so each is drawn again with
-//   the cut turned half a turn (svGlideSeams), continuous there. At u = 1/2 and 1 − NEAR, against the same frame without
-//   those surfaces (the control, __cmwSteps({ glideSeams: 0 })): the seams leave at most SEAM_GAP pixels bare that the
-//   control covers, and the control leaves at least SLIT_MIN bare where the frame with them has surface (the slit);
+// - the seam where the two sheets meet: every surface drawn tears along the image of the cut, so each is drawn again
+//   with the cut turned half a turn (svGlideSeams), continuous there. At u = 1/2 and 1 − NEAR, against the same frame
+//   without those surfaces (the control, __cmwSteps({ glideSeams: 0 })): the seams leave at most SEAM_GAP pixels bare
+//   that the control covers, and the control leaves at least SLIT_MIN bare where the frame with them has surface
+//   (the slit);
 //   at 1 − NEAR, against plane b parked, the frame is bare at most GAP_SHARE as often as the control (the rest: the
 //   surface's outer edge, a pixel apart);
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
@@ -39,6 +41,7 @@ const MISS = 0.03;                    // how much further from it the control is
 const ALPHA_NEAR = 0.01;              // the copies' alpha leaving plane a, at most
 const BLEND_TOL = 24;                 // u = 1/4: a pixel's distance (0..255 a channel) from the blend it should be
 const BLEND_SHARE = 0.002;            // u = 1/4: the share of the copy's pixels that may be further from it (edges)
+const COPY_SHOWS = 48;                // u = 1/4: the copy shows where the frames with and without it differ by more
 const SEAM_GAP = 20;                  // the pixels the seams' surfaces may leave bare that the frame without them covers (edges)
 const GAP_SHARE = 0.25;               // arrival: the share of the control's bare pixels (against the parked plane) the seams may leave
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
@@ -48,15 +51,18 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const step = (type, params) => ({ type, params: params || {}, on: true });
 const ROOT = step('root', { n: 2, cut: 180 }), CUBIC = step('custom', { expr: 'z^3-3z', cut: 180 });
 await view(1440, 900, false, false);
-// (the Landscape's surface pixels: saturation over 30)
-const surface = () => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > 30) n++; return n; })()`);
-// the pixels bare (saturation 30 or less: floor or paper) in the kept frame tag where the kept frame ref shows surface: n;
-// reverse: the other way round
-const gap = (tag, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], B = window.__heldPx[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > 30; const W = document.getElementById('canvasL').width; let n = 0, reverse = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { const a = sat(A, i), b = sat(B, i); if (b && !a) { n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } if (a && !b) reverse++; } return { n, reverse, box: n ? [x0, x1, y0, y1] : null }; })()`);
+// SAT: a surface pixel's saturation (max − min channel) is over it, as steps_land_cover counts them; floor and paper
+// are grey
+const SAT = 30;
+// (the Landscape's surface pixels: saturation over SAT)
+const surface = () => ev(`(() => { const cv = document.getElementById('canvasL'); const d = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (Math.max(d[i], d[i + 1], d[i + 2]) - Math.min(d[i], d[i + 1], d[i + 2]) > ${SAT}) n++; return n; })()`);
+// the pixels bare (saturation SAT or less: floor or paper) in the kept frame tag where the kept frame ref shows
+// surface: n; reverse: the other way round
+const gap = (tag, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], B = window.__heldPx[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT}; const W = document.getElementById('canvasL').width; let n = 0, reverse = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { const a = sat(A, i), b = sat(B, i); if (b && !a) { n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } if (a && !b) reverse++; } return { n, reverse, box: n ? [x0, x1, y0, y1] : null }; })()`);
 const carried = async () => JSON.parse(await ev('JSON.stringify((({ u, s, copies, copyAlpha }) => ({ u, s, copies, copyAlpha }))(__cmwLandCarry() || {}))'));
-// where the kept frames A and P differ (a copy shows, over 48 in a channel): the share of those pixels of the kept frame F
-// more than BLEND_TOL from (A + P) / 2
-const blend = (F, A, P) => ev(`(() => { const f = window.__heldPx[${JSON.stringify(F)}], a = window.__heldPx[${JSON.stringify(A)}], p = window.__heldPx[${JSON.stringify(P)}]; let n = 0, far = 0; for (let i = 0; i < f.length; i += 4) { let d = 0, e = 0; for (let c = 0; c < 3; c++) { d = Math.max(d, Math.abs(a[i + c] - p[i + c])); e = Math.max(e, Math.abs(f[i + c] - (a[i + c] + p[i + c]) / 2)); } if (d <= 48) continue; n++; if (e > ${BLEND_TOL}) far++; } return { n, far, share: n ? far / n : null }; })()`);
+// where the kept frames A and P differ (a copy shows, over COPY_SHOWS in a channel): the share of those pixels of the
+// kept frame F more than BLEND_TOL from (A + P) / 2
+const blend = (F, A, P) => ev(`(() => { const f = window.__heldPx[${JSON.stringify(F)}], a = window.__heldPx[${JSON.stringify(A)}], p = window.__heldPx[${JSON.stringify(P)}]; let n = 0, far = 0; for (let i = 0; i < f.length; i += 4) { let d = 0, e = 0; for (let c = 0; c < 3; c++) { d = Math.max(d, Math.abs(a[i + c] - p[i + c])); e = Math.max(e, Math.abs(f[i + c] - (a[i + c] + p[i + c]) / 2)); } if (d <= ${COPY_SHOWS}) continue; n++; if (e > ${BLEND_TOL}) far++; } return { n, far, share: n ? far / n : null }; })()`);
 // the chain steps on the Landscape (All sheets: sheets), Im heights, parked on plane k
 const open = async (steps, sheets, k) => {
   await loadView('steps', 'landcopies' + Date.now(), { shapes: [], steps, sheets, srcView: { cx: 0, cy: 0, s: SCALE } });
