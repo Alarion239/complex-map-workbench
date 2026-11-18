@@ -1751,11 +1751,17 @@
   // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
   // are svGlideSheets(b)'s, nearest the principal sheet first (the sum of the offsets' distances from 0, a root's
   // around its circle of sheets), made once per chain. A chain with more combos leaves the farthest ones out.
-  // SV.glideSheets 1 (a test hook's) draws the chain as it is alone
+  // SV.glideSheets 1 (a test hook's) draws the chain as it is alone.
+  // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
+  // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
+  // digits), so a copy of it would be a chain of its own to compile: its principal sheet alone is carried.
+  // The window of an infinitely sheeted step: S.sheetW, as the Landscape's "sheets ±" choice (SV_SHEET_W_MIN to
+  // SV_SHEET_W_MAX, SV_SHEET_W_DEFAULT when unset), the same bounds as the GPU's sheet plan (sheetPlan)
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
+  const SV_SHEET_W_MIN = 1, SV_SHEET_W_MAX = 4, SV_SHEET_W_DEFAULT = 2;
   let svSheetMemo = { key: '', list: [] };
   function svGlideSheets(b) {
-    const W = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const W = Math.max(SV_SHEET_W_MIN, Math.min(SV_SHEET_W_MAX, Math.round(S.sheetW) || SV_SHEET_W_DEFAULT));
     const key = `${chainSig[nSteps()]}|${b}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
@@ -1763,7 +1769,8 @@
     for (const e of Funcs.sheetSteps(S.steps, built)) {
       const st = S.steps[e.k - 1];
       if (e.k > b || !SV_SHEET_STEPS.includes(st.type)) continue;
-      const offs = e.n > 0 ? Array.from({ length: e.n }, (_, d) => d) : Array.from({ length: 2 * W + 1 }, (_, d) => (d <= W ? d : d - (2 * W + 1)));
+      // (the piece's sheets as the sheets module reads them, from sheet 0 on round the circle: 0, 1 … W, −W … −1)
+      const all = Funcs.sheetOffsets(e, W), i0 = all.indexOf(0), offs = [...all.slice(i0), ...all.slice(0, i0)];
       radix.push({ k: e.k, offs, far: (o) => (e.n > 0 ? Math.min(o, e.n - o) : Math.abs(o)) });
     }
     // (every combo but the chain as it is, the first of the product: nearest the principal sheet first)
