@@ -45,6 +45,7 @@ const VIEWS = {
   'phone_export_steps_cmd.js': steps(),
   'phone_landscape_cmd.js': steps(),
   'phone_palette_cmd.js': steps(),
+  'sound_steps_cmd.js': steps(),   // (Hear the function in the steps view; one check opens the classic view)
   'steps_carry_cmd.js': steps(),
   'steps_ddz_glide_cmd.js': steps(),
   'steps_ddz_rest_cmd.js': steps(),
