@@ -32,7 +32,7 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   const st = { v3: true, v4: true, shapes: [DISC], steps: CHAIN, nextId: 50, focus: 0, rightMode: 'image' };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await logs();
-  await nav(`${U}/test.html?ns=${ns}&lang=${lang}`); await settle(800);
+  await nav(`${U}/test.html?ns=${ns}&lang=${lang}`);
   ok(`${tag}: the app started`, await ev(`typeof __cmwP === 'function' && typeof __cmwLayout === 'function'`), null);
   // (English leaves the page's lang as it is; the surface button's name is in the page's language)
   const names = await ev(`document.querySelector('#svHead .sv-surf1')?.getAttribute('aria-label') || ''`);

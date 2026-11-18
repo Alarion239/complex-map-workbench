@@ -559,9 +559,9 @@
   }
   // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
   const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more, exact: !!e.exact })), trackMs: preOf[side].trackMs, hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
 
   // the shapes' names as their rows show them ("Circle 1")
   // ([v16.5 fix regress-10] of a given list too: an undo step's snapshot names the shape it added or deleted, z₆, as the
@@ -750,9 +750,9 @@
     else { V.right.cx = z.re; V.right.cy = z.im; rightAuto = false; requestRender('R', 'OR'); }
     save();
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   window.__cmwPlaneMenu = () => ({ stage: (k, re, im) => { const w = stageF(k)(C(re, im)); return [w.re, w.im]; }, w2s: (side, re, im) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const [x, y] = p.w2s(C(re, im)), r = p.ocanvas.getBoundingClientRect(); return [r.left + x, r.top + y]; }, s2w: (side, cx, cy) => { const p = side === 'R' ? paneR : paneL; p.setView(side === 'R' ? V.right : leftView()); const r = p.ocanvas.getBoundingClientRect(), w = p.s2w(cx - r.left, cy - r.top); return [w.re, w.im]; }, view: (side) => Object.assign({}, side === 'R' ? V.right : leftView()), steps: () => JSON.parse(JSON.stringify(S.steps)), hist: () => ({ hi, n: hist.length }), shapes: () => JSON.parse(JSON.stringify(S.shapes)), targets: () => JSON.parse(JSON.stringify(S.targets)), selected: () => selected, drag: () => (drag ? drag.mode : null), focus: () => S.focus, leftStage: () => leftStage(), curveBox: (id) => { const g = INT.shapeGeom(S.shapes.find((x) => x.id === id), true); return g ? g.box : null; } });
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // GPU Cauchy style of the Phase view: N nodes on the subject's boundary, shared by its components by length
   const cauchyCache = { key: '', val: null };
 
