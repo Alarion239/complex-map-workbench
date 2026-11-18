@@ -1383,7 +1383,7 @@
       // coloured on its sheet, with no patches; with band (an angle, degrees), over seamBand's box about that ray from
       // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, so it is the one shown
       // where a copy meets it)
-      // A copy's alpha (#1652): one draws it opaque before the principal surface. Under one it is drawn after the
+      // A copy's alpha: one draws it opaque before the principal surface. Under one it is drawn after the
       // principal surface and its patches: first every such copy's depth alone, then each one's colour blended over
       // what is drawn, with LEQUAL and a stencil that takes one blend a pixel, so a pixel shows the nearest translucent
       // surface once, also where a copy folds over itself or its seam's surface lies on it. 0 draws nothing

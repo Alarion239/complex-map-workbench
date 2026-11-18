@@ -1272,7 +1272,7 @@ ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9)
     a = mix(a, ml, 0.65 * rim);
     c = a * (0.30 + 0.30 * max(dot(-n, v), 0.0));
   }
-  // (a carried copy fading in, #1652: uFade its transparency, premultiplied; 0 everywhere else)
+  // (a carried copy fading in: uFade its transparency, premultiplied; 0 everywhere else)
   o = ${carry ? 'vec4(toSrgb(fogged(c, vPos)) * (1.0 - uFade), 1.0 - uFade)' : 'vec4(toSrgb(fogged(c, vPos)), 1.0)'};
 ${carry ? '  gl_FragDepth = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : ''}}
 `;

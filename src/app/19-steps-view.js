@@ -464,6 +464,10 @@
       return best;
     };
   }
+  // a Landscape glide's copies fade in from u = 0 and are whole from u = SV_FADE_END on; svSmooth: the smoothstep from
+  // a to b (0 below a, 1 above b, with no slope at either end)
+  const SV_FADE_END = 0.5;
+  const svSmooth = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   // The Landscape between two planes a and b: the points of plane s carried by the glide's map, each at its height and
   // colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s = F_b ∘ (the map
   // s → b). Across a d/dz step the points of z's plane move along the classic deformation's straight line from stage a
@@ -480,11 +484,11 @@
     const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.b, carry.s) : [];
     // (the seams first: drawLandscape draws the opaque copies in this order, then the principal surface over them, then
     // the translucent ones. band: the cut's angle when a seam may draw a band about it alone (svSeamCut), else null.
-    // alpha: the copies and their seams fade in over the glide, none at plane a and whole from u = 1/2 on (#1652), so the
-    // frame leaves plane a as it is parked and has plane b's sheets well before it parks there; the principal sheet's
-    // seam (the first) is its own surface and stays opaque. SV.glideFade: a test's fixed alpha)
+    // alpha: the copies and their seams fade in over the glide, none at plane a and whole from u = SV_FADE_END on, so
+    // the frame leaves plane a as it is parked and has plane b's sheets well before it parks there; the principal
+    // sheet's seam (the first) is its own surface and stays opaque. SV.glideFade: a test's fixed alpha)
     const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.b, carry.s) : [];
-    const t = Math.min(1, Math.max(0, g.u / 0.5)), fade = SV.glideFade != null ? SV.glideFade : t * t * (3 - 2 * t);
+    const fade = SV.glideFade != null ? SV.glideFade : svSmooth(0, SV_FADE_END, g.u);
     carry.copies = [...seams.map((v, n) => ({ draw: (f) => svOnSheets(v, f), band, alpha: n ? fade : 1 })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null, alpha: fade }))];
     render3D(pane, carry);
     return true;
