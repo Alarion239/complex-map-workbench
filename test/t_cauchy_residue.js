@@ -1,4 +1,5 @@
-// The Cauchy integral by the residue theorem (issue #235; src/calc.js cauchyPlan, cauchyValue, windingAt, simplifyLoop):
+// The Cauchy integral by the residue theorem (issue #235; src/calc.js cauchyPlan, cauchyValue, windingAt, simplifyLoop,
+// simplifyOpen):
 //   Φ(z) = n(γ, z) F(z) − Σ_k n(γ, p_k) PP_{p_k}(z)
 // (a) windingAt against the sum of angles, on random polygons, self-crossing ones included;
 // (b) the plan for 1/z, z + 1/z, (z + 1)/z², 1/(z² + 1), a pole outside the curve, a curve traversed clockwise and twice,
@@ -6,7 +7,8 @@
 //     orders, their principal parts, and Φ against the quadrature (Calc.cauchy) at random points;
 // (c) the cases that must not use the formula: e^(1/z) and a square root (unverified: the quadrature stays), a pole on
 //     the curve and F not finite on it (onCurve), a curve of two points;
-// (d) simplifyLoop keeps the winding number of every point more than the tolerance from the polygon.
+// (d) simplifyLoop keeps the winding number of every point more than the tolerance from the polygon; simplifyOpen keeps
+//     an open polyline's ends and every vertex within the tolerance.
 // Run: node test/t_cauchy_residue.js
 global.CX = require('../src/cx.js');
 const Calc = require('../src/calc.js');
@@ -149,6 +151,19 @@ agree('exp z (entire)', (z) => CX.exp(z), circle(C(0.3, 0.2), 1.4, 64), []);
   }
   check('simplifyLoop: the winding number of every point 3 tol from the curve is the same', wrong === 0 && tested > 1000, `${wrong} of ${tested}`);
   check('simplifyLoop: a short polygon and tol 0 are returned as they are', Calc.simplifyLoop([C(0, 0), C(1, 0), C(1, 1)], 0.1).length === 3 && Calc.simplifyLoop(wob, 0).length === 1200);
+}
+// ---- (d') simplifying an open polyline (the inverse pass's traced curves): its ends kept, every dropped vertex within
+// tol of the simplified polyline, and the flat [x, y, ...] form read as the point list is
+{
+  const wave = Array.from({ length: 900 }, (_, i) => C(-3 + i * 6 / 899, 0.5 * Math.sin(i * 0.02) + 0.003 * (rnd() - 0.5)));
+  const tol = 0.01, s = Calc.simplifyOpen(wave, tol), flat = Calc.simplifyOpen(wave.flatMap((z) => [z.re, z.im]), tol);
+  const segD = (z, a, b) => { const dx = b.re - a.re, dy = b.im - a.im, L = dx * dx + dy * dy, u = L > 0 ? Math.max(0, Math.min(1, ((z.re - a.re) * dx + (z.im - a.im) * dy) / L)) : 0; return Math.hypot(z.re - a.re - u * dx, z.im - a.im - u * dy); };
+  const dev = Math.max(...wave.map((z) => Math.min(...s.slice(1).map((b, k) => segD(z, s[k], b)))));
+  const same = (a, b) => a.re === b.re && a.im === b.im;
+  check(`simplifyOpen: 900 vertices → ${s.length}, its ends kept`, s.length < 300 && s.length > 10 && same(s[0], wave[0]) && same(s[s.length - 1], wave[899]), s.length);
+  check('simplifyOpen: every vertex within tol of the simplified polyline', dev <= tol * (1 + 1e-9), dev);
+  check('simplifyOpen: the flat form gives the same vertices', flat.length === s.length && flat.every((z, k) => z.re === s[k].re && z.im === s[k].im), flat.length);
+  check('simplifyOpen: two vertices and tol 0 are returned as they are', Calc.simplifyOpen([C(0, 0), C(1, 1)], 0.1).length === 2 && Calc.simplifyOpen(wave, 0).length === 900);
 }
 // ---- (e) the fast path: the same plan for a moved curve or a slightly changed F, without the search and the check
 {

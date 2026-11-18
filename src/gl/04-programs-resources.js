@@ -388,6 +388,11 @@ float wabs(vec2 w) {
   // last deformation mode asked for here)
   let aheadMode = 1;
   const EDGE_PROGS = ['landEdgeS', 'landEdgeH', 'landEdge2'];
+  // The steps view (setStepsView): it draws the Landscape's heights, surface and floor (LAND_MODE0) in map mode 0 only, at
+  // rest and under a glide's carry (whose own programs are landCarry*), so they are planned in no other map mode
+  const LAND_MODE0 = ['landTF', 'land', 'floor'];
+  let stepsView = false;
+  function setStepsView(on) { stepsView = !!on; }
   // (the programs prestartModes starts, started or not: each chain program the views draw for the current chain, in
   // each of these map modes; a view's no pane shows is none of them, e.offView)
   function modesPlan(modes) {
@@ -395,6 +400,7 @@ float wabs(vec2 w) {
     if (sideMode || !cur.info) return out;
     for (const e of [...progs.values()]) {
       if (!e.chain || e.inv || e.side || e.offView || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
+      if (stepsView && LAND_MODE0.includes(e.name)) continue;
       for (const m of modes) {
         const mm = modeOf({ mode: m });
         if (mm) out.push({ name: e.name, mode: mm, id: progId(e.name, cur, { mode: mm }) });

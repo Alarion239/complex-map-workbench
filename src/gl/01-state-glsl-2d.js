@@ -1439,9 +1439,9 @@ void main() {
   o = vec4(cauchyCol(uCenter + off, uRelC + off, vec2(0.0)), 1.0);
 }
 `;
-  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15: a segment, a line, a ray,
-  // a circle, an arc): curveNearAB(kind, A, B, w) is the curve's point nearest w. Shared by the preimages (PRE_FS) and
-  // the inverse pass's curves of later planes (INV_HEAD)
+  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15 and 17-18: a segment, a
+  // line, a ray, a circle, an arc, the Cartesian and the polar grid): curveNearAB(kind, A, B, w) is the curve's point
+  // nearest w. Shared by the preimages (PRE_FS) and the inverse pass's curves of later planes (INV_HEAD)
   const CURVE_GEOM = `
 float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
 vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
@@ -1457,6 +1457,24 @@ vec2 curveNearAB(int kind, vec4 A, vec4 B, vec2 w) {
     float L = dot(A.zw, A.zw);
     float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
     return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
+  }
+  if (kind == 17) {           // Cartesian grid: n + 1 lines each way across the rectangle A.xy - A.zw
+    vec2 lo = min(A.xy, A.zw), hi = max(A.xy, A.zw);
+    float n = max(B.x, 1.0);
+    vec2 st = max(hi - lo, vec2(1e-30)) / n;
+    vec2 i = clamp(floor((w - lo) / st + 0.5), vec2(0.0), vec2(n));
+    return nearer(w, vec2(lo.x + i.x * st.x, clamp(w.y, lo.y, hi.y)), vec2(clamp(w.x, lo.x, hi.x), lo.y + i.y * st.y));
+  }
+  if (kind == 18) {           // polar grid: nc circles, nr rays of length r about A.xy
+    vec2 v = w - A.xy;
+    float l = length(v), dr = A.z / max(B.x, 1.0);
+    float i = clamp(floor(l / dr + 0.5), 1.0, max(B.x, 1.0));
+    vec2 qc = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * i * dr;
+    float nr = max(B.y, 1.0);
+    float an = floor(atan(v.y, v.x) * nr / TAU + 0.5) * TAU / nr;
+    vec2 u = vec2(cos(an), sin(an));
+    vec2 qr = A.xy + clamp(dot(v, u), 0.0, A.z) * u;
+    return nearer(w, qc, qr);
   }
   vec2 v = w - A.xy;
   float l = length(v);
@@ -1528,30 +1546,12 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
 }
 // curve targets: the nearest point of the curve
 vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
-  if (kind >= 11 && kind <= 15) return curveNearAB(kind, A, B, w);
+  if ((kind >= 11 && kind <= 15) || kind == 17 || kind == 18) return curveNearAB(kind, A, B, w);
   if (kind == 16) {
     int s = 6 * uTN + int(K.z + 0.5), n = int(K.w + 0.5);   // vertices follow the records
     vec2 q = R(s).xy;
     for (int k = 1; k < 256; k++) { if (k >= n) break; q = nearer(w, q, segNear(w, R(s + k - 1).xy, R(s + k).xy)); }
     return q;
-  }
-  if (kind == 17) {           // Cartesian grid: n + 1 lines each way across the rectangle A.xy - A.zw
-    vec2 lo = min(A.xy, A.zw), hi = max(A.xy, A.zw);
-    float n = max(B.x, 1.0);
-    vec2 st = max(hi - lo, vec2(1e-30)) / n;
-    vec2 i = clamp(floor((w - lo) / st + 0.5), vec2(0.0), vec2(n));
-    return nearer(w, vec2(lo.x + i.x * st.x, clamp(w.y, lo.y, hi.y)), vec2(clamp(w.x, lo.x, hi.x), lo.y + i.y * st.y));
-  }
-  if (kind == 18) {           // polar grid: nc circles, nr rays of length r about A.xy
-    vec2 v = w - A.xy;
-    float l = length(v), dr = A.z / max(B.x, 1.0);
-    float i = clamp(floor(l / dr + 0.5), 1.0, max(B.x, 1.0));
-    vec2 qc = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * i * dr;
-    float nr = max(B.y, 1.0);
-    float an = floor(atan(v.y, v.x) * nr / TAU + 0.5) * TAU / nr;
-    vec2 u = vec2(cos(an), sin(an));
-    vec2 qr = A.xy + clamp(dot(v, u), 0.0, A.z) * u;
-    return nearer(w, qc, qr);
   }
   if (kind == 20) {           // v16 gcurve: two Newton steps on f / 2 (the signed distance near the curve)
     vec2 q = w;
