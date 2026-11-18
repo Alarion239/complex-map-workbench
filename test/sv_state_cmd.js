@@ -15,8 +15,16 @@ const steps = [{ type: 'pown', params: { n: 2 } }, { type: 'exp', params: {} }, 
 const lsKey = `complex-map-workbench-v1:${ns}`;
 const saved = () => ev(`(() => { const o = JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)})); return o && o.sv; })()`);
 const sv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow' };
+// (the steps view opened: its hook is there, the state read and the glide settled; a place between two planes counts as moving, so
+// a state saved there waits for the view alone: parked)
+const OPEN_MS = 30000;
+const openSv = async (url, parked) => {
+  await go(url);
+  const w = await settled({ until: `window.__cmwSteps && __cmwSteps().on && ${parked ? '__cmwSteps().ready.ready' : '!__cmwSteps().moving'}`, max: OPEN_MS });
+  ok(`the steps view opened: ${url.replace(/^.*test\.html/, '')}`, w.ok, w);
+};
 await load(ns, { steps, sv });
-await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);
 let st = await ev('__cmwSteps()');
 info.open = st;
 ok('opens parked between planes (fractional at)', st.on && Math.abs(st.x - 1.4) < 1e-6, st);
@@ -27,7 +35,7 @@ const w = await saved();
 info.written = w;
 ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in' && w.speed === 'slow', w);
 // undo: an example replaces the state, undo brings the place back
-await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);
 await ev('__cmwSteps({ go: 1, now: true })'); await sleep(300);
 await ev('(__cmwExample(3), 1)'); await sleep(2500);
 await ev(`document.getElementById('undoBtn').click(); 1`); await sleep(2000);
@@ -36,14 +44,6 @@ info.undo = st;
 ok('undo returns to the saved place', Math.abs(st.x - 1) < 1e-6 || Math.abs(st.x - 2.25) < 1e-6, st);
 // a step shown alone: a state saved with it opens on it, a save writes it back, a reload and a language switch keep it,
 // a link carries it, and leaving it goes back to the chain's place
-// (the steps view opened: its hook is there, the state read and the glide settled; a place between two planes counts as moving, so
-// a state saved there waits for the view alone: parked)
-const OPEN_MS = 30000;
-const openSv = async (url, parked) => {
-  await go(url);
-  const w = await settled({ until: `window.__cmwSteps && __cmwSteps().on && ${parked ? '__cmwSteps().ready.ready' : '!__cmwSteps().moving'}`, max: OPEN_MS });
-  ok(`the steps view opened: ${url.replace(/^.*test\.html/, '')}`, w.ok, w);
-};
 const aloneSv = { at: 1.4, T: 2, scope: 'in', surf: 'plane', speed: 'slow', alone: 2 };
 await load(ns, { steps, sv: aloneSv });
 await openSv(`${base}/test.html?ns=${ns}&view=steps`);
@@ -62,7 +62,7 @@ st = await ev('__cmwSteps()');
 ok('and back again', st.on && st.planes.length === 2 && st.planes[1] === 2, st);
 await ev(`(window.__svLink = null, Params.encodeLink(JSON.parse(localStorage.getItem(${JSON.stringify(lsKey)}))).then((p) => { window.__svLink = p; }), 1)`);
 const alonePayload = await linkMade();
-await nav(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
+await go(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
 await settled({ until: "window.__cmwSteps && __cmwSteps().on && __cmwSteps().planes.length === 2", max: 30000 });
 const ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`);
 ok('a link carries the step shown alone', ra && ra.on && ra.planes.length === 2 && ra.planes[1] === 2, ra && { on: ra.on, planes: ra.planes });
@@ -74,7 +74,7 @@ st = await ev('__cmwSteps()');
 ok('a bypassed step is not shown alone: the whole chain opens', st.on && st.planes.length === 3 && Math.abs(st.x - 1.4) < 0.5, st);
 // malformed sv is repaired
 await load(ns, { steps, sv: { at: 99.5, T: 77, scope: 'x', surf: 'cube' } });
-await nav(`${base}/test.html?ns=${ns}&view=steps`); await sleep(2500); await hooked(); await sleep(500);
+await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);
 st = await ev('__cmwSteps()');
 info.bad = st;
 ok('a malformed sv opens on defaults, clamped (an unknown speed: the device\'s, normal)', st.on && st.x === 3 && st.scope === 'all' && st.surf === 'plane' && st.speed === 'normal', st);
@@ -86,7 +86,7 @@ ok('the speed menu writes both the state and the device', menu.dev === 'slower' 
 await ev(`localStorage.removeItem('cmw-sv-speed')`);
 // the classic view ignores it, and keeps it
 await load(ns, { steps, sv });
-await nav(`${base}/test.html?ns=${ns}&view=classic`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
+await go(`${base}/test.html?ns=${ns}&view=classic`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 await hooked(); await sleep(500);
 await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 st = await ev('__cmwSteps()');

@@ -25,9 +25,8 @@ const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
 const DESKUA = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36';
-// the Landscape's two axis names carry the plane's index (Re w₁, Im w₁ before the split, w₃ after it, F being the last plane):
-// 49 px at 8/255 measured, and the surface itself unchanged
-const LAND_AXIS_NAME_PX = 60;
+// the Landscape's axis names carry the plane's index (Re w₁, Im w₁ and the height's |w₁| before the split, w₃ after it, F
+// being the last plane): their boxes (__cmwLandNames, before and after) are left out, and the rest is unchanged, 0 px
 const SHAPES = [{ id: 's1', kind: 'rect', a: [-1.2, -1.2], b: [1.2, 1.2] }];
 const F1 = (expr, cut = 180) => ({ type: 'custom', params: { expr, cut }, on: true });
 async function open(ns, st, q = '') {
@@ -35,7 +34,7 @@ async function open(ns, st, q = '') {
   await send('Page.navigate', { url: `http://localhost:${PORT}/blank-${ns}.html` }); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: SHAPES, steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await nav(U(ns, q)); await settle(2200);
+  await go(U(ns, q)); await settle(2200);
   // (the thread has drawn a chip for each step of the state)
   await settled({ until: `document.querySelectorAll('#svStrip .sv-step').length === ${o.steps.length}`, max: 15000 });
 }
@@ -51,10 +50,14 @@ const toF = () => ev(`(() => { const n = __cmwSteps().planes.length - 1; __cmwSt
 const LEGEND_W = 170, STRIP_H = 100;
 const planesRect = () => ev(`(() => { const out = []; for (const id of ['paneL', 'paneR']) { const p = document.getElementById(id); if (!p || !p.getClientRects().length) continue; const r = p.getBoundingClientRect(); if (r.width < 10) continue; const hd = p.querySelector('.pane-head'); const top = hd ? hd.getBoundingClientRect().bottom + 2 : r.top; out.push({ x: Math.round(r.left) + 2, y: Math.round(top), width: Math.round(r.width) - 4 - ${LEGEND_W}, height: Math.round(r.bottom - top - ${STRIP_H}) }); } return out; })()`);
 async function planes() { await hideToasts(true); await toF(); await settled(); const rs = await planesRect(); const out = []; for (const r of rs) out.push(await img(r)); await hideToasts(false); return out; }
-function diff(a, b) {
+// the left pane's Landscape axis names as boxes [x, y, w, h] in the coordinates of planes()' first image
+const landNames = () => ev(`(() => { const p = document.getElementById('paneL'), c = document.getElementById('canvasL'), r = p.getBoundingClientRect(), hd = p.querySelector('.pane-head'), cr = c.getBoundingClientRect(); const x0 = Math.round(r.left) + 2, y0 = Math.round(hd ? hd.getBoundingClientRect().bottom + 2 : r.top); return __cmwLandNames().map(([x, y, w, h]) => [x + cr.left - x0, y + cr.top - y0, w, h]); })()`);
+// the pixels of two lists of planes that differ by more than 8/255 in a channel, leaving out the boxes skip of the first plane
+function diff(a, b, skip = []) {
   if (a.length !== b.length) return -1;
   let n = 0;
-  for (let i = 0; i < a.length; i++) { const p = a[i], q = b[i]; if (p.w !== q.w || p.h !== q.h) return -1; for (let j = 0; j < p.data.length; j += p.ch) if (Math.abs(p.data[j] - q.data[j]) > 8 || Math.abs(p.data[j + 1] - q.data[j + 1]) > 8 || Math.abs(p.data[j + 2] - q.data[j + 2]) > 8) n++; }
+  const out = (i, j, p) => { if (i || !skip.length) return false; const k = j / p.ch, x = k % p.w, y = Math.floor(k / p.w); return skip.some(([bx, by, bw, bh]) => x >= bx && x < bx + bw && y >= by && y < by + bh); };
+  for (let i = 0; i < a.length; i++) { const p = a[i], q = b[i]; if (p.w !== q.w || p.h !== q.h) return -1; for (let j = 0; j < p.data.length; j += p.ch) if (!out(i, j, p) && (Math.abs(p.data[j] - q.data[j]) > 8 || Math.abs(p.data[j + 1] - q.data[j + 1]) > 8 || Math.abs(p.data[j + 2] - q.data[j + 2]) > 8)) n++; }
   return n;
 }
 // the palette: type q, read the rows (group headers start with #)
@@ -145,7 +148,7 @@ await selectStep(1); await settle(900);
   const views = {};
   for (const main of ['plane', 'sphere', 'land']) {
     await ev(`__cmwSteps({ surf: '${main}' }), 1`); await settle(1200);
-    const p0 = await planes();
+    const p0 = await planes(), n0 = main === 'land' ? await landNames() : [];
     await selectStep(1); await settle(500);
     await clickSel('#propsPanel .split-offer .so-btn'); await settle(500);
     const s = await steps();
@@ -162,9 +165,10 @@ await selectStep(1); await settle(900);
       info.longTasks = await ev(`await (async () => { const out = []; try { const po = new PerformanceObserver((l) => { for (const e of l.getEntries()) out.push(Math.round(e.duration)); }); po.observe({ type: 'longtask', buffered: false }); await new Promise((r) => setTimeout(r, 2000)); po.disconnect(); } catch (e) {} return out; })()`);
       await shot('split-result-en-light');
     }
-    const p1 = await planes();
-    views[main] = diff(p0, p1);
-    ok(`split: ${main} unchanged (px over 8/255${main === 'land' ? `, at most ${LAND_AXIS_NAME_PX} for the axis names` : ''})`, views[main] <= (main === 'land' ? LAND_AXIS_NAME_PX : 0), views[main]);
+    const p1 = await planes(), n1 = main === 'land' ? await landNames() : [];
+    views[main] = diff(p0, p1, n0.concat(n1));
+    if (main === 'land') { info.landNames = [n0, n1]; ok('split: the Landscape draws its axis names before and after (Re, Im and the height\'s)', n0.length >= 2 && n1.length >= 2, info.landNames); }
+    ok(`split: ${main} unchanged (px over 8/255${main === 'land' ? ', the axis names left out' : ''})`, views[main] === 0, views[main]);
     // Undo by Ctrl+Z (phase) and ⌘Z (xy, land)
     await key('z', main === 'sphere' ? 2 : 4);
     await settle(600);

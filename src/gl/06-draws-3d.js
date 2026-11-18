@@ -38,6 +38,47 @@
     const Pm = M4.persp(cam.fov || 28 * Math.PI / 180, pw / ph, Math.max(0.02, cam.dist * 0.02), cam.dist * 30);
     return { MVP: M4.mul(Pm, V), eye };
   }
+  // The unit sphere's outline (its limb) seen from the eye, as a polygon of toPt's points (toPt maps a point of space to a place in
+  // the caller's units, null when it is behind the camera): the sphere's points p with p . eye / |eye| = 1 / |eye|. Null when toPt
+  // fails on one.
+  const LIMB_STEPS = 72;
+  function globeLimb(eye, toPt) {
+    const d = Math.hypot(...eye), e = eye.map((v) => v / d), rad = Math.sqrt(Math.max(0, 1 - 1 / (d * d)));
+    const cross = (a, b) => [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]];
+    const side = cross(e, Math.abs(e[2]) < 0.9 ? [0, 0, 1] : [1, 0, 0]), len = Math.hypot(...side), u = side.map((v) => v / len), w = cross(e, u);
+    const poly = [];
+    for (let i = 0; i < LIMB_STEPS; i++) {
+      const a = 2 * Math.PI * i / LIMB_STEPS, q = toPt(e.map((v, j) => v / d + rad * (Math.cos(a) * u[j] + Math.sin(a) * w[j])));
+      if (!q) return null;
+      poly.push(q);
+    }
+    return poly;
+  }
+  const inPolygon = (q, poly) => {
+    let inside = false;
+    for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
+      if ((poly[i][1] > q[1]) !== (poly[j][1] > q[1]) && q[0] < (poly[j][0] - poly[i][0]) * (q[1] - poly[i][1]) / (poly[j][1] - poly[i][1]) + poly[i][0]) inside = !inside;
+    }
+    return inside;
+  };
+  // Whether box b, grown by air, has some of its corners and edge midpoints inside the polygon and some outside: it crosses it.
+  const crossesPolygon = (b, poly, air) => {
+    const xs = [b.x0 - air, (b.x0 + b.x1) / 2, b.x1 + air], ys = [b.y0 - air, (b.y0 + b.y1) / 2, b.y1 + air];
+    const marks = xs.flatMap((px) => ys.map((py) => inPolygon([px, py], poly)));
+    return marks.some(Boolean) && !marks.every(Boolean);
+  };
+  // A sphere's mark kept off the globe's outline (limb: globeLimb's polygon; centre: the globe's centre in the same units;
+  // boxAt(q): the mark's box when it is placed at q): its box, grown by LIMB_AIR, must not cross the outline. A mark that would
+  // is moved out from the centre in LIMB_NUDGE_STEP steps, by at most LIMB_NUDGE_MAX. Returns its place, or null when it
+  // still crosses. The distances are in the caller's units (pt in a figure, px on a pane).
+  const LIMB_AIR = 1.5, LIMB_NUDGE_STEP = 0.5, LIMB_NUDGE_MAX = 6;
+  function clearOfLimb(q, boxAt, limb, centre) {
+    if (!limb || !centre) return q;
+    const away = Math.hypot(q[0] - centre[0], q[1] - centre[1]) || 1, ux = (q[0] - centre[0]) / away, uy = (q[1] - centre[1]) / away;
+    let at = q;
+    for (let moved = 0; moved < LIMB_NUDGE_MAX && crossesPolygon(boxAt(at), limb, LIMB_AIR); moved += LIMB_NUDGE_STEP) at = [at[0] + ux * LIMB_NUDGE_STEP, at[1] + uy * LIMB_NUDGE_STEP];
+    return crossesPolygon(boxAt(at), limb, LIMB_AIR) ? null : at;
+  }
   // Light rig, fixed in the world (spec 6.9): key azimuth 135 deg elevation 50 deg, fill azimuth -45 deg elevation
   // 20 deg. The azimuths are bearings (clockwise from +y, the hillshade convention), i.e. math angles -45 and 135:
   // with the default cameras (yaw -38 / -60) the key sits high over the viewer's shoulder and the fill rakes from
@@ -247,10 +288,9 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // The steps view's carried landscape (st.carry {map, s, T, hT, hT2, u, lim, src, key}): plane s's grid over its box src
+  // The steps view's carried landscape (st.carry {map, s, T, hT, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
-  // each vertex at the height of the stages (s, hT] at its point (hT default T), blended over u into that of the stages
-  // (s, hT2] (default hT: the glide's two planes read their heights from different planes across a d/dz step), and coloured by G = the stages (s, T]
+  // each vertex at the height of the stages (s, hT] at its point (hT default T), and coloured by G = the stages (s, T]
   // (LAND_CARRY_TF_VS), then the normals of the moved points (LAND_CARRY_NRM_VS). Both passes run every frame (the
   // places change with the glide, and the scale with them); no edge passes and no refinement: those are the rest
   // frame's, when the glide arrives
@@ -274,7 +314,7 @@
     u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     const h1 = c.hT == null ? c.T : c.hT;
-    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1); u1i(P1, 'uGt2', c.hT2 == null ? h1 : c.hT2); u1f(P1, 'uHu', c.u || 0);
+    u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
     use(P2);
     u1i(P2, 'uN', N);
@@ -328,7 +368,7 @@
     }
     u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
   }
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK (dropped from the published page by build.py)
   // (walls tests; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
   function lwRead(tex, w, h) {
     if (!tex || !(w > 0) || !(h > 0)) return null;
@@ -381,7 +421,7 @@
     }
     return { land: L };
   }
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // ---- adaptive refinement (REFINE; notes/landscape-walls/r2/AS-BUILT.md) ----
   // The levels come from the GPU (a pass of the height program); they are read back (a quarter of a float per cell)
   // and listed here, grouped by level, worst first within the budget; the refined vertices are a third pass of the
@@ -1152,17 +1192,14 @@
   }
   function drawLandscape(st) {
     if (!ok) return null;
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
     // the scene stands still, as the motion part measures it
     if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     lvCollect();
     // the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
     if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
-    // (a carry that moves nothing, plane s at rest: its own refined cells, the colour of the stages up to T)
-    const idc = st.carry && st.sheets && st.carry.map.mode === 0 && st.carry.map.a === st.carry.map.b && st.carry.s === st.carry.map.a ? st.carry.T : null;
-    if (idc != null) st = Object.assign({}, st, { carry: null, colT: idc });
     const { MVP, eye } = camera(st.cam, fw, fh);
     const box = st.box;
     const BW = box.x1 - box.x0, BH = box.y1 - box.y0;
@@ -1214,10 +1251,10 @@
     const fitD = fitDist(landGeom(box, st.scale).radius, (st.cam && st.cam.fov) || 28 * Math.PI / 180, fw, fh, 1.05);
     const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
     const dbg = {};
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
     Object.assign(dbg, api._lw || {});
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights
@@ -1280,7 +1317,7 @@
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
       // digits up to T: uCarryCol 1 when the two differ, so the fragments take that colour as it is)
-      const colT = st.carry ? st.carry.T : st.colT, colB = hs && colT != null && colT < hs.b ? colT : hs ? hs.b : 0;
+      const colT = st.carry ? st.carry.T : null, colB = hs && colT != null && colT < hs.b ? colT : hs ? hs.b : 0;
       if (hs) { u1i(P, 'uSheetA', hs.a); u1i(P, 'uSheetB', colB); u1i(P, 'uSheetW', hs.W); u1i(P, 'uCarryCol', hs && colB !== hs.b ? 1 : 0); u1iv(P, 'uSheetMap', sp.map); }
       gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
       gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, hs ? hd.tex1 : hd.tex2);
@@ -1526,7 +1563,6 @@
       }
     }
     resetState();
-    if (idc != null) info.carried = true;
     return info;
   }
 

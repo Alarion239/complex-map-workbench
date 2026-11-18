@@ -22,7 +22,6 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
-const { exampleNames } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 const names = exampleNames();
 const { grab, sameAway, refOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005, LOOK_TOL = 3, MIN_SAME = 20000, MIN_COMPARED = 1000;   // (steps_glide_look_cmd.js:54-55)
@@ -71,9 +70,12 @@ const endForAt = (u0, rest) => ev(`(() => {
   const end = Math.min(${END_MAX}, Math.max(${END_MIN}, want));
   return { end, disp: +(perU * ${END_MIN}).toFixed(3), perU, loose: +(perU * ${END_LOOSE}).toFixed(3), restU: ${rest.u}, restUMin: ${rest.min} };
 })()`);
+// the thread parked on plane k, once the plane's frame is drawn with its own programs (__cmwSteps().ready: a parked plane
+// past the colour plane asks for its inverse program at its first frame, and where links run in the background that
+// frame is the stand-in until it lands and the plane is drawn again)
 const park = async (k) => {
   await ev(`__cmwSteps({ park: ${k} }), 1`);
-  await settled({ max: READY_MS, until: `__cmwSteps().x === ${k}` });
+  await settled({ max: READY_MS, until: `__cmwSteps().x === ${k} && __cmwSteps().ready.ready` });
 };
 
 await view(1440, 900, false, false);
@@ -84,6 +86,7 @@ for (const c of CASES) {
   await go(`${BASE}/test.html?ns=ne${Date.now()}&lang=en&view=steps`);
   await ready();
   await ev(`__cmwExample(${ex}), 1`);
+  await adopted();
   await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), 1");
   await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
   await park(0); const s0 = await grab('P0');

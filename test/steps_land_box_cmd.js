@@ -5,6 +5,7 @@
 // - row 2: the fresh page at 1 - 1e-4 has the parked plane 1's box (no jump on arrival);
 // - row 3: the height scale, read as the frame's height-axis labels (__cmwLandTicks: they sit where the scale puts them), is the same on both pages at every
 //   u;
+// - row 4: the fresh page's height-axis labels at 1 - 1e-4 are the parked plane 1's, each within ARRIVE_TOL (no jump on arrival);
 // - the parked planes' boxes are the camera's at rest (PARKED_HALF: the values the parked frames drew before the glide's views were changed, read at the base)
 //   and the same on both pages;
 // - control 1: on one page, the camera zoomed through the app's zoom at plane 0 scales the box at every u by the camera's own change (s before over s after), so
@@ -22,10 +23,11 @@ const BOX_U = [0.25, 0.5, 1 - 1e-4];
 const BOX_TOL = 1e-9;   // (relative to the box's width: the same arithmetic on both pages)
 const PARKED_HALF = [4.8111, 3.7889], PARKED_TOL = 1e-4;   // (the parked planes' half-width and half-height at 1440 x 900, read at the base)
 const TICK_TOL = 1e-6;   // (CSS pixels)
+const ARRIVE_TOL = 0.5;   // (CSS pixels: the scale moves by a hair from 1 - 1e-4 to the plane)
 const LEFT_CTL = 3, ZOOM_FACTOR = 2;
 const SETTLE_MS = 60000;
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const EXAMPLE = names.indexOf('Roots as preimages');
 if (EXAMPLE < 0) throw new Error('steps_land_box: the example Roots as preimages is not in the guide');
 await view(1440, 900, false, false);
@@ -85,6 +87,8 @@ for (const u of BOX_U) {
   ok(`control 2: u = ${u}: the long-lived page's box does not follow the mirror's view (x${LEFT_CTL})`, same(mirrored[u].box, long[u].box), { mirrored: half(mirrored[u].box), long: half(long[u].box), views0 });
 }
 ok(`row 2: the fresh page's box at u = ${BOX_U[2]} is the parked plane 1's (no jump on arrival)`, same(fresh[BOX_U[2]].box, freshP1.box), { glide: half(fresh[BOX_U[2]].box), parked: half(freshP1.box) });
+const near = (a, b) => Array.isArray(a) && Array.isArray(b) && a.length > 0 && a.length === b.length && a.every((t, i) => Math.abs(t - b[i]) <= ARRIVE_TOL);
+ok(`row 4: the fresh page's height-axis labels at u = ${BOX_U[2]} are the parked plane 1's (no jump on arrival)`, near(fresh[BOX_U[2]].ticks, freshP1.ticks), { glide: fresh[BOX_U[2]].ticks, parked: freshP1.ticks });
 
 // control 1: the camera zoomed by the wheel at plane 0, on this page
 await rest(0);

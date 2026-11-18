@@ -93,6 +93,8 @@ html:not(.ph) .ph-only { display: none !important; }
    z = … and w = F(z) = … (no doubled z) */
 :root.ph:not(.sv) #leftReadout::before { content: "X"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
+:root.ph:not(.ph-land) .plot > .chip.readout:has(> .rglobe:not([hidden])) { top: 6px; padding-top: 2px; padding-bottom: 2px; }   /* (a portrait pane has 86 px above the globe: the 6 px top and 2 px padding keep the hint's longest wrap, four lines, above it) */
+:root.ph.ph-land .plot > .chip.readout:has(> .rglobe:not([hidden])) { --hint-col-min: 120px; --globe-half: 160px; max-width: max(var(--hint-col-min), calc(50% - var(--globe-half))); }   /* (a landscape pane has no room above the globe: the hint sits in the column left of it, as wide as the pane's half less the globe's half-width, --globe-half, and at least --hint-col-min) */
 :root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
@@ -113,7 +115,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
-   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, so the chip stops clipping) */
+   folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
 
@@ -234,7 +236,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-pill .ph-ic svg { width: 16px; height: 16px; display: block; }
 .ph-sb { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 4px 12px 16px; }
 .ph-sb[hidden] { display: none; }
-.ph-h { margin: 12px 4px 4px; font: 600 12px/16px var(--f-ui); color: var(--muted); }
+.ph-h { margin: 12px 4px 4px; font: var(--t-label); font-variant-caps: all-small-caps; letter-spacing: .04em; color: var(--muted); }
 .ph-h[hidden] { display: none; }
 /* More tools: 60 px tiles */
 .ph-tiles { display: grid; grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); gap: 4px; padding: 8px 0 4px; }
@@ -261,6 +263,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet .seg::before { display: none; }
 :root.ph .ph-sheet .seg > button.on { background: var(--seg-on, var(--surface)); color: var(--ink); box-shadow: var(--shadow-1); }
 :root.ph .ph-sheet .icon-btn { width: 44px; height: 44px; }
+:root.ph .ph-sheet .cam-reset { width: fit-content; min-width: 44px; align-self: flex-start; justify-self: start; padding: 0 12px; gap: 8px; display: inline-flex; align-items: center; color: var(--ink); font: var(--t-body); }
+:root.ph .ph-sheet .cam-reset .cr-t { display: inline; }
 :root.ph .ph-sheet .fader-stops > button { min-width: 44px; }
 /* the Russian mesh stops are staggered on two rows for the laptop's narrow left panel (page.html); in a
    phone's sheet, 44 px tall, the second row would run 28 px under the tip below it. The sheet has room for the five on one
@@ -269,7 +273,21 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph[data-lang="ru"] .ph-sheet #meshPresets > button { position: relative; top: auto; left: auto; right: auto; translate: none; padding-top: 6px; }
 :root.ph[data-lang="ru"] .ph-sheet #meshPresets > button::before { top: 0; }
 :root.ph[data-lang="ru"] .ph-sheet #meshPresets > button:is(:nth-child(2), :nth-child(3), :nth-child(4))::before { left: 50%; }
-:root.ph .ph-vopts { display: flex; flex-direction: column; gap: 8px; padding: 4px; }
+:root.ph .ph-vopts { display: flex; flex-direction: column; gap: var(--s-5); padding: 4px; }
+/* the scope switch: full width, 44 px, each segment's words wrapping to two lines (13 px at the least) rather than shrinking */
+:root.ph .ph-vopts .sv-sheet-scope { display: flex; width: 100%; height: auto; min-height: 44px; overflow: visible; }
+:root.ph .ph-vopts .sv-sheet-scope > button { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 4px 6px; font: 500 13px/16px var(--f-ui); white-space: normal; text-align: center; overflow-wrap: break-word; -webkit-hyphens: auto; hyphens: auto; }
+/* a list of a few numbers (sectors, grid step): its label, then the choice button across the rest of the row, 44 px */
+:root.ph .ph-vopts .scrub { display: flex; align-items: center; gap: var(--s-4); width: 100%; height: auto; padding: 0; border: 0; }
+:root.ph .ph-vopts .scrub .sv-choice-num { flex: 1 1 auto; height: 44px; min-width: 0; justify-content: space-between; font-size: 15px; border: 1px solid var(--line); }
+/* a slider row: its label at the left and its value at the right (tabular figures), the slider across the row on a 44 px line */
+:root.ph .ph-vopts .fader-row.compact { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "fl fv" "rng rng"; width: 100%; gap: 0 var(--s-4); }
+:root.ph .ph-vopts .fader-row.compact > input[type="range"] { width: 100%; }
+:root.ph .ph-vopts .fader-row.ph-named > .fl { display: none; }
+:root.ph .ph-vopts .fader-row.compact > .fval { grid-area: fv; font-variant-numeric: tabular-nums; text-align: right; }
+/* a group of the Display sheet: its small-caps label, then its rows 8 px apart; the groups are 12 px apart */
+:root.ph .ph-grp { display: flex; flex-direction: column; gap: var(--s-4); }
+:root.ph .ph-grp > .ph-h { margin: 0; }
 :root.ph .ph-vopts > * { position: static; max-width: 100%; }
 :root.ph .ph-vopts .seg { overflow-x: auto; }
 /* the colour style: a wrapping grid of choices, each a 48 px target with its glyph and its word under it (four to a row at
@@ -467,12 +485,16 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
 :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: bottom 150ms var(--ease-out); }
 @media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: none; } }
-/* A sheet gives up the message's row as the planes do: it ends above the message, so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */
-:root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + 56px); padding-bottom: 0; }
-/* the More sheet hangs from its bottom edge, up to a cap, and has no top of its own: with its bottom lifted it would slide up off the screen
-   (its top would be −64, header and close button gone); its cap gives the same room up, so it shrinks from the bottom like the others (portrait: in landscape
-   it is a side panel with a top of its own) */
-:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { max-height: calc(100dvh - 48px - var(--ph-row) - var(--ph-safe-b) - 56px); }
+/* A sheet gives up the message's row as the planes do: it ends above the message (placeToasts sets --ph-toast-h to the message's height, a
+   second row of buttons making it 76 to 94 px instead of 56), so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */
+:root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + var(--ph-toast-h, 56px)); padding-bottom: 0; }
+/* the More sheet in portrait hangs from its bottom edge, up to a cap, and has no top of its own: lifted it would slide up off the screen
+   (its top would be negative, header and close button gone). It keeps its height with a message instead: the message sits at the sheet's bottom edge,
+   over its list, and the list's bottom inset is the message's height and a gap, so that every control scrolls clear of it; no control moves when it shows
+   (in landscape it is a side panel with a top of its own, and is lifted like the others) */
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] { bottom: 0; padding-bottom: var(--ph-safe-b); max-height: calc(100dvh - 48px); }
+:root.ph:not(.ph-land).ph-toast-on .ph-sheet[data-k="more"] > .ph-sb { --ph-list-inset: calc(var(--ph-toast-h, 56px) + 8px); padding-bottom: var(--ph-list-inset); scroll-padding-bottom: var(--ph-list-inset); }   /* (scroll-padding: a control the browser scrolls into view, for focus, find in page or assistive technology, comes to rest above the message too) */
+:root.ph:not(.ph-land):has(.ph-sheet[data-k="more"].open) #toastHost { bottom: var(--ph-safe-b); }
 .ph-ctx { position: fixed; z-index: 21; left: 0; right: 0; bottom: calc(var(--ph-row) + var(--ph-ctx) + var(--ph-cbelow) + var(--ph-safe-b)); transform: translateY(min(100%, var(--ph-cbelow))); opacity: 0; pointer-events: none; transition: transform 220ms var(--ease-out), opacity 160ms linear; height: 56px; display: flex; align-items: center; gap: 6px; box-sizing: border-box; padding: 0 8px; background: var(--panel); border-top: 2px solid var(--accent); }
 .ph-ctx[hidden] { display: none; }
 .ph-ctx.in { transform: none; opacity: 1; pointer-events: auto; }
@@ -497,20 +519,31 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctseg > .ph-cb { flex: 1 1 0; min-width: 0; padding: 0 4px; }
 /* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
 :root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
+/* the construction chip stands at the plane's left and ends short of the folded legend's hit area (the key's 30 px glyph, 60 px from the plane's right edge,
+   pressed 8 px out from it), so the × that cancels it is never under the key; its words take a third line before they are cut */
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { left: 8px; translate: none; max-width: calc(100% - 110px); }
+:root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on .cm-chip > .cm-t { -webkit-line-clamp: 3; }
 /* the phone's messages (a toast with its Undo) take the context bar's row over the tool row, which the planes give up
    while one shows: a message covers no part of a plane */
 :root.ph #toastHost { left: 0; right: 0; translate: none; width: auto; max-width: none; align-items: stretch; gap: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); }
 :root.ph.ph-land #toastHost { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { box-sizing: border-box; height: 56px; min-height: 56px; border: 0; border-top: 2px solid var(--accent); border-radius: 0; box-shadow: none; background: var(--panel); padding: 0 8px 0 12px; }
 :root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }
+/* a message whose words do not fit beside its buttons (toast() sets data-rows="two" by measuring) takes two rows: the words full width,
+   at most two lines, and the buttons below them, right-aligned, at 44 px */
+:root.ph #toastHost .toast[data-rows="two"] { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
+:root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; }
+:root.ph #toastHost .toast[data-rows="two"] > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 /* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
    a vertical drag on it is its own (a swipe down dismisses it) */
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
 :root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
-/* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right) */
+/* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right;
+   and a message whose words do not fit on one line beside its buttons (data-rows="two") has them full width, at most two lines, so they are not clamped beside the buttons) */
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
-:root.ph #toastHost[data-placed="phone-plot"] .toast > span + .toast-act { margin-left: auto; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast[data-rows="two"] > span { flex: 1 1 100%; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 
 .ph-ctx.under { visibility: hidden; }
 
@@ -525,6 +558,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
 :root.ph.sv .sv-head .seg > button { padding: 0 6px; }
+/* the scope's switch keeps the segmented control's padding (0 10px, the design spec), at every level of the head's fold but the last
+   (sv-c4's `.seg > button` below has fewer classes in its selector than this one, so this wins): its second segment is the short
+   word, so it fits at 360 px in Russian and Italian (#1596) */
+:root.ph.sv .sv-head .seg.sv-scope > button, :root.ph.sv .sv-head.sv-c4 .seg.sv-scope > button { padding: 0 10px; }
+/* the last fold of the head (the bar still short after sv-c4: w₁ at 320 px): the scope's padding gives too, as nothing else is left */
+:root.ph.sv .sv-head.sv-c5 .seg.sv-scope > button { padding: 0 5px; }
+:root.ph.sv .sv-head .sv-scope .sc-full { display: none; }
+:root.ph.sv .sv-head .sv-scope .sc-short { display: inline; }
 /* a step is f_k alone on a phone (its name in its label and tooltip), 44 px high */
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
@@ -561,7 +602,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
-/* still short (w₁'s name is wider than z's at 360 px): tighter gaps and scope buttons, the targets still 40 px tall */
+/* still short (w₁'s name is wider than z's at 360 px): tighter gaps and segmented buttons, the targets still 40 px tall (the scope's
+   keep their padding, above) */
 :root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
 :root.ph.sv .sv-head.sv-c4 .seg > button { padding: 0 5px; }
 :root.ph.sv .sv-head.sv-c4 .sv-title { margin: 0; }
