@@ -11,7 +11,8 @@
     closePad(); // the Argand pad never outlives the popover or menu around it
     if (!popEl) return;
     const back = Commands.opener();   // (the command palette's opener, when the popover is the palette)
-    const onClose = popEl._onClose;
+    const onClose = popEl._onClose, op = popEl._opener;
+    if (op && op.getAttribute && op.getAttribute('aria-expanded') === 'true') op.setAttribute('aria-expanded', 'false');
     popEl.remove(); popEl = null;
     if (onClose) onClose();
     Commands.closed();
@@ -25,9 +26,9 @@
     if (!enRev) { enRev = new Map(); const tb = I18N._table(I18N.lang) || {}; for (const k in tb) if (typeof tb[k] === 'string') enRev.set(tb[k], k.slice(k.indexOf(I18N.CTX) + 1)); }
     return enRev.get(s) || s;
   };
-  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload (eng-6)
+  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload
   function pickLang(v) { return I18N.setPref(v); }
-  // (v16.5 V03) one name for the integral in the palette and the planes' menu: ∮ F dz around Disc 1, Integrate F along Line 1
+  // one name for the integral in the palette and the planes' menu: ∮ F dz around Disc 1, Integrate F along Line 1
   function intLabel(s, names) {
     let closed = false;
     try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }
