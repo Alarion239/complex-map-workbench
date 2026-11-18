@@ -1,6 +1,10 @@
 // A drag Try from the keyboard alone: in the steps view "Roots as preimages" asks "on w₁, drag the target 0, then press ‹". With the
 // target selected from its row in the Shapes list (Enter) and the arrow keys nudging it, the first half of the line is done as it is after a
 // mouse drag (the tour's shape-moved event, on the plane w), so the line closes at ‹; without the nudge, ‹ alone leaves it open.
+// The keys' own contract on that plane: one arrow press is one step of the grid the plane shows (the w₁ plane shows about ±3.5
+// with a grid of 1), the toast the run ends with names the target as its row does and gives its place, the shortcuts list names
+// ↑ ↓ and Shift, and a value typed into the Inspector's w field is a move too (the screen-reader route: the row's arrow keys
+// stay with the reader in browse mode).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -41,12 +45,45 @@ await ev(`${ROW}.focus(); 1`);
 await key('Enter'); await settled({ only: true, max: SETTLE_MS, until: `${ROW}.getAttribute('aria-pressed') === 'true'` });
 info.selected = await where();
 ok('Enter on the focused row selects the target', info.selected && info.selected.pressed === 'true', info.selected);
+const target = () => ev(`(() => { const t = __cmwShapes().targets.find((x) => x.id === 's5'); return t ? t.p : null; })()`);
+const p0 = await target();
 await key('ArrowRight'); await settled({ only: true, max: SETTLE_MS, until: `${ROW}.querySelector('.d').getAttribute('title') !== ${JSON.stringify(w0 && w0.at)}` });
 info.nudged = await where();
+// (one step of the plane shown: the finest grid tier it draws, at most 1 here, so the point stays inside the plane's ±3.5)
+const p1 = await target();
+info.step = p0 && p1 ? [p1[0] - p0[0], p1[1] - p0[1]] : null;
+const st = info.step ? info.step[0] : 0;
+ok('one → moves the target by the grid step of the plane shown, not off the plane', info.step && st > 0 && st <= 1 && Math.abs(info.step[1]) < 1e-9, { p0, p1 });
+await key('ArrowUp'); await key('ArrowUp', 8);
+const p2 = await target();
+ok('↑ is one step and Shift ↑ ten', p2 && Math.abs(p2[1] - p1[1] - 11 * st) < 1e-9, { p1, p2 });
+await key('ArrowDown', 8); await key('ArrowDown');
+// (the toast of the settled run: the row's name for the target, and the point's place)
+const rowName = await ev(`(() => { const r = ${ROW}; const k = r && r.querySelector('.k'); return k ? k.textContent.trim() : null; })()`);
+const said = await ev(`new Promise((res) => { const t0 = performance.now(), want = ${JSON.stringify(p1)}; let last = null; const f = () => { for (const x of document.querySelectorAll('#toastHost .toast')) { const t = x.textContent, m = /^Moved (.+) to (-?[\\d.]+), (-?[\\d.]+)[.]$/.exec(t); if (/^Moved /.test(t)) last = t; if (m && Math.abs(+m[2] - want[0]) < 1e-3 && Math.abs(+m[3] - want[1]) < 1e-3) return res(t); } if (performance.now() - t0 > 6000) res(last); else setTimeout(f, 50); }; f(); })`);
+info.said = { rowName, said };
+ok('the toast names the target as its row does, with its place', !!said && !!rowName && (() => { const m = /^Moved (.+) to (-?[\d.]+), (-?[\d.]+)[.]$/.exec(said || ''); const q = [p1[0], p1[1]]; return !!m && m[1] === rowName && Math.abs(+m[2] - q[0]) < 1e-3 && Math.abs(+m[3] - q[1]) < 1e-3; })(), info.said);
 ok('the arrow key nudges the selected target (its place changes)', info.nudged && w0 && info.nudged.at !== w0.at, { w0, nudged: info.nudged });
 ok('the line stays open until ‹ (the line has two halves)', !!(await lane()), await lane());
 await pressPrev();
 ok('keys only: the nudge and ‹ close the line, as a mouse drag and ‹ do', !(await lane()), await lane());
+
+// the shortcuts list says ↑ ↓ and Shift for the nudge
+await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove(); __tourApi.openGuide(); 1`);
+const nudgeRow = await ev(`(() => { const r = [...document.querySelectorAll('.modal-bg tr, .modal-bg .kbd-row, .modal-bg li')].find((x) => /nudge/i.test(x.textContent)); return r ? r.textContent.replace(/\\s+/g, ' ').trim() : null; })()`);
+info.nudgeRow = nudgeRow;
+ok('Keyboard shortcuts names ↑ ↓ and Shift for the nudge', !!nudgeRow && /↑/.test(nudgeRow) && /↓/.test(nudgeRow) && /⇧|Shift/.test(nudgeRow), nudgeRow);
+await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove(); 1`);
+
+// the Inspector's w field: a committed value is a move, and with ‹ it closes the line (no arrow key, no drag)
+await open('c');
+await ev(`${ROW}.focus(); 1`);
+await key('Enter'); await settled({ only: true, max: SETTLE_MS, until: `${ROW}.getAttribute('aria-pressed') === 'true'` });
+const typed = await ev(`(() => { const i = document.querySelector('.sh-insp .field.cxf input'); if (!i) return false; i.focus(); i.value = '1+0.5i'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
+ok('the Inspector has the w field for the selected target', typed, typed);
+ok('the typed value moved the target', JSON.stringify(await target()) === JSON.stringify([1, 0.5]), await target());
+await pressPrev();
+ok('a committed w value closes the line with ‹, as a drag does', !(await lane()), await lane());
 
 // control: ‹ alone leaves the line open
 await open('b');
