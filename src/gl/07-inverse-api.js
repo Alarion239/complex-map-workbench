@@ -1,6 +1,9 @@
   // ---- shape records (4.3): drawPreimage's kind / A / B, plus the clip primitive and the polygon vertices ----
   const PACK_W = 1024;                  // texels per row of the frame's record texture
   const INV_POLY_MAX = 64;
+  // the kinds a later plane strokes by the polylines opts.trace gives (their own trace at rest): a formula curve, an
+  // external ray, an equipotential, and a freehand curve
+  const TRACED = new Set(['curve', 'fcurve', 'dhray', 'dheq']);
   // the clip primitive of Region.clipPrimitive as texels: header (nIn, nHole), then 2 texels per piece
   const BIGF = 1e30, fcl = (x) => (x >= BIGF ? BIGF : x <= -BIGF ? -BIGF : x);
   function packPrim(prim, out) {
@@ -25,30 +28,63 @@
   const FORM_DEBOUNCE = 300;
   const hashStr = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ':' + s.length; };
   let bundle = { srcs: [], key: hashStr(''), exprs: [], ids: [] }, bundleWant = null, bundleT = 0, bundleTimer = 0;
+  // a traced curve's texels: its polylines' vertices (x, y, 1 where a polyline starts, 0) after one box per group of
+  // CURVE_GROUP segments (group g: the vertices CURVE_GROUP g to CURVE_GROUP (g + 1)); a polyline of fewer than two
+  // finite vertices adds none. -> {n, texels}, or null for none
+  function traceRec(lines) {
+    const v = [];
+    for (const line of lines) {
+      const ps = (line || []).map(xyOf).filter((p) => Number.isFinite(p[0] + p[1]));
+      if (ps.length >= 2) ps.forEach((p, i) => v.push(p[0], p[1], i ? 0 : 1, 0));
+    }
+    const n = v.length / 4;
+    if (n < 2) return null;
+    const groups = Math.ceil((n - 1) / CURVE_GROUP), boxes = [];
+    for (let g = 0; g < groups; g++) {
+      let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+      for (let i = g * CURVE_GROUP; i <= Math.min(n - 1, (g + 1) * CURVE_GROUP); i++) {
+        const x = v[4 * i], y = v[4 * i + 1];
+        x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y);
+      }
+      boxes.push(x0, y0, x1, y1);
+    }
+    return { n, texels: boxes.concat(v) };
+  }
   // GLR.packShapes(list, opts) -> {recs, forms, formsKey}: packs every area shape of the frame once (one texture
   // upload when the records changed). rec (per shape id): {offset, kind, complement, formSlot, ok, reason, pending}.
-  // ok false: the shape cannot be drawn inverse (more than 64 polygon vertices, a fifth formula shape, a formula
-  // whose GLSL failed); pending: a formula edited within the last 300 ms (draw it forward meanwhile).
+  // ok false: the shape cannot be drawn inverse (more than 64 polygon vertices, a traced curve of more than 1024, a
+  // fifth formula shape, a formula whose GLSL failed); pending: a formula edited within the last 300 ms (draw it
+  // forward meanwhile). opts.trace(s): the polylines (arrays of [x, y]) a traced curve of a later plane is stroked by;
+  // with none, a freehand curve's own vertices
   function packShapes(list, opts = {}) {
     const now = opts.now ?? performance.now();
     const recs = new Map(), data = [];
     const want = [], wantExpr = [], wantIds = [];
     for (const s of list || []) {
-      if (!s || s.visible === false || !TKIND[s.kind]) continue;
       // stage: the plane the shape lies on; a shape of plane k > 0 holds the points z of plane 0 whose F_{0->k}(z) it
-      // holds, so its clip primitive and box (in its own plane) say nothing of z. A curve (kinds 11-16, a constructed
-      // circle 20) is packed only on a later plane, where the staged program strokes it (its level is minus its distance)
-      const stage = Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
-      if (TKIND[s.kind] > (stage ? 16 : 10)) continue;
+      // holds, so its clip primitive and box (in its own plane) say nothing of z. A curve (kinds 11-18, a constructed
+      // circle 20, a traced curve as 16) is packed only on a later plane, where the staged program strokes it (its
+      // level is minus its distance)
+      const stage = s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0;
+      const traced = stage > 0 && TRACED.has(s.kind);
+      if (!s || s.visible === false || !(TKIND[s.kind] || traced)) continue;
+      if (!traced && TKIND[s.kind] > (stage ? 18 : 10)) continue;
       const gk = gKind(s);
-      const rec = { offset: 0, kind: gk || TKIND[s.kind], complement: gk ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
+      const rec = { offset: 0, kind: traced ? 16 : gk || TKIND[s.kind], complement: gk || traced ? false : !!s.complement, formSlot: -1, ok: true, reason: null, pending: false, stage };
       recs.set(s.id, rec);
       let prim = null;
       try { prim = Region.clipPrimitive && !stage ? Region.clipPrimitive(s) : null; } catch (e) { prim = null; }
-      const pk = packShape(s);
+      let tr = null;
+      if (traced) {
+        let lines = null;
+        try { lines = opts.trace ? opts.trace(s) : s.kind === 'curve' ? [s.pts || []] : null; } catch (e) { lines = null; }
+        tr = lines && traceRec(lines);
+      }
+      const pk = traced ? tr && { A: [0, 0, 0, 0], B: [0, 0, 0, 0], pts: null } : packShape(s);
       if (!pk) { rec.ok = false; rec.reason = 'shape'; continue; }
       rec.A = pk.A; rec.B = pk.B;
-      if ((s.kind === 'polygon' || s.kind === 'curve') && pk.pts.length > INV_POLY_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_POLY_MAX} vertices`; }
+      if (s.kind === 'polygon' && pk.pts.length > INV_POLY_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_POLY_MAX} vertices`; }
+      if (tr && tr.n > INV_CURVE_MAX) { rec.ok = false; rec.reason = `${s.kind} with more than ${INV_CURVE_MAX} vertices`; }
       if (s.kind === 'formula') {
         if (want.length >= MAX_INV_FORMS) { rec.ok = false; rec.reason = 'fifth formula shape'; }
         else {
@@ -81,7 +117,8 @@
       }
       rec.ptsOff = n;
       rec.nPts = 0;
-      if ((s.kind === 'polygon' || s.kind === 'curve') && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
+      if (s.kind === 'polygon' && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
+      if (tr && rec.ok) { rec.nPts = tr.n; for (const x of tr.texels) data.push(x); }
     }
     // the formula bundle: an edit of the same formula shapes (same ids in the same slots) waits FORM_DEBOUNCE ms after
     // the last change, while the edited shapes are pending (forward) and the others keep the current program; a load,
@@ -996,7 +1033,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    packShapes, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
