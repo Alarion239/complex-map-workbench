@@ -1,7 +1,7 @@
 // The steps view's glides wait behind the prestart (#1157): with every link held (?glhold) a press of Play or an arrow
 // starts no glide and marks that button busy (a ring over a faint track, after 300 ms and not before), Esc or the button
 // again cancels the wait, after 10 s a message offers Retry (which keeps the ring) and Cancel, and once the links are
-// released the pressed glide starts. Run at 1440 px and at 360 px, and under reduced motion.
+// released the pressed glide starts. Run at 1440 px and at 360 px, and under reduced motion (an arrow jumps; Play still waits).
 // A command file for a CDP daemon:  <runner> test/svplay_gate_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -68,9 +68,10 @@ await section('wide', 1440, 900);
 await open(1440, 900);
 await ev('(__cmwSteps({ surf: "land" }), 1)');
 await ev('(document.querySelector(".sv-next").click(), 1)');
-await ev('new Promise((r) => setTimeout(() => r(1), 600))');
+// (the arrow went through: the thread has left plane 0, with no wait on the button)
+await settled({ max: 5000, only: true, until: '__cmwSteps().x > 0' });
 const landArrow = await ev(state('.sv-next'));
-ok('Landscape: an arrow waits for nothing', !landArrow.busy, landArrow);
+ok('Landscape: an arrow waits for nothing', !landArrow.busy && (await ev('__cmwSteps().x')) > 0, landArrow);
 await ev('(__cmwSteps({ play: true }), 1)');
 await settled({ max: 3000, only: true, until: BUSY });
 const landPlay = await ev(state('.sv-play'));
@@ -109,6 +110,24 @@ const run = await ev(state('.sv-play'));
 info.run = run;
 ok('released: the glide starts', await ev('window.__played'), run);
 ok('released: the button is no longer busy', !run.busy, run);
+
+// reduced motion: an arrow jumps to the plane at once (svGo decides before the gate), and a press of Play still waits
+await open(1440, 900);
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+ok('reduced motion is on', await ev('matchMedia("(prefers-reduced-motion: reduce)").matches'), null);
+await ev('(document.querySelector(".sv-next").click(), 1)');
+await settled({ max: 5000, only: true, until: '__cmwSteps().i === 1' });
+const reducedArrow = await ev(state('.sv-next'));
+info.reducedArrow = reducedArrow;
+ok('reduced motion: an arrow jumps to the next plane and waits for nothing', !reducedArrow.busy && !reducedArrow.anim, reducedArrow);
+await ev('(__cmwSteps({ go: 0, now: true }), 1)');
+await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 3000, only: true, until: BUSY });
+const reducedPlay = await ev(state('.sv-play'));
+info.reducedPlay = reducedPlay;
+ok('reduced motion: a press of Play still waits', reducedPlay.busy && reducedPlay.play === null && reducedPlay.label === 'Cancel', reducedPlay);
+await esc();
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 
 await section('narrow', 360, 780);
 

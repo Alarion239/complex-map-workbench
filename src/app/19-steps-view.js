@@ -3705,7 +3705,7 @@
       g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
       if (g.toast) {
         g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
-        // (Retry and the message's ✕ end the message, not the wait: the focus moves to the button before the message goes)
+        // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
         const msg = g.toast, btn = g.btn;
         msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
       }
