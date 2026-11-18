@@ -33,14 +33,16 @@
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over P's window, an 8 x 6 grid or window.__giSeeds ([columns, rows]), and with
 //   window.__giRecip from each seed on 1/H_u(z) = 1/w as well (for a map with a pole in the window) (H_u, the frame's
-//   camera and the front sheet's key from the glide's record: F.g, or __cmwSteps().glide), takes the front z
-//   (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger Re z) among the roots in the regions
-//   (where P is not the paper: a map many-to-one onto w under Inside regions; every root when none is, or with
-//   window.__giAllRoots) and colours w as P, plane z's
-//   parked frame, colours z (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
-//   the frame's window are graded too; the frame's by default). A pixel whose front covered root could be one off P's
-//   canvas (whose cover P cannot show) counts as none. Pixels next
-//   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
+//   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
+//   the roots in the regions (where P is not the paper: a map many-to-one onto
+//   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
+//   composites them: front to back (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger
+//   Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
+//   parked frame, colours it (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
+//   the frame's window are graded too; the frame's by default). At alpha 1 that is the front root alone. A pixel where
+//   a root off P's canvas (whose cover and colour P cannot show) would weigh more than tol / 2 counts as none. Pixels next
+//   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about a layer's z, when that
+//   range times the layer's weight passes tol / 2, or in F about w) are
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), far (of n,
 //   the pixels whose front z lies past the frame's window), max, over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame, in the camera grab kept for
@@ -86,18 +88,25 @@
   // (the parked frame's paper, where Inside regions leaves a pixel outside the regions; null: none known)
   const sh = (__cmwShapes().shapes || [])[0], ph = sh && !window.__giAllRoots ? __cmwLook(sh.id, 'L').plane : null;
   const paper = ph && /^#[0-9a-f]{6}$/i.test(ph) ? [1, 3, 5].map((i) => parseInt(ph.slice(i, i + 2), 16)) : null;
-  // (true / false: z in the regions or on the paper; null: z off P's canvas, where P cannot tell)
+  // (true / false: z in the regions or on the paper; null: z off P's canvas, where P cannot show its colour, and, Inside
+  // regions, in a region by the regions' own levels (Region.levelOf))
+  const levels = paper && __cmwSteps().scope === 'in' ? (__cmwShapes().shapes || []).filter((q) => q.visible !== false && Region.KINDS[q.kind] && Region.KINDS[q.kind].type === 'area').map((q) => Region.levelOf(q)) : [];
   const covers = (z) => {
-    if (!paper) return true;
     const x = Math.round(((z.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5), y = Math.round((g.h / 2 - (z.im - pv.cy) * pv.s) * dpr - 0.5);
-    if (x < 0 || y < 0 || x >= W || y >= Ht) return null;
+    if (x < 0 || y < 0 || x >= W || y >= Ht) return levels.length && !levels.some((L) => L(z) > 0) ? false : null;
+    if (!paper) return true;
     const i = 4 * (y * W + x);
     return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
   };
+  // (the frame's composite, as the inverse pass draws it: the covering points front to back, each at the frame's opacity
+  // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
+  // the front point alone)
+  const A = g.alpha == null ? 1 : g.alpha;
+  // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
+  const ahead = (a, b) => { const sa = Math.round(a.k / 2 ** -8), sb = Math.round(b.k / 2 ** -8); return sa !== sb ? a.k < b.k : a.z.im !== b.z.im ? a.z.im > b.z.im : a.z.re > b.z.re; };
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
-    const w = s2w(px + 0.5, py + 0.5);
-    let best = null, bk = Infinity, bcv = false, kOff = Infinity;
+    const w = s2w(px + 0.5, py + 0.5), roots = [];
     // (solve(s0, inv): Newton's method from s0 on H(z) = w, or with inv on 1/H(z) = 1/w, nearly linear next to a pole of
     // H, where Newton's method on H converges from next to the root only)
     const ww = w.re * w.re + w.im * w.im, wi = C(w.re / ww, -w.im / ww);
@@ -122,23 +131,41 @@
       if (!z) continue;
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
-      const k = g.key(z), cv = covers(z);
-      if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
-      const sk = Math.round(k / 2 ** -8), sb = Math.round(bk / 2 ** -8);
-      const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
-      if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
+      if (roots.some((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) <= 1e-6 * (1 + Math.hypot(z.re, z.im)))) continue;
+      roots.push({ z, k: g.key(z), cv: covers(z) });
     }
-    // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one
-    // the renderer colours w by: the regions run past the canvas, so w's colour is not known)
-    if (!best || kOff < (bcv ? bk : Infinity)) { none++; continue; }
-    const fx = ((best.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (best.im - pv.cy) * pv.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
-    if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { none++; continue; }
-    if (__giRange(P.d, W, qx, qy) > 12 || __giRange(F.d, W, px, py) > 12) continue;
-    const at = (x, y, c) => P.d[4 * (y * W + x) + c], o = 4 * (py * W + px);
+    // (the layers front to back: the covering points, and those off P's canvas, which may cover (the regions run past the
+    // canvas) and whose colour P cannot show; w's colour is not known when such a point would weigh more than half the
+    // tolerance. With no point covering, w is the paper: the front point, outside the regions, where P shows the paper)
+    const order = (L) => L.sort((a, b) => (ahead(a, b) ? -1 : ahead(b, a) ? 1 : 0));
+    const lay = order(roots.filter((q) => q.cv !== false));
+    const layers = [];
+    let T = 1, unknown = false;
+    for (let i = 0; i < lay.length && T >= 1 / 255; i++) {
+      const a = i === lay.length - 1 ? 1 : A, wt = T * a;
+      if (lay[i].cv === null) { if (wt * 255 > tol / 2) { unknown = true; break; } } else layers.push({ q: lay[i], wt });
+      T *= 1 - a;
+    }
+    if (!lay.some((q) => q.cv === true)) { const out = order(roots.filter((q) => q.cv === false)); layers.length = 0; unknown = unknown || !out.length; if (out.length) layers.push({ q: out[0], wt: 1 }); }
+    if (unknown || !layers.length) { none++; continue; }
+    // (each layer's colour in P, bilinear about its point; a pixel where a layer's point lies by a colour line of P that its
+    // weight carries past half the tolerance, or w by one of F, is left out: at alpha 1, the front point by a line)
+    const col = [0, 0, 0];
+    let edge = false, line = false;
+    for (const { q, wt } of layers) {
+      const fx = ((q.z.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (q.z.im - pv.cy) * pv.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
+      if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { edge = true; break; }
+      const rg = __giRange(P.d, W, qx, qy);
+      if (rg > 12 && wt * rg > tol / 2) { line = true; break; }
+      const at = (x, y, c) => P.d[4 * (y * W + x) + c];
+      for (let c = 0; c < 3; c++) col[c] += wt * ((1 - ay) * ((1 - ax) * at(qx, qy, c) + ax * at(qx + 1, qy, c)) + ay * ((1 - ax) * at(qx, qy + 1, c) + ax * at(qx + 1, qy + 1, c)));
+    }
+    if (edge) { none++; continue; }
+    if (line || __giRange(F.d, W, px, py) > 12) continue;
+    const o = 4 * (py * W + px);
     let m = 0;
-    for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(F.d[o + c] - ((1 - ay) * ((1 - ax) * at(qx, qy, c) + ax * at(qx + 1, qy, c)) + ay * ((1 - ax) * at(qx, qy + 1, c) + ax * at(qx + 1, qy + 1, c)))));
-    n++; max = Math.max(max, m); if (m > tol) over++; if (!inFrame(best)) far++;
+    for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(F.d[o + c] - col[c]));
+    n++; max = Math.max(max, m); if (m > tol) over++; if (!inFrame(layers[0].q.z)) far++;
   }
   return { n, none, far, max: Math.round(max), over: +(over / Math.max(1, n)).toFixed(5) };
 };`;
