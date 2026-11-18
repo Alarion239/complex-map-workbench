@@ -626,15 +626,21 @@
     const si = GLR.sheetInfo(m, W);
     return si ? sheetUniq(m, W, si.K) : [0];
   }
-  function multiSheet() {
+  // the sheets of map m (the focused map, endMap, unless a caller names the map it shows), or null when it has one
+  function multiSheet(m = endMap()) {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
     // (a map GLR.sheetInfo cannot describe throws: no sheets)
-    try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
+    try { ms = GLR.sheetInfo(m, S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
+    const list = sheetUniq(m, ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
+  // the map whose sheets the Landscape draws with All sheets (render3D), given the plane s a steps-view carry starts from
+  // (null for none): the carry's colour map, the chain from s to the colour plane (svColourMap); while the deformation
+  // shows, the focused map (endMap); else the map shown (focusMap: in the steps view the shown plane's map into the colour
+  // plane). A step after the colour plane is in none of them, so it adds no sheets
+  function landSheetsMap(s = null) { return s != null ? svColourMap(s) : homView() ? endMap() : focusMap(); }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
   function deformOneSheet() { return !!S.sheets && morphOn() && !deformSheetsOk(); }
@@ -648,18 +654,18 @@
     try { return !!Funcs.sheetMapPieces(S.steps, built, { mode: 3, base: leftStage(), a: R.lo, b: R.b, post: R.p1, t: 0.5 }); } catch (e) { return false; }
   }
   // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
-  // sheets off, a deformation with no sheet form, or no multivalued step in the map in focus), else {K: the surfaces
-  // drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom} (one per multivalued piece of the
-  // map in focus: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
+  // sheets off, a deformation with no sheet form, or no multivalued step in the map it draws the sheets of,
+  // landSheetsMap), else {K: the surfaces drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom}
+  // (one per multivalued piece of that map: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
   // log). hom: the deformation shows, and H_t is drawn on the sheets that become these sheets of F (at most these:
   // a step not begun adds its sheets when it starts; notes/v16-user5/SHEETS-DESIGN.md)
   function sheetsShown() {
     if (!S.sheets || !lLand()) return null;
     const hom = morphOn();
     if (hom && !deformSheetsOk()) return null;
-    const ms = multiSheet();
+    const carry = SV.on && SV.surf === 'land' ? svLandCarryNow() : null, m = landSheetsMap(carry ? carry.s : null), ms = multiSheet(m);
     if (!ms) return null;
-    const m = endMap(), a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
+    const a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
     try {
       for (const e of Funcs.sheetSteps(S.steps, built)) {
         if (e.k <= a || e.k > b) continue;
