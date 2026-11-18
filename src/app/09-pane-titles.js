@@ -1061,9 +1061,9 @@
   // changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
-  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
-  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
-  // placeKeyPopReadout gives the chip its whole height back)
+  // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
+  // column. What still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key
+  // stays in reach; placeKeyPopReadout gives the chip its whole height back)
   function clearContextBar(box) {
     const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
     if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
@@ -1074,7 +1074,7 @@
     let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
     for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
-      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom + LEGEND_BAR_GAP_PX);
     }
     const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
     if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
