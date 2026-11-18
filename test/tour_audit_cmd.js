@@ -31,8 +31,8 @@ const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // morph over; a floor of 350 ms for the step's own 300 ms re-sync of its buttons (syncAct, a sound step); and the web
 // fonts in (display=swap: a face the strip uses first can swap in after the load, changing cut, titleOk and the sizes;
 // ux's review)
-const STEADY = `document.fonts.status === 'loaded' && (!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
-const settle = () => settled({ floor: 350, panes: false, until: STEADY });
+const STEADY = `(!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
+const settle = () => settled({ floor: 350, panes: false, faces: true, until: STEADY });
 // a layer the step opened is shown (a layer that never opens still fails: after the cap, as noLayer)
 const shown = (sel) => settled({ panes: false, max: 3000, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
 // after a close, a stop or a key: only what still animates (no condition of its own, so no check is let off)
