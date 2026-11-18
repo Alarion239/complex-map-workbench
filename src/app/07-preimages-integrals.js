@@ -543,7 +543,7 @@
   const PULL_GRID = [24, 16], PULL_EDGE_GAP = 8, PULL_WALK = 16, PULL_FOLLOW = 64;
   const pullSeenCache = new Map(), pullSeenLast = new Map();
   function pullSeen(j, s, e, b, wpx, hpx) {
-    const st = shapeStage(s), rk = JSON.stringify([j, st, chainSig[nSteps()], s]), key = rk + JSON.stringify([b.x0, b.x1, b.y0, b.y1].map((v) => +v.toPrecision(6)));
+    const st = shapeStage(s), rk = JSON.stringify([j, st, chainSig[nSteps()], s]), key = rk + JSON.stringify([b.x0, b.x1, b.y0, b.y1].map((v) => +v.toPrecision(6)).concat([wpx, hpx]));
     let seen = pullSeenCache.get(key);
     if (seen) return seen;
     if (interacting() && pullSeenLast.has(rk)) return pullSeenLast.get(rk);
@@ -559,9 +559,9 @@
         if (CX.isFin(w0) && inside(w0) > 0) hits.push({ u, w0, d: Math.min(...unseen.map((q) => CX.abs(CX.sub(q, u)))) });
       };
       for (let gi = 0; gi < nx; gi++) for (let gj = 0; gj < ny; gj++) at((gi + 0.5) / nx, (gj + 0.5) / ny);
-      const ex = Math.max(2, Math.ceil(wpx / PULL_EDGE_GAP)), ey = Math.max(2, Math.ceil(hpx / PULL_EDGE_GAP));
-      for (let k = 0; k <= ex; k++) { at(k / ex, 0); at(k / ex, 1); }
-      for (let k = 1; k < ey; k++) { at(0, k / ey); at(1, k / ey); }
+      const bx = Math.max(2, Math.ceil(wpx / PULL_EDGE_GAP)), by = Math.max(2, Math.ceil(hpx / PULL_EDGE_GAP));
+      for (let k = 0; k <= bx; k++) { at(k / bx, 0); at(k / bx, 1); }
+      for (let k = 1; k < by; k++) { at(0, k / by); at(1, k / by); }
       hits.sort((p, q) => p.d - q.d);
       for (const h of hits.slice(0, PULL_FOLLOW)) {
         if (seen.size >= e.zs.length) break;
