@@ -1,6 +1,5 @@
-// @ts-check
 'use strict';
-// palette.js: the phase colors (issue 8), pure (no DOM), so the node tests run the shipped code. 'wheel' is the app's
+// palette.ts: the phase colors (issue 8), pure (no DOM), so the node tests run the shipped code. 'wheel' is the app's
 // own OKLCH wheel (gl.js's LUT); the other seven are the color functions of Arb's plotting example
 // (examples/complex_plot.c, public domain, Fredrik Johansson; https://fredrikj.net/blog/2018/04/new-color-functions/),
 // `complex_plot -color N` for N = 0 … 6:
@@ -11,30 +10,31 @@
 // Every one is a function of (arg w, |w|) only, so gl.js bakes the chosen one into W x H texels of its LUT
 // (Palette.bake): column i is arg = 2pi i / W, row j is m = 1 - 1/(1 + |w|^0.2) = j / (H - 1). Palette.sample reads
 // the baked texels as the GPU does (bilinear), for the legends and the readouts.
-const Palette = (function (factory) {
-  const M = factory(); if (typeof window !== 'undefined') window.Palette = M;
+const Palette = (function <T>(factory: () => T): T {
+  const M = factory(); if (typeof window !== 'undefined') (window as unknown as { Palette: T }).Palette = M;
   return M;
   // (ES module: the factory's value is the module's export, Palette)
 })(function () {
+  // an sRGB color, floats in 0..1
+  type RGB = number[];
   // [id, Arb mode]; the index is the shaders' uPal
-  /** @type {[string, number][]} */
-  const LIST = [['wheel', -1], ['arb', 0], ['arbPhase', 1], ['arbDodge', 2], ['chrome', 3], ['warm', 4], ['cold', 5], ['tomato', 6]];
+  const LIST: [string, number][] = [['wheel', -1], ['arb', 0], ['arbPhase', 1], ['arbDodge', 2], ['chrome', 3], ['warm', 4], ['cold', 5], ['tomato', 6]];
   const W = 512, H = 256;
-  const CL = (y) => Math.max(0, Math.min(y, 1));
+  const CL = (y: number): number => Math.max(0, Math.min(y, 1));
   // HLS as Python's colorsys (Arb's port of it)
-  function vv(m1, m2, hue) {
+  function vv(m1: number, m2: number, hue: number): number {
     hue -= Math.floor(hue);
     if (hue < 1 / 6) return m1 + (m2 - m1) * hue * 6;
     if (hue < 0.5) return m2;
     if (hue < 2 / 3) return m1 + (m2 - m1) * (2 / 3 - hue) * 6;
     return m1;
   }
-  function hls2rgb(h, l, s) {
+  function hls2rgb(h: number, l: number, s: number): RGB {
     if (s === 0) return [l, l, l];
     const m2 = l <= 0.5 ? l * (1 + s) : l + s - l * s, m1 = 2 * l - m2;
     return [vv(m1, m2, h + 1 / 3), vv(m1, m2, h), vv(m1, m2, h - 1 / 3)];
   }
-  function rgb2hls(R, G, B) {
+  function rgb2hls(R: number, G: number, B: number): number[] {
     const hi = Math.max(R, G, B), lo = Math.min(R, G, B), l = 0.5 * (lo + hi);
     let d = hi - lo;
     if (hi === lo) return [0, l, 0];
@@ -46,20 +46,20 @@ const Palette = (function (factory) {
     return [h, l, s];
   }
   // GIMP's color balance: (shadows, midtones, highlights) per channel, weighted by the channel's own value
-  function chan(v, sh, mid, hl) {
+  function chan(v: number, sh: number, mid: number, hl: number): number {
     const a = 0.25, b = 0.333, scale = 0.7;
     sh *= CL((v - b) / -a + 0.5) * scale;
     mid *= CL((v - b) / a + 0.5) * CL((v + b - 1) / -a + 0.5) * scale;
     hl *= CL((v + b - 1) / a + 0.5) * scale;
     return CL(v + sh + mid + hl);
   }
-  function balance(c, p) {
+  function balance(c: RGB, p: number[]): RGB {
     const l = rgb2hls(c[0], c[1], c[2])[1];
     const r = chan(c[0], p[0], p[1], p[2]), g = chan(c[1], p[3], p[4], p[5]), b = chan(c[2], p[6], p[7], p[8]);
     const q = rgb2hls(r, g, b);
     return hls2rgb(q[0], l, q[2]);
   }
-  const BALANCE = {
+  const BALANCE: Record<number, number[]> = {
     3: [0, -0.5, 0.2, 0, 0, -0.1, 0, -1, -0.2],
     4: [0, -0.5, 0.2, 0, 0.5, -0.1, 0, -0.3, -1],
     5: [0, -0.5, -1, 0, -0.1, -0.67, 0, -0.55, -0.12],
@@ -68,7 +68,7 @@ const Palette = (function (factory) {
   const STOPS = [[-1, 0, 0, 0], [-0.95, 0.1, 0.2, 0.5], [-0.5, 0, 0.5, 1], [-0.05, 0.4, 0.8, 0.8], [0, 1, 1, 1],
     [0.05, 1, 0.9, 0.3], [0.5, 0.9, 0.5, 0], [0.95, 0.7, 0.1, 0], [1, 0, 0, 0], [2, 0, 0, 0]];
   // Arb's color of w = r e^(i arg), arg in [-pi, pi], r = |w| >= 0 (Infinity allowed): sRGB floats in 0..1
-  function arb(mode, arg, r) {
+  function arb(mode: number, arg: number, r: number): RGB {
     if (mode >= 2) {
       const c0 = arb(0, arg, r), c1 = arb(1, arg, r);
       const c = c0.map((x, k) => 0.5 * x + 0.5 * CL(x / (1 - c1[k] + 1 / 256)));
@@ -88,12 +88,12 @@ const Palette = (function (factory) {
       }
     }
   }
-  const modeOf = (id) => { const e = LIST.find((p) => p[0] === id); return e ? e[1] : -1; };
-  const indexOf = (id) => Math.max(0, LIST.findIndex((p) => p[0] === id));
+  const modeOf = (id: string): number => { const e = LIST.find((p) => p[0] === id); return e ? e[1] : -1; };
+  const indexOf = (id: string): number => Math.max(0, LIST.findIndex((p) => p[0] === id));
   // the row coordinate of |w| = e^lr: 1 - 1/(1 + |w|^0.2), as the shaders write it
-  const mOf = (lr) => 1 / (1 + Math.exp(-0.2 * lr));
+  const mOf = (lr: number): number => 1 / (1 + Math.exp(-0.2 * lr));
   // the W x H RGBA8 texels of an Arb palette
-  function bake(id) {
+  function bake(id: string): Uint8Array {
     const mode = modeOf(id), d = new Uint8Array(W * H * 4);
     if (mode < 0) return d;
     for (let j = 0; j < H; j++) {
@@ -108,10 +108,10 @@ const Palette = (function (factory) {
     return d;
   }
   // the baked texels at (arg, ln|w|), bilinear and wrapping in arg as the GPU's arbc(): sRGB floats
-  function sample(d, arg, lr) {
+  function sample(d: Uint8Array, arg: number, lr: number): RGB {
     const u = arg / (2 * Math.PI) * W, v = CL(mOf(lr)) * (H - 1);
     const i0 = Math.floor(u), fu = u - i0, j0 = Math.min(H - 2, Math.floor(v)), fv = v - j0;
-    const at = (i, j, k) => d[4 * (j * W + ((i % W) + W) % W) + k] / 255;
+    const at = (i: number, j: number, k: number): number => d[4 * (j * W + ((i % W) + W) % W) + k] / 255;
     const out = [0, 0, 0];
     for (let k = 0; k < 3; k++) {
       const a = at(i0, j0, k) * (1 - fu) + at(i0 + 1, j0, k) * fu, b = at(i0, j0 + 1, k) * (1 - fu) + at(i0 + 1, j0 + 1, k) * fu;
@@ -121,7 +121,7 @@ const Palette = (function (factory) {
   }
   // the shaders' pwheel() for an Arb color pb: a style that asks for lightness L where its neutral lightness is ref
   // gets pb darkened below ref and lightened above it
-  const shade = (pb, L, ref) => (L <= ref ? pb.map((x) => x * (L / ref)) : pb.map((x) => x + (1 - x) * (L - ref) / (1 - ref)));
+  const shade = (pb: RGB, L: number, ref: number): RGB => (L <= ref ? pb.map((x) => x * (L / ref)) : pb.map((x) => x + (1 - x) * (L - ref) / (1 - ref)));
   return { LIST, W, H, arb, bake, sample, shade, mOf, modeOf, indexOf };
 });
 export { Palette, Palette as 'module.exports' };
