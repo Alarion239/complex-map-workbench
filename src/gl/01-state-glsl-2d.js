@@ -183,7 +183,10 @@ float wabs(vec2 w) {
   if (m > 1e18 || m < 1e-18) return m * length(w / m);
   return length(w);
 }
-float wang(vec2 w) { return (w.x == 0.0 && w.y == 0.0) ? 0.0 : atan(w.y, w.x); }
+// arg w in [-pi, pi], 0 at w = 0. A zero imaginary part is answered here, 0 or pi by the real part's sign, whatever the zero's
+// sign: a driver's atan(y, x) may read -0 as a negative y (SwiftShader gives pi for atan(-0, x > 0)), and the colour on the
+// real axis must not depend on which zero the arithmetic left there
+float wang(vec2 w) { return w.y == 0.0 ? (w.x < 0.0 ? PI : 0.0) : atan(w.y, w.x); }
 `;
   // domain coloring styles (spec 6.8); needs UTIL. Phase colors (issue 8, src/palette.ts): uPal is the chosen
   // palette's index in Palette.LIST, 0 the wheel; an Arb palette is baked in uPalT (Palette.bake): column i is
