@@ -1052,7 +1052,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // All sheets for map (GPU map spec) with window W: {K (surfaces drawn, at most 24), total, W, infinite} or null
     // when the current chain cannot draw it (no multivalued step in (a, b], a homotopy, a d/dz in (a, b] with a > 0,
     // or no chainSheetRange in the chain's GLSL)
-    // TEMP-DEBUG-HOOK
+    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    // TEST-HOOK (dropped from the published page by build.py)
     // (tests, SPEC 13.3) the points pts ([[x, y], ...]) through the current chain's mapPoint under map, read back by
     // transform feedback: a Float32Array of pairs, or null while the program compiles or without WebGL
     evalMap(map, pts) {
@@ -1098,8 +1099,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       if (kind) d.vs = () => UTIL_V + HEIGHT + LAND_TF_VS(kind);
       try { return sources(name, cur, mode || 0); } finally { d.vs = save; }
     },
-    // TEMP-DEBUG-HOOK
-    sheetInfo(map, W, end, uniq) { const p = ok ? sheetPlan(map, W, end, uniq) : null; return p ? { K: p.K, total: p.total, W: p.W, infinite: p.infinite, hom: !!p.hom } : null; },
+    // TEST-HOOK
     // no program of chain structure key is still compiling (the ones its draws asked for landed or failed)
     ready(key) { for (const e of progs.values()) if (e.key === key && e.state === 'pending') return false; return true; },
     onRestore: null, onLost: null, onReady: null,

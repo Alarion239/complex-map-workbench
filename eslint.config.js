@@ -20,13 +20,15 @@ const js = require('@eslint/js');
 const globals = require('globals');
 const { Linter } = require('eslint');
 const { SPLIT, PARTS_RE, parts, source } = require('./test/src_text');
+const tsStrip = require('./tools/ts_strip');
 
 const SRC = path.join(__dirname, 'src');
 const CLASSIC = ['i18n.js'];   // the classic script before the bundle; every other file of src/ is a module
 const parseAny = (text) => { try { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'module' }).body; } catch (e) { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body; } };
 const own = {};
-for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
-  const text = fs.readFileSync(path.join(SRC, f), 'utf8');
+for (const f of fs.readdirSync(SRC).filter((name) => /\.[jt]s$/.test(name))) {
+  const raw = fs.readFileSync(path.join(SRC, f), 'utf8');
+  const text = f.endsWith('.ts') ? tsStrip.strip(raw, `src/${f}`) : raw;
   const names = new Set();
   let body = [];
   try {
@@ -134,6 +136,10 @@ module.exports = [
   ...Object.entries(SIZE_BUDGET).map(([f, max]) => ({ files: [f], rules: { 'max-lines': ['warn', { max, skipBlankLines: true, skipComments: true }] } })),
   // the app: ES modules, one per file (an export is a use), bundled by tools/bundle.mjs
   { files: ['src/*.js'], ignores: CLASSIC.map((f) => `src/${f}`), languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
+  // the app's TypeScript modules (issue #20): linted as the JavaScript they are without their types, by a local parser
+  // (tools/ts_strip.js: node's own type stripping, then espree), because typescript 7 has no JavaScript API for
+  // typescript-eslint's parser to call. tsc checks the types (npm run typecheck).
+  { files: ['src/*.ts'], languageOptions: { parser: tsStrip.parser, ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
   // the classic script before the bundle
   { files: ['src/i18n.js'], languageOptions: { ecmaVersion: 'latest', sourceType: 'script', globals: { ...globals.browser, module: 'readonly', require: 'readonly' } } },
   // the split files: wrap.js (the closure's first and last lines, and the module block) like a module of its own, and
