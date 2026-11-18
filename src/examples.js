@@ -171,8 +171,9 @@ const Examples = (() => {
         acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
       exTryWatch(ex);
     }
-    // the line integral the example is about, once the planes have their size
-    if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
+    // the line integral the example is about, once the planes have their size; not on a phone, where the popover would
+    // cover much of the plane and the example's Try line asks for it
+    if (ex.integrate != null && !document.documentElement.classList.contains('ph')) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
   let exLook = '';
   function renderExampleThumb(i) {
