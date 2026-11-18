@@ -460,25 +460,54 @@
     el.setAttribute('aria-label', el.getAttribute('data-tip'));
     el.removeAttribute('title');
   }
-  // a hairline runs along the top of the plots when work takes longer than 300 ms
+  // a hairline runs along the top of the plots when work takes longer than CUE_DELAY_MS (a REPT draw's live message and
+  // its pane note on a phone wait as long)
+  const CUE_DELAY_MS = 300;
   let hairTimer = 0;
   function setHairline(on) {
     if (on) {
-      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, 300);
+      if (!hairTimer) hairTimer = setTimeout(() => { $('hairL').hidden = false; $('hairR').hidden = false; }, CUE_DELAY_MS);
     } else {
       clearTimeout(hairTimer); hairTimer = 0;
       $('hairL').hidden = true; $('hairR').hidden = true;
     }
   }
+  // A REPT draw's cue said in the steps view's polite live region: "Drawing the exact picture…" once, CUE_DELAY_MS after the
+  // cue starts (as the hairline shows), and, once that was said, "Exact picture drawn" when the cue ends; nothing per tile
+  let reptLiveTimer = 0, reptSaid = false;
+  function reptLive(on) {
+    const live = () => (SV.on && SV.els && SV.els.live) || null;
+    if (on) {
+      if (!reptLiveTimer && !reptSaid) reptLiveTimer = setTimeout(() => { reptLiveTimer = 0; const l = live(); if (l) { l.textContent = $t('Drawing the exact picture…'); reptSaid = true; } }, CUE_DELAY_MS);
+      return;
+    }
+    clearTimeout(reptLiveTimer); reptLiveTimer = 0;
+    if (reptSaid) { reptSaid = false; const l = live(); if (l) l.textContent = $t('Exact picture drawn'); }
+  }
+  // what a pane's LED says while its exact picture is still being drawn in tiles (a REPT draw; prog: its second pass's
+  // tiles { done, total }, or null before that pass's tiles are known)
+  function reptTip(prog) {
+    return prog && prog.total ? $tn('Drawing the exact picture… ({k}\u00a0of\u00a0{n} tile)', 'Drawing the exact picture… ({k}\u00a0of\u00a0{n} tiles)', prog.total, { k: prog.done, n: prog.total }) : $t('Drawing the exact picture…');
+  }
   function updateLeds() {
     const errStep = S.steps.findIndex((st, i) => st.on !== false && built[i] && built[i].error);
     const busy = fixJob.running || !!lineJob.running || sm.running;
-    setHairline(!!busy);
+    // a pane whose last frame left a REPT draw drawing its tiles (paneGl's rept): its LED busy and its plot aria-busy
+    // until the frame that draws the final picture
+    const rept = (r) => (paneGl[r] && paneGl[r].rept ? paneGl[r] : null);
+    for (const r of ['L', 'R']) {
+      const el = $(r === 'L' ? 'plotL' : 'plotR');
+      if (el) { if (rept(r)) el.setAttribute('aria-busy', 'true'); else el.removeAttribute('aria-busy'); }
+    }
+    setHairline(!!busy || !!rept('L') || !!rept('R'));
+    reptLive(!!rept('L') || !!rept('R'));
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy || colourPending() ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : undefined);
-    setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
+    // (the left pane's own amber: its colour plot still a quick stand-in while its program links, colourPending)
+    const led = (r) => (rept(r) ? ['busy', reptTip(rept(r).reptProg)] : r === 'L' && colourPending() ? ['busy', $t('Drawing a quick preview; the exact plot is still being built')] : busy ? ['busy'] : ['ok']);
+    setLed('L', ...led('L'));
+    if (errStep >= 0) setLed('R', 'err', errTip); else setLed('R', ...led('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)

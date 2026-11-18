@@ -827,6 +827,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // a REPT draw answered 'pending' since the last GLR.reptPendingTake (a pane's frame begins and ends several GL frames,
   // and each begin clears frameStatus().pending: the pane's status takes this once a frame)
   let reptPendFlag = false;
+  // the tiles of the second pass a pending REPT draw has done and has in all ({ done, total }), taken with the flag; null
+  // while its second pass's tiles are not known yet (the first pass, the queries)
+  let reptProg = null;
   const reptStat = { calls: 0, searches: 0, tilesA: 0, tilesB: 0, maxTilesPerCall: 0, maxTileSolves: 0, composites: 0, uncached: 0 };
   const reptTileOf = () => GLChain.reptTile();
   const sigVal = (k, v) => (ArrayBuffer.isView(v) ? Array.from(/** @type {any} */ (v)) : v);
@@ -917,7 +920,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (sig === null) reptStat.uncached++;
     // (an uncacheable draw is walked whole and composited in the same call: while the composite's program links it is
     // pending, with nothing walked or allocated)
-    if (sig === null && !(ok && program('reptAcc'))) { restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending'; }
+    if (sig === null && !(ok && program('reptAcc'))) { restoreSc(); framePending = true; reptPendFlag = true; reptProg = null; reptKick(); return 'pending'; }
     const prevFb = gl.getParameter(gl.FRAMEBUFFER_BINDING), vp = gl.getParameter(gl.VIEWPORT), blend = gl.isEnabled(gl.BLEND);
     gl.activeTexture(gl.TEXTURE15);
     const prevTex = gl.getParameter(gl.TEXTURE_BINDING_2D);
@@ -1024,7 +1027,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!Q) {
       // (an entry no signature keeps is freed here: the next call starts its own)
       if (sig === null) reptAccFree(E);
-      restoreSc(); framePending = true; reptPendFlag = true; reptKick(); return 'pending';
+      restoreSc(); framePending = true; reptPendFlag = true;
+      reptProg = E.phase === 'B' ? { done: E.next, total: E.tilesB.length } : null;
+      reptKick();
+      return 'pending';
     }
     use(Q);
     gl.activeTexture(gl.TEXTURE15); gl.bindTexture(gl.TEXTURE_2D, E.src.tex);
@@ -1295,8 +1301,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   const api = {
     init, begin, viewport, blit, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
-    // whether a REPT draw answered 'pending' since the last call, reset by it (the pane's status, glStatusNote)
-    reptPendingTake: () => { const r = reptPendFlag; reptPendFlag = false; return r; },
+    // whether a REPT draw answered 'pending' since the last call: { prog } (its second pass's tiles { done, total }, or
+    // null), else null; reset by it (the pane's status, glStatusNote)
+    reptPendingTake: () => { const r = reptPendFlag ? { prog: reptProg } : null; reptPendFlag = false; reptProg = null; return r; },
     // (tests: the tile bound and the first pass's budget, 0 for their own; pass B held; the tile account since the last
     // read, reset by it)
     setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
