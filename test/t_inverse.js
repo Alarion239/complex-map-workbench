@@ -1054,8 +1054,10 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
     }
   }
-  // root, powa and log: exact ops (no Newton), and every z of a cut plane's sheet is among its w's preimages by them
-  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }]];
+  // root, powa, log and z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|): exact ops (no
+  // Newton), and every z of a cut plane's sheet is among its w's preimages by them
+  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }],
+    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }]];
   for (const [type, params] of exact) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
