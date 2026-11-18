@@ -1747,6 +1747,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
       // at t = 1 every homotopy equals the map itself (exactly so on the CPU up to float64 rounding)
       const h = withOne(P, plan);
       src += `vec2 ${P}_h(vec2 z, float t) {\n  ${h}\n}\n`;
+      // (the path without its t = 1 shortcut, for chainAt)
+      if (h !== plan.h) src += `vec2 ${P}_hr(vec2 z, float t) {\n  ${plan.h}\n}\n`;
     }
     // a d/dz step is not a map of w: chainStep and chainHom give NaN there (callers mix chainStage(k - 1) and
     // chainStage(k) instead)
@@ -1761,13 +1763,17 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
     // map and path written once. The map modes 1-3 (gl.js MAP) walk the chain in one loop through it: ANGLE's
     // Direct3D 11 back end hands the code to FXC, which inlines every call, so chainRange, chainHom and postOf each
-    // carried a copy of every step (6 to 8, and more, per deformation program). A path with the t = 1 shortcut is
-    // the map at t = 1 (exactly), so in full it is the path at 1 and the map is not written again; a straight-line
-    // path (no shortcut: z (1 - t) + f(z) t is not f(z) where z is infinite) calls the map itself.
+    // carried a copy of every step (6 to 8, and more, per deformation program). A step in full, or on its path at
+    // t = 1 (where a path with the t = 1 shortcut is the map exactly), is its map; elsewhere a path with the shortcut
+    // is taken without it (_hr), so the map and the path are each written once. (Not the path at a constant
+    // t = 1.0: LLVM 21, in Mesa 26's llvmpipe, compiles that loop to NaN on AMD Zen 4/5 machines when a root's
+    // path at 1.0 comes before sin's at t, #1735.) A straight-line path (no shortcut: z (1 - t) + f(z) t is not f(z)
+    // where z is infinite) is taken as it is.
     src += 'vec2 chainAt(int k, vec2 z, float t, int how) {\n  if (how == 0) return z;\n';
     for (const { P, k, plan } of maps) {
       src += plan.h.startsWith('if (t == 0.0)') ? `  if (k == ${k}) return how == 1 ? ${P}_f(z) : ${P}_h(z, t);\n`
-        : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
+        : withOne(P, plan) !== plan.h ? `  if (k == ${k}) return how == 1 || t == 1.0 ? ${P}_f(z) : ${P}_hr(z, t);\n`
+          : `  if (k == ${k}) return ${P}_h(z, how == 1 ? 1.0 : t);\n`;
     }
     for (const k of dks) src += `  if (k == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';

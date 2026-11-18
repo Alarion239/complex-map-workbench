@@ -82,9 +82,11 @@ data += block('cmw-i18n-it', it_text)
 pre = (src / 'i18n.js').read_text(encoding='utf-8').replace('</script', '<\\/script') + '\n'
 js, jsp = pre + js, pre + jsp
 body = page + '\n' + data + mj + '<script>\n' + js + '\n</script>\n'
-# the published page drops the test hooks (window.__cmw*); dist/test.html keeps them for testing
-pub_js = re.sub(r'\n[ \t]*// TEMP-DEBUG-HOOK \(removed before publishing\).*?// TEMP-DEBUG-HOOK\n', '\n', jsp, flags=re.S)
+# the published page drops the test hooks (window.__cmw*, GLR.evalMap, Phone._state ...); dist/test.html keeps them for
+# testing. A block runs from its opening marker line to the next marker (tools/hook_marker.js, which names the opening text)
+pub_js = re.sub(r'\n[ \t]*// (?:TEST-HOOK \(dropped from the published page by build\.py\)|TEMP-DEBUG-HOOK \(removed before publishing\)).*?// (?:TEST-HOOK|TEMP-DEBUG-HOOK)\n', '\n', jsp, flags=re.S)
 assert '__cmw' not in pub_js, 'test hooks left in the published page'
+assert 'TEST-HOOK' not in pub_js and 'TEMP-DEBUG-HOOK' not in pub_js, 'a hook marker outside a block: its hook is left in the published page'
 # (a charset first, so the file decodes as UTF-8 even served without a charset header or opened from disk; the
 # artifact host's skeleton declares UTF-8 too)
 dist = root / 'dist'

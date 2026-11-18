@@ -1,4 +1,4 @@
-  // ---------------- the phone layout's adapter (src/phone.js; notes/ui-redesign-2/build/phone.md; #385) ----------------
+  // ---------------- the phone layout's adapter (src/phone.js; notes/ui-redesign-2/build/phone.md) ----------------
   // what Phone.init gets: the app's side of the phone layout
   function phoneApi() {
     return {
@@ -9,7 +9,7 @@
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); },
       // (build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
       // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
-      // (land: a running tween on that view ends at its target first, review-phone-swap swap-8)
+      // (land: a running tween on that view ends at its target first)
       getView: (side, land) => {
         const v = side === 'L' ? leftView() : V.right, p = side === 'L' ? paneL : paneR;
         if (land) for (let i = tweens.length - 1; i >= 0; i--) { const tw = tweens[i]; if (tw.view === v) { Object.assign(v, tw.to); tweens.splice(i, 1); if (tw.onDone) tw.onDone(); } }
@@ -52,7 +52,7 @@
         const sel = selected && findShape(selected);
         if (!sel) return null;
         const r = shapeRows.get(sel.id);
-        // ([#321] a typeset definition as the words its tooltip reads: the cell's text is MathJax's, or the raw TeX
+        // (a typeset definition as the words its tooltip reads: the cell's text is MathJax's, or the raw TeX
         // until MathJax has loaded; a construction's definition and an error are plain text already)
         const def = !r ? '' : r.d.dataset.tex ? texTitle(r.d.dataset.tex) : r.d.textContent;
         return { kind: 'shape', id: sel.id, name: r ? r.k.textContent : '', def, used: Construct.usedBy(sel.id).length };
@@ -73,9 +73,9 @@
       exportFigure: () => Figure.open(),
       copyLatex: () => { copyText(latexDocument()); toast($t('LaTeX copied: the map, its natural domain and its guarantees.')); sndExportDone(); },
       openGuide: () => openGuide(),
-      offlinePage: () => offlinePage(),   // [#21] the More sheet's Download offline page (null: none)
-      exportItems: () => exportMenuItems(true),   // (v16.5 V02)
-      // v16.5 UX12: the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
+      offlinePage: () => offlinePage(),   // the More sheet's Download offline page (null: none)
+      exportItems: () => exportMenuItems(true),
+      // the top layer a phone's Back closes, as the function that closes it (null: nothing is open). Top
       // first: the coordinate pad, the popover (the palette, a menu, a plane's menu, the integral, the options), the
       // tour's chapter menu, the sound settings, a dialog (Export, the guide), a popover of the top layer, the sheet
       backLayer: () => {
