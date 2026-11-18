@@ -1,8 +1,8 @@
-// A phone's message in the steps view lies above the context bar's row, not over it (#1523): with the bar open for a selected shape (its Edit
+// A phone's message in the steps view lies above the context bar's row, not over it: with the bar open for a selected shape (its Edit
 // row) or for the orthogonal circle (the tall bar: ⌫ and × over Whole | Inside | Outside | Between), a message that shows covers no control of
 // the bar, and the plane's keys and the folded colour key stand clear of the bar and the message. At 360 × 640, 740 × 360, 667 × 375 and 844 × 390, in English and Russian. Control: with no bar
 // open the message is 8 px above the thread's strip as before. The plane's keys stay inside the plane and can be pressed with the message up, and on a landscape phone
-// (740 × 360, 667 × 375, 844 × 390), where the plane is too short to lift them above it, the message does not move them: it stands between the construction chip and the keys' column. In the steps view (ci/suite_views.js).
+// (740 × 360, 667 × 375, 844 × 390), where the plane is too short to lift them above it, the message does not move them: it ends 8 px left of any control of the plane its box would reach (the keys' column, the folded colour key), and the message is placed again when a key unfolds or its rows change width. On the tall bar the construction chip steps aside while the message shows, and a short message takes one row. In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -63,7 +63,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   } else ok(`${tag}: the message stands ${GAP} px above the strip`, Math.abs(m.strip.t - GAP - m.toast.b) <= 1, { toast: m.toast, strip: m.strip });
   ok(`${tag}: the message's own buttons can be pressed`, m.toastHits.length >= 2 && m.toastHits.every((x) => x.hit), m.toastHits);
   ok(`${tag}: the plane's keys stand clear of the message and the bar`, m.keys.every((k) => !inter(k, m.toast) && !inter(k, m.bar)), { keys: m.keys, toast: m.toast, bar: m.bar });
-  // (ux on #1729: a landscape phone's plane is 236 to 266 px tall, so the keys, lifted by the bar and the message, left the plot at its top)
+  // (a landscape phone's plane is 236 to 266 px tall, so keys lifted by the bar and the message would leave the plot at its top)
   const inPlot = (k) => !!m.plot && k.t >= m.plot.t - 0.5 && k.b <= m.plot.b + 0.5 && k.l >= m.plot.l - 0.5 && k.r <= m.plot.r + 0.5;
   const fitted = base.keyBtns.filter((k) => !!base.plot && k.t >= base.plot.t - 0.5);   // (the keys the plane holds without the message)
   ok(`${tag}: the keys that stood inside the plane without the message still do, and can be pressed`, fitted.length >= 2 && fitted.every((k) => { const n = m.keyBtns.find((x) => x.name === k.name); return !!n && inPlot(n) && n.hit; }), { fitted, now: m.keyBtns, plot: m.plot });

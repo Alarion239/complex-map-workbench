@@ -1037,10 +1037,10 @@
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
+  const toastFitW = new WeakMap();   // (the width a message picked its rows at)
   // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
   // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
   // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
-  const toastFitW = new WeakMap();   // (the width a message picked its rows at)
   function fitToastRows(t) {
     if (!t.isConnected) return;
     const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
