@@ -1,7 +1,7 @@
   // ---------------- exact images: the inverse path (SPEC 2.1, 2.2, 10) ----------------
   // A mapped area is drawn per pixel through the closed-form inverse of the chain (GLR.drawInverse) when the map and
-  // the shape allow it; otherwise forward, as before (mesh + fix-ups). Phase flags (SPEC 11.0): P2 enabled the right
-  // plane (flat); P3 the globes (Y Sphere, role R; X Sphere, role L, also at stage 0) and the left plane at a focused
+  // the shape allow it; otherwise forward (mesh + fix-ups). Phase flags (SPEC 11.0): the right
+  // plane (flat), the globes (Y Sphere, role R; X Sphere, role L, also at stage 0) and the left plane at a focused
   // stage (role L, flat). Thumbnails (role null) draw like the right plane.
   const PHASE = { R: { flat: true, globe: true }, L: { flat: true, globe: true } };
   const forceFwd = new Set();          // shape ids drawn forward whatever their eligibility (tests: mixed paths)
@@ -10,19 +10,19 @@
   // chevrons, roots, field of view, deformation tint or outline, landscape labels); printInk: the print tones of
   // the fills; artLand: the landscape's camera, read back for the figure's vector floor labels
   let artMode = false, printInk = null, artLand = null;
-  // (export round 3) the globe's camera in the art layer: the figure draws the globe's labels, points and paths as vectors
+  // the globe's camera in the art layer: the figure draws the globe's labels, points and paths as vectors
   let artGlobe = null;
-  // (export review r3, video) the camera is recorded for every export render, also in the screen's light look
+  // (video) the camera is recorded for every export render, also in the screen's light look
   let artCam = false;
   // the art layer's coverage render of the Landscape: the relief alone, no floor plate, box or shadow
   let artRelief = false;
-  // (export review r3, editor-9) open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
+  // open sets whose globe boundary the figure draws itself, dashed (the GL lines of a
   // sphere cannot dash): their lines are left out of the art layer
   let artSkip = null;
-  // (export review r3, verify-editor-8) a video frame of a globe: the figure draws the sphere's labels itself
+  // a video frame of a globe: the figure draws the sphere's labels itself
   let artNoLab = false;
   let offRender = false;               // renderOff (figure export) is drawing: no cost guard, no half resolution
-  // a map spec that applies no live step: drawn without the chain, as today (GLR's isIdent)
+  // a map spec that applies no live step: drawn without the chain (GLR's isIdent)
   function isIdentMap(m) {
     const mode = m.mode || 0;
     const lo = mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, hi = Math.max(mode === 1 ? (m.hi || 0) : (m.b || 0), mode === 1 || mode === 3 ? (m.post || 0) : 0);
@@ -36,7 +36,7 @@
     const mode = map.mode || 0;
     if (!mode || morph.playing || trans.k) return map;
     const t = map.t, base = map.base || 0;
-    // (v16: with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
+    // (with a bracket's post, H_t = Q o G_t o P is a still map only at its end, and only once the bracketed steps
     // after the running one are inactive: the stages base..post; its start skips the running step but not the post)
     if ((mode === 1 || mode === 3) && (map.post || 0) > (map.b || 0)) {
       if (t !== 1) return map;
@@ -118,7 +118,7 @@
   // Inverse.imageBox; cuts and folds inside the shape are covered), or null (unbounded, or a pole in reach: no scissor)
   // While the user scrubs (every frame a new plan: the cache misses for every shape), only the first, coarser pass
   // runs (still a conservative enclosure: a slightly larger scissor); the refinement follows on the first quiet frame
-  // (P2 review: eight polygons cost 4 ms of main thread per scrub frame).
+  // (eight polygons cost 4 ms of main thread per scrub frame).
   const BOX_RE = { kind: 'add', e: C(1, 0) }, BOX_IM = { kind: 'add', e: C(0, 1) };
   function invBox(e, plan, s, budget) {
     if (e.box !== undefined && !(e.boxCoarse && !interacting())) return e.box;
@@ -178,8 +178,8 @@
   // frame was drawn at half resolution is redrawn at full resolution as soon as the input ends (pointer up, or 45 ms
   // without input). Without timer queries the guard reads the frame's lag (the time from the request of an animation
   // frame to its start: a GPU behind its frames delays them) instead of the time between two frames of the pane, which
-  // for input-driven frames is the input's spacing (a notched wheel, a slow drag: 80 ms intervals demoted cheap scenes,
-  // P2 review). Half resolution is used only within continuous motion (the previous frame of the pane less than
+  // for input-driven frames is the input's spacing (a notched wheel, a slow drag: 80 ms intervals demoted cheap scenes).
+  // Half resolution is used only within continuous motion (the previous frame of the pane less than
   // HALF_SETTLE ms ago): an isolated event (a wheel notch) draws at full resolution, never soft then sharp.
   const GUARD_GRACE = 4, GUARD_EVERY = 2, HALF_SETTLE = 45;
   let rafReqT = 0, frameLag = 0;
@@ -257,14 +257,14 @@
   // changes): an inverse program never drawn yet is not drawn now (its first draw stalls the GPU process), another
   // ready B class or the forward stand-in takes its place (gl.js drawInverse) and it is warmed at the next quiet
   // moment. A single discrete change (an example, a toggle) or a hover is not motion: its program draws as soon as it
-  // is ready (P2 review gate: holding it back added 200-300 ms to every example load)
+  // is ready (holding it back adds 200-300 ms to every example load)
   function interacting() {
     const now = performance.now();
-    // ([#241] a number's slider held: its frames come further apart than 150 ms when the chain is costly)
+    // (a number's slider held: its frames come further apart than 150 ms when the chain is costly)
     return !!(drag || tweens.length || camTweens.length || trans.k || (morph.playing && morph.open) || now - motionInT < 150 || now - scrubT < 150 || camSpin() || (Params.sliding && Params.sliding()));
   }
-  // a camera still turning after its drag was let go (its momentum) moves too: those frames were drawn as rest frames,
-  // each at a new distance, and All sheets at the Max mesh rebuilt their refinement in every one (r3 review speed-1)
+  // a camera still turning after its drag is let go (its momentum) moves too: its frames would otherwise be drawn as rest frames,
+  // each at a new distance, and All sheets at the Max mesh would rebuild their refinement in every one
   function camSpin() {
     try { for (const c of [cam, camL, camS]) if (c && (Math.abs(c.vyaw) > 1e-4 || Math.abs(c.vpitch) > 1e-4)) return true; } catch (e) { /* (before the cameras exist) */ }
     return false;
@@ -276,7 +276,7 @@
   // warm B class shows meanwhile), so the stall never lands inside a pan, a zoom, a transition or a frame.
   // Half-resolution pipelines (a refused half draw asked for one; full resolution draws meanwhile) are not urgent: they
   // are warmed only after WARM_HALF_IDLE ms without motion (drags, wheels, sliders, scrubs; a hover does not count, or
-  // a pointer resting on a pane would hold it off for good), so their stall does not meet the next gesture (P2 gate: a
+  // a pointer resting on a pane would hold it off for good), so their stall does not meet the next gesture (a
   // 117 ms wheel latency when one landed between two wheel gestures).
   // (A pane predicted to need half resolution, predictLevel, gets its half pipelines with its first warm-up, or at the
   // next quiet moment: its motion frames are half resolution from the first gesture on.)
@@ -315,9 +315,9 @@
     if (path === 'forward' && prev && prev !== 'forward') scheduleFix();
     if (path === 'inverse') dropStandIn(k);
   }
-  // (v16.1) the forward stand-ins a live pane drew for a shape while its inverse program compiled: role|id -> [[res,
-  // cacheKey], ...]. Once that shape draws inverse there, their map-cache evaluations are freed (GLR.dropCached); before
-  // v16 a mesh rebuild soon after the load freed them by chance (gate v16 perf: sphere.logUHP held 1.2 MB more)
+  // the forward stand-ins a live pane drew for a shape while its inverse program compiled: role|id -> [[res,
+  // cacheKey], ...]. Once that shape draws inverse there, their map-cache evaluations are freed (GLR.dropCached).
+  // (a mesh rebuild soon after the load would free them only by chance: sphere.logUHP held 1.2 MB more)
   const standIns = new Map();
   function noteStandIn(role, id, pairs) {
     const k = role + '|' + id, have = standIns.get(k) || [];
@@ -335,7 +335,7 @@
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
-  // (issue #72) a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
+  // a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
   // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
   // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
@@ -467,6 +467,18 @@
     GLR.packShapes(S.shapes.filter((s) => s.visible !== false));
     if (GLR.inverseRequest(S.alpha, 'flat') === 'pending') invWaiting.add('R');
   }
+  // the words of text in lines no wider than maxW as ctx sets them (its font), each word on the line until the next would
+  // pass maxW (a word wider than maxW is a line of its own)
+  function wrapWords(ctx, text, maxW) {
+    const lines = [];
+    let line = '';
+    for (const w of String(text).split(' ')) {
+      const t = line ? line + ' ' + w : w;
+      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
+    }
+    if (line) lines.push(line);
+    return lines;
+  }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   function paneNote(pane, text) {
@@ -476,13 +488,7 @@
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     const maxW = Math.max(80, Math.min(360, pane.w - 48));
-    const lines = [];
-    let line = '';
-    for (const w of String(text).split(' ')) {
-      const t = line ? line + ' ' + w : w;
-      if (line && ctx.measureText(t).width > maxW) { lines.push(line); line = w; } else line = t;
-    }
-    if (line) lines.push(line);
+    const lines = wrapWords(ctx, text, maxW);
     const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
     const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
     const x0 = Math.round(pane.w / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
@@ -499,7 +505,7 @@
   // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6); that the picture is not
   // the new one yet while a program of it compiles (frameStatus().compiling: an earlier version, the deformation's
   // start or nothing stands in; on Direct3D 11 a cold program takes 0.5 to 3 s). That note waits 300 ms, so a quick
-  // link shows none, and goes when the program lands (onReady draws the pane again). (issue #72) A frame that has
+  // link shows none, and goes when the program lands (onReady draws the pane again). A frame that has
   // waited for its programs over 1.5 s says instead that the GPU is still preparing them (a cold link on Direct3D 11
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
@@ -573,7 +579,7 @@
   }
   // Draw graph paper, fills and curves of every visible shape under the GPU map 'map'.
   // opt: {thin (thumbnail), L, cache, domain, noGrid, under (draws before the fills), arcF/arcKey (CPU map for dashes),
-  // fills (the fills alone, no strokes: a mask of the regions, #440), skip (a predicate: the shapes left out)}
+  // fills (the fills alone, no strokes: a mask of the regions), skip (a predicate: the shapes left out)}
   function drawScene(pane, map, role, opt = {}) {
     const list = S.shapes.filter((s) => s.visible !== false && !(opt.skip && opt.skip(s)));
     // exact images (SPEC 10.2): when this map may draw inverse, the frame's shape records are packed once, and each
@@ -591,13 +597,13 @@
     if (GLR.ok && GLR.packShapes && (PHASE[role || 'R'] || {}).flat
       && (m0.mode || 0) === 0 && !isIdentMap(m0) && invPlan(m0.a || 0, m0.b || 0).ok) {
       cmFormAnchor('X');
-      // ([#253] the shapes of an intermediate plane are drawn forward: no records for them)
+      // (the shapes of an intermediate plane are drawn forward: no records for them)
       recs = packRecs();
       if (!sideDraw) lastRecs = recs;
       // (a region mask, opt.fills, is not a frame of the pane's picture: the cost guard neither measures nor demotes it)
       if (live && guard && !opt.fills) {
         const info = GLR.inverseInfo;
-        // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1, P2 review)
+        // (the key includes the B class of the opacity: a trip at alpha 0.3 does not hold at alpha 1)
         // (no predicted floor: motion stays at full resolution unless the measured frames leave the 60 fps budget;
         // predictLevel stays as a test hook)
         const floor = 0;
@@ -681,7 +687,7 @@
       const ink = shapeInk(s);
       let alpha = S.alpha;
       alpha *= dimK(s);
-      // [#253] a shape of an intermediate plane: its own map (none: not drawn in this plane), its mesh drawn forward
+      // a shape of an intermediate plane: its own map (none: not drawn in this plane), its mesh drawn forward
       const sm = shapeMap(s, map);
       if (!sm) continue;
       if (sm !== map) {
@@ -811,10 +817,10 @@
     if (timing) { GLR.timer.end(); const q = paneG[role].qs; if (q.length) { const e = q[q.length - 1]; e.inv = invN > 0; e.lv = drawnLevel(e.dem, (GLR.inverseHalfDraws || 0) > e.hd0); if (e.inv) invPaneQ[role] = e; } }
     if (live && invN) invPaneQ.drew[role] = true;
     // a ready inverse program that waits for its first draw (or its first half-resolution draw) is warmed at a quiet
-    // moment, then the panes redraw with it (P2 review: no 75-200 ms first-draw stall inside a drag or a transition).
+    // moment, then the panes redraw with it (no 75-200 ms first-draw stall inside a drag or a transition).
     // Thumbnails too: a thumbnail's status query can land a compile (no GLR.onReady then) and find it cold.
     if (recs && !offRender && GLR.inverseColdWaiting) scheduleWarm(interacting() ? 100 : 0);
-    // ((#366 prototype) opt.over: drawn into the same frame after the shapes, before it is shown)
+    // (opt.over: drawn into the same frame after the shapes, before it is shown)
     if (opt.over) opt.over();
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
@@ -824,27 +830,27 @@
   const SUP = '⁰¹²³⁴⁵⁶⁷⁸⁹';
   let figMode = false; // set while a figure is drawn: image points read F(z₀) rather than z₀″
   let figVec = false; // the figure draws the deformation's outline, paths and labels as vectors (the morph figure)
-  // a formula as plain text for a tooltip outside English (review eng-10): Tour's reading of TeX, the screen's comma
+  // a formula as plain text for a tooltip outside English: Tour's reading of TeX, the screen's comma
   const texTitle = (tex) => {
     try {
-      // ([#465] without the tour's reader: the commands and braces dropped, never the source as it is)
+      // (without the tour's reader: the commands and braces dropped, never the source as it is)
       const p = (Tour._t && Tour._t.texPlain) || ((x) => x.replace(/\\[a-zA-Z]+/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim());
-      // (a fraction of two single symbols or numbers is π/2, not (π)/2: verify-8)
+      // (a fraction of two single symbols or numbers is π/2, not (π)/2)
       const one = '(\\\\(?:pi|infty|alpha|gamma|zeta|theta)|[A-Za-z0-9]+(?:\\.[0-9]+)?)';
       const t = I18N.notation(tex).replace(new RegExp(`\\\\[dt]?frac\\{${one}\\}\\{${one}\\}`, 'g'), '$1/$2').replace(/\\times(?![A-Za-z])/g, ' × ').replace(/\\operatorname\{([^{}]+)\}\s*/g, '$1 ').replace(/\\(?:left|right)(?![A-Za-z])\.?/g, '').replace(/\\(?:text|mathrm|textrm)\{([^{}]*)\}/g, '$1')
         .replace(/\\(?:overline|bar)\{([^{}]*)\}/g, (m, a) => (a.length === 1 ? a + '\u0304' : `conj(${a})`)).replace(/\\bar\s*([A-Za-z])/g, '$1\u0304');
       // (× for \times, and a minus sign for '-' except in a Russian word such as «Лог-полярные»; the decimal comma only
-      // where the language writes one: English keeps 0.5, #321)
+      // where the language writes one: English keeps 0.5)
       const pt = p(t);
       return (I18N.comma() ? pt.replace(/(\d)\.(\d)/g, '$1,$2') : pt).replace(/-/g, (m, i, str) => (/[А-Яа-яЁё]/.test(str[i - 1] || '') && /[А-Яа-яЁё]/.test(str[i + 1] || '') ? m : '−'));
     } catch (e) { return String(tex).replace(/\\[a-zA-Z]+/g, ' ').replace(/[{}]/g, '').replace(/\s+/g, ' ').trim(); }
   };
   // an example's word label ('trailing edge') is stored in English and translated where it is shown, so a caption in
-  // the other language and a save reopened in the other language read right (review math-5); a user's label is as typed
+  // the other language and a save reopened in the other language read right; a user's label is as typed
   const EX_LABELS = new Set(['trailing edge']);
   const exLabel = (l) => (l && EX_LABELS.has(l) ? $t(l) : l);
-  // [UX54] a point keeps its subscript for life (gaps allowed): s.num, stored with the shape. Helpers have none. A save
-  // with no numbers (earlier builds) takes them from the order, as those builds named the points (the visible ones,
+  // a point keeps its subscript for life (gaps allowed): s.num, stored with the shape. Helpers have none. A save
+  // with no numbers takes them from the order, naming the points (the visible ones,
   // then the hidden ones); a point without one (new, pasted, a helper made visible) or with a copy's takes the next
   // after the largest. renumber: every point by its order again (the command palette's Renumber points)
   const numbered = (s) => !!s && s.kind === 'point' && !s.helper;
@@ -883,7 +889,7 @@
   // the number the next new point takes
   const nextPointNum = () => { let n = -1; for (const s of S.shapes) if (numbered(s) && Number.isInteger(s.num)) n = Math.max(n, s.num); return n + 1; };
   function pointLabel(s, idx, primes) {
-    // (v15, review design-6: a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
+    // (a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
     const bn = s.bind ? boundNumber(s) : '';
     const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
