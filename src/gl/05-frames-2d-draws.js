@@ -11,6 +11,8 @@
       maxTex = gl.getParameter(gl.MAX_TEXTURE_SIZE) || 4096;
       pcExt = gl.getExtension('KHR_parallel_shader_compile');
       rtOK = !!gl.getExtension('EXT_color_buffer_float');
+      const dri = gl.getExtension('WEBGL_debug_renderer_info');
+      swiftShader = /SwiftShader/i.test(String(gl.getParameter(dri ? dri.UNMASKED_RENDERER_WEBGL : gl.RENDERER)));
       ok = true;
       prestart(PRESTART_2D);
       canvas.addEventListener('webglcontextlost', (e) => {
