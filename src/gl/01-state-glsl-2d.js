@@ -4,6 +4,7 @@
   const hist = [];
   const progs = new Map(); // `${name}|${key}` -> {name, key, ch, state: 'pending'|'ready'|'error', p, loc, error, used}
   let lastError = '';
+  let chainRefused = '';   // why the build refused the current chain (a message, '' when it was accepted): no earlier version draws in its place
   let maxTex = 4096;
   let pcExt = null;        // KHR_parallel_shader_compile
   let rtOK = false;        // EXT_color_buffer_float: map caches are drawn into their RG32F texture (tfEntry)

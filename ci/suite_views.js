@@ -56,6 +56,7 @@ const VIEWS = {
   'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
   'gl_uniform_units_cmd.js': steps(),
+  'glchain_slot_cap_cmd.js': steps(),
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glide_negpow_cmd.js': steps(),
