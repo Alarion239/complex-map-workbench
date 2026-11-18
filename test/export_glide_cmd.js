@@ -84,8 +84,8 @@ await view(1440, 900, false);
 await load('xgl' + Date.now(), {});
 const base = await ev('location.origin');
 let ns = 0;
-const open = async (exN, surf) => {
-  await go(`${base}/test.html?view=steps&ns=xgl${Date.now() % 1e7}${ns++}`);
+const open = async (exN, surf, lang) => {
+  await go(`${base}/test.html?view=steps&ns=xgl${Date.now() % 1e7}${ns++}${lang ? `&lang=${lang}` : ''}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${exN}), 1)`);
   await adopted();
@@ -93,6 +93,17 @@ const open = async (exN, surf) => {
   await ev(`(__cmwSteps({ surf: '${surf}' }), __cmwSteps({ go: 0, now: true }), __cmwSet('wKey', false), 1)`);
   await settled({ until: '!__cmwSteps().moving', max: 15000, floor: 400 });
 };
+// (in the page) the export dialog opened from the steps view and its Format set to Video (a press of the Video button), then,
+// when wantSum, its summary line waited for: { n: the chain's planes, fmts: the Format row's choices, video: the button can
+// be pressed, aria, tip, checked: its aria-disabled, tip and aria-checked after the press, still: the Format row is there,
+// vsum: there is a summary line, sum: its words }, or null when no Video button comes
+const videoDialog = (wantSum = true) => ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); };
+  const n = __cmwSteps().planes.length; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]'));
+  const b = document.querySelector('#xfFmt [data-v="video"]'); if (!b) return null;
+  const fmts = [...document.querySelectorAll('#xfFmt > button')].map((x) => x.dataset.v); b.click();
+  ${wantSum ? "await until(() => (document.getElementById('xfVSum') || {}).textContent);" : ''}
+  const s = document.getElementById('xfVSum');
+  return { n, fmts, video: !b.disabled, aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!s, sum: s ? s.textContent : null }; })()`, 60000);
 for (const [exN, surf] of [[1, 'plane'], [18, 'plane'], [1, 'sphere'], [1, 'land']]) {
   const tag = `ex ${exN} ${surf}`;
   await open(exN, surf);
@@ -383,14 +394,21 @@ const short = await evJson(`await (async () => { const f = await __cmwFig.build(
 ok('a short pane: the still\'s key (ring marks and lines) lies inside the figure', short.view === 'xyL' && short.boxes.length >= 5 && short.boxes.every((b) => b.y1 <= short.H + FIT_SLACK), short);
 await view(1440, 900, false);
 await open(1, 'plane');
-const d = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b && b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); const s = document.getElementById('xfVSum'); return { video: !!b && !b.disabled, sum: s ? s.textContent : null }; })()`, 60000);
+const d = await videoDialog();
 ok('the dialog offers Video with the summary line', d && d.video && /→.*· [0-9.,]+ s/.test(d.sum || ''), d);
+// (#1838) the summary line in Russian and Italian: the length's number in the language's form, and its unit too (с, s)
+for (const [lang, unit] of [['ru', 'с'], ['it', 's']]) {
+  await open(1, 'plane', lang);
+  const sum = ((await videoDialog()) || {}).sum;
+  ok(`${lang}: the summary line gives the length in seconds in ${lang} (${unit})`, new RegExp(`→ .+ · [0-9]+,[0-9]\\s${unit}$`).test(sum || ''), sum);
+  await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
+}
 // UX60 (classic's check, ported to the steps view): Video is listed with no step to record too; it is aria-disabled with
 // the reason "Add a step to make a video", and a click neither chooses it nor opens the dialog on it
 // (a chain of one plane: an empty steps chain saved as the page's state, as steps_empty_cmd.js does)
 await loadView('steps', 'xgl0' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [], srcView: { cx: 0, cy: 0, s: 90 } }, { lang: 'en' });
 await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
-const bare = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; const n = __cmwSteps().planes.length; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); const fmts = [...document.querySelectorAll('#xfFmt > button')].map((x) => x.dataset.v); b.click(); return { n, fmts, aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
+const bare = await videoDialog(false);
 info['video with no step'] = bare;
 ok('no step: the chain has one plane and Video is listed in the Format row', bare && bare.n < 2 && bare.fmts && bare.fmts.includes('video'), bare);
 ok('no step: Video is aria-disabled with "Add a step to make a video" as its tip, a click does not choose it', bare && bare.aria === 'true' && bare.tip === 'Add a step to make a video' && bare.checked === 'false' && bare.still && !bare.vsum, bare);
@@ -400,7 +418,7 @@ for (const surf of ['sphere', 'land']) {
   await open(1, surf);
   const g = await ev('__cmwFig.glide()');
   ok(`${surf}: the glide is offered with its surface`, g && g.surf === surf && g.hi > g.lo, g);
-  const q = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); }; Figure.open(); await until(() => document.querySelector('#xfFmt [data-v="video"]')); const b = document.querySelector('#xfFmt [data-v="video"]'); b.click(); await until(() => (document.getElementById('xfVSum') || {}).textContent); return { aria: b.getAttribute('aria-disabled'), sum: (document.getElementById('xfVSum') || {}).textContent }; })()`, 60000);
+  const q = await videoDialog();
   ok(`${surf}: Video is enabled in the dialog, with the summary line`, q && q.aria !== 'true' && /→.*· [0-9.,]+ s/.test(q.sum || ''), q);
   await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 }
