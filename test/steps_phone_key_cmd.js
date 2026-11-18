@@ -14,7 +14,7 @@ const fails = [], info = {};
 const PAD = 7;       // the hit area's reach beyond the 30 px glyph on each side (44 = 30 + 2 x 7), px: the folded key's ::before, whose inset is measured from the padding box, so the page's value is PAD + the glyph's border
 const OUT = 21.5;    // how far out from the glyph's centre the hit probes go, px: inside the 44 px area (22 from the centre), outside a 42 px one
 const UI_WAIT = 5000;   // how long a toast may take to go and the card to unfold, ms
-const WIDTHS = [[412, 860, 'en'], [360, 740, 'en'], [320, 640, 'en'], [320, 640, 'ru'], [740, 360, 'en'], [667, 375, 'ru']];   // width, height, language (the last two are landscape phones)
+const WIDTHS = [[412, 860, 'en'], [360, 740, 'en'], [320, 640, 'en'], [320, 640, 'ru'], [740, 360, 'en'], [667, 375, 'ru'], [667, 375, 'it']];   // width, height, language (the last three are landscape phones)
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the key element's rect, its plane's rect, the screen, and what is on top at its middle and near its corners
 const probe = (pad = 0) => ev(`(() => {
