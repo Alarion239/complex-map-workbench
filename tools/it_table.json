@@ -1392,6 +1392,7 @@
  "Sphere wraps the plane onto the Riemann sphere, with $\\infty$ at the north pole; here $F(\\infty)=1$, neither a zero nor a pole. You can draw on the sphere too.": "«Sfera» avvolge il piano sulla sfera di Riemann, con $\\infty$ al polo nord; qui $F(\\infty)=1$, che non è né uno zero né un polo. Puoi disegnare anche sulla sfera.",
  "Spiral": "Spirale",
  "Split f{k} into f{k}–f{k2}: {chain}.": "Passo f{k} scomposto in f{k}–f{k2}: {chain}.",
+ "split f{x} into f{x}–f{x2}: {chain}": "scomposizione di f{x} in f{x}–f{x2}: {chain}",
  "Split into steps": "Scomponi in passi",
  "Split into {n} step\u0004Split into {n} steps": {
   "one": "Scomponi in {n} passo",
@@ -2728,6 +2729,7 @@
  "{v} s per step": "{v} s per passo",
  "{what} is not holomorphic (it has no complex derivative), so this formula cannot be differentiated in z": "{what} non è olomorfa (non ha derivata complessa), quindi questa formula non si può derivare rispetto a z",
  "{w} × {h} · {fps} fps · {secs} s": "{w} × {h} · {fps} fps · {secs} s",
+ "{from} → {to} · {secs} s": "{from} → {to} · {secs} s",
  "{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).": "{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).",
  "{w}-plane": "piano {w}",
  "{w}-sphere": "sfera {w}",
@@ -3201,7 +3203,7 @@
  "Try: click the chip f₁ and flip the sheet in the Inspector.": "Prova: fai clic sul chip f₁ e cambia foglio nell'Ispettore.",
  "Try: click the chip f₁, then Show all sheets in the Inspector.": "Prova: fai clic sul chip f₁, poi su Mostra tutti i fogli nell'Ispettore.",
  "Try: press › twice: the half-plane becomes the disk, then wraps.": "Prova: premi › due volte: il semipiano diventa il disco, poi si avvolge.",
- "Try: on w₁, drag the target 0, then press ‹.": "Prova: su w₁ trascina il bersaglio 0, poi premi ‹.",
+ "Try: on w₁, drag the point at 0, then press ‹.": "Prova: su w₁ trascina il punto in 0, poi premi ‹.",
  "Try: choose Landscape and look for the zeros on the line Re z = 1/2.": "Prova: scegli Paesaggio e cerca gli zeri sulla retta Re z = 1/2.",
  "Try: hover near a pole: |Γ| grows without bound.": "Prova: passa il puntatore vicino a un polo: |Γ| cresce senza limite.",
  "Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.": "Prova: ingrandisci dove un raggio tocca M, o aggiungine uno su f₁ (θ = 1/7, 2/7, …); oltre circa 10⁻⁵ il float32 della GPU sfoca l'immagine.",
@@ -3420,5 +3422,7 @@
  "Quality": "Qualità",
  "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
  "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
- "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre"
+ "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre",
+ "This curve is in {plane}, a later plane: listen along it there.": "Questa curva sta nel piano {plane}, più avanti nella catena: usa «Ascolta lungo la curva» da quel piano.",
+ "No tone past the colour plane: the colour here comes from {p}.": "Nessun suono dopo il piano del colore: qui il colore viene da {p}."
 }
