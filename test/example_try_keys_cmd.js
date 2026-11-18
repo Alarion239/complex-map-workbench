@@ -1,5 +1,5 @@
-// A drag Try from the keyboard alone: in the steps view "Roots as preimages" asks "on w₁, drag the target 0, then press ‹". With the
-// target selected from its row in the Shapes list (Enter) and the arrow keys nudging it, the first half of the line is done as it is after a
+// A drag Try from the keyboard alone: in the steps view "Roots as preimages" asks "on w₁, drag the point at 0, then press ‹". With the
+// point (a shape of plane w₁) selected from its row in the Shapes list (Enter) and the arrow keys nudging it, the first half of the line is done as it is after a
 // mouse drag (the tour's shape-moved event, on the plane w), so the line closes at ‹; without the nudge, ‹ alone leaves it open.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -22,8 +22,9 @@ const open = async (tag) => {
   // (the example's own opening is not the user's doing: its watch ignores the first 250 ms)
   await settled({ only: true, floor: 300, max: SETTLE_MS });
 };
-// the target 0's row in the Shapes list (a role=button, focusable): focus it, as Tab does, and press Enter
-const ROW = `document.querySelector('#shapeList .shape[data-id="s5"] .shape-name')`;
+// the point at 0's row in the Shapes list (a role=button, focusable): focus it, as Tab does, and press Enter (ROW: set once the example
+// is open, from the id of its point on w₁)
+let ROW = '';
 const where = () => ev(`(() => { const r = ${ROW}; return r ? { pressed: r.getAttribute('aria-pressed'), at: r.querySelector('.d').getAttribute('title') } : null; })()`);
 const prev = `document.querySelector('#svStrip .sv-prev')`;
 // ‹, as Enter on the focused button does
@@ -32,18 +33,21 @@ const pressPrev = async () => {
   await key('Enter'); await settled({ max: SETTLE_MS, until: '__cmwSteps().i === 0 && !__cmwSteps().moving' });
 };
 
-// with the target selected from its row and nudged by the arrows, ‹ closes the line (a mouse drag then ‹ does)
+// with the point selected from its row and nudged by the arrows, ‹ closes the line (a mouse drag then ‹ does)
 await open('a');
-ok('the Try line is open on w₁', /drag the target 0/.test((await lane()) || ''), await lane());
+ok('the Try line is open on w₁', /drag the point at 0/.test((await lane()) || ''), await lane());
+const pid = await ev(`(() => { const s = __cmwShapes().shapes.find((x) => x.kind === 'point' && (x.stage | 0) === 1); return s ? s.id : null; })()`);
+ok('the example has a point on w₁', !!pid, pid);
+ROW = `document.querySelector('#shapeList .shape[data-id=${JSON.stringify(pid)}] .shape-name')`;
 const w0 = await where();
-ok('the target 0 has its row', !!w0, w0);
+ok('the point at 0 has its row', !!w0, w0);
 await ev(`${ROW}.focus(); 1`);
 await key('Enter'); await settled({ only: true, max: SETTLE_MS, until: `${ROW}.getAttribute('aria-pressed') === 'true'` });
 info.selected = await where();
-ok('Enter on the focused row selects the target', info.selected && info.selected.pressed === 'true', info.selected);
+ok('Enter on the focused row selects the point', info.selected && info.selected.pressed === 'true', info.selected);
 await key('ArrowRight'); await settled({ only: true, max: SETTLE_MS, until: `${ROW}.querySelector('.d').getAttribute('title') !== ${JSON.stringify(w0 && w0.at)}` });
 info.nudged = await where();
-ok('the arrow key nudges the selected target (its place changes)', info.nudged && w0 && info.nudged.at !== w0.at, { w0, nudged: info.nudged });
+ok('the arrow key nudges the selected point (its place changes)', info.nudged && w0 && info.nudged.at !== w0.at, { w0, nudged: info.nudged });
 ok('the line stays open until ‹ (the line has two halves)', !!(await lane()), await lane());
 await pressPrev();
 ok('keys only: the nudge and ‹ close the line, as a mouse drag and ‹ do', !(await lane()), await lane());
