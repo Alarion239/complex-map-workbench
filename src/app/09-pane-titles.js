@@ -8,18 +8,18 @@
     const t = $(side === 'L' ? 'leftTitle' : 'rightTitle'), pane = $(side === 'L' ? 'paneL' : 'paneR'), grow = t && /** @type {HTMLElement | null} */ (t.nextElementSibling);
     if (!t || !grow) return;
     t.classList.remove('terse', 'short', 'notag'); pane.classList.remove('tiny');
-    // ([v17 D4; #247; #363] the head's Regions button shows its caret unless the title needs that room: then its swatch alone,
+    // (the head's Regions button shows its caret unless the title needs that room: then its swatch alone,
     // e.g. Y's head at 1366 px with the chain empty and Add function there)
     const disp = pane.querySelector('.pane-head .pat-btn');
     if (disp && !noDisp) disp.classList.remove('tight');
     // (and Y's Add function button, in the head while the chain is empty, shrinks to its plus after the Display button)
     const emp = side === 'R' ? $('emptyRight') : null;
     if (emp && !noEmpty) emp.classList.remove('tight');
-    // (v16.5 UX20: Y's one-time note in the head gives way before the title itself does; never cut)
+    // (Y's one-time note in the head gives way before the title itself does; never cut)
     const note = side === 'R' ? $('rightNote') : null;
     if (note) note.classList.toggle('nofit', !!noNote);
     const tabs = $(side === 'L' ? 'leftTabs' : 'rightTabs');
-    // ([#356] "Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
+    // ("Plane | Sphere" stays in words: a head too narrow for the tabs, the title already gone (Y's head at 1024
     // px beside the Inspector), folds its key chip to the glyph first, then the head packs closer (the tabs' padding,
     // its gaps), and last its status light goes (Russian at 1024 px)
     const hd = pane.querySelector('.pane-head'), leg = $(side === 'L' ? 'leftLegend' : 'rightLegend');
@@ -38,8 +38,8 @@
     let ptw = pt ? pt.scrollWidth : 0;
     if (pt && ptw > room) {
       if (note && !note.hidden && !noNote) { fitTitle(side, true); return; }
-      // (wave 1 merge) then the plane's "Y · " tag (UX27) gives way, before the title itself: with the chain empty, Y's
-      // head also holds Add function (UX20), and at 1366 px the tagged title no longer fitted, so it vanished
+      // then the plane's "Y · " tag gives way, before the title itself: with the chain empty, Y's
+      // head also holds Add function, and at 1366 px the tagged title would not fit and would vanish
       const tag = pt.querySelector('.ptag'), tw = tag ? tag.getBoundingClientRect().width : 0;
       if (!(tag && ptw - tw <= room)) {
         if (disp && !noDisp) { disp.classList.add('tight'); fitTitle(side, noNote, true); return; }
@@ -58,8 +58,8 @@
     }
     t.classList.add('terse');
   }
-  // (#247: a title that changed width changes the room for the head's controls: they are laid out again first)
-  // (#320: a title in a pane head is fitted by its strip's layout, layoutFootSide, only when what it depends on changed;
+  // (a title that changed width changes the room for the head's controls: they are laid out again first)
+  // (a title in a pane head is fitted by its strip's layout, layoutFootSide, only when what it depends on changed;
   // the others, a phone's, are fitted here. force: the fonts settled, which no key can see)
   function fitRightTitle(force) {
     if (paneR) layoutFoot(force);
@@ -83,7 +83,7 @@
     };
     const surfL = lGlobe() ? 'sphere' : 'plane';
     const xName = surfL === 'sphere' ? $t('{w}-sphere', { w: wHtml(lk) }) : $t('{w}-plane', { w: wHtml(lk) });
-    // (the deformation paints H_t: the title names it, merged-views review)
+    // (the deformation paints H_t: the title names it)
     const def = '';
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : dk ? `${Fh}(<i>z</i>)` : Fh;
     let roleL, shortL;
@@ -91,19 +91,19 @@
     else if (lColor() && S.dc === 'cauchy' && !morphOn()) { const cp = typeof cauchyPlot === 'function' ? cauchyPlot() : null; roleL = cp ? $t('Cauchy integral over {name}', { name: cp.name }) : $t('Cauchy integral'); shortL = cp ? $t('Cauchy integral') : ''; }
     else if (lPhase()) { roleL = $t('phase of {ofV}', { ofV: of }); shortL = $tx('role', 'phase'); }
     else { roleL = $t('domain of {ofV}', { ofV: of }); shortL = $tx('role', 'domain'); }
-    // ([v16.5 UX27] one name per plane everywhere: "X · z-plane, domain of F", "Y · w = F(z), image")
+    // (one name per plane everywhere: "X · z-plane, domain of F", "Y · w = F(z), image")
     const XT = '<span class="ptag"><i>X</i> · </span>', YT = '<span class="ptag"><i>Y</i> · </span>';
     // (the steps view's plane: "w₁ · phase of f₂", the shown plane and the map from it into the colour plane, 19)
     const left = SV.on ? ((tp) => T(tp.name, tp.role))(svTitleParts()) : T(XT + xName, roleL + def, def ? undefined : shortL);
     let right;
     // (the deformation keeps Y's surface: the arrow form on the plane, the w-sphere's own title on the globe)
     // (one title for the merged plane and the merged globe)
-    // (v16.5 UX103: in words, "Deformation from z to w", where it read "z → w deformation"; UX27: the other right titles
+    // (in words, "Deformation from z to w"; the other right titles
     // carry the "Y · " tag)
     if (morphOn()) { const [fa, fb] = S.focus === 0 && rangeParts() ? [rangeStart('html'), '<i>w</i>'] : S.focus === 0 || dk ? [wHtml(0), S.focus === 0 ? '<i>w</i>' : wHtml(rk)] : [wHtml(lk), wHtml(rk)]; right = T((S.focus === 0 && rangeWords('html')) || $t('Deformation'), $t('from {a} to {b}', { a: fa, b: fb }), ''); }
     else if (rGlobe()) right = T(YT + $t('{w}-sphere', { w: S.focus === 0 ? '<i>w</i>' : wHtml(rk) }), $tx('role', 'image'), '');
     else if (S.focus === 0) {
-      // ([#383] Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
+      // (Y rests on the plane after j steps: w_j = f_j(…f₁(z)), after j steps)
       const j = parkedAt(), steps = j >= 0 ? j : n;
       const pf = j === 0 ? '<i>z</i>' : j === 1 ? `<i>f</i>${sub(1)}(<i>z</i>)` : `<i>f</i>${sub(j)}(…<i>f</i>${sub(1)}(<i>z</i>))`;
       const map = j >= 0 ? `${j === 0 ? '<i>w</i>' + sub(0) : wHtml(j)} = ${pf}` : n ? '<i>w</i> = <i>F</i>(<i>z</i>)' : '<i>w</i> = <i>z</i>';
@@ -113,10 +113,10 @@
     else right = T(YT + `${wHtml(rk)} = <i>f</i>${sub(S.focus)}(${wHtml(lk)})`, $tx('role', 'image'), '');
     return { left, right };
   }
-  // (v16) where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
+  // where a bracket's deformation starts, H_0 = Q applied to w_{a-1} (w_0 = z): 'html', 'text' (Unicode subscripts,
   // the phone's title chip and the menu's key slot) or 'tex'. One post step f3(w1), two (f4 o f3)(w1), three or more
   // (f6 o ... o f4)(w1); the bypassed steps are left out. No words: the same in English and Russian
-  // (review v16 user-2) Unicode subscript digits as <sub> digits: the menu's key slot and the phone row in the label's face
+  // Unicode subscript digits as <sub> digits: the menu's key slot and the phone row in the label's face
   const subTags = (html) => html.replace(/[\u2080-\u2089]+/g, (m) => `<sub>${[...m].map((c) => c.charCodeAt(0) - 0x2080).join('')}</sub>`);
   function rangeStart(fmt, p = rangeParts()) {
     if (!p) return fmt === 'tex' ? 'z' : fmt === 'html' ? '<i>z</i>' : 'z';
@@ -220,7 +220,7 @@
     if (id) b.id = id;
     return b;
   }
-  // (#247: with an icon, a check that the pane head shows as an icon toggle, its word the tooltip and its accessible name;
+  // (with an icon, a check that the pane head shows as an icon toggle, its word the tooltip and its accessible name;
   // a phone's sheet and the ⋯ pop-up show the word)
   function checkEl(id, checked, label, onchange, icon) {
     const inp = h('input', { type: 'checkbox', id, onchange: (e) => onchange(e.target.checked) });
@@ -230,7 +230,7 @@
     return h('label', { class: 'check ic-tg', 'data-tip': label }, inp, h('span', { class: 'tg-ic', 'aria-hidden': 'true', html: icon }), h('span', { class: 'tg-l' }, label));
   }
   const DC_STYLES = [['enhanced', $t('Tiles'), $t('Conformal tiles: phase sectors and modulus contours form squares')], ['phase', $t('Plain'), $t('Phase only')], ['classic', $t('Modulus'), $t('Brightness from |F|: zeros black, poles white')], ['modulus', $t('Contours'), $t('Level lines of |F| and arg F')], ['grid', $t('Pulled-back grid'), $t('Pull-back of the Re/Im grid of the image')], ['cauchy', $t('Cauchy'), $t('The Cauchy integral over the selected closed curve: F inside, 0 outside')]];
-  // (#247) the Phase style as one row: each style its glyph (STYLE_SVG), alone in the pane head (option 1: the name its
+  // the Phase style as one row: each style its glyph (STYLE_SVG), alone in the pane head (option 1: the name its
   // tooltip), or with its word under it (a phone's sheet, the ⋯ pop-up); one click picks. "Pulled-back grid" is "Grid" here
   // and Cauchy its short word (Russian «Коши», not «Интеграл Коши», which a 54 px button at 360 px broke mid-word), the
   // whole name the tooltip, the accessible name and the header menu's item
@@ -245,7 +245,7 @@
       b.dataset.tip = d[1] === d[2] ? d[1] : `${d[1]}: ${d[2]}`;
       // (the steps view: the Cauchy integral is drawn on z, where its curve lies, so the style is offered while z is the colour plane)
       if (SV.on && d[0] === 'cauchy' && svT() !== 0) {
-        const why = $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+        const why = cauchyOffZWhy();
         /** @type {HTMLButtonElement} */ (b).disabled = true; b.dataset.tip = why; b.setAttribute('aria-description', why);
       }
     }
@@ -260,7 +260,7 @@
     if (tool === 'select') return touchUI() ? $t('Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole') : $t('Drag to turn, a shape to move it; Space turns; ∞ is at the north pole');
     const lab = ((TOOLS.find((t) => t[0] === tool) || [])[1] || '').toLowerCase();
     const tg = side === 'R' ? $t('target ') : '';
-    // (v16.5 UX17: on a touch screen a tap places, and two fingers turn)
+    // (on a touch screen a tap places, and two fingers turn)
     const tch = touchUI();
     const g = tool === 'point' ? (tch ? $t('Tap to place a {tg}point', { tg }) : $t('Click to place a {tg}point', { tg })) : tool === 'polygon' ? (tch ? $t('Tap the vertices') : $t('Click the vertices'))
       : tool === 'curve' ? $t('Hold and draw a {tg}curve', { tg }) : tool === 'lasso' ? $t('Hold and draw a {tg}region', { tg })
@@ -270,7 +270,7 @@
   // the idle left readout: the scale, or how to draw on or turn the globe, or orbit the landscape (which takes no
   // drawing, panels.md 9.1)
   const touchUI = () => { try { return matchMedia('(pointer: coarse)').matches; } catch (e) { return false; } };
-  // (v16.1 review user-7) a phone has no pane title: in Landscape with All sheets its title chip says which sheets are
+  // a phone has no pane title: in Landscape with All sheets its title chip says which sheets are
   // drawn, as the title does ("Im H_t, on both sheets of F"), in place of the orbit hint
   const landSheetsHint = () => {
     if (!document.documentElement.classList.contains('ph')) return '';
@@ -279,10 +279,10 @@
     const of = morphOn() && lPaintsF() ? '<i>H</i><sub><i>t</i></sub>' : S.focus === 0 ? '<i>F</i>' : focusDeriv() ? `${fnHtml()}(<i>z</i>)` : fnHtml();
     return heightHtml(of) + sheetsClause(shw, 'html');
   };
-  // [v16.5 UX10] on a phone the scale chip teaches the hold-and-slide that reads z and F(z), until it is first used
+  // on a phone the scale chip teaches the hold-and-slide that reads z and F(z), until it is first used
   let probeLearnedV = null;
   const probeLearned = () => { if (probeLearnedV == null) { try { probeLearnedV = localStorage.getItem('cmw-probe-learned') === '1'; } catch (e) { probeLearnedV = false; } } return probeLearnedV; };
-  // ([v16.5 fix regress-4] once a session, for 8 s from the first idle readout of a phone, never a standing part of the
+  // (once a session, for 8 s from the first idle readout of a phone, never a standing part of the
   // chip: the rule "no always-on hint"; a phone that probed once never sees it again)
   let probeTeachUntil = 0;
   const probeTeach = () => {
@@ -310,12 +310,12 @@
   // Mode options (spec 5.8): one 32px row. Controls that do not fit beside the view stack move, in order, behind
   // a sliders button into a popover; on a phone all of them do. The deformation transport always stays inline.
   const phoneMQ = matchMedia('(max-width: 767px)');
-  // one options strip per pane (U-b, panels.md 4): foot.L in X, foot.R in Y
+  // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
   const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null });
   const foot = { L: footOf(), R: footOf() };
   phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
-  // (#247) on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
+  // on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
   // X's; a phone's Display sheet lends it itself
   // (the steps view has one head and one colour panel on every plane: only classic's X → Y view moves the unit circle
   // and the regions' button to Y's head)
@@ -342,7 +342,7 @@
     return u;
   }
   const headRO = new WeakSet();   // (the pane heads observed for their width)
-  // (#320: a strip is laid out once per task, after the handler that asked for it and before the frame: opening the
+  // (a strip is laid out once per task, after the handler that asked for it and before the frame: opening the
   // Deformation asked for it five times a side (buildFoot, placeKeys, fitRightTitle, each through layoutFoot), and each
   // pass forced two to four layouts reading the head and fitting its title. The asks are gathered and laid out in one
   // microtask, force if any asked for it; nothing paints in between)
@@ -375,7 +375,7 @@
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot'), ft = foot[side], pane = side === 'L' ? paneL : paneR;
     // (a landscape phone is wider than the query, but its options are the Display sheet's too: all of them, none inline)
     const phone = phoneMQ.matches || document.documentElement.classList.contains('ph');
-    // (v16.5 UX20: on a desktop the strip sits in the pane head, placeKeys, so no bar lies over the plot. [#247] There its
+    // (on a desktop the strip sits in the pane head, placeKeys, so no bar lies over the plot. There its
     // controls are inline, compact (icon toggles, the style's glyphs), as many as the head has room for beside a title
     // kept readable; the rest go behind a ⋯ button. In the X → Y view the head also has the shapes' pattern button)
     const inHead = !!(f && f.parentElement && f.parentElement.classList.contains('pane-head'));
@@ -391,7 +391,7 @@
       const ro = new ResizeObserver((es) => {
         let moved = false;
         for (const e of es) { const w = e.contentRect.width; if (!(Math.abs(w - (lastW.has(e.target) ? lastW.get(e.target) : -1)) < 1)) { lastW.set(e.target, w); moved = true; } }
-        // (#320: the widths the observer reports are the layout's key, read with no forced layout)
+        // (the widths the observer reports are the layout's key, read with no forced layout)
         ft.roW = [...lastW.values()].map((w) => Math.round(w)).join(',');
         if (moved && f.parentElement && f.parentElement.classList.contains('pane-head')) layoutFootSide(side);
       });
@@ -400,7 +400,7 @@
       if (leg) ro.observe(leg);
     }
     // (in the head a note, Cauchy's sentence, comes last and always behind ⋯: the head holds controls, never a cut sentence)
-    // (#247 option 1: n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
+    // (n and the grid step, like Cauchy's note, are always behind ⋯: the head keeps the style's glyphs
     // and the toggles, so the plane's title keeps its room)
     // (the steps view's head is the same on every plane: the style row stays inline and every other control is behind ⋯,
     // whatever the title's width, so no control comes and goes as the shown plane changes)
@@ -408,7 +408,7 @@
     const kids = inHead ? [...ft.kids.filter((e) => !isNote(e)), ...(unit && !isNote(unit) ? [unit] : []), ...ft.kids.filter(isNote), ...(unit && isNote(unit) ? [unit] : [])] : ft.kids;
     ft.order = kids;
     if (!unit) unitHome(f);   // (not this strip's any more, e.g. the view changed: home, before replaceChildren drops it)
-    // (#320: first a key of what the layout depends on that needs no layout read and no write: the head's and its key
+    // (first a key of what the layout depends on that needs no layout read and no write: the head's and its key
     // chip's widths as the observer reported them, the title's words, which items of the head show, the controls, the
     // view; unchanged, the strip and the title are as they were laid out and fitted, and nothing is touched. Opening the
     // Deformation retitles the panes and lays both strips out again: each call stripped the title's classes and read
@@ -463,7 +463,7 @@
         }
         room -= Math.max(0, shown - 1) * (parseFloat(hs.columnGap) || 0) + 2;   // (the gaps, the strip's own margin)
         // (the Phase head, its style row first, keeps its whole title, its role too: the toggles go behind ⋯, the unit
-        // circle first, before the title gives up letters; #247 option 1. The row itself always stays, below)
+        // circle first, before the title gives up letters. The row itself always stays, below)
         const whole = kids.length > 0 && kids[0].id === 'dcSeg';
         avail = room - (whole ? titleW + roleW + 12 : Math.min(180, titleW + 12)) - (pat ? 34 + gap : 0) - 4;
       } else avail = pane.w - 60;
@@ -471,7 +471,7 @@
       for (n = 0; n < kids.length; n++) {
         if (inHead && isNote(kids[n])) break;
         const next = used + (n ? gap : 0) + ft.widths[n];
-        // (#364: a head that starts with the style row always keeps the ⋯'s room, filled or not)
+        // (a head that starts with the style row always keeps the ⋯'s room, filled or not)
         const more = n + 1 < kids.length || (inHead && kids[0].id === 'dcSeg') ? btn : 0;
         if (next + more > avail) break;
         used = next;
@@ -494,13 +494,13 @@
       b = h('button', { class: 'icon-btn opts-btn', 'data-tip': $t('Display options'), 'aria-label': $t('Display options'), 'aria-haspopup': 'dialog', 'aria-expanded': 'false', html: inHead ? ICONS.more : ICONS.sliders });
       b.addEventListener('click', () => openFootPop(b, false, side));
     } else if (inHead && kids.length && kids[0].id === 'dcSeg') {
-      // (#364) the Phase head keeps the ⋯'s room whatever the style: a style with nothing behind ⋯ (Plain, Modulus)
+      // the Phase head keeps the ⋯'s room whatever the style: a style with nothing behind ⋯ (Plain, Modulus)
       // leaves the slot empty, so the style row, at the head's right, never shifts as the style changes
       b = h('span', { class: 'opts-slot', 'aria-hidden': 'true' });
     }
     const open = ft.pop && ft.pop.isConnected && (ft.pop.dataset.of !== 'pattern' || ft.pop.dataset.merged === '1');
     if (unit && rest.includes(unit)) unitHome(f);
-    // (#364, the issue's second option: in a head that starts with the style row, the toggles that fit go to its left and
+    // (in a head that starts with the style row, the toggles that fit go to its left and
     // the row stays last, beside ⋯; it sits at the head's right, so a style that changes the title, and with it how many
     // toggles fit, moves only the toggles)
     const inl = kids.slice(0, n), styl = inHead && inl.length && inl[0].id === 'dcSeg';
@@ -513,7 +513,7 @@
       else if (b) openFootPop(b, true, side); else closePalette();
     }
   }
-  // ([v17 D5, #82; #247; #363] in the X → Y view the Regions button in the pane head, a swatch of the regions' fill (the
+  // (in the X → Y view the Regions button in the pane head, a swatch of the regions' fill (the
   // phase of z): its pop-up holds the regions' display, page.html's #regionsBox (grid lines and their step, chevrons,
   // opacity), lent while it is open)
   function patternBtn(side) {
@@ -528,7 +528,7 @@
     const ft = foot[side], of = regionsOnly ? 'pattern' : 'opts';
     if (!refresh && ft.pop && ft.pop.isConnected && ft.pop.dataset.of === of) { closePalette(); btn.focus(); return; } // anchor re-click closes
     closePalette();
-    // (#247: the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
+    // (the ⋯ pop-up holds the head's controls that did not fit, with no title; the Regions button's, the regions'
     // display alone. Both are lent and go back when the pop-up closes)
     const head = !!btn.closest('.pane-head'), home = $('regionsHome');
     const unit = $('unitBox'), rest = regionsOnly && !ft.merged ? [] : (head && ft.order ? ft.order : ft.kids).slice(ft.n);
@@ -557,7 +557,7 @@
     }
     // the strip sits at the bottom of the plot: open upward over the plot, below only when there is no room
     const r = btn.getBoundingClientRect(), pw = pop.offsetWidth, ph = pop.offsetHeight;
-    // (v16.5 UX20: from the pane head, the popover hangs under the head, its right edge on the head's: [#247] the Regions
+    // (from the pane head, the popover hangs under the head, its right edge on the head's: the Regions
     // button sits left of the toggles, and a popover under it would cover the middle of the plane the tour lights)
     const fromHead = !!btn.closest('.pane-head'), hr = fromHead ? btn.closest('.pane-head').getBoundingClientRect() : null;
     const x0 = fromHead ? Math.max(r.right, hr.right - 6) - pw : (btn.closest('.options') || btn).getBoundingClientRect().left; // above the strip, clear of the view stack
@@ -642,17 +642,17 @@
       for (const e of Funcs.sheetSteps(S.steps, built)) {
         if (e.k <= a || e.k > b) continue;
         const q = Funcs.stepSheets(built[e.k - 1])[e.node];
-        // (v16.1 verify-5: kb, the step's own branch, on which its window is centred (Funcs' stepTh: a root's k mod n,
+        // (kb, the step's own branch, on which its window is centred (Funcs' stepTh: a root's k mod n,
         // a log's or power's k; a formula's branch nodes 0), so the caption numbers the window as drawn)
         const bb = built[e.k - 1], v = bb && bb.def && bb.def.id !== 'custom' && bb.vals ? bb.vals : {}, kk = v.k | 0, rn = Math.max(2, v.n | 0);
         pieces.push({ n: e.n, of: q && q.of > 0 ? q.of : e.n > 0 ? e.n : Infinity, kb: bb && bb.def && bb.def.id === 'root' ? ((kk % rn) + rn) % rn : kk });
       }
     } catch (e) { return null; }
-    // (v16.1 review math-2: while deforming, which deformed pieces are roots and powers, which logs: the clause gives
+    // (while deforming, which deformed pieces are roots and powers, which logs: the clause gives
     // their paths on a sheet)
     let dk = null;
     if (hom) {
-      // (v16.1 verify-1: turn, the deformed pieces run in turn, each in its own time s: steps one after another, or the
+      // (turn, the deformed pieces run in turn, each in its own time s: steps one after another, or the
       // catalog steps of a recognised formula; else every piece deforms in the caption's own t)
       const R = morphRange();
       dk = { pow: false, log: false, turn: R.steps.length > 1 && !allAtOnce() };
@@ -668,20 +668,20 @@
     }
     return pieces.length ? { K: ms.K, D: ms.D || ms.K, total: ms.total, W: ms.W, pieces, hom, dk } : null;
   }
-  // the clause on what it draws, exact (the user, v16.1: "all sheets" is not true of infinitely many): a finite
+  // the clause on what it draws, exact (the user, "all sheets" is not true of infinitely many): a finite
   // covering says how many sheets (both, all 3), a window says which and of how many (the sheets k = -2, ..., 2 of
   // infinitely many), a capped one how many combinations (24 of the 30). fmt 'tex': {src, p, then} for $t or capT, with
   // p.k the window as TeX without dollars (the caller wraps it, and p.H, p.F while deforming), src null for the plural
   // string done (p.text), then: a second sentence {src, p} or null; 'html': the Landscape title's suffix (", both
   // sheets"). Finite counts are of distinct sheets (sh.D: √ then z⁴ draws 4 combinations that are 2 sheets).
-  // While deforming (sh.hom; v16.1 review math-1, math-2): H_t is drawn on F's K surfaces, one for each of F's sheets
+  // While deforming (sh.hom): H_t is drawn on F's K surfaces, one for each of F's sheets
   // (or combinations), every multivalued step on its sheet with its branch number kept along its path; H_t's own
   // sheets are not counted (z^s has infinitely many for 0 < t < 1, and several of them end on each sheet of z^α), so
   // the title says "on the sheets of F" and the caption names the path on a sheet of each deformed root, power or log.
   function sheetsClause(sh, fmt, F) {
     const win = sh.pieces.some((q) => !(q.n > 0)), html = fmt === 'html', D = sh.D || sh.K, capped = sh.total > sh.K;
     const nd = win ? D : sh.K;   // (the surfaces drawn: a window's coinciding combinations are one sheet)
-    // (v16.1 verify-5: the window as drawn, centred on the step's own branch kb when every window piece has the same)
+    // (the window as drawn, centred on the step's own branch kb when every window piece has the same)
     const kbs = [...new Set(sh.pieces.filter((q) => !(q.n > 0)).map((q) => q.kb || 0))], kb = kbs.length === 1 ? kbs[0] : 0;
     const k = html ? `<i>k</i> = ${I18N.num(kb - sh.W).replace('-', '−')}…${I18N.num(kb + sh.W).replace('-', '−')}` : `k=${kb - sh.W},\\dots,${kb + sh.W}`;
     const N = sh.pieces.reduce((x, q) => x * (Number.isFinite(q.of) ? q.of : Infinity), 1);
@@ -700,8 +700,8 @@
       const p = { H: 'H_t', F: F || 'F', n: nd };
       const dk = sh.dk || {};
       // the paths on a sheet (a second sentence): z^alpha along z^sigma e^{2 pi i k sigma}, log along (z^u e^{2 pi i k u} - 1)/u + u,
-      // in the caption's t when every piece deforms in it, else in the time s of the piece's own step (v16.1 verify-1:
-      // the steps in turn define step k's homotopy in its own s; sigma is the exponent, a letter not used elsewhere)
+      // in the caption's t when every piece deforms in it, else in the time s of the piece's own step
+      // (the steps in turn define step k's homotopy in its own s; sigma is the exponent, a letter not used elsewhere)
       const then = dk.turn
         ? (dk.pow && dk.log ? { src: ' Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, and each deformed logarithm along $(z^{u}e^{2\\pi iku}-1)/u+u$, $u=1-s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.', p: {} }
           : dk.pow ? { src: ' Each deformed root or power $z^{\\alpha}$ runs along $z^{\\sigma}e^{2\\pi ik\\sigma}$, $\\sigma=1+(\\alpha-1)s$, where $s$ ($0\\le s\\le 1$) is the time of the step it belongs to and $k$ is its branch number on that surface.', p: {} }
@@ -739,7 +739,7 @@
     else if (capped) lab.dataset.tip = $t('{K} of the {total} surfaces are drawn (at most {K}).', { K: ms.K, total: ms.total }); else delete lab.dataset.tip;
     return lab;
   }
-  // [v16.5 UX92] a region formula has no box (Region.bboxOf is null), so its note asked whether it is bounded: no point
+  // a region formula has no box (Region.bboxOf is null), so its note asked whether it is bounded: no point
   // of it on circles far out (radius 10³ and 10⁵ about 0, 4096 directions each), and it is taken as bounded (|z+1| < 1
   // is; a strip, a half-plane, the outside of a disc are not). A complement is unbounded
   function formulaBounded(s) {
@@ -749,7 +749,7 @@
     try { for (const R of [1e3, 1e5]) for (let i = 0; i < 4096; i++) { const a = (i + 0.5) * TAU / 4096; if (!(f(C(R * Math.cos(a), R * Math.sin(a))) < 0)) return false; } } catch (e) { return false; }
     return true;
   }
-  // [v16.5 UX67] the step editor's "Show all sheets": Landscape (3) with All sheets on
+  // the step editor's "Show all sheets": Landscape (3) with All sheets on
   function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); tourEmit('sheets-shown', {}); }
   function setSheets(on) {
     setOpt('sheets', !!on);
@@ -769,7 +769,7 @@
     f.className = 'options';
     const ft = foot[side];
     ft.kids = []; ft.widths = null; ft.n = -1;
-    // ([v17 D4] a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
+    // (a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
     const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
     const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
@@ -778,7 +778,7 @@
     } else if (rImage()) {
       if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }, ICONS.fov));
       // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
-      // as a value in Y (its one switch, merged-views review)
+      // as a value in Y (its one switch)
       if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }, '<span class="pcol-ic"></span>'); kl.dataset.tip = $t('Phase key') + ': ' + $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
     } else if (rGlobe()) {
       f.append(
@@ -802,7 +802,8 @@
     const desc = noPaths ? tip : '';
     if ((b.getAttribute('aria-description') || '') !== desc) b.setAttribute('aria-description', desc);
   }
-  const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
+  // (its name is also a text, which only the phone's Display sheet shows beside the icon)
+  const resetCamBtn = (c, d) => h('button', { class: 'icon-btn small cam-reset', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) }, h('span', { class: 'cr-t', 'aria-hidden': 'true' }, $t('Reset camera')));
   // the Equator checkbox's tooltip (P2: formerly "Plane")
   function tipEq(f) { const l = f.querySelector('label.check:has(> input[id^="eqChk"])'); if (l) l.dataset.tip = $t('Equatorial plane and projection ray'); }
   // X's strip (panels.md 4): the paint's part (Phase on: style, n, Δ, Outlines), then the surface's part (Sphere:
@@ -841,6 +842,8 @@
     syncOpacityRange(rng);
     return row;
   }
+  // why the Cauchy style and its parts are not offered while the colour plane is not z (the integral is drawn on z, where its curve lies)
+  function cauchyOffZWhy() { return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z'); }
   // the Height control's options: the kind of height of the map Fn ("Re F"); in the steps view, where what the height reads
   // changes with the plane and the colour plane (the title, the key and the ruler name it), the kind alone ("Re"), each
   // button named and titled in words that start with its visible label ("Re, real part"; the modulus, |·|, is symbols
@@ -871,18 +874,18 @@
     if (lPhase() || (SV.on && !lLand())) {
       const land = lLand();
       if (!land) f.append(styleSeg());
-      if (S.dc === 'cauchy' && lColor()) {
+      if (S.dc === 'cauchy' && (lColor() || SV.on)) {
         const cp = cauchyPlot(), Fh = fnHtml(), ck = cauchyKind(), kind = ck ? ck.kind : null;
         // (#235: with poles inside the curve, which halves show; the words say what the picture is)
-        // (the steps view offers the parts whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
+        // (the steps view offers the parts on every plane whenever the style is Cauchy: off for a curve without a pole inside, with the reason)
         const parts = kind === 'split' || SV.on ? seg('cauchySeg', S.cauchyShow, [['both', $t('Both'), $t('Both parts: f₊ inside the curve, f₋ outside it')], ['in', $t('Inside'), $t('Only f₊, inside the curve')], ['out', $t('Outside'), $t('Only f₋, outside the curve')]], (v) => { setOpt('cauchyShow', v); requestRender('L'); save(); }, $t('Cauchy integral: parts shown')) : null;
         const offZ = SV.on && svT() !== 0;
-        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
+        const partsWhy = kind === 'split' && !offZ ? '' : offZ ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.') : kind === 'numeric' ? $t('Computed numerically: there is no f₊ and f₋ to show apart') : kind === 'undefined' ? $t('F is not finite on the curve: its Cauchy integral is not defined') : $t('No pole inside the curve: F inside, 0 outside');
         if (parts) {
           if (partsWhy) for (const b of parts.querySelectorAll('button')) { b.disabled = true; b.dataset.tip = partsWhy; b.setAttribute('aria-description', partsWhy); }
           f.append(parts);
         }
-        const noteHtml = SV.on && svT() !== 0 ? $t('The Cauchy integral is drawn on z, where its curve lies: colour from z') : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
+        const noteHtml = SV.on && svT() !== 0 ? cauchyOffZWhy() : !cp ? $t('Select a closed curve or a bounded region: its Cauchy integral is shown.')
           : kind === 'split' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: <i>f</i>₊ inside, <i>f</i>₋ outside, {Fh} = <i>f</i>₊ + <i>f</i>₋', { Fh, name: cp.name })
           : kind === 'numeric' ? $t('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}, computed numerically: {Fh} has a singularity inside that is not a pole', { Fh, name: cp.name })
           : kind === 'undefined' ? $t('{Fh} is not finite on {name}: its Cauchy integral is not defined', { Fh, name: cp.name })
@@ -913,15 +916,15 @@
         ...(SV.on ? [opacityScrub('', true)] : []));
     }
   }
-  // The deformation plane has its own view (merged-views review: it shared Y's, so zooms leaked both ways): Y's split
+  // The deformation plane has its own view (it must not share Y's, or zooms would leak both ways): Y's split
   // view is put aside while the deformation shows and restored when it closes; the deformation's own view is kept
   // between openings for the same chain, focus and path, and fitted to X and its images the first time.
   const defMem = { y: null, d: null, dkey: '' };
   const defKey = () => JSON.stringify([chainSig[nSteps()], S.focus, !!S.homAll, S.shapes.filter((s) => s.visible !== false).length]) + rangeKey();
   // the deformation transport: open, it plays the homotopy from t = 0 in the current view; closed, t = end
-  // (o.still: opened paused at its end, F, for the step glide to start from; #246)
+  // (o.still: opened paused at its end, F, for the step glide to start from)
   function openTransport(o) {
-    // (#362 opened while ‹ › have Y on a step's plane: the deformation opens paused there, the inspectable version of it)
+    // (opened while ‹ › have Y on a step's plane: the deformation opens paused there, the inspectable version of it)
     const parked = trans.glide ? (glide.moving() ? glide.target : glide.x) : null;
     endPeek();
     const still = parked != null || !!(o && o.still === true);
@@ -938,7 +941,7 @@
     
     soundFunctionChanged(); sndRelayout();
     if (draft && draft.target) draft = null;
-    // (review v16 user-1: a draw or Construct tool still armed, as Construct leaves it after each construction, goes
+    // (a draw or Construct tool still armed, as Construct leaves it after each construction, goes
     // back to Select where the deformation's plane cannot be drawn on, so no chip stands over the plane uninvited)
     if (tool !== 'select' && solo() !== 'L') setTool('select');
     setHoverW(null); rHover = null;
@@ -995,7 +998,7 @@
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
   // sit in its pane head, not on the picture: the key as a short chip that unfolds under the head while hovered or
-  // after a click, the options behind the Display options button (wave 2's D4 turns it into a Display popover). A phone
+  // after a click, the options behind the Display options button. A phone
   // keeps both on the plane, where the key is a folded glyph and the options are in the Display sheet.
   const keyOnPlot = () => { const k = legendKind('L'); return k === 'color' || k === 'sphere'; };
   function placeKeys() {
@@ -1039,13 +1042,13 @@
     if (moved) drawLegend();   // (the chip's words, written when it is in the head)
   }
   // the key chip's words in the pane head: the grid's cell while the regions' grid lines are drawn, else their fill, the
-  // phase of z (Y, #363), or what X's colours show
+  // phase of z (Y), or what X's colours show
   function legendSum(kind) {
     if (kind === 'image') return S.lines ? $t('cell {x}', { x: I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')) }) : $t('Phase of z');
     return kind === '3d' ? $t('Height key') : $t('Colour key');
   }
   function drawLegend() {
-    // (#365: the view changed under a laptop: Phase's key goes to the plot, the others' back to the head)
+    // (the view changed under a laptop: Phase's key goes to the plot, the others' back to the head)
     const L = $('leftLegend'), pl = $('plotL');
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
     drawLegendSide('L'); drawLegendSide('R');
@@ -1098,7 +1101,7 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      // ([#356] its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
+      // (its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
       // own words already name it)
       const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
@@ -1118,7 +1121,7 @@
     if (side === 'L') {
       // the Key switch: X's colour key painted in the Y plane (the user's decision for item 1: not a view of Y)
       const ks = $('wKeyRow');
-      // (merged-views review: the key shows only in X → Y, so its switch is the "Phase key" check in Y's strip)
+      // (the key shows only in X → Y, so its switch is the "Phase key" check in Y's strip)
       const showKey = false;
       if (ks && ks.hidden === showKey) ks.hidden = !showKey;
       const kc = $('wKeyChk');
@@ -1179,7 +1182,7 @@
     ctx.textBaseline = 'middle';
     st.strip = false;
     if (kind === 'image') {
-      // the regions' key (#363): their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
+      // the regions' key: their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
       // markers present in the plane
       ctx.font = `600 11px ${TH.ui}`; ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       ctx.fillText($t('Regions'), 8, 13);
@@ -1187,7 +1190,7 @@
       let x = 8;
       const run = (t, font, color) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, 30); x += ctx.measureText(t).width; };
       // Russian: «клетка 0,125 в плоскости z» can be wider than the chip; then the run is narrowed to fit it, so
-      // the plane's name is never cut (review ui-3). English draws as before
+      // the plane's name is never cut. English draws unchanged
       const parts = S.lines
         ? [[$t('cell '), `11px ${TH.ui}`, TH.muted], [I18N.num(CX.fmtNum(patternCell(), 4).replace('-', '−')), `11px ${TH.mono}`, TH.ink], [$tx('legend', ' in '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]]
         : [[$t('phase of '), `11px ${TH.ui}`, TH.muted], ['z', `italic 500 12px ${TH.math}`, TH.muted]];
@@ -1201,7 +1204,7 @@
       ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
       if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; }
       // the merged deformation plane: what grey is (X, the start) and what the lines are (the paths t -> H_t(z)), in
-      // the rows the view outline uses in X → Y (merged-views review: the chip's lower half was blank)
+      // the rows the view outline uses in X → Y (the chip's lower half would be blank without them)
       if (morphOn()) {
         const run = (t, font, color, x, yy) => { ctx.font = font; ctx.fillStyle = color; ctx.fillText(t, x, yy); return x + ctx.measureText(t).width; };
         // (with a cut's row above, X and the paths share the last row: the paths' row is never dropped)
@@ -1287,7 +1290,7 @@
       });
       return;
     }
-    // the deformation paints H_t (merged-views review)
+    // the deformation paints H_t
     const homL = morphOn() && lPaintsF();
     // the Phase style has no modulus bands: no strip
     const Fl = homL ? 'Hₜ' : SV.on ? svKeyName() : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
@@ -1314,7 +1317,7 @@
       ctx.strokeStyle = TH.lineStrong; ctx.strokeRect(sx + 0.5, sy + 0.5, sw - 1, sh - 1);
       // words in the UI face, the factor in the mono face (spec 3)
       ctx.fillStyle = TH.muted; ctx.textAlign = 'left';
-      // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws as before
+      // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws unchanged
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
       if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
@@ -1325,15 +1328,15 @@
     if (SV.on && kind === 'color' && S.dc === 'cauchy') { caption($t('Cauchy integral')); return; }
     caption(kind === '3d' ? ({ abs: $t('height |{Fn}|', { Fn }), re: $t('height Re {Fn}', { Fn }), im: $t('height Im {Fn}', { Fn }) }[S.height] || $t('height log |{Fn}|', { Fn })) : keyCaption(false, Fn));
   }
-  // (#246) ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
+  // ‹ › on a phone's chain row: the deformation glides from the plane after one step to the next or the one
   // before (HomRange.glider: a press never waits for the last one, quick presses go faster, a press the other way turns
   // round with no jump); the frame loop moves T (frame(), 08). Closed, the deformation opens paused at its end, F, and
   // glides from there. Its range and order are the user's, as the transport's. A laptop key could call this too.
   function glideStep(d) {
-    // (#362 the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
+    // (the deformation closed and its range the whole chain: ‹ › glide in Y alone, no transport, no new layout)
     if (morph.open) endPeek();
     if (!morph.open && S.focus > 0 && morphRange().steps.length) { setFocus(0); toast($t('Show alone ended: ‹ › go through the whole chain.')); }
-    // (Y is a plane of X → Y here: in Phase, Landscape or with Y a sphere it isn't shown, so the deformation opens as before)
+    // (Y is a plane of X → Y here: in Phase, Landscape or with Y a sphere it isn't shown, so the deformation opens without it)
     const L = !morph.open && S.view.main === 'xy' && rImage() && peekSteps();
     if (L) {
       if (!trans.glide) { trans.glide = true; trans.k = 0; trans.at = -1; glide.set(L.length); }
@@ -1369,7 +1372,7 @@
     if (matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.T = glide.target; glide.set(morph.T); syncTransport(); scheduleFix(); }
     requestRender('R', 'L');
   }
-  // (#246) what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
+  // what the phone's chain row shows: the plane the deformation's T is at (the glide's target while it moves),
   // as the step whose plane it is: T = j is the plane after the range's j-th step, T = 0 its start (z, or a bracket's
   // start), all at once's end F. Closed, the deformation is at its end: F, the plane after the last step.
   function chainState() {
@@ -1404,7 +1407,7 @@
     requestRender('R');
   }
 
-  // (#385) the faces arriving late: the right title and the labels again
+  // the faces arriving late: the right title and the labels again
   function setupLateFonts() {
     // fonts may arrive late; redraw labels
     onFontsSettled(() => { fitRightTitle(true); requestRender('L', 'R'); });
