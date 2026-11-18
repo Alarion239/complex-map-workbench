@@ -1766,17 +1766,16 @@
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
   // digits), so a copy of it would be a chain of its own to compile: its principal sheet alone is carried.
-  // The window of an infinitely sheeted step: S.sheetW, as the Landscape's "sheets ±" choice (SV_SHEET_W_MIN to
-  // SV_SHEET_W_MAX, SV_SHEET_W_DEFAULT when unset), the same bounds as the GPU's sheet plan (sheetPlan)
+  // The window of an infinitely sheeted step: S.sheetW within its bounds (sheetWOf), as the Landscape's "sheets ±"
+  // choice and the GPU's sheet plan draw it
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
-  const SV_SHEET_W_MIN = 1, SV_SHEET_W_MAX = 4, SV_SHEET_W_DEFAULT = 2;
   // a step's cut in degrees: its own, else the default every multivalued step starts with (SV_CUT, the negative real
   // axis); SV_HALF_TURN: a seam's cut turned from it (svGlideSeams)
   const SV_CUT = 180, SV_HALF_TURN = 180;
   const svCut = (st) => (st.params.cut == null ? SV_CUT : +st.params.cut);
   let svSheetMemo = { key: '', list: [] };
   function svGlideSheets(b, from = 0) {
-    const W = Math.max(SV_SHEET_W_MIN, Math.min(SV_SHEET_W_MAX, Math.round(S.sheetW) || SV_SHEET_W_DEFAULT));
+    const W = sheetWOf(S.sheetW);
     const key = `${chainSig[nSteps()]}|${from}|${b}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
@@ -1934,7 +1933,11 @@
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
         // (sheets: the sheet combos drawn, svGlideSheets, the window of an infinitely sheeted step's, and each combo's
         // offsets, one per multivalued step up to b in chain order, the chain as it is first)
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null };
+        // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
+        // farthest opaque (svCarryLook at base 1))
+        const hl = drew ? svHomPaths(b, u).h : null, look = hl ? svCarryLook(1, hl.list[0], { b, u }, T) : null;
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h, sheets: sheets.length + 1, sheetW: sheets.length ? svSheetMemo.W : null, sheetKs: sheets.length ? [sheets[0].offs.map(() => 0), ...sheets.map((v) => v.offs)] : null,
+          ...(look && { alpha: look.alpha }) };
         if (drew) return;
       }
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
