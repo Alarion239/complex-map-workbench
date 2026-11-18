@@ -7,7 +7,9 @@ Each case writes a small baseline / results pair to a temporary directory and ch
 where it matters, its verdict per run or metric). The cases cover the review findings of phase P0:
   quality  a NEW run that crashed (ok false, no metrics) fails, also when the rest meets every target;
            a target rule that names a run without a value for the metric (missing or null) is NOT MET and fails with
-           --enforce-targets; a gated metric with a baseline value that became null fails; color_off is gated
+           --enforce-targets; a gated metric with a baseline value that became null fails; color_off is gated; a
+           gated metric the run's new classifier does not report is n/a with a warning (one it reports is gated, and
+           one gone under the same classifier or null under a new one fails)
   perf     a NEW check that is false fails; a NEW limit over its limit fails; a limit that expected a value (an
            inverse program was linked) and has none fails, NEW or not; a NEW limit with nothing to measure passes
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
@@ -123,6 +125,27 @@ class Quality(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         rc, out, v = self.gate(base, {'expH.mask': qrun('expH.mask', metrics=dict(GOOD))})
         self.assertEqual(rc, 0, out)
+
+    def test_metric_the_new_classifier_does_not_report_is_not_compared(self):
+        # the baseline scored expH.mask with the 'mask' classifier (opacity_min, color_off); the run now uses 'cover',
+        # which reports neither: those rows are n/a with the reason, and a warning names the change
+        def run(cls, metrics):
+            return dict(qrun('expH.mask', metrics=metrics), classifier=cls, strict=True)
+        cover = {k: v for k, v in GOOD.items() if k not in ('opacity_min', 'color_off')}
+        base = {'expH.mask': run('mask', dict(GOOD))}
+        rc, out, v = self.gate(base, {'expH.mask': run('cover', dict(cover))}, '--all')
+        self.assertEqual(rc, 0, out)
+        for k in ('opacity_min', 'color_off'):
+            self.assertRegex(out, rf"expH\.mask +{k} .*n/a \(not reported by the 'cover' classifier; the baseline's was 'mask'\)")
+        self.assertTrue(any("expH.mask: scored by the 'cover' classifier, the baseline by 'mask'" in w for w in v['warnings']), v['warnings'])
+        # the metrics both classifiers report are still gated
+        rc, out, v = self.gate(base, {'expH.mask': run('cover', dict(cover, iou=0.5))})
+        self.assertEqual(rc, 1, out)
+        # a metric that is gone under the same classifier, or null (nothing scored) under a new one, still fails
+        rc, out, v = self.gate({'expH.mask': run('cover', dict(GOOD))}, {'expH.mask': run('cover', dict(cover))})
+        self.assertEqual(rc, 1, out)
+        rc, out, v = self.gate(base, {'expH.mask': run('cover', dict(cover, color_off=None))})
+        self.assertEqual(rc, 1, out)
 
 
 def pm(value, kind, **kw):
