@@ -1,7 +1,9 @@
 // The steps view's 2D glide over a multivalued step draws every sheet, as the plane it arrives at does: the glide's
 // frames are the copies of plane z, one per sheet combo of the steps it crosses, each placed by the glide's map
 // continued on its combo and coloured on it. The Plane surface, Everywhere, the colour plane the last plane (so the
-// plane a glide arrives at is coloured by its own variable over the whole plane), no lines, paths or strokes:
+// plane a glide arrives at is coloured by its own variable over the whole plane), no lines, paths or strokes, and
+// the arrival plane's picture under a glide's carried colour left out (__cmwSteps({ restPaint: 0 }); that picture is
+// steps_glide_rest_paint_cmd.js's), so that a frame's paper is where no copy is drawn:
 // - square root alone (the inverse path) and z³ − 3z then square root (the mesh path: the cubic has no inverse plan),
 //   the glide onto the square root's plane at u = SHORT, 1/2 and 1 − SHORT, and at u = TINY and 1 − TINY:
 //   - no frame leaves paper where the copies' images cover the plane: its paper share is at most PAPER_MAX (one sheet
@@ -55,7 +57,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   const r = info[name] = {};
   await loadView('steps', 'glidesheets' + Date.now(), { shapes: [], steps, srcView: { cx: 0, cy: 0, s: 90 } });
   await settled({ max: 30000, until: READY });
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true, restPaint: 0 }); 1`);
   await settled({ max: 60000 });
   const b = steps.length, a = b - 1;
   // the planes at the glide's ends, parked
@@ -91,7 +93,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   const r = info.log = {};
   await loadView('steps', 'glidesheetslog' + Date.now(), { shapes: [], steps: [step('log', { cut: 180 })], srcView: { cx: 0, cy: 0, s: LOG_SCALE } });
   await settled({ max: 30000, until: READY });
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true, restPaint: 0 }); 1`);
   await settled({ max: 60000 });
   const f = r.arrival = await at(1 - SHORT, 'log');
   const ks = (f.glide.sheetKs || []).map((o) => o[0]).sort((x, y) => x - y);
@@ -106,7 +108,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   await loadView('steps', ns, { shapes: [{ id: 'a1', kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2, ci: 0, visible: true }], steps: [ROOT], srcView: { cx: 0, cy: 0, s: 90 } });
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await settled({ max: 30000, until: READY });
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true, bare: true }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true, bare: true, restPaint: 0 }); 1`);
   await settled({ max: 60000 });
   for (const k of [0, 1]) {
     await ev(`__cmwSteps({ go: ${k}, now: true }); 1`);
