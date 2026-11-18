@@ -107,8 +107,9 @@
     if (!inFrame) pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return pending;
   }
-  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s
-  function stagePreList(j) {
+  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s; drawn into the regions' mask (inside
+  // withSolidRegions) their fills are opaque, as stagePullbacks'; over: the steps view's layer over the colour (layerFills)
+  function stagePreList(j, over = false) {
     const by = new Map();
     for (const s of S.shapes) {
       const st = shapeStage(s);
@@ -116,7 +117,7 @@
       if (!by.has(st)) by.set(st, []);
       by.get(st).push(s);
     }
-    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: pullTargets(list), halo: GLR.hexRGB(TH.halo) }));
+    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: over ? layerFills(pullTargets(list)) : pullTargets(list, regionsAsMask()), halo: GLR.hexRGB(TH.halo) }));
   }
   // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
   function strokeTargets(pane) {

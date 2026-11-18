@@ -15,6 +15,10 @@
 //   the strokes: Everywhere draws a fill in it over the colour), so the fit compares colour with colour; and Inside regions
 //   read with that layer shown is the same at the points of the pulled-back discs (median channel sum within FILL_D: the
 //   layer is the region's boundary band alone there).
+// - on the globe (surf 'sphere'), at rest on plane 0, light theme: at the points of each disc that face the camera, the
+//   Inside regions pixel is the Everywhere one (median channel sum apart at most GLOBE_D, read with the layer left out):
+//   the globe's mask holds the pulled-back regions too, so its colour is kept inside them (#1894: the regions' globe
+//   alone showed there, plain); and with the layer shown, Inside regions is the same there (the band alone, FILL_D).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -91,6 +95,22 @@ const measure = async (tag, shifts) => {
   return out;
 };
 
+// the centre pixel of canvasL at each plane point [x, y] lifted onto the left globe (__cmwGlobeXY: the pane's px, null on
+// the globe's far side): [r, g, b, a], or null
+const gpx = (pts) => ev(`(() => {
+  const c = document.getElementById('canvasL'), d = __cmwCards().main.dpr, W = c.width, H = c.height, img = c.getContext('2d').getImageData(0, 0, W, H).data;
+  return ${JSON.stringify(pts)}.map(([x, y]) => {
+    const q = __cmwGlobeXY('L', x, y);
+    if (!q) return null;
+    const i = Math.floor(q[0] * d), j = Math.floor(q[1] * d);
+    if (i < 0 || j < 0 || i >= W || j >= H) return null;
+    const n = 4 * (j * W + i);
+    return [img[n], img[n + 1], img[n + 2], img[n + 3]];
+  });
+})()`);
+// (GLOBE_CAMS: the cameras, in degrees, and the discs (by index) each reads)
+const GLOBE_D = 6, GLOBE_CAMS = [{ yaw: -60, pitch: -24, discs: [1, 2] }, { yaw: 120, pitch: -24, discs: [0] }];
+const sum3 = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]);
 for (const theme of ['light', 'dark']) {
   await load(`svpbm${theme}${Date.now()}`, ST);
   await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
@@ -105,5 +125,36 @@ for (const theme of ['light', 'dark']) {
   ok(`${theme}: the frame at u = 0.5 is the inverse pass's`, g.path === 'inverse', g);
   // (the region of plane 1 is the plane the glide reaches, and blends its own look in by u: its row is the rest frame's)
   info[`${theme} u=0.5`] = await measure(`${theme}, the glide 0 -> 1 at u = 0.5`, SHIFT.map((s) => s - 0.25));
+}
+// ---- the globe (#1894) ----
+{
+  await load(`svpbmglobe${Date.now()}`, ST);
+  await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
+  await ev(`document.documentElement.setAttribute('data-theme', 'light'), __cmwSet('morphPaths', false), __cmwSteps({ T: 0, surf: 'sphere', go: 0, now: true }), 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0' });
+  const sets = DISCS.map((d, k) => inside(d, SHIFT[k]));
+  // (each disc read with a camera it faces, GLOBE_CAMS: plane 0's points of modulus near 1 lie about the globe's equator)
+  const A = [], I = [], L = [];
+  for (const cam of GLOBE_CAMS) {
+    await ev(`__cmwCam('L', { yaw: ${cam.yaw} * Math.PI / 180, pitch: ${cam.pitch} * Math.PI / 180 }), 1`);
+    const read = async (scope, hide) => {
+      await ev(`__cmwHideStrokes(${hide}), __cmwSteps({ scope: '${scope}' }), 1`);
+      await settled({ max: 60000, until: 'GLR.pendingLinks === 0' });
+      return Promise.all(cam.discs.map((k) => gpx(sets[k])));
+    };
+    const a = await read('all', true), i = await read('in', true), l = await read('in', false);
+    cam.discs.forEach((k, n) => { A[k] = a[n]; I[k] = i[n]; L[k] = l[n]; });
+  }
+  await ev('__cmwHideStrokes(false), 1');
+  const out = info.globe = { surf: await ev('__cmwSteps().surf || null') };
+  DISCS.forEach((d, k) => {
+    const dI = A[k].map((p, i) => (p && I[k][i] ? sum3(p, I[k][i]) : null)).filter((v) => v != null);
+    const dL = L[k].map((p, i) => (p && I[k][i] ? sum3(p, I[k][i]) : null)).filter((v) => v != null);
+    const r = out[d.id] = { n: dI.length, apart: median(dI), layer: median(dL) };
+    const what = d.stage ? `the region of plane ${d.stage}, pulled back` : 'the region of plane 0 (the control)';
+    ok(`the globe: ${what} reads at ${MIN_N} or more points facing the camera`, r.n >= MIN_N, r);
+    ok(`the globe: inside ${what}, Inside regions shows Everywhere's colour (median channel sum apart <= ${GLOBE_D})`, r.apart <= GLOBE_D, r);
+    if (d.stage) ok(`the globe: inside ${what}, Inside regions' layer adds no fill over the colour (median difference with the layer shown <= ${FILL_D})`, dL.length >= MIN_N && r.layer <= FILL_D, r);
+  });
 }
 return { pass: fails.length === 0, fails, info };
