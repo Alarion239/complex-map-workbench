@@ -1940,8 +1940,9 @@
     const h = svHomPaths(g.b, g.u).h;
     return h ? { g, h } : null;
   }
-  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level)
-  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve']);
+  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level; a freehand
+  // curve, a formula curve, an external ray and an equipotential by their polylines at rest, invTrace)
+  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve', 'cgrid', 'pgrid', 'fcurve', 'dhray', 'dheq']);
   // the curves of later planes of the frame between two planes, with their inverse path, the whole plane's (a shape of
   // a later plane is tested on its own plane, svInvPaths): {list, paths}, or null when there is none or the pass cannot
   // draw them
