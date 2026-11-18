@@ -7,6 +7,7 @@ global.Region = require('../src/region.js');
 const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
 const { InvOps } = require('../src/invops.js');
+const { cpuPerCall } = require('./lib/cpu_time');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
 const QUICK = process.argv.includes('--quick');
@@ -675,9 +676,8 @@ section('(f) singular points');
     ['tan∘exp', [{ type: 'exp' }, { type: 'tan' }], WIN0], ['tan(tan z)', [{ type: 'tan' }, { type: 'tan' }], WIN0]]) {
     const { plan } = planOf(steps);
     Inverse.singular(plan, win);
-    const t0 = process.hrtime.bigint(), N = 20;
-    let l; for (let i = 0; i < N; i++) l = Inverse.singular(plan, win, ['undef', 'branch', 'pole'], 16);
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6 / N;
+    // (CPU time, test/lib/cpu_time.js: a busy machine does not count in it)
+    let l; const ms = cpuPerCall(() => { l = Inverse.singular(plan, win, ['undef', 'branch', 'pole'], 16); }, 20);
     const per = {}; for (const e of l) per[e.kind] = (per[e.kind] || 0) + 1;
     console.log(`singular ${name.padEnd(18)} ${ms.toFixed(3)} ms per call, ${JSON.stringify(per)}`);
     check(`singular ${name}: <= 16 per kind, < 2 ms`, Object.values(per).every((x) => x <= 16) && ms < 2, `${ms} ms ${JSON.stringify(per)}`);
@@ -1054,8 +1054,10 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
     }
   }
-  // root, powa and log: exact ops (no Newton), and every z of a cut plane's sheet is among its w's preimages by them
-  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }]];
+  // root, powa, log and z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|): exact ops (no
+  // Newton), and every z of a cut plane's sheet is among its w's preimages by them
+  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }],
+    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }]];
   for (const [type, params] of exact) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {

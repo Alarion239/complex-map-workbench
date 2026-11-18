@@ -43,7 +43,7 @@ await settled({ until: '!__cmwSteps().moving', max: 15000 });
 await key('e', 4);
 ok('the dialog opens on the Landscape', await built());
 const tb = await ev(`(() => { const b = document.querySelector('#xfSvPic [data-v="two"]'); return { dis: b.getAttribute('aria-disabled'), tip: b.dataset.tip, desc: b.getAttribute('aria-description'), clicked: (b.click(), b.getAttribute('aria-checked')) }; })()`);
-ok('Two planes is aria-disabled with its reason, and a click does not choose it', tb.dis === 'true' && tb.tip === 'Two planes is for the flat surfaces' && tb.desc === tb.tip && tb.clicked === 'false', tb);
+ok('Two planes is aria-disabled with its reason, and a click does not choose it', tb.dis === 'true' && tb.tip === 'Two planes is for the Plane and Sphere surfaces' && tb.desc === tb.tip && tb.clicked === 'false', tb);
 
 // a phone: the selects are full-width rows, 44 px high
 await ready(390, 844, true, 'c');

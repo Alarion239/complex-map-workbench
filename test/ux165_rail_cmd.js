@@ -493,7 +493,7 @@ await section('G', async () => {
 await section('I', async () => {
   await view(1366, 768, false, false);
   await load(NS + 'iru', U0());
-  await nav(`${U}?ns=${NS}iru&lang=ru`); await settle(1500);
+  await nav(`${U}?ns=${NS}iru&lang=ru`);
   await tool('point');
   const s = await scale();
   const p = await A(37, 1 + 3 / s);

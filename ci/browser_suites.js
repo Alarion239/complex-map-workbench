@@ -64,9 +64,12 @@ const SUITES = {
   'curves_target_areas_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'sphere_light_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   'cauchy_residue_cmd.js': { runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
-  // (keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
+  // (the seams at the device pixel ratio 1 and at the Mac screen's 2, the kit's CMW_DPR: the teeth along a seam, a staircase in the
+  // fill's edge, show at the ratio 2 on software GL when the fill reads its source point off the pixel centre.
+  // keepShots: the settled seam frame and the worst frame of the 2 s window; logLine: each teeth reading with its rows, so a
   // job log shows where along the seam the jumps stand)
   'steps_seams_cmd.js': {
+    runs: [{ label: 'dpr1' }, { label: 'dpr2', env: { CMW_DPR: '2' } }],
     keepShots: true,
     logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
   },
@@ -80,8 +83,10 @@ const SUITES = {
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
-  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5', 'user5-deform-steps'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
   'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (the one carry-vs-exact suite, its parts in the shards they balance: views-1 and formulas)
+  'steps_carry_exact_cmd.js': { runs: ['glide', 'inregion', 'far', 'chains', 'planes'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
 
   // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
@@ -99,6 +104,7 @@ const SUITES = {
   // (one language a run; its pages: the test page without MathJax and with the vendored one)
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
+  'newt_member0_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
   'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
@@ -123,9 +129,14 @@ const SUITES = {
 const t = (re, measured) => ({ re, measured });
 // (tour_auto: the step advanced, i.e. a time is measured: its detail is that time, or an array that starts with it)
 const advanced = (d) => typeof (Array.isArray(d) ? d[0] : d) === 'number';
+// (tour_auto's Grieg check: its detail is [durMs, caps, lts], caps the [ms, text] of each caption shown: the piece had a
+// duration and every caption the check reads came, so a failure is a caption's time alone)
+const GRIEG_CAPTIONS = [/^Each note is/, /^Each step is/, /^The crack is/, /^The second lap/];
+const griegCaptionsAll = (d) => Array.isArray(d) && d[0] > 0 && Array.isArray(d[1]) && GRIEG_CAPTIONS.every((re) => d[1].some((c) => re.test(c[1])));
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
   'series_edit_cmd.js': [t(/^timing: /)],
+  'link_standin_cmd.js': [t(/^timing: /)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
@@ -139,15 +150,18 @@ const TIMING = {
     t(/^dark theme: a video and a figure flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^preview: it advances at the video's frame rate/, (d) => d && typeof d.rate === 'number'), t(/^preview: no main-thread task/)],
   'deform_dirichlet_cmd.js': [t(/^timing: /)],
+  'steps_glide_negpow_cmd.js': [t(/^timing: /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
   'tour_auto_cmd.js': [t(/^(?!Patterns:).*(3 s after|3000 ± \d+ ms|700 ± 100 ms|\+3 s$)/, advanced), t(/^Patterns: moves on 3 s after/, (d) => advanced(d) && d[1] === 'edit/cards'),
-    t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, (d) => Array.isArray(d) && [/^The cut/, /^Each turn is/, /^The ending/].every((re) => d.some((c) => re.test(c[1]))))],
+    t(/ticked? within 300 ms/, (d) => typeof d === 'number'), t(/^Grieg: captions change at/, griegCaptionsAll)],
   'morphfig_classic_cmd.js': [t(/the re-choice makes no long task/)],
   'split_cmd.js': [t(/^typing into the palette: the slowest input handler/), t(/^shared: sweep frames p95/)],
   'split_deform_cmd.js': [t(/^12 sines, the deformation playing: p95/)],
   'p3_accept_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
+    t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
+  'p3_accept_steps_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   // (the export completed with both globes inverse; only its long tasks missed)
   'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
@@ -238,6 +252,8 @@ const PAGES = {
   },
   'test-mj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '<script>window.MathJax.loader = { paths: { \'mathjax-stix2\': \'mj/mathjax-stix2\' } };</script>\n<script async src="mj/tex-svg-nofont.js"></script>')),
   'test-nomj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '')),
+  // (the inverse renderer's GPU-against-CPU page)
+  'glsl-inverse-test.html': () => { if (require('child_process').spawnSync('python3', ['test/make_glsl_inverse_test.py'], { cwd: path.join(__dirname, '..') }).status !== 0) throw new Error('glsl-inverse-test.html'); },
   // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)
