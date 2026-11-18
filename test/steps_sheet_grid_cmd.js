@@ -228,6 +228,11 @@ ok('on the Landscape surface the Height group holds the Height choice, the Scale
 ok('on the Landscape surface the Colouring choice is under Colour style', !!styleIds && styleIds.includes('landPaint'), styleIds);
 const overlays = await ev(idsIn('Overlays'));
 ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !!overlays && !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
+// The Style row is in Colour style, and the Landscape's Colouring is named by that group's heading
+const styleRow = await ev(`(() => { const r = document.querySelector('.ph-sheet .ph-style'), g = r && r.closest('.ph-grp'), lp = document.getElementById('landPaint'), lab = lp && lp.getAttribute('aria-labelledby'), head = lab && document.getElementById(lab);
+  return { shown: !!r && r.getClientRects().length > 0, group: g && g.querySelector('h3') && g.querySelector('h3').textContent, labelledBy: head ? head.textContent : null }; })()`);
+ok('on the Landscape surface the Style row is in the Colour style group', styleRow.shown && styleRow.group === 'Colour style', styleRow);
+ok('on the Landscape surface the Colouring choice is named by the Colour style heading', styleRow.labelledBy === 'Colour style', styleRow);
 // (#1640) Reset camera is a camera control, not an overlay: on the Landscape it follows View in the Height group, on the Sphere it
 // has a group of its own, View; either way its name is shown beside the icon (read as the user sees it: innerText and the word's
 // computed display and width, not textContent, which holds the word while it is display: none)
