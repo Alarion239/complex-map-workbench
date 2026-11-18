@@ -1755,13 +1755,12 @@
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
   // digits), so a copy of it would be a chain of its own to compile: its principal sheet alone is carried.
-  // The window of an infinitely sheeted step: S.sheetW, as the Landscape's "sheets ±" choice (SV_SHEET_W_MIN to
-  // SV_SHEET_W_MAX, SV_SHEET_W_DEFAULT when unset), the same bounds as the GPU's sheet plan (sheetPlan)
+  // The window of an infinitely sheeted step: S.sheetW within its bounds (sheetWOf), as the Landscape's "sheets ±"
+  // choice and the GPU's sheet plan draw it
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
-  const SV_SHEET_W_MIN = 1, SV_SHEET_W_MAX = 4, SV_SHEET_W_DEFAULT = 2;
   let svSheetMemo = { key: '', list: [] };
   function svGlideSheets(b) {
-    const W = Math.max(SV_SHEET_W_MIN, Math.min(SV_SHEET_W_MAX, Math.round(S.sheetW) || SV_SHEET_W_DEFAULT));
+    const W = sheetWOf(S.sheetW);
     const key = `${chainSig[nSteps()]}|${b}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
