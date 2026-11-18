@@ -103,8 +103,8 @@ This file says what was built, how it was checked, and what is left.
   - Homework names points A, B, C… in both the figure and the caption.
   - Phase and Landscape of the deformation name H_t, its t and its homotopy.
 - **Formats**:
-  - `figurePDF`: jsPDF + svg2pdf, with glyph `<use>`s inlined. It has no fonts, no SMask and no alpha, and the
-    MediaBox is the layout width.
+  - `figurePDF`: jsPDF + svg2pdf, with glyph `<use>`s inlined. Its one font is the invisible text layer's, embedded; it has no SMask
+    and no alpha, and the MediaBox is the layout width.
   - PNG: 300 or 600 dpi, opaque, with pHYs.
   - SVG: in pt.
   - LaTeX snippet:
