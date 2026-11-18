@@ -20,7 +20,7 @@ await open(ns, { shapes: SH, steps: [{ type: 'mobius', params: { a: '-1', b: '-1
 await settled({ until: "!!document.querySelector('#propsPanel .insp-step[data-k=\"1\"] .isub')", max: 8000 });
 out.v3 = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] .isub'); return e ? { text: e.textContent, html: e.innerHTML } : null; })()`);
 await shot(`pr-${P.tag}-v3`, { x: 1140, y: 40, width: 300, height: 360 });
-await nav(`${base}?ns=${ns}&lang=ru`); await settle(1500);
+await nav(`${base}?ns=${ns}&lang=ru`);
 out.v3ru = await ev(`(() => { const e = document.querySelector('#propsPanel .insp-step[data-k="1"] .isub'); return e ? e.textContent : null; })()`);
 await shot(`pr-${P.tag}-v3ru`, { x: 1140, y: 40, width: 300, height: 360 });
 // verify-7: a number a; its value field gets the Cyrillic «с» (no c exists), then «а» (a: itself), then 2*«с» with c existing
