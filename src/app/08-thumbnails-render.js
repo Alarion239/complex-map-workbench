@@ -57,14 +57,14 @@
     if (warmS.visible || st.total > st.done || st.unknown) warmBarT = setTimeout(warmUpdate, 150);
   }
   function warmKick() { if (!warmBarT) warmBarT = setTimeout(warmUpdate, 0); }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // test hook: the counts, the phase, whether the bar shows and how far it is
   /** @type {any} */ (window).__cmwWarm = () => {
     if (!GLR.ok || !GLR.warmStatus) return { done: 0, total: 0, pending: 0, visible: false, phase: 'none', frac: 0 };
     const st = warmCounts();
     return { done: st.done, total: st.total, pending: st.pending, visible: !!(warmS && warmS.visible), phase: st.phase, frac: warmS ? warmS.frac : 0, indet: !!(warmS && warmS.indet), groups: st.groups };
   };
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // cameras: 28° telephoto. dist is the fit distance for the bounding sphere at the pane's aspect; render3D and
   // renderSphere refit it every frame (refitCam), so zoom limits (0.4–4 × dist) and resets stay relative to the fit.
   const CAM3 = { yaw: -38 * DEG, pitch: 30 * DEG, dist: 1.77 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: -0.04, fov: 28 * DEG };
