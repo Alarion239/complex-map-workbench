@@ -375,8 +375,9 @@ adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and repor
 let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
 item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it adds
 (`asserts`; assertions moved into a test file the diff creates, a split, are not counted as dropped). The words `was`, `now` and
-`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines, and never fails the job; with
-`--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
+`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines; with
+`--block`, as the Plan job runs it, it exits 1 when it finds anything, so a finding fails the Gate. A version inside a path or a file name
+(`notes/constructions-v16/`) is a name, not a label. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
@@ -449,7 +450,7 @@ node ci/perf_shards.js matrix                      # the shards; check: every pe
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
-node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (report only)
+node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (add --block to fail on a finding, as the Gate does)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here

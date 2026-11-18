@@ -1,5 +1,6 @@
-// Unit checks of ci/standards.js, the report-only standards check on a change's added lines (ci/README.md, Standards
-// check): history words, plan labels, dropped assertions, the opt-out marker, scope, and a clean change.
+// Unit checks of ci/standards.js, the standards check on a change's added lines (ci/README.md, Standards
+// check): history words, plan labels, dropped assertions, the opt-out marker, scope, a clean change, the command line's
+// exit with and without --block, and the Gate's step passing --block.
 //   node test/t_standards.js
 const { commentOf, assertionsOf, parseDiff, check } = require('../ci/standards.js');
 let n = 0, fails = 0;
@@ -80,6 +81,38 @@ ok('scope: json and markdown carry no comments', rules('tools/it_table.json', ['
 ok('clean: a typical change has no findings', check(diff('src/app/x.js', ['// clamps r to [0, 1]; the unit disc', 'const r = Math.min(1, r0);'])).length === 0 && check(diff('test/t_x.js', ['ok("a", 1);', 'ok("b", 2);'], ['ok("a", 1);'])).length === 0);
 // line numbers
 ok('findings carry the line of the added line', check(parseDiff(['diff --git a/src/x.js b/src/x.js', '--- a/src/x.js', '+++ b/src/x.js', '@@ -5,0 +7,2 @@', '+const a = 1;', '+// now it caches the table'].join('\n')))[0].line === 8);
+
+// a version in a path or a file name is a name, not a label (a comment that cites notes/constructions-v16/SPEC.md); the
+// label itself is still found
+ok('history: a version in a path is no label', rules('src/app/x.js', ['// the model (notes/constructions-v16/SPEC.md 20.2)', '// the snapshot in notes/v16.2-candidate/src', '// see SPEC-v17.md']).length === 0);
+ok('history: a version label alone is still found', rules('src/app/x.js', ['// as in v16.5', '// (v16)', '// since v17.0-beta.3']).length === 3);
+
+// the command line: findings exit 1 only with --block (a scratch git repository holding ci/standards.js and ci/lib.js,
+// a commit, then an added test-file comment with a history word); a clean diff exits 0 with --block too
+{
+  const fs = require('fs'), os = require('os'), path = require('path'), { spawnSync } = require('child_process');
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-std-'));
+  const run = (cmd, args) => spawnSync(cmd, args, { cwd: dir, encoding: 'utf8', env: Object.assign({}, process.env, { GITHUB_ACTIONS: '', GITHUB_STEP_SUMMARY: '' }) });
+  try {
+    fs.mkdirSync(path.join(dir, 'ci')); fs.mkdirSync(path.join(dir, 'test'));
+    for (const f of ['standards.js', 'lib.js']) fs.copyFileSync(path.join(__dirname, '..', 'ci', f), path.join(dir, 'ci', f));
+    fs.writeFileSync(path.join(dir, 'test', 't_x.js'), 'ok(1);\n');
+    for (const a of [['init', '-q'], ['add', '.'], ['-c', 'user.name=t', '-c', 'user.email=t@t', 'commit', '-q', '-m', 'base']]) run('git', a);
+    const cli = (...a) => run(process.execPath, ['ci/standards.js', '--ref', 'HEAD', ...a]).status;
+    const clean = [cli(), cli('--block')];
+    fs.writeFileSync(path.join(dir, 'test', 't_x.js'), 'ok(1);\n// the table was removed\n');
+    const found = [cli(), cli('--block')];
+    ok('the command line: a clean diff exits 0, with --block too', clean[0] === 0 && clean[1] === 0, clean);
+    ok('the command line: a finding exits 0 without --block, 1 with it', found[0] === 0 && found[1] === 1, found);
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+}
+
+// the Gate's Plan job runs the check blocking (.github/workflows/gate.yml: its standards step passes --block)
+{
+  const yml = require('fs').readFileSync(require('path').join(__dirname, '..', '.github', 'workflows', 'gate.yml'), 'utf8');
+  const step = yml.split('\n').filter((l) => /node ci\/standards\.js/.test(l));
+  ok('the Gate: its one standards step passes --block', step.length === 1 && /--block\b/.test(step[0]), step);
+}
 
 console.log(`${n - fails}/${n} passed`);
 process.exit(fails ? 1 : 0);
