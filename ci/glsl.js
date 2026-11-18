@@ -20,9 +20,10 @@
 // TEXT (?filter=; to time a few chains' shaders on one platform). Exit 0 pass, 1 a failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
-const { launch, sleep, CHROME_FLAGS } = require('../test/regress/perf/cdp');
+const { launch, sleep } = require('../test/regress/perf/cdp');
 const { parts: srcParts } = require('../test/src_text');
 
 const PAGES = [
@@ -207,17 +208,19 @@ async function main() {
   const R = ref ? buildReference(ref) : null;
   legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
   if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
-  // (#1809) on SwiftShader, a reference without GLSLTiers.SWIFTSHADER_HANG runs the chains SwiftShader does not finish:
-  // its glsl page does not end (or loses the GPU process), so the glsl page is not compared against it
-  const unpaired = [];
-  if (R && CHROME_FLAGS.includes('--use-angle=swiftshader') && pages.some((p) => p.id === 'glsl')
-    && (legacy || !fs.readFileSync(path.join(R.dir, 'test', 'glsl_tiers.js'), 'utf8').includes('SWIFTSHADER_HANG'))) {
-    unpaired.push(`\`glsl-test.html\`: not compared on SwiftShader: the reference \`${R.sha.slice(0, 12)}\` has no \`GLSLTiers.SWIFTSHADER_HANG\`, so its glsl page runs the chains SwiftShader does not finish (#1809)`);
-    console.log(unpaired[0].replace(/`/g, ''));
-    pages = pages.filter((p) => p.id !== 'glsl');
-    if (!pages.length) { summary(`### GLSL conformance (${process.platform}): nothing to compare\n\n${unpaired[0]}.\n`); return 0; }
+  // (#1809) a reference whose test/glsl_tiers.js has no SWIFTSHADER_HANG would run on SwiftShader the chains whose
+  // programs do not finish there: its pages are built with this change's test/glsl_tiers.js, which leaves them out as
+  // this side does (elsewhere it leaves nothing out), so both sides run the same chains; the reference's file is put
+  // back after the build
+  const notes = [];
+  const refTiers = R && !legacy ? path.join(R.dir, 'test', 'glsl_tiers.js') : null;
+  const overlay = !!refTiers && !fs.readFileSync(refTiers, 'utf8').includes('SWIFTSHADER_HANG');
+  if (overlay) {
+    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own has no \`SWIFTSHADER_HANG\`, #1809): both sides run the same chains.`);
+    console.log(notes[0].replace(/`/g, ''));
+    fs.copyFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), refTiers);
   }
-  if (R) buildPages(R.dir, pages);
+  try { if (R) buildPages(R.dir, pages); } finally { if (overlay) execFileSync('git', ['checkout', '--', 'test/glsl_tiers.js'], { cwd: R.dir }); }
   const srv = await serve(path.join(ROOT, 'dist'));
   const rsrv = R ? await serve(path.join(R.dir, 'dist')) : null;
   const rows = [], details = [];
@@ -241,7 +244,7 @@ async function main() {
     }
   } finally { srv.server.close(); if (rsrv) rsrv.server.close(); }
   summary([`### GLSL conformance (${process.platform}${renderer ? `: ${esc(renderer)}` : ''}${R ? `; against \`${R.sha.slice(0, 12)}\`` : ''}): ${failed ? '❌' : '✅'}`, '',
-    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...unpaired.map((u) => `${u}.`), ...details, ''].join('\n'));
+    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...notes, ...details, ''].join('\n'));
   return failed ? 1 : 0;
 }
 // (ci/impact.js reads the pages and their inputs)

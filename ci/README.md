@@ -127,10 +127,10 @@ Each platform's job is there for its own shader compiler:
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
   loops.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
-- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; #1775): CPU WebGL2. Headless Chrome falls back to it without
-  a usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` have only Vulkan's minimum accuracy,
-  so the library has its own there (`GLChain.useRenderer`, #1739), and it has its own corner cases (`atan(−0, x)`,
-  #1709). The Linux browser jobs render with lavapipe instead, which is not SwiftShader.
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`): CPU WebGL2. Headless Chrome falls back to it without a
+  usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
+  (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
+  instead, which is not SwiftShader.
 
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
 hours there; macOS takes minutes; SwiftShader compiles a program on one core of the GPU process, so its core tier of
@@ -152,14 +152,19 @@ The Gate (`gate.yml`, GitHub's machines):
 | a pull request with the label `glsl-deep` | all | all | core |
 
 On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 20 minutes
-of machine time together. Three random d/dz chains of the `glsl` page do not finish on SwiftShader (minutes of one
-core, then the GPU process is lost and every later chain errors; #1809): `GLSLTiers.SWIFTSHADER_HANG` lists them, and
-the page does not run them when its renderer is SwiftShader. The job summary names them ("not run on SwiftShader");
-Windows and macOS run them. Against a reference without that set (one from before #1775), the Linux jobs do not
-compare the `glsl` page, and the summary says why. On lavapipe (Mesa's llvmpipe, a Linux machine's software renderer
-when it has no GPU) `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it (#1815), which
-made every later chain of a long run error; `GLSLTiers.LAVAPIPE_CRASH` lists it and the page does not run it there (#1835 lifts it).
-Both sets are in `GLSLTiers.NOT_ON`, and the page's line in the summary gives each chain skipped with its reason.
+of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
+finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
+the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
+macOS run them. It is empty. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
+sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
+(`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
+pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
+compared on Linux too.
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
+no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
+error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
@@ -290,7 +295,8 @@ artifact.
   so a job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
   there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
   image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
-  `ubuntu-latest` (Quality's Linux row and the Linux GLSL jobs draw with SwiftShader, and pair both sides on one machine).
+  `ubuntu-latest` (Quality's Linux row and the Linux GLSL jobs draw with SwiftShader, and pair both sides on one
+  machine).
 - **llvmpipe emits AVX code only** (`GALLIUM_OVERRIDE_CPU_CAPS: avx` in the browser job's env, #1507): LLVM 21, in Mesa
   26.0.8's lavapipe, miscompiles sin∘√'s glide through sin's step (mode 1, the root in full, then sin's path) on
   GitHub's AMD Zen 4/5 machines (EPYC 9V74, 9V45): NaN at every point, while their Zen 3 (EPYC 7763) and Intel
@@ -492,8 +498,8 @@ checks that pass in CI (30 Oct, f4e601a).
 `test/landscape_walls_cmd.js` stays in `EXCLUDED` (`ci/browser_suites.js`): its speckle, cold-open and perf parts need
 `r1/` and `base/` builds (the base is v16.3.1, `ci/reference.js` builds it) and a GPU, and the whole suite takes about
 25 min on a Mac GPU. Its mesh and motion parts read the Landscape grid back through the hooks in `src/gl/`
-(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEMP-DEBUG-HOOK` blocks that `build.py`
-strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
+(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEST-HOOK` blocks (`tools/hook_marker.js`) that
+the build strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
 and the motion part (on this build only) run on lavapipe:
 
 ```sh

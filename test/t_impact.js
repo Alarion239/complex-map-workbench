@@ -8,7 +8,7 @@ const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name
 const ALL = SHARDS.filter((s) => suitesOf(s.id).length).map((s) => s.id);
 const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 const nothing = (p) => !p.browser.length && !p.glsl.length && !p.quality.length && !p.perf;
-// ([#1775] the Linux GLSL jobs: the glsl page in LINUX_GLSL_PARTS, adv and inverse whole)
+// (the Linux GLSL jobs: the glsl page in LINUX_GLSL_PARTS, adv and inverse whole)
 const LINUX_GLSL_PARTS = '1/2,2/2', LINUX_N = 4;
 
 // the globs
@@ -25,7 +25,7 @@ ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.concat(GLSL_CORE_JOBS).ev
 const linux = (jobs) => jobs.filter((j) => j.os === 'ubuntu-latest');
 ok('the core jobs: Windows core (glsl in quarters, adv, inverse), macOS all, Linux core', GLSL_CORE_JOBS.every((j) => j.tier === (j.os === 'macos-latest' ? 'all' : 'core')) && GLSL_CORE_JOBS.filter((j) => j.page === 'glsl' && j.os === 'windows-latest').map((j) => j.part).join() === '1/4,2/4,3/4,4/4');
 ok('the deep jobs: every chain on Windows and macOS', GLSL_JOBS.every((j) => j.tier === (j.os === 'ubuntu-latest' ? 'core' : 'all')));
-// ([#1775] Chrome's own SwiftShader, no CMW_ANGLE: the same Linux jobs in both lists, every page, glsl in parts)
+// (Chrome's own SwiftShader, no CMW_ANGLE: the same Linux jobs in both lists, every page, glsl in halves)
 for (const [name, jobs] of [['core', GLSL_CORE_JOBS], ['deep', GLSL_JOBS]]) {
   const L = linux(jobs);
   ok(`the ${name} jobs: Linux (SwiftShader) runs every page's core tier`, L.length === LINUX_N && L.every((j) => j.tier === 'core' && !j.sections)

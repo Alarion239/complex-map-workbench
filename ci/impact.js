@@ -91,6 +91,7 @@ const MAP = [
   ['src/view.js', full('the planes\' view transform, under every area')],
   ['build.py', full('the build itself')],
   ['tools/src_parts.py', full('how build.py joins the split files')],
+  ['tools/ts_strip.js', full('how the test pages and the lint read the TypeScript files of src/')],
   ['tools/bundle.mjs', full('the bundle of the app\'s modules (esbuild)')],
   ['vendor/**', full('the vendored typesetter and faces, in every page')],
   ['tools/vendor.py', T0],                                                     // writes vendor/ (by hand); t_vendor checks it
@@ -113,7 +114,8 @@ const MAP = [
   ['src/page.html', Object.assign(ui('desktop', 'phone', 'layout'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl,palette}.js', { core: true }],
+  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
+  ['src/palette.ts', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
@@ -172,10 +174,11 @@ const rowOf = (f) => ROWS.find((r) => r.re.test(f)) || null;
 // nightly run, a run by hand and the label glsl-deep. macOS has a virtual GPU (minutes a page) and few machines: its
 // pages run whole, every chain, always
 const MAC_JOBS = ['glsl', 'adv', 'inverse'].map((page) => ({ os: 'macos-latest', page, part: '1/1', tier: 'all' }));
-// ([#1775] Linux: Chrome's own SwiftShader, CPU WebGL2, what headless Chrome falls back to without a GPU and what the
-// figure exports render on: its library is not the GPUs' (cx_sincos, GLChain.useRenderer) and its last bits differ.
-// Its core tier, always: the glsl page in parts (its chains compile on one core), adv and inverse whole. The chains
-// SwiftShader does not finish are not run there (GLSLTiers.SWIFTSHADER_HANG, in GLSLTiers.NOT_ON))
+// (Linux: Chrome's own SwiftShader, CPU WebGL2, what headless Chrome falls back to without a GPU and what the figure
+// exports render on: its built-in sin and cos keep only Vulkan's minimum accuracy, and its last bits differ from the
+// GPUs'. Its core tier on every run: the glsl page in halves (its chains compile on one core), adv and inverse whole.
+// A chain a renderer does not survive is not run there (GLSLTiers.NOT_ON: SwiftShader's SWIFTSHADER_HANG, which lists
+// none, and lavapipe's LAVAPIPE_CRASH))
 const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },
