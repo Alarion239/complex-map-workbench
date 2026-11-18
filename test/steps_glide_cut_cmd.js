@@ -208,7 +208,8 @@ ok(`the control: the same glide frame against plane 1: more than ${CONTROL_FACTO
 // rows:
 // - beside the line (its LINE_PX px each side left out): every sheet's colour arrives (#1413), so the colour on either
 //   side of the cut is the parked plane's. Control: the principal sheet alone (__cmwSteps({ glideSheets: 1 })), which
-//   leaves the paper on one side;
+//   leaves the paper on one side. Both frames leave out plane 1's picture under the carried colour
+//   (__cmwSteps({ restPaint: 0 })), which is the parked plane's and would cover a missing sheet;
 // - the solid bank's rows, the line with its casing: control, the parked plane 1 against itself shifted SHIFT_PX px.
 //   (The dashed bank's line is pinned by its dash phase below: its dashes' ends are anti-aliased a fraction of a pixel
 //   apart, which this measure reads.)
@@ -221,9 +222,9 @@ ok('the parked plane 1 has its cut banks, one solid', !!banks1 && !!banks1.all &
 const lineX = banks1 && banks1.all ? Math.round((banks1.all.x0 + banks1.all.x1) / 2) : 0;
 const besideBox = { x0: lineX - ARRIVE_PX, x1: lineX + DISC_R, y0: 0, y1: dim.H }, lineSkip = { x0: lineX - LINE_PX, x1: lineX + LINE_PX + 1 };
 const solidBox = banks1 && banks1.solid ? { x0: besideBox.x0, x1: besideBox.x1, y0: Math.max(0, Math.floor(banks1.solid.y0) + DISC_R), y1: Math.min(dim.H, Math.ceil(banks1.solid.y1)) } : null;
-await heldAt(1 - ARRIVE_EPS); ok('the glide frame near plane 1 is drawn', !!(await grab('arrive')), null);
+await ev('__cmwSteps({ restPaint: 0 }); 1'); await heldAt(1 - ARRIVE_EPS); ok('the glide frame near plane 1 is drawn', !!(await grab('arrive')), null);
 await ev('__cmwSteps({ glideSheets: 1 }); 1'); await heldAt(1 - ARRIVE_EPS); ok('the glide frame near plane 1, the principal sheet alone, is drawn', !!(await grab('arriveOne')), null);
-await ev('__cmwSteps({ glideSheets: 0 }); 1');
+await ev('__cmwSteps({ glideSheets: 0, restPaint: 1 }); 1');
 const arrival = info.arrival = {
   beside: await measure('arrive', 'parked1', besideBox, lineSkip), besideOne: await measure('arriveOne', 'parked1', besideBox, lineSkip),
   solid: solidBox ? await measure('arrive', 'parked1', solidBox) : null, solidSelf: solidBox ? await measure('parked1', 'parked1', solidBox) : null, boxes: { besideBox, solidBox },
