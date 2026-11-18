@@ -540,7 +540,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   cursor: copy; transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 .chip.readout:empty { display: none; }
-@media (pointer: coarse) { .chip.readout { pointer-events: none; } }   /* (the readout copies on a press, which a touch has no use for: on a touch device the chip is a reading, not a target, as on the phone layout) */
+@media (pointer: coarse) { .chip.readout { pointer-events: none; } }   /* (the readout copies on a press, which a touch has no use for: where the primary pointer is coarse, phones and tablets whose main input is touch, the chip is a reading, not a target, as on the phone layout; a laptop or tablet with a trackpad reports a fine pointer and keeps copy-on-tap) */
 /* the probe's one readout: z on the first line, w = F(z) on the second */
 .chip.readout:has(> .rln) { height: auto; line-height: 18px; padding-top: 2px; padding-bottom: 2px; }
 :root.ph .chip.readout:has(> .rln) { height: auto; line-height: 20px; padding-top: 3px; padding-bottom: 3px; }
@@ -1533,7 +1533,12 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
   .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
   .xf-foot .xf-sp { display: none; }
-  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; }
+  /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
+     a row of its own, so its meter is not squeezed beside the destinations) */
+  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
+  .xf-prog { flex: 1 1 100%; }
+  .xf-prog .btn { min-height: 44px; }
+  .xf-meter { min-width: 96px; }
 }
 .modal p, .modal li { max-width: 68ch; }
 .guide-nav { display: grid; gap: 8px; margin: 12px 0 4px; }
