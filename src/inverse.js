@@ -1659,6 +1659,19 @@ const Inverse = (() => {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
+    // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
+    // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and
+    // with no Newton's method
+    if (one && one.kind === 'IPOW' && !nat && one.p.n < 0) {
+      const an = -one.p.n;
+      if (t < 0.5) {
+        const sv = C(1 + 2 * (an - 1) * t, 0);
+        return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
+      }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [...(an > 1 ? [opIpow(an)] : []), mobOf(path(2 * t - 1))] };
+    }
     // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
     if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
       const { s, theta, k } = one.p, sv = add(ONE, scale(sub(s, ONE), t));
