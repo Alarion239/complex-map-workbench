@@ -59,14 +59,16 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
 `;
   }
   // GLSL of RAT<n> for n >= 5 (InvOps.opRatN by aberthRoots), op j with parameters at uInv[c ...]: P's coefficients
-  // p_n ... p_0 two to a cell, then Q's from cell half. _a, the low-first coefficient a_k = p_(n-k) - w q_(n-k) of
-  // p - w q; its degree after the drop (a leading coefficient below 1e-14 of the others' sizes, as aberthRoots'); Aberth's
-  // roots (aberthFns), each polished by two Newton steps on p - w q and kept when finite and apart from every earlier one,
-  // once per w; root b's derivative (p/q)' by Horner on P and Q
+  // p_n ... p_0 two to a cell, then Q's from cell half. Once per w, _roots sets _A, the low-first coefficients
+  // a_k = p_(n-k) - w q_(n-k) of p - w q (which _a reads, so Aberth's sweeps fetch no uniform), drops the degree (a
+  // leading coefficient below 1e-14 of the others' sizes, as aberthRoots'), and keeps Aberth's roots (aberthFns), each
+  // polished by two Newton steps on p - w q, when finite and apart from every earlier one; root b's derivative (p/q)' by
+  // Horner on P and Q
   function ratAberthFns(n, j, c, NOR, dedupe) {
     const P = `ix${j}`, half = Math.ceil((n + 1) / 2);
     const cell = (i, from) => `(${i} & 1) == 0 ? uInv[${c + from} + ${i} / 2].xy : uInv[${c + from} + ${i} / 2].zw`;
-    return `vec2 ${P}_a(int k, vec2 w) { int i = ${n} - k; vec2 p = ${cell('i', 0)}, q = ${cell('i', half)}; return p - cmul(w, q); }
+    return `vec2 ${P}_A[${n + 1}];
+vec2 ${P}_a(int k, vec2 w) { return ${P}_A[k]; }
 ${aberthFns(P, n)}void ${P}_pq(vec2 u, out vec2 pu, out vec2 qu, out vec2 dp, out vec2 dq) {
   pu = vec2(0.0); qu = vec2(0.0); dp = vec2(0.0); dq = vec2(0.0);
   for (int i = 0; i <= ${n}; i++) {
@@ -82,11 +84,12 @@ bool ${P}_k[${n}];
 void ${P}_roots(vec2 w) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
+  for (int k = 0; k <= ${n}; k++) { int i = ${n} - k; vec2 p = ${cell('i', 0)}, q = ${cell('i', half)}; ${P}_A[k] = p - cmul(w, q); }
   int de = ${n};
   for (int d = ${n}; d > 0; d--) {
     float rest = 0.0;
-    for (int k = 0; k < ${n}; k++) if (k < d) rest += cx_abs(${P}_a(k, w));
-    if (cx_abs(${P}_a(d, w)) > 1e-14 * rest) break;
+    for (int k = 0; k < ${n}; k++) if (k < d) rest += cx_abs(${P}_A[k]);
+    if (cx_abs(${P}_A[d]) > 1e-14 * rest) break;
     de = d - 1;
   }
   vec2 z[${n}];
