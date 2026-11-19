@@ -1089,9 +1089,9 @@
   // changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
-  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
-  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
-  // placeKeyPopReadout gives the chip its whole height back)
+  // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
+  // column. What still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key
+  // stays in reach; placeKeyPopReadout gives the chip its whole height back)
   function clearContextBar(box) {
     const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
     if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
@@ -1102,7 +1102,7 @@
     let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
     for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
-      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom + LEGEND_BAR_GAP_PX);
     }
     const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
     if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
@@ -1146,6 +1146,21 @@
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
+  // (on a phone the folded key is a button: a name, a place in the focus order, aria-expanded that follows its fold; Enter
+  // and Space press it (setupPaneButtons). Off the phone (a key in a pane's head, hovered open) it is no button: a key
+  // that leaves the phone takes role img and leaves the focus order)
+  function legendKeyButton(box, name) {
+    const par = box.parentNode, btn = document.documentElement.classList.contains('ph') && !!par && !(/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    if (btn) {
+      const open = box.classList.contains('collapsed') ? 'false' : 'true';
+      if (box.getAttribute('role') !== 'button') box.setAttribute('role', 'button');
+      if (box.tabIndex !== 0) box.tabIndex = 0;
+      if (box.getAttribute('aria-expanded') !== open) box.setAttribute('aria-expanded', open);
+      if (name && box.getAttribute('aria-label') !== name) box.setAttribute('aria-label', name);
+    } else if (box.getAttribute('role') === 'button') {
+      box.setAttribute('role', 'img'); box.removeAttribute('tabindex'); box.removeAttribute('aria-expanded');
+    }
+  }
   // the key's canvas has no words a screen reader reaches: what it draws (paintLegend's st.say) is the key box's
   // description (srSay), in a hidden span inside the box (#leftLegendSay, #rightLegendSay; inside, so it moves with the
   // box and is never an item of a pane head's row)
@@ -1171,6 +1186,8 @@
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
+    // (the phone's key button: the Regions key says which key it is before what it shows, "Regions key, cell 1")
+    legendKeyButton(box, !kind ? '' : kind === 'image' ? $t('Regions key, {x}', { x: legendSum(kind) }) : legendSum(kind));
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
     if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');

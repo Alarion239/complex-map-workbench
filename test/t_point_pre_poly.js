@@ -37,24 +37,38 @@ function same(name, st, co, w) {
   check(`${name} at ${cs(w)}: the ${d} roots of Durand–Kerner, to ${ROOT_TOL}`, r.zs.length === d && !miss.length && !extra.length && r.mult.every((m) => m === 1) && r.total === d,
     { got: r.zs.length, mult: r.mult, miss, extra });
 }
-// a multiple root: z0 once with multiplicity m among `count` points, the multiplicities summing to the degree
-function multiple(name, st, w, z0, m, count, d) {
+// a multiple root: z0 once with multiplicity m among `count` points, the multiplicities summing to the degree; the
+// other points are `others` (the simple roots), each to MULT_TOL
+function multiple(name, st, w, z0, m, count, d, others) {
   const r = pre([st], w), at = r.exact ? r.zs.findIndex((z) => near(z, z0, MULT_TOL)) : -1;
   check(`${name} at ${cs(w)}: ${count} points, ${cs(z0)} ×${m} among them, the multiplicities summing to ${d}`,
     r.exact && r.zs.length === count && at >= 0 && r.mult[at] === m && r.mult.reduce((a, k) => a + k, 0) === d && r.total === d, r);
+  if (!r.exact || at < 0) return;
+  const rest = r.zs.filter((z, i) => i !== at), miss = others.filter((z) => !rest.some((q) => near(q, z, MULT_TOL)));
+  check(`${name} at ${cs(w)}: the other points are its other roots`, rest.length === others.length && !miss.length, { rest, miss });
+}
+// the roots of a polynomial built from its roots, at w = 0: every one, simple, to ROOT_TOL
+function simpleRoots(name, roots) {
+  const r = pre([polyOf(roots)], C(0)), miss = roots.filter((z) => !(r.zs || []).some((q) => near(q, z, ROOT_TOL)));
+  check(`${name}: the ${roots.length} roots, each once and simple, to ${ROOT_TOL}`, r.exact && r.zs.length === roots.length && r.mult.every((k) => k === 1) && !miss.length && r.total === roots.length, { got: r.zs, mult: r.mult, miss });
 }
 
+// a polynomial step from its roots (high-first coefficients)
+const expand = (roots) => roots.reduce((p, r) => p.concat([C(0)]).map((c, i) => (i ? sub(c, CX.mul(r, p[i - 1])) : c)), [C(1)]);
+const polyOf = (roots) => step('poly', { co: expand(roots).map(cs).join(', ') });
 // M3, the plan's test cubic z³ − 1.2z + 0.3, as a formula: its critical points ±√0.4, their values 0.3 ∓ 0.8√0.4
 const M3 = step('custom', { expr: 'z^3-1.2z+0.3' }), M3co = [C(1), C(0), C(-1.2), C(0.3)];
 const s4 = Math.sqrt(0.4), f3 = (x) => x * x * x - 1.2 * x + 0.3;
 for (const w of [C(1.1), C(0.3, 0.7), C(-2, -1), C(0), C(f3(s4) + 1e-6), C(f3(s4) - 1e-9), C(f3(-s4), 1e-9), C(f3(-s4) + 1e-6, -1e-6)]) same('M3', M3, M3co, w);
-multiple('M3 at its critical value f(√0.4)', M3, C(f3(s4)), C(s4), 2, 2, 3);
+multiple('M3 at its critical value f(√0.4)', M3, C(f3(s4)), C(s4), 2, 2, 3, [C(-2 * s4)]);
+// (1e-13 below it: two simple roots 4.6e-7 apart, which stay two)
+same('M3', M3, M3co, C(f3(s4) - 1e-13));
 // (the polynomial NEWT op itself, as homOps gives it at t = 1: its members carry the double root's multiplicity)
 {
   const op = Inverse.homOps(Funcs.build(M3), 1).ops[0], mem = op.pre(C(f3(s4))), at = mem.findIndex((q) => near(q.u, C(s4), MULT_TOL));
   check('M3\'s NEWT op at f(√0.4): two members, √0.4 ×2 among them', op.kind === 'NEWT' && mem.length === 2 && at >= 0 && mem[at].mult === 2, mem.map((q) => [q.u, q.mult]));
 }
-multiple('M3 at its critical value f(−√0.4)', M3, C(f3(-s4)), C(-s4), 2, 2, 3);
+multiple('M3 at its critical value f(−√0.4)', M3, C(f3(-s4)), C(-s4), 2, 2, 3, [C(2 * s4)]);
 
 // the catalog's polynomial step, a zeros-and-poles step with no poles and a rational step over a constant: one solver
 same('z³ − z (poly)', step('poly', { co: '1, 0, -1, 0' }), [C(1), C(0), C(-1), C(0)], C(0.2, -0.3));
@@ -75,17 +89,27 @@ for (let d = 3; d <= 12; d++) {
 }
 
 // multiple roots at a critical value: a triple root, three double roots, a quadruple root of a degree-12 polynomial
-const expand = (roots) => roots.reduce((p, r) => p.concat([C(0)]).map((c, i) => (i ? sub(c, CX.mul(r, p[i - 1])) : c)), [C(1)]);
-const polyOf = (roots) => step('poly', { co: expand(roots).map(cs).join(', ') });
-multiple('(z − 1)³(z + 2)', polyOf([C(1), C(1), C(1), C(-2)]), C(0), C(1), 3, 2, 4);
-multiple('(z − 1)²(z + 1)²(z − 2)², its root 2', polyOf([C(1), C(1), C(-1), C(-1), C(2), C(2)]), C(0), C(2), 2, 3, 6);
+multiple('(z − 1)³(z + 2)', polyOf([C(1), C(1), C(1), C(-2)]), C(0), C(1), 3, 2, 4, [C(-2)]);
+multiple('(z − 1)²(z + 1)²(z − 2)², its root 2', polyOf([C(1), C(1), C(-1), C(-1), C(2), C(2)]), C(0), C(2), 2, 3, 6, [C(1), C(-1)]);
 {
   const r = pre([polyOf([C(1), C(1), C(-1), C(-1), C(2), C(2)])], C(0));
   check('(z − 1)²(z + 1)²(z − 2)² at 0: 1, −1 and 2, each ×2', r.exact && r.zs.length === 3 && r.mult.every((m) => m === 2)
     && [C(1), C(-1), C(2)].every((z0) => r.zs.some((z) => near(z, z0, MULT_TOL))), r);
 }
 const eighth = Array.from({ length: 8 }, (_, k) => C(1.5 * Math.cos(Math.PI * (2 * k + 1) / 8), 1.5 * Math.sin(Math.PI * (2 * k + 1) / 8)));
-multiple('(z − 0.5i)⁴ times 8 simple factors (degree 12)', polyOf([C(0, 0.5), C(0, 0.5), C(0, 0.5), C(0, 0.5), ...eighth]), C(0), C(0, 0.5), 4, 9, 12);
+multiple('(z − 0.5i)⁴ times 8 simple factors (degree 12)', polyOf([C(0, 0.5), C(0, 0.5), C(0, 0.5), C(0, 0.5), ...eighth]), C(0), C(0, 0.5), 4, 9, 12, eighth);
+// roots out to |z| ≈ 3, where rounding is larger: two simple roots 1e-5 apart (w = 0 about 1.4e-7 from a critical
+// value) stay two and are both found; an exact double root of a degree-12 polynomial is found, ×2
+const A11 = [C(2), C(2 + 1e-5), C(-2), C(0, 2), C(0, -2), C(-2, 2), C(1, -2), C(-1, -2), C(2, 2), C(-2, -2), C(1, 2)];
+simpleRoots('roots 2 and 2 + 1e-5 among 11 out to |z| ≈ 2.8', A11);
+const B12 = [[2.37, 0.19], [2.58, 0.34], [0.64, -0.63], [0.47, -0.32], [1.68, 1.63], [1.17, -1.42], [-0.96, 1.95], [-2.26, -1.22], [0.98, 2.28], [0.51, 2.27]].map(([a, b]) => C(a, b));
+multiple('a double root at 2.46 − 1.2i among 10 simple ones (degree 12)', polyOf([C(2.46, -1.2), C(2.46, -1.2), ...B12]), C(0), C(2.46, -1.2), 2, 11, 12, B12);
+{
+  // ten roots on |z| = 2.9, w 1e-8 (1 + |v|) from the critical value v next to the first critical point: every root, simple
+  const roots = Array.from({ length: 10 }, (_, k) => C(2.9 * Math.cos(0.12 + 0.63 * k), 2.9 * Math.sin(0.12 + 0.63 * k)));
+  const co = expand(roots), dco = co.slice(0, -1).map((c, i) => CX.scale(c, 10 - i)), v = CX.polyEval(co, CX.polyRoots(dco)[0]);
+  same('ten roots on |z| = 2.9', polyOf(roots), co, CX.add(v, C(1e-8 * (1 + abs(v)), 0)));
+}
 
 // a chain: M3, then z² (6 preimages: Durand–Kerner's roots of M3 at both square roots of w)
 {
