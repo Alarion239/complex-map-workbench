@@ -777,8 +777,61 @@
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
   const SV_SING_BIG = 10;
+  // svSingNewton's limits: at most SV_SING_ITERS Newton steps; a point is kept only where |F| at SV_SING_R (1 + |z|)
+  // from it is past big at each of four points, and grows towards it by more than SV_SING_GROW from ten times as far
+  // (|F| ~ r^-a grows by 10^a: a root's a is at least about 0.2 where |F| at that distance is past SV_SING_BIG, and a
+  // bounded branch point, 20 + √z at 0, does not grow); the four points are turned SV_SING_TURN from the axes, so that a
+  // cut along an axis does not take one
+  const SV_SING_ITERS = 16, SV_SING_R = 1e-6, SV_SING_GROW = 10 ** 0.1, SV_SING_TURN = 0.3;
+  // a point where F is unbounded without being a pole, from z, by Newton's method on u = h/h' (h = 1/F): u has a simple
+  // zero where h has a zero of any order, a pole's (order 1) or a root's (|F| ~ |z - p|^-a, 0 < a < 1, where Newton's
+  // method on h reflects about p or crawls). It is the point Newton's method settles on (u or its step under 1e-12 or
+  // 1e-11 of 1 + |z|), within box, where |F| next to it is past big and grows towards it; null otherwise: a start that
+  // does not settle (Newton on u reflects where u's zero is not simple, as exp(√z)'s u = -2√z sends z to -z), that
+  // leaves the box, or that settles on no such point (a zero of h' alone)
+  function* svSingNewton(F, z, box, big, E) {
+    const h = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? (CX.isZero(w) ? null : CX.inv(w)) : C(0, 0); };
+    const u = (p, e) => {
+      const h0 = h(p), hp = h(CX.add(p, C(e, 0))), hm = h(CX.sub(p, C(e, 0)));
+      if (!h0 || !hp || !hm) return null;
+      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
+      return CX.isZero(h0) ? C(0, 0) : CX.isFin(d) && !CX.isZero(d) ? CX.div(h0, d) : null;
+    };
+    yield* svPoleTick(E);
+    let gap = Infinity, settled = false;
+    for (let i = 0; i < SV_SING_ITERS && !settled; i++) {
+      // (the differences' step: a hundredth of the last distance u gave, at most 1e-6 (1 + |z|) and at least 1e-14 (1 + |z|),
+      // where float64 differences still resolve: steps that straddle the point would read the difference across it)
+      const s = CX.abs(z), e = Math.max(1e-14 * (1 + s), Math.min(1e-6 * (1 + s), gap / 100)), u0 = u(z, e);
+      if (!u0) return null;
+      if (CX.abs(u0) < 1e-12 * (1 + s)) { settled = true; break; }
+      // (a step more than twice the last: Newton's method moving away from the zero, not towards it)
+      if (CX.abs(u0) > 2 * gap) return null;
+      gap = CX.abs(u0);
+      const up = u(CX.add(z, C(e, 0)), e), um = u(CX.sub(z, C(e, 0)), e);
+      if (!up || !um) return null;
+      const d = CX.div(CX.sub(up, um), C(2 * e, 0));
+      if (!CX.isFin(d) || CX.isZero(d)) return null;
+      const step = CX.div(u0, d);
+      z = CX.sub(z, step);
+      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
+      yield* svPoleTick(E);
+      if (CX.abs(step) < 1e-11 * (1 + s)) settled = true;
+    }
+    if (!settled) return null;
+    const m = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? CX.abs(w) : Infinity; };
+    const r = SV_SING_R * (1 + CX.abs(z));
+    for (let a = 0; a < 4; a++) {
+      const c = Math.cos(a * Math.PI / 2 + SV_SING_TURN), sn = Math.sin(a * Math.PI / 2 + SV_SING_TURN);
+      const near = m(CX.add(z, C(r * c, r * sn))), far = m(CX.add(z, C(10 * r * c, 10 * r * sn)));
+      if (near == null || far == null || !(near > big) || (near < Infinity && !(near > SV_SING_GROW * far))) return null;
+    }
+    return z;
+  }
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  // sing, a start Newton's method does not settle on is refined to its singular point: where |F| there is past
+  // SV_SING_BIG, by its nearest peak of |F|; else (and where that finds none) by svSingNewton, which finds a root's
+  // point (√ of a Möbius step at its pole) from a grid whose |F| next to it is small
   function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
@@ -808,6 +861,7 @@
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
       if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
+      if (!p && sing) p = yield* svSingNewton(F, at(i, j), lim, SV_SING_BIG, E);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
@@ -3210,7 +3264,9 @@
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
       if (!d.moved) { svPause(false); svKeepView(); SV.anim = null; }
       d.moved = true;
+      const x0 = SV.g.x;
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
+      sndScrub(x0, SV.g.x, SV.g.max);   // (the scrub's detents)
       requestRender('L');
     });
     const up = (e) => {
@@ -3218,7 +3274,7 @@
       if (!d || d.id !== e.pointerId || !d.strip) return;
       SV.drag = null;
       if (svRangeUp(d, rail)) { e.preventDefault(); return; }
-      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); }
+      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); sndScrubEnd(); }
     };
     rail.addEventListener('pointerup', up);
     rail.addEventListener('pointercancel', up);
@@ -3740,6 +3796,7 @@
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
   }
   // a slide's time on each plane (ms)
   const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
@@ -3750,7 +3807,7 @@
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return; }
     const i = Math.round(SV.g.x);
     if (!first) {
-      if (i >= A.end) { if (!SV.loop) { svPause(true); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
+      if (i >= A.end) { if (!SV.loop) { svPause(true); sndMorphArrive(svPerPlane() / 1000); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
       SV.i = Math.round(SV.g.x);
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
@@ -3780,6 +3837,7 @@
     if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.held = A.drawn = null; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
+    sndMorphArrive(svPerPlane() / 1000);   // (the arrival, at a play's own end only: never on a loop's repeat)
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
     svSync();
     return false;
@@ -3863,8 +3921,9 @@
     if (!svLoad(true)) svAdopt();
     SV.ready = true;
     svApply();
-    // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
-    for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
+    // (#leftLegend carries a label: an image's, for axe's aria-prohibited-attr)
+    const legend = $('leftLegend');
+    if (legend && !legend.getAttribute('role')) legend.setAttribute('role', 'img');
     svPrestartSoon(1500);
   }
 
