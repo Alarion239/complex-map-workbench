@@ -1,7 +1,8 @@
 // The steps view's glides wait behind the prestart (#1157): with every link held (?glhold) a press of Play or an arrow
 // starts no glide and marks that button busy (a ring over a faint track, after 300 ms and not before), Esc or the button
 // again cancels the wait, after 10 s a message offers Retry (which keeps the ring) and Cancel, and once the links are
-// released the pressed glide starts. Run at 1440 px and at 360 px, and under reduced motion (an arrow jumps; Play still waits).
+// released the pressed glide starts; a wait ends when another chain is loaded under it (nothing starts once that chain is
+// prepared). Run at 1440 px and at 360 px, and under reduced motion (an arrow jumps; Play still waits).
 // A command file for a CDP daemon:  <runner> test/svplay_gate_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -181,6 +182,27 @@ for (const lang of ['en', 'ru']) {
   await ev('(__cmwSteps({ holdJobs: false }), 1)');
   await settled({ max: 20000, only: true, until: 'window.__played === true' });
   ok('the job done: the glide starts', await ev('window.__played'), held);
+}
+
+// a wait ends when another chain is loaded under it (an example, a link, an undo): ▶ or an arrow pressed behind the held
+// links, then example CHAIN_EX loaded and the links released; once the new chain is prepared nothing has started (a
+// frame loop sets window.__started on the first frame with a play or a glide), and the button is Play (Next plane) again
+const CHAIN_EX = 3;
+for (const [tag, sel, press, label] of [['Play', '.sv-play', '__cmwSteps({ play: true })', 'Play'], ['an arrow', '.sv-next', 'document.querySelector(".sv-next").click()', 'Next plane']]) {
+  await open(1440, 900);
+  await ev(`(${press}, 1)`);
+  await settled({ max: 3000, only: true, until: `!!document.querySelector("${sel}[aria-busy]")` });
+  await ev('(window.__started = false, (function f() { const s = __cmwSteps(); if (s.play !== null || s.anim) window.__started = true; else requestAnimationFrame(f); })(), 1)');
+  await ev(`(__cmwExample(${CHAIN_EX}), 1)`);
+  await ev('(GLR.holdLinks(false), 1)');
+  const prepared = await settled({ max: 60000, only: true, until: '__cmwSteps().ready.ready' });
+  // (a few frames more: a wait that survived would start its glide on the next poll, SV_GATE_POLL_MS)
+  await settled({ max: 2000, only: true, until: 'true' });
+  const after = Object.assign(await ev(state(sel)), { started: await ev('window.__started'), planes: await ev('document.querySelectorAll(".sv-track .sv-plane").length'), prepared: prepared.ok });
+  info['chainChanged ' + tag] = after;
+  ok(`another chain loaded under a waiting ${tag}: the new chain is prepared and has more than one plane (control)`, after.prepared && after.planes > 1, after);
+  ok(`another chain loaded under a waiting ${tag}: nothing starts once it is prepared`, !after.started && after.play === null && !after.anim, after);
+  ok(`another chain loaded under a waiting ${tag}: the button is ${label} again, not busy`, !after.busy && after.label === label, after);
 }
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
