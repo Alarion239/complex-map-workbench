@@ -1,4 +1,4 @@
-// v16.2 release smoke (rel161_smoke_cmd.js, plus the user's five points: section 6 to 9) on the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a viewport
+// Release smoke (rel161_smoke_cmd.js, plus the user's five points: sections 6 to 9) on the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a viewport
 // meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state in
 // localStorage and the page's own globals (Sound) only.
 const BASEU = 'http://localhost:9713/';
@@ -98,7 +98,7 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
 
 // 2. the deformation range: [√z, f] with f1 alone deforms from f(z) to f(√z) (H_t = f2 ∘ G_t); then f2 alone, a
 // push-forward of f1's image (H_t = G_t ∘ f1). Desktop: the bracket from the saved state; phone: the Display sheet's
-// Deformed steps selects, whose 'from …' line must follow (review v16 verify-1)
+// Deformed steps selects, whose 'from …' line must follow
 {
   const steps = [{ type: 'custom', params: { expr: '\\sqrt{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2+z', cut: 180 }, on: true }];
   const shapes = [{ id: 's1', kind: 'rect', a: [-1.5, -1.2], b: [1.5, 1.2] }];
@@ -176,8 +176,8 @@ ok('section 2: no console errors or warnings', lB.length === 0, lB.slice(0, 6));
 const lB2 = errs(logs());
 ok('section 2b: no console errors or warnings', lB2.length === 0, lB2.slice(0, 6));
 
-// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane,
-// review v16 verify-7) with Listen; Listen plays the piece along the spiral (its harp counts the notes)
+// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane)
+// with Listen; Listen plays the piece along the spiral (its harp counts the notes)
 {
   await openNs('smkm' + tag + Date.now(), { shapes: [], steps: [] });
   if (!phone) { await click(700, 12); } else { await touch(200, 12); }

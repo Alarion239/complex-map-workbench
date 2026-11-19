@@ -1,4 +1,4 @@
-// v16.4 (notes/tour-r3/SPEC.md 7.4): the audit of the docked strip, every step of every chapter at 390 × 844, 1024 × 700
+// The audit of the docked strip (notes/tour-r3/SPEC.md 7.4): every step of every chapter at 390 × 844, 1024 × 700
 // and 1440 × 900, light and dark, English and Russian, mouse and touch (24 runs). Per step: the strip meets none of the
 // panes, the chain, the tool row and the header's controls; its box is the same for every step of a chapter (a desktop:
 // the panes' too); no lead, task, result or caption is cut (scrollHeight <= clientHeight + 1, scrollWidth <= clientWidth
@@ -7,14 +7,14 @@
 // the anchor (90 %); no app layer is left open by the tour (a phone's sheet the step opens aside). The old callout
 // audit (place(), the docked callout, the mini bar) went with the callout. With AUDIT_SHOTS, every step is shot at 390
 // and 1440 (touch and mouse), light and dark, English and Russian, into AUDIT_SHOTS (a folder).
-// r3 review regress-3: v16.2's engine-independent passes are back, ported to the strip (test/tour_audit_spot.js holds
-// v16.2's probe): spotlight-exact (each lit element's visible border box, its corner radius included, matches a drawn
+// The engine-independent passes, ported to the strip (test/tour_audit_spot.js holds
+// their probe): spotlight-exact (each lit element's visible border box, its corner radius included, matches a drawn
 // hole or ring within 1 px, the paths mapped through getScreenCTM; no hole that no lit element explains; the strip is a
 // window of the shade), the task's control lit (ctl), layers (the palette, Examples, More, export, a toast, the sound
 // settings, the guide and the Language menu over a step: the tour covers none of them and its rings are masked off
 // each; layerAll: the palette and a toast on every step at 390, 768 and 1440), follow (a scroll, a resize and a layout
 // change: the spotlight right in the next frame) and focus (each strip control shows a focus ring; the palette opened
-// from the strip and closed with Esc gives the focus back to the strip). The sizes are v16.2's again: 360, 390, 844 ×
+// from the strip and closed with Esc gives the focus back to the strip). The sizes: 360, 390, 844 ×
 // 390, 768, 1024 × 700, 1152 × 720 and 1440 (inputs 'auto': touch on a phone's sizes, a mouse elsewhere).
 // Run: test/<you>_cdp/q.sh test/tour_audit_cmd.js. A subset: prepend `const AUDIT_CFG = { sizes: [[390, 844]], ... }`.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -27,7 +27,7 @@ const U = `http://localhost:${PORT}/test.html`;
 const R = [], ROWS = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // (#504: readiness waits, not fixed sleeps; the kit's settled(): two frames, no finite animation running, and its until)
-// a step has settled: the strip no longer busy (show() sets aria-busy at once, before its first await), the spotlight's
+// a step has settled: the strip not busy (show() sets aria-busy at once, before its first await), the spotlight's
 // morph over; a floor of 350 ms for the step's own 300 ms re-sync of its buttons (syncAct, a sound step); and the web
 // fonts in (display=swap: a face the strip uses first can swap in after the load, changing cut, titleOk and the sizes;
 // ux's review)
@@ -116,7 +116,7 @@ for (const cfg of runs) {
     if (g.frac != null) check(`${n}: the lit patch holds the anchor`, g.frac >= 0.9, g.frac);
     check(`${n}: no app layer left open by the tour`, g.layers === 0, g.layers);
     if (CFG.spot) {
-      // (v16.2's spotlight-exact and lit-control checks, through its own probe)
+      // (the spotlight-exact and lit-control checks, through its own probe)
       const sp = await ev(`({ spot: __aud.spot(), ctl: __aud.ctl() })`);
       const bad = (sp.spot || []).filter((x) => x.d > 1 || x.radD > 1 || x.cut || x.hiddenAnchor || (x.extra && x.extra.length) || (x.zero && x.zero.length));
       check(`${n}: spotlight exact (each lit box a drawn hole within 1 px, radii too; no stray hole)`, !bad.length, bad);
@@ -133,7 +133,7 @@ for (const cfg of runs) {
     await ev('Tour.next()'); await settle();
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${n}: Next moves on`, false, before); break; }
   }
-  // every step this build has was visited
+  // every step this build has must be visited
   const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
   // (the classic tour has 45 steps and the steps view's 42; a desk walks all of them, a phone's layout leaves some out. The
   // floors: classic 43, steps view 42 at a desk and 40 on a phone)
@@ -142,7 +142,7 @@ for (const cfg of runs) {
   check(`${tag}: every step visited (${sv ? 42 : 45}, less what the layout leaves out)`, n >= floor, n);
   await ev('Tour.isActive() && Tour.stop()'); await calm();
   }
-  // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app
+  // ---- layers (the pass for the strip): during a step, open each layer of the app
   if (CFG.layers && theme === 'light') {
     const runLayer = async (stepAt, name, open, close, sel) => {
       await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle();
@@ -179,7 +179,7 @@ for (const cfg of runs) {
     const X = { chapter: 'basics', step: 1 };
     const toastOpen = async () => ev(`(() => { __tourApi.toast('Deleted: circle 3. A long message so the toast is wide'); return true; })()`);
     const toastClose = async () => ev(`(() => { document.querySelector('#toastHost').innerHTML = ''; return true; })()`);
-    // (v16.5 UX17: "Palette and keys" is a chapter for the keyboard, not offered on a touch screen: there the palette is
+    // ("Palette and keys" is a chapter for the keyboard, not offered on a touch screen: there the palette is
     // checked at the next step only)
     if (await ev(`Tour._t.chapterShown(Tour._t.CHAPTERS.find((c) => c.id === 'keys'))`)) await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
     await runLayer(X, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
@@ -263,8 +263,8 @@ for (const cfg of runs) {
     })()`));
   }
 }
-// (as v16.2's: a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
-// views/key at 844 × 390 since v15, notes/tour/POLISH.md)
+// (a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
+// views/key at 844 × 390, notes/tour/POLISH.md)
 const LALL = logs();
 const SKIPS = LALL.filter((l) => /\[tour\] step skipped/.test(l.m)).map((l) => l.m);
 const L = LALL.filter((l) => /EXC|\[tour\]/i.test(l.t + l.m) && !/\[tour\] step skipped/.test(l.m)).slice(0, 12);

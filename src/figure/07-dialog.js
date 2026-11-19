@@ -179,6 +179,9 @@
     const row = (label, ...els) => { const r = h('div', { class: 'xf-row' }, h('div', { class: 'xf-h' }, label), ...els); rows.push(r); return r; };
     const sizeRow = row($t('Size'), colsSeg, h('div', { class: 'xf-pair' }, sizeBtn, textSel), customRow);
     sizeRow.classList.add('wide');
+    // (the button's name is its row's heading, then the size it shows: "Size, Two column ...")
+    sizeRow.firstChild.id = 'xfSizeH';
+    sizeBtn.setAttribute('aria-labelledby', 'xfSizeH xfSize');
     const forRow = row($t('For'), forSeg); forRow.classList.add('wide');
     const inkRow = row($t('Ink'), inkSeg); inkRow.classList.add('wide');
     // the caption language (DESIGN.md 12): offered only when the interface is not English (the English dialog is
@@ -282,7 +285,7 @@
       h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
-    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = `${glide.from} → ${glide.to} · ${I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1)} s`; };
+    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
     if (vSum) { vSumSet(); vidBox.prepend(vSum); }
     const vidRow = row($t('Video'), vidBox); vidRow.classList.add('wide');
     // Fine-tune
