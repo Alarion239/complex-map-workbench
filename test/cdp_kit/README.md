@@ -1,4 +1,4 @@
-# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux SwiftShader)
+# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux lavapipe through ANGLE Vulkan where installed, else SwiftShader: renderer.js)
 
 On Windows (or anywhere without zsh) use `node test/<you>_cdp/q.js /path/to/cmd.js` in place of `q.sh`; `CHROME_BIN`
 overrides the browser's path, `CMW_ANGLE` its ANGLE back end, `CMW_CHROME_ARGS` adds flags (ci/README.md) and `CMW_DPR`
