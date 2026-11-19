@@ -611,7 +611,8 @@
     if (own && !(f[0] === n && f[1] === 0)) o[k] = [f[0] / n, f[1] / n];
     return o.some(Boolean) ? o : null;
   }
-  // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
+  // (a glide's frames sample the cuts' banks at a quarter of the density, 121 points a bank where it runs straight;
+  // where a chord of them bends, cutBank takes the full set's samples there too)
   const SV_CUT_THIN = 4;
   // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
   // - mapFor(j0): the map from the plane j0 (a cut's own plane) to the picture, the chain's steps up to the plane the glide

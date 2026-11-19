@@ -459,7 +459,8 @@
   // chord of c px along an arc that turns by t rad is off it by about c t / 8, so a pair is tested only where c t exceeds
   // 8 CUT_FLAT, t read off the neighbouring chords: a straight bank costs no sample beyond the base set; CUT_SHARP: the
   // turn (rad) at a thinned chord's end past which it takes the full set's samples whatever its length, as at a corner
-  // of the image, where c t / 8 falls short)
+  // of the image, where c t / 8 falls short. A chord across a right-angled corner (the strips of arcosh and arccos)
+  // turns by 90° over its two ends, so by 45° at one of them at least: 20° takes it with room to spare)
   const CUT_FLAT = 0.75, CUT_DEPTH = 6, CUT_SAMPLES = 480, CUT_BEND = 8 * CUT_FLAT, CUT_SHARP = 0.35;
   // the distance (px) of the point q from the segment a-b
   function segDist(q, a, b) {
@@ -467,17 +468,17 @@
     const t = l2 > 0 ? Math.max(0, Math.min(1, ((q[0] - a[0]) * dx + (q[1] - a[1]) * dy) / l2)) : 0;
     return Math.hypot(q[0] - a[0] - t * dx, q[1] - a[1] - t * dy);
   }
-  // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points
-  // (null where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as
-  // the plane's points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past
-  // it. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between them is split
-  // there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a sample apart, and
-  // the chords would cut across it. With `step` > 1 (a glide's frames, drawn many times a second) every `step`-th of
-  // the full set is taken (step 4: a quarter of them, the same radii), except where a chord between two of them bends
-  // (CUT_BEND, CUT_SHARP): there the full set's samples between its ends are taken too, and split as the full set
-  // splits them. So where the image bends, as at a corner of arcosh's half-strip, a glide frame's polyline is the full
-  // set's, its length past the bend is the same, and the dashes laid along it (strokeCurves) keep their phase when the
-  // glide arrives on the plane at rest; along a straight run the quarter set's chords lie on the full set's
+  // One bank of the ray c (side +1 the counter-clockwise one) under F: the exact image of each sample, as screen points (null
+  // where there is none; proj lifts a point of the plane to the screen, as a globe's, null when hidden) and as the plane's
+  // points [re, im]. The samples run along the ray quadratically over its first 5/6 and geometrically past it; every
+  // `step`-th of the full set is taken (step 4: a quarter of them, the same radii), a glide's frames being drawn
+  // many times a second. A step of two visible samples whose midpoint is more than CUT_FLAT px off the segment between
+  // them is split there, down to CUT_DEPTH halvings: near a branch point the image winds round a circle in turns a
+  // sample apart, and the chords would cut across it. Where a chord of the `step`-th samples bends (CUT_BEND,
+  // CUT_SHARP), the full set's samples between its ends are taken too, and split as the full set splits them: where the
+  // image bends, as at a corner of arcosh's half-strip, a glide frame's polyline is the full set's, its length past
+  // the bend is the same, and the dashes laid along it (strokeCurves) keep their phase when the glide arrives on the
+  // plane at rest
   function cutBank(pane, c, F, side, win, proj, step = 1) {
     const a = c.ang + side * 1e-7, Rm = 1.5 * Math.max(win.x1 - win.x0, win.y1 - win.y0) + CX.abs(c.p);
     const pts = [], ws = [];
