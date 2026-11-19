@@ -115,6 +115,7 @@ const sl = await S();
 ok('a play at slow is still going a second in', sl.play === 'glide', sl);
 await choose('.sv-speed', 'fast');
 const e2 = await until('!__cmwSteps().play');
+info.speedTakeover = { ms: e2.ms, i: e2.s.i, ahead: e2.s.ahead, probe: e2.s.aheadProbe };
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
