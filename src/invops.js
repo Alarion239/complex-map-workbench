@@ -25,7 +25,7 @@ const InvOps = (() => {
   //      plane) | null, lam: log u | null, dlam: d(log u)/dw (with lam), m}
   // Parameters in p (read by glsl.js's uInv allocator): AFF {a, b}; MOB {m: [a, b, c, d]}; IPOW {n};
   //      ROOTPOW {s, beta, theta, k, lo, hi, mode: 'int' | 'finite' | 'inf'}; EXPC {L0}; LOG {theta, k, lo, hi};
-  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; RAT3, RAT4 {P: [p_n, ..., p0], Q: [q_n, ..., q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
+  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; RAT3 ... RAT12 {P: [p_n, ..., p0], Q: [q_n, ..., q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
 //      the others {}.
   function op(kind, p, fwd, o) {
     return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null }, o);
@@ -515,10 +515,21 @@ const InvOps = (() => {
     if (abs(A) <= 1e-14 * (abs(B) + abs(Cc) + abs(D) + abs(E))) return cubicRoots(B, Cc, D, E);
     return closedRoots([A, B, Cc, D, E], ferrari);
   }
-  // p(u)/q(u) of degree n = 3 or 4 (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0 (cubicRoots, quarticRoots), the
-  // op RAT<n>
+  // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX by Aberth's iteration (newtAberth from
+  // newtAberthStart, the polynomial NEWT op's), polished (closedRoots, which iterates on the reverse when the leading
+  // coefficient is the smaller end). Leading coefficients below 1e-14 of the others' sizes drop the degree, as
+  // cubicRoots' does: a root that runs off to infinity is left out
+  function aberthRoots(co) {
+    let i = 0;
+    while (i < co.length - 1 && abs(co[i]) <= 1e-14 * co.slice(i + 1).reduce((s, x) => s + abs(x), 0)) i++;
+    const c = co.slice(i), n = c.length - 1;
+    if (n < 1) return [];
+    return closedRoots(c, (r) => { const a = r.slice().reverse(); return newtAberth(a, n, newtAberthStart(a, n)).map((u) => ({ u })); });
+  }
+  // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0, the op RAT<n>; its
+  // roots in closed form for n = 3 and 4 (cubicRoots, quarticRoots), by Aberth's iteration above (aberthRoots)
   function opRatN(p, q, fwd) {
-    const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : quarticRoots;
+    const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : n === 4 ? quarticRoots : (...co) => aberthRoots(co);
     const pad = (co) => [...Array(Math.max(0, n + 1 - co.length)).fill(ZERO), ...co];
     const P = pad(p), Q = pad(q), der = (co, u) => CX.polyEval(co.slice(0, -1).map((x, i) => scale(x, n - i)), u);
     // the value at infinity (p.length <= q.length): the leading coefficients' ratio at equal degrees, 0 when the
@@ -591,7 +602,7 @@ const InvOps = (() => {
           return OK([opMob([a, bb, c, d])]);
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
-        if (P.degExact && (P.deg === 3 || P.deg === 4)) return OK([opRatN(p, q, b.f)]);
+        if (P.degExact && P.deg >= 3 && P.deg <= NEWT_POLY_MAX) return OK([opRatN(p, q, b.f)]);
         return INEL(`rational map of degree ${P.deg}${P.degExact ? '' : ' (not known exactly)'}`);
       }
       case 'zp': {
@@ -608,8 +619,8 @@ const InvOps = (() => {
           return OK([opMob(m)]);
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
-        if (P.degExact && (P.deg === 3 || P.deg === 4)) return OK([opRatN(p, q, b.f)]);
-        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 4)`);
+        if (P.degExact && P.deg >= 3 && P.deg <= NEWT_POLY_MAX) return OK([opRatN(p, q, b.f)]);
+        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ ${NEWT_POLY_MAX})`);
       }
       case 'custom': {
         // a formula recognized as catalog steps (Funcs, src/recognize.js): their ops, when every one has them
@@ -656,7 +667,8 @@ const InvOps = (() => {
   // pullFinite (point and singular-point pull-backs), matching the natural domain.
   // Degree 1: MOB; degree 2: RAT2 (QUAD when Q is constant), whose stable quadratic also covers the degree drop at the
   // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R; else degree 3 or 4: RAT3 or RAT4 (cubicRoots,
-  // quarticRoots, which drop the degree the same way). Other degrees go forward with the reason.
+  // quarticRoots, which drop the degree the same way); a rational map (Q not constant) of degree 5 to NEWT_POLY_MAX:
+  // RAT<n> by Aberth's iteration (aberthRoots). Other degrees go forward with the reason.
   const RAT_EXP_MAX = 64;          // degree cap of the expansion (intermediate products)
   const RAT_DEG_MAX = 32;          // degree cap of the normal form (IPOW 16 under a degree-2 R)
   const RAT_SNAP = 1e-12;          // a coefficient below RAT_SNAP x the sum of its terms' sizes is rounding noise: 0
@@ -1030,8 +1042,9 @@ const InvOps = (() => {
       if (r.ok) return OK([opIpow(g)].concat(r.ops));
     }
     if (d === 3 || d === 4) return OK([opRatN(dq === 0 ? P.map((x) => div(x, Q[0])) : P, dq === 0 ? [ONE] : Q, f)]);
+    if (dq > 0 && d <= NEWT_POLY_MAX) return OK([opRatN(P, Q, f)]);
     const how = g > IPOW_MAX ? `; a function of z^${g}, |n| > ${IPOW_MAX}` : g > 1 ? `; degree ${d / g} in z^${g}` : '';
-    return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts degree ≤ 4, also of a power z^k${how})`);
+    return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts polynomials of degree ≤ 4 and rational maps of degree ≤ ${NEWT_POLY_MAX}, also of a power z^k${how})`);
   }
   // a custom formula: its nodes, outermost first, become ops (returned in forward order); a node whose operands both
   // depend on z must be rational in z (its whole subtree becomes one rational op, or IPOW and one)

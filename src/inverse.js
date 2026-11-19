@@ -582,7 +582,7 @@ const Inverse = (() => {
     return cur;
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
-  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2, RAT3, RAT4,
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2 ... RAT12,
   // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
@@ -616,7 +616,7 @@ const Inverse = (() => {
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many of these kinds: each op's own (IPOW 0 and infinity, JOUK ±1, QUAD its vertex
-  // and infinity, RAT2, RAT3 and RAT4 at the zeros of their derivatives and at infinity when that is one), carried through the
+  // and infinity, RAT2 ... RAT12 at the zeros of their derivatives and at infinity when that is one), carried through the
   // ops after it,
   // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
   // finite families)
@@ -651,7 +651,7 @@ const Inverse = (() => {
         const co = [sub(mul(p2, q1), mul(p1, q2)), scale(sub(mul(p2, q0), mul(p0, q2)), 2), sub(mul(p1, q0), mul(p0, q1))];
         cv = CX.polyRoots(isZero(co[0]) ? co.slice(1) : co).map((u) => fwdAt(o, u));
         if (isZero(co[0])) cv.push(fwdAt(o, null));
-      } else if (o.kind === 'RAT3' || o.kind === 'RAT4') {
+      } else if (/^RAT([3-9]|1\d)$/.test(o.kind)) {
         // (the zeros of p'q - pq', of degree 2n - 2 at most: a rational map of degree n has 2n - 2 critical points, so one
         // of a lower degree has infinity among them)
         const { P, Q } = o.p, n = P.length - 1, W = CX.polyTrim(polySub(polyMul(polyDer(P), Q), polyMul(P, polyDer(Q))));
@@ -859,7 +859,7 @@ const Inverse = (() => {
         if (ql > 0) r = rho * (N1 + N2 * rho) / (ql * aq);
         break;
       }
-      case 'RAT3': case 'RAT4': {
+      case 'RAT3': case 'RAT4': case 'RAT5': case 'RAT6': case 'RAT7': case 'RAT8': case 'RAT9': case 'RAT10': case 'RAT11': case 'RAT12': {
         // as RAT2's, with N(u) = sum_k (p_k q(c) - p(c) q_k)(u - c)^k, p_k and q_k the Taylor coefficients about c
         const pt = taylorAt(o.p.P, c), qt = taylorAt(o.p.Q, c), aq = abs(qt[0]);
         let nb = 0, ql = aq;

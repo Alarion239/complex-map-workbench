@@ -2230,6 +2230,10 @@ void ixAncTan(vec2 w) {
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3, RAT4: 4 };
+  // RAT5 ... RAT<NEWT_POLY_MAX> (rational maps by Aberth's roots, ratAberthFns): n roots; P's and Q's n + 1 coefficients,
+  // two to a cell
+  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
+  for (let n = 5; n <= Inverse.NEWT_POLY_MAX; n++) { IX_SLOTS[`RAT${n}`] = 2 * Math.ceil((n + 1) / 2); IX_FIN[`RAT${n}`] = n; }
   // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: the
   // degree after the drop (a leading coefficient below 1e-14 of the others' sizes), and root b of the stable quadratic,
   // of Cardano's formula or of Ferrari's (its resolvent's root of largest modulus by Cardano's), each closed formula on
@@ -2459,29 +2463,13 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
   }
-  // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
-  // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
-  // a_0; _ev, a(u) - w and its derivative (Horner); _poly, H_t(u) = a(u); _start, de points on the circle of Fujiwara's
-  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's
-  // iteration in float32, whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton
-  // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
-  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
-  // from every earlier one, once per w. With the NEWT roots pass
-  // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
-  // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
-  // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
-  // own w, and finds them itself elsewhere and where a root read misses w
-  function newtPolyFns(o, j, c, D, rd) {
-    const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
-    const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
-    { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
-#endif`).join('\n');
-    return `vec2 ${P}_a(int k, vec2 w) {
-  vec4 v = uInv[${c + 1} + k / 2];
-  vec2 a = (k & 1) == 0 ? v.xy : v.zw;
-  return k == 0 ? a - w : a;
-}
-void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
+  // Aberth's iteration in GLSL for an op whose polynomial's coefficients a_0 ... a_D (low first, w taken off) are
+  // ${P}_a(k, w): _ev, a(u) and its derivative (Horner) at degree de; _start, de points on the circle of Fujiwara's
+  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within NEWT_STEP_TOL (1 + |z_i|)
+  // (InvOps.newtAberth's iteration in float32, whose rounding the tolerance allows). The polynomial NEWT op's and
+  // RAT<n>'s for n >= 5
+  function aberthFns(P, D) {
+    return `void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
   q = vec2(0.0); dq = vec2(0.0);
   for (int k = ${D}; k >= 0; k--) {
     if (k > de) continue;
@@ -2489,8 +2477,7 @@ void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
     q = cmul(q, u) + ${P}_a(k, w);
   }
 }
-vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
-${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
+void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
   vec2 ad = ${P}_a(de, w);
   float R = 0.0;
   for (int k = 1; k <= ${D}; k++) {
@@ -2526,7 +2513,30 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
   }
   return false;
 }
-bool ${P}_has = false;
+`;
+  }
+  // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
+  // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
+  // a_0; _ev, _start and _aberth, Aberth's iteration (aberthFns); _poly, H_t(u) = a(u); _roots, every root for w, polished and checked by Newton
+  // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
+  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
+  // from every earlier one, once per w. With the NEWT roots pass
+  // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
+  // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
+  // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
+  // own w, and finds them itself elsewhere and where a root read misses w
+  function newtPolyFns(o, j, c, D, rd) {
+    const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
+    const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
+    { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
+#endif`).join('\n');
+    return `vec2 ${P}_a(int k, vec2 w) {
+  vec4 v = uInv[${c + 1} + k / 2];
+  vec2 a = (k & 1) == 0 ? v.xy : v.zw;
+  return k == 0 ? a - w : a;
+}
+${aberthFns(P, D)}vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
 vec2 ${P}_r[${D}];
 bool ${P}_k[${D}];
@@ -2630,6 +2640,58 @@ ${seeded ? '' : pole ? `  vec2 v1;
 }
 `;
   }
+  // GLSL of RAT<n> for n >= 5 (InvOps.opRatN by aberthRoots), op j with parameters at uInv[c ...]: P's coefficients
+  // p_n ... p_0 two to a cell, then Q's from cell half. _a, the low-first coefficient a_k = p_(n-k) - w q_(n-k) of
+  // p - w q; its degree after the drop (a leading coefficient below 1e-14 of the others' sizes, as aberthRoots'); Aberth's
+  // roots (aberthFns), each polished by two Newton steps on p - w q and kept when finite and apart from every earlier one,
+  // once per w; root b's derivative (p/q)' by Horner on P and Q
+  function ratAberthFns(n, j, c, NOR) {
+    const P = `ix${j}`, half = Math.ceil((n + 1) / 2);
+    const cell = (i, from) => `(${i} & 1) == 0 ? uInv[${c + from} + ${i} / 2].xy : uInv[${c + from} + ${i} / 2].zw`;
+    return `vec2 ${P}_a(int k, vec2 w) { int i = ${n} - k; vec2 p = ${cell('i', 0)}, q = ${cell('i', half)}; return p - cmul(w, q); }
+${aberthFns(P, n)}void ${P}_pq(vec2 u, out vec2 pu, out vec2 qu, out vec2 dp, out vec2 dq) {
+  pu = vec2(0.0); qu = vec2(0.0); dp = vec2(0.0); dq = vec2(0.0);
+  for (int i = 0; i <= ${n}; i++) {
+    vec2 p = ${cell('i', 0)}, q = ${cell('i', half)};
+    dp = cmul(dp, u) + pu; pu = cmul(pu, u) + p;
+    dq = cmul(dq, u) + qu; qu = cmul(qu, u) + q;
+  }
+}
+bool ${P}_has = false;
+vec2 ${P}_w = vec2(0.0);
+vec2 ${P}_r[${n}];
+bool ${P}_k[${n}];
+void ${P}_roots(vec2 w) {
+  if (${P}_has && ${P}_w == w) return;
+  ${P}_has = true; ${P}_w = w;
+  int de = ${n};
+  for (int d = ${n}; d > 0; d--) {
+    float rest = 0.0;
+    for (int k = 0; k < ${n}; k++) if (k < d) rest += cx_abs(${P}_a(k, w));
+    if (cx_abs(${P}_a(d, w)) > 1e-14 * rest) break;
+    de = d - 1;
+  }
+  vec2 z[${n}];
+  ${P}_start(w, de, z);
+  ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
+  for (int i = 0; i < ${n}; i++) {
+    vec2 v = z[i];
+    for (int it = 0; it < 2; it++) { vec2 q, dq; ${P}_ev(v, w, de, q, dq); vec2 st = cdiv(q, dq); if (ixFin(st)) v -= st; }
+    bool ok = i < de && ixFin(v);
+    for (int m = 0; m < ${n}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
+    ${P}_r[i] = v; ${P}_k[i] = ok;
+  }
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${n} : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  ${P}_roots(L.u);
+  if (!${P}_k[b]) return false;
+  vec2 u = ${P}_r[b], pu, qu, dp, dq;
+  ${P}_pq(u, pu, qu, dp, dq);
+  return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
+}
+`;
+  }
   // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]; rd: the op is the NEWT roots
   // pass's (buildInverse's nr), whose members its functions read
   function invOpFns(o, j, c, rd) {
@@ -2637,6 +2699,7 @@ ${seeded ? '' : pole ? `  vec2 v1;
     const lam0 = j === 0 ? 'true' : 'false';
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
     const one = (body) => `bool ${P}_one(inout Lf L) {\n  if (!ixFin(L.u)) return false;\n  vec2 w = L.u;\n${body}\n}\n`;
+    if (ratDeg(o.kind) >= 5) return ratAberthFns(ratDeg(o.kind), j, c, NOR);
     const rng = (u, d, lvl, lg) => `  return ixApply(L, ${u}, ${d}, false, ${lvl}, ${lg}, false, vec2(0.0), vec2(0.0));`;
     const sg = (x) => `(${x} < 0.0 ? 1.0 : -1.0)`;   // -sgn(x), sgn(0) = 1 (Inverse's sgn)
     switch (o.kind) {
@@ -2996,7 +3059,8 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         put(c, P0.re, P0.im, P1.re, P1.im); put(c + 1, P2.re, P2.im, Q0.re, Q0.im); put(c + 2, Q1.re, Q1.im, Q2.re, Q2.im);
         break;
       }
-      case 'RAT3': case 'RAT4': {
+      default: {
+        if (ratDeg(o.kind) < 3) break;
         const half = Math.ceil(p.P.length / 2), cells = (co, from) => { for (let k = 0; k < co.length; k += 2) { const a = z(co[k]), b = z(co[k + 1]); put(from + k / 2, a.re, a.im, b.re, b.im); } };
         cells(p.P, c); cells(p.Q, c + half);
         break;
