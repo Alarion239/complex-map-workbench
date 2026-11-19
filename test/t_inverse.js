@@ -1123,7 +1123,8 @@ section('singularAfter (ζ after an injective plan)');
   // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
   // Repeated inverse Joukowski (len 1, N = 3: three times) at t = 0.5 and 0.8, and the block [exp, inverse Joukowski]
   // twice (len 2: inverse Joukowski, exp, inverse Joukowski) at t = 0.2 and 0.9
-  for (const [steps, ts] of [[[{ type: 'ijouk', repeat: { n: 3, len: 1 } }], [0.5, 0.8]], [[{ type: 'exp' }, { type: 'ijouk', repeat: { n: 2, len: 2 } }], [0.2, 0.9]]]) {
+  const ij = (repeat) => ({ type: 'ijouk', params: Funcs.defaults('ijouk'), repeat });
+  for (const [steps, ts] of [[[ij({ n: 3, len: 1 })], [0.5, 0.8]], [[{ type: 'exp' }, ij({ n: 2, len: 2 })], [0.2, 0.9]]]) {
     const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st))), b = built[built.length - 1], block = b.repeat.block;
     for (const t of ts) {
       const news = Inverse.homOps(b, t).ops.filter((o) => o.kind === 'NEWT'), bad = [];
