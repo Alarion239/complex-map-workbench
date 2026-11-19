@@ -742,6 +742,7 @@
  "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
  "No tone past the colour plane: the colour here comes from {p}.": "После плоскости цвета звука нет: цвет здесь берётся из %{p}.",
  "{from} → {to} · {secs} s": "%{from} → %{to} · %{secs} с",
+ "Regions key, {x}": "Шкала областей, %{x}",
  "dashed: {x}": "пунктир: %{x}",
  "grey: {x}": "серым: %{x}",
  "the start": "начало",
