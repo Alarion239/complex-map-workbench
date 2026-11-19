@@ -115,11 +115,12 @@ const MAP = [
   ['src/page.html', Object.assign(ui('desktop', 'phone', 'layout'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,homrange,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
-  ['src/palette.ts', { core: true }],
+  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
+  ['src/{palette,homrange}.ts', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
   ['tools/make_{ru,it}_table.py', ui('i18n')],
+  ['tools/js_blank_comments.js', ui('i18n')],                                 // (the Russian table generator's comment blanker)
   ['tools/melodies/**', ui('sound')],
   ['tools/join_src.js', T0],
   ['{tools/inspect.js,test/lib/inspect_page.js}', T0],                          // the visual inspection (#470): by hand, no CI job runs it
@@ -178,7 +179,8 @@ const MAC_JOBS = ['glsl', 'adv', 'inverse'].map((page) => ({ os: 'macos-latest',
 // (Linux: Chrome's own SwiftShader, CPU WebGL2, what headless Chrome falls back to without a GPU and what the figure
 // exports render on: its built-in sin and cos keep only Vulkan's minimum accuracy, and its last bits differ from the
 // GPUs'. Its core tier on every run: the glsl page in halves (its chains compile on one core), adv and inverse whole.
-// A chain SwiftShader does not finish is not run there (GLSLTiers.SWIFTSHADER_HANG, which lists none))
+// A chain a renderer does not survive is not run there (GLSLTiers.NOT_ON: SwiftShader's SWIFTSHADER_HANG, which lists
+// none, and lavapipe's LAVAPIPE_CRASH))
 const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },

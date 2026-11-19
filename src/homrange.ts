@@ -1,45 +1,67 @@
-// @ts-check
 'use strict';
-// homrange.js: the deformation's arithmetic (notes/deform-range/SPEC.md 3.1), pure (no DOM), so the node tests run the
+// homrange.ts: the deformation's arithmetic (notes/deform-range/SPEC.md 3.1), pure (no DOM), so the node tests run the
 // shipped code. The chain is f_1 … f_n with f_1 acting first; a bracket a…b (S.homRange) deforms the steps a…b while
 // the pre P = f_{a−1} ∘ … ∘ f_1 acts first and the post Q = f_n ∘ … ∘ f_{b+1} last, both in full:
 // H_t = Q ∘ G_t ∘ P, from H_0 = Q ∘ P to H_end = F, both exact (every homotopy is the identity at t <= 0 and f at t >= 1).
 // HomRange.make(env): env = { n, stepFn(k), isDeriv(k), stepActive(k), stageF(k), rangeF(a, b), built, C, uidOf?(k) }
 // (n and built may be values or functions: the app passes getters, so one instance follows the live chain)
 // -> { resolve(S), range(S), state(S, T, rel, base), cpuMap(map), homF(k, t), H0(S, rel), lastDeriv(), allowed(S) }
-const HomRange = (function (factory) {
-  const M = factory(); if (typeof window !== 'undefined') window.HomRange = M;
+const HomRange = (function <T>(factory: () => T): T {
+  const M = factory(); if (typeof window !== 'undefined') (window as unknown as { HomRange: T }).HomRange = M;
   return M;
   // (ES module: the factory's value is the module's export, HomRange)
 })(function () {
-  function make(env) {
+  // a complex number, and a map of the plane
+  type Cx = { re: number; im: number };
+  type Fn = (z: Cx) => Cx;
+  // the chain as the app gives it (make's env above); a built step's own homotopy, hom(t), where it has one
+  type Env = {
+    n: number | (() => number);
+    built: { hom?: (t: number) => Fn }[] | (() => { hom?: (t: number) => Fn }[]);
+    stepFn(k: number): Fn | null | undefined;
+    isDeriv(k: number): boolean;
+    stepActive(k: number): boolean;
+    stageF?(k: number): Fn;
+    rangeF(a: number, b: number): Fn;
+    C(re: number, im: number): Cx;
+    uidOf?(k: number): string | undefined;
+    sig?(): unknown;
+  };
+  // the bracket as the state saves it: its ends a and b, and the steps' uids ua and ub (null at the chain's ends)
+  type HomRangeSetting = { a: number; b: number; ua?: string | null; ub?: string | null };
+  // what the deformation reads of the app's state
+  type State = { homRange?: HomRangeSetting; focus: number; steps?: { uid?: string }[]; homAll?: boolean };
+  // a GPU map spec (SPEC 4.1): its mode, stages, step and time, the source stage (base) and the post's last stage
+  type MapSpec = { mode?: number; a?: number; b?: number; hi?: number; t?: number; base?: number; post?: number; stepT?: number[][] };
+  type Range = { lo: number; b: number; p1: number; steps: number[]; r: { a: number; b: number } | null };
+  function make(env: Env) {
     const C = env.C;
     const N = () => (typeof env.n === 'function' ? env.n() : env.n);
     const B = () => (typeof env.built === 'function' ? env.built() : env.built) || [];
-    const uidOf = (S, k) => (env.uidOf ? env.uidOf(k) : S && S.steps && S.steps[k - 1] ? S.steps[k - 1].uid : undefined);
-    const lerpF = (F0, F1, t) => (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); };
+    const uidOf = (S: State | null, k: number): string | undefined => (env.uidOf ? env.uidOf(k) : S && S.steps && S.steps[k - 1] ? S.steps[k - 1].uid : undefined);
+    const lerpF = (F0: Fn, F1: Fn, t: number): Fn => (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); };
     // a d/dz segment's straight line with exact ends: G_{k−1} itself at t <= 0 and G_k at t >= 1,
     // so an infinite end does not make the other one NaN and a signed zero keeps its side of a cut (gl.js MAP_STAGE too)
-    const lerpE = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : lerpF(F0, F1, t));
+    const lerpE = (F0: Fn, F1: Fn, t: number): Fn => (t <= 0 ? F0 : t >= 1 ? F1 : lerpF(F0, F1, t));
     // the time of step k in an All-at-once map at time t (map.stepT): t, or clamp(a t - b, 0, 1) for stepT[k] = [a, b]. A
     // formula's own homotopy runs its n steps in turn, step j on [j/n, (j+1)/n] (funcs.js r.hom): [n, j] for a formula a
     // Split made into n steps during an All-at-once glide, and [a n, b n + j] for one whose own time was [a, b]
-    const stepTime = (stepT, k, t) => { const m = stepT && stepT[k]; return m ? Math.max(0, Math.min(1, t * m[0] - m[1])) : t; };
+    const stepTime = (stepT: number[][] | undefined, k: number, t: number): number => { const m = stepT && stepT[k]; return m ? Math.max(0, Math.min(1, t * m[0] - m[1])) : t; };
     // the natural homotopy of step k at t, a map of its input plane; exact ends (D3): the identity at t <= 0, f at t >= 1
-    function homF(k, t) {
+    function homF(k: number, t: number): Fn {
       const f = env.stepFn(k);
-      if (t <= 0) return (z) => z;
+      if (t <= 0) return (z: Cx) => z;
       if (t >= 1 && f) return f;
       const b = B()[k - 1];
       if (b && b.hom) return b.hom(t);
-      const g = f || ((z) => z);
-      return (z) => { const w = g(z); return C((1 - t) * z.re + t * w.re, (1 - t) * z.im + t * w.im); };
+      const g = f || ((z: Cx) => z);
+      return (z: Cx) => { const w = g(z); return C((1 - t) * z.re + t * w.re, (1 - t) * z.im + t * w.im); };
     }
     // the last active d/dz step (0 without one): nothing after the bracket may differentiate (the d/dz rule, D8)
-    function lastDeriv() { let d = 0; const n = N(); for (let k = 1; k <= n; k++) if (env.isDeriv(k)) d = k; return d; }
+    function lastDeriv(): number { let d = 0; const n = N(); for (let k = 1; k <= n; k++) if (env.isDeriv(k)) d = k; return d; }
     // the normal form of a candidate bracket {a, b} (1-based, inclusive) on the current chain: null when it holds no
     // active step or every active step (that is "every step"); b moves up to the last active d/dz
-    function normal(a, b) {
+    function normal(a: number, b: number): { a: number; b: number } | null {
       const n = N();
       if (!(n > 0)) return null;
       a = Math.max(1, Math.min(n, a | 0)); b = Math.max(1, Math.min(n, b | 0));
@@ -54,14 +76,14 @@ const HomRange = (function (factory) {
     // chain's ends). Absent at focus > 0 is not touched (kept, ignored). A setting with no active step inside, or with
     // every active step inside, is dropped.
     // (anyFocus: resolved and written back at focus k too: a save, an undo entry)
-    function resolve(S, anyFocus) {
+    function resolve(S: State | null, anyFocus?: boolean): { a: number; b: number } | null {
       const hr = S && S.homRange;
       if (!hr || typeof hr !== 'object') return null;
       if (S.focus > 0 && !anyFocus) return null;
       const n = N();
       // (the chain not built yet: no step is known to be active, so nothing is decided and the setting is kept)
       if (!(n > 0) || !B().length) return null;
-      const find = (u, idx, end) => {
+      const find = (u: string | null | undefined, idx: number, end: number): number => {
         if (u === null) return end;
         if (typeof u === 'string') { for (let k = 1; k <= n; k++) if (uidOf(S, k) === u) return k; }
         return Math.max(1, Math.min(n, idx | 0));
@@ -78,19 +100,19 @@ const HomRange = (function (factory) {
       memo = { hr: h2, steps: S.steps, sig, n, a: h2.a, b: h2.b, ua: h2.ua, ub: h2.ub, r };
       return { a: r.a, b: r.b };
     }
-    let memo = null;
-    function write(S, r) {
+    let memo: { hr: HomRangeSetting; steps: State['steps']; sig: unknown; n: number; a: number; b: number; ua?: string | null; ub?: string | null; r: { a: number; b: number } } | null = null;
+    function write(S: State, r: { a: number; b: number }): void {
       const n = N(), ua = r.a === 1 ? null : uidOf(S, r.a), ub = r.b === n ? null : uidOf(S, r.b), h = S.homRange;
       // (the same setting keeps its object: no garbage on every read)
       if (h && typeof h === 'object' && h.a === r.a && h.b === r.b && h.ua === ua && h.ub === ub && Object.keys(h).length === 2 + Number(ua !== undefined) + Number(ub !== undefined)) return;
-      const o = { a: r.a, b: r.b };
+      const o: HomRangeSetting = { a: r.a, b: r.b };
       if (ua !== undefined) o.ua = ua;
       if (ub !== undefined) o.ub = ub;
       S.homRange = o;
     }
     // what the transport deforms: lo (the stage the bracket starts from), b (its last step), p1 (the stage the post
     // ends at) and the active bracketed steps
-    function range(S) {
+    function range(S: State): Range {
       const n = N();
       if (S.focus > 0) { const k = S.focus; return { lo: k - 1, b: k, p1: k, steps: env.stepActive(k) ? [k] : [], r: null }; }
       const r = resolve(S);
@@ -98,25 +120,25 @@ const HomRange = (function (factory) {
       for (let k = lo + 1; k <= b; k++) if (env.stepActive(k)) steps.push(k);
       return { lo, b, p1: n, steps, r };
     }
-    const leftStage = (S) => (S.focus === 0 || env.isDeriv(S.focus) ? 0 : S.focus - 1);
-    const allAtOnce = (S, R) => !!S.homAll && R.steps.length > 1 && !R.steps.some((k) => env.isDeriv(k));
+    const leftStage = (S: State): number => (S.focus === 0 || env.isDeriv(S.focus) ? 0 : S.focus - 1);
+    const allAtOnce = (S: State, R: Range): boolean => !!S.homAll && R.steps.length > 1 && !R.steps.some((k) => env.isDeriv(k));
     // design-math 3's morphState: the GPU map spec, the CPU function, a key and the label's parts at time T; rel: the
     // source points live in the left plane (map.base = its stage); base: an explicit source stage (the merged probe)
-    function state(S, T, rel, base) {
+    function state(S: State, T: number, rel?: boolean, base?: number | null) {
       const R = range(S), { lo, b, p1, steps } = R, m = steps.length;
       const pb = base != null ? base : rel ? leftStage(S) : 0;
       let live = false;
       for (let k = b + 1; k <= p1; k++) if (env.stepFn(k)) live = true;
       const Q = live ? env.rangeF(b, p1) : null;
-      const wrap = (F) => (Q ? (z) => Q(F(z)) : F);
-      const tag = (map) => { if (pb) map.base = pb; if (Q) { map.post = p1; map.b = b; } return map; };
+      const wrap = (F: Fn): Fn => (Q ? (z) => Q(F(z)) : F);
+      const tag = (map: MapSpec): MapSpec => { if (pb) map.base = pb; if (Q) { map.post = p1; map.b = b; } return map; };
       const sfx = `|${lo}|${b}|${p1}`;
       const H0F = wrap(env.rangeF(pb, lo));
       if (m === 0) {
         // (no active step inside: G_t is the identity, so H_t = Q ∘ P is the plain stage map pb → p1 when the post is
         // live; a mode-0 map takes no post, so it is never tagged with one)
         const top = Q ? p1 : lo, F = env.rangeF(pb, top);
-        const map = { mode: 0, a: pb, b: top };
+        const map: MapSpec = { mode: 0, a: pb, b: top };
         if (pb) map.base = pb;
         return { map, F, key: `none|${pb}|${top}` + sfx, label: { kind: 'none' }, H0F: F, H0Map: Object.assign({}, map), m, R };
       }
@@ -129,16 +151,16 @@ const HomRange = (function (factory) {
       }
       const TT = Math.max(0, Math.min(m, T)), j = Math.min(m - 1, Math.floor(TT)), t = TT - j, k = steps[j];
       const Fprev = env.rangeF(pb, k - 1);
-      let inner;
+      let inner: Fn;
       if (env.isDeriv(k)) inner = lerpE(Fprev, env.rangeF(pb, k), t);
       else { const Ht = homF(k, t); inner = (z) => Ht(Fprev(z)); }
       return { map: tag({ mode: 1, hi: k, t }), F: wrap(inner), key: `nat|${pb}|${k}|${t}` + sfx, label: { kind: 'nat', k, t }, H0F, H0Map, m, R };
     }
     // the CPU twin of a GPU map spec (SPEC 4.1): {mode 1, hi, t, base?, b?, post?} = G_{b→post} ∘ h_{hi,t} ∘ G_{base→hi−1};
     // {mode 3, a, b, t, base?, post?} = G_{b→post} ∘ h_{b,t} ∘ … ∘ h_{a+1,t} ∘ G_{base→a}; modes 0 and 2 as before
-    function cpuMap(map) {
+    function cpuMap(map: MapSpec): Fn {
       const mode = map.mode || 0, pb = map.base || 0;
-      let inner, top;
+      let inner: Fn, top: number;
       if (mode === 1) {
         const k = map.hi || 0, Fp = env.rangeF(pb, k - 1), t = map.t || 0;
         top = map.b || k;
@@ -147,7 +169,7 @@ const HomRange = (function (factory) {
         else { const Ht = homF(k, t); inner = (z) => Ht(Fp(z)); }
       } else if (mode === 2) return lerpF(env.rangeF(pb, map.a || 0), env.rangeF(pb, map.b || 0), map.t || 0);
       else if (mode === 3) {
-        const F0 = env.rangeF(pb, map.a || 0), t = map.t || 0, Hs = [];
+        const F0 = env.rangeF(pb, map.a || 0), t = map.t || 0, Hs: Fn[] = [];
         top = map.b || 0;
         for (let k = (map.a || 0) + 1; k <= top; k++) if (env.stepActive(k)) Hs.push(env.isDeriv(k) ? () => C(NaN, NaN) : homF(k, stepTime(map.stepT, k, t)));
         inner = (z) => { let w = F0(z); for (const H of Hs) w = H(w); return w; };
@@ -156,12 +178,12 @@ const HomRange = (function (factory) {
       return post ? (z) => post(inner(z)) : inner;
     }
     // H_0 as a function of the source plane and its GPU map spec
-    function H0(S, rel) { const s = state(S, 0, rel); return { F: s.H0F, map: s.H0Map }; }
+    function H0(S: State, rel?: boolean): { F: Fn; map: MapSpec } { const s = state(S, 0, rel); return { F: s.H0F, map: s.H0Map }; }
     // the stops of the bracket's ends (the drag, the sliders, the phone's selects): the steps each end may take with the
     // other end held, and the d/dz stop of the right end
-    function stops(S) {
+    function stops(S: State) {
       const n = N(), d = lastDeriv(), r = resolve(S) || { a: 1, b: n };
-      const okA = [], okB = [];
+      const okA: number[] = [], okB: number[] = [];
       for (let a = 1; a <= r.b; a++) if (a <= n) okA.push(a);
       for (let b = Math.max(r.a, d, 1); b <= n; b++) okB.push(b);
       return { a: r.a, b: r.b, okA, okB, deriv: d };
@@ -176,9 +198,15 @@ const HomRange = (function (factory) {
   // about 1.4 s to settle, most of it in the first 0.6 s, and 20 steps still settle within 2 s.
   // glider({ omega }) -> { set(x), to(target, max), nudge(d, max), step(dt) -> moving, x, v, target, moving(), since }
   // (since: the glide's own time from the last press to the current time, or to its settling: the frames' dt, each at most 100 ms)
-  function glider(opt = {}) {
+  type Glider = {
+    x: number; v: number; target: number; max: number; since: number;
+    // (the caller's own: the time of its last frame, ms, which the app keeps on the glider to take the frames' dt)
+    last?: number;
+    set(x: number): Glider; to(target: number, max?: number): Glider; nudge(d: number, max?: number): Glider; moving(): boolean; step(dt: number): boolean;
+  };
+  function glider(opt: { omega?: number } = {}): Glider {
     const W = opt.omega || 6.5, EPS = 1e-3;
-    const g = { x: 0, v: 0, target: 0, max: 0, since: 0 };
+    const g = { x: 0, v: 0, target: 0, max: 0, since: 0 } as Glider;
     // x at once, at rest (the scrubber, a new range, the deformation opened at its end)
     g.set = (x) => { g.x = x; g.v = 0; g.target = x; return g; };
     g.to = (target, max) => { if (max != null) g.max = max; g.target = Math.max(0, Math.min(g.max, target)); g.since = 0; return g; };
