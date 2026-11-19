@@ -285,6 +285,8 @@
     }
   }
   const regionLook = () => solidKeep || { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+  // whether the regions are being drawn as a mask (inside withSolidRegions)
+  const regionsAsMask = () => solidKeep !== null;
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,

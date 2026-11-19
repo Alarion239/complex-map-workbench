@@ -3,6 +3,8 @@
 // each point. With the chain [z, z + 1/z] (F = z + 1/z, the first step the identity), plane 1 is plane z itself, so its
 // carried colour is the plot of the style on plane z (GLR.drawColorPlot of the same data) at each point, for Both, Inside and
 // Outside. Then, with the chain [z + 1/z], the colour of F(z0) on plane 1 is the colour of z0 (or of 1/z0) on plane z.
+// Its switch leg, which watches a glide under way (the hold on plane z), runs with the Play gate off (__cmwSteps({ gate: false })); the
+// gated switch leg after it keeps the gate on and reads plane z while the press waits.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PNG = process.mainModule.require(path.join(DIR, 'png.js'));
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -119,7 +121,8 @@ await ev('(__cmwSteps({ T: 0 }), 1)');
 await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
 const phaseOut = await pixels(SWITCH_PTS);
 await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
-await ev('(__cmwSteps({ T: 0, go: 1 }), 1)');
+// (the Play gate off: the hold of the glide that has started waits on plane z, which this leg watches; the gate's waits are svplay_gate_cmd.js's)
+await ev('(__cmwSteps({ T: 0, go: 1, gate: false }), 1)');
 const seen = [];
 for (let i = 0; i < SWITCH_FRAMES; i++) seen.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
 await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
@@ -135,6 +138,22 @@ ok('switch: negative control: those points\' colour before the switch (the stage
 ok('switch: the thread reached plane 1 within the frames sampled', seen.some((f) => f.x === 1), info.switch.frames);
 ok('switch: every frame past z is the final picture (never blank, never the stages\' colour)', seen.every((f) => f.x === 0 || finalAt(f)), info.switch.frames);
 ok('switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', seen.every((f) => f.x !== 0 || !blankAt(f)), info.switch.frames);
+// The same switch and step with the Play gate on (the page's default): the press waits for the prestart and starts no glide, and
+// plane z, which the wait leaves on the screen, is still drawn (the late-link stand-in or the final picture, as the held glide's
+// frames are above), never blank; the glide then reaches plane 1 once the programs have linked
+await open(Object.assign({}, stateId, { dc: 'phase' }));
+await ev('(__cmwSteps({ T: 0 }), 1)');
+await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 0 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+await ev(`(() => { let b = document.querySelector('[id="dcSeg"] [data-v="cauchy"]'); if (!b || !b.getClientRects().length) { document.querySelector('#leftFoot .opts-btn').click(); b = document.querySelector('.opts-pop [data-v="cauchy"]'); } b.click(); return 1; })()`);
+await ev('(__cmwSteps({ T: 0, go: 1 }), 1)');
+const gated = [];
+for (let i = 0; i < SWITCH_FRAMES; i++) gated.push({ x: await ev('+__cmwSteps().x.toFixed(3)'), px: await pixels(SWITCH_PTS) });
+await settled({ until: '!__cmwSteps().moving && __cmwSteps().i === 1 && __cmwSteps().ready.ready && !GLR.pendingLinks', max: SWITCH_MS });
+const gatedOnZ = gated.filter((f) => f.x === 0);
+info.gated = { frames: gated.map((f) => [f.x, f.px.every((p) => !coloured(p)) ? 'blank' : 'drawn']), onZ: gatedOnZ.length, blank: gatedOnZ.filter((f) => f.px.every((p) => !coloured(p))).length };
+ok('gated switch: the press waits on plane z for the links (the control: the thread is on z for some of the frames sampled)', gatedOnZ.length > 0, info.gated);
+ok('gated switch: every frame on plane z is drawn: the late-link stand-in or the final picture, not a blank plane', info.gated.blank === 0, info.gated);
+ok('gated switch: the glide reaches plane 1 once the programs have linked', (await ev('__cmwSteps().i')) === 1, info.gated);
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error' || x.t === 'warn') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no page errors or warnings', !errs.length, errs.slice(0, 4).map((x) => String(x.m).slice(0, 300)));
 return { pass: fails.length === 0, fails, info };

@@ -3083,6 +3083,7 @@
  "the Cauchy integral %{I} over the selected closed curve, which equals %{fp} inside and %{fm} outside, where %{F} = %{fp} + %{fl} and %{fl} is the sum of the principal parts of %{F} at its poles inside the curve.": "l'integrale di Cauchy %{I} lungo la curva chiusa selezionata, che vale %{fp} dentro e %{fm} fuori, dove %{F} = %{fp} + %{fl} e %{fl} è la somma delle parti principali di %{F} nei suoi poli dentro la curva.",
  "the Cauchy integral %{I} over the selected closed curve, computed numerically (%{F} has a singularity inside the curve that is not a pole).": "l'integrale di Cauchy %{I} lungo la curva chiusa selezionata, calcolato numericamente (%{F} ha dentro la curva una singolarità che non è un polo).",
  "+{n} more": "altri {n}",
+ "+{n} off view": "altri {n} fuori vista",
  "more": "altri",
  "A step between uses {x}: drag {x} in its own plane": "Un passo intermedio usa {x}: trascina {x} nel suo piano",
  "Douady–Hubbard map": "Mappa di Douady–Hubbard",
@@ -3346,6 +3347,9 @@
  "Add a step with {x} or the + at the end of the thread; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in the palette to add it directly. Click a step on the thread to select it: the <b>Inspector</b> on the right edits it, with its formula in full, a field per coefficient and a ⋯ menu that replaces the step by its inverse, bypasses, moves, duplicates or removes it. A step's own coefficients are marked with its index (<i>a</i><sub>2</sub>); a plain letter is a number of the Numbers section. Press <b>Show alone</b> in the Inspector to show that step alone. Press Alt+← or Alt+→ on a step to move it along the thread.": "Aggiungi un passo con {x} o con il + in fondo al filo; digita una formula come <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> nella ricerca comandi per aggiungerla direttamente. Fai clic su un passo sul filo per selezionarlo: l'<b>Ispettore</b> a destra ne permette la modifica, con la formula completa, un campo per ogni coefficiente e un menu ⋯ che sostituisce il passo con la sua inversa, lo esclude, lo sposta, lo duplica o lo rimuove. I coefficienti propri di un passo sono contrassegnati dal suo indice (<i>a</i><sub>2</sub>); una lettera semplice è un numero della sezione «Numeri». Premi <b>Mostra da solo</b> nell'Ispettore per mostrare solo quel passo. Premi Alt+← o Alt+→ su un passo per spostarlo lungo il filo.",
  "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude.",
+ "Preparing the glide…": "Preparazione del passaggio…",
+ "Still preparing the glide.": "Preparazione del passaggio ancora in corso.",
+ "Retry": "Riprova",
  "Outlines are drawn on the colour plane": "I contorni sono disegnati sul piano del colore",
  "How much the layers behind show through where the picture covers a point more than once.": "Quanto i livelli dietro si vedono dove l'immagine copre un punto più di una volta.",
  "The Landscape draws its sheets opaque; opacity applies to the plane.": "Il Paesaggio disegna i fogli opachi; l'opacità vale per il piano.",
@@ -3423,5 +3427,10 @@
  "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
  "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre",
  "This curve is in {plane}, a later plane: listen along it there.": "Questa curva sta nel piano {plane}, più avanti nella catena: usa «Ascolta lungo la curva» da quel piano.",
- "No tone past the colour plane: the colour here comes from {p}.": "Nessun suono dopo il piano del colore: qui il colore viene da {p}."
+ "No tone past the colour plane: the colour here comes from {p}.": "Nessun suono dopo il piano del colore: qui il colore viene da {p}.",
+ "dashed: {x}": "tratteggiato: {x}",
+ "grey: {x}": "in grigio: {x}",
+ "the start": "l'inizio",
+ "hue: the argument, red at 1, counterclockwise": "tinta: l'argomento, rosso in 1, in senso antiorario",
+ "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞"
 }

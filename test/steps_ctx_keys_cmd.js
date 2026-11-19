@@ -4,13 +4,15 @@
 // the column of three keys plus the bar at 740 x 360 and 667 x 375; 844 x 390 has room, and the same arrangement holds there.
 // Also: a press at the folded colour key's centre reaches it, nothing of the bar or the construction chip over it, down to
 // 568 x 320 in Russian and Italian; with the globe shown, the hint card stays clear of the globe's disk. Where the plane above
-// the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys themselves do not fit and only these two are checked.
+// the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
+// what is left beside them, is checked only to lie over the keys (#1915 holds it).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const MARGIN = 2;   // the keys stand at least this far from the header and from the bar, px
-const ROOM = 140;   // the plane above the bar holds the keys and the unfolded colour key only when it is this tall, px
+const ROOM = 140;   // the plane above the bar holds the unfolded colour key (74 px) beside a row of keys (44 px) only when it is this tall, px: the 320 px tall phones' 106 px is not, a 360 px tall phone's 146 px is
+const HIT_PX = 8;   // the folded colour key's hit area reaches this far past its glyph, px (phone.css)
 const SLACK = 0.5;  // layout rounding, px
 const meet = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 const geometry = () => ev(`(() => {
@@ -42,7 +44,7 @@ for (const [w, h, lang, surf] of CASES) {
   const g = await geometry();
   info[name] = g;
   const roomy = g.barTop - g.headBottom >= ROOM;
-  for (const k of roomy ? g.keys : []) {
+  for (const k of g.keys) {
     const tag = `${name}: ${k.name}`;
     ok(`${tag} is on the page`, k.shown, k);
     if (!k.shown) continue;
@@ -51,7 +53,11 @@ for (const [w, h, lang, surf] of CASES) {
     ok(`${tag} stands above the context bar`, bottom <= g.barTop - MARGIN + SLACK, [bottom, g.barTop]);
     ok(`${tag} takes a press at its centre`, k.press, k);
   }
-  const shown = roomy ? g.keys.filter((k) => k.shown) : [];
+  // (the construction chip, which stops short of the keys, stands above the bar)
+  const chip = await ev(`(() => { const c = document.querySelector('.draft-chip.cm-on'); if (!c) return null; const r = c.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10); })()`);
+  info[`${name} chip`] = chip;
+  ok(`${name}: the construction chip is on the page and stands above the bar`, !!chip && chip[3] <= g.barTop + SLACK, { chip, barTop: g.barTop });
+  const shown = g.keys.filter((k) => k.shown);
   const overlap = [];
   for (let i = 0; i < shown.length; i++) for (let j = i + 1; j < shown.length; j++) {
     const a = shown[i].r, b = shown[j].r;
@@ -75,7 +81,23 @@ for (const [w, h, lang, surf] of CASES) {
     const covered = (await geometry()).keys.filter((k) => k.shown && !k.press).map((k) => k.name);
     if (roomy || !open) ok(`${name}: with the colour key ${st}, a press at every plane key's centre reaches it`, covered.length === 0, covered);
     if (roomy || !open) ok(`${name}: the ${st} colour key overlaps no plane key`, hit.length === 0, { lg, hit });
-    ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
+    if (roomy || !open) ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
+    // (#1915: below ROOM the unfolded card cannot stand beside the keys and lies over them; this row states that, so it fails, and is turned
+    // into the rule above for every size, when the card gets room)
+    if (!roomy && open) ok(`${name}: (#1915) the unfolded colour key lies over plane keys at this height, as it does today`, hit.length > 0, { lg, hit });
+    // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
+    // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
+    // page call so the probe cannot rewrite it, and measured at once; the globe's hint card has its own rule)
+    if (!open && surf === 'plane') {
+      const ro = await ev(`(() => {
+        const e = document.getElementById('leftReadout'); if (!e) return null;
+        const html = e.innerHTML; e.textContent = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';
+        const r = e.getBoundingClientRect(), shown = e.getClientRects().length > 0; e.innerHTML = html;
+        return shown ? [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10) : null;
+      })()`);
+      info[`${name} long readout`] = ro;
+      ok(`${name}: a long readout is shown and stops short of the folded colour key's hit area`, !!ro && ro[2] <= lg[0] - HIT_PX + SLACK, { ro, lg });
+    }
   }
   if (surf === 'sphere') {
     // the hint card stays clear of the globe's disk (phone_hint_globe_cmd's rule), with the tall bar in
