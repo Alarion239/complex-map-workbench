@@ -15,14 +15,10 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 // (panes: false: the kit's settled would wait for the panes' compiles too, which the hold keeps pending)
 const ready = () => settled({ max: 60000, panes: false, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(".sv-rail")' });
 // the page's load work done: the prestart asked for the glide's programs (svReady's programs part counts more than the
-// one it counts before any is asked for) and its idle jobs finished -> svReady's parts then; null when that did not
-// come within a minute. Polled, not the kit's settled, which waits for the pane's compiles too (here they are held)
-const loaded = () => ev(`(async () => {
-  const s = () => { const { programs: p, jobs: j } = __cmwSteps().ready.parts; return !!p && p.total > 1 && !!j && j.done === j.total; };
-  const t = performance.now() + 60000;
-  while (!s() && performance.now() < t) await new Promise((r) => setTimeout(r, 50));
-  return s() ? __cmwSteps().ready.parts : null;
-})()`);
+// one it counts before any is asked for) and its idle jobs finished, within a minute (panes: false, as ready()) ->
+// svReady's parts then; null when that did not come
+const LOADED = '(({ programs: p, jobs: j }) => !!p && p.total > 1 && !!j && j.done === j.total)(__cmwSteps().ready.parts)';
+const loaded = async () => ((await settled({ max: 60000, panes: false, until: LOADED })).ok ? ev('__cmwSteps().ready.parts') : null);
 await view(1200, 800, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=lh${Date.now()}&lang=en&glhold`);
 await ready();
