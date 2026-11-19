@@ -231,16 +231,15 @@ const InvOps = (() => {
   // two members closer than this (relative to 1 + |u|) are one (the CPU's; glsl.js has the float32 one)
   const NEWT_SAME = 1e-6;
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10;
-  // The external ray's landing of a seed that is only near a root (a seed op flagged ray): from |w| = R, where the identity
-  // is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the identity), the target
-  // w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the geometric stages
-  // G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than TOL (1 + |u|) after
-  // them fails the member), HALVINGS halvings at most (a |w| that needs more, below exp(log R 2^-HALVINGS), fails the
-  // member: newtRayStages answers -1, and so does the program). TOL is a tracking test only (the final accuracy is the hit
-  // test): at the step tolerance 1e-5 the band 1 < |w| < 1.1 of the Douady-Hubbard map and the Böttcher coordinate is off the
-  // parked plane on 8 % and 26 % of its pixels, since NEWT steps per stage do not reach it near the set; at 1e-2 on none.
-  // SUB = 0: no stages, the seed
-  // is landed on w itself
+  // The external ray's landing of a seed that is only near a root (a seed op flagged ray): from |w| = R, where the
+  // identity is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the
+  // identity), the target w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the
+  // geometric stages G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than
+  // TOL (1 + |u|) after them fails the member), HALVINGS halvings at most (a |w| that needs more, below
+  // exp(log R 2^-HALVINGS), fails the member: newtRayStages answers -1, and so does the program). TOL is a tracking
+  // test only (the final accuracy is the hit test): at the step tolerance 1e-5 the band 1 < |w| < 1.1 of the
+  // Douady-Hubbard map and the Böttcher coordinate is off the parked plane on 8 % and 26 % of its pixels, since NEWT
+  // steps per stage do not reach it near the set; at 1e-2 on none. SUB = 0: no stages, the seed is landed on w itself
   const NEWT_RAY = { R: 32, SUB: 4, HALVINGS: 12, NEWT: 3, TOL: 1e-2 };
   const newtRayStages = (w) => {
     const g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
@@ -315,13 +314,16 @@ const InvOps = (() => {
     }
     return z;
   }
+  // f's derivative at u by the central difference (step 1e-6 (1 + |u|)), and one Newton step for f(u) = w with it:
+  // opNewt's, and singleRoot's (inverse.js) checks
+  const newtDH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+  const newtStep = (u, w, f) => sub(u, div(sub(f(u), w), newtDH(f, u)));
   function opNewt(t, H, back, deg, anchor, pole) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
     const ray = !!counts && back.some((q) => q.ray), single = !!counts && back.some((q) => q.single);
-    const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+    const dH = newtDH, step = newtStep;
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
-    const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
     // (tr, when given: each iterate of the polish, as it is made)
     const polishAt = (u, w, tr) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) { u = step(u, w, Ht); if (tr) tr(u); } return u; };
     // the seed v landed on a root of H_1 = w by the external ray (newtRayStages): v, or null when a stage fails
@@ -1030,7 +1032,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';
