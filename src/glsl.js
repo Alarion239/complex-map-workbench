@@ -2231,9 +2231,9 @@ void ixAncTan(vec2 w) {
   const NEWT_HIT_F = '1e-3';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3, RAT4: 4 };
   // RAT5 ... RAT<NEWT_POLY_MAX> (rational maps by Aberth's roots, ratAberthFns): n roots; P's and Q's n + 1 coefficients,
-  // two to a cell
+  // two to a cell. Added by buildInverse (ixRatTables), once Inverse is loaded
   const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
-  for (let n = 5; n <= Inverse.NEWT_POLY_MAX; n++) { IX_SLOTS[`RAT${n}`] = 2 * Math.ceil((n + 1) / 2); IX_FIN[`RAT${n}`] = n; }
+  const ixRatTables = () => { for (let n = 5; n <= Inverse.NEWT_POLY_MAX; n++) { IX_SLOTS[`RAT${n}`] = 2 * Math.ceil((n + 1) / 2); IX_FIN[`RAT${n}`] = n; } };
   // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: the
   // degree after the drop (a leading coefficient below 1e-14 of the others' sizes), and root b of the stable quadratic,
   // of Cardano's formula or of Ferrari's (its resolvent's root of largest modulus by Cardano's), each closed formula on
@@ -2967,6 +2967,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
+    if (!IX_FIN.RAT5) ixRatTables();
     // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
     const ops = [], sigs = [];
     steps.forEach((st, i) => {
