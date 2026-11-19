@@ -3879,11 +3879,18 @@
     svSync();
     return false;
   }
+  // the least span, in planes, that a play given a new speed is timed over: one switched at its last plane still takes a
+  // moment, not 0 ms
+  const SV_REBASE_MIN_SPAN = 0.05;
   // a new speed while it plays: from here on at it
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from); A.drawn = null;
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(SV_REBASE_MIN_SPAN, A.to - A.from); A.drawn = null;
+    // TEST-HOOK (dropped from the published page by build.py)
+    // the schedule this rebase set, kept after the play ends (__cmwSteps().rebased)
+    SV.rebased = { from: A.from, to: A.to, ms: A.ms, t0: A.t0 };
+    // TEST-HOOK
     // (held: it waits at the place it starts from now)
     if (A.held) A.held.el = 0;
   }
