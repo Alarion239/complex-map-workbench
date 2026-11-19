@@ -732,7 +732,6 @@ float wabs(vec2 w) {
     return map;
   }
   const LIVE = (sig) => sig !== 'off' && sig !== 'err' && sig !== 'unsupported';
-  // true when no step that the map applies acts on the GPU (the chain skips the others): drawn without the chain
   // the steps map m applies, [lo, hi] (1-based; none when lo > hi)
   function stepsOf(map) {
     const m = map || {}, mode = m.mode || 0;
@@ -748,6 +747,7 @@ float wabs(vec2 w) {
     for (let k = Math.max(1, lo); k <= Math.min(hi, t.length); k++) n = Math.max(n, t[k - 1]);
     return n;
   }
+  // true when no step that the map applies acts on the GPU (the chain skips the others): drawn without the chain
   function isIdent(map) {
     if (!cur.info) return true;
     const [lo, hi] = stepsOf(map);

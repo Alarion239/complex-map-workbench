@@ -568,7 +568,7 @@
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane and
-    // its LED say why, #1806)
+    // its LED say why)
     const note = st && !st.error && st.over ? overNote(st.over) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)

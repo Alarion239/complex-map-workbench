@@ -1,11 +1,11 @@
-// A finite sum with more terms than the GPU draws says so (#1806): the GPU takes at most 2048 terms of a finite sum per
-// pixel, and nested finite sums share that budget by the product of their terms (#1868), so past it the colour plot has
+// A finite sum with more terms than the GPU draws says so: the GPU takes at most 2048 terms of a finite sum per
+// pixel, and nested finite sums share that budget by the product of their terms, so past it the colour plot has
 // no value. The pane then says why, in the note over the plane, and its status light (the left LED) turns to an error
 // whose tooltip is the same note, naming the sum's terms and the budget. In the steps view's Everywhere plane, one step:
 // a single sum of 2100 terms and a nested one of 33 × 64 = 2112, in English, Russian and Italian, where the plane has no
-// colours; at 2048 and at 32 × 64 the plane is coloured and nothing is said (control). And the colour carried through
-// such a sum (the chain 0.25z + 1.5, then the 33 × 64 sum, a disc |z| < 3: eyes' case on #1868): plane w₂, which the sum
-// maps to, is white and says why; plane w₁, which it does not, says nothing.
+// colours; at 2048 and at 32 × 64 the plane is coloured and nothing is said (control). And the colour carried from w₁
+// through such a sum (the chain 0.25z + 1.5, then the 33 × 64 sum, a disc |z| < 3): plane w₂, which the sum maps to,
+// is white and says why; plane w₁, which it does not, says nothing.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };

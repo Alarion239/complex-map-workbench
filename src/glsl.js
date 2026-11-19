@@ -658,7 +658,6 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       const me = { v: n.v, k, fn: `${id}_fn`, used: false, cnt };
       // the terms past the budget, as the GPU's test below finds them (fits): a finite sum whose bounds and enclosing
       // finite sums' counts the CPU knows, else 0, as within the budget. The page says why such a plot has no value
-      // (#1806)
       if (budget) {
         budget.push((th) => {
           const b = bounds(th);
@@ -2035,7 +2034,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
     return {
       key: JSON.stringify(['glc1', sigs]),
       // step k's finite sums: the most terms one takes past SER_GPU_FINITE, at [k − 1] (0 within it, or no such sum),
-      // counted at these values once, as values() writes them: a draw through such a step has no value there (#1806)
+      // counted at these values once, as values() writes them: a draw through such a step has no value there
       get stepTerms() { return terms || (terms = plans.map((p) => (p && p.plan.terms ? p.plan.terms() : 0))); },
       source: src,
       // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md; standards-ok: a spec path in notes/): GLSL to put after
