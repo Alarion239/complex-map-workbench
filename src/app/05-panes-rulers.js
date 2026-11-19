@@ -549,6 +549,9 @@
       if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
+    // (the steps view, in both scopes: the regions of later planes pulled back here, a layer of their own over the colour,
+    // under the outlines; left out with the strokes, hideStrokes)
+    if (SV.on && !artMode && !hideStrokes) stagePullbacks(pane, leftStage(), true, true);
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -571,7 +574,7 @@
     // map (area fills at half strength, so the portrait reads through them; their edges as drawn), the points, and
     // the cuts with their handles
     const k = leftStage();
-    if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
+    if (hasTargets()) drawPullback(pane, endMap(), halfFills(preimageTargets(false)));
     const handles = drawCuts(pane, k, true, false);
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
@@ -1388,7 +1391,7 @@
   // over a phase portrait, as the targets')
   function preAll(pre, half) {
     const out = pre && pre.targets.length ? [pre] : [];
-    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: p.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)) }) : p);
+    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
     return out.length ? out : null;
   }
   // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
@@ -1412,7 +1415,7 @@
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
-      if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
+      if (pre) pre.targets = halfFills(pre.targets);
       return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
@@ -1557,10 +1560,13 @@
       // has ended, its transform's transitionend, for the key is placed by where the bar stands)
       try {
         const rc = document.documentElement.classList, barState = () => (rc.contains('ph-ctx-on') ? 1 : 0) + (rc.contains('ph-ctx-tall') ? 2 : 0);
-        let bar0 = barState();
-        new MutationObserver(() => { const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        let bar0 = barState(), ph0 = rc.contains('ph');
+        new MutationObserver(() => { if (rc.contains('ph') !== ph0) { ph0 = !ph0; legendKeyButton(el, ''); } const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         document.addEventListener('transitionend', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (e.propertyName === 'transform' && t.classList && t.classList.contains('ph-ctx')) placeKeyPop(el); });
       } catch (e) { /* no MutationObserver */ }
+      // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
+      try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {

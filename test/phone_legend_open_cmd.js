@@ -17,6 +17,9 @@ const measure = () => ev(`(() => {
 const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const still = () => kit.still(measure, STILL_MS, SETTLE_MAX);
 const inter = (a, b) => !!a && !!b && Math.min(a.r, b.r) - Math.max(a.l, b.l) > EPS && Math.min(a.b, b.b) - Math.max(a.t, b.t) > EPS;
+// (clear of the readout: not on it, and, under it in its column, at least READOUT_GAP below its foot)
+const READOUT_GAP = 4;
+const clearOf = (k, ro) => !inter(k, ro) && !(k && ro && Math.min(k.r, ro.r) - Math.max(k.l, ro.l) > EPS && k.t >= ro.t && k.t - ro.b < READOUT_GAP - EPS);
 for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode of ['tall', 'edit']) {
   const tag = `${lang} ${w}×${h} ${mode === 'tall' ? 'tall bar' : 'Edit row'}`;
   await view(w, h, false, true);
@@ -36,7 +39,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   if (!m.bar || !m.legend) continue;
   ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar, drop: m.drop });
   ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
-  ok(`${tag}: the key is clear of the readout`, !inter(m.legend, m.readout), { legend: m.legend, readout: m.readout });
+  ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout), { legend: m.legend, readout: m.readout });
   await ev(mode === 'tall' ? `document.querySelector('[data-tool="select"]').click(), 1` : `__cmwSelect(null), 1`);
   await settled({ max: SETTLE_MAX, panes: false, until: `!document.querySelector('.ph-ctx.in')` });
   const back = await still();
@@ -71,7 +74,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
     ok(`${tag}: the room above the bar is less than the key's height (control)`, !!m.readout && m.bar.t - m.readout.b < home.legend.b - home.legend.t, { home: home.legend, readout: m.readout, bar: m.bar });
     ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar });
     ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
-    ok(`${tag}: the key is clear of the readout`, !inter(m.legend, m.readout), { legend: m.legend, readout: m.readout });
+    ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout), { legend: m.legend, readout: m.readout });
     ok(`${tag}: what does not fit scrolls, so the whole key is in reach`, m.scrollH <= m.clientH + EPS || m.overflowY === 'auto', { scrollH: m.scrollH, clientH: m.clientH, overflowY: m.overflowY });
   }
   await ev(`document.querySelector('[data-tool="select"]').click(), 1`);
