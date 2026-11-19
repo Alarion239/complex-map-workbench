@@ -2,20 +2,26 @@
 # Mesa's Vulkan drivers (the package mesa-vulkan-drivers) for the browser jobs (gate.yml): its lavapipe is the Vulkan
 # driver that Chrome's ANGLE draws WebGL2 with on GitHub's Linux machines. The job keeps the package's files in an
 # Actions cache, for when the mirrors cannot be reached.
-#   ci/lavapipe.sh --key   prints the step outputs key, the cache key (the runner's image, ImageOS and ImageVersion,
-#                          and the package's version in the image's own package lists), and version, that version
+#   ci/lavapipe.sh --key   prints the step outputs key, the cache key (the runner's Ubuntu release, ImageOS, and the
+#                          package's version in the image's own package lists: what the files depend on, so a new image
+#                          of the same release with the same version finds them), prefix, the key up to the version
+#                          (the job's restore-keys: the newest saved copy of any version for this release), and version,
+#                          that version
 #   ci/lavapipe.sh DIR     installs the package; DIR holds the cached .deb files (the job restores them before, and
 #                          saves them after an install from a mirror of the version in the key)
 # The install takes the first of these that gives the package:
 #   1. a download from Ubuntu's mirrors with the image's own package lists (fast: no refresh);
-#   2. the files in DIR;
+#   2. the files in DIR, when they are the version in the key;
 #   3. a download from FALLBACK_MIRROR, a mirror on another domain, with package lists of its own, of the version that
 #      the image's lists name (the version in the cache key). Each pocket's package list names only its newest version,
 #      so after a Mesa update, until GitHub's image has it, that version is in none of the fallback's lists and this
 #      download fails (apt: "Version ... was not found");
 #   4. RETRIES more downloads from Ubuntu's mirrors, each after a wait (FIRST_WAIT_S, doubled each time) and a refresh
 #      of the image's lists. These take the refreshed lists' version, which after a Mesa update is newer than the one
-#      in the cache key: the job then does not save the files (gate.yml compares the step outputs version).
+#      in the cache key: the job then does not save the files (gate.yml compares the step outputs version);
+#   5. the files in DIR of another version (the restore's prefix match: an older save for this release), last, since
+#      every mirror is tried first for the key's version; dpkg checks their dependencies, so a copy that does not fit
+#      the image fails at its install.
 # A download is installed with dpkg, and DIR then holds exactly the files fetched. Each apt call that uses the network
 # is stopped at its time limit (timeout -k 5: SIGTERM, then SIGKILL after 5 s more), and an attempt whose refresh was
 # stopped downloads nothing: with no mirror answering and no cache, the step ends within 2 minutes when SIGTERM stops
@@ -57,7 +63,9 @@ FALLBACK_APT=(-o "Dir::Etc::sourcelist=$FALLBACK_STATE/fallback.sources" -o Dir:
 version=$(apt-cache policy "$PKG" | awk '/Candidate:/ { print $2 }')
 if [ "${1:-}" = --key ]; then
   # (a cache key may not hold a comma: anything but letters, digits and . _ + ~ - becomes _)
-  echo "key=$(printf '%s' "lavapipe-${ImageOS:-unknown}-${ImageVersion:-unknown}-$version" | tr -c 'A-Za-z0-9._+~-' '_')"
+  prefix=$(printf '%s' "lavapipe-${ImageOS:-unknown}-" | tr -c 'A-Za-z0-9._+~-' '_')
+  echo "key=$prefix$(printf '%s' "$version" | tr -c 'A-Za-z0-9._+~-' '_')"
+  echo "prefix=$prefix"
   echo "version=$version"
   exit 0
 fi
@@ -162,6 +170,9 @@ no_download() {
 t0=$(us)
 mkdir -p "$DEBS"
 cached=$(find "$DEBS" -maxdepth 1 -name '*.deb' | wc -l | tr -d ' ')
+# (the cached package's version: the key's when the restore matched the key, another when it matched the prefix alone)
+cached_version=
+for f in "$DEBS/${PKG}"_*.deb; do [ -f "$f" ] && cached_version=$(dpkg-deb -f "$f" Version 2>/dev/null); break; done
 source=
 cause=
 if [ -z "$(problem)" ]; then
@@ -171,9 +182,9 @@ else
   sudo install -d -m 755 "$ARCHIVES" "$FALLBACK_STATE/lists"
   sudo install -d -o _apt -m 700 "$ARCHIVES/partial" "$FALLBACK_STATE/lists/partial"
   fallback_sources | sudo tee "$FALLBACK_STATE/fallback.sources" >/dev/null
-  cache_note=", and the Actions cache had no copy for this image (${ImageOS:-?} ${ImageVersion:-?})"
+  cache_note=", and the Actions cache had no copy for this release (${ImageOS:-?})"
   if ! attempt mirror no; then
-    if ((cached > 0)); then
+    if ((cached > 0)) && [ "$cached_version" = "$version" ]; then
       if timed "install of the $cached cached files" install_debs; then source=cache; else cache_note=", and the cached files did not install (dpkg's errors above)"; fi
     fi
     if [ -z "$source" ] && ! attempt fallback yes; then
@@ -183,6 +194,15 @@ else
         sleep "$wait_s"
         attempt mirror yes && break
       done
+    fi
+    if [ -z "$source$cause" ] && ((cached > 0)) && [ "$cached_version" != "$version" ]; then
+      echo "the cache holds ${cached_version:-another version} of $PKG for this release, not $version:" \
+        "installing it, as no mirror gave $version"
+      if timed "install of the $cached cached files" install_debs; then
+        source=cache
+      else
+        cache_note=", and the cached files (${cached_version:-not a version dpkg reads}) did not install (dpkg's errors above)"
+      fi
     fi
   fi
   [ -n "$source$cause" ] || cause="$(no_download)$cache_note"

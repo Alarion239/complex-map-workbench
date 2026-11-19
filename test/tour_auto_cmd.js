@@ -1,4 +1,4 @@
-// v16.4 (notes/tour-r3/SPEC.md 7.6): the tour's completion conditions and its auto-advance, with real CDP input, at
+// The tour's completion conditions and its auto-advance (notes/tour-r3/SPEC.md 7.6), with real CDP input, at
 // 1440 × 900 (mouse, English) and 390 × 844 (touch, English), and the Sound chapter at 390 × 844 (touch, Russian) and
 // 1440 (mouse laps round the zero and the pole). Each task: no advance without input; the tick within 300 ms of the
 // event; the advance 1500 ± 150 ms after the event, whatever the pointer or keys do next (doors 700 ± 100); holds and cancels; the sound
@@ -426,7 +426,7 @@ const pt = await center('.ts-text');
 await tap(pt[0], pt[1]); await settle(300);
 const why = await ev(`(() => { const w = document.querySelector('#tourWhy'), b = w.getBoundingClientRect(); return { open: !w.hidden, h: b.height, max: innerHeight / 2 }; })()`);
 check('phone: Why opens a panel at most half the screen', why.open && why.h > 40 && why.h <= why.max + 1, why);
-// (v16.5 UX38: the plane's keys are one column at the bottom right of a phone's plane: the pan starts left of it)
+// (the plane's keys are one column at the bottom right of a phone's plane: the pan starts left of it)
 await tdrag(a.r - 160, a.b - 160, a.r - 240, a.b - 110);
 check('phone: a touch in X folds Why and reaches the app (the pan ticks the task)', await ev(`document.querySelector('#tourWhy').hidden && document.querySelector('.ts-l2').classList.contains('done')`));
 // the Constructions chapter by finger: "Drag z2 across the line" is done by a touch drag too (issue #34, T4)
