@@ -4,10 +4,15 @@
   // shape's clip primitive), the early stop (ixStopAdd / ixStopLog), the sheet key and invLeaf (coverage of one
   // candidate: the region's signed distance in px, the range level, the facing rule, then admission into the
   // compile-time B-entry buffer with shading on admission and the twin merge). The CPU twin is Inverse.enumerate.
-  // Shape: per-pass uniforms uShape (kind, complement, polygon vertex count, offset of the vertices in the record),
-  // uShA, uShB (drawPreimage's record), uShC (inside at z = 0, boundary through 0, -, -), uFormSlot; the record in
-  // the points texture (unit 4) at uShOff holds the clip primitive (header, 2 texels per piece) and polygon vertices.
+  // Shape: per-pass uniforms uShape (kind, complement, polygon or polyline vertex count, offset of the vertices in the
+  // record), uShA, uShB (drawPreimage's record), uShC (inside at z = 0, boundary through 0, -, -), uFormSlot; the record
+  // in the points texture (unit 4) at uShOff holds the clip primitive (header, 2 texels per piece) and the polygon's
+  // vertices, or the polylines' group boxes and vertices.
   // IX_RECORD(L, D, cov) is a hook for the parity test (test/glsl_inverse_test.js), empty here.
+  // A curve of a later plane stroked by its polylines (kind 16 in the staged program: a freehand curve, a formula
+  // curve, an external ray, an equipotential): at most INV_CURVE_MAX vertices in all, in groups of CURVE_GROUP
+  // segments with each group's box first, so the pass skips a group farther than the nearest point found so far
+  const INV_CURVE_MAX = 1024, CURVE_GROUP = 16;
   const INV_HEAD = (B, forms) => `
 #ifndef IX_RECORD
 #define IX_RECORD(L, D, cov)
@@ -44,11 +49,13 @@ uniform int uFormSlot;
 uniform int uShStage;
 // uEdgeOnly = 1: the pass draws the shape's boundary alone, not its fill: a line of colour uEdgeC at alpha uEdgeA within
 // uEdgeW device px of the boundary of any candidate, over a casing of colour uEdgeCC at alpha uEdgeCA within uEdgeCW (none
-// at 0). With the colours zero it is a band of alpha alone, for a mask
+// at 0). With the colours zero it is a band of alpha alone, for a mask. uTint: under them the shape's fill in colour
+// uTint.rgb at alpha uTint.a (none at 0), the steps view's layer of a later plane's region over the colour
 uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA; uniform vec3 uEdgeC; uniform float uEdgeCW; uniform float uEdgeCA; uniform vec3 uEdgeCC;
+uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
-float ixEdge, ixEdgeC;
+float ixEdge, ixEdgeC, ixFill;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
@@ -131,18 +138,34 @@ bool ixShapeClip(vec2 z0, vec2 q, float m, out float lo, out float hi, out float
 #ifdef IX_STAGED
 ${CURVE_GEOM}#endif
 // ---- the shape's level (positive inside) and gradient: Region.levelOf, Inverse's kindLevel ----
-// (a curve of a later plane, kinds 11-16 and 20, in the staged program: minus its distance, so it holds no point and
-// the pass's boundary draw strokes the curve itself)
+// (a curve of a later plane, kinds 11-18 and 20, in the staged program: minus its distance, so it holds no point and
+// the pass's boundary draw strokes the curve itself. Kind 16, polylines: n vertices (x, y, 1 where a polyline starts)
+// after the boxes of their groups of ${CURVE_GROUP} segments; a group whose box is no nearer than the point found is skipped)
 vec3 ixKindLevel(vec2 z) {
   int kind = uShape.x;
 #ifdef IX_STAGED
-  if (kind >= 11 && kind <= 16) {
+  if (kind >= 11 && kind <= 18) {
     vec2 q;
-    if (kind <= 15) q = curveNearAB(kind, uShA, uShB, z);
+    if (kind != 16) q = curveNearAB(kind, uShA, uShB, z);
     else {
-      int n = uShape.z, s = uShape.w;
-      q = ixRec(s).xy;
-      for (int i = 1; i < 64 * uIxOne; i++) { if (i >= n) break; q = nearer(z, q, segNear(z, ixRec(s + i - 1).xy, ixRec(s + i).xy)); }
+      int n = uShape.z, s = uShape.w, ng = (n + ${CURVE_GROUP - 2}) / ${CURVE_GROUP}, v = s + ng;
+      q = ixRec(v).xy;
+      float best = dot(z - q, z - q);
+      for (int g = 0; g < ${INV_CURVE_MAX / CURVE_GROUP} * uIxOne; g++) {
+        if (g >= ng) break;
+        vec4 bx = ixRec(s + g);
+        vec2 e = max(max(bx.xy - z, z - bx.zw), vec2(0.0));
+        if (dot(e, e) >= best) continue;
+        for (int k = 1; k <= ${CURVE_GROUP} * uIxOne; k++) {
+          int i = ${CURVE_GROUP} * g + k;
+          if (i >= n) break;
+          vec4 b = ixRec(v + i);
+          if (b.z > 0.5) continue;
+          vec2 c = segNear(z, ixRec(v + i - 1).xy, b.xy);
+          float d = dot(z - c, z - c);
+          if (d < best) { best = d; q = c; }
+        }
+      }
     }
     float d = cx_abs(z - q);
     return d > 0.0 ? vec3(-d, (q - z) / d) : vec3(0.0, 1.0, 0.0);
@@ -716,7 +739,7 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
-  if (uEdgeOnly == 1 && s == s) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); }
+  if (uEdgeOnly == 1 && s == s) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); ixFill = max(ixFill, clamp(s + 0.5, 0.0, 1.0)); }
 #endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
@@ -762,10 +785,10 @@ ${globe ? `  vec3 P = normalize(vP);
   ixPix = uInvScale.x;`}
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
 #ifdef IX_STAGED
-  ixEdge = 0.0; ixEdgeC = 0.0;
+  ixEdge = 0.0; ixEdgeC = 0.0; ixFill = 0.0;
 #endif
   invWalk(w);
-${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA; o = vec4(uEdgeC * l, l) + vec4(uEdgeCC * cc, cc) * (1.0 - l); return; }\n#endif\n'}  float T = 1.0;
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA, f = ixFill * uTint.a; o = vec4(uEdgeC * l, l) + (vec4(uEdgeCC * cc, cc) + vec4(uTint.rgb * f, f) * (1.0 - cc)) * (1.0 - l); return; }\n#endif\n'}  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
