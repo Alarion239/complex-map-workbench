@@ -3,13 +3,19 @@
 // step (the series), a seeded one (the inverse Joukowski map), a polynomial one, and the Douady-Hubbard map's under
 // Everywhere (seeded, landed down the external ray, with the dual derivative), each at several places of its thread (and
 // parked on plane 1), once per fresh page load. Every draw into a framebuffer is read back as it is drawn (the float target
-// as float32; a one-row target, a table upload, is left out) and hashed over its raw bits; the record of a scene is the
-// last hash of each target (the NEWT roots pass's targets, the carried colour targets) and the hash of the left canvas's
-// pixels once the scene has settled.
+// as float32; a one-row target, a table upload, is left out) and hashed over its raw bits.
+// The roots pass seeds each pass from the last one of the same size and view, at whatever t that was, and each pass moves
+// its targets on (a held place never stops changing), so what a place shows depends on how many passes ran before, which
+// timing decides. The record of a place inside the thread is therefore taken from a cold start: after a frame at another
+// window width (another key), the first pass back at the first width seeds from nothing, and the record of each frame-sized
+// target (the roots pass's, the carried colour targets) is its hashes over that pass and the PASSES - 1 after it, each
+// asked for one at a time; a smaller target keeps its last hash, and the detour's own targets are left out. Parked, where no roots pass runs, the record is each
+// target's last hash and the left canvas's pixels once the scene has settled.
 // Without CMW_NEWT_AB_OUT it checks that a scene's record is the same on two loads, that it read targets back (a blank
 // target is marked '(blank)' in the info, not failed: a scene may draw a target that stays empty) and that a glide inside
 // the thread took the inverse pass; with it, it also writes the records there, as JSON.
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the full gate, in its own shard newt-ab
+// (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -29,13 +35,19 @@ const SCENES = [
   { name: 'polynomial', step: { type: 'poly', params: { co: '1, 0, -1, 0' }, on: true }, shapes: [RECT], view: { cx: 0, cy: 0, s: 60 }, xs: U },
   { name: 'dh', step: { type: 'dh', params: {}, on: true }, shapes: [], scope: 'all', view: { cx: 0, cy: 0, s: 60 }, xs: U },
 ];
-// Installed once per page: the hook of the draw calls, and the record of the last hash of each target.
+// (the record's sizes; the waits below say how they are used)
+const PASSES = 3, STABLE_FRAMES = 6, DETOUR_W = 1280, FRAME_MIN = 64;
+// Installed once per page: the hook of the draw calls; rec, the last hash of each target; seq, the hashes of each
+// frame-sized target since the last draw of a frame-sized target at another size (so from a cold roots pass).
 const HOOK = `(() => {
   if (window.__ab) return 1;
-  const gl = GLR.gl, rec = {}, st = { on: false };
+  const gl = GLR.gl, rec = {}, seq = {}, st = { on: false, frames: 0, changed: 0, size: '' };
+  // (st.frames counts animation frames, st.changed is the frame at which a target's hash last changed)
+  const tick = () => { st.frames++; requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
   const hash = (u) => { let a = 0x811c9dc5 | 0, b = 0x01000193 | 0; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); b = Math.imul(b + u[i] | 0, 0x85ebca6b) ^ (b >>> 13); } return (a >>> 0).toString(16) + (b >>> 0).toString(16); };
   const raw = {};
-  const grab = (k, w, h, float) => { const buf = float ? new Float32Array(4 * w * h) : new Uint8Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, buf); if (float) raw[k + '|' + w + 'x' + h] = buf; const u = new Uint32Array(buf.buffer); let blank = true; for (let i = 0; i < u.length; i++) if (u[i] !== u[0]) { blank = false; break; } rec[k + '|' + w + 'x' + h] = { h: hash(u), blank }; };
+  const grab = (k, w, h, float) => { const buf = float ? new Float32Array(4 * w * h) : new Uint8Array(4 * w * h); gl.readPixels(0, 0, w, h, gl.RGBA, float ? gl.FLOAT : gl.UNSIGNED_BYTE, buf); const u = new Uint32Array(buf.buffer); let blank = true; for (let i = 0; i < u.length; i++) if (u[i] !== u[0]) { blank = false; break; } const key = k + '|' + w + 'x' + h, hu = hash(u), was = rec[key]; if (!was || was.h !== hu) st.changed = st.frames; rec[key] = { h: hu, blank }; if (w >= ${FRAME_MIN} && h >= ${FRAME_MIN}) { if (st.size !== w + 'x' + h) { st.size = w + 'x' + h; for (const q of Object.keys(seq)) delete seq[q]; } (seq[key] = seq[key] || []).push({ h: hu, blank }); if (float && seq[key].length === ${PASSES}) raw[key] = buf; } else if (float) raw[key] = buf; };
   const capture = () => {
     const vp = gl.getParameter(gl.VIEWPORT), fb = gl.getParameter(gl.FRAMEBUFFER_BINDING), w = vp[2], h = vp[3];
     if (!(w > 0 && h > 0)) return;
@@ -54,13 +66,16 @@ const HOOK = `(() => {
     const o = WebGL2RenderingContext.prototype[name];
     WebGL2RenderingContext.prototype[name] = function (...a) { o.apply(this, a); if (st.on && this === gl) { try { capture(); } catch (e) { rec.error = String(e); } } };
   }
-  window.__ab = { rec, st, raw };
+  window.__ab = { rec, seq, st, raw };
   return 1;
 })()`;
 const stateOf = (sc) => ({ shapes: sc.shapes, steps: [sc.step], rightMode: 'image', srcView: sc.view });
-// (waits: the page's load, the scope's prestart, the glide's settle, and the pause after the hook is installed or the glide
-// has settled, which lets the last software-rendered frames finish; the glide's place is reached when u is within GLIDE_U_TOL)
-const LOAD_MAX_MS = 60000, WARM_MAX_MS = 120000, GLIDE_MAX_MS = 90000, FRAMES_PAUSE_MS = 2500, GLIDE_U_TOL = 1e-9;
+// (waits: the page's load, the scope's prestart, the page quiet once the hook is installed (no pane frame pending), the
+// glide's frame at its place (u within GLIDE_U_TOL) with its programs warm (__cmwSteps().ready.ready, the wait for a held
+// frame), the glide drawn at DETOUR_W and back, then each pass asked for, until every frame-sized target has PASSES;
+// parked, STABLE_FRAMES animation frames in which no target changed. A target of at least FRAME_MIN × FRAME_MIN pixels is
+// frame-sized)
+const LOAD_MAX_MS = 60000, WARM_MAX_MS = 120000, GLIDE_MAX_MS = 90000, PASS_MAX_MS = 30000, GLIDE_U_TOL = 1e-9;
 // (a scene is loaded LOADS_PER_SCENE times, a third only when the first two disagree: a software renderer's frame count varies)
 const LOADS_PER_SCENE = 2;
 const ready = () => settled({ max: LOAD_MAX_MS, until: 'typeof __cmwSteps === "function" && typeof __cmwP === "function" && !!window.GLR' });
@@ -74,16 +89,40 @@ const record = async (sc, x) => {
     await settled({ max: WARM_MAX_MS, until: '__cmwSteps().ready.ready' });
   }
   await ev(HOOK);
-  await sleep(FRAMES_PAUSE_MS);
-  await ev('Object.keys(window.__ab.rec).forEach((k) => delete window.__ab.rec[k]), window.__ab.st.on = true, 1');
+  await settled({ max: WARM_MAX_MS });
   // (a place inside the thread waits for the glide's frame there: the thread reaches x before that frame is drawn)
   const parked = x === Math.floor(x);
+  const atX = parked ? `__cmwSteps().x === ${x}` : `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < ${GLIDE_U_TOL}; })()`;
   await ev(`__cmwSteps({ ${parked ? 'park' : 'x'}: ${x} }), 1`);
-  await settled({ max: GLIDE_MAX_MS, until: parked ? `__cmwSteps().x === ${x}` : `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < ${GLIDE_U_TOL}; })()` });
-  await sleep(FRAMES_PAUSE_MS);
+  await settled({ max: GLIDE_MAX_MS, until: atX });
+  await settled({ max: GLIDE_MAX_MS, until: '__cmwSteps().ready.ready' });
   // (the glide's path at a place inside the thread: the NEWT ops are drawn by the inverse pass)
   if (!parked) { const drawn = await ev('__cmwSteps().glide.path'); ok(`${sc.name}@${x}: the glide takes the inverse pass`, drawn === 'inverse', drawn); }
-  const r = await ev(`(() => { const cv = document.querySelector('#canvasL'), c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } window.__ab.rec['canvasL|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; return JSON.stringify(window.__ab.rec); })()`);
+  let r;
+  if (!parked) {
+    // (from a cold pass: the frame at DETOUR_W is a pass of another key, and the first frame-sized draw back at the first
+    // width clears seq, so each frame-sized target's hashes start at that pass)
+    const w0 = await ev('__cmwSteps().glide.w');
+    await ev('window.__ab.st.on = true, 1');
+    await view(DETOUR_W, 900, false);
+    const away = await settled({ max: GLIDE_MAX_MS, until: `__cmwSteps().glide.w !== ${w0} && __cmwSteps().ready.ready` });
+    ok(`${sc.name}@${x}: the glide draws at the detour's width`, away.ok, away.busy);
+    await view(1440, 900, false);
+    const back = await settled({ max: GLIDE_MAX_MS, until: `__cmwSteps().glide.w === ${w0} && ${atX} && __cmwSteps().ready.ready` });
+    ok(`${sc.name}@${x}: the glide draws back at the first width`, back.ok, back.busy);
+    const fewest = `(() => { const q = Object.values(window.__ab.seq); return q.length ? Math.min(...q.map((e) => e.length)) : 0; })()`;
+    for (let n = await ev(fewest); n < PASSES; n = await ev(fewest)) {
+      await ev(`__cmwSteps({ x: ${x} }), 1`);
+      const drawn = await settled({ max: PASS_MAX_MS, until: `${fewest} > ${n}` });
+      if (!drawn.ok) { ok(`${sc.name}@${x}: pass ${n + 1} of ${PASSES} is drawn`, false, drawn.busy); break; }
+    }
+    r = await ev(`JSON.stringify(Object.assign({}, ...Object.entries(window.__ab.rec).filter(([k]) => { const m = /\\|(\\d+)x(\\d+)$/.exec(k); return m && (+m[1] < ${FRAME_MIN} || +m[2] < ${FRAME_MIN}); }).map(([k, v]) => ({ [k]: v })), ...Object.entries(window.__ab.seq).map(([k, q]) => ({ [k]: { h: q.slice(0, ${PASSES}).map((e) => e.h).join(','), blank: q.slice(0, ${PASSES}).every((e) => e.blank) } })), window.__ab.rec.error ? { error: window.__ab.rec.error } : {}))`);
+  } else {
+    await ev('Object.keys(window.__ab.rec).forEach((k) => delete window.__ab.rec[k]), window.__ab.st.on = true, 1');
+    const stable = await settled({ max: GLIDE_MAX_MS, until: `window.__ab.st.frames - window.__ab.st.changed >= ${STABLE_FRAMES}` });
+    ok(`${sc.name}@${x}: the record settles (${STABLE_FRAMES} frames with no target changed)`, stable.ok, stable.busy);
+    r = await ev(`(() => { const cv = document.querySelector('#canvasL'), c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } window.__ab.rec['canvasL|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; return JSON.stringify(window.__ab.rec); })()`);
+  }
   return typeof r === 'string' ? JSON.parse(r) : r;
 };
 const records = {};
