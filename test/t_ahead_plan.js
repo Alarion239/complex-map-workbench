@@ -3,7 +3,7 @@
 // N = ceil(ms / dt); x_0 is the start and x_N the end exactly; the places never go back; the eased places are the live
 // glide's (svFrame: HomRange.ease3 of the share of the time gone) at k dt, and the linear ones are evenly spaced but the last;
 // aheadIndex is floor(el / dt), at least 0 and at most N. Control: a place one step later differs. Run: node test/t_ahead_plan.js
-const HomRange = require('../src/homrange.js');
+const HomRange = require('../src/homrange.ts');
 let bad = 0, n = 0;
 const check = (name, ok, info = '') => { n++; if (!ok) { bad++; console.log('FAIL', name, info); } };
 const DT = 1000 / 60;
