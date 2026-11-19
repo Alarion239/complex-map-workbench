@@ -612,6 +612,40 @@ const Inverse = (() => {
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
+  // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
+  // ops each have one branch or finitely many of these kinds: each op's own (IPOW 0 and infinity, JOUK ±1, QUAD its vertex
+  // and infinity, RAT2 at the zeros of its derivative and at infinity when that is one), carried through the ops after it,
+  // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
+  // finite families)
+  function critValues(plan) {
+    if (!plan || !plan.ok) return null;
+    const ops = plan.ops, out = [];
+    // (infinity is null; an op's value at infinity is its value at CRIT_FAR, a value past CRIT_INF is infinity)
+    const CRIT_FAR = 1e150, CRIT_INF = 1e100;
+    const fwdAt = (o, w) => { const v = o.fwd(w === null ? C(CRIT_FAR, 0) : w); return isFin(v) && abs(v) < CRIT_INF ? v : null; };
+    for (let i = 0; i < ops.length; i++) {
+      const o = ops[i];
+      let cv;
+      if (!o.fam) cv = [];
+      else if (o.fam.type !== 'fin') return null;
+      else if (o.kind === 'IPOW') cv = Math.abs(o.p.n) >= 2 ? [C(0, 0), null] : [];
+      else if (o.kind === 'JOUK') cv = [C(1, 0), C(-1, 0)];
+      else if (o.kind === 'QUAD') cv = [o.fwd(div(o.p.b, scale(o.p.a, -2))), null];
+      else if (o.kind === 'RAT2') {
+        // (p'q - pq' = (p2 q1 - p1 q2) u^2 + 2 (p2 q0 - p0 q2) u + (p1 q0 - p0 q1); of a lower degree, infinity is a
+        // critical point too)
+        const [p2, p1, p0] = o.p.P, [q2, q1, q0] = o.p.Q;
+        const co = [sub(mul(p2, q1), mul(p1, q2)), scale(sub(mul(p2, q0), mul(p0, q2)), 2), sub(mul(p1, q0), mul(p0, q1))];
+        cv = CX.polyRoots(isZero(co[0]) ? co.slice(1) : co).map((u) => fwdAt(o, u));
+        if (isZero(co[0])) cv.push(fwdAt(o, null));
+      } else return null;
+      for (let w of cv) {
+        for (let k = i + 1; k < ops.length; k++) w = fwdAt(ops[k], w);
+        if (w !== null) out.push(w);
+      }
+    }
+    return out;
+  }
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
   // pole within 1e-9 (1 + |p|) of an accumulation point is that point, the tolerance dedupe uses for pulled-back points
@@ -1815,7 +1849,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, critValues, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
