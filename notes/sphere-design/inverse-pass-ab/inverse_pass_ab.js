@@ -234,6 +234,8 @@ const SCENES = [
   { name: 'dc-classic-arbphase', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), pre: ["GLR.setPalette('arbPhase')"], xs: [0.75] },
   { name: 'dc-classic-arb', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), pre: ["GLR.setPalette('arb')"], xs: [0.75] },
   { name: 'dc-grid-arb', view: 'steps', state: Object.assign({}, STRIP, { dc: 'grid' }), pre: ["GLR.setPalette('arb')"], xs: [0.75] },
+  // the Cauchy style's carried variant (CARRY_CAUCHY): the integral over the unit circle, the selected shape, under z + 1/z
+  { name: 'cauchy', view: 'steps', state: { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, dc: 'cauchy', alpha: 1 }, pre: ["__cmwSelect('s1')"], xs: [0.5] },
 ];
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
 
