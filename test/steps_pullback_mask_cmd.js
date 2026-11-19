@@ -1,0 +1,128 @@
+// Inside regions, the steps view keeps the colour inside a region pulled back from a later plane at full strength, as
+// inside a region of the plane itself (#1889): the regions' mask is opaque inside every region, so the colour there is
+// the colour Everywhere shows, not a mix of it and the paper. The chain [z + 0.5, z + 0.25] (translations: plane k's
+// region D is D - 0.5 on plane 0 when on plane 1, D - 0.75 when on plane 2), a disc on plane 0 (own), one on plane 1 and
+// one on plane 2 (pulled back), coloured from z, at 100 % opacity, no outlines. In the light and the dark theme:
+// - at rest on plane 0, and at the glide 0 -> 1 held at u = 0.5 (the inverse pass's frame, where the region of plane 2
+//   is past the plane the glide reaches): at the points of a grid inside each disc (within INNER of its radius, clear
+//   of its boundary), the Inside regions pixel fitted as paper + s (Everywhere - paper) over the three channels gives s;
+//   the median s of each disc is at least FULL;
+// - the control: the disc of plane 0 gives s of at least FULL too;
+// - the paper: the median of points outside every disc under Inside regions, at least PAPER_N of them; a sample counts
+//   where its Everywhere pixel is at least MIN_DIFF from the paper (sum of the channels), at least MIN_N of them a disc;
+// - both scopes are read with the layer of the later planes' regions left out (__cmwHideStrokes, which leaves it out with
+//   the strokes: Everywhere draws a fill in it over the colour), so the fit compares colour with colour; and Inside regions
+//   read with that layer shown is the same at the points of the pulled-back discs (median channel sum within FILL_D: the
+//   layer is the region's boundary band alone there);
+// - in the light theme at rest, a circle on plane 1 (a curve of a later plane, its preimage drawn by the layer) with
+//   the disc of plane 0 hovered (its row's pointerenter), which dims every other shape (dimK): along the circle's
+//   preimage Inside regions draws its line as Everywhere does (median channel sum within HOVER_D of Everywhere's), its
+//   ink dimmed, not left out with the fills; the control: the hover changes the line (more than HOVER_D from the frame
+//   with nothing hovered).
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js).
+// Prints {pass, fails, info}.
+const fails = [], info = {};
+const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
+const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+// the centre pixel of canvasL at each plane point [x, y] ([r, g, b, a], null off the pane), in the frame's camera: the
+// glide record's view while a glide frame is drawn (the main card's view is the pane's own camera, not the frame's)
+const px = (pts) => ev(`(() => {
+  const c = document.getElementById('canvasL'), s = __cmwSteps(), m = __cmwCards().main, v = (s.x % 1 && s.glide && s.glide.view) || m.view;
+  const d = m.dpr, W = c.width, H = c.height, img = c.getContext('2d').getImageData(0, 0, W, H).data;
+  return ${JSON.stringify(pts)}.map(([x, y]) => {
+    const i = Math.floor(W / 2 + (x - v.cx) * v.s * d), j = Math.floor(H / 2 - (y - v.cy) * v.s * d);
+    if (i < 0 || j < 0 || i >= W || j >= H) return null;
+    const n = 4 * (j * W + i);
+    return [img[n], img[n + 1], img[n + 2], img[n + 3]];
+  });
+})()`);
+const FULL = 0.95, INNER = 0.55, MIN_DIFF = 60, MIN_N = 12, PAPER_N = 12, FILL_D = 3, HOVER_D = 12;
+await view(1200, 800);
+const DISCS = [
+  { id: 'o0', kind: 'disc', c: [-0.9, -0.45], r: 0.4, ci: 2, visible: true, stage: 0 },
+  { id: 'p1', kind: 'disc', c: [0.55, 0.85], r: 0.45, ci: 3, visible: true, stage: 1 },
+  { id: 'p2', kind: 'disc', c: [1.15, -0.25], r: 0.45, ci: 4, visible: true, stage: 2 },
+];
+// (each disc's place on plane 0: its centre less the translations up to its plane)
+const SHIFT = [0, 0.5, 0.75];
+const CIRCLE = { id: 'k1', kind: 'circle', c: [0.55, 0.85], r: 0.3, ci: 5, visible: true, stage: 1 };
+// the points of the circle's preimage on plane 0
+const ring = () => Array.from({ length: 48 }, (_, i) => [CIRCLE.c[0] - SHIFT[1] + CIRCLE.r * Math.cos(Math.PI * i / 24), CIRCLE.c[1] + CIRCLE.r * Math.sin(Math.PI * i / 24)]);
+const ST = {
+  pattern: 'phase', outline: false, lines: false, unit: false, alpha: 1, v3: true, v4: true, v5: true, nextId: 50,
+  srcView: { cx: 0, cy: 0, s: 150 },
+  steps: [{ type: 'mobius', params: { a: '1', b: '0.5', c: '0', d: '1' }, on: true }, { type: 'mobius', params: { a: '1', b: '0.25', c: '0', d: '1' }, on: true }],
+  shapes: DISCS.concat([CIRCLE]), targets: [],
+};
+// the grid points of disc d within INNER of its radius on the frame's plane, shifted by its region's place there
+const inside = (d, shift) => {
+  const pts = [], c = [d.c[0] - shift, d.c[1]], R = INNER * d.r;
+  for (let i = -4; i <= 4; i++) for (let j = -4; j <= 4; j++) { const x = i / 4 * R, y = j / 4 * R; if (x * x + y * y <= R * R) pts.push([c[0] + x, c[1] + y]); }
+  return pts;
+};
+// points of a 12 x 8 grid over the pane outside every disc's region (with a margin of 0.25)
+const outside = (P, shifts) => K.grid(P, 12, 8, 0.9).filter(([x, y]) => DISCS.every((d, k) => Math.hypot(x - (d.c[0] - shifts[k]), y - d.c[1]) > d.r + 0.25));
+const median = (a) => { const s = [...a].sort((p, q) => p - q); return s.length ? s[s.length >> 1] : NaN; };
+// s for each point: Inside = paper + s (Everywhere - paper), least squares over the channels; null where too close to the paper
+const fit = (all, inn, paper) => all.map((A, k) => {
+  const I = inn[k];
+  if (!A || !I) return null;
+  let num = 0, den = 0, dist = 0;
+  for (let c = 0; c < 3; c++) { const e = A[c] - paper[c]; num += (I[c] - paper[c]) * e; den += e * e; dist += Math.abs(e); }
+  return dist >= MIN_DIFF ? num / den : null;
+});
+// the frame read in both scopes at the points of each disc (shifts: each disc's region on this frame's plane)
+const measure = async (tag, shifts) => {
+  const P = await K.paneOf();
+  const sets = DISCS.map((d, k) => inside(d, shifts[k])), far = outside(P, shifts);
+  const read = async (scope, hide) => {
+    await ev(`__cmwHideStrokes(${hide}), __cmwSteps({ scope: '${scope}' }), 1`);
+    await settled({ max: 60000, until: 'GLR.pendingLinks === 0' });
+    return { discs: await Promise.all(sets.map((s) => px(s))), far: (await px(far)).filter(Boolean) };
+  };
+  const A = await read('all', true), I = await read('in', true), L = await read('in', false);
+  const paper = [0, 1, 2].map((c) => median(I.far.map((p) => p[c])));
+  const out = { paper, nFar: I.far.length };
+  ok(`${tag}: the paper read at ${PAPER_N} or more points outside the regions`, I.far.length >= PAPER_N, out);
+  DISCS.forEach((d, k) => {
+    const s = fit(A.discs[k], I.discs[k], paper).filter((v) => v != null);
+    const r = out[d.id] = { n: s.length, s: +median(s).toFixed(3), lo: +Math.min(...s).toFixed(3) };
+    const what = d.stage ? `the region of plane ${d.stage}, pulled back` : 'the region of plane 0 (the control)';
+    ok(`${tag}: ${what} reads at ${MIN_N} or more points`, r.n >= MIN_N, r);
+    ok(`${tag}: inside ${what}, the colour is Everywhere's at full strength (median s >= ${FULL})`, r.s >= FULL, r);
+    if (!d.stage) return;
+    const dl = L.discs[k].map((q, i) => (q && I.discs[k][i] ? Math.abs(q[0] - I.discs[k][i][0]) + Math.abs(q[1] - I.discs[k][i][1]) + Math.abs(q[2] - I.discs[k][i][2]) : null)).filter((v) => v != null);
+    r.layer = median(dl);
+    ok(`${tag}: inside ${what}, Inside regions' layer adds no fill over the colour (median difference with the layer shown <= ${FILL_D})`, dl.length >= MIN_N && r.layer <= FILL_D, r);
+  });
+  return out;
+};
+
+for (const theme of ['light', 'dark']) {
+  await load(`svpbm${theme}${Date.now()}`, ST);
+  await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
+  ok(`${theme}: the page shows the steps view`, await isSteps(), null);
+  await ev(`document.documentElement.setAttribute('data-theme', '${theme}'), __cmwSet('morphPaths', false), __cmwSteps({ T: 0, surf: 'plane', go: 0, now: true }), 1`);
+  await settled({ max: 60000, until: '!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0' });
+  info[`${theme} rest`] = await measure(`${theme}, at rest on plane 0`, SHIFT);
+  if (theme === 'light') {
+    const read = async (scope) => { await ev(`__cmwHideStrokes(false), __cmwSteps({ scope: '${scope}' }), 1`); await settled({ max: 60000, until: 'GLR.pendingLinks === 0' }); return px(ring()); };
+    const hover = (on) => ev(`(() => { const r = document.querySelector('.shape[data-id="o0"] .shape-row'); if (!r) return false; r.dispatchEvent(new PointerEvent('${on ? 'pointerenter' : 'pointerleave'}')); return true; })()`);
+    const sum = (P, Q) => median(P.map((p, i) => (p && Q[i] ? Math.abs(p[0] - Q[i][0]) + Math.abs(p[1] - Q[i][1]) + Math.abs(p[2] - Q[i][2]) : null)).filter((v) => v != null));
+    const plain = await read('in');
+    ok('light, at rest: the row of the disc of plane 0 is there to hover', await hover(true), null);
+    const A = await read('all'), I = await read('in');
+    await hover(false);
+    const h = info.hover = { inVsAll: sum(I, A), hoverVsPlain: sum(I, plain), n: I.filter(Boolean).length };
+    ok(`light, at rest, another shape hovered: control: the hover changes the circle's line (more than ${HOVER_D} from the frame with nothing hovered)`, h.n >= 40 && h.hoverVsPlain > HOVER_D, h);
+    ok(`light, at rest, another shape hovered: Inside regions draws the circle of plane 1's line as Everywhere does (within ${HOVER_D}), its ink dimmed, not left out with the fills`, h.n >= 40 && h.inVsAll <= HOVER_D, h);
+  }
+  // (the glide 0 -> 1 at u = 0.5: plane 0's points moved by half the first step, so every region's place moves by +0.25)
+  await ev('__cmwSteps({ x: 0.5 }), 1');
+  await settled({ max: 60000, until: 'Math.abs(__cmwSteps().x - 0.5) < 1e-9 && GLR.pendingLinks === 0' });
+  const g = await ev('(({ path, reason }) => ({ path, reason }))(__cmwSteps().glide || {})');
+  ok(`${theme}: the frame at u = 0.5 is the inverse pass's`, g.path === 'inverse', g);
+  // (the region of plane 1 is the plane the glide reaches, and blends its own look in by u: its row is the rest frame's)
+  info[`${theme} u=0.5`] = await measure(`${theme}, the glide 0 -> 1 at u = 0.5`, SHIFT.map((s) => s - 0.25));
+}
+return { pass: fails.length === 0, fails, info };

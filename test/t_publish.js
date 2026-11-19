@@ -73,8 +73,12 @@ ok('the published page names the offline page\'s size', named && Number(named[1]
 // the built pages' size budget (bytes), raised only on purpose: the published page is what every visit loads; the
 // offline page is it plus MathJax (MathJax 4 and its STIX2 font, every range of it, which the live page loads on demand,
 // #288: 4.1 MB of JSON, gzipped in base64 as 1.75 MB, #491), the faces (0.7 MB as base64) and the PDF library (jsPDF and
-// svg2pdf.js, 0.47 MB, #393), about 2.95 MB more
-const BUDGET = { 'complex-map-workbench.html': 5.25e6, 'complex-map-workbench-offline.html': 8.0e6, offlineExtra: 3.1e6 };
+// svg2pdf.js, 0.47 MB, #393), about 2.95 MB more. Each budget leaves about 0.1 MB above its page as built (5.22 and 8.00
+// MB, #2010): room for the page work queued for the wave (about 34 kB measured), all of it the app's own code, none of
+// it test code or a second copy. #2012 holds what would trim them: the comments that still reach the page (about 124 kB:
+// the classic scripts' own, GLSL's inside its template strings, JSDoc casts), the bundle's whitespace, the language
+// tables' repeated English keys
+const BUDGET = { 'complex-map-workbench.html': 5.35e6, 'complex-map-workbench-offline.html': 8.1e6, offlineExtra: 3.1e6 };
 const bytes = { 'complex-map-workbench.html': Buffer.byteLength(pub), 'complex-map-workbench-offline.html': Buffer.byteLength(off) };
 for (const f of Object.keys(bytes)) ok(`dist/${f}: ${(bytes[f] / 1e6).toFixed(2)} MB, within its budget of ${BUDGET[f] / 1e6} MB`, bytes[f] <= BUDGET[f], bytes[f]);
 const extra = bytes['complex-map-workbench-offline.html'] - bytes['complex-map-workbench.html'];
