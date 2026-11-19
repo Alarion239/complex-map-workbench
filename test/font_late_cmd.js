@@ -30,7 +30,8 @@ const open = async (w, h, mobile, hold) => {
   await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(NAV_SETTLE_MS);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await holdSheet(hold);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  // raw-navigate: the sheet is held back, and with it the load event: go would wait on it, and the check below reads the page before its sheet applies
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
   let pre = null;
   if (hold) { await sleep(HOLD_CHECK_MS); pre = await sheetState(); }
   let s = null;
