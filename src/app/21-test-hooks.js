@@ -138,6 +138,7 @@
   // (-> whether example i is now the current one: false past the last example)
   window.__cmwExample = (i) => { loadExample(i); return currentExample === i; };
   // the selection, the step shown alone, the temporary Inspector and X's view
+  window.__cmwBusy = (on) => { fixJob.running = !!on; updateLeds(); return fixJob.running; };   // (the LEDs' busy state, as a running fix job sets it; false lets them rest)
   window.__cmwCards = () => ({ sel: selOf(), focus: S.focus, temp: tempInsp, main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
   // (#235: what the Cauchy style draws from, and a switch to draw the quadrature where the formula holds)
   // the Cauchy style's residue data as the carried colour takes it (plan, edges, part shown, chain length), or null
