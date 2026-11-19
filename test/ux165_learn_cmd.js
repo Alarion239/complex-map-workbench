@@ -63,7 +63,7 @@ check('UX89: the next tap on the strip opens the sheet as before', (await ev('To
 await ev('Tour.stop()'); await settle(300);
 grab();
 
-// ---------------------------------------------------------------- UX78, UX93: Russian
+// ---------------------------------------------------------------- Russian
 await phone(360, 780);
 await fresh('ux165h', '&lang=ru'); await settle(2400);
 g = await ev(`({ auto: I18N.t('Move on by itself'), tour: I18N.t('Guided tour'), welcome: I18N.t('Welcome to the Workbench'), start: I18N.t('Start the tour') })`);
@@ -87,7 +87,7 @@ grab();
 await phone(412, 860);
 await fresh('ux165s2'); await settle(2000);
 check('UX88 phone: the sound settings show no keyboard help on touch', await ev(`getComputedStyle(document.querySelector('.snd-keys')).display === 'none'`));
-// UX72 phone: More, then the curve's row in Shapes (real taps): its editor has Listen along, a 44 px button
+// Phone: More, then the curve's row in Shapes (real taps): its editor has Listen along, a 44 px button
 await tapSel('#toolMore'); await settle(600);
 await ev(`Phone.tab('shapes')`); await settle(300);   // (the Shapes tab of the Tools sheet)
 await ev(`(() => { const e = document.querySelector('#shapeList .shape[data-id="s2"] .shape-name'); e && e.scrollIntoView({ block: 'center' }); return 1; })()`); await settle(300);
