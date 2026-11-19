@@ -532,15 +532,14 @@
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
-  const PH_RAIL = 56;   // a phone plane's key column: 44 px wide, 8 px from the plane's right edge, and a 4 px gap
+  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    // (a phone's plane keeps its keys in a column at the right, 44 px wide at 8 px from the edge: the note is centred in the room
-    // left of it and wraps to that width)
+    // (a phone's note is centred in the room left of the key column and wraps to that width)
     const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
     const maxW = Math.max(80, Math.min(360, free - 48));
     const lines = wrapWords(ctx, text, maxW);

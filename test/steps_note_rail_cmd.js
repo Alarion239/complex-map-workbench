@@ -2,12 +2,14 @@
 // with the colour plane T past z) stands clear of the plane's buttons on a phone: its box, as drawn, meets none of the
 // visible buttons of the pane (the rail of Sphere, Display options, Fit view and the globe key) and lies inside the pane, and its words
 // are centred in that box (the box is centred in the room left of the rail). At 360 x 640
-// and 320 x 568, in English, Russian and Italian, light and dark, touch.
+// and 320 x 568, in English, Russian and Italian, light and dark, touch. A message standing over the plane is part of the GPU note's clearance at 360 x 640 only (TODO(#2042)).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const GAP = 4;   // the note stands at least this far from a button, CSS px
+// TODO(#2042): the message is part of the GPU note's clearance only at 360 x 640; at 320 x 568 the note's wrapped lines reach under it (in Russian a third line). #2042's done-when: this is gone and 320 x 568 checks the message too
+const WITH_MESSAGE = (h) => h > 600;
 const STATE = { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }],
   steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^4+z', cut: 180 }, on: true }],
   srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy' };
@@ -32,7 +34,7 @@ for (const [w, h] of [[360, 640], [320, 568]]) {
       await ev(`__cmwSelect('s1'); 1`);
       await ev(`(__cmwSteps({ T: 2, go: 2, now: true }), 1)`);
       await settled({ max: 20000, until: '!__cmwSteps().moving && __cmwSteps().T === 2 && __cmwSteps().i === 2 && !!__cmwSteps().note' });
-      const m = await measure(undefined, h > 600);   // (at 320 × 568 the message and the note overlap: #2042)
+      const m = await measure();
       info[tag] = m;
       ok(`${tag}: the note is drawn`, !!m.note, m);
       if (!m.note) continue;
@@ -42,13 +44,13 @@ for (const [w, h] of [[360, 640], [320, 568]]) {
       // the GPU-preparing note (the page's own words, in this language) with a message standing over the plane's foot
       await ev(`__cmwToast('Colour plane: z', 'Undo'); 1`);
       await settled({ max: 10000, until: `document.documentElement.classList.contains('ph-toast-on') && !!document.querySelector('#toastHost .toast')` });
-      const g = await measure(`__cmwPaneNote('Preparing the GPU… (first time only; shaders left: {n})', { n: 19 })`, h > 600);
+      const g = await measure(`__cmwPaneNote('Preparing the GPU… (first time only; shaders left: {n})', { n: 19 })`, WITH_MESSAGE(h));   // (the message counts as a button of the pane only where WITH_MESSAGE)
       info[tag + ' gpu'] = g;
       ok(`${tag}: the GPU note is drawn`, !!g.note, g);
       if (g.note) {
         ok(`${tag}: the GPU note stands in the pane`, g.inPane, g);
         ok(`${tag}: the GPU note's words are centred in its box`, g.centred, g);
-        ok(`${tag}: the GPU note is clear of the pane's buttons and the message (${g.n} on screen)`, g.hit.length === 0 && g.n >= 4, g);
+        ok(`${tag}: the GPU note is clear of the pane's buttons${WITH_MESSAGE(h) ? ' and the message' : ''} (${g.n} on screen)`, g.hit.length === 0 && g.n >= 4, g);
       }
     }
   }
