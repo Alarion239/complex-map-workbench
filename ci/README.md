@@ -127,7 +127,7 @@ Each platform's job is there for its own shader compiler:
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
   loops.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
-- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`): CPU WebGL2. Headless Chrome falls back to it without a
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; a local browser-suite run uses lavapipe instead where it is installed, below): CPU WebGL2. Headless Chrome falls back to it without a
   usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
   (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
   instead, which is not SwiftShader.
@@ -477,7 +477,7 @@ node ci/snapshots.js && node ci/unit.js                                         
 npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
 ```
 
-- **Do not use CI's Vulkan flags** (`--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`, `CMW_ANGLE=vulkan`) here: Chrome then has no WebGL, the colour keys are hidden and every picture is blank. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
+- **The browser suites pick their renderer themselves** (`test/cdp_kit/renderer.js`): lavapipe through ANGLE's Vulkan back end, as the browser jobs, when the machine has it (the Vulkan ICD `lvp_icd.json` and its library: the package `mesa-vulkan-drivers`), with `GALLIUM_OVERRIDE_CPU_CAPS=avx` and CI's Vulkan flags; else SwiftShader, with a warning line. The first line of `ci/browser.js`'s output says which one drew (`renderer: …; drawn by: …`). If Chrome has no WebGL2 through lavapipe here (the colour keys hidden and every picture blank), the run goes on with SwiftShader and says so. `CMW_ANGLE=swiftshader`, as above, opts out. A red on SwiftShader that CI does not show (`steps_chain`, `steps_strip_layout`: #2025) is checked with lavapipe first. The GLSL, Quality and Perf runs keep SwiftShader on Linux, as their CI jobs do. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
 - **A shallow clone** lacks the old commits that `ci/snapshots.js` restores. It fetches them, and the six tests that read the snapshots fail with a line saying what is missing (never skip).
 - **Keep your own scripts' output out of the repository:** screenshots and measurements go to a scratch folder (a script run from the repository's root once left a `shots/` folder in it).
 - **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
@@ -523,7 +523,7 @@ Settings (environment variables):
 
 | variable | meaning |
 |---|---|
-| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
+| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) for the browser suites on Linux when it is installed, else `swiftshader` (CPU rendering, with a warning); the browser jobs use `vulkan` with lavapipe. `CMW_ANGLE=swiftshader` opts out of lavapipe (`test/cdp_kit/renderer.js`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CMW_DPR` | the device pixel ratio the browser daemon's `view()` emulates (default 1; `steps_glide_look_cmd.js` runs at 1 and at 2, ci/browser_suites.js) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |
