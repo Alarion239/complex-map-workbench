@@ -123,8 +123,8 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
       info[tag] = { s0, a0 };
       ok(`${tag}: a folded key is a button (a native one or role=button)`, s0.folded && (s0.tag === 'BUTTON' || s0.role === 'button') && !!a0 && a0.role === 'button', { s0, a0 });
       ok(`${tag}: it has a name`, !!a0 && !!a0.name && a0.name.length > 2, a0);
-      // (Classic Y's key: its name says which key it is before what it shows, "Regions key, cell 1")
-      if (q === 'classic') ok(`${tag}: its name leads with "Regions key, "`, !!a0 && typeof a0.name === 'string' && a0.name.startsWith('Regions key, '), a0);
+      // (Classic Y's key: its name says which key it is, "Regions key"; what it shows is its description's, phone_legend_said)
+      if (q === 'classic') ok(`${tag}: it is named "Regions key"`, !!a0 && a0.name === 'Regions key', a0);
       ok(`${tag}: it is expanded=false while folded`, s0.exp === 'false' && a0 && a0.expanded === false, { s0, a0 });
       ok(`${tag}: it is in the focus order (tabIndex ≥ 0)`, s0.tab >= 0, s0);
       const tabs = await tabTo(id);
