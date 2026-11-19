@@ -129,8 +129,8 @@ await open('en', 90);
   const at = said.text ? said.text.indexOf(said.head) : -1;
   ok('the plane\'s description says the count: "Pieces of <the disc> pulled back off the view: 1 of 3"', at >= 0 && said.text.indexOf(said.tail, at + said.head.length + 1) > at, said);
 }
-// a frame that places no label (zoomed out, with no reload): the placer's list (__cmwLabelsPlaced) no longer has the count
-// the last frame placed (#1893)
+// a frame that places no label (zoomed out, with no reload): the placer's list (__cmwLabelsPlaced) is that frame's, with
+// none of the counts an earlier frame placed (#1893)
 {
   const before = (await placed()).some((q) => q.text === WORDS.en);
   await ev("__cmwSet('srcView', { cx: 0, cy: 0, s: 30 }), 1");
