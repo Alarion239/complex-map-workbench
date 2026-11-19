@@ -25,6 +25,7 @@
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
+    sheetsSeen: null,   // All sheets as svCheck saw it last (null: not yet)
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
@@ -183,6 +184,10 @@
     // (and the thread parks on z with it: the style's control is in the pane of the colour plane, which the view shows only while it is the plane the thread is on)
     if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy' && !SV.alone && P.length > 1) { if (SV.T !== P[0]) SV.T = P[0]; if (SV.i !== 0) { SV.dcSeen = S.dc; svGo(0, true); } }
     SV.dcSeen = S.dc;
+    // (All sheets ticked by any of its writers, the check, a tour step's look or an example, with the Landscape shown: its
+    // glide's carry places the sheets then, so that program starts linking at once, svPrestart)
+    if (S.sheets && SV.sheetsSeen === false && SV.surf === 'land') svPrestartSoon(300);
+    SV.sheetsSeen = !!S.sheets;
     // (another chain loaded with the state, an example or a link: its glide's programs are started too)
     if (SV.sig != null && sig !== SV.sig) svPrestartSoon(300);
     svAdopt(SV.sig != null && sig !== SV.sig);
@@ -393,10 +398,11 @@
     return true;
   }
   // the plane a carry starts from: s0, unless a d/dz step lies between s0 and a plane in ts it must reach (the places,
-  // the colour plane), or All sheets draws a multivalued chain; then z's plane. Every stage is a function of z
-  // (chainRange from plane 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist
-  // only as the preimages of z's points
-  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet() || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
+  // the colour plane), or All sheets draws several sheets of a carry from z (landSheetsMap(0): the chain up to the colour
+  // plane, so a step after it changes nothing); then z's plane. Every stage is a function of z (chainRange from plane 0
+  // crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist only as the preimages
+  // of z's points
+  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet(landSheetsMap(0)) || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
   // the longest edge a cell of the carried grid may have once placed by the glide's map, as a share of the pane's longer
   // side (svLandCarry's lim, in the plane's units): a cell stretched past it, by a pole of the map or a fold, is left
   // out, and the patches about the poles cover its place
@@ -473,11 +479,14 @@
   // at rest. False when the Landscape is not on the pane
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
-    const g = svBetween();
-    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
-    const mapOf = (s) => svGlideMap(g, s);
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    render3D(pane, svLandCarryNow());
     return true;
+  }
+  // the carry the Landscape draws now (render3D's), undefined for a plane's own relief at rest
+  function svLandCarryNow() {
+    const g = svBetween();
+    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) return svLandRest(g.near);
+    return svLandCarry((s) => svGlideMap(g, s), g.a, g.b, g.u);
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
   // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
@@ -762,8 +771,61 @@
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
   const SV_SING_BIG = 10;
+  // svSingNewton's limits: at most SV_SING_ITERS Newton steps; a point is kept only where |F| at SV_SING_R (1 + |z|)
+  // from it is past big at each of four points, and grows towards it by more than SV_SING_GROW from ten times as far
+  // (|F| ~ r^-a grows by 10^a: a root's a is at least about 0.2 where |F| at that distance is past SV_SING_BIG, and a
+  // bounded branch point, 20 + √z at 0, does not grow); the four points are turned SV_SING_TURN from the axes, so that a
+  // cut along an axis does not take one
+  const SV_SING_ITERS = 16, SV_SING_R = 1e-6, SV_SING_GROW = 10 ** 0.1, SV_SING_TURN = 0.3;
+  // a point where F is unbounded without being a pole, from z, by Newton's method on u = h/h' (h = 1/F): u has a simple
+  // zero where h has a zero of any order, a pole's (order 1) or a root's (|F| ~ |z - p|^-a, 0 < a < 1, where Newton's
+  // method on h reflects about p or crawls). It is the point Newton's method settles on (u or its step under 1e-12 or
+  // 1e-11 of 1 + |z|), within box, where |F| next to it is past big and grows towards it; null otherwise: a start that
+  // does not settle (Newton on u reflects where u's zero is not simple, as exp(√z)'s u = -2√z sends z to -z), that
+  // leaves the box, or that settles on no such point (a zero of h' alone)
+  function* svSingNewton(F, z, box, big, E) {
+    const h = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? (CX.isZero(w) ? null : CX.inv(w)) : C(0, 0); };
+    const u = (p, e) => {
+      const h0 = h(p), hp = h(CX.add(p, C(e, 0))), hm = h(CX.sub(p, C(e, 0)));
+      if (!h0 || !hp || !hm) return null;
+      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
+      return CX.isZero(h0) ? C(0, 0) : CX.isFin(d) && !CX.isZero(d) ? CX.div(h0, d) : null;
+    };
+    yield* svPoleTick(E);
+    let gap = Infinity, settled = false;
+    for (let i = 0; i < SV_SING_ITERS && !settled; i++) {
+      // (the differences' step: a hundredth of the last distance u gave, at most 1e-6 (1 + |z|) and at least 1e-14 (1 + |z|),
+      // where float64 differences still resolve: steps that straddle the point would read the difference across it)
+      const s = CX.abs(z), e = Math.max(1e-14 * (1 + s), Math.min(1e-6 * (1 + s), gap / 100)), u0 = u(z, e);
+      if (!u0) return null;
+      if (CX.abs(u0) < 1e-12 * (1 + s)) { settled = true; break; }
+      // (a step more than twice the last: Newton's method moving away from the zero, not towards it)
+      if (CX.abs(u0) > 2 * gap) return null;
+      gap = CX.abs(u0);
+      const up = u(CX.add(z, C(e, 0)), e), um = u(CX.sub(z, C(e, 0)), e);
+      if (!up || !um) return null;
+      const d = CX.div(CX.sub(up, um), C(2 * e, 0));
+      if (!CX.isFin(d) || CX.isZero(d)) return null;
+      const step = CX.div(u0, d);
+      z = CX.sub(z, step);
+      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
+      yield* svPoleTick(E);
+      if (CX.abs(step) < 1e-11 * (1 + s)) settled = true;
+    }
+    if (!settled) return null;
+    const m = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? CX.abs(w) : Infinity; };
+    const r = SV_SING_R * (1 + CX.abs(z));
+    for (let a = 0; a < 4; a++) {
+      const c = Math.cos(a * Math.PI / 2 + SV_SING_TURN), sn = Math.sin(a * Math.PI / 2 + SV_SING_TURN);
+      const near = m(CX.add(z, C(r * c, r * sn))), far = m(CX.add(z, C(10 * r * c, 10 * r * sn)));
+      if (near == null || far == null || !(near > big) || (near < Infinity && !(near > SV_SING_GROW * far))) return null;
+    }
+    return z;
+  }
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  // sing, a start Newton's method does not settle on is refined to its singular point: where |F| there is past
+  // SV_SING_BIG, by its nearest peak of |F|; else (and where that finds none) by svSingNewton, which finds a root's
+  // point (√ of a Möbius step at its pole) from a grid whose |F| next to it is small
   function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
@@ -793,6 +855,7 @@
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
       if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
+      if (!p && sing) p = yield* svSingNewton(F, at(i, j), lim, SV_SING_BIG, E);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
@@ -1640,12 +1703,15 @@
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands
   // in while the mesher's job runs
-  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt); all at once, the span's first plane's, whose
-  // window the glide starts from; at rest, plane b's)
+  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt, plane b's key with the glide's poles at t); all at
+  // once, the key of the span's top plane, map.b, with that plane's poles, so the front sheet is the one the inverse pass
+  // shows where the span ends, at plane b: an upward glide lands on that sheet, while a downward one, which ends at the
+  // span's first plane, keeps plane b's key to the end (the first plane's key lacks the later planes' poles, so where the
+  // map folds it would put the wrong sheet in front on the way); at rest, plane b's)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;
-    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.a) : svSheetKey(b);
+    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.b) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
@@ -1757,8 +1823,9 @@
   // pictures at rest cross-faded, each drawn as the plane draws at rest (the classic core's pull-back on a coloured
   // plane, else the carry core's exact pass or its meshes), plane a's on the pane and plane b's over it at opacity u
   // from a canvas of its own. The glide's record: path 'inverse' when both ends are exact (a coloured plane's plot, or
-  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. False for
-  // any other frame (the Landscape's jump is svLandMoving's)
+  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. The cuts
+  // are each end's, faded with it; while the glide is under way, the handles of the plane it is nearest to, inert. False
+  // for any other frame (the Landscape's jump is svLandMoving's)
   let svJumpCv = null;
   function svJump(pane, still) {
     if (SV.surf === 'land') return false;
@@ -1781,12 +1848,18 @@
       if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
       return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
     };
-    const ends = [end(bt.x0, pane)];
+    // (each end's cut handles, as its draw leaves them: the editable ones of the classic core at rest (cutHandlesL), or
+    // the inert ones of the carry core, which draws them so while a scrub holds the thread (cutMarksL))
+    const handles = [];
+    const drawEnd = (j, p) => { cutHandlesL = []; cutMarksL = []; const e = end(j, p); handles.push(cutHandlesL.concat(cutMarksL)); return e; };
+    const ends = [drawEnd(bt.x0, pane)];
     svJumpCv = svCanvas(svJumpCv, pane);
-    ends.push(end(bt.x1, svProxy(pane, svJumpCv)));
+    ends.push(drawEnd(bt.x1, svProxy(pane, svJumpCv)));
     svFadeOver(pane, svJumpCv, bt.u);
-    // (the cut handles are cleared, as they are mid-glide)
+    // (no handle takes a press mid-glide; while the glide is under way the plane it is nearest to shows its handles
+    // inert, as a glide frame between two other planes does (cutMarksL); a frame parked between the planes shows none)
     cutHandlesL = [];
+    cutMarksL = svGliding() ? handles[bt.u < 0.5 ? 0 : 1] : [];
     const exact = (e) => e === 'plot' || e === 'inverse';
     svGlideRec = { b: bt.b, u: bt.u, path: ends.every(exact) ? 'inverse' : ends.includes('none') ? 'none' : 'mesh', reason: 'a d/dz step', ends, key: null, H: bt.F, Hb: null, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
     SV.core = 'carry';
@@ -1958,8 +2031,9 @@
     const h = svHomPaths(g.b, g.u).h;
     return h ? { g, h } : null;
   }
-  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level)
-  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve']);
+  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level; a freehand
+  // curve, a formula curve, an external ray and an equipotential by their polylines at rest, invTrace)
+  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve', 'cgrid', 'pgrid', 'fcurve', 'dhray', 'dheq']);
   // the curves of later planes of the frame between two planes, with their inverse path, the whole plane's (a shape of
   // a later plane is tested on its own plane, svInvPaths): {list, paths}, or null when there is none or the pass cannot
   // draw them
@@ -2692,7 +2766,7 @@
   const svSurface = () => (SV.on ? SV.surf : null);
   // a surface's name as the Surface control reads it: 'Surface: Plane'
   function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape') }[v]}`; }
-  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') { prestartGlobe(); svPrestartSoon(300); } svApply(); tourEmit('surface-changed', { s: v }); }
+  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
   function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
   // the scope switch again, for the phone's Display sheet (the sheet shows it full width; svSync keeps it with the head's)
@@ -3183,7 +3257,9 @@
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
       if (!d.moved) { svPause(false); svKeepView(); SV.anim = null; }
       d.moved = true;
+      const x0 = SV.g.x;
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
+      sndScrub(x0, SV.g.x, SV.g.max);   // (the scrub's detents)
       requestRender('L');
     });
     const up = (e) => {
@@ -3191,7 +3267,7 @@
       if (!d || d.id !== e.pointerId || !d.strip) return;
       SV.drag = null;
       if (svRangeUp(d, rail)) { e.preventDefault(); return; }
-      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); }
+      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); sndScrubEnd(); }
     };
     rail.addEventListener('pointerup', up);
     rail.addEventListener('pointercancel', up);
@@ -3355,6 +3431,12 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
+      // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
+      // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
+      if (SV.surf === 'land') {
+        if (GLR.prestartNames) GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
+        if (GLR.prestart) GLR.prestart(['landCarryNrm', 'lineFC']);
+      }
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
       // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();
@@ -3599,6 +3681,7 @@
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
   }
   // a slide's time on each plane (ms)
   const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
@@ -3609,7 +3692,7 @@
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return; }
     const i = Math.round(SV.g.x);
     if (!first) {
-      if (i >= A.end) { if (!SV.loop) { svPause(true); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
+      if (i >= A.end) { if (!SV.loop) { svPause(true); sndMorphArrive(svPerPlane() / 1000); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
       SV.i = Math.round(SV.g.x);
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
@@ -3639,6 +3722,7 @@
     if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.held = A.drawn = null; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
+    sndMorphArrive(svPerPlane() / 1000);   // (the arrival, at a play's own end only: never on a loop's repeat)
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
     svSync();
     return false;
@@ -3722,8 +3806,9 @@
     if (!svLoad(true)) svAdopt();
     SV.ready = true;
     svApply();
-    // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
-    for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
+    // (#leftLegend carries a label: an image's, for axe's aria-prohibited-attr)
+    const legend = $('leftLegend');
+    if (legend && !legend.getAttribute('role')) legend.setAttribute('role', 'img');
     svPrestartSoon(1500);
   }
 

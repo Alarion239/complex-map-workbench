@@ -75,7 +75,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   // copy of every step per call (6 to 8 per program, 17 with paths built of others). The same steps in the same order:
   // mode 1 (base, hi) in full, hi along its path at t (none at t <= 0), then the post (b, post] in full (hi <= b
   // whenever there is a post); mode 3 (base, a] in full, (a, b] along their paths, the post; mode 2 the stages a and
-  // b, each from base (homrange.js's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
+  // b, each from base (homrange.ts's lerp of the two; base <= a). The bound is one no compiler can know (uNoUnroll,
   // LIB), so the walk stays a loop.
   const WALK = (n, how, t = 'uT') => `vec2 z = s;
   for (int k = 1; k < max(${n + 1}, uNoUnroll); k++) {
@@ -99,7 +99,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   const MAP_STAGE = [
     () => 'return chainRange(s, uA, uB);',
     () => `vec2 z = chainRange(s, uBase, uHi - 1);
-  // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.js lerpE: review v16 math-2)
+  // (a d/dz focus has the z-plane on the left; the line's ends are exact, as homrange.ts lerpE)
   if (chainIsDeriv(uHi)) return postOf(uT <= 0.0 ? z : uT >= 1.0 ? chainStage(uHi, s) : mix(z, chainStage(uHi, s), uT));
   return postOf(uT <= 0.0 ? z : chainHom(uHi, z, uT));`,
     () => `vec2 z0 = chainRange(s, uBase, uA);
@@ -114,7 +114,7 @@ vec2 postOf(vec2 w) { return uPost > uB ? chainRange(w, uB, uPost) : w; }
   }
   return postOf(z);`,
   ];
-  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.js stepTime (the draw sets
+  // mode 3's time of each step k at uT: clamp(a uT - b, 0, 1) for uStepT[k] = (a, b), homrange.ts stepTime (the draw sets
   // (1, 0), uT itself, for a step with no time of its own: GLR.use)
   const STEP_T = (n) => `uniform vec2 uStepT[${n + 1}];
 float stepT(int k) { vec2 m = uStepT[min(k, ${n})]; return clamp(uT * m.x - m.y, 0.0, 1.0); }
@@ -1439,9 +1439,9 @@ void main() {
   o = vec4(cauchyCol(uCenter + off, uRelC + off, vec2(0.0)), 1.0);
 }
 `;
-  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15: a segment, a line, a ray,
-  // a circle, an arc): curveNearAB(kind, A, B, w) is the curve's point nearest w. Shared by the preimages (PRE_FS) and
-  // the inverse pass's curves of later planes (INV_HEAD)
+  // The geometry of the curve shapes that their record's A and B hold (packShape's kinds 11-15 and 17-18: a segment, a
+  // line, a ray, a circle, an arc, the Cartesian and the polar grid): curveNearAB(kind, A, B, w) is the curve's point
+  // nearest w. Shared by the preimages (PRE_FS) and the inverse pass's curves of later planes (INV_HEAD)
   const CURVE_GEOM = `
 float crs(vec2 u, vec2 v) { return u.x * v.y - u.y * v.x; }
 vec2 segNear(vec2 p, vec2 a, vec2 b) { vec2 d = b - a; float L = dot(d, d); float t = L > 0.0 ? clamp(dot(p - a, d) / L, 0.0, 1.0) : 0.0; return a + t * d; }
@@ -1457,6 +1457,24 @@ vec2 curveNearAB(int kind, vec4 A, vec4 B, vec2 w) {
     float L = dot(A.zw, A.zw);
     float t = L > 0.0 ? dot(w - A.xy, A.zw) / L : 0.0;
     return A.xy + (kind == 13 ? max(t, 0.0) : t) * A.zw;
+  }
+  if (kind == 17) {           // Cartesian grid: n + 1 lines each way across the rectangle A.xy - A.zw
+    vec2 lo = min(A.xy, A.zw), hi = max(A.xy, A.zw);
+    float n = max(B.x, 1.0);
+    vec2 st = max(hi - lo, vec2(1e-30)) / n;
+    vec2 i = clamp(floor((w - lo) / st + 0.5), vec2(0.0), vec2(n));
+    return nearer(w, vec2(lo.x + i.x * st.x, clamp(w.y, lo.y, hi.y)), vec2(clamp(w.x, lo.x, hi.x), lo.y + i.y * st.y));
+  }
+  if (kind == 18) {           // polar grid: nc circles, nr rays of length r about A.xy
+    vec2 v = w - A.xy;
+    float l = length(v), dr = A.z / max(B.x, 1.0);
+    float i = clamp(floor(l / dr + 0.5), 1.0, max(B.x, 1.0));
+    vec2 qc = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * i * dr;
+    float nr = max(B.y, 1.0);
+    float an = floor(atan(v.y, v.x) * nr / TAU + 0.5) * TAU / nr;
+    vec2 u = vec2(cos(an), sin(an));
+    vec2 qr = A.xy + clamp(dot(v, u), 0.0, A.z) * u;
+    return nearer(w, qc, qr);
   }
   vec2 v = w - A.xy;
   float l = length(v);
@@ -1528,30 +1546,12 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
 }
 // curve targets: the nearest point of the curve
 vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
-  if (kind >= 11 && kind <= 15) return curveNearAB(kind, A, B, w);
+  if ((kind >= 11 && kind <= 15) || kind == 17 || kind == 18) return curveNearAB(kind, A, B, w);
   if (kind == 16) {
     int s = 6 * uTN + int(K.z + 0.5), n = int(K.w + 0.5);   // vertices follow the records
     vec2 q = R(s).xy;
     for (int k = 1; k < 256; k++) { if (k >= n) break; q = nearer(w, q, segNear(w, R(s + k - 1).xy, R(s + k).xy)); }
     return q;
-  }
-  if (kind == 17) {           // Cartesian grid: n + 1 lines each way across the rectangle A.xy - A.zw
-    vec2 lo = min(A.xy, A.zw), hi = max(A.xy, A.zw);
-    float n = max(B.x, 1.0);
-    vec2 st = max(hi - lo, vec2(1e-30)) / n;
-    vec2 i = clamp(floor((w - lo) / st + 0.5), vec2(0.0), vec2(n));
-    return nearer(w, vec2(lo.x + i.x * st.x, clamp(w.y, lo.y, hi.y)), vec2(clamp(w.x, lo.x, hi.x), lo.y + i.y * st.y));
-  }
-  if (kind == 18) {           // polar grid: nc circles, nr rays of length r about A.xy
-    vec2 v = w - A.xy;
-    float l = length(v), dr = A.z / max(B.x, 1.0);
-    float i = clamp(floor(l / dr + 0.5), 1.0, max(B.x, 1.0));
-    vec2 qc = A.xy + (l > 0.0 ? v / l : vec2(1.0, 0.0)) * i * dr;
-    float nr = max(B.y, 1.0);
-    float an = floor(atan(v.y, v.x) * nr / TAU + 0.5) * TAU / nr;
-    vec2 u = vec2(cos(an), sin(an));
-    vec2 qr = A.xy + clamp(dot(v, u), 0.0, A.z) * u;
-    return nearer(w, qc, qr);
   }
   if (kind == 20) {           // v16 gcurve: two Newton steps on f / 2 (the signed distance near the curve)
     vec2 q = w;

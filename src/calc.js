@@ -759,6 +759,23 @@ const Calc = (() => {
     }
     return d;
   }
+  // Douglas–Peucker over the chain pts[i0..i1] (indices mod pts.length, i0 and i1 kept by the caller): marks in keep
+  // each vertex farther than tol from the chord of the run it lies in, iteratively
+  function dpKeep(pts, keep, i0, i1, tol) {
+    const n = pts.length, stack = [[i0, i1]];
+    while (stack.length) {
+      const [lo, hi] = stack.pop();
+      if (hi - lo < 2) continue;
+      const A = pts[lo % n], B = pts[hi % n], dx = B.re - A.re, dy = B.im - A.im, L = Math.hypot(dx, dy);
+      let m = -1, md = tol;
+      for (let k = lo + 1; k < hi; k++) {
+        const Q = pts[k % n];
+        const d = L > 0 ? Math.abs((Q.re - A.re) * dy - (Q.im - A.im) * dx) / L : Math.hypot(Q.re - A.re, Q.im - A.im);
+        if (d > md) { md = d; m = k; }
+      }
+      if (m >= 0) { keep[m % n] = 1; stack.push([lo, m], [m, hi]); }
+    }
+  }
   // a closed polygon with no vertex farther than tol from the simplified one (Douglas–Peucker from the vertex nearest
   // the centre of mass's far side): the winding number of any point more than tol from the polygon is unchanged
   function simplifyLoop(poly, tol) {
@@ -768,22 +785,16 @@ const Calc = (() => {
     for (let k = 1; k < n; k++) { const d = Math.hypot(pts[k].re - pts[0].re, pts[k].im - pts[0].im); if (d > fd) { fd = d; far = k; } }
     const keep = new Uint8Array(n);
     keep[0] = 1; keep[far] = 1;
-    const run = (i0, i1) => {   // the open chain pts[i0..i1] (indices mod n), iteratively
-      const stack = [[i0, i1]];
-      while (stack.length) {
-        const [lo, hi] = stack.pop();
-        if (hi - lo < 2) continue;
-        const A = pts[lo % n], B = pts[hi % n], dx = B.re - A.re, dy = B.im - A.im, L = Math.hypot(dx, dy);
-        let m = -1, md = tol;
-        for (let k = lo + 1; k < hi; k++) {
-          const Q = pts[k % n];
-          const d = L > 0 ? Math.abs((Q.re - A.re) * dy - (Q.im - A.im) * dx) / L : Math.hypot(Q.re - A.re, Q.im - A.im);
-          if (d > md) { md = d; m = k; }
-        }
-        if (m >= 0) { keep[m % n] = 1; stack.push([lo, m], [m, hi]); }
-      }
-    };
-    run(0, far); run(far, n);
+    dpKeep(pts, keep, 0, far, tol); dpKeep(pts, keep, far, n, tol);
+    return pts.filter((_, k) => keep[k]);
+  }
+  // an open polyline (points' forms) with no vertex farther than tol from the simplified one, its two ends kept
+  function simplifyOpen(poly, tol) {
+    const pts = points(poly), n = pts.length;
+    if (n <= 2 || !(tol > 0)) return pts;
+    const keep = new Uint8Array(n);
+    keep[0] = 1; keep[n - 1] = 1;
+    dpKeep(pts, keep, 0, n - 1, tol);
     return pts.filter((_, k) => keep[k]);
   }
   // the principal part of F at p (order m): a_{-j} = (1/2πi) ∮ F(ζ)(ζ − p)^(j−1) dζ = mean of F(p + r e^(iθ)) r^j e^(ijθ),
@@ -978,7 +989,7 @@ const Calc = (() => {
     return C(re, im);
   }
 
-  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, cauchyPlan, cauchyPlanFast, cauchyTrack, cauchyValue, windingAt, windingSum, simplifyLoop, laurentCoefs, points, argStep, orderAt };
+  return { lineIntegral, argPrinciple, cauchy, residue, zerosPoles, cauchyNodes, cauchyPlan, cauchyPlanFast, cauchyTrack, cauchyValue, windingAt, windingSum, simplifyLoop, simplifyOpen, laurentCoefs, points, argStep, orderAt };
 })();
 import { CX } from './cx.js';
 export { Calc, Calc as 'module.exports' };
