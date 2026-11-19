@@ -472,6 +472,9 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (an unfolded key is the one the person opened to read: it stands over the keys it meets, Fit view and Sphere, so its words are not hidden;
+     a tap on it folds it, and the keys are under it only while it is open) */
+  :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip:not(.collapsed) { z-index: 14; }
 }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
