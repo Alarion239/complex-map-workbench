@@ -735,5 +735,7 @@
  "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие",
  "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
  "No tone past the colour plane: the colour here comes from {p}.": "После плоскости цвета звука нет: цвет здесь берётся из %{p}.",
- "{from} → {to} · {secs} s": "%{from} → %{to} · %{secs} с"
+ "{from} → {to} · {secs} s": "%{from} → %{to} · %{secs} с",
+ "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}"
 }
