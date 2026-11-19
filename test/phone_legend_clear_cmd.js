@@ -54,7 +54,16 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=steps` });
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
   const home = await still();
-  await ev(`(() => { const r = document.querySelector('#plotL > .chip.readout'); r.dataset.t = r.innerHTML; r.style.cssText = 'height:auto;white-space:normal;line-height:18px;padding:4px 8px;max-width:calc(100% - 72px)'; r.innerHTML = 'z = 12.3456 + 7.8901 i<br>w = F(z) = 123456.7890 + 12345.6789 i, a long second line'; return 1; })()`);
+  // (the page writes the idle readout again whenever the pointer is off the plane, setReadouts(null), which would put its short idle text back
+  // before the key is measured; an observer here puts the two lines back at once, in the same task, so no frame sees the idle text)
+  await ev(`(() => {
+    const r = document.querySelector('#plotL > .chip.readout'), LONG = 'z = 12.3456 + 7.8901 i<br>w = F(z) = 123456.7890 + 12345.6789 i, a long second line';
+    r.style.cssText = 'height:auto;white-space:normal;line-height:18px;padding:4px 8px;max-width:calc(100% - 72px)';
+    const hold = () => { if (r.innerHTML !== LONG) r.innerHTML = LONG; };
+    new MutationObserver(hold).observe(r, { childList: true, characterData: true, subtree: true });
+    hold();
+    return 1;
+  })()`);
   // (the key is placed again once the readout has changed size: waited for as a condition, the key's --lg-drop set by the page)
   const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('leftLegend').style.getPropertyValue('--lg-drop') !== ''` });
   const m = await still();
