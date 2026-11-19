@@ -1,4 +1,4 @@
-// v16.5 wave 1, the rail piece (notes/ux-build/rail/SPEC.md 5.2): snapping points to the grid and to figures, railing on
+// The rail piece (notes/ux-build/rail/SPEC.md 5.2): snapping points to the grid and to figures, railing on
 // curves with a pull to free a point, "needs distinct points", moves that snap, Alt to move freely. In the real app with
 // real pointer events: the laptop 1366 × 768 (mouse), the phone 412 × 860 (Android emulation, touch through
 // Input.dispatchTouchEvent), 915 × 412 for the slides and the pull.
@@ -167,7 +167,7 @@ await section('B', async () => {
   ok('B at 90° with Snap on: exactly i', at90 && at90.p[0] === 0 && at90.p[1] === 1, at90);
   const n1 = (await ST()).n;
   // the snap tick (its own switch, off by default): silent by default; switched on, a detent caught ticks once
-  // ([v16.5 fix rail-2] the angle step follows the zoom: at 1366 × 768's default view a mouse has 30° detents, so the
+  // (the angle step follows the zoom: at 1366 × 768's default view a mouse has 30° detents, so the
   // drags end exactly on a quarter turn (270°, then 180°), a detent at every step (15°, 30°, 45°, 90°) and on the axes;
   // the old ends, 255° and 250°, were 15° detents only. A frame passes after each move, so no move is coalesced away
   // on a slow renderer)

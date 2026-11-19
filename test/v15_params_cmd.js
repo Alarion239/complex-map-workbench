@@ -1,4 +1,4 @@
-// v15 shared numbers, links and scene files (src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1, phase 1).
+// Shared numbers, links and scene files (src/params.js; notes/ui-redesign-2/constructions/DESIGN.md 1).
 // Checks, in the real app: a number is created by typing a new letter (Re z = a in the formula box); the same number is
 // then used in a step (Möbius b = a i), a shape field (a disc's radius 2a), a zero (ζ₁ = a), a region formula
 // (|z − a| < 0.5) and the curve Re z = a; dragging the Parameters slider moves all of them at once (frame times
@@ -179,7 +179,7 @@ const scenePath = path.join(DIR, 'shots', 'v15p-scene.cmw.json');
 fs.mkdirSync(path.dirname(scenePath), { recursive: true });
 fs.writeFileSync(scenePath, await ev(`Params.scene(${JSON.stringify(figure)})`));
 await nav(origin + '/test.html?ns=' + NS + '-scene');
-await ev(`(()=>{ document.getElementById('shareBtn').click(); return 1 })()`);   // ([v17 D5] Open scene… is Share's)
+await ev(`(()=>{ document.getElementById('shareBtn').click(); return 1 })()`);   // (Open scene… is Share's)
 await settle(200);
 await ev(`(()=>{ const it = [...document.querySelectorAll('.pop.menu .mi')].find((x) => /Open scene/.test(x.textContent)); if (it) it.click(); return !!it })()`);
 await settle(200);
@@ -201,7 +201,7 @@ await settle(3500);
 b = await bound();
 const ru = await ev(`({ head: document.querySelector('.prm h2')?.textContent, lang: I18N.lang, row: !!document.querySelector('.prm-row[data-name="a"]') })`);
 ok('the language switch keeps the numbers', ru.lang === 'ru' && b.a === A && b.b === 'a i' && b.fcurve.bind.expr === 'Re z = a', { ru, a: b.a });
-ok('Parameters in Russian', ru.head === 'Числа' && ru.row, ru);   // (v16.5 UX65: Numbers, «Числа»)
+ok('Parameters in Russian', ru.head === 'Числа' && ru.row, ru);   // (Numbers, «Числа»)
 await shot('v15p-3-ru');
 await view(1440, 900, true, false);
 await settle(800);
