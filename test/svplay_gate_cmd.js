@@ -199,8 +199,9 @@ for (const [tag, sel, press, label] of [['Play', '.sv-play', '__cmwSteps({ play:
   await ev(`(__cmwExample(${CHAIN_EX}), 1)`);
   await ev('(GLR.holdLinks(false), 1)');
   const prepared = await settled({ max: 60000, only: true, until: '__cmwSteps().ready.ready' });
-  // (a few frames more: a wait that survived would start its glide on the next poll, SV_GATE_POLL_MS)
-  await settled({ max: 2000, only: true, until: 'true' });
+  // (until the press is settled: a wait that ended leaves the button not busy at once; one that survived stays busy until a
+  // poll, SV_GATE_POLL_MS, starts its glide on the new chain)
+  await settled({ max: 20000, only: true, until: `window.__started || __cmwSteps().play !== null || !!__cmwSteps().anim || !document.querySelector("${sel}[aria-busy]")` });
   const after = Object.assign(await ev(state(sel)), { started: await ev('window.__started'), planes: await ev('document.querySelectorAll(".sv-track .sv-plane").length'), prepared: prepared.ok });
   info['chainChanged ' + tag] = after;
   ok(`another chain loaded under a waiting ${tag}: the new chain is prepared and has more than one plane (control)`, after.prepared && after.planes > 1, after);
