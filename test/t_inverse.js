@@ -1371,5 +1371,29 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   }
 }
 
+// RAT3 far out and at its value at infinity (InvOps.ratPoly: a leading coefficient of p - w q is dropped only when it
+// cancels against its own terms, p_k and w q_k): z^3 - 2z + 1 at |w| = 3e7 to 1e18, whose roots all have modulus
+// |w|^(1/3) (to 1e6), and (z^3 + 1)/(z^2 - 4) at |w| = 1e6 to 1e15 (one root near w, two near the poles +-2) each give
+// 3 distinct members u, each a root of p - w q to 1e-13 of its terms' sizes (|p|(|u|) + |w| |q|(|u|): near a pole H
+// itself is too steep to say it); (z^3 + 1)/(z^3 + z^2 - 2z + 1/2) gives 2 at its value at infinity w = 1, where the
+// degree drops, and 3 at w = 1 + 1e-6, one of them far out
+{
+  const R = (a) => a.map((x) => C(x, 0)), DISTINCT = 1e-9, ON_W = 1e-13;
+  const rows = [['z^3 - 2z + 1', R([1, 0, -2, 1]), R([1]), [C(3e7, 9e6), C(1e12, 0), C(1e15, 3e14), C(-1e18, 1e17)], 3],
+    ['(z^3 + 1)/(z^2 - 4)', R([1, 0, 0, 1]), R([1, 0, -4]), [C(1e6, 0), C(3e9, -1e9), C(1e15, 0)], 3],
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1, 0)], 2],
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1 + 1e-6, 0)], 3]];
+  const absEval = (co, r) => co.reduce((s, x) => s * r + CX.abs(x), 0);
+  for (const [name, p, q, ws, want] of rows) {
+    const o = InvOps.opRat3(p, q);
+    for (const w of ws) {
+      const G = o.pre(w).map((m) => m.u);
+      const distinct = G.every((g, k) => G.every((h, m) => m >= k || CX.abs(CX.sub(g, h)) > DISTINCT * (1 + CX.abs(g))));
+      const res = Math.max(0, ...G.map((g) => CX.abs(CX.sub(CX.polyEval(p, g), CX.mul(w, CX.polyEval(q, g)))) / (absEval(p, CX.abs(g)) + CX.abs(w) * absEval(q, CX.abs(g)))));
+      check(`RAT3 ${name} at w = ${w.re} ${w.im >= 0 ? '+' : '-'} ${Math.abs(w.im)}i: ${want} distinct members, each over w`, G.length === want && distinct && res <= ON_W, { n: G.length, res, mods: G.map((g) => CX.abs(g)) });
+    }
+  }
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;

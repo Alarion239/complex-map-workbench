@@ -2729,24 +2729,24 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
 `;
-      // p(u) - w q(u) = A u^3 + B u^2 + C u + D = 0 (InvOps.cubicRoots): the degree dropped as RAT2's, else Cardano's root
-      // b, of the reversed cubic (roots 1/u) when |A| < |D| (InvOps.closedRoots), polished by two Newton steps on the cubic
-      // itself (float32: the shift and the cube root lose digits that the steps win back). Cells: (P3, P2), (P1, P0),
-      // (Q3, Q2), (Q1, Q0)
+      // p(u) - w q(u) = A u^3 + B u^2 + C u + D = 0 (InvOps.ratPoly, cubicRoots): a leading coefficient dropped when it
+      // cancels, at most 1e-14 of |p_k| + |w| |q_k|; else Cardano's root b, of the reversed cubic (roots 1/u) when
+      // |A| < |D| (InvOps.closedRoots), polished by two Newton steps on the cubic itself (float32: the shift and the cube
+      // root lose digits that the steps win back). Cells: (P3, P2), (P1, P0), (Q3, Q2), (Q1, Q0)
       case 'RAT3': return `void ${P}_co(vec2 w, out vec2 A, out vec2 B, out vec2 Cc, out vec2 D) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
   A = S0.xy - cmul(w, S2.xy); B = S0.zw - cmul(w, S2.zw); Cc = S1.xy - cmul(w, S3.xy); D = S1.zw - cmul(w, S3.zw);
 }
-int ${P}_deg(vec2 A, vec2 B, vec2 Cc, vec2 D) {
-  if (cx_abs(A) > 1e-14 * (cx_abs(B) + cx_abs(Cc) + cx_abs(D))) return 3;
-  if (cx_abs(B) > 1e-14 * (cx_abs(Cc) + cx_abs(D))) return 2;
-  return cx_abs(Cc) > 0.0 ? 1 : 0;
+int ${P}_deg(vec2 w, vec2 A, vec2 B, vec2 Cc) {
+  vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)}; float aw = cx_abs(w);
+  if (cx_abs(A) > 1e-14 * (cx_abs(S0.xy) + aw * cx_abs(S2.xy))) return 3;
+  if (cx_abs(B) > 1e-14 * (cx_abs(S0.zw) + aw * cx_abs(S2.zw))) return 2;
+  return cx_abs(Cc) > 1e-14 * (cx_abs(S1.xy) + aw * cx_abs(S3.xy)) ? 1 : 0;
 }
-int ${P}_nb(Lf L) { if (!ixFin(L.u)) return 0; vec2 A, B, Cc, D; ${P}_co(L.u, A, B, Cc, D); return ${P}_deg(A, B, Cc, D); }
+int ${P}_nb(Lf L) { if (!ixFin(L.u)) return 0; vec2 A, B, Cc, D; ${P}_co(L.u, A, B, Cc, D); return ${P}_deg(L.u, A, B, Cc); }
 bool ${P}_one_b(inout Lf L, int b) {
   vec2 A, B, Cc, D, u;
-  ${P}_co(L.u, A, B, Cc, D);
-  int n = ${P}_deg(A, B, Cc, D);
+  ${P}_co(L.u, A, B, Cc, D); int n = ${P}_deg(L.u, A, B, Cc);
   if (n == 1) u = -cdiv(D, Cc);
   else if (n == 2) {
     vec2 disc = csqrtp(cmul(Cc, Cc) - 4.0 * cmul(B, D));

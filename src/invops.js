@@ -459,15 +459,22 @@ const InvOps = (() => {
   // the roots of the polynomial co (highest first, its leading coefficient not negligible) by raw, a closed formula
   // ([{u, mult?}] of the polynomial it is given), each polished on co (polishRoot). raw is given the reverse of co,
   // whose roots are the reciprocals, when |co_0| < |co_n|: the formulas shift by co_1/(n co_0), which for a small leading
-  // coefficient (one root far out) wipes out the digits of the small roots; the reverse has the smaller roots on the whole
+  // coefficient (one root far out) wipes out the digits of the small roots; the reverse has the smaller roots on the whole.
+  // With n simple roots, the one of least modulus is then the product's (Vieta: (-1)^n c_n / c_0 over the others): the
+  // formulas give it to the largest root's absolute rounding, which for roots 1e15 apart is no digit at all
   function closedRoots(co, raw) {
-    const rev = abs(co[0]) < abs(co[co.length - 1]);
-    return raw(rev ? co.slice().reverse() : co).map(({ u, mult }) => ({ u: rev ? CX.inv(u) : u, mult })).filter((r) => isFin(r.u))
+    const rev = abs(co[0]) < abs(co[co.length - 1]), c = rev ? co.slice().reverse() : co, n = c.length - 1, r = raw(c);
+    if (r.length === n && r.every((x) => !x.mult)) {
+      const k = r.reduce((m, x, i) => (abs(x.u) < abs(r[m].u) ? i : m), 0);
+      const pr = r.reduce((m, x, i) => (i === k ? m : mul(m, x.u)), ONE), v = div(scale(c[n], n % 2 ? -1 : 1), mul(c[0], pr));
+      if (isFin(v) && !isZero(pr)) r[k] = { u: v };
+    }
+    return r.map(({ u, mult }) => ({ u: rev ? CX.inv(u) : u, mult })).filter((x) => isFin(x.u))
       .map(({ u, mult }) => (mult ? { u: polishRoot(co, u), mult } : { u: polishRoot(co, u) }));
   }
   // the roots of a u^3 + b u^2 + c u + d = 0 by Cardano's formula: on the depressed cubic v^3 + p v + q (u = v - b/3a),
   // S the principal cube root of the larger-modulus of -q/2 +- sqrt(q^2/4 + p^3/27) and T = -p / (3S), the roots
-  // w^k S + w^-k T - b/3a (w = e^{2 pi i/3}, k = 0, 1, 2); a triple root (p = q = 0) once, [{u, mult: 3}]
+  // ω^k S + ω^-k T - b/3a (ω = e^{2 pi i/3}, k = 0, 1, 2); a triple root (p = q = 0) once, [{u, mult: 3}]
   const CUBE_ROOTS_1 = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
   function cardano([a, bb, cc, dd]) {
     const b = div(bb, a), c = div(cc, a), d = div(dd, a), b3 = scale(b, 1 / 3), p3 = scale(sub(c, mul(b, b3)), 1 / 3);
@@ -477,20 +484,30 @@ const InvOps = (() => {
     const S = CX.exp(scale(log(s), 1 / 3)), T = div(neg(p3), S);
     return CUBE_ROOTS_1.map((om, k) => ({ u: sub(add(mul(om, S), mul(CUBE_ROOTS_1[(3 - k) % 3], T)), b3) }));
   }
-  // the roots of A u^3 + B u^2 + C u + D = 0: Cardano's (closedRoots, so polished; GLSL's RAT3 does the same in
-  // float32). A leading coefficient below 1e-14 of the others' sizes drops the degree: the stable quadratic's roots
-  // (RAT2's), or the linear one's. A triple root comes once: [{u, mult: 3}]; else [{u}] per root
-  function cubicRoots(A, B, Cc, D) {
-    const small = (x, ...o) => abs(x) <= 1e-14 * o.reduce((s, y) => s + abs(y), 0);
-    if (small(A, B, Cc, D)) {
-      if (small(B, Cc, D)) return abs(Cc) > 0 ? [{ u: neg(div(D, Cc)) }] : [];
-      const disc = CX.sqrt(sub(mul(Cc, Cc), scale(mul(B, D), 4)));
-      const q = scale(add(Cc, (Cc.re * disc.re + Cc.im * disc.im) < 0 ? neg(disc) : disc), -0.5);
-      return isZero(q) ? [{ u: ZERO, mult: 2 }] : [{ u: div(q, B) }, { u: div(D, q) }];
-    }
-    return closedRoots([A, B, Cc, D], cardano);
+  // the roots of the polynomial co (highest first) of degree 3 at most, its leading coefficient exact (a zero one aside:
+  // ratPoly decides which leading coefficients are rounding): Cardano's (closedRoots, so polished; GLSL's RAT3 does the
+  // same in float32), the stable quadratic's (RAT2's) or the linear one's. A triple root comes once: [{u, mult: 3}], a
+  // double root of the quadratic [{u, mult: 2}]; else [{u}] per root
+  function cubicRoots(co) {
+    const i = co.findIndex((x) => !isZero(x)), c = i < 0 ? [] : co.slice(i);
+    if (c.length === 4) return closedRoots(c, cardano);
+    if (c.length === 2) return [{ u: neg(div(c[1], c[0])) }];
+    if (c.length !== 3) return [];
+    const [a, b, cc] = c, disc = CX.sqrt(sub(mul(b, b), scale(mul(a, cc), 4)));
+    const q = scale(add(b, (b.re * disc.re + b.im * disc.im) < 0 ? neg(disc) : disc), -0.5);
+    return isZero(q) ? [{ u: ZERO, mult: 2 }] : [{ u: div(q, a) }, { u: div(cc, q) }];
   }
-  // p(u)/q(u) of degree 3 (coprime; q = 1 for a cubic polynomial): p(u) - w q(u) = 0 (cubicRoots)
+  // the coefficients of p(u) - w q(u) (P, Q padded to one length, highest first), the leading ones that cancel dropped:
+  // p_k - w q_k at most 1e-14 of |p_k| + |w| |q_k| is the rounding left of a zero (w at the value at infinity, where the
+  // degree drops). Judged against the terms it is made of, not against the other coefficients, whose sizes grow with the
+  // roots: a cubic whose roots are all near 1e5 keeps its exact leading 1
+  function ratPoly(P, Q, w) {
+    const co = P.map((pk, k) => sub(pk, mul(w, Q[k]))), aw = abs(w);
+    let i = 0;
+    while (i < co.length - 1 && abs(co[i]) <= 1e-14 * (abs(P[i]) + aw * abs(Q[i]))) i++;
+    return co.slice(i);
+  }
+  // p(u)/q(u) of degree 3 (coprime; q = 1 for a cubic polynomial): p(u) - w q(u) = 0 (ratPoly, cubicRoots)
   function opRat3(p, q, fwd) {
     const pad = (co) => [...Array(Math.max(0, 4 - co.length)).fill(ZERO), ...co];
     const P = pad(p), Q = pad(q);
@@ -500,7 +517,7 @@ const InvOps = (() => {
     return op('RAT3', { P, Q }, fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u))), {
       fam: { type: 'fin', count: 3 }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im,
-      pre: (w) => cubicRoots(...P.map((pk, k) => sub(pk, mul(w, Q[k])))).map(({ u, mult }, m) => {
+      pre: (w) => cubicRoots(ratPoly(P, Q, w)).map(({ u, mult }, m) => {
         const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
         return ONEM(u, CX.inv(div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu))), mult ? { m, mult } : { m });
       }),
@@ -622,8 +639,8 @@ const InvOps = (() => {
   // where the formula itself is 0/0) ARE roots for w = lim R(z) at r: they are kept as the op's holes and left out of
   // pullFinite (point and singular-point pull-backs), matching the natural domain.
   // Degree 1: MOB; degree 2: RAT2 (QUAD when Q is constant), whose stable quadratic also covers the degree drop at the
-  // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R; else degree 3: RAT3 (cubicRoots, which drops the degree
-  // the same way). Other degrees go forward with the reason.
+  // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R; else degree 3: RAT3 (ratPoly drops the degree there, then
+  // cubicRoots). Other degrees go forward with the reason.
   const RAT_EXP_MAX = 64;          // degree cap of the expansion (intermediate products)
   const RAT_DEG_MAX = 32;          // degree cap of the normal form (IPOW 16 under a degree-2 R)
   const RAT_SNAP = 1e-12;          // a coefficient below RAT_SNAP x the sum of its terms' sizes is rounding noise: 0
@@ -1074,7 +1091,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opRat3, cubicRoots, opNewt, NEWT_K, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRat3, cubicRoots, ratPoly, opNewt, NEWT_K, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';

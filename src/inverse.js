@@ -17,6 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
+  const { polyMul, polySub, polyDer } = Derivs;
   const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // the centres of cosh's zoom (arsinh 1, where cosh' = 1 and cosh = √2) and arcosh's (√2), as NatPaths.ZOOM takes them
@@ -620,10 +621,6 @@ const Inverse = (() => {
   // ops after it,
   // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
   // finite families)
-  // polynomials as coefficient arrays, highest first: the product, the difference and the derivative
-  const polyMul = (a, b) => { const r = Array(a.length + b.length - 1).fill(ZERO); a.forEach((x, i) => b.forEach((y, j) => { r[i + j] = add(r[i + j], mul(x, y)); })); return r; };
-  const polySub = (a, b) => { const n = Math.max(a.length, b.length), at = (c, k) => c[k - n + c.length] || ZERO; return [...Array(n).keys()].map((k) => sub(at(a, k), at(b, k))); };
-  const polyDer = (a) => a.slice(0, -1).map((x, i) => scale(x, a.length - 1 - i));
   function critValues(plan) {
     if (!plan || !plan.ok) return null;
     const ops = plan.ops, out = [];
@@ -1833,5 +1830,6 @@ const Inverse = (() => {
 import { CX } from './cx.js';
 import { Region } from './region.js';
 import { InvOps } from './invops.js';
+import { Derivs } from './derivs.js';
 import { InvPatterns } from './invpatterns.js';
 export { Inverse, Inverse as 'module.exports' };
