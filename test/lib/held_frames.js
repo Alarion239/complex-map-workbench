@@ -14,7 +14,8 @@
 //   and asks for the frame at the thread's place). It is the wait for a read after the thread is placed directly,
 //   __cmwSteps({ x }) or { park }, instead of held with hold(): on a chain with Newton members the frame there may be
 //   the first plane's held one until it is true. The same applies to a suite's own wait on a parked thread;
-// - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still),
+// - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still; each read has
+//   PIXEL_READ_MS, 120 s, since it waits for the GPU to finish the frame, not ev's 20 s),
 //   with the pane's camera then and the glide's record of that frame as __heldAt[tag] = { v, g }; true when they did;
 // - snap(tag): canvasL's pixels kept now, as grab keeps them, without waiting for a still frame (a frame read while it
 //   changes, a mesher's job running);
@@ -188,18 +189,20 @@
   const KEEP = (tag) => `window.__heldPx[${JSON.stringify(tag)}] = d;
     (window.__heldAt || (window.__heldAt = {}))[${JSON.stringify(tag)}] = { v: Object.assign({}, __cmwCards().main.view), g: typeof __cmwSteps === 'function' ? __cmwSteps().glide : null };`;
   const PIXELS = "const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__heldPx || (window.__heldPx = {});";
+  // (a read of canvasL's pixels waits for the GPU to finish the frame, which a heavy glide frame on a software renderer takes most of 20 s over)
+  const PIXEL_READ_MS = 120000;
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
       const same = await ev(`(() => { ${PIXELS} const p = g._prev;
         g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false;
         ${KEEP(tag)}
-        return true; })()`);
+        return true; })()`, PIXEL_READ_MS);
       if (same) return true;
       await sleep(100);
     }
     return false;
   };
-  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`);
+  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`, PIXEL_READ_MS);
   const wordsOff = () => ev(`(() => { const p = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = p[k]; p[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
   const kept = {};
   const keep = async (tag) => {

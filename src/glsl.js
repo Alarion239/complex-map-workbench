@@ -405,8 +405,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // CPU goes on to its SER_FINITE. Every pixel of a frame takes that many terms in one draw, and a term n^{-z} is about
   // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
   // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
-  // (TDR), which is worse for the user than a blank pane. That bound is one sum's: a sum inside another takes up to the
-  // product of their caps a pixel (2048 x 2048, about 4.2 M terms), which it does not cover (#1845)
+  // (TDR), which is worse for the user than a blank pane. Finite sums inside one another share it: a pixel takes the
+  // product of their terms, which keeps to SER_GPU_FINITE (loopGL). An infinite sum around them counts 1 there,
+  // its terms bounded by SER_GPU_LOOP
   const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
@@ -634,18 +635,29 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       shape.push(prod ? 'Lp' : 'L');
       const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP), fcap = uBound(SER_GPU_FINITE);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
-      out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
-  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
+      const head = `  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
+  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x`, at = out.length;
+      out.push(`${head};`);
       // one loop body for every case (a constant-bound loop written out per case would be four copies of the term code, which
       // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
       // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
       // values, not constants, so the loops stay loops
       const k = `${id}_k`, saved = out, inner = [];
+      // the enclosing loops' term counts, for a finite sum inside them: a pixel takes the product of the nested
+      // finite sums' terms, and that product, not each sum's own count, keeps to SER_GPU_FINITE (an infinite loop counts
+      // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
+      // only when a sum inside it reads it, so a sum with no finite sum inside declares none
+      const outerFn = idxVar.filter((e) => e.fn);
+      const me = { v: n.v, k, fn: `${id}_fn`, used: false };
       out = inner;
-      idxVar.push({ v: n.v, k });
+      idxVar.push(me);
       let t;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
+      for (const e of outerFn) e.used = true;
       const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (a finite side's terms: within the cap alone, or with the enclosing finite sums' counts, their product)
+      const fits = outerFn.length ? `(${HI} - ${LO} + 1.0) * ${outerFn.map((e) => e.fn).join(' * ')} <= float(${fcap})` : `${HI} - ${LO} < float(${fcap})`;
       // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
       // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
       // the sum, as the CPU does: Expr's tailOf)
@@ -655,7 +667,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
     bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
     int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-    int nj = inf ? ${cap} : ${HI} - ${LO} < float(${fcap}) ? ${fcap} + 1 : 0;
+    int nj = inf ? ${cap} : ${fits} ? ${fcap} + 1 : 0;
     for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
@@ -1502,8 +1514,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
     const h = `if (t <= 0.0) return z;\n  if (t >= 1.0) return ${P}_f(z);\n  float s = t * (1.0 + ${nc.x} * ${len}.0);\n  if (s < 1.0) return ${last}_h(z, s);\n  z = ${last}_f(z); s -= 1.0;\n`
       + `  for (int k = 0; k < ${passes}; k++) {\n${subs.map(({ Q }) => `    if (s < 1.0) return ${Q}_h(z, s);\n    z = ${Q}_f(z); s -= 1.0;`).join('\n')}\n  }\n  return z;`;
     const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
+    // (own1: the path answers t >= 1 with the map itself, so it takes no t = 1 shortcut and chainAt no copy of it
+    // without one: the loop on a uniform trip count is written twice, in the map and the path; a third copy made
+    // Metal's compiler run it wrong, #1911)
     return {
-      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: true,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
     };
@@ -2368,21 +2383,22 @@ bool ${P}_one_b(inout Lf L, int b) {
   }
   // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
   // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
-  // a_0; _ev, a(u) - w and its derivative (Horner); _start, de points on the circle of Fujiwara's bound; _aberth, Aberth's
-  // sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's iteration in float32,
-  // whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton on H_t itself
-  // (newtCoreFns, chainHom) and kept when it differs from every earlier one, once per w. With the NEWT roots pass
+  // a_0; _ev, a(u) - w and its derivative (Horner); _poly, H_t(u) = a(u); _start, de points on the circle of Fujiwara's
+  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's
+  // iteration in float32, whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton
+  // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
+  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
+  // from every earlier one, once per w. With the NEWT roots pass
   // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
   // own w, and finds them itself elsewhere and where a root read misses w
-  function newtPolyFns(o, j, c, D, H, rd) {
+  function newtPolyFns(o, j, c, D, rd) {
     const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
     const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
     { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
 #endif`).join('\n');
-    return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, false)}vec2 ${P}_a(int k, vec2 w) {
+    return `vec2 ${P}_a(int k, vec2 w) {
   vec4 v = uInv[${c + 1} + k / 2];
   vec2 a = (k & 1) == 0 ? v.xy : v.zw;
   return k == 0 ? a - w : a;
@@ -2395,7 +2411,8 @@ void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
     q = cmul(q, u) + ${P}_a(k, w);
   }
 }
-void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
+vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
   vec2 ad = ${P}_a(de, w);
   float R = 0.0;
   for (int k = 1; k <= ${D}; k++) {
@@ -2551,13 +2568,17 @@ ${seeded ? '' : pole ? `  vec2 v1;
       // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is InvOps.opNewt's full step; the
       // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
       case 'NEWT': {
-        const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        // (a NEWT op of a recognised formula's sub-step j walks that sub-step's own homotopy, recPlan's cxs<step>r<j>_h,
+        // at the op's t; a polynomial NEWT op its own polynomial, newtPolyFns)
         const D = newtDeg(o);
-        if (D) return newtPolyFns(o, j, c, D, H, rd);
+        if (D) return newtPolyFns(o, j, c, D, rd);
+        const sub = o.op && o.op.sub != null ? `cxs${o.step}r${o.op.sub}_h` : null;
+        const H = sub ? (u, t) => `${sub}(${u}, ${t})` : (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        const decl = sub ? `vec2 ${sub}(vec2 z, float t);\n` : '';
         const bk = newtBack(o);
-        if (bk) return newtSeededFns(o, j, c, bk, H, rd);
+        if (bk) return decl + newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
-        return `vec2 chainHom(int i, vec2 z, float t);
+        return `${decl}vec2 chainHom(int i, vec2 z, float t);
 ${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
 vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
