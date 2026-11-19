@@ -175,7 +175,7 @@
     // (another chain loaded under a Play, Loop on: it stops, or it never adopts the new view)
     if (SV.play && SV.sig != null && sig !== SV.sig) svPause(false);
     // (and a press still waiting for its chain to be prepared: the wait ends, so nothing starts on the chain loaded instead)
-    if (SV.gate && SV.gate.sig !== sig) svGateEnd();
+    if (SV.gate && SV.sig != null && sig !== SV.sig) svGateEnd();
     if (svGliding()) return;
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
@@ -3617,8 +3617,8 @@
   }
   function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
   // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
-  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill, sig (the
-  // chain's signature when it began: svCheck ends a wait when the chain under it differs)}; it polls
+  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; svCheck
+  // ends it when another chain is loaded under it (an edit on the thread, a Split or an undo, keeps it); it polls
   // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
   // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
   // again or Cancel cancels; nothing starts afterwards
@@ -3642,7 +3642,7 @@
   function svGated(btn, start) {
     if (SV.gate) return;
     if (!svGateNeeded()) { start(); return; }
-    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null, sig: svSigNow() };
+    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
     svPrestartSoon(0);
     if (svGateDraws()) requestRender('L');
     svGateTick();
