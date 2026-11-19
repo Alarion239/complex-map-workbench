@@ -24,8 +24,7 @@
   // whether the left pane's plot is still waiting on its program (setColourWaiting)
   function colourStandIn(pane, map, name = 'color') {
     const waited = pane === paneL && !offRender && !artMode && !sideDraw ? GLR.bareMs(map, [name]) : 0;
-    if (pane === paneL) setColourWaiting(waited > 0);
-    if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
+    if (!(waited > SM_LINKING_MS)) { standInStop(); return leftAsked(pane, waited, null); }
     const v = pane.view, key = mapKeyOf(map), vkey = `${v.cx},${v.cy},${v.s},${pane.w},${pane.h}`;
     let j = standInJob;
     if (!j || j.key !== key || j.vkey !== vkey || j.name !== name) {
@@ -36,11 +35,19 @@
       standInLevel(j, 0);
       standInRun(j);
     }
-    return j.grid || j.prev;
+    return leftAsked(pane, waited, j.grid || j.prev);
+  }
+  // the left pane's ask for its plot recorded (colourAsks, colourBlank, the LEDs' colourWaiting) -> its stand-in r
+  function leftAsked(pane, waited, r) {
+    if (pane === paneL) { colourAsks++; colourBlank = waited > 0 && !r; setColourWaiting(waited > 0); }
+    return r;
   }
   // whether the left pane's colour plot is still waiting on its program (the stand-in draws it meanwhile, or soon will): the
   // left LED stays amber until it is done; a change updates the LEDs
   let colourWaiting = false;
+  // how many times the left pane's colour plot has asked for its program (colourStandIn), and whether at the last ask it
+  // drew nothing (its program still waiting and no stand-in to draw yet): a frame that asked reads colourBlank as its own
+  let colourAsks = 0, colourBlank = false;
   function setColourWaiting(on) {
     if (on === colourWaiting) return;
     colourWaiting = on;

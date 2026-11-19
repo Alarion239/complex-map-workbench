@@ -1841,11 +1841,22 @@
         // (asks: the frames asked for before the hold's own ask, svRenderMoving's held-frame test)
         const asks = renderAsks, land = SV.surf === 'land', hold = land ? null : svLinkHold(SV.surf === 'sphere' && lGlobe() ? svGlobeHolds : svHolds);
         const at = hold == null ? -1 : Math.round(hold), onPlane = at >= 0 && Math.abs(hold - at) <= SV_REST_U;
+        // (plane z's own plot waiting on its program with no stand-in yet, so that its frame at rest would be blank: the
+        // carry core's frame at the held place instead, whose late-link stand-in draws plane z's colour; the frame at rest
+        // is tried again once nothing links, svRestFell)
         if (onPlane && svPlanes()[at] === 0) {
-          SV.core = 'still'; SV.restHeld = at;
-          if (svHeldKept(['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
-          svRestAt(at, pane, still);
-          svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL;
+          SV.restHeld = at;
+          const key = ['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
+          if (svRestFell !== key || !GLR.pendingLinks) {
+            SV.core = 'still';
+            if (svHeldKept(key, asks)) return;
+            const n0 = colourAsks;
+            svRestAt(at, pane, still);
+            if (colourAsks === n0 || !colourBlank) { svRestFell = null; svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; return; }
+            svRestFell = key;
+          }
+          SV.core = 'carry';
+          svRenderMoving(pane, hold, asks);
           return;
         }
         SV.core = 'carry';
@@ -1914,6 +1925,9 @@
   // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn), cm:
   // its cuts' inert handles (cutMarksL) }; null after any other frame
   let svHeldOn = null;
+  // the held frame at rest on plane z (its svHeldKept key) whose plot drew nothing while its program linked: drawn by the
+  // carry core until nothing links (svDrawPlane); null otherwise
+  let svRestFell = null;
   // a held frame with the inputs of the held frame on the pane (key: the place held, the view, the pane's size, the
   // chain), and no frame asked for since asks, would draw that frame again: the pane keeps it, its status included,
   // and the hold's own checks are all this frame does -> true; else -> false, svHeldOn starts over for key (null: none),
