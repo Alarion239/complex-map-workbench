@@ -2345,7 +2345,8 @@ vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int k) {
   // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
   // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
   // its step is within NEWT_STEP_TOL (1 + |z|))
-  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
+  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3';
+  const { NEWT_STEP_TOL, aberthFns, ratAberthFns } = GLSLRoots;
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
   // InvOps.opNewt's full step with _fd's derivative; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at
@@ -2460,58 +2461,6 @@ bool ${P}_one_b(inout Lf L, int b) {
   if (!${P}_k[b]) return false;
   vec2 u = ${P}_r[b];
   return ixApply(L, u, cinv(${P}_d(u, t)), ${NOR});
-}
-`;
-  }
-  // Aberth's iteration in GLSL for an op whose polynomial's coefficients a_0 ... a_D (low first, w taken off) are
-  // ${P}_a(k, w): _ev, a(u) and its derivative (Horner) at degree de; _start, de points on the circle of Fujiwara's
-  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within NEWT_STEP_TOL (1 + |z_i|)
-  // (InvOps.newtAberth's iteration in float32, whose rounding the tolerance allows). The polynomial NEWT op's and
-  // RAT<n>'s for n >= 5
-  function aberthFns(P, D) {
-    return `void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
-  q = vec2(0.0); dq = vec2(0.0);
-  for (int k = ${D}; k >= 0; k--) {
-    if (k > de) continue;
-    dq = cmul(dq, u) + q;
-    q = cmul(q, u) + ${P}_a(k, w);
-  }
-}
-void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
-  vec2 ad = ${P}_a(de, w);
-  float R = 0.0;
-  for (int k = 1; k <= ${D}; k++) {
-    if (k > de) break;
-    R = max(R, pow(cx_abs(cdiv(${P}_a(de - k, w), ad)) / (k == de ? 2.0 : 1.0), 1.0 / float(k)));
-  }
-  R = R > 0.0 ? 2.0 * R : 1.0;
-  for (int i = 0; i < ${D}; i++) {
-    float th = 6.283185307179586 * float(i) / float(max(de, 1)) + ${Inverse.NEWT_ABERTH_ROT};
-    z[i] = R * vec2(cos(th), sin(th));
-  }
-}
-bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
-  bool cv[${D}];
-  for (int i = 0; i < ${D}; i++) cv[i] = i >= de;
-  for (int it = 0; it < its; it++) {
-    bool all = true;
-    for (int i = 0; i < ${D}; i++) {
-      if (cv[i]) continue;
-      vec2 q, dq;
-      ${P}_ev(z[i], w, de, q, dq);
-      if (q.x == 0.0 && q.y == 0.0) { cv[i] = true; continue; }
-      vec2 N = cdiv(q, dq), s = vec2(0.0);
-      for (int k = 0; k < ${D}; k++) if (k != i && k < de) s += cinv(z[i] - z[k]);
-      vec2 den = vec2(1.0, 0.0) - cmul(N, s);
-      vec2 st = den.x == 0.0 && den.y == 0.0 ? N : cdiv(N, den);
-      if (!ixFin(st)) { cv[i] = true; continue; }
-      z[i] -= st;
-      if (cx_abs(st) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(z[i]))) cv[i] = true;
-      else all = false;
-    }
-    if (all) return true;
-  }
-  return false;
 }
 `;
   }
@@ -2640,58 +2589,6 @@ ${seeded ? '' : pole ? `  vec2 v1;
 }
 `;
   }
-  // GLSL of RAT<n> for n >= 5 (InvOps.opRatN by aberthRoots), op j with parameters at uInv[c ...]: P's coefficients
-  // p_n ... p_0 two to a cell, then Q's from cell half. _a, the low-first coefficient a_k = p_(n-k) - w q_(n-k) of
-  // p - w q; its degree after the drop (a leading coefficient below 1e-14 of the others' sizes, as aberthRoots'); Aberth's
-  // roots (aberthFns), each polished by two Newton steps on p - w q and kept when finite and apart from every earlier one,
-  // once per w; root b's derivative (p/q)' by Horner on P and Q
-  function ratAberthFns(n, j, c, NOR) {
-    const P = `ix${j}`, half = Math.ceil((n + 1) / 2);
-    const cell = (i, from) => `(${i} & 1) == 0 ? uInv[${c + from} + ${i} / 2].xy : uInv[${c + from} + ${i} / 2].zw`;
-    return `vec2 ${P}_a(int k, vec2 w) { int i = ${n} - k; vec2 p = ${cell('i', 0)}, q = ${cell('i', half)}; return p - cmul(w, q); }
-${aberthFns(P, n)}void ${P}_pq(vec2 u, out vec2 pu, out vec2 qu, out vec2 dp, out vec2 dq) {
-  pu = vec2(0.0); qu = vec2(0.0); dp = vec2(0.0); dq = vec2(0.0);
-  for (int i = 0; i <= ${n}; i++) {
-    vec2 p = ${cell('i', 0)}, q = ${cell('i', half)};
-    dp = cmul(dp, u) + pu; pu = cmul(pu, u) + p;
-    dq = cmul(dq, u) + qu; qu = cmul(qu, u) + q;
-  }
-}
-bool ${P}_has = false;
-vec2 ${P}_w = vec2(0.0);
-vec2 ${P}_r[${n}];
-bool ${P}_k[${n}];
-void ${P}_roots(vec2 w) {
-  if (${P}_has && ${P}_w == w) return;
-  ${P}_has = true; ${P}_w = w;
-  int de = ${n};
-  for (int d = ${n}; d > 0; d--) {
-    float rest = 0.0;
-    for (int k = 0; k < ${n}; k++) if (k < d) rest += cx_abs(${P}_a(k, w));
-    if (cx_abs(${P}_a(d, w)) > 1e-14 * rest) break;
-    de = d - 1;
-  }
-  vec2 z[${n}];
-  ${P}_start(w, de, z);
-  ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
-  for (int i = 0; i < ${n}; i++) {
-    vec2 v = z[i];
-    for (int it = 0; it < 2; it++) { vec2 q, dq; ${P}_ev(v, w, de, q, dq); vec2 st = cdiv(q, dq); if (ixFin(st)) v -= st; }
-    bool ok = i < de && ixFin(v);
-    for (int m = 0; m < ${n}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
-    ${P}_r[i] = v; ${P}_k[i] = ok;
-  }
-}
-int ${P}_nb(Lf L) { return ixFin(L.u) ? ${n} : 0; }
-bool ${P}_one_b(inout Lf L, int b) {
-  ${P}_roots(L.u);
-  if (!${P}_k[b]) return false;
-  vec2 u = ${P}_r[b], pu, qu, dp, dq;
-  ${P}_pq(u, pu, qu, dp, dq);
-  return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
-}
-`;
-  }
   // GLSL of the per-op functions of op j (forward index) with parameters at uInv[c ...]; rd: the op is the NEWT roots
   // pass's (buildInverse's nr), whose members its functions read
   function invOpFns(o, j, c, rd) {
@@ -2699,7 +2596,7 @@ bool ${P}_one_b(inout Lf L, int b) {
     const lam0 = j === 0 ? 'true' : 'false';
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
     const one = (body) => `bool ${P}_one(inout Lf L) {\n  if (!ixFin(L.u)) return false;\n  vec2 w = L.u;\n${body}\n}\n`;
-    if (ratDeg(o.kind) >= 5) return ratAberthFns(ratDeg(o.kind), j, c, NOR);
+    if (ratDeg(o.kind) >= 5) return ratAberthFns(ratDeg(o.kind), j, c, NOR, NEWT_DEDUPE);
     const rng = (u, d, lvl, lg) => `  return ixApply(L, ${u}, ${d}, false, ${lvl}, ${lg}, false, vec2(0.0), vec2(0.0));`;
     const sg = (x) => `(${x} < 0.0 ? 1.0 : -1.0)`;   // -sgn(x), sgn(0) = 1 (Inverse's sgn)
     switch (o.kind) {
@@ -3147,4 +3044,5 @@ import { CX } from './cx.js';
 import { Expr } from './parse.js';
 import { Funcs } from './funcs.js';
 import { Inverse } from './inverse.js';
+import { GLSLRoots } from './glslroots.js';
 export { GLChain, GLChain as 'module.exports' };

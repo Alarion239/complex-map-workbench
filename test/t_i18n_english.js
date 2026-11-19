@@ -10,7 +10,7 @@ const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as bu
 const ROOT = path.join(__dirname, '..');
 const BASE = require('../ci/snapshots').snapshotDir('notes/gate-morph-zp-r1');   // (missing: says to run ci/snapshots.js)
 const MODS = ['cx', 'symbolic', 'parse', 'derivs', 'natpaths', 'sheets', 'formulasteps', 'funcs', 'invops', 'invpatterns', 'inverse', 'calc', 'glsl', 'regionlines', 'region', 'curves'];
-const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', curves: 'Curves' };
+const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', calc: 'Calc', glslroots: 'GLSLRoots', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', curves: 'Curves' };
 // (src/ does not check whether a module is there: src/'s contexts get the stand-ins of
 // test/module_stubs.js for the modules not loaded, a recognizer that reads nothing, as the base, which has none, so both
 // sides offer the same)
