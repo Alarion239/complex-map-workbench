@@ -3,13 +3,15 @@
 // GLChain.build(...).inverse (SPEC 4.1): the key is Inverse.inverseKey, the program's op list is Inverse.stepOps of
 // every live step in order, the uInv allocator covers every op's parameters, a parameter change keeps the key, an
 // eligibility flip changes it without touching the forward key or layout, and the walker nests one loop per
-// multivalued op; and every program's two stages agree on their varyings' centroid qualifier (GLR._src.DEFS). The GPU
-// side is test/glsl_inverse_test.js. Run: node test/t_gl_inverse.js
+// multivalued op; the inverse program's leaf reaches each of its heavy helpers from one call site; and every program's
+// two stages agree on their varyings' centroid qualifier (GLR._src.DEFS). The GPU side is test/glsl_inverse_test.js.
+// Run: node test/t_gl_inverse.js
 const fs = require('fs'), vm = require('vm'), path = require('path');
 const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
 const { source } = require('./src_text');   // (gl.js: src/gl/*.js joined, as build.py does)
+const { inline } = require('../ci/glsl_inline.js');
 const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glsl: 'GLChain', regionlines: 'RegionLines', region: 'Region', constrpoc: 'ConstrPoc', constrortho: 'ConstrOrtho', constr: 'Constr', curves: 'Curves', palette: 'Palette', gl: 'GLR' };
 for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src'), { esm: 'strip' }) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { Funcs, Inverse, GLChain, GLR } = ctx;
@@ -321,6 +323,38 @@ for (const t of TYPES) {
   const live = (src) => src.split('\n').reduce((o, l) => { if (/^#ifdef IX_STAGED/.test(l)) o.d++; else if (/^#(else|endif)/.test(l) && o.d) o.d--; else if (!o.d) o.t.push(l); return o; }, { d: 0, t: [] }).t.join('\n');
   check('carried program: staged names only under IX_STAGED', !STAGED_NAMES.test(live(plain)) && !STAGED_NAMES.test(plain.replace(/#ifdef IX_STAGED[\s\S]*?(?:#else|#endif)/g, '')));
   check('staged carried program declares the staged uniforms', /uniform int uShStage;/.test(staged) && /uniform float uStageGrow;/.test(staged));
+}
+// ---- the leaf reaches each heavy helper from one call site: a shader compiler inlines every call, so a second call site
+// of the chain (chainRange), the carried colour (dcolorD), the admission's shading (ixShadeAdm) or a formula's level
+// (ixFormLevel) puts a second copy of it in the program (FXC's compile time grows faster than the inlined size) ----
+{
+  // copies of each function in main's full inlining, after the preprocessor (ci/glsl_inline.js, as ci/fxc_size.js sizes
+  // a program)
+  const copies = (src) => inline(src).copies;
+  const steps = [St('exp'), St('mobius')], info = GLChain.build(steps, steps.map(Funcs.build));
+  const CARRY = { carry: true, pre: '', main: '' }, STAGED = { carry: true, staged: true, pre: '#define IX_STAGED 1\n', main: '' };
+  const form = GLChain.levelGLSL('|\\Im z|<1', 'ilev0');
+  const prog = (B, globe, extra, forms = []) => GLR._src.invSources(B, globe, forms, extra, info)[1];
+  check('a formula shape\'s level compiles', form.ok);
+  const CASES = [
+    ['the carried program', prog(5, false, CARRY), { chainRange: 1, dcolorD: 1 }],
+    ['the carried program on the globe', prog(5, true, CARRY), { chainRange: 1, dcolorD: 1 }],
+    ['the carried program of a later plane\'s shape', prog(5, false, STAGED), { chainRange: 2, dcolorD: 1 }],
+    ['the carried program at B = 8', prog(8, false, CARRY), { ixShadeAdm: 1, chainRange: 1, dcolorD: 1 }],
+    ['the program at B = 8', prog(8, false), { ixShadeAdm: 1 }],
+    ['the program with a formula shape', prog(5, false, undefined, [form.source]), { ixFormLevel: 1 }],
+  ];
+  for (const [name, src, want] of CASES) {
+    const c = copies(src);
+    for (const [f, k] of Object.entries(want)) check(`${name} holds ${k} cop${k > 1 ? 'ies' : 'y'} of ${f}`, c.get(f) === k, `${c.get(f)} copies`);
+  }
+  // (SwiftShader's programs, IX_CHAIN3_CALLS: ixChain3 is three calls, the chain three times, six with a staged shape)
+  const sw = (src) => copies('#define IX_CHAIN3_CALLS 1\n' + src).get('chainRange');
+  check('IX_CHAIN3_CALLS: the carried program holds 3 copies of chainRange', sw(prog(5, false, CARRY)) === 3, sw(prog(5, false, CARRY)));
+  check('IX_CHAIN3_CALLS: the staged program holds 6 copies of chainRange', sw(prog(5, false, STAGED)) === 6, sw(prog(5, false, STAGED)));
+  // (the count sees a second call site: ixCarryCol calling dcolorD twice)
+  const one = prog(5, false, CARRY), two = one.replace('  return dcolorD(w, wx, wy);', '  if (uGt == 99) return dcolorD(w, wx, wy);\n  return dcolorD(w, wx, wy);');
+  check('a second dcolorD call site counts as a second copy', two !== one && copies(two).get('dcolorD') === 2, copies(two).get('dcolorD'));
 }
 // ---- every program's stages agree on their varyings' centroid qualifier (GLSL ES 3.00 4.3.9: a mismatch fails the link) ----
 {
