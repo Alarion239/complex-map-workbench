@@ -31,7 +31,8 @@ let clocked = false;
 const arm = async () => { clocked = true; await ctl({ clock: GLIDE_CLOCK_MS }); };
 const arrived = async () => {
   if (clocked) await ctl({ clock: 0 });
-  const r = await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
+  // (ready: a press waits for the prestart, so the next one is made once it is done)
+  const r = await settled({ max: 60000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play && s.ready.ready; })()` });
   if (clocked) await ctl({ clock: GLIDE_CLOCK_MS });
   return r;
 };
