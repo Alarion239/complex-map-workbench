@@ -516,15 +516,16 @@ const InvOps = (() => {
     return closedRoots([A, B, Cc, D, E], ferrari);
   }
   // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX by Aberth's iteration (newtAberth from
-  // newtAberthStart, the polynomial NEWT op's), polished (closedRoots, which iterates on the reverse when the leading
-  // coefficient is the smaller end). Leading coefficients below 1e-14 of the others' sizes drop the degree, as
-  // cubicRoots' does: a root that runs off to infinity is left out
+  // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
+  // on co (polishRoot), in the order of their start points, as GLSL's RAT<n> finds them. Leading coefficients below
+  // 1e-14 of the others' sizes drop the degree, as cubicRoots' does: a root that runs off to infinity is left out
   function aberthRoots(co) {
     let i = 0;
     while (i < co.length - 1 && abs(co[i]) <= 1e-14 * co.slice(i + 1).reduce((s, x) => s + abs(x), 0)) i++;
     const c = co.slice(i), n = c.length - 1;
     if (n < 1) return [];
-    return closedRoots(c, (r) => { const a = r.slice().reverse(); return newtAberth(a, n, newtAberthStart(a, n)).map((u) => ({ u })); });
+    const a = c.slice().reverse();
+    return newtAberth(a, n, newtAberthStart(a, n)).filter(isFin).map((u) => ({ u: polishRoot(c, u) }));
   }
   // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0, the op RAT<n>; its
   // roots in closed form for n = 3 and 4 (cubicRoots, quarticRoots), by Aberth's iteration above (aberthRoots)
