@@ -542,7 +542,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   cursor: copy; transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 .chip.readout:empty { display: none; }
-@media (pointer: coarse) { .chip.readout { pointer-events: none; } }   /* (the readout copies on a press, which a touch has no use for: where the primary pointer is coarse, phones and tablets whose main input is touch, the chip is a reading, not a target, as on the phone layout; a laptop or tablet with a trackpad reports a fine pointer and keeps copy-on-tap) */
+@media (pointer: coarse) { .chip.readout { pointer-events: none; } }   /* (the readout copies on a press, which a touch has no use for: where the primary pointer is coarse, phones and tablets whose main input is touch, the chip is a reading, not a target, as on the phone layout; a laptop or tablet with a trackpad usually reports a fine pointer and keeps copy-on-tap) */
 /* the probe's one readout: z on the first line, w = F(z) on the second */
 .chip.readout:has(> .rln) { height: auto; line-height: 18px; padding-top: 2px; padding-bottom: 2px; }
 :root.ph .chip.readout:has(> .rln) { height: auto; line-height: 20px; padding-top: 3px; padding-bottom: 3px; }
@@ -2043,7 +2043,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="plot" id="plotL">
               <canvas id="canvasL"></canvas><canvas id="overlayL" class="overlay" aria-label="X, the z-plane: domain of F" role="img"></canvas>
               <div class="hairline" id="hairL" hidden></div>
-              <button class="chip readout" id="leftReadout" title="Click to copy">Hover to probe a point</button>
+              <button class="chip readout" id="leftReadout" title="Click to copy" aria-description="Copy the reading">Hover to probe a point</button>
               <div class="legend-chip" id="leftLegend" hidden><canvas id="legendCanvasL" width="272" height="144"></canvas><label class="check key-sw" id="wKeyRow" data-tip="Paint these colours in the w-plane on the right"><input type="checkbox" id="wKeyChk"><span data-i18n="html">Key in the <i>w</i>-plane</span></label></div>
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
@@ -2072,7 +2072,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="plot" id="plotR">
               <canvas id="canvasR"></canvas><canvas id="overlayR" class="overlay" aria-label="Y, the w-plane: image of F" role="img"></canvas>
               <div class="hairline" id="hairR" hidden></div>
-              <button class="chip readout" id="rightReadout" title="Click to copy"></button>
+              <button class="chip readout" id="rightReadout" title="Click to copy" aria-description="Copy the reading"></button>
               <div class="legend-chip" id="rightLegend" hidden><canvas id="legendCanvas" width="272" height="144"></canvas></div>
               <div class="legend-chip calc-chip" id="calcChip" role="group" aria-label="Readings" hidden></div>
               <div class="options" id="rightFoot"></div>

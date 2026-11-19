@@ -744,5 +744,6 @@
  "grey: {x}": "серым: %{x}",
  "the start": "начало",
  "hue: the argument, red at 1, counterclockwise": "оттенок: аргумент, красный в 1, против часовой стрелки",
- "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞"
+ "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞",
+ "Copy the reading": "Скопировать показание"
 }

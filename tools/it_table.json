@@ -3432,5 +3432,6 @@
  "grey: {x}": "in grigio: {x}",
  "the start": "l'inizio",
  "hue: the argument, red at 1, counterclockwise": "tinta: l'argomento, rosso in 1, in senso antiorario",
- "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞"
+ "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞",
+ "Copy the reading": "Copia la lettura"
 }

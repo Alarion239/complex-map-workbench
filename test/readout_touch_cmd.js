@@ -24,6 +24,8 @@ for (const [w, h, touch] of [[360, 780, true], [412, 915, true], [740, 360, true
   ok(`${name}: the primary pointer is ${touch ? 'coarse' : 'fine'}`, coarse === touch, coarse);
   const title = await ev(`[${CHIP}.getAttribute('title'), document.getElementById('rightReadout').getAttribute('title')]`);
   ok(`${name}: the chips ${touch ? 'no longer promise' : 'still say'} "Click to copy"`, touch ? title.every((x) => x === null) : title.every((x) => x === 'Click to copy'), title);
+  const desc = await ev(`[${CHIP}.getAttribute('aria-description'), document.getElementById('rightReadout').getAttribute('aria-description')]`);
+  ok(`${name}: the chips keep their description "Copy the reading" for a screen reader, whatever the pointer`, desc.every((x) => x === 'Copy the reading'), desc);
   ok(`${name}: the chip is on the page with its text`, t.chip, t);
   ok(`${name}: the chip has pointer-events ${touch ? 'none' : 'auto'}`, t.pe === (touch ? 'none' : 'auto'), t);
   ok(`${name}: at the chip's centre the topmost element ${touch ? 'is not' : 'is'} the chip`, touch ? !t.isChip : t.isChip, t);
