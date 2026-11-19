@@ -30,9 +30,11 @@ const hash = async (name) => { await settle(400); await shot(name, await plot())
 const press = (k) => ev(`document.body.dispatchEvent(new KeyboardEvent('keydown', { key: '${k}', bubbles: true, cancelable: true })); 1`);
 
 
-const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
+// (a press of ▶ or an arrow waits for the prestart and its idle jobs: the suite presses once the chain is prepared)
+const calm = () => settled({ max: 120000, only: true, until: '__cmwSteps().ready.ready' });
+const ctl = async (o) => { if (o && o.play === true) await calm(); return ev(`__cmwSteps(${JSON.stringify(o)})`); };
 const kdown = (k, mods = {}) => ev(`(document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: '${k}', bubbles: true, cancelable: true }, ${JSON.stringify(mods)}))); 1`);
-const until = async (f, ms = 15000) => { const t0 = Date.now(); for (;;) { const s = await S(); if (f(s)) return { s, ms: Date.now() - t0 }; if (Date.now() - t0 > ms) return { s, ms: Date.now() - t0, timeout: true }; await sleep(25); } };
+const until = async (expr, max = 15000) => { const r = await settled({ until: expr, max, only: true, poll: 25 }); return { s: await S(), ms: r.ms, timeout: !r.ok }; };
 const nodes = () => ev(`[...document.querySelectorAll('#svStrip .sv-plane')].map((b) => { const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2 }; })`);
 
 // the thread's place sampled in the page once a frame for ms (the heavy __cmwSteps() poll starves the frames and aliases a loop): its
@@ -71,6 +73,7 @@ ok('▶ says how to reach Speed and Loop, and the glide order', await ev(`/^Hold
 
 // the speed: fast is 450 ms a plane, so z → w₂ takes about 0.9 s; slow takes more than twice that
 await choose('.sv-speed', 'fast');
+await calm();
 const tClick = Date.now();
 // (the glide is 0.9 s of frame time and the button's label follows on a frame: from the press, every frame is looked at
 // until the glide runs and the button says Pause, at most 5 s, so a page whose frames are slow is read while it plays)
@@ -87,10 +90,11 @@ const p1 = await ev(`await new Promise((res) => {
 // (read in the frame the glide was seen in: a loaded renderer may have drawn the whole 0.9 s glide by the time a later read comes back)
 ok('starting says where it plays from and to, in the live region', /Playing from z to w/.test(p1.live), p1.live);
 ok('▶ starts a straight glide, and the button says Pause', p1.play === 'glide' && p1.moving && p1.buttonLabel === 'Pause', p1);
-const e1 = await until((s) => !s.play); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
+const e1 = await until('!__cmwSteps().play'); e1.ms = Date.now() - tClick;   // (from the press: the polls before it count)
 ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.querySelector('#stage .sr-only[aria-live]').textContent)`), await ev(`document.querySelector('#stage .sr-only[aria-live]').textContent`));
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
+await calm();
 await ev(`document.querySelector('.sv-play').click(); 1`);
 const p2 = await S();
 ok('▶ at the end starts over', p2.play === 'glide' && p2.x < 1, p2);
@@ -110,7 +114,7 @@ await sleep(1000);
 const sl = await S();
 ok('a play at slow is still going a second in', sl.play === 'glide', sl);
 await choose('.sv-speed', 'fast');
-const e2 = await until((s) => !s.play);
+const e2 = await until('!__cmwSteps().play');
 ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
@@ -191,7 +195,7 @@ const bd = await ev(`(() => { const b = document.querySelector('.sv-band'); retu
 ok('the band shows, the clear button and the ring name it', !bd.hidden && /w₁/.test(bd.label) && bd.x === 'Clear the range' && /range z to w₁/.test(bd.vt), bd);
 ok('the range is saved as S.homRange', JSON.stringify((await S()).homRange) === '[1,1]', (await S()).homRange);
 await ctl({ play: true });
-const e3 = await until((s) => !s.play);
+const e3 = await until('!__cmwSteps().play');
 ok('play keeps to the range: it stops on w₁, not at w₂', !e3.timeout && e3.s.i === 1 && Math.abs(e3.s.x - 1) < 1e-9, e3.s);
 await ev(`document.querySelector('.sv-loop').click(); 1`);
 await ctl({ play: true });

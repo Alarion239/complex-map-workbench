@@ -21,6 +21,8 @@ const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got 
 // (waits end on the condition they wait for, not on a time)
 const until = (expr, max = SETTLE_MS) => settled({ until: expr, max });
 const quiet = () => settled({});
+// (a glide waits behind the prestart until the chain is prepared: each is asked for once the chain is ready)
+const prepared = () => until('__cmwSteps().ready.ready', END_MS);
 const F1 = (expr) => ({ type: 'custom', params: { expr, cut: 180 }, on: true });
 const CHAIN = [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }];
 // (two formulas a Split makes into steps: sin(z²+1) into 3, 2 sin z into 2)
@@ -54,7 +56,7 @@ const stepTIs = (span, want) => !!span && JSON.stringify(span.stepT) === JSON.st
 const ONE_SPLIT_T = [null, null, [3, 0], [3, 1], [3, 2]], TWO_SPLITS_T = [null, null, [3, 0], [3, 1], [3, 2], [2, 0], [2, 1]];
 await open();
 const restWin = (await sv()).win;
-await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const x0 = (await sv()).x;
 const g0 = await pane(), o0 = await pane(false), p0 = await sv();
@@ -78,12 +80,12 @@ ok('the head and the key name the same maps', JSON.stringify(p0.names) === JSON.
 await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })');
 await until('Math.abs(__cmwSteps().x - 5) < ' + END_EPS + ' && !__cmwSteps().moving', END_MS); await quiet();
 ok('the glide ends on the last plane (5)', Math.abs((await sv()).x - 5) < PLANE_EPS, await sv());
-await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 0 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 0 })');
 info.next = await ev('__cmwSteps().span');
 ok('the next glide runs the sub-steps (a span over [0, 5], no step times of its own)', !!info.next && info.next.x1 === 5 && !info.next.stepT, info.next);
 // two Splits in one glide, then an Undo and a Redo of the second: every frame is the picture before the first Split
 await open({ steps: CHAIN2 });
-await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const t0 = await pane(), to0 = await pane(false), q0 = await sv();
 const twoLeg = async (name, planes, want) => {
@@ -106,7 +108,7 @@ await twoLeg('Redo of the second Split', 7, TWO_SPLITS_T);
 // plane by plane (All at once off): a Split, its Undo and its Redo in one glide. The Redo is the Split again, so the thread
 // is where the Split put it and the glide goes on to the plane it was going to
 await open({ homAll: false });
-await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const m0 = await ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q.moving, to: q.anim && q.anim.to }; })()');
 await splitNow(2, 6);
@@ -131,7 +133,7 @@ const at = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, moving: q
 // a Remove before the glide, a Split, its Undo, then the Undo of the Remove: 4 steps, as the split chain has
 await open({ homAll: false, steps: CHAIN_R });
 const rmR = await removeStep(4, 4);
-await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 await splitNow(2, 5); await undoRedo('undoBtn', 4);
 const r2 = await at();
@@ -141,7 +143,7 @@ info.sameLengthRedo = [r2, r3];
 ok('the Undo of an earlier Remove, as long as the split chain, is not taken for the Split\'s Redo', rmR && r2.restored === 'unsplit' && r3.restored === 'load', info.sameLengthRedo);
 // a Split, two Removes, then the Undo of the second: 4 steps, as the chain before the Split has
 await open({ homAll: false, steps: CHAIN_R });
-await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 4 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 4 })');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 await splitNow(2, 6);
 const rmU = (await removeStep(5, 5)) && (await removeStep(4, 4));
@@ -153,7 +155,7 @@ ok('the Undo of a Remove after a Split, as long as the chain before it, is not t
 // negative control: the same Split with the step times dropped from the span (the sub-steps' own homotopies at one u) is not the
 // formula's picture, so the frame check above can fail
 await open();
-await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
+await prepared(); await ev('__cmwSteps({ clock: ' + GLIDE_CLOCK_MS + ' })'); await ev('__cmwSteps({ go: 3 })');
 await until('__cmwSteps().x > ' + FREEZE_X, GLIDE_MS); await ev('__cmwSteps({ clock: ' + FREEZE_CLOCK_MS + ' })'); await quiet();
 const c0 = await pane();
 await splitNow();

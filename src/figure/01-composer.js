@@ -599,7 +599,8 @@
     })().catch(() => { pdfLibs = null; return null; });
     return pdfLibs;
   };
-  // the PDF: vector, no fonts (putOnlyUsedFonts; glyphs are paths), no transparency, page = figure size in bp
+  // the PDF: vector (glyphs are paths; the one font is the invisible text layer's, embedded), no transparency, page =
+  // figure size in bp
   XD.pdf = async (fig) => {
     const lib = await pdfLib();
     if (!lib) throw new Error('The PDF library could not be loaded');
@@ -622,17 +623,19 @@
     host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden';
     host.append(el); document.body.append(host);
     try { await lib.svg2pdf(el, doc, { x: 0, y: 0, width: fig.W, height: fig.H }); } finally { host.remove(); }
-    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order; the standard font has
-    // Latin only, so a subscript digit is written as the digit and a letter it lacks is left out
+    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order, in an embedded font of
+    // empty glyphs made for the characters they use (01-pdf-font.js): Cyrillic, Greek, subscripts and the signs included
     if (doc.setLanguage) { try { doc.setLanguage(fig.lang === 'ru' ? 'ru-RU' : fig.lang === 'it' ? 'it-IT' : 'en-US'); } catch (e) { /* the language is optional */ } }
-    doc.setFont('helvetica', 'normal');
-    for (const q of fig.texts || []) {
-      const n = q.text.normalize('NFKD').replace(/\p{M}/gu, '');
-      if (/(?![\x00-\x7f])\p{L}/u.test(n)) continue;
-      const t = n.replace(/[^\x20-\x7e]/g, '');
-      if (!t) continue;
-      doc.setFontSize(q.h);
-      doc.text(t, q.x, q.base, { renderingMode: 'invisible' });
+    const texts = fig.texts || [], layer = pdfTextLayer(texts);
+    if (layer.codes.length) {
+      doc.addFileToVFS(`${PDF_TEXT_FONT_NAME}.ttf`, pdfTextFont(layer.codes));
+      doc.addFont(`${PDF_TEXT_FONT_NAME}.ttf`, PDF_TEXT_FONT_NAME, 'normal');
+      doc.setFont(PDF_TEXT_FONT_NAME, 'normal');
+      texts.forEach((q, i) => {
+        if (!layer.strings[i]) return;
+        doc.setFontSize(q.h);
+        doc.text(layer.strings[i], q.x, q.base, { renderingMode: 'invisible' });
+      });
     }
     return doc.output('blob');
   };

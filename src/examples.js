@@ -8,8 +8,8 @@
 const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
-    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
-    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
+    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
+    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
@@ -171,8 +171,9 @@ const Examples = (() => {
         acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
       exTryWatch(ex);
     }
-    // the line integral the example is about, once the planes have their size
-    if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
+    // the line integral the example is about, once the planes have their size; not on a phone, where the popover would
+    // cover much of the plane and the example's Try line asks for it
+    if (ex.integrate != null && !document.documentElement.classList.contains('ph')) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
   let exLook = '';
   function renderExampleThumb(i) {
@@ -231,6 +232,8 @@ const Examples = (() => {
     }, 30);
   }
   function openGallery(anchor) {
+    // re-pressing the button that opened the gallery closes it, as it does a menu
+    if (popOpenedFrom(anchor)) { closePalette(); return; }
     const okey = focusKey(anchor);
     const items = EX.map((ex, i) => {
       const img = h('img', { class: 'ex-thumb', alt: '', width: 48, height: 32 });
@@ -243,6 +246,7 @@ const Examples = (() => {
     const pop = h('div', { class: 'pop menu examples', role: 'menu', 'aria-label': $t('Examples') }, ...items.map((x) => x.b));
     $('popHost').append(pop);
     A.popEl = pop;
+    markOpener(pop, anchor);
     placePop(pop, anchor);
     // (ex.tip: the whole description as a tooltip, where its line is cut; the melody says how to hear it there)
     for (const { b, i } of items) { const bl = EX[i].tip && b.querySelector('.ex-blurb'); if (bl && bl.scrollWidth > bl.clientWidth + 1) b.title = EX[i].blurb; }
@@ -446,7 +450,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

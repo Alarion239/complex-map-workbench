@@ -57,11 +57,12 @@ const Inverse = (() => {
     return JSON.stringify(['inv2', sigs]);
   }
   // an op's part of the key: its kind, a NEWT op's seeding ops with their member counts and a polynomial NEWT op's degree
-  // (they shape its program), and a NEWT op's pole member
+  // (they shape its program), a NEWT op's pole member, and the sub-step of a recognised formula whose homotopy a
+  // NEWT op that is not polynomial walks (@j)
   function opSig(o) {
     if (o.kind === 'NEWT' && o.p && o.p.deg) return `NEWT^${o.p.deg}`;
-    const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back);
-    return n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind;
+    const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back), at = o.kind === 'NEWT' && o.sub != null ? `@${o.sub}` : '';
+    return (n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind) + at;
   }
   // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
   function planChain(steps, built, a = 0, b = steps.length) {
@@ -610,6 +611,40 @@ const Inverse = (() => {
       cur = next;
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
+  }
+  // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
+  // ops each have one branch or finitely many of these kinds: each op's own (IPOW 0 and infinity, JOUK ±1, QUAD its vertex
+  // and infinity, RAT2 at the zeros of its derivative and at infinity when that is one), carried through the ops after it,
+  // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
+  // finite families)
+  function critValues(plan) {
+    if (!plan || !plan.ok) return null;
+    const ops = plan.ops, out = [];
+    // (infinity is null; an op's value at infinity is its value at CRIT_FAR, a value past CRIT_INF is infinity)
+    const CRIT_FAR = 1e150, CRIT_INF = 1e100;
+    const fwdAt = (o, w) => { const v = o.fwd(w === null ? C(CRIT_FAR, 0) : w); return isFin(v) && abs(v) < CRIT_INF ? v : null; };
+    for (let i = 0; i < ops.length; i++) {
+      const o = ops[i];
+      let cv;
+      if (!o.fam) cv = [];
+      else if (o.fam.type !== 'fin') return null;
+      else if (o.kind === 'IPOW') cv = Math.abs(o.p.n) >= 2 ? [C(0, 0), null] : [];
+      else if (o.kind === 'JOUK') cv = [C(1, 0), C(-1, 0)];
+      else if (o.kind === 'QUAD') cv = [o.fwd(div(o.p.b, scale(o.p.a, -2))), null];
+      else if (o.kind === 'RAT2') {
+        // (p'q - pq' = (p2 q1 - p1 q2) u^2 + 2 (p2 q0 - p0 q2) u + (p1 q0 - p0 q1); of a lower degree, infinity is a
+        // critical point too)
+        const [p2, p1, p0] = o.p.P, [q2, q1, q0] = o.p.Q;
+        const co = [sub(mul(p2, q1), mul(p1, q2)), scale(sub(mul(p2, q0), mul(p0, q2)), 2), sub(mul(p1, q0), mul(p0, q1))];
+        cv = CX.polyRoots(isZero(co[0]) ? co.slice(1) : co).map((u) => fwdAt(o, u));
+        if (isZero(co[0])) cv.push(fwdAt(o, null));
+      } else return null;
+      for (let w of cv) {
+        for (let k = i + 1; k < ops.length; k++) w = fwdAt(ops[k], w);
+        if (w !== null) out.push(w);
+      }
+    }
+    return out;
   }
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
@@ -1604,11 +1639,18 @@ const Inverse = (() => {
     const T = C(t, 0), aff = (a, c) => opAff(a, c);
     const mobOf = (M) => (isZero(M[2]) ? opAff(div(M[0], M[3]), div(M[1], M[3])) : opMob(M));
     if (nat && nat.kind === 'chain' && b.rec) {
+      // (the sub-steps the glide has passed stand for themselves as at t = 1: their exact ops, or a polynomial's roots.
+      // A NEWT op names its sub-step (sub) as the GLSL names its functions (GLChain's recPlan and repPlan, cxs<k>r<sub>):
+      // its homotopy is that sub-step's at the op's t, not the formula's. A recognised formula's sub-step i is its own;
+      // a Repeat × N's sequence runs the block's last step, then the block N - 1 times, so its sub-step i is block step
+      // len - 1 for i = 0, else (i - 1) mod len)
       const sub = b.rec.built, n = sub.length, x = t * n, j = Math.min(n - 1, Math.floor(x)), ops = [];
-      for (let i = 0; i < j; i++) { const r = stepOps(sub[i]); if (!r.ok) return r; ops.push(...r.ops); }
+      const len = b.repeat ? b.repeat.block.length : 0, own = (i) => (!len ? i : i === 0 ? len - 1 : (i - 1) % len);
+      const mark = (r, i) => { for (const o of r.ops) if (o.kind === 'NEWT') o.sub = own(i); return r.ops; };
+      for (let i = 0; i < j; i++) { const r = homOps(sub[i], 1); if (!r.ok) return r; ops.push(...mark(r, i)); }
       const r = homOps(sub[j], x - j);
       if (!r.ok) return r;
-      return { ok: true, ops: ops.concat(r.ops) };
+      return { ok: true, ops: ops.concat(mark(r, j)) };
     }
     const own = stepOps(b);
     if (!own.ok) return newtOps(b, t, own.reason);
@@ -1624,6 +1666,19 @@ const Inverse = (() => {
     if (one && one.kind === 'IPOW' && !nat && one.p.n > 0) {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
+    }
+    // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
+    // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and
+    // with no Newton's method
+    if (one && one.kind === 'IPOW' && !nat && one.p.n < 0) {
+      const an = -one.p.n;
+      if (t < 0.5) {
+        const sv = C(1 + 2 * (an - 1) * t, 0);
+        return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
+      }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [...(an > 1 ? [opIpow(an)] : []), mobOf(path(2 * t - 1))] };
     }
     // z^s for s on the cut theta, sheet k (root, powa: powHom on the step's own branch): z^{1+(s-1)t} on that branch
     if (one && one.kind === 'ROOTPOW' && !nat && (id === 'root' || id === 'powa')) {
@@ -1729,7 +1784,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, critValues, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
