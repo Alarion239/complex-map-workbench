@@ -2667,10 +2667,10 @@
       SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
-    // (the folded key on a phone loses its head's words: as an image it keeps a name, the key's kind's, set again when the
-    // surface changes it; ux on #448. In a pane head the key's own words name it)
-    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key');
-    if (leg && ph && leg.getAttribute('role') === 'img' && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
+    // (the folded key on a phone, a button (legendKeyButton), is named for its kind, set again when the surface changes
+    // it; ux on #448. In a pane head the key's own words name it)
+    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key'), legRole = leg && leg.getAttribute('role');
+    if (leg && ph && (legRole === 'button' || legRole === 'img') && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
     const tn = svTargetNote(), tnShow = !!tn && !ph;
     if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;
