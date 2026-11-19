@@ -209,8 +209,13 @@ const InvOps = (() => {
   // newtBackK(t) stages from 1 down to t, then NEWT_POL more; a member is kept when it differs from every one before it in the list.
   // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
   // one about w puts it; NEWT_DEF steps); or, for pole {p, res, reg} (f's one simple pole), Newton from the root the pole
-  // puts over w (poleSeed; NEWT_LAD steps), whether or not member 0 exists. A member is dropped when H_t(u) misses w (a central
-  // difference for H').
+  // puts over w (poleSeed; NEWT_LAD steps), whether or not member 0 exists. A member is dropped when H_t(u) misses w.
+  // The walks (member 0's grid and its step at t, the seeded walk back, member 1's deflated steps, the pole's and the
+  // ladder's NEWT_LAD steps) take
+  // the GPU kit's own derivative, a forward difference over NEWT_FD (1 + |u|) that reuses H(u) (glsl.js's _fd): where a
+  // stage's one step leaves |H - w| large, the walk leaps between basins and its derivative decides where it lands, so
+  // the CPU's and the GPU's walks land alike and part only by float32's rounding (#1929). The polish, the hit test and a
+  // member's own H' take a central difference over 1e-6 (1 + |u|), which float64 holds: the roots stay float64's.
   // glsl.js's NEWT runs the same walks with chainHom. (One step per stage, as every pixel of a glide frame walks: on a
   // 41 x 41 grid of w at five t, more steps per stage change the root found only where the walk passes near a critical
   // point: nowhere for Joukowski, under 0.6 % of the points for z^2 + 1/z, z + z^3/3, cos z, ζ. The walks from t = 0
@@ -231,16 +236,17 @@ const InvOps = (() => {
   // two members closer than this (relative to 1 + |u|) are one (the CPU's; glsl.js has the float32 one)
   const NEWT_SAME = 1e-6;
   const NEWT_K = 32, NEWT_POL = 4, NEWT_DEF = 24, NEWT_SEEDS = 4, NEWT_LAD = 10;
-  // The external ray's landing of a seed that is only near a root (a seed op flagged ray): from |w| = R, where the identity
-  // is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the identity), the target
-  // w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the geometric stages
-  // G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than TOL (1 + |u|) after
-  // them fails the member), HALVINGS halvings at most (a |w| that needs more, below exp(log R 2^-HALVINGS), fails the
-  // member: newtRayStages answers -1, and so does the program). TOL is a tracking test only (the final accuracy is the hit
-  // test): at the step tolerance 1e-5 the band 1 < |w| < 1.1 of the Douady-Hubbard map and the Böttcher coordinate is off the
-  // parked plane on 8 % and 26 % of its pixels, since NEWT steps per stage do not reach it near the set; at 1e-2 on none.
-  // SUB = 0: no stages, the seed
-  // is landed on w itself
+  // the walks' forward difference step, relative to 1 + |u| (glsl.js's _fd has the same: float32 cannot difference finer)
+  const NEWT_FD = 1e-3;
+  // The external ray's landing of a seed that is only near a root (a seed op flagged ray): from |w| = R, where the
+  // identity is the root's first guess (R: the radius at which inverse.js verifies the step is tangent to the
+  // identity), the target w_s keeps the argument of w and its potential G = log|w_s| falls from log R to log|w| in the
+  // geometric stages G_s = log R 2^(-s/SUB), NEWT Newton steps each (a stage that still moves the root by more than
+  // TOL (1 + |u|) after them fails the member), HALVINGS halvings at most (a |w| that needs more, below
+  // exp(log R 2^-HALVINGS), fails the member: newtRayStages answers -1, and so does the program). TOL is a tracking
+  // test only (the final accuracy is the hit test): at the step tolerance 1e-5 the band 1 < |w| < 1.1 of the
+  // Douady-Hubbard map and the Böttcher coordinate is off the parked plane on 8 % and 26 % of its pixels, since NEWT
+  // steps per stage do not reach it near the set; at 1e-2 on none. SUB = 0: no stages, the seed is landed on w itself
   const NEWT_RAY = { R: 32, SUB: 4, HALVINGS: 12, NEWT: 3, TOL: 1e-2 };
   const newtRayStages = (w) => {
     const g0 = Math.log(NEWT_RAY.R), gw = Math.log(abs(w));
@@ -315,13 +321,20 @@ const InvOps = (() => {
     }
     return z;
   }
+  // f's derivative at u by the central difference (step 1e-6 (1 + |u|)), and one Newton step for f(u) = w with it:
+  // opNewt's, and singleRoot's (inverse.js) checks
+  const newtDH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+  const newtStep = (u, w, f) => sub(u, div(sub(f(u), w), newtDH(f, u)));
   function opNewt(t, H, back, deg, anchor, pole) {
     const Ht = H(t);
     const counts = newtSeedCounts(back), seeds = counts ? counts.reduce((a, k) => a * k, 1) : 0;
     const ray = !!counts && back.some((q) => q.ray), single = !!counts && back.some((q) => q.single);
-    const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
+    const dH = newtDH, step = newtStep;
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
-    const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
+    // (the walks' H': the forward difference over NEWT_FD (1 + |u|) from fu = f(u), glsl.js's _fd; a walk's step, as
+    // glsl.js's _step takes it)
+    const fdH = (f, u, fu) => { const h = NEWT_FD * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), fu), 1 / h); };
+    const walk = (u, w, f) => { const fu = f(u); return sub(u, div(sub(fu, w), fdH(f, u, fu))); };
     // (tr, when given: each iterate of the polish, as it is made)
     const polishAt = (u, w, tr) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) { u = step(u, w, Ht); if (tr) tr(u); } return u; };
     // the seed v landed on a root of H_1 = w by the external ray (newtRayStages): v, or null when a stage fails
@@ -332,14 +345,14 @@ const InvOps = (() => {
       for (let s = 0; s <= n; s++) {
         const g = s >= n ? gw : Math.max(g0 * Math.pow(2, -s / NEWT_RAY.SUB), gw), target = scale(w, Math.exp(g) / abs(w));
         let moved = Infinity;
-        for (let it = 0; it < NEWT_RAY.NEWT && isFin(v); it++) { const nv = step(v, target, f1); moved = abs(sub(nv, v)); v = nv; }
+        for (let it = 0; it < NEWT_RAY.NEWT && isFin(v); it++) { const nv = walk(v, target, f1); moved = abs(sub(nv, v)); v = nv; }
         if (!isFin(v) || !(moved <= NEWT_RAY.TOL * (1 + abs(v)))) return null;
       }
       return v;
     };
     // the seed v walked back from t = 1 to t in K stages, polished: v, or null (a null v stays null)
     const walkBack = (v, w, K) => {
-      for (let s = 1; s <= K && v && isFin(v); s++) v = step(v, w, H(1 - (1 - t) * s / K));
+      for (let s = 1; s <= K && v && isFin(v); s++) v = walk(v, w, H(1 - (1 - t) * s / K));
       return v && polishAt(v, w);
     };
     // f's i-th point over w (back's members in turn, the last op's first), or null
@@ -377,8 +390,9 @@ const InvOps = (() => {
     const k0 = newtGridK(t), grid = [null];
     for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
     const prm = counts ? { t, back } : { t, anchor: anchor || null, pole: pole || null };
-    // pre(w, trace): the members over w; trace(m, u), when given, gets every iterate of member 0's walk and of the ladder's
-    // (a ladder member's seed first), as it is made, for a test that follows the walk (newt_member0_cmd.js). polish(u, w):
+    // pre(w, trace): the members over w; trace(m, u), when given, gets every iterate of member 0's walk, of member 1's
+    // deflated steps and of the ladder's (a ladder member's seed first), as it is made, for a test that follows the walk
+    // (newt_member0_cmd.js, t_inverse.js). polish(u, w):
     // u after NEWT_POL Newton steps on H_t for w, the polish every member ends with
     return op('NEWT', prm, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
@@ -386,8 +400,8 @@ const InvOps = (() => {
       pre: (w, trace) => {
         const tr = (m) => trace && ((v) => trace(m, v)), t0 = tr(0);
         let u = w;
-        for (let s = 1; s <= k0 && isFin(u); s++) { u = step(u, w, grid[s]); if (t0) t0(u); }
-        if (isFin(u)) { u = step(u, w, Ht); if (t0) t0(u); }
+        for (let s = 1; s <= k0 && isFin(u); s++) { u = walk(u, w, grid[s]); if (t0) t0(u); }
+        if (isFin(u)) { u = walk(u, w, Ht); if (t0) t0(u); }
         u = polishAt(u, w, t0);
         const out = [];
         if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
@@ -403,12 +417,13 @@ const InvOps = (() => {
         }
         if (pole) {
           let v = poleSeed(w);
-          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = walk(v, w, Ht);
           v = polishAt(v, w);
           if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         } else if (out.length) {
           let v = sub(scale(w, 2), u);
-          for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+          const t1 = tr(1);
+          for (let it = 0; it < NEWT_DEF && isFin(v); it++) { const hv = Ht(v); v = sub(v, CX.inv(sub(div(fdH(Ht, v, hv), sub(hv, w)), CX.inv(sub(v, u))))); if (t1) t1(v); }
           if (hits(v, w) && abs(sub(v, u)) > NEWT_SAME * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         }
         // members 2 + i: Newton from the ladder's seed i, kept when it hits w and is new
@@ -416,7 +431,7 @@ const InvOps = (() => {
           const ti = tr(2 + i);
           let v = ladderSeed(w, t, prm.anchor, NEWT_LADDER[i]);
           if (ti) ti(v);
-          for (let it = 0; it < NEWT_LAD && isFin(v); it++) { v = step(v, w, Ht); if (ti) ti(v); }
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) { v = walk(v, w, Ht); if (ti) ti(v); }
           v = polishAt(v, w, ti);
           if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 2 + i }));
         }
@@ -1030,7 +1045,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';

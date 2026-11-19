@@ -1337,22 +1337,26 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'dh': case 'bottcher': {
         const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
         const NM = Funcs.DH_NMAX;
-        // The certified early stop of the orbit: the walk back from w_n takes φ(w_n) = w_n √(1 + c/w_n²), whose relative error
-        // is below 2^{1-n} |c| / |w_n|² (and that is the relative error of H after the n square roots, 2^{-n} times it), so the
-        // orbit ends at the first n with 2^{1-n} |c| / |w_n|² <= DH_STOP_TOL. The bound holds, and w_n escapes, where
-        // |w_n| >= max(2, |c|) and |w_n|² >= 8 |c| (then |w_{n+1}| >= 7/8 |w_n|², past 10⁴ within DH_STOP_STEPS more steps), and the stop
-        // needs k + DH_STOP_STEPS <= N so the escape test of N steps (the blank band) is the same. Squared, with no square root
+        // The certified early stop of the orbit. The bound is on H's relative error: the walk back from w_n takes
+        // φ(w_n) = w_n √(1 + c/w_n²), and after the n square roots H's relative error is at most 2^{1-n} |c| / |w_n|²,
+        // which bounds the truncation 2^{-n} |c| / (4 |w_{n+1}|²) with room to spare. So the orbit ends at the first n
+        // with 2^{1-n} |c| / |w_n|² <= DH_STOP_TOL. The bound holds, and w_n escapes, where |w_n| >= max(2, |c|) and
+        // |w_n|² >= 8 |c| (then |w_{n+1}| >= 7/8 |w_n|², past 10⁴ within DH_STOP_STEPS more steps), and the stop needs
+        // k + DH_STOP_STEPS <= N, so the escape test of N steps (the blank band) is the same. Squared, with no square
+        // root taken
         const DH_STOP_STEPS = 6;
         const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
-        // H and H' in one walk (the dual derivative): forward dw_{k+1} = 2 w_k dw_k + dc (dc = dc/dz: 1 for Φ_M, where c = z, 0 for φ_c),
-        // dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j divides dp by 2 p_{j+1}: the
-        // product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The value is computed as H alone is
+        // H and H' in one walk (the dual derivative): forward dw_{k+1} = 2 w_k dw_k + dc (dc = dc/dz: 1 for Φ_M, where
+        // c = z, 0 for φ_c), dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j
+        // divides dp by 2 p_{j+1}: the product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The
+        // value is computed as H alone is
         const dc = jc ? 'vec2(0.0)' : 'vec2(1.0, 0.0)';
-        // The orbit w_0 .. w_n is kept in variables, not in an array indexed by n - j (that would be local memory on most GPUs):
-        // the first DH_REG points, and every DH_CK-th point after them (the checkpoints). A point past the registers is the
-        // orbit run on from the nearest checkpoint at or before it by the same steps as the walk, at most DH_CK - 1 of them,
-        // so every value is bit for bit the one the walk had
-        // (n <= N <= NM and j >= 1, so q = n - j <= NM - 1: the checkpoints read are k_1 .. k_{floor((NM - 1) / DH_CK)}, and w_NM is not kept)
+        // The orbit w_0 .. w_n is kept in variables, not in an array indexed by n - j (that would be local memory on
+        // most GPUs): the first DH_REG points, and every DH_CK-th point after them (the checkpoints). A point past the
+        // registers is the orbit run on from the nearest checkpoint at or before it by the same steps as the walk, at
+        // most DH_CK - 1 of them, so every value is bit for bit the one the walk had
+        // (n <= N <= NM and j >= 1, so q = n - j <= NM - 1: the checkpoints read are
+        // k_1 .. k_{floor((NM - 1) / DH_CK)}, and w_NM is not kept)
         const DH_REG = 8, DH_CK = 8, NCK = Math.ceil(NM / DH_CK) - 1;
         if (Math.floor((NM - 1) / DH_CK) > NCK) throw new Error('DH orbit: a checkpoint read past the ones kept');
         const reg = Array.from({ length: DH_REG }, (_, i) => `o${i}`), ck = Array.from({ length: NCK }, (_, i) => `k${i + 1}`);
@@ -2283,7 +2287,8 @@ void ixAncTan(vec2 w) {
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
-  // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops early charges it in its hit test
+  // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops
+  // early charges it in its hit test
   const DH_STOP_TOL = +NEWT_HIT_F / 16;
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null

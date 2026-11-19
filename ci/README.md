@@ -155,12 +155,16 @@ On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `invers
 of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
 finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
 the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
-macOS run them. It is empty. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+macOS run them. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
 every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
 sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
 (`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
 pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
 compared on Linux too.
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
+no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
+error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
@@ -256,12 +260,14 @@ artifact.
 - **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
   It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
   on the 26.04 image two files, the package and `libdisplay-info3`, both `amd64v3` builds) and installs them with `dpkg`. Those files are kept in an Actions cache,
-  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
-  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
-  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
-  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
-  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
-  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+  keyed by the runner's Ubuntu release (`ImageOS`) and the package's version in the image's lists, what the files
+  depend on: a new image of the same release with the same version finds them (GitHub's images change weekly, the
+  package seldom). When the key has no entry, the restore takes the newest entry of the release (`restore-keys`, the key
+  up to the version). A job that installed from a mirror saves the files when the key had no entry and the version
+  installed is the key's (`dpkg-query`, the step outputs `version`); a pull request's run restores what it saved
+  itself or what main's runs saved (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused.
+  - **When Ubuntu's mirrors cannot be reached**, cached files of the key's version are installed after that first
+    download fails. With
     none, or when they do not install, the same version comes from a fallback mirror on another domain:
     kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
     `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
@@ -275,6 +281,9 @@ artifact.
     security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
     stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
     newer version, which the job does not save under the key that names the image's.
+  - **Last, an older version from the cache:** when no mirror gave the key's version and the restore matched the
+    release prefix alone, the cached files of that other version are installed. `dpkg` checks their dependencies, so a
+    copy that does not fit the image fails at its install, and the job does not save them.
   - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
     not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
     cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
@@ -284,7 +293,7 @@ artifact.
     the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
     errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
     lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
-    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy for the release. Without
     lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-26.04`, by name, not `ubuntu-latest`. The layout gate compares the
   renderer's name with its baseline's (26.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) …`),
