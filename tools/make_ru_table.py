@@ -21,9 +21,33 @@
 import json
 import pathlib
 import re
+import subprocess
 import sys
 
 from src_parts import src_texts  # (the files of src/, app.js and gl.js joined from their parts in src/app/ and src/gl/)
+
+
+def blank_comments(texts):
+    """The JavaScript texts with each comment replaced by spaces: the parser's own comments (tools/js_blank_comments.js)."""
+    run = subprocess.run(['node', str(pathlib.Path(__file__).resolve().parent / 'js_blank_comments.js')], input=json.dumps(texts),
+                         check=True, capture_output=True, text=True, encoding='utf-8')
+    return json.loads(run.stdout)
+
+
+_code = {}
+
+
+def code_texts(src):
+    """[(name, text)] as src_texts gives them, with the comments of every JavaScript file blanked: what holds a string, and
+    what calls $t, is the code, never a comment (a key held only by a comment would ship as dead bytes, and an edit of a
+    comment would change the table). page.html is read as it is."""
+    key = str(src)
+    if key not in _code:
+        files = src_texts(src)
+        blanked = iter(blank_comments([t for n, t in files if n.endswith('.js')]))
+        _code[key] = [(n, next(blanked) if n.endswith('.js') else t) for n, t in files]
+    return _code[key]
+
 
 root = pathlib.Path(__file__).resolve().parent.parent
 notes = root / 'notes' / 'i18n'
@@ -236,7 +260,7 @@ def read_lit(s, i):
 def call_sites(src):
     """[(kind, key, file:line)] for every $t / $tx / $tn whose arguments are string literals."""
     out = []
-    for name, s in src_texts(src):
+    for name, s in code_texts(src):
         if not name.endswith('.js') or name.startswith('i18n'):
             continue
         for m in re.finditer(r'(?<![A-Za-z0-9_$.])\$t(x|n)?\(', s):
@@ -380,7 +404,8 @@ for k in sorted(table):
 # English no source holds any more (a string the code removed: the old paths captions, the old tour and guide texts on
 # sound) is dead weight that hides real misses: it is dropped and listed ('dropped', why 'removed'). "Holds" is generous:
 # the English (the one form of a plural, the text after a context) equals a string literal of src/*.js or occurs in one,
-# or in page.html. Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
+# or in page.html. A comment of a JavaScript file holds nothing (code_texts): neither a key nor a $t() call.
+# Entries of the inventory are matched by other rules (their placeholders are rewritten), so they are
 # only counted when no literal holds them ('unused', report only).
 # The inventory's entries that no source holds are dropped too ('dropped', why 'removed'):
 # they would ship as dead bytes (' Arrows that meet show points with the same image.', the old
@@ -402,7 +427,7 @@ def js_unescape(lit):
 
 
 src_lits, src_blob, src_raw = set(), [], []
-for name, t in src_texts(root / 'src'):
+for name, t in code_texts(root / 'src'):
     f = pathlib.Path(name)
     # (the Italian table, src/i18n_it.js, is generated from the same English keys and holds none of the
     # source's strings: a string the source does not call must not be kept because the Italian table has it)
@@ -464,7 +489,7 @@ text = (
 if '--check' in sys.argv:
     if not out.exists() or out.read_text(encoding='utf-8').replace('\r\n', '\n') != text:
         sys.exit(f'{out.relative_to(root)} is not what a fresh generation gives: run python3 tools/make_ru_table.py --strict and commit it'
-                 f' ({len(table)} entries now; a comment edit can drop a key that only a comment held)')
+                 f' ({len(table)} entries now)')
     print(f'{out.relative_to(root)}: the committed table is a fresh generation ({len(table)} entries)')
     sys.exit(0)
 out.write_text(text)
