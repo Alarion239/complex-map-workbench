@@ -1,4 +1,4 @@
-// v16.4 release smoke: v16.3's (notes/v16.3-candidate/evidence/smoke_cmd.js, sections 1 to 11) plus v16.4's pieces:
+// Release smoke, sections 1 to 11 plus these pieces:
 // 0b the tour started from the first-run card in the docked strip; 6 the Draw step ticks and moves on by itself about
 // 3 s later; 6c the Sound chapter's Grieg step plays; 8 sin √z with All sheets in Landscape while the deformation plays;
 // 10b a hyperbolic line made with Inside (an arc inside the unit circle); 12 the corrected Help sentence. Earlier text:
@@ -63,7 +63,7 @@ ok('fix deform_range_fps: no :has() rule on a style attribute (--at) in the page
 await shot(`${tag}_1_start`);
 const l0 = errs(logs());
 ok('load: no console errors or warnings', l0.length === 0, l0.slice(0, 6));
-// 0b. (v16.4 tour r3) a fresh profile shows the first-run card; its Start opens Basics in the docked strip: on a
+// 0b. a fresh profile shows the first-run card; its Start opens Basics in the docked strip: on a
 // desktop the stage's first row, on a phone (portrait) the row under the header. No pop-up card; clear of both planes
 {
   let sg = -1;
@@ -127,7 +127,7 @@ ok('section 1: no console errors or warnings', lA.length === 0, lA.slice(0, 6));
 
 // 2. the deformation range: [√z, f] with f1 alone deforms from f(z) to f(√z) (H_t = f2 ∘ G_t); then f2 alone, a
 // push-forward of f1's image (H_t = G_t ∘ f1). Desktop: the bracket from the saved state; phone: the Display sheet's
-// Deformed steps selects, whose 'from …' line must follow (review v16 verify-1)
+// Deformed steps selects, whose 'from …' line must follow
 {
   const steps = [{ type: 'custom', params: { expr: '\\sqrt{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2+z', cut: 180 }, on: true }];
   const shapes = [{ id: 's1', kind: 'rect', a: [-1.5, -1.2], b: [1.5, 1.2] }];
@@ -205,8 +205,8 @@ ok('section 2: no console errors or warnings', lB.length === 0, lB.slice(0, 6));
 const lB2 = errs(logs());
 ok('section 2b: no console errors or warnings', lB2.length === 0, lB2.slice(0, 6));
 
-// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane,
-// review v16 verify-7) with Listen; Listen plays the piece along the spiral (its harp counts the notes)
+// 3. the Mountain King example: opened from the gallery, its hint sits in X's note chip (not a toast over the plane)
+// with Listen; Listen plays the piece along the spiral (its harp counts the notes)
 {
   await openNs('smkm' + tag + Date.now(), { shapes: [], steps: [] });
   if (!phone) { await click(700, 12); } else { await touch(200, 12); }
@@ -349,7 +349,7 @@ ok('section 5: no console errors or warnings', l1.length === 0, l1.slice(0, 8));
 const lE = errs(logs());
 ok('section 6-7: no console errors or warnings', lE.length === 0, lE.slice(0, 6));
 
-// 6c. (v16.4 tour r3) the Sound chapter's Grieg step: Listen in the strip plays the piece along the curve; the caption
+// 6c. the Sound chapter's Grieg step: Listen in the strip plays the piece along the curve; the caption
 // follows it (0 s, then the drum at 8.9 s); a stop past 9 s counts, and the tour moves on about 3 s later
 {
   await openNs('smkg' + tag + Date.now(), { shapes: [], steps: [] });
@@ -389,7 +389,7 @@ ok('section 6c: no console errors or warnings', lE2.length === 0, lE2.slice(0, 6
   await openNs('smks8' + tag + Date.now(), { shapes: [{ id: 's1', kind: 'rect', a: [-3, -3], b: [3, 3] }], steps, pattern: 'checker', srcView: { cx: 0, cy: 0, s: 60 }, view: { main: 'land' }, sheets: true, height: 'im', homRange: { a: 1, b: 1 }, loop: true });
   await press('#viewSwitch [data-mode="land"]'); await sleep(1500); await settle(300);
   await press('#morphBtn'); await sleep(1500); await settle(300);
-  // (v16.4 walls) while the deformation plays (Loop on): it plays, the frames (after the first-open stalls the user
+  // (walls) while the deformation plays (Loop on): it plays, the frames (after the first-open stalls the user
   // accepted), two pictures of the walls while moving
   const isPlaying = () => ev(`/^(Pause|Пауза)$/.test((document.getElementById('morphPlay') || { getAttribute: () => '' }).getAttribute('aria-label') || '')`);
   if (!(await isPlaying())) { await ev(`document.getElementById('morphPlay').click(); 1`); await sleep(300); }
@@ -550,7 +550,7 @@ ok('section 10: no console errors or warnings', lH.length === 0, lH.slice(0, 6))
 const lI = errs(logs());
 ok('section 11: no console errors or warnings', lI.length === 0, lI.slice(0, 6));
 
-// 10b. (v16.4 hyperbolic lines) Perpendicular circle with Inside on the chip, on the shown unit circle, through two
+// 10b. (hyperbolic lines) Perpendicular circle with Inside on the chip, on the shown unit circle, through two
 // points inside: an arc (seg 1) whose ends are on |z| = 1, whose middle is inside, on the circle through both points
 // at right angles to the unit circle
 const circ3 = (a, b, c) => { const [ax, ay] = a, [bx, by] = b, [cx, cy] = c; const d = 2 * (ax * (by - cy) + bx * (cy - ay) + cx * (ay - by)); const ux = ((ax * ax + ay * ay) * (by - cy) + (bx * bx + by * by) * (cy - ay) + (cx * cx + cy * cy) * (ay - by)) / d; const uy = ((ax * ax + ay * ay) * (cx - bx) + (bx * bx + by * by) * (ax - cx) + (cx * cx + cy * cy) * (bx - ax)) / d; return { c: [ux, uy], r: Math.hypot(ax - ux, ay - uy) }; };
@@ -584,7 +584,7 @@ const circ3 = (a, b, c) => { const [ax, ay] = a, [bx, by] = b, [cx, cy] = c; con
 const lH2 = errs(logs());
 ok('section 10b: no console errors or warnings', lH2.length === 0, lH2.slice(0, 6));
 
-// 12. (v16.4 Help fix) the Help's Deformation paragraph: polynomials are zoomed into (no "zeros one by one"); H_t is
+// 12. the Help's Deformation paragraph: polynomials are zoomed into (no "zeros one by one"); H_t is
 // analytic for every t only for an analytic step; the straight line also for an analytic formula with no zoom centre
 {
   await openNs('smkhelp' + tag + Date.now(), { shapes: [], steps: [] });

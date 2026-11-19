@@ -7,6 +7,8 @@
       svSphere: () => svSphereKey(), svOnSphere: () => (SV.on ? SV.surf === 'sphere' : null),
       showPanels: (ph) => { if (ph) { setHidden('L', false); setHidden('R', false); } else { setHidden('L', dockPref.L); setHidden('R', dockPref.R); } applyLayout(); requestRender('P'); },
       resize: () => { onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); },
+      // (the planes' labels placed again, in full: they keep off the controls where these have stopped)
+      relabel: () => requestRender('L', 'R'),
       // (build/phone-swap.md: a plane's own view, the one it draws (X's leftView(), Y's V.right), its pane's
       // width, and whether the app fits it itself (Y's auto fit, X's at a focused step); setView writes that view)
       // (land: a running tween on that view ends at its target first)
