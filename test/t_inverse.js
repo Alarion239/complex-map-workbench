@@ -1057,10 +1057,13 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
     }
   }
-  // root, powa, log and z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|): exact ops (no
-  // Newton), and every z of a cut plane's sheet is among its w's preimages by them
+  // root, powa, log, z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|) and the zooms about
+  // a point other than 0 (cos, arccos, cosh, arcosh, and cos(z) as a formula): exact ops (no Newton), and every z of a
+  // cut plane's sheet is among its w's preimages by them
   const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }],
-    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }]];
+    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }], ['cos', {}], ['arccos', {}], ['cosh', {}], ['arcosh', {}], ['custom', { expr: 'cos(z)', cut: 180 }]];
+  // (an additive family's members: its bases shifted by m periods, |m| <= ADD_M)
+  const ADD_M = 2;
   for (const [type, params] of exact) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1074,7 +1077,9 @@ section('singularAfter (ζ after an injective plan)');
         e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
         let us = [v];
         // (a log family's members: m about its range, kept when the member's lambda lies in it)
-        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12) : o.pre(x));
+        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12)
+          : o.fam && o.fam.type === 'add' ? o.fam.bases(x).flatMap((base) => [...Array(2 * ADD_M + 1).keys()].map((j) => o.fam.member(x, 0, j - ADD_M, base)))
+            : o.pre(x));
         for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => pre(h.ops[i], x).map((m) => m.u));
         if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
       }
@@ -1116,9 +1121,9 @@ section('singularAfter (ζ after an injective plan)');
   }
   // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
   // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
-  // Repeated cos (len 1, N = 3: cos, cos, cos) at t = 0.5 and 0.8, and the block [exp, cos] twice (len 2: cos, exp, cos)
-  // at t = 0.2 and 0.9
-  for (const [steps, ts] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], [0.5, 0.8]], [[{ type: 'exp' }, { type: 'cos', repeat: { n: 2, len: 2 } }], [0.2, 0.9]]]) {
+  // Repeated inverse Joukowski (len 1, N = 3: three times) at t = 0.5 and 0.8, and the block [exp, inverse Joukowski]
+  // twice (len 2: inverse Joukowski, exp, inverse Joukowski) at t = 0.2 and 0.9
+  for (const [steps, ts] of [[[{ type: 'ijouk', repeat: { n: 3, len: 1 } }], [0.5, 0.8]], [[{ type: 'exp' }, { type: 'ijouk', repeat: { n: 2, len: 2 } }], [0.2, 0.9]]]) {
     const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st))), b = built[built.length - 1], block = b.repeat.block;
     for (const t of ts) {
       const news = Inverse.homOps(b, t).ops.filter((o) => o.kind === 'NEWT'), bad = [];

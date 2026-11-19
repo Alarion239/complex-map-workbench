@@ -19,6 +19,8 @@ const Inverse = (() => {
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
   const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
+  // the centres of cosh's zoom (arsinh 1, where cosh' = 1 and cosh = √2) and arcosh's (√2), as NatPaths.ZOOM takes them
+  const SQ2 = Math.SQRT2, ASH1 = Math.log(1 + SQ2);
   // budgets (SPEC 3.1)
   const LEAF_CAP = 64, WIN_MAX = 17, MIN_WIN = 9, OPS_MAX = 16, POLY_MAX = 64, M_MAX = 2 ** 20, RAMP = 1;
   const LAM_CUT = 60;          // |Re Λ| beyond which shapes are tested by the Λ rule (4.3)
@@ -1669,6 +1671,18 @@ const Inverse = (() => {
     }
     if (nat && nat.kind === 'zoom' && ['sin', 'sinh', 'tan', 'tanh', 'arcsin', 'arsinh', 'arctan', 'artanh'].includes(nat.fn)) {
       return { ok: true, ops: [aff(T, ZERO), ...own.ops, aff(C(1 / t, 0), ZERO)] };
+    }
+    // the zooms whose centre is not 0 (NatPaths.ZOOM), each f between two affine maps. cos and arccos turn by e^{iπt}
+    // about a point where f' = -1, and are inverted by sin's and arcsin's ops, whose small arguments at small t keep
+    // their digits (sin(t(z - π/2)) for cos, arcsin(tz) for arccos); cosh about arsinh 1 and arcosh about √2 by their own
+    if (nat && nat.kind === 'zoom' && ['cos', 'arccos', 'cosh', 'arcosh'].includes(nat.fn)) {
+      const e = C(Math.cos(PI * t), Math.sin(PI * t)), et = scale(e, 1 / t);
+      switch (nat.fn) {
+        case 'cos': return { ok: true, ops: [aff(T, C(-t * HPI, 0)), opSin(), aff(et, C((1 - t) * HPI, 0))] };
+        case 'arccos': return { ok: true, ops: [aff(T, ZERO), opAsin(), aff(et, C(t * HPI, 0))] };
+        case 'cosh': return { ok: true, ops: [aff(T, C((1 - t) * ASH1, 0)), ...own.ops, aff(C(1 / t, 0), C((1 - t) * ASH1 + t * SQ2 - SQ2 / t, 0))] };
+        default: /* arcosh */ return { ok: true, ops: [aff(T, C((1 - t) * SQ2, 0)), ...own.ops, aff(C(1 / t, 0), C((1 - t) * SQ2 + t * ASH1 - ASH1 / t, 0))] };
+      }
     }
     if (nat && nd && ((nat.kind === 'gzoom' && t >= nd.t0) || nat.kind === 'ratzoom')) {
       const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);

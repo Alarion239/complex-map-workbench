@@ -62,6 +62,7 @@ const VIEWS = {
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glide_negpow_cmd.js': steps(),
+  'steps_glide_closed_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
