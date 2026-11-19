@@ -9,9 +9,19 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const ready = () => settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(".sv-rail")' });
+// the page's prestart has asked for the glide's programs (svReady's programs part counts more than the one it counts
+// before any is asked for): from then on a program not held may link at any moment; polled, not the kit's settled, which
+// waits for the pane's compiles too
+const started = () => ev(`(async () => {
+  const s = () => { const p = __cmwSteps().ready.parts.programs; return !!p && p.total > 1 && p.done === p.total; };
+  const t = performance.now() + 60000;
+  while (!s() && performance.now() < t) await new Promise((r) => setTimeout(r, 50));
+  return s();
+})()`);
 await view(1200, 800, false, false);
 await go(`http://localhost:${PORT}/test.html?view=steps&ns=lh${Date.now()}&lang=en`);
 await ready();
+ok('the page\'s prestart asked for the glide\'s programs', await started(), null);
 await ev('GLR.holdLinks(true), 1');
 await hold(0.5, false);
 const held = await ev('(() => { const g = __cmwSteps().glide; return { x: __cmwSvX(), pending: GLR.pendingLinks, glide: g ? { u: g.u, path: g.path, reason: g.reason } : null }; })()');
