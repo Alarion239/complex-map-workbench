@@ -79,6 +79,8 @@ await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove(); 1`)
 await open('c');
 await ev(`${ROW}.focus(); 1`);
 await key('Enter'); await settled({ only: true, max: SETTLE_MS, until: `${ROW}.getAttribute('aria-pressed') === 'true'` });
+// (the Inspector opens for the selection a moment after the row's press: wait for its field)
+await settled({ only: true, max: SETTLE_MS, until: `!!document.querySelector('.sh-insp .field.cxf input')` });
 const typed = await ev(`(() => { const i = document.querySelector('.sh-insp .field.cxf input'); if (!i) return false; i.focus(); i.value = '1+0.5i'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); return true; })()`);
 ok('the Inspector has the w field for the selected target', typed, typed);
 ok('the typed value moved the target', JSON.stringify(await target()) === JSON.stringify([1, 0.5]), await target());
