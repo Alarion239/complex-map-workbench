@@ -101,6 +101,29 @@ for (const [w, h, lang, surf] of CASES) {
       const free = (await geometry()).keys.filter((k) => k.shown && !inside(k) && !k.press).map((k) => k.name);
       ok(`${name}: with the colour key unfolded, a press at the centre of each plane key it does not cover reaches it`, free.length === 0, free);
     }
+    // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
+    // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
+    // page call so the probe cannot rewrite it, and measured at once; the globe's hint card has its own rule)
+    if (!open && surf === 'plane') {
+      const ro = await ev(`(() => {
+        const e = document.getElementById('leftReadout'); if (!e) return null;
+        const html = e.innerHTML; e.textContent = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';
+        const r = e.getBoundingClientRect(), shown = e.getClientRects().length > 0; e.innerHTML = html;
+        return shown ? [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10) : null;
+      })()`);
+      info[`${name} long readout`] = ro;
+      ok(`${name}: a long readout is shown and stops short of the folded colour key's hit area`, !!ro && ro[2] <= lg[0] - HIT_PX + SLACK, { ro, lg });
+    }
+  }
+  if (surf === 'sphere') {
+    // the hint card stays clear of the globe's disk (phone_hint_globe_cmd's rule), with the tall bar in
+    const m = await ev(`(() => {
+      const cv = document.getElementById('canvasL').getBoundingClientRect(), R = __cmwGlobeDisk('L').R, ch = document.getElementById('leftReadout').getBoundingClientRect();
+      const cx = cv.left + cv.width / 2, cy = cv.top + cv.height / 2, nx = Math.max(ch.left, Math.min(cx, ch.right)), ny = Math.max(ch.top, Math.min(cy, ch.bottom));
+      return { R: Math.round(R), chip: [ch.left, ch.top, ch.right, ch.bottom].map(Math.round), gap: Math.round(Math.hypot(nx - cx, ny - cy) - R), shown: ch.width > 0 };
+    })()`);
+    info[`${name} hint`] = m;
+    ok(`${name}: the hint card is clear of the globe's disk (gap >= 0 px)`, m.shown && m.gap >= 0, m);
   }
 }
 // the classic view's Y has the same state at 320 px tall: its Regions key, unfolded under the tall bar, stands over Y's keys, and no point of it
