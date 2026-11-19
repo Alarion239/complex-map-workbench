@@ -64,6 +64,7 @@ const VIEWS = {
   'steps_glide_negpow_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
+  'steps_negpow_glide_cmd.js': steps({ pin: true }),
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_sheets_readback_cmd.js': steps(),
