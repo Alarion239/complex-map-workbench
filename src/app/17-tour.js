@@ -2,18 +2,24 @@
   // The adapter the tour drives: where things are, the user's work (snapshot, restore, the paused autosave), the tour's
   // scenes and looks, and the events that tick its Try its. tourWire() runs at the end of init().
   const tourL = {};
-  let tourSplit = false;   // v15.2: the tour's stop shows the Inspector's split offer (its scene sets split: true)
+  let tourSplit = false;   // the tour's stop shows the Inspector's split offer (its scene sets split: true)
   let tourHold = false;   // the autosave is paused while a tour borrows the canvas: writeState writes nothing
   let tourDrawer = false; // the tour opened the left drawer for a step (a narrow desktop): the next step closes it
-  let tourPics = null;    // v16.1: the chain's Pictures | Names and height before a tour step turned its pictures on
+  let tourPics = null;    // the chain's Pictures | Names and height before a tour step turned its pictures on
   let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
+  // a shape or target moved (a drag's end, a nudge by the arrow keys): a target, or a shape drawn on a later plane of the
+  // steps view, is on a w plane
+  function tourShapeMoved(id, target, shape) {
+    const sh = shape || S.shapes.find((x) => x.id === id);
+    tourEmit('shape-moved', { id, plane: target || shapeStage(sh) > 0 ? 'w' : 'z' });
+  }
   function tourEmit(ev, p) {
     const fs = tourL[ev];
     if (fs) for (const f of fs.slice()) { try { f(p); } catch (e) { console.warn('[tour] event', ev, e); } }
   }
-  // (v16.4) the end of the user's pan, zoom or orbit: pane 'P' is the one wide panel of Phase and Landscape
+  // the end of the user's pan, zoom or orbit: pane 'P' is the one wide panel of Phase and Landscape
   function tourViewMoved(side, how) {
     if (!tourL['view-moved']) return;
     tourEmit('view-moved', { pane: S.view && S.view.main !== 'xy' ? 'P' : side === 'R' ? 'R' : 'L', how });
@@ -86,7 +92,7 @@
   function tourDragEnd(d) {
     if (!d) return;
     const id = d.shape && typeof d.shape === 'object' ? d.shape.id : d.shape;
-    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourEmit('shape-moved', { id, plane: d.target ? 'w' : 'z' });
+    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourShapeMoved(id, d.target, d.shape && typeof d.shape === 'object' ? d.shape : null);
     else if (d.mode === 'zp' && d.moved && !d.off) tourEmit('zp-moved', { kind: String(d.kind).replace(/s$/, ''), i: d.i });
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }
@@ -108,7 +114,7 @@
       },
     };
   }
-  // v15: the phone layout (src/phone.js) is on: its sheets and its large plane
+  // the phone layout (src/phone.js) is on: its sheets and its large plane
   const tourPhone = () => Phone.isOn && Phone.isOn();
   // put the user's work back in place (opt.fromStash: after a reload or a crash, from the persisted state only)
   function tourRestore(sn, opt) {
@@ -166,7 +172,7 @@
   // a scene of the tour, in the format of EX: loaded as an example is, without the Examples label or currentExample
   function tourLoadScene(spec) {
     if (!spec || !Array.isArray(spec.steps) || !spec.steps.every((st) => st && Funcs.DEFS[st.type])) return false;
-    // (v15: a scene brings its own shared numbers, none unless it says so; restore() brings the user's back)
+    // (a scene brings its own shared numbers, none unless it says so; restore() brings the user's back)
     setParams(Array.isArray(spec.params) ? JSON.parse(JSON.stringify(spec.params)) : []);
     loadExample(-1, Object.assign({ shapes: [], view: { cx: 0, cy: 0, s: 60 } }, spec));
     paramsRestored();
@@ -182,7 +188,7 @@
     if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
     if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // (v16.4) the Phase key of Y, and the phase sectors (Tiles' 30° lines)
+    // the Phase key of Y, and the phase sectors (Tiles' 30° lines)
     if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
@@ -190,7 +196,7 @@
     save();
   }
   const tourApi = {
-    // the tour's own map fits this markup (INTEGRATION.md, Anchors); v15: F's formula, guarantees, domain and step table
+    // the tour's own map fits this markup (INTEGRATION.md, Anchors); F's formula, guarantees, domain and step table
     // are in the Inspector with the F tile selected, so asking for them selects F (and draws the Inspector at once)
     anchor: (name) => {
       if (!['composite', 'guarantees', 'domain', 'matrix'].includes(name)) return undefined;
@@ -204,7 +210,7 @@
     restore: tourRestore,
     // on: write any pending save now, then pause the autosave; off: resume it (restore has put the work back)
     sandbox(on) { if (on) { if (!tourHold) writeState(); tourHold = true; } else { tourHold = false; tourSplit = false; save(); } return true; },
-    // v15.2: the current stop shows the Inspector's split offer (its split: true); every other stop hides it
+    // the current stop shows the Inspector's split offer (its split: true); every other stop hides it
     splitOffer: (on) => { if (tourSplit !== !!on) { tourSplit = !!on; requestRender('P'); } return true; },
     // v16.1 (user 5): a step about the cards' pictures shows them: Pictures rather than Names, and a chain shorter than
     // Pictures needs (140 px, the gutter's own rule) at Pictures' 188 px; off, the user's setting comes back (unless they
@@ -256,20 +262,20 @@
     soundPlaying: () => !!(snd.play || snd.prep),
     soundState: () => ({ on: !!sndP.on, events: !!sndP.events, sonify: !!sndP.sonify, audio: SND ? SND.state().audio : 'none', playing: !!(snd.play || snd.prep) }),
     setView: (main) => setMain(main),
-    // (#442: the steps view's chapter "Planes" puts the view where its step needs it)
+    // (the steps view's chapter "Planes" puts the view where its step needs it)
     svPlace: (o) => svTourPlace(o),
     setSurface: (pane, surf) => setView(pane === 'R' ? 'R' : 'L', surf),
     setDeformation: (on) => { if (on) { if (!morph.open) openTransport(); } else closeTransport(); },
-    // (v16: a scene's bracket; null: every step)
+    // (a scene's bracket; null: every step)
     setRange: (r) => { setHomRange(r && Number.isInteger(r.a) && Number.isInteger(r.b) ? { a: r.a, b: r.b } : null); return true; },
     setTool: (id) => { if (TOOLS.some((t) => t[0] === id)) setTool(id); },
     focusStep: (k) => { k = Math.max(0, Math.min(S.steps.length, k | 0)); if (k !== S.focus) setFocus(k); },
-    // (v15: on a phone the right panel is the Editor sheet, the Inspector)
+    // (on a phone the right panel is the Editor sheet, the Inspector)
     // ['panel', 'left', sheet]: the left panel, or on a phone the sheet that holds that part of it ('tools': the
     // shapes and the formula; 'display': the regions' display); a drawer the tour opened closes with the next step's closeSheet.
     // ['panel', 'sheet', k]: a phone's sheet k only (the Display sheet holds the large plane's options and, while the
     // deformation shows, its order); nothing elsewhere
-    // (r3 review regress-2) early: a chapter's start opens the side panel one of its steps docks, so the stage keeps
+    // early: a chapter's start opens the side panel one of its steps docks, so the stage keeps
     // one place through the chapter; a drawer or a phone's sheet, which would cover the work area, waits for its step
     showPanel: (side, sheet, early) => {
       // ('steps': the deformation bar's Steps picker, which holds the order, Loop and the range, opens over the bar;
@@ -282,7 +288,7 @@
         return;
       }
       if (side === 'sheet') return;
-      // ([v17 D4; #247] the regions' display is behind Y's Regions button on the laptop: its step opens that popover, which
+      // (the regions' display is behind Y's Regions button on the laptop: its step opens that popover, which
       // is the step's own layer, as a phone's sheet is: it carries the step's id (data-tour-layer), and the next step that
       // does not ask for it closes it, closeSheet)
       if (side === 'left' && sheet === 'display') {
@@ -298,7 +304,7 @@
         setPanels(side === 'right' ? S.hideLeft : false, side === 'right' ? false : S.hideRight);
       }
     },
-    // v15: select a step (or 'F') for the Inspector; on a phone, which plane is the large one; close a phone's sheet
+    // select a step (or 'F') for the Inspector; on a phone, which plane is the large one; close a phone's sheet
     selectStep: (k) => { if (!S.steps.length) return false; k = k === 'F' ? 'F' : Math.max(1, Math.min(S.steps.length, k | 0)); selectStep(k); renderProps(); return true; },
     showPlane: (pane) => { if (tourPhone() && (pane === 'L' || pane === 'R') && Phone.big() !== pane) Phone.swap(); },
     closeSheet: () => {
@@ -329,7 +335,7 @@
     busy: () => !!(draft || drag || selected || modeNext() || zpSel || padEl || snd.play || snd.kloop || ($('toolMore') && $('toolMore').open) || (isDrawer('L') && !S.hideLeft) || (isDrawer('R') && !S.hideRight)),
     // a menu, the palette, the coordinate pad or a dialog is open: Escape and Tab are theirs
     layerOpen: () => !!(popEl || padEl || document.querySelector('#popHost > .pop, .modal-bg, [popover]:popover-open')),
-    // v15's layers, which the callout keeps clear of and the rings are masked off: the popovers (#popHost: the palette,
+    // the layers, which the callout keeps clear of and the rings are masked off: the popovers (#popHost: the palette,
     // the menus, the planes' menu, the integral and options popovers, the pad), a dialog, the sound settings, the top
     // layer (the header's More menu), a phone's sheet and an overlay drawer (the tour skips one that holds its anchor)
     layers: () => {
@@ -340,7 +346,7 @@
     },
     hasWork: () => tourHadWork,
     // a tour starts: the coordinate pad edits a card of the user's chain, which the tour's scenes replace
-    // (r3 review regress-7: a phone's sheet geometry, written by the sheets the tour's steps open, goes when the tour
+    // (a phone's sheet geometry, written by the sheets the tour's steps open, goes when the tour
     // ends if it was not there before it; a sheet opened later measures itself again)
     onTour: (on) => {
       const st = document.documentElement.style;
@@ -353,7 +359,7 @@
   function tourWire() {
     // the events the app sends from delegated listeners: t scrubbed
     document.addEventListener('input', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg && tg.id === 'morphRange') tourEmit('deformation-t', { t: morph.T }); });
-    tourSoundRecover();       // (v16.4) and the sound settings its Sound chapter held
+    tourSoundRecover();       // and the sound settings its Sound chapter held
     Tour.init(tourApi);       // also puts the user's work back if a tour was cut short by a reload or a crash
     if (!NS) Tour.suggest();  // the first-run card; never under ?ns= (tests and golden images stay as they are)
   }
