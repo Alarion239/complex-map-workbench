@@ -1,8 +1,9 @@
 // The steps view's video export beyond the frames (export_glide_cmd.js checks those): the WebM fallback where H.264 cannot
 // be encoded, a video that keeps nothing unless a test asks, the lecture pace of videoTimes(), the dark theme (no frame
-// rebuilds the app), and the Export dialog's Video format: its options, the summary line, Save video with its progress, no
-// long task, Cancel, the narrow phones, and the dialog's video preview (it plays at the video's frame rate, its frame k is
-// the saved video's frame k). The classic views' deformation export is export_deform_classic_cmd.js.
+// rebuilds the app), and the Export dialog's Video format: its options, the summary line, Save video with its progress
+// (focus on Cancel while it runs, on Save video after), no long task, Cancel, the narrow phones, and the dialog's video
+// preview (it plays at the video's frame rate, its frame k is the saved video's frame k). The classic views' deformation
+// export is export_deform_classic_cmd.js.
 // CMW_ONLY names one part (the CI runs each: ci/browser_suites.js): 'video' (the first four), 'dialog', 'preview'; with none
 // every part runs. Writes its files to test/regress/export/out/. A command file for a CDP daemon (test/cdp_kit README).
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
@@ -29,6 +30,8 @@ const open = async (exN, w = 1440, h = 900, dark = false) => {
   await ev(`(() => { window.__saved = []; const click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__saved.push({ name: this.download, href: this.href }); return; } return click.call(this); }; return 1; })()`);
 };
 const dlg = async () => { for (let i = 0; i < 120; i++) { await sleep(150); if (await ev(`(() => { const d = __cmwFig.dialog(); return !!(d && d.fig && !d.building); })()`) === true) return true; } return false; };
+// (in the page) the id of the element with focus, or its tag when it has none ('BODY': focus left the dialog)
+const FOCUSED = `(document.activeElement && (document.activeElement.id || document.activeElement.tagName))`;
 const longTasksOn = () => ev(`(() => { window.__lt = []; window.__po = new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push(Math.round(e.duration)); }); window.__po.observe({ entryTypes: ['longtask'] }); return 1; })()`);
 const b64 = `const u8 = new Uint8Array(await r.blob.arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000));`;
 
@@ -93,8 +96,12 @@ if (part('dialog')) {
   const nameWas = await ev(`document.getElementById('xfName').value`);
   await clickSel('#xfVideo');
   let sawProg = false;
-  for (let i = 0; i < 300; i++) { await sleep(200); if (!sawProg) sawProg = await ev(`!document.querySelector('.xf-prog').hidden && /Frame \\d+ of \\d+/.test(document.querySelector('.xf-progtxt').textContent)`); if (await ev('window.__saved.length > 0')) break; }
-  q = await ev(`({ saved: window.__saved.map((s) => s.name), after: document.querySelector('.xf-after2').textContent, lt: window.__lt })`);
+  // (the element with focus while the frames are made, read once the progress shows)
+  let focusDuring = null;
+  for (let i = 0; i < 300; i++) { await sleep(200); if (!sawProg) { sawProg = await ev(`!document.querySelector('.xf-prog').hidden && /Frame \\d+ of \\d+/.test(document.querySelector('.xf-progtxt').textContent)`); if (sawProg) focusDuring = await ev(FOCUSED); } if (await ev('window.__saved.length > 0')) break; }
+  await settled({ until: `document.querySelector('.xf-prog').hidden && !document.getElementById('xfVideo').disabled`, max: 10000, panes: false });
+  q = await ev(`({ saved: window.__saved.map((s) => s.name), after: document.querySelector('.xf-after2').textContent, lt: window.__lt, focus: ${FOCUSED} })`);
+  ok('Save video: while the frames are made, focus is on Cancel; afterwards on Save video, which says it is saved', focusDuring === 'xfVCancel' && q.focus === 'xfVideo', { focusDuring, focus: q.focus });
   ok('Save video: a progress bar, then the .mp4 (H.264, 1280 x 720, 30 fps)', sawProg && q.saved.includes(nameWas + '.mp4') && /1280 × 720, 30 fps/.test(q.after) && /H\.264/.test(q.after), { nameWas, q });
   ok('Save video in the dialog: no main-thread task of 50 ms or more', !q.lt.some((d) => d >= 50), q.lt);
   await ev('window.__saved.length = 0; 1');
@@ -112,6 +119,29 @@ if (part('dialog')) {
   q = await ev(`({ saved: window.__saved.map((s) => s.name) })`);
   ok('Cancel stops the video: nothing saved', q.saved.length === 0, q);
   ok('after Cancel the options are free again', await ev(`[...document.querySelectorAll('#xfVideoBox button, #xfVideoBox select, #xfVideoBox input')].every((e) => !e.disabled)`), null);
+  ok('after Cancel focus is back on Save video', await ev(FOCUSED) === 'xfVideo', await ev(FOCUSED));
+  // Enter held on Save video (the long video above): the press starts the video and gives Cancel the focus, and the key's
+  // auto-repeats (CDP autoRepeat keydowns, as a held key sends them) land on Cancel, which ignores them: the video goes on
+  // (its meter moves on after the key is let go). Cancel is described by the meter (aria-describedby)
+  const enter = (repeat) => send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13, text: '\r', unmodifiedText: '\r', autoRepeat: repeat });
+  await ev(`(() => { const t = window.__toastsNew = [], host = document.getElementById('toastHost');
+    if (host) new MutationObserver((ms) => { for (const m of ms) for (const n of m.addedNodes) t.push(n.textContent); }).observe(host, { childList: true, subtree: true });
+    document.getElementById('xfVideo').focus(); return 1; })()`);
+  await enter(false);
+  const onCancel = await settled({ until: `document.activeElement && document.activeElement.id === 'xfVCancel'`, max: 10000, panes: false });
+  for (let i = 0; i < 3; i++) { await enter(true); await sleep(40); }
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Enter', code: 'Enter', windowsVirtualKeyCode: 13 });
+  // (the meter's value as the key is let go; then the video either moves on or stops)
+  const meterAt = await ev(`+document.getElementById('xfVMeter').getAttribute('aria-valuenow')`);
+  const went = await settled({ until: `document.querySelector('.xf-prog').hidden || +document.getElementById('xfVMeter').getAttribute('aria-valuenow') > ${meterAt}`, max: 30000, panes: false });
+  q = await ev(`({ running: !document.querySelector('.xf-prog').hidden, focus: ${FOCUSED}, toasts: window.__toastsNew.slice(),
+    meter: +document.getElementById('xfVMeter').getAttribute('aria-valuenow'),
+    describedBy: document.getElementById('xfVCancel').getAttribute('aria-describedby'), meterRole: document.getElementById('xfVMeter').getAttribute('role') })`);
+  Object.assign(q, { onCancel: onCancel.ok, meterAt, went: went.ok });
+  ok('Enter held on Save video: its repeats on Cancel do not cancel the video', onCancel.ok && went.ok && q.running && q.meter > meterAt && q.focus === 'xfVCancel' && !q.toasts.some((t) => /cancelled/.test(t)), q);
+  ok('while the video is made, Cancel is described by its meter', q.describedBy === 'xfVMeter' && q.meterRole === 'progressbar', q);
+  await ev(`(() => { const b = document.getElementById('xfVCancel'); if (b && !b.closest('[hidden]')) b.click(); return 1; })()`);
+  for (let i = 0; i < 40; i++) { await sleep(150); if (await ev(`document.querySelector('.xf-prog').hidden`)) break; }
   for (const [w, h, dark] of [[760, 900, true], [360, 780, false], [360, 780, true]]) {
     await open(1, w, h, dark);
     await ev(`(() => { const s = __cmwFig.settings(); s.fmt = 'video'; __cmwFig.saveSettings(s); return 1; })()`);
