@@ -52,6 +52,11 @@ uniform int uShStage;
 // at 0). With the colours zero it is a band of alpha alone, for a mask. uTint: under them the shape's fill in colour
 // uTint.rgb at alpha uTint.a (none at 0), the steps view's layer of a later plane's region over the colour
 uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA; uniform vec3 uEdgeC; uniform float uEdgeCW; uniform float uEdgeCA; uniform vec3 uEdgeCC;
+// uEdgeDash (on, off, px): an open region's dashed boundary, stroked as a kind-16 curve whose vertices carry their arc at
+// rest (.w): the line is on along [0, on) of each period of the arc at the nearest point (ixArcQ) times px, in device px,
+// anti-aliased over 1 px at both ends as GLR.drawLines' dash is; the casing stays whole. on = 0: solid
+uniform vec3 uEdgeDash;
+float ixArcQ;
 uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
@@ -149,8 +154,9 @@ vec3 ixKindLevel(vec2 z) {
     if (kind != 16) q = curveNearAB(kind, uShA, uShB, z);
     else {
       int n = uShape.z, s = uShape.w, ng = (n + ${CURVE_GROUP - 2}) / ${CURVE_GROUP}, v = s + ng;
-      q = ixRec(v).xy;
-      float best = dot(z - q, z - q);
+      vec4 q0 = ixRec(v);
+      q = q0.xy;
+      float best = dot(z - q, z - q), arcQ = q0.w;
       for (int g = 0; g < ${INV_CURVE_MAX / CURVE_GROUP} * uIxOne; g++) {
         if (g >= ng) break;
         vec4 bx = ixRec(s + g);
@@ -161,11 +167,18 @@ vec3 ixKindLevel(vec2 z) {
           if (i >= n) break;
           vec4 b = ixRec(v + i);
           if (b.z > 0.5) continue;
-          vec2 c = segNear(z, ixRec(v + i - 1).xy, b.xy);
+          vec4 va = ixRec(v + i - 1);
+          vec2 c = segNear(z, va.xy, b.xy);
           float d = dot(z - c, z - c);
-          if (d < best) { best = d; q = c; }
+          if (d < best) {
+            best = d; q = c;
+            vec2 ab = b.xy - va.xy;
+            float L2 = dot(ab, ab);
+            arcQ = mix(va.w, b.w, L2 > 0.0 ? clamp(dot(c - va.xy, ab) / L2, 0.0, 1.0) : 0.0);
+          }
         }
       }
+      ixArcQ = arcQ;
     }
     float d = cx_abs(z - q);
     return d > 0.0 ? vec3(-d, (q - z) / d) : vec3(0.0, 1.0, 0.0);
@@ -739,7 +752,14 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
-  if (uEdgeOnly == 1 && s == s) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); ixFill = max(ixFill, clamp(s + 0.5, 0.0, 1.0)); }
+  if (uEdgeOnly == 1 && s == s) {
+    float on = 1.0;
+    if (uEdgeDash.x > 0.0) {
+      float dP = uEdgeDash.x + uEdgeDash.y, du = mod(ixArcQ * uEdgeDash.z, dP);
+      on = clamp(max(min(du, uEdgeDash.x - du), du - dP) + 0.5, 0.0, 1.0);
+    }
+    ixEdge = max(ixEdge, on * clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); ixFill = max(ixFill, clamp(s + 0.5, 0.0, 1.0));
+  }
 #endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
