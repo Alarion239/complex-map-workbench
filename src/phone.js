@@ -79,9 +79,9 @@ const Phone = (() => {
     // the Phase style, on the sheet's first row: its name shows as soon as the sheet opens, one tap opens its menu.
     // (in the flat Phase view the styles' own row of glyphs comes first and is one tap, so this row shows only in the
     // Landscape, where it says where the styles live; the sheet has no "This view" title)
-    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
+    els.style = h('button', { class: 'ph-style', type: 'button', hidden: true, 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: (e) => A.styleMenu(e.currentTarget, paintStyle) },
       h('span', { class: 'ph-ic', 'aria-hidden': 'true' }), h('span', { class: 'ph-rl' }), h('span', { class: 'ph-chev', 'aria-hidden': 'true', html: A.icons.chevR }));
-    els.body.display.append(els.style, els.viewOpts);
+    els.body.display.append(els.viewOpts);
     els.dispTip = tip(INFO, $t('Tip: Display changes the plane you opened it from; open it from the other plane for that plane\'s own options.'));
     els.editTip = tip(INFO, $t('Tip: Show alone pictures one step by itself in X and Y; a step\'s ⋯ menu has Replace with the inverse and Bypass this step.'));
     // the chain sheet's first row: Numbers
@@ -238,7 +238,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  function merged() { const p = $('panes'); return p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
+  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;
@@ -405,7 +406,7 @@ const Phone = (() => {
       kids = [text(st.name, st.used ? st.def + ' · ' + $t('Used by {n}', { n: st.used }) : st.def),
         btn('prim', $t('Edit'), () => open('tools', { tab: 'shapes', edit: st.id })),
         btn('', $t('Delete'), () => A.ctxAct('delete', st.id), st.used ? { 'aria-label': $t('Delete {label} and the {n} that use it', { label: st.name, n: st.used }) } : {}),
-        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu' })];
+        btn('ico', h('span', { 'aria-hidden': 'true', html: A.icons.more }), (a) => A.ctxAct('more', st.id, a), { 'aria-label': $t('More actions for {label}', { label: st.name }), 'aria-haspopup': 'menu', 'aria-expanded': 'false' })];
     } else if (st && st.kind === 'polygon') {
       kids = [text($t('Polygon'), String(st.n)),
         btn('', '⌫ ' + $t('Last'), () => A.ctxAct('last')),
@@ -761,11 +762,13 @@ const Phone = (() => {
   // and rows no group names go to the last (the overlays)
   const matches = (sel) => (k) => k.matches(sel), holds = (sel) => (k) => !!k.querySelector(sel);
   function displayGroups(kids) {
+    const land = kids.some((k) => k.matches('#viewSeg'));   // (the Landscape: Reset camera follows its View choice; elsewhere it has a group of its own)
     const groups = [
       { name: $t('Where colour shows'), rows: [matches('.sv-sheet-scope')] },
-      { name: $t('Colour style'), rows: [matches('.sty-seg, #landPaint')] },
+      { name: $t('Colour style'), label: '#landPaint', rows: [matches('.ph-style'), matches('.sty-seg, #landPaint')] },
       { name: $t('Style settings'), rows: [(k) => k.matches('.scrub, .field, .fader-row') && !k.querySelector('#lscaleRange, .sv-opacity')] },
-      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg')] },
+      { name: $t('Height'), label: '#heightSeg', rows: [matches('#heightSeg'), holds('#lscaleRange'), matches('#viewSeg'), (k) => land && matches('.cam-reset')(k)] },
+      { name: $t('View'), rows: [matches('.cam-reset')] },
       { name: $t('Opacity'), opacity: true, rows: [holds('.sv-opacity')] },
       { name: $t('Overlays'), rows: [] },
     ];
@@ -776,7 +779,8 @@ const Phone = (() => {
         const head = h('h3', { class: 'ph-h', id: 'phGrpH' + g }, grp.name);
         // the opacity group's one slider is named by the group's label, so the row shows no second "Opacity"
         if (grp.opacity) for (const r of ks) { const rng = r.querySelector('input.sv-opacity'); if (rng) { rng.setAttribute('aria-labelledby', head.id); r.classList.add('ph-named'); } }
-        // (a choice whose buttons name the kind alone, the Landscape's Height, is named by its group's label: said once)
+        // (a choice whose buttons name the kind alone, the Landscape's Height, or that the group's label names better than its own word, the
+        // Landscape's Colouring, is named by the group's label: said once)
         if (grp.label) for (const r of ks) if (r.matches(grp.label)) r.setAttribute('aria-labelledby', head.id);
         return h('section', { class: 'ph-grp' }, head, ...ks);
       });
@@ -796,7 +800,7 @@ const Phone = (() => {
     // More sheet has no room left for it at 360 px; page.html's #meshGroup)
     const mesh = $('meshGroup');
     const own = (name, box) => h('section', { class: 'ph-grp' }, h('h3', { class: 'ph-h' }, name), box);
-    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...kids, ...(unit ? [unit] : [])]),
+    els.viewOpts.replaceChildren(...(tn ? [h('div', { class: 'ph-tnote', role: 'note', 'data-tip': tn.tip }, tn.text)] : []), ...displayGroups([...(scope ? [scope] : []), ...(els.style.hidden ? [] : [els.style]), ...kids, ...(unit ? [unit] : [])]),
       ...(reg ? [own($t('Regions'), reg)] : []), ...(mesh ? [own($t('Quality'), mesh)] : []));
     els.body.display.append(els.dispTip);
   }
@@ -847,6 +851,7 @@ const Phone = (() => {
     const pcName = h('span', { class: 'ph-pv' }, A.palName());
     pc.insertBefore(pcName, pc.querySelector('.ph-chev'));
     pc.setAttribute('aria-haspopup', 'menu');
+    pc.setAttribute('aria-expanded', 'false');
     const lang = A.langPref();
     // the links, the scene files and the LaTeX are rows of this sheet (a desktop menu over the
     // plane would need a key a phone has not got); "… again" only once a figure is made
@@ -1034,10 +1039,10 @@ const Phone = (() => {
   return {
     init, open, close, chain, refreshDisplay: () => refreshDisplay(), swap: () => swap(), setBig, largeView, largeBox, hold, isOn: () => on, tab: (t) => { if (kind === 'tools') setTab(t); else toolTab = TOOL_TABS.includes(t) ? t : toolTab; }, tabOf, ctx, sheet: () => kind, big: () => big, nums: () => nums,
     geometry: () => { if (on) geometry(); },
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     _state: () => ({ on, land, big, kind, full, split: rootEl.classList.contains('ph-split') }),
     _kb: (h) => kbHeight(h),   // (a keyboard of h px, for the browser checks; headless Chrome has none)
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
   };
 })();
 import { $, h } from './util.js';
