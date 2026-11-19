@@ -300,6 +300,12 @@
     // (a press while it glides starts the next glide from where the picture is: no jump; 420 ms a plane, at most 900)
     // (the speed setting's time a plane, for at most two planes' worth when it crosses several)
     const per = SV_SPEEDS[SV.speed] || 900;
+    // (a press while the wait runs cancels it: on the button that shows it, that is all; elsewhere the new glide waits instead)
+    const btn = i > from ? SV.els.next : SV.els.prev;
+    if (SV.gate) { const same = SV.gate.btn === btn; svGateEnd(); if (same) return; }
+    // (the Landscape steps a plane at a time, with no frames between planes: an arrow or a plane of the strip there waits
+    // for nothing, and no wait holds back its at-rest refinement)
+    if (SV.surf !== 'land' && svGateNeeded()) { svGated(btn, () => svGo(i)); return; }
     SV.span = svSpanOf(from, i);
     SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
@@ -1815,7 +1821,8 @@
     cutMarksL = [];
     if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; } SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
-    if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
+    if (svGateDraws() || (svPaint() === 'push' && SV.surf === 'plane' && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
     svHeldOn = null;
     SV.core = 'still'; still(pane);
   }
@@ -2660,9 +2667,10 @@
       SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
-    // (the folded key on a phone loses its head's words: as an image it keeps a name; ux on #448)
-    const leg = $('leftLegend');
-    if (leg && leg.getAttribute('role') === 'img' && !leg.getAttribute('aria-label')) leg.setAttribute('aria-label', SV.surf === 'land' ? $t('Height key') : $t('Colour key'));
+    // (the folded key on a phone loses its head's words: as an image it keeps a name, the key's kind's, set again when the
+    // surface changes it; ux on #448. In a pane head the key's own words name it)
+    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key');
+    if (leg && ph && leg.getAttribute('role') === 'img' && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
     const tn = svTargetNote(), tnShow = !!tn && !ph;
     if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;
@@ -3413,7 +3421,7 @@
       if ((lk === 'k' || lk === 'm') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
       // (P: the paths, as in the classic deformation)
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
-      if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
+      if (e.key === 'Escape' && (SV.play || SV.gate || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; ← → always step the chain, the sound probe's arrows being Alt / Option +
       // arrow, except while a shape is selected, which they nudge while the focus is on a plane or a row of the Shapes list
       // (14-interaction.js))
@@ -3517,6 +3525,9 @@
   // meshes); while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
   // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
   // is not up; ready is true only when done = total > 0
+  // (test hook: the idle jobs count as unfinished while set)
+  let svJobsHold = false;
+  const svJobsHoldSet = (on) => { svJobsHold = !!on; };
   function svReady() {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
@@ -3524,6 +3535,7 @@
     parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
     let jobs = 0;
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
+    if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
     if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
     let done = 0, total = 0;
@@ -3673,12 +3685,13 @@
   }
   // ▶ and pause, the loop's state
   function svPlaySync() {
-    const E = SV.els, on = !!SV.play, label = on ? $t('Pause') : $t('Play');
+    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown && SV.gate.btn === E.play ? $t('Cancel') : on ? $t('Pause') : $t('Play');
     // (the pause is two bars, drawn: no glyph of the bundled faces)
-    if (E.play.dataset.on !== String(on)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
+    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
-    E.play.setAttribute('aria-pressed', String(on));
+    // (a plain button, Cancel, while the press waits: a "not pressed" toggle named Cancel would be read as one)
+    if (SV.gate && SV.gate.shown && SV.gate.btn === E.play) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
@@ -3693,8 +3706,111 @@
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
-  function svTogglePlay() { if (SV.play) svPause(true); else svPlay(); }
+  function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
+  // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
+  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; it polls
+  // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
+  // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
+  // again or Cancel cancels; nothing starts afterwards
+  const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
+  // the ring's fill while the gauge has no total yet
+  const SV_GATE_UNKNOWN_FILL = 0.25;
+  // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
+  // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
+  // layer: nothing to prepare
+  function svGateNeeded() {
+    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+  }
+  // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
+  let svGateOff = false;
+  const svGateOffSet = (off) => { svGateOff = !!off; };
+  // a press waits for the prestart (the test hook counts it as under way)
+  const svGateWaiting = () => !!SV.gate;
+  // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
+  const svGateDraws = () => !!SV.gate && SV.surf === 'plane' && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
+  // start() now, or once the chain is prepared; btn is the control the wait shows on
+  function svGated(btn, start) {
+    if (SV.gate) return;
+    if (!svGateNeeded()) { start(); return; }
+    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
+    svPrestartSoon(0);
+    if (svGateDraws()) requestRender('L');
+    svGateTick();
+  }
+  // (restart: Retry keeps the ring shown, with no pause before it)
+  function svGateRetry() {
+    const g = SV.gate;
+    if (!g) return;
+    const { btn, start } = g;
+    svGateEnd();
+    svGated(btn, start);
+    if (SV.gate) { SV.gate.shown = true; svGateSync(); }
+  }
+  function svGateEnd() {
+    const g = SV.gate;
+    if (!g) return;
+    clearTimeout(g.timer);
+    // (the keyboard user who acted in the message goes back to the control the wait is on, not to the page)
+    if (g.toast && g.toast.contains(document.activeElement)) g.btn.focus();
+    if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
+    SV.gate = null;
+    requestRender('L');
+    if (g.keep) {
+      g.btn.replaceChildren(...g.keep.kids);
+      for (const [k, v] of g.keep.attrs) { if (v == null) g.btn.removeAttribute(k); else g.btn.setAttribute(k, v); }
+    }
+    g.btn.toggleAttribute('aria-busy', false);
+    delete g.btn.dataset.wait;
+    g.btn.style.removeProperty('--wait');
+    if (g.btn === (SV.els && SV.els.play)) { delete g.btn.dataset.on; svPlaySync(); }
+  }
+  function svGateSync() {
+    const g = SV.gate;
+    if (!g || !g.shown) return;
+    const B = g.btn;
+    if (!g.keep) {
+      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
+      B.replaceChildren();
+      B.insertAdjacentHTML('beforeend', ICONS.close);
+    }
+    const r = svReady();
+    B.toggleAttribute('aria-busy', true);
+    B.dataset.wait = g.hung ? 'hung' : 'busy';
+    g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
+    B.style.setProperty('--wait', String(g.fill));
+    B.removeAttribute('aria-pressed');
+    B.setAttribute('aria-label', $t('Cancel'));
+    B.setAttribute('aria-description', $t('Preparing the glide…'));
+    B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
+  }
+  function svGateTick() {
+    const g = SV.gate;
+    if (!g) return;
+    if (svPlanes().length < 2) { svGateEnd(); return; }
+    if (!svGateNeeded()) { svGateEnd(); g.start(); return; }
+    const t = performance.now() - g.t0;
+    if (!g.shown && t >= SV_GATE_SHOW_MS) {
+      g.shown = true;
+      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
+    }
+    if (!g.hung && t > SV_GATE_HANG_MS) {
+      g.hung = true;
+      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
+      if (g.toast) {
+        g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
+        // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
+        const msg = g.toast, btn = g.btn;
+        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
+      }
+    }
+    svGateSync();
+    g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
+  }
   function svPlay() {
+    if (SV.play || svPlanes().length < 2) return;
+    svGated(SV.els.play, svPlayNow);
+  }
+  function svPlayNow() {
     const P = svPlanes();
     if (P.length < 2 || SV.play) return;
     const R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1;

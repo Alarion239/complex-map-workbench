@@ -1,4 +1,4 @@
-// v16.2 release smoke, the user's case with hooks (test.html): sin √z with √ bracketed, Landscape, All sheets, height
+// Release smoke, the user's case with hooks (test.html): sin √z with √ bracketed, Landscape, All sheets, height
 // Im. At t = 0 the drawn surfaces of H_0 = sin z coincide (one surface), at t = 1 they are sin √z and −sin √z (two):
 // __cmwLandSheets() for what is drawn and the CPU twin (Funcs.sheetMapEval of the deformation's map) on a 7 x 7 grid.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];

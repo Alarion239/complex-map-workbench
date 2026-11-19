@@ -134,7 +134,15 @@ const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
   const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
-  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: false, timeout, userGesture: true, replMode: true, objectGroup: group }, S);
+  let r;
+  try {
+    r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: false, timeout, userGesture: true, replMode: true, objectGroup: group }, S);
+  } catch (e) {
+    // (Chrome ends a page call that outruns the timeout with a bare -32603 "Internal error": named here, as a page exception is, with the limit)
+    const ms = Date.now() - t0;
+    if (/-32603/.test(String(e && e.message)) && ms >= timeout * 0.9) return { __exc: `ev: the page call outran its timeout of ${timeout} ms (Chrome answered -32603 Internal error after ${ms} ms)` };
+    throw e;
+  }
   if (r.exceptionDetails) return fail(r.exceptionDetails);
   const o = r.result;
   if (!o.objectId) return o.value;
