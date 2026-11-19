@@ -60,7 +60,9 @@
       // the description is the tooltip's second line (item 3: no hint line under the tools)
       ((group === 'construct' && cmGrid) || host).append(h('button', { class: 'tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, 'aria-pressed': String(tool === id), onclick: () => setTool(id), html: `${ICON[id]}<span>${tile || label}</span>` }));
       if (rail && group === 'construct' && id === 'circle3') rail.append(h('span', { class: 'rail-sep', 'aria-hidden': 'true' }));
-      if (rail) rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
+      // (the tablet rail keeps to the drawing tools: Pick, which shows only on some planes of the steps view, is in the
+      // drawer and on its key; the rail fits its height on a resize of the panel, not when a tool appears)
+      if (rail && id !== 'pick') rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
     }
     // a phone's tool tile (58 px) shows the name on one line: in Russian a short form where the full name,
     // which the desktop grid hyphenates, is wider than the tile (phone.js reads data-phl)
