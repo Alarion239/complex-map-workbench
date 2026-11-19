@@ -368,7 +368,7 @@
     }
     u4f(P, 'uMaskBox', m.box.x0, m.box.y0, m.box.x1 - m.box.x0, m.box.y1 - m.box.y0);
   }
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK (dropped from the published page by build.py)
   // (walls tests; test/landscape_walls_cmd.js) a float RGBA texture of w x h texels, read back
   function lwRead(tex, w, h) {
     if (!tex || !(w > 0) || !(h > 0)) return null;
@@ -421,7 +421,7 @@
     }
     return { land: L };
   }
-  // TEMP-DEBUG-HOOK
+  // TEST-HOOK
   // ---- adaptive refinement (REFINE; notes/landscape-walls/r2/AS-BUILT.md) ----
   // The levels come from the GPU (a pass of the height program); they are read back (a quarter of a float per cell)
   // and listed here, grouped by level, worst first within the budget; the refined vertices are a third pass of the
@@ -1192,11 +1192,11 @@
   }
   function drawLandscape(st) {
     if (!ok) return null;
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
     // the scene stands still, as the motion part measures it
     if (api._lw && api._lw.motion) st = Object.assign({}, st, { motion: true, full: false });
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     lvCollect();
     // the carried landscape while its programs compile: plane s's own surface at rest (st.map) stands in
     if (st.carry && !carryReady(st.carry.map)) st = Object.assign({}, st, { carry: null });
@@ -1251,10 +1251,10 @@
     const fitD = fitDist(landGeom(box, st.scale).radius, (st.cam && st.cam.fov) || 28 * Math.PI / 180, fw, fh, 1.05);
     const pxW0 = fh / (2 * Math.tan(0.5 * ((st.cam && st.cam.fov) || 28 * Math.PI / 180)) * fitD);
     const dbg = {};
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw: { noRef: the refinement off, minPx: its smallest triangle in px }
     Object.assign(dbg, api._lw || {});
-    // TEMP-DEBUG-HOOK
+    // TEST-HOOK
     // At rest (and in figures, films and exports) the scale is the camera's at the block's nearest point, when that is
     // nearer than the fitted distance (zoomed in, or the near side of the block in perspective): a finished zoom or
     // orbit rebuilds once. While something moves the fitted scale stands, and a mesh built at rest for the same heights

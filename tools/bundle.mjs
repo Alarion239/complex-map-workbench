@@ -11,7 +11,7 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const { source, parts } = require(path.join(ROOT, 'test', 'src_text.js'));
 const arg = (k, d) => (process.argv.includes(k) ? process.argv[process.argv.indexOf(k) + 1] : d);
 const mode = arg('--mode', 'test'), out = arg('--out', path.join(ROOT, 'dist', `bundle-${mode}.js`));
-const HOOK = /\n[ \t]*\/\/ TEMP-DEBUG-HOOK \(removed before publishing\).*?\/\/ TEMP-DEBUG-HOOK\n/gs;
+const { BLOCK: HOOK } = require(path.join(ROOT, 'tools', 'hook_marker.js'));   // the test hooks the published bundle drops
 const SRC = path.join(ROOT, 'src');
 const plugin = {
   name: 'cmw-src',
@@ -19,13 +19,14 @@ const plugin = {
     // a split file (src/app/, src/gl/) resolves to src/<name>.js, which onLoad joins from its parts (src/gl.js, a stand-in
     // for node, is never read)
     b.onResolve({ filter: /^\.\/[^/]+\.js$/ }, (a) => (parts(a.path.slice(2), SRC) ? { path: path.join(SRC, a.path.slice(2)) } : undefined));
-    b.onLoad({ filter: /[\\/]src[\\/][^\\/]+\.js$/ }, (a) => {
+    // (a TypeScript module of src/ too, which esbuild's ts loader strips: its test hooks go like a .js file's)
+    b.onLoad({ filter: /[\\/]src[\\/][^\\/]+\.[jt]s$/ }, (a) => {
       const f = path.basename(a.path);
       // (LF line ends: a Windows checkout has CRLF, which Python's text mode hides, and HOOK expects \n)
       let text = (parts(f, SRC) ? source(f, SRC) : fs.readFileSync(a.path, 'utf8')).replace(/\r\n/g, '\n');
       if (f === 'expose.js' && mode === 'pub') return { contents: '', loader: 'js' };   // the test page's globals only
       if (mode === 'pub') text = text.replace(HOOK, '\n');
-      return { contents: text, loader: 'js' };
+      return { contents: text, loader: f.endsWith('.ts') ? 'ts' : 'js' };
     });
   },
 };
