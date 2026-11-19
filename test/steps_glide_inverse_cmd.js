@@ -163,11 +163,14 @@ for (const [steps, b, us] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], 1, [
   // (the prestart's idle warm draw lands in the GL canvas next to whichever frame is requested while it runs: the
   // frames are measured once the prestart is done)
   await settled({ max: 120000, until: '__cmwSteps().ready.ready' });
+  // (the machine a red came from: the renderer, the cores that share its load, the pane's pixels, in every zeta row's detail)
+  const machine = await ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'), d = g && g.getExtension('WEBGL_debug_renderer_info'), c = document.querySelector('#canvasL'); return { renderer: g ? String(g.getParameter(d ? d.UNMASKED_RENDERER_WEBGL : g.RENDERER)) : 'none', cores: navigator.hardwareConcurrency, dpr: devicePixelRatio, pane: c.width + 'x' + c.height }; })()`);
+  info['zeta machine'] = machine;
   for (const x of [0.25, 0.5, 0.75]) {
     const g = await at(x, 'inverse', FRAME_MS);
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta x ${x}`] = { g, share };
-    ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share });
+    ok(`zeta at x = ${x}: the inverse pass draws at least ${floor[x]} of the pane`, !!g && g.path === 'inverse' && share >= floor[x], { g, share, floor: floor[x], machine });
   }
   // (the source window moved to where the strip's image near its pole z = 1 lies, Im -2.8 to 13.8: most of the true image there
   // is the pole's, which the ladder's seeds do not reach; the pole member draws it)
@@ -177,7 +180,7 @@ for (const [steps, b, us] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], 1, [
     const g = await at(x, 'inverse', FRAME_MS);
     const share = await ev(`(() => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; const q = k.getContext('2d'); q.drawImage(c, 0, 0); const d = q.getImageData(0, 0, k.width, k.height).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (!(d[i] > ${INK_PAPER} && d[i + 1] > ${INK_PAPER} && d[i + 2] > ${INK_PAPER})) n++; return n / (d.length / 4); })()`);
     info[`zeta pole window x ${x}`] = { g, share };
-    ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share });
+    ok(`zeta over its pole's image at x = ${x}: the inverse pass draws at least ${POLE_FLOOR[x]} of the pane`, !!g && g.path === 'inverse' && share >= POLE_FLOOR[x], { g, share, floor: POLE_FLOOR[x], machine });
   }
 }
 // ---- a scrub right after load, before step b's pole tracks exist (zeta) ----
