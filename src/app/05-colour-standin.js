@@ -16,7 +16,8 @@
   // the stand-in of the plot's map in its view: {key, vkey, name (the plot's program), map, F, x0, y0, s, w, h, next
   // (the level being evaluated), grid (the finest level done, drawn), prev (the same map's grid in an earlier view, drawn
   // until this one has a level), ms, n (evaluations), slices, firstSlice and maxSlice (ms: the first slice, the longest
-  // after it), end (why it stopped: 'done', 'budget', 'error', 'linked'), dead}; null when there is none
+  // after it), need (the work as last costed, ms: standInNeed), end (why it stopped: 'done', 'budget', 'error',
+  // 'linked'), dead, check and slice (standInRun's)}; null when there is none
   let standInJob = null;
   // the stand-in GLR.drawColorPlot gets with pane's plot of map (renderColor), the plot drawn by program name (color, or
   // the Cauchy style's cauchyF or cauchy: GLR.colorProgName): the finest level done, or null when there is none to draw
@@ -92,10 +93,11 @@
   // (j.need: the job's whole work as costed, ms)
   function standInDue(j, t0, last, t, left, budget = STANDIN_BUDGET) {
     if (t - t0 + last < STANDIN_SLICE) return undefined;
-    const spent = j.ms + t - t0;
-    j.need = spent + left * spent / j.n;
-    return j.slices && j.need > budget ? 'budget' : null;
+    return j.slices && standInNeed(j, j.ms + t - t0, left) > budget ? 'budget' : null;
   }
+  // job j's whole work as costed, after spent ms with left evaluations to go, at its time per evaluation so far (kept
+  // as j.need)
+  const standInNeed = (j, spent, left) => (j.need = spent + left * spent / j.n);
   // one slice of job j, begun at t0: the next level's nodes until standInDue ends it; -> why the job stops, or null to go
   // on. A level done is drawn from the next frame on
   function standInSlice(j, t0) {
@@ -117,7 +119,7 @@
       if (L.li === STANDIN_CELLS.length - 1) return 'done';
       const spent = j.ms + performance.now() - t0;
       standInLevel(j, L.li + 1);
-      if (j.slices && spent + standInLeft(j.next, 0) * spent / j.n > STANDIN_BUDGET) return 'budget';
+      if (j.slices && standInNeed(j, spent, standInLeft(j.next, 0)) > STANDIN_BUDGET) return 'budget';
     }
   }
   // ---------------- the carried colour's stand-in past a colour plane T > 0 ----------------
@@ -198,6 +200,7 @@
     }
     j.e.carryW.w = j.w;
     if (j.e.res) GLR.setPreW(j.e.res, j.w, j.key);
+    j.seen = null;
     requestRender('L');
     return 'done';
   }
