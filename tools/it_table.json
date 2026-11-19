@@ -3432,5 +3432,12 @@
  "grey: {x}": "in grigio: {x}",
  "the start": "l'inizio",
  "hue: the argument, red at 1, counterclockwise": "tinta: l'argomento, rosso in 1, in senso antiorario",
- "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞"
+ "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞",
+ "Pick": "Scegli punti",
+ "Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.": "Premi un punto per illuminarne i gemelli, i punti con la stessa immagine; trascina per disegnare un disco sul piano bersaglio; trascina una zona illuminata per spostarla. Due dita o il tasto destro spostano la vista. Con il piano attivo, Invio illumina i gemelli del punto selezionato, un secondo Invio aggiunge il disco.",
+ "{n} preimage on {plane}\u0004{n} preimages on {plane}": {
+  "one": "{n} controimmagine sul piano {plane}",
+  "other": "{n} controimmagini sul piano {plane}"
+ },
+ "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre"
 }
