@@ -27,6 +27,25 @@ window.GLSLTiers = (() => {
   // cost there is not measured yet; on SwiftShader the program's pipeline takes about 3 times an iter() loop's, less
   // than Γ's)
   const SLOW = new Set(['dh near M 0.6z-0.5 N 12']);
+  // chains whose program SwiftShader (Chrome's CPU WebGL2, the Linux GLSL jobs) does not finish: minutes of one core in
+  // the GPU process, then the GPU process is lost and every later chain of the page errors. keep leaves them out when this
+  // page's renderer is SwiftShader and lists them, each with its reason, in notRun; Windows and macOS run them. ci/glsl.js
+  // builds a reference without this set with this file, so that both sides leave the same chains out
+  const SWIFTSHADER_HANG = new Map([]);
+  // the chains whose program crashes lavapipe (Mesa's llvmpipe on Vulkan, the software renderer of a Linux machine without
+  // a GPU; Mesa 25, LLVM 20.1.2 here): the GPU process exits with SIGSEGV in the draw, 0.7 s after the link, the chain's
+  // values read back as zero, and every later chain of the page errors with an empty log. Each is named: only the chains
+  // listed are left out, and only on lavapipe (keep, NOT_ON); SwiftShader, Windows, macOS and the GPUs run them. Lifting an
+  // entry, once a Mesa runs the chain: #1835 (the evidence and the draft report are in notes/upstream/mesa-lavapipe-sqrt-dd)
+  const LAVAPIPE_CRASH = new Map([
+    ['sheets sqrt d d', 'the GPU process exits with SIGSEGV in the draw (Mesa 25 llvmpipe, LLVM 20.1.2); its 7172 values read back as zero; #1835'],
+  ]);
+  // the renderers that do not survive some chains, which keep leaves out there and lists in notRun with their reasons:
+  // the name the job summary gives the renderer, a pattern for the context's renderer string, the issue, the set
+  const NOT_ON = [
+    { name: 'SwiftShader', pattern: /SwiftShader/i, issue: '#1809', set: 'SWIFTSHADER_HANG', chains: SWIFTSHADER_HANG },
+    { name: 'lavapipe', pattern: /Vulkan.*llvmpipe/i, issue: '#1815', set: 'LAVAPIPE_CRASH', chains: LAVAPIPE_CRASH },
+  ];
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';
     const r = RANDOM[page];
@@ -39,11 +58,28 @@ window.GLSLTiers = (() => {
   // ?legacy=1: the parts by the chain's index and every chain, as before this file (ci/glsl.js, against a reference
   // that predates it, runs both sides so: the same chains on both)
   const LEGACY = qs.get('legacy') === '1';
-  // the chain named name, the i-th of the page's list, runs on this page load
-  const keep = (page, name, i) => (LEGACY ? i % PARTS === PART % PARTS
-    : partOf(name, PARTS) === PART % PARTS && (TIER === 'all' || tierOf(page, name) === TIER));
+  // (the renderer of a WebGL2 context, read once: a renderer of NOT_ON leaves its set's chains out)
+  const RENDERER = (() => {
+    try {
+      const gl = document.createElement('canvas').getContext('webgl2'), e = gl && gl.getExtension('WEBGL_debug_renderer_info');
+      const r = gl ? String(gl.getParameter(e ? e.UNMASKED_RENDERER_WEBGL : gl.RENDERER)) : '';
+      const lose = gl && gl.getExtension('WEBGL_lose_context');
+      if (lose) lose.loseContext();
+      return r;
+    } catch (e) { return ''; }
+  })();
+  const NOT_ON_HERE = NOT_ON.find((n) => n.pattern.test(RENDERER)) || null;
+  const notRun = [];
+  // the chain named name, the i-th of the page's list, runs on this page load (a chain of this renderer's NOT_ON set
+  // does not: it goes into notRun as 'name (reason)')
+  const keep = (page, name, i) => {
+    const mine = LEGACY ? i % PARTS === PART % PARTS
+      : partOf(name, PARTS) === PART % PARTS && (TIER === 'all' || tierOf(page, name) === TIER);
+    if (mine && NOT_ON_HERE && NOT_ON_HERE.chains.has(name)) { notRun.push(`${name} (${NOT_ON_HERE.chains.get(name)})`); return false; }
+    return mine;
+  };
   // the adv page's sections that are not chains: in core, keys only (direct and compile are most of its Windows time)
   const SECTIONS_CORE = ['keys', 'main'];
   const section = (s) => LEGACY || TIER !== 'core' || SECTIONS_CORE.includes(s);
-  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SAMPLE };
+  return { hashName, partOf, tierOf, keep, section, TIER: LEGACY ? 'all' : TIER, PARTS, PART, LEGACY, SLOW, SWIFTSHADER_HANG, LAVAPIPE_CRASH, NOT_ON, NOT_ON_HERE, RENDERER, notRun, SAMPLE };
 })();

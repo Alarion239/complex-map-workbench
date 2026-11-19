@@ -4,14 +4,15 @@
 // colour layer alone (SV.bare), with the cross-fade of the two planes' frames at rest (held_frames' fade): at most
 // FADE_OFF of the pixels may be more than DIFF_TOL apart. A frame that fades through the bare paper, or that leaves an
 // end out, is far off it. Each plane's frame at rest must show colour: its mean luminance under PAPER_LUM.
-// - On the plane, both planes past the colour plane z (T = 0), Everywhere and Inside regions: plane w₁ at rest by the
-//   exact pass, plane w₂ by the carried meshes (the inverse planner has no plan past a d/dz, #1645);
+// - On the plane, both planes past the colour plane z (T = 0), Everywhere and Inside regions: both planes at rest by the
+//   exact pass (plane w₂'s through the chain with its d/dz's derivative in its place, invDerivChain);
 // - on the plane, the colour plane w₁ (T = 1), Inside regions: plane w₁ coloured, plane w₂ past it;
 // - on the plane, the colour plane w₂ (T = 2), Everywhere: plane w₂ coloured, plane w₁ before it but past a d/dz on
 //   the way to it, so not coloured;
 // - on the Sphere, T = 0 and T = 2, Everywhere.
 // Each frame's glide record (__cmwSteps().glide) is the d/dz glide's: its u, reason 'a d/dz step', and an end path
-// for each plane, neither 'none'.
+// for each plane, neither 'none'; both ends exact (a coloured plane's plot, or the exact pass past the colour plane), so
+// its path is 'inverse'.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, results}.
 const fails = [], R = {};
@@ -68,6 +69,7 @@ for (const c of CASES) {
     ok(`${at}: parked at x = ${1 + u}, ${c.surf}, coloured from plane ${c.T}, scope ${c.scope}`, Math.abs(st.x - 1 - u) < 1e-9 && st.T === c.T && st.surf === c.surf && st.scope === c.scope, { x: st.x, T: st.T, surf: st.surf, scope: st.scope });
     ok(`${at}: the cross-fade of the two planes at rest (at most ${100 * FADE_OFF} % of the pixels more than ${DIFF_TOL} apart)`, !!d && d.frac <= FADE_OFF, r[u]);
     ok(`${at}: the d/dz glide's record, an end path for each plane and neither 'none'`, !!g && g.b === 2 && Math.abs(g.u - u) < 1e-9 && g.reason === 'a d/dz step' && Array.isArray(g.ends) && g.ends.length === 2 && !g.ends.includes('none'), r[u]);
+    ok(`${at}: both ends exact (a coloured plane's plot or the exact pass), so the record's path is 'inverse'`, !!g && g.path === 'inverse' && g.ends.every((e) => e === 'plot' || e === 'inverse'), r[u]);
   }
 }
 await ev('__cmwSteps({ bare: false }); 1');

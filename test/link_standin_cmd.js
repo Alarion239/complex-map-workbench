@@ -6,7 +6,9 @@
 // - the colour plot's stand-in (colourStandIn): a typed (z²−1)/(z²+1) on its colour plane's planes, Everywhere. The pane
 //   is coloured from F's values on a CPU grid, the frame still pending, on plane z and on the colour plane w₁; Inside
 //   regions, the region is coloured (not black) and the pane says it is compiling; on release the plot takes its place
-//   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget;
+//   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget.
+//   In the Cauchy style (its residue plot, cauchyF) plane z is drawn from the same stand-in while cauchyF links, the left
+//   LED amber, and the plot takes its place with no frame where it drew nothing;
 // - the carried colour past a colour plane other than z (carriedW): z² then z + 0.2 conj(z), colour plane w₁, w₂ parked,
 //   Everywhere. The pane is coloured from the SphereMeshes' points' colours of w₁, the frame still pending; on release
 //   the carried colour takes its place with no frame where it drew nothing, in the stand-in's colours. About a zero and
@@ -16,8 +18,8 @@
 //   stops short of its points (past CARRIED_MAX on a slow machine) is a timing row, its colours not compared;
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
 //   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
-//   once linked, at least 99 % of a pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1,
-//   z = 0) too.
+//   once linked, at least 99 % of the points it colours within 3 levels, and every point of rings about the colour's
+//   zero (w₁ = 1, z = 0) too.
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -140,6 +142,25 @@ await settled({ max: 20000, panes: false, until: loaded });
 const exWait = await settled({ only: true, max: 30000, until: "typeof __cmwStandIn === 'function' && !!__cmwStandIn() && !!__cmwStandIn().end" });
 info.expensive = { wait: exWait, standIn: await standIn() };
 ok('timing: an expensive series\' stand-in keeps to its CPU budget (250 ms and a slice)', exWait.ok && !!info.expensive.standIn && info.expensive.standIn.ms <= 280, info.expensive);
+// the Cauchy style, its residue plot's program (cauchyF) held: (z²−1)/(z²+1), a disc about its poles ±i selected, plane z
+// coloured from z: plane z is drawn from the colour plot's stand-in (F's values on the CPU grid, coloured in the Cauchy
+// style) from the first frames, the left LED amber, and the exact plot draws once the link lands
+const ns5 = 'lsy' + Date.now();
+await seed(ns5, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [{ kind: 'disc', c: [0, 0], r: 1.5, id: 's1' }], dc: 'cauchy', sv: { at: 0, T: 0, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns5}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+await ev("__cmwSelect('s1'), 1");
+const cyWait = await levelDone();
+await settled({ panes: false });
+info.cauchyHeld = { wait: cyWait, standIn: await standIn(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), dc: await ev('__cmwState().dc'), progs: await ev('GLR.chainProgs()'), led: await led('leftLed') };
+ok('the Cauchy style, cauchyF held: plane z is drawn from the stand-in (in colour, the frame pending)', cyWait.ok && info.cauchyHeld.dc === 'cauchy' && info.cauchyHeld.progs.includes('cauchyF') && info.cauchyHeld.hue > 0.3 && info.cauchyHeld.pending === true, info.cauchyHeld);
+ok('the Cauchy style, its program held: the left LED is amber with the stand-in\'s tooltip', /\bbusy\b/.test(info.cauchyHeld.led.cls) && info.cauchyHeld.led.tip === STANDIN_TIP, info.cauchyHeld.led);
+const cauchyAfter = await releaseFrames('drawColorPlot', "(f) => (!f.calls ? 'none' : f.drew < f.calls ? 'blank' : f.pending ? 'pending' : 'gpu')");
+info.cauchyAfter = cauchyAfter.list ? cauchyAfter.runs : null;
+ok('the Cauchy style, after the release: no frame where the plot drew nothing', !!cauchyAfter.list && cauchyAfter.list.includes('gpu') && !cauchyAfter.list.includes('blank'), info.cauchyAfter);
+await settled({ max: 20000 });
+const cyDone = await led('leftLed');
+ok('the Cauchy style, once linked: the left LED is green again', /\bok\b/.test(cyDone.cls) && cyDone.tip === 'Up to date', cyDone);
 // the Cauchy style with no closed curve or region draws the plane as paper, which waits on no program: with the plot's link still
 // held the left LED, amber for the stand-in, goes green
 const ns4 = 'lsp' + Date.now();
@@ -216,8 +237,8 @@ for (const [name, scene, slow] of [['zero', 'zero', 1], ['pole', 'pole', 1], ['s
   ok(`the carried colour past colour plane w₁ about its ${name} (w₂ = 0), the links held: every point within 16 levels of the linked frame`, short || (hw.ok && pending === true && linkedW.ok && rw.after === false && rw.n >= 30 && rw.wrong === 0), rw);
 }
 // the carried colour from the SphereMeshes at T = 0: the default example, colour plane z, w₁ at rest, bare
-const ns5 = 'lsz' + Date.now();
-await go(`${base}/test.html?ns=${ns5}&glhold`);
+const nsz = 'lsz' + Date.now();
+await go(`${base}/test.html?ns=${nsz}&glhold`);
 await settled({ max: 20000, panes: false, until: loaded });
 await ev("__cmwSteps({ T: 0, go: 1, now: true, bare: true }), 1");
 const P5 = await K.paneOf(), grid5 = K.grid(P5, 24, 16);
@@ -233,9 +254,12 @@ await ev('GLR.holdLinks(false), 1');
 const zLinked = await settled({ only: true, max: 30000, until: "(() => { const r = __cmwSteps().rest; return !!r && r.a === 1 && r.path === 'inverse'; })()" });
 await settled({ panes: false });
 info.zeroHeld.linked = zLinked;
-info.zeroGrid = K.tally(heldGrid, (await K.lpx(grid5)).px, { tol: 3 });
+// (the grid's points both frames colour: past the 'linking' mesh's reach the held frame is paper, and so is the plane
+// outside the region in both)
+const linkedGrid = (await K.lpx(grid5)).px;
+info.zeroGrid = K.tally(heldGrid, linkedGrid, { tol: 3, skip: (k) => !heldGrid[k] || !linkedGrid[k] || K.bare(heldGrid[k][4]) || K.bare(linkedGrid[k][4]) });
 info.zeroRing = K.tally(heldRing, (await K.lpx(ring5)).px, { tol: 3 });
-ok('the SphereMeshes\' carried colour while the links are held (T = 0): the colour itself (at least 99 % of the pane within 3 levels once linked)', smWait.ok && zLinked.ok && info.zeroGrid.n >= 300 && info.zeroGrid.wrong <= 0.01 * info.zeroGrid.n, { held: info.zeroHeld, grid: info.zeroGrid });
+ok('the SphereMeshes\' carried colour while the links are held (T = 0): the colour itself (at least 99 % of the points both frames colour within 3 levels once linked)', smWait.ok && zLinked.ok && info.zeroGrid.n >= 150 && info.zeroGrid.wrong <= 0.01 * info.zeroGrid.n, { held: info.zeroHeld, grid: info.zeroGrid });
 ok('the SphereMeshes\' carried colour about the colour\'s zero (w₁ = 1): every point within 3 levels once linked', smWait.ok && zLinked.ok && info.zeroRing.n >= 30 && info.zeroRing.wrong === 0, info.zeroRing);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));
