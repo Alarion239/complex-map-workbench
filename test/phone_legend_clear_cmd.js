@@ -54,7 +54,16 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=steps` });
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
   const home = await still();
-  await ev(`(() => { const r = document.querySelector('#plotL > .chip.readout'); r.dataset.t = r.innerHTML; r.style.cssText = 'height:auto;white-space:normal;line-height:18px;padding:4px 8px;max-width:calc(100% - 72px)'; r.innerHTML = 'z = 12.3456 + 7.8901 i<br>w = F(z) = 123456.7890 + 12345.6789 i, a long second line'; return 1; })()`);
+  // (the page writes the idle readout again whenever the pointer is off the plane, setReadouts(null), which would put its short idle text back
+  // before the key is measured; an observer here puts the two lines back at once, in the same task, so no frame sees the idle text)
+  await ev(`(() => {
+    const r = document.querySelector('#plotL > .chip.readout'), LONG = 'z = 12.3456 + 7.8901 i<br>w = F(z) = 123456.7890 + 12345.6789 i, a long second line';
+    r.style.cssText = 'height:auto;white-space:normal;line-height:18px;padding:4px 8px;max-width:calc(100% - 72px)';
+    const hold = () => { if (r.innerHTML !== LONG) r.innerHTML = LONG; };
+    new MutationObserver(hold).observe(r, { childList: true, characterData: true, subtree: true });
+    hold();
+    return 1;
+  })()`);
   // (the key is placed again once the readout has changed size: waited for as a condition, the key's --lg-drop set by the page)
   const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('leftLegend').style.getPropertyValue('--lg-drop') !== ''` });
   const m = await still();
@@ -63,19 +72,23 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('568×320: the two-line readout reaches the folded legend (control)', !!m.readout && !!home.reach && m.readout.r > home.reach.l && m.readout.b > home.reach.t, { readout: m.readout, reach: home.reach });
   ok('568×320: the legend\'s hit area is clear of the two-line readout', !inter(m.reach, m.readout), { reach: m.reach, readout: m.readout, drop: m.drop });
 }
-// the classic view at 568 × 320 on its first load, a construction tool in hand: X and Y side by side, and Y's own readout of two lines ("Draw a target in Y ...") beside
-// the folded key of the plane Y (#rightLegend): the page, which attached its observer on this first load, places the key below the readout; no state is loaded, no page loaded twice
+// the classic view at 568 × 320 on its first load, the Disc tool in hand: X and Y side by side, and Y's own readout of two
+// lines ("Draw a target in Y ...") beside the folded key of the plane Y (#rightLegend): the page, which attached its
+// observer on this first load, places the key below the readout; no state is loaded, no page loaded twice. (A drawing
+// tool opens no context bar; under the tall bar of a construction tool, landscape keeps the readout short of the key)
 {
   const [w, h] = [568, 320];
   await view(w, h, false, true);
   const ns = 'plc3' + (Date.now() % 1000000);
   await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
-  await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
+  await ev(`document.querySelector('[data-tool="disc"]').click(), 1`);
   const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('rightLegend').style.getPropertyValue('--lg-drop') !== ''` });
   const m = await ev(`(() => { const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }; const lg = document.getElementById('rightLegend'), ro = document.querySelector('#plotR > .chip.readout'), bar = document.querySelector('.ph-ctx.in'), r = rect(lg); return { legend: r, reach: r && { l: r.l - ${HIT_PX}, t: r.t - ${HIT_PX}, r: r.r + ${HIT_PX}, b: r.b + ${HIT_PX} }, readout: rect(ro), text: ro ? ro.textContent.trim().slice(0, 40) : null, bar: rect(bar), planes: [...document.querySelectorAll('.pane')].map((p) => Math.round(p.getBoundingClientRect().width)), drop: lg.style.getPropertyValue('--lg-drop') }; })()`);
   info['classic first load, real readout'] = m;
   ok('classic 568×320, first load: X and Y are both shown', m.planes.length === 2 && m.planes.every((x) => x > 0), m.planes);
+  // (the case relies on the tool in hand opening no context bar: under the tall bar of a construction tool the readout is held short of the key, and what it pins would not happen)
+  ok('classic 568×320, first load: no context bar is open, so the readout is not held short of the key', m.bar === null, m.bar);
   ok('classic 568×320, first load: Y\'s readout has two lines and reaches the folded key (control)', !!m.readout && m.readout.b - m.readout.t > TWO_LINE_PX && m.readout.r > m.reach.l, { readout: m.readout, reach: m.reach });
   ok('classic 568×320, first load: the key is placed again, below Y\'s readout, with no reload', dropped.ok, { drop: m.drop, wait: dropped });
   ok('classic 568×320, first load: the key\'s hit area is clear of Y\'s readout and above the bar', !inter(m.reach, m.readout) && (!m.bar || m.legend.b <= m.bar.t + 0.5), { reach: m.reach, readout: m.readout, bar: m.bar });
