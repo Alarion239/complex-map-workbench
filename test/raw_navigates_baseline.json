@@ -29,7 +29,6 @@
  "sound_deform_fps_cmd.js": 2,
  "sound_v152_fps_cmd.js": 2,
  "split_cmd.js": 1,
- "steps_link_migrate_cmd.js": 1,
  "sv_construct_plane_cmd.js": 2,
  "sv_globe_draw_cmd.js": 2,
  "sv_globe_mask_cmd.js": 2,
