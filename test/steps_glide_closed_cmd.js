@@ -4,13 +4,15 @@
 // - cos, cosh, arccos and arcosh play their zoom paths (NatPaths.ZOOM): cos about π/2 by sin's ops, arccos about 0 by
 //   arcsin's, cosh about arsinh 1 and arcosh about √2 by their own, each between two affine maps (Inverse.homOps);
 // - the cubic z^3 - 2z + 1 and the quartic z^3 + 1/z play their zoom paths by the closed-form cubic and quartic
-//   (InvOps.opRatN: Cardano's and Ferrari's roots) between two affine maps.
+//   (InvOps.opRatN: Cardano's and Ferrari's roots) between two affine maps;
+// - the rational map (z^5 + z)/(2z^2 - 1) plays its zoom path by every root of p - w q (InvOps.opRatN: Aberth's iteration)
+//   between two affine maps.
 // The rows:
 // - at each of a step's us the frame is drawn by the inverse pass (the glide's record, path 'inverse') and none of the
 //   ops it inverted is NEWT; for cos and the cubic, the carried colour at u = 0.5 is the exact picture (held_frames.js's
 //   judge; its Newton reference also fails a rational map's glide drawn by RAT2, and so the quartic's: the GLSL pages
 //   compare RAT4 with the CPU's exact roots instead);
-// - the same place either way (cos and the cubic): the frame at u = 0.5 reached through 0.1, ..., 0.4 from plane z and
+// - the same place either way (cos, the cubic and the rational map of degree 5): the frame at u = 0.5 reached through 0.1, ..., 0.4 from plane z and
 //   through 0.9, ..., 0.6 from plane w1: at most SAME_FRAC of the pixels more than DIFF_TOL apart;
 // - arrival: the frame at u = 1 - 10^-4 against plane w1 at rest away from the lines (held_frames.js's sameAway: the
 //   dashes of an image's edge start where its path does, which moves with u), at most ARRIVAL_FRAC of the pixels more
@@ -59,6 +61,7 @@ const CASES = {
   arcosh: { step: { type: 'arcosh' }, us: [0.5] },
   cubic: { step: { type: 'poly', params: { co: '1, 0, -2, 1' } }, us: [0.25, 0.5, 0.75], judge: true, same: true, cost: 1.4, timing: 1.1 },
   quartic: { step: { type: 'custom', params: { expr: 'z^3+\\frac{1}{z}', cut: 180 } }, us: [0.25, 0.5, 0.75] },
+  rational5: { step: { type: 'custom', params: { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 } }, us: [0.25, 0.5, 0.75], same: true },
 };
 const SAME_FRAC = 1e-4, ARRIVAL_FRAC = 0.002, ARRIVAL_U = 1 - 1e-4;
 

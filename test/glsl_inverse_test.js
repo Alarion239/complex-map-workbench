@@ -128,6 +128,13 @@ window.__invTestRun = async (opts = {}) => {
   chains.push({ name: 'quartic rational (z^4+1)/(z^4-z^2+2z)', steps: [St('custom', { expr: '\\frac{z^4+1}{z^4-z^2+2z}', cut: 180 })] });
   chains.push({ name: 'quartic zp zeros 1, 2, i poles 0, 3, 4, -i', steps: [St('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' })] });
   chains.push({ name: 'quartic mobius > (1-i)z^4+2z^3+0.5iz-1', steps: [St('mobius'), St('poly', { co: '1-i, 2, 0, 0.5i, -1' })] });
+  // degree 5 to 12 by Aberth's iteration (RAT<n>): rational maps of degree 5 (a formula, the catalog's, zeros and poles),
+  // of degree 6 with its value at infinity inside the views, and of degree 12
+  chains.push({ name: 'rat5 rational (z^5+z)/(2z^2-1)', steps: [St('custom', { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 })] });
+  chains.push({ name: 'rat5 catalog rational (z^5+1)/(z^2+z)', steps: [St('rational', { p: '1, 0, 0, 0, 0, 1', q: '1, 1, 0' })] });
+  chains.push({ name: 'rat5 zp zeros 1, 2, i, -i, 0.5 poles 0, 3', steps: [St('zp', { a: '1', zeros: '1, 2, i, -i, 0.5', poles: '0, 3' })] });
+  chains.push({ name: 'rat6 rational (z^6+z)/(z^6-z^2+2)', steps: [St('custom', { expr: '\\frac{z^6+z}{z^6-z^2+2}', cut: 180 })] });
+  chains.push({ name: 'rat12 rational (z^12+z)/(z^2-3)', steps: [St('custom', { expr: '\\frac{z^{12}+z}{z^2-3}', cut: 180 })] });
   // ---- shapes ----
   const SH = [];
   const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)

@@ -88,7 +88,8 @@ const TABLE_ROWS = [
   ['z^2+\\frac{1}{z}', 'RAT3'],
   ['\\frac{z^3-1}{z^2+1}', 'RAT3'], ['\\frac{z^3+1}{z^3-1}', 'IPOW>MOB'],
   ['z^5-z', 'X:polynomial formula of degree 5'],
-  ['z^4+\\frac{1}{z}', 'X:rational formula of degree 5'],
+  ['z^4+\\frac{1}{z}', 'RAT5'], ['\\frac{z^5+z}{2z^2-1}', 'RAT5'], ['\\frac{z^6+z}{z^2+0.5}', 'RAT6'], ['\\frac{z^{12}+z}{z^2-3}', 'RAT12'],
+  ['\\frac{z^{13}+z}{z^2-3}', 'X:rational formula of degree 13'],
   ['(z^2+z)^2', 'QUAD>IPOW'],
   ['z^4+z^3+1', 'RAT4>AFF'], ['z^3+\\frac{1}{z}', 'RAT4'], ['\\frac{z^4+1}{z^2-2z}', 'RAT4'], ['(z^2+z^3)^2', 'RAT3>IPOW'], ['(z^2+z^5)^2', 'X:polynomial formula of degree 5'],
   ['\\frac{z^{17}+1}{z^{17}-1}', 'X:rational formula of degree 17'],
@@ -220,6 +221,8 @@ const RT = [
   ['\\frac{1}{z}+\\frac{1}{z+1}', 2], ['\\frac{z}{z^2+1}', 2], ['\\frac{z+1/z}{z-1/z}', 2], ['\\frac{z^2-1}{z-1}', 1], ['\\frac{z^2}{z^2+z}', 1],
   ['\\frac{(1+i)z^2-3}{(2-i)z^2+z-0.5i}', 2], ['\\frac{(z-0.3)(z+0.7i)}{(z+1)(z-2)}', 2], ['z^3+\\frac{1}{z^3}', 6], ['\\frac{z^4-1}{z^4+1}', 4],
   ['z^4+2z^2', 4], ['\\left(\\frac{z-i}{z+i}\\right)^3', 3], ['\\frac{z^{16}+1}{z^{16}-1}', 16],
+  // degree 5 to 12 by Aberth's iteration on p - w q (RAT<n>)
+  ['z^4+\\frac{1}{z}', 5], ['\\frac{z^5+z}{2z^2-1}', 5], ['\\frac{(z-0.5)^6+i}{(z+1)(z-2i)}', 6], ['\\frac{z^{12}+z}{z^2-3}', 12],
   // families over a rational part (the count is not checked)
   ['\\log\\frac{z-1}{z+1}', 0], ['\\sqrt{z^2-1}', 0], ['e^{z+\\frac{1}{z}}', 0], ['\\sin(z+1/z)', 0],
 ];
