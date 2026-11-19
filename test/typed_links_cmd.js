@@ -1,4 +1,4 @@
-// A formula typed into a step's field where links are slow (#1547, option C). Every link lands LINK_MS after it began
+// A formula typed into a step's field where links are slow. Every link lands LINK_MS after it began
 // (test/lib/late_links.js, installed before every page this suite opens, as KHR_parallel_shader_compile on a GPU
 // machine), and the page counts its links (__lateLinks.links). The slow-links path (GLR.slowLinks: ANGLE's Direct3D 11,
 // which runs FXC at link time) is forced on by ?slowlinks, or off by ?slowlinks=0. The steps view opens on one custom
@@ -7,15 +7,16 @@
 // - on the slow path, the links from the first keystroke until everything has landed: only the plane drawn links per
 //   keystroke (its colour plot's program, once per prefix that is a new formula); the glide's prestart and the warm-up
 //   wait until the edit is committed and run once, and the Landscape's warm-up waits until a Landscape has been drawn.
-//   A formula of a dozen characters costs at most MAX_LINKS. Before #1547 a pause of 300 ms started them all for every
-//   prefix of the formula;
+//   A formula of a dozen characters costs at most MAX_LINKS. A typing whose pause reaches the commit's wait commits that
+//   prefix, and is reported in info.stretched, not judged;
 // - on the slow path, no Landscape program is started for the typed formula while no Landscape has been drawn; once one
 //   has been drawn (the steps view's Landscape, and back to the plane), the next edit warms the Landscape again;
 // - a glide started GLIDE_AFTER_MS after the last keystroke, the field still focused (no commit: the idle wait commits
 //   it): at its start the glide's programs of the typed formula are all started and linked (but for the last links
-//   landing), as on the fast path, and the glide runs to its plane;
-// - on the fast path (?slowlinks=0) nothing changes: the prestart and the warm-up run in the pauses of the typing (more
-//   links than on the slow path), and the Landscape is warmed for the typed formula without being drawn.
+//   landing), as on the fast path, and the glide runs to its plane. The fast path's glide is the control: on a machine
+//   too loaded for it to be ready, the glide rows are reported in info.stretched, not judged;
+// - on the fast path (?slowlinks=0) the prestart and the warm-up run in the pauses of the typing (more links than on the
+//   slow path), and the Landscape is warmed for the typed formula without being drawn.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -23,13 +24,13 @@ const BASE = `http://localhost:${PORT}`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // ms a link reads not complete (WARP's FXC: 0.2 to 0.5 s for a program of 13-27 KB); ms between two characters; the
-// links one typed formula may cost on the slow path (#1547's bar); the glide's start after the last keystroke; the wait
+// links a formula of a dozen characters may cost on the slow path; the glide's start after the last keystroke; the wait
 // without a keystroke that commits a typed edit (TYPED_COMMIT_MS)
 const LINK_MS = 400, CHAR_MS = 450, MAX_LINKS = 20, GLIDE_AFTER_MS = 2000, COMMIT_MS = 1000;
 const READY_MS = 60000, QUIET_MS = 90000;
 const START = 'z^2+1';
 const SUM10 = 'sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)';
-// (short: a formula of a dozen characters, which #1547's bar of MAX_LINKS is for)
+// (short: a formula of a dozen characters, which the bar of MAX_LINKS is for)
 const FORMULAS = [{ label: 'z^3-2z+1', expr: 'z^3-2z+1', short: true }, { label: 'exp(sin z)', expr: 'exp(sin(z))', short: true }, { label: 'a 10-term sum', expr: SUM10 }];
 const state = { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: START, cut: 180 }, on: true }] };
 const FIELD = `document.querySelector('input[data-pkey="expr"]')`;
@@ -140,7 +141,7 @@ try {
       ok('slow path: that glide runs to its plane and draws its frames', s.wait && !!s.glide, s);
     } else (info.stretched = info.stretched || []).push({ glide: info.glide });
   }
-  // the fast path: the prestart and the warm-up run in the typing's pauses, as before #1547
+  // the fast path: the prestart and the warm-up run in the typing's pauses
   {
     const on = await open(false);
     ok('control: the fast path is on (?slowlinks=0)', on === false, on);

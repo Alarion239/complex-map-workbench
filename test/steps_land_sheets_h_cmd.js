@@ -17,6 +17,11 @@
 //   heights in T (the stages (z, w₂]: w₂'s pole, at z = −1 on √'s second sheet, a spike carried to w₃ = 0);
 // - T = w₂: plane z's own relief at the pane heights of the CI's and of a few others is still once settled() returns
 //   (the refined frame is the first rest frame: the pane draws no other frame after it).
+// All sheets follow the map shown: z → z² + 1 → exp, T = w₁, All sheets on, Im heights: plane w₂ past T is plane w₁'s
+// points carried, and planes w₂ and w₁ are the same pixel for pixel with a square root appended after w₂ (the whole chain
+// then has a multivalued step; the maps shown have none), and so is the carry to w₃, past the root: a step after the
+// colour plane adds no sheet. The title's sheets clause names the surfaces drawn, at rest and mid-glide: none on that
+// chain, nor where the root lies between T and the plane shown, both of √'s where z → √ → Möbius draws them.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -99,6 +104,60 @@ const CHAIN = [ROOT, step('mobius', { a: '1', b: '-i', c: '1', d: 'i' })];
   r.past = await frame([...CHAIN, step('mobius', { a: '0', b: '1', c: '1', d: '0' })], 2, 3, 'sh3', { sheets: true, height: 'log' });
   const c = r.past.carry;
   ok('All sheets, T = w₂, plane w₃: a carried frame from z with the sheets', !!c && c.s === 0 && c.sheets === true && !!c.hmap && c.hmap.a === 0 && c.hmap.b === 2, c);
+}
+// ---- All sheets follow the map shown: a step after the plane shown changes nothing on it ----
+// A chain z → z² + 1 → exp, T = w₁, All sheets on, Im heights: plane w₂ past T is plane w₁'s points carried (s = 1), and
+// with a square root appended after w₂ it is the same carry, the same pixel for pixel; and so is plane w₁, on T. Plane
+// w₃, past the root, is carried from w₁ too: the sheets drawn are those of the chain up to T, which has one
+{
+  const r = info.follow = {};
+  for (const [plane, tag] of [[2, 'past'], [1, 'onT']]) {
+    const before = await frame([P, EXP], 1, plane, `fb${plane}`, { sheets: true });
+    const after = await frame([P, EXP, ROOT], 1, plane, `fa${plane}`, { sheets: true });
+    const d = compareKept(`fb${plane}`, `fa${plane}`);
+    r[tag] = { before: before.carry && { s: before.carry.s, sheets: before.carry.sheets }, after: after.carry && { s: after.carry.s, sheets: after.carry.sheets }, d };
+    if (plane === 2) ok('All sheets, plane w₂ past T: carried from w₁ with or without a step after it', !!before.carry && !!after.carry && before.carry.s === 1 && after.carry.s === 1, r[tag]);
+    ok(`All sheets, plane w${plane === 2 ? '₂' : '₁'}: a square root appended after it changes nothing (the same frame pixel for pixel)`, !!d && d.max === 0 && d.shown.every(Boolean), r[tag]);
+  }
+  const w3 = await frame([P, EXP, ROOT], 1, 3, 'fa3', { sheets: true });
+  r.pastRoot = w3.carry && { s: w3.carry.s, sheets: w3.carry.sheets };
+  ok('All sheets, plane w₃ past the root after T: carried from w₁ (the root adds no sheet)', !!w3.carry && w3.carry.s === 1, r.pastRoot);
+}
+// The title says what the pane draws: its sheets clause ("both sheets", "all n sheets") counts the surfaces All sheets
+// draws, on each plane at rest and halfway between planes, and there is none where one surface is drawn. With T = w₁:
+// - z → z² + 1 → exp → √: no plane draws more than one, w₃ past the √ and the glide to it neither: the √ comes after T;
+// - z → z² + 1 → √ → exp: planes w₂ and w₃, past the √ that comes after T, draw one;
+// - z → √ → Möbius: planes z and w₂ draw √'s two sheets (w₂, past T, carried from z with them, and so does the glide to
+//   it), and plane w₁, T itself, is one surface
+{
+  const r = info.title = {};
+  // the sheets the title's clause names: 1 when it has none, -1 when it names sheets some other way
+  const named = (t) => (/\bboth sheets\b/.test(t) ? 2 : /\ball \d+ sheets\b/.test(t) ? +/\ball (\d+) sheets\b/.exec(t)[1] : /\bsheets?\b/.test(t) ? -1 : 1);
+  const at = async () => evJson(`JSON.stringify({ title: __cmwLandSheets().title.replace(/<[^>]*>/g, ' '), K: (__cmwLandSheets().drawn || {}).K || 1 })`);
+  const CHAINS = { after_root: 'z → z² + 1 → exp → √', root_after_T: 'z → z² + 1 → √ → exp', root_first: 'z → √ → Möbius' };
+  for (const [name, steps, want] of [['after_root', [P, EXP, ROOT], { p0: 1, p1: 1, p2: 1, p3: 1, glide: 1, glide2: 1 }], ['root_after_T', [P, ROOT, EXP], { p2: 1, p3: 1, glide2: 1 }], ['root_first', CHAIN, { p0: 2, p1: 1, p2: 2, glide: 2 }]]) {
+    const ns = 'landsheetstitle' + name + Date.now();
+    await loadView('steps', ns, { shapes: [], steps, sheets: true, srcView: { cx: 0, cy: 0, s: 90 } });
+    await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+    await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+    await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 1, go: 0, now: true }); 1`);
+    await settled({ max: 60000 });
+    await ev(`(document.querySelector('#heightSeg button[data-v="im"]') || {}).click?.(), 1`);
+    const rows = r[name] = {};
+    // (pN: plane N at rest; glide: halfway from w₁ to w₂; glide2: halfway from w₂ to w₃)
+    for (const k of Object.keys(want).filter((x) => /^p\d$/.test(x))) { await rest(+k.slice(1)); rows[k] = await at(); }
+    for (const [k, from] of [['glide', 1], ['glide2', 2]]) {
+      if (!(k in want)) continue;
+      await rest(from);
+      await ev(`__cmwSteps({ park: ${from + 0.5} }); 1`); await settled({ max: 60000, until: '!__cmwSvKey().busy' }); await ev(rAF2);
+      rows[k] = await at();
+    }
+    for (const [k, v] of Object.entries(rows)) {
+      const where = k === 'glide' ? 'halfway from w₁ to w₂' : k === 'glide2' ? 'halfway from w₂ to w₃' : `plane ${['z', 'w₁', 'w₂', 'w₃'][+k.slice(1)]}`;
+      const K = want[k];
+      ok(`All sheets, ${CHAINS[name]}, ${where}: ${K} surface${K > 1 ? 's' : ''} drawn and the title's sheets clause names as many`, v.K === K && named(v.title) === K, v);
+    }
+  }
 }
 // the refined frame is the first rest frame, at the pane heights of the CI's and of a few others (the spike's edge
 // crosses a pixel centre at some of them): with the colour kept to a disc far from the pole (Inside regions, plain

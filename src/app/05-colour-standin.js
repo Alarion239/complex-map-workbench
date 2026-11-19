@@ -13,24 +13,25 @@
   // level does not fit gets none: the pane waits as it would without it.
   const STANDIN_CELLS = [64, 32, 16, 8, 4];
   const STANDIN_SLICE = 3, STANDIN_BUDGET = 250;
-  // the stand-in of the plot's map in its view: {key, vkey, map, F, x0, y0, s, w, h, next (the level being
-  // evaluated), grid (the finest level done, drawn), prev (the same map's grid in an earlier view, drawn until this one
-  // has a level), ms, n (evaluations), slices, firstSlice and maxSlice (ms: the first slice, the longest after it), end
-  // (why it stopped: 'done', 'budget', 'error', 'linked'), dead}; null when there is none
+  // the stand-in of the plot's map in its view: {key, vkey, name (the plot's program), map, F, x0, y0, s, w, h, next
+  // (the level being evaluated), grid (the finest level done, drawn), prev (the same map's grid in an earlier view, drawn
+  // until this one has a level), ms, n (evaluations), slices, firstSlice and maxSlice (ms: the first slice, the longest
+  // after it), end (why it stopped: 'done', 'budget', 'error', 'linked'), dead}; null when there is none
   let standInJob = null;
-  // the stand-in GLR.drawColorPlot gets with pane's plot of map (renderColor): the finest level done, or null when
-  // there is none to draw (the plot's program draws, or has waited less than SM_LINKING_MS; not the screen's left pane). It
-  // also tells the LEDs whether the left pane's plot is still waiting on its program (setColourWaiting)
-  function colourStandIn(pane, map) {
-    const waited = pane === paneL && !offRender && !artMode && !sideDraw ? GLR.bareMs(map, ['color']) : 0;
+  // the stand-in GLR.drawColorPlot gets with pane's plot of map (renderColor), the plot drawn by program name (color, or
+  // the Cauchy style's cauchyF or cauchy: GLR.colorProgName): the finest level done, or null when there is none to draw
+  // (the plot's program draws, or has waited less than SM_LINKING_MS; not the screen's left pane). It also tells the LEDs
+  // whether the left pane's plot is still waiting on its program (setColourWaiting)
+  function colourStandIn(pane, map, name = 'color') {
+    const waited = pane === paneL && !offRender && !artMode && !sideDraw ? GLR.bareMs(map, [name]) : 0;
     if (pane === paneL) setColourWaiting(waited > 0);
     if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
     const v = pane.view, key = mapKeyOf(map), vkey = `${v.cx},${v.cy},${v.s},${pane.w},${pane.h}`;
     let j = standInJob;
-    if (!j || j.key !== key || j.vkey !== vkey) {
+    if (!j || j.key !== key || j.vkey !== vkey || j.name !== name) {
       const prev = j && j.key === key ? j.grid || j.prev : null;
       standInStop();
-      j = standInJob = { key, vkey, map, F: cpuMap(map), x0: v.cx - pane.w / (2 * v.s), y0: v.cy - pane.h / (2 * v.s), s: v.s, w: pane.w, h: pane.h,
+      j = standInJob = { key, vkey, name, map, F: cpuMap(map), x0: v.cx - pane.w / (2 * v.s), y0: v.cy - pane.h / (2 * v.s), s: v.s, w: pane.w, h: pane.h,
         next: null, grid: null, prev, ms: 0, n: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false };
       standInLevel(j, 0);
       standInRun(j);
@@ -70,7 +71,7 @@
       while (!j.dead && (interacting() || fixBusy())) await yieldNow(60);
       if (j.dead) return;
       if (mapKeyOf(j.map) !== j.key) { j.dead = true; return; }
-      if (!(GLR.bareMs(j.map, ['color']) > 0)) { j.end = 'linked'; return; }
+      if (!(GLR.bareMs(j.map, [j.name]) > 0)) { j.end = 'linked'; return; }
       const t0 = performance.now();
       let end;
       try { end = standInSlice(j, t0); } catch (e) { console.error('colour stand-in', e); end = 'error'; }
