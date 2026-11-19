@@ -16,7 +16,8 @@ const measure = () => ev(`(() => {
   const hit = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!at && (at === e || e.contains(at)) ? true : at ? (at.id || at.className || at.tagName) : 'nothing'; };
   return { legend: rect(lg), reach: rect(lg, ${HIT_PX}), x: rect(x), chip: rect(chip), readout: rect(ro), plot: rect(document.getElementById('plotL')), legendHit: hit(lg), xHit: hit(x), cut: (() => { const t = document.querySelector('.cm-chip > .cm-t'); return t ? t.scrollHeight - t.clientHeight : null; })(), collapsed: !!lg && lg.classList.contains('collapsed'), drop: lg ? lg.style.getPropertyValue('--lg-drop') : null };
 })()`);
-const still = async () => { let a = JSON.stringify(await measure()); for (let i = 0; i < SETTLE_MAX / STILL_MS; i++) { await sleep(STILL_MS); const b = JSON.stringify(await measure()); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const still = () => kit.still(measure, STILL_MS, SETTLE_MAX);
 const inter = (a, b) => !!a && !!b && Math.min(a.r, b.r) - Math.max(a.l, b.l) > GAP_PX - 1 && Math.min(a.b, b.b) - Math.max(a.t, b.t) > GAP_PX - 1;
 for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   const tag = `${lang} ${w}×${h}`;
