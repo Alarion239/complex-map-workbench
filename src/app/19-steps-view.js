@@ -2505,17 +2505,16 @@
       });
       ro.observe(rail); ro.observe(track);
     }
+    // (the observers below fit the head on the next frame (svFitSoon), never in their callbacks: a fit there measures
+    // a layout the observers are still reporting, and its fold of the Height key's chip changes a size they observe)
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
-    if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
+    if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitSoon(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
-    if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
+    if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitSoon(); }).observe(bar);
     // (the Height key's chip: shown, and its words written, by the legend's draw after the fit may have run; its size
-    // changes then, and the head is fitted again on the next frame, not in the observer's callback, where the fit's
-    // fold of the chip would change the size it observes. Its fold to the glyph changes its size too, which the fit's
-    // key holds)
+    // changes then, and the head is fitted again. Its fold to the glyph changes its size too, which the fit's key holds)
     const leg = $('leftLegend');
-    let legFit = 0;
-    if (leg && typeof ResizeObserver === 'function') new ResizeObserver(() => { if (!legFit) legFit = requestAnimationFrame(() => { legFit = 0; svFitHead(); }); }).observe(leg);
+    if (leg && typeof ResizeObserver === 'function') new ResizeObserver(() => svFitSoon()).observe(leg);
     onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     // (the app's own scrolls of the rail land where it wrote them (svRailTo). Any other scroll is the user's, from a wheel, a trackpad, find
@@ -2987,6 +2986,9 @@
     const t = SV.els.title;
     if (short) t.setAttribute('data-tip', t.textContent); else t.removeAttribute('data-tip');
   }
+  // svFitHead on the next frame, once however often it is asked for before then
+  let svFitRaf = 0;
+  const svFitSoon = () => { if (!svFitRaf) svFitRaf = requestAnimationFrame(() => { svFitRaf = 0; svFitHead(); }); };
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
