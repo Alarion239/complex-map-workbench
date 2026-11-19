@@ -1212,11 +1212,12 @@
   }
   // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
   // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
-  // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1); u null: at rest on plane b, as
-  // svCarryExact draws it. Asking begins the program's compile when it is missing, unless start is false ('none')
+  // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1), and the style's Cauchy data, which
+  // picks the program's Cauchy variant (svCarryStyle); u null: at rest on plane b, as svCarryExact draws it. Asking
+  // begins the program's compile when it is missing, unless start is false ('none')
   const svInvState = (h, i, b, u, start) => {
     const p = h.paths[i];
-    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0, start });
+    return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], u == null ? null : { b, u }, svT()), carry: { cauchy: svCauchyCarry() }, staged: shapeStage(h.list[i]) > 0, start });
   };
   // At rest on plane a that is not coloured (svCarryExact) while the programs of its own frame link (h: its own paths,
   // svInvPaths at rest; Inside regions, the mask's fills too: the tiling's inverse program at opacity 1): the paths of
