@@ -1089,9 +1089,9 @@
   // changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
-  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
-  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
-  // placeKeyPopReadout gives the chip its whole height back)
+  // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
+  // column. What still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key
+  // stays in reach; placeKeyPopReadout gives the chip its whole height back)
   function clearContextBar(box) {
     const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
     if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
@@ -1102,7 +1102,7 @@
     let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
     for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
-      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom + LEGEND_BAR_GAP_PX);
     }
     const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
     if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
@@ -1146,6 +1146,25 @@
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
+  // (on a phone the folded key is a button: a name, a place in the focus order, aria-expanded that follows its fold; Enter
+  // and Space press it (setupPaneButtons). Off the phone (a key in a pane's head, hovered open) it is no button: a key
+  // that leaves the phone takes role img and leaves the focus order)
+  function legendKeyButton(box, name) {
+    const par = box.parentNode, btn = document.documentElement.classList.contains('ph') && !!par && !(/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    if (btn) {
+      const open = box.classList.contains('collapsed') ? 'false' : 'true';
+      if (box.getAttribute('role') !== 'button') box.setAttribute('role', 'button');
+      if (box.tabIndex !== 0) box.tabIndex = 0;
+      if (box.getAttribute('aria-expanded') !== open) box.setAttribute('aria-expanded', open);
+      if (name && box.getAttribute('aria-label') !== name) box.setAttribute('aria-label', name);
+    } else if (box.getAttribute('role') === 'button') {
+      box.setAttribute('role', 'img'); box.removeAttribute('tabindex'); box.removeAttribute('aria-expanded');
+    }
+  }
+  // the key's canvas has no words a screen reader reaches: what it draws (paintLegend's st.say) is the key box's
+  // description (srSay), in a hidden span inside the box (#leftLegendSay, #rightLegendSay; inside, so it moves with the
+  // box and is never an item of a pane head's row)
+  function legendSaid(box, text) { srSay(box, text, (sp) => box.append(sp)); }
   function drawLegendSide(side) {
     const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
@@ -1167,6 +1186,8 @@
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
+    // (the phone's key button: the Regions key says which key it is before what it shows, "Regions key, cell 1")
+    legendKeyButton(box, !kind ? '' : kind === 'image' ? $t('Regions key, {x}', { x: legendSum(kind) }) : legendSum(kind));
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
     if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');
@@ -1210,6 +1231,7 @@
       paintLegend(octx, anyCut, kind, st);
       st.key = key; st.drawn = '';
     }
+    legendSaid(box, (st.say || []).join('; '));
     const dyn = img ? '' : `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
     if (st.drawn === key + dyn) return;
     st.drawn = key + dyn;
@@ -1241,6 +1263,8 @@
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
+    // (what the key draws, in words, in its order with the caption first: the key box's description, legendSaid)
+    const say = st.say = [];
     if (kind === 'image') {
       // the regions' key: their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
       // markers present in the plane
@@ -1259,10 +1283,11 @@
       if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
       for (const [t, f, c] of parts) run(t, f, c);
       if (k < 1) ctx.restore();
+      say.push($t('Regions') + ': ' + parts.map((q) => q[0]).join(''));
       // only marks that this plane actually draws
       let y = 52;
       ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
-      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; }
+      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; say.push($t('dashed: {x}', { x: $t('image of a cut') })); }
       // the merged deformation plane: what grey is (X, the start) and what the lines are (the paths t -> H_t(z)), in
       // the rows the view outline uses in X → Y (the chip's lower half would be blank without them)
       if (morphOn()) {
@@ -1272,8 +1297,8 @@
         let px0 = 8;
         if (y < 68) {
           // (at a focused step after the first, the start is the dashed outline of the step's source, renderMorph)
-          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); px0 = run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y) + 10; }
-          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); px0 = run('start', `11px ${TH.ui}`, TH.muted, 30, y) + 10; }
+          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); px0 = run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y) + 10; say.push($t('grey: {x}', { x: 'X' })); }
+          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); px0 = run('start', `11px ${TH.ui}`, TH.muted, 30, y) + 10; say.push($t('dashed: {x}', { x: $t('the start') })); }
           if (share) px0 = Math.min(px0, W - 80); else { y += 15; px0 = 8; }
         }
         if (y < 72 && paths) {
@@ -1290,10 +1315,11 @@
           x = run('(', `12px ${TH.math}`, TH.muted, x, y);
           x = run('z', `italic 500 12px ${TH.math}`, TH.muted, x, y);
           run(')', `12px ${TH.math}`, TH.muted, x, y);
+          say.push('t ↦ Hₜ(z)');
         }
         return;
       }
-      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
+      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); say.push($t('dashed: {x}', { x: $t('edge of X\'s view') })); }
       return;
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
@@ -1309,6 +1335,7 @@
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
     if (!noRing) {
+      say.push($t('hue: the argument, red at 1, counterclockwise'));
       ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
       // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
@@ -1322,7 +1349,7 @@
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
     // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
-      st.caption = t;
+      st.caption = t; say.unshift(t);
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
       // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
       let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
@@ -1342,7 +1369,7 @@
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
-      st.caption = words.join(' ');
+      st.caption = words.join(' '); say.unshift(st.caption);
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
@@ -1367,6 +1394,7 @@
       ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
       ctx.fillStyle = TH.muted; ctx.font = `10px ${TH.mono}`; ctx.textAlign = 'left';
       ctx.fillText('0', sx, sy + 18); ctx.textAlign = 'right'; ctx.fillText('∞', sx + sw, sy + 18);
+      say.push($t('brightness: black at 0, white at ∞'));
       ctx.strokeStyle = TH.ink; ctx.beginPath(); ctx.moveTo(sx + sw / 2, sy - 2); ctx.lineTo(sx + sw / 2, sy + sh + 2); ctx.stroke();
     } else {
       for (let b = 0; b < 3; b++) {
@@ -1380,8 +1408,8 @@
       // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws unchanged
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
-      if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
-      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
+      if (kind === '3d') { const f = I18N.num('×1.69'); word($t('contours'), sy - 9); num(f, sy + 19); say.push($t('contours') + ' ' + f); }
+      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); say.push(keyFactor(n) + ' ' + $t('per band')); }
     }
     // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
     const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';
