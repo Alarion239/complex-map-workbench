@@ -86,7 +86,7 @@ const TABLE_ROWS = [
   ['(z+0.1)^2-z^2', 'AFF'],
   ['z^3-z', 'RAT3'],
   ['z^2+\\frac{1}{z}', 'RAT3'],
-  ['\\frac{z^3-1}{z^2+1}', 'RAT3'],
+  ['\\frac{z^3-1}{z^2+1}', 'RAT3'], ['\\frac{z^3+1}{z^3-1}', 'IPOW>MOB'],
   ['z^5-z', 'X:polynomial formula of degree 5'],
   ['z^4+\\frac{1}{z}', 'X:rational formula of degree 5'],
   ['(z^2+z)^2', 'QUAD>IPOW'],

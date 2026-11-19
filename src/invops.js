@@ -591,8 +591,8 @@ const InvOps = (() => {
   // where the formula itself is 0/0) ARE roots for w = lim R(z) at r: they are kept as the op's holes and left out of
   // pullFinite (point and singular-point pull-backs), matching the natural domain.
   // Degree 1: MOB; degree 2: RAT2 (QUAD when Q is constant), whose stable quadratic also covers the degree drop at the
-  // value at infinity; degree 3: RAT3 (cubicRoots, which drops the degree the same way); P/Q = R(z^g) with g > 1:
-  // IPOW(g) then R. Other degrees go forward with the reason.
+  // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R; else degree 3: RAT3 (cubicRoots, which drops the degree
+  // the same way). Other degrees go forward with the reason.
   const RAT_EXP_MAX = 64;          // degree cap of the expansion (intermediate products)
   const RAT_DEG_MAX = 32;          // degree cap of the normal form (IPOW 16 under a degree-2 R)
   const RAT_SNAP = 1e-12;          // a coefficient below RAT_SNAP x the sum of its terms' sizes is rounding noise: 0
@@ -950,7 +950,6 @@ const InvOps = (() => {
       const c = P.map((x) => div(x, Q[0]));
       if (d === 1) return OK([opAff(c[0], c[1])]);
       if (d === 2) return OK([opQuad(c[0], c[1], c[2], f)]);
-      if (d === 3) return OK([opRat3(c, [ONE], f)]);
     } else {
       if (d === 1) {
         const two = (co) => (co.length === 1 ? [ZERO, co[0]] : co);
@@ -959,13 +958,14 @@ const InvOps = (() => {
         return OK([opMob(m)]);
       }
       if (d === 2) return OK([opRat2(P, Q, f)]);
-      if (d === 3) return OK([opRat3(P, Q, f)]);
     }
+    // (a function of z^g first: IPOW and a lower degree, the cheaper ops)
     const g = ratGcd(P, Q);
     if (g > 1 && g <= IPOW_MAX) {
       const r = ratOps(subPow(P, g), subPow(Q, g), null);
       if (r.ok) return OK([opIpow(g)].concat(r.ops));
     }
+    if (d === 3) return OK([opRat3(dq === 0 ? P.map((x) => div(x, Q[0])) : P, dq === 0 ? [ONE] : Q, f)]);
     const how = g > IPOW_MAX ? `; a function of z^${g}, |n| > ${IPOW_MAX}` : g > 1 ? `; degree ${d / g} in z^${g}` : '';
     return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts degree ≤ 3, also of a power z^k${how})`);
   }
