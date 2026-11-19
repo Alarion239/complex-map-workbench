@@ -8,14 +8,18 @@
 // - Cayley then cube (its half-plane on z), a rectangle on w₂: on w₁ and on z, in both scopes, its three preimages; and
 //   with the colour from z, on w₁, a plane past the colour plane (the colour carried to it).
 // Each reading compares the plane with the later region and without it (the same chain, scope and view): inside a
-// preimage the picture differs by more than PRE_D (its fill), somewhere on a short segment across a preimage's boundary
-// (z², Joukowski) by more than EDGE_D in one pixel (its outline: more than the fill, Everywhere), far from every
-// preimage by at most OUT_D (control: the same picture read twice). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// preimage the picture differs by more than PRE_D (Everywhere: its fill; Inside regions over the paper: the colour the
+// region keeps), somewhere on a short segment across a preimage's boundary (z², Joukowski) by more than EDGE_D in one
+// pixel (its outline: more than the fill, Everywhere), far from every preimage by at most OUT_D (control: the same
+// picture read twice). Inside regions, a preimage the plane's own regions already colour (where the two scopes agree
+// without the later region) keeps that colour at full strength and the layer draws its band alone, no fill (#1889): there
+// the picture differs by at most FILL_K of Everywhere's difference at that preimage (the band alone: its small
+// preimages' 5 × 5 patches are mostly band). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the colour difference (summed over r, g, b) that counts as a fill drawn (a 5 × 5 mean; the fill is at half strength
 // over the colour), as an outline drawn (one pixel), and the most far from every preimage (a 5 × 5 mean)
-const PRE_D = 8, EDGE_D = 30, OUT_D = 3;
+const PRE_D = 8, EDGE_D = 30, OUT_D = 3, FILL_K = 0.85;
 async function openApp(st) {
   const ns = 'pbl' + Date.now();
   await view(1440, 900, false, false);
@@ -93,6 +97,9 @@ const CASES = [
   },
 ];
 for (const c of CASES) {
+  // (Everywhere's readings, kept for Inside regions': a point where the two scopes agree without the later region is
+  // in the plane's own regions)
+  const every = {};
   for (const scope of ['all', 'in']) {
     const read = {};
     for (const withL of [false, true]) {
@@ -112,11 +119,19 @@ for (const c of CASES) {
       const P = c.planes[k], n0 = P.pre.length, n1 = n0 + (P.inner || []).length;
       const d = read[k + true].map((p, j) => diff(p, read[k + false][j])), d0 = read[k + 'again'].map((p, j) => diff(p, read[k + false][j]));
       const tag = `${c.key}, ${scope === 'all' ? 'Everywhere' : 'Inside regions'}, ${Number.isInteger(+k) ? 'plane ' + k : 'parked at x = ' + k}`;
-      info[tag] = { d, d0, state: read[k + 'state'] };
+      if (scope === 'all') every[k] = { d, at: read[k + false] };
+      const own = scope === 'in' ? read[k + false].slice(0, n1).map((p, j) => diff(p, every[k].at[j]) <= OUT_D) : null;
+      info[tag] = { d, d0, state: read[k + 'state'], own, dAll: scope === 'in' ? every[k].d : null };
       if (!Number.isInteger(+k)) ok(`${tag}: the frame is parked there, drawn by the inverse pass`, Math.abs(read[k + 'state'].x - +k) < 1e-9 && read[k + 'state'].path === 'inverse', read[k + 'state']);
       ok(`${tag}: control: the picture without the later region, read twice, is the same (within ${OUT_D})`, d0.every((x) => x <= OUT_D), d0);
-      ok(`${tag}: each preimage of the later region is drawn (differs by more than ${PRE_D})`, d.slice(0, n0).every((x) => x > PRE_D && x < Infinity), d.slice(0, n0));
-      if (n1 > n0) ok(`${tag}: the inner preimage is drawn too`, d.slice(n0, n1).every((x) => x > PRE_D && x < Infinity), d.slice(n0, n1));
+      if (!own) {
+        ok(`${tag}: each preimage of the later region is drawn (differs by more than ${PRE_D})`, d.slice(0, n0).every((x) => x > PRE_D && x < Infinity), d.slice(0, n0));
+        if (n1 > n0) ok(`${tag}: the inner preimage is drawn too`, d.slice(n0, n1).every((x) => x > PRE_D && x < Infinity), d.slice(n0, n1));
+      } else {
+        const dA = every[k].d;
+        ok(`${tag}: each preimage over the paper keeps the region's colour (differs by more than ${PRE_D})`, d.slice(0, n1).every((x, j) => own[j] || (x > PRE_D && x < Infinity)), { d: d.slice(0, n1), own });
+        ok(`${tag}: each preimage in the plane's own regions has no fill over the colour (differs by at most ${FILL_K} of Everywhere's; at least one such preimage where the plane has regions of its own)`, (!c.own.length || own.some(Boolean)) && d.slice(0, n1).every((x, j) => !own[j] || x <= FILL_K * dA[j]), { d: d.slice(0, n1), own, dAll: dA.slice(0, n1) });
+      }
       const e = read[k + true + 'edge'].map((seg, j) => Math.max(...seg.map((p, i) => diff(p, read[k + false + 'edge'][j][i]))));
       info[tag].edge = e;
       if (e.length) ok(`${tag}: each preimage's boundary is outlined (one pixel across it differs by more than ${EDGE_D}${scope === 'all' ? ', and more than the fill' : ''})`, e.every((x) => x > EDGE_D && x < Infinity && (scope !== 'all' || x > Math.max(...d.slice(0, n0)))), e);
