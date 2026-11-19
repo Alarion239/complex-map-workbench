@@ -1903,6 +1903,16 @@
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
     const T = svT(), still = u <= SV_REST_U || b === a;
+    // (in both scopes: the regions of later planes pulled back, a layer of their own over the colour, under the outlines,
+    // as a coloured plane draws them (renderColor): at rest on plane a by drawPreimage, between two planes by the inverse
+    // pass (svStagedLayer); into the open frame, else a frame of its own; left out with the strokes, hideStrokes)
+    const pullLayer = (inFrame) => {
+      if (bare || hideStrokes) return;
+      if (still) { stagePullbacks(pane, a, inFrame, true); return; }
+      const f = { open: inFrame };
+      svStagedLayer(pane, f);
+      if (f.open && !inFrame) GLR.blit(pane.ctx);
+    };
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false };
@@ -1961,7 +1971,7 @@
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
       // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame)
       paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; colour(); },
-      after: () => { grid(true); if (!bare) svOutlines(pane, map, frame, col); frame.open = false; },
+      after: () => { grid(true); pullLayer(true); if (!bare) svOutlines(pane, map, frame, col); frame.open = false; },
     })) {
       // (drawn: the frame is on the page)
     } else {
@@ -1972,6 +1982,7 @@
       if (!mask) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
+        pullLayer(true);
         if (!bare) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
@@ -1980,6 +1991,7 @@
         svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
+        pullLayer(false);
         if (!bare) svOutlines(pane, map, null, col);
       }
     }
@@ -2010,13 +2022,38 @@
   // the glide's first plane to the one it has on the plane the glide reaches, by its share of its own look (svStagedOf's
   // own): its own opacity at 1, pulled back (stagePullbacks: PULL_ALPHA, and the boundary band, the mask's more opaque
   // line that drawPreimage draws at rest, so the carried colour shows stronger there) at 0, mixed in between. Nothing
-  // when none is visible or the pass cannot draw them
+  // when none is visible or the pass cannot draw them.
+  // A region at its own look is one fill pass, grown to its band's reach; a pulled-back one is one pass of its band over
+  // its fill (the edge draw's tint), alpha l + f (1 - l) as a fill pass and a band pass over it write, its fill to the
+  // boundary (the band's outer half is the band's alpha alone). So each region costs the frame one inverse pass (a
+  // pulled-back region a second, svStagedLayer's over the colour), within a software renderer's time for a frame
   function svStagedMask(pane, all) {
     const st = svStagedOf(all);
     if (!st) return;
-    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => { const p = PULL_ALPHA * dimK(x); return p + st.own(x) * (1 - p); });
-    const pulled = st.list.map((x, i) => i).filter((i) => st.own(st.list[i]) < 1);
-    svDrawInverse(pane, pulled.map((i) => st.list[i]), pulled.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A * (1 - st.own(x)) }));
+    const fillA = (x) => { const p = PULL_ALPHA * dimK(x); return p + st.own(x) * (1 - p); };
+    const whole = st.list.map((x, i) => i).filter((i) => st.own(st.list[i]) >= 1);
+    if (whole.length) svDrawInverse(pane, whole.map((i) => st.list[i]), whole.map((i) => st.paths[i]), svT(), { open: true }, null, fillA);
+    svPulledEdge(pane, st, { open: true }, (x, k) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A * k, tint: [0, 0, 0, fillA(x)] }));
+  }
+  // the regions of svStagedOf's st pulled back (own < 1) by one edge draw each of the inverse pass into the frame gl:
+  // edgeOf(shape, k) its band and tint (GLR.drawInverse's edge), k its share of the pulled-back look (1 - own). Nothing
+  // when none is pulled back
+  function svPulledEdge(pane, st, gl, edgeOf) {
+    const back = st.list.map((x, i) => i).filter((i) => st.own(st.list[i]) < 1);
+    if (back.length) svDrawInverse(pane, back.map((i) => st.list[i]), back.map((i) => st.paths[i]), svT(), gl, null, null, (x) => edgeOf(x, 1 - st.own(x)));
+  }
+  // the layer of the regions of later planes over the colour in the frame between two planes, in both scopes, by the
+  // inverse pass: each region's fill and band as the parked frame of the glide's first plane draws them (stagePullbacks
+  // over the colour), at its share of the pulled-back look (1 - svStagedOf's own), so the layer of a region of the
+  // plane the glide reaches goes out as its own look comes in; into the frame gl ({ open }, opened if need be). Nothing
+  // when none is visible or the pass cannot draw them
+  function svStagedLayer(pane, gl) {
+    const st = svStagedOf();
+    if (!st) return;
+    svPulledEdge(pane, st, gl, (x, k) => {
+      const e = pullLayerEdge(x, pane.dpr);
+      return Object.assign(e, { alpha: e.alpha * k, tint: [e.tint[0], e.tint[1], e.tint[2], e.tint[3] * k] });
+    });
   }
   // The shapes of the plane the glide reaches, which the inverse pass strokes where it puts a region's boundary or the
   // curve itself, with the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour over its casing)
