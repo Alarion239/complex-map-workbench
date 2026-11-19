@@ -37,7 +37,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRat3, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
@@ -582,7 +582,7 @@ const Inverse = (() => {
     return cur;
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
-  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2, RAT3,
   // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
@@ -616,9 +616,14 @@ const Inverse = (() => {
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many of these kinds: each op's own (IPOW 0 and infinity, JOUK ±1, QUAD its vertex
-  // and infinity, RAT2 at the zeros of its derivative and at infinity when that is one), carried through the ops after it,
+  // and infinity, RAT2 and RAT3 at the zeros of their derivatives and at infinity when that is one), carried through the
+  // ops after it,
   // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
   // finite families)
+  // polynomials as coefficient arrays, highest first: the product, the difference and the derivative
+  const polyMul = (a, b) => { const r = Array(a.length + b.length - 1).fill(ZERO); a.forEach((x, i) => b.forEach((y, j) => { r[i + j] = add(r[i + j], mul(x, y)); })); return r; };
+  const polySub = (a, b) => { const n = Math.max(a.length, b.length), at = (c, k) => c[k - n + c.length] || ZERO; return [...Array(n).keys()].map((k) => sub(at(a, k), at(b, k))); };
+  const polyDer = (a) => a.slice(0, -1).map((x, i) => scale(x, a.length - 1 - i));
   function critValues(plan) {
     if (!plan || !plan.ok) return null;
     const ops = plan.ops, out = [];
@@ -640,6 +645,12 @@ const Inverse = (() => {
         const co = [sub(mul(p2, q1), mul(p1, q2)), scale(sub(mul(p2, q0), mul(p0, q2)), 2), sub(mul(p1, q0), mul(p0, q1))];
         cv = CX.polyRoots(isZero(co[0]) ? co.slice(1) : co).map((u) => fwdAt(o, u));
         if (isZero(co[0])) cv.push(fwdAt(o, null));
+      } else if (o.kind === 'RAT3') {
+        // (the zeros of p'q - pq', of degree 4 at most: a rational map of degree 3 has 4 critical points, so one of a
+        // lower degree has infinity among them)
+        const { P, Q } = o.p, W = CX.polyTrim(polySub(polyMul(polyDer(P), Q), polyMul(P, polyDer(Q))));
+        cv = (W.length > 1 ? CX.polyRoots(W) : []).map((u) => fwdAt(o, u));
+        if (W.length < 5) cv.push(fwdAt(o, null));
       } else return null;
       for (let w of cv) {
         for (let k = i + 1; k < ops.length; k++) w = fwdAt(ops[k], w);
@@ -840,6 +851,14 @@ const Inverse = (() => {
         const N1 = abs(sub(mul(dp, qc), mul(pc, dq))), N2 = abs(sub(mul(p2, qc), mul(pc, q2)));
         const aq = abs(qc), ql = aq - abs(dq) * rho - abs(q2) * rho * rho;
         if (ql > 0) r = rho * (N1 + N2 * rho) / (ql * aq);
+        break;
+      }
+      case 'RAT3': {
+        // as RAT2's, with N(u) = sum_k (p_k q(c) - p(c) q_k)(u - c)^k, p_k and q_k the Taylor coefficients about c
+        const tay = ([x3, x2, x1, x0]) => [add(mul(add(mul(add(mul(x3, c), x2), c), x1), c), x0), add(mul(add(scale(mul(x3, c), 3), scale(x2, 2)), c), x1), add(scale(mul(x3, c), 3), x2), x3];
+        const pt = tay(o.p.P), qt = tay(o.p.Q), N = [1, 2, 3].map((k) => abs(sub(mul(pt[k], qt[0]), mul(pt[0], qt[k]))));
+        const aq = abs(qt[0]), ql = aq - abs(qt[1]) * rho - abs(qt[2]) * rho * rho - abs(qt[3]) * rho ** 3;
+        if (ql > 0) r = rho * (N[0] + N[1] * rho + N[2] * rho * rho) / (ql * aq);
         break;
       }
       default: {
@@ -1808,7 +1827,7 @@ const Inverse = (() => {
     // the checker filter of the analytic patterns (the GPU's ixSq)
     _sqAA: (p, w) => sqAA(p, w),
     _encl: { opDisc, chainDisc },
-    _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2 },
+    _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2, opRat3 },
   };
 })();
 import { CX } from './cx.js';

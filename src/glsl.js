@@ -2226,10 +2226,10 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, RAT3: 4 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
-  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
+  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
@@ -2729,6 +2729,50 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
 `;
+      // p(u) - w q(u) = A u^3 + B u^2 + C u + D = 0 (InvOps.cubicRoots): the degree dropped as RAT2's, else Cardano's root
+      // b, polished by two Newton steps on the cubic itself (float32: the shift by B/3A and the cube root lose digits that
+      // the steps win back). Cells: (P3, P2), (P1, P0), (Q3, Q2), (Q1, Q0)
+      case 'RAT3': return `void ${P}_co(vec2 w, out vec2 A, out vec2 B, out vec2 Cc, out vec2 D) {
+  vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
+  A = S0.xy - cmul(w, S2.xy); B = S0.zw - cmul(w, S2.zw); Cc = S1.xy - cmul(w, S3.xy); D = S1.zw - cmul(w, S3.zw);
+}
+int ${P}_deg(vec2 A, vec2 B, vec2 Cc, vec2 D) {
+  if (cx_abs(A) > 1e-14 * (cx_abs(B) + cx_abs(Cc) + cx_abs(D))) return 3;
+  if (cx_abs(B) > 1e-14 * (cx_abs(Cc) + cx_abs(D))) return 2;
+  return cx_abs(Cc) > 0.0 ? 1 : 0;
+}
+int ${P}_nb(Lf L) { if (!ixFin(L.u)) return 0; vec2 A, B, Cc, D; ${P}_co(L.u, A, B, Cc, D); return ${P}_deg(A, B, Cc, D); }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 A, B, Cc, D, u;
+  ${P}_co(L.u, A, B, Cc, D);
+  int n = ${P}_deg(A, B, Cc, D);
+  if (n == 1) u = -cdiv(D, Cc);
+  else if (n == 2) {
+    vec2 disc = csqrtp(cmul(Cc, Cc) - 4.0 * cmul(B, D));
+    if (dot(Cc, disc) < 0.0) disc = -disc;
+    vec2 q = -0.5 * (Cc + disc);
+    u = (q.x == 0.0 && q.y == 0.0) ? vec2(0.0) : (b == 0 ? cdiv(q, B) : cdiv(D, q));
+  } else {
+    vec2 b1 = cdiv(B, A), c1 = cdiv(Cc, A), b3 = b1 / 3.0, p3 = (c1 - cmul(b1, b3)) / 3.0;
+    vec2 hq = -0.5 * (2.0 * cmul(cmul(b3, b3), b3) - cmul(b3, c1) + cdiv(D, A));
+    vec2 sq = csqrtp(cmul(hq, hq) + cmul(cmul(p3, p3), p3)), s1 = hq + sq, s2 = hq - sq, s = dot(s1, s1) >= dot(s2, s2) ? s1 : s2;
+    vec2 S = vec2(0.0), T = vec2(0.0);
+    if (s.x != 0.0 || s.y != 0.0) { S = cexp(clog(s, CX_PI, 0.0) / 3.0); T = cdiv(-p3, S); }
+    vec2 om = b == 0 ? vec2(1.0, 0.0) : vec2(-0.5, b == 1 ? 0.8660254037844386 : -0.8660254037844386);
+    u = cmul(om, S) + cmul(vec2(om.x, -om.y), T) - b3;
+    for (int it = 0; it < 2; it++) {
+      vec2 f = cmul(cmul(cmul(A, u) + B, u) + Cc, u) + D, g = cmul(3.0 * cmul(A, u) + 2.0 * B, u) + Cc;
+      if (g.x == 0.0 && g.y == 0.0) break;
+      vec2 v = u - cdiv(f, g);
+      if (ixFin(v)) u = v;
+    }
+  }
+  vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
+  vec2 pu = cmul(cmul(cmul(S0.xy, u) + S0.zw, u) + S1.xy, u) + S1.zw, qu = cmul(cmul(cmul(S2.xy, u) + S2.zw, u) + S3.xy, u) + S3.zw;
+  vec2 dp = cmul(3.0 * cmul(S0.xy, u) + 2.0 * S0.zw, u) + S1.xy, dq = cmul(3.0 * cmul(S2.xy, u) + 2.0 * S2.zw, u) + S3.xy;
+  return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
+}
+`;
       // ---- log family (ROOTPOW): L_m = u0 + m st with u0 = beta Log w, st = S = 2 pi i beta, d0 = beta / w ----
       case 'ROOTPOW': return `int ${P}_nb(Lf L) { return ixFin(L.u) && (L.u.x != 0.0 || L.u.y != 0.0) ? 1 : 0; }
 bool ${P}_line(Lf L, int b, out vec2 u0, out vec2 st, out vec2 d0) {
@@ -2900,6 +2944,11 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       case 'RAT2': {
         const [P0, P1, P2] = p.P.map(z), [Q0, Q1, Q2] = p.Q.map(z);
         put(c, P0.re, P0.im, P1.re, P1.im); put(c + 1, P2.re, P2.im, Q0.re, Q0.im); put(c + 2, Q1.re, Q1.im, Q2.re, Q2.im);
+        break;
+      }
+      case 'RAT3': {
+        const [P0, P1, P2, P3] = p.P.map(z), [Q0, Q1, Q2, Q3] = p.Q.map(z);
+        put(c, P0.re, P0.im, P1.re, P1.im); put(c + 1, P2.re, P2.im, P3.re, P3.im); put(c + 2, Q0.re, Q0.im, Q1.re, Q1.im); put(c + 3, Q2.re, Q2.im, Q3.re, Q3.im);
         break;
       }
     }
