@@ -11,15 +11,17 @@
 // - each pixel of the parked frame the regions draw (where the same frame with no shapes differs) is drawn within
 //   STROKE_R px of its image under H_u in the moving frame (where the same frame with no shapes differs), for at least
 //   HIT_MIN of at least MIN_SAMPLES of them. The frames with no shapes are another page's, carried over as bytes.
-// And the layer a region of a later plane has over the colour (LAYER: f = z² and a disc on w₁, Everywhere; Joukowski, its
-// region on z and a disc on w₁, Inside regions, where the outer preimage lies in z's own region): in a window about a
-// preimage, the glide's first frame (u = 0.002, the inverse pass's) is the parked frame on z within END_FRAC of the
-// pixels and with a mean difference at most LAYER_SHARE of the layer's own (the parked frame against the same frame
-// without that region, the control: more than LAYER_CTL of the pixels and a mean of more than LAYER_MEAN apart).
-// Inside regions the colour inside keeps its full strength and the layer there is the band alone (#1889), a line a pixel
-// or so wide: in a window about the preimage's boundary, the band's pixels (the parked frame more than BAND_D, channels
-// summed, from the frame without that region; at least BAND_N of them) differ from that frame in the glide's first
-// frame too, within a pixel, at BAND_HIT of them or more.
+// And the layer a region of a later plane has over the colour, in the glide's first frame (u = 0.002, the inverse
+// pass's) about a preimage (LAYER):
+// - Everywhere (f = z² and a disc on w₁): in a window about the preimage, that frame is the parked frame on z within
+//   END_FRAC of the pixels and with a mean difference at most LAYER_SHARE of the layer's own (the parked frame against
+//   the same frame without that region, the control: more than LAYER_CTL of the pixels and a mean of more than
+//   LAYER_MEAN apart);
+// - Inside regions (Joukowski, its region on z and a disc on w₁, where the outer preimage lies in z's own region): the
+//   colour inside keeps its full strength and the layer there is the band alone, a line a pixel or so wide: in a window
+//   about the preimage's boundary, the band's pixels (the parked frame more than BAND_D, channels summed, from the
+//   frame without that region; at least BAND_N of them) differ from that frame in the glide's first frame too, within
+//   a pixel, at BAND_HIT of them or more.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
