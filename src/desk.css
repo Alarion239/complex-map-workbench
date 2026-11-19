@@ -25,6 +25,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pal-ctx .pal-at-ic svg { width: 12px; height: 12px; }
 .ihead .icon-btn { width: 28px; height: 28px; flex: 0 0 auto; }
 .ihead .icon-btn[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+.cam-reset .cr-t { display: none; }   /* (Reset camera's word shows in the phone's Display sheet only: phone.css) */
 .ihead .fF { font: italic 500 15px/1 var(--f-math); padding: 0 4px; }
 .iform { padding: 10px 12px; margin: 0 0 12px; background: var(--well); border-radius: var(--r-2); font-size: 15px; color: var(--ink); overflow-x: auto; scrollbar-width: thin; }
 .iform .ftex { white-space: nowrap; }
@@ -443,7 +444,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 :root.sv:not(.ph) #paneL > .sv-strip { grid-row: 4; margin: 0; border-width: 1px 0 0; border-radius: 0; }
 /* The plane's head on one row: the bar as wide as its controls (the style row keeps the rest), its surface one
    button with a menu; short of room the scope's switch is a menu button (sv-sm), then the colour-plane button is its wheel
-   alone (sv-c1), then the surface button is its icon (sv-si), then the title's role is its first word (sv-rs), then the title loses its role (sv-c2) last */
+   alone (sv-c1), then the surface button is its icon (sv-si), then the title's role is cut with an ellipsis to the room left (sv-re: the whole words that the room allows, then "…"), then its first word (sv-rs), then the title loses its role (sv-c2) last */
 :root.sv:not(.ph) .sv-head { flex: 0 1 auto; flex-wrap: nowrap; }
 .sv-surf1 { display: inline-flex; align-items: center; gap: var(--s-2); white-space: nowrap; }
 .sv-surf1 svg { width: 12px; height: 12px; flex: 0 0 12px; }
@@ -456,6 +457,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head.sv-si .sv-surf1 .sv-surf-t { display: none; }
 .sv-head.sv-c1 .sv-cp .sv-cp-t { display: none; }
 .sv-head.sv-c1 .sv-cp { min-width: 32px; justify-content: center; }
+.sv-head.sv-re .sv-title .sv-role .sv-wx { display: none; }
+.sv-head.sv-re .sv-title .sv-role.sv-cut::after { content: '…'; }
 .sv-head.sv-rs .sv-title .sv-role[data-short] { font-size: 0; }
 .sv-head.sv-rs .sv-title .sv-role[data-short]::before { content: attr(data-short); font-size: 13px; }
 .sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }

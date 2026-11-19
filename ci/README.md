@@ -19,6 +19,7 @@ show results sooner and can be re-run alone).
 | Quality, each of the 9 shards | 3–6 min |
 | GLSL on macOS, each page | 2–5 min |
 | GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: `direct,keys,compile` 34 min, its chains 2 min a quarter (see below) |
+| GLSL on Linux (SwiftShader, core tier, both sides) | `glsl` 1/2: 7–8 min, 2/2: 4–6 min; `adv` 3 min; `inverse` 2.5–3 min |
 | Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
 | Browser, each of the 24 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
 
@@ -114,16 +115,27 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
 | **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build, at most 8 shards of a run at a time (`max-parallel`: the runners are shared by every open pull request); their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
-| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
+| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages; Linux: the core tier in 4 jobs) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's, SwiftShader's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
 
 ### GLSL tiers
 
+Each platform's job is there for its own shader compiler:
+
+- **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
+  loops.
+- **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`): CPU WebGL2. Headless Chrome falls back to it without a
+  usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
+  (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
+  instead, which is not SwiftShader.
+
 Windows compiles every shader program on the CPU (Direct3D 11's compiler), so all the chains of the GLSL pages take
-hours there; macOS takes minutes. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a chain moves
-no other):
+hours there; macOS takes minutes; SwiftShader compiles a program on one core of the GPU process, so its core tier of
+the `glsl` page takes about 6 minutes a side. The chains are in two tiers (`test/glsl_tiers.js`, by name, so adding a
+chain moves no other):
 
 - **core**: every hand-written chain (catalog defaults, natural paths, regressions, errors, d/dz, the special
   functions, series, recurrences, repeats, ...) and a fixed eighth of each random family; on the `adv` page its
@@ -133,11 +145,26 @@ no other):
 
 The Gate (`gate.yml`, GitHub's machines):
 
-| run | Windows | macOS |
-|---|---|---|
-| a pull request (also a wave PR into `main`, and the whole gate) | core | all |
-| a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all |
-| a pull request with the label `glsl-deep` | all | all |
+| run | Windows | macOS | Linux (SwiftShader) |
+|---|---|---|---|
+| a pull request (also a wave PR into `main`, and the whole gate) | core | all | core |
+| a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all | core |
+| a pull request with the label `glsl-deep` | all | all | core |
+
+On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 20 minutes
+of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
+finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
+the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
+macOS run them. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
+sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
+(`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
+pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
+compared on Linux too.
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
+no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
+error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
@@ -233,12 +260,14 @@ artifact.
 - **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
   It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
   on the 26.04 image two files, the package and `libdisplay-info3`, both `amd64v3` builds) and installs them with `dpkg`. Those files are kept in an Actions cache,
-  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
-  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
-  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
-  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
-  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
-  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+  keyed by the runner's Ubuntu release (`ImageOS`) and the package's version in the image's lists, what the files
+  depend on: a new image of the same release with the same version finds them (GitHub's images change weekly, the
+  package seldom). When the key has no entry, the restore takes the newest entry of the release (`restore-keys`, the key
+  up to the version). A job that installed from a mirror saves the files when the key had no entry and the version
+  installed is the key's (`dpkg-query`, the step outputs `version`); a pull request's run restores what it saved
+  itself or what main's runs saved (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused.
+  - **When Ubuntu's mirrors cannot be reached**, cached files of the key's version are installed after that first
+    download fails. With
     none, or when they do not install, the same version comes from a fallback mirror on another domain:
     kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
     `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
@@ -252,6 +281,9 @@ artifact.
     security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
     stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
     newer version, which the job does not save under the key that names the image's.
+  - **Last, an older version from the cache:** when no mirror gave the key's version and the restore matched the
+    release prefix alone, the cached files of that other version are installed. `dpkg` checks their dependencies, so a
+    copy that does not fit the image fails at its install, and the job does not save them.
   - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
     not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
     cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
@@ -261,14 +293,15 @@ artifact.
     the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
     errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
     lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
-    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy for the release. Without
     lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-26.04`, by name, not `ubuntu-latest`. The layout gate compares the
   renderer's name with its baseline's (26.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) …`),
   so a job on another image, with another Mesa or LLVM, fails the layout shards until a new baseline is made from a run
   there ([Layout invariants](#layout-invariants-and-visual-inspection-470)); and while `ubuntu-latest` moves from one
   image to the next, the jobs of one run land on either. The other Linux jobs draw nothing with lavapipe and run on
-  `ubuntu-latest` (Quality's Linux row draws with SwiftShader, and pairs both sides on one machine).
+  `ubuntu-latest` (Quality's Linux row and the Linux GLSL jobs draw with SwiftShader, and pair both sides on one
+  machine).
 - **llvmpipe emits AVX code only** (`GALLIUM_OVERRIDE_CPU_CAPS: avx` in the browser job's env, #1507): LLVM 21, in Mesa
   26.0.8's lavapipe, miscompiles sin∘√'s glide through sin's step (mode 1, the root in full, then sin's path) on
   GitHub's AMD Zen 4/5 machines (EPYC 9V74, 9V45): NaN at every point, while their Zen 3 (EPYC 7763) and Intel
@@ -470,8 +503,8 @@ checks that pass in CI (30 Oct, f4e601a).
 `test/landscape_walls_cmd.js` stays in `EXCLUDED` (`ci/browser_suites.js`): its speckle, cold-open and perf parts need
 `r1/` and `base/` builds (the base is v16.3.1, `ci/reference.js` builds it) and a GPU, and the whole suite takes about
 25 min on a Mac GPU. Its mesh and motion parts read the Landscape grid back through the hooks in `src/gl/`
-(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEMP-DEBUG-HOOK` blocks that `build.py`
-strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
+(`GLR.landMesh`, `GLR.landRefine`, `GLR._lw`, `GLR._lwLog`), which sit in `// TEST-HOOK` blocks (`tools/hook_marker.js`) that
+the build strips from the published page, so `dist/test.html` has them and `dist/complex-map-workbench.html` has not. The mesh part
 and the motion part (on this build only) run on lavapipe:
 
 ```sh
