@@ -3424,5 +3424,10 @@
  "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre",
  "This curve is in {plane}, a later plane: listen along it there.": "Questa curva sta nel piano {plane}, più avanti nella catena: usa «Ascolta lungo la curva» da quel piano.",
  "No tone past the colour plane: the colour here comes from {p}.": "Nessun suono dopo il piano del colore: qui il colore viene da {p}.",
- "Regions key, {x}": "Legenda delle regioni, {x}"
+ "Regions key, {x}": "Legenda delle regioni, {x}",
+ "dashed: {x}": "tratteggiato: {x}",
+ "grey: {x}": "in grigio: {x}",
+ "the start": "l'inizio",
+ "hue: the argument, red at 1, counterclockwise": "tinta: l'argomento, rosso in 1, in senso antiorario",
+ "brightness: black at 0, white at ∞": "luminosità: nero in 0, bianco in ∞"
 }

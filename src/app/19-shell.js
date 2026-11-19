@@ -67,7 +67,8 @@
       if (th) {
         let q = 0;
         const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); });
-        for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);
+        // (and the plane's colour keys: a key unfolding under a message moves the message off it)
+        for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap'), $('leftLegend'), $('rightLegend')]) if (el) ro.observe(el);
         // (a phone's sheet opening or closing moves the message between the plot and the sheet's row)
         new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         // (a dialog opening or closing under a message decides whether the message is live)
