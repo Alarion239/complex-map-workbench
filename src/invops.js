@@ -431,14 +431,42 @@ const InvOps = (() => {
       },
     });
   }
-  // the roots of A u^3 + B u^2 + C u + D = 0 by Cardano's formula: on the depressed cubic v^3 + p v + q (u = v - B/3A),
-  // S the principal cube root of the larger-modulus of -q/2 +- sqrt(q^2/4 + p^3/27) and T = -p / (3S), the roots
-  // w^k S + w^-k T - B/3A (w = e^{2 pi i/3}, k = 0, 1, 2), each polished by CUB_POLISH Newton steps on the cubic itself (the
-  // shift and the cube root lose digits that the steps win back; GLSL's RAT3 does the same in float32). A leading
-  // coefficient below 1e-14 of the others' sizes drops the degree: the stable quadratic's roots (RAT2's), or the linear
-  // one's. A triple root (p = q = 0) comes once: [{u, mult: 3}]; else [{u}] per root
+  // a root u of the polynomial co (highest first) polished by CUB_POLISH Newton steps on it
   const CUB_POLISH = 2;
+  function polishRoot(co, u) {
+    const dco = co.slice(0, -1).map((x, i) => scale(x, co.length - 1 - i));
+    for (let it = 0; it < CUB_POLISH; it++) {
+      const g = CX.polyEval(dco, u);
+      if (isZero(g)) break;
+      const v = sub(u, div(CX.polyEval(co, u), g));
+      if (isFin(v)) u = v;
+    }
+    return u;
+  }
+  // the roots of the polynomial co (highest first, its leading coefficient not negligible) by raw, a closed formula
+  // ([{u, mult?}] of the polynomial it is given), each polished on co (polishRoot). raw is given the reverse of co,
+  // whose roots are the reciprocals, when |co_0| < |co_n|: the formulas shift by co_1/(n co_0), which for a small leading
+  // coefficient (one root far out) wipes out the digits of the small roots; the reverse has the smaller roots on the whole
+  function closedRoots(co, raw) {
+    const rev = abs(co[0]) < abs(co[co.length - 1]);
+    return raw(rev ? co.slice().reverse() : co).map(({ u, mult }) => ({ u: rev ? CX.inv(u) : u, mult })).filter((r) => isFin(r.u))
+      .map(({ u, mult }) => (mult ? { u: polishRoot(co, u), mult } : { u: polishRoot(co, u) }));
+  }
+  // the roots of a u^3 + b u^2 + c u + d = 0 by Cardano's formula: on the depressed cubic v^3 + p v + q (u = v - b/3a),
+  // S the principal cube root of the larger-modulus of -q/2 +- sqrt(q^2/4 + p^3/27) and T = -p / (3S), the roots
+  // w^k S + w^-k T - b/3a (w = e^{2 pi i/3}, k = 0, 1, 2); a triple root (p = q = 0) once, [{u, mult: 3}]
   const CUBE_ROOTS_1 = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
+  function cardano([a, bb, cc, dd]) {
+    const b = div(bb, a), c = div(cc, a), d = div(dd, a), b3 = scale(b, 1 / 3), p3 = scale(sub(c, mul(b, b3)), 1 / 3);
+    const hq = scale(add(sub(scale(mul(mul(b3, b3), b3), 2), mul(b3, c)), d), -0.5);
+    const sq = CX.sqrt(add(mul(hq, hq), mul(mul(p3, p3), p3))), s1 = add(hq, sq), s2 = sub(hq, sq), s = abs(s1) >= abs(s2) ? s1 : s2;
+    if (isZero(s)) return [{ u: neg(b3), mult: 3 }];
+    const S = CX.exp(scale(log(s), 1 / 3)), T = div(neg(p3), S);
+    return CUBE_ROOTS_1.map((om, k) => ({ u: sub(add(mul(om, S), mul(CUBE_ROOTS_1[(3 - k) % 3], T)), b3) }));
+  }
+  // the roots of A u^3 + B u^2 + C u + D = 0: Cardano's (closedRoots, so polished; GLSL's RAT3 does the same in
+  // float32). A leading coefficient below 1e-14 of the others' sizes drops the degree: the stable quadratic's roots
+  // (RAT2's), or the linear one's. A triple root comes once: [{u, mult: 3}]; else [{u}] per root
   function cubicRoots(A, B, Cc, D) {
     const small = (x, ...o) => abs(x) <= 1e-14 * o.reduce((s, y) => s + abs(y), 0);
     if (small(A, B, Cc, D)) {
@@ -447,17 +475,7 @@ const InvOps = (() => {
       const q = scale(add(Cc, (Cc.re * disc.re + Cc.im * disc.im) < 0 ? neg(disc) : disc), -0.5);
       return isZero(q) ? [{ u: ZERO, mult: 2 }] : [{ u: div(q, B) }, { u: div(D, q) }];
     }
-    const b = div(B, A), c = div(Cc, A), d = div(D, A), b3 = scale(b, 1 / 3), p3 = scale(sub(c, mul(b, b3)), 1 / 3);
-    const hq = scale(add(sub(scale(mul(mul(b3, b3), b3), 2), mul(b3, c)), d), -0.5);
-    const sq = CX.sqrt(add(mul(hq, hq), mul(mul(p3, p3), p3))), s1 = add(hq, sq), s2 = sub(hq, sq), s = abs(s1) >= abs(s2) ? s1 : s2;
-    if (isZero(s)) return [{ u: neg(b3), mult: 3 }];
-    const S = CX.exp(scale(log(s), 1 / 3)), T = div(neg(p3), S);
-    const f = (u) => add(mul(add(mul(add(mul(A, u), B), u), Cc), u), D), df = (u) => add(mul(add(scale(mul(A, u), 3), scale(B, 2)), u), Cc);
-    return CUBE_ROOTS_1.map((om, k) => {
-      let u = sub(add(mul(om, S), mul(CUBE_ROOTS_1[(3 - k) % 3], T)), b3);
-      for (let it = 0; it < CUB_POLISH; it++) { const g = df(u); if (isZero(g)) break; const v = sub(u, div(f(u), g)); if (isFin(v)) u = v; }
-      return { u };
-    });
+    return closedRoots([A, B, Cc, D], cardano);
   }
   // p(u)/q(u) of degree 3 (coprime; q = 1 for a cubic polynomial): p(u) - w q(u) = 0 (cubicRoots)
   function opRat3(p, q, fwd) {

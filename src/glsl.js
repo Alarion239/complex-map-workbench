@@ -2730,8 +2730,9 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
       // p(u) - w q(u) = A u^3 + B u^2 + C u + D = 0 (InvOps.cubicRoots): the degree dropped as RAT2's, else Cardano's root
-      // b, polished by two Newton steps on the cubic itself (float32: the shift by B/3A and the cube root lose digits that
-      // the steps win back). Cells: (P3, P2), (P1, P0), (Q3, Q2), (Q1, Q0)
+      // b, of the reversed cubic (roots 1/u) when |A| < |D| (InvOps.closedRoots), polished by two Newton steps on the cubic
+      // itself (float32: the shift and the cube root lose digits that the steps win back). Cells: (P3, P2), (P1, P0),
+      // (Q3, Q2), (Q1, Q0)
       case 'RAT3': return `void ${P}_co(vec2 w, out vec2 A, out vec2 B, out vec2 Cc, out vec2 D) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
   A = S0.xy - cmul(w, S2.xy); B = S0.zw - cmul(w, S2.zw); Cc = S1.xy - cmul(w, S3.xy); D = S1.zw - cmul(w, S3.zw);
@@ -2753,13 +2754,16 @@ bool ${P}_one_b(inout Lf L, int b) {
     vec2 q = -0.5 * (Cc + disc);
     u = (q.x == 0.0 && q.y == 0.0) ? vec2(0.0) : (b == 0 ? cdiv(q, B) : cdiv(D, q));
   } else {
-    vec2 b1 = cdiv(B, A), c1 = cdiv(Cc, A), b3 = b1 / 3.0, p3 = (c1 - cmul(b1, b3)) / 3.0;
-    vec2 hq = -0.5 * (2.0 * cmul(cmul(b3, b3), b3) - cmul(b3, c1) + cdiv(D, A));
+    bool rev = cx_abs(A) < cx_abs(D);
+    vec2 a0 = rev ? D : A, a1 = rev ? Cc : B, a2 = rev ? B : Cc, a3 = rev ? A : D;
+    vec2 b1 = cdiv(a1, a0), c1 = cdiv(a2, a0), b3 = b1 / 3.0, p3 = (c1 - cmul(b1, b3)) / 3.0;
+    vec2 hq = -0.5 * (2.0 * cmul(cmul(b3, b3), b3) - cmul(b3, c1) + cdiv(a3, a0));
     vec2 sq = csqrtp(cmul(hq, hq) + cmul(cmul(p3, p3), p3)), s1 = hq + sq, s2 = hq - sq, s = dot(s1, s1) >= dot(s2, s2) ? s1 : s2;
     vec2 S = vec2(0.0), T = vec2(0.0);
     if (s.x != 0.0 || s.y != 0.0) { S = cexp(clog(s, CX_PI, 0.0) / 3.0); T = cdiv(-p3, S); }
     vec2 om = b == 0 ? vec2(1.0, 0.0) : vec2(-0.5, b == 1 ? 0.8660254037844386 : -0.8660254037844386);
     u = cmul(om, S) + cmul(vec2(om.x, -om.y), T) - b3;
+    if (rev) u = cinv(u);
     for (int it = 0; it < 2; it++) {
       vec2 f = cmul(cmul(cmul(A, u) + B, u) + Cc, u) + D, g = cmul(3.0 * cmul(A, u) + 2.0 * B, u) + Cc;
       if (g.x == 0.0 && g.y == 0.0) break;

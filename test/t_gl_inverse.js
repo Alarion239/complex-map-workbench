@@ -72,9 +72,9 @@ for (const t of TYPES) {
 {
   const a = build([St('powa', { alpha: '1.5' })]).inverse.key, b = build([St('powa', { alpha: 'i' })]).inverse.key;
   check('powa 1.5 -> i keeps the inverse key (ROOTPOW mode is a uniform)', a === b);
-  const p1 = build([St('poly', { co: '1, 0, -1, 0' })]), p2 = build([St('poly', { co: '1, 0, 0, 5' })]);
-  check('poly 1,0,-1,0 -> 1,0,0,5: the forward key and layout stay', p1.key === p2.key && p1.slots === p2.slots);
-  check('poly 1,0,-1,0 -> 1,0,0,5: the inverse key changes (X -> IPOW, AFF)', p1.inverse.key !== p2.inverse.key && /"X"/.test(p1.inverse.key) && /IPOW/.test(p2.inverse.key));
+  const p1 = build([St('poly', { co: '1, 0, 0, 0, -1, 0' })]), p2 = build([St('poly', { co: '1, 0, 0, 0, 0, 5' })]);
+  check('poly 1,0,0,0,-1,0 -> 1,0,0,0,0,5: the forward key and layout stay', p1.key === p2.key && p1.slots === p2.slots);
+  check('poly 1,0,0,0,-1,0 -> 1,0,0,0,0,5: the inverse key changes (X -> IPOW, AFF)', p1.inverse.key !== p2.inverse.key && /"X"/.test(p1.inverse.key) && /IPOW/.test(p2.inverse.key));
   const m1 = build([St('mobius', { a: '1', b: '2', c: '1', d: '3' })]), m2 = build([St('mobius', { a: '1', b: '2', c: '2', d: '4' })]);
   check('Mobius through degeneracy: forward key and layout stay, inverse key changes', m1.key === m2.key && m1.slots === m2.slots && m1.inverse.key !== m2.inverse.key);
   // the forward uChain values of the same structure keep their cells (the inverse has its own allocator)
