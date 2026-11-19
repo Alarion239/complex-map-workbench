@@ -22,7 +22,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   await view(w, h, false, true);
   const ns = 'plo' + w + lang + mode + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden && !!document.querySelector('#shapeList .shape[data-id="s1"]')` });
   await ev(`document.getElementById('leftLegend').click(), 1`);
   await settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
@@ -49,7 +49,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   const tag = 'classic 568×320 tall bar, Y\'s key';
   await view(568, 320, false, true);
   const ns = 'ploc' + (Date.now() % 1000000);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
+  await go(`${U}?ns=${ns}&lang=en&view=classic`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
   const measureY = () => ev(`(() => {
     const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };

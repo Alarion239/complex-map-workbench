@@ -24,7 +24,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await view(w, h, false, true);
   const ns = 'plc' + w + lang + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden && !!document.querySelector('#shapeList .shape[data-id="s1"]')` });
   const home = await still();
   ok(`${tag}: the legend is a folded chip (control)`, home.collapsed && !!home.legend, home);
@@ -51,7 +51,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await view(w, h, false, true);
   const ns = 'plc2' + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=steps` });
+  await go(`${U}?ns=${ns}&lang=en&view=steps`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
   const home = await still();
   await ev(`(() => { const r = document.querySelector('#plotL > .chip.readout'); r.dataset.t = r.innerHTML; r.style.cssText = 'height:auto;white-space:normal;line-height:18px;padding:4px 8px;max-width:calc(100% - 72px)'; r.innerHTML = 'z = 12.3456 + 7.8901 i<br>w = F(z) = 123456.7890 + 12345.6789 i, a long second line'; return 1; })()`);
@@ -71,7 +71,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   const [w, h] = [568, 320];
   await view(w, h, false, true);
   const ns = 'plc3' + (Date.now() % 1000000);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
+  await go(`${U}?ns=${ns}&lang=en&view=classic`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
   await ev(`document.querySelector('[data-tool="disc"]').click(), 1`);
   const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('rightLegend').style.getPropertyValue('--lg-drop') !== ''` });

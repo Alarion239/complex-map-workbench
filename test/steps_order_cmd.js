@@ -14,12 +14,12 @@ const step = (type, params) => ({ type, params: params || {}, on: true });
 const base = (steps) => ({ v3: true, v4: true, v5: true, v6: true, shapes: SHAPES, steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } });
 const open = async (state, nsx) => {
   await view(1280, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${nsx}', ${JSON.stringify(JSON.stringify(state))}); 1`);
   await reopen(nsx);
 };
 const reopen = async (nsx) => {
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${nsx}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${nsx}&lang=en&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
 };
 const S = () => ev('__cmwSteps()');
@@ -123,7 +123,7 @@ ok('a d/dz in the chain: the select is off and says why', dz.disabled && /d\/dz 
 // room: at 1024 px, in English, Russian and Italian, the strip's controls sit on one row inside it, overlapping nothing
 for (const lang of ['en', 'ru', 'it']) {
   await view(1024, 768, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
   await ctl({ order: 'all' });
   await settled({});
