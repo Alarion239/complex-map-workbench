@@ -9,7 +9,7 @@ const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
     defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
-    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
+    nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
@@ -171,9 +171,6 @@ const Examples = (() => {
         acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
       exTryWatch(ex);
     }
-    // the line integral the example is about, once the planes have their size; not on a phone, where the popover would
-    // cover much of the plane and the example's Try line asks for it
-    if (ex.integrate != null && !document.documentElement.classList.contains('ph')) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
   let exLook = '';
   function renderExampleThumb(i) {
@@ -450,7 +447,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();
