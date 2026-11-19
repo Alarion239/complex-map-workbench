@@ -15,8 +15,10 @@
 // STACK_MIN of at least MIN_CROSS of them. And the stroke comes in at opacity u (strokeShare), held at SHARE_U and HOLD_U:
 // where plane 1's stroke is carried, the drawn pixel is the frame with the strokes hidden plus a share s of the ink and a
 // share of the casing, with the median s u times the stroke's alpha within SHARE_TOL, and weaker at the first HOLD_U than at the last. So a stroke
-// drawn whole from the midpoint, or not at all before it, or in another colour, fails in both scopes. Inside regions and
-// Everywhere (SCOPES); each failure names its scope.
+// drawn whole from the midpoint, or not at all before it, or in another colour, fails in both scopes. A region's stroke
+// comes in over its pulled-back layer, whose band (the same ink) goes out as the stroke comes in: there the median s is
+// A u + B (1 - A u) (1 - CA u), A and CA the stroke's and its casing's alpha and B the band's own share read from the same
+// frame with Outlines off (at least LAYER_MIN at SHARE_U). Inside regions and Everywhere (SCOPES); each failure names its scope.
 // Two scenes, each failure naming its own: 'kinds' (the shapes above, step 2 a translation) and 'traced' (step 2 the
 // Douady–Hubbard map, plane 1 its parameter plane): the curves the pass strokes by their polylines at rest, a freehand
 // curve of more than 64 vertices, a formula curve, an external ray of M and an equipotential, and the two grids, by
@@ -84,8 +86,10 @@ const park = async (x) => { await ev(`__cmwSteps({ x: ${x} }), 1`); await settle
 // strokes hidden), the shape's ink and casing, and carry(each): each stroke pixel of plane 1's parked frame (its ink
 // within INK_TOL, where P10 differs) carried to its place in the frame at u, H_u(h^-1(w)), and each(wx, wy) called there
 // when that place is RING_R px or more inside the frame -> how many were carried off it. body measures and returns
-const onCarried = (id, body) => ev(`(() => {
-  const g = __cmwSteps().glide, K = window.__heldPx, P = K.P1, P0 = K.P10, M = K.M, M0 = K.M0, c = document.getElementById('canvasL');
+// (frame: the kept frame read as M, 'M' by default; 'ML', the same frame with Outlines off, reads the pulled-back layer's
+// band alone)
+const onCarried = (id, body, frame = 'M') => ev(`(() => {
+  const g = __cmwSteps().glide, K = window.__heldPx, P = K.P1, P0 = K.P10, M = K[${JSON.stringify(frame)}], M0 = K.M0, c = document.getElementById('canvasL');
   const W = c.width, H = c.height, dpr = W / g.w, v = g.view, look = __cmwLook(${JSON.stringify(id)}, 'L');
   const rgb = (h) => [0, 2, 4].map((k) => parseInt(h.replace('#', '').slice(k, k + 2), 16));
   const ink = rgb(look.edge), halo = rgb(look.halo), sk = __cmwStroke(${JSON.stringify(id)}), A = sk.alpha, CA = sk.casingAlpha || 0;
@@ -132,8 +136,9 @@ const carried = (id, scope) => onCarried(id, `
 // whose drawn colour M fits M0 + s (ink - M0) + t (casing - M0) (the ink over its casing over the frame, a shape's stroke
 // at rest, each at a share of its opacity) within FIT_TOL of a channel, with the largest s: the ink's share there, s = u
 // at the stroke's middle when the stroke comes in at opacity u. A pixel with no such fit (another colour drawn there, as a
-// magenta stroke would be) has share 0. -> {n, fit, med}: the carried pixels, those with a fit, the median share of all
-const strokeShare = (id) => onCarried(id, `
+// magenta stroke would be) has share 0. -> {n, fit, med, alpha, ca}: the carried pixels, those with a fit, the median share
+// of all, the stroke's alpha and its casing's (frame: as onCarried's)
+const strokeShare = (id, frame = 'M') => onCarried(id, `
   // (least squares for s and t in M - M0 = s a + t b, a = ink - M0, b = casing - M0; null when the fit misses by more than FIT_TOL)
   const fit = (i) => {
     const h = [M0[i], M0[i + 1], M0[i + 2]], dm = [0, 1, 2].map((k) => M[i + k] - h[k]), ai = ink.map((x, k) => x - h[k]), bi = halo.map((x, k) => x - h[k]);
@@ -152,9 +157,12 @@ const strokeShare = (id) => onCarried(id, `
     shares.push(best == null ? 0 : best);
   });
   shares.sort((p, q) => p - q);
-  return { n: shares.length, fit: nfit, med: shares.length ? +shares[shares.length >> 1].toFixed(3) : null, alpha: A };`);
-// the shapes of plane 1 the pass strokes (the scene's)
-let STROKED = [];
+  return { n: shares.length, fit: nfit, med: shares.length ? +shares[shares.length >> 1].toFixed(3) : null, alpha: A, ca: CA };`, frame);
+// the shapes of plane 1 the pass strokes (the scene's); of them the regions, which a frame before plane 1 also draws
+// pulled back, a layer over the colour (its band in the same ink, going out at 1 - u as the stroke comes in)
+let STROKED = [], LAYERED = new Set();
+// (the least share of the band alone, at SHARE_U, that shows the layer is drawn and measured)
+const LAYER_MIN = 0.2;
 const check = async (r, where, scope) => {
   for (const id of STROKED) {
     const q = r[`${id} ${where}`] = await carried(id, scope);
@@ -187,6 +195,7 @@ for (const sc of SCENES) {
   await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
   ok(`[${sc.tag}] the page shows the steps view`, await isSteps(), null);
   STROKED = sc.st.shapes.filter((x) => x.stage === 1 && x.kind !== 'point').map((x) => x.id);
+  LAYERED = new Set(sc.st.shapes.filter((x) => x.stage === 1 && x.kind === 'disc').map((x) => x.id));
   // (a traced curve's polylines, as the pass strokes them, __cmwTrace: within the pass's GLR.INV_CURVE_MAX vertices,
   // at the base tolerance, which is at most TRACE_PX CSS px at plane 1's camera, and every sample at rest within that
   // tolerance of them)
@@ -212,9 +221,20 @@ for (const sc of SCENES) {
     for (const u of [SHARE_U, ...HOLD_U]) {
       r[`hold ${u}`] = await hold(u);
       await snap('M'); await snap('M0', true);
+      // (ML: the same frame with Outlines off, the strokes left out and the pulled-back layer kept)
+      await ev(`__cmwSet('outline', false), 1`); await snap('ML'); await ev(`__cmwSet('outline', true), 1`); await settled({ max: 20000 });
       if (u !== SHARE_U) await check(r, `held at u = ${u}`, scope);
       for (const id of STROKED) {
         const q = r[`share ${id} ${u}`] = await strokeShare(id);
+        if (LAYERED.has(id)) {
+          // (a region: its stroke at opacity u (the ink at A u over the casing at CA u) over the pulled-back layer's band,
+          // whose share B is read with Outlines off; they composite to A u + B (1 - A u) (1 - CA u))
+          const L = r[`band ${id} ${u}`] = await strokeShare(id, 'ML'), B = L.med ?? 0;
+          const want = q.alpha * u + B * (1 - q.alpha * u) * (1 - q.ca * u);
+          if (u === SHARE_U) ok(`[${SCOPE_NOW}] ${id}'s pulled-back layer is drawn under the incoming stroke at u = ${u}: its band's median share is at least ${LAYER_MIN}`, B >= LAYER_MIN, L);
+          ok(`[${SCOPE_NOW}] ${id}'s stroke held at u = ${u} comes in at opacity u over the pulled-back layer: the ink's median share where plane 1's stroke is carried is A u + B (1 - A u) (1 - CA u) within ${SHARE_TOL}, B the band's share with Outlines off (a stroke drawn whole, not drawn, or in another colour is not), with a fit at ${SHARE_FIT_MIN * 100} % of ${MIN_RING}+ pixels`, q.n >= MIN_RING && q.fit >= SHARE_FIT_MIN * q.n && Math.abs(q.med - want) <= SHARE_TOL, Object.assign({ want: +want.toFixed(3), B }, q));
+          continue;
+        }
         ok(`[${SCOPE_NOW}] ${id}'s stroke held at u = ${u} comes in at opacity u: the ink's median share where plane 1's stroke is carried is u (times the stroke's alpha) within ${SHARE_TOL} (a stroke drawn whole, not drawn, or in another colour is not), with a fit at ${SHARE_FIT_MIN * 100} % of ${MIN_RING}+ pixels`, q.n >= MIN_RING && q.fit >= SHARE_FIT_MIN * q.n && Math.abs(q.med - q.alpha * u) <= SHARE_TOL, q);
       }
       await ev('window.__svScrubUp(), 1');

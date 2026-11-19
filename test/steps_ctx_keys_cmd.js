@@ -13,6 +13,7 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const MARGIN = 2;   // the keys stand at least this far from the header and from the bar, px
 const ROOM = 140;   // the plane above the bar holds the unfolded colour key (74 px) beside a row of keys (44 px) only when it is this tall, px: the 320 px tall phones' 106 px is not, a 360 px tall phone's 146 px is
+const HIT_PX = 8;   // the folded colour key's hit area reaches this far past its glyph, px (phone.css)
 const SLACK = 0.5;  // layout rounding, px
 const meet = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 const geometry = () => ev(`(() => {
@@ -96,6 +97,19 @@ for (const [w, h, lang, surf] of CASES) {
       ok(`${name}: (#1915) the unfolded colour key is read whole: no point of it lies under a key or a chip`, probe.length === 0, { lg, hit, under: probe.slice(0, 6) });
       const free = (await geometry()).keys.filter((k) => k.shown && !meet(k.r, lg) && !k.press).map((k) => k.name);
       ok(`${name}: (#1915) with the colour key unfolded, a press at the centre of each plane key it does not cover reaches it`, free.length === 0, free);
+    }
+    // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
+    // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
+    // page call so the probe cannot rewrite it, and measured at once; the globe's hint card has its own rule)
+    if (!open && surf === 'plane') {
+      const ro = await ev(`(() => {
+        const e = document.getElementById('leftReadout'); if (!e) return null;
+        const html = e.innerHTML; e.textContent = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';
+        const r = e.getBoundingClientRect(), shown = e.getClientRects().length > 0; e.innerHTML = html;
+        return shown ? [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10) : null;
+      })()`);
+      info[`${name} long readout`] = ro;
+      ok(`${name}: a long readout is shown and stops short of the folded colour key's hit area`, !!ro && ro[2] <= lg[0] - HIT_PX + SLACK, { ro, lg });
     }
   }
   if (surf === 'sphere') {
