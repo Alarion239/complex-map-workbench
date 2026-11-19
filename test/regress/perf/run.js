@@ -98,12 +98,13 @@ function put(name, kind, unit, reps, extra) {
   RES.metrics[name] = Object.assign({ value, unit, kind, reps: reps.map((v) => (typeof v === 'number' ? r3(v) : v)), unit_id: CURRENT_UNIT }, extra || {});
 }
 const detail = (k, v) => { RES.details[k] = v; };
-// the frame_p95 metrics of a unit as log lines: the pooled value, then the value of each rep in the order they ran. A job's
-// artifact is not always readable, and the log then says whether the side timed first is the high one
+// the frame_p95 metrics of a unit as log lines: the metric's value (pooled over the reps' frames when putPooled set it, else
+// the median of the reps), then the value of each rep in the order they ran. A job's artifact is not always readable, and
+// the log then says whether the side timed first is the high one
 function sampleLines(metrics, unit) {
   return Object.entries(metrics)
     .filter(([name, m]) => m.unit_id === unit && m.kind === 'frame_ms' && /\.frame_p95_ms$/.test(name))
-    .map(([name, m]) => `${name}: pooled ${m.value} ms, reps ${m.reps.map(String).join(' ')}`);
+    .map(([name, m]) => `${name}: ${m.pooled ? 'pooled' : 'median'} ${m.value} ms, reps ${m.reps.map(String).join(' ')}`);
 }
 
 // ---------------- page helpers ----------------
@@ -307,6 +308,7 @@ function putPooled(name, kind, unit, reps, key, p, perRep, extra) {
   put(name, kind, unit, reps.map((r) => r[perRep]), extra);
   const v = pooled(reps, key, p);
   RES.metrics[name].value = Number.isFinite(v) ? r3(v) : null;
+  RES.metrics[name].pooled = true;
 }
 function putInteraction(prefix, reps, { input = 'pointermove' } = {}) {
   const col = (k) => reps.map((r) => r[k]);
