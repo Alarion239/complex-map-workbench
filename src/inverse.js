@@ -17,6 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
+  const { polyMul, polySub, polyDer, taylorAt } = Derivs;
   const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // the centres of cosh's zoom (arsinh 1, where cosh' = 1 and cosh = √2) and arcosh's (√2), as NatPaths.ZOOM takes them
@@ -620,16 +621,6 @@ const Inverse = (() => {
   // ops after it,
   // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
   // finite families)
-  // polynomials as coefficient arrays, highest first: the product, the difference and the derivative
-  const polyMul = (a, b) => { const r = Array(a.length + b.length - 1).fill(ZERO); a.forEach((x, i) => b.forEach((y, j) => { r[i + j] = add(r[i + j], mul(x, y)); })); return r; };
-  const polySub = (a, b) => { const n = Math.max(a.length, b.length), at = (c, k) => c[k - n + c.length] || ZERO; return [...Array(n).keys()].map((k) => sub(at(a, k), at(b, k))); };
-  const polyDer = (a) => a.slice(0, -1).map((x, i) => scale(x, a.length - 1 - i));
-  // the Taylor coefficients [a(c), a'(c), a''(c)/2, ...] of a about c (repeated synthetic division)
-  function taylorAt(a, c) {
-    const r = a.slice(), out = [];
-    for (let n = r.length; n > 0; n--) { for (let i = 1; i < n; i++) r[i] = add(r[i], mul(r[i - 1], c)); out.push(r[n - 1]); }
-    return out;
-  }
   function critValues(plan) {
     if (!plan || !plan.ok) return null;
     const ops = plan.ops, out = [];
@@ -861,7 +852,7 @@ const Inverse = (() => {
       }
       case 'RAT3': case 'RAT4': {
         // as RAT2's, with N(u) = sum_k (p_k q(c) - p(c) q_k)(u - c)^k, p_k and q_k the Taylor coefficients about c
-        const pt = taylorAt(o.p.P, c), qt = taylorAt(o.p.Q, c), aq = abs(qt[0]);
+        const pt = taylorAt(o.p.P, c).t, qt = taylorAt(o.p.Q, c).t, aq = abs(qt[0]);
         let nb = 0, ql = aq;
         for (let k = pt.length - 1; k >= 1; k--) { nb = nb * rho + abs(sub(mul(pt[k], qt[0]), mul(pt[0], qt[k]))); ql -= abs(qt[k]) * rho ** k; }
         if (ql > 0) r = rho * nb / (ql * aq);
@@ -1839,5 +1830,6 @@ const Inverse = (() => {
 import { CX } from './cx.js';
 import { Region } from './region.js';
 import { InvOps } from './invops.js';
+import { Derivs } from './derivs.js';
 import { InvPatterns } from './invpatterns.js';
 export { Inverse, Inverse as 'module.exports' };

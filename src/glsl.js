@@ -2230,21 +2230,14 @@ void ixAncTan(vec2 w) {
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3, RAT4: 4 };
-  // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: the
-  // degree after the drop (a leading coefficient below 1e-14 of the others' sizes), and root b of the stable quadratic,
+  // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: of the
+  // degree n the op gives (its _deg, InvOps.ratPoly's drop), root b of the linear polynomial, of the stable quadratic,
   // of Cardano's formula or of Ferrari's (its resolvent's root of largest modulus by Cardano's), each closed formula on
   // the reversed polynomial (roots 1/u) when its leading coefficient is the smaller end (InvOps.closedRoots), and every
   // root polished by two Newton steps on the polynomial itself (float32: the shifts and the cube root lose digits that
   // the steps win back)
   const RAT_N = new Set(['RAT3', 'RAT4']);
   const IX_ROOTS = `
-float ixSum(vec2 a, vec2 b, vec2 c) { return cx_abs(a) + cx_abs(b) + cx_abs(c); }
-int ixDeg3(vec2 a, vec2 b, vec2 c, vec2 d) {
-  if (cx_abs(a) > 1e-14 * ixSum(b, c, d)) return 3;
-  if (cx_abs(b) > 1e-14 * (cx_abs(c) + cx_abs(d))) return 2;
-  return cx_abs(c) > 0.0 ? 1 : 0;
-}
-int ixDeg4(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e) { return cx_abs(a) > 1e-14 * (ixSum(b, c, d) + cx_abs(e)) ? 4 : ixDeg3(b, c, d, e); }
 // root k of y^2 + beta y + gamma (stable)
 vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
   vec2 disc = csqrtp(cmul(beta, beta) - 4.0 * gamma);
@@ -2274,8 +2267,7 @@ vec2 ixPolish3(vec2 a, vec2 b, vec2 c, vec2 d, vec2 u) {
   }
   return u;
 }
-vec2 ixCubic(vec2 a, vec2 b, vec2 c, vec2 d, int k) {
-  int n = ixDeg3(a, b, c, d);
+vec2 ixCubic(vec2 a, vec2 b, vec2 c, vec2 d, int n, int k) {
   if (n == 1) return -cdiv(d, c);
   if (n == 2) return ixQuadMonic(cdiv(c, b), cdiv(d, b), k);
   bool rev = cx_abs(a) < cx_abs(d);
@@ -2290,13 +2282,13 @@ vec2 ixFerrari(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int k) {
   vec2 p = c1 - 6.0 * b42, q = d1 - 2.0 * cmul(b4, c1) + 8.0 * cmul(b42, b4), r = e1 - cmul(b4, d1) + cmul(b42, c1) - 3.0 * cmul(b42, b42);
   vec2 ra = vec2(8.0, 0.0), rb = 8.0 * p, rc = 2.0 * cmul(p, p) - 8.0 * r, rd = -cmul(q, q);
   vec2 m = vec2(0.0);
-  for (int j = 0; j < 3; j++) { vec2 x = ixCubic(ra, rb, rc, rd, j); if (dot(x, x) > dot(m, m)) m = x; }
+  for (int j = 0; j < 3; j++) { vec2 x = ixCubic(ra, rb, rc, rd, 3, j); if (dot(x, x) > dot(m, m)) m = x; }
   vec2 s = csqrtp(2.0 * m), h = 0.5 * p + m, qs = (s.x == 0.0 && s.y == 0.0) ? vec2(0.0) : cdiv(q, 2.0 * s);
   vec2 y = k < 2 ? ixQuadMonic(-s, h + qs, k) : ixQuadMonic(s, h - qs, k - 2);
   return y - b4;
 }
-vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int k) {
-  if (ixDeg4(a, b, c, d, e) < 4) return ixCubic(b, c, d, e, k);
+vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int n, int k) {
+  if (n < 4) return ixCubic(b, c, d, e, n, k);
   bool rev = cx_abs(a) < cx_abs(e);
   vec2 u = rev ? cinv(ixFerrari(e, d, c, b, a, k)) : ixFerrari(a, b, c, d, e, k);
   for (int it = 0; it < 2; it++) {
@@ -2807,17 +2799,22 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
 `;
-      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.cubicRoots, quarticRoots): its root b by IX_ROOTS. Cells: P's
+      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg, a leading
+      // coefficient dropped when it cancels, at most 1e-14 of |p_k| + |w| |q_k|; its root b by IX_ROOTS. Cells: P's
       // coefficients, highest first, two to a cell, then Q's from the next cell
       case 'RAT3': case 'RAT4': {
         const n = o.kind === 'RAT3' ? 3 : 4, half = Math.ceil((n + 1) / 2), co = (k, from) => `${U(from + (k >> 1))}.${k & 1 ? 'zw' : 'xy'}`;
-        const A = [...Array(n + 1).keys()].map((k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`).join(', ');
+        const cf = (k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`, A = [...Array(n + 1).keys()].map(cf).join(', ');
         const ev = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${co(k, from)}` : co(0, from)), '');
         const dv = (from) => [...Array(n).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${n - k}.0 * ${co(k, from)}` : `${n}.0 * ${co(0, from)}`), '');
-        const roots = n === 3 ? `ixCubic(${A}, b)` : `ixQuartic(${A}, b)`, deg = n === 3 ? `ixDeg3(${A})` : `ixDeg4(${A})`;
-        return `int ${P}_nb(Lf L) { if (!ixFin(L.u)) return 0; vec2 w = L.u; return ${deg}; }
+        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > 1e-14 * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
+        return `int ${P}_deg(vec2 w) {
+  float aw = cx_abs(w);
+${deg}  return 0;
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${P}_deg(L.u) : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
-  vec2 w = L.u, u = ${roots};
+  vec2 w = L.u, u = ${n === 3 ? 'ixCubic' : 'ixQuartic'}(${A}, ${P}_deg(w), b);
   vec2 pu = ${ev(0)}, qu = ${ev(half)}, dp = ${dv(0)}, dq = ${dv(half)};
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
