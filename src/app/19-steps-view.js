@@ -702,7 +702,7 @@
     const k = smKeyOf({ mode: 0, a: s, b });
     if (k) return k;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [] };
+    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [], per: null };
   }
   // The sheet key mid-glide (the map h_{b,t} after the steps before b): plane b's key, and the glide's poles at t, which
   // move with t (a path's pole sweeps across the plane, or flies in from infinity): a point beside one is not in front
@@ -1067,7 +1067,10 @@
       }
     }
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
-    return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
+    // (the period: the steps before b's, which h_{b,t} keeps whatever step b's path does, Inverse.keyPeriod; one point
+    // of each class modulo it, as at rest)
+    const per = b > 1 ? Inverse.keyPeriod(invPlan(0, b - 1)) : null;
+    return Object.assign({}, k, { sing: Inverse.keyClasses(acc.concat(poles), per).slice(0, 4), per });
   }
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a
   // pixel gives the one down it)
@@ -1278,8 +1281,8 @@
     return linking || !!svHoldB;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
-  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
-  // (H_u on the glide's first plane), view, w, h (the pane's css size)}
+  // pass's sheet key of a point of plane 0, per: that key's period ([re, im] or null), H: the map of that frame
+  // (H_u o F_{b-1}), Hb: the glide's homotopy alone (H_u on the glide's first plane), view, w, h (the pane's css size)}
   // (read by the test hooks)
   let svGlideRec = null;
   // (the last plane at rest past the colour plane: { a, path: 'inverse' | 'mesh' }, how its colour was drawn)
@@ -1937,7 +1940,7 @@
         // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
         // farthest opaque (svCarryLook at base 1))
         const hl = drew ? svHomPaths(b, u).h : null, look = hl ? svCarryLook(1, hl.list[0], { b, u }, T) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
           ...(look && { alpha: look.alpha }) };
         if (drew) return;
       }

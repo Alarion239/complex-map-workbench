@@ -762,7 +762,7 @@
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan || !plan.ok) return null;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R / 8, sing: invSing(plan) };
+    return { win: clipWin, R, rs: R / 8, sing: invSing(plan), per: Inverse.keyPeriod(plan) };
   }
   // SPEC 8.8: what to draw for forward shape s in a view -> null (the direct GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the

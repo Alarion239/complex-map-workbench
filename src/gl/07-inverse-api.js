@@ -405,6 +405,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const sing = (prep.sing || []).slice(0, 4);
     sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
     d.singN = sing.length;
+    d.singT = prep.per ? [prep.per.re, prep.per.im] : [0, 0];
     // saturation anchors (SPEC 13.12): the anchor op's index in the program, the affine ops' (A, B), each anchor's
     // model, geometry and (p, log p); the pattern origin (p - Q, Q) depends on the cell: drawInverse
     d.ancJ = -1; d.ancAB = [1, 0, 0, 0]; d.ancLA = [0, 0]; d.anc = new Float32Array(32); d.ancP = [];
@@ -715,6 +716,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
     if (P.loc.uSing) gl.uniform2fv(P.loc.uSing, d.sing);
     u1i(P, 'uSingN', d.singN);
+    u2f(P, 'uSingT', d.singT[0], d.singT[1]);
     if (P.loc.uAncJ) {
       u1i(P, 'uAncJ', d.ancJ);
       if (d.ancJ >= 0) {
