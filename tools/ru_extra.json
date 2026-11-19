@@ -311,6 +311,7 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Вращайте пальцем или двумя, касанием выбирайте фигуру; ∞ — северный полюс",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
+ "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "В этой сумме больше слагаемых, чем рисует видеокарта (%{n} при максимуме %{cap}), поэтому панель остаётся пустой. Уменьшите верхний предел суммы, чтобы её нарисовать.",
  "Preparing the page": "Подготовка страницы",
  "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
