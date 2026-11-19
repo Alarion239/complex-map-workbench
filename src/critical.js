@@ -7,8 +7,12 @@
 // none, the step itself: a rational map of exact degree by its formula (InvOps.ratCritical), a conformal map with
 // none, or a step whose critical points are not known, with the reason. The chain's critical values are each unit's
 // critical values, its lattice's values and its asymptotic values, carried through the units after it
-// (Inverse.critForward). A unit's critical point counts only where the units before it reach it (Inverse.pointPre
-// through them finds a preimage), when they are all finite; otherwise it counts.
+// (Inverse.critForward). A unit's critical point counts only where the units before it reach it, from a finite point
+// (Inverse.pointPre through them finds a preimage) or from infinity (they carry infinity to it), when they are all
+// finite; otherwise it counts. A critical point at infinity of a later unit is reached from the poles of the units
+// before it (and from infinity, where they keep it).
+// A branch of a root, of log or of an inverse trigonometric function is one-to-one: its branch points join no pieces
+// and are not critical points here (Inverse.singular lists them as 'branch').
 //
 // Pure JS: needs CX, Expr, InvOps and Inverse.
 const Critical = (() => {
@@ -50,13 +54,30 @@ const Critical = (() => {
   }
   // a unit whose preimages pointPre lists, all of them: one branch or finitely many, and no pole lattice
   const finite = (o) => typeof o.pre === 'function' && !o.lattice && (!o.fam || o.fam.type === 'fin');
-  // the preimages of u (null = infinity) through units 0 .. i - 1, or null when they are not all listed
+  // the finite preimages of u (null = infinity) through units 0 .. i - 1, or null when they are not all listed: of a
+  // finite u by pointPre; of infinity the poles of each unit k, pulled back through the units before it, as long as the
+  // units after it keep infinity at infinity (infPre). A unit with branch points (a branch of log or of a root) sends
+  // its singular points to infinity with no finite order, and no critical point comes through it from infinity
   function pullThrough(units, i, u) {
     const prefix = units.slice(0, i);
-    if (u === null || !prefix.every(finite)) return null;
-    const r = Inverse.pointPre({ ok: true, ops: prefix }, u);
-    return r.exact ? r.zs : null;
+    if (!prefix.every(finite)) return null;
+    if (u !== null) {
+      const r = Inverse.pointPre({ ok: true, ops: prefix }, u);
+      return r.exact ? r.zs : null;
+    }
+    const out = [];
+    for (let k = i - 1; k >= 0 && !units[k].branch.length; k--) {
+      for (const p of units[k].poles) {
+        const r = Inverse.pointPre({ ok: true, ops: units.slice(0, k) }, p);
+        if (!r.exact) return null;
+        out.push(...r.zs);
+      }
+      if (!units[k].infPre) break;
+    }
+    return out;
   }
+  // whether units 0 .. i - 1 carry infinity to the finite point u
+  const fromInf = (units, i, u) => { const v = Inverse.critForward(units.slice(0, i), 0, null); return v !== null && abs(sub(v, u)) <= SAME * (1 + abs(u)); };
   const pushOnce = (list, e, key) => { if (!list.some((q) => abs(sub(q[key], e[key])) <= SAME * (1 + abs(e[key])))) list.push(e); };
   const fwdAll = (units, z) => Inverse.critForward(units, 0, z);
 
@@ -87,11 +108,12 @@ const Critical = (() => {
       const c = o.critical();
       for (const e of c.crit) {
         const zs = pullThrough(units, i, e.u);
-        if (zs && !zs.length) continue;                                  // the units before it never reach it
+        // (the units before it never reach it: no finite point, and not infinity)
+        if (zs && !zs.length && e.u !== null && !fromInf(units, i, e.u)) continue;
         const w = Inverse.critForward(units, i + 1, e.w);
         if (w !== null) pushOnce(values, { w, kind: 'critical' }, 'w');
         if (zs) for (const z of zs) pushOnce(points, { z, w }, 'z');
-        else if (e.u !== null) complete = false;
+        else complete = false;
       }
       if (c.lattice) {
         complete = false;
@@ -107,8 +129,6 @@ const Critical = (() => {
     const list = Inverse.singular({ ok: true, ops: units }, win, ['crit'], cap).map((e) => ({ z: e.z, w: fwdAll(units, e.z) }));
     return { values: { known: true, list: values }, points: { complete: false, inWindow: true, list } };
   }
-  // Critical.ofStep(st, b, win) -> ofChain of the one step st (b: its Funcs.build result)
-  const ofStep = (st, b, win = null) => ofChain([st], [b], 0, 1, win);
   // Critical.joinRadii(values, c) -> [{r, values: C[]}]: for a target disc |w − c| < r, the radii at which pieces of its
   // preimage join (or a piece closes round a hole): the distances from c to the values (ofChain's values.list), each
   // radius once with every value at it, increasing
@@ -121,7 +141,7 @@ const Critical = (() => {
     }
     return out.sort((p, q) => p.r - q.r);
   }
-  return { ofChain, ofStep, joinRadii };
+  return { ofChain, joinRadii };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
