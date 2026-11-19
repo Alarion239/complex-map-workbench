@@ -155,12 +155,16 @@ On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `invers
 of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
 finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
 the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
-macOS run them. It is empty. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+macOS run them. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
 every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
 sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
 (`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
 pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
 compared on Linux too.
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
+no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
+error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
