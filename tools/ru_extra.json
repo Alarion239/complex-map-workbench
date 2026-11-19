@@ -702,6 +702,10 @@
  "Previous or next plane; with a shape selected, nudge it": "Предыдущая или следующая плоскость; при выбранной фигуре — сдвинуть её",
  "On a plane with the sound probe (steps view): move the probe": "На плоскости с указателем звука (вид шагов): сдвинуть указатель",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
+ "Preparing the glide…": "Готовим переход…",
+ "Still preparing the glide.": "Переход всё ещё готовится.",
+ "Retry": "Повторить",
+ "Cancel": "Отмена",
  "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
  "How much the layers behind show through where the picture covers a point more than once.": "Насколько слои позади просвечивают там, где картина покрывает точку больше одного раза.",
  "The Landscape draws its sheets opaque; opacity applies to the plane.": "Рельеф рисует листы непрозрачными; прозрачность действует на плоскость.",
@@ -736,6 +740,11 @@
  "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
  "No tone past the colour plane: the colour here comes from {p}.": "После плоскости цвета звука нет: цвет здесь берётся из %{p}.",
  "{from} → {to} · {secs} s": "%{from} → %{to} · %{secs} с",
+ "dashed: {x}": "пунктир: %{x}",
+ "grey: {x}": "серым: %{x}",
+ "the start": "начало",
+ "hue: the argument, red at 1, counterclockwise": "оттенок: аргумент, красный в 1, против часовой стрелки",
+ "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
  "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}"
 }
