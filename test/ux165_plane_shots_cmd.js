@@ -1,4 +1,4 @@
-// v16.5 wave 1, the "plane" piece: before/after screenshots of every visible fix (notes/ux-build/w1-plane-AS-BUILT.md).
+// The "plane" piece: before/after screenshots of every visible fix (notes/ux-build/w1-plane-AS-BUILT.md).
 // Before = dist/base-test.html (a build of work/xv164-merged-snap), after = dist/test.html; light and dark; Russian last.
 // Saved as <cdp folder>/shots/w1p/<finding>-<before|after>-<light|dark>.png (copy to notes/ux-build/shots/w1-plane/).
 // A command file for a CDP daemon (test/cdp_kit README). (__ONLY = ['ux48', ...]; __PAGES = ['test.html'].)
@@ -90,7 +90,7 @@ const SCENES = {
     await laptop(dark); await loadAt(page, { shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } });
     const p = await W(0.5, -0.8); await move(p[0], p[1]); await settle(250);
     await shot(`w1p/ux10-laptop-${tag}`);
-    // (close-ups: X's head with its title and Plane | Sphere [UX27, UX37]; the Snap button [UX94]; X's rulers [UX105])
+    // (close-ups: X's head with its title and Plane | Sphere; the Snap button; X's rulers)
     const pl = await ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()`);
     await shot(`w1p/ux27-37-head-${tag}`, { x: Math.max(0, pl[0] - 4), y: Math.max(0, pl[1] - 44), width: pl[2] + 8, height: 120 });
     const sb = await rect('#snapBtn', 40); if (sb) await shot(`w1p/ux94-snap-${tag}`, sb);
@@ -164,7 +164,7 @@ const SCENES = {
     await shot(`w1p/ux86-patterns-${tag}`, await rect('#patternSeg', 6));
     await ev(`document.getElementById('secDraw').scrollIntoView({ block: 'start' }); 1`); await settle(100);
     await key('2'); await settle(900);
-    // (the Phase style chooser, where "Grid" is now "Pulled-back grid")
+    // (the Phase style chooser: "Pulled-back grid" after, "Grid" before)
     const dc = await rect('#dcSeg', 8);
     await shot(`w1p/ux86-phase-${tag}`, dc || await ev(`(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return { x: r.left, y: r.top - 40, width: r.width, height: 120 }; })()`));
   },
