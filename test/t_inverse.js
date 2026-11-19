@@ -1260,7 +1260,8 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
 // step at each grid stage k / NEWT_K, then one at t) is Newton with H' by the forward difference over NEWT_FD (1 + |u|) from
 // H(u), glsl.js's _step, step for step. Where a stage's one step leaves |H - w| large the walk leaps between basins and the
 // derivative decides where it lands: at the zeta pixel w = 0.0875 + 25.3125i of #1396, t = 0.5, a central difference over
-// 1e-6 (1 + |u|) walked to -0.905 + 38.244i, where the kit's walk ends on none. glsl.js's _fd has the same step.
+// 1e-6 (1 + |u|) walked to -0.905 + 38.244i, where the kit's walk ends on none. glsl.js's _fd has the same step. Member
+// 1's deflated steps (glsl.js's _defl) too.
 {
   const GLSL = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'glsl.js'), 'utf8');
   const fdAt = /_fd\(vec2 u, vec2 hu, float t\) \{ float h = ([0-9.e-]+) \* \(1\.0 \+ cx_abs\(u\)\)/.exec(GLSL);
@@ -1278,6 +1279,25 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
         worst = Math.max(worst, CX.abs(CX.sub(u, got[k - 1])) / (1 + CX.abs(u)));
       }
       check(`opNewt ${type} at t = ${t}, w = ${x} + ${y}i: member 0's walk is the kit's, Newton with the forward difference, step for step`, steps === k0 + 1 && worst <= 1e-12, { steps, of: k0 + 1, worst });
+    }
+  }
+  // member 1, Newton deflated by member 0 u from 2w - u (no pole: the series), takes the same forward difference: its
+  // NEWT_DEF iterates are glsl.js's _defl's, step for step
+  {
+    const b = Funcs.build(St('series')), t = 0.5, op = Inverse.homOps(b, t).ops[0], Ht = b.hom(t);
+    for (const [x, y] of [[1, 1], [-2, 0.5], [0.5, -1.5]]) {
+      const w = { re: x, im: y }, got = [];
+      const m0 = op.pre(w, (m, v) => { if (m === 1) got.push(v); }).find((e) => e.m === 0);
+      // (both stop where a step leaves the finite numbers: on the root itself H(v) - w is 0 and the deflated step divides by it)
+      const fin = (z) => Number.isFinite(z.re + z.im);
+      let v = CX.sub(CX.scale(w, 2), m0.u), worst = 0, steps = 0;
+      for (let it = 0; it < got.length; it++, steps++) {
+        const hv = Ht(v), h = InvOps.NEWT_FD * (1 + CX.abs(v)), d = CX.scale(CX.sub(Ht(CX.add(v, { re: h, im: 0 })), hv), 1 / h);
+        v = CX.sub(v, CX.inv(CX.sub(CX.div(d, CX.sub(hv, w)), CX.inv(CX.sub(v, m0.u)))));
+        if (!fin(v) || !fin(got[it])) { if (fin(v) !== fin(got[it])) worst = Infinity; steps++; break; }
+        worst = Math.max(worst, CX.abs(CX.sub(v, got[it])) / (1 + CX.abs(v)));
+      }
+      check(`opNewt series at t = ${t}, w = ${x} + ${y}i: member 1's deflated steps are the kit's (_defl), forward difference, step for step`, got.length >= 3 && steps === got.length && worst <= 1e-12, { steps, traced: got.length, worst });
     }
   }
 }

@@ -210,7 +210,8 @@ const InvOps = (() => {
   // Without back, m = 1, another root at t, by Newton deflated by the first (its seed 2w - u0, where a map near a 2:1
   // one about w puts it; NEWT_DEF steps); or, for pole {p, res, reg} (f's one simple pole), Newton from the root the pole
   // puts over w (poleSeed; NEWT_LAD steps), whether or not member 0 exists. A member is dropped when H_t(u) misses w.
-  // The walks (member 0's grid and its step at t, the seeded walk back, the pole's and the ladder's NEWT_LAD steps) take
+  // The walks (member 0's grid and its step at t, the seeded walk back, member 1's deflated steps, the pole's and the
+  // ladder's NEWT_LAD steps) take
   // the GPU kit's own derivative, a forward difference over NEWT_FD (1 + |u|) that reuses H(u) (glsl.js's _fd): where a
   // stage's one step leaves |H - w| large, the walk leaps between basins and its derivative decides where it lands, so
   // the CPU's and the GPU's walks land alike and part only by float32's rounding (#1929). The polish, the hit test and a
@@ -309,8 +310,10 @@ const InvOps = (() => {
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
     const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
-    // (a walk's step: H' by the forward difference over NEWT_FD (1 + |u|) from H(u), as glsl.js's _step takes it)
-    const walk = (u, w, f) => { const fu = f(u), h = NEWT_FD * (1 + abs(u)); return sub(u, div(sub(fu, w), scale(sub(f(add(u, C(h, 0))), fu), 1 / h))); };
+    // (the walks' H': the forward difference over NEWT_FD (1 + |u|) from fu = f(u), glsl.js's _fd; a walk's step, as
+    // glsl.js's _step takes it)
+    const fdH = (f, u, fu) => { const h = NEWT_FD * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), fu), 1 / h); };
+    const walk = (u, w, f) => { const fu = f(u); return sub(u, div(sub(fu, w), fdH(f, u, fu))); };
     // (tr, when given: each iterate of the polish, as it is made)
     const polishAt = (u, w, tr) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) { u = step(u, w, Ht); if (tr) tr(u); } return u; };
     // f's i-th point over w (back's members in turn, the last op's first), or null
@@ -348,8 +351,9 @@ const InvOps = (() => {
     const k0 = newtGridK(t), grid = [null];
     for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
     const prm = counts ? { t, back } : { t, anchor: anchor || null, pole: pole || null };
-    // pre(w, trace): the members over w; trace(m, u), when given, gets every iterate of member 0's walk and of the ladder's
-    // (a ladder member's seed first), as it is made, for a test that follows the walk (newt_member0_cmd.js). polish(u, w):
+    // pre(w, trace): the members over w; trace(m, u), when given, gets every iterate of member 0's walk, of member 1's
+    // deflated steps and of the ladder's (a ladder member's seed first), as it is made, for a test that follows the walk
+    // (newt_member0_cmd.js, t_inverse.js). polish(u, w):
     // u after NEWT_POL Newton steps on H_t for w, the polish every member ends with
     return op('NEWT', prm, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
@@ -379,7 +383,8 @@ const InvOps = (() => {
           if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         } else if (out.length) {
           let v = sub(scale(w, 2), u);
-          for (let it = 0; it < NEWT_DEF && isFin(v); it++) v = sub(v, CX.inv(sub(div(dH(Ht, v), sub(Ht(v), w)), CX.inv(sub(v, u)))));
+          const t1 = tr(1);
+          for (let it = 0; it < NEWT_DEF && isFin(v); it++) { const hv = Ht(v); v = sub(v, CX.inv(sub(div(fdH(Ht, v, hv), sub(hv, w)), CX.inv(sub(v, u))))); if (t1) t1(v); }
           if (hits(v, w) && abs(sub(v, u)) > NEWT_SAME * (1 + abs(u))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 1 }));
         }
         // members 2 + i: Newton from the ladder's seed i, kept when it hits w and is new
