@@ -545,7 +545,7 @@
     if (cauchyWhy) { paper(pane); setColourWaiting(false); }   // (paper waits on no program)
     else {
       // (while the plot's program links with nothing to stand in for it: its values on a grid, colourStandIn)
-      cst.standIn = colourStandIn(pane, cst.map);
+      cst.standIn = colourStandIn(pane, cst.map, GLR.colorProgName(cst));
       if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
