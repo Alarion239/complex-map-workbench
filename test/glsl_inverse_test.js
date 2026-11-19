@@ -104,9 +104,10 @@ window.__invTestRun = async (opts = {}) => {
     chains.push({ name: 'mobius > zp', steps: [St('mobius'), St('zp', ZPS[4])] });
     chains.push({ name: 'zp > zp', steps: [St('zp', ZPS[0]), St('zp', ZPS[3])] });
   }
-  // a plane past a d/dz step, as the steps view plans it: the step before the d/dz off and its derivative formula
-  // (Funcs.derivativeStep) in the d/dz's place; gallery example 15, [z³ - 3z, d/dz], at plane w₂ (no derivative step
-  // throws: the chain is never left out, nor planned as the identity)
+  // a plane past a d/dz step, as the steps view plans it: the steps before the d/dz off and the derivative of their
+  // composition in the d/dz's place (Funcs.derivativeStep for one step, Funcs.chainDerivativeStep for more); gallery
+  // example 15, [z³ - 3z, d/dz], at plane w₂ (no derivative step throws: the chain is never left out, nor planned as
+  // the identity)
   {
     const f = St('custom', { expr: 'z^3-3z', cut: 180 }), d = Funcs.derivativeStep(f);
     if (!d || !d.step) throw new Error('d/dz chain: ' + ((d && d.error) || 'no derivative'));
