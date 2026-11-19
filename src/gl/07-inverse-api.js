@@ -695,16 +695,19 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uIxStopMobOn', d.mobOn ? 1 : 0); u1f(P, 'uIxPAccInP', d.pInP);
     u1i(P, 'uIxTail', rec.stage ? 0 : d.tail);
     u1i(P, 'uShStage', rec.stage);
-    // st.edge {width, alpha, color, casing {width, alpha, color}} (shapeStroke's): the boundary alone (a shape of a later
-    // plane only: the boundary draw and the grow live in the staged program), a line width device px wide at alpha in
-    // color (default black: a mask's alpha band) over an optional casing. The widths are the full ones; the uniforms hold
-    // half widths: the line reaches width / 2 to each side
+    // st.edge {width, alpha, color, casing {width, alpha, color}, tint} (shapeStroke's): the boundary alone (a shape of a
+    // later plane only: the boundary draw and the grow live in the staged program), a line width device px wide at alpha
+    // in color (default black: a mask's alpha band) over an optional casing, over the shape's fill in tint [r, g, b, a]
+    // (none without it: the steps view's layer of a later plane's region has one). The widths are the full ones; the
+    // uniforms hold half widths: the line reaches width / 2 to each side
     const staged = rec.stage > 0;
     u1i(P, 'uEdgeOnly', staged && st.edge ? 1 : 0);
     if (staged && st.edge) {
       const e = st.edge, cs = e.casing;
       u1f(P, 'uEdgeW', 0.5 * e.width); u1f(P, 'uEdgeA', e.alpha); u3(P, 'uEdgeC', e.color || [0, 0, 0]);
       u1f(P, 'uEdgeCW', cs ? 0.5 * cs.width : 0); u1f(P, 'uEdgeCA', cs ? cs.alpha : 0); u3(P, 'uEdgeCC', cs ? cs.color : [0, 0, 0]);
+      const tn = e.tint || [0, 0, 0, 0];
+      u4f(P, 'uTint', tn[0], tn[1], tn[2], tn[3]);
     }
     u1f(P, 'uStageGrow', staged ? st.grow || 0 : 0);
     const win = st.prep.win;
@@ -751,8 +754,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1i(P, 'uShOff', rec.offset);
     // (an open region's dashed boundary, st.edge.dash [on, off] in CSS px: stroked by its polylines at rest, rec.edge, a
     // traced curve whose vertices carry their arc at rest, dashed along that arc in device px at the view's scale, as
-    // GLR.drawLines dashes it at rest; the casing stays whole, as drawLines' does)
-    const ed = rec.stage > 0 && st.edge && st.edge.dash && rec.edge ? rec.edge : null;
+    // GLR.drawLines dashes it at rest; the casing stays whole, as drawLines' does. An edge with a fill under it (st.edge.tint)
+    // keeps the region's own level, which the fill needs: a curve's level holds no point)
+    const ed = rec.stage > 0 && st.edge && st.edge.dash && !(st.edge.tint && st.edge.tint[3] > 0) && rec.edge ? rec.edge : null;
     if (ed) gl.uniform4i(L_(P, 'uShape'), 16, 0, ed.nPts, ed.ptsOff);
     else gl.uniform4i(L_(P, 'uShape'), rec.kind, rec.complement ? 1 : 0, rec.nPts, rec.ptsOff);
     if (P.loc.uEdgeDash) {
