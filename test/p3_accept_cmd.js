@@ -11,7 +11,7 @@ const base = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
 const ZI = { type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true };
 const settle = async (ms = 2500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const { grab, globeCheck, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'));
+const { grab, globeCheck, handedness, EPI, ANNULUS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'globe_fill_kit.js'), 'utf8'));
 
 // ---- (f) Y Sphere, z^i(H): the hole cap empty, the annulus filled, rims exact; seen from below (the hole) and the side
 await view(1440, 900, false);
@@ -290,19 +290,7 @@ ok('(c) globe: mixed paths in list order, frame differs <= 0.5 % from all-invers
 // handedness (the plain lift would make every globe a mirror image)
 await load('p3o' + Date.now(), Object.assign({ shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0], r: 0.45 }], steps: [], srcView: { cx: 0.5, cy: 0, s: 300 } }, base, { pattern: 'tiles' }));
 await ev('__cmwSetView("L", "sphere"); __cmwSetView("R", "sphere"); 1'); await settle();
-R.hand = await ev(`(() => {
-  const out = { R: [0, 0], L: [0, 0] };
-  for (const [side, pick] of [['R', __cmwSphereW], ['L', __cmwSphereWL]]) {
-    const r = document.getElementById(side === 'R' ? 'canvasR' : 'canvasL').getBoundingClientRect();
-    for (let y = 20; y < r.height - 20; y += 23) for (let x = 20; x < r.width - 20; x += 23) {
-      const a = pick(x, y), b = pick(x + 4, y), c = pick(x, y - 4);
-      if (!a || !b || !c) continue;
-      const wa = (b[0] - a[0]) * (c[1] - a[1]) - (c[0] - a[0]) * (b[1] - a[1]);
-      out[side][wa > 0 ? 0 : 1]++;
-    }
-  }
-  return out;
-})()`);
+R.hand = { R: await handedness('R'), L: await handedness('L') };
 ok('globe orientation: every picked triangle keeps its handedness (both globes)', R.hand.R[0] > 50 && R.hand.R[1] === 0 && R.hand.L[0] > 50 && R.hand.L[1] === 0, R.hand);
 await shot('p3_orient_tiles');
 R.logs = logs().filter((l) => /error|exception/i.test(l.t) && !/404/.test(l.m)).slice(0, 6);

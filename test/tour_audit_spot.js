@@ -1,5 +1,5 @@
-// The engine-independent spotlight probe of the v16.2 audit (test/tour_audit_cmd.js of v16.2, its PROBE: targets(),
-// paths(), spot(), ringsOff()), for the r3 strip: the strip is a window of the shade like a hosting panel's, a step whose
+// The engine-independent spotlight probe of the tour audit (test/tour_audit_cmd.js, its PROBE: targets(),
+// paths(), spot(), ringsOff()), for the strip: the strip is a window of the shade like a hosting panel's, a step whose
 // task waits for an earlier one (try.after) is read, and the controls table follows the r3 steps. Read by
 // test/tour_audit_cmd.js (eval of this file's text).
 const SPOT = String.raw`(() => {
@@ -260,7 +260,7 @@ const SPOT = String.raw`(() => {
     // (#246: on a phone the card and the Add tile are rows of the chain sheet; while it is closed, the step lights the
     // chain bar's "N steps ▾" that opens it)
     'basics/chain': () => q1('#pipeline .card[data-k="1"]') || q1('.ph-csteps'), 'basics/add': () => q1('#addStepBtn') || q1('#svStrip .sv-add') || q1('.ph-csteps'),
-    'views/switch': () => q1('#viewSwitch > [data-mode="phase"]'), 'views/phase': () => q1('#panes'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
+    'views/phase': () => q1('#panes'), 'views/land': () => 'none', 'views/sphere': () => q1('#panes'), 'views/key': () => lab('#wKeyChkR') || q1('#rightFoot .opts-btn:not(.pat-btn)') || q1('#rightFoot .pat-btn'),
     'edit/cards': () => q1('#viewSwitch > [data-mode="land"]'), 'edit/split': () => q1('#propsPanel .split-offer .so-btn'), 'edit/zp': () => selTool(),
     'edit/numbers': () => q1('#propsPanel .prm-row input[type="range"]'),
     'edit/reorder': () => q1('#svStrip .sv-step[data-k="2"] .sv-more') || q1('#svStrip .sv-step[data-k="2"] .sv-fchip'),

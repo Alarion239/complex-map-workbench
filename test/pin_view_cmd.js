@@ -1,7 +1,6 @@
-// The kit's view pin for a ported suite (#620): this suite is tagged steps({ pin: true }) in ci/suite_views.js, so
-// ci/browser.js runs it with CMW_VIEW=steps and cdpd.js sets window.__cmwPinView = 'steps' before pin_view.js. A page
-// loaded with no view in its URL opens in the steps view; one that asks ?view=classic opens in the classic view; a
-// reload keeps the pin. Its URLs never name the steps view, so it passes only through the pin.
+// The kit's view pin (#620): the page opens in the steps view by default. A page loaded with no view in its URL opens
+// in the steps view; one that asks ?view=classic opens in the classic view; a reload keeps the pin. Its URLs never name
+// the steps view, so it passes only through the default.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};

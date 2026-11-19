@@ -1,9 +1,9 @@
 // The phone's parts of the classic view, checked on a phone (412 × 860, 360 × 780 and 915 × 412, Android emulation, real touch events through
 // Input.dispatchTouchEvent) and on a laptop (1366 × 768, the mouse): Undo in every sheet head and in the Deformation bar, tips that never stick,
 // Back closing the top layer, the function list, a rotation keeping the open sheet and field, the on-screen keyboard, the fixed key column,
-// the speed key, the Shapes list and the ⋯ sheet, the Deformation bar in two rows, the Both key, the context bar, the cards' pictures, the
+// the speed key, the Shapes list and the ⋯ sheet, the Deformation bar in two rows, the Both key, the context bar, the
 // last pick of a construction on touch, and a pinch on the app's own controls. They test the chain bar and its sheet, the Deformation bar and its
-// dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them. The Tools sheet's tabs,
+// dock, the Both key, and the Editor, keyboard and construction touches as the classic view reaches them. The Tools sheet's tabs,
 // the tips in the Display and Editor sheets, a slow tap and the touch wording, which the steps view has, are test/ux165_phone_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/ux165_phone_classic_cmd.js
@@ -20,15 +20,15 @@ const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'E
 const fresh = async (ns, w, h, dark, mobile, extra = '') => {
   await view(w, h, !!dark, !!mobile);
   await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
-  await nav(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
+  await go(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
 };
 const withState = async (ns, w, h, mobile, st) => { await view(w, h, false, !!mobile); await load(`ux165p-${ns}-${Date.now()}`, st); await settle(); };
 const box = (sel) => ev(`(() => { const e = typeof ${JSON.stringify(sel)} === 'string' ? document.querySelector(${JSON.stringify(sel)}) : null; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); const t = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height), r: Math.round(b.right), b: Math.round(b.bottom), top: !!t && (t === e || e.contains(t)) }; })()`);
 const center = async (sel) => { const b = await box(sel); return b ? [b.l + b.w / 2, b.t + b.h / 2] : null; };
 const touch = async (x, y, ms = 60) => { await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] }); await sleep(ms); await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); };
-// (on a phone the chain's cards, F, Add function and Numbers are rows of the chain sheet; while it is closed, a
-// tap on one of them is first the tap on "N steps ▾" that opens it, as a user's)
-const CHAIN = /#pipeline|#addStepBtn|\.ph-nums/;
+// (on a phone Numbers is a row of the chain sheet; while it is closed, a tap on it is first the tap on "N steps ▾" that
+// opens it, as a user's)
+const CHAIN = /\.ph-nums/;
 const tap = async (sel) => {
   const into = () => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' }); })()`);
   await into(); await settled({ panes: false });
@@ -53,7 +53,7 @@ await fresh('undo', 412, 860, false, true);
 for (const k of ['edit', 'tools', 'display', 'more']) {
   await ev(`Phone.open('${k}')`); await settle();
   const u = await box('.ph-sheet .ph-hundo');
-  ok(`UX24 the ${k} sheet's head has Undo, 44 px, uncovered`, u && u.w >= 44 && u.h >= 44 && u.top, u);
+  ok(`the ${k} sheet's head has Undo, 44 px, uncovered`, u && u.w >= 44 && u.h >= 44 && u.top, u);
   await ev(`Phone.close(true)`); await settle();
 }
 // Undo in a head undoes: add a disc, open More tools, tap Undo there
@@ -65,28 +65,19 @@ await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); a
 const shapes1 = await ev(`__tourApi.snapshot().state.shapes.length`);
 await ev(`Phone.open('tools')`); await settle();
 await tap('.ph-sheet .ph-hundo');
-ok('UX24 Undo in the sheet head undoes', shapes1 === shapes0 + 1 && (await ev(`__tourApi.snapshot().state.shapes.length`)) === shapes0, [shapes0, shapes1]);
+ok('Undo in the sheet head undoes', shapes1 === shapes0 + 1 && (await ev(`__tourApi.snapshot().state.shapes.length`)) === shapes0, [shapes0, shapes1]);
 await ev(`Phone.close(true)`); await settle();
-for (const [w, h] of [[412, 860], [360, 780]]) {
-  await view(w, h, false, true); await settle();
-  if (!(await ev(`!!document.querySelector('.tdock:not([hidden])')`))) { await ev(`document.getElementById('morphBtn').click()`); await settle(); }
-  const u = await box('#secDraw > .ph-undo'), x = await box('.tdock:not([hidden]) .tclose'), sp = await box('.tdock:not([hidden]) .tscrub');
-  ok(`UX24 ${w}: Undo stays at the left end of the deformation bar`, u && u.top && u.w >= 44 && u.l < 10, u);
-  ok(`UX24 ${w}: the bar's × is whole on the screen`, x && x.top && x.r <= w, x);
-  ok(`UX24 ${w}: the scrubber keeps at least 72 px`, sp && sp.w >= 72, sp);
-}
-await ev(`document.getElementById('morphBtn').click()`); await settle();
 await grab();
 
 // ---------------- tooltips never stick ----------------
-// phone: the + card's tip after an add through the palette (the focus comes back to +)
+// phone: no tip after an add through the palette
 await fresh('tip', 412, 860, false, true);
-await tap('#pipeline .add-card');
+await key('k', 4); await settle();
 for (const c of 'sin') await key(c);
 await settle(); await key('Enter'); await settled({ floor: 1300 });   // (the window the tip's absence is read after)
-ok('UX34 phone: no tip after an add (the focus came back to +)', !(await tipText()), await tipText());
-// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (the add was made from the chain
-// sheet, a modal layer over the tool row: it is closed first)
+ok('phone: no tip after an add', !(await tipText()), await tipText());
+// phone: a long-press on a tool shows its tip, and it goes when the finger lifts (an open sheet, a modal layer over the
+// tool row, is closed first)
 await ev('Phone.close(true); 1');
 await settled({ until: `!document.querySelector('.ph-sheet.open')` });
 let tc = await center('#secDraw .tool[data-tool="point"]');
@@ -109,40 +100,38 @@ await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 await settled({
   max: 3000, until: `!(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()`,
 });
-ok('UX34 phone: a long-press shows the tip', !!lpTip, lpTip);
-ok('UX17 phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
-ok('UX34 phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
-// laptop: hover only; no tip after an add (focus back on the + card), none after a programmatic focus
+ok('phone: a long-press shows the tip', !!lpTip, lpTip);
+ok('phone: the long-press tip says tap and names no key', /Tap to place a point/.test(lpTip || '') && !/Click/.test(lpTip || '') && !lpKey, [lpTip, lpKey]);
+ok('phone: the tip goes when the finger lifts', !(await tipText()), await tipText());
+// laptop: hover only; no tip after an add, none after a programmatic focus
 await fresh('tipL', 1366, 768, false, false);
-const ac = await center('#pipeline .add-card');
-await click(ac[0], ac[1]); await settle();
+await key('k', 4); await settle();
 await type('sin z'); await settle(); await key('Enter'); await move(700, 400); await settled({ floor: 1200 });   // (the window the tip's absence is read after)
-ok('UX34 laptop: no tip after an add', !(await tipText()), await tipText());
+ok('laptop: no tip after an add', !(await tipText()), await tipText());
 await ev(`document.getElementById('undoBtn').focus()`); await settled({ floor: 700 });   // (the window the tip's absence is read after)
-ok('UX34 laptop: no tip after a programmatic focus', !(await tipText()), await tipText());
+ok('laptop: no tip after a programmatic focus', !(await tipText()), await tipText());
 const dc = await center('#tools .tool[data-tool="disc"]');
 await move(dc[0], dc[1]); await settled({ until: `(() => { const t = document.getElementById('tip'); return !!t && !t.hidden; })()` });
 const hv = await tipText();
-ok('UX34 laptop: hover shows the tip', !!hv && /Disc/.test(hv), hv);
-ok('UX17 laptop: the hover tip keeps its key', await ev(`(document.querySelector('#tip .tip-key') || {}).textContent === 'D'`), hv);
+ok('laptop: hover shows the tip', !!hv && /Disc/.test(hv), hv);
+ok('laptop: the hover tip keeps its key', await ev(`(document.querySelector('#tip .tip-key') || {}).textContent === 'D'`), hv);
 await move(700, 400); await settled({ until: `(() => { const t = document.getElementById('tip'); return !t || t.hidden; })()` });
-ok('UX34 laptop: the tip goes when the mouse leaves', !(await tipText()), await tipText());
+ok('laptop: the tip goes when the mouse leaves', !(await tipText()), await tipText());
 info.backDesk = await ev('history.length');
 await key('k', 4); await settle();
-ok('UX12 laptop: the palette pushes no history entry', (await ev('history.length')) === info.backDesk, await ev('history.length'));
+ok('laptop: the palette pushes no history entry', (await ev('history.length')) === info.backDesk, await ev('history.length'));
 await key('Escape'); await settle();
 await grab();
 
 // ---------------- Back closes the top layer; Back from the bare app leaves ----------------
 await view(412, 860, false, true);
 await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
-await nav(`${U}?ns=ux165p-back-${Date.now()}`); await settle();
+await go(`${U}?ns=ux165p-back-${Date.now()}`); await settle();
 const st = () => ev(`({ url: location.href, sheet: Phone.sheet(), pop: !!document.querySelector('#popHost > *'), modal: !!document.querySelector('.modal-bg') })`);
 const layers = [
   ['the ⋯ sheet', async () => { await tap('#hdrMoreBtn'); }, (s) => s.sheet === 'more'],
   ['More tools', async () => { await tap('#toolMore > summary'); }, (s) => s.sheet === 'tools'],
-  // (the function list opens from the chain sheet: the first Back closes the list, the second the sheet)
-  ['the function list', async () => { await tap('#pipeline .add-card'); }, (s) => s.pop, 'chain'],
+  ['the function list', async () => { await key('k', 4); await settle(); }, (s) => s.pop],
   ['the Export dialog', async () => { await ev(`Phone.open('more')`); await settle(); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Export figure/.test(b.textContent)).click()`); await settle(); }, (s) => s.modal],
   ['the guide', async () => { await ev(`Phone.open('more')`); await settle(); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /^\s*Guide\s*$/.test(b.textContent)).click()`); await settle(); }, (s) => s.modal],
   ['the tour\'s chapter menu', async () => { await ev(`Phone.open('more')`); await settle(); await ev(`[...document.querySelectorAll('.ph-row')].find((b) => /Guided tour/.test(b.textContent)).click()`); await settle(); }, (s) => s.pop],
@@ -152,51 +141,50 @@ const layers = [
 for (const [name, openIt, isOpen, under] of layers) {
   await openIt();
   const a = await st();
-  ok(`UX12 ${name} opens`, isOpen(a), a);
+  ok(`${name} opens`, isOpen(a), a);
   await goBack();
   if (under) {
     const u = await st();
-    ok(`UX12 Back closes ${name} and leaves the ${under} sheet under it`, /test\.html/.test(u.url) && u.sheet === under && !u.pop && !u.modal, u);
+    ok(`Back closes ${name} and leaves the ${under} sheet under it`, /test\.html/.test(u.url) && u.sheet === under && !u.pop && !u.modal, u);
     await goBack();
   }
   const b = await st();
-  ok(`UX12 Back closes ${name} and stays in the app`, /test\.html/.test(b.url) && !b.sheet && !b.pop && !b.modal, b);
+  ok(`Back closes ${name} and stays in the app`, /test\.html/.test(b.url) && !b.sheet && !b.pop && !b.modal, b);
 }
 // a sheet closed in the app leaves no entry behind: the next Back leaves
 await tap('#hdrMoreBtn'); await tap('.ph-sheet .ph-x');
 await goBack();
-ok('UX12 Back from the bare app leaves it', (await ev('location.href')) === 'about:blank', await ev('location.href'));
+ok('Back from the bare app leaves it', (await ev('location.href')) === 'about:blank', await ev('location.href'));
 await grab();
 
 // ---------------- the phone function list ----------------
 await withState('pal', 412, 860, true, { shapes: [], steps: STEPS2 });
-await tap('#pipeline .add-card');
+await key('k', 4); await settle();
 const cb = await box('.pal-cancel'), chip = await box('.pal-at'), row = await box('.pal-item');
-ok('UX29 Cancel in the search row, at least 44 px', cb && cb.w >= 44 && cb.h >= 44 && cb.top, cb);
-ok('UX29 rows at least 48 px', row && row.h >= 48, row);
-ok('UX29 the insert position is a chip of at least 44 px', chip && chip.h >= 44 && chip.top, chip);
+ok('Cancel in the search row, at least 44 px', cb && cb.w >= 44 && cb.h >= 44 && cb.top, cb);
+ok('rows at least 48 px', row && row.h >= 48, row);
+ok('the insert position is a chip of at least 44 px', chip && chip.h >= 44 && chip.top, chip);
 const places = [];
 for (let i = 0; i < 3; i++) { places.push(await ev(`document.querySelector('.pal-at').textContent`)); await tap('.pal-at'); }
-ok('UX29 a tap moves the insert position along the chain', new Set(places).size === 3, places);
-ok('UX29 the search field keeps the focus after a chip tap', (await ev('document.activeElement && document.activeElement.id')) === 'palInput', await ev('document.activeElement && document.activeElement.id'));
+ok('a tap moves the insert position along the chain', new Set(places).size === 3, places);
+ok('the search field keeps the focus after a chip tap', (await ev('document.activeElement && document.activeElement.id')) === 'palInput', await ev('document.activeElement && document.activeElement.id'));
 await tap('.pal-cancel');
-ok('UX29 Cancel closes the list', !(await ev(`!!document.querySelector('#popHost .palette')`)));
+ok('Cancel closes the list', !(await ev(`!!document.querySelector('#popHost .palette')`)));
 await grab();
 
 // ---------------- a rotation keeps the open sheet and the field ----------------
-await withState('rot', 412, 915, true, { shapes: [], steps: STEPS2 });
-await tap('.ph-csteps');   // (the cards are the chain sheet's rows)
-const mob = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-await touch(mob[0], mob[1]); await settle();
+// (the Möbius step selected, its Editor opened)
+await withState('rot', 412, 915, true, { shapes: [], steps: STEPS2, sel: 2 });
+await ev(`Phone.open('edit'), 1`); await settle();
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[1]; i.focus(); i.setSelectionRange(1, 1); })()`); await settle();
 const f0 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
 await view(915, 412, false, true); await settle();
 const s1 = await phSt(), f1 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
-ok('UX68 to landscape: the Editor stays open', s1.land && s1.kind === 'edit', s1);
-ok('UX68 to landscape: the same field has the focus', f1 === f0 && f0 >= 0, [f0, f1]);
+ok('to landscape: the Editor stays open', s1.land && s1.kind === 'edit', s1);
+ok('to landscape: the same field has the focus', f1 === f0 && f0 >= 0, [f0, f1]);
 await view(412, 915, false, true); await settle();
 const s2 = await phSt(), f2 = await ev(`[...document.querySelectorAll('.ph-sheet input')].indexOf(document.activeElement)`);
-ok('UX68 back to portrait: the Editor and the field again', !s2.land && s2.kind === 'edit' && f2 === f0, [s2, f2]);
+ok('back to portrait: the Editor and the field again', !s2.land && s2.kind === 'edit' && f2 === f0, [s2, f2]);
 await grab();
 
 // ---------------- the on-screen keyboard ----------------
@@ -205,15 +193,15 @@ await fresh('kb', 360, 780, false, true);
 await tap('.ph-nums');
 await ev(`[...document.querySelectorAll('.ph-sheet button')].find((b) => /Number/.test(b.textContent) && b.getClientRects().length).click()`); await settle();
 const fk0 = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { tag: a.tagName, top: Math.round(b.top), bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
-ok('UX69 a field takes the focus with no keyboard: the sheet keeps its height (the planes stay in view)', fk0.tag === 'INPUT' && !(await phSt()).full, [fk0, await phSt()]);
+ok('a field takes the focus with no keyboard: the sheet keeps its height (the planes stay in view)', fk0.tag === 'INPUT' && !(await phSt()).full, [fk0, await phSt()]);
 await ev('Phone._kb(330)'); await settle();
 const fk = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { tag: a.tagName, top: Math.round(b.top), bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
-ok('UX69 a 330 px keyboard: the field is lifted above it (the sheet grows when scrolling cannot do it)', fk.tag === 'INPUT' && fk.bottom <= fk.ih - 330 && fk.top > 56 && (await phSt()).full, [fk, await phSt()]);
-ok('UX69 with the keyboard up the sheet body gets room at its end', (await ev(`parseFloat(getComputedStyle(document.querySelector('.ph-sb:not([hidden])')).paddingBottom)`)) >= 330);
+ok('a 330 px keyboard: the field is lifted above it (the sheet grows when scrolling cannot do it)', fk.tag === 'INPUT' && fk.bottom <= fk.ih - 330 && fk.top > 56 && (await phSt()).full, [fk, await phSt()]);
+ok('with the keyboard up the sheet body gets room at its end', (await ev(`parseFloat(getComputedStyle(document.querySelector('.ph-sb:not([hidden])')).paddingBottom)`)) >= 330);
 await ev('Phone._kb(0)'); await settle();
-ok('UX69 the sheet goes back to its height when the keyboard goes', !(await phSt()).full);
+ok('the sheet goes back to its height when the keyboard goes', !(await phSt()).full);
 await ev('Phone._kb(330)'); await settle(); await ev('document.activeElement.blur()'); await settled({ until: `!Phone._state().full` });
-ok('UX69 … or when the field is left', !(await phSt()).full);
+ok('… or when the field is left', !(await phSt()).full);
 await ev('Phone._kb(0)');
 // a formula field with the keyboard up has a strip of symbols above the keyboard; a press types at the caret and the field keeps the focus
 await ev(`Phone.open('tools')`); await settle();
@@ -222,25 +210,23 @@ await ev(`(() => { const f = document.getElementById('formulaInput'); f.focus();
 const noKb = await ev(`!!document.querySelector('.ph-keys:not([hidden])')`);
 await ev('Phone._kb(330)'); await settle();
 const ks = await ev(`(() => { const e = document.querySelector('.ph-keys'); const r = e.getBoundingClientRect(); return { shown: !e.hidden, bottom: Math.round(innerHeight - r.bottom), h: Math.round(r.height), labels: [...e.children].map((b) => b.textContent), small: [...e.children].filter((b) => { const q = b.getBoundingClientRect(); return q.width < 44 || q.height < 44; }).length, focus: document.activeElement.id }; })()`);
-ok('UX46 a formula field: no strip without the keyboard; with it, a 44 px row on the keyboard\'s edge', !noKb && ks.shown && ks.bottom === 330 && ks.h === 44 && ks.small === 0 && ks.focus === 'formulaInput', [noKb, ks]);
-ok('UX46 the strip is symbols only', ks.labels.join(' ') === 'z | < > ≤ π i Re Im arg ( )', ks.labels);
+ok('a formula field: no strip without the keyboard; with it, a 44 px row on the keyboard\'s edge', !noKb && ks.shown && ks.bottom === 330 && ks.h === 44 && ks.small === 0 && ks.focus === 'formulaInput', [noKb, ks]);
+ok('the strip is symbols only', ks.labels.join(' ') === 'z | < > ≤ π i Re Im arg ( )', ks.labels);
 await ev(`[...document.querySelectorAll('.ph-keys button')].find((b) => b.textContent === '<').click()`); await settle();
 const ty = await ev(`(() => { const f = document.getElementById('formulaInput'); return { v: f.value, c: f.selectionStart, focus: document.activeElement === f }; })()`);
-ok('UX46 a press types the symbol at the caret and the field keeps the focus', ty.v === '|z<' && ty.c === 3 && ty.focus, ty);
+ok('a press types the symbol at the caret and the field keeps the focus', ty.v === '|z<' && ty.c === 3 && ty.focus, ty);
 await ev('Phone._kb(0)'); await settle();
-ok('UX46 the strip goes with the keyboard', await ev(`document.querySelector('.ph-keys').hidden`));
+ok('the strip goes with the keyboard', await ev(`document.querySelector('.ph-keys').hidden`));
 await ev('document.activeElement.blur()');
 // the Editor (split: X and Y above it): a coefficient with a short keyboard is lifted by a scroll, the planes stay
-await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2 });
-await tap('.ph-csteps');   // (the cards are the chain sheet's rows)
-const mobK = await ev(`(() => { const c = [...document.querySelectorAll('#pipeline .card')].find((c) => /Möbius/.test(c.textContent)); c.scrollIntoView({ inline: 'nearest' }); const b = c.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-await touch(mobK[0], mobK[1]); await settle();
+await withState('kbEd', 412, 915, true, { shapes: [], steps: STEPS2, sel: 2 });
+await ev(`Phone.open('edit'), 1`); await settle();
 await ev(`(() => { const i = [...document.querySelectorAll('.ph-sheet input.inp')].filter((e) => e.getClientRects().length)[3]; i.focus(); })()`); await settle();
 await ev('Phone._kb(260)'); await settle();
 const fe = await ev(`(() => { const a = document.activeElement; const b = a.getBoundingClientRect(); return { bottom: Math.round(b.bottom), ih: innerHeight }; })()`);
 info.kbEditor = [fe, await phSt()];
-ok('UX69 the Editor: the coefficient is above a 260 px keyboard', fe.bottom <= fe.ih - 260, info.kbEditor);
-ok('UX69 the Editor: lifted by a scroll, the sheet keeps its height (X and Y stay in view)', !info.kbEditor[1].full, info.kbEditor);
+ok('the Editor: the coefficient is above a 260 px keyboard', fe.bottom <= fe.ih - 260, info.kbEditor);
+ok('the Editor: lifted by a scroll, the sheet keeps its height (X and Y stay in view)', !info.kbEditor[1].full, info.kbEditor);
 await ev('Phone._kb(0)'); await ev('document.activeElement.blur()'); await settle();
 await grab();
 
@@ -250,13 +236,13 @@ const keys = () => ev(`(() => { const o = {}; for (const e of document.querySele
 const kv = {};
 kv.xy = await keys();
 await ev('Phone.swap()'); await settle(); kv.swap = await keys(); await ev('Phone.swap()'); await settle();
-await ev(`document.querySelector('#viewSwitch [data-mode="phase"]').click()`); await settle(); kv.phase = await keys();
-await ev(`document.querySelector('#viewSwitch [data-mode="land"]').click()`); await settle(); kv.land = await keys();
+await ev(`__cmwSetMain('phase'); 1`); await settle(); kv.phase = await keys();
+await ev(`__cmwSetMain('land'); 1`); await settle(); kv.land = await keys();
 info.keys = kv;
-for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`UX38 ${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
-for (const v of ['swap', 'phase']) ok(`UX38 sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
+for (const v of ['swap', 'phase', 'land']) for (const k of ['display', 'fit']) ok(`${k} keeps its place in ${v}`, JSON.stringify(kv[v][k]) === JSON.stringify(kv.xy[k]), [kv.xy[k], kv[v][k]]);
+for (const v of ['swap', 'phase']) ok(`sphere keeps its place in ${v}`, JSON.stringify(kv[v].sphere) === JSON.stringify(kv.xy.sphere), [kv.xy.sphere, kv[v].sphere]);
 ok('D8 Both is the column\'s top key', kv.xy.both && kv.xy.both[1] < kv.xy.sphere[1] && kv.xy.both[0] === kv.xy.sphere[0], kv.xy);
-ok('UX38 the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
+ok('the column is at the bottom right, Sphere over Display over Fit', kv.xy.sphere[1] < kv.xy.display[1] && kv.xy.display[1] < kv.xy.fit[1] && kv.xy.fit[1] > 600 && kv.xy.fit[0] > 340, kv.xy);
 // Landscape on a portrait phone: the surface uses more of the plane than the bounding sphere's fit
 const lb = await ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(); return [c.left, c.top, c.width, c.height]; })()`);
 const im = await img({ x: lb[0], y: lb[1], width: lb[2], height: lb[3] });
@@ -265,19 +251,11 @@ im.width = im.w; im.height = im.h;
 const bg = [im.data[0], im.data[1], im.data[2]];
 for (let y = Math.round(im.height * 0.2); y < im.height * 0.8; y += 2) for (let x = 0; x < im.width; x++) { const i = im.ch * (y * im.width + x); if (Math.abs(im.data[i] - bg[0]) + Math.abs(im.data[i + 1] - bg[1]) + Math.abs(im.data[i + 2] - bg[2]) > 60) { x0 = Math.min(x0, x); x1 = Math.max(x1, x); } }
 info.landWidth = [(x1 - x0) / im.width];
-ok('UX106 the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
-await ev(`document.querySelector('#viewSwitch [data-mode="xy"]').click()`); await settle();
+ok('the Landscape surface spans most of a portrait phone plane', (x1 - x0) / im.width > 0.8 && x0 > 0 && x1 < im.width - 1, [x0, x1, im.width]);
+await ev(`__cmwSetMain('xy'); 1`); await settle();
 await view(915, 412, false, true); await settle();
 const k915 = await ev(`[...document.querySelectorAll('.ph-col')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(), p = e.closest('.plot').getBoundingClientRect(); return Math.round(p.bottom - b.bottom); })`);
-ok('UX38 915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
-await grab();
-
-// ---------------- the speed key cycles ----------------
-await fresh('speed', 412, 860, false, true);
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-const speeds = [];
-for (let i = 0; i < 4; i++) { speeds.push(await ev(`document.querySelector('.tdock:not([hidden]) #speedSeg > button.on').textContent`)); await tap('.tdock:not([hidden]) #speedSeg > button.on'); }
-ok('UX62 a tap on the speed moves on: 1×, 2×, 0.5×, 1×', speeds.join(' ') === '1× 2× 0.5× 1×', speeds);
+ok('915 × 412: each plane\'s column sits at the same height above the bottom', k915.length === 2 && k915[0] === k915[1] && k915[0] <= 64, k915);
 await grab();
 
 // ---------------- the Shapes list, the ⋯ sheet, the long-press tips ----------------
@@ -285,43 +263,22 @@ await withState('rows', 360, 780, true, { shapes: [{ id: 's1', kind: 'disc', c: 
 await ev(`Phone.open('tools')`); await settle();
 await ev(`Phone.tab('shapes')`); await settle();
 const rows = await ev(`[...document.querySelectorAll('.ph-sheet .shape-row')].map((r) => { const b = r.getBoundingClientRect(), e = r.querySelector('.eye').getBoundingClientRect(), m = r.querySelector('.more').getBoundingClientRect(); return { h: Math.round(b.height), eyeR: Math.round(e.right), moreL: Math.round(m.left), moreR: Math.round(m.right), eh: Math.round(e.height), mh: Math.round(m.height) }; })`);
-ok('UX45 rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
-ok('UX45 the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
-ok('UX45 ⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360 - 16), rows);
+ok('rows at least 48 px', rows.length >= 2 && rows.every((r) => r.h >= 48), rows);
+ok('the eye and ⋯ side by side, 44 px each, apart', rows.every((r) => r.eyeR <= r.moreL && r.eh >= 44 && r.mh >= 44), rows);
+ok('⋯ keeps a 16 px gutter at the edge', rows.every((r) => r.moreR <= 360 - 16), rows);
 const tip = await ev(`(document.querySelector('.ph-sb[data-k="tools"] .ph-tip') || {}).textContent || ''`);
-ok('UX40 More tools teaches the long press', /hold a finger/i.test(tip), tip);
+ok('More tools teaches the long press', /hold a finger/i.test(tip), tip);
 await ev(`Phone.close(true)`); await settle();
-await tap('#pipeline .card:not(.region-card)');
+await ev(`Phone.open('edit'), 1`); await settle();
 const zh = await ev(`(document.querySelector('.ph-sheet .zp-hint') || {}).textContent || ''`);
 // (the long press is a mark's, "Drag a mark to move it; hold it for more.")
-ok('UX40 the zeros-and-poles editor teaches the long press', /hold it for more/i.test(zh), zh);
+ok('the zeros-and-poles editor teaches the long press', /hold it for more/i.test(zh), zh);
 await ev(`Phone.close(true)`); await settle();
 await ev(`Phone.open('more')`); await settle();
 const more = await ev(`({ text: document.querySelector('.ph-sheet[data-k="more"]').innerText, rows: [...document.querySelectorAll('.ph-sheet[data-k="more"] .ph-row')].map((r) => r.textContent.trim()) })`);
 ok('V02 the links and scene files are rows of the ⋯ sheet', ['Copy link to this figure', 'Save scene', 'Open scene'].every((w) => more.rows.some((r) => r.includes(w))), more.rows);
 ok('V02 no key shortcuts and no "again" rows before a first export', !/⌘|Ctrl E|again/.test(more.text), more.text);
 await grab();
-
-// ---------------- the deformation bar in two rows, a full-width scrubber, the Steps picker ----------------
-await withState('d11', 412, 860, true, { shapes: [], steps: STEPS2 });
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-const dk = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), scrub: r(d.querySelector('.tscrub')), range: r(d.querySelector('#morphRange')), play: r(d.querySelector('#morphPlay')), steps: r(d.querySelector('#stepsBtn')), close: r(d.querySelector('.tclose')), undo: r(document.querySelector('#secDraw > .ph-undo')), read: r(d.querySelector('.tscrub > .tread')), label: (d.querySelector('#stepsBtn') || {}).textContent, picked: d.querySelector('#stepsPick') && !d.querySelector('#stepsPick').hidden }; })()`);
-ok('D11 two rows: the scrubber the full width, play, Steps and × below it, 44 px tall', dk && dk.range.w >= 412 - 24 && dk.play.t >= dk.scrub.t + dk.scrub.h - 2 && dk.steps.t === dk.play.t && dk.close.t === dk.play.t && dk.play.h >= 44 && dk.steps.h >= 44 && dk.close.h >= 44 && dk.range.h >= 44, dk);
-ok('D11 the tool row\'s Undo stays at the left end of the second row', dk && dk.undo && dk.undo.l < dk.play.l && Math.abs(dk.undo.t + dk.undo.h / 2 - (dk.play.t + dk.play.h / 2)) < 12, dk);
-ok('D11 the readout rides the scrubber, the Steps button names the range', dk && dk.read && dk.read.t < dk.range.t + 10 && /Every step|Steps/.test(dk.label), dk);
-await ev(`document.getElementById('stepsBtn').click()`); await settle();
-const pk = await ev(`(() => { const p = document.getElementById('stepsPick'); const b = p.getBoundingClientRect(); const c = [...p.querySelectorAll('select, input[type=checkbox]')].map((e) => ({ id: e.id || e.getAttribute('aria-label'), vis: e.getClientRects().length > 0 })); return { open: !p.hidden, bottom: Math.round(b.bottom), top: Math.round(document.querySelector('.tdock:not([hidden])').getBoundingClientRect().top), c, loop: !!p.querySelector('#loopChk'), order: !!p.querySelector('#homOrderSel') }; })()`);
-ok('D11 the Steps picker holds the range, the order and Loop, above the bar', pk.open && pk.bottom <= pk.top && pk.loop && pk.order && pk.c.length >= 4 && pk.c.every((x) => x.vis), pk);
-await ev(`document.getElementById('stepsBtn').click()`); await settle();
-ok('D11 the picker closes', await ev(`document.getElementById('stepsPick').hidden`));
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-await withState('d11l', 915, 412, true, { shapes: [], steps: STEPS2 });
-await ev(`document.getElementById('morphBtn').click()`); await settle();
-await settled({ max: 4000, until: `!!document.querySelector('.tdock:not([hidden])')` });   // (the dock is built after the click's frames)
-const dlState = await ev(`({ cls: document.documentElement.className, btn: !!document.getElementById('morphBtn'), docks: [...document.querySelectorAll('.tdock')].map((d) => [d.id, d.hidden, d.children.length]) })`);
-const dl = await ev(`(() => { const d = document.querySelector('.tdock:not([hidden])'); if (!d) return null; const r = (e) => { const b = e && e.getBoundingClientRect(); return b && { l: Math.round(b.left), t: Math.round(b.top), w: Math.round(b.width), h: Math.round(b.height) }; }; return { dock: r(d), range: r(d.querySelector('#morphRange')), col: r(document.getElementById('secDraw')), undo: r(document.querySelector('#secDraw > .ph-undo')), ih: innerHeight }; })()`);
-ok('D11 landscape: one row left of the tool column with a wide scrubber, Undo kept in the column', dl && dl.dock && dl.dock.t + dl.dock.h <= dl.ih + 1 && dl.dock.l + dl.dock.w <= dl.col.l + 1 && dl.range.w >= 300 && dl.undo.l >= dl.col.l - 1, { dl, dlState });
-await ev(`document.getElementById('morphBtn').click()`); await settle();
 
 // ---------------- the Both key shows X above Y; remembered ----------------
 await withState('both', 412, 860, true, { shapes: [], steps: STEPS2 });
@@ -435,17 +392,6 @@ await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].fin
 const r2 = await ruChk();
 ok('D3 ru, the orthogonal circle: its words and Отменить выбор fit at 360 px', r2 && !r2.over && !r2.cut.length && !r2.small.length, r2);
 
-// ---------------- no cut "No shapes" on the phone's card pictures (the laptop's keep it) ----------------
-await send('Page.addScriptToEvaluateOnNewDocument', { source: `(() => { for (const C of [self.CanvasRenderingContext2D, self.OffscreenCanvasRenderingContext2D]) { if (!C) continue; const P = C.prototype; for (const f of ['fillText', 'strokeText']) { const o = P[f]; P[f] = function (t, ...a) { if (String(t) === 'No shapes') { self.__noShapes = (self.__noShapes || 0) + 1; } return o.call(this, t, ...a); }; } } })();` });
-for (const [w, h, mob, want] of [[412, 860, true, false], [1366, 768, false, true]]) {
-  await withState(`thumb${w}`, w, h, mob, { shapes: [], steps: STEPS2 });
-  // (the card pictures draw after the load settles: wait for the words where they are drawn, an absence window where they never are)
-  await (want ? settled({ max: 4000, until: '(window.__noShapes || 0) > 0' }) : settled({ floor: 500 }));
-  const nsh = await ev('window.__noShapes || 0');
-  ok(`UX83 ${w}: "No shapes" ${want ? 'drawn where it fits' : 'never drawn on a 44 px picture'}`, want ? nsh > 0 : nsh === 0, nsh);
-}
-await grab();
-
 // ---------------- the last pick of a construction on touch: the preview under the finger, lift to commit ----------------
 await fresh('last', 412, 860, false, true);
 await ev(`[...document.querySelectorAll('#constructTools .tool[data-tool]')].find((b) => b.dataset.tool === 'circle3').click()`); await settle();
@@ -461,17 +407,17 @@ await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: 
 for (let i = 1; i <= 5; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 200 + i * 10, y: 450 - i * 12, id: 1 }] }); await sleep(80); }
 await settled({ max: 4000, until: `!!Construct.debug().hover` });
 const dn = await ev(`(() => { const d = Construct.debug(); return { hover: d.hover, picks: d.draft ? d.draft.picks.length : -1, shapes: __tourApi.snapshot().state.shapes.length }; })()`);
-ok('UX50 two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
+ok('two picks made, the third finger down and sliding: the preview follows it, nothing is made yet', pk2 === 2 && dn.hover && dn.picks === 2 && dn.shapes === nBefore, [pk2, dn, nBefore]);
 const h1 = dn.hover;
 await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: 300, y: 380, id: 1 }] });
 await settled({
   max: 4000, until: `JSON.stringify(Construct.debug().hover) !== ${JSON.stringify(h1)}`,
 });
 const h2 = await ev('Construct.debug().hover');
-ok('UX50 sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
+ok('sliding moves the preview', h2 && (Math.abs(h2[0] - h1[0]) > 0.05 || Math.abs(h2[1] - h1[1]) > 0.05), [h1, h2]);
 await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
 await settled({ max: 4000, until: `__tourApi.snapshot().state.shapes.length > ${nBefore}` });
-ok('UX50 lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
+ok('lifting makes the third pick: the circle and its points are made', (await n50()) > nBefore, [nBefore, await n50()]);
 await key('Escape'); await settle();
 
 // ---------------- a pinch on the app's own controls never zooms the page; the planes keep their pinch ----------------
@@ -480,19 +426,19 @@ await fresh('pinch', 412, 860, false, true);
 for (const [name, sel] of [['header', '.top'], ['chain bar', '.pipe-wrap'], ['tool row', '#secDraw']]) {
   const b = await box(sel);
   await pinch(206, b.t + b.h / 2, 60, 200);
-  ok(`UX13 pinch on the ${name}: the page stays at 1×`, (await ev('visualViewport.scale')) === 1, await ev('visualViewport.scale'));
+  ok(`pinch on the ${name}: the page stays at 1×`, (await ev('visualViewport.scale')) === 1, await ev('visualViewport.scale'));
 }
 await ev(`Phone.open('tools')`); await settle();
 const sh = await box('.ph-sheet .ph-sh');
 await pinch(120, sh.t + 30, 40, 160);
-ok('UX13 pinch on a sheet head: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
+ok('pinch on a sheet head: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
 await pinch(206, sh.t + 200, 40, 160);
-ok('UX13 pinch on a sheet body: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
+ok('pinch on a sheet body: the page stays at 1×', (await ev('visualViewport.scale')) === 1);
 await ev(`Phone.close(true)`); await settle();
 const sc0 = await ev(`document.getElementById('leftReadout').textContent`);
 await pinch(206, 300, 60, 200);
 const sc1 = await ev(`document.getElementById('leftReadout').textContent`);
-ok('UX13 a pinch on the plane still zooms the plane', sc0 !== sc1 && (await ev('visualViewport.scale')) === 1, [sc0, sc1]);
+ok('a pinch on the plane still zooms the plane', sc0 !== sc1 && (await ev('visualViewport.scale')) === 1, [sc0, sc1]);
 await grab();
 
 ok('no exceptions or console errors', errs.length === 0, errs.slice(0, 5));

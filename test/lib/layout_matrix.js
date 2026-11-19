@@ -14,22 +14,22 @@
   const LAYER = `__layout.openLayers().length > 0`;
   // two more steps on the chain (sine, exponential), each waited for on the state the next key reads: the palette open, its
   // list filtered to the typed name, the step in the chain
-  const CARDS = `document.querySelectorAll('#pipeline .card:not(.region-card)').length`;
+  const STEPS = `__cmwP().steps.length`;
   const grow = async () => {
     for (const f of ['sine', 'exponential']) {
-      const n = await ev(CARDS);
+      const n = await ev(STEPS);
       await key('k', 4);
       await settled({ only: true, until: `!!document.querySelector('.pop.palette .pal-input') && document.querySelectorAll('.pop.palette .pal-item').length > 0` });
       const all = await ev(`document.querySelectorAll('.pop.palette .pal-item').length`);
       await type(f);
       await settled({ only: true, until: `document.querySelector('.pop.palette .pal-input').value === ${JSON.stringify(f)} && document.querySelectorAll('.pop.palette .pal-item').length > 0 && document.querySelectorAll('.pop.palette .pal-item').length < ${all}` });
       await key('Enter');
-      await settled({ only: true, until: `${CARDS} > ${n} && !document.querySelector('.pop.palette')` });
+      await settled({ only: true, until: `${STEPS} > ${n} && !document.querySelector('.pop.palette')` });
     }
     // (the "step added" toasts are not part of the state: they would sit over the sheet)
     await ev(`(() => { for (const t of document.querySelectorAll('#toastHost > *')) t.remove(); return 1; })()`);
   };
-  const GROWN = `${CARDS} >= 4`;
+  const GROWN = `${STEPS} >= 4`;
   const SHRINK = `(() => { for (let i = 0; i < 2; i++) { const u = document.getElementById('undoBtn'); u.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true })); u.click(); } })()`;
   const STATES = [
     { name: 'start' },

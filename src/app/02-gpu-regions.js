@@ -1,10 +1,10 @@
   // ---------------- regions on the GPU ----------------
   let clipWin = { x0: -4, x1: 4, y0: -4, y1: 4 };
   const kindType = (s) => Region.KINDS[s.kind].type;
-  // ([issue #260] an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
+  // (an external ray's angle, and whether its curve or an equipotential's is the full trace yet: Region
   // traces them in idle slices and asks for the redraw when one lands)
   const shapeKey = (s) => JSON.stringify([s.kind, s.p, s.a, s.b, s.c, s.m, s.r, s.r1, s.r2, s.t1, s.t2, s.pts, s.expr, s.complement, s.n, s.nc, s.nr, s.theta, Region.dhStamp(s)]);
-  Region.dhAsync = { ready: () => requestRender('L', 'R', 'T') };
+  Region.dhAsync = { ready: () => requestRender('L', 'R') };
   const MESH_L = 4; // every base triangle is split into MESH_L^2 triangles on the GPU
   const fullRes = () => Math.max(10, Math.min(480, Math.round(S.meshN / MESH_L)));   // Max (1920): 480 base cells per side
   // The drag-time mesh cap (meshN 240 while a shape is moved or reshaped) applies only when the drag's frames would
@@ -33,13 +33,13 @@
   //   another base resolution) or the shape is being dragged (its live fix-up then lands within a frame or two).
   // - the strokes go with the fill drawn: a pair (the hold, a live job's mesh) names in lref the lineKey of the strokes
   //   it was drawn with; when the strokes are rebuilt (a drag move, a re-centre) the old ones are kept in r.lpool while
-  //   a pair names them, and a hold is drawn with them (U-a review: the fill one position behind its outline in a drag).
+  //   a pair names them, and a hold is drawn with them (the fill one position behind its outline in a drag).
   //   The new strokes are drawn once the current mesh is (fill and outline trail together, never apart).
   // - r.live: the dragged shape's fix-up job, advanced inside the motion frames (LIVE_SLICE ms per frame) instead of
   //   waiting for the pointer-up; a newer mesh does not cancel it: it finishes its own mesh, which becomes the hold,
   //   and the next job takes the newest mesh. After the pointer-up it runs on (r.liveTail) until the last mesh is fixed.
   // LIVE_SLICE ms per frame at least; more while the frame so far leaves room under LIVE_FRAME_MS (of the 14 ms 60 fps
-  // budget), so a fix-up that fits lands in the frame that built its mesh and no hold frame is drawn (U-a review)
+  // budget), so a fix-up that fits lands in the frame that built its mesh and no hold frame is drawn
   const LIVE_SLICE = 4, LIVE_FRAME_MS = 9;
   let liveMsUsed = 0;   // the live fix-up time spent in this animation frame (frame() resets it)
   let frameStartT = -1e9;   // performance.now() at the start of the current animation frame
@@ -187,7 +187,7 @@
     }
     return out;
   }
-  // a usable meshing window: finite, positive size (a degenerate one, e.g. restored from old saved state, would
+  // a usable meshing window: finite, positive size (a degenerate one, e.g. restored from a saved state, would
   // leave every unbounded shape without a mesh)
   const goodWin = (w) => !!w && w.x1 - w.x0 > 0 && w.y1 - w.y0 > 0 && Number.isFinite(w.x0 + w.x1 + w.y0 + w.y1);
   // (o.base: the mesh's base resolution, overriding the drawing's: the steps view's whole-plane carry mesh, which has
@@ -230,7 +230,7 @@
       destroyFix(r); dropHold(r); dropLive(r); GLR.destroy(r.meshRes);
       r.meshRes = r.mesh = r.meshKey = null;
     }
-    // a curve formula that no longer classifies as a curve (old saved state, a newer parser) says why in its row
+    // a curve formula that does not classify as a curve (a saved state, a stricter parser) says why in its row
     if (s.kind === 'fcurve') { try { Region.curveDesc(s); s._err = null; } catch (e) { s._err = e.message; } }
     if (t !== 'point' && !(o && o.lines === false)) {
       const lkey = sk + '|' + JSON.stringify(win) + (s.kind === 'formula' ? '|' + r.meshKey : '');
@@ -244,12 +244,12 @@
         const polys = sourceCurves(s, r.mesh).map((c) => Region.sampleCurve(c, win)).filter((p) => p.length >= 4);
         // sent relative to the window centre (precision far from 0 and at deep zoom)
         const origin = [(win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2];
-        // P4 review: the refined samples (SPEC 9.1) are built right here when they fit the frame's budget (a shape
+        // the refined samples (SPEC 9.1) are built right here when they fit the frame's budget (a shape
         // drag, a new clipWin after a left-plane pan or zoom, an edit), so motion frames and rest frames draw the same
-        // strokes. Today's samples are drawn only when the refinement does not fit (the settle job then swaps it in).
-        // r.polys keeps today's samples whatever is drawn: labels, chevrons, fits and hit tests read them (SPEC 9.1:
-        // every other caller as today); r.lpolys holds the drawn ones (createLines order, dash arcs).
-        // ([#299 review] a quick curve of a ray or an equipotential, c moving: not refined at every frame; the full trace
+        // strokes. The unrefined samples are drawn only when the refinement does not fit (the settle job then swaps it in).
+        // r.polys keeps the unrefined samples whatever is drawn: labels, chevrons, fits and hit tests read them (SPEC 9.1:
+        // every other caller reads the same samples); r.lpolys holds the drawn ones (createLines order, dash arcs).
+        // (a quick curve of a ray or an equipotential, c moving: not refined at every frame; the full trace
         // that lands at rest is, as the settle job refines the rest)
         const ref = Region.dhStamp(s) === 'q' ? null : refineNow(s, r, lkey, origin);
         const lp = ref ? ref.polys : polys;
@@ -270,7 +270,7 @@
 
   // ---------------- maps (what each view shows) ----------------
   const stageMap = (k) => ({ mode: 0, a: 0, b: k });
-  // [#253] a shape drawn in an intermediate plane: s.stage = k (absent: the z-plane, stage 0). It is drawn in its own
+  // a shape drawn in an intermediate plane: s.stage = k (absent: the z-plane, stage 0). It is drawn in its own
   // plane and, forward only, in every later one: shapeMap turns a view's map of the z-plane's shapes ({mode 0, a 0,
   // b j}) into this shape's ({a k, b j}), or null where it is not drawn (j < k, a d/dz between, a homotopy)
   const shapeStage = (s) => (s && Number.isInteger(s.stage) && s.stage > 0 ? s.stage : 0);
@@ -328,14 +328,14 @@
   const endMap = () => (S.focus === 0 ? { mode: 0, a: 0, b: nSteps() } : focusDeriv() ? { mode: 0, a: 0, b: S.focus } : { mode: 0, a: S.focus - 1, b: S.focus });
   // what the right plane plots over the left plane (Phase, Landscape, the phase sphere): the focused map, or, while
   // the deformation transport is open, its homotopy at t
-  // ((#366 prototype) the steps view colours the shown plane from the colour plane: the map into it, 19)
+  // (the steps view colours the shown plane from the colour plane: the map into it, 19)
   const focusMap = () => (SV.on ? svMap() : endMap());
   // the map the Cauchy style is drawn of: the whole chain, whichever plane the steps view's thread is parked at (cauchyF is the same map as a function)
   const cauchyMap = () => (SV.on ? endMap() : focusMap());
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
-  // (v16 deformation range, notes/deform-range/SPEC.md 3: the arithmetic is src/homrange.js; these keep their names)
+  // (the arithmetic is src/homrange.ts; these keep their names)
   const HR = HomRange.make({ n: () => S.steps.length, stepFn, isDeriv, stepActive, stageF, rangeF, built: () => built, C, sig: () => chainSig[nSteps()] + '|' + S.steps.map((st) => st.uid || '').join(',') });
   // the bracket a…b (S.homRange) in its normal form, or null (absent, focus k, or no step outside it)
   const homRangeOk = () => HR.resolve(S);
@@ -357,7 +357,7 @@
   }
   function morphRange() { return HR.range(S); }
   const morphOn = () => morph.open && morphRange().steps.length > 0;
-  // (#246) the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
+  // the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
   const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
   // for two or more steps without a d/dz (a d/dz is an operator on the chain, not a map with a homotopy of its own).
@@ -365,8 +365,8 @@
   const allAtOnce = () => { const R = morphRange(); return HR.allAtOnce(S, R); };
   const morphLen = () => (allAtOnce() ? 1 : morphRange().steps.length);
   // the primes of a point's label under the deformation: the stages before the bracket, the bracketed steps begun (all
-  // of them at once for t > 0) and the post (SPEC 3.2; at focus k and with no bracket, as before)
-  // (review v16 math-4: with a bracket the count is the stage reached, bypassed steps included, so the end reads n
+  // of them at once for t > 0) and the post (SPEC 3.2; at focus k and with no bracket)
+  // (with a bracket the count is the stage reached, bypassed steps included, so the end reads n
   // primes as the static F-image does; with a live post the moving point Q(G_t(P(z₀))) is no stage of the chain
   // (H_0(z₀) = f_3(z₀) in a pullback is not w_1(z₀) = z₀′), so it reads Hₜ(z₀): -1, pointLabel)
   const morphPrimes = () => {
@@ -377,7 +377,7 @@
     const m = R.steps.length, j = allAtOnce() ? (morph.T > 0 ? m : 0) : Math.min(m, Math.ceil(morph.T));
     return j >= m ? R.p1 : j > 0 ? R.steps[j - 1] : R.lo;
   };
-  // (exact ends, as homrange.js lerpE and gl.js MAP_STAGE: review v16 math-2)
+  // (exact ends, as homrange.ts lerpE and gl.js MAP_STAGE)
   const lerpF = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); });
   // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
   // or a formula that is not recognisably a catalog map, funcs.js); the identity at t <= 0 and f at t >= 1 (D3)
@@ -405,20 +405,17 @@
       if (!opt.preview) scheduleFix();   // (a drag's fix-ups wait for the release)
       soundFunctionChanged();
       if (opt.preview) {
-        // (a drag's snap: the planes and the title only, a uniform change; the cards, the transport and the fit follow
+        // (a drag's snap: the planes and the title only, a uniform change; the Inspector, the transport and the fit follow
         // at the release, setHomRange(…, {force}))
         requestRender('L', 'R');
         const t = paneTitles();
         if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
       } else {
         if (rightAuto && morphOn() && rImage()) fitRight();
-        buildDock();
-        requestRender('L', 'R', 'T');
+        requestRender('L', 'R', 'P');
         updateFocusUI();
-        updateCards();
       }
     }
-    updateBracket();
     if (!opt.preview) save();
     const g = homRangeOk();
     tourEmit('deformation-range', g ? { a: g.a, b: g.b } : { a: 1, b: nSteps() });
@@ -607,7 +604,7 @@
   async function runFixInner(token) {
     for (const tg of fixTargets()) {
       for (const s of tg.shapes || S.shapes) {
-        if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;   // ([#253] a later plane's shapes: forward, no fix-ups)
+        if (s.visible === false || kindType(s) !== 'area' || shapeStage(s)) continue;   // (a later plane's shapes: forward, no fix-ups)
         const r = gpu.get(s.id);
         if (!r || !r.mesh || !r.meshRes) continue;
         // the dragged shape's fix-ups are the live driver's (liveFix), also for the tail after the pointer-up
@@ -627,20 +624,20 @@
     }
   }
 
-  // ---------------- the forward fallback: SphereMesh (SPEC 8, P5) ----------------
-  // An area shape drawn forward (an ineligible chain or shape, exact images off, the cost guard's last resort, a morph
+  // ---------------- the forward fallback: SphereMesh (SPEC 8) ----------------
+  // An area shape drawn forward (an ineligible chain or shape, one forced forward by the test hook, the cost guard's last resort, a morph
   // paused inside a step) that is unbounded or stretched (bboxOf null, or wider than 3 windows), or whose fix-up found
   // trouble (fixGen: a vertex without a finite image, or a piece still failing the midpoint test at depth 5; the
   // verdict depends on the shape, the map and the window, never on the right view), is drawn from a SphereMesh: the
   // sphere-native NVB mesher of src/sphere.js, refined on the CPU in the image metric, drawn as pre-mapped triangles
-  // (GLR.createPreMesh / drawPreMapped). Playing homotopy frames (morph, transitions) keep today's GPU path, and so
+  // (GLR.createPreMesh / drawPreMapped). Playing homotopy frames (morph, transitions) keep the direct GPU path, and so
   // does a pending inverse compile (it may show an already published mesh of the same content).
   // Jobs: one per key (shape, role, view kind, map, window, K, pattern; view), run one at a time in SM_SLICE ms idle
   // slices that wait out any motion (fixBusy, interacting), with their own keys: scheduleFix's token does not cancel
   // them; LED busy. A job is built for the view where the interaction settled. A flat mesh stays valid while the view
   // lies inside its guard box (the view it was built for, enlarged SM_GUARD times) and its zoom within 2x; a globe mesh
   // while the globe's radius is within 2x. While a rebuild runs, the old mesh of the same content is drawn inside its
-  // guard box and today's GPU image (with its fix-ups) around it (8.8). K is that of the shape's alpha (not 8.8's
+  // guard box and the direct GPU image (with its fix-ups) around it (8.8). K is that of the shape's alpha (not 8.8's
   // hover-dimmed alpha / 2: at alpha 0.85 that is K = 11 against 3, and exp(H) took 3.5x the work, 2.6 s against 0.74 s
   // at guard 1), so hovering the shape list reruns nothing and a dimmed infinitely-sheeted image may show its 4th and
   // later sheets faintly. The guard is 2 (8.8 says 3: the band's sheets cost 3.2x a guard-1 mesh, against 2.5x at 2).
@@ -649,7 +646,7 @@
   // bound the transients. Export meshes are dropped once the figure is drawn.
   // Budget (8.4, made deterministic): SphereMesh.APP's map evaluations (a stage-wise step probe counts 12) and nodes,
   // so the drawn mesh is the same whatever the machine's load; SM_MS_CAP CPU ms is a safety stop only. (The wall-clock
-  // 1.5 s of 8.4 expired on every P5 scene, so the drawn meshes were partial and changed with the load.)
+  // 1.5 s of 8.4 expires on a heavy scene, so the drawn meshes would be partial and change with the load.)
   const SM_APP = /** @type {any} */ (SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 });
   const smWork = () => (SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork);
   const SM_GUARD = SM_APP.guard, SM_SLICE = 5, SM_CPU_BYTES = 32 * 1024 * 1024, SM_LIVE_NODES = 1500000, SM_NODES = SM_APP.maxNodes, SM_MS_CAP = 10000;
@@ -677,7 +674,7 @@
     for (let k = (m.a || 0) + 1; k <= (m.b || 0); k++) { if (isDeriv(k)) list.push({ deriv: true }); else if (stepFn(k)) list.push(built[k - 1].props); }
     try { return !!Funcs.composeProps(list).injective; } catch (e) { return false; }
   }
-  // (issue #72, I) a still map whose area programs have had nothing to draw this long (the chain's first version still
+  // a still map whose area programs have had nothing to draw this long (the chain's first version still
   // linking: seconds on Direct3D 11) is drawn from a SphereMesh meanwhile, the CPU-mapped mesh with programs that do
   // not carry the chain; not before, so a fast link never shows it
   // (a stand-in for seconds: a coarse mesh, SM_LINK_WORK map evaluations, kept apart from the full meshes by its key)
@@ -689,7 +686,7 @@
     if (!offRender && (m.mode || 0) === 0 && !isIdentMap(m) && GLR.bareMs && GLR.bareMs(m) > SM_LINKING_MS) return 'linking';
     if ((m.mode || 0) !== 0) {
       // a homotopy frame: never while it plays; paused, only when the shape is drawn forward at an end of the step
-      // (a shape drawn exactly at both ends shows today's GPU image while paused inside the step: the mesh changed
+      // (a shape drawn exactly at both ends shows the direct GPU image while paused inside the step: the mesh changed
       // 0.00% of its pixels there, at 200 ms of CPU and a mesh per paused T)
       if (morph.playing || trans.k) return null;
       const ends = homEnds(m);
@@ -767,7 +764,7 @@
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R / 8, sing: invSing(plan) };
   }
-  // SPEC 8.8: what to draw for forward shape s in a view -> null (today's GPU path) | {e} (a published mesh valid for
+  // SPEC 8.8: what to draw for forward shape s in a view -> null (the direct GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the
   // GPU image around it). allowJob: a job may be requested for this view (live panes; not a pending compile).
   function smFor(s, r, role, kind, map, pane, R, allowJob) {
@@ -779,7 +776,7 @@
     const lk = why === 'linking' ? '|link' : '';
     const ck = smContent(s, role, kind, m) + lk, ck0 = smContent(s, role, kind, m, false) + lk;
     // (the stand-in during a rebuild may come from another meshing window: a left pan re-centred clipWin, which
-    // changes the mesh's sheet order but not the image: still far nearer to it than today's GPU draw)
+    // changes the mesh's sheet order but not the image: still far nearer to it than the direct GPU draw)
     let best = null, old = null;
     for (const e of sm.entries.values()) {
       if (e.ck0 !== ck0) continue;
@@ -826,10 +823,11 @@
     }
     smPumpLater();
   }
-  // a frame after the interaction settles requests the jobs the motion frames could not
+  // a frame after the interaction settles requests the jobs the motion frames could not (sm.kickT: its timer, 0 once
+  // that frame is asked for)
   function smKick() {
     clearTimeout(sm.kickT);
-    sm.kickT = setTimeout(() => { if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
+    sm.kickT = setTimeout(() => { sm.kickT = 0; if (interacting() || fixBusy()) smKick(); else requestRender('L', 'R'); }, 160);
   }
   let smPumpT = 0;
   function smPumpLater() { if (!smPumpT && !sm.running) smPumpT = setTimeout(() => { smPumpT = 0; smPump(); }, 0); }
@@ -942,16 +940,16 @@
     return alive();
   }
 
-  // ---------------- lines: reach and singular points, on settle only (SPEC 9.1, P4) ----------------
-  // Motion frames keep today's lineKey and samples (a scrub never resamples, re-uploads or re-caches a line). Once the
+  // ---------------- lines: reach and singular points, on settle only (SPEC 9.1) ----------------
+  // Motion frames keep their lineKey and samples (a scrub never resamples, re-uploads or re-caches a line). Once the
   // interaction has settled (LINE_QUIET ms after the last input or change, nothing moving), this idle job builds each
   // line's refined samples (Region.Lines.refine: long curves reach expandBox(clipWin, 1e28) with their tails stopped
   // where the stage maps leave 1e19, samples toward the chain's singular points, formula contours continued as rays)
   // and swaps them in. A refinement is keyed by the line's own key (shape and clipWin), the drawn stages' structure and
   // the structural singular points (rounded to 1e-9 of the window size), so a small parameter change reuses it. It
-  // stays drawn through later motion (its samples are fixed in the source plane like today's). A new line key (the
-  // shape or clipWin changed) is refined at once in shapeGPU when it fits the frame (refineNow, P4 review); only a
-  // shape whose refinement does not fit draws today's samples until this job swaps the refined ones in.
+  // stays drawn through later motion (its samples are fixed in the source plane like the unrefined ones). A new line key (the
+  // shape or clipWin changed) is refined at once in shapeGPU when it fits the frame (refineNow); only a
+  // shape whose refinement does not fit draws the unrefined samples until this job swaps the refined ones in.
   const lineJob = { token: 0, timer: 0, running: 0 };
   const LINE_QUIET = 150, LINE_SLICE = 5;
   function scheduleLines() {
@@ -976,7 +974,7 @@
     if (plan.ok) {
       try { sing = Inverse.singular(plan, clipWin, ['undef', 'branch', 'pole'], 16); } catch (e) { sing = []; }
     } else {
-      // ([issue #276] a last step with no plan that names all of its singular points (ζ), after injective steps with
+      // (a last step with no plan that names all of its singular points (ζ), after injective steps with
       // one: those points pulled back, so the lines need no jump scan, which evaluated the chain up to 2048 times per
       // curve on every pan or zoom; anything else still scans)
       const b = built[top - 1], st = S.steps[top - 1];
@@ -996,8 +994,8 @@
     if (lineSpecC.key !== k) { let spec = null; try { spec = lineSpec(); } catch (e) { spec = null; } lineSpecC = { key: k, spec }; }
     return lineSpecC.spec;
   }
-  // the refined polylines of shape s (every curve; today's samples for a curve whose refinement throws)
-  // (pc: a pacer, [#325 review] refineNow's frame budget: null when the refinement did not finish within it)
+  // the refined polylines of shape s (every curve; the unrefined samples for a curve whose refinement throws)
+  // (pc: a pacer, refineNow's frame budget: null when the refinement did not finish within it)
   function refinePolys(s, mesh, spec, origin, pc) {
     const polys = [];
     for (const c of sourceCurves(s, mesh, { reach: 'sphere' })) {
@@ -1024,7 +1022,7 @@
     if (now - lineBudget.t > 12) { lineBudget.t = now; lineBudget.ms = 0; }
     const cap = drag ? LINE_CAP : LINE_FRAME;
     if (!force && lineBudget.ms + (r.refMs || 0) > cap) return null;
-    // ([#325 review] judged by the last cost, a new key or a pan toward a pole could still cost a whole refinement in
+    // (judged by the last cost, a new key or a pan toward a pole could still cost a whole refinement in
     // one frame: it stops at the frame's budget instead, drawn unrefined, and the line job refines it, setting its cost)
     const left = cap - lineBudget.ms;
     const polys = refinePolys(s, r.mesh, spec, origin, force ? null : { due: () => performance.now() - now > left });
@@ -1062,7 +1060,7 @@
     const res = polys.length ? GLR.createLines(polys, origin) : null;
     GLR.destroy(r.lineRes);
     r.lineRes = res; r.lpolys = polys; r.lorigin = origin; r.arcs = null;
-    requestRender('L', 'R', 'T');
+    requestRender('L', 'R');
   }
   async function runLines() {
     lineJob.timer = 0;
@@ -1083,14 +1081,14 @@
     lineJob.running = token; updateLeds();
     let t0 = performance.now();
     // yield to the page, wait out any motion; true when this job went stale meanwhile
-    // ([#325] a background task, not setTimeout(0): its 4 ms clamp would double a sliced curve's time)
+    // (a background task, not setTimeout(0): its 4 ms clamp would double a sliced curve's time)
     const rest = async () => {
       await yieldTask();
       while (lineWait() > 0 && token === lineJob.token) await yieldNow(40);
       t0 = performance.now();
       return token !== lineJob.token;
     };
-    // ([#325] one curve's refinement is sliced too: refineGen yields once the slice is spent (a few map evaluations
+    // (one curve's refinement is sliced too: refineGen yields once the slice is spent (a few map evaluations
     // apart, each asking the clock); the same polylines as Lines.refine)
     const pc = { due: () => performance.now() - t0 > LINE_SLICE };
     try {
@@ -1125,13 +1123,13 @@
   // ---------------- drawing ----------------
   // Pattern cell size depends on the shapes (not the view), so it stays put while panning and zooming.
   let cellBase = 0, cellKey = '';
-  let cellSay = false, cellSaid = false;   // [v16.5 UX91] an added shape may refit the cell: said once a session
-  // (v16 review picture-2) a constructed region far larger than the window (a 3-point disc near collinear) counts as
+  let cellSay = false, cellSaid = false;   // an added shape may refit the cell: said once a session
+  // a constructed region far larger than the window (a 3-point disc near collinear) counts as
   // unbounded, as its limit the half-plane does: the cell then stays continuous through the collinear case, never
   // "cell 1×10⁶" (the threshold is the M(R) one, Region.MR_RATIO window diagonals)
   const cmHuge = (s, b) => !!(s._g && b && Math.max(b.x1 - b.x0, b.y1 - b.y0) > (Region.MR_RATIO || 50) * Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0));
   function patternCell() {
-    // ([v16.5 fix user-3] keyed on the regions alone, which are all it is fitted to: a curve, a point or a construction
+    // (keyed on the regions alone, which are all it is fitted to: a curve, a point or a construction
     // added never refits it, which with no bounded region read the window of that moment)
     const key = S.shapes.filter((s) => kindType(s) === 'area').map((s) => { if (!s._g) return shapeKey(s); let b = null; try { b = Region.bboxOf(s); } catch (e) { b = null; } return shapeKey(s) + (cmHuge(s, b) ? '~' : ''); }).join('|');
     if (key !== cellKey || !cellBase) {
@@ -1146,8 +1144,8 @@
       if (!size) size = Math.max(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0);
       const was = cellBase;
       cellBase = Axes.niceStep(size / 10);
-      // [v16.5 UX91] a shape the user just added refits the grid on everything: said once, with where to change it
-      // (#363: while the regions' grid lines are drawn, the one thing the cell changes)
+      // a shape the user just added refits the grid on everything: said once, with where to change it
+      // (while the regions' grid lines are drawn, the one thing the cell changes)
       if (cellSay && was && was !== cellBase && S.lines) {
         const x = I18N.num(CX.fmtNum(cellBase * (S.patternScale || 1), 4).replace('-', '−'));
         setTimeout(() => toast($t('The grid step is now {x}, fitted to the shapes; Regions → Grid step changes it.', { x })), 0);
@@ -1158,7 +1156,7 @@
     return cellBase * (S.patternScale || 1);
   }
   let hoverShape = null;
-  // the strength of shape s's fill: v15 dims the others to 50 % while a row is hovered; (v16 review user-9, SPEC 10)
+  // the strength of shape s's fill: the others are dimmed to 50 % while a row is hovered (SPEC 10)
   // a construction hovered (or, on touch, selected) keeps it, what it is built from and what is built on it, and
   // dims every other shape to 30 %
   let dimMemo = { id: null, t: -1, set: null };
@@ -1184,15 +1182,15 @@
   const mapKeyOf = (map) => `${map.mode}|${map.a || 0}|${map.b || 0}|${map.hi || 0}|${map.t || 0}|${map.base || 0}|${chainSig[Math.max(map.b || 0, map.hi || 0, map.post || 0)] || ''}|${map.post || 0}`;
   // the CPU twin of a GPU map spec (dash phases of mapped strokes follow its arc length); map.base: the stage of the
   // source plane of a homotopy (0, the z-plane, by default)
-  function cpuMap(map) { return HR.cpuMap(map); }   // (with map.post, src/homrange.js)
+  function cpuMap(map) { return HR.cpuMap(map); }   // (with map.post, src/homrange.ts)
   // Per segment of r.lineRes (createLines order): the arc length of the curve under F at the segment start and the
   // segment's length, so dashes keep their rhythm along the mapped curve (cached per map key)
   function arcOf(r, F, key) {
     if (!r.arcs) r.arcs = new Map();
     let a = r.arcs.get(key);
     if (a) { r.arcs.delete(key); r.arcs.set(key, a); return a; }
-    // anchored at each polyline's point nearest the clipWin centre (P4 review: reach tails start up to 1e28 away,
-    // where float32 does not resolve a dash period; the anchor is the same for today's and the refined samples)
+    // anchored at each polyline's point nearest the clipWin centre (reach tails start up to 1e28 away,
+    // where float32 does not resolve a dash period; the anchor is the same for the unrefined and the refined samples)
     const data = Region.Lines.arcs(r.lpolys || r.polys || [], F, r.lorigin || [(clipWin.x0 + clipWin.x1) / 2, (clipWin.y0 + clipWin.y1) / 2], Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2);
     a = { key: `${r.lineKey}|${key}`, data };
     r.arcs.set(key, a);
@@ -1203,6 +1201,29 @@
   // caller has one), as GLR.drawLines takes it; null for a closed set
   const OPEN_DASH = [5, 3.5];
   function openDash(r, map, F) { return r.open ? { dash: OPEN_DASH, arc: arcOf(r, F || cpuMap(map), mapKeyOf(map)) } : null; }
+  // The polylines the inverse pass strokes a traced curve of a later plane by (GLR.packShapes' opts.trace: a freehand
+  // curve, a formula curve, an external ray, an equipotential): its own samples at rest (shapeGPU's r.polys), each
+  // simplified to within TRACE_TOL of its sampling window's diagonal (Calc.simplifyOpen, ends kept). When they don't
+  // fit in the pass's GLR.INV_CURVE_MAX vertices, the tolerance doubles, at most TRACE_DOUBLINGS times; a shape still
+  // over the limit after that is refused by GLR.packShapes, and the glide leaves it out as before. traces keeps, for
+  // each r.polys array, {lines (arrays of [x, y]), tol (the tolerance used), base (TRACE_TOL's)}
+  const TRACE_TOL = 1 / 8000, TRACE_DOUBLINGS = 24, traces = new WeakMap();
+  function invTrace(s) {
+    const r = shapeGPU(s), polys = r && r.polys;
+    if (!polys || !polys.length) return null;
+    let rec = traces.get(polys);
+    if (!rec) {
+      const w = winOf(s), base = TRACE_TOL * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
+      let tol = base, lines = [];
+      for (let k = 0; ; k++, tol *= 2) {
+        lines = polys.map((p) => Calc.simplifyOpen(p, tol).map((z) => [z.re, z.im]));
+        if (lines.reduce((n, p) => n + p.length, 0) <= GLR.INV_CURVE_MAX || k === TRACE_DOUBLINGS) break;
+      }
+      rec = { lines, tol, base };
+      traces.set(polys, rec);
+    }
+    return rec.lines;
+  }
   // whether a plane draws shape s's outline: a visible curve or region, every one with Outlines on, else the selected
   // one alone; all: every one whatever Outlines says
   const outlineShown = (s, all) => s.visible !== false && kindType(s) !== 'point' && (all || S.outline || s.id === selected);

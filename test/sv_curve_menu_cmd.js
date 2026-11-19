@@ -9,13 +9,16 @@ const fails = [];
 const ok = (name, pass, got) => { if (!pass) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
+const CLICK_MS = 3000;   // how long a right-click may take to open its menu, or the page to be quiet after it
 const menu = () => ev(`(() => { const p = document.querySelector('#popHost .pop.menu.pm'); return p ? [...p.querySelectorAll('.mi')].map((b) => b.dataset.pm) : null; })()`);
 const closeAll = async () => { for (let i = 0; i < 2 && (await ev(`!!document.querySelector('#popHost .pop')`)); i++) { await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 }); await settled({ max: 2000, until: `!document.querySelector('#popHost .pop')` }); } };
-const rclick = async (x, y) => {
+// (noMenu: the click may open nothing, so the wait is for the page to be quiet, not for a menu)
+const rclick = async (x, y, noMenu) => {
   await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
   await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'right', buttons: 2, clickCount: 1 });
   await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y, button: 'right', buttons: 0, clickCount: 1 });
-  await settled({ max: 3000, until: `!!document.querySelector('#popHost .pop.menu')` });
+  const w = await settled(noMenu ? { max: CLICK_MS } : { max: CLICK_MS, until: `!!document.querySelector('#popHost .pop.menu')` });
+  ok(`the right-click at ${Math.round(x)}, ${Math.round(y)}: ${noMenu ? 'the page is quiet' : 'a menu opened'}`, w.ok, w);
 };
 // the client point of w in the left plane, once the pane's view holds still (two reads, each once the page is
 // quiet, agree)
@@ -33,10 +36,10 @@ const at = async (re, im) => {
 const under = (x, y) => ev(`(() => { const e = document.elementFromPoint(${x}, ${y}); return e ? e.id || String(e.className) : null; })()`);
 const CIRCLE = { id: 'c1', kind: 'circle', c: [0, 0.8], r: 0.3, ci: 0, visible: true, stage: 1 };
 await view(1440, 900, false, false);
-for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `__cmwSteps({ go: 1, now: true })`], ['classic view, step 2 focused', '', '']]) {
+for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `__cmwSteps({ go: 1, now: true })`], ['classic view, step 2 focused', 'view=classic', '']]) {
   const ns = 'svcm' + Date.now();
   await go(`${BASE}/gl-helpers.html`);
-  const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: url ? 0 : 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
+  const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: toPlane ? 0 : 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
   await go(`${BASE}/test.html?ns=${ns}${url ? '&' + url : ''}`);
   await settled({ max: 15000, until: `typeof __cmwPlaneMenu === 'function'${url ? " && typeof __cmwSteps === 'function'" : ''}` });
@@ -60,7 +63,7 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   }
   await closeAll();
   const [x2, y2] = await at(-1.21, 0);
-  await rclick(x2, y2);
+  await rclick(x2, y2, true);
   const off = await menu();
   ok(`${where}: a right-click at −1.21 (the circle's top point squared) offers no integral`, !off || !off.includes('integral'), off);
   await closeAll();
@@ -72,7 +75,7 @@ for (const [where, url, toPlane] of [['steps view, plane w₁', 'view=steps', `_
   await go(`${BASE}/gl-helpers.html`);
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 2, shapes: [CIRCLE], steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'pown', params: { n: 3 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await go(`${BASE}/test.html?ns=${ns}`);
+  await go(`${BASE}/test.html?ns=${ns}&view=classic`);
   await settled({ max: 15000, until: `typeof __cmwPlaneMenu === 'function'` });
   const [x, y] = await at(0, 1.1);
   const t = await ev(`(() => { const now = performance.now.bind(performance), t0 = now(); performance.now = () => now() - t0; return Math.round(performance.now()); })()`);

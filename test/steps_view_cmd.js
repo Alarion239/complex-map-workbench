@@ -22,7 +22,7 @@ const open = async (w, h, mobile, flag) => {
   await view(w, h, false, mobile);
   await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${flag ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
+  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 };
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
@@ -58,6 +58,8 @@ await ev(`__cmwSteps({ scope: 'all' }); 1`);
 // by up to 3/255 on its ring's edges, which failed the check against it below now and then)
 await ev(`document.fonts.ready.then(() => { const c = document.getElementById('legendCanvasL'); if (c) c.width = 0; __cmwSteps({ surf: 'plane' }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); })`);
 const hZ = await hash('sv_z');
+// (an arrow waits for the prestart and its idle jobs: the first press comes once the chain is prepared)
+for (let i = 0; i < 1200; i++) { if ((await S()).ready.ready) break; await sleep(100); }
 await press('ArrowRight');
 const m1 = await S();
 ok('→ starts a glide', m1.moving === true && !!m1.anim && m1.anim.to === 1, m1);
@@ -225,10 +227,10 @@ ok('the plane\'s controls are in the header, which does not scroll sideways', he
 const leg = await ev(`(() => { const l = document.getElementById('leftLegend'); return { role: l.getAttribute('role'), name: l.getAttribute('aria-label') }; })()`);
 ok('the folded key on the phone has a name', leg.role !== 'img' || !!leg.name, leg);
 
-// ---- without the flag: the classic view ----
+// ---- with ?view=classic: the classic view ----
 await open(1280, 800, false, false);
 const cl = await ev(`({ sv: document.documentElement.classList.contains('sv'), strip: !!document.getElementById('svStrip'), on: __cmwSteps().on, R: document.getElementById('paneR').getBoundingClientRect().width > 0 })`);
-ok('without ?view=steps the app is the classic view', !cl.sv && !cl.strip && !cl.on && cl.R, cl);
+ok('with ?view=classic the app is the classic view', !cl.sv && !cl.strip && !cl.on && cl.R, cl);
 
 info.checks = 'steps view: desktop, parking, one GL copy (Everywhere, Inside regions), colour plane, Inside regions, reduced motion, phone swipe, classic';
 return { pass: fails.length === 0, fails, info };

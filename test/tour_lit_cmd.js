@@ -7,13 +7,13 @@ const U = `http://localhost:${PORT}/test.html`;
 const R = [];
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))');
-  // (and until the step has settled: the strip no longer busy, the spotlight's morph over)
+  // (and until the step has settled: the strip not busy, the spotlight's morph over)
   for (let i = 0; i < 40; i++) { if (await ev(`!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving)`)) break; await sleep(100); } };
 const seen = [];
 logs();   // the console from earlier commands of this daemon is not ours
 for (const [w, h] of [[1440, 900], [1024, 700]]) {
   await view(w, h, false, false);
-  await nav(U + `?ns=lit${w}`); await settle(1500);
+  await nav(U + `?ns=lit${w}`);
   await ev('Tour.dismissSuggestion()');
   await ev('Tour.auto(false)');
   await ev(`Tour.start({ chapter: 'basics' })`); await settle(1400);
@@ -35,7 +35,7 @@ for (const [w, h] of [[1440, 900], [1024, 700]]) {
     if (!g.centred && !g.none) check(`${w}×${h} ${g.id}: the lit patch holds the anchor`, g.frac >= 0.9 && g.area > 40, g);
     // (issue #34 T2: a step whose control changes a plane or a card lights that too, not the button alone: two lit
     // areas, or one that holds both the control and what it changes)
-    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'basics/chain', 'views/switch', 'deform/toggle', 'deform/paths', 'deform/order', 'deform/range', 'branches/inverse'].includes(g.id) && w === 1440) {
+    if (!g.none && !g.centred && ['basics/formula', 'basics/add', 'basics/chain', 'deform/toggle', 'deform/paths', 'deform/order', 'deform/range', 'branches/inverse'].includes(g.id) && w === 1440) {
       const more = g.nHoles >= 2 || (g.hole[2] - g.hole[0]) > 3 * (g.anchor[2] - g.anchor[0]);
       check(`${w}×${h} ${g.id}: the control and what it changes are lit`, more, g);
     }
