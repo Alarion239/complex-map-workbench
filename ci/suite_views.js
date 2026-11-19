@@ -32,6 +32,7 @@ const VIEWS = {
   'led_a11y_cmd.js': steps({ pin: true }),
   'example_try_sv_cmd.js': steps(),
   'example_try_keys_cmd.js': steps(),
+  'label_controls_cmd.js': steps({ pin: true }),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
   'export_key_look_cmd.js': steps(),   // (#1707: the classic Phase figure too, by ?view=classic)
