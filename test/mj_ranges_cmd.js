@@ -2,7 +2,8 @@
 // (e.retry) only for the first formula that asks for a range still loading: another formula with a letter of it comes
 // back with that letter as <text> in a system font. Each typesetting path waits for the range and sets such a formula
 // again, never keeping the <text>: TeX.set (the interface: two formulas set at once), the figure export's builder
-// (export.js) and the figure composer (the export dialog), on a Russian figure whose words are Cyrillic.
+// (export.js) and the figure composer (the export dialog), on a Russian figure whose words are Cyrillic. A figure's
+// text layer (#1015), invisible <text> over its labels' glyph paths, is not such a <text>: it is checked to be invisible.
 // MathJax: where the page has none (a container without the CDN) nothing here can run.
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
@@ -28,16 +29,24 @@ if (info.mathjax) {
     await ev(`window.__mjFig = null; __cmwBuildFigure({ caption: true }).then((f) => { window.__mjFig = f && f.svg ? { svg: f.svg, cap: String(f.captionTex) } : ''; }, (e) => { window.__mjFig = 'ERR ' + e; }); 1`);
     let svg = null;
     for (let i = 0; i < 120 && svg == null; i++) { await sleep(500); svg = await ev('window.__mjFig'); }
-    // (cyr: the caption has Cyrillic words, which the SVG sets as glyph paths)
-    const cnt = (f) => ({ len: String((f && f.svg) || '').length, text: (String((f && f.svg) || '').match(/<text\b/g) || []).length, cyr: /[\u0400-\u04ff]/.test((f && f.cap) || '') });
+    // (cyr: the caption has Cyrillic words, which the SVG sets as glyph paths. text: the <text> elements outside the figure's
+    // text layer, which is <g class="cmw-text"> (#1015): one <text fill-opacity="0"> per label, over that label's glyph
+    // paths, that a reader can search and copy. layer: that layer's words; shown: those of its <text> that are not invisible)
+    const LAYER = /<g class="cmw-text">([\s\S]*?)<\/g>/g;
+    const tags = (s) => s.match(/<text\b[^>]*>/g) || [];
+    const cnt = (f) => {
+      const svg = String((f && f.svg) || ''), layer = [...svg.matchAll(LAYER)].map((m) => m[1]).join('');
+      return { len: svg.length, text: tags(svg.replace(LAYER, '')).length, layer: [...layer.matchAll(/<text\b[^>]*>([^<]*)<\/text>/g)].map((m) => m[1]),
+        shown: tags(layer).filter((t) => !/\sfill-opacity="0"/.test(t)).length, cyr: /[\u0400-\u04ff]/.test((f && f.cap) || '') };
+    };
     info.exportFig = cnt(svg);
-    ok('the figure export (export.js), in Russian: built, every word set from the font (no <text>)', info.exportFig.len > 1000 && info.exportFig.cyr && info.exportFig.text === 0, info.exportFig);
+    ok('the figure export (export.js), in Russian: built, every word set from the font (no <text> but the invisible text layer)', info.exportFig.len > 1000 && info.exportFig.cyr && info.exportFig.text === 0 && info.exportFig.shown === 0, info.exportFig);
     // the export dialog's figure (the composer, src/figure/)
     await key('e', 2);
     let done = false;
     for (let i = 0; i < 90 && !done; i++) { await sleep(500); done = await ev(`(() => { const e = document.querySelector('.xf-wait'); return !!document.querySelector('.xf-dlg, .xf-scroll') && (!e || e.hidden); })()`); }
     info.dialogFig = cnt(await ev(`(() => { const f = Figure.last(); return f ? { svg: String(f.svg), cap: String(f.captionTex) } : null; })()`));
-    ok('the export dialog\'s figure (the composer), in Russian: built, every formula set from the font (no <text>)', done && info.dialogFig.len > 1000 && info.dialogFig.text === 0, info.dialogFig);
+    ok('the export dialog\'s figure (the composer), in Russian: built, every formula set from the font (no <text> but the invisible text layer)', done && info.dialogFig.len > 1000 && info.dialogFig.text === 0 && info.dialogFig.shown === 0, info.dialogFig);
     await key('Escape'); await sleep(400);
   } else ok('MathJax loads in Russian', false, null);
 }

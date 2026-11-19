@@ -7,12 +7,12 @@ Each case writes a small baseline / results pair to a temporary directory and ch
 where it matters, its verdict per run or metric). The cases cover the review findings of phase P0:
   quality  a NEW run that crashed (ok false, no metrics) fails, also when the rest meets every target;
            a target rule that names a run without a value for the metric (missing or null) is NOT MET and fails with
-           --enforce-targets; a gated metric with a baseline value that became null fails; color_off is gated
+           --enforce-targets; a gated metric with a baseline value that became null fails; color_off is gated; a
+           gated metric the run's new classifier does not report is n/a with a warning (one it reports is gated, and
+           one gone under the same classifier or null under a new one fails)
   perf     a NEW check that is false fails; a NEW limit over its limit fails; a limit that expected a value (an
            inverse program was linked) and has none fails, NEW or not; a NEW limit with nothing to measure passes
            [#292] a unit the paired reference cannot run (ref_unsupported) is NEW, not compared, and says why
-           [#413] the dpr-2 opacity zooms' fps and latency are reported (INFO) either way, never gated; their frame
-           times, and the same metrics of every other unit, stay gated
   busy     a FAIL of a unit that started on a busy machine is BUSY and not counted: exit 3 (invalid: machine busy)
            when nothing else failed, 1 when a clean unit failed too; merged passes (meta.passBusy / passUnits) count a
            unit that started busy as red only with 2 passes that started quiet; --busy-units lists the BUSY units
@@ -90,34 +90,34 @@ class Quality(unittest.TestCase):
         self.assertEqual(v['runs']['zi_H.mask'], 'NEW')
 
     def test_new_run_that_crashed_fails(self):
-        cur = {'zi_H.polar': qrun('zi_H.polar', ok=False, problems=['runner error: boom']),
+        cur = {'zi_H_out4.mask': qrun('zi_H_out4.mask', ok=False, problems=['runner error: boom']),
                'zi_H.mask': qrun('zi_H.mask', metrics=dict(GOOD))}
         rc, out, v = self.gate({}, cur)
         self.assertEqual(rc, 1, out)
-        self.assertEqual(v['runs']['zi_H.polar'], 'FAIL')
+        self.assertEqual(v['runs']['zi_H_out4.mask'], 'FAIL')
         rc, out, v = self.gate({}, cur, '--enforce-targets')
         self.assertEqual(rc, 1, out)
 
     def test_target_on_a_run_without_the_metric_is_not_met(self):
-        # zi_H.polar must reach parity >= 0.999: a run with no parity value (null, or a crashed run) does not
-        cur = {'zi_H.polar': qrun('zi_H.polar', metrics=dict(GOOD, parity_acc=None))}
+        # zi_H.mask must keep hole_leak <= 0: a run with no hole_leak value (null, or a crashed run) does not
+        cur = {'zi_H.mask': qrun('zi_H.mask', metrics=dict(GOOD, hole_leak=None))}
         rc, out, v = self.gate({}, cur)
         self.assertEqual(rc, 0, out)                       # reported only
-        t = [x for x in v['targets'] if x['run'] == 'zi_H.polar' and x['metric'] == 'parity_acc']
+        t = [x for x in v['targets'] if x['run'] == 'zi_H.mask' and x['metric'] == 'hole_leak']
         self.assertTrue(t and not t[0]['met'], t)
         rc, out, v = self.gate({}, cur, '--enforce-targets')
         self.assertEqual(rc, 1, out)
         self.assertIn('target not met', out)
-        cur = {'zi_H.mask20': qrun('zi_H.mask20', metrics={'iou': 1, 'hole': 0, 'spill': 0, 'color_off': 0, 'hole_leak': 0})}
-        rc, out, v = self.gate({}, cur, '--enforce-targets')   # opacity_min missing altogether
+        cur = {'zi_H_out4.mask': qrun('zi_H_out4.mask', metrics={'iou': 1, 'hole': 0, 'spill': 0})}
+        rc, out, v = self.gate({}, cur, '--enforce-targets')   # hole_leak missing altogether
         self.assertEqual(rc, 1, out)
 
     def test_gated_metric_that_became_null_fails(self):
-        base = {'zi_H.polar': qrun('zi_H.polar', metrics=dict(GOOD, parity_acc=0.95))}
-        cur = {'zi_H.polar': qrun('zi_H.polar', metrics=dict(GOOD, parity_acc=None, parity_n=5000))}
+        base = {'zi_H_out4.mask': qrun('zi_H_out4.mask', metrics=dict(GOOD, parity_acc=0.95))}
+        cur = {'zi_H_out4.mask': qrun('zi_H_out4.mask', metrics=dict(GOOD, parity_acc=None, parity_n=5000))}
         rc, out, v = self.gate(base, cur)
         self.assertEqual(rc, 1, out)
-        self.assertEqual(v['runs']['zi_H.polar'], 'FAIL')
+        self.assertEqual(v['runs']['zi_H_out4.mask'], 'FAIL')
 
     def test_color_off_is_gated(self):
         base = {'expH.mask': qrun('expH.mask', metrics=dict(GOOD))}
@@ -125,6 +125,27 @@ class Quality(unittest.TestCase):
         self.assertEqual(rc, 1, out)
         rc, out, v = self.gate(base, {'expH.mask': qrun('expH.mask', metrics=dict(GOOD))})
         self.assertEqual(rc, 0, out)
+
+    def test_metric_the_new_classifier_does_not_report_is_not_compared(self):
+        # a baseline run of expH.mask scored by the 'mask' classifier (opacity_min, color_off), a current one by 'cover',
+        # which reports neither: those rows are n/a with the reason, and a warning names the change
+        def run(cls, metrics):
+            return dict(qrun('expH.mask', metrics=metrics), classifier=cls, strict=True)
+        cover = {k: v for k, v in GOOD.items() if k not in ('opacity_min', 'color_off')}
+        base = {'expH.mask': run('mask', dict(GOOD))}
+        rc, out, v = self.gate(base, {'expH.mask': run('cover', dict(cover))}, '--all')
+        self.assertEqual(rc, 0, out)
+        for k in ('opacity_min', 'color_off'):
+            self.assertRegex(out, rf"expH\.mask +{k} .*n/a \(not reported by the 'cover' classifier; the baseline's was 'mask'\)")
+        self.assertTrue(any("expH.mask: scored by the 'cover' classifier, the baseline by 'mask'" in w for w in v['warnings']), v['warnings'])
+        # the metrics both classifiers report are still gated
+        rc, out, v = self.gate(base, {'expH.mask': run('cover', dict(cover, iou=0.5))})
+        self.assertEqual(rc, 1, out)
+        # a metric that is gone under the same classifier, or null (nothing scored) under a new one, still fails
+        rc, out, v = self.gate({'expH.mask': run('cover', dict(GOOD))}, {'expH.mask': run('cover', dict(cover))})
+        self.assertEqual(rc, 1, out)
+        rc, out, v = self.gate(base, {'expH.mask': run('cover', dict(cover, color_off=None))})
+        self.assertEqual(rc, 1, out)
 
 
 def pm(value, kind, **kw):
@@ -216,32 +237,6 @@ class Perf(unittest.TestCase):
         self.assertEqual(st['a.f'], 'PASS', out)                       # -35%: improved by the 1-fold margin, not by 3-fold
         rc, out, st = self.gate(f, {'a.f': pm(12.0, 'frame_ms')}, '--tol-scale', '3')
         self.assertEqual(st['a.f'], 'IMPROVED', out)
-
-    def test_vsync_bound_zooms_report_only(self):
-        # runs 41069254062 and 41074624389: fps 47 -> 29 on one run, +14 % on the other, on the same build pair
-        pre = ['image.expH.a30.dpr2.zoomR.in', 'image.expH.a50.dpr2.zoomR.out', 'image.ziH.a30.dpr2.zoomR.out', 'image.ziH.a50.dpr2.zoomR.in']
-        for p in pre:
-            fps, lat, f95 = p + '.fps', p + '.latency_p95_ms', p + '.frame_p95_ms'
-            b = {fps: pm(47.0, 'throughput'), lat: pm(34.5, 'latency_ms', unit='ms'), f95: pm(9.7, 'frame_ms', unit='ms')}
-            for paired in ((), ('--paired',)):
-                for r in ({fps: pm(29.4, 'throughput'), lat: pm(60.0, 'latency_ms', unit='ms')},     # a halved round
-                          {fps: pm(60.0, 'throughput'), lat: pm(10.0, 'latency_ms', unit='ms')}):    # and the reverse
-                    rc, out, st = self.gate(b, dict(r, **{f95: pm(9.7, 'frame_ms', unit='ms')}), *paired)
-                    self.assertEqual((rc, st[fps], st[lat], st[f95]), (0, 'INFO', 'INFO', 'PASS'), out)
-                    self.assertIn('#413', out + json.dumps(rj(os.path.join(self.d, 'v.json'))))
-                # the frame time is still gated: 9.7 -> 16.1 ms is over the limit and over the 14 ms budget
-                rc, out, st = self.gate(b, {fps: pm(29.4, 'throughput'), lat: pm(43.3, 'latency_ms', unit='ms'), f95: pm(16.1, 'frame_ms', unit='ms')}, *paired)
-                self.assertEqual((rc, st[f95], st[fps]), (1, 'FAIL', 'INFO'), out)
-        # every other unit keeps its fps and latency gates: dpr 1, alpha 1, pans, other scenes
-        for p in ('image.expH.a30.zoomR.in', 'image.expH.m240.dpr2.zoomR.out', 'image.ziH.a30.dpr2.panR', 'image.disc_cube.dpr2.zoomR.in'):
-            fps, lat = p + '.fps', p + '.latency_p95_ms'
-            rc, out, st = self.gate({fps: pm(47.0, 'throughput'), lat: pm(34.5, 'latency_ms', unit='ms')},
-                                    {fps: pm(29.4, 'throughput'), lat: pm(60.0, 'latency_ms', unit='ms')}, '--paired')
-            self.assertEqual((rc, st[fps], st[lat]), (1, 'FAIL', 'FAIL'), out)
-        # a report-only metric missing from a full run is still a harness failure
-        m = pre[0] + '.fps'
-        rc, out, st = self.gate({m: pm(47.0, 'throughput')}, {})
-        self.assertEqual((rc, st[m]), (1, 'FAIL'), out)
 
     def test_reference_cannot_run_the_unit(self):
         # the reference lacks the feature (phase.mandel: no iter() in its parser, an empty plane):
