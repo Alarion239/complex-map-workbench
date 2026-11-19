@@ -157,7 +157,7 @@ const InvOps = (() => {
   const periodic = (kind, fwd, p, nb, bases, dudw, o) => op(kind, {}, fwd, Object.assign({ undef: [null], fam: famAdd(p, nb, bases, dudw), pre: () => [] }, o));
   // (sin and cos: critical points a lattice of step pi with the values +-1; sinh and cosh the same turned by i, with
   // the values +-i and +-1; tan and tanh: no critical points, the asymptotic values +-i and +-1)
-  const M1 = C(-1, 0), PM1 = [ONE, M1], PMI = [I, C(0, -1)];
+  const MINUS_ONE = C(-1, 0), PM1 = [ONE, MINUS_ONE], PMI = [I, C(0, -1)];
   const critLat = (base, step, values) => () => crit([], { base, step, values }, []);
   const opSin = () => periodic('SIN', CX.sin, C(TAU, 0), 2, (w) => { const a = asinS(w); return [a, sub(C(PI, 0), a)]; }, (u) => CX.inv(CX.cos(u)),
     { critical: critLat(C(PI / 2, 0), C(PI, 0), PM1) });
@@ -201,7 +201,7 @@ const InvOps = (() => {
   function opJouk(fwd) {
     return op('JOUK', {}, fwd || ((u) => scale(add(u, CX.inv(u)), 0.5)), {
       fam: { type: 'fin', count: 2 }, poles: [ZERO],
-      critical: () => crit([{ u: ONE, mult: 1, w: ONE }, { u: M1, mult: 1, w: M1 }]),
+      critical: () => crit([{ u: ONE, mult: 1, w: ONE }, { u: MINUS_ONE, mult: 1, w: MINUS_ONE }]),
       pre: (w) => {
         const s = mul(CX.sqrt(sub(w, ONE)), CX.sqrt(add(w, ONE))), e = add(w, s);
         return [e, CX.inv(e)].map((u, m) => { const u2 = mul(u, u); return ONEM(u, div(scale(u2, 2), sub(u2, ONE)), { m }); });
@@ -880,15 +880,16 @@ const InvOps = (() => {
   }
   // InvOps.ratCritical(p, q, f) -> Crit: the critical points of f = p/q (high-first coefficients, coprime, degree d):
   // the zeros of p'q - pq', clustered (rootClusters), and infinity for the rest of the 2 d - 2 of them, where f takes
-  // its value at infinity (null = infinity)
+  // its value at infinity (null = infinity). A zero of p'q - pq' that is a zero of q (to RAT_POLE_REL of q's terms
+  // there) is a pole of order 2 or more: its value is infinity
+  const RAT_POLE_REL = 1e-8;
   function ratCritical(p, q, f) {
     p = CX.polyTrim(p); q = CX.polyTrim(q);
-    const der = (c) => (c.length > 1 ? c.slice(0, -1).map((x, i) => scale(x, c.length - 1 - i)) : [ZERO]);
-    const a = Derivs.polyMul(der(p), q), b = Derivs.polyMul(p, der(q)), n = Math.max(a.length, b.length);
-    const pad = (c) => [...Array(n - c.length).fill(ZERO), ...c], A = pad(a), B = pad(b);
-    const co = CX.polyTrim(A.map((x, i) => sub(x, B[i])));
+    const der = (c) => (c.length > 1 ? Derivs.polyDer(c) : [ZERO]);
+    const co = CX.polyTrim(Derivs.polySub(Derivs.polyMul(der(p), q), Derivs.polyMul(p, der(q))));
     const d = Math.max(p.length, q.length) - 1, wInf = p.length > q.length ? null : p.length === q.length ? div(p[0], q[0]) : ZERO;
-    const fin = co.length > 1 ? rootClusters(co).map(({ r, m }) => ({ u: r, mult: m, w: f(r) })) : [];
+    const valueAt = (r) => { if (abs(CX.polyEval(q, r)) <= RAT_POLE_REL * polyBound(q, r)) return null; const w = f(r); return isFin(w) ? w : null; };
+    const fin = co.length > 1 ? rootClusters(co).map(({ r, m }) => ({ u: r, mult: m, w: valueAt(r) })) : [];
     const atInf = 2 * d - 2 - fin.reduce((s, e) => s + e.mult, 0);
     return crit(atInf > 0 ? fin.concat([{ u: null, mult: atInf, w: wInf }]) : fin);
   }
