@@ -248,10 +248,13 @@ const InvOps = (() => {
   // affine conjugate of f: its zoom). H_t's coefficients a_0 ... a_d (low first) are read off its values at the d + 1
   // roots of unity (newtPolyCoeffs); its degree at t, de, is the last coefficient above NEWT_POLY_EPS of the largest
   // (a homotopy pieced from several steps may have a lower one). Aberth's simultaneous iteration (newtAberth) finds the
-  // de roots of a(u) - w from de points on the circle of Fujiwara's bound, rotated by NEWT_ABERTH_ROT; a root is then
-  // polished by Newton on H_t itself, as the other members are, and kept when it hits w and differs from every earlier
-  // one. glsl.js's NEWT runs the same iteration in float32 from the same start.
-  const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4;
+  // de roots of a(u) - w from de points on the circle of Fujiwara's bound, rotated by NEWT_ABERTH_ROT. The points that
+  // stand for one multiple root are one member with its multiplicity (multipleRoots; newtPolyCoeffs reads a good to
+  // NEWT_COEF_ERR (de + 1) times the sum of their sizes: to 0.4 times that at most on 3000 seeded polynomials of degree
+  // 3 to 12 with coefficients up to 2); a simple root is polished by Newton on H_t itself, as the other
+  // members are, so two roots next to a critical value stay two. A root is kept when it hits w. glsl.js's NEWT runs the
+  // same iteration in float32 from the same start, keeping the first of roots closer than its NEWT_DEDUPE.
+  const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4, NEWT_COEF_ERR = Number.EPSILON;
   function newtPolyCoeffs(g, d) {
     const M = d + 1, v = [];
     for (let m = 0; m < M; m++) v.push(g(C(Math.cos(2 * Math.PI * m / M), Math.sin(2 * Math.PI * m / M))));
@@ -324,11 +327,11 @@ const InvOps = (() => {
           if (de < 1 || !isFin(w)) return [];
           const aw = a.slice(0, de + 1);
           aw[0] = sub(aw[0], w);
-          const out = [];
-          newtAberth(aw, de, newtAberthStart(aw, de)).forEach((z, m) => {
-            const v = isFin(z) ? polishAt(z, w) : null;
-            if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m }));
-          });
+          const out = [], hi = aw.slice().reverse();
+          for (const { u, k, i: m } of multipleRoots(hi, newtAberth(aw, de, newtAberthStart(aw, de)), NEWT_COEF_ERR * (de + 1))) {
+            const v = k > 1 ? u : polishAt(u, w);
+            if (hits(v, w)) out.push(ONEM(v, k > 1 ? C(Infinity, 0) : CX.inv(dH(Ht, v)), k > 1 ? { m, mult: k } : { m }));
+          }
           return out;
         },
       });
@@ -812,13 +815,56 @@ const InvOps = (() => {
           if (grp.some((q) => abs(sub(q, rs[j])) <= 1e-3 * (1 + abs(q)))) { grp.push(rs[j]); used[j] = 1; grow = true; }
         }
       }
-      let m = grp.reduce((acc, q) => add(acc, q), ZERO);
-      m = scale(m, 1 / grp.length);
-      // a root of multiplicity k is a simple root of the (k-1)-th derivative: polish the mean there
-      let dk = co;
-      for (let k = 1; k < grp.length && dk.length > 1; k++) dk = dk.slice(0, -1).map((x, i) => scale(x, dk.length - 1 - i));
-      out.push({ r: dk.length > 1 ? polish(dk, m) : m, m: grp.length });
+      out.push({ r: clusterCentre(co, grp), m: grp.length });
     }
+    return out;
+  }
+  // the one root of co (high-first) that the points grp stand for, of multiplicity grp.length: their mean, polished as a
+  // simple root of co's (grp.length - 1)-th derivative
+  function clusterCentre(co, grp) {
+    const m = scale(grp.reduce((acc, q) => add(acc, q), ZERO), 1 / grp.length);
+    let dk = co;
+    for (let k = 1; k < grp.length && dk.length > 1; k++) dk = dk.slice(0, -1).map((x, i) => scale(x, dk.length - 1 - i));
+    return dk.length > 1 ? polish(dk, m) : m;
+  }
+  // The roots zs of co (high-first; zs as an iteration returns them, a root of multiplicity k as k points about
+  // EPS^(1/k) apart) grouped into numerical multiple roots: [{u, k, i}], the root u, its multiplicity k and the index in
+  // zs of its first point. At a point u, co's Taylor coefficients t_j have the rounding bounds b_j: Derivs.taylorAt's,
+  // plus coErr times the sum of |co| for the coefficients' own error, times MULT_SAFETY. A point is a simple root when
+  // |t_1| times its distance to the nearest other point is above SIMPLE_MARGIN b_0 (k points of a k-fold root have it
+  // about k |t_k| r^k, r their spread, which rounding sets to about b_0). Each other point, in order, takes the largest
+  // group of itself and the other points nearest it, not yet taken, whose centre (clusterCentre) is a root of that
+  // multiplicity to rounding: |t_j| <= b_j there for j < k. A non-finite point is left out.
+  const MULT_SAFETY = 4, SIMPLE_MARGIN = 1e6;
+  function multipleRoots(co, zs, coErr) {
+    const ones = co.map(() => ONE), noise = coErr * co.reduce((s, x) => s + abs(x), 0);
+    const taylor = (u) => {
+      const { t, e } = Derivs.taylorAt(co, u), T = Derivs.taylorAt(ones, C(abs(u), 0)).t;
+      return { t: t.map(abs), b: e.map((x, j) => MULT_SAFETY * (x + noise * T[j].re)) };
+    };
+    const isRoot = (u, k) => { const { t, b } = taylor(u); for (let j = 0; j < k; j++) if (!(t[j] <= b[j])) return false; return true; };
+    const fin = zs.map(isFin), used = zs.map((z, i) => !fin[i]), out = [];
+    const simple = zs.map((z, i) => {
+      if (!fin[i]) return false;
+      let gap = Infinity;
+      zs.forEach((q, j) => { if (j !== i && fin[j]) gap = Math.min(gap, abs(sub(q, z))); });
+      const { t, b } = taylor(z);
+      return t.length < 2 || t[1] * gap > SIMPLE_MARGIN * b[0];
+    });
+    zs.forEach((z, i) => {
+      if (used[i]) return;
+      used[i] = true;
+      if (simple[i]) { out.push({ u: z, k: 1, i }); return; }
+      const near = zs.map((q, j) => j).filter((j) => !used[j] && !simple[j]).sort((p, q) => abs(sub(zs[p], z)) - abs(sub(zs[q], z)));
+      for (let k = near.length + 1; k > 1; k--) {
+        const u = clusterCentre(co, [z, ...near.slice(0, k - 1).map((j) => zs[j])]);
+        if (!isFin(u) || !isRoot(u, k)) continue;
+        near.slice(0, k - 1).forEach((j) => { used[j] = true; });
+        out.push({ u, k, i });
+        return;
+      }
+      out.push({ u: z, k: 1, i });
+    });
     return out;
   }
   // Inverse.rationalForm(ast) -> {ok, P, Q (high-first, coprime, scaled by a power of 2), deg, exact, removed: C[]
@@ -998,4 +1044,5 @@ const InvOps = (() => {
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
+import { Derivs } from './derivs.js';
 export { InvOps };

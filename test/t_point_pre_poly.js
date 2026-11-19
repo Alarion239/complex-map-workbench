@@ -1,0 +1,108 @@
+// A point's exact preimages through a polynomial step of degree 3 to 12 (#1979, the Stack's P0a): Inverse.pointPlan
+// gives such a step its roots (homOps at t = 1, one NEWT op), so Inverse.pointPre lists every z with f(z) = w. Checked
+// against Durand–Kerner on the step's own coefficients (CX.polyRoots, an independent solver): every root is found to
+// ROOT_TOL, none twice, at generic w and next to a critical value; at a critical value the multiple root comes once
+// with its multiplicity, within MULT_TOL of the critical point, and the multiplicities sum to the degree. A degree above
+// 12, or a step that is not a polynomial, is still not exact.
+// Run: node test/t_point_pre_poly.js   (exit code 1 on any failure)
+global.CX = require('../src/cx.js');
+global.Expr = require('../src/parse.js');
+global.Funcs = require('../src/funcs.js');
+const Inverse = require('../src/inverse.js');
+const C = CX.C, abs = CX.abs, sub = CX.sub;
+let bad = 0, n = 0;
+const check = (name, ok, info = '') => { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } };
+const step = (type, params = {}) => ({ type, params: Object.assign(Funcs.defaults(type), params), on: true });
+const cs = (z) => `${z.re}${z.im < 0 ? '-' : '+'}${Math.abs(z.im)}i`;
+// a simple root to 1e-9 of its size; a multiple root of multiplicity m moves by about (ε |w| / |f^(m)/m!|)^(1/m) when
+// w is rounded, so a double root's place is good to about √ε
+const ROOT_TOL = 1e-9, MULT_TOL = 1e-7;
+const near = (a, b, tol) => abs(sub(a, b)) <= tol * (1 + abs(b));
+const hasPlan = typeof Inverse.pointPlan === 'function';
+check('Inverse.pointPlan exists', hasPlan);
+function pre(steps, w) {
+  if (!hasPlan) return { exact: false, reason: 'no Inverse.pointPlan' };
+  const built = steps.map((st) => Funcs.build(st));
+  return Inverse.pointPre(Inverse.pointPlan(steps, built), w);
+}
+// the roots of co (high-first) minus w by Durand–Kerner
+const dk = (co, w) => CX.polyRoots(co.slice(0, -1).concat([sub(co[co.length - 1], w)]));
+// pointPre's roots at w against Durand–Kerner's: the same points to ROOT_TOL, each simple, none twice
+function same(name, st, co, w) {
+  const r = pre([st], w), d = co.length - 1;
+  check(`${name} at ${cs(w)}: exact`, r.exact, r.reason);
+  if (!r.exact) return;
+  const want = dk(co, w), miss = want.filter((z) => !r.zs.some((q) => near(q, z, ROOT_TOL)));
+  const extra = r.zs.filter((q) => !want.some((z) => near(q, z, ROOT_TOL)));
+  check(`${name} at ${cs(w)}: the ${d} roots of Durand–Kerner, to ${ROOT_TOL}`, r.zs.length === d && !miss.length && !extra.length && r.mult.every((m) => m === 1) && r.total === d,
+    { got: r.zs.length, mult: r.mult, miss, extra });
+}
+// a multiple root: z0 once with multiplicity m among `count` points, the multiplicities summing to the degree
+function multiple(name, st, w, z0, m, count, d) {
+  const r = pre([st], w), at = r.exact ? r.zs.findIndex((z) => near(z, z0, MULT_TOL)) : -1;
+  check(`${name} at ${cs(w)}: ${count} points, ${cs(z0)} ×${m} among them, the multiplicities summing to ${d}`,
+    r.exact && r.zs.length === count && at >= 0 && r.mult[at] === m && r.mult.reduce((a, k) => a + k, 0) === d && r.total === d, r);
+}
+
+// M3, the plan's test cubic z³ − 1.2z + 0.3, as a formula: its critical points ±√0.4, their values 0.3 ∓ 0.8√0.4
+const M3 = step('custom', { expr: 'z^3-1.2z+0.3' }), M3co = [C(1), C(0), C(-1.2), C(0.3)];
+const s4 = Math.sqrt(0.4), f3 = (x) => x * x * x - 1.2 * x + 0.3;
+for (const w of [C(1.1), C(0.3, 0.7), C(-2, -1), C(0), C(f3(s4) + 1e-6), C(f3(s4) - 1e-9), C(f3(-s4), 1e-9), C(f3(-s4) + 1e-6, -1e-6)]) same('M3', M3, M3co, w);
+multiple('M3 at its critical value f(√0.4)', M3, C(f3(s4)), C(s4), 2, 2, 3);
+// (the polynomial NEWT op itself, as homOps gives it at t = 1: its members carry the double root's multiplicity)
+{
+  const op = Inverse.homOps(Funcs.build(M3), 1).ops[0], mem = op.pre(C(f3(s4))), at = mem.findIndex((q) => near(q.u, C(s4), MULT_TOL));
+  check('M3\'s NEWT op at f(√0.4): two members, √0.4 ×2 among them', op.kind === 'NEWT' && mem.length === 2 && at >= 0 && mem[at].mult === 2, mem.map((q) => [q.u, q.mult]));
+}
+multiple('M3 at its critical value f(−√0.4)', M3, C(f3(-s4)), C(-s4), 2, 2, 3);
+
+// the catalog's polynomial step, a zeros-and-poles step with no poles and a rational step over a constant: one solver
+same('z³ − z (poly)', step('poly', { co: '1, 0, -1, 0' }), [C(1), C(0), C(-1), C(0)], C(0.2, -0.3));
+same('2(z − 1)(z + i)(z − 0.5) (zeros, no poles)', step('zp', { a: '2', zeros: '1, -i, 0.5', poles: '' }),
+  [C(2), C(-3, 2), C(1, -3), C(0, 1)], C(-0.4, 0.9));
+same('(z⁴ + z + 1) / 2 (rational over a constant)', step('rational', { p: '1, 0, 0, 1, 1', q: '2' }), [C(0.5), C(0), C(0), C(0.5), C(0.5)], C(0.7, 0.1));
+
+// every degree from 3 to 12: seeded random complex coefficients, at generic w and next to a critical value
+let seed = 19791119;
+const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
+const r1 = () => Math.round((rnd() * 4 - 2) * 100) / 100;
+for (let d = 3; d <= 12; d++) {
+  const co = Array.from({ length: d + 1 }, (_, k) => (k === 0 ? C(1 + Math.round(rnd() * 100) / 100, r1() / 4) : C(r1(), r1())));
+  const st = step('poly', { co: co.map(cs).join(', ') }), b = Funcs.build(st);
+  // a critical point: a root of f′, and its value; the points 1e-6 and 1e-9 times 1 + |value| off it
+  const dco = co.slice(0, -1).map((c, i) => CX.scale(c, d - i)), cp = CX.polyRoots(dco)[0], v = b.f(cp), sv = 1 + abs(v);
+  for (const w of [C(r1(), r1()), C(r1() * 3, r1() * 3), CX.add(v, C(1e-6 * sv, 0)), CX.add(v, C(0, -1e-9 * sv))]) same(`degree ${d}`, st, co, w);
+}
+
+// multiple roots at a critical value: a triple root, three double roots, a quadruple root of a degree-12 polynomial
+const expand = (roots) => roots.reduce((p, r) => p.concat([C(0)]).map((c, i) => (i ? sub(c, CX.mul(r, p[i - 1])) : c)), [C(1)]);
+const polyOf = (roots) => step('poly', { co: expand(roots).map(cs).join(', ') });
+multiple('(z − 1)³(z + 2)', polyOf([C(1), C(1), C(1), C(-2)]), C(0), C(1), 3, 2, 4);
+multiple('(z − 1)²(z + 1)²(z − 2)², its root 2', polyOf([C(1), C(1), C(-1), C(-1), C(2), C(2)]), C(0), C(2), 2, 3, 6);
+{
+  const r = pre([polyOf([C(1), C(1), C(-1), C(-1), C(2), C(2)])], C(0));
+  check('(z − 1)²(z + 1)²(z − 2)² at 0: 1, −1 and 2, each ×2', r.exact && r.zs.length === 3 && r.mult.every((m) => m === 2)
+    && [C(1), C(-1), C(2)].every((z0) => r.zs.some((z) => near(z, z0, MULT_TOL))), r);
+}
+const eighth = Array.from({ length: 8 }, (_, k) => C(1.5 * Math.cos(Math.PI * (2 * k + 1) / 8), 1.5 * Math.sin(Math.PI * (2 * k + 1) / 8)));
+multiple('(z − 0.5i)⁴ times 8 simple factors (degree 12)', polyOf([C(0, 0.5), C(0, 0.5), C(0, 0.5), C(0, 0.5), ...eighth]), C(0), C(0, 0.5), 4, 9, 12);
+
+// a chain: M3, then z² (6 preimages: Durand–Kerner's roots of M3 at both square roots of w)
+{
+  const w = C(0.4, -0.3), s = CX.sqrt(w), r = pre([M3, step('pown', { n: 2 })], w), want = [...dk(M3co, s), ...dk(M3co, CX.neg(s))];
+  check('M3 then z² at 0.4 − 0.3i: 6 roots, those of Durand–Kerner', r.exact && r.zs.length === 6 && r.total === 6 && want.every((z) => r.zs.some((q) => near(q, z, ROOT_TOL))), r);
+}
+
+// the order is the solver's: the same w gives the same list
+{
+  const a = pre([M3], C(0.3, 0.7)), b = pre([M3], C(0.3, 0.7));
+  check('M3: the same w lists the same roots in the same order', a.exact && b.exact && a.zs.every((z, i) => z.re === b.zs[i].re && z.im === b.zs[i].im), [a.zs, b.zs]);
+}
+
+// still not exact: a degree above 12, a step that is not a polynomial
+for (const [name, st] of [['z¹³ + z', step('custom', { expr: 'z^{13}+z' })], ['exp', step('exp')], ['z³ + 1/z', step('custom', { expr: 'z^3+\\frac{1}{z}' })]]) {
+  const r = pre([st], C(0.3, 0.7));
+  check(`${name}: not exact`, hasPlan && !r.exact, r);
+}
+console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
+process.exit(bad ? 1 : 0);
