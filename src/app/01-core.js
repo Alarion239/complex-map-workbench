@@ -3,7 +3,6 @@
   const sub = (k) => String(k).split('').map((d) => SUB[+d] ?? d).join('');
   const wvar = (k) => (k === 0 ? 'z' : `w_{${k}}`);
   const wHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i>${sub(k)}`);
-  const wText = (k) => (k === 0 ? 'z' : `w${sub(k)}`);   // (the plane's variable as plain text: what a screen reader and the sound's words say)
   // 16px stroke icons (currentColor)
   const svgI = (inner, fill) => `<svg class="ic" viewBox="0 0 16 16" width="16" height="16" aria-hidden="true" fill="${fill ? 'currentColor' : 'none'}" stroke="${fill ? 'none' : 'currentColor'}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">${inner}</svg>`;
   const ICONS = {

@@ -9,8 +9,8 @@ const SoundHooks = (() => {
   let C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText,
     focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState,
     nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D,
-    requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, toast, touchUI, tourEmit, tourL,
-    tourSndMine, updateDraftChips, wText, zerosPolesTimed;
+    requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit, tourL,
+    tourSndMine, updateDraftChips, zerosPolesTimed;
   // the engine's live stream (Sound.hear) once it is there; until then today's harp (each side builds on its own)
   const sndHear = () => (SND && SND.hear ? SND.hear : null);
   const sndNow = () => performance.now() / 1000;
@@ -1269,7 +1269,7 @@ const SoundHooks = (() => {
       const past = sndSvPast();
       if (past) { sndSay(`${stepsView().name} ${sndFmt(snd.kz)}. ${sndSvLine(past)}`); return; }
       const g = sndF()(snd.kz);
-      sndSay(CX.isFin(g) ? $tn('{v} {z}. Modulus {modulus}, argument {n} degrees.', '{v} {z}. Modulus {modulus}, argument {n} degrees.', Math.round(Math.atan2(g.im, g.re) / DEG), { v: wText(leftStage()), z: sndFmt(snd.kz), modulus: I18N.num(CX.fmtNum(CX.abs(g), 3)) }) : $t('{v} {z}. F is infinite here.', { v: wText(leftStage()), z: sndFmt(snd.kz) }));
+      sndSay(CX.isFin(g) ? $tn('{v} {z}. Modulus {modulus}, argument {n} degrees.', '{v} {z}. Modulus {modulus}, argument {n} degrees.', Math.round(Math.atan2(g.im, g.re) / DEG), { v: svName(leftStage()), z: sndFmt(snd.kz), modulus: I18N.num(CX.fmtNum(CX.abs(g), 3)) }) : $t('{v} {z}. F is infinite here.', { v: svName(leftStage()), z: sndFmt(snd.kz) }));
     }, 450);
   }
   // the query at the keyboard probe's point
@@ -1286,7 +1286,7 @@ const SoundHooks = (() => {
     clearTimeout(snd.annT);
     // (past the steps view's colour plane the line goes after it: sndProbeTo said it, and this would say over it)
     const past = sndSvPast();
-    sndSay($t('Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.', { v: wText(leftStage()), z: sndFmt(snd.kz), st: I18N.num(st), x: I18N.num(+(st / 5).toFixed(3)) }) + (past ? ' ' + sndSvLine(past) : ''));
+    sndSay($t('Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.', { v: svName(leftStage()), z: sndFmt(snd.kz), st: I18N.num(st), x: I18N.num(+(st / 5).toFixed(3)) }) + (past ? ' ' + sndSvLine(past) : ''));
     return true;
   }
   // the zeros and poles of the painted function in the view (Calc.zerosPoles, time-bounded), cached per view
@@ -1398,7 +1398,7 @@ const SoundHooks = (() => {
 
   function init(api) {
     A = api;
-    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, wText, zerosPolesTimed } = api);
+    ({ C, EX, SND, SND_ICON_OFF, SND_ICON_ON, V, camOf, camS, curvePieces, derivIn, drawProbe, exOk, fnText, focusDeriv, focusF, hov, lGlobe, lLand, leftStage, leftView, loadExample, morph, morphLen, morphOn, morphState, nSteps, pickLand, pickSphere, pickSphereLeft, rGlobe, rImage, rangeF, rangeKey, rangeParts, render3D, requestRender, setReadouts, shapeNames, shapeStage, snd, solo, stepsView, sub, svName, toast, touchUI, tourEmit, tourL, tourSndMine, updateDraftChips, zerosPolesTimed } = api);
     // Calc.throughZP / throughZPAlong / ZP_CALLS (SOUND-PLAN 2.2): one implementation, the engine's (Sound.HT, FINAL
     // A16; calc.js loads before sound.js), under the names the plan gives them, so the probe and Listen along call Calc
     if (!Calc.throughZP && SND && SND.HT && SND.HT.throughZP) Object.assign(Calc, { throughZP: SND.HT.throughZP, throughZPAlong: SND.HT.throughZPAlong, ZP_CALLS: 44 });

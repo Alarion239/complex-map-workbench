@@ -134,7 +134,8 @@
   // plane shown as the head does
   function titleName(html) {
     const d = h('div', { html });
-    for (const s of d.querySelectorAll('sub')) s.textContent = sub(s.textContent);
+    // (the subscript's digits and the deformation's t as Unicode subscripts: Hₜ, as the page writes it elsewhere)
+    for (const s of d.querySelectorAll('sub')) s.textContent = sub(s.textContent).replace(/t/g, '\u209C');
     const words = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
     return [words(d.querySelector('.ptitle')), words(d.querySelector('.rf') || d.querySelector('.prole'))].filter(Boolean).join(', ');
   }

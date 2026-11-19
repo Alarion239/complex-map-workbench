@@ -40,7 +40,7 @@
   function intLabel(s, names) {
     let closed = false;
     try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }
-    const name = names.get(s.id) || Region.KINDS[s.kind].label, dv = wText(leftStage());
+    const name = names.get(s.id) || Region.KINDS[s.kind].label, dv = svName(leftStage());
     return closed ? $t('∮ {x} d{dv} around {name}', { x: fnText(), dv, name }) : $t('Integrate {x} along {name}', { x: fnText(), name });
   }
   // the result opens beside its curve in X, never over Y, where the curve's image is
