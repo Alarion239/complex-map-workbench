@@ -375,6 +375,7 @@ const VIEWS = {
   'kit_adopted_cmd.js': steps({ pin: true }),
   'kit_example_names_cmd.js': steps({ pin: true }),
   'kit_go_link_cmd.js': steps({ pin: true }),
+  'kit_prepared_cmd.js': steps({ pin: true }),
   'reload_wait_cmd.js': steps({ pin: true }),
   'kit_nav_cmd.js': steps({ pin: true }),
   'kit_seed_cmd.js': steps({ pin: true }),
