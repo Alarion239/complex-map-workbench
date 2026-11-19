@@ -221,7 +221,7 @@ for (const w of [1024, 1440]) {
   // (a key that plays has no quiet wait of its own: the page is quiet only once the play has ended, 900 ms a plane at the
   // normal speed and the arrival's frames after it, which can take more than 3 s on a software renderer; the play's start
   // is waited for here, and its end after each check)
-  const playsTo = async (k, code, n) => { await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  const playsTo = async (k, code, n) => { await settled({ max: 60000, until: '__cmwSteps().ready.ready' }); await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
   check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
   await settled({ max: 20000, until: `!__cmwSteps().moving` });
   check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
