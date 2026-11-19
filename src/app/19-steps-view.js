@@ -358,7 +358,7 @@
     // (the tour and an example's Try line listen for it: a plane reached other than the one it was at; not a plane the view was
     // opened on)
     SV.at = i;
-    if (was !== i) { const n = svPlanes().length; tourEmit('plane-changed', { i, n, last: i === n - 1 }); }
+    if (was !== i) { const n = svPlanes().length; tourEmit('plane-changed', { i, n, last: i === n - 1 }); svPrestartSoon(300); }
     if (typeof sndRelayout === 'function') sndRelayout();
     const live = SV.els && SV.els.live;
     if (live) live.textContent = svLabel();
@@ -3453,21 +3453,72 @@
     if (SV.own) { SV.own = false; SV.sig = svSigNow(); }
     svWantFocus();
   }
-  // On the globe, the inverse program of the glides out of and into the plane shown (svGlobeCarryInv's: each step's homotopy
-  // inverted by its own ops, its own program), linked in the background, so the first glide finds it and no program links
-  // inside a glide's frame
-  function svPrestartGlobeInv() {
-    if (SV.surf !== 'sphere' || !paneL || !GLR.inverseState || nSteps() < 1) return;
-    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), T = svT(), carry = svCarryStyle(T);
+  // The glides out of and into the plane shown made ready at rest, on the plane and the globe, so the first glide links
+  // no inverse program and builds no pipeline inside its first frame: on a renderer that links in the main thread and
+  // makes a draw's machine code at its first use (SwiftShader, llvmpipe) those hold a first frame 0.5-2.7 s. Each job
+  // is one part of a glide (svGlideParts) and takes an idle moment of its own: it asks for the inverse programs of its
+  // frame (svInvPaths: the programs svCarryExactHom and svGlobeCarryInv draw with; with KHR_parallel_shader_compile they
+  // link in the background, and a later moment looks again), then, on the plane, draws that frame once into the GL
+  // canvas, which no pane shows until a frame copies it (svWarmCarry's way). The glide on comes first, then the glide
+  // back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any input puts the job off;
+  // anything svInvKey names changing drops the rest, and svPrestart, which runs after such a change, queues them again
+  const SV_INV_WARM_MAX = 4;
+  // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
+  // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks)
+  let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false;
+  const svInvKey = () => `${chainSig[nSteps()]}|${SV.surf}|${SV.scope}|${svT()}|${S.dc}|${Math.round(SV.g.x)}`;
+  function svPrestartInv() {
+    const globe = SV.surf === 'sphere', key = svInvKey();
+    if ((!globe && SV.surf !== 'plane') || !paneL || !GLR.inverseState || nSteps() < 1) return;
+    const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
-      if (!b || isDeriv(b) || derivIn(0, b)) continue;
-      const h = svInvPaths(b, 0.5, 'globe', { r: null });
-      if (h) h.list.forEach((x, i) => GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], x, carry))));
+      if (b && !isDeriv(b) && !derivIn(0, b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
     }
+    svInvWarmKey = key;
+    svInvJobs = jobs.slice(0, SV_INV_WARM_MAX);
+    svInvWarmNext();
+  }
+  // a place in each part of step b's glide whose homotopy has ops of their own kinds (Inverse.homOps): a recognised
+  // formula's sub-steps, each one's middle; else the first half and the second (z^-n's power path, then its Möbius path)
+  function svGlideParts(b) {
+    const n = built[b - 1] && built[b - 1].rec ? built[b - 1].rec.built.length : 0;
+    return n > 1 ? [...Array(n).keys()].map((i) => (i + 0.5) / n) : [0.25, 0.75];
+  }
+  // the next job of svPrestartInv's in an idle moment: its programs asked for, or, once they are ready, its frame drawn
+  const SV_INV_WARM_AGAIN_MS = 250;
+  function svInvWarmNext() {
+    if (!svInvJobs.length) return;
+    const key = svInvWarmKey, idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, SV_INV_WARM_AGAIN_MS));
+    idle(() => {
+      if (key !== svInvWarmKey || !svInvJobs.length) return;
+      if (key !== svInvKey()) { svInvJobs = []; return; }
+      if (interacting() || svGliding()) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+      const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT(), carry = svCarryStyle(T);
+      const h = svInvPaths(job.b, job.u, globe ? 'globe' : 'flat', { r: null });
+      const state = (i) => (globe ? GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], h.list[i], carry))) : svInvState(h, i, job.b, job.u));
+      let next = 0;
+      if (!h) svInvJobs.shift();
+      else if (!job.asked) { h.paths.forEach((q, i) => state(i)); job.asked = true; }
+      else {
+        const st = h.paths.map((q, i) => state(i));
+        if (st.includes('pending')) next = SV_INV_WARM_AGAIN_MS;
+        else {
+          svInvJobs.shift();
+          // (the frame's commands flushed, and the next job only once the GPU has run them (GLR.gpuDone's fence, polled,
+          // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
+          if (!globe && st.every((x) => x === 'ready')) {
+            let drawn = false;
+            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, { open: false }, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
+          }
+        }
+      }
+      if (next) setTimeout(svInvWarmNext, next); else svInvWarmNext();
+    });
   }
   // the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
-  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs; at start-up and when the
-  // chain changes
+  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs; at start-up, when the chain changes
+  // and when the thread arrives at another plane (the glides of that plane, svPrestartInv)
   function svPrestart() {
     try {
       if (!GLR.ok) return;
@@ -3487,7 +3538,7 @@
       // (the Cauchy style's variants, CARRY_CAUCHY: the carried meshes' and the pre-mapped mesh's at rest and in the glide, so a
       // plane past z at rest has them when the thread arrives, while its inverse program links)
       if (S.dc === 'cauchy' && GLR.prestartNames && GLR.carryNames) GLR.prestartNames(GLR.carryNames(false, true).concat(['regionPKZ']), [0, 1]);
-      svPrestartGlobeInv();
+      svPrestartInv();
       svWarmCarry(0);
       svPolesWatch();
     } catch (e) { /* (the first glide starts them) */ }
