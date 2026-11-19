@@ -237,7 +237,7 @@ const InvOps = (() => {
   // the member counts of exact ops ops when every one is single-valued (AFF, MOB, IJOUK) or a finite family (IPOW,
   // JOUK, QUAD, RAT2) with NEWT_SEEDS members in all at most, else null. (The others' points over w are infinitely many,
   // or a log family's, which prepare sets: a principal member alone would seed one sheet of many)
-  const NEWT_SEED_KINDS = new Set(['AFF', 'MOB', 'IJOUK', 'IPOW', 'JOUK', 'QUAD', 'RAT2']);
+  const NEWT_SEED_KINDS = new Set(['AFF', 'MOB', 'IJOUK', 'IPOW', 'JOUK', 'QUAD', 'CUB', 'RAT2']);
   function newtSeedCounts(ops) {
     if (!ops || !ops.length || !ops.every((o) => NEWT_SEED_KINDS.has(o.kind))) return null;
     const n = ops.map((o) => (!o.fam ? 1 : o.fam.type === 'fin' && !o.lattice ? o.fam.count : 0));
@@ -401,6 +401,31 @@ const InvOps = (() => {
       },
     });
   }
+  // a u^3 + b u^2 + c u + d = w in closed form (Cardano on the depressed cubic, the cube root of the larger-modulus
+  // sum, the cofactor -p / (3 S)), each root polished by two Newton steps on the cubic itself (the GLSL's CUB)
+  function cubRoots(a, b, c, d) {
+    const B = div(b, a), Cc = div(c, a), D = div(d, a), B3 = scale(B, 1 / 3);
+    const p = sub(Cc, mul(B, B3)), q = add(sub(scale(mul(mul(B3, B3), B3), 2), mul(B3, Cc)), D);
+    const hq = scale(q, -0.5), sq = CX.sqrt(add(mul(hq, hq), mul(mul(scale(p, 1 / 3), scale(p, 1 / 3)), scale(p, 1 / 3))));
+    const s1 = add(hq, sq), s2 = sub(hq, sq), s = abs(s1) >= abs(s2) ? s1 : s2;
+    const S = isZero(s) ? ZERO : CX.exp(scale(log(s), 1 / 3)), T = isZero(S) ? ZERO : div(scale(p, -1 / 3), S);
+    const W = [ONE, C(-0.5, Math.sqrt(3) / 2), C(-0.5, -Math.sqrt(3) / 2)];
+    const f = (u) => add(mul(add(mul(add(mul(a, u), b), u), c), u), d), df = (u) => add(mul(add(scale(mul(a, u), 3), scale(b, 2)), u), c);
+    return W.map((om, k) => {
+      let u = sub(add(mul(om, S), mul(W[(3 - k) % 3], T)), B3);
+      for (let it = 0; it < 2; it++) { const g = df(u); if (isZero(g)) break; const v = sub(u, div(f(u), g)); if (isFin(v)) u = v; }
+      return u;
+    });
+  }
+  // (design study #1937, prototype switch: globalThis.__dsNoCub turns the closed-form cubic off)
+  const CUB_ON = () => !(typeof globalThis !== 'undefined' && globalThis.__dsNoCub);
+  function opCub(a, b, c, d, fwd) {
+    const df = (u) => add(mul(add(scale(mul(a, u), 3), scale(b, 2)), u), c);
+    return op('CUB', { a, b, c, d }, fwd || ((u) => add(mul(add(mul(add(mul(a, u), b), u), c), u), d)), {
+      fam: { type: 'fin', count: 3 },
+      pre: (w) => cubRoots(a, b, c, sub(d, w)).map((u, m) => ONEM(u, CX.inv(df(u)), { m })),
+    });
+  }
   // p(u)/q(u) of degree 2 (coprime): p(u) - w q(u) = 0
   function opRat2(p, q, fwd) {
     const pad = (co) => [...Array(Math.max(0, 3 - co.length)).fill(ZERO), ...co];
@@ -530,6 +555,7 @@ const InvOps = (() => {
       if (d > IPOW_MAX) return INEL(`integer power |n| > ${IPOW_MAX}`);
       return OK([opIpow(d), opAff(c[0], c[d])]);
     }
+    if (d === 3 && CUB_ON()) return OK([opCub(c[0], c[1], c[2], c[3], f)]);
     return INEL(`polynomial of degree ${d}`);
   }
   // ---- rational custom formulas (SPEC 3.3, rev 3) ----
@@ -902,6 +928,7 @@ const InvOps = (() => {
       const c = P.map((x) => div(x, Q[0]));
       if (d === 1) return OK([opAff(c[0], c[1])]);
       if (d === 2) return OK([opQuad(c[0], c[1], c[2], f)]);
+      if (d === 3 && CUB_ON()) return OK([opCub(c[0], c[1], c[2], c[3], f)]);
     } else {
       if (d === 1) {
         const two = (co) => (co.length === 1 ? [ZERO, co[0]] : co);
@@ -993,7 +1020,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opCub, cubRoots, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
   };
 })();
 import { CX } from './cx.js';

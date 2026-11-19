@@ -2226,10 +2226,10 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, CUB: 2, RAT2: 3 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
-  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
+  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, CUB: 3, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
@@ -2706,6 +2706,31 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(2.0 * cmul(a, u) + bb), ${NOR});
 }
 `;
+      // a u^3 + b u^2 + c u + d = w in closed form (InvOps.opCub): Cardano on the depressed cubic, the cube root of the
+      // larger-modulus sum, then two Newton steps on the cubic itself (float32: the shift by b / 3a and the cube root
+      // lose digits the steps win back)
+      case 'CUB': return `int ${P}_nb(Lf L) { return ixFin(L.u) ? 3 : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec4 P0 = ${U(0)}, P1 = ${U(1)};
+  vec2 a = P0.xy, bb = P0.zw, c = P1.xy, d = P1.zw - L.u;
+  vec2 B3 = cdiv(bb, a) / 3.0, Cn = cdiv(c, a), Dn = cdiv(d, a);
+  vec2 p = Cn - 3.0 * cmul(B3, B3), q = 2.0 * cmul(cmul(B3, B3), B3) - cmul(B3, Cn) + Dn;
+  vec2 hq = -0.5 * q, p3 = p / 3.0;
+  vec2 sq = csqrtp(cmul(hq, hq) + cmul(cmul(p3, p3), p3));
+  vec2 s1 = hq + sq, s2 = hq - sq, s = dot(s1, s1) >= dot(s2, s2) ? s1 : s2;
+  vec2 S = vec2(0.0), T = vec2(0.0);
+  if (s.x != 0.0 || s.y != 0.0) { vec2 ls = clog(s, CX_PI, 0.0) / 3.0; S = cexp(ls); T = cdiv(-p3, S); }
+  vec2 om = b == 0 ? vec2(1.0, 0.0) : vec2(-0.5, b == 1 ? 0.8660254037844386 : -0.8660254037844386);
+  vec2 u = cmul(om, S) + cmul(vec2(om.x, -om.y), T) - B3;
+  for (int it = 0; it < 2; it++) {
+    vec2 f = cmul(cmul(cmul(a, u) + bb, u) + c, u) + d, g = cmul(3.0 * cmul(a, u) + 2.0 * bb, u) + c;
+    if (g.x == 0.0 && g.y == 0.0) break;
+    vec2 v = u - cdiv(f, g);
+    if (ixFin(v)) u = v;
+  }
+  return ixApply(L, u, cinv(cmul(3.0 * cmul(a, u) + 2.0 * bb, u) + c), ${NOR});
+}
+`;
       case 'RAT2': return `int ${P}_roots(vec2 w, out vec2 r0, out vec2 r1) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)};
   vec2 A = S0.xy - cmul(w, S1.zw), B = S0.zw - cmul(w, S2.xy), Cc = S1.xy - cmul(w, S2.zw);
@@ -2897,6 +2922,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         break;
       }
       case 'QUAD': put(c, p.a.re, p.a.im, p.b.re, p.b.im); put(c + 1, p.c.re, p.c.im, 0, 0); break;
+      case 'CUB': put(c, p.a.re, p.a.im, p.b.re, p.b.im); put(c + 1, p.c.re, p.c.im, p.d.re, p.d.im); break;
       case 'RAT2': {
         const [P0, P1, P2] = p.P.map(z), [Q0, Q1, Q2] = p.Q.map(z);
         put(c, P0.re, P0.im, P1.re, P1.im); put(c + 1, P2.re, P2.im, Q0.re, Q0.im); put(c + 2, Q1.re, Q1.im, Q2.re, Q2.im);

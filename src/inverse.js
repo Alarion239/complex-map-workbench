@@ -619,7 +619,18 @@ const Inverse = (() => {
     let acc = [], poles = [];
     try { acc = accumulation(plan, win); } catch (e) { acc = []; }
     try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
-    return acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))).slice(0, 4);
+    poles = poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))));
+    // (design study #1937: a pole of order k is listed k times, so that k simple poles of a glide's frame that meet at
+    // the end of the glide give the key they give apart: the key is continuous in t. Order from |F| at two radii)
+    if (!(typeof globalThis !== 'undefined' && globalThis.__dsOldRest)) {
+      poles = poles.flatMap((p) => {
+        const r1 = 1e-4 * (1 + abs(p)), e = C(Math.cos(0.3), Math.sin(0.3));
+        const f1 = abs(fwdOps(plan, add(p, scale(e, r1)))), f2 = abs(fwdOps(plan, add(p, scale(e, 2 * r1))));
+        const k = Number.isFinite(f1) && Number.isFinite(f2) && f2 > 0 ? Math.round(Math.log2(f1 / f2)) : 1;
+        return Array(Math.max(1, Math.min(4, k))).fill(p);
+      });
+    }
+    return acc.concat(poles).slice(0, 4);
   }
   // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
   // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
@@ -636,7 +647,7 @@ const Inverse = (() => {
         let src;
         if (kind === 'undef') src = o.undef;
         else if (kind === 'branch') src = o.branch;
-        else { src = o.poles.slice(); if (o.lattice) { if (!bt.has(i)) bt.set(i, boxThrough(ops, i, zb)); src.push(...latticeIn(o.lattice, bt.get(i), refs[i], cap)); } }
+        else { src = o.keyless ? [] : o.poles.slice(); if (o.lattice) { if (!bt.has(i)) bt.set(i, boxThrough(ops, i, zb)); src.push(...latticeIn(o.lattice, bt.get(i), refs[i], cap)); } }
         if (!src.length) continue;
         for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(z);
       }
@@ -796,6 +807,7 @@ const Inverse = (() => {
       }
       case 'JOUK': if (ac > rho) r = rho * (1 + 1 / ((ac - rho) * ac)) / 2; break;   // (u - c)(1 - 1/(u c)) / 2
       case 'QUAD': { const { a, b } = o.p; r = rho * (abs(add(scale(mul(a, c), 2), b)) + abs(a) * rho); break; }
+      case 'CUB': { const { a, b, c: c1 } = o.p, d1 = add(mul(add(scale(mul(a, c), 3), scale(b, 2)), c), c1), d2 = add(scale(mul(a, c), 6), scale(b, 2)); r = rho * (abs(d1) + abs(d2) * rho / 2 + abs(a) * rho * rho); break; }
       case 'RAT2': {
         // f(u) - f(c) = N(u) / (q(u) q(c)), N(u) = p(u) q(c) - p(c) q(u) = (u - c)(N'(c) + N2 (u - c))
         const [p2, p1, p0] = o.p.P, [q2, q1, q0] = o.p.Q;
@@ -1593,10 +1605,18 @@ const Inverse = (() => {
   // z^(1 + (n - 1) t), or its zoom about a point), a zoom of f (f conjugated by affine maps), or else the straight line
   // or the step's own homotopy, a polynomial in u, which newtOps inverts by every root (NEWT with deg)
   const polyHom = (b) => !!(b && !b.error && b.props && isNewtPoly(b.props)) && !(b.nat && b.nat.kind === 'chain' && b.rec);
-  function homOps(b, t) {
+  // (design study #1937: one program per plane. At t = 1 the plane is drawn by its glide's own ops at the end of the
+  // glide, the same op kinds as every frame of it, unless that would be Newton's where the step has exact ops;
+  // globalThis.__dsOldRest turns it off. one: the call that takes the glide's ops at t = 1)
+  const ONE_PROG = () => !(typeof globalThis !== 'undefined' && globalThis.__dsOldRest);
+  function homOps(b, t, atEnd) {
     if (!b || b.error || !b.def) return { ok: false, reason: 'no step' };
     if (!(t > 0)) return { ok: true, ops: [] };
-    if (t >= 1) {
+    if (t >= 1 && !atEnd && ONE_PROG()) {
+      const r = homOps(b, 1, true);
+      if (r.ok && !r.tail) return r;
+    }
+    if (t >= 1 && !atEnd) {
       // (a polynomial step with no exact ops is inverted at t = 1 by its roots, as at t < 1: the plane at rest and the glide's frames are one picture)
       const r = stepOps(b), P = b.props;
       return r.ok || !(P && P.analytic && isNewtPoly(P)) ? r : newtOps(b, 1, r.reason);
@@ -1638,6 +1658,17 @@ const Inverse = (() => {
     // with no Newton's method
     if (one && one.kind === 'IPOW' && !nat && one.p.n < 0) {
       const an = -one.p.n;
+      // (design study #1937: both at once, z^{1+(|n|-1)t} then the elliptic Möbius path to 1/w at t, one program
+      // for every t in (0, 1])
+      // (seq, the default: today's two phases in that one program, the Möbius op the identity for t <= 1/2 and the power
+      // held at |n| after it; sim: both at once)
+      if (!(typeof globalThis !== 'undefined' && globalThis.__dsOldNeg)) {
+        const sim = typeof globalThis !== 'undefined' && globalThis.__dsNegSim;
+        const ts = sim ? t : Math.min(1, 2 * t), tm = sim ? t : Math.max(0, 2 * t - 1);
+        const sv = C(1 + (an - 1) * ts, 0), path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+        if (!path) return { ok: false, reason: 'no Möbius path' };
+        return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), opMob(tm > 0 ? path(tm) : [ONE, ZERO, ZERO, ONE])] };
+      }
       if (t < 0.5) {
         const sv = C(1 + 2 * (an - 1) * t, 0);
         return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
@@ -1670,6 +1701,12 @@ const Inverse = (() => {
     if (nat && nat.kind === 'zoom' && ['sin', 'sinh', 'tan', 'tanh', 'arcsin', 'arsinh', 'arctan', 'artanh'].includes(nat.fn)) {
       return { ok: true, ops: [aff(T, ZERO), ...own.ops, aff(C(1 / t, 0), ZERO)] };
     }
+    // cos's zoom about pi/2 (NatPaths.ZOOM.cos): H_t = (1 - t) pi/2 + e^{i pi t} sin(t (z - pi/2)) / t, sin's own family
+    // between two affine maps
+    if (nat && nat.kind === 'zoom' && nat.fn === 'cos' && !(typeof globalThis !== 'undefined' && globalThis.__dsOldCos)) {
+      const e = C(Math.cos(PI * t), Math.sin(PI * t));
+      return { ok: true, ops: [aff(T, C(-t * HPI, 0)), opSin(), aff(scale(e, 1 / t), C((1 - t) * HPI, 0))] };
+    }
     if (nat && nd && ((nat.kind === 'gzoom' && t >= nd.t0) || nat.kind === 'ratzoom')) {
       const { p, fp, ll } = nd, k = scale(exp(scale(ll, t - 1)), 1 / t);
       return { ok: true, ops: [aff(T, scale(p, 1 - t)), ...own.ops, aff(k, sub(add(scale(p, 1 - t), scale(fp, t)), mul(k, fp)))] };
@@ -1680,10 +1717,15 @@ const Inverse = (() => {
     // points (invHomPath's singAt), as for a NEWT op
     if (nat && nat.kind === 'jouk') {
       const sv = C(1 + t, 0), k = C(Math.cos(HPI * (1 + t)), Math.sin(HPI * (1 + t))), mI = C(0, -1);
+      if (ONE_PROG()) {
+        // (design study: the key in closed form: the Cayley map's pole at -1 is not one of H_t's, so it is left out of the key)
+        const rq = opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0));
+        return { ok: true, ops: [Object.assign(opMob([mI, neg(mI), ONE, ONE]), { keyless: true }), rq, opMob([k, ONE, neg(k), ONE])] };
+      }
       const rp = Object.assign(opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0)), { glideKey: true });
       return { ok: true, ops: [opMob([mI, neg(mI), ONE, ONE]), rp, opMob([k, ONE, neg(k), ONE])] };
     }
-    return newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`);
+    return Object.assign(newtOps(b, t, `no inverse of this homotopy (${id}${nat ? ' ' + nat.kind : ''})`), { tail: true });
   }
   // the homotopy of step b at t inverted by Newton (InvOps.opNewt), for a homotopy with no exact ops: H_t is the step's
   // own (b.hom), else the straight line from z to f(z), as HomRange.homF and the GPU's chainHom take it (every built

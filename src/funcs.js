@@ -540,6 +540,8 @@ const Funcs = (() => {
         const h1 = powHom(C(an, 0), PI, 0), inv = mobHom([C(0, 0), C(1, 0), C(1, 0), C(0, 0)]);
         homTex = (v = 'z') => ({ tex: $t('the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$', { v, e: expoTex(1 + 2 * (an - 1)) }) });
         hom = (t) => {
+          // (design study #1937: the power and the Möbius path at once)
+          if (typeof globalThis !== 'undefined' && globalThis.__dsNegSim) { const p = h1(t), g = inv(t); return (z) => g(p(z)); }
           if (t < 0.5) return h1(2 * t);
           const g = inv(2 * t - 1);
           return (z) => g(CX.ipow(z, an));

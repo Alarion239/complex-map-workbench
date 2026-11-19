@@ -1041,6 +1041,8 @@
     const paths = list.map((x) => {
       if (hom) return viaHom(x, u, singAt);
       if (derivIn(0, b)) return invDerivPath(x, b);
+      // (design study #1937: one program per plane, the plane at rest drawn by its glide's ops at t = 1)
+      if (!window.__dsOldRest && b > 0) { const q = viaHom(x, 1, restHom); if (q.path === 'inverse') return q; }
       const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
       // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is)
       const m = normalizeMap(stageMap(b));

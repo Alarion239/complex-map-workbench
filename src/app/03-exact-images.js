@@ -412,6 +412,22 @@
     }
     return bs;
   }
+  // (design study #1937: one program per chain. Every live step as its glide's ops at t = 1, Inverse.homOps(b, 1),
+  // where they exist; null with window.__dsOldRest)
+  let invOneSk = null;
+  function invOneSkeleton() {
+    if (window.__dsOldRest) return null;
+    const sk = chainSig[nSteps()];
+    if (!(invOneSk && invOneSk.sk === sk)) {
+      invOneSk = { sk, bs: built.map((b, i) => {
+        if (!S.steps[i] || S.steps[i].on === false || !b || b.error || !b.def) return b;
+        let r = null;
+        try { r = Inverse.homOps(b, 1); } catch (e) { r = null; }
+        return r && r.ok ? Inverse.homBuilt(b, r) : b;
+      }) };
+    }
+    return invOneSk.bs;
+  }
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -428,7 +444,7 @@
     const ck = bk + (byShape ? `|${shapeKey(s)}|${winKey()}` : '');
     let h = invHoms.get(ck);
     if (!h) {
-      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      const bs = invHomSkeleton(a, k), one = invOneSkeleton(), bh = one ? one.slice() : bs.slice();
       // (ops of its own for each plan: the anchor is set on them)
       if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
       let anchor = null;
