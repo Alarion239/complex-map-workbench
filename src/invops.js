@@ -20,7 +20,10 @@ const InvOps = (() => {
   //               | {type: 'log', beta, S, lo, hi, inf, radial, count, L0(w), member(w, m, L0)},
   //      undef, branch: (C|null)[] (null = infinity) input points; poles: C[] (input points mapped to infinity);
   //      lattice: {base, step} | null (a pole lattice); infPre: infinity is a preimage of infinity; infAt(w): infinity
-  //      is a preimage of the finite point w}
+  //      is a preimage of the finite point w; critical() -> Crit | null (not known)}
+  // Crit: {crit: [{u, mult, w}] (the critical points u in the input plane, null = infinity, where fwd' vanishes to order
+  //      mult, and their values w, null = infinity), lattice: {base, step, values} | null (critical points base + n step,
+  //      each simple, their values among values), asym: C[] (asymptotic values: limits of fwd along a path to infinity)}
   // Member: {u, d: du/dw | anti: true, lvl (output units, +Infinity: no range), lg: unit gradient of lvl (output
   //      plane) | null, lam: log u | null, dlam: d(log u)/dw (with lam), m}
   // Parameters in p (read by glsl.js's uInv allocator): AFF {a, b}; MOB {m: [a, b, c, d]}; IPOW {n};
@@ -28,8 +31,12 @@ const InvOps = (() => {
   //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
 //      the others {}.
   function op(kind, p, fwd, o) {
-    return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null }, o);
+    return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null, critical: () => CRIT_NONE }, o);
   }
+  // the Crit of an op with no critical points and no asymptotic values (a Möbius map, a branch of a root, log or an
+  // inverse trigonometric function, conjugation)
+  const CRIT_NONE = Object.freeze({ crit: [], lattice: null, asym: [] });
+  const crit = (list, lattice = null, asym = []) => ({ crit: list, lattice, asym });
   const ONEM = (u, d, extra) => Object.assign({ u, d, lvl: Infinity, lg: null, lam: null, dlam: null }, extra);
 
   function opAff(a, b) {
@@ -53,6 +60,7 @@ const InvOps = (() => {
     return op('IPOW', { n }, fwd || ((u) => CX.ipow(u, n)), {
       fam: { type: 'fin', count: an }, poles: n < 0 ? [ZERO] : [], infPre: n > 0,
       infAt: (w) => n < 0 && isZero(w),
+      critical: () => (an < 2 ? CRIT_NONE : crit([{ u: ZERO, mult: an - 1, w: n > 0 ? ZERO : null }, { u: null, mult: an - 1, w: n > 0 ? null : ZERO }])),
       pre: (w) => {
         if (w.re === 0 && w.im === 0) return n > 0 ? [ONEM(ZERO, C(Infinity, 0), { m: 0, mult: an })] : [];
         const q = n > 0 ? w : CX.inv(w);
@@ -105,10 +113,12 @@ const InvOps = (() => {
     if (!Lc) {
       return op('EXP', {}, CX.exp, {
         undef: [null], fam: famAdd(C(0, TAU), 1, (w) => (isZero(w) ? [] : [log(w)]), (u, w) => CX.inv(w)), pre: () => [],
+        critical: () => crit([], null, [ZERO]),
       });
     }
     return op('EXPC', { L0: Lc }, (u) => CX.exp(mul(u, Lc)), {
       undef: [null], fam: famAdd(div(C(0, TAU), Lc), 1, (w) => (isZero(w) ? [] : [div(log(w), Lc)]), (u, w) => CX.inv(mul(Lc, w))), pre: () => [],
+      critical: () => crit([], null, [ZERO]),
     });
   }
   function opLog(theta, k, fwd) {
@@ -145,14 +155,22 @@ const InvOps = (() => {
   }
   const atanhS = (w) => { const t = atanS(C(-w.im, w.re)); return C(t.im, -t.re); };        // -i atan(i w)
   const periodic = (kind, fwd, p, nb, bases, dudw, o) => op(kind, {}, fwd, Object.assign({ undef: [null], fam: famAdd(p, nb, bases, dudw), pre: () => [] }, o));
-  const opSin = () => periodic('SIN', CX.sin, C(TAU, 0), 2, (w) => { const a = asinS(w); return [a, sub(C(PI, 0), a)]; }, (u) => CX.inv(CX.cos(u)));
-  const opCos = () => periodic('COS', CX.cos, C(TAU, 0), 2, (w) => { const a = acosS(w); return [a, neg(a)]; }, (u) => neg(CX.inv(CX.sin(u))));
+  // (sin and cos: critical points a lattice of step pi with the values +-1; sinh and cosh the same turned by i, with
+  // the values +-i and +-1; tan and tanh: no critical points, the asymptotic values +-i and +-1)
+  const M1 = C(-1, 0), PM1 = [ONE, M1], PMI = [I, C(0, -1)];
+  const critLat = (base, step, values) => () => crit([], { base, step, values }, []);
+  const opSin = () => periodic('SIN', CX.sin, C(TAU, 0), 2, (w) => { const a = asinS(w); return [a, sub(C(PI, 0), a)]; }, (u) => CX.inv(CX.cos(u)),
+    { critical: critLat(C(PI / 2, 0), C(PI, 0), PM1) });
+  const opCos = () => periodic('COS', CX.cos, C(TAU, 0), 2, (w) => { const a = acosS(w); return [a, neg(a)]; }, (u) => neg(CX.inv(CX.sin(u))),
+    { critical: critLat(ZERO, C(PI, 0), PM1) });
   const opTan = () => periodic('TAN', CX.tan, C(PI, 0), 1, (w) => (w.re === 0 && Math.abs(w.im) === 1 ? [] : [atanS(w)]),
-    (u, w) => CX.inv(add(ONE, mul(w, w))), { infPre: false, lattice: { base: C(PI / 2, 0), step: C(PI, 0) } });
-  const opSinh = () => periodic('SINH', CX.sinh, C(0, TAU), 2, (w) => { const a = asinhS(w); return [a, sub(C(0, PI), a)]; }, (u) => CX.inv(CX.cosh(u)));
-  const opCosh = () => periodic('COSH', CX.cosh, C(0, TAU), 2, (w) => { const a = CX.acosh(w); return [a, neg(a)]; }, (u) => CX.inv(CX.sinh(u)));
+    (u, w) => CX.inv(add(ONE, mul(w, w))), { infPre: false, lattice: { base: C(PI / 2, 0), step: C(PI, 0) }, critical: () => crit([], null, PMI) });
+  const opSinh = () => periodic('SINH', CX.sinh, C(0, TAU), 2, (w) => { const a = asinhS(w); return [a, sub(C(0, PI), a)]; }, (u) => CX.inv(CX.cosh(u)),
+    { critical: critLat(C(0, PI / 2), C(0, PI), PMI) });
+  const opCosh = () => periodic('COSH', CX.cosh, C(0, TAU), 2, (w) => { const a = CX.acosh(w); return [a, neg(a)]; }, (u) => CX.inv(CX.sinh(u)),
+    { critical: critLat(ZERO, C(0, PI), PM1) });
   const opTanh = () => periodic('TANH', CX.tanh, C(0, PI), 1, (w) => (w.im === 0 && Math.abs(w.re) === 1 ? [] : [atanhS(w)]),
-    (u, w) => CX.inv(sub(ONE, mul(w, w))), { infPre: false, lattice: { base: C(0, PI / 2), step: C(0, PI) } });
+    (u, w) => CX.inv(sub(ONE, mul(w, w))), { infPre: false, lattice: { base: C(0, PI / 2), step: C(0, PI) }, critical: () => crit([], null, PM1) });
   // Saturation points (P2 review): u = tanh w tends to +-1 (tan w to +-i) far out in its strip, and float32 rounds u to the
   // point itself long before the strip ends (tanh 8 = 1 - 2.3e-7): a shape through +-1 then lost its image there. The
   // members of ATANH / ATAN carry the offset from their anchor, computed without cancellation, with its logarithm (no
@@ -183,6 +201,7 @@ const InvOps = (() => {
   function opJouk(fwd) {
     return op('JOUK', {}, fwd || ((u) => scale(add(u, CX.inv(u)), 0.5)), {
       fam: { type: 'fin', count: 2 }, poles: [ZERO],
+      critical: () => crit([{ u: ONE, mult: 1, w: ONE }, { u: M1, mult: 1, w: M1 }]),
       pre: (w) => {
         const s = mul(CX.sqrt(sub(w, ONE)), CX.sqrt(add(w, ONE))), e = add(w, s);
         return [e, CX.inv(e)].map((u, m) => { const u2 = mul(u, u); return ONEM(u, div(scale(u2, 2), sub(u2, ONE)), { m }); });
@@ -323,6 +342,7 @@ const InvOps = (() => {
       const { a, de } = newtPolyCoeffs(Ht, deg);
       return op('NEWT', { t, deg, a, de }, Ht, {
         fam: { type: 'fin', count: deg },
+        critical: () => (de < 2 ? CRIT_NONE : ratCritical(a.slice(0, de + 1).reverse(), [ONE], Ht)),
         pre: (w) => {
           if (de < 1 || !isFin(w)) return [];
           const aw = a.slice(0, de + 1);
@@ -347,7 +367,7 @@ const InvOps = (() => {
     // (a ladder member's seed first), as it is made, for a test that follows the walk (newt_member0_cmd.js). polish(u, w):
     // u after NEWT_POL Newton steps on H_t for w, the polish every member ends with
     return op('NEWT', prm, Ht, {
-      fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
+      fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length }, critical: () => null,
       polish: (u, w) => polishAt(u, w),
       pre: (w, trace) => {
         const tr = (m) => trace && ((v) => trace(m, v)), t0 = tr(0);
@@ -393,8 +413,10 @@ const InvOps = (() => {
   const opConj = () => op('CONJ', {}, CX.conj, { pre: (w) => [{ u: conj(w), anti: true, lvl: Infinity, lg: null, lam: null, dlam: null }] });
   // a u^2 + b u + c = w (stable quadratic)
   function opQuad(a, b, c, fwd) {
-    return op('QUAD', { a, b, c }, fwd || ((u) => add(mul(add(mul(a, u), b), u), c)), {
+    const f = fwd || ((u) => add(mul(add(mul(a, u), b), u), c)), vx = div(b, scale(a, -2));
+    return op('QUAD', { a, b, c }, f, {
       fam: { type: 'fin', count: 2 },
+      critical: () => crit([{ u: vx, mult: 1, w: f(vx) }, { u: null, mult: 1, w: null }]),
       pre: (w) => {
         const cc = sub(c, w), disc = CX.sqrt(sub(mul(b, b), scale(mul(a, cc), 4)));
         const sd = (b.re * disc.re + b.im * disc.im) < 0 ? neg(disc) : disc;        // Re(conj(b) s) >= 0
@@ -411,8 +433,10 @@ const InvOps = (() => {
     const dp = (u) => add(scale(mul(P[0], u), 2), P[1]), dq = (u) => add(scale(mul(Q[0], u), 2), Q[1]);
     // the value at infinity (p.length <= q.length): p2/q2 at equal degrees, 0 when the numerator is lower
     const wInf = p.length > q.length ? null : p.length === q.length ? div(p[0], q[0]) : ZERO;
-    return op('RAT2', { P, Q }, fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u))), {
+    const f = fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u)));
+    return op('RAT2', { P, Q }, f, {
       fam: { type: 'fin', count: 2 }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
+      critical: () => ratCritical(p, q, f),
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im,
       pre: (w) => {
         const A = sub(P[0], mul(w, Q[0])), B = sub(P[1], mul(w, Q[1])), Cc = sub(P[2], mul(w, Q[2]));
@@ -819,6 +843,20 @@ const InvOps = (() => {
     }
     return out;
   }
+  // InvOps.ratCritical(p, q, f) -> Crit: the critical points of f = p/q (high-first coefficients, coprime, degree d):
+  // the zeros of p'q - pq', clustered (rootClusters), and infinity for the rest of the 2 d - 2 of them, where f takes
+  // its value at infinity (null = infinity)
+  function ratCritical(p, q, f) {
+    p = CX.polyTrim(p); q = CX.polyTrim(q);
+    const der = (c) => (c.length > 1 ? c.slice(0, -1).map((x, i) => scale(x, c.length - 1 - i)) : [ZERO]);
+    const a = Derivs.polyMul(der(p), q), b = Derivs.polyMul(p, der(q)), n = Math.max(a.length, b.length);
+    const pad = (c) => [...Array(n - c.length).fill(ZERO), ...c], A = pad(a), B = pad(b);
+    const co = CX.polyTrim(A.map((x, i) => sub(x, B[i])));
+    const d = Math.max(p.length, q.length) - 1, wInf = p.length > q.length ? null : p.length === q.length ? div(p[0], q[0]) : ZERO;
+    const fin = co.length > 1 ? rootClusters(co).map(({ r, m }) => ({ u: r, mult: m, w: f(r) })) : [];
+    const atInf = 2 * d - 2 - fin.reduce((s, e) => s + e.mult, 0);
+    return crit(atInf > 0 ? fin.concat([{ u: null, mult: atInf, w: wInf }]) : fin);
+  }
   // the one root of co (high-first) that the points grp stand for, of multiplicity grp.length: their mean, polished as a
   // simple root of co's (grp.length - 1)-th derivative
   function clusterCentre(co, grp) {
@@ -1039,7 +1077,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm
+    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical
   };
 })();
 import { CX } from './cx.js';
