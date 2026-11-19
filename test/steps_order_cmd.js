@@ -25,9 +25,18 @@ const reopen = async (nsx) => {
 const GLIDE_CLOCK_MS = 100, UNDERWAY_MAX_MS = 30000;   // the glide time a frame advances (ms), and the longest wait for a glide to be under way
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
-const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
+// (the glide's clock is armed for the reads of a glide under way, and let go of here, so that the glide ends in its own time, not frame by frame:
+// frames cost seconds on a software renderer)
+let clocked = false;
+const arm = async () => { clocked = true; await ctl({ clock: GLIDE_CLOCK_MS }); };
+const arrived = async () => {
+  if (clocked) await ctl({ clock: 0 });
+  const r = await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
+  if (clocked) await ctl({ clock: GLIDE_CLOCK_MS });
+  return r;
+};
 // a glide part-way (from a plane at x = 0): the thread's place is read every 10 ms inside the page until it is past `from`, for at most
-// UNDERWAY_MAX_MS. The glide's clock is set (GLIDE_CLOCK_MS a frame, from the warm-up on), so a glide takes a fixed number of frames
+// UNDERWAY_MAX_MS. The glide's clock is set (GLIDE_CLOCK_MS a frame, armed after the warm-up), so a glide under way takes a fixed number of frames
 // however long each one takes: a frame that runs long on a busy runner cannot carry it from its start to its arrival between two reads
 // (H.settled does not fit: it answers when the page is quiet or its condition holds, checked every 50 ms and two frames apart, and a glide
 // crosses that part of its way between two of its checks, so the check would see it landed)
@@ -40,7 +49,7 @@ await ctl({ go: 0, now: true }); await arrived();
 // once, there and back, before anything is read from a glide)
 for (const o of ['steps', 'all']) { await ctl({ order: o }); await ctl({ go: 3 }); await arrived(); await ctl({ go: 0 }); await arrived(); }
 await ctl({ order: 'steps' });
-await ctl({ clock: GLIDE_CLOCK_MS });
+await arm();
 // the select: after the speed, before Loop, two names, off at Step by step
 const sel = await ev(`(() => { const e = document.querySelector('#svStrip .sv-order'), kids = [...document.getElementById('svStrip').children].map((c) => c.className.split(' ').find((x) => /^sv-(speed|loop|playmore)$/.test(x)) || ''); return e ? { opts: e.choices.map((o) => [o[0], o[1]]), value: e.value, disabled: e.getAttribute('aria-disabled') === 'true', name: e.getAttribute('aria-label'), order: kids.filter(Boolean) } : null; })()`);
 ok('the strip keeps Speed and Loop and ends with the ⋯ Playback button; the order select is in its dialog', sel && sel.order.join() === 'sv-speed,sv-loop,sv-playmore', sel);
