@@ -85,6 +85,9 @@ await go(`http://localhost:${PORT}/test.html?ns=menubtnx${Date.now()}`);
 await settled({ max: 30000, until: '!!document.querySelector("#examplesBtn")' });
 await key('e', 4);
 await settled({ max: 20000, until: '!!document.getElementById("xfSize") && !!document.getElementById("xfMore") && document.getElementById("xfMore").getClientRects().length > 0' });
+// (the dialog's layout changes once its figure is typeset: the caption's box and with it the modal's height, so the buttons move.
+// A click at a position read before that lands on the row above, and an Escape after it closes the whole dialog)
+await settled({ max: 60000, until: '(() => { const w = document.querySelector(".xf-wait"), s = document.querySelector(".xf-scroll"), f = document.querySelector(".xf-fig"); return !!w && !!s && !!f && w.hidden && !s.classList.contains("busy") && f.complete && f.naturalWidth > 0; })()' });
 const named = await ev(`(() => { const b = document.getElementById('xfSize'); const ids = (b.getAttribute('aria-labelledby') || '').split(' ').filter(Boolean); return { ids, text: ids.map((id) => { const e = document.getElementById(id); return e ? e.textContent.trim() : null; }) }; })()`);
 ok('Export figure: Size is named by its row heading, then the size it shows', named.ids.length === 2 && named.text[0] === 'Size' && !!named.text[1], named);
 for (const id of ['xfSize', 'xfMore']) {
