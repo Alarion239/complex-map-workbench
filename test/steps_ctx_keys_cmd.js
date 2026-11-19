@@ -5,7 +5,8 @@
 // Also: a press at the folded colour key's centre reaches it, nothing of the bar or the construction chip over it, down to
 // 568 x 320 in Russian and Italian; with the globe shown, the hint card stays clear of the globe's disk. Where the plane above
 // the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
-// what is left beside them, is checked only to lie over the keys (#1915 holds it).
+// what is left beside them, stands over the keys it meets: no point of it lies under a key or a chip, and the keys it does not meet
+// take their presses. The classic view's Y has the same: its unfolded Regions key stands over Y's keys at 568 x 320.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -81,9 +82,21 @@ for (const [w, h, lang, surf] of CASES) {
     if (roomy || !open) ok(`${name}: with the colour key ${st}, a press at every plane key's centre reaches it`, covered.length === 0, covered);
     if (roomy || !open) ok(`${name}: the ${st} colour key overlaps no plane key`, hit.length === 0, { lg, hit });
     if (roomy || !open) ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
-    // (#1915: below ROOM the unfolded card cannot stand beside the keys and lies over them; this row states that, so it fails, and is turned
-    // into the rule above for every size, when the card gets room)
-    if (!roomy && open) ok(`${name}: (#1915) the unfolded colour key lies over plane keys at this height, as it does today`, hit.length > 0, { lg, hit });
+    // (#1915: below ROOM the unfolded card cannot stand beside the keys and lies over them: it is the one the person opened to read, so it
+    // stands over the keys it meets and every point of it reaches it; the keys it does not meet take their presses)
+    if (!roomy && open) {
+      const probe = await ev(`(() => {
+        const c = document.getElementById('leftLegend'), r = c.getBoundingClientRect(), under = [];
+        for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) {
+          const x = r.left + 1 + (r.width - 2) * i / 8, y = r.top + 1 + (r.height - 2) * j / 6, e = document.elementFromPoint(x, y);
+          if (!e || !c.contains(e)) under.push([Math.round(x), Math.round(y), e ? (e.id || String(e.getAttribute('class') || e.tagName)) : null]);
+        }
+        return under;
+      })()`);
+      ok(`${name}: (#1915) the unfolded colour key is read whole: no point of it lies under a key or a chip`, probe.length === 0, { lg, hit, under: probe.slice(0, 6) });
+      const free = (await geometry()).keys.filter((k) => k.shown && !meet(k.r, lg) && !k.press).map((k) => k.name);
+      ok(`${name}: (#1915) with the colour key unfolded, a press at the centre of each plane key it does not cover reaches it`, free.length === 0, free);
+    }
   }
   if (surf === 'sphere') {
     // the hint card stays clear of the globe's disk (phone_hint_globe_cmd's rule), with the tall bar in
@@ -95,5 +108,27 @@ for (const [w, h, lang, surf] of CASES) {
     info[`${name} hint`] = m;
     ok(`${name}: the hint card is clear of the globe's disk (gap >= 0 px)`, m.shown && m.gap >= 0, m);
   }
+}
+// the classic view's Y has the same state at 320 px tall: its Regions key, unfolded under the tall bar, stands over Y's keys, and no point of it
+// lies under a key or a chip (#1915)
+for (const lang of ['en', 'ru']) {
+  const name = `568x320 ${lang} classic`;
+  await view(568, 320, false, true);
+  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${Date.now() % 100000}`);
+  await settled({ max: 30000, until: '!!document.documentElement.classList.contains("ph") && !!document.querySelector("#constructTools .tool[data-tool=perp]") && !!document.getElementById("rightLegend")' });
+  await ev(`document.querySelector('#constructTools .tool[data-tool="perp"]').click(); 1`);
+  await settled({ max: 20000, until: 'document.documentElement.classList.contains("ph-ctx-tall") && !!document.querySelector(".ph-ctx.in")' });
+  await ev(`(() => { const c = document.getElementById('rightLegend'); if (c.classList.contains('collapsed')) c.click(); return 1; })()`);
+  await settled({ max: 10000, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
+  const under = await ev(`(() => {
+    const c = document.getElementById('rightLegend'), r = c.getBoundingClientRect(), out = [];
+    for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) {
+      const x = r.left + 1 + (r.width - 2) * i / 8, y = r.top + 1 + (r.height - 2) * j / 6, e = document.elementFromPoint(x, y);
+      if (!e || !c.contains(e)) out.push([Math.round(x), Math.round(y), e ? (e.id || String(e.getAttribute('class') || e.tagName)) : null]);
+    }
+    return out;
+  })()`);
+  info[`${name} key unfolded`] = under;
+  ok(`${name}: (#1915) the unfolded Regions key is read whole: no point of it lies under a key or a chip`, under.length === 0, under.slice(0, 6));
 }
 return { pass: fails.length === 0, fails, info };
