@@ -78,6 +78,9 @@ await settled({ max: 3000, only: true, until: BUSY });
 const landPlay = await ev(state('.sv-play'));
 ok('Landscape: a press of Play still waits', landPlay.busy && landPlay.play === null, landPlay);
 await ev('(__cmwSteps({ play: false }), 1)');
+// (play: false ends the wait the press began: the button is Play again and nothing plays)
+const landEnded = await ev(state('.sv-play'));
+ok('Landscape: play: false ends the wait', !landEnded.busy && landEnded.play === null && landEnded.label === 'Play', landEnded);
 await ev('(__cmwSteps({ play: false, surf: "plane" }), 1)');
 
 // 10 s: Retry keeps the ring, Cancel ends it, a release starts the glide

@@ -55,9 +55,9 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the target 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
-      shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
-      targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
+      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the point at 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      // (the point and the circle on w₁ are shapes of that plane, drawn and dragged there; their preimages show on z)
+      shapes: [{ kind: 'circle', c: [0, 0], r: 1 }, { kind: 'point', p: [0, 0], stage: 1 }, { kind: 'circle', c: [0, 0], r: 0.6, stage: 1 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
@@ -929,12 +929,12 @@
     const host = $('toastHost');
     if (!host) return;
     const st = host.style;
-    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
+    const clear = () => { toastLift(null); if (host.hasAttribute('data-placed')) { host.removeAttribute('data-placed'); st.removeProperty('left'); st.removeProperty('right'); st.removeProperty('bottom'); st.removeProperty('max-width'); } };
     const phone = document.documentElement.classList.contains('ph');
     if (!host.firstElementChild) { if (phone) clear(); return; }
     const box = (e) => (e && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden' ? e.getBoundingClientRect() : null);
     const H0 = () => window.innerHeight;
-    // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip, as wide as the plot
+    // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip (and above the context bar's row when one is open), as wide as the plot
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
     // the tool row, which the planes and the sheet give up)
     if (phone) {
@@ -947,7 +947,22 @@
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
       if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
       host.setAttribute('data-placed', 'phone-plot');
-      st.bottom = Math.round(H0() - sb.top + 8) + 'px';
+      // (above the context bar's row while one is open: the bar stands on the strip, so its height is the room it takes)
+      const bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx')), barH = document.documentElement.classList.contains('ph-ctx-on') && bar ? bar.offsetHeight : 0;
+      st.bottom = Math.round(H0() - sb.top + barH + 8) + 'px';
+      // (a landscape plane is too short to hold the message above a construction chip: it stands right of the chip, left of the keys' column)
+      const land = document.documentElement.classList.contains('ph-land'), chip = land ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
+      if (chip) st.left = Math.round(chip.right + 8) + 'px'; else st.removeProperty('left');
+      // (and left of any control of the plane that its box would reach, the colour key and the plane's keys: a message is never over a control. Its place is
+      // the one it has once its eased move ends: its foot at bottom, its height as it stands)
+      st.removeProperty('right');
+      const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
+      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
+      if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
+      // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
+      const mt = /** @type {HTMLElement} */ (host.firstElementChild);
+      if (toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth) { fitToastRows(mt); return; }
       toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
@@ -1022,6 +1037,7 @@
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
+  const toastFitW = new WeakMap();   // (the width a message picked its rows at)
   // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
   // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
   // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
@@ -1033,6 +1049,7 @@
     t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
     for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
     sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    toastFitW.set(t, t.clientWidth);
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
   }
   function toast(msg, actionLabel, action, isUndo, o) {
@@ -1084,7 +1101,7 @@
     return {
       EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
-      focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild,
+      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
