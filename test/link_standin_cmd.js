@@ -7,6 +7,8 @@
 //   is coloured from F's values on a CPU grid, the frame still pending, on plane z and on the colour plane w₁; Inside
 //   regions, the region is coloured (not black) and the pane says it is compiling; on release the plot takes its place
 //   with no frame where it drew nothing, in the stand-in's colours. An expensive series' stand-in keeps to its CPU budget.
+//   In the Cauchy style (its residue plot, cauchyF) plane z is drawn from the same stand-in while cauchyF links, the left
+//   LED amber, and the plot takes its place with no frame where it drew nothing.
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -129,6 +131,25 @@ await settled({ max: 20000, panes: false, until: loaded });
 const exWait = await settled({ only: true, max: 30000, until: "typeof __cmwStandIn === 'function' && !!__cmwStandIn() && !!__cmwStandIn().end" });
 info.expensive = { wait: exWait, standIn: await standIn() };
 ok('timing: an expensive series\' stand-in keeps to its CPU budget (250 ms and a slice)', exWait.ok && !!info.expensive.standIn && info.expensive.standIn.ms <= 280, info.expensive);
+// the Cauchy style, its residue plot's program (cauchyF) held: (z²−1)/(z²+1), a disc about its poles ±i selected, plane z
+// coloured from z: plane z is drawn from the colour plot's stand-in (F's values on the CPU grid, coloured in the Cauchy
+// style) from the first frames, the left LED amber, and the exact plot draws once the link lands
+const ns5 = 'lsy' + Date.now();
+await seed(ns5, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [{ kind: 'disc', c: [0, 0], r: 1.5, id: 's1' }], dc: 'cauchy', sv: { at: 0, T: 0, scope: 'all', surf: 'plane' } });
+await go(`${base}/test.html?ns=${ns5}&glhold`);
+await settled({ max: 20000, panes: false, until: loaded });
+await ev("__cmwSelect('s1'), 1");
+const cyWait = await levelDone();
+await settled({ panes: false });
+info.cauchyHeld = { wait: cyWait, standIn: await standIn(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), dc: await ev('__cmwState().dc'), progs: await ev('GLR.chainProgs()'), led: await led('leftLed') };
+ok('the Cauchy style, cauchyF held: plane z is drawn from the stand-in (in colour, the frame pending)', cyWait.ok && info.cauchyHeld.dc === 'cauchy' && info.cauchyHeld.progs.includes('cauchyF') && info.cauchyHeld.hue > 0.3 && info.cauchyHeld.pending === true, info.cauchyHeld);
+ok('the Cauchy style, its program held: the left LED is amber with the stand-in\'s tooltip', /\bbusy\b/.test(info.cauchyHeld.led.cls) && info.cauchyHeld.led.tip === STANDIN_TIP, info.cauchyHeld.led);
+const cauchyAfter = await releaseFrames('drawColorPlot', "(f) => (!f.calls ? 'none' : f.drew < f.calls ? 'blank' : f.pending ? 'pending' : 'gpu')");
+info.cauchyAfter = cauchyAfter.list ? cauchyAfter.runs : null;
+ok('the Cauchy style, after the release: no frame where the plot drew nothing', !!cauchyAfter.list && cauchyAfter.list.includes('gpu') && !cauchyAfter.list.includes('blank'), info.cauchyAfter);
+await settled({ max: 20000 });
+const cyDone = await led('leftLed');
+ok('the Cauchy style, once linked: the left LED is green again', /\bok\b/.test(cyDone.cls) && cyDone.tip === 'Up to date', cyDone);
 // the Cauchy style with no closed curve or region draws the plane as paper, which waits on no program: with the plot's link still
 // held the left LED, amber for the stand-in, goes green
 const ns4 = 'lsp' + Date.now();

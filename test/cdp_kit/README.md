@@ -23,9 +23,9 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that; a document whose body stops arriving
    is opened again after 5 s, at most twice, but a `#cmw=` link never is: its second document, which its open reloads into, can be slow, and a
    navigation again would find the saved figure and ask instead of opening it; `go` waits on it for its limit and logs the stall); `settled({ until, floor,
-   max, panes })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
+   max, panes, faces })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
    compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
-   (8000), and answers `{ ok, ms, busy }`.
+   (8000), and answers `{ ok, ms, busy }`; with `faces: true` it also waits for the page's font faces to land (the layout is flushed first: a face is requested when its text is laid out).
    `reloaded(old, readyExpr, { limitMs })` waits for the page a reload brings: a document other than the one that began at `old` (its
    `performance.timeOrigin`, read before the reload was asked for), loaded, with `readyExpr` true (one that throws is not true yet); a call the
    reload cuts off is asked again, any other error is thrown, and after `limitMs` (20 s) it throws naming what is missing.

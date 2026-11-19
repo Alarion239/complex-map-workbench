@@ -626,15 +626,21 @@
     const si = GLR.sheetInfo(m, W);
     return si ? sheetUniq(m, W, si.K) : [0];
   }
-  function multiSheet() {
+  // the sheets of map m (the focused map, endMap, unless a caller names the map it shows), or null when it has one
+  function multiSheet(m = endMap()) {
     if (!GLR.ok || typeof GLR.sheetInfo !== 'function') return null;
     let ms = null;
     // (a map GLR.sheetInfo cannot describe throws: no sheets)
-    try { ms = GLR.sheetInfo(endMap(), S.sheetW || 2) || null; } catch (e) { ms = null; }
+    try { ms = GLR.sheetInfo(m, S.sheetW || 2) || null; } catch (e) { ms = null; }
     if (!ms) return null;
-    const list = sheetUniq(endMap(), ms.W, ms.K), D = list.length;
+    const list = sheetUniq(m, ms.W, ms.K), D = list.length;
     return D > 1 ? Object.assign({}, ms, { D, uniq: list }) : null;
   }
+  // the map whose sheets the Landscape draws with All sheets (render3D), given the plane s a steps-view carry starts from
+  // (null for none): the carry's colour map, the chain from s to the colour plane (svColourMap); while the deformation
+  // shows, the focused map (endMap); else the map shown (focusMap: in the steps view the shown plane's map into the colour
+  // plane). A step after the colour plane is in none of them, so it adds no sheets
+  function landSheetsMap(s = null) { return s != null ? svColourMap(s) : homView() ? endMap() : focusMap(); }
   // All sheets is ticked but the deformation that shows has no sheet form: the landscape draws one sheet (issue #51: the
   // check and the title say so)
   function deformOneSheet() { return !!S.sheets && morphOn() && !deformSheetsOk(); }
@@ -648,18 +654,18 @@
     try { return !!Funcs.sheetMapPieces(S.steps, built, { mode: 3, base: leftStage(), a: R.lo, b: R.b, post: R.p1, t: 0.5 }); } catch (e) { return false; }
   }
   // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
-  // sheets off, a deformation with no sheet form, or no multivalued step in the map in focus), else {K: the surfaces
-  // drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom} (one per multivalued piece of the
-  // map in focus: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
+  // sheets off, a deformation with no sheet form, or no multivalued step in the map it draws the sheets of,
+  // landSheetsMap), else {K: the surfaces drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom}
+  // (one per multivalued piece of that map: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
   // log). hom: the deformation shows, and H_t is drawn on the sheets that become these sheets of F (at most these:
   // a step not begun adds its sheets when it starts; notes/v16-user5/SHEETS-DESIGN.md)
   function sheetsShown() {
     if (!S.sheets || !lLand()) return null;
     const hom = morphOn();
     if (hom && !deformSheetsOk()) return null;
-    const ms = multiSheet();
+    const carry = SV.on && SV.surf === 'land' ? svLandCarryNow() : null, m = landSheetsMap(carry ? carry.s : null), ms = multiSheet(m);
     if (!ms) return null;
-    const m = endMap(), a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
+    const a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];
     try {
       for (const e of Funcs.sheetSteps(S.steps, built)) {
         if (e.k <= a || e.k > b) continue;
@@ -1078,15 +1084,41 @@
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
-  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the distance to the lowest of
-  // them; it is recomputed each time the key is shown, and, on a phone, whenever a readout changes size)
-  const LEGEND_HIT_PX = 8;
-  function placeKeyPop(box) {
+  // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the
+  // distance to the lowest of them; it is recomputed each time the key is shown, and, on a phone, whenever a readout
+  // changes size or the context bar opens or closes)
+  const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
+  // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
+  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
+  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
+  // placeKeyPopReadout gives the chip its whole height back)
+  function clearContextBar(box) {
+    const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
+    if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
+    const c = box.getBoundingClientRect();
+    if (!c.width) return;
+    const over = Math.ceil(c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX));
+    if (over <= 0) return;
+    let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
+      const r = e.getBoundingClientRect();
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
+    }
+    const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
+    if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
+    if (over > up) {
+      const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
+      box.style.maxHeight = `${Math.max(0, Math.floor(c.height - (over - up) - edges))}px`;
+      box.style.overflowY = 'auto';
+    }
+  }
+  function placeKeyPop(box) { placeKeyPopReadout(box); clearContextBar(box); }
+  function placeKeyPopReadout(box) {
     const pane = box && box.closest('.pane'), plot = pane && pane.querySelector('.plot');
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y');
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so

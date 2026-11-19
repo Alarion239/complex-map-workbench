@@ -256,12 +256,14 @@ artifact.
 - **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
   It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
   on the 26.04 image two files, the package and `libdisplay-info3`, both `amd64v3` builds) and installs them with `dpkg`. Those files are kept in an Actions cache,
-  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
-  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
-  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
-  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
-  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
-  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+  keyed by the runner's Ubuntu release (`ImageOS`) and the package's version in the image's lists, what the files
+  depend on: a new image of the same release with the same version finds them (GitHub's images change weekly, the
+  package seldom). When the key has no entry, the restore takes the newest entry of the release (`restore-keys`, the key
+  up to the version). A job that installed from a mirror saves the files when the key had no entry and the version
+  installed is the key's (`dpkg-query`, the step outputs `version`); a pull request's run restores what it saved
+  itself or what main's runs saved (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused.
+  - **When Ubuntu's mirrors cannot be reached**, cached files of the key's version are installed after that first
+    download fails. With
     none, or when they do not install, the same version comes from a fallback mirror on another domain:
     kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
     `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
@@ -275,6 +277,9 @@ artifact.
     security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
     stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
     newer version, which the job does not save under the key that names the image's.
+  - **Last, an older version from the cache:** when no mirror gave the key's version and the restore matched the
+    release prefix alone, the cached files of that other version are installed. `dpkg` checks their dependencies, so a
+    copy that does not fit the image fails at its install, and the job does not save them.
   - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
     not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
     cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
@@ -284,7 +289,7 @@ artifact.
     the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
     errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
     lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
-    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy for the release. Without
     lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-26.04`, by name, not `ubuntu-latest`. The layout gate compares the
   renderer's name with its baseline's (26.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) …`),
