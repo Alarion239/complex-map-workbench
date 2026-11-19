@@ -549,6 +549,9 @@
       if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
+    // (the steps view, in both scopes: the regions of later planes pulled back here, a layer of their own over the colour,
+    // under the outlines; left out with the strokes, hideStrokes)
+    if (SV.on && !artMode && !hideStrokes) stagePullbacks(pane, leftStage(), true, true);
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -571,7 +574,7 @@
     // map (area fills at half strength, so the portrait reads through them; their edges as drawn), the points, and
     // the cuts with their handles
     const k = leftStage();
-    if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
+    if (hasTargets()) drawPullback(pane, endMap(), halfFills(preimageTargets(false)));
     const handles = drawCuts(pane, k, true, false);
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
@@ -1389,7 +1392,7 @@
   // over a phase portrait, as the targets')
   function preAll(pre, half) {
     const out = pre && pre.targets.length ? [pre] : [];
-    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: p.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)) }) : p);
+    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
     return out.length ? out : null;
   }
   // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
@@ -1413,7 +1416,7 @@
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
-      if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
+      if (pre) pre.targets = halfFills(pre.targets);
       return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
@@ -1426,10 +1429,10 @@
   // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
   // caption), 'pre' (the marked preimages of the later planes' points)
   const PANE_SAY_ORDER = ['land', 'pre'];
-  const paneSayAt = new Map();   // pane → { parts, begun, el, text }
+  const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
-    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, el: null, text: '' }));
+    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, text: '' }));
     return q;
   }
   function paneSays(pane) { const q = paneSayOf(pane); q.parts = {}; q.begun = pane.begun; }
@@ -1440,9 +1443,16 @@
     const text = PANE_SAY_ORDER.map((k) => q.parts[k]).filter(Boolean).join(' ');
     if (text === q.text) return;
     q.text = text;
-    if (!q.el) { q.el = h('span', { class: 'sr-only', id: cv.id + 'Say' }); cv.after(q.el); }
-    q.el.textContent = text;
-    if (text) cv.setAttribute('aria-describedby', q.el.id); else cv.removeAttribute('aria-describedby');
+    srSay(cv, text, (sp) => cv.after(sp));
+  }
+  // el's hidden description: a span (class sr-only, id el.id + 'Say', placed once by put) holding text, which el's
+  // aria-describedby names while text is not empty; the span's text and the attribute are written only when they change
+  function srSay(el, text, put) {
+    let sp = $(el.id + 'Say');
+    if (!sp) { sp = h('span', { class: 'sr-only', id: el.id + 'Say' }); put(sp); }
+    if (sp.textContent !== text) sp.textContent = text;
+    if (!text) el.removeAttribute('aria-describedby');
+    else if (el.getAttribute('aria-describedby') !== sp.id) el.setAttribute('aria-describedby', sp.id);
   }
   const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
   const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
