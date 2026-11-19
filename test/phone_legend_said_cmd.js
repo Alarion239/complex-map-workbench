@@ -64,7 +64,8 @@ for (const lang of ['en', 'ru']) {
     const ax = await axOf('rightLegend'), text = (ax && ax.description) || '';
     info[tag] = { ax, want };
     ok(`${tag}: the Regions key box is a button named "${want.name}"`, !!ax && ax.role === 'button' && ax.name === want.name, ax);
-    // (the fill is said once: the name holds none of the fill's words, "phase of" or "cell", which the description leads with)
+    // (the fill is said once: the name holds none of the fill's words, "phase of" or "cell", which the description
+    // leads with)
     const said = want.fill.map((f) => f.trim().toLowerCase()), name = ((ax && ax.name) || '').toLowerCase();
     ok(`${tag}: the regions' fill is said once, in the description and not in the name`, !!ax && said.some((f) => text.toLowerCase().includes(f)) && !said.some((f) => name.includes(f)), { name: ax && ax.name, text, said });
     ok(`${tag}: the Regions key box has a description`, !!ax && !ax.ignored && text.length > 0, ax);
