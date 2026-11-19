@@ -15,10 +15,10 @@ let nsN = 0;
 async function openApp(page, st, w = 1366, h = 768, dark = false, mobile = false, q = '') {
   const ns = 'ux165c' + Date.now() + '_' + (nsN++);
   await view(w, h, dark, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ until: "document.readyState === 'complete'", max: 8000, only: true });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ until: "document.readyState === 'complete'", max: 8000, only: true });
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/${page}?ns=${ns}${q}` }); await settled({ until: "typeof __cmwP === 'function'", max: 30000 });
+  await go(`http://localhost:${PORT}/${page}?ns=${ns}${q}`); await settled({ until: "typeof __cmwP === 'function'", max: 30000 });
   return ns;
 }
 const P = () => ev('__cmwP()');

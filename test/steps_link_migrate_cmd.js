@@ -155,8 +155,9 @@ const near = (a, b, tol) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].ever
 const OPEN_TOAST = 'Opened the figure from the link.';
 const openCams = async (state, tag, atRest = true) => {
   const old = await ev('performance.timeOrigin');
-  // raw-navigate: a raw navigation and the kit's reloaded, not go: go opens the url again when the document it is waiting for is slow to arrive, and
-  // a link opened again finds the state its own first open saved, and asks before opening it)
+  // (go opens the url again when the document it is waiting for is slow to arrive, and a link opened again finds the state its own
+  // first open saved, and asks before opening it)
+  // raw-navigate: a link is opened by a raw navigation and the kit's reloaded, which waits for the link's reload
   await send('Page.navigate', { url: `${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}` });
   try {
     if (atRest) await reloadedFigure(old, OPEN_TOAST);

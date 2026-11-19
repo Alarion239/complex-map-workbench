@@ -27,10 +27,10 @@ const open = async (w, h, mobile, hold) => {
   await holdSheet(0);
   await view(w, h, false, mobile);
   const ns = 'fl' + w + hold + (Date.now() % 1000000);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(NAV_SETTLE_MS);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(NAV_SETTLE_MS);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await holdSheet(hold);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   let pre = null;
   if (hold) { await sleep(HOLD_CHECK_MS); pre = await sheetState(); }
   let s = null;

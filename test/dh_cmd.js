@@ -14,10 +14,10 @@ const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'E
 async function openApp(st) {
   const ns = 'dh' + Date.now();
   await view(1366, 768, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(350);
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image', sel: 1 }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}`); await sleep(2300);
   await settle(800);
 }
 // the Inspector's Add field of kind ('dhray' | 'dheq') of step k: its text set, then Enter

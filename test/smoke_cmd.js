@@ -28,7 +28,7 @@ for (const [lang, w] of [['en', 1440], ['ru', 1440], ['en', 390], ['ru', 390]]) 
   await view(w, phone ? 844 : 900, false, phone);
   // a saved state for this namespace, written from a page of the same origin, then the app with the language forced
   const ns = `smoke-${lang}-${w}-${Date.now()}`;
-  await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
+  await go(`${U}/gl-helpers.html`); await sleep(350);
   const st = { v3: true, v4: true, shapes: [DISC], steps: CHAIN, nextId: 50, focus: 0, rightMode: 'image' };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await logs();

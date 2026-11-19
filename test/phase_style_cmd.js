@@ -14,7 +14,7 @@ const fresh = async (w, h, mobile, lang, state) => {
   await view(w, h, false, mobile);
   const ns = 'pstyle' + w + (lang || '') + (Date.now() % 1000000);
   await load(ns, state || ST);
-  if (lang) { await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` }); await sleep(2500); }
+  if (lang) { await go(`${U}?ns=${ns}&lang=${lang}`); await sleep(2500); }
   await ev(`__cmwSetMain('phase'); 1`); await settle(800);
 };
 const btn = () => ev(`(() => { const b = document.getElementById('styleBtn'); if (!b) return null; const r = b.getBoundingClientRect(); return { vis: !b.hidden && r.width > 0, label: (b.querySelector('.hw') || {}).textContent, disabled: b.getAttribute('aria-disabled'), tip: b.getAttribute('data-tip'), r: [r.left, r.right], top: document.querySelector('.top').getBoundingClientRect().right, over: document.querySelector('.top').scrollWidth > document.querySelector('.top').clientWidth + 1 }; })()`);
