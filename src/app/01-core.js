@@ -288,6 +288,8 @@
   // SHEET_W_MIN to SHEET_W_MAX, SHEET_W_DEFAULT when unset; sheetWOf(w): w within them
   const SHEET_W_MIN = 1, SHEET_W_MAX = 4, SHEET_W_DEFAULT = 2;
   const sheetWOf = (w) => Math.max(SHEET_W_MIN, Math.min(SHEET_W_MAX, Math.round(w) || SHEET_W_DEFAULT));
+  // whether the regions are being drawn as a mask (inside withSolidRegions)
+  const regionsAsMask = () => solidKeep !== null;
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
