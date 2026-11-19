@@ -3618,7 +3618,7 @@
   function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
   // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
   // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill, sig (the
-  // chain's signature when it began: svCheck ends a wait whose chain was replaced)}; it polls
+  // chain's signature when it began: svCheck ends a wait when the chain under it differs)}; it polls
   // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
   // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
   // again or Cancel cancels; nothing starts afterwards
