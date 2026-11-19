@@ -124,6 +124,59 @@ for (const [type, params, word] of [['gamma', {}, 'infinitely many'], ['zeta', {
   const r = ofChain([St('pown', { n: 2 }), St('gamma')]);
   check('z² then Γ: not known, step 2 named', !!r && !r.values.known && r.values.reason.startsWith('step 2:'), r && r.values);
 }
+// ---- multiplicities: f′ vanishes to order mult at a critical point (an op's own data, and InvOps.ratCritical's)
+{
+  const { InvOps } = require('../src/invops.js');
+  const has = (cr, u, mult) => cr.crit.some((e) => (u === null ? e.u === null : e.u !== null && near(e.u, u, 1e-7)) && e.mult === mult);
+  const st = St('pown', { n: 3 }), cr = Inverse.pointPlan([st], [Funcs.build(st)]).ops[0].critical();
+  check('z³ (IPOW): 0 with multiplicity 2, infinity with 2', has(cr, C(0), 2) && has(cr, null, 2) && cr.crit.length === 2, cr);
+  // z³(z − 1)²/(z + 2): p′q − pq′ = 2z²(z − 1)(2z² + 4z − 3), so 0 ×2, 1, −1 ± √10/2, and infinity ×3 (2·5 − 2 = 8)
+  const expand = (roots) => roots.reduce((q, r) => q.concat([C(0)]).map((c, i) => (i ? CX.sub(c, CX.mul(r, q[i - 1])) : c)), [C(1)]);
+  const P = expand([C(0), C(0), C(0), C(1), C(1)]), Q = [C(1), C(2)], f = (z) => CX.div(CX.polyEval(P, z), CX.polyEval(Q, z));
+  const rc = InvOps.ratCritical(P, Q, f), s10 = Math.sqrt(10) / 2;
+  check('z³(z − 1)²/(z + 2): 0 ×2, 1, −1 ± √10/2 and infinity ×3', has(rc, C(0), 2) && has(rc, C(1), 1) && has(rc, C(-1 + s10), 1) && has(rc, C(-1 - s10), 1) && has(rc, null, 3) && rc.crit.length === 5, rc);
+  // z⁴ − 1 as one polynomial step: 0 ×3, infinity ×3
+  const z4 = St('poly', { co: '1, 0, 0, 0, -1' }), c4 = Inverse.pointPlan([z4], [Funcs.build(z4)]).ops;
+  const all4 = c4.flatMap((o) => o.critical().crit);
+  check('z⁴ − 1: 0 with multiplicity 3', all4.some((e) => e.u !== null && near(e.u, C(0), 1e-7) && e.mult === 3), all4);
+}
+// ---- chains through infinity
+for (const [name, steps, want] of [
+  // (a later sin, cos or tan has no value at infinity: z²'s critical point there gives none)
+  ['z² → sin', [St('pown', { n: 2 }), St('sin')], [C(0), C(1), C(-1)]],
+  ['z² → cos', [St('pown', { n: 2 }), St('cos')], [C(1), C(-1)]],
+  ['z² → tan', [St('pown', { n: 2 }), St('tan')], [C(0), C(0, 1), C(0, -1)]],
+  // (1/z carries infinity to 0, where z² is critical: 0 is a critical value of 1/z²)
+  ['1/z → z²', [St('recip'), St('pown', { n: 2 })], [C(0)]],
+]) {
+  const r = ofChain(steps);
+  check(`${name}: the values ${want.map((w) => `${w.re}+${w.im}i`).join(', ')}, and no other`, !!r && r.values.known && sameSet(r.values.list.map((v) => v.w), want), r && r.values);
+}
+{
+  // a critical point at infinity of a later step comes back at the poles of the steps before it
+  const r1 = ofChain([St('recip'), St('pown', { n: 2 })]);
+  check('1/z → z²: the critical point 0 (a double pole: its value infinity), all of them', !!r1 && r1.points.complete && r1.points.list.length === 1 && near(r1.points.list[0].z, C(0)) && r1.points.list[0].w === null, r1 && r1.points);
+  const r2 = ofChain([St('joukowski'), St('custom', { expr: 'z^2-1' })]);
+  check('Joukowski → z² − 1: the critical points ±1, ±i and 0 (a double pole)', !!r2 && r2.points.complete && sameSet(r2.points.list.map((p) => p.z), [C(1), C(-1), C(0, 1), C(0, -1), C(0)]), r2 && r2.points);
+  // (tan's poles are poles of tan(z)²: their value is infinity, not the float that tan(π/2) rounds to)
+  const r3 = ofChain([St('tan'), St('pown', { n: 2 })]);
+  check('tan → z²: no critical value or point value is a rounded pole', !!r3 && r3.points.list.length > 0 && r3.points.list.every((p) => p.w === null || abs(p.w) < 1e6) && r3.values.list.every((v) => abs(v.w) < 1e6), r3);
+}
+// ---- a pole of order 2 or more: its value is infinity, never a huge or infinite float
+for (const [name, st, want] of [
+  ['(z² + 1)/(z − 0.1)²', St('rational', { p: '1, 0, 1', q: '1, -0.2, 0.01' }), [C(1 / 1.01 + 0)]],
+  ['(z⁴ − 0.3z³ + 0.03z² − 0.001z + 1)/(z − 0.1)³', St('rational', { p: '1, -0.3, 0.03, -0.001, 1', q: '1, -0.3, 0.03, -0.001' }), null],
+]) {
+  const r = ofChain([st]);
+  const finiteOnly = !!r && r.values.known && r.values.list.every((v) => CX.isFin(v.w) && abs(v.w) < 1e6);
+  check(`${name}: every value finite and of the map's size, and so every join radius`, finiteOnly && Critical.joinRadii(r.values.list, C(0)).every((e) => e.r < 1e6), r && r.values);
+  if (want) check(`${name}: the value 1/1.01 at −10, and the double pole's none`, !!r && sameSet(r.values.list.map((v) => v.w), want.map(() => C(0.99009900990099))), r && r.values);
+}
+{
+  // Inverse.critValues on the app's own path (planChain): a double pole adds no value
+  const st = St('custom', { expr: '\\frac{z^2+1}{(z-1)^2}' }), cv = Inverse.critValues(Inverse.planChain([st], [Funcs.build(st)]));
+  check('Inverse.critValues((z² + 1)/(z − 1)²) through planChain: [0.5]', Array.isArray(cv) && sameSet(cv, [C(0.5)]), cv);
+}
 // Inverse.critValues reads the ops' critical points too: M3 through pointPlan
 {
   const st = St('custom', { expr: 'z^3-1.2z+0.3' }), cv = Inverse.critValues(Inverse.pointPlan([st], [Funcs.build(st)]));

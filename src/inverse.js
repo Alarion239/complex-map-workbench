@@ -619,7 +619,7 @@ const Inverse = (() => {
     return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1)) : bb)), a, b);
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
-  // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK +-1, QUAD
+  // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
   // its vertex and infinity, RAT2 at the zeros of its derivative and at infinity when that is one, a polynomial NEWT op
   // at the zeros of its derivative), carried through the ops after it, infinity too (z^2, then a Möbius map: infinity goes
   // to a finite value); null when an op's are not known (a NEWT op that is not a polynomial's)
@@ -636,14 +636,15 @@ const Inverse = (() => {
     }
     return out;
   }
-  // Inverse.critForward(ops, i, w) -> C | null: w (null = infinity) carried through ops i, i + 1, ... (an op's value at
-  // infinity is its value at CRIT_FAR; a value past CRIT_INF is infinity)
-  const CRIT_FAR = 1e150, CRIT_INF = 1e100;
+  // Inverse.critForward(ops, i, w) -> C | null: w (null = infinity) carried through ops i, i + 1, ... An op's value at
+  // infinity is its value at CRIT_FAR, and infinity for an op undefined there (its undef holds infinity: exp, the
+  // trigonometric and hyperbolic functions, which have no limit there). A value past CRIT_INF, w's own too, is
+  // infinity: a pole in float64 comes out finite (tan at the float nearest pi/2 is 1.6e16)
+  const CRIT_FAR = 1e150, CRIT_INF = 1e14;
+  const critFin = (v) => (v !== null && isFin(v) && abs(v) < CRIT_INF ? v : null);
   function critForward(ops, i, w) {
-    for (let k = i; k < ops.length; k++) {
-      const v = ops[k].fwd(w === null ? C(CRIT_FAR, 0) : w);
-      w = isFin(v) && abs(v) < CRIT_INF ? v : null;
-    }
+    w = critFin(w);
+    for (let k = i; k < ops.length; k++) w = w === null && (ops[k].undef || []).includes(null) ? null : critFin(ops[k].fwd(w === null ? C(CRIT_FAR, 0) : w));
     return w;
   }
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
