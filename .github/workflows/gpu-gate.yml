@@ -85,7 +85,7 @@ on:
         required: false
         default: ''
       fxc:
-        description: 'Mode fxc: time (every job of the bundle, one program at a time), contend (one program alone, with the page drawing and with other links), glide (the first glide in the app, this ref against the input reference) play (the first glide as it plays, this ref, and with a reference the reference too) cache (programs and app scenes linked cold, then on the same Chrome profile), bisect (the source of an inverse program swapped in the app own link, cold and warm) profile (the same, one function stubbed at a time) or rest (the press after a rest, this ref against the input reference; ci/fxc_time.js)'
+        description: 'Mode fxc: time (every job of the bundle, one program at a time), contend (one program alone, with the page drawing and with other links), glide (the first glide in the app, this ref against the input reference) play (the first glide as it plays, this ref, and with a reference the reference too) cache (programs and app scenes linked cold, then on the same Chrome profile), bisect (the source of an inverse program swapped in the app own link, cold and warm) profile (the same, one function stubbed at a time) rest (the press after a rest, this ref against the input reference) or links (the carried inverse programs link seconds, the page not drawing, then the first glide as it plays; this ref against the input reference; ci/fxc_time.js)'
         type: choice
         options: [time, contend, glide, play, cache, bisect, profile, rest]
         default: time
@@ -271,7 +271,7 @@ jobs:
       - run: node ci/gpu_probe.js ${{ matrix.machine != 'Windows-hosted' && '--require-hardware' || '--require-angle d3d11' }}
       - env:
           FXC_ARGS: ${{ inputs.fxcargs }}
-        run: node ci/fxc_time.js ${{ inputs.fxc || 'time' }} --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900 ${{ (inputs.fxc == 'glide' || inputs.fxc == 'play' || inputs.fxc == 'rest') && format('--ref {0}', needs.plan.outputs.reference) || '' }}
+        run: node ci/fxc_time.js ${{ inputs.fxc || 'time' }} --bundle "${{ inputs.bundle || 'ci/fxc/bundle.json' }}" --budget-min 85 --timeout-s 900 ${{ (inputs.fxc == 'glide' || inputs.fxc == 'play' || inputs.fxc == 'rest' || inputs.fxc == 'links') && format('--ref {0}', needs.plan.outputs.reference) || '' }}
       - if: always()
         uses: actions/upload-artifact@v6
         with:

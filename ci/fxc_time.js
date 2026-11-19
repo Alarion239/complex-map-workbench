@@ -1136,4 +1136,49 @@ async function restAB() {
   process.exit(0);
 }
 
-(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : MODE === 'bisect' ? bisectStudy() : MODE === 'profile' ? profileStudy() : MODE === 'rest' ? restAB() : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache|bisect|profile|rest ...'))).catch((e) => { console.error(e); process.exit(2); });
+// ---- the carried inverse programs of a scene's first glide, this build against another (--ref), cold, the page not drawing while they link
+// Each cell is a Chrome on a profile of its own (cold program cache); the page stops drawing once the glide has asked for its links
+// (opts.noDraw), so the links get the cores. Per cell: every inverse program linked from the glide's start with its source size and its link
+// seconds. --link-scenes (default expsin,default,mk), --rounds.
+async function linksAB() {
+  const refSha = opt('ref', '');
+  if (!refSha) throw new Error('links: --ref REF (the other side, A)');
+  const names = opt('link-scenes', 'expsin,default,mk').split(',').filter(Boolean), rounds = Math.max(1, Number(opt('rounds', '1')) || 1);
+  const timeoutMs = Number(opt('timeout-s', '900')) * 1000, budgetMs = Number(opt('budget-min', '85')) * 60000;
+  if (!flag('no-build') && run(PY, ['build.py'])) process.exit(2);
+  const R = buildReference(refSha);
+  const sides = [{ label: 'B (this checkout)', tree: ROOT }, { label: `A (${R.sha.slice(0, 8)})`, tree: R.dir }];
+  for (const sd of sides) { sd.dist = path.join(sd.tree, 'dist'); fs.writeFileSync(path.join(sd.dist, 'blank.html'), '<!doctype html><title>b</title>'); Object.assign(sd, await serve(sd.dist)); }
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'cmw-links-')), flags = CACHE_SETTINGS[0][1], t00 = Date.now(), rows = [];
+  for (let r = 0; r < rounds; r++) {
+    for (const name of names) {
+      for (const sd of (r % 2 ? sides.slice().reverse() : sides)) {
+        const row = { round: r + 1, scene: name, side: sd.label };
+        rows.push(row);
+        if (Date.now() - t00 > budgetMs) { row.status = 'skipped (budget)'; continue; }
+        try {
+          const prof = path.join(tmp, `p${rows.length}`);
+          const c = await cacheAppPass(sd.base, name, sd.tree, prof, flags, timeoutMs, 0, { noDraw: true });
+          row.inv = c.recs.filter((x) => x.inv).map((x) => ({ key: x.key, kb: x.kb, s: x.ms == null ? null : x.ms / 1000 }));
+          row.status = 'ok';
+        } catch (e) { row.status = `failed: ${String(e.message).split('\n')[0]}`; }
+        const tot = (row.inv || []).reduce((s, x) => s + (x.s || 0), 0);
+        console.log(`[fxc] links round ${r + 1} ${name} ${sd.label}: ${(row.inv || []).length} inverse programs, ${tot.toFixed(1)} s (${(row.inv || []).map((x) => `${x.kb} KB ${x.s == null ? 'open' : x.s.toFixed(1)} s`).join('; ')}), ${row.status}`);
+      }
+    }
+  }
+  for (const sd of sides) sd.server.close();
+  const f = (v) => (v == null ? 'open' : v.toFixed(1));
+  const lines = ['### The carried inverse programs of the first glide, cold, the page not drawing', '', 'Link seconds of every inverse program the scene links from the glide\'s start (cold program cache, one Chrome per cell, the page stops drawing once the glide has asked). KB: vertex plus fragment source as given to the driver.', '',
+    '| scene | round | side | inverse programs | total KB | total link s | each: KB, link s |', '|---|---|---|---|---|---|---|'];
+  for (const r of rows) {
+    const inv = r.inv || [];
+    lines.push(`| ${r.scene} | ${r.round} | ${r.side} | ${r.status === 'ok' ? inv.length : r.status} | ${inv.reduce((s, x) => s + x.kb, 0).toFixed(1)} | ${inv.reduce((s, x) => s + (x.s || 0), 0).toFixed(1)} | ${inv.map((x) => `${x.kb}, ${f(x.s)}`).join('; ')} |`);
+  }
+  lines.push('');
+  const md = lines.join('\n');
+  summary(md);
+  console.log(md);
+}
+
+(MODE === 'capture' ? capture() : MODE === 'time' ? timeAll() : MODE === 'contend' ? contend() : MODE === 'glide' ? glideAB() : MODE === 'play' ? playAB() : MODE === 'cache' ? cacheStudy() : MODE === 'bisect' ? bisectStudy() : MODE === 'profile' ? profileStudy() : MODE === 'rest' ? restAB() : MODE === 'links' ? linksAB().then(playAB) : Promise.reject(new Error('usage: node ci/fxc_time.js capture|time|contend|glide|play|cache|bisect|profile|rest|links ...'))).catch((e) => { console.error(e); process.exit(2); });
