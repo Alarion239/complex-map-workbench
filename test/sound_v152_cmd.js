@@ -1,5 +1,5 @@
-// v15.2 sound (notes/sound/AS-BUILT-v152.md): hearing the function as the user chose it, in the app. Under the
-// pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, which replaced the
+// Sound (notes/sound/AS-BUILT-v152.md): hearing the function as the user chose it, in the app. Under the
+// pointer, the notes of Hear the function (the marimba at each colour line arg F crosses, in place of the
 // pointer harp): the red line's crossings (its low D) counted up minus down equal the winding number of a loop round
 // a zero, a double zero and a pole (rising, rising twice, falling), a note at each colour line crossed; curves sing: a drawn loop sings W (around a pole: −1); off
 // silences the notes; a held finger and a phone's long press near a zero. The parts that run on the classic Deformation (the loop
@@ -95,9 +95,9 @@ await ev(`Sound.set({ sonify: true }); 1`);
   R.heldLap = await harpLoop([0, 0], 0.25, 1);
   ok('the same zero, one lap of radius 0.25: the red line 1 up 0 down, the 12 lines (11 or 12 notes)', R.heldLap.harp.up === 1 && R.heldLap.harp.down === 0 && R.heldLap.harp.notes + R.heldLap.harp.merged >= 11 && R.heldLap.harp.notes + R.heldLap.harp.merged <= 12, R.heldLap);
 }
-// 8. (review verify-1, v15.2.1) the phone: a long press near a zero, then one lap round it that stops where it began.
+// 8. The phone: a long press near a zero, then one lap round it that stops where it began.
 // Its D sounds at the end, from any start: 3°, 5° and 8° above the D line 15 px from the zero, 3° at 30 px, and 5.7°
-// at 6 px (inside the harp's D-only zone, where that lap was silent); then the finger held there with a ±1.5 px
+// at 6 px (inside the harp's D-only zone, where that lap is silent); then the finger held there with a ±1.5 px
 // tremor: no note at 15 and 30 px; at 6 px a few notes at most (#266, a declared limit)
 {
   const ANDROID = 'Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Mobile Safari/537.36';
@@ -152,7 +152,7 @@ await ev(`Sound.set({ sonify: true }); 1`);
     ok(`a touch lap ${r} px from a zero, from ${deg}° above the D line: 1 low D up at its end, the 12 lines (11 or 12 notes); held there: no note`, q.up === 1 && q.down === 0 && q.notes + q.merged >= 11 && q.notes + q.merged <= 12 && q.held === 0, q);
   }
   // (#266, a declared limit: 6 px from a simple zero arg F turns about 14° for a 1.5 px pull on the probe, past the 3.75°
-  // Schmitt band (Sound.HT.HB, 1/96 turn), so the held tremor crosses a colour line and plays a note now and then; the
+  // Schmitt band (Sound.HT.HB, 1/96 turn), so the held tremor crosses a colour line and plays a note from time to time; the
   // marimba notes have no D-only zone near a zero as the harp had. It is documented in the guide, under "Reading the
   // sound". Three rounds of 1.5 s are counted apart; measured over 10 runs here: 0 to 2 notes in a round (the lap's own notes finished first), at most MAXHELD asked, where 15 and 30 px play none)
   {

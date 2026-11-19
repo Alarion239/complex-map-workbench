@@ -82,7 +82,7 @@ ruff check
 - **Keep functions short.** A new function over about 80 lines needs a reason; split it where a split is natural.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/seasong.js`
   (each names its generator at the top). `node test/t_i18n_tables.js` fails a pull request whose ru or it table is not a
-  fresh generation (a changed ru or it JSON, or a comment edit that drops a key only that comment held): run the generator it
+  fresh generation (a changed ru or it JSON, or a changed string): run the generator it
   names (`python3 tools/make_ru_table.py --strict`, `python3 tools/make_it_table.py`; `--check` writes nothing).
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
