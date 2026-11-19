@@ -85,6 +85,7 @@ const rules = {
 const SIZE_BUDGET = {
   'src/tour.js': 2582,
   'src/glsl.js': 2150,
+  'src/app/19-steps-view.js': 3254,
 };
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and
@@ -121,8 +122,9 @@ const closure = {
       if (m.suggestions) m.suggestions = m.suggestions.map((sg) => ({ ...sg, fix: move(sg.fix) })).filter((sg) => sg.fix);
       out.push(m);
     }
-    // the file-size budget is the part's own
-    const size = sizeLinter.verify(at.text, { languageOptions: { sourceType: 'module' }, rules: { 'max-lines': rules['max-lines'] } });
+    // the file-size budget is the part's own: its SIZE_BUDGET entry when it has one, else the aim
+    const limit = SIZE_BUDGET[path.relative(__dirname, filename).split(path.sep).join('/')];
+    const size = sizeLinter.verify(at.text, { languageOptions: { sourceType: 'module' }, rules: { 'max-lines': limit ? ['warn', { max: limit, skipBlankLines: true, skipComments: true }] : rules['max-lines'] } });
     return out.concat(size.filter((msg) => msg.ruleId === 'max-lines'));
   },
 };
