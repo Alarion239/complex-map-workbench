@@ -388,6 +388,7 @@
  "the Cauchy integral %{I} over the selected closed curve, which equals %{fp} inside and %{fm} outside, where %{F} = %{fp} + %{fl} and %{fl} is the sum of the principal parts of %{F} at its poles inside the curve.": "интеграл Коши %{I} по выделенной замкнутой кривой равен %{fp} внутри и %{fm} снаружи, где %{F} = %{fp} + %{fl}, а %{fl} — сумма главных частей %{F} в её полюсах внутри кривой.",
  "the Cauchy integral %{I} over the selected closed curve, computed numerically (%{F} has a singularity inside the curve that is not a pole).": "интеграл Коши %{I} по выделенной замкнутой кривой, вычисленный численно (у %{F} внутри кривой есть особенность, не являющаяся полюсом).",
  "+{n} more": "ещё %{n}",
+ "+{n} off view": "ещё %{n} за краем",
  "more": "ещё",
  "A step between uses {x}: drag {x} in its own plane": "Шаг между плоскостями использует %{x}: перетаскивайте %{x} в его собственной плоскости",
  "Douady–Hubbard map": "Отображение Дуади — Хаббарда",
