@@ -254,6 +254,21 @@ for (const [e, deg] of RT) {
     `unsound ${unsound} missed ${miss} decomposition ${dec} count ${cnt} (of ${tried}); worst |f(z) - w| ${worst.toExponential(1)}`);
 }
 
+// large values: RAT<n>'s degree drops only where p_n - w q_n cancels, never because w q's coefficients are large: all n
+// roots of (z^12 + z)/(z^2 - 3) and of (z^5 + z)/(2z^2 - 1) at |w| up to 1e16, each a root of p - w q to its rounding
+// (|p(u) - w q(u)| within 1e-12 of sum_k (|p_k| + |w q_k|) |u|^k, the backward error: f itself loses digits next to its
+// poles, where two of them lie)
+{
+  for (const [e, n] of [['\\frac{z^{12}+z}{z^2-3}', 12], ['\\frac{z^5+z}{2z^2-1}', 5]]) {
+    const { b } = build(e), op = Inverse.stepOps(b).ops[0], { P, Q } = op.p;
+    for (const m of [1e6, 1e10, 1e14, 1e16]) {
+      const w = C(m, 0.3 * m), us = op.pre(w).map((r) => r.u);
+      const bad = us.filter((u) => { const r = CX.abs(CX.sub(CX.polyEval(P, u), CX.mul(w, CX.polyEval(Q, u)))), sc = P.reduce((a, pk, k) => a + (CX.abs(pk) + CX.abs(w) * CX.abs(Q[k])) * CX.abs(u) ** (P.length - 1 - k), 0); return !(r <= 1e-12 * sc); });
+      check(`${e} at |w| = ${m.toExponential(0)}: its ${n} roots, each a root of p - w q`, us.length === n && bad.length === 0, `got ${us.length}, off ${bad.length}`);
+    }
+  }
+}
+
 // =================================================================================================================
 // (d) degenerate values of w
 // =================================================================================================================
