@@ -6,9 +6,9 @@
 // as float32; a one-row target, a table upload, is left out) and hashed over its raw bits; the record of a scene is the
 // last hash of each target (the NEWT roots pass's targets, the carried colour targets) and the hash of the left canvas's
 // pixels once the scene has settled.
-// Without CMW_NEWT_AB_OUT it checks that a scene's record is the same on two loads and that it read targets back (a blank
-// target is marked '(blank)' in the info, not failed: a scene may draw a target that stays empty); with it, it also writes
-// the records there, as JSON.
+// Without CMW_NEWT_AB_OUT it checks that a scene's record is the same on two loads, that it read targets back (a blank
+// target is marked '(blank)' in the info, not failed: a scene may draw a target that stays empty) and that a glide inside
+// the thread took the inverse pass; with it, it also writes the records there, as JSON.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -76,9 +76,13 @@ const record = async (sc, x) => {
   await ev(HOOK);
   await sleep(FRAMES_PAUSE_MS);
   await ev('Object.keys(window.__ab.rec).forEach((k) => delete window.__ab.rec[k]), window.__ab.st.on = true, 1');
-  await ev(`__cmwSteps({ ${x === Math.floor(x) ? 'park' : 'x'}: ${x} }), 1`);
-  await settled({ max: GLIDE_MAX_MS, until: `__cmwSteps().x === ${x} || (__cmwSteps().glide && Math.abs(${Math.floor(x)} + __cmwSteps().glide.u - ${x}) < ${GLIDE_U_TOL})` });
+  // (a place inside the thread waits for the glide's frame there: the thread reaches x before that frame is drawn)
+  const parked = x === Math.floor(x);
+  await ev(`__cmwSteps({ ${parked ? 'park' : 'x'}: ${x} }), 1`);
+  await settled({ max: GLIDE_MAX_MS, until: parked ? `__cmwSteps().x === ${x}` : `(() => { const g = __cmwSteps().glide; return !!g && Math.abs(${Math.floor(x)} + g.u - ${x}) < ${GLIDE_U_TOL}; })()` });
   await sleep(FRAMES_PAUSE_MS);
+  // (the glide's path at a place inside the thread: the NEWT ops are drawn by the inverse pass)
+  if (!parked) { const drawn = await ev('__cmwSteps().glide.path'); ok(`${sc.name}@${x}: the glide takes the inverse pass`, drawn === 'inverse', drawn); }
   const r = await ev(`(() => { const cv = document.querySelector('#canvasL'), c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height; const g = c.getContext('2d'); g.drawImage(cv, 0, 0); const u = new Uint32Array(g.getImageData(0, 0, c.width, c.height).data.buffer); let a = 0x811c9dc5 | 0, blank = true; for (let i = 0; i < u.length; i++) { a = Math.imul(a ^ u[i], 0x01000193); if (u[i] !== u[0]) blank = false; } window.__ab.rec['canvasL|' + c.width + 'x' + c.height] = { h: (a >>> 0).toString(16), blank }; return JSON.stringify(window.__ab.rec); })()`);
   return typeof r === 'string' ? JSON.parse(r) : r;
 };
