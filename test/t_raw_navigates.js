@@ -11,7 +11,8 @@
 // of its own that starts `raw-navigate-file: <why>`, and none of its sites counts.
 // test/raw_navigates_baseline.json counts the sites a file may still hold: the test fails on any new site (open the page with
 // go() / loadView(), or give the reason), and on an entry above the sites found (lower it: `node test/t_raw_navigates.js
-// write`), so the file cannot go stale. A tranche that moves a suite to go() / loadView() lowers its entry in the same change.
+// write`), so the file cannot go stale. `write` only lowers: it refuses to raise an entry or add a file (`write --raise` does, for the
+// baseline's first writing). A tranche that moves a suite to go() / loadView() lowers its entry in the same change.
 // Run: node test/t_raw_navigates.js   (write: rewrite the baseline from the sites found now)
 const fs = require('fs');
 const path = require('path');
@@ -33,6 +34,9 @@ function rawSites(text) {
   return found;
 }
 
+// the entries a rewrite of the baseline would raise (or add): what `write` refuses
+const raisedBy = (found, was) => Object.keys(found).filter((f) => found[f] > (was[f] || 0)).map((f) => `${f}: ${found[f]} sites, the baseline has ${was[f] || 0}`);
+
 let bad = 0, n = 0;
 function check(name, ok, info = '') { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } else if (process.env.V) console.log('ok  ', name); }
 
@@ -51,6 +55,7 @@ check('an empty reason is no reason', rawSites("await send('Page.navigate', { ur
 check('a file reason in a comment line of its own makes every site of the file no site', rawSites("// raw-navigate-file: the release smoke of v16, not run in CI\nawait send('Page.navigate', { url: a });\nawait send('Page.navigate', { url: b });").length === 0);
 check('a file reason that is not a comment line of its own does not count', rawSites("await send('Page.navigate', { url: a }); // raw-navigate-file: why").length === 1);
 check('an empty file reason is no reason', rawSites("// raw-navigate-file:\nawait send('Page.navigate', { url: a });").length === 1);
+check('a rewrite that raises an entry or adds a file is listed, one that lowers or keeps them is not', raisedBy({ a: 3, b: 1, c: 2 }, { a: 2, b: 1, d: 4 }).length === 2 && raisedBy({ a: 1, b: 1 }, { a: 2, b: 1, d: 4 }).length === 0);
 check('the sites are listed by line', rawSites("a();\nawait send('Page.navigate', { url });\nb();").join() === '2');
 
 // the browser suites and the kits they share
@@ -64,6 +69,12 @@ for (const f of files) {
   if (sites.length) found[f] = sites.length;
 }
 if (process.argv[2] === 'write') {
+  const was = fs.existsSync(BASELINE) ? JSON.parse(fs.readFileSync(BASELINE, 'utf8')) : {};
+  const raised = raisedBy(found, was);
+  if (raised.length && process.argv[3] !== '--raise') {
+    console.log(`refusing to raise the baseline (open the page with go() / loadView(), or give a raw-navigate reason; --raise overrides):\n  ${raised.join('\n  ')}`);
+    process.exit(1);
+  }
   fs.writeFileSync(BASELINE, JSON.stringify(found, null, 1) + '\n');
   console.log(`wrote ${path.basename(BASELINE)}: ${Object.keys(found).length} files, ${Object.values(found).reduce((a, b) => a + b, 0)} sites`);
   process.exit(0);
