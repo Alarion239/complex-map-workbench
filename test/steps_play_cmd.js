@@ -9,6 +9,8 @@
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+// the strip's slow and fast speeds: ms a plane (SV_SPEEDS)
+const SLOW_MS = 2000, FAST_MS = 450;
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 // (a picture's FNV-1a hash: the suite has no require)
 const fnv = (b) => { let h = 0x811c9dc5; for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
@@ -109,9 +111,18 @@ await ev(`document.querySelector('.sv-play').click(); 1`);
 await sleep(1000);
 const sl = await S();
 ok('a play at slow is still going a second in', sl.play === 'glide', sl);
+// (the speed is checked on the play's own schedule, not on the wall clock: right after the switch the play goes on from
+// where it is at the new speed, its clock from 0 (svPlayRebase). The rest of the play is a frame or two, and on a software
+// renderer one frame of this chain can take 2 s, so a wall-clock limit there would time the frames, not the speed: #1999)
+const before = sl.playRec;
 await choose('.sv-speed', 'fast');
+const after = (await S()).playRec;
+info.speedSwitch = { before, after };
+ok('the play\'s schedule at slow: 2000 ms a plane (the control)', !!before && Math.abs(before.ms - SLOW_MS * (before.to - before.from)) < 1e-6, before);
+ok('a new speed takes over while it plays: the play goes on at fast, 450 ms a plane, from where it is',
+  !!after && after.to === before.to && after.from >= before.from && Math.abs(after.ms - FAST_MS * Math.max(0.05, after.to - after.from)) < 1e-6 && after.el < after.ms, after);
 const e2 = await until('!__cmwSteps().play');
-ok('a new speed takes over while it plays', !e2.timeout && e2.s.i === 2 && e2.ms < 2500, e2);
+ok('… and it ends on the last plane', !e2.timeout && e2.s.i === 2 && Math.abs(e2.s.x - 2) < 1e-9, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
 // keys: K plays and pauses, Esc pauses, ‹ › pause
