@@ -11,8 +11,8 @@
 //   LED amber, and the plot takes its place with no frame where it drew nothing;
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
 //   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
-//   once linked, at least 99 % of a pane grid within 3 levels, and every point of rings about the colour's zero (w₁ = 1,
-//   z = 0) too.
+//   once linked, at least 99 % of the points it colours within 3 levels, and every point of rings about the colour's
+//   zero (w₁ = 1, z = 0) too.
 // A command file for a CDP daemon:  <runner> test/link_standin_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -184,9 +184,12 @@ await ev('GLR.holdLinks(false), 1');
 const zLinked = await settled({ only: true, max: 30000, until: "(() => { const r = __cmwSteps().rest; return !!r && r.a === 1 && r.path === 'inverse'; })()" });
 await settled({ panes: false });
 info.zeroHeld.linked = zLinked;
-info.zeroGrid = K.tally(heldGrid, (await K.lpx(grid5)).px, { tol: 3 });
+// (the grid's points both frames colour: past the 'linking' mesh's reach the held frame is paper, and so is the plane
+// outside the region in both)
+const linkedGrid = (await K.lpx(grid5)).px;
+info.zeroGrid = K.tally(heldGrid, linkedGrid, { tol: 3, skip: (k) => !heldGrid[k] || !linkedGrid[k] || K.bare(heldGrid[k][4]) || K.bare(linkedGrid[k][4]) });
 info.zeroRing = K.tally(heldRing, (await K.lpx(ring5)).px, { tol: 3 });
-ok('the SphereMeshes\' carried colour while the links are held (T = 0): the colour itself (at least 99 % of the pane within 3 levels once linked)', smWait.ok && zLinked.ok && info.zeroGrid.n >= 300 && info.zeroGrid.wrong <= 0.01 * info.zeroGrid.n, { held: info.zeroHeld, grid: info.zeroGrid });
+ok('the SphereMeshes\' carried colour while the links are held (T = 0): the colour itself (at least 99 % of the points both frames colour within 3 levels once linked)', smWait.ok && zLinked.ok && info.zeroGrid.n >= 150 && info.zeroGrid.wrong <= 0.01 * info.zeroGrid.n, { held: info.zeroHeld, grid: info.zeroGrid });
 ok('the SphereMeshes\' carried colour about the colour\'s zero (w₁ = 1): every point within 3 levels once linked', smWait.ok && zLinked.ok && info.zeroRing.n >= 30 && info.zeroRing.wrong === 0, info.zeroRing);
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no console errors', exc.length === 0, exc.slice(0, 4));

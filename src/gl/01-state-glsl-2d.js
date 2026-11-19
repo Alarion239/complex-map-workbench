@@ -609,8 +609,9 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   };
   // pre-mapped triangles (SphereMesh, SPEC 8.7, P5): the pattern coordinates arrive interpolated from the CPU mesh:
   // vG = (z - Q_t) / cell (reduced per triangle by multiples of 10 cells), vP = (ln |z|, arg z) * 16 / tau (arg
-  // unwrapped per triangle; the mesh keeps both within 0.5 px of the true ones) or, for graph paper (4), the source
-  // point itself. Footprints by fwidth, as the 'fwidth' mode. The pattern formulas (PAT_CHAIN) are the shared text.
+  // unwrapped per triangle; the mesh keeps both within 0.5 px of the true ones) or, for graph paper (4) and for the
+  // triangles about z = 0 whose polar coordinates cannot stand for z (vCart, SphereMesh's cart), the source point
+  // itself. Footprints by fwidth, as the 'fwidth' mode. The pattern formulas (PAT_CHAIN) are the shared text.
   PAT_PRE.pre = `  vec2 g = vG;
   vec2 gw = fwidth(g);
   // (a triangle that carries its source point itself, vCart: its polar coordinates from it here, as the 'fwidth' mode's)
@@ -1253,8 +1254,8 @@ void main() {
   // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh) or vCart is (a triangle about z = 0), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
-  // triangle's branch was continued across left out)
+  // mesh) or vCart is (a triangle about z = 0), turned back into the source point; clip: REGION_VS's sheet option's
+  // vSide, a fragment past a cut its triangle's branch was continued across left out)
   // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two

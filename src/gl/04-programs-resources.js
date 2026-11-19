@@ -175,7 +175,7 @@
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
     // (and from plane z's own colour (T = 0): the colour of the source point itself, a program without the chain, so
-    // the SphereMeshes' carried colour never waits for the chain's links; carryId's case)
+    // the SphereMeshes' carried colour never waits for the chain's links, as the globe's carryGId is carryG's at T = 0)
     regionPKid: { chain: false, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
