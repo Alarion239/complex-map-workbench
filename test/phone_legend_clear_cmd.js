@@ -72,15 +72,17 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('568×320: the two-line readout reaches the folded legend (control)', !!m.readout && !!home.reach && m.readout.r > home.reach.l && m.readout.b > home.reach.t, { readout: m.readout, reach: home.reach });
   ok('568×320: the legend\'s hit area is clear of the two-line readout', !inter(m.reach, m.readout), { reach: m.reach, readout: m.readout, drop: m.drop });
 }
-// the classic view at 568 × 320 on its first load, a construction tool in hand: X and Y side by side, and Y's own readout of two lines ("Draw a target in Y ...") beside
-// the folded key of the plane Y (#rightLegend): the page, which attached its observer on this first load, places the key below the readout; no state is loaded, no page loaded twice
+// the classic view at 568 × 320 on its first load, the Disc tool in hand: X and Y side by side, and Y's own readout of two
+// lines ("Draw a target in Y ...") beside the folded key of the plane Y (#rightLegend): the page, which attached its
+// observer on this first load, places the key below the readout; no state is loaded, no page loaded twice. (A drawing
+// tool opens no context bar; under the tall bar of a construction tool, landscape keeps the readout short of the key)
 {
   const [w, h] = [568, 320];
   await view(w, h, false, true);
   const ns = 'plc3' + (Date.now() % 1000000);
   await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
-  await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
+  await ev(`document.querySelector('[data-tool="disc"]').click(), 1`);
   const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('rightLegend').style.getPropertyValue('--lg-drop') !== ''` });
   const m = await ev(`(() => { const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }; const lg = document.getElementById('rightLegend'), ro = document.querySelector('#plotR > .chip.readout'), bar = document.querySelector('.ph-ctx.in'), r = rect(lg); return { legend: r, reach: r && { l: r.l - ${HIT_PX}, t: r.t - ${HIT_PX}, r: r.r + ${HIT_PX}, b: r.b + ${HIT_PX} }, readout: rect(ro), text: ro ? ro.textContent.trim().slice(0, 40) : null, bar: rect(bar), planes: [...document.querySelectorAll('.pane')].map((p) => Math.round(p.getBoundingClientRect().width)), drop: lg.style.getPropertyValue('--lg-drop') }; })()`);
   info['classic first load, real readout'] = m;
