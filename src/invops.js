@@ -837,10 +837,10 @@ const InvOps = (() => {
   // multiplicity to rounding: |t_j| <= b_j there for j < k. A non-finite point is left out.
   const MULT_SAFETY = 4, SIMPLE_MARGIN = 1e6;
   function multipleRoots(co, zs, coErr) {
-    const ones = co.map(() => ONE), noise = coErr * co.reduce((s, x) => s + abs(x), 0);
+    const ones = co.map(() => ONE), coNoise = coErr * co.reduce((s, x) => s + abs(x), 0);
     const taylor = (u) => {
       const { t, e } = Derivs.taylorAt(co, u), T = Derivs.taylorAt(ones, C(abs(u), 0)).t;
-      return { t: t.map(abs), b: e.map((x, j) => MULT_SAFETY * (x + noise * T[j].re)) };
+      return { t: t.map(abs), b: e.map((x, j) => MULT_SAFETY * (x + coNoise * T[j].re)) };
     };
     const isRoot = (u, k) => { const { t, b } = taylor(u); for (let j = 0; j < k; j++) if (!(t[j] <= b[j])) return false; return true; };
     const fin = zs.map(isFin), used = zs.map((z, i) => !fin[i]), out = [];
