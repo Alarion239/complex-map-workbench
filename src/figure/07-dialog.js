@@ -282,7 +282,7 @@
       h('div', { class: 'xf-checks' }, ...(defo === 'plane' || defo === 'globe' || defo === 'deriv' ? [vck('paths', $t('Paths'))] : []), vck('tlabel', glide ? $t('Label') : $t('t label'))));
     // (the steps view: where the video goes and how long it is, kept current by posterSoon)
     const vSum = glide ? h('div', { class: 'xf-vsum', id: 'xfVSum', role: 'status' }) : null;
-    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = `${glide.from} → ${glide.to} · ${I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1)} s`; };
+    const vSumSet = () => { if (!vSum) return; const m = glide.hi - glide.lo, secs = videoTimes(Object.assign(vdefaults(), vset), m).length / (vset.fps === 60 ? 60 : 30); vSum.textContent = $t('{from} → {to} · {secs} s', { from: glide.from, to: glide.to, secs: I18 ? I18.num(secs.toFixed(1)) : secs.toFixed(1) }); };
     if (vSum) { vSumSet(); vidBox.prepend(vSum); }
     const vidRow = row($t('Video'), vidBox); vidRow.classList.add('wide');
     // Fine-tune
@@ -319,8 +319,9 @@
     const after2 = h('div', { class: 'xf-after2', hidden: true });
     const vidBtn = h('button', { type: 'button', class: 'btn primary xf-dest', id: 'xfVideo' }, $t('Save video'));
     const meter = h('i'), progTxt = h('span', { class: 'xf-progtxt', 'aria-hidden': 'true' }), progSr = h('span', { class: 'xf-sr', role: 'status' });
-    const cancelBtn = h('button', { type: 'button', class: 'btn quiet', id: 'xfVCancel' }, $t('Cancel'));
-    const meterEl = h('div', { class: 'xf-meter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
+    // (Cancel is described by the meter, so a screen reader hears what it cancels: "Cancel, button, Making the video")
+    const cancelBtn = h('button', { type: 'button', class: 'btn quiet', id: 'xfVCancel', 'aria-describedby': 'xfVMeter' }, $t('Cancel'));
+    const meterEl = h('div', { class: 'xf-meter', id: 'xfVMeter', role: 'progressbar', 'aria-label': $t('Making the video'), 'aria-valuemin': '0', 'aria-valuemax': '100', 'aria-valuenow': '0' }, meter);
     const prog = h('div', { class: 'xf-prog', hidden: true }, meterEl, progTxt, cancelBtn);
     const nameLab = h('label', { class: 'xf-name' }, nameInp, extEl), footSp = h('span', { class: 'xf-sp' });
     const foot = h('div', { class: 'xf-foot' }, nameLab, prog, footSp, moreBtn, shareBtn, saveBtn, docsBtn, olBtn, vidBtn, after2, progSr);
@@ -644,6 +645,9 @@
     });
     let vRun = null;
     cancelBtn.addEventListener('click', () => { if (vRun) vRun.cancel = true; });
+    // (Save video gives Cancel the focus within the Enter that pressed it, so a held Enter's repeats land on Cancel: only a
+    // fresh press of Enter cancels, a repeat is ignored. Space acts on its release, so a held Space presses one button once)
+    cancelBtn.addEventListener('keydown', (e) => { if (e.repeat && e.key === 'Enter') e.preventDefault(); });
     // (while a video is made its options are locked: the plan is fixed at the start; the progress takes the name row's
     // place, so the dialog does not move; the screen reader hears the start, every quarter and the end)
     const running = (on) => {
@@ -656,7 +660,10 @@
     vidBtn.addEventListener('click', async () => {
       if (vRun) return;
       const run = vRun = { cancel: false, q: -1 };
-      vidBtn.disabled = true; running(true); meter.style.width = '0%'; meterEl.setAttribute('aria-valuenow', '0'); progTxt.textContent = $t('Preparing…'); progSr.textContent = $t('Making the video');
+      // (Save video is disabled while the frames are made: the focus it had goes to Cancel, which the progress row shows, and
+      // comes back to Save video, which then says it is saved, when the video is done or cancelled)
+      const hadFocus = document.activeElement === vidBtn;
+      vidBtn.disabled = true; running(true); if (hadFocus) cancelBtn.focus({ preventScroll: true }); meter.style.width = '0%'; meterEl.setAttribute('aria-valuenow', '0'); progTxt.textContent = $t('Preparing…'); progSr.textContent = $t('Making the video');
       try {
         const r = await makeVideo(opts({ video: vset, alive: () => !closed && !run.cancel }), { cancelled: () => closed || run.cancel, progress: (i, n) => {
           const pc = 100 * i / n, q = Math.floor(pc / 25);
@@ -673,7 +680,11 @@
         after2.hidden = false;
         after2.textContent = $t('{w} × {h}, {fps} fps, {secs} s, {codec} ({ext}).', { w: r.W, h: r.H, fps: r.fps, secs: I18 ? I18.num(r.secs.toFixed(1)) : r.secs.toFixed(1), codec: /^avc1/.test(r.codec) ? 'H.264' : /^vp09/.test(r.codec) ? 'VP9' : 'VP8', ext: r.ext.toUpperCase() });
       } catch (e) { console.error(e); cueError(); toast(/WebCodecs/.test(String(e && e.message)) ? $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.') : $t('The video could not be made here.')); }
-      finally { vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt(); }
+      finally {
+        const lost = document.activeElement === cancelBtn || document.activeElement === document.body;
+        vRun = null; vidBtn.disabled = false; running(false); if (!vidBtn.classList.contains('done')) syncFmt();
+        if (!closed && lost) vidBtn.focus({ preventScroll: true });
+      }
     });
     let rz = 0;
     const onResize = () => { clearTimeout(rz); rz = setTimeout(() => { placePaper(); if (pvWH && fmtOf() === 'video') pv.resize(fitPv(pvWH[0], pvWH[1])); }, 60); }; // (bigger: sharper frames; review vp-3)
