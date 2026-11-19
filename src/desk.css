@@ -462,7 +462,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head.sv-rs .sv-title .sv-role[data-short] { font-size: 0; }
 .sv-head.sv-rs .sv-title .sv-role[data-short]::before { content: attr(data-short); font-size: 13px; }
 .sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
-:root.sv:not(.ph) #paneL .pane-head { gap: var(--s-4); flex-wrap: wrap; min-height: 40px; padding: var(--s-2) var(--s-4) var(--s-2) var(--s-5); }
+/* (the head's 6 px and 10 px side padding stay raw: 8 and 12 px take 4 px of the room at 1024 px, and the Height key's chip then drops its words, steps_land_head) */
+:root.sv:not(.ph) #paneL .pane-head { gap: var(--s-4); flex-wrap: wrap; min-height: 40px; padding: var(--s-2) 6px var(--s-2) 10px; }
 .sv-head { display: flex; align-items: center; gap: var(--s-4); min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 19px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: var(--s-2); }
 .sv-title sub { font-style: normal; font-size: 0.75em; }
