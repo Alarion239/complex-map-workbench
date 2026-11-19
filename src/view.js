@@ -15,6 +15,7 @@ class Pane {
     this.octx = overlay ? overlay.getContext('2d', { willReadFrequently: true }) : this.ctx;
     this.view = { cx: 0, cy: 0, s: 80 };
     this.w = 300; this.h = 300; this.dpr = 1;
+    this.begun = 0;   // the frames begun (begin)
   }
   // cw, ch: the CSS size when the caller already knows it (from a ResizeObserver), so no layout is forced
   resize(cw, ch) {
@@ -81,6 +82,7 @@ class Pane {
   }
   begin(bg) {
     this.labels = null; // the label queue of the frame being replaced (app.js placeLabels)
+    this.begun++;   // (the plane's description is a begun frame's: paneSaid)
     const c = this.ctx;
     c.setTransform(1, 0, 0, 1, 0, 0);
     c.fillStyle = bg;

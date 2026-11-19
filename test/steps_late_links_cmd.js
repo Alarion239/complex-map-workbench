@@ -43,7 +43,13 @@
 //   seconds late: from the landing until plane 1's own programs land, every frame at rest on plane 1 is the inverse
 //   pass's by the glide's ops at its end (its last picture), never the carried meshes', then plane 1's own, and those two
 //   are one picture within 3 levels; with a region of plane 2 as well, Inside regions (plane 1's own frame is the whole
-//   plane's colour kept inside the regions' mask), no frame at rest on plane 1 is the glide's end form.
+//   plane's colour kept inside the regions' mask), no frame at rest on plane 1 is the glide's end form;
+// - on a fresh page, the Landscape shown and the warm-up run to its end: no landTF, land or floor of the chain in
+//   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
+//   linked before ▶;
+// - a chain with sheets (z, Möbius, √), the Landscape shown with All sheets off and the warm-up run to its end, then All
+//   sheets ticked by its check, or set as a tour step's look sets it: the program that places the sheets under the
+//   glide's carry (landCarryPlace) linked before ▶.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -436,6 +442,54 @@ try {
     }, 'window.__llLand.recs.length > 0 && GLR.pendingLinks === 0');
     ok(`${DEF_EX} with a region of plane 2, Inside regions, plane 1's own programs linking: no frame at rest on plane 1 is the glide's end form (it has no mask)`, staged.waits.e2.ok && staged.land.n > 0 && staged.land.recs.every((r) => !r.end), staged);
     info.landStaged = staged;
+  }
+  // the partial sums with the Landscape shown in the steps view, the warm-up run to its end: the steps view draws
+  // the Landscape's heights in map mode 0 only (at rest, and under a glide's carry), so the warm-up links no landTF, land
+  // or floor of the chain in another map mode; and the programs the Landscape's glide draws with (landCarryTF and
+  // landCarry in mode 1, landCarryNrm, and lineFC for the floor's outlines) are linked before ▶, from that idle time
+  {
+    const ex = names.indexOf(NEWT_EX), GLIDE_LAND = ['landCarryTF|m1', 'landCarry|m1', 'landCarryNrm|m0', 'lineFC|m0'];
+    await go(`${BASE}/test.html?ns=llg${Date.now()}&lang=en&view=steps`);
+    await settled({ max: READY_MS, until: loaded });
+    await ev(`__cmwExample(${ex}), 1`);
+    await adopted();
+    await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all', surf: 'land' }), 1");
+    const r7 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    // (each program as name|mode and its state; the chain's own, and the programs of no chain)
+    const progs = await ev(`(() => { const k = '|' + GLR.chainKey + '|m'; return GLR.landProgs().map((x) => {
+      const sp = x.lastIndexOf(' '), id = x.slice(0, sp), st = x.slice(sp + 1), name = id.slice(0, id.indexOf('|')), at = id.indexOf(k);
+      if (id.endsWith('|static')) return name + '|m0 ' + st;
+      return at > 0 ? name + '|m' + id.slice(at + k.length).split('|')[0] + ' ' + st : null; }).filter(Boolean); })()`);
+    const twins = progs.filter((x) => /^(landTF|land|floor)\|m[1-9]/.test(x));
+    ok(`${NEWT_EX}, the Landscape shown in the steps view: the warm-up links no landTF, land or floor in another map mode than 0`, r7.ok && twins.length === 0, { twins, wait: r7 });
+    const missing = GLIDE_LAND.filter((n) => !progs.includes(n + ' ready'));
+    ok(`${NEWT_EX}, the Landscape shown in the steps view: the programs its glide draws with are linked before ▶`, r7.ok && missing.length === 0, { missing, wait: r7 });
+    info.landGlide = { programs: progs.length, twins: twins.length, missing };
+  }
+  // a chain with sheets (z, Möbius, √) with the Landscape shown in the steps view, All sheets off, the warm-up run to its
+  // end; All sheets then ticked, by its check (in the plane's options) or set as a tour step's look sets it (the option
+  // alone, __cmwSet): the glide's carry places the sheets (landCarryPlace), linked from the idle time after the tick as
+  // the glide's other programs are; control: the option is on
+  info.landSheets = {};
+  const TICK = {
+    'by its check': `(() => {
+      if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); }
+      const c = document.getElementById('sheetsChk'); if (!c) return false; c.click(); return c.checked; })()`,
+    'as a tour step sets it': "(__cmwSet('sheets', true), __cmwFigureState().sheets === true)",
+  };
+  for (const [how, tick] of Object.entries(TICK)) {
+    const CHAIN = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
+    await loadView('steps', 'llsheets' + Date.now(), { shapes: [], steps: CHAIN, sheets: false, height: 'im' });
+    await settled({ max: READY_MS, until: loaded });
+    await adopted();
+    await ev("__cmwSteps({ scope: 'all', surf: 'land' }), 1");
+    const r8 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    const ticked = await ev(tick);
+    const r9 = await settled({ max: WARM_MS, until: 'GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    const place = await ev(`GLR.landProgs().filter((x) => x.startsWith('landCarryPlace|') && x.includes('|' + GLR.chainKey + '|m1'))`);
+    ok(`z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up ${how}, control: the option is on`, r8.ok && ticked, { ticked, wait: r8 });
+    ok(`z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up ${how}: the sheets' places its glide draws with are linked before ▶`, ticked && r9.ok && place.some((x) => x.endsWith(' ready')), { place, wait: r9 });
+    info.landSheets[how] = { ticked, place };
   }
 } finally {
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
