@@ -517,11 +517,13 @@ const InvOps = (() => {
   }
   // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX by Aberth's iteration (newtAberth from
   // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
-  // on co (polishRoot), in the order of their start points, as GLSL's RAT<n> finds them. Leading coefficients below
-  // 1e-14 of the others' sizes drop the degree, as cubicRoots' does: a root that runs off to infinity is left out
-  function aberthRoots(co) {
+  // on co (polishRoot), in the order of their start points, as GLSL's RAT<n> finds them. The degree drops where a leading
+  // coefficient is what cancellation leaves of its terms, below 1e-14 of the size of the terms it was computed from
+  // (size: their sizes, highest first: for p - w q, |p_k| + |w| |q_k|): a root that runs off to infinity is left out. A
+  // leading coefficient that is small beside the others alone (large roots) is kept
+  function aberthRoots(co, size) {
     let i = 0;
-    while (i < co.length - 1 && abs(co[i]) <= 1e-14 * co.slice(i + 1).reduce((s, x) => s + abs(x), 0)) i++;
+    while (i < co.length - 1 && abs(co[i]) <= 1e-14 * size[i]) i++;
     const c = co.slice(i), n = c.length - 1;
     if (n < 1) return [];
     const a = c.slice().reverse();
@@ -530,7 +532,7 @@ const InvOps = (() => {
   // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0, the op RAT<n>; its
   // roots in closed form for n = 3 and 4 (cubicRoots, quarticRoots), by Aberth's iteration above (aberthRoots)
   function opRatN(p, q, fwd) {
-    const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : n === 4 ? quarticRoots : (...co) => aberthRoots(co);
+    const n = Math.max(p.length, q.length) - 1;
     const pad = (co) => [...Array(Math.max(0, n + 1 - co.length)).fill(ZERO), ...co];
     const P = pad(p), Q = pad(q), der = (co, u) => CX.polyEval(co.slice(0, -1).map((x, i) => scale(x, n - i)), u);
     // the value at infinity (p.length <= q.length): the leading coefficients' ratio at equal degrees, 0 when the
@@ -539,10 +541,14 @@ const InvOps = (() => {
     return op(`RAT${n}`, { P, Q }, fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u))), {
       fam: { type: 'fin', count: n }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im,
-      pre: (w) => roots(...P.map((pk, k) => sub(pk, mul(w, Q[k])))).map(({ u, mult }, m) => {
-        const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
-        return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
-      }),
+      pre: (w) => {
+        const co = P.map((pk, k) => sub(pk, mul(w, Q[k])));
+        const rs = n === 3 ? cubicRoots(...co) : n === 4 ? quarticRoots(...co) : aberthRoots(co, P.map((pk, k) => abs(pk) + abs(w) * abs(Q[k])));
+        return rs.map(({ u, mult }, m) => {
+          const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
+          return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
+        });
+      },
     });
   }
 
