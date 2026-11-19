@@ -281,14 +281,16 @@ for (const w of [1024, 1440]) {
   await clickSel('#examplesBtn'); await until(`!!document.querySelector('#popHost .examples .ex-name')`);
   const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
   check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
-  // (the plane head of the thread's first plane and of the plane after the logarithm both name the window of sheets)
+  // (the plane head of the thread's first plane names the window of sheets its Landscape draws; the plane after the
+  // logarithm, a carry from z, draws one surface, and its head names none: the title says what the pane draws, #1741)
   const head = `(document.querySelector('#svHead') || document.querySelector('.prole') || {}).textContent || ''`;
   const sheetsHead = `/, листы k = −2…2/.test(${head}) && !/все листы/.test(${head})`;
   await until(sheetsHead, 15000);
   check('ru: the steps plane head names the window of sheets («листы k = −2…2»), not «все листы»', await ev(sheetsHead), await ev(head));
   await ev(`__cmwSteps({ go: 1, now: true }), 1`);
   await until(`/w1/.test(${head}) || /w₁/.test(${head})`, 5000);
-  check('ru: the plane after the logarithm names it too', await ev(sheetsHead), await ev(head));
+  const one = await ev(`({ K: (__cmwLandSheets().drawn || {}).K || 1, head: ${head} })`);
+  check('ru: the plane after the logarithm draws one surface, and its head names no sheets (neither «листы» nor «все листы»)', one.K === 1 && !/листы/.test(one.head), one);
 }
 const errs = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404|fonts\.g/.test(JSON.stringify(l)));
 check('no console errors', errs.length === 0, errs.slice(0, 5));
