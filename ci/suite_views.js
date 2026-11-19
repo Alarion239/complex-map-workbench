@@ -149,6 +149,7 @@ const VIEWS = {
   'steps_glide_exterior_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
+  'newt_ab_cmd.js': steps({ pin: true }),
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'steps_late_links_cmd.js': steps({ pin: true }),
