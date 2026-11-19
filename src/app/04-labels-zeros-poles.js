@@ -9,7 +9,23 @@
   }
   // the curves drawn in this plane: shapes of 'list' under F (from drawPoints)
   function labelCurves(pane, F, list) { labelReg(pane).curves.push({ F, list }); }
-  // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, rad? (marker radius)}
+  // the controls drawn over a pane's plane (its chips, key, options and view buttons), as boxes in the plane's css px
+  function labelChrome(pane) {
+    const cv = pane.canvas, host = cv && cv.parentElement;
+    if (!host) return [];
+    const o = cv.getBoundingClientRect(), out = [];
+    for (const el of host.querySelectorAll(':scope > .chip, :scope > .legend-chip, :scope > .options, :scope > .viewstack, :scope > .empty-chip')) {
+      if (el.hidden || el.offsetParent === null) continue;
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && r.height > 0) out.push({ x0: r.left - o.left, x1: r.right - o.left, y0: r.top - o.top, y1: r.bottom - o.top });
+    }
+    return out;
+  }
+  // labels: STIX italic for variables, the UI face for words. it: {x, y, text, word?, id?, rad? (marker radius), chrome?
+  // (kept off labelChrome's controls), avoid? (boxes in css px the label keeps off where it can: each one a spot crosses
+  // costs AVOID_COST), ink? (the text's colour, else the ink)}
+  // the font of a label that is a word ("+2 more"), not a name in maths
+  const wordFont = () => `500 12px ${TH.ui}`;
   function placeLabels(ctx, pane, items) {
     const r = labelReg(pane);
     for (const it of items) { r.items.push(it); r.marks.push([it.x, it.y, it.rad || 8]); }
@@ -46,7 +62,7 @@
   const labelSlots = new Map();
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
-  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4;
+  const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4, AVOID_COST = 1;
   // (the points that are gone, deleted or replaced with the chain, lose their offsets)
   function pruneLabelSlots() {
     if (!labelSlots.size) return;
@@ -54,6 +70,24 @@
     for (const s of S.shapes) live.add(s.id);
     for (const s of S.targets || []) live.add(s.id);
     for (const id of labelSlots.keys()) if (!live.has(id)) labelSlots.delete(id);
+  }
+  // (each box grown by CTRL_PAD px, so that a label does not sit against a control's edge)
+  const CTRL_PAD = 4;
+  // the boxes of the controls over a plane's canvas, in the plane's pixels (what the labels' boxes are in): the plot's children that are not
+  // canvases, shown and with a box. A label drawn under one is covered by it. Not the progress hairline along the top of the plots (it is no
+  // control), nor the readout chip: its width follows the pointer, and a resting picture's labels do not depend on where the pointer was.
+  // Called once for each full placement (a picture at rest or after a change), never for a frame of a drag, a glide or a scrub (lite)
+  function controlBoxes(pane) {
+    const plot = pane.ocanvas && pane.ocanvas.parentElement;
+    if (!plot) return [];
+    const pr = plot.getBoundingClientRect(), out = [];
+    for (const c of plot.children) {
+      if (c.tagName === 'CANVAS' || c.classList.contains('hairline') || c.classList.contains('readout')) continue;
+      const r = c.getBoundingClientRect();
+      if (r.width < 1 || r.height < 1 || getComputedStyle(c).visibility === 'hidden') continue;
+      out.push({ x0: r.left - pr.left - CTRL_PAD, x1: r.right - pr.left + CTRL_PAD, y0: r.top - pr.top - CTRL_PAD, y1: r.bottom - pr.top + CTRL_PAD });
+    }
+    return out;
   }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
@@ -67,6 +101,9 @@
       try { for (const [, z] of Region.handlesOf(sel)) { const [x, y] = pane.w2s(z); hard.push({ x0: x - 7, x1: x + 7, y0: y - 7, y1: y + 7 }); } } catch (e) { /* no handles */ }
     }
     if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
+    // (the plane's own controls, over its canvas: the legend chips, the view buttons, the phone's button column. Read at a full
+    // placement only: a pass on the move keeps the offsets of the last one)
+    if (!lite) hard.push(...controlBoxes(pane));
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
@@ -116,9 +153,11 @@
     for (const it of r.items) {
       const g = groups.find((q) => Math.abs(q.x - it.x) < 2.5 && Math.abs(q.y - it.y) < 2.5);
       const word = /\s|[a-z]{3,}/i.test(it.text) && !/^[a-z][′″‴⁽]?/i.test(it.text.slice(0, 2)) ? true : !!it.word;
-      if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; }
-      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id });
+      if (g) { if (!g.texts.includes(it.text)) g.texts.push(it.text); g.word = g.word && word; g.chrome = g.chrome || !!it.chrome; g.avoid = g.avoid.concat(it.avoid || []); }
+      else groups.push({ x: it.x, y: it.y, texts: [it.text], word, id: it.id, chrome: !!it.chrome, avoid: it.avoid || [], ink: it.ink });
     }
+    // (an item with chrome set keeps off the controls drawn over the plane, labelChrome)
+    const chrome = groups.some((g) => g.chrome) ? labelChrome(pane) : [];
     const placed = [];
     const th = 13;
     let mcx = 0, mcy = 0;
@@ -130,7 +169,7 @@
     ctx.lineJoin = 'round'; ctx.lineWidth = 3;
     for (const g of groups) {
       const text = g.texts.join(' = ');
-      ctx.font = g.word ? `500 12px ${TH.ui}` : `italic 500 13px ${TH.math}`;
+      ctx.font = g.word ? wordFont() : `italic 500 13px ${TH.math}`;
       const tw = ctx.measureText(text).width;
       // NE, NW, SE, SW; then E, W, N, S; then the diagonals one step further out
       const cands = [[7, -7, 0], [-7 - tw, -7, 0], [7, 7 + th, 0], [-7 - tw, 7 + th, 0],
@@ -149,13 +188,13 @@
         const x0 = g.x + dx, y1 = g.y + dy, y0 = y1 - th, x1 = x0 + tw;
         if (x0 < 2 || x1 > W - 2 || y0 < 2 || y1 > H - 2) return null;
         const hit = (b) => x0 < b.x1 && x1 > b.x0 && y0 < b.y1 && y1 > b.y0;
-        if (placed.some(hit) || hard.some(hit)) return null;
+        if (placed.some(hit) || hard.some(hit) || (g.chrome && chrome.some(hit))) return null;
         if (marks.some(([mx, my, rad]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && x0 < mx + rad && x1 > mx - rad && y0 < my + rad && y1 > my - rad)) return null;
         // a label nearer another marker than its own reads as that marker's: allowed only as a last resort
         const bx = (x0 + x1) / 2, by = (y0 + y1) / 2, dOwn = Math.hypot(bx - g.x, by - g.y);
         const amb = marks.some(([mx, my]) => (Math.abs(mx - g.x) >= 2.5 || Math.abs(my - g.y) >= 2.5) && Math.hypot(bx - mx, by - my) < dOwn - 1);
-        const cc = curveCost(x0, y0, x1, y1);
-        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) };
+        const cc = curveCost(x0, y0, x1, y1), av = g.avoid.filter(hit).length;
+        return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) + AVOID_COST * av };
       };
       const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
       let x, y;
@@ -175,7 +214,7 @@
       }
       placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
-      ctx.fillStyle = TH.ink; ctx.fillText(text, x, y);
+      ctx.fillStyle = g.ink || TH.ink; ctx.fillText(text, x, y);
     }
     ctx.restore();
     if (!lite) pruneLabelSlots();
