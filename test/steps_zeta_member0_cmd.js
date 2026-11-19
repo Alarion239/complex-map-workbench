@@ -2,8 +2,10 @@
 // the inverse pass, whose NEWT roots pass (GLR.newtRoots, one frame, for every pixel) writes member 0 of its NEWT op, the
 // root continued in t from w. At a few pixels, at u = 0.002 of the glide, once the pole tracks exist (no hold), the GPU's
 // member 0 is present and is Inverse's op.pre(w) member 0, the same root within NEWT_DEDUPE (1 + |z|), the product's own
-// "same root" bound, read from src/glsl.js. Not asserted: u = 0.5, where the float32 walk of member 0 does not reach the
-// float64 one at some pixels (a product defect, #1396: the assertion returns with its fix; the count is in info). It reads the pass's own target through __cmwNewtProbe (a test
+// "same root" bound, read from src/glsl.js. At u = 0.5 too, at every one of those pixels where op.pre(w) has a member 0 (at
+// least MIN_FAR of them), the GPU's is that root: the two walks take one derivative (#1929), so they land alike, where a
+// central difference on the CPU's side walked #1396's pixel w = 0.0875 + 25.3125i to a root the kit's walk does not reach.
+// It reads the pass's own target through __cmwNewtProbe (a test
 // hook: the published page has none), so it is the page's frame that is measured, not a separate program.
 // Control: the GPU's member 0 at u = 0.002 is not the CPU's at u = 0.5, and the same comparison reports it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
@@ -18,6 +20,8 @@ const NEWT_DEDUPE = Number(/NEWT_DEDUPE = '([^']+)'/.exec(GLSL)[1]);
 // (the waits' limits, from a lavapipe run: the page loads in 0.14 s, the pole tracks ready in 2.3 s, a frame with the probe program's compile in 21.5 s;
 // the limits are 60 s for the page (the other steps suites' wait), and 26 and 14 times the others, for a shared runner)
 const U_NEAR = 0.002, U_FAR = 0.5, READY_MS = 60000, FRAME_MS = 300000, PAGE_MS = 60000;
+// (the pixels of PTS where op.pre(w) has a member 0 at u = 0.5: 5 of the 7 on lavapipe; at least this many, so the row is not vacuous)
+const MIN_FAR = 4;
 // (fractions of the pane from its left and bottom: points inside the critical strip's picture)
 const PTS = [[0.45, 0.3], [0.5, 0.5], [0.55, 0.7], [0.48, 0.85], [0.52, 0.15], [0.5, 0.35], [0.47, 0.6]];
 const ready = () => settled({ max: PAGE_MS, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
@@ -55,8 +59,11 @@ info.tookMs = { ready: readyMs, frames: took };
   info[`u ${U_NEAR}`] = { r, rows: rows[U_NEAR] };
   ok(`zeta at u = ${U_NEAR}: the GPU's member 0 is present and is op.pre(w) member 0 at all ${PTS.length} pixels`, r.points === PTS.length && r.mismatch === 0, r);
 }
-// (u = 0.5, reported, not asserted: the count that #1396's fix brings to 0, where that assertion returns)
-info[`u ${U_FAR} (reported, not asserted)`] = compare(rows[U_FAR], rows[U_FAR]);
+{
+  const r = compare(rows[U_FAR], rows[U_FAR]);
+  info[`u ${U_FAR}`] = { r, rows: rows[U_FAR] };
+  ok(`zeta at u = ${U_FAR}: wherever op.pre(w) has a member 0 (at least ${MIN_FAR} of the ${PTS.length} pixels), the GPU's member 0 is that root`, r.points >= MIN_FAR && r.mismatch === 0, r);
+}
 {
   const r = compare(rows[U_NEAR], rows[U_FAR]);
   info.control = r;
