@@ -253,20 +253,19 @@ const InvOps = (() => {
   // A polynomial homotopy's members (opNewt with deg): every root of H_t(u) = w, for a step that is a polynomial of
   // degree deg (2 to NEWT_POLY_MAX) whose homotopy is one in u at each t (the straight line from z to f(z), or an
   // affine conjugate of f: its zoom). H_t's coefficients a_0 ... a_d (low first) are read off its values at the d + 1
-  // roots of unity (newtPolyCoeffs); its degree at t, de, is the last coefficient above NEWT_POLY_EPS of the largest
-  // (a homotopy pieced from several steps may have a lower one). Aberth's simultaneous iteration (newtAberth) finds the
-  // de roots of a(u) - w from de points on the circle of Fujiwara's bound, rotated by NEWT_ABERTH_ROT. The points that
-  // stand for one multiple root are one member with its multiplicity (multipleRoots; newtPolyCoeffs reads the
-  // coefficients a to within NEWT_COEF_ERR (de + 1) times the sum of their sizes: to 0.4 times that at most on 3000
-  // seeded polynomials of degree 3 to 12 with coefficients up to 2), its centre polished on H_t itself as a root of
-  // that multiplicity; a simple root is polished by Newton on H_t, as the other members are. A root is kept when it
-  // hits w. A group whose polished centre does not gives its points back as simple roots when every one of them hits w
-  // (two roots next to a critical value stay two), else is kept where H_t is within the rounding bound that certified
-  // it, else gives back those of its points that hit w: a group keeps at least the roots its points would as simple
-  // roots. glsl.js's NEWT runs the same iteration in float32 from the
-  // same start, keeping the first of roots closer than its NEWT_DEDUPE.
+  // roots of unity (newtPolyCoeffs, to within NEWT_COEF_ERR (de + 1) times the sum of their sizes: to 0.4 times that at
+  // most on 3000 seeded polynomials of degree 3 to 12 with coefficients up to 2); its degree at t, de, is the last
+  // coefficient above NEWT_POLY_EPS of the largest (a homotopy pieced from several steps may have a lower one).
+  // Aberth's simultaneous iteration (newtAberth) finds the de roots of a(u) - w from de points on the circle of
+  // Fujiwara's bound, rotated by NEWT_ABERTH_ROT, and multipleRoots groups the points that stand for one multiple root.
+  // A point is polished by Newton on H_t itself, as the other members are, and is a root where it hits w or where H_t
+  // is within the rounding bound of a(u) - w there. A group's centre is polished on H_t as a root of its multiplicity and
+  // kept, with that multiplicity, where it hits w; else, where every point of the group is a root and the points stay
+  // apart, they are simple roots (two near roots stay two); else the centre is kept where H_t is within the group's
+  // rounding bound; else the points that are roots. A kept centre gives up the multiplicity of each of its points that
+  // hits w on its own away from it. glsl.js's NEWT runs the same iteration in float32 from the same start, keeping the
+  // first of roots closer than its NEWT_DEDUPE.
   const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4, NEWT_COEF_ERR = Number.EPSILON;
-  const NEWT_POL_MULT = 8;
   function newtPolyCoeffs(g, d) {
     const M = d + 1, v = [];
     for (let m = 0; m < M; m++) v.push(g(C(Math.cos(2 * Math.PI * m / M), Math.sin(2 * Math.PI * m / M))));
@@ -293,8 +292,10 @@ const InvOps = (() => {
   }
   // the de roots of a_0 + ... + a_de u^de from z (Aberth: each root moves by N / (1 - N sum_j 1 / (z_i - z_j)), N its
   // Newton step, until every step is within 1e-12 (1 + |z_i|), NEWT_ABERTH_IT sweeps at most)
+  // [a(u), a'(u)] for a_0 + ... + a_de u^de, by Horner's rule
+  function polyValDer(a, de, u) { let q = a[de], dq = ZERO; for (let k = de - 1; k >= 0; k--) { dq = add(mul(dq, u), q); q = add(mul(q, u), a[k]); } return [q, dq]; }
   function newtAberth(a, de, z) {
-    const ev = (u) => { let q = a[de], dq = ZERO; for (let k = de - 1; k >= 0; k--) { dq = add(mul(dq, u), q); q = add(mul(q, u), a[k]); } return [q, dq]; };
+    const ev = (u) => polyValDer(a, de, u);
     const done = z.map(() => false);
     for (let it = 0; it < NEWT_ABERTH_IT && !done.every(Boolean); it++) {
       for (let i = 0; i < de; i++) {
@@ -339,11 +340,12 @@ const InvOps = (() => {
       const { a, de } = newtPolyCoeffs(Ht, deg);
       // a group's centre polished on H_t itself as a root of multiplicity k (Newton's step k (H_t(u) - w) / H_t'(u), H_t'
       // from the coefficients a), while |H_t(u) - w| falls, NEWT_POL_MULT steps at most
-      const dA = (u) => { let q = ZERO; for (let j = de; j >= 1; j--) q = add(mul(q, u), scale(a[j], j)); return q; };
+      // (POINTS_APART: the share of their distance two polished points of distinct roots keep)
+      const NEWT_POL_MULT = 8, POINTS_APART = 0.5;
       const polishMultiple = (u, k, w) => {
         let best = abs(sub(Ht(u), w));
         for (let it = 0; it < NEWT_POL_MULT && best > 0; it++) {
-          const s = div(scale(sub(Ht(u), w), k), dA(u)), u2 = sub(u, s), e = isFin(s) ? abs(sub(Ht(u2), w)) : NaN;
+          const s = div(scale(sub(Ht(u), w), k), polyValDer(a, de, u)[1]), u2 = sub(u, s), e = isFin(s) ? abs(sub(Ht(u2), w)) : NaN;
           if (!(e < best)) break;
           u = u2; best = e;
         }
@@ -356,14 +358,26 @@ const InvOps = (() => {
           const aw = a.slice(0, de + 1);
           aw[0] = sub(aw[0], w);
           const out = [], hi = aw.slice().reverse();
-          for (const { u, k, pts, b0 } of multipleRoots(hi, newtAberth(aw, de, newtAberthStart(aw, de)), NEWT_COEF_ERR * (de + 1))) {
-            const v = k > 1 ? polishMultiple(u, k, w) : null;
-            if (v && hits(v, w)) { out.push(ONEM(v, C(Infinity, 0), { m: pts[0].i, mult: k })); continue; }
-            // (each point polished as a simple root: all of them where every one hits w; else a group's centre within the
-            // rounding bound that certified it; else the points that hit)
-            const simple = pts.map(({ z, i }) => ({ v: polishAt(z, w), m: i })).filter((e) => hits(e.v, w));
-            if (v && simple.length < k && abs(sub(Ht(v), w)) <= b0) { out.push(ONEM(v, C(Infinity, 0), { m: pts[0].i, mult: k })); continue; }
-            for (const e of simple) out.push(ONEM(e.v, CX.inv(dH(Ht, e.v)), { m: e.m }));
+          // (a point is a root where it hits w or where H_t is within the rounding bound b of a(u) - w there)
+          const isRoot = (v, b) => hits(v, w) || abs(sub(Ht(v), w)) <= b;
+          for (const { u, k, pts, b0, r } of multipleRoots(hi, newtAberth(aw, de, newtAberthStart(aw, de)), NEWT_COEF_ERR * (de + 1))) {
+            const simple = pts.map(({ z, i, b }) => ({ v: polishAt(z, w), m: i, b }));
+            if (k === 1) { if (isRoot(simple[0].v, b0)) out.push(ONEM(simple[0].v, CX.inv(dH(Ht, simple[0].v)), { m: simple[0].m })); continue; }
+            const v = polishMultiple(u, k, w), hit = simple.filter((e) => hits(e.v, w));
+            // (the points' least distance before and after their polish: Newton on H_t draws the points of one multiple
+            // root together, and keeps those of distinct roots apart)
+            const gap = (l) => Math.min(...l.flatMap((p, x) => l.slice(x + 1).map((q) => abs(sub(p, q)))));
+            const apart = gap(simple.map((e) => e.v)) >= POINTS_APART * gap(pts.map((p) => p.z));
+            // (the centre where it hits w; else, where every point is a root on its own and they stay apart, the points:
+            // two near roots stay two; else the centre where H_t is within the rounding bound there; else the points that
+            // are roots. A kept centre gives up the multiplicity of each point that hits w on its own away from it, which
+            // is a root of its own)
+            const roots = simple.filter((e) => isRoot(e.v, e.b));
+            const centre = hits(v, w) || (!(roots.length === k && apart) && abs(sub(Ht(v), w)) <= b0);
+            const own = centre ? hit.filter((e) => abs(sub(e.v, v)) > r) : roots, m = k - (centre ? own.length : k);
+            for (const e of own) out.push(ONEM(e.v, CX.inv(dH(Ht, e.v)), { m: e.m }));
+            if (m > 1) out.push(ONEM(v, C(Infinity, 0), { m: pts[0].i, mult: m }));
+            else if (m === 1) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: pts[0].i }));
           }
           return out;
         },
@@ -863,44 +877,58 @@ const InvOps = (() => {
     return dk.length > 1 ? polish(dk, m) : m;
   }
   // The roots zs of co (high-first; zs as an iteration returns them, a root of multiplicity k as k points about
-  // EPS^(1/k) apart) grouped into numerical multiple roots: [{u, k, pts, b0}], the root u, its multiplicity k, the group's
-  // points pts: [{z, i}] (i: the index in zs), the first point's first, and for a group (k > 1) b0, the rounding bound of
-  // co's value at u below. At a point u, co's Taylor coefficients t_j have the rounding bounds b_j: Derivs.taylorAt's,
+  // EPS^(1/k) apart) grouped into numerical multiple roots: [{u, k, pts, b0, r}], the root u, its multiplicity k, the
+  // group's points pts: [{z, i, b}] (i: the index in zs, b: the rounding bound of co's value there), the first point's
+  // first, the rounding bound b0 of co's value at u (at the point, for a simple root) and, for a group, r: GROUP_SPREAD times the spread that rounding allows a k-fold
+  // root, (b_0 / |t_k|)^(1/k). At a point u, co's Taylor coefficients t_j have the rounding bounds b_j: Derivs.taylorAt's,
   // plus coErr times the sum of |co| for the coefficients' own error, times MULT_SAFETY. A point is a simple root when
   // |t_1| times its distance to the nearest other point is above SIMPLE_MARGIN b_0 (k points of a k-fold root have it
   // about k |t_k| r^k, r their spread, which rounding sets to about b_0). Each other point, in order, takes the largest
-  // group of itself and the other points nearest it, not yet taken, whose centre (clusterCentre) is a root of that
-  // multiplicity to rounding: |t_j| <= b_j there for j < k. A non-finite point is left out.
-  const MULT_SAFETY = 4, SIMPLE_MARGIN = 1e6;
+  // group of itself and the other points nearest it, not yet taken, whose centre (clusterCentre) is a root of exactly
+  // that multiplicity to rounding (|t_j| <= b_j there for j < k, |t_k| > b_k) and holds within r every point of the
+  // group and no other point not yet taken. A non-finite point is left out.
+  const MULT_SAFETY = 4, SIMPLE_MARGIN = 1e6, GROUP_SPREAD = 3;
   function multipleRoots(co, zs, coErr) {
     const ones = co.map(() => ONE), coNoise = coErr * co.reduce((s, x) => s + abs(x), 0);
     const taylor = (u) => {
       const { t, e } = Derivs.taylorAt(co, u), T = Derivs.taylorAt(ones, C(abs(u), 0)).t;
       return { t: t.map(abs), b: e.map((x, j) => MULT_SAFETY * (x + coNoise * T[j].re)) };
     };
-    // the rounding bound b_0 at u when u is a root of multiplicity k to rounding, else null
-    const rootBound = (u, k) => { const { t, b } = taylor(u); for (let j = 0; j < k; j++) if (!(t[j] <= b[j])) return null; return b[0]; };
     const fin = zs.map(isFin), used = zs.map((z, i) => !fin[i]), out = [];
+    const tay = zs.map((z, i) => (fin[i] ? taylor(z) : null));
     const simple = zs.map((z, i) => {
       if (!fin[i]) return false;
       let gap = Infinity;
       zs.forEach((q, j) => { if (j !== i && fin[j]) gap = Math.min(gap, abs(sub(q, z))); });
-      const { t, b } = taylor(z);
+      const { t, b } = tay[i];
       return t.length < 2 || t[1] * gap > SIMPLE_MARGIN * b[0];
     });
+    // the group of the points g about their centre u, as a k-fold root to rounding, or null
+    const group = (g) => {
+      const k = g.length, u = clusterCentre(co, g.map((j) => zs[j]));
+      if (!isFin(u)) return null;
+      const { t, b } = taylor(u);
+      for (let j = 0; j < k; j++) if (!(t[j] <= b[j])) return null;
+      if (!(t[k] > b[k])) return null;
+      const r = GROUP_SPREAD * (b[0] / t[k]) ** (1 / k);
+      // (every point of the group within r, and no other point not yet taken)
+      const inR = zs.filter((q, j) => fin[j] && (g.includes(j) || (!used[j] && !simple[j])) && abs(sub(q, u)) <= r).length;
+      return inR === k && g.every((j) => abs(sub(zs[j], u)) <= r) ? { u, k, b0: b[0], r, pts: g.map((j) => ({ z: zs[j], i: j, b: tay[j].b[0] })) } : null;
+    };
     zs.forEach((z, i) => {
       if (used[i]) return;
       used[i] = true;
-      if (simple[i]) { out.push({ u: z, k: 1, pts: [{ z, i }] }); return; }
+      const one = { u: z, k: 1, b0: fin[i] ? tay[i].b[0] : 0, pts: [{ z, i, b: fin[i] ? tay[i].b[0] : 0 }] };
+      if (simple[i]) { out.push(one); return; }
       const near = zs.map((q, j) => j).filter((j) => !used[j] && !simple[j]).sort((p, q) => abs(sub(zs[p], z)) - abs(sub(zs[q], z)));
       for (let k = near.length + 1; k > 1; k--) {
-        const u = clusterCentre(co, [z, ...near.slice(0, k - 1).map((j) => zs[j])]), b0 = isFin(u) ? rootBound(u, k) : null;
-        if (b0 === null) continue;
+        const gr = group([i, ...near.slice(0, k - 1)]);
+        if (!gr) continue;
         near.slice(0, k - 1).forEach((j) => { used[j] = true; });
-        out.push({ u, k, b0, pts: [{ z, i }, ...near.slice(0, k - 1).map((j) => ({ z: zs[j], i: j }))] });
+        out.push(gr);
         return;
       }
-      out.push({ u: z, k: 1, pts: [{ z, i }] });
+      out.push(one);
     });
     return out;
   }

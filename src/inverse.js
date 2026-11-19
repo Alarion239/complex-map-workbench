@@ -599,7 +599,11 @@ const Inverse = (() => {
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
-        for (const mem of o.pre(w)) {
+        const mems = o.pre(w);
+        // (a polynomial's roots, NEWT with deg, count its degree with their multiplicities: where they fall short, some
+        // root could not be told from rounding, and the list is not exact)
+        if (o.kind === 'NEWT' && o.p.deg && mems.reduce((a, q) => a + (q.mult || 1), 0) !== o.p.de) return { exact: false, reason: 'a polynomial step whose roots could not all be found to rounding' };
+        for (const mem of mems) {
           if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
           const each = m * (mem.mult || 1);
           // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root

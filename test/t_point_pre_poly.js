@@ -104,6 +104,20 @@ const A11 = [C(2), C(2 + 1e-5), C(-2), C(0, 2), C(0, -2), C(-2, 2), C(1, -2), C(
 simpleRoots('roots 2 and 2 + 1e-5 among 11 out to |z| ≈ 2.8', A11);
 const B12 = [[2.37, 0.19], [2.58, 0.34], [0.64, -0.63], [0.47, -0.32], [1.68, 1.63], [1.17, -1.42], [-0.96, 1.95], [-2.26, -1.22], [0.98, 2.28], [0.51, 2.27]].map(([a, b]) => C(a, b));
 multiple('a double root at 2.46 − 1.2i among 10 simple ones (degree 12)', polyOf([C(2.46, -1.2), C(2.46, -1.2), ...B12]), C(0), C(2.46, -1.2), 2, 11, 12, B12);
+// a 4-fold root with a simple root 0.07 (and 0.49) away, degree 12: the simple root is not taken into the group, and the
+// 4-fold root comes once, ×4
+const P = (l) => l.map(([a, b]) => C(a, b));
+const F1 = P([[0.17, -1.94], [0.09, 0.76], [-1.18, -1.15], [-1.27, 1.16], [0.48, -0.48], [1.01, -1.03], [-0.51, -1.1], [1.73, -0.55]]);
+multiple('0.13 − 2i ×4 beside 0.17 − 1.94i', polyOf([C(0.13, -2), C(0.13, -2), C(0.13, -2), C(0.13, -2), ...F1]), C(0), C(0.13, -2), 4, 9, 12, F1);
+const F2 = P([[0.05, -2.48], [-0.94, 1.95], [-0.44, -0.35], [-2.05, 1.31], [-1.46, -2.12], [0.35, 0.14], [1.7, -1.94], [-2.11, 1.25]]);
+multiple('−0.23 − 2.89i ×4 beside 0.05 − 2.48i', polyOf([C(-0.23, -2.89), C(-0.23, -2.89), C(-0.23, -2.89), C(-0.23, -2.89), ...F2]), C(0), C(-0.23, -2.89), 4, 9, 12, F2);
+// twelve roots at seeded random places on |z| = 3, where H_t's own rounding is about 1e-7: each a root to its rounding
+// bound, every one found
+{
+  let s3 = 99;
+  const r3 = () => (s3 = (s3 * 1103515245 + 12345) % 2147483648) / 2147483648;
+  simpleRoots('twelve roots at random on |z| = 3', Array.from({ length: 12 }, () => { const a = 2 * Math.PI * r3(); return C(3 * Math.cos(a), 3 * Math.sin(a)); }));
+}
 {
   // ten roots on |z| = 2.9, w 1e-8 (1 + |v|) from the critical value v next to the first critical point: every root, simple
   const roots = Array.from({ length: 10 }, (_, k) => C(2.9 * Math.cos(0.12 + 0.63 * k), 2.9 * Math.sin(0.12 + 0.63 * k)));
