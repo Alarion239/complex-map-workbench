@@ -15,6 +15,7 @@
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
+    fits: 0,         // (for a test) the head's fits (svFitHead's) that ran past their key
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -2508,6 +2509,13 @@
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
+    // (the Height key's chip: shown, and its words written, by the legend's draw after the fit may have run; its size
+    // changes then, and the head is fitted again on the next frame, not in the observer's callback, where the fit's
+    // fold of the chip would change the size it observes. Its fold to the glyph changes its size too, which the fit's
+    // key holds)
+    const leg = $('leftLegend');
+    let legFit = 0;
+    if (leg && typeof ResizeObserver === 'function') new ResizeObserver(() => { if (!legFit) legFit = requestAnimationFrame(() => { legFit = 0; svFitHead(); }); }).observe(leg);
     onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
     // (the app's own scrolls of the rail land where it wrote them (svRailTo). Any other scroll is the user's, from a wheel, a trackpad, find
@@ -2987,13 +2995,16 @@
     // once when the glide settles; rework on #473)
     if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
     const ph = document.documentElement.classList.contains('ph');
-    const mc = $('modeChips');
+    const mc = $('modeChips'), lg = $('leftLegend'), lgSum = lg && lg.querySelector('.lg-sum');
     const key = [
       ph ? 1 : 0, ph ? E.barW || 0 : E.headW || 0, document.fonts ? document.fonts.status : '', faceGen, E.title.innerHTML,
       E.cp.textContent, E.surf1.textContent, E.scopeBtn.textContent, I18N.lang, mc && !mc.hidden ? mc.dataset.sig : '', E.tnote.hidden ? '' : E.tnote.dataset.sig,
+      // (the Height key's chip: where it is, whether it shows, and its words)
+      lg ? `${lg.parentNode === E.head ? 1 : 0}${lg.hidden ? 0 : 1}${lgSum ? lgSum.textContent : ''}` : '',
     ].join('|');
     if (key === E.fitKey) return;
     E.fitKey = key;
+    SV.fits++;
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
     // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is cut to the whole words that the room
     // that is left allows, then an ellipsis (sv-re), while that shows clearly more than its first word, else it is its first word
