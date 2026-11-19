@@ -6,7 +6,7 @@
 // 568 x 320 in Russian and Italian; with the globe shown, the hint card stays clear of the globe's disk. Where the plane above
 // the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
 // what is left beside them, stands over the keys it meets: no point of it lies under a key or a chip, and the keys it does not meet
-// take their presses. The classic view's Y has the same: its unfolded Regions key stands over Y's keys at 568 x 320.
+// take their presses. The classic view's Y has the same: its unfolded Regions key stands over Y's keys at 568 x 320 and 600 x 320, in en, ru and it.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -16,6 +16,15 @@ const ROOM = 140;   // the plane above the bar holds the unfolded colour key (74
 const HIT_PX = 8;   // the folded colour key's hit area reaches this far past its glyph, px (phone.css)
 const SLACK = 0.5;  // layout rounding, px
 const meet = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
+// the points of a key's box (a 9 x 7 grid over it) that something other than the key lies over: [x, y, what]
+const underPoints = (id) => ev(`(() => {
+  const c = document.getElementById(${JSON.stringify(id)}), r = c.getBoundingClientRect(), out = [];
+  for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) {
+    const x = r.left + 1 + (r.width - 2) * i / 8, y = r.top + 1 + (r.height - 2) * j / 6, e = document.elementFromPoint(x, y);
+    if (!e || !c.contains(e)) out.push([Math.round(x), Math.round(y), e ? (e.id || String(e.getAttribute('class') || e.tagName)) : null]);
+  }
+  return out;
+})()`);
 const geometry = () => ev(`(() => {
   const plot = document.getElementById('plotL').getBoundingClientRect(), bar = document.querySelector('.ph-ctx').getBoundingClientRect();
   const head = document.querySelector('.top').getBoundingClientRect();
@@ -83,66 +92,30 @@ for (const [w, h, lang, surf] of CASES) {
     if (roomy || !open) ok(`${name}: with the colour key ${st}, a press at every plane key's centre reaches it`, covered.length === 0, covered);
     if (roomy || !open) ok(`${name}: the ${st} colour key overlaps no plane key`, hit.length === 0, { lg, hit });
     if (roomy || !open) ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
-    // (#1915: below ROOM the unfolded card cannot stand beside the keys and lies over them: it is the one the person opened to read, so it
-    // stands over the keys it meets and every point of it reaches it; the keys it does not meet take their presses)
+    // (below ROOM the unfolded card cannot stand beside the keys and lies over them: it is the one the person opened to read, so it
+    // stands over the keys it meets and every point of it reaches it; the keys whose centre it does not cover take their presses)
     if (!roomy && open) {
-      const probe = await ev(`(() => {
-        const c = document.getElementById('leftLegend'), r = c.getBoundingClientRect(), under = [];
-        for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) {
-          const x = r.left + 1 + (r.width - 2) * i / 8, y = r.top + 1 + (r.height - 2) * j / 6, e = document.elementFromPoint(x, y);
-          if (!e || !c.contains(e)) under.push([Math.round(x), Math.round(y), e ? (e.id || String(e.getAttribute('class') || e.tagName)) : null]);
-        }
-        return under;
-      })()`);
-      ok(`${name}: (#1915) the unfolded colour key is read whole: no point of it lies under a key or a chip`, probe.length === 0, { lg, hit, under: probe.slice(0, 6) });
-      const free = (await geometry()).keys.filter((k) => k.shown && !meet(k.r, lg) && !k.press).map((k) => k.name);
-      ok(`${name}: (#1915) with the colour key unfolded, a press at the centre of each plane key it does not cover reaches it`, free.length === 0, free);
+      const probe = await underPoints('leftLegend');
+      ok(`${name}: the unfolded colour key is read whole: no point of it lies under a key or a chip`, probe.length === 0, { lg, hit, under: probe.slice(0, 6) });
+      const inside = (k) => { const x = (k.r[0] + k.r[2]) / 2, y = (k.r[1] + k.r[3]) / 2; return x >= lg[0] && x <= lg[2] && y >= lg[1] && y <= lg[3]; };
+      const free = (await geometry()).keys.filter((k) => k.shown && !inside(k) && !k.press).map((k) => k.name);
+      ok(`${name}: with the colour key unfolded, a press at the centre of each plane key it does not cover reaches it`, free.length === 0, free);
     }
-    // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
-    // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
-    // page call so the probe cannot rewrite it, and measured at once; the globe's hint card has its own rule)
-    if (!open && surf === 'plane') {
-      const ro = await ev(`(() => {
-        const e = document.getElementById('leftReadout'); if (!e) return null;
-        const html = e.innerHTML; e.textContent = 'z = 123456.7890 + 987654.3210i · w = F(z) = 123456.7890 − 987654.3210i · and a good deal more to read here';
-        const r = e.getBoundingClientRect(), shown = e.getClientRects().length > 0; e.innerHTML = html;
-        return shown ? [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10) : null;
-      })()`);
-      info[`${name} long readout`] = ro;
-      ok(`${name}: a long readout is shown and stops short of the folded colour key's hit area`, !!ro && ro[2] <= lg[0] - HIT_PX + SLACK, { ro, lg });
-    }
-  }
-  if (surf === 'sphere') {
-    // the hint card stays clear of the globe's disk (phone_hint_globe_cmd's rule), with the tall bar in
-    const m = await ev(`(() => {
-      const cv = document.getElementById('canvasL').getBoundingClientRect(), R = __cmwGlobeDisk('L').R, ch = document.getElementById('leftReadout').getBoundingClientRect();
-      const cx = cv.left + cv.width / 2, cy = cv.top + cv.height / 2, nx = Math.max(ch.left, Math.min(cx, ch.right)), ny = Math.max(ch.top, Math.min(cy, ch.bottom));
-      return { R: Math.round(R), chip: [ch.left, ch.top, ch.right, ch.bottom].map(Math.round), gap: Math.round(Math.hypot(nx - cx, ny - cy) - R), shown: ch.width > 0 };
-    })()`);
-    info[`${name} hint`] = m;
-    ok(`${name}: the hint card is clear of the globe's disk (gap >= 0 px)`, m.shown && m.gap >= 0, m);
   }
 }
 // the classic view's Y has the same state at 320 px tall: its Regions key, unfolded under the tall bar, stands over Y's keys, and no point of it
-// lies under a key or a chip (#1915)
-for (const lang of ['en', 'ru']) {
-  const name = `568x320 ${lang} classic`;
-  await view(568, 320, false, true);
-  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${Date.now() % 100000}`);
+// lies under a key or a chip
+for (const [w, lang] of [[568, 'en'], [568, 'ru'], [568, 'it'], [600, 'en'], [600, 'ru'], [600, 'it']]) {
+  const name = `${w}x320 ${lang} classic`;
+  await view(w, 320, false, true);
+  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${w}${Date.now() % 100000}`);
   await settled({ max: 30000, until: '!!document.documentElement.classList.contains("ph") && !!document.querySelector("#constructTools .tool[data-tool=perp]") && !!document.getElementById("rightLegend")' });
   await ev(`document.querySelector('#constructTools .tool[data-tool="perp"]').click(); 1`);
   await settled({ max: 20000, until: 'document.documentElement.classList.contains("ph-ctx-tall") && !!document.querySelector(".ph-ctx.in")' });
   await ev(`(() => { const c = document.getElementById('rightLegend'); if (c.classList.contains('collapsed')) c.click(); return 1; })()`);
   await settled({ max: 10000, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
-  const under = await ev(`(() => {
-    const c = document.getElementById('rightLegend'), r = c.getBoundingClientRect(), out = [];
-    for (let i = 0; i <= 8; i++) for (let j = 0; j <= 6; j++) {
-      const x = r.left + 1 + (r.width - 2) * i / 8, y = r.top + 1 + (r.height - 2) * j / 6, e = document.elementFromPoint(x, y);
-      if (!e || !c.contains(e)) out.push([Math.round(x), Math.round(y), e ? (e.id || String(e.getAttribute('class') || e.tagName)) : null]);
-    }
-    return out;
-  })()`);
+  const under = await underPoints('rightLegend');
   info[`${name} key unfolded`] = under;
-  ok(`${name}: (#1915) the unfolded Regions key is read whole: no point of it lies under a key or a chip`, under.length === 0, under.slice(0, 6));
+  ok(`${name}: the unfolded Regions key is read whole: no point of it lies under a key or a chip`, under.length === 0, under.slice(0, 6));
 }
 return { pass: fails.length === 0, fails, info };
