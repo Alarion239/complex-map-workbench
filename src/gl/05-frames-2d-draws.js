@@ -841,21 +841,28 @@
     u2f(P, 'uGO', (g.x0 - st.view.cx) * k + fw / 2, (g.y0 - st.view.cy) * k + fh / 2);
     u1f(P, 'uGC', g.h * k);
   }
-  // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
-  // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn, coloured as
-  // the plot is, only when the plot's program gives nothing to draw: the frame in which its link completes draws the
-  // plot. st.noValue: only where F has no finite value, its no-value colour (the NaN hatch, infinity's white), nothing
-  // elsewhere, and no stand-in. -> true when the plot or its stand-in was drawn
-  function drawColorPlot(st) {
-    if (!ok) return false;
+  // the colour plot of st and the program that draws it: the Cauchy style's residue plot (cp: st.cauchy with its plan and
+  // edges, cauchyF), its node sum (cz: st.cauchy with nodes, cauchy), else the colour plot (color) -> {cp, cz, pname}
+  function colorPlotOf(st) {
     const cp = cauchyUsable(st.cauchy) ? st.cauchy : null;
     const cz = !cp && st.cauchy && st.cauchy.nodes && st.cauchy.nodes.length >= 4 ? st.cauchy : null;
-    const pname = cp ? 'cauchyF' : cz ? 'cauchy' : 'color';
+    return { cp, cz, pname: cp ? 'cauchyF' : cz ? 'cauchy' : 'color' };
+  }
+  const colorProgName = (st) => colorPlotOf(st).pname;
+  // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
+  // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn in the
+  // plot's style (the Cauchy style colours F's values as 'enhanced' does), only when the plot's program gives nothing to
+  // draw: the frame in which its link completes draws the plot. st.noValue: only where F has no finite value, its
+  // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. -> true when the plot or its
+  // stand-in was drawn
+  function drawColorPlot(st) {
+    if (!ok) return false;
+    const { cp, cz, pname } = colorPlotOf(st);
     const dpr = st.dpr || 1;
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
     let P = program(pname, st.map, st.exact);
     if (!P) {
-      if (pname !== 'color' || !st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
+      if (!st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
       standInUniforms(P, st, dpr);
       return colorPass(P, st, dpr);

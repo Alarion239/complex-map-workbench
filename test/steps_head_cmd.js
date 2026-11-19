@@ -16,16 +16,19 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const ns = 'svh' + Date.now();
+// a page opened through the kit (loadView: the saved state seeded, the document opened again by go() if its body stops arriving) and waited
+// for until `until` is true; one that does not come up throws, naming the page, rather than letting the suite read on a page with no hooks
+const up = async (what, view, name, state, lang, until, faces) => {
+  await loadView(view, name, state, { lang });
+  const r = await settled({ max: 60000, until, faces });
+  if (!r.ok) throw new Error(`steps_head: ${what}: the page did not come up within 60000 ms (${JSON.stringify(r.busy)})`);
+};
 // Cayley, then cube's chain with the upper half-plane: z → w₁ (Möbius) → w₂ (cube)
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 const open = async (w, h, mobile, lang) => {
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang}&lang=${lang}&view=steps` });
-  // (the steps view's head built and its chain on: a slow start takes longer than any fixed wait)
-  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('svHead') && !!document.querySelector('#paneL .pane-head')" });
+  await up(`${w}x${h} ${lang}`, 'steps', `${ns}${lang}`, st, lang, "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('svHead') && !!document.querySelector('#paneL .pane-head')");
   await settle(500);
 };
 // the head's items, as laid out: each shown item's box, whether it is on the bar's row, cut or overlapping the next
@@ -111,9 +114,8 @@ for (const lang of ['en', 'ru', 'it']) {
   for (const [w, h, mobile] of [[1024, 768, false], [1440, 900, false], [390, 844, true]]) {
     for (const steps of [false, true]) {
       await view(w, h, false, mobile);
-      await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
-      await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}s${lang}${w}${steps ? 1 : 0}', ${JSON.stringify(JSON.stringify(Object.assign({}, st, { view: { main: 'phase' } })))}); 1`);
-      await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}s${lang}${w}${steps ? 1 : 0}&lang=${lang}${steps ? '&view=steps' : ''}` }); await sleep(3000); await settle(500);
+      await up(`style row ${w}x${h} ${lang} ${steps ? 'steps' : 'classic'}`, steps ? 'steps' : 'classic', `${ns}s${lang}${w}${steps ? 1 : 0}`, Object.assign({}, st, { view: { main: 'phase' } }), lang, "typeof window.__cmwPaneStatus === 'function' && typeof __cmwSteps === 'function'");
+      await settle(500);
       if (!steps) { await ev(`__cmwSetMain('phase'), 1`); await settle(800); }
       if (mobile) { await ev(`Phone.open('display'), 1`); await settle(1000); }
       // (the style row is built after the page's first layout, later on a loaded runner than the fixed wait above: wait for it, at most 15 s)
@@ -139,10 +141,8 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
     steps: [{ type: 'root', params: { n: 2 }, on: true }, { type: 'cos', params: {}, on: true }, { type: 'log', params: {}, on: true }] });
   await view(W, H, false, false);
   // (waits on a condition: the state the next step reads, polled every 100 ms for up to 15 s)
-  const until = async (expr) => (await settled({ until: expr, max: 15000, only: true, poll: 100 })).ok;
-  await seed(`${ns}land${lang}${W}`, LAND);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}land${lang}${W}&lang=${lang}&view=steps` });
-  await until(`typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'`);
+  const until = async (expr, faces) => (await settled({ until: expr, faces, max: 15000, only: true, poll: 100 })).ok;
+  await up(`landscape ${W}x${H} ${lang}`, 'steps', `${ns}land${lang}${W}`, LAND, lang, `typeof __cmwSteps === 'function' && !!document.querySelector('#svHead .sv-title')`, true);
   await ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 0, now: true }); 1`);
   // (the head is fitted: the surface is the Landscape, the title shows its words, and the bar's classes hold across two reads)
   await until(`(() => { const b = document.getElementById('svHead'), k = b.className + '|' + b.querySelector('.sv-title').innerText, r = window.__fk !== k; window.__fk = k;
@@ -184,9 +184,7 @@ const SV_ELL = 12, SV_MORE = 40;   // (the ellipsis' room, and the room a cut ro
 for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 800]]) {
   await view(W, H, false, false);
   const CARRY = Object.assign({}, st, { shapes: [], height: 'log', steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] });
-  await seed(`${ns}carry${lang}`, CARRY);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}carry${lang}&lang=${lang}&view=steps` });
-  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title') && document.fonts.status === 'loaded'" });
+  await up(`carry ${lang}`, 'steps', `${ns}carry${lang}`, CARRY, lang, "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title')", true);
   await ev(`__cmwSteps({ T: 1, surf: 'land', go: 2, now: true }); 1`);
   await settled({ max: 60000, until: "__cmwSteps().i === 2 && __cmwSteps().surf === 'land' && !__cmwSteps().moving" });
   await settled({ max: 60000 });
