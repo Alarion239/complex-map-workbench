@@ -197,7 +197,10 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await ev(`__cmwExample(${ex}); 1`);
   await adopted();
   await settled({ max: 30000 });
-  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
+  // (the Play gate off: this block counts what a scrub's frames allocate once the glides were warmed up by glides that start
+  // at once, as the frames of an idle chain meet it; the gate's waits have their own suites, svplay_gate_cmd.js and the gate
+  // leg of steps_late_links_cmd.js)
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true, gate: false })}); 1`);
   await settled({ max: 30000 });
   for (const to of [1, 0]) {
     await ev(`__cmwSteps({ go: ${to} }), 1`);
