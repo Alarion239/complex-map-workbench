@@ -22,7 +22,11 @@
 // - on the globe (surf 'sphere'), at rest on plane 0, light theme: at the points of each disc that face the camera, the
 //   Inside regions pixel is the Everywhere one (median channel sum apart at most GLOBE_D, read with the layer left out):
 //   the globe's mask holds the pulled-back regions too, so its colour is kept inside them; and with the layer shown,
-//   Inside regions is the same there (the band alone, FILL_D).
+//   Inside regions is the same there (the band alone, FILL_D); and the band is drawn whole over the colour kept: at the
+//   points of each pulled-back disc's boundary that face the camera (at least MIN_N), the median channel sum between
+//   the frames with the layer shown and without it is more than BAND_D (the band's inner half is drawn over the colour
+//   kept, drawSphere's maskOver passes; the regions' globe under the colour reaches those pixels with its outer half's
+//   edge alone).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -115,8 +119,10 @@ const gpx = (pts) => ev(`(() => {
     return [img[n], img[n + 1], img[n + 2], img[n + 3]];
   });
 })()`);
+// (the points of a disc's boundary on plane 0, 48 of them)
+const rim = (d, shift) => Array.from({ length: 48 }, (_, i) => [d.c[0] - shift + d.r * Math.cos(Math.PI * i / 24), d.c[1] + d.r * Math.sin(Math.PI * i / 24)]);
 // (GLOBE_CAMS: the cameras, in degrees, and the discs (by index) each reads)
-const GLOBE_D = 6, GLOBE_CAMS = [{ yaw: -60, pitch: -24, discs: [1, 2] }, { yaw: 120, pitch: -24, discs: [0] }];
+const BAND_D = 80, GLOBE_D = 6, GLOBE_CAMS = [{ yaw: -60, pitch: -24, discs: [1, 2] }, { yaw: 120, pitch: -24, discs: [0] }];
 const sum3 = (p, q) => Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) + Math.abs(p[2] - q[2]);
 for (const theme of ['light', 'dark']) {
   await load(`svpbm${theme}${Date.now()}`, ST);
@@ -151,18 +157,18 @@ for (const theme of ['light', 'dark']) {
   await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR && GLR.pendingLinks === 0' });
   await ev(`document.documentElement.setAttribute('data-theme', 'light'), __cmwSet('morphPaths', false), __cmwSteps({ T: 0, surf: 'sphere', go: 0, now: true }), 1`);
   await settled({ max: 60000, until: '!__cmwSteps().moving && __cmwSteps().x === 0 && GLR.pendingLinks === 0' });
-  const sets = DISCS.map((d, k) => inside(d, SHIFT[k]));
+  const sets = DISCS.map((d, k) => inside(d, SHIFT[k])), rims = DISCS.map((d, k) => rim(d, SHIFT[k]));
   // (each disc read with a camera it faces, GLOBE_CAMS: plane 0's points of modulus near 1 lie about the globe's equator)
-  const A = [], I = [], L = [];
+  const A = [], I = [], L = [], RI = [], RL = [];
   for (const cam of GLOBE_CAMS) {
     await ev(`__cmwCam('L', { yaw: ${cam.yaw} * Math.PI / 180, pitch: ${cam.pitch} * Math.PI / 180 }), 1`);
     const read = async (scope, hide) => {
       await ev(`__cmwHideStrokes(${hide}), __cmwSteps({ scope: '${scope}' }), 1`);
       await settled({ max: 60000, until: 'GLR.pendingLinks === 0' });
-      return Promise.all(cam.discs.map((k) => gpx(sets[k])));
+      return { in: await Promise.all(cam.discs.map((k) => gpx(sets[k]))), rim: await Promise.all(cam.discs.map((k) => gpx(rims[k]))) };
     };
     const a = await read('all', true), i = await read('in', true), l = await read('in', false);
-    cam.discs.forEach((k, n) => { A[k] = a[n]; I[k] = i[n]; L[k] = l[n]; });
+    cam.discs.forEach((k, n) => { A[k] = a.in[n]; I[k] = i.in[n]; L[k] = l.in[n]; RI[k] = i.rim[n]; RL[k] = l.rim[n]; });
   }
   await ev('__cmwHideStrokes(false), 1');
   const out = info.globe = { surf: await ev('__cmwSteps().surf || null') };
@@ -173,7 +179,11 @@ for (const theme of ['light', 'dark']) {
     const what = d.stage ? `the region of plane ${d.stage}, pulled back` : 'the region of plane 0 (the control)';
     ok(`the globe: ${what} reads at ${MIN_N} or more points facing the camera`, r.n >= MIN_N, r);
     ok(`the globe: inside ${what}, Inside regions shows Everywhere's colour (median channel sum apart <= ${GLOBE_D})`, r.apart <= GLOBE_D, r);
-    if (d.stage) ok(`the globe: inside ${what}, Inside regions' layer adds no fill over the colour (median difference with the layer shown <= ${FILL_D})`, dL.length >= MIN_N && r.layer <= FILL_D, r);
+    if (!d.stage) return;
+    ok(`the globe: inside ${what}, Inside regions' layer adds no fill over the colour (median difference with the layer shown <= ${FILL_D})`, dL.length >= MIN_N && r.layer <= FILL_D, r);
+    const dB = RL[k].map((p, i) => (p && RI[k][i] ? sum3(p, RI[k][i]) : null)).filter((v) => v != null);
+    r.band = { n: dB.length, median: median(dB) };
+    ok(`the globe: Inside regions draws the band of ${what} whole over the colour (at ${MIN_N} or more of its boundary points facing the camera, median difference with the layer shown > ${BAND_D})`, dB.length >= MIN_N && r.band.median > BAND_D, r);
   });
 }
 return { pass: fails.length === 0, fails, info };
