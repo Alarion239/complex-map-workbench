@@ -84,8 +84,10 @@ ok('findings carry the line of the added line', check(parseDiff(['diff --git a/s
 
 // a version in a path or a file name is a name, not a label (a comment that cites notes/constructions-v16/SPEC.md); the
 // label itself is still found
-ok('history: a version in a path is no label', rules('src/app/x.js', ['// the model (notes/constructions-v16/SPEC.md 20.2)', '// the snapshot in notes/v16.2-candidate/src', '// see SPEC-v17.md']).length === 0);
-ok('history: a version label alone is still found', rules('src/app/x.js', ['// as in v16.5', '// (v16)', '// since v17.0-beta.3']).length === 3);
+ok('history: a version in a path is no label', rules('src/app/x.js', ['// the model (notes/constructions-v16/SPEC.md 20.2)', '// the snapshot in notes/v16.2-candidate/src', '// see SPEC-v17.md', '// as notes/v16-user5/SHEETS-DESIGN.md has it', '// the sound_v152 fixture']).length === 0);
+// (a point release, the release series' own name and a label after a hyphen are labels too)
+const LABELS = ['// as in v16.5', '// (v16)', '// since v17.0-beta.3', '// v17.x keeps it', '// v16.5.1 changed this', '// the pre-v16 behaviour', '// until v16.2. The rest'];
+ok('history: a version label alone is still found', LABELS.every((l) => rules('src/app/x.js', [l]).length === 1), LABELS.filter((l) => rules('src/app/x.js', [l]).length !== 1));
 
 // the command line: findings exit 1 only with --block (a scratch git repository holding ci/standards.js and ci/lib.js,
 // a commit, then an added test-file comment with a history word); a clean diff exits 0 with --block too
