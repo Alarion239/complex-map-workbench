@@ -734,5 +734,10 @@
  "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие",
  "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
  "No tone past the colour plane: the colour here comes from {p}.": "После плоскости цвета звука нет: цвет здесь берётся из %{p}.",
- "{from} → {to} · {secs} s": "%{from} → %{to} · %{secs} с"
+ "{from} → {to} · {secs} s": "%{from} → %{to} · %{secs} с",
+ "dashed: {x}": "пунктир: %{x}",
+ "grey: {x}": "серым: %{x}",
+ "the start": "начало",
+ "hue: the argument, red at 1, counterclockwise": "оттенок: аргумент, красный в 1, против часовой стрелки",
+ "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞"
 }

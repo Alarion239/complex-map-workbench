@@ -1425,10 +1425,10 @@
   // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
   // caption), 'pre' (the marked preimages of the later planes' points)
   const PANE_SAY_ORDER = ['land', 'pre'];
-  const paneSayAt = new Map();   // pane → { parts, begun, el, text }
+  const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
-    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, el: null, text: '' }));
+    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, text: '' }));
     return q;
   }
   function paneSays(pane) { const q = paneSayOf(pane); q.parts = {}; q.begun = pane.begun; }
@@ -1439,9 +1439,16 @@
     const text = PANE_SAY_ORDER.map((k) => q.parts[k]).filter(Boolean).join(' ');
     if (text === q.text) return;
     q.text = text;
-    if (!q.el) { q.el = h('span', { class: 'sr-only', id: cv.id + 'Say' }); cv.after(q.el); }
-    q.el.textContent = text;
-    if (text) cv.setAttribute('aria-describedby', q.el.id); else cv.removeAttribute('aria-describedby');
+    srSay(cv, text, (sp) => cv.after(sp));
+  }
+  // el's hidden description: a span (class sr-only, id el.id + 'Say', placed once by put) holding text, which el's
+  // aria-describedby names while text is not empty; the span's text and the attribute are written only when they change
+  function srSay(el, text, put) {
+    let sp = $(el.id + 'Say');
+    if (!sp) { sp = h('span', { class: 'sr-only', id: el.id + 'Say' }); put(sp); }
+    if (sp.textContent !== text) sp.textContent = text;
+    if (!text) el.removeAttribute('aria-describedby');
+    else if (el.getAttribute('aria-describedby') !== sp.id) el.setAttribute('aria-describedby', sp.id);
   }
   const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
   const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
