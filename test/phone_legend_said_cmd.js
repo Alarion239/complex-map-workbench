@@ -1,7 +1,8 @@
 // On a phone, a plane's colour key says in words what its canvas draws: the key box's accessible description (aria-describedby,
 // read from the accessibility tree) names the key's caption and its rows, for each kind of key. In the steps view: the Colour key
 // on the Plane (the caption, then the hue wheel's reading), on the Sphere, and the Height key on the Landscape (its caption, then
-// its contours); in the classic view, Y's Regions key (its fill). Each read with the key unfolded, at 360 × 640, in en and ru.
+// its contours); in the classic view, Y's Regions key (its fill). Each read with the key unfolded, at 360 × 640 (Y's at 568 × 320:
+// the classic view's portrait phone does not draw Y's key), in en and ru.
 // The words are compared with the page's own: __cmwLegend()'s caption and the strings the key draws ($t). The box is a button
 // (the phone's key, legendKeyButton) named for its kind: the Height key on the Landscape, else the Colour key, whatever
 // surface the view came from; the Regions key, "Regions key, " and what it shows.
@@ -53,6 +54,7 @@ for (const lang of ['en', 'ru']) {
   // the classic view's Y: the Regions key, with the regions' fill in its words
   {
     const tag = `${lang} classic Y`;
+    await view(568, 320, false, true);
     await send('Page.navigate', { url: `${U}?ns=${ns}c&lang=${lang}&view=classic` });
     await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
     await unfold('rightLegend');
