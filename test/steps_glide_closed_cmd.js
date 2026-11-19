@@ -3,21 +3,22 @@
 // - cos, cosh, arccos and arcosh play their zoom paths (NatPaths.ZOOM): cos about π/2 by sin's ops, arccos about 0 by
 //   arcsin's, cosh about arsinh 1 and arcosh about √2 by their own, each between two affine maps (Inverse.homOps). At
 //   u = 0.5 (cos also at 0.25 and 0.75) the frame is drawn by the inverse pass (the glide's record, path 'inverse')
-//   and none of the ops it inverted is NEWT; cos's carried colour at 0.5 is the exact picture (held_frames.js's judge).
-//   The Newton walk these homotopies took found no seeds for a periodic step, so their frames were the carried mesh's;
+//   and none of the ops it inverted is NEWT; cos's carried colour at 0.5 is the exact picture (held_frames.js's judge);
 // - the same place either way: cos's frame at u = 0.5 reached through 0.1, ..., 0.4 from plane z and through 0.9, ...,
 //   0.6 from plane w1: at most SAME_FRAC of the pixels more than DIFF_TOL apart;
-// - arrival: the frame at u = 1 - 10^-4 against plane w1 at rest, at most ARRIVAL_FRAC of the pixels more than DIFF_TOL
-//   apart, for each of the four (a u close enough to 1 that a fast but continuous end of the motion does not count);
+// - arrival: the frame at u = 1 - 10^-4 against plane w1 at rest away from the lines (held_frames.js's sameAway: the
+//   dashes of an image's edge start where its path does, which moves with u), at most ARRIVAL_FRAC of the pixels more
+//   than DIFF_TOL apart, for each of the four (a u close enough to 1 that a fast but continuous end of the motion does
+//   not count);
 // - cost: cos's frame held at u = 0.5, the left pane drawn ten times in a row and read back each time (__cmwTime),
-//   against z^2's in the same session: within COST_RATIO times (the carried mesh's frame cost about 6 times z^2's on
-//   lavapipe; the inverse pass's about twice). Timing row (reported, not gated): within TIMING_RATIO times.
+//   against z^2's in the same session: within COST_RATIO times (about 1.4 on lavapipe, 1.1 on SwiftShader). Timing row
+//   (reported, not gated): within TIMING_RATIO times.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const { hold, grab, compare, wordsOff, judge, UNHELD, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { hold, grab, compare, sameAway, wordsOff, judge, UNHELD, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const goOk = async (url) => { if (!(await go(url))) throw new Error('no load event for ' + url); };
 // a page opened in the steps view on the one-step chain step, Everywhere, the colour plane the last plane, its labels off
 const open = async (step, tag) => {
@@ -52,6 +53,7 @@ for (const [name, step] of Object.entries(ZOOMS)) {
   await rest(1);
   ok(`${name}: plane w1 at rest settles`, await grab(`${name}R1`), null);
   await rest(0);
+  ok(`${name}: plane z at rest settles`, await grab(`${name}R0`), null);
   for (const u of name === 'cos' ? [0.25, 0.5, 0.75] : [0.5]) {
     { const h = await hold(u); ok(`${name} u = ${u}: the thread is held`, h.ok, h); }
     ok(`${name} u = ${u}: the moving frame settles`, await grab(`${name}M${u}`), null);
@@ -60,11 +62,7 @@ for (const [name, step] of Object.entries(ZOOMS)) {
     ok(`${name} u = ${u}: the frame is the inverse pass's`, !!g && g.path === 'inverse' && g.b === 1, g);
     ok(`${name} u = ${u}: no op the inverse pass inverted is Newton's`, noNewton(g), g);
     if (name === 'cos' && u === 0.5) {
-      await rest(0);
-      ok('cos: plane z at rest settles', await grab('cosR0'), null);
-      await hold(u);
-      ok(`cos u = ${u}: the moving frame settles again`, await grab('cosJ'), null);
-      const j = await judge('cosR0', 'cosJ');
+      const j = await judge('cosR0', 'cosM0.5');
       info['cos judge u=0.5'] = j;
       ok('cos u = 0.5: the carried colour is the exact picture (judge passes)', j.pass, j);
     }
@@ -74,9 +72,9 @@ for (const [name, step] of Object.entries(ZOOMS)) {
   const p = await place(ARRIVAL_U);
   ok(`${name}: a frame at u = 1 - 1e-4 is drawn`, p.ok, p);
   ok(`${name} u = 1 - 1e-4: the frame settles`, await grab(`${name}A`), null);
-  const d = await compare(`${name}A`, `${name}R1`);
+  const d = await sameAway(`${name}A`, `${name}R1`, DIFF_TOL);
   info[`${name} arrival`] = d;
-  ok(`${name}: the frame at u = 1 - 1e-4 is plane w1 at rest (at most ${ARRIVAL_FRAC} of the pixels more than ${DIFF_TOL} apart)`, !!d && d.frac <= ARRIVAL_FRAC, d);
+  ok(`${name}: the frame at u = 1 - 1e-4 is plane w1 at rest away from the lines (at most ${ARRIVAL_FRAC} of the pixels more than ${DIFF_TOL} apart)`, !!d && d.n > 0 && d.over <= ARRIVAL_FRAC, d);
 }
 
 // ---- cos: the same frame at u = 0.5 from either end ----
@@ -100,7 +98,7 @@ for (const [name, step] of Object.entries(ZOOMS)) {
 }
 
 // ---- cost: cos's frame held at u = 0.5 against z^2's, ms per draw of the left pane (the median of three reads of ten draws) ----
-const COST_RATIO = 3, TIMING_RATIO = 2.2;
+const COST_RATIO = 2.5, TIMING_RATIO = 1.6;
 async function cost(step, tag) {
   await open(step, tag);
   await rest(0);
