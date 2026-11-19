@@ -1256,6 +1256,31 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
     check(`opNewt zeta at t = ${t} over the pole's image: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
   }
 }
+// The walks take the GPU kit's derivative (#1929): member 0's walk (op.pre(w, trace)'s first newtGridK(t) + 1 iterates: one
+// step at each grid stage k / NEWT_K, then one at t) is Newton with H' by the forward difference over NEWT_FD (1 + |u|) from
+// H(u), glsl.js's _step, step for step. Where a stage's one step leaves |H - w| large the walk leaps between basins and the
+// derivative decides where it lands: at the zeta pixel w = 0.0875 + 25.3125i of #1396, t = 0.5, a central difference over
+// 1e-6 (1 + |u|) walked to -0.905 + 38.244i, where the kit's walk ends on none. glsl.js's _fd has the same step.
+{
+  const GLSL = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'glsl.js'), 'utf8');
+  const fdAt = /_fd\(vec2 u, vec2 hu, float t\) \{ float h = ([0-9.e-]+) \* \(1\.0 \+ cx_abs\(u\)\)/.exec(GLSL);
+  check('glsl.js\'s _fd differences H over InvOps.NEWT_FD (1 + |u|)', !!fdAt && Number(fdAt[1]) === InvOps.NEWT_FD, fdAt && fdAt[1]);
+  const fdStep = (u, w, f) => { const fu = f(u), h = InvOps.NEWT_FD * (1 + CX.abs(u)); return CX.sub(u, CX.div(CX.sub(fu, w), CX.scale(CX.sub(f(CX.add(u, { re: h, im: 0 })), fu), 1 / h))); };
+  const CASES = [['zeta', 0.5, [[0.0875, 25.3125], [0.5, 14], [-3, 20], [2, 30]]], ['zeta', 0.75, [[0.0875, 25.3125], [1, 8]]], ['series', 0.5, [[1, 1], [-2, 0.5]]]];
+  for (const [type, t, ws] of CASES) {
+    const b = Funcs.build(St(type)), op = Inverse.homOps(b, t).ops[0], k0 = InvOps.newtGridK(t);
+    for (const [x, y] of ws) {
+      const w = { re: x, im: y }, got = [];
+      op.pre(w, (m, u) => { if (m === 0) got.push(u); });
+      let u = w, worst = 0, steps = 0;
+      for (let k = 1; k <= k0 + 1 && k <= got.length && Number.isFinite(u.re + u.im); k++, steps++) {
+        u = fdStep(u, w, b.hom(k <= k0 ? k / InvOps.NEWT_K : t));
+        worst = Math.max(worst, CX.abs(CX.sub(u, got[k - 1])) / (1 + CX.abs(u)));
+      }
+      check(`opNewt ${type} at t = ${t}, w = ${x} + ${y}i: member 0's walk is the kit's, Newton with the forward difference, step for step`, steps === k0 + 1 && worst <= 1e-12, { steps, of: k0 + 1, worst });
+    }
+  }
+}
 // the exponential series sum z^n / n! (no exact inverse), the disc |z| < 2, w over [-3, 3]^2: the members keep reaching
 // the true image
 {
