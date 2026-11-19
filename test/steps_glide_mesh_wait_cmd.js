@@ -1,7 +1,8 @@
 // A glide the carried meshes draw waits on the plane it started from while their programs link, drawn as that plane is
 // at rest, and no frame of it blends two planes (#844): the chain [z + 0.2 conj(z)] (not analytic: its homotopy has no
 // inverse plan, so its glide is drawn by the carried meshes), coloured from z, Everywhere, opened with the chain's
-// programs held linking (?glhold, GLR.holdLinks).
+// programs held linking (?glhold, GLR.holdLinks) and the Play gate off (__cmwSteps({ gate: false }): a glide pressed
+// starts at once, so the frames read are those of the hold under the gate).
 // - Plane, plane z at rest (the reference): not the bare paper (its mean luminance under PAPER_LUM);
 // - plane, a scrub held at x = 0.05, 0.5 and 0.95 (__cmwSteps({ x })): the frame is plane z's at rest (at most HOLD_OFF
 //   of its pixels more than DIFF_TOL apart, held_frames' compare), its chrome is plane z's at rest (the rulers' pixels,
@@ -68,7 +69,9 @@ const open = async (surf, steps, T = 0) => {
     GLR.drawColorPlot = function (o) { if (!o.noValue) window.__plotAlphas.push(o.alpha == null ? 1 : o.alpha); return f.apply(this, arguments); };
     GLR.drawSphere = function (o) { window.__spheres.push({ k: o && o.carried ? 'carried' : 'globe' }); return g.apply(this, arguments); };
     return 1; })()`);
-  await ev(`__cmwSet('morphPaths', false); __cmwSteps({ T: ${T}, scope: 'all', surf: '${surf}' }); 1`);
+  // (the Play gate off: a glide pressed waits for nothing before it starts, so the frames read are those of the hold
+  // under it, svLinkHold's, while the links are held)
+  await ev(`__cmwSet('morphPaths', false); __cmwSteps({ T: ${T}, scope: 'all', surf: '${surf}', gate: false }); 1`);
 };
 // the frames drawn with the thread at x, read: the opacities of their colour plots, the globes drawn, the thread, the
 // frame against the rest frame
