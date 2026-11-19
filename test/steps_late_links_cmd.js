@@ -38,7 +38,19 @@
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
 //   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
-//   (its thread still never goes back), and it ends within seconds of the link landing.
+//   (its thread still never goes back), and it ends within seconds of the link landing;
+// - on a fresh page, the Landscape shown and the warm-up run to its end: no landTF, land or floor of the chain in
+//   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
+//   linked before ▶;
+// - a chain with sheets (z, Möbius, √), the Landscape shown with All sheets off and the warm-up run to its end, then All
+//   sheets ticked by its check, or set as a tour step's look sets it: the program that places the sheets under the
+//   glide's carry (landCarryPlace) linked before ▶;
+// - z + 1/z, then z⁴ + z, on a fresh page whose links land 20 s late, with the Play gate on: ▶, then the main thread stalled
+//   for longer than the play lasts in the same task (a link or compile blocking it): the gate starts no play, so the thread
+//   stays on plane 0 through the stall, no live region says "Stopped at", and the play's first frame moves it only after the
+//   chain has been ready; it reaches plane 2.
+// Every other leg switches the Play gate (svplay_gate_cmd.js) off (__cmwSteps({ gate: false })): it waits before any motion
+// starts, and those legs watch the hold that follows one.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -62,6 +74,8 @@ const PLAY_STEP_MS = 47;
 // ms a link reads not complete where a play is to wait for a later glide's programs long enough to be watched, and
 // where a glide is to wait half way for a program its later frames ask for
 const SECOND_LINK_MS = 15000, LATER_LINK_MS = 60000;
+// the gate leg: ms its links read not complete, and the main-thread stall after ▶ (longer than the play's 1800 ms)
+const GATE_LINK_MS = 20000, STALL_MS = 2000, GATE_STEP_MS = 300;
 // the animation frames in a row the thread of a held motion stays put, and the most ms from a held glide's last link
 // landing to its end
 const STILL_FRAMES = 3, ENDS_MS = 5000;
@@ -75,7 +89,7 @@ const example = async (ns, ex, scope) => {
   await settled({ max: READY_MS, until: loaded });
   await ev(`__cmwExample(${names.indexOf(ex)}), 1`);
   await adopted();
-  await ev(`__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: '${scope}' }), 1`);
+  await ev(`__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: '${scope}', gate: false }), 1`);
 };
 // in the page, from now on: the animation frames, the left pane's frames drawn (GLR.blit into #canvasL), a chain of idle
 // callbacks of `idle` (requestIdleCallback, or __browserIdle where NO_IDLE gives the app's none) each with the time it
@@ -339,6 +353,41 @@ try {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
     }
   }
+  // z + 1/z, then z⁴ + z, on a fresh page whose links land GATE_LINK_MS late, the Play gate left on (the suite's others switch
+  // it off): ▶ pressed, then the main thread stalled for STALL_MS (longer than the play lasts) in the same task, standing for
+  // a link or compile that blocks it. The press starts no play (the gate waits for the programs: the first frame after the
+  // stall finds no clock running), so while the links are pending the thread stays on plane 0, the live region never says
+  // "Stopped at", and the play begins, with the chain ready, only once its links have landed, and reaches plane 2
+  {
+    const slow = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${GATE_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
+    try {
+      await go(`${BASE}/test.html?ns=llw${Date.now()}&lang=en&view=steps`);
+      await settled({ max: READY_MS, until: loaded });
+      await ev(`__cmwExample(${names.indexOf(POLE_EX)}), 1`);
+      await adopted();
+      await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all' }), __cmwAddStep('custom', { expr: 'z^4+z', cut: 180 }, 1), 1");
+      await settled({ only: true, max: READY_MS, until: '__cmwSteps().planes.length === 3' });
+      await ev('__cmwSteps({ go: 0, now: true }), 1');
+      // (at every animation frame: the thread's moves, whether the chain has been ready by its first, and whether a live region has said "Stopped at")
+      await ev(`(() => { const s = window.__llGate = { stopped: 0, moved: 0, last: __cmwSvX(), done: false }; const t = () => { const x = __cmwSvX(); const rd = __cmwSteps().ready.ready; if (rd) s.everReady = true; if (x !== s.last) { s.moved++; if (!s.first) s.first = { ready: !!s.everReady, pending: GLR.pendingLinks }; } s.last = x; if ([...document.querySelectorAll('.sr-only[aria-live]')].some((e) => /Stopped at/.test(e.textContent))) s.stopped++; if (!s.done) requestAnimationFrame(t); }; requestAnimationFrame(t); return 1; })()`);
+      // (the idle callbacks of a page whose frames are slow are given time, as in the legs above)
+      await record('requestIdleCallback');
+      const pending = await ev('GLR.pendingLinks');
+      const stalled = await ev(`(() => { __cmwSteps({ clock: ${GATE_STEP_MS} }); __cmwSteps({ play: true }); const t0 = performance.now(); while (performance.now() - t0 < ${STALL_MS}); return { pending: GLR.pendingLinks, x: __cmwSvX() }; })()`);
+      const settledOn = await settled({ only: true, max: PLAY_MS, until: 'GLR.pendingLinks === 0 || __cmwSvX() > 0' });
+      const mid = await ev('({ x: __cmwSvX(), pending: GLR.pendingLinks, stopped: window.__llGate.stopped, busy: !!document.querySelector(".sv-play[aria-busy]"), play: __cmwSteps().play })');
+      const reached = await settled({ only: true, max: 2 * PLAY_MS, until: '__cmwSvX() === 2 && !__cmwSteps().anim' });
+      const fin = await ev('({ x: __cmwSvX(), pending: GLR.pendingLinks, moved: window.__llGate.moved, first: window.__llGate.first, stopped: window.__llGate.stopped, play: __cmwSteps().play })');
+      await ev('window.__llGate.done = true, 1');
+      const got = { pending, stalled, mid, fin, waits: { settledOn, reached } };
+      ok(`${POLE_EX}, then z⁴ + z, links ${GATE_LINK_MS} ms late: ▶ then a ${STALL_MS} ms stall leaves the thread on plane 0 with the links pending`, pending > 0 && stalled.pending > 0 && stalled.x === 0, got);
+      ok(`${POLE_EX}, then z⁴ + z, ▶ then a ${STALL_MS} ms stall: no live region says "Stopped at" while the play waits for the links`, mid.stopped === 0 && (mid.x === 0 || !mid.busy), got);
+      ok(`${POLE_EX}, then z⁴ + z, ▶ then a ${STALL_MS} ms stall: the play begins only once the chain has been ready, and arrives at plane 2`, reached.ok && fin.x === 2 && !!fin.first && fin.first.ready === true, got);
+      info.gateStall = got;
+    } finally {
+      await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
+    }
+  }
   // exp(sin z) typed over z² + 1 (a disc, Inside regions), on a fresh page whose links land late (the suite's), the glide
   // to plane 1 with its time a frame PLAY_STEP_MS; from its second frame on, the links it starts land LATER_LINK_MS late
   // (__lateLinkMs): the program its frames ask for past about two fifths of the way. While the glide waits for it
@@ -348,6 +397,7 @@ try {
     await settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(\'input[data-pkey="expr"]\')' });
     await ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = 'exp(sin(z))'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return 1; })()`);
     await adopted();
+    await ev('__cmwSteps({ gate: false }), 1');
     await settled({ only: true, max: WARM_MS, until: 'GLR.pendingLinks === 0' });
     await record('requestIdleCallback');
     await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
@@ -368,6 +418,54 @@ try {
     ok(`exp(sin z), the glide waiting half way, › pressed: the glide is replaced by one from where it is, and its thread still never goes back`, still && k1.replaced && k1.x >= s1.got.x && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: it ends within ${ENDS_MS} ms of the link landing`, s2.ok && s3.ok && got.endMs <= ENDS_MS, got);
     info.half = got;
+  }
+  // the partial sums with the Landscape shown in the steps view, the warm-up run to its end: the steps view draws
+  // the Landscape's heights in map mode 0 only (at rest, and under a glide's carry), so the warm-up links no landTF, land
+  // or floor of the chain in another map mode; and the programs the Landscape's glide draws with (landCarryTF and
+  // landCarry in mode 1, landCarryNrm, and lineFC for the floor's outlines) are linked before ▶, from that idle time
+  {
+    const ex = names.indexOf(NEWT_EX), GLIDE_LAND = ['landCarryTF|m1', 'landCarry|m1', 'landCarryNrm|m0', 'lineFC|m0'];
+    await go(`${BASE}/test.html?ns=llg${Date.now()}&lang=en&view=steps`);
+    await settled({ max: READY_MS, until: loaded });
+    await ev(`__cmwExample(${ex}), 1`);
+    await adopted();
+    await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'all', surf: 'land' }), 1");
+    const r7 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    // (each program as name|mode and its state; the chain's own, and the programs of no chain)
+    const progs = await ev(`(() => { const k = '|' + GLR.chainKey + '|m'; return GLR.landProgs().map((x) => {
+      const sp = x.lastIndexOf(' '), id = x.slice(0, sp), st = x.slice(sp + 1), name = id.slice(0, id.indexOf('|')), at = id.indexOf(k);
+      if (id.endsWith('|static')) return name + '|m0 ' + st;
+      return at > 0 ? name + '|m' + id.slice(at + k.length).split('|')[0] + ' ' + st : null; }).filter(Boolean); })()`);
+    const twins = progs.filter((x) => /^(landTF|land|floor)\|m[1-9]/.test(x));
+    ok(`${NEWT_EX}, the Landscape shown in the steps view: the warm-up links no landTF, land or floor in another map mode than 0`, r7.ok && twins.length === 0, { twins, wait: r7 });
+    const missing = GLIDE_LAND.filter((n) => !progs.includes(n + ' ready'));
+    ok(`${NEWT_EX}, the Landscape shown in the steps view: the programs its glide draws with are linked before ▶`, r7.ok && missing.length === 0, { missing, wait: r7 });
+    info.landGlide = { programs: progs.length, twins: twins.length, missing };
+  }
+  // a chain with sheets (z, Möbius, √) with the Landscape shown in the steps view, All sheets off, the warm-up run to its
+  // end; All sheets then ticked, by its check (in the plane's options) or set as a tour step's look sets it (the option
+  // alone, __cmwSet): the glide's carry places the sheets (landCarryPlace), linked from the idle time after the tick as
+  // the glide's other programs are; control: the option is on
+  info.landSheets = {};
+  const TICK = {
+    'by its check': `(() => {
+      if (!document.getElementById('sheetsChk')) { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b) b.click(); }
+      const c = document.getElementById('sheetsChk'); if (!c) return false; c.click(); return c.checked; })()`,
+    'as a tour step sets it': "(__cmwSet('sheets', true), __cmwFigureState().sheets === true)",
+  };
+  for (const [how, tick] of Object.entries(TICK)) {
+    const CHAIN = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'root', params: { n: 2 }, on: true }];
+    await loadView('steps', 'llsheets' + Date.now(), { shapes: [], steps: CHAIN, sheets: false, height: 'im' });
+    await settled({ max: READY_MS, until: loaded });
+    await adopted();
+    await ev("__cmwSteps({ scope: 'all', surf: 'land' }), 1");
+    const r8 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    const ticked = await ev(tick);
+    const r9 = await settled({ max: WARM_MS, until: 'GLR.pendingLinks === 0 && __cmwSteps().ready.ready' });
+    const place = await ev(`GLR.landProgs().filter((x) => x.startsWith('landCarryPlace|') && x.includes('|' + GLR.chainKey + '|m1'))`);
+    ok(`z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up ${how}, control: the option is on`, r8.ok && ticked, { ticked, wait: r8 });
+    ok(`z, Möbius, √, the Landscape shown in the steps view, All sheets ticked after the warm-up ${how}: the sheets' places its glide draws with are linked before ▶`, ticked && r9.ok && place.some((x) => x.endsWith(' ready')), { place, wait: r9 });
+    info.landSheets[how] = { ticked, place };
   }
 } finally {
   await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
