@@ -113,7 +113,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
     await view(w, h, false, true);
     const ns = 'plk' + w + lang + q + (Date.now() % 1000000);
     if (q === 'steps') await load(ns, ST);
-    await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=${q}` });
+    await go(`${U}?ns=${ns}&lang=${lang}&view=${q}`);
     await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && ${ids.map((id) => `!!document.getElementById('${id}') && !document.getElementById('${id}').hidden`).join(' && ')}` });
     // (the key drawn: drawLegendSide names it, on any build)
     await settled({ max: SETTLE_MAX, panes: false, until: ids.map((id) => `!!document.getElementById('${id}').getAttribute('aria-label')`).join(' && ') });
