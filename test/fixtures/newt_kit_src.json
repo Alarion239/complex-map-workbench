@@ -1,23 +1,23 @@
 {
  "cubic @ 0.3": {
   "newt": 1,
-  "src": "74642495c9079ab138001656638c4d2b98e7d17a66b16ba69444bc9b03de64d1"
+  "src": "61f495a4f3b2da317c9f64e732905016867666c70126cd36c045a6e1774067bb"
  },
  "cubic @ 0.7": {
-  "newt": 0,
-  "src": "330ea2f0656967890c15b35033187d7b78813641fbb1c4afbc23c410b2779718"
+  "newt": 1,
+  "src": "c7c19f3961fd16254a946942aa48cbb4909e08e95d0e105e9758874beab5d6f0"
  },
  "quartic @ 0.3": {
   "newt": 1,
-  "src": "716c1c3e911fa90c072eee3e335854847750c50e802ea4258d30ca035ddf4aa3"
+  "src": "4d3e0bbb47ce1af6f96d2bd520408bf500aec6b18d527333172db3da4d24f1f2"
  },
  "quartic @ 0.7": {
   "newt": 1,
-  "src": "716c1c3e911fa90c072eee3e335854847750c50e802ea4258d30ca035ddf4aa3"
+  "src": "4d3e0bbb47ce1af6f96d2bd520408bf500aec6b18d527333172db3da4d24f1f2"
  },
  "gamma+1 @ 0.3": {
   "newt": 1,
-  "src": "add281a0ad20060177dbb8d8c77991a5435526aef2ad203eb7398b0b6bbda44e"
+  "src": "80e341b22275ba8fa4fba08a84821688d08d78f3ed8686dc6de820913c90b147"
  },
  "gamma+1 @ 0.7": {
   "newt": 0,
@@ -33,7 +33,7 @@
  },
  "cos^2 @ 0.3": {
   "newt": 1,
-  "src": "add281a0ad20060177dbb8d8c77991a5435526aef2ad203eb7398b0b6bbda44e"
+  "src": "80e341b22275ba8fa4fba08a84821688d08d78f3ed8686dc6de820913c90b147"
  },
  "cos^2 @ 0.7": {
   "newt": 0,
@@ -41,7 +41,7 @@
  },
  "2cos+1 @ 0.3": {
   "newt": 1,
-  "src": "add281a0ad20060177dbb8d8c77991a5435526aef2ad203eb7398b0b6bbda44e"
+  "src": "80e341b22275ba8fa4fba08a84821688d08d78f3ed8686dc6de820913c90b147"
  },
  "2cos+1 @ 0.7": {
   "newt": 0,
