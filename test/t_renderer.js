@@ -24,6 +24,15 @@ check('Linux with lavapipe: ANGLE Vulkan', r.angle === 'vulkan' && r.source === 
 check('… with the three Vulkan flags of CI\'s browser jobs', JSON.stringify(r.args) === JSON.stringify(['--enable-features=Vulkan', '--use-vulkan=native', '--disable-vulkan-surface']), r.args);
 check('… and llvmpipe capped to AVX, as CI does', r.env.GALLIUM_OVERRIDE_CPU_CAPS === 'avx', r.env);
 check('… with no warning', r.warning === null, r);
+check('… and the Vulkan loader is pinned to the lavapipe ICD found (the package also ships the GPU drivers\' ICDs)', r.env.VK_ICD_FILENAMES === ICD && r.env.VK_DRIVER_FILES === ICD, r.env);
+r = linux({ env: { VK_ICD_FILENAMES: '/opt/gpu/icd.json' } });
+check('an ICD the caller set is left alone', r.angle === 'vulkan' && !('VK_ICD_FILENAMES' in r.env) && !('VK_DRIVER_FILES' in r.env), r.env);
+r = linux({ env: { VK_DRIVER_FILES: '/opt/gpu/icd.json' } });
+check('so is one set through VK_DRIVER_FILES', !('VK_ICD_FILENAMES' in r.env) && !('VK_DRIVER_FILES' in r.env), r.env);
+r = linux({ fsx: fake({}) });
+check('no ICD is pinned where there is no lavapipe', !('VK_ICD_FILENAMES' in r.env) && !('VK_DRIVER_FILES' in r.env), r.env);
+r = linux({ env: { CMW_ANGLE: 'swiftshader' } });
+check('nor with CMW_ANGLE set', !('VK_ICD_FILENAMES' in r.env), r.env);
 r = linux({ env: { GALLIUM_OVERRIDE_CPU_CAPS: 'avx2' } });
 check('a cap the caller set is left alone', r.angle === 'vulkan' && !('GALLIUM_OVERRIDE_CPU_CAPS' in r.env), r.env);
 check('an ICD whose library is an absolute path is found', !!lavapipeIcd(fake({ [ICD]: icd('/opt/lvp/libvulkan_lvp.so'), '/opt/lvp/libvulkan_lvp.so': '' }), 'x64'));

@@ -5,7 +5,8 @@
 // (test/regress/perf/cdp.js) keeps the platform's defaults and does not read this.
 //   resolveRenderer({ env, platform, arch, fsx }) -> { angle, args, env, source, warning }
 // - angle: the value of --use-angle; args: flags the choice needs, put before CMW_CHROME_ARGS; env: variables to add to Chrome's
-//   environment (none that the caller already set); source: what chose it ('CMW_ANGLE', 'platform', 'lavapipe' or 'swiftshader');
+//   environment (none that the caller already set: the cap on the instructions llvmpipe emits, and the Vulkan loader's ICD file, which
+//   is the lavapipe one so that a GPU's ICD in the same package does not draw instead); source: what chose it ('CMW_ANGLE', 'platform', 'lavapipe' or 'swiftshader');
 //   warning: one line for the log when a Linux machine falls back to SwiftShader, else null.
 // CI's browser jobs draw with Mesa's lavapipe through ANGLE's Vulkan back end (CMW_ANGLE=vulkan, GALLIUM_OVERRIDE_CPU_CAPS=avx, the
 // Vulkan flags: .github/workflows/gate.yml). A local run on Linux draws the same way when the machine has lavapipe (its Vulkan ICD
@@ -43,8 +44,12 @@ function resolveRenderer({ env = process.env, platform = process.platform, arch 
   if (env.CMW_ANGLE) return { angle: env.CMW_ANGLE, args: [], env: {}, source: 'CMW_ANGLE', warning: null };
   if (platform === 'win32') return { angle: 'd3d11', args: [], env: {}, source: 'platform', warning: null };
   if (platform === 'darwin') return { angle: 'metal', args: [], env: {}, source: 'platform', warning: null };
-  if (lavapipeIcd(fsx, arch)) {
-    return { angle: 'vulkan', args: VULKAN_FLAGS.slice(), env: env.GALLIUM_OVERRIDE_CPU_CAPS ? {} : { GALLIUM_OVERRIDE_CPU_CAPS: LLVMPIPE_CAPS }, source: 'lavapipe', warning: null };
+  const icd = lavapipeIcd(fsx, arch);
+  if (icd) {
+    // (the package mesa-vulkan-drivers also installs the GPU drivers' ICDs: a machine with a GPU would draw on it, not on lavapipe, so
+    // the loader is pointed at the lavapipe ICD found, unless the caller points it somewhere)
+    const pin = env.VK_ICD_FILENAMES || env.VK_DRIVER_FILES ? {} : { VK_ICD_FILENAMES: icd, VK_DRIVER_FILES: icd };
+    return { angle: 'vulkan', args: VULKAN_FLAGS.slice(), env: Object.assign(env.GALLIUM_OVERRIDE_CPU_CAPS ? {} : { GALLIUM_OVERRIDE_CPU_CAPS: LLVMPIPE_CAPS }, pin), source: 'lavapipe', warning: null };
   }
   return {
     angle: 'swiftshader', args: [], env: {}, source: 'swiftshader',
