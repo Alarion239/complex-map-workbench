@@ -22,7 +22,7 @@ const reopen = async (nsx) => {
   await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${nsx}&lang=en&view=steps` });
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
 };
-const GLIDE_CLOCK_MS = 20, UNDERWAY_MAX_MS = 30000;   // the glide time a frame advances (ms), and the longest wait for a glide to be under way
+const GLIDE_CLOCK_MS = 100, UNDERWAY_MAX_MS = 30000;   // the glide time a frame advances (ms), and the longest wait for a glide to be under way
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
 const arrived = () => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()` });
