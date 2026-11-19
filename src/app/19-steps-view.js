@@ -2065,9 +2065,8 @@
   // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
   // map), which writes alpha alone under the caller's write mask. A region's look goes from the one it has at rest on
   // the glide's first plane to the one it has on the plane the glide reaches, by its share of its own look (svStagedOf's
-  // own): its own opacity at 1, pulled back (stagePullbacks: PULL_ALPHA, and the boundary band, the mask's more opaque
-  // line that drawPreimage draws at rest, so the carried colour shows stronger there) at 0, mixed in between. Nothing
-  // when none is visible or the pass cannot draw them.
+  // own): its own opacity at 1, pulled back (stagePullbacks' mask: opaque, dimK alone, and the boundary band that
+  // drawPreimage draws at rest) at 0, mixed in between. Nothing when none is visible or the pass cannot draw them.
   // A region at its own look is one fill pass, grown to its band's reach; a pulled-back one is one pass of its band over
   // its fill (the edge draw's tint), alpha l + f (1 - l) as a fill pass and a band pass over it write, its fill to the
   // boundary (the band's outer half is the band's alpha alone). So each region costs the frame one inverse pass (a
@@ -2075,7 +2074,7 @@
   function svStagedMask(pane, all) {
     const st = svStagedOf(all);
     if (!st) return;
-    const fillA = (x) => { const p = PULL_ALPHA * dimK(x); return p + st.own(x) * (1 - p); };
+    const fillA = (x) => { const p = dimK(x); return p + st.own(x) * (1 - p); };
     const whole = st.list.map((x, i) => i).filter((i) => st.own(st.list[i]) >= 1);
     if (whole.length) svDrawInverse(pane, whole.map((i) => st.list[i]), whole.map((i) => st.paths[i]), svT(), { open: true }, null, fillA);
     svPulledEdge(pane, st, { open: true }, (x, k) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A * k, tint: [0, 0, 0, fillA(x)] }));
@@ -2104,7 +2103,7 @@
   // curve itself, with the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour over its casing)
   // at the shape's share of its own look (svStagedOf's own: u), so the stroke comes in over the glide: Map shape ->
   // { path: its inverse path, k: that share }, or null. Inside regions and Everywhere. The pulled-back regions' band is
-  // the mask's (svStagedMask); the earlier planes' strokes are the outline pass's (svShapeMap)
+  // the layer's (svStagedLayer); the earlier planes' strokes are the outline pass's (svShapeMap)
   function svReached(map0) {
     if (map0.mode !== 1) return null;
     const g = svBetween(), m = new Map();

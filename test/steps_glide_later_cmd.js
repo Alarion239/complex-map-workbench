@@ -16,6 +16,10 @@
 // preimage, the glide's first frame (u = 0.002, the inverse pass's) is the parked frame on z within END_FRAC of the
 // pixels and with a mean difference at most LAYER_SHARE of the layer's own (the parked frame against the same frame
 // without that region, the control: more than LAYER_CTL of the pixels and a mean of more than LAYER_MEAN apart).
+// Inside regions the colour inside keeps its full strength and the layer there is the band alone (#1889), a line a pixel
+// or so wide: in a window about the preimage's boundary, the band's pixels (the parked frame more than BAND_D, channels
+// summed, from the frame without that region; at least BAND_N of them) differ from that frame in the glide's first
+// frame too, within a pixel, at BAND_HIT of them or more.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -121,14 +125,31 @@ for (const u of LOOK_U) {
 }
 
 // ---- the layer of a later plane's region, at the glide's start ----
-const LAYER_SHARE = 0.35, LAYER_CTL = 0.01, LAYER_MEAN = 3;
+const LAYER_SHARE = 0.35, LAYER_CTL = 0.01, LAYER_MEAN = 3, BAND_D = 24, BAND_N = 20, BAND_HIT = 0.9;
+// the band's pixels in window win (canvas fractions): where the parked frame Q differs from Q0 (the frame without the
+// region) by more than BAND_D; hit, those where the glide's frame QM differs from Q0 by more than BAND_D / 2 at one of
+// the 3 x 3 pixels about it
+const bandKept = (win) => ev(`(() => {
+  const K = window.__heldPx, Q = K.Q, QM = K.QM, Q0 = K.Q0, c = document.getElementById('canvasL'), W = c.width, H = c.height;
+  const x0 = Math.max(1, Math.floor(${win.x[0]} * W)), x1 = Math.min(W - 2, Math.ceil(${win.x[1]} * W)), y0 = Math.max(1, Math.floor(${win.y[0]} * H)), y1 = Math.min(H - 2, Math.ceil(${win.y[1]} * H));
+  const d = (A, i) => Math.abs(A[i] - Q0[i]) + Math.abs(A[i + 1] - Q0[i + 1]) + Math.abs(A[i + 2] - Q0[i + 2]);
+  let n = 0, hit = 0;
+  for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
+    if (d(Q, 4 * (y * W + x)) <= ${BAND_D}) continue;
+    n++;
+    let h = false;
+    for (let b = -1; b <= 1 && !h; b++) for (let a = -1; a <= 1 && !h; a++) h = d(QM, 4 * ((y + b) * W + x + a)) > ${BAND_D} / 2;
+    if (h) hit++;
+  }
+  return { n, hit, frac: n ? +(hit / n).toFixed(3) : 0 };
+})()`);
 const sh = (id, o) => Object.assign({ id, ci: 0, visible: true }, o);
 const LAYER = [
   { key: 'z², Everywhere', scope: 'all', view: { cx: 0, cy: 0, s: 120 }, steps: [{ type: 'pown', params: { n: 2 }, on: true }], own: [],
     later: sh('L1', { kind: 'disc', c: [2, 0], r: 0.4, ci: 1, stage: 1 }), at: [1.4142, 0.07], r: 0.25 },
   { key: 'Joukowski, Inside regions', scope: 'in', view: { cx: 0, cy: 0, s: 70 }, steps: [{ type: 'joukowski', params: {}, on: true }],
     own: [sh('j1', { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true }), sh('j2', { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888, ci: 2 })],
-    later: sh('L1', { kind: 'disc', c: [1.5, 0.3], r: 0.25, ci: 1, stage: 1 }), at: [2.6463, 0.6926], r: 0.8 },
+    later: sh('L1', { kind: 'disc', c: [1.5, 0.3], r: 0.25, ci: 1, stage: 1 }), at: [3.2, 0.66], r: 0.25, band: true },
 ];
 // a window of the left canvas (fractions) about the plane point at, r on each side
 const winOf = ([re, im], r) => ev(`(() => { const c = document.getElementById('canvasL').getBoundingClientRect(), a = __cmwPlaneMenu().w2s('L', ${re - r}, ${im + r}), b = __cmwPlaneMenu().w2s('L', ${re + r}, ${im - r});
@@ -149,6 +170,11 @@ for (const L of LAYER) {
   const win = await winOf(L.at, L.r);
   const c = info[`layer ${L.key}`] = { g, win, start: await compare('Q', 'QM', win), control: await compare('Q', 'Q0', win) };
   ok(`${L.key}: the glide's first frame is the inverse pass's`, g.path === 'inverse', c);
+  if (L.band) {
+    const b = c.band = await bandKept(win);
+    ok(`${L.key}: the glide's first frame (u = ${LOOK_U[0]}) keeps the later plane's region's band as the parked frame on z draws it (at least ${BAND_HIT * 100} % of its ${BAND_N}+ pixels about the preimage's boundary, within a pixel)`, b.n >= BAND_N && b.frac >= BAND_HIT, c);
+    continue;
+  }
   ok(`${L.key}: the glide's first frame (u = ${LOOK_U[0]}) keeps the layer of the later plane's region as the parked frame on z draws it (about a preimage, at most ${END_FRAC * 100} % of the pixels > ${DIFF_TOL}/255 apart, a mean difference at most ${LAYER_SHARE} of the layer's own)`, !!c.start && !!c.control && c.start.frac <= END_FRAC && c.start.mean <= LAYER_SHARE * c.control.mean, c);
   ok(`${L.key}: control: the parked frame without that region differs there (more than ${LAYER_CTL * 100} % of the pixels > ${DIFF_TOL}/255 apart, a mean of more than ${LAYER_MEAN})`, !!c.control && c.control.frac > LAYER_CTL && c.control.mean > LAYER_MEAN, c);
 }
