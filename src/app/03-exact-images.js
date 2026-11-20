@@ -534,9 +534,10 @@
   // The inverse path of area shape s under an All-at-once glide's map (mode 3) at u: the plan of stages (a, b] in which
   // each active step k of the span (lo, b] stands for its homotopy at its own time t_k = HR.stepTime(stepT, k, u)
   // (Inverse.homBuilt: no ops at t_k = 0, the step itself at 1) and every step up to lo for itself; its inverse op list
-  // (GLChain.buildInverse, invOwnPlan) and the shape's preparation (invOwnPath). Same answer as invHomPath's; the key's
-  // period is the steps' up to lo, which every step of the span leaves as they are. Forward where a step's homotopy has
-  // no exact inverse at its time or a NEWT op (those spans keep the carried meshes)
+  // (GLChain.buildInverse, invOwnPlan) and the shape's preparation (invOwnPath). Same answer as invHomPath's, and its key's
+  // period as invHomPer takes it: Inverse.keyPeriod of the span's plan at u, so the key at u -> 1 meets plane b's (eᶻ's
+  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Forward where a step's homotopy has no exact inverse at
+  // its time or a NEWT op (those spans keep the carried meshes)
   function invSpanPath(s, a, lo, b, u, stepT, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -556,7 +557,7 @@
         bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
       }
       h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
-      h.per = lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
+      h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
