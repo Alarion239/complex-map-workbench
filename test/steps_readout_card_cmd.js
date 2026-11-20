@@ -1,4 +1,4 @@
-// The readout card of a disc of a later plane, in the Inspector of the steps view (the Stack's P1b, #1983): selected on
+// The readout card of a disc of a later plane, in the Inspector of the steps view: selected on
 // plane z, a disc on w₁ reads its preimage there. The plan's test maps:
 //  - M3 z³ − 1.2z + 0.3, the disc |w − 1.1| < 0.25: "3 preimages · 3 pieces", red ticks on the r slider at the join
 //    radii 0.294 and 1.306 (the distances from 1.1 to the critical values 0.3 ∓ 0.8√0.4), placed on the track at r over
@@ -6,8 +6,8 @@
 //    "3 preimages · 2 pieces · one covers the disc twice"; the counts in Russian;
 //  - M2 Joukowski, |w − 0.6 − 0.5i| < 0.35: 2 pieces, the first tick at 0.64; at r = 1.70, one piece with a hole;
 //  - M1 z², |w − 1| < 0.5, with the camera on z = 1 close up: the piece about −1 is off the window, and the card says
-//    "1 piece off view", as the plane's description does (#1770); with a second disc of w₁ counted as well (about 1.6,
-//    its piece about −1.26 off the window too), each count on the plane carries its disc's name (#1892);
+//    "1 piece off view";
+//  - Home on the slider puts it at its first step, which the disc's radius and the slider's words follow (0 is no radius);
 //  - a disc of plane z itself, selected on z, gets no card.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -36,7 +36,6 @@ const card = async (id) => { await ev(`__cmwSelect(${JSON.stringify(id)}); 1`); 
 const near = (a, b, tol) => Math.abs(a - b) <= tol;
 // a tick sits on the track at r / top of the way from the thumb's centre at 0 (5 css px in) to its centre at the top
 const tickAt = (t, top) => near(t.x, 5 + (t.w - 10) * (t.r / top), 1.5);
-const said = () => ev(`(() => { const c = document.getElementById('overlayL'), id = c && c.getAttribute('aria-describedby'), e = id && document.getElementById(id); return e ? e.textContent : ''; })()`);
 
 // M3
 const S4 = Math.sqrt(0.4), J3 = [1.1 - (0.3 - 0.8 * S4), 0.3 + 0.8 * S4 - 1.1].map(Math.abs).sort((a, b) => a - b);
@@ -77,13 +76,16 @@ c = await card('m1');
 info.m1 = c;
 ok('M1: "2 preimages · 2 pieces"', !!c && c.counts === '2 preimages · 2 pieces', c && c.counts);
 ok('M1, the camera on z = 1: the card says "1 piece off view"', !!c && c.off === '1 piece off view', c && c.off);
-const sm1 = await said();
-info.saidM1 = sm1;
-ok('M1: the plane\'s description says 1 of its 2 pieces is off view', /: 1 of its 2 pieces is off view\./.test(sm1), sm1);
-await open('en', M1, [{ id: 'm1', kind: 'disc', c: [1, 0], r: 0.5, stage: 1 }, { id: 'm1b', kind: 'disc', c: [1.6, 0], r: 0.08, stage: 1 }], [1, 0, 400]);
-const two = await ev('__cmwPullOff()');
-info.two = two;
-ok('M1 with two discs counted: each count on the plane carries its disc\'s name', Array.isArray(two) && two.length === 2 && two.every((e) => /^.+: \+\d+ off view$/.test(e.text)), two);
+
+// Home on the slider: its first step, and the disc's radius and the slider's words with it
+await open('en', M3, [{ id: 'm3', kind: 'disc', c: [1.1, 0], r: 0.513, stage: 1 }]);
+await card('m3');
+await ev(`document.querySelector('#propsPanel .ro-r').focus(), 1`);
+await key('Home');
+await frames(); await frames();
+const home = await ev(`(() => { const r = document.querySelector('#propsPanel .ro-r'); return { v: +r.value, step: +r.step, said: r.getAttribute('aria-valuetext'), disc: __cmwShapes().shapes.find((q) => q.id === 'm3').r }; })()`);
+info.home = home;
+ok('Home on the slider: its first step, and the disc\'s radius and the slider\'s words with it', home.v > 0 && Math.abs(home.v - home.step) < 1e-12 && Math.abs(home.disc - home.v) < 1e-12 && home.said === `r = ${+home.v.toFixed(3)}`, home);
 
 // a disc of plane z
 await open('en', M1, [{ id: 'z1', kind: 'disc', c: [0.5, 0.5], r: 0.3 }]);

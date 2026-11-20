@@ -185,6 +185,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head > .legend-chip { position: relative; top: auto; right: auto; margin: 0 0 0 4px; display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 8px 0 4px; line-height: normal;
   background: transparent; border: 1px solid var(--line); box-shadow: none; overflow: visible; cursor: pointer; font: var(--t-label); color: var(--ink-2); flex: 0 1 auto; min-width: 0; }
 .pane-head > .legend-chip:hover, .pane-head > .legend-chip.open { border-color: var(--line-strong); color: var(--ink); background: var(--well, transparent); }
+.pane-head > .legend-chip.open { box-shadow: inset 0 0 0 1px var(--ink-2); }
 .pane-head > .legend-chip::before { content: ""; flex: 0 0 14px; width: 14px; height: 14px; border-radius: 50%; background: var(--wheel, var(--ink-2));
   -webkit-mask: radial-gradient(circle, transparent 3.5px, #000 4.5px); mask: radial-gradient(circle, transparent 3.5px, #000 4.5px); }
 .pane-head > .legend-chip[data-kind="image"]::before { border-radius: 2px; opacity: 0.7; -webkit-mask: none; mask: none;
@@ -404,7 +405,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head .pat-btn .disp-sw { width: 18px; height: 14px; border-radius: 3px; box-shadow: 0 0 0 1px var(--line); }
 .pane-head .pat-btn.tight { padding: 0 4px; }
 .pane-head .pat-btn.tight .disp-caret { display: none; }
-.pane-head .pat-btn[aria-expanded="true"], .pane-head > .options > .opts-btn[aria-expanded="true"] { background: var(--well); color: var(--ink); }
+/* (a head trigger that holds its pop-up open, whatever menu or pop-up it is: the well fill, which is about 1.06:1 on the head, and a 1px --ink-2 ring inside it, 8:1 or more: the mark that is seen) */
+.pane-head button[aria-haspopup][aria-expanded="true"] { background: var(--well); color: var(--ink); box-shadow: inset 0 0 0 1px var(--ink-2); }
 .disp-pop { max-height: calc(100vh - 120px); overflow-y: auto; }
 .disp-pop.pat-pop { width: 300px; }
 .cp-pop > .lbl { white-space: normal; text-wrap: pretty; }
@@ -433,7 +435,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .ro-counts { font: var(--t-body); color: var(--ink); }
 .ro-track { position: relative; grid-area: rng; min-width: 0; }
 .ro-ticks { position: absolute; inset: 0; pointer-events: none; }
-.ro-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--error); left: calc(5px + (100% - 10px) * var(--f)); }
+.ro-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--cut); left: calc(5px + (100% - 10px) * var(--f)); }
 .ro-joins, .ro-off { font: var(--t-label); color: var(--muted); }
 .sh-insp > .shape-edit { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0; border-top: 0; }
 .sh-insp > .shape-edit .inp { height: 32px; padding: 0 8px; }
@@ -470,6 +472,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head.sv-rs .sv-title .sv-role[data-short] { font-size: 0; }
 .sv-head.sv-rs .sv-title .sv-role[data-short]::before { content: attr(data-short); font-size: 13px; }
 .sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
+/* (the head's 6 px and 10 px side padding stay raw: 8 and 12 px take 4 px of the room at 1024 px, and the Height key's chip then drops its words, steps_land_head) */
 :root.sv:not(.ph) #paneL .pane-head { gap: var(--s-4); flex-wrap: wrap; min-height: 40px; padding: var(--s-2) 6px var(--s-2) 10px; }
 .sv-head { display: flex; align-items: center; gap: var(--s-4); min-width: 0; flex: 1 1 auto; flex-wrap: wrap; }
 .sv-title { font: italic 400 19px/1 var(--f-math, serif); color: var(--ink); white-space: nowrap; margin-right: var(--s-2); }
@@ -480,6 +483,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-title .sv-role { font: 400 13px/1 var(--f-ui); color: var(--muted); }
 .sv-title .sv-role i { font-family: var(--f-math, serif); }
 .sv-cp.on { background: var(--accent); color: var(--accent-ink); border-color: var(--accent); }
+/* (the strip's top 10 px and bottom 6 px padding stay as they are: they set the rail's clearance from the ruler (at least 8 px, 6 on a phone) and sit it on the 34 px chips; the 6 px between a plane's name and its node keeps the thread's ring clear of the name, and the 6 px between a function chip's letter and its name keeps the subscript off the name; none is part of the control-to-control rhythm) */
 .sv-strip { position: relative; display: flex; align-items: stretch; gap: var(--s-4); flex: 0 0 auto; min-width: 0; height: 68px; margin-top: var(--s-4); padding: 10px var(--s-4) 6px; background: var(--panel); border: 1px solid var(--line); border-radius: var(--r-3); }
 .sv-nav { flex: 0 0 44px; min-width: 44px; display: grid; place-items: center; font: 400 26px/1 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: var(--r-3); cursor: pointer; touch-action: manipulation; }
 .sv-nav:disabled { opacity: .4; cursor: default; }
@@ -514,12 +518,12 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-fchip:focus-visible, .sv-wholemap:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .sv-fchip .sv-fk, .sv-wholemap .sv-fk { font: italic 400 15px/1 var(--f-math, serif); color: var(--ink); }
 .sv-fchip .sv-fn, .sv-wholemap .sv-fn { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.sv-choice { flex: 0 0 auto; align-self: center; height: 36px; display: inline-flex; align-items: center; gap: 6px; justify-content: space-between; }
+.sv-choice { flex: 0 0 auto; align-self: center; height: 36px; display: inline-flex; align-items: center; gap: var(--s-2); justify-content: space-between; }
 .sv-choice-i { display: inline-flex; width: 16px; height: 16px; opacity: .7; }
 .sv-choice-i svg { width: 16px; height: 16px; }
 .sv-choice[aria-disabled="true"] { cursor: default; }
 .sv-playmore { align-self: center; flex: 0 0 auto; width: 36px; height: 36px; }
-.sv-playpop { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: grid; gap: 6px; max-width: min(320px, calc(100vw - 16px)); padding: 10px var(--s-5); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
+.sv-playpop { position: absolute; right: 8px; bottom: calc(100% + 6px); z-index: 30; display: grid; gap: var(--s-4); max-width: min(320px, calc(100vw - 16px)); padding: var(--s-4) var(--s-5); background: var(--panel); border: 1px solid var(--line-strong); border-radius: var(--r-3); box-shadow: var(--shadow-3); }
 .sv-playpop[hidden], .sv-playpop-why[hidden] { display: none; }
 .sv-playpop-r { display: flex; align-items: center; justify-content: space-between; gap: var(--s-5); font: 400 15px/1.2 var(--f-ui); color: var(--ink); }
 .sv-playpop-why { margin: 0; font: 400 13px/1.35 var(--f-ui); color: var(--muted); }
@@ -537,7 +541,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-rail.fade-l { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px); mask-image: linear-gradient(90deg, transparent, #000 28px); }
 .sv-rail.fade-r { -webkit-mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, #000 calc(100% - 28px), transparent); }
 .sv-rail.fade-l.fade-r { -webkit-mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(90deg, transparent, #000 28px, #000 calc(100% - 28px), transparent); }
-.sv-cp { display: inline-flex; align-items: center; gap: 6px; }
+.sv-cp { display: inline-flex; align-items: center; gap: var(--s-2); }
 /* chain editing on the thread: a step's pill is its chip and its ⋯ (two buttons); a bypassed step is dashed with its
    name struck through; "+ Add function" ends the thread; a step shown alone has its "Whole chain" chip at the left */
 /* "+ Add function" is the strip's own, after the rail, and a "+" where the strip is narrow */
@@ -568,8 +572,8 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-fwrap.off { border-style: dashed; color: var(--ink-2); }
 .sv-fwrap.off .sv-fn { text-decoration: line-through; }
 .sv-fwrap.off .sv-fk { color: var(--ink-2); }
-.sv-add, .sv-whole { flex: 0 0 auto; position: relative; z-index: 1; height: 34px; display: inline-flex; align-items: center; gap: 6px; margin: 0 var(--s-2) var(--rail-clear) 10px; padding: 0 var(--s-5); font: 500 13px/16px var(--f-ui); color: var(--accent); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; cursor: pointer; white-space: nowrap; }
-.sv-alone { flex: 0 0 auto; position: relative; z-index: 1; display: inline-flex; align-items: stretch; height: 34px; margin: 0 var(--s-2) var(--rail-clear) 10px; background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; overflow: hidden; }
+.sv-add, .sv-whole { flex: 0 0 auto; position: relative; z-index: 1; height: 34px; display: inline-flex; align-items: center; gap: var(--s-2); margin: 0 var(--s-2) var(--rail-clear) var(--s-4); padding: 0 var(--s-5); font: 500 13px/16px var(--f-ui); color: var(--accent); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; cursor: pointer; white-space: nowrap; }
+.sv-alone { flex: 0 0 auto; position: relative; z-index: 1; display: inline-flex; align-items: stretch; height: 34px; margin: 0 var(--s-2) var(--rail-clear) var(--s-4); background: var(--surface); border: 1px dashed var(--line-strong); border-radius: 17px; overflow: hidden; }
 .sv-alone .sv-whole { height: auto; margin: 0; background: none; border: 0; border-radius: 0; }
 .sv-awalk { flex: 0 0 auto; width: 34px; display: inline-grid; place-items: center; font: 400 19px/1 var(--f-ui); color: var(--ink); background: none; border: 0; border-left: 1px dashed var(--line-strong); cursor: pointer; touch-action: manipulation; }
 .sv-awalk.off { opacity: .4; cursor: default; }
@@ -584,7 +588,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 @container (max-width: 780px) { .sv-add { padding: 0; width: 34px; justify-content: center; } .sv-add-t { display: none; } }
 .sv-add.fold { padding: 0; width: 34px; justify-content: center; }
 .sv-add.fold .sv-add-t { display: none; }
-.sv-empty { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(90%, 340px); padding: 10px var(--s-6); pointer-events: none; text-align: center; font: 500 15px/1.4 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 2px 10px rgb(0 0 0 / .18); z-index: 3; }
+.sv-empty { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%); max-width: min(90%, 340px); padding: var(--s-4) var(--s-6); pointer-events: none; text-align: center; font: 500 15px/1.4 var(--f-ui); color: var(--ink); background: var(--surface); border: 1px solid var(--line-strong); border-radius: 12px; box-shadow: 0 2px 10px rgb(0 0 0 / .18); z-index: 3; }
 .sv-empty[hidden] { display: none; }
 .sv-choice[aria-disabled="true"], .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"], .sv-thumb[aria-disabled="true"] { opacity: .4; }
 .sv-add[aria-disabled="true"], .sv-wholemap[aria-disabled="true"] { cursor: default; }
