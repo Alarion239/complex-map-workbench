@@ -531,6 +531,39 @@
     if (!c.h) c.h = invOwnPlan(c.steps, c.built, 0, b);
     return invOwnPath(c.h, s, 0, b, null);
   }
+  // The inverse path of area shape s under an All-at-once glide's map (mode 3) at u: the plan of stages (a, b] in which
+  // each active step k of the span (lo, b] stands for its homotopy at its own time t_k = HR.stepTime(stepT, k, u)
+  // (Inverse.homBuilt: no ops at t_k = 0, the step itself at 1) and every step up to lo for itself; its inverse op list
+  // (GLChain.buildInverse, invOwnPlan) and the shape's preparation (invOwnPath). Same answer as invHomPath's, and its key's
+  // period as invHomPer takes it: Inverse.keyPeriod of the span's plan at u, so the key at u -> 1 meets plane b's (eᶻ's
+  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Forward where a step's homotopy has no exact inverse at
+  // its time or a NEWT op (those spans keep the carried meshes)
+  function invSpanPath(s, a, lo, b, u, stepT, singAt) {
+    const F = (reason) => ({ path: 'forward', reason });
+    if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
+    const ts = [];
+    for (let k = lo + 1; k <= b; k++) if (S.steps[k - 1] && S.steps[k - 1].on !== false) ts.push([k, HR.stepTime(stepT, k, u)]);
+    const ck = `span|${a}|${lo}|${b}|${ts.map(([k, t]) => k + ':' + t).join(',')}|${chainSig[nSteps()]}`;
+    let h = invHoms.get(ck);
+    if (!h) {
+      const bs = invHomSkeleton(a, b), bh = bs.slice();
+      let plan = null;
+      for (const [k, t] of ts) {
+        if (t >= 1) continue;
+        let hk = null;
+        try { hk = Inverse.homOps(bs[k - 1], t); } catch (e) { hk = null; }
+        if (!hk || !hk.ok) { plan = { ok: false, reason: `step ${k}'s homotopy: ${(hk && hk.reason) || 'no inverse'}` }; break; }
+        if (hk.ops.some((o) => o.kind === 'NEWT')) { plan = { ok: false, reason: `step ${k}'s homotopy is inverted by Newton's method` }; break; }
+        bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
+      }
+      h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
+      h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
+      if (invHoms.size >= 8) invHoms.clear();
+      invHoms.set(ck, h);
+    }
+    const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
+    return invOwnPath(h, s, a, b, own);
+  }
   // starts the inverse compile for map (mode 0) when some visible area shape of the right plane could draw inverse
   function requestInverseFor(map) {
     if (!GLR.inverseRequest || !GLR.packShapes || !PHASE.R.flat) return;
@@ -583,6 +616,13 @@
   // waited for its programs over 1.5 s says instead that the GPU is still preparing them (a cold link on Direct3D 11
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
+  // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
+  const compileShown = { L: false, R: false };
+  function setCompileShown(role, on) {
+    if (compileShown[role] === on) return;
+    compileShown[role] = on;
+    updateLeds();
+  }
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
@@ -604,12 +644,12 @@
       const n = (GLR.warmStatus ? GLR.warmStatus([1]).pending : GLR.pendingLinks) || 0;   // (the bar's own count)
       if (n && now - gpuWait.get(pane) > 1500) { paneNote(pane, $t('Preparing the GPU… (first time only; shaders left: {n})', { n })); return; }
     }
-    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); return; }
+    if (!st || st.error || !st.compiling || offRender || artMode || sideDraw) { compileT.delete(pane); setCompileShown(role, false); return; }
     const t0 = compileT.get(pane);
     if (t0 === undefined) {
       compileT.set(pane, now);
       setTimeout(() => { if (compileT.has(pane)) requestRender(role); }, 320);
-    } else if (now - t0 >= 300) compileNote(pane);
+    } else if (now - t0 >= 300) { compileNote(pane); setCompileShown(role, true); }
   }
   // the compiling note: small and quiet, in the pane's lower left corner (compileBox: where it was last drawn, in the pane's CSS px)
   let compileBox = null;
