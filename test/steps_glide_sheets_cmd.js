@@ -20,6 +20,9 @@
 // - the logarithm (an infinitely sheeted step), zoomed out to LOG_SCALE px per unit: the glide's record names the sheets
 //   it draws (sheetKs), the window −W..W about the principal sheet, each once (W = S.sheetW, 2), and near u = 1 the
 //   frame is as much paper above the real axis as below it, within SYM_TOL (the window of sheets is symmetric about 0);
+// - combos that are the same map are drawn once: log, exp, sin, then a cube root, glided onto the root's plane at u = 1/2,
+//   draws the root's three sheets (exp undoes the logarithm's sheet), so its record's sheets are 3, not the 8 its 15
+//   combos would fill;
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copies (its record's sheets 1), and at u = 1 − TINY the frame is as close
 //   to the parked plane as at u = TINY to the plane it leaves, within SAME_FRAC.
@@ -99,6 +102,20 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   ok('logarithm: the glide draws the sheets −2..2 about the principal one, each once', JSON.stringify(ks) === JSON.stringify([-2, -1, 0, 1, 2]), f.glide);
   r.top = await halfPaper('log', true); r.bottom = await halfPaper('log', false);
   ok(`logarithm, u = ${1 - SHORT}: as much paper above the real axis as below it (within ${SYM_TOL})`, Math.abs(r.top - r.bottom) <= SYM_TOL, r);
+}
+// ---- combos that are the same map: log, exp, sin, then a cube root, onto the root's plane ----
+// exp undoes the logarithm's sheet (exp(log z + 2πik) = z): a combo that moves only the logarithm's k is the chain as it
+// is, and one that moves both is the map of the combo that moves the root's alone
+{
+  const r = info.coincide = {};
+  const steps = [step('log', { cut: 180 }), step('exp'), step('sin'), step('root', { n: 3, cut: 180 })];
+  await loadView('steps', 'glidesheetsco' + Date.now(), { shapes: [], steps, srcView: { cx: 0, cy: 0, s: 90 } });
+  await settled({ max: 30000, until: READY });
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 3, now: true, bare: true, restPaint: 0 }); 1`);
+  await settled({ max: 60000 });
+  const f = r.mid = await at(3.5, 'co');
+  const roots = (f.glide.sheetKs || []).map((o) => o[1]).sort((x, y) => x - y);
+  ok('log, exp, sin, cube root, u = 0.5: the glide draws the root\'s three sheets, each once', f.glide.sheets === 3 && JSON.stringify(roots) === JSON.stringify([0, 1, 2]), f.glide);
 }
 // ---- Inside regions: an annulus under the square root ----
 {

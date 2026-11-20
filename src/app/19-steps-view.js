@@ -1846,7 +1846,10 @@
   // same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW, the
   // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
   // are svGlideSheets(b)'s, nearest the principal sheet first (the sum of the offsets' distances from 0, a root's
-  // around its circle of sheets), made once per chain. A chain with more combos leaves the farthest ones out.
+  // around its circle of sheets), made once per chain. A combo whose map to plane b is one an earlier combo already
+  // draws is left out, as the Landscape's sheets are (sheetUniq: the same values at SHEET_PTS): a later step can undo
+  // a sheet (exp after log), so each surface is drawn once and the cap counts distinct ones. A chain with more distinct
+  // combos leaves the farthest ones out.
   // SV.glideSheets 1 (a test hook's) draws the chain as it is alone.
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
@@ -1872,15 +1875,26 @@
     let combos = [[]];
     for (const d of radix) combos = combos.flatMap((c) => d.offs.map((o) => c.concat(o)));
     const far = (c) => c.reduce((t, o, i) => t + radix[i].far(o), 0);
-    combos = combos.slice(1).map((c, i) => ({ c, i, f: far(c) })).sort((x, y) => x.f - y.f || x.i - y.i).slice(0, SV_GLIDE_SHEETS_MAX - 1).map((x) => x.c);
+    combos = combos.slice(1).map((c, i) => ({ c, i, f: far(c) })).sort((x, y) => x.f - y.f || x.i - y.i).map((x) => x.c);
+    // (a chain's values on plane b at SHEET_PTS; a point it cannot be evaluated at is a missing value, null)
+    const valsOf = (steps, bs) => {
+      let G = null;
+      try { G = Funcs.stageFunctions(steps, bs)[b]; } catch (e) { G = null; }
+      return SHEET_PTS.map((z) => { try { return G ? G(z) : null; } catch (e) { return null; } });
+    };
     // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and stagesFollow,
-    // which change the user's chain)
-    const list = combos.map((offs, n) => {
+    // which change the user's chain; a combo whose values match the chain's or a kept copy's is not kept)
+    const seen = [valsOf(S.steps, built)], list = [];
+    for (const offs of combos) {
+      if (list.length >= SV_GLIDE_SHEETS_MAX - 1) break;
       const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
       radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; });
       const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
-      return { offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${n + 1}`), gl: GLR.ok ? GLChain.build(steps, bs) : null };
-    });
+      const v = valsOf(steps, bs);
+      if (seen.some((w) => sheetValsSame(w, v))) continue;
+      seen.push(v);
+      list.push({ offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${list.length + 1}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
+    }
     svSheetMemo = { key, list, W, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
     return list;
   }
