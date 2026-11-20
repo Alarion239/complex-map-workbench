@@ -6,7 +6,7 @@
 //  - the key's caption follows the same map; the last plane has one name, w₂;
 //  - parked between two planes, the title names them ("z → w₁ · coloured from w₁") and the colour button is not pressed but
 //    off (aria-disabled, its reason as its description): neither Enter on it nor the C key changes the colour plane, and the key
-//    says the reason;
+//    says the reason; parked in the Landscape, the title keeps the relief's role and the colour button is off too;
 //  - the left panel groups the shapes by plane ("In z", "In w₁") with no X or Y, and the phone's probe hint names the map.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/steps_names_cmd.js
 // Prints { pass, fails, info }.
@@ -139,7 +139,7 @@ for (const lang of ['en', 'ru']) {
       await ev("document.activeElement && document.activeElement.blur(); 1");
       await key('c');
       await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
-      const afterC = await ev("({ T: __cmwSteps().T, x: __cmwSteps().x, live: [...document.querySelectorAll('#svStrip [aria-live], .sv-bar [aria-live], [aria-live]')].map((e) => e.textContent).filter((t) => t.includes(" + JSON.stringify(PARK_WHY[lang]) + ")).length })");
+      const afterC = await ev("({ T: __cmwSteps().T, x: __cmwSteps().x, live: [...document.querySelectorAll('[aria-live]')].map((e) => e.textContent).filter((t) => t.includes(" + JSON.stringify(PARK_WHY[lang]) + ")).length })");
       ok(`${tag}: the C key leaves the colour plane and stays parked`, afterC.T === T && Math.abs(afterC.x - x) < 1e-9, afterC);
       ok(`${tag}: the C key says why`, afterC.live >= 1, afterC);
     }
@@ -199,6 +199,24 @@ for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
   const cut = await ev(`(() => { const l = [...document.querySelectorAll('#leftReadout > .rln')]; return { n: l.length, cut: l.filter((e) => { const rg = document.createRange(); rg.selectNodeContents(e); return rg.getBoundingClientRect().width > e.getBoundingClientRect().width + 1; }).length, text: document.getElementById('leftReadout').textContent }; })()`);
   ok(`${lang} ${pw} phone: the probing readout is two lines, none cut`, cut.n === 2 && cut.cut === 0, cut);
   info[`${lang} ${pw} phone`] = { h0, h1, cut };
+  // parked between two planes, the colour button is off: on a phone a long-press on it shows its tip, the reason (a sighted
+  // touch user's only way to it), and the release leaves the colour plane as it was
+  if (pw === 360) {
+    await ev('__cmwSteps({ T: 1 }); __cmwSteps({ park: 0.5 }); 1'); await settle(700);
+    const p = await ev(`(() => { const b = [...document.querySelectorAll('.sv-cp')].find((e) => e.getClientRects().length); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, off: b.getAttribute('aria-disabled') }; })()`);
+    let tip = null;
+    if (p) {
+      await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y, id: 1 }] });
+      await sleep(750);
+      tip = await ev(`(() => { const t = document.getElementById('tip'); return t && t.getClientRects().length && getComputedStyle(t).visibility !== 'hidden' && getComputedStyle(t).opacity !== '0' ? t.textContent : null; })()`);
+      await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await settle(400);
+    }
+    const st = await ev('(() => { const s = __cmwSteps(); return { T: s.T, x: s.x }; })()');
+    info[`${lang} ${pw} phone, parked`] = { p, tip, st };
+    ok(`${lang} ${pw} phone: parked at 0.5, a long-press on the off colour button shows its reason ("${PARK_WHY[lang]}")`, !!p && p.off === 'true' && (tip || '').includes(PARK_WHY[lang]), { p, tip });
+    ok(`${lang} ${pw} phone: parked at 0.5, the long-press's release leaves the colour plane and the thread where they were`, st.T === 1 && Math.abs(st.x - 0.5) < 1e-9, st);
+  }
 }
 // the Landscape's title carries the sheets clause when All sheets is on, as the classic title and the caption do
 const SHEETS = [

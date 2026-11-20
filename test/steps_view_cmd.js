@@ -20,9 +20,9 @@ const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 const open = async (w, h, mobile, flag) => {
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}` }); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=${flag ? 'steps' : 'classic'}`); await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` });
 };
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
@@ -58,6 +58,8 @@ await ev(`__cmwSteps({ scope: 'all' }); 1`);
 // by up to 3/255 on its ring's edges, which failed the check against it below now and then)
 await ev(`document.fonts.ready.then(() => { const c = document.getElementById('legendCanvasL'); if (c) c.width = 0; __cmwSteps({ surf: 'plane' }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); })`);
 const hZ = await hash('sv_z');
+// (an arrow waits for the prestart and its idle jobs: the first press comes once the chain is prepared)
+for (let i = 0; i < 1200; i++) { if ((await S()).ready.ready) break; await sleep(100); }
 await press('ArrowRight');
 const m1 = await S();
 ok('→ starts a glide', m1.moving === true && !!m1.anim && m1.anim.to === 1, m1);
