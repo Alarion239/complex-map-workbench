@@ -5,7 +5,7 @@
 // topmost element is not the chip; a press there copies nothing (a spy on the clipboard's writeText counts the copies, with the plane read
 // first so there is a value to copy); and with pointer-events given back the chip is the topmost element and the same press copies, so
 // the checks can fail. Control: with a mouse (1280 × 800, the desktop layout on a fine pointer) the chip keeps its pointer events and a
-// press copies the readout once. A laptop or tablet with a trackpad reports a fine primary pointer and keeps copy-on-tap. A command file
+// press copies the readout once. A laptop or tablet with a trackpad usually reports a fine primary pointer and keeps copy-on-tap. A command file
 // for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};

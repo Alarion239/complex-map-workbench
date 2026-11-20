@@ -43,7 +43,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   await view(w, h, false, true);
   const ns = 'stc' + w + lang + mode + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0 && !!document.querySelector('#shapeList .shape[data-id="s1"]')` });
   if (mode === 'edit') await ev(`__cmwSelect('s1'), 1`); else if (mode === 'tall') await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
   if (mode !== 'none') await settled({ max: 5000, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
