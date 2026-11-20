@@ -7,7 +7,12 @@
 //  - composed spans (Strip to disk; Cayley, then z³; 1.2 z, then Joukowski): the frames past u = 0.3 and 0.6 are the
 //    inverse pass's, All at once, and the frame just short of the last plane is the plane at rest on all but ARRIVE_MAX of
 //    the pane (no pop when it lands); not for z³ last, whose homotopy z^(1 + 2t) still differs from z³ in a wedge by its
-//    cut there (3.2 % of the pane at u = 0.9945 a step at a time, as all at once);
+//    cut there (3.2 % of the pane at u = 0.9945 a step at a time, as all at once). That frame is taken at NEAR_END, so
+//    close to the plane that the sheet key's period has met plane b's: the key takes the span's own period at u (eᶻ's path
+//    has 2 pi i / t, plane 2's 2 pi i), and the copies it puts in front differ from plane b's on the strip's period seams,
+//    pulled through the disk map, by an amount that shrinks to nothing at u = 1 (Strip to disk: 1.7 % at u = 0.9945, 0.07 %
+//    at u = 0.9997; a step at a time, eᶻ's own glide is 0.57 % apart at u = 0.9945). A pop on landing is not a seam
+//    and still shows at NEAR_END; the row's message gives the share at EARLY_END too;
 //  - the same at the Opacity slider's OPACITY (< 1) for z³ with the colour plane z: a frame's opacity goes from its first
 //    plane's look to its last plane's (svCarryAlpha), the span's first plane z, as a step's frame goes from z;
 //  - a span with a step whose homotopy is inverted by Newton's method ([cos, 1 z]) keeps the carried meshes, with the reason.
@@ -30,7 +35,7 @@ const CHAINS = [
   { name: 'Cayley, then z³', steps: [CAYLEY, POW(3)], s: 90, arrive: false },
   { name: '1.2 z, then Joukowski', steps: [MUL('1.2'), { type: 'joukowski', params: {}, on: true }], s: 80 },
 ];
-const AT_U = [0.3, 0.6], NEAR_END = 0.985;
+const AT_U = [0.3, 0.6], EARLY_END = 0.985, NEAR_END = 0.9985;   // (the glide's x over n past which its arrival frames are taken)
 const ARRIVE_MAX = 0.005;          // the share of the pane the last frame may differ from the plane at rest in
 const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;   // the glide's time a frame while it runs, and once frozen
 const START_WAIT = 30000, GLIDE_WAIT = 180000, DRAWN_WAIT = 120000;   // ms
@@ -93,12 +98,20 @@ for (const c of CHAINS) {
     ok(`${c.name} u ${u}: a frame between the planes, all at once, the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.all && g.rec.path === 'inverse', g);
   }
   if (c.arrive === false) continue;
-  const g = await frozenPast(n, NEAR_END * n);
+  // (the glide is frozen past EARLY_END, its frame read for the message, then let go on and frozen past NEAR_END)
+  const g0 = await frozenPast(n, EARLY_END * n);
+  const d0 = (await grab('E0')) ? await compare('E0', 'RN') : null;
+  await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS} })`);
+  await settled({ max: GLIDE_WAIT, until: `__cmwSteps().x > ${NEAR_END * n}`, only: true });
+  await ev(`__cmwSteps({ clock: ${FREEZE_CLOCK_MS} })`);
+  await settled({ max: DRAWN_WAIT, until: drawn });
+  const g = await rec();
   ok(`${c.name}: the frame short of the last plane settles`, await grab('E'), null);
   const d = await compare('E', 'RN');
-  info[`${c.name} arrive`] = { g, d };
-  ok(`${c.name}: the frame short of the last plane is the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.path === 'inverse', g);
-  ok(`${c.name}: it is the plane at rest (at most ${ARRIVE_MAX * 100} % of the pane apart)`, !!d && d.frac <= ARRIVE_MAX, d);
+  const at = { u: g.rec && g.rec.u, frac: d && d.frac, d }, early = { u: g0.rec && g0.rec.u, frac: d0 && d0.frac };
+  info[`${c.name} arrive`] = { g, at, early };
+  ok(`${c.name}: the frame short of the last plane is the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.path === 'inverse' && g.x < n, g);
+  ok(`${c.name}: it is the plane at rest (at most ${ARRIVE_MAX * 100} % of the pane apart)`, !!d && d.frac <= ARRIVE_MAX, { at, early });
 }
 // a span with a step inverted by Newton's method keeps the carried meshes, and says why
 {
