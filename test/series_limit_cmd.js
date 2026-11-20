@@ -1,4 +1,4 @@
-// The Series step's float32 limit in a glide's inverse pass, pinned (#1898): where the left pane is white, and why.
+// The Series step's float32 limit in a glide's inverse pass, pinned (the rule: notes/sphere-design/SPEC.md §7): where the left pane is white, and why.
 // One Series step (the sum of z^n / n!), the rectangle [-3, 3]^2, Inside regions (the default), parked at u = 1/2 of the
 // glide. Every 24th pixel of the left pane is read from the canvas, and the CPU's float64 members of its point in plane w
 // (Inverse.homOps' NEWT op, op.pre(w, trace), as test/newt_member0_cmd.js reads them) say what the pixel should be:
@@ -24,15 +24,16 @@ const [, CANCEL_ROUND, CANCEL_SHARE] = cancelAt.map(Number);
 const evp = new Function('ev', 'sleep', fs.readFileSync(path.join(DIR, '../inv_bench_evp.js'), 'utf8'))(ev, sleep);
 const U = 0.5, STEP = 24, RECT = 3;
 // (measured at u = 1/2 on 1,050 pixels: 2 band pixels; the bound leaves room for another renderer's rounding)
-const BAND_MAX = 8, MIN_COLOURED = 150, MIN_WHITE = 300, SEEDS = 21, SEED_R = 6;
+const BAND_MAX = 8, MIN_COLOURED = 150, MIN_WHITE = 300, SEEDS = 21, SEED_R = 6, FRAME_MS = 120000;
 const ns = 'sl' + Date.now();
 const st = { shapes: [{ id: 's1', kind: 'rect', a: [-RECT, -RECT], b: [RECT, RECT], ci: 0, visible: true }], steps: [{ type: 'series', params: {}, on: true }] };
 await view(1440, 900, false);
 await load(ns, st, '', 'steps');
 await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && __cmwSteps().on && __cmwSteps().ready.ready === true' });
 await ev(`__cmwSteps({ x: ${U} }), 1`);
-await settled({ max: 60000, only: true, until: '!__cmwSteps().anim' });
-await sleep(1500);
+// (parked at U, the inverse pass's frame drawn with its programs linked: the pane's status neither pending nor compiling)
+const parked = await settled({ max: FRAME_MS, panes: false, until: `(() => { const s = __cmwPaneStatus('L'), g = __cmwSteps().glide; return !!s && !s.pending && !s.compiling && !!g && g.path === 'inverse' && Math.abs(g.u - ${U}) < 1e-9 && !__cmwSteps().anim; })()` });
+ok('the glide is parked at u = 1/2 and its inverse frame is drawn', parked.ok, parked);
 const g = JSON.parse(await ev('JSON.stringify(__cmwSteps().glide)'));
 ok('the glide is the inverse pass', g.path === 'inverse', g.path);
 const PIXEL = 1 / g.view.s;
