@@ -619,12 +619,8 @@ const Inverse = (() => {
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
   // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out.
-  // A polynomial step's roots (a NEWT op with deg) are exact to POLY_RES: every root lies within POLY_RES (1 + |z|) of
-  // a member, whose multiplicity is the sum over the roots it stands for (roots nearer each other than that may come
-  // as one, as a multiple root does). Where rounding cannot promise it (members whose rounding discs meet and that
-  // H_t - w does not show to be one, or a member's disc past POLY_RES (1 + |u|)), the list is not exact. 1e-2 is about
-  // 0.6 px at 60 px per unit.
-  const POLY_RES = 1e-2;
+  // A polynomial step's roots (a NEWT op with deg) are its op's list, exact to InvOps.NEWT_POLY_RES, or not exact where
+  // the op has none.
   function pointPre(plan, p, cap = LEAF_CAP) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     let total = 1;
@@ -640,15 +636,8 @@ const Inverse = (() => {
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
         let mems = o.pre(w);
-        // (a polynomial's roots, NEWT with deg, count its degree with their multiplicities: where they fall short, some
-        // root could not be told from rounding, and the list is not exact)
-        if (o.kind === 'NEWT' && o.p.deg && mems.reduce((a, q) => a + (q.mult || 1), 0) !== o.p.de) return { exact: false, reason: 'a polynomial step whose roots could not all be found to rounding' };
-        // (its list is the op's members with those rounding cannot tell apart as one, mems.exact: not exact where there
-        // is none, or a member's rounding disc reaches past POLY_RES (1 + |u|))
-        if (o.kind === 'NEWT' && o.p.deg) {
-          if (!mems.exact || mems.spread > POLY_RES) return { exact: false, reason: 'a polynomial step with roots that rounding cannot tell apart' };
-          mems = mems.exact;
-        }
+        // (a polynomial's roots, NEWT with deg: the op's list, mems.exact, or not exact where it has none)
+        if (o.kind === 'NEWT' && o.p.deg) { if (!mems.exact) return { exact: false, reason: mems.reason || 'a polynomial step with no roots listed' }; mems = mems.exact; }
         for (const mem of mems) {
           if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
           const each = m * (mem.mult || 1);

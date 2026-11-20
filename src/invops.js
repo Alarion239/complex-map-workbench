@@ -267,6 +267,12 @@ const InvOps = (() => {
   // rounding radius, and members whose discs meet are one where H_t - w winds round their mean as many times as their
   // multiplicities sum to (out.exact, with out.spread its largest radius); the members stay as they are. glsl.js's NEWT
   // runs the same iteration in float32 from the same start, keeping the first of roots closer than its NEWT_DEDUPE.
+  // That list is exact to NEWT_POLY_RES: every root lies within NEWT_POLY_RES (1 + |z|) of a member, whose multiplicity
+  // is the sum over the roots it stands for (roots nearer each other than that may come as one, as a multiple root
+  // does). Where rounding cannot promise it, there is no list (out.exact null, with out.reason): the multiplicities fall
+  // short of the degree, members' discs meet and H_t - w does not show them to be one, or a member's disc reaches past
+  // NEWT_POLY_RES (1 + |u|). 1e-2 is about 0.6 px at 60 px per unit.
+  const NEWT_POLY_RES = 1e-2;
   const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4, NEWT_COEF_ERR = Number.EPSILON;
   function newtPolyCoeffs(g, d) {
     const M = d + 1, v = [];
@@ -424,8 +430,7 @@ const InvOps = (() => {
           }
           // (pointPre's list, out.exact: members whose rounding discs meet, a chain of them, are one, at their mean by
           // multiplicity with the sum m of their multiplicities, where H_t - w winds m times about it (centreRadius from
-          // the farthest reach of their discs), until no two discs meet; null where that fails. out.spread: the largest
-          // radius of a member of the list, relative to 1 + |u|. The members themselves stay as they are)
+          // the farthest reach of their discs), until no two discs meet. The members themselves stay as they are)
           const meet = (p, q) => !(p.r + q.r < abs(sub(p.u, q.u)));
           let list = out.map((mem, x) => ({ u: mem.u, k: mem.mult || 1, r: rad[x], mem }));
           for (let pass = 0; list && pass < out.length; pass++) {
@@ -445,7 +450,10 @@ const InvOps = (() => {
             if (list) list = next;
           }
           if (list && list.some((p, x) => list.some((q, y) => y > x && meet(p, q)))) list = null;
-          return Object.assign(out, { exact: list && list.map((p) => p.mem), spread: list ? Math.max(0, ...list.map((p) => p.r / (1 + abs(p.u)))) : 0 });
+          const total = out.reduce((acc, q) => acc + (q.mult || 1), 0);
+          const reason = total !== de ? 'a polynomial step whose roots could not all be found to rounding'
+            : !list || list.some((p) => p.r > NEWT_POLY_RES * (1 + abs(p.u))) ? 'a polynomial step with roots that rounding cannot tell apart' : null;
+          return Object.assign(out, { exact: reason ? null : list.map((p) => p.mem), reason });
         },
       });
     }

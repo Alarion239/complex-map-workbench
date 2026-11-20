@@ -119,7 +119,7 @@ const G6 = P([[-0.687, -0.099], [-1.17, 0.121]]);
 multiple('(z + 0.689 + 0.094i)⁴ beside −0.687 − 0.099i (degree 6)', polyOf([C(-0.689, -0.094), C(-0.689, -0.094), C(-0.689, -0.094), C(-0.689, -0.094), ...G6]), C(0), C(-0.689, -0.094), 4, 3, 6, G6, NEAR_MULT);
 const G12 = P([[-0.17, 2.82], [-1.27, 1.21], [0.42, -0.58], [-0.41, -1.26], [1.08, -2.44], [1.45, 0.15], [1.75, -1.33], [0.23, 2.16]]);
 multiple('−0.16 + 2.9i ×4 beside −0.17 + 2.82i (degree 12)', polyOf([C(-0.16, 2.9), C(-0.16, 2.9), C(-0.16, 2.9), C(-0.16, 2.9), ...G12]), C(0), C(-0.16, 2.9), 4, 9, 12, G12, NEAR_MULT);
-// pointPre's answer for the roots `roots` at w = 0 against them, exact to POLY_RES as src/inverse.js says: true roots
+// pointPre's answer for the roots `roots` at w = 0 against them, exact to POLY_RES as src/invops.js says: true roots
 // within POLY_RES (1 + |z|) of each other (a chain of them) may come as one member. Each member goes to its nearest
 // distinct true root, within POLY_RES (1 + |z|) of it, and no two members to the same one (a multiple root is not split);
 // the members of each chain of roots have its multiplicity. {exact, err: '' when right}
