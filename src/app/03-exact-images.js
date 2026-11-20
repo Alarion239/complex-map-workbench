@@ -501,6 +501,9 @@
   // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
   // asked of it) or {reason}
   const invDerivs = new Map();
+  // (its entries, one for each plane past the d/dz of a chain: the planes of a few chains; at the cap the map is cleared,
+  // and a plane's chain is made again when it is next drawn)
+  const INV_DERIVS_MAX = 8;
   function invDerivChain(b) {
     const ck = `${b}|${chainSig[nSteps()]}`;
     let r = invDerivs.get(ck);
@@ -522,7 +525,7 @@
         r = { steps, built: bs, k };
       }
     }
-    if (invDerivs.size >= 8) invDerivs.clear();
+    if (invDerivs.size >= INV_DERIVS_MAX) invDerivs.clear();
     invDerivs.set(ck, r);
     return r;
   }
