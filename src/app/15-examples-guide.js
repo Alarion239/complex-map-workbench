@@ -939,8 +939,8 @@
     const H0 = () => window.innerHeight;
     // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip (and above the context bar's row when one is open), as wide as the plot
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
-    // the tool row, which the planes and the sheet give up; in landscape, with a sheet open, that row is the foot of the sheet's column (CSS), so the
-    // planes, the thread's strip and the plane's keys stay in view)
+    // the tool row, which the planes and the sheet give up; in landscape, with a sheet open that splits the layout, that row is the foot of the sheet's
+    // column (CSS), so the planes, the thread's strip and the plane's keys stay in view)
     if (phone) {
       // (the message picks its rows at the width it has when it is made; where its place gave it another width, it picks them again)
       const mt = /** @type {HTMLElement} */ (host.firstElementChild);
@@ -965,7 +965,7 @@
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
       const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
-      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      const tb = keys.length ? mt.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
       if (refit()) return;

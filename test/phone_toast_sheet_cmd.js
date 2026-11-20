@@ -2,6 +2,8 @@
 //  - landscape, 740 × 360 and 667 × 375, in en, ru and it: the message lies at the foot of the sheet's column and covers no control of the thread's
 //    strip, Fit view, the plane's keys or the sheet (none of the points sampled on them is under it: elementFromPoint), and its words are whole;
 //  - a message of one row over the plot that is up when the sheet opens takes the rows of the sheet's width (data-rows is what is drawn, the words whole);
+//  - landscape, 740 × 360, with the More sheet open (it does not split the layout): the message keeps its row and covers no point of Fit view, the plane's
+//    keys or the tool column;
 //  - portrait, 360 × 640, en, ru and it: the message lies below the sheet's foot, clear of the sheet's switch (Everywhere | Inside regions).
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -19,23 +21,25 @@ const SHORTISH = 'Added f₃: Exponential, and a longer second part';   // (one 
 // the controls sampled, and how many points of each (a K × K grid inside its visible box: the part inside the window and inside the strip or the
 // sheet that holds it); fewer than MIN_* of them seen is a failure, so the rows
 // cannot pass with nothing sampled
-const K = 3, MIN_STRIP = 4, MIN_SHEET = 4, CUT_MAX = 1, STILL_MS = 150, SETTLE_MAX = 5000;
+// (a control's visible box narrower or shorter than MIN_BOX px is not sampled; portrait shows MIN_SHEET_PORTRAIT of the sheet's controls above the message)
+const K = 3, MIN_BOX = 4, MIN_STRIP = 4, MIN_SHEET = 4, MIN_SHEET_PORTRAIT = 2, MIN_KEYS = 2, MIN_RAIL = 4, CUT_MAX = 1, STILL_MS = 150, SETTLE_MAX = 5000;
 const SAMPLE = `(() => {
   const host = document.getElementById('toastHost'), t = host.querySelector('.toast'); if (!t) return null;
   const vis = (e) => e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden';
   const clip = (r, c) => ({ l: Math.max(r.left, c.l), t: Math.max(r.top, c.t), r: Math.min(r.right, c.r), b: Math.min(r.bottom, c.b) });
   const win = { l: 0, t: 0, r: innerWidth, b: innerHeight };
-  const sheet = document.querySelector('.ph-sheet[data-k="display"].open'), sb = sheet && sheet.getBoundingClientRect();
+  const sheet = document.querySelector('.ph-sheet.open'), sb = sheet && sheet.getBoundingClientRect();
   const sheetBox = sb && { l: sb.left, t: sb.top, r: sb.right, b: sb.bottom };
   const groups = {
     strip: [...document.querySelectorAll('#svStrip button')].filter(vis).map((e) => clip(e.getBoundingClientRect(), clip(document.getElementById('svStrip').getBoundingClientRect(), win))),
     fit: [document.getElementById('leftFit')].filter((e) => e && vis(e)).map((e) => clip(e.getBoundingClientRect(), win)),
     keys: [...document.querySelectorAll('.pane:not(.ph-inset) .ph-col button, .pane:not(.ph-inset) .viewstack button')].filter(vis).map((e) => clip(e.getBoundingClientRect(), win)),
     sheet: sheet ? [...sheet.querySelectorAll('button, [role="radio"], select, input')].filter(vis).map((e) => clip(e.getBoundingClientRect(), clip(sb, win))) : [],
+    rail: [...document.querySelectorAll('#secDraw button, #secDraw summary')].filter(vis).map((e) => clip(e.getBoundingClientRect(), win)),
   };
   const out = {};
   for (const [k, boxes] of Object.entries(groups)) {
-    const seen = boxes.filter((b) => b.r - b.l >= 4 && b.b - b.t >= 4);
+    const seen = boxes.filter((b) => b.r - b.l >= ${MIN_BOX} && b.b - b.t >= ${MIN_BOX});
     let n = 0, under = 0;
     for (const b of seen) for (let i = 0; i < ${K}; i++) for (let j = 0; j < ${K}; j++) {
       const x = b.l + (b.r - b.l) * (2 * i + 1) / ${2 * K}, y = b.t + (b.b - b.t) * (2 * j + 1) / ${2 * K};
@@ -59,7 +63,8 @@ const open = async (w, h, lang) => {
   await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0` });
 };
-const sheetOpen = async () => { await ev(`Phone.open('display'), 1`); await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="display"].open') && document.documentElement.classList.contains('ph-sheet-on')` }); };
+// (a sheet that splits the layout is open once the planes have given up its column: .ph-split)
+const sheetOpen = async (k = 'display') => { await ev(`Phone.open('${k}'), 1`); await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="${k}"].open') && document.documentElement.classList.contains('ph-sheet-on') && (${k !== 'display'} || document.documentElement.classList.contains('ph-split'))` }); };
 const show = async (msg, label) => { await ev(`(__cmwToast(${JSON.stringify(msg)}, ${JSON.stringify(label)}, { sticky: true }), 1)`); await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]')` }); };
 // ---- landscape: the message covers no control
 for (const [w, h] of [[740, 360], [667, 375]]) for (const lang of ['en', 'ru', 'it']) {
@@ -71,7 +76,7 @@ for (const [w, h] of [[740, 360], [667, 375]]) for (const lang of ['en', 'ru', '
   info[tag] = m;
   ok(`${tag}: the message shows`, !!m, m);
   if (!m) continue;
-  ok(`${tag}: the strip, Fit view and the sheet's controls are sampled`, m.out.strip.controls >= MIN_STRIP && m.out.fit.controls === 1 && m.out.sheet.controls >= MIN_SHEET, m.out);
+  ok(`${tag}: the strip, Fit view, the plane's keys and the sheet's controls are sampled`, m.out.strip.controls >= MIN_STRIP && m.out.fit.controls === 1 && m.out.keys.controls >= MIN_KEYS && m.out.sheet.controls >= MIN_SHEET, m.out);
   for (const k of ['strip', 'fit', 'keys', 'sheet']) ok(`${tag}: no point of the ${{ strip: "thread's strip", fit: 'Fit view', keys: "plane's keys", sheet: "sheet's controls" }[k]} is under the message`, m.out[k].under === 0, m.out[k]);
   ok(`${tag}: its words are whole`, m.cut <= CUT_MAX, m.cut);
 }
@@ -90,6 +95,17 @@ for (const [w, h] of [[740, 360], [667, 375]]) for (const lang of ['en', 'ru', '
   ok(`${tag}: its words are whole`, !!m && m.cut <= CUT_MAX, m && m.cut);
   ok(`${tag}: no point of the thread's strip or Fit view is under it`, !!m && m.out.strip.controls >= MIN_STRIP && m.out.strip.under === 0 && m.out.fit.under === 0, m && m.out);
 }
+// ---- landscape: the More sheet does not split the layout, and the message keeps its row: Fit view, the plane's keys and the tool column stay clear
+{
+  const tag = 'en 740×360 with the More sheet open';
+  await open(740, 360, 'en');
+  await sheetOpen('more');
+  await show(MSG.en[0], MSG.en[1]);
+  const m = await still();
+  info[tag] = m;
+  ok(`${tag}: Fit view, the plane's keys and the tool column are sampled`, !!m && m.out.fit.controls === 1 && m.out.keys.controls >= MIN_KEYS && m.out.rail.controls >= MIN_RAIL, m && m.out);
+  for (const k of ['fit', 'keys', 'rail']) ok(`${tag}: no point of ${{ fit: 'Fit view', keys: "the plane's keys", rail: 'the tool column' }[k]} is under the message`, !!m && m.out[k].under === 0, m && m.out[k]);
+}
 // ---- portrait: the message lies below the sheet's foot, clear of its switch
 for (const lang of ['en', 'ru', 'it']) {
   const tag = `${lang} 360×640 with the Display sheet open`;
@@ -100,6 +116,6 @@ for (const lang of ['en', 'ru', 'it']) {
   info[tag] = m;
   ok(`${tag}: the message lies below the sheet's foot`, !!m && !!m.sheet && m.toast[1] >= m.sheet[3] - 1, m);
   ok(`${tag}: the sheet's switch is clear of the message`, !!m && !!m.sw && m.sw[3] <= m.toast[1], m && { sw: m.sw, toast: m.toast });
-  ok(`${tag}: no point of the sheet's controls is under the message`, !!m && m.out.sheet.controls >= 2 && m.out.sheet.under === 0, m && m.out.sheet);
+  ok(`${tag}: no point of the sheet's controls is under the message`, !!m && m.out.sheet.controls >= MIN_SHEET_PORTRAIT && m.out.sheet.under === 0, m && m.out.sheet);
 }
 return { pass: fails.length === 0, fails, info };
