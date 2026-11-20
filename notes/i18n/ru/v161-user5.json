@@ -5,16 +5,6 @@
   "ru": "Пока показана эта деформация, рисуется один лист: у деформируемого шага нет пути на каждом листе.",
   "note": "Tooltip of the Landscape's All sheets check while a deformation that cannot be drawn on every sheet is open (a d/dz, or a deformed formula with branch points that is not catalog steps)."
  },
- "u5.cap_screen": {
-  "en": "; the sheets of %{H} that become the sheets of %{F} are shown.",
-  "ru": "; показаны листы %{H}, которые становятся листами %{F}.",
-  "note": "End of the on-screen landscape caption while the deformation shows with All sheets; %{H} is H_t, %{F} is F or f_k (math)."
- },
- "u5.cap_fig": {
-  "en": "; the sheets of $H_t$ that become the sheets of $%{F}$ are shown.",
-  "ru": "; показаны листы $H_t$, которые становятся листами $%{F}$.",
-  "note": "The same sentence in the exported figure's caption (LaTeX), %{F} is F or f_k."
- },
  "tour.pictures_note": {
   "en": "The tour turns the cards' pictures on for this step; your setting comes back after it.",
   "ru": "На этом шаге тур включает картинки на карточках; после него вернётся ваша настройка.",
@@ -124,26 +114,6 @@
   "en": "Sheets of the logarithm",
   "ru": "Листы логарифма",
   "note": "Restored (work/xvsh) from work/xvex/src/i18n_ru.js, built 13:20:38 from this file: an overwrite at 13:23:06 by work/xvsh lost the export piece entries. Ids and notes are not the original ones."
- },
- "u5m.cap_hom_win": {
-  "en": "; the sheets of %{H} that become the sheets %{k} of %{F} are shown.",
-  "ru": "; показаны листы %{H}, которые становятся листами %{F} с номерами %{k}.",
-  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
- },
- "u5m.cap_hom_nwin": {
-  "en": "; the sheets of %{H} that become %{n} sheets of %{F} are shown (the window %{k}).",
-  "ru": "; показаны листы %{H}, которые становятся листами %{F} (всего %{n}, окно %{k}).",
-  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
- },
- "u5m.cap_hom_cap": {
-  "en": "; the sheets of %{H} that become %{K} of the %{total} sheet combinations of %{F} are shown.",
-  "ru": "; показаны листы %{H}, которые становятся сочетаниями листов %{F}: %{K} из %{total}.",
-  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
- },
- "u5m.cap_hom_capwin": {
-  "en": "; the sheets of %{H} that become %{K} of the %{total} sheet combinations of %{F} in the window %{k} are shown.",
-  "ru": "; показаны листы %{H}, которые становятся сочетаниями листов %{F} в окне %{k}: %{K} из %{total}.",
-  "note": "Merge of user report 5 (work/xvta: tour + sheets + export): end of the landscape caption (screen and LaTeX) while the deformation shows with All sheets, when F's sheets are a window or capped; %{H} is H_t, %{F} is F or f_k, %{k} the window k=-W,...,W (all math); %{K}, %{total}, %{n} numbers."
  },
  "u5f.title_hom_capwin": {
   "en": ", on {K} of the {total} sheet combinations of {F}, {k}",
