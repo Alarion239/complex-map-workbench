@@ -509,8 +509,10 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy || colourPending() ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : undefined);
-    setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
+    // (a pane whose "Compiling…" note is drawn is busy too, and its LED says so: the note is canvas text, which a screen reader does not read)
+    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
+    setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    setLed('R', errStep >= 0 ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -1427,8 +1429,9 @@
   // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
   // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
   // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
-  // caption), 'pre' (the marked preimages of the later planes' points)
-  const PANE_SAY_ORDER = ['land', 'pre'];
+  // caption), 'pre' (the marked preimages of the later planes' points), 'off' (the pieces of the later planes' regions'
+  // pullbacks that lie off the view)
+  const PANE_SAY_ORDER = ['land', 'pre', 'off'];
   const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
@@ -1567,7 +1570,19 @@
       } catch (e) { /* no MutationObserver */ }
       // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
       try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
-      el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
+      el.addEventListener('keydown', (e) => {
+        if (el.getAttribute('role') !== 'button') return;
+        if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); }
+        // (Escape folds the open key, the focus on it or on its switch, and stays on the key: the folded key is the same element)
+        else if (e.key === 'Escape' && !el.classList.contains('collapsed')) { e.preventDefault(); e.stopPropagation(); el.classList.add('collapsed'); el.focus(); }
+      });
+      // (a key the open key lies over takes no focus under it: it folds as the key takes focus. A plane key stands in the same plot)
+      document.addEventListener('focusin', (e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (el.getAttribute('role') !== 'button' || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
+        const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
+        if (b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) el.classList.add('collapsed');
+      });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {

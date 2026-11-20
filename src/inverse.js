@@ -622,8 +622,8 @@ const Inverse = (() => {
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
   // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out.
-  // A polynomial step's roots (a NEWT op with deg) are its op's list, exact to InvOps.NEWT_POLY_RES, or not exact where
-  // the op has none.
+  // A polynomial step's roots (a NEWT op with deg) are its op's list, exact to NEWT_POLY_RES in src/invops.js, or not
+  // exact where the op has none.
   function pointPre(plan, p, cap = LEAF_CAP) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     let total = 1;
