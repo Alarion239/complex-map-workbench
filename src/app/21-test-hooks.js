@@ -95,6 +95,9 @@
   // a fresh cost guard with policy options (GLR.CostGuard opts, e.g. {budget: 1e9}: measure only), for measurements
   window.__cmwGuardOpts = (o) => { if (!GLR.CostGuard) return null; guard = GLR.CostGuard(Object.assign({}, GUARD_OPTS, o || {})); for (const g of Object.values(paneG)) { g.key = ''; g.reads = []; g.demoted = false; } guardLog.length = 0; requestRender('L', 'R'); return guard.state('R'); };
   // the look drawScene gives shape id (colours as hex), the pattern cell, the right view, clipWin and the plane colour
+  // a traced curve of a later plane as the inverse pass strokes it (invTrace): {tol (used), base (TRACE_TOL's), n (its
+  // vertices), samples (shapeGPU's r.polys, flat), lines (the simplified polylines)}, or null
+  window.__cmwTrace = (id) => { const s = S.shapes.find((x) => x.id === id), lines = s && invTrace(s), rec = lines && traces.get(shapeGPU(s).polys); return rec ? { tol: rec.tol, base: rec.base, n: lines.reduce((k, p) => k + p.length, 0), samples: shapeGPU(s).polys.map((p) => Array.from(p)), lines } : null; };
   window.__cmwLook = (id, side = 'R') => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); const L = side === 'L'; return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, halo: TH.halo, haloA: TH.haloA, view: Object.assign({}, L ? leftView() : V.right), win: Object.assign({}, clipWin), dpr: (L ? paneL : paneR).dpr, W: (L ? paneL : paneR).pw, H: (L ? paneL : paneR).ph, stage: L ? leftStage() : rightStage() }; };
   // P3: the z-globe's point under a pane pixel (as __cmwSphereW for the w-globe), and a globe's camera set directly
   // P3b: the shapes and targets as stored; the CSS pixel of the plane point (x, y) on a side's globe (null behind it)
@@ -128,9 +131,14 @@
     const p = pathOf(s, stageMap(rightStage()), 'R', 'flat');
     return p.e ? invBox(p.e, p.plan, s) : null;
   };
+  // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // (-> whether example i is now the current one: false past the last example)
   window.__cmwExample = (i) => { loadExample(i); return currentExample === i; };
   // the selection, the step shown alone, the temporary Inspector and X's view
+  window.__cmwBusy = (on) => { fixJob.running = !!on; updateLeds(); return fixJob.running; };   // (the LEDs' busy state, as a running fix job sets it; false lets them rest)
   window.__cmwCards = () => ({ sel: selOf(), focus: S.focus, temp: tempInsp, main: { view: Object.assign({}, paneL.view), w: paneL.w, h: paneL.h, dpr: paneL.dpr } });
   // (#235: what the Cauchy style draws from, and a switch to draw the quadrature where the formula holds)
   // the Cauchy style's residue data as the carried colour takes it (plan, edges, part shown, chain length), or null
@@ -457,11 +465,60 @@
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone; clock: ms of glide time a frame, 0 the wall
-  // clock; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten); glide: the last glide frame's
+  // clock; holdJobs: the idle jobs of svReady count as unfinished; gate: false switches the Play gate off (true back on); play: false
+  // ends a wait of the gate too; moving counts a wait; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten); glide: the last glide frame's
   // record (svGlideRec), hold: the plane whose glide waits for its pole tracks (svHoldB), rest: the last plane at rest's (svRestRec)
-  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
+  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   // the loaded settings and ids, read back plain (a getter: the suites that load a saved state with a key left out or set oddly read what the load made of it)
   /** @type {any} */ (window).__cmwKeys = () => ({ alpha: S.alpha, meshN: S.meshN, nextId: S.nextId, shapeIds: S.shapes.map((s) => s.id), targetIds: S.targets.map((t) => t.id), shapeCi: S.shapes.map((s) => s.ci), shapeColor: S.shapes.map((s) => s.color || null), v3: !!S.v3, v4: !!S.v4, v5: !!S.v5, v6: !!S.v6, focus: S.focus });
   window.__cmwRegions = () => ({ pattern: S.pattern, lines: !!S.lines, patternScale: S.patternScale, chev: !!S.chev, alpha: S.alpha });
   window.__cmwState = () => ({ cam: { yaw: cam.yaw, pitch: cam.pitch, d: cam.dist / CAM3.dist, tx: cam.tx, ty: cam.ty }, camL: { yaw: camL.yaw, pitch: camL.pitch, d: camL.dist / CAML.dist, tx: camL.tx, ty: camL.ty }, mode: Views.toLegacy(S.view, S.dc, S.landPlain).rightMode, view: Views.clean(S.view), dc: S.dc, landPlain: !!S.landPlain, wKey: !!S.wKey, focus: S.focus, morph: { open: morph.open, T: morph.T, playing: morph.playing }, targets: S.targets.length, hov: hov.list ? hov.list.map((r) => [r.z.re, r.z.im, r.mult]) : null, intPop: intPop ? intPop.id : null, sheets: S.sheets, height: S.height, meshN: S.meshN, homView: homView() }); // TEST-HOOK
+
+  // TEST-HOOK (dropped from the published page by build.py)
+  // A probe of the members the steps view's NEWT roots pass computes (GLR.newtRoots). __cmwNewtProbe() puts it on: each
+  // pass then keeps its frame's st. __cmwNewtProbe(pts) draws a pass of that st again with a main that writes member 0 of
+  // the NEWT op as the op's _roots lists it (its k[0], r[0]: the program the page compiles, with the page's chain data),
+  // reads that target back and gives, for each [fx, fy] (fractions of the pass's width and height from the left and
+  // bottom), the pixel's w, the GPU's member 0 there and the CPU's, Inverse's op.pre(w) member 0 of the plan's NEWT op:
+  // [{w, gpu: [re, im] | null, cpu: [re, im] | null, t}]; null while its program compiles, [] before a pass was seen. The
+  // extra pass is keyed apart from the page's own, so a frame's pass never takes it for the previous frame's
+  {
+    let last = null, on = false;
+    const NONE_MIN = 1e37;
+    /** @type {any} */ (window).__cmwNewtProbe = (pts) => {
+      const gl = GLR.gl;
+      if (!on) {
+        on = true;
+        const orig = GLR.newtRoots;
+        GLR.newtRoots = function (st) { const r = orig.apply(this, arguments); if (r && r.state === 'drawn' && !st.probe) last = { st, orig }; return r; };
+      }
+      if (!pts) return null;
+      if (!last) return [];
+      const { st, orig } = last, nr = st.inv.nr, c = +/uInv\[(\d+)\]\.x/.exec(nr.main)[1], P = `ix${nr.j}`;
+      const main = `
+void main() {
+  vec2 f = gl_FragCoord.xy - uVp.xy - 0.5 * uVp.zw;
+  vec2 w = uCenter + (f * uInvScale + uCenterLo);
+  ixPixW = w; ixNrTexel = ivec2(gl_FragCoord.xy - uVp.xy);
+  ${P}_roots(w, uInv[${c}].x);
+  o = vec4(${P}_k[0] ? ${P}_r[0] : vec2(3.0e38), 0.0, 0.0);
+}
+`;
+      const W = Math.round(st.pw), H = Math.round(st.ph), draw = gl.drawArrays;
+      let buf = null;
+      gl.drawArrays = function (...a) { draw.apply(this, a); gl.readBuffer(gl.COLOR_ATTACHMENT0); buf = new Float32Array(4 * W * H); gl.readPixels(0, 0, W, H, gl.RGBA, gl.FLOAT, buf); };
+      let r;
+      try { r = orig.call(GLR, Object.assign({}, st, { probe: true, inv: Object.assign({}, st.inv, { key: st.inv.key + '|probe', nr: { j: nr.j, targets: 1, main } }) })); } finally { gl.drawArrays = draw; }
+      if (r.state === 'pending') return null;
+      if (r.state !== 'drawn' || !buf) return [];
+      const v = st.view, k = 1 / (v.s * st.dpr), op = st.plan.ops.find((o) => o.kind === 'NEWT');
+      return pts.map(([fx, fy]) => {
+        const i = Math.min(W - 1, Math.floor(fx * W)), j = Math.min(H - 1, Math.floor(fy * H)), q = 4 * (j * W + i);
+        const w = { re: v.cx + (i + 0.5 - W / 2) * k, im: v.cy + (j + 0.5 - H / 2) * k };
+        const m0 = op && op.pre(w).find((m) => m.m === 0);
+        return { w: [w.re, w.im], gpu: Math.abs(buf[q]) < NONE_MIN ? [buf[q], buf[q + 1]] : null, cpu: m0 ? [m0.u.re, m0.u.im] : null, t: st.t };
+      });
+    };
+  }
+  // TEST-HOOK

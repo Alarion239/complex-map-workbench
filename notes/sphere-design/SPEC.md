@@ -76,6 +76,9 @@ bound. Rev 2 therefore:
 - Shape-level reasons (rev 2): ranges that do not fit (3.4), an unbounded range in a family other than the innermost,
   an unbounded shape through a non-affine prefix without far cover (3.6), more than 64 polygon vertices, a fifth
   formula shape, an unrecognised unbounded formula under a window family, member indices beyond 2²⁰ (precision).
+  A curve of a later plane stroked by its polylines at rest (a freehand curve, a formula curve, an external ray, an
+  equipotential) has no 64-vertex limit: its polylines are simplified to fit 1024 vertices (`GLR.INV_CURVE_MAX`), and
+  one that still does not fit is left out of the frames between planes.
 - Frames of a **playing** homotopy (morph, transitions) keep today's GPU path, as do all shapes during the first frames
   of a pending compile.
 
