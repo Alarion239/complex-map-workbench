@@ -745,5 +745,6 @@
  "grey: {x}": "серым: %{x}",
  "the start": "начало",
  "hue: the argument, red at 1, counterclockwise": "оттенок: аргумент, красный в 1, против часовой стрелки",
- "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞"
+ "brightness: black at 0, white at ∞": "яркость: чёрный в 0, белый в ∞",
+ "Hold a finger on the circle, then choose ∮: around the pole at i the running integral misses its start by 2πi · Res = π.": "Удерживайте палец на окружности и выберите «∮»: при обходе полюса i интеграл с переменным верхним пределом не возвращается к начальному значению — разность равна 2πi · Res = π."
 }
