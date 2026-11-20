@@ -1,6 +1,6 @@
 // H.ev's timeout (test/cdp_kit/cdpd.js): a page call that outruns it is a named fault, not a bare -32603 that ends the suite.
-//   - a busy loop longer than the limit answers { __exc } that names the limit and the expression's start, and counts as a fault of the
-//     suite until the answer is read;
+//   - a busy loop longer than the limit answers { __exc } that names the limit and the time it took, and counts as a fault of the
+//     suite until the answer is read (the fault's record, kitFaults, names the expression's start);
 //   - control: a loop shorter than the limit answers its value;
 //   - the pixel reads of test/lib/held_frames.js (snap, grab) have their own, longer limit: a getImageData that takes longer than ev's
 //     default 20 s (here a stub that busy-waits OVER_MS) still answers, and the same page call under ev's default is the named fault.
