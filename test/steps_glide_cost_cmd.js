@@ -19,8 +19,9 @@
 //   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
 //   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
 //   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs; a scratch
-//   texture freed and made again is named as such, its free's stack beside the allocation's), and
-//   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
+//   texture freed and made again is named as such, its free's stack beside the allocation's; each texture made names
+//   its mesh, that mesh's scratch entry before the draw and at its last draw before, and whether the idle job reserved
+//   it), and its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
 //   scrub's frames decompose no step of the chain (each glide's plans share its t-free part: invHomPath);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
@@ -199,6 +200,31 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await ev(`__cmwExample(${ex}); 1`);
   await adopted();
   await settled({ max: 30000 });
+  // (each carried draw on this page, by the mesh it is for (GLR.carryPrep), from before the glides: once the watch below
+  // begins, each one that creates a texture is kept, with that mesh's scratch entry in its slot before the draw and at
+  // its last draw before ([W, H], or null: none), whether it was drawn before, whether the idle job reserved it
+  // (GLR.carryReserve) and when. tmpEntry makes a texture for a mesh with no entry (a mesh not drawn before, or whose
+  // entry was freed) or remakes one whose size no longer fits it; meshes numbered in the order first seen)
+  await ev(`(() => {
+    const C = window.__svCarryMade = [], P = WebGL2RenderingContext.prototype, mk = P.createTexture;
+    let made = 0;
+    P.createTexture = function () { if ((new Error().stack || '').includes('svCarryRegions')) made++; return mk.apply(this, arguments); };
+    const ids = new WeakMap(), reserved = new WeakSet(), last = new WeakMap();
+    let meshes = 0;
+    const id = (r) => { if (!ids.has(r)) ids.set(r, ++meshes); return ids.get(r); };
+    const wh = (e) => (e ? [e.W, e.H] : null);
+    const rsv = GLR.carryReserve;
+    GLR.carryReserve = function (res) { if (res) reserved.add(res); return rsv.apply(this, arguments); };
+    const prep = GLR.carryPrep;
+    GLR.carryPrep = function (res, st) {
+      const slot = 'm' + ((st && st.L) || 4), e = res && res.tmp && res.tmp.get(slot), n0 = made;
+      const r = prep.apply(this, arguments);
+      if (made > n0 && window.__svCarryT0 != null) C.push({ t: Math.round(performance.now() - window.__svCarryT0), mesh: res ? id(res) : null, n: res && res.n, entry: wh(e), drawnBefore: !!res && last.has(res), entryBefore: res && last.has(res) ? last.get(res) : null, reserved: !!res && reserved.has(res) });
+      if (res) { id(res); last.set(res, wh(res.tmp && res.tmp.get(slot))); }
+      return r;
+    };
+    return 1;
+  })()`);
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });
   for (const to of [1, 0]) {
@@ -216,6 +242,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   // (each scratch texture freed (freeTmp: a chain edit, the keep time or the budget's sweep): an allocation after one
   // is the same texture made again, one with none a texture the page had not made before)
   await watchCalls('WebGL2RenderingContext.prototype', ['deleteTexture'], ['freeTmp'], '__svFreed');
+  await ev('window.__svCarryT0 = performance.now(), 1');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a
   // framebuffer of its own, the map cache's or a point pass's; frames counted by a rAF loop)
   await ev(`(() => {
@@ -263,7 +290,8 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await rest();
   const alloc = await ev('window.__svAlloc');
   const freed = await ev('window.__svFreed');
-  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc, freed: Array.isArray(freed) ? { n: freed.length, first: freed.slice(0, 4) } : freed };
+  const carried = await ev('window.__svCarryMade');
+  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, carried, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc, freed: Array.isArray(freed) ? { n: freed.length, first: freed.slice(0, 4) } : freed };
   ok('two scrubs of the Mountain King: the carried colour creates no texture, buffer or vertex array in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
   // (Everywhere: the whole plane's mesh and the outer ring's, each with its map cache's pass)
   const returns = Object.values(await ev('window.__svReturns'));
