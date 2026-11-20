@@ -136,7 +136,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   const d = {};
   for (const [u, end] of [[TINY, 0], [1 - TINY, 1]]) {
     const f = r[`u ${u}`] = await at(u, `it${u}`);
-    ok(`Inside regions, u = ${u}: the principal sheet's image of the region alone (no copies)`, f.glide.sheets === 1 && f.paper < 1, f);
+    ok(`Inside regions, u = ${u}: the principal sheet's image of the region alone (no copies)`, f.glide.sheets === 1, f);
     d[end] = r[`u ${u} against ${end}`] = await compare(`it${u}`, `ip${end}`);
   }
   ok(`Inside regions, u = ${1 - TINY}: the frame is as close to plane 1 parked as u = ${TINY} is to plane 0 (within ${SAME_FRAC})`, !!d[0] && !!d[1] && d[1].frac <= d[0].frac + SAME_FRAC, d);

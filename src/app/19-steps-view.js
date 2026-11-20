@@ -15,6 +15,8 @@
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
     poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
+    glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
+    restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
@@ -1858,6 +1860,8 @@
   // The window of an infinitely sheeted step: S.sheetW within its bounds (sheetWOf), as the Landscape's "sheets ±"
   // choice and the GPU's sheet plan draw it
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
+  // svGlideSheets' last answer, made again when its key (the chain's signature, plane b and the window W) changes: key,
+  // list (the copies), W, and own, the chain as it is on the GPU, which svOnSheets sets back after each copy's draw
   let svSheetMemo = { key: '', list: [] };
   function svGlideSheets(b) {
     const W = sheetWOf(S.sheetW);
