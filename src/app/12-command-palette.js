@@ -7,6 +7,14 @@
     try { localStorage.setItem(RECENT_KEY, JSON.stringify([t, ...recentTypes().filter((x) => x !== t)].slice(0, 4))); } catch (e) { /* ignore */ }
   }
   let popEl = null;
+  // the menu or popover standing now was opened from this button: pressing the button again closes it
+  function popOpenedFrom(anchor) { return !!popEl && popEl.classList.contains('menu') && popEl._opener === anchor; }
+  // the button that opened a menu or popover says so while it is open, ARIA's menu button (a button with aria-expanded);
+  // closePalette puts it back
+  function markOpener(pop, opener) {
+    pop._opener = opener;
+    if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
+  }
   function closePalette() {
     closePad(); // the Argand pad never outlives the popover or menu around it
     if (!popEl) return;
@@ -26,9 +34,9 @@
     if (!enRev) { enRev = new Map(); const tb = I18N._table(I18N.lang) || {}; for (const k in tb) if (typeof tb[k] === 'string') enRev.set(tb[k], k.slice(k.indexOf(I18N.CTX) + 1)); }
     return enRev.get(s) || s;
   };
-  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload (eng-6)
+  // a choice that keeps the language (Auto (Русский) -> Русский) does not reload
   function pickLang(v) { return I18N.setPref(v); }
-  // (v16.5 V03) one name for the integral in the palette and the planes' menu: ∮ F dz around Disc 1, Integrate F along Line 1
+  // one name for the integral in the palette and the planes' menu: ∮ F dz around Disc 1, Integrate F along Line 1
   function intLabel(s, names) {
     let closed = false;
     try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }

@@ -18,6 +18,10 @@ const cur = () => ev('Tour.current()');
 const shaded = async () => { for (let i = 0; i < 320; i++) { if (await ev(`(() => { const s = document.querySelector('.tour-shade'); return !!(s && s.getAttribute('d')); })()`)) return true; await sleep(25); } return false; };
 // (a condition wait: polls fn until it is truthy, up to max ms)
 const waitFor = async (fn, max = 8000) => { for (const t0 = Date.now(); Date.now() - t0 < max;) { if (await fn()) return true; await sleep(30); } return false; };
+const LANE_WAIT_MS = 10000;   // how long the suggestion's lane may take to show
+const laneUp = () => waitFor(() => ev(`!!document.querySelector('.tour-lane')`), LANE_WAIT_MS);
+// (the suggestion's delay is 1.2 s, Tour.suggest in src/tour.js; a check that no suggestion shows waits it out, and a margin)
+const SUGGEST_WAIT_MS = 2600;
 // (the tour's current step, as { chapter, id })
 const stepNow = async () => { const c = await cur(); return c ? c.chapter + '/' + c.id : null; };
 // (Next, then the step has changed and the strip has its shade)
@@ -25,7 +29,7 @@ const nextStep = async () => { const was = await stepNow(); await ev('Tour.next(
 // (Tour.start at a step or chapter, then the tour is on it and the strip has its shade)
 const startAndWait = async (a) => { await ev(`Tour.start(${JSON.stringify(a)})`); await waitFor(async () => { const c = await cur(); return !!c && c.chapter === a.chapter && (a.step == null || c.step === a.step); }); await shaded(); };
 const open = async (ns, at, w = 1440, h = 900, dark = false, mobile = false) => {
-  await view(w, h, dark, mobile); await nav(U + '?ns=' + ns); await settle(1800);
+  await view(w, h, dark, mobile); await nav(U + '?ns=' + ns);
   await ev('Tour.auto(false)');   // (tour_cmd checks the walk without the auto-advance; tour_auto_cmd.js checks it)
   if (at) { await ev(`Tour.start(${JSON.stringify(at)})`); await settle(1600); await shaded(); }
 };
@@ -84,7 +88,7 @@ check('a click on the shade keeps the tour', await ev('Tour.isActive()'));
 const stash1 = await st('cmw-tour-stash:t1');
 check('the user\'s work is stashed while the tour runs (its persisted state, this page\'s id)', stash1 && /"page"/.test(stash1) && /"state"/.test(stash1) && !/"mem"/.test(stash1), stash1 && stash1.slice(0, 60));
 check('a heartbeat says this page holds the stash', /"page"/.test((await st('cmw-tour-live:t1')) || ''));
-// a second Tour.init in this page (the app re-initialising) replaces the adapter and leaves the running tour alone
+// a second Tour.init in this page (the app re-initialising) swaps in a new adapter and leaves the running tour alone
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(k + ':' + n)); Tour.init(window.__tourApi)`);
 g = await ev(`({ restore: __calls.filter((c) => c === 'call:restore').length, active: Tour.isActive() })`);
 check('Tour.init during a tour: no restore, the stash stays', g.restore === 0 && g.active && (await st('cmw-tour-stash:t1')) === stash1, g);
@@ -201,7 +205,7 @@ g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.q
 check('Cauchy: the roots scene in Phase, the style control lit, Cauchy chosen, the integral over the unit circle', g.c && g.c.id === 'cauchy' && g.scene === 'roots' && g.main === 'phase' && g.dc === 'cauchy' && g.lit && g.on === 'Cauchy' && /inside, 0 outside/.test(g.note || '') && !/Select a closed curve/.test(g.note || ''), g);
 await ev(`(() => { const b = document.querySelector('#leftFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await settle(300);
 await snap('tour-cauchy-light');
-// (Zeros and poles moved to the chapter Editing the chain, step 3; v15.2: step 4, after A formula in steps)
+// (Zeros and poles are in the chapter Editing the chain, after A formula in steps)
 await startAndWait(at('edit/zp'));
 check('Zeros and poles: its scene brings the Tiles style back', (await ev('__cmwState().dc')) === 'enhanced');
 // (the zeros and poles are edited in the Inspector: the lit anchor is its parameter block)
@@ -281,7 +285,7 @@ await ev(`Tour.start({ chapter: 'keys' })`); await settle(1200);
 await key('Escape'); await settle(400);
 check('a second Escape ends the tour', !(await ev('Tour.isActive()')));
 
-// 8. the suggestion (v16.5 UX21: one line in the tour's docked slot, never a card over the planes); Not now dismisses
+// 8. the suggestion (one line in the tour's docked slot, never a card over the planes); Not now dismisses
 // it for good
 await open('t6');
 await ev('Tour.reset(); Tour.suggest({ delay: 0, force: true })'); await settle(1200);
@@ -297,25 +301,27 @@ check('Not now: dismissed', (await recOf('t6')).outcome === 'dismissed');
 check('dismissed: not suggested again', (await ev('Tour.suggest({ delay: 0 })')) === false);
 await view(1440, 900, false);
 // under ?ns= (the tests, the golden images) the card never shows by itself
-await nav(U + '?ns=t6x'); await sleep(2600);
+await nav(U + '?ns=t6x'); await sleep(SUGGEST_WAIT_MS);   // nav-sleep: a suggestion that never shows can only be told by letting its 1.2 s delay pass
 check('under ?ns= no suggestion shows', (await ev(`!!document.querySelector('.tour-lane')`)) === false);
 // a first visit (no ?ns=, nothing saved): shown and counted; ignored, it comes back, at most three times
 await fresh(); await nav(U);
-for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !== true; i++) await sleep(250);
+await laneUp();
 check('first open: the suggestion shows', (await ev(`!!document.querySelector('.tour-lane')`)) === true);
 check('first open: counted', JSON.parse((await st('cmw-tour')) || '{}').shown === 1);
 check('a first visit says "New here?"', /New here/.test(await ev(`document.querySelector('.tour-sg-title').textContent`)));
-// (v16.5 UX21) working in a pane leaves the line where it is: it covers nothing
+// (working in a pane leaves the line where it is: it covers nothing
 await click(500, 400); await settle(300);
 check('working in a pane: the line stays docked', await ev(`(() => { const s = document.querySelector('.tour-lane'); return !!s && s.parentNode.id === 'tourSlot'; })()`));
 await nav(U);
-for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !== true; i++) await sleep(250);
+await laneUp();
 check('a returning user (saved work) is not "new here"', /^Take the 2-minute tour$/.test(await ev(`document.querySelector('.tour-sg-title').textContent`)));
-for (let k = 3; k <= 4; k++) { await nav(U); await sleep(2200); }
+await nav(U);
+await laneUp();
+await nav(U); await sleep(SUGGEST_WAIT_MS);   // nav-sleep: a fourth opening shows nothing, which only the suggestion's 1.2 s delay running out can tell
 g = JSON.parse((await st('cmw-tour')) || '{}');
 check('ignored: shown on three openings, then no more', g.shown === 3 && !(await ev(`!!document.querySelector('.tour-lane')`)), g);
 await fresh(); await nav(U);
-for (let i = 0; i < 40 && (await ev(`!!document.querySelector('.tour-lane')`)) !== true; i++) await sleep(250);
+await laneUp();
 const w0 = await ev(`JSON.stringify(__cmwShapes())`);
 await clickSel('.tour-lane .btn.primary'); await settle(1500);
 check('Start: the tour runs from Basics and the outcome is taken', (await ev('Tour.isActive()')) && JSON.parse((await st('cmw-tour')) || '{}').outcome === 'taken');
@@ -328,7 +334,7 @@ await open('t7');
 await ev(`localStorage.setItem('cmw-tour:t7', ${JSON.stringify(JSON.stringify({ v: 2, shown: 1, outcome: 'taken', done: { basics: 3 }, last: { ch: SECOND.id, i: 1 } }))})`);
 await clickSel('#helpBtn'); await settle(500);
 g = await ev(`(() => { const m = document.querySelector('.tour-menu'); return m && { items: [...m.querySelectorAll('.mi')].map(x => x.textContent.trim()), focus: m.contains(document.activeElement), role: m.getAttribute('role'), done: m.querySelectorAll('.tour-done').length }; })()`);
-// (nine chapters, with Constructions; v16.4: ten, with Sound)
+// (ten chapters, with Constructions and Sound)
 check('menu: continue, ten chapters, guide, shortcuts', g && g.items.length === 13 && /Continue/.test(g.items[0]) && g.role === 'menu' && g.done === 1 && /Branches and inverses/.test(g.items.join('|')), g);
 check('menu: focus inside', g && g.focus);
 await snap('tour-menu-light');
@@ -361,7 +367,7 @@ check('reduced motion: the cut-out jumps', d1 !== d0 && g.paths <= 3 && d1 === (
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
 
 // 11. the palette lists the chapters ("Tour: …"); one starts its chapter, and the app gets the tour's calls
-await nav(U + '?ns=t10'); await settle(1500);
+await nav(U + '?ns=t10');
 await ev(`window.__calls = []; window.__tourTap((k, n, a) => window.__calls.push(n))`);
 await key('k', 4); await settle(500); await type('tour'); await settle(500);
 g = await ev(`[...document.querySelectorAll('#palList [role=option]')].map((x) => x.textContent.trim()).filter((t) => /^Tour:/.test(t))`);
@@ -381,7 +387,7 @@ check('phone: the strip under the header, full width, 68 px, X below it (608 px,
 await snap('tour-phone-x');
 await open('t8b', at('basics/draw'), 390, 844, true, true);
 g = await ev(`(() => { const c = document.querySelector('.tour-strip').getBoundingClientRect(), t = document.querySelector('#secDraw').getBoundingClientRect(), d = document.querySelector('#tools > .tool[data-tool="disc"]').getBoundingClientRect(), top = document.elementFromPoint(innerWidth / 2, (c.top + c.bottom) / 2); return { lit: Tour.lit(), top: c.top, bottom: c.bottom, row: { t: t.top, b: t.bottom }, disc: { l: d.left, t: d.top, r: d.right, b: d.bottom }, stripOnTop: !!(top && top.closest('.tour-strip')) }; })()`);
-// (v16.1, user 5: the Disc key itself, not the whole row; v16.4: the strip clear of the tool row and on top)
+// (the Disc key itself, not the whole row; the strip clear of the tool row and on top)
 check('phone, two lit areas: the Disc key lit whole, the strip clear of the tool row and on top', g.lit && g.lit.holes.length === 2 && ['l', 't', 'r', 'b'].every((k) => Math.abs(g.lit.holes[0][k] - g.disc[k]) <= 1) && (g.bottom <= g.row.t || g.top >= g.row.b) && g.stripOnTop, g);
 await snap('tour-phone-draw-dark');
 // what a phone reads: the panes by their role, touch instead of hover
@@ -403,7 +409,7 @@ g = await ev(`document.querySelector('.tour-sg-body').textContent + document.que
 check('phone: the suggestion says where the tour is (⋯ › Guided tour)', /⋯ › Guided tour/.test(g), g);
 await snap('tour-phone-suggest');
 // the help menu from the ⋯ menu: the help button closes with ⋯, the menu hangs under ⋯
-await nav(U + '?ns=t8d'); await settle(1500);
+await nav(U + '?ns=t8d');
 // (⋯ opens the More sheet, whose Guided tour row opens the tour menu)
 await clickSel('#hdrMoreBtn'); await settle(500);
 await ev(`(() => { const b = [...document.querySelectorAll('.ph-row')].find((x) => /Guided tour/.test(x.textContent)); b && b.click(); })()`); await settle(600);

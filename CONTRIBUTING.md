@@ -34,6 +34,9 @@ ruff check
 
 - `npm test` runs every unit test (`test/t_*.js`) through `ci/unit.js`. The browser, GLSL, quality and perf gates
   run in CI (`ci/README.md`).
+- A browser suite you run locally (`node ci/browser.js --only …`) draws with CI's lavapipe where `mesa-vulkan-drivers` is installed, else
+  with SwiftShader and a warning; the run's first line names the renderer. Judge a red by it: a red on SwiftShader that CI does not show
+  is not a regression (`ci/README.md`, Locally).
 - Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
   versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
   test whose snapshot is missing fails and says so (#427).
@@ -52,6 +55,10 @@ ruff check
 - **No new globals without a reason.** A file exposes one name (`const Tour = (() => { ... return api; })()`); the
   linter reads those names from `src/` itself. A file that also runs in the node unit tests exports itself with
   `module.exports` and is then listed in `types/globals.d.ts`.
+- **A pure file of `src/` may be TypeScript** (`src/<name>.ts`, issue #20), with erasable syntax only: annotations,
+  `type` and `interface`, `as`; no `enum`, `namespace` or parameter property. Its importers still name it
+  `./<name>.js` (esbuild and tsc resolve it), tsc checks it, and ESLint, the unit tests and the test pages read it
+  without its types (`tools/ts_strip.js`, node's own type stripping, which keeps every line and column).
 - **Comments describe the code as it is now:** what it does, its contract (inputs, outputs, units, invariants) and,
   where the code can't show it, why it must be this way. Link a spec in `notes/` where it explains a decision.
 - **A comment never tells the code's history.** No "was", "used to", "previously", "no longer", "now" or "instead of
@@ -77,7 +84,9 @@ ruff check
   unexplained magic numbers** (name a constant instead).
 - **Keep functions short.** A new function over about 80 lines needs a reason; split it where a split is natural.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/seasong.js`
-  (each names its generator at the top).
+  (each names its generator at the top). `node test/t_i18n_tables.js` fails a pull request whose ru or it table is not a
+  fresh generation (a changed ru or it JSON, or a changed string): run the generator it
+  names (`python3 tools/make_ru_table.py --strict`, `python3 tools/make_it_table.py`; `--check` writes nothing).
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
   `python3 tools/vendor.py` again (it needs npm and `pip install fonttools brotli`) and commit `vendor/`. A character

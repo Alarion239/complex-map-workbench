@@ -14,7 +14,8 @@
 //   and asks for the frame at the thread's place). It is the wait for a read after the thread is placed directly,
 //   __cmwSteps({ x }) or { park }, instead of held with hold(): on a chain with Newton members the frame there may be
 //   the first plane's held one until it is true. The same applies to a suite's own wait on a parked thread;
-// - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still),
+// - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still; each read has
+//   PIXEL_READ_MS, 120 s, since it waits for the GPU to finish the frame, not ev's 20 s),
 //   with the pane's camera then and the glide's record of that frame as __heldAt[tag] = { v, g }; true when they did;
 // - snap(tag): canvasL's pixels kept now, as grab keeps them, without waiting for a still frame (a frame read while it
 //   changes, a mesher's job running);
@@ -32,14 +33,16 @@
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
 //   Newton's method from seeds over P's window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u, the frame's
-//   camera and the front sheet's key from the glide's record: F.g, or __cmwSteps().glide), takes the front z
-//   (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger Re z) among the roots in the regions
-//   (where P is not the paper: a map many-to-one onto w under Inside regions; every root when none is, or with
-//   window.__giAllRoots) and colours w as P, plane z's
-//   parked frame, colours z (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
-//   the frame's window are graded too; the frame's by default). A pixel whose front covered root could be one off P's
-//   canvas (whose cover P cannot show) counts as none. Pixels next
-//   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about z or in F about w) are
+//   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
+//   the roots in the regions (where P is not the paper: a map many-to-one onto
+//   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
+//   composites them: front to back (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger
+//   Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
+//   parked frame, colours it (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
+//   the frame's window are graded too; the frame's by default). At alpha 1 that is the front root alone. A pixel where
+//   a root off P's canvas (whose cover and colour P cannot show) would weigh more than tol / 2 counts as none. Pixels next
+//   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about a layer's z, when that
+//   range times the layer's weight passes tol / 2, or in F about w) are
 //   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), far (of n,
 //   the pixels whose front z lies past the frame's window), max, over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame, in the camera grab kept for
@@ -57,7 +60,7 @@
 //   o.as: refOf's as;
 // - globeJudge(base, tag, o): the steps view's globe held between plane z and a later plane, the kept frame tag, graded
 //   against the exact picture from plane z's parked globe base (both kept by grab, the camera unmoved): for each point w
-//   of a lattice of the sphere's front side every o.step degrees (default GLOBE_STEP), its pixel on tag against the
+//   of a lattice of the sphere's front side every GLOBE_STEP degrees, its pixel on tag against the
 //   pixel of its front point z0 on base (z0: H_u's points over w by Newton's method, __cmwSvGlobe's H; several: the front
 //   one by the glide's sheet key, __cmwSvKey(b, u) through Inverse.sheetKey and Inverse.front, so a judge of Inside
 //   regions holds for a map one to one only), with the globe's light (SHADE_GLOBE: c = alb k(n, v) + spec(n, v) in
@@ -84,18 +87,25 @@
   // (the parked frame's paper, where Inside regions leaves a pixel outside the regions; null: none known)
   const sh = (__cmwShapes().shapes || [])[0], ph = sh && !window.__giAllRoots ? __cmwLook(sh.id, 'L').plane : null;
   const paper = ph && /^#[0-9a-f]{6}$/i.test(ph) ? [1, 3, 5].map((i) => parseInt(ph.slice(i, i + 2), 16)) : null;
-  // (true / false: z in the regions or on the paper; null: z off P's canvas, where P cannot tell)
+  // (true / false: z in the regions or on the paper; null: z off P's canvas, where P cannot show its colour, and, Inside
+  // regions, in a region by the regions' own levels (Region.levelOf))
+  const levels = paper && __cmwSteps().scope === 'in' ? (__cmwShapes().shapes || []).filter((q) => q.visible !== false && Region.KINDS[q.kind] && Region.KINDS[q.kind].type === 'area').map((q) => Region.levelOf(q)) : [];
   const covers = (z) => {
-    if (!paper) return true;
     const x = Math.round(((z.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5), y = Math.round((g.h / 2 - (z.im - pv.cy) * pv.s) * dpr - 0.5);
-    if (x < 0 || y < 0 || x >= W || y >= Ht) return null;
+    if (x < 0 || y < 0 || x >= W || y >= Ht) return levels.length && !levels.some((L) => L(z) > 0) ? false : null;
+    if (!paper) return true;
     const i = 4 * (y * W + x);
     return Math.max(Math.abs(P.d[i] - paper[0]), Math.abs(P.d[i + 1] - paper[1]), Math.abs(P.d[i + 2] - paper[2])) > 12;
   };
+  // (the frame's composite, as the inverse pass draws it: the covering points front to back, each at the frame's opacity
+  // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
+  // the front point alone)
+  const A = g.alpha == null ? 1 : g.alpha;
+  // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
+  const ahead = (a, b) => { const sa = Math.round(a.k / 2 ** -8), sb = Math.round(b.k / 2 ** -8); return sa !== sb ? a.k < b.k : a.z.im !== b.z.im ? a.z.im > b.z.im : a.z.re > b.z.re; };
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
-    const w = s2w(px + 0.5, py + 0.5);
-    let best = null, bk = Infinity, bcv = false, kOff = Infinity;
+    const w = s2w(px + 0.5, py + 0.5), roots = [];
     for (const s0 of seeds) {
       let z = s0;
       for (let it = 0; it < 40 && z; it++) {
@@ -112,23 +122,41 @@
       if (!z) continue;
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
-      const k = g.key(z), cv = covers(z);
-      if (cv === null) { kOff = Math.min(kOff, k); continue; }
-      // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
-      const sk = Math.round(k / 2 ** -8), sb = Math.round(bk / 2 ** -8);
-      const ahead = !best || (sk !== sb ? k < bk : z.im !== best.im ? z.im > best.im : z.re > best.re);
-      if (best === null || (cv && !bcv) || (cv === bcv && ahead)) { bk = k; best = z; bcv = cv; }
+      if (roots.some((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) <= 1e-6 * (1 + Math.hypot(z.re, z.im)))) continue;
+      roots.push({ z, k: g.key(z), cv: covers(z) });
     }
-    // (a root off P's canvas in front of the front covered root, or any such root when none is covered, may be the one
-    // the renderer colours w by: the regions run past the canvas, so w's colour is not known)
-    if (!best || kOff < (bcv ? bk : Infinity)) { none++; continue; }
-    const fx = ((best.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (best.im - pv.cy) * pv.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
-    if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { none++; continue; }
-    if (__giRange(P.d, W, qx, qy) > 12 || __giRange(F.d, W, px, py) > 12) continue;
-    const at = (x, y, c) => P.d[4 * (y * W + x) + c], o = 4 * (py * W + px);
+    // (the layers front to back: the covering points, and those off P's canvas, which may cover (the regions run past the
+    // canvas) and whose colour P cannot show; w's colour is not known when such a point would weigh more than half the
+    // tolerance. With no point covering, w is the paper: the front point, outside the regions, where P shows the paper)
+    const order = (L) => L.sort((a, b) => (ahead(a, b) ? -1 : ahead(b, a) ? 1 : 0));
+    const lay = order(roots.filter((q) => q.cv !== false));
+    const layers = [];
+    let T = 1, unknown = false;
+    for (let i = 0; i < lay.length && T >= 1 / 255; i++) {
+      const a = i === lay.length - 1 ? 1 : A, wt = T * a;
+      if (lay[i].cv === null) { if (wt * 255 > tol / 2) { unknown = true; break; } } else layers.push({ q: lay[i], wt });
+      T *= 1 - a;
+    }
+    if (!lay.some((q) => q.cv === true)) { const out = order(roots.filter((q) => q.cv === false)); layers.length = 0; unknown = unknown || !out.length; if (out.length) layers.push({ q: out[0], wt: 1 }); }
+    if (unknown || !layers.length) { none++; continue; }
+    // (each layer's colour in P, bilinear about its point; a pixel where a layer's point lies by a colour line of P that its
+    // weight carries past half the tolerance, or w by one of F, is left out: at alpha 1, the front point by a line)
+    const col = [0, 0, 0];
+    let edge = false, line = false;
+    for (const { q, wt } of layers) {
+      const fx = ((q.z.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (q.z.im - pv.cy) * pv.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
+      if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { edge = true; break; }
+      const rg = __giRange(P.d, W, qx, qy);
+      if (rg > 12 && wt * rg > tol / 2) { line = true; break; }
+      const at = (x, y, c) => P.d[4 * (y * W + x) + c];
+      for (let c = 0; c < 3; c++) col[c] += wt * ((1 - ay) * ((1 - ax) * at(qx, qy, c) + ax * at(qx + 1, qy, c)) + ay * ((1 - ax) * at(qx, qy + 1, c) + ax * at(qx + 1, qy + 1, c)));
+    }
+    if (edge) { none++; continue; }
+    if (line || __giRange(F.d, W, px, py) > 12) continue;
+    const o = 4 * (py * W + px);
     let m = 0;
-    for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(F.d[o + c] - ((1 - ay) * ((1 - ax) * at(qx, qy, c) + ax * at(qx + 1, qy, c)) + ay * ((1 - ax) * at(qx, qy + 1, c) + ax * at(qx + 1, qy + 1, c)))));
-    n++; max = Math.max(max, m); if (m > tol) over++; if (!inFrame(best)) far++;
+    for (let c = 0; c < 3; c++) m = Math.max(m, Math.abs(F.d[o + c] - col[c]));
+    n++; max = Math.max(max, m); if (m > tol) over++; if (!inFrame(layers[0].q.z)) far++;
   }
   return { n, none, far, max: Math.round(max), over: +(over / Math.max(1, n)).toFixed(5) };
 };`;
@@ -151,18 +179,20 @@
   const KEEP = (tag) => `window.__heldPx[${JSON.stringify(tag)}] = d;
     (window.__heldAt || (window.__heldAt = {}))[${JSON.stringify(tag)}] = { v: Object.assign({}, __cmwCards().main.view), g: typeof __cmwSteps === 'function' ? __cmwSteps().glide : null };`;
   const PIXELS = "const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__heldPx || (window.__heldPx = {});";
+  // (a read of canvasL's pixels waits for the GPU to finish the frame, which a heavy glide frame on a software renderer takes most of 20 s over)
+  const PIXEL_READ_MS = 120000;
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
       const same = await ev(`(() => { ${PIXELS} const p = g._prev;
         g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false;
         ${KEEP(tag)}
-        return true; })()`);
+        return true; })()`, PIXEL_READ_MS);
       if (same) return true;
       await sleep(100);
     }
     return false;
   };
-  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`);
+  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`, PIXEL_READ_MS);
   const wordsOff = () => ev(`(() => { const p = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = p[k]; p[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
   const kept = {};
   const keep = async (tag) => {
@@ -323,7 +353,7 @@ ${REF}`;
     const q = r.ref;
     return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, far: q.far, pass: q.n >= minN && q.over <= maxOver };
   };
-  // the globe's judge (the header's globeJudge): a lattice of the sphere every o.step degrees, each point w's pixel on the
+  // the globe's judge (the header's globeJudge): a lattice of the sphere every GLOBE_STEP degrees, each point w's pixel on the
   // moving globe tag against the pixel of its front point z0 on plane z's parked globe base, with the globe's light
   // taken out at z0 and put back at w
   const GLOBE_TOL = 8, GLOBE_MIN_N = 300, GLOBE_OVER = 0.005, GLOBE_RANGE = 12, GLOBE_STEP = 2;
@@ -347,9 +377,9 @@ ${REF}`;
       const toSrgb = (x) => { x = cl(x); return x < 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055; };
       const px = (z) => { const q = __cmwGlobeXY('L', z.re, z.im); return q ? [q[0] * k - 0.5, q[1] * k - 0.5] : null; };
       const range = (D, x, y) => { let r = 0; for (let ch = 0; ch < 3; ch++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = D[4 * ((y + dy) * W + x + dx) + ch]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };
-      // (the glide's sheet key, as its inverse pass prepares it: __cmwSvKey(b, u)'s window, R, rs and points)
+      // (the glide's sheet key, as its inverse pass prepares it: __cmwSvKey(b, u)'s window, R, rs, points and period)
       const kk = g.u > 0 && g.u < 1 ? __cmwSvKey(g.b, g.u) : null;
-      const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])) };
+      const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])), per: kk.per && C(kk.per[0], kk.per[1]) };
       // (H's points over w by Newton's method from w, 0, four points about it and rings of 8 seeds at radii 1/2, 1 and 2;
       // two roots within SAME are one; with several, the front one by the glide's sheet key, Inverse.front; none when
       // there are several and no key)
@@ -383,7 +413,7 @@ ${REF}`;
         return best.z;
       };
       let n = 0, over = 0, max = 0, none = 0, sum = 0;
-      for (let la = -84; la <= 84; la += ${o.step || GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${o.step || GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {
+      for (let la = -84; la <= 84; la += ${GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {
         const p3 = [Math.cos(la * Math.PI / 180) * Math.cos(lo * Math.PI / 180), Math.cos(la * Math.PI / 180) * Math.sin(lo * Math.PI / 180), Math.sin(la * Math.PI / 180)];
         if (p3[2] > 0.995) continue;
         const w = C(p3[0] / (1 - p3[2]), -p3[1] / (1 - p3[2])), pw = px(w);
@@ -407,5 +437,5 @@ ${REF}`;
     if (!r || r.__exc !== undefined) return { error: r && r.__exc, n: 0, pass: false };
     return Object.assign(r, { pass: r.n >= minN && r.over <= maxOver });
   };
-  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_TOL, GLOBE_MIN_N, GLOBE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_MIN_N, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
