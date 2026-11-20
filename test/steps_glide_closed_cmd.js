@@ -8,8 +8,9 @@
 // The rows:
 // - at each of a step's us the frame is drawn by the inverse pass (the glide's record, path 'inverse') and none of the
 //   ops it inverted is NEWT; for cos and the cubic, the carried colour at u = 0.5 is the exact picture (held_frames.js's
-//   judge; its Newton reference also fails a rational map's glide drawn by RAT2, and so the quartic's: the GLSL pages
-//   compare RAT4 with the CPU's exact roots instead);
+//   judge). The quartic has no judge row: the judge's reference keeps an older copy of Inverse.front's tie rule (#2029,
+//   #2061), and its frame at u = 0.5 gives the judge fewer than JUDGE_MIN_N pixels to compare, so a row would hold at
+//   another u; the GLSL pages compare RAT4 with the CPU's exact roots;
 // - the same place either way (cos and the cubic): the frame at u = 0.5 reached through 0.1, ..., 0.4 from plane z and
 //   through 0.9, ..., 0.6 from plane w1: at most SAME_FRAC of the pixels more than DIFF_TOL apart;
 // - arrival: the frame at u = 1 - 10^-4 against plane w1 at rest away from the lines (held_frames.js's sameAway: the
