@@ -209,6 +209,7 @@ for (const [lang, W, H] of [1024, 1280, 1440].flatMap((w) => ['en', 'ru', 'it'].
   // (the scenario: at 1024 and 1280 px the carried title does not fit whole, and the fold lands on the role: a leg that the fold
   // never reaches would pass empty)
   else ok(`${n}: the role is shown short (sv-rs) or cut to the room (sv-re), not dropped (sv-c2) or left whole over the head`, cut && !/\bsv-c2\b/.test(C.bar) && C.roleW > 0, C);
+  if (W !== 1440) ok(`${n}: the role is shown as its short form (sv-rs)`, /\bsv-rs\b/.test(C.bar) && !/\bsv-c2\b/.test(C.bar), C);
   ok(`${n}: shown short, the title's tip has the whole title`, !/\bsv-rs\b/.test(C.bar) || C.tip === C.full, C);
   ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !/\bsv-re\b/.test(C.bar) || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
   ok(`${n}: a role cut to the room is its whole words and an ellipsis (no word cut), and the title's tip has the whole title`, !/\bsv-re\b/.test(C.bar) || (C.cut && C.tip === C.full), C);

@@ -2405,8 +2405,7 @@
   const svRoleWords = (role) => role.split(/ (?![^<]*>)/).map((w, i) => `<span class="sv-w">${i ? ' ' : ''}${w}</span>`).join('');
   function svFormulaHtml() {
     const { name, role, short, shortFirst } = svTitleParts();
-    const attr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${attr(short)}"` : ''}${shortFirst ? ' data-short-first=""' : ''}>${svRoleWords(role)}</span>`;
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}${shortFirst ? ' data-short-first=""' : ''}>${svRoleWords(role)}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
   // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
