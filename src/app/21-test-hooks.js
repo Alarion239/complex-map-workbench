@@ -300,24 +300,29 @@
   // when it lies in the image of a carried triangle the draw keeps (LAND_CARRY_VS: its corners' images finite, its edges at
   // most lim long), of the box grid (cells x cells vertices over src), of a pole patch or of the far patch (patchN x patchN vertices,
   // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
-  // CPU only). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
+  // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
+  // default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
-  window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = []) => {
+  window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null) => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets) return null;
     const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
     const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
-    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell)
-    const grid = (n, place) => {
-      const P = new Float64Array(2 * n * n);
+    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell; with discs, a triangle
+    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch)
+    const grid = (n, place, discs = []) => {
+      const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n);
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
         const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
+        Z[o] = z[0]; Z[o + 1] = z[1];
         if (CX.isFin(w)) { P[o] = w.re; P[o + 1] = w.im; } else P[o] = P[o + 1] = NaN;
       }
       const at = (i, j) => 2 * (j * n + i);
+      const inDisc = (...v) => discs.some(([x, y, r]) => v.every((o) => Math.hypot(Z[o] - x, Z[o + 1] - y) < r));
+      const tri2 = (a, d, e) => { if (!inDisc(a, d, e)) tri(P, a, d, e); };
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
-        tri(P, at(i, j), at(i + 1, j), at(i + 1, j + 1));
-        tri(P, at(i, j), at(i + 1, j + 1), at(i, j + 1));
+        tri2(at(i, j), at(i + 1, j), at(i + 1, j + 1));
+        tri2(at(i, j), at(i + 1, j + 1), at(i, j + 1));
       }
     };
     const tri = (P, a, d, e) => {
@@ -335,16 +340,21 @@
         if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
       }
     };
-    const s = c.src, n = c.cells;
-    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)]);
-    for (const [px, py, r0, r1, N] of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
-      const m = (N || c.patchN || 96) - 1;
-      grid(m + 1, (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return [px + r * Math.cos(th), py + r * Math.sin(th)]; });
+    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, 4).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
+    for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
+      const n = p[4] || c.patchN || 96;
+      grid(n, (i, j) => svPatchZ(p, i, j, n));
     }
-    let bare = 0;
+    let bare = 0, counted = 0;
     const at = [];
-    for (let k = 0; k < nx * ny; k++) if (!cov[k]) { bare++; if (at.length < 8) at.push([+(b.x0 + (k % nx) / kx).toFixed(3), +(b.y0 + Math.floor(k / nx) / ky).toFixed(3)]); }
-    return { n: nx * ny, bare, at };
+    for (let k = 0; k < nx * ny; k++) {
+      const x = b.x0 + (k % nx) / kx, y = b.y0 + Math.floor(k / nx) / ky;
+      if (where && !where(x, y)) continue;
+      counted++;
+      if (!cov[k]) { bare++; if (at.length < 8) at.push([+x.toFixed(3), +y.toFixed(3)]); }
+    }
+    return { n: counted, bare, at };
   };
   // the height error of the last carried Landscape frame's far patches, on the CPU: each cell of a far patch outside the pole patches'
   // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the

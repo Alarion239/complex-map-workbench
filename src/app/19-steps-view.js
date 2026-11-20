@@ -525,7 +525,73 @@
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
-    return near.map(patch).concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    // (the glide map's own points: each patch's rings start at the map's cut out of the point, if it has one)
+    return near.map((p) => Object.assign(patch(p), { seam: svPatchSeam(F, patch(p)) }))
+      .concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+  }
+  // The cut of the glide map F out of the point of a pole's patch p ([x, y, r0, r1]), if it has one: the branch of a power
+  // or a log that ends there (the √ of a Möbius step ends at the step's pole). Its angle on SEAM_K rings of the patch,
+  // ring k at k / (SEAM_K - 1) of the way out (radii geometric from r0 to r1, as CARRY_Z's), unwrapped from ring to ring;
+  // the patch's rings start at it (CARRY_ZIN, uSeam), so no cell straddles the cut, and the patch ends along the cut
+  // on both sides, where the branch ends. null when no ring has one. A ring's cut: of SEAM_M steps round it, the one whose
+  // midpoint's image lies farthest from the midpoint of its ends' images, more than SEAM_JUMP of their distance (across a
+  // cut the midpoint goes to one side, half the chord away, however near the branch's sides; a smooth step's sagitta is
+  // a small part of it), bisected to its angle; a ring without one (too near the point for the map to take it whole, or
+  // past the cut's end) takes the nearest ring's
+  const SEAM_K = 9, SEAM_M = 96, SEAM_JUMP = 0.1, SEAM_BISECT = 32;
+  function svPatchSeam(F, p) {
+    const [x, y, r0, r1] = p, at = (r, th) => F(C(x + r * Math.cos(th), y + r * Math.sin(th)));
+    const d = (a, b) => (a && b && CX.isFin(a) && CX.isFin(b) ? CX.abs(CX.sub(a, b)) : NaN);
+    const seam = new Array(SEAM_K).fill(null);
+    for (let k = 0; k < SEAM_K; k++) {
+      const r = r0 * Math.pow(r1 / r0, k / (SEAM_K - 1)), W = [];
+      for (let m = 0; m <= SEAM_M; m++) W.push(at(r, (-2 * Math.PI * m) / SEAM_M));
+      // (each step's sagitta, the midpoint's image off the chord's midpoint, as a part of the chord)
+      const sag = W.slice(0, SEAM_M).map((w, m) => {
+        const c = d(w, W[m + 1]), h = at(r, (-2 * Math.PI * (m + 0.5)) / SEAM_M);
+        return c > 0 && h && CX.isFin(h) ? d(h, C((w.re + W[m + 1].re) / 2, (w.im + W[m + 1].im) / 2)) / c : NaN;
+      });
+      if (sag.some((v) => !Number.isFinite(v))) continue;
+      const mi = sag.indexOf(Math.max(...sag));
+      if (!(sag[mi] > SEAM_JUMP)) continue;
+      let a = (-2 * Math.PI * mi) / SEAM_M, b = (-2 * Math.PI * (mi + 1)) / SEAM_M, Fa = W[mi], Fb = W[mi + 1];
+      for (let it = 0; it < SEAM_BISECT; it++) {
+        const c = (a + b) / 2, Fc = at(r, c);
+        if (d(Fa, Fc) > d(Fc, Fb)) { b = c; Fb = Fc; } else { a = c; Fa = Fc; }
+      }
+      seam[k] = (a + b) / 2;
+    }
+    const known = seam.map((v, k) => (v == null ? -1 : k)).filter((k) => k >= 0);
+    if (!known.length) return null;
+    const out = seam.map((v, k) => (v != null ? v : seam[known.reduce((q, j) => (Math.abs(j - k) < Math.abs(q - k) ? j : q))]));
+    for (let k = 1; k < SEAM_K; k++) out[k] += 2 * Math.PI * Math.round((out[k - 1] - out[k]) / (2 * Math.PI));
+    // (where the cut ends, between its outermost ring and the next: past it the rings close round with no gap, as a cut's
+    // end is a branch point, where a gap SEAM_EPS wide would be blown up into a visible crack; bisected on the ring
+    // fraction t, each time asking whether a short step across the seam there jumps)
+    const kOut = known[known.length - 1];
+    let end = 1;
+    if (kOut < SEAM_K - 1) {
+      const fr = (t) => r0 * Math.pow(r1 / r0, t), th = (t) => { const s = t * (SEAM_K - 1), k = Math.min(Math.floor(s), SEAM_K - 2); return out[k] + (out[k + 1] - out[k]) * (s - k); };
+      const cut = (t) => {
+        const r = fr(t), q = th(t), dq = (Math.PI / SEAM_M) * 0.5, A = at(r, q + dq), B = at(r, q - dq), H = at(r, q - dq * 0.5), c = d(A, B);
+        return c > 0 && !!H && CX.isFin(H) && d(H, C((A.re + B.re) / 2, (A.im + B.im) / 2)) / c > SEAM_JUMP;
+      };
+      let lo = kOut / (SEAM_K - 1), hi = (kOut + 1) / (SEAM_K - 1);
+      for (let it = 0; it < SEAM_BISECT; it++) { const m = (lo + hi) / 2; if (cut(m)) lo = m; else hi = m; }
+      end = hi;
+    }
+    return Object.assign(out, { end });
+  }
+  // the point of a pole's patch p ([x, y, r0, r1], p.seam) at grid place (i, j) of an n x n grid, as CARRY_ZIN places it
+  // (SEAM_EPS inside the cut on rings out to its end, p.seam.end)
+  function svPatchZ(p, i, j, n) {
+    const f = 1 / (n - 1), r = p[2] * Math.pow(p[3] / p[2], j * f);
+    let th = -2 * Math.PI * i * f;
+    if (p.seam) {
+      const t = Math.min(Math.max(j * f, 0), 1) * (SEAM_K - 1), k = Math.min(Math.floor(t), SEAM_K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
+      th = p.seam[k] + (p.seam[k + 1] - p.seam[k]) * (t - k) - E - (2 * Math.PI - 2 * E) * i * f;
+    }
+    return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
   }
   // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
   // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
