@@ -220,15 +220,21 @@
     SV.i = 0; SV.g.set(0);
   }
   // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
-  // the device's setting for a state without one). svStore writes it before a save, a link or an undo entry;
-  // svLoad reads it when the page opens on a state that has one, and after an undo
+  // the device's setting for a state without one). svStore writes it before a save and an undo entry; a link and a scene
+  // file take the place on screen from svPlace (figureState), without writing S; svLoad reads it when the page opens on a
+  // state that has one, and after an undo
   function svStore() {
-    if (!SV.on || !SV.ready) return;
+    const o = svPlace();
+    if (o) setOpt('sv', o);
+  }
+  // the steps view's place as svStore writes it, or null while the view is off or not set up
+  function svPlace() {
+    if (!SV.on || !SV.ready) return null;
     // (a step shown alone keeps the whole chain's place, which is what undo and a link restore)
     const b = SV.alone && SV.back ? SV.back : null;
     const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed };
     if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
-    setOpt('sv', o);
+    return o;
   }
   function svLoad(onPageOpen) {
     // (by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which would clamp the place)
