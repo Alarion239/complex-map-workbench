@@ -11,9 +11,16 @@ const stepAt = (chapter, id) => ev(`Tour._t.CHAPTERS.find((c) => c.id === '${cha
 const rgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
 const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
-// (the button turns into Skip a moment after the step starts: wait for the class, up to 6 s, before reading its colours)
-// (the button is there, then what animates is done: two waits, each with its cap, so an animation that runs on does not count against the button's)
-const skipReady = async () => { const b = await settled({ only: true, until: `!!document.querySelector('.tour-strip .ts-next.skip')`, max: 8000 }); return b.ok && (await settled({ max: 20000 })).ok; };
+// (the button turns into Skip a moment after the step starts: wait for the class, then for what animates, each with its cap, and
+// say in a row of its own if either ran out)
+const SKIP_MS = 8000, CALM_MS = 20000;
+const skipReady = async (tag) => {
+  const b = await settled({ only: true, until: `!!document.querySelector('.tour-strip .ts-next.skip')`, max: SKIP_MS });
+  ok(`${tag}: the Skip button came`, b.ok, b);
+  if (!b.ok) return;
+  const c = await settled({ max: CALM_MS });
+  ok(`${tag}: the strip is calm`, c.ok, c);
+};
 const skip = () => ev(`(() => { const n = document.querySelector('.tour-strip .ts-next'); const cs = getComputedStyle(n); return { skip: n.classList.contains('skip'), bg: cs.backgroundColor, color: cs.color, hover: n.matches(':hover') }; })()`);
 for (const lang of ['en', 'ru']) {
   await view(390, 844, false, true);
@@ -26,7 +33,7 @@ for (const lang of ['en', 'ru']) {
   const c = await ev(`(() => { const b = document.querySelector('.tour-strip .ts-next').getBoundingClientRect(); return [Math.round(b.left + b.width / 2), Math.round(b.top + b.height / 2)]; })()`);
   await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: c[0], y: c[1] }] });
   await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-  await skipReady();
+  await skipReady(`${lang} touch`);
   const s = await skip();
   info[lang + ' touch'] = s;
   ok(`${lang} touch: Next led into the Draw task, where the button is Skip`, s.skip && (await ev('Tour.current().id')) === 'draw', s);
@@ -40,7 +47,7 @@ await ev('Tour.dismissSuggestion && Tour.dismissSuggestion(); Tour.auto && Tour.
 await ev(`Tour.start({ chapter: 'basics', step: ${await stepAt('basics', 'draw')} })`); await settled({ until: `Tour.isActive()` });
 const d = await ev(`(() => { const b = document.querySelector('.tour-strip .ts-next').getBoundingClientRect(); return [Math.round(b.left + b.width / 2), Math.round(b.top + b.height / 2)]; })()`);
 await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: d[0], y: d[1] });
-await skipReady();
+await skipReady('mouse');
 const h = await skip();
 info.mouse = h;
 ok('mouse: hovering Skip gives the hover shade, not the accent', h.skip && h.hover && ratio(rgb(h.color), rgb(h.bg)) >= 4.5 && rgb(h.bg).every((v) => v > 200), h);

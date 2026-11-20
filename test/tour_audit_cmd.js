@@ -34,13 +34,18 @@ const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // ux's review)
 const STEADY = `(!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
 const settle = () => settled({ floor: 350, panes: false, faces: true, until: STEADY });
-// a layer the step opened is shown: first it is visible (a layer that never opens still fails: after that cap, as noLayer), then what
-// still animates is waited out with a cap of its own. One wait for both made a toast that was visible but still animating in count as
-// a layer that did not open, when a loaded runner took longer than the cap over its enter animation (#2109).
-const SHOWN_MS = 8000, ANIM_MS = 20000;
-const shown = async (sel) => {
-  const visible = await settled({ only: true, max: SHOWN_MS, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
-  return { visible: visible.ok, calm: visible.ok ? (await settled({ panes: false, max: ANIM_MS })).ok : false };
+// a layer the step opened is shown: first it is visible (the condition alone, with its cap: a layer that never opens fails its row here),
+// then what still animates is waited out (its own, larger cap: an enter animation that runs past the first cap is no layer that failed to
+// open). Each wait makes a row, so reading its answer goes with a check that can fail; o.rows takes the rows instead of the suite's own
+// (the pin's probes), o.visibleMs and o.calmMs the caps.
+const SHOWN_MS = 8000, ANIM_MS = 20000, PROBE_MS = 800;
+const shown = async (sel, o = {}) => {
+  const rows = o.rows || check;
+  const v = await settled({ only: true, max: o.visibleMs || SHOWN_MS, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
+  rows(`${sel} is shown`, v.ok, v);
+  const c = v.ok ? await settled({ panes: false, max: o.calmMs || ANIM_MS }) : null;
+  if (c) rows(`${sel} is calm`, c.ok, c);
+  return { visible: v.ok, calm: !!c && c.ok };
 };
 // after a close, a stop or a key: only what still animates (no condition of its own, so no check is let off)
 const calm = () => settled({ panes: false });
@@ -152,12 +157,23 @@ for (const cfg of runs) {
   // ---- layers (the pass for the strip): during a step, open each layer of the app
   if (CFG.layers && theme === 'light') {
     if (!PINNED) {
-      // (shown() does not count a toast that is visible and still animating as one that did not open: this one's enter animation runs 4.5 s)
+      // (shown(): a toast whose enter animation runs 4.5 s is shown and calm; a layer that never opens, and an animation that outlasts the
+      // calm cap, each make a failing row)
       PINNED = true;
-      await ev(`(() => { __tourApi.toast('A toast whose enter animation outlasts the old 3 s cap'); document.querySelector('#toastHost > .toast').animate([{ opacity: 0.99 }, { opacity: 1 }], { duration: 4500 }); return true; })()`);
+      const toast = (ms) => ev(`(() => { __tourApi.toast('A toast with a ${ms} ms enter animation'); document.querySelector('#toastHost > .toast').animate([{ opacity: 0.99 }, { opacity: 1 }], { duration: ${ms} }); return true; })()`);
+      const clear = async () => { await ev(`document.querySelector('#toastHost').innerHTML = ''; 1`); await calm(); };
+      await toast(4500);
       const t0 = Date.now(), sh = await shown('#toastHost > .toast'), took = Date.now() - t0;
-      check('shown() waits out a visible toast\'s enter animation (4.5 s) instead of counting it as a layer that did not open', sh.visible && sh.calm && took >= 4000, { sh, took });
-      await ev(`document.querySelector('#toastHost').innerHTML = ''; 1`); await calm();
+      check('shown() waits out a toast with a 4.5 s enter animation, and says visible and calm', sh.visible && sh.calm && took >= 4000, { sh, took });
+      await clear();
+      const never = [];
+      const nv = await shown('#no-such-layer', { rows: (name, pass) => never.push([name, pass]), visibleMs: PROBE_MS });
+      check('shown() makes a failing row for a layer that never opens', !nv.visible && never.some(([, pass]) => !pass), { nv, never });
+      await toast(4500);
+      const slow = [];
+      const sw = await shown('#toastHost > .toast', { rows: (name, pass) => slow.push([name, pass]), calmMs: PROBE_MS });
+      check('shown() makes a failing row for an animation that outlasts the calm cap', sw.visible && !sw.calm && slow.some(([n, pass]) => /is calm/.test(n) && !pass), { sw, slow });
+      await clear();
     }
     const runLayer = async (stepAt, name, open, close, sel) => {
       await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle();
