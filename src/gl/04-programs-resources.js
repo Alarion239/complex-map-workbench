@@ -500,10 +500,10 @@ float wabs(vec2 w) {
   // start-up instead of each other. And the colour plot's stand-in (colorStandIn), which a first chain's coloured plane
   // draws while that chain's own programs link: started first, it is linked well before them
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark', 'colorStandIn'];
-  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
+  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static ones and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
-  const LAND_STATIC = ['landNrm'];
+  const LAND_STATIC = ['landNrm', 'landS'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
   // they have started: the lists above and the current chain's, so the total is known before the work is
