@@ -1086,8 +1086,8 @@
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
   // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the
-  // distance to the lowest of them; it is recomputed each time the key is shown, and, on a phone, whenever a readout
-  // changes size or the context bar opens or closes)
+  // distance to the lowest of them, less what an unfolded card on a phone needs to end KEY_GUTTER above the plane's foot; it is
+  // recomputed each time the key is shown, and, on a phone, whenever a readout changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
   // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
@@ -1144,10 +1144,13 @@
       if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) break;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
     }
-    // (the card stays inside the plane: a readout that wraps to more lines would drop it past the plane's foot, so the drop
-    // gives up what the card needs, down to none, and the card then overlaps the readout's last lines, which take no press)
-    const over = el.getBoundingClientRect().bottom - (plot.getBoundingClientRect().bottom - KEY_GUTTER), dropNow = parseFloat(box.style.getPropertyValue('--lg-drop')) || 0;
-    if (over > 0 && dropNow > 0) box.style.setProperty('--lg-drop', `${Math.max(0, dropNow - Math.ceil(over))}px`);
+    // (on a phone the card stays inside the plane: a readout that wraps to more lines would drop it past the plane's foot, so the
+    // drop gives up what the card needs, down to none, and the card then overlaps the readout's last lines, which take no press
+    // there. A head's pop-up has no such room: the readout there takes presses, and it stays under the pop-up's drop)
+    if (!head) {
+      const over = el.getBoundingClientRect().bottom - (plot.getBoundingClientRect().bottom - KEY_GUTTER), dropNow = parseFloat(box.style.getPropertyValue('--lg-drop')) || 0;
+      if (over > 0 && dropNow > 0) box.style.setProperty('--lg-drop', `${Math.max(0, dropNow - Math.ceil(over))}px`);
+    }
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
