@@ -178,6 +178,7 @@ const VIEWS = {
   'steps_head_glide_cmd.js': steps(),
   'ruler_corner_cmd.js': steps(),
   'steps_menu_expanded_cmd.js': steps(),
+  'steps_note_rail_cmd.js': steps({ pin: true }),
   'example_integral_phone_cmd.js': steps({ pin: true }),
   'steps_ctx_keys_cmd.js': steps({ pin: true }),
   'menu_buttons_expanded_cmd.js': steps({ pin: true }),
