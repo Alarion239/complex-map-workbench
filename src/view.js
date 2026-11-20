@@ -82,6 +82,8 @@ class Pane {
   }
   begin(bg) {
     this.labels = null; // the label queue of the frame being replaced (app.js placeLabels)
+    // (what the placer put down, kept where a probe is set: none yet in this frame, so a frame that places no label leaves none)
+    if (this.labelsPlaced) this.labelsPlaced = [];
     this.begun++;   // (the plane's description is a begun frame's: paneSaid)
     const c = this.ctx;
     c.setTransform(1, 0, 0, 1, 0, 0);

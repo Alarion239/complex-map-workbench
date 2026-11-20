@@ -95,8 +95,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph:not(.ph-land) .plot > .chip.readout:has(> .rglobe:not([hidden])) { top: 6px; padding-top: 2px; padding-bottom: 2px; }   /* (a portrait pane has 86 px above the globe: the 6 px top and 2 px padding keep the hint's longest wrap, four lines, above it) */
 :root.ph.ph-land .plot > .chip.readout:has(> .rglobe:not([hidden])) { --hint-col-min: 120px; --globe-half: 160px; max-width: max(var(--hint-col-min), calc(50% - var(--globe-half))); }   /* (a landscape pane has no room above the globe: the hint sits in the column left of it, as wide as the pane's half less the globe's half-width, --globe-half, and at least --hint-col-min) */
-/* (a construction tool picked on the globe: the construction chip says what to do, over the same column, and the globe's hint would say "Drag to draw a perpendicular" where the tool picks by taps; a landscape plane is 106 px tall at 320 px, with no room for the two, so the hint gives way while the chip stands) */
-:root.ph.ph-land .plot:has(> .draft-chip.cm-on:not([hidden])) > .chip.readout:has(> .rglobe:not([hidden])) { visibility: hidden; }
+/* (a construction tool picked on the globe: the construction chip says what to do, over the hint's corner, and the globe's hint would say "Drag to draw a perpendicular" where the tool picks by taps; a landscape plane is 106 px tall at 320 px, with no room for the two, and a portrait hint's wrap (two to four lines) reaches down into the chip's rows, so the hint gives way while the chip stands) */
+:root.ph .plot:has(> .draft-chip.cm-on:not([hidden])) > .chip.readout:has(> .rglobe:not([hidden])) { visibility: hidden; }
+/* (a portrait plane's chip then takes the card's place, 8 px under the plane's top, not 40 px under it with the card's empty band above) */
+:root.ph:not(.ph-land) .plot:has(> .chip.readout > .rglobe:not([hidden])) > .draft-chip.cm-on:not([hidden]) { top: 8px; }
 :root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
@@ -116,6 +118,8 @@ html:not(.ph) .ph-only { display: none !important; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
+/* (a landscape phone's key stands level with the globe key: its 30 px glyph is centred on the 44 px key at the top of the column, which stands 60 px above the plane's foot and rises with --ph-lift: the column is the globe key and the options key, 96 px; 7 px is half the 14 px the glyph is short of 44. Where the column runs up past the plane's top, 12 px under it, the 4 px gap and the 8 px hit area that must stay inside the plane; the Landscape has no globe key, and keeps the key's place) */
+:root.ph.ph-land:not(.view-land) .plot:has(> .ph-col) > .legend-chip { top: max(12px, calc(100% - 149px - var(--ph-lift))); }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
    folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
 :root.ph .legend-chip.collapsed { overflow: visible; }
@@ -476,6 +480,11 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (an unfolded key is the one the person opened to read: it stands over the keys it meets, Fit view and Sphere, so its words are not hidden,
+     and opaque, so the keys under it do not show through; a tap on it folds it, and the keys are under it only while it is open. A key
+     that takes keyboard focus rises over it: the focus is never hidden under the card) */
+  :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip:not(.collapsed) { z-index: 14; background: var(--surface); }
+  :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(:is(.ph-col, .viewstack) :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
 }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
@@ -580,7 +589,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .ph-ctx.under { visibility: hidden; }
 
 /* ---------- the steps view on a phone: the plane, a row of its controls over it, the strip above the tools ---------- */
-:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
+:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: var(--s-4); padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
 :root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1, :root.ph.sv .sv-scope-menu { min-height: 44px; }
@@ -589,7 +598,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-head .seg > button { padding: 0 6px; }
+:root.ph.sv .sv-head .seg > button { padding: 0 var(--s-2); }
 /* the scope's switch keeps the segmented control's padding (0 10px, the design spec), at every level of the head's fold but the last
    (sv-c4's `.seg > button` below has fewer classes in its selector than this one, so this wins): its second segment is the short
    word, so it fits at 360 px in Russian and Italian (#1596) */
@@ -602,7 +611,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
-:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
+:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-4); border-radius: 22px; }
 /* every step has its ⋯ on a phone too: a 44 px slot after the 44 px chip, the 16 px dot centred in it, both inside the pill's border */
 :root.ph.sv .sv-more { width: 44px; height: 44px; margin: 0; border-radius: 22px; }
 :root.ph.sv .sv-more::after { inset: 0; }
@@ -619,7 +628,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0; border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
-:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 6px; }
+:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 var(--s-2); }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-playmore, :root.ph.sv #svStrip .sv-playpop, :root.ph.sv #svStrip .sv-loop { display: none; }
 /* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge clears the range) */
@@ -633,7 +642,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .sv-surf1 .sv-surf-i svg { width: 16px; height: 16px; display: block; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
-:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 var(--s-2); }
 /* still short (w₁'s name is wider than z's at 360 px): tighter gaps and segmented buttons, the targets still 40 px tall (the scope's
    keep their padding, above) */
 :root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
