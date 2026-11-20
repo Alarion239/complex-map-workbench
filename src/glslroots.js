@@ -62,8 +62,9 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
   // p_n ... p_0 two to a cell, then Q's from cell half. Once per w, _roots sets _A, the low-first coefficients
   // a_k = p_(n-k) - w q_(n-k) of p - w q (which _a reads, so Aberth's sweeps fetch no uniform), drops the degree where a
   // leading coefficient is what cancellation leaves, below 1e-14 of |p_(n-k)| + |w| |q_(n-k)| (as aberthRoots), and keeps
-  // Aberth's roots (aberthFns), each polished by two Newton steps on p - w q, when finite and apart from every earlier
-  // one; root b's derivative (p/q)' by Horner on P and Q
+  // Aberth's roots (aberthFns), each polished by two Newton steps on p - w q, in increasing Re + 0.37 Im (aberthRoots'
+  // ROOT_ORDER; the finite ones first), each when finite and apart from every earlier one; root b's derivative (p/q)'
+  // by Horner on P and Q
   function ratAberthFns(n, j, c, NOR, dedupe) {
     const P = `ix${j}`, half = Math.ceil((n + 1) / 2);
     const cell = (i, from) => `(${i} & 1) == 0 ? uInv[${c + from} + ${i} / 2].xy : uInv[${c + from} + ${i} / 2].zw`;
@@ -94,12 +95,22 @@ void ${P}_roots(vec2 w) {
   vec2 z[${n}];
   ${P}_start(w, de, z);
   ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
+  float o[${n}];
   for (int i = 0; i < ${n}; i++) {
     vec2 v = z[i];
     for (int it = 0; it < 2; it++) { vec2 q, dq; ${P}_ev(v, w, de, q, dq); vec2 st = cdiv(q, dq); if (ixFin(st)) v -= st; }
     bool ok = i < de && ixFin(v);
-    for (int m = 0; m < ${n}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${dedupe} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
-    ${P}_r[i] = v; ${P}_k[i] = ok;
+    float key = ok ? v.x + 0.37 * v.y : 3e38;
+    int m = i;
+    for (int k = ${n - 1}; k > 0; k--) {
+      if (k > m) continue;
+      if (o[k - 1] <= key) break;
+      o[k] = o[k - 1]; ${P}_r[k] = ${P}_r[k - 1]; ${P}_k[k] = ${P}_k[k - 1]; m = k - 1;
+    }
+    o[m] = key; ${P}_r[m] = v; ${P}_k[m] = ok;
+  }
+  for (int i = 1; i < ${n}; i++) {
+    for (int m = 0; m < ${n}; m++) { if (m >= i) break; if (${P}_k[i] && ${P}_k[m] && cx_abs(${P}_r[i] - ${P}_r[m]) <= ${dedupe} * (1.0 + cx_abs(${P}_r[m]))) ${P}_k[i] = false; }
   }
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${n} : 0; }

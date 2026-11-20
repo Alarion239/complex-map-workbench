@@ -517,17 +517,20 @@ const InvOps = (() => {
   }
   // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX by Aberth's iteration (newtAberth from
   // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
-  // on co (polishRoot), in the order of their start points, as GLSL's RAT<n> finds them. The degree drops where a leading
+  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them: which start point converges to
+  // which root differs between float64 and float32 where two roots are near, the order of the roots does not (it
+  // changes only where two keys are equal; the direction 0.37 keeps conjugate roots apart). The degree drops where a leading
   // coefficient is what cancellation leaves of its terms, below 1e-14 of the size of the terms it was computed from
   // (size: their sizes, highest first: for p - w q, |p_k| + |w| |q_k|): a root that runs off to infinity is left out. A
   // leading coefficient that is small beside the others alone (large roots) is kept
+  const ROOT_ORDER = (u) => u.re + 0.37 * u.im;
   function aberthRoots(co, size) {
     let i = 0;
     while (i < co.length - 1 && abs(co[i]) <= 1e-14 * size[i]) i++;
     const c = co.slice(i), n = c.length - 1;
     if (n < 1) return [];
     const a = c.slice().reverse();
-    return newtAberth(a, n, newtAberthStart(a, n)).filter(isFin).map((u) => ({ u: polishRoot(c, u) }));
+    return newtAberth(a, n, newtAberthStart(a, n)).filter(isFin).map((u) => polishRoot(c, u)).sort((u, v) => ROOT_ORDER(u) - ROOT_ORDER(v)).map((u) => ({ u }));
   }
   // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0, the op RAT<n>; its
   // roots in closed form for n = 3 and 4 (cubicRoots, quarticRoots), by Aberth's iteration above (aberthRoots)
