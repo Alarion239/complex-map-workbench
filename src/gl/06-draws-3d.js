@@ -311,7 +311,7 @@
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    polarUniforms(P1, polar, true);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
@@ -331,6 +331,23 @@
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
   // i + 1
   const landCP = [];
+  // a grid's patch uniforms (CARRY_ZIN): uPolar, and the seam along the glide map's cut (polar.seam, svPatchSeam) with
+  // seam; the box's grid (polar null) and the sheets' patches (their cuts are the sheets') take none
+  function polarUniforms(P, polar, seam) {
+    u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    const s = seam && polar && polar.seam;
+    u1i(P, 'uSeamOn', s ? 1 : 0);
+    if (s) { u1fv(P, 'uSeam', s); u1f(P, 'uSeamEnd', s.end); }
+  }
+  // the box's draw (LAND_CARRY_VS): the discs of the seamed patches of polar (at most CARRY_DISCS), each CARRY_DISC_IN of its
+  // radius, inside which the box's triangles are left to the patch; the patch reaches past them, so no crack opens
+  const CARRY_DISC_IN = 0.98;
+  function discUniforms(P, polar) {
+    const D = (polar || []).filter((p) => p.seam).slice(0, CARRY_DISCS);
+    u1i(P, 'uDiscN', D.length);
+    const l = L_(P, 'uDisc');
+    if (l && D.length) gl.uniform3fv(l, D.flatMap((p) => [p[0], p[1], CARRY_DISC_IN * p[3]]));
+  }
   function carryPlaces(st, N, polar, slot = 0) {
     const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
     if (!P) return false;
@@ -338,7 +355,7 @@
     use(P, c.map);
     u1i(P, 'uN', N);
     u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    polarUniforms(P, polar, false);
     runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP[slot], N, N, gl.RGBA32F, gl.RGBA);
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return true;
@@ -974,7 +991,7 @@
     use(P1, sp.hom ? st.map : null);
     u1i(P1, 'uN', M + 1);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    polarUniforms(P1, polar, false);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
@@ -1361,7 +1378,7 @@
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      polarUniforms(Pc, null, false); discUniforms(Pc, st.carry.polar);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -1370,7 +1387,7 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N);
+        polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
@@ -1448,7 +1465,7 @@
         gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
         u1i(Lp, 'uPatch', 1); u1i(Lp, 'uRefOn', 0); u1f(Lp, 'uCLim', st.carry.lim);
         const drawPatch = (p) => {
-          u1i(Lp, 'uN', p.N); u4f(Lp, 'uPolar', ...p.polar);
+          u1i(Lp, 'uN', p.N); polarUniforms(Lp, p.polar, false);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.tex1);
           gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[p.slot]);
           gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
@@ -1457,7 +1474,7 @@
         gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         for (const p of sheetPatches) if (p.far) drawPatch(p);
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
-        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0);
+        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); polarUniforms(Lp, null, false);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
         gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
         info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
