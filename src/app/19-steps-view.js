@@ -138,27 +138,31 @@
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
   // then past T that the points carry it and their colour from T. Parked between two planes, the place is no plane: the
   // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it).
-  // short: the role's short form for a narrow head, plain text; shortFirst: the head shows it in place of the role cut to its
-  // first words, which would lose what the short form keeps (a carried Landscape's "carried from w₁": its height stays in the
-  // title's tip and the Height key)
+  // short: the role's short form for a narrow head, plain text, and shortP the plane's name that ends it, set as maths after
+  // it (a carried Landscape's, where the language puts the name last); shortFirst: the head shows it in place of the role cut
+  // to its first words, which would lose what the short form keeps (a carried Landscape's "carried from w₁": its height stays
+  // in the title's tip and the Height key)
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
-    let role, short = '', shortFirst = false;
+    let role, short = '', shortP = '', shortFirst = false;
     const park = svParkedPair();
     if (park && !(SV.surf === 'land' && svMain(k) === 'land')) {
       role = park[1] <= T ? $t('coloured from {p}', { p: wHtml(T) }) : $t('colour carried from {p}', { p: wHtml(T) });
-      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short, shortFirst };
+      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short, shortP, shortFirst };
     }
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
-      short = k > T ? $t('landscape, carried from {p}', { p: svName(T) }) : $t('landscape');
+      if (k > T) {
+        const [head, tail] = $t('landscape, carried from {p}', { p: '\u0001' }).split('\u0001');
+        if (tail === '') { short = head; shortP = svName(T); } else short = $t('landscape, carried from {p}', { p: svName(T) });
+      } else short = $t('landscape');
       shortFirst = k > T;
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === 0 && S.dc === 'cauchy' && cauchyPlot()) { role = $t('Cauchy integral over {name}', { name: cauchyPlot().name }); short = $t('Cauchy integral'); }
     else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
-    return { name: svNameHtml(k), role, short, shortFirst };
+    return { name: svNameHtml(k), role, short, shortP, shortFirst };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
@@ -2404,8 +2408,8 @@
   // short of room. A space inside a tag ("<i class=…>") does not split
   const svRoleWords = (role) => role.split(/ (?![^<]*>)/).map((w, i) => `<span class="sv-w">${i ? ' ' : ''}${w}</span>`).join('');
   function svFormulaHtml() {
-    const { name, role, short, shortFirst } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}${shortFirst ? ' data-short-first=""' : ''}>${svRoleWords(role)}</span>`;
+    const { name, role, short, shortP, shortFirst } = svTitleParts();
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}${shortP ? ` data-short-p="${shortP}"` : ''}${shortFirst ? ' data-short-first=""' : ''}>${svRoleWords(role)}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
   // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
