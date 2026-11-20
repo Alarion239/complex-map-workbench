@@ -1566,7 +1566,19 @@
       } catch (e) { /* no MutationObserver */ }
       // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
       try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
-      el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
+      el.addEventListener('keydown', (e) => {
+        if (el.getAttribute('role') !== 'button') return;
+        if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); }
+        // (Escape folds the open key, the focus on it or on its switch, and stays on the key: the folded key is the same element)
+        else if (e.key === 'Escape' && !el.classList.contains('collapsed')) { e.preventDefault(); e.stopPropagation(); el.classList.add('collapsed'); el.focus(); }
+      });
+      // (a key the open key lies over takes no focus under it: it folds as the key takes focus. A plane key stands in the same plot)
+      document.addEventListener('focusin', (e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (el.getAttribute('role') !== 'button' || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
+        const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
+        if (b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) el.classList.add('collapsed');
+      });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
