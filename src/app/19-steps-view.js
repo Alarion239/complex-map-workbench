@@ -1848,11 +1848,12 @@
   // A combo is the chain with each multivalued step's sheet (its k, which the GPU reads as data, so the programs are the
   // same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW, the
   // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
-  // are svGlideSheets(b)'s, nearest the principal sheet first (the sum of the offsets' distances from 0, a root's
-  // around its circle of sheets), made once per chain. A combo whose map to plane b is one an earlier combo already
-  // draws is left out, as the Landscape's sheets are (sheetUniq: the same values at SHEET_PTS): a later step can undo
-  // a sheet (exp after log), so each surface is drawn once and the cap counts distinct ones. A chain with more distinct
-  // combos leaves the farthest ones out.
+  // are svGlideSheets(a, b)'s for the glide from plane a to plane b, nearest the principal sheet first (the sum of the
+  // offsets' distances from 0, a root's around its circle of sheets), made once per chain and glide. A combo whose maps
+  // to every plane from a to b are an earlier combo's is left out, as the Landscape's sheets are (sheetUniq: the same
+  // values at SHEET_PTS): a later step can undo a sheet (exp after log, z² after √), and a glide frame is placed by the
+  // map to plane a and coloured by the map to plane b, so a combo the glide's planes cannot tell apart is drawn once and
+  // the cap counts distinct ones. A chain with more distinct combos leaves the farthest ones out.
   // SV.glideSheets 1 (a test hook's) draws the chain as it is alone.
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
@@ -1860,12 +1861,12 @@
   // The window of an infinitely sheeted step: S.sheetW within its bounds (sheetWOf), as the Landscape's "sheets ±"
   // choice and the GPU's sheet plan draw it
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
-  // svGlideSheets' last answer, made again when its key (the chain's signature, plane b and the window W) changes: key,
+  // svGlideSheets' last answer, made again when its key (the chain's signature, planes a and b, the window W) changes: key,
   // list (the copies), W, and own, the chain as it is on the GPU, which svOnSheets sets back after each copy's draw
   let svSheetMemo = { key: '', list: [] };
-  function svGlideSheets(b) {
+  function svGlideSheets(a, b) {
     const W = sheetWOf(S.sheetW);
-    const key = `${chainSig[nSteps()]}|${b}|${W}`;
+    const key = `${chainSig[nSteps()]}|${a}|${b}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
     const radix = [];
@@ -1881,11 +1882,14 @@
     for (const d of radix) combos = combos.flatMap((c) => d.offs.map((o) => c.concat(o)));
     const far = (c) => c.reduce((t, o, i) => t + radix[i].far(o), 0);
     combos = combos.slice(1).map((c, i) => ({ c, i, f: far(c) })).sort((x, y) => x.f - y.f || x.i - y.i).map((x) => x.c);
-    // (a chain's values on plane b at SHEET_PTS; a point it cannot be evaluated at is a missing value, null)
+    // (a chain's values on each plane from a to b at SHEET_PTS, one list; a point it cannot be evaluated at is a missing
+    // value, null)
     const valsOf = (steps, bs) => {
       let G = null;
-      try { G = Funcs.stageFunctions(steps, bs)[b]; } catch (e) { G = null; }
-      return SHEET_PTS.map((z) => { try { return G ? G(z) : null; } catch (e) { return null; } });
+      try { G = Funcs.stageFunctions(steps, bs); } catch (e) { G = null; }
+      const out = [];
+      for (let j = a; j <= b; j++) for (const z of SHEET_PTS) { let w = null; try { w = G && G[j] ? G[j](z) : null; } catch (e) { w = null; } out.push(w); }
+      return out;
     };
     // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and stagesFollow,
     // which change the user's chain; a combo whose values match the chain's or a kept copy's is not kept)
@@ -2022,7 +2026,7 @@
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       // (the other sheets' copies first, svGlideSheets, the farthest from the principal sheet first: where they meet, a
       // nearer sheet is drawn over a farther one, and the principal one over them all)
-      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(b) : [];
+      const sheets = !still && map.mode === 1 && !isDeriv(b) && svColoured(b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(a, b) : [];
       for (const v of sheets.slice().reverse()) svOnSheets(v, () => svCarryExactHom(pane, b, u, T, frame, { r: null }) || svCarryRegions(pane, map, T, b, frame, null));
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
