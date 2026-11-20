@@ -1,12 +1,14 @@
-// The floor picker (#1982, the Stack's P1a): the Pick tool in the steps view, on M3 = z³ − 1.2z + 0.3 with the floor z and
+// The floor picker: the Pick tool in the steps view, on M3 = z³ − 1.2z + 0.3 with the floor z and
 // the target's plane w₁, with real pointer events on a desktop and a phone's touch.
 // - The tool shows on z, where a later plane holds the target, and keeps its place, hidden, on w₁; X picks it.
 // - A press lights the point's twins: all three points with the same image, said in the live region.
 // - A drag out draws a disc on w₁ about the pressed point's image, through the image of the release point, as one
 //   edit (one Undo).
 // - A drag on a lit patch moves its disc by the change of the image under the pointer, as one edit.
-// - From the keyboard, Enter lights the twins of the view's centre and Enter again adds the disc about their image.
-// - Select still pans the empty floor; on a phone one finger picks and two fingers pan.
+// - From the keyboard, Enter lights the twins of the view's centre and Enter again adds the disc about their image, and
+//   says so; the tool grid stays one Tab stop, and its arrows never aim at the hidden Pick.
+// - Select still pans the empty floor; on a phone the Tools sheet's Pick tile picks the tool on z and is not there on
+//   w₁, one finger picks and two fingers pan.
 // A command file for a CDP daemon (test/cdp_kit README): python3 build.py && test/<you>_cdp/q.sh test/floor_pick_cmd.js
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -19,10 +21,10 @@ const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 // (a point's image, read back to 1e-9; a disc's centre and radius from a pointer's place, to what a pixel moves them)
 const TOL = 1e-9, PX_TOL = 0.02;
 const steps = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
-async function openApp(w, h, mobile) {
+async function openApp(w, h, mobile, lang) {
   const ns = 'fpick' + Date.now();
   await view(w, h, false, mobile);
-  await loadView('steps', ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image', steps, shapes: [], srcView: { cx: 0, cy: 0, s: 120 } });
+  await loadView('steps', ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, rightMode: 'image', steps, shapes: [], srcView: { cx: 0, cy: 0, s: 120 } }, { lang });
   await settled({ max: 40000, until: `typeof __cmwPick === 'function' && typeof __cmwP === 'function' && !!document.querySelector('#svStrip .sv-step')` });
 }
 const atPlane = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return s.x === ${i} && !s.anim && !s.moving; })()` }); };
@@ -43,7 +45,14 @@ const b1 = await button();
 ok('w₁, the target\'s own plane: the Pick button keeps its place, hidden', !!b1 && b1.na && b1.vis === 'hidden' && b1.hidden === 'true' && b1.tab === -1 && JSON.stringify(b1.box) === JSON.stringify(b0.box), { b0, b1 });
 await key('x');
 ok('w₁: X does not pick the tool there', (await pick()).tool !== 'pick', await pick());
+// (the arrows inside the tool grid aim only at tools that show)
+await ev(`document.querySelector('#tools .tool[data-tool="select"]').focus(), 1`);
+await key('End');
+const endAt = await ev('document.activeElement && document.activeElement.dataset ? document.activeElement.dataset.tool : null');
+ok('w₁: End in the tool grid goes to the last tool that shows, not the hidden Pick', endAt === 'pgrid', endAt);
 await atPlane(0);
+const stops = await ev(`[...document.querySelectorAll('#tools .tool')].filter((b) => b.tabIndex === 0).map((b) => b.dataset.tool)`);
+ok('z: the tool grid is one Tab stop, with Pick shown', stops.length === 1, stops);
 await key('x');
 await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
 ok('z: X picks the Pick tool', (await pick()).tool === 'pick', await pick());
@@ -104,6 +113,8 @@ ok('Enter lights the twins of the view\'s centre', !!P.lit && dist(P.lit.z0, vc)
 await key('Enter');
 await settled({ until: `__cmwP().shapes.length === 2` });
 D = await discs();
+const said = (await pick()).live;
+ok('Enter again says the disc was added on w₁', /Disc added on w₁/.test(said), said);
 ok('Enter again adds a disc on w₁ about their image, selected', D.length === 2 && D[1].stage === 1 && dist(D[1].c, f(vc)) <= 1e-9 && D[1].r > 0 && (await ev('__cmwShapes().selected')) === D[1].id, D);
 
 // ---- Select still pans the empty floor
@@ -115,12 +126,26 @@ const v1 = await ev(`__cmwPlaneMenu().view('L')`);
 ok('Select: a drag on the empty floor pans and draws nothing', (v1.cx !== v0.cx || v1.cy !== v0.cy) && (await discs()).length === 2, { v0, v1 });
 await grab();
 
-// ---- a phone: one finger picks, two fingers pan
+// ---- a phone: the Tools sheet's Pick tile picks the tool on z and is not there on w₁; one finger picks, two fingers pan
 await openApp(390, 844, true);
-await atPlane(0);
-await ev(`document.querySelector('.tool[data-tool="pick"]').click(); 1`);
-await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
 const touch = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i + 1 })) });
+const tap = async (p) => { await touch('touchStart', [p]); await touch('touchEnd', []); };
+const centre = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
+// (the Tools sheet opened from the More key, on its Draw tab)
+const sheet = async () => { await tap(await centre('#toolMore > summary')); await settled({ panes: false, until: `!!document.querySelector('.ph-tiles[data-tab="draw"] .ph-tile')` }); await ev(`Phone.tab('draw'), 1`); };
+// (the Pick tile, scrolled into the sheet's view: on a short phone it is below the fold)
+const tileOf = async () => { await ev(`(() => { const t = document.querySelector('.ph-tiles[data-tab="draw"] .ph-tile[data-tool="pick"]'); if (t) t.scrollIntoView({ block: 'center' }); return 1; })()`); return centre('.ph-tiles[data-tab="draw"] .ph-tile[data-tool="pick"]'); };
+await atPlane(1);
+await sheet();
+ok('phone, w₁: the Tools sheet has no Pick tile', (await tileOf()) === null, await ev(`[...document.querySelectorAll('.ph-tiles[data-tab="draw"] .ph-tile')].map((e) => e.dataset.tool)`));
+await ev(`Phone.close(true), 1`);
+await atPlane(0);
+await sheet();
+const pt = await tileOf();
+ok('phone, z: the Tools sheet has the Pick tile', !!pt, pt);
+if (pt) await tap(pt);
+await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
+ok('phone, z: a tap on the Pick tile picks the tool', (await pick()).tool === 'pick', await pick());
 const t0 = await at(0.2, -0.3);
 await touch('touchStart', [t0]); await touch('touchEnd', []);
 await settled({ panes: false, until: `!!__cmwPick().lit` });
@@ -139,6 +164,20 @@ await touch('touchEnd', []);
 await settled({});
 const pv1 = await ev(`__cmwPlaneMenu().view('L')`);
 ok('phone: two fingers pan, and draw nothing', (pv1.cy !== pv0.cy || pv1.cx !== pv0.cx) && (await discs()).length === 1, { pv0, pv1, D: await discs() });
+// ---- a narrow phone in ru and it: the bar's active Pick tile reads its short form on one line, clear of its icon
+const SHORT = { ru: 'Точки', it: 'Punti' };
+for (const lang of ['ru', 'it']) {
+  await grab();
+  await openApp(320, 568, true, lang);
+  await atPlane(0);
+  await sheet();
+  const tl = await tileOf();
+  if (tl) await tap(tl);
+  await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
+  const bar = await ev(`(() => { const s = document.querySelector('#toolMore > summary'), l = s.querySelector('.tm-open'), i = s.querySelector(':scope > .ic-slot'); const a = l.getBoundingClientRect(), b = i.getBoundingClientRect(), lh = parseFloat(getComputedStyle(l).lineHeight) || 16; return { text: l.textContent, lines: Math.round(a.height / lh), meet: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top }; })()`);
+  info['bar ' + lang] = bar;
+  ok(`phone 320 × 568, ${lang}: the bar's Pick tile reads its short form on one line, clear of its icon`, !!bar && bar.text === SHORT[lang] && bar.lines === 1 && !bar.meet, bar);
+}
 await grab();
 ok('no page errors', errs.length === 0, errs.slice(0, 5));
 return { pass: fails.length === 0, fails, info };
