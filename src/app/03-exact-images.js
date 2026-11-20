@@ -402,12 +402,16 @@
     if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
     return o;
   }
+  // whether a live d/dz step lies between planes a and k, so that invHomBase(a, k) is the substitute chain
+  function invHomPastDdz(a, k) {
+    for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return true;
+    return false;
+  }
   // the chain a glide from plane a into plane k is planned over: the chain itself; or, with a d/dz step between them,
   // the chain that stands in for it (invDerivChain: the step before the d/dz off, its derivative in its place).
   // {steps, built}, or {reason} where no such chain can be made
   function invHomBase(a, k) {
-    for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return invDerivChain(k);
-    return { steps: S.steps, built };
+    return invHomPastDdz(a, k) ? invDerivChain(k) : { steps: S.steps, built };
   }
   // the built steps of invHomBase(a, k), each live one decomposed once (invHomOnce); null where that chain cannot be
   // made
@@ -422,6 +426,31 @@
       invHomSkels.set(sk, bs);
     }
     return bs;
+  }
+  // The period in z of the glide's map H_t o F_{k-1} from plane a, or null: Inverse.keyPeriod of its plan at t (step k
+  // standing for its homotopy, as invHomPath's plan), so the steps before k's where they have one, which H_t keeps,
+  // and where they are affine, that of step k's path at t (tan's, tan(t z) / t about its centre, has pi / t): the key
+  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Planned on invHomBase's chain, as
+  // invHomPath's plan is (the substitute one past a d/dz step). Kept per (a, k, t, chain, and which of the two chains),
+  // as a glide's frames ask for each t a few times
+  const invHomPers = new Map();
+  function invHomPer(a, k, t) {
+    const sub = invHomPastDdz(a, k), ck = `${a}|${k}|${t}|${chainSig[nSteps()]}|${sub ? 'ddz' : 'own'}`;
+    if (invHomPers.has(ck)) return invHomPers.get(ck);
+    let per = null;
+    try {
+      const base = invHomBase(a, k), bs = base.steps && invHomSkeleton(a, k);
+      if (bs) {
+        const hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
+        let plan = null;
+        if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(base.steps, bh, a, k); }
+        per = plan && plan.ok ? Inverse.keyPeriod(plan)
+          : k - 1 > a ? Inverse.keyPeriod(sub ? Inverse.planChain(base.steps, bs, a, k - 1) : invPlan(a, k - 1)) : null;
+      }
+    } catch (e) { per = null; }
+    if (invHomPers.size >= 4096) invHomPers.clear();
+    invHomPers.set(ck, per);
+    return per;
   }
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
@@ -449,9 +478,8 @@
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
       h = invOwnPlan(base.steps, bh, a, k);
-      // (the key's period: the steps before k's, which the path of step k at t keeps, as svSheetKeyAt's; planned on the
-      // chain this plan is made from, the substitute one past a d/dz step)
-      h.per = k - 1 > a ? Inverse.keyPeriod(base.steps === S.steps ? invPlan(a, k - 1) : Inverse.planChain(base.steps, bs, a, k - 1)) : null;
+      // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
+      h.per = invHomPer(a, k, t);
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
