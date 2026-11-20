@@ -61,6 +61,8 @@ uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
 float ixEdge, ixEdgeC, ixFill;
+// (ixShapePx: the band pass's candidate is where the chain to the shape's plane is not linear over the footprints)
+bool ixNonLin;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
@@ -282,20 +284,24 @@ void ixDirHalf(vec2 d, float th, vec2 dLX, vec2 dLY, float sg, out float s, out 
 }
 #ifdef IX_CARRY
 // the chain's stages (a, b], G = chainRange(., a, b), at z, z + dX and, unless an, z + dY: g0 = G(z), gx = G(z + dX) - g0,
-// gy = G(z + dY) - g0 (0 with an). One chainRange call site, in a loop whose trip count is a uniform: a shader compiler
-// inlines every call, so three calls would hold three copies of the chain (the carried colour's and a later plane's
-// shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources): three calls, as SwiftShader's
-// compiler (Subzero) links the loop some 20 times slower than the three copies
-void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, out vec2 g0, out vec2 gx, out vec2 gy) {
+// gy = G(z + dY) - g0 (0 with an); with bk also at z - dX and z - dY, the backward differences gbx = g0 - G(z - dX)
+// and gby = g0 - G(z - dY) (gx and gy without: no bend). One chainRange call site, in a loop whose trip count is a
+// uniform: a shader compiler inlines every call, so five calls would hold five copies of the chain (the carried
+// colour's and a later plane's shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources):
+// three calls, as SwiftShader's compiler (Subzero) links the loop some 20 times slower than the three copies; there
+// bk is not taken (no backward differences: two more copies of the chain would add their link time)
+void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, bool bk, out vec2 g0, out vec2 gx, out vec2 gy, out vec2 gbx, out vec2 gby) {
 #ifdef IX_CHAIN3_CALLS
   g0 = chainRange(z, a, b); gx = chainRange(z + dX, a, b) - g0; gy = an ? vec2(0.0) : chainRange(z + dY, a, b) - g0;
+  gbx = gx; gby = gy;
 #else
-  g0 = vec2(0.0); gx = g0; gy = g0;
-  for (int k = 0; k < 3 * uIxOne; k++) {
-    if (k == 2 && an) break;
-    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : z + dY, a, b);
-    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else gy = g - g0;
+  g0 = vec2(0.0); gx = g0; gy = g0; gbx = g0; gby = g0;
+  for (int k = 0; k < 5 * uIxOne; k++) {
+    if ((k == 2 && an) || (k >= 3 && !bk)) continue;
+    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : k == 2 ? z + dY : k == 3 ? z - dX : z - dY, a, b);
+    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else if (k == 2) gy = g - g0; else if (k == 3) gbx = g0 - g; else gby = g0 - g;
   }
+  if (!bk) { gbx = gx; gby = gy; }
 #endif
 }
 #endif
@@ -306,12 +312,18 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
 #ifdef IX_STAGED
+  ixNonLin = false;
   if (uShStage > 0) {
     // (the shape's level at the point's image on its plane, along the image of the footprints)
     if (!zf) return;
-    vec2 g0, gx, gy;
-    ixChain3(z, dX, dY, 0, uShStage, false, g0, gx, gy);
+    vec2 g0, gx, gy, gbx, gby;
+    bool bk = uEdgeOnly == 1;
+    ixChain3(z, dX, dY, 0, uShStage, false, bk, g0, gx, gy, gbx, gby);
     if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
+    // (the band's distance is linear in the footprints' images: where a footprint's forward and backward images differ
+    // by more than a quarter of the larger, as about a critical value of the frame's map, whose inverse's footprint
+    // grows without bound, that distance is not the pixel's: the region's sign alone, and no band, invLeaf)
+    ixNonLin = bk && (!ixFin(gbx) || !ixFin(gby) || length(gx - gbx) > 0.25 * max(length(gx), length(gbx)) || length(gy - gby) > 0.25 * max(length(gy), length(gby)));
     z = g0; dX = gx; dY = gy;
   }
   bool ixOwn = uShStage == 0;
@@ -758,6 +770,8 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
+  // (a footprint over which the chain bends, ixShapePx: in or out by its sign, no band)
+  if (ixNonLin && s > -1e37 && s < 1e37) s = s > 0.0 ? 1e38 : -1e38;
   if (uEdgeOnly == 1 && s == s) {
     float on = 1.0;
     if (uEdgeDash.x > 0.0) {
