@@ -519,18 +519,21 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- multiple roots (#2098): RAT3 and RAT4 at a critical value list a k-fold root once, as the CPU's ops do
   // (InvOps.rootMembers): (z - 1)^2 (z + 2) and (z - 1)^2 (z + 2)(z - 3) at w = 0 (the double root 1), and at points
-  // off it, where every root is simple. The GPU's leaves (visited count, and each leaf's z) against Inverse.enumerate's,
-  // a disc of radius 4 about 0 holding every root ----
+  // off it, where every root is simple: down to w = 1e-6, whose pair about 1 (8e-4 apart for the quartic, 1e-3 for the
+  // cubic) float32 still resolves. The GPU's leaves (visited count, and each leaf's z) against Inverse.enumerate's, a disc
+  // of radius 4 about 0 holding every root. Pinned: closer in (the band rows, w = 1e-8 for the cubic and 1e-7 for the
+  // quartic) the pair lies within float32's rounding of the double root, and the GPU lists it once, one leaf fewer
+  // than the CPU ----
   {
     const MR = R.multi = { compared: 0, failCount: 0, fails: [] };
     const shape = { id: 'mr', kind: 'disc', c: [0, 0], r: 4, ci: 0, visible: true }, win = { x0: -5, x1: 5, y0: -5, y1: 5 }, pix = 0.01;
-    for (const [name, co, kind] of [['(z-1)^2 (z+2)', '1, 0, -3, 2', 'RAT3'], ['(z-1)^2 (z+2)(z-3)', '1, -3, -3, 11, -6', 'RAT4']]) {
+    for (const [name, co, kind, band] of [['(z-1)^2 (z+2)', '1, 0, -3, 2', 'RAT3', 1e-8], ['(z-1)^2 (z+2)(z-3)', '1, -3, -3, 11, -6', 'RAT4', 1e-7]]) {
       const steps = [St('poly', { co })], built = steps.map(Funcs.build), plan = Inverse.planChain(steps, built);
       if (!plan.ok || plan.ops.map((o) => o.kind).join() !== kind) { MR.failCount++; MR.fails.push({ chain: name, bad: ['plan ' + (plan.ok ? plan.ops.map((o) => o.kind).join() : plan.reason)] }); continue; }
       GLR.setChain(GLChain.build(steps, built));
       const prep = Inverse.prepare(plan, { win, shape });
       GLR.packShapes([shape], { debounce: false });
-      const pts = [C(0, 0), C(0.01, 0), C(-0.02, 0.01), C(0.5, 0.25)];
+      const pts = [C(0, 0), C(1e-6, 0), C(3e-6, 0), C(0, 1e-6), C(0.01, 0), C(-0.02, 0.01), C(0.5, 0.25), C(band, 0)];
       const data = new Float32Array(1024 * 2 * 4);
       pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(pix); });
       const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1, pattern: 'checker', cell: 0.5 }, extra: EXTRA_WALK };
@@ -539,8 +542,11 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       pts.forEach((w, i) => {
         const cpu = Inverse.enumerate(plan, prep, w, Math.fround(pix), { K: 1, B: 3, paths: true }), o = g.out;
         const at = (row) => [o[4 * (row * NP + i)], o[4 * (row * NP + i) + 1]], bad = [];
-        if (at(8)[0] !== cpu.visited) bad.push(`visited gpu ${at(8)[0]} cpu ${cpu.visited}`);
-        else cpu.leaves.slice(0, 8).forEach((c, r) => { const q = at(r); if (Math.hypot(q[0] - c.z.re, q[1] - c.z.im) > 1e-3 * (1 + cabs(c.z))) bad.push(`leaf ${r} gpu ${q[0]}, ${q[1]} cpu ${c.z.re}, ${c.z.im}`); });
+        const want = w.re === band ? cpu.visited - 1 : cpu.visited;
+        if (at(8)[0] !== want) bad.push(`visited gpu ${at(8)[0]} cpu ${cpu.visited}${w.re === band ? ' (band: one fewer)' : ''}`);
+        else if (w.re === band) {
+          for (let r = 0; r < Math.min(want, 8); r++) { const q = at(r); if (!cpu.leaves.some((c) => Math.hypot(q[0] - c.z.re, q[1] - c.z.im) <= 1e-3 * (1 + cabs(c.z)))) bad.push(`band leaf ${r} gpu ${q[0]}, ${q[1]} is no CPU leaf`); }
+        } else cpu.leaves.slice(0, 8).forEach((c, r) => { const q = at(r); if (Math.hypot(q[0] - c.z.re, q[1] - c.z.im) > 1e-3 * (1 + cabs(c.z))) bad.push(`leaf ${r} gpu ${q[0]}, ${q[1]} cpu ${c.z.re}, ${c.z.im}`); });
         MR.compared++;
         if (bad.length) { MR.failCount++; MR.fails.push({ chain: name, w: [w.re, w.im], bad }); }
       });
