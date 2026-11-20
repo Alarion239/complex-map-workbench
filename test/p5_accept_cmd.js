@@ -26,6 +26,26 @@ const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFra
 // wait until every SphereMesh job has published and the canvas is still. `want`: the least number of meshes and of
 // builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet). A wait
 // that runs out its ms fails the suite, naming the want and the last read, so a timed-out read is never taken as data
+// What the jobs that did not finish were doing, for a settle that runs out (#2075): each job's id (its shape), its region (the slot) and view (the last part of its key), whether
+// it was ever started (its mesh exists), its state, and what it waits on, read from the page's own flags (__cmwSphere().wait: the
+// mesh driver, smPump, waits out fixBusy() and interacting() between slices); the waits are sampled four times 250 ms apart, so a
+// flag that flickers shows. Only the test's output: the page is as it is
+const stuckJobs = async (s) => {
+  const waits = [];
+  for (let i = 0; i < 4; i++) { waits.push(await evJson('JSON.stringify(__cmwSphere().wait)')); await sleep(250); }
+  const w = waits[waits.length - 1];
+  const waitsOn = (j) => {
+    if (!j.wanted) return `nothing: its slot wants another key (${JSON.stringify((s.want.find(([sl]) => sl === j.slot) || [null, 'none'])[1])})`;
+    if (w.fixBusy) return 'fixBusy: ' + ['trans', 'tweens', 'camTweens', 'drag', 'morph', 'svGliding'].filter((k) => w[k]).join(', ');
+    if (w.interacting) return `interacting: motion ${w.motionAgo} ms ago, scrub ${w.scrubAgo} ms ago${w.camSpin ? ', the camera spinning' : ''}${w.sliding ? ', a slider' : ''}`;
+    if (!s.running) return 'the driver (smPump) is not running: nobody pumps the job';
+    return `its own slices (phase ${j.phase}, ${j.slices} slices, ${j.ms} ms of work in ${j.age} ms)`;
+  };
+  return {
+    jobs: s.jobs.map((j) => ({ id: j.key.split('|')[0], view: j.key.split('|').pop(), region: j.slot, role: j.role, kind: j.kind, why: j.why, started: j.started, state: j.cancelled ? 'cancelled' : j.started ? `meshing, phase ${j.phase}` : 'not started', ageMs: j.age, workMs: j.ms, slices: j.slices, nodes: j.nodes, waitsOn: waitsOn(j) })),
+    want: s.want, entries: s.entries.map((e) => ({ slot: e.slot, why: e.why })), waits,
+  };
+};
 const settle = async (ms = 120000, want = {}) => {
   const t0 = Date.now();
   let s = null;
@@ -35,7 +55,7 @@ const settle = async (ms = 120000, want = {}) => {
     const there = s.entries.length >= (want.entries || 0) && s.stats.built >= (want.built || 0);
     if (!s.running && !s.jobs.length && there && Date.now() - t0 > 1200) break;
     if (Date.now() - t0 > ms) {
-      ok(`settle: the meshes settled with ${JSON.stringify(want)} within ${ms} ms`, false, { running: s.running, jobs: s.jobs.length, entries: s.entries.length, stats: s.stats });
+      ok(`settle: the meshes settled with ${JSON.stringify(want)} within ${ms} ms`, false, { running: s.running, jobs: s.jobs.length, entries: s.entries.length, stats: s.stats, stuck: await stuckJobs(s) });
       break;
     }
   }
