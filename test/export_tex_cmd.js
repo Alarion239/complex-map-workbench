@@ -65,10 +65,10 @@ await view(1440, 900, false, false);
 for (const lang of ['en', 'ru', 'it']) {
   // the shapes
   const ns = 'xtex' + lang + Date.now();
-  await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
+  await go(`${BASE}/gl-helpers.html`); await sleep(350);
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', lang, shapes: SHAPES, steps: [{ type: 'pown', params: { n: 2 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `${BASE}/test-mj.html?ns=${ns}&lang=${lang}` }); await sleep(2500);
+  await go(`${BASE}/test-mj.html?ns=${ns}&lang=${lang}`); await sleep(2500);
   if (!(await mjReady())) { fails.push(`${lang}: MathJax did not load: the figure cannot be read`); continue; }
   if (!(await ev('!!window.__cmwSteps && __cmwSteps().on'))) fails.push(`${lang}: the figures are not exported from the steps view`);
   await control(lang);

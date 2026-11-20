@@ -30,10 +30,10 @@ const SCENE = {
 async function openApp() {
   const ns = 'ls' + Date.now();
   await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(350);
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', sel: 1, srcView: { cx: 0, cy: 0, s: 120 } }, SCENE);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}`); await sleep(2300);
   await settle(1500);
   await settled({ only: true, max: 10000, until: 'typeof __cmwP === "function" && !!document.querySelector("#svStrip .sv-add")' });
 }
