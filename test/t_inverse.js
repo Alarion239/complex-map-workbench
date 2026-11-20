@@ -1124,6 +1124,14 @@ section('singularAfter (ζ after an injective plan)');
     check('homOps: Γ(z + 1) at t = 0.75, its NEWT op names sub-step 1 and keys it', g75.length === 1 && g75[0][0] === 1 && /@1$/.test(g75[0][1]), g75);
     check('homOps: z^5 - 2z + 1 at t = 0.25 and 0.75, its polynomial NEWT op names sub-step 0 (its key is its degree)', p25.length === 1 && p25[0][0] === 0 && p25[0][1] === 'NEWT^5' && p75.length === 1 && p75[0][0] === 0 && p75[0][1] === 'NEWT^5', { p25, p75 });
   }
+  // a polynomial NEWT op's members in increasing Re u + 0.37 Im u (InvOps' ROOT_ORDER, as RAT<n>'s and the GLSL op's),
+  // each m its place in that order: which of Aberth's start points finds which root depends on the rounding, so the
+  // CPU and the GPU agree on the order of the roots, not on that (#2058)
+  for (const [expr, t, w] of [['z^5+z', 0.5, C(3, 1)], ['z^5-2z+1', 0.25, C(-0.4, 2)], ['z^7+3z^2-1', 0.75, C(1e3, -40)], ['z^6+z', 1, C(0.2, 0.1)]]) {
+    const op = Inverse.homOps(Funcs.build(St('custom', { expr, cut: 180 })), t).ops.find((o) => o.kind === 'NEWT'), ms = op ? op.pre(w) : [];
+    const ks = ms.map((m) => m.u.re + 0.37 * m.u.im);
+    check(`homOps: ${expr} at t = ${t}, w = ${w.re} + ${w.im}i: the polynomial NEWT op's members in increasing Re + 0.37 Im, m their places`, ms.length > 0 && ks.every((k, i) => i === 0 || ks[i - 1] <= k) && ms.every((m, i) => i === 0 || ms[i - 1].m < m.m), ms.map((m) => `${m.m}:${(m.u.re + 0.37 * m.u.im).toFixed(4)}`).join(' '));
+  }
   // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
   // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
   // Repeated inverse Joukowski (len 1, N = 3: three times) at t = 0.5 and 0.8, and the block [exp, inverse Joukowski]
