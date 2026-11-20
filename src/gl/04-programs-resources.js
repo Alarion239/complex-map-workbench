@@ -361,6 +361,11 @@ float wabs(vec2 w) {
     }
     return e.state === 'ready' ? e : null;
   }
+  // The static programs (the ones no chain owns, as the globes': sphere, regionSC, lineSC, disc, mark) that prestart was asked for a view
+  // a pane shows, by name. progStatus counts them with the current chain's programs, so the gauge is not complete before each has
+  // linked (or failed); nothing else reads the set. A static program belongs to no chain, so freeChain never drops it and the set
+  // is not cleared with one
+  const staticWanted = new Set();
   // Static programs started ahead of their first use, in the background (KHR_parallel_shader_compile): getProg links
   // a static program synchronously at its first use, so the first frame of a view paid for all of its programs. The
   // globes' (sphere, regionSC, lineSC, disc, mark) held the first frame after a switch to Sphere for 35-45 ms of main
@@ -368,7 +373,6 @@ float wabs(vec2 w) {
   // coming (the pointer over a Sphere control, or the switch itself, a frame ahead of its draw): the links run in
   // parallel, and the first use reads a finished one or waits for the slowest only. offView: they are a view's no pane
   // shows (e.offView). -> the number started
-  const staticWanted = new Set();
   function prestart(names, offView) {
     if (!ok || lost || !pcExt) return 0;
     let n = 0;
@@ -463,7 +467,7 @@ float wabs(vec2 w) {
   }
   // How far the current chain's programs that prestartNames was asked for have come, with those prestartModes plans
   // for the map modes `modes` (the other map modes of the programs the views draw, which the warm-up starts once
-  // nothing else links): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
+  // nothing else links), and the static programs that prestart was asked for (staticWanted): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
   // counts in total only. The chain's other programs still compiling are counted in total as well, so the answer is
   // complete only when nothing of the chain is left linking: its programs that a draw starts at their first use (as the
   // carried colour's region fills; while one links, no inverse program of the chain is started, invProgram) and its
