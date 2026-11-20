@@ -162,6 +162,29 @@ for (const [name, steps, want] of [
   const r3 = ofChain([St('tan'), St('pown', { n: 2 })]);
   check('tan → z²: no critical value or point value is a rounded pole', !!r3 && r3.points.list.length > 0 && r3.points.list.every((p) => p.w === null || abs(p.w) < 1e6) && r3.values.list.every((v) => abs(v.w) < 1e6), r3);
 }
+// ---- infinity as an asymptotic value (exp, sin, cos, sinh, cosh), and a step undefined at infinity: no value there
+for (const [name, steps, want] of [
+  ['exp → 1/z', [St('exp'), St('recip')], [C(0)]],
+  ['exp → (z + 1)/(z − 1)', [St('exp'), St('mobius', { a: '1', b: '1', c: '1', d: '-1' })], [C(-1), C(1)]],
+  ['sin → 1/z', [St('sin'), St('recip')], [C(1), C(-1), C(0)]],
+  ['cosh → 1/z', [St('cosh'), St('recip')], [C(1), C(-1), C(0)]],
+  // (z²'s critical point infinity goes into tan or tanh, undefined there: it has no value, and 1/z makes nothing of it)
+  ['z² → tan → 1/z', [St('pown', { n: 2 }), St('tan'), St('recip')], [C(0, 1), C(0, -1)]],
+  ['z² → tanh → 1/z', [St('pown', { n: 2 }), St('tanh'), St('recip')], [C(1), C(-1)]],
+  ['z² → tan → (z + 1)/(z − 1)', [St('pown', { n: 2 }), St('tan'), St('mobius', { a: '1', b: '1', c: '1', d: '-1' })], [C(-1), C(0, 1), C(0, -1)]],
+  // (a branch before a critical point that it never reaches: √z never takes −1, log never 10i)
+  ['√z → (z + 1)²', [St('root'), St('custom', { expr: '(z+1)^2' })], []],
+  ['log → (z − 10i)²', [St('log'), St('custom', { expr: '(z-10i)^2' })], []],
+]) {
+  const r = ofChain(steps);
+  check(`${name}: the values ${want.map((w) => `${w.re}+${w.im}i`).join(', ') || 'none'}, and no other`, !!r && r.values.known && sameSet(r.values.list.map((v) => v.w), want), r && r.values);
+}
+{
+  // a preimage that rounding leaves huge and finite is infinity: 1/z → +0.1 → +0.2 → (z − 0.3)² is 1/z², whose one
+  // finite critical point is 0 (0.3 − 0.2 − 0.1 is −2.8e-17 in floats)
+  const r = ofChain([St('recip'), St('add', { c: '0.1' }), St('add', { c: '0.2' }), St('custom', { expr: '(z-0.3)^2' })]);
+  check('1/z → +0.1 → +0.2 → (z − 0.3)²: the one critical point 0', !!r && r.points.complete && r.points.list.length === 1 && near(r.points.list[0].z, C(0), 1e-7), r && r.points);
+}
 // ---- a pole of order 2 or more: its value is infinity, never a huge or infinite float
 for (const [name, st, want] of [
   ['(z² + 1)/(z − 0.1)²', St('rational', { p: '1, 0, 1', q: '1, -0.2, 0.01' }), [C(1 / 1.01)]],

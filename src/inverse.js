@@ -635,20 +635,24 @@ const Inverse = (() => {
       if (!c) return null;
       for (const e of c.crit) {
         const w = critForward(ops, i + 1, e.w);
-        if (w !== null) out.push(w);
+        if (w) out.push(w);
       }
     }
     return out;
   }
-  // Inverse.critForward(ops, i, w) -> C | null: w (null = infinity) carried through ops i, i + 1, ... An op's value at
-  // infinity is its value at CRIT_FAR, and infinity for an op undefined there (its undef holds infinity: exp, the
-  // trigonometric and hyperbolic functions, which have no limit there). A value past CRIT_INF, w's own too, is
-  // infinity: a pole in float64 comes out finite (tan at the float nearest pi/2 is 1.6e16)
+  // Inverse.critForward(ops, i, w) -> C | null | undefined: w (null = infinity) carried through ops i, i + 1, ... An
+  // op's value at infinity is its value at CRIT_FAR; an op undefined there (its undef holds infinity: exp, the
+  // trigonometric and hyperbolic functions, which have no limit there) gives no value, undefined, and the ops after it
+  // are not reached. A value past CRIT_INF, w's own too, is infinity: a pole in float64 comes out finite (tan at the
+  // float nearest pi/2 is 1.6e16)
   const CRIT_FAR = 1e150, CRIT_INF = 1e14;
   const critFin = (v) => (v !== null && isFin(v) && abs(v) < CRIT_INF ? v : null);
   function critForward(ops, i, w) {
     w = critFin(w);
-    for (let k = i; k < ops.length; k++) w = w === null && (ops[k].undef || []).includes(null) ? null : critFin(ops[k].fwd(w === null ? C(CRIT_FAR, 0) : w));
+    for (let k = i; k < ops.length; k++) {
+      if (w === null && (ops[k].undef || []).includes(null)) return undefined;
+      w = critFin(ops[k].fwd(w === null ? C(CRIT_FAR, 0) : w));
+    }
     return w;
   }
   // Inverse.keySing(plan, win) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
@@ -1793,7 +1797,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, pointPlan, critValues, critForward, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
