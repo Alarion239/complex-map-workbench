@@ -567,7 +567,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #toastHost .toast[data-rows="two"] { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
 :root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; -webkit-line-clamp: 3; }
 :root.ph #toastHost .toast[data-rows="two"] > span + :is(.toast-act, .toast-x) { margin-left: auto; }
-/* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
+/* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, its words three lines at most (the two-row clamp above);
    a vertical drag on it is its own (a swipe down dismisses it) */
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
 :root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + 44px + var(--ph-col) + env(safe-area-inset-right, 0px)); }

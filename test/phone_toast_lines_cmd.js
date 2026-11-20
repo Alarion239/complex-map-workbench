@@ -16,7 +16,7 @@ const LONGEST = {
   ru: ['Все листы: высота теперь равна Im f₂(z), а перезагрузка стёрла бы вашу работу, поэтому язык интерфейса не изменён.', 'Отменить'],
 };
 const SHORTISH = 'Added f₃: Exponential, and a longer second part';   // (two rows at 360 px, one row at 740 px)
-const LINE_H = 18, MAX_LINES = 3, CUT_MAX = 1, STILL_MS = 150, SETTLE_MAX = 5000, MSG_MS = 60000;
+const MAX_LINES = 3, CUT_MAX = 1, STILL_MS = 150, SETTLE_MAX = 5000;
 const measure = () => ev(`(() => {
   const host = document.getElementById('toastHost'), t = host && host.querySelector('.toast'); if (!t) return null;
   const sp = t.querySelector(':scope > span'), tb = t.getBoundingClientRect(), sb = sp.getBoundingClientRect();
@@ -31,7 +31,7 @@ const open = async (w, h, lang) => {
   await view(w, h, false, true);
   const ns = 'ptl' + w + lang + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwToast === 'function' && !!window.Phone && Phone.isOn() && document.getElementById('svStrip').getBoundingClientRect().height > 0` });
 };
 const show = (msg, label) => ev(`(__cmwToast(${JSON.stringify(msg)}, ${JSON.stringify(label)}, { sticky: true }), 1)`);
