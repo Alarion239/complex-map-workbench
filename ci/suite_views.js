@@ -130,6 +130,7 @@ const VIEWS = {
   'steps_pull_off_cmd.js': steps(),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
+  'head_press_cmd.js': steps({ pin: true }),
   'steps_land_lscale_cmd.js': steps({ pin: true }),
   'steps_land_caption_cmd.js': steps(),
   'pre_more_said_cmd.js': steps(),
