@@ -198,7 +198,7 @@
   }
   // (cz: the Cauchy style's variant, CARRY_CAUCHY; without it the function has none of CAUCHY_CORE)
   function invCarryFns(cz) {
-    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + `
+    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + glsl`
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
@@ -213,7 +213,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 `;
     return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
 uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
-` + CARRY_W + `
+` + CARRY_W + glsl`
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   bool cz = uCT >= 0;
