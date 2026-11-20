@@ -1667,7 +1667,9 @@
     const phase = st.mode === 'color';
     const P = program(phase ? 'sphereP' : 'sphere', st.map);
     // st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
-    // these regions write the frame's alpha, then the globe draws its colour alone over them, kept where the alpha is
+    // these regions write the frame's alpha (and st.maskPre's passes, the regions of later planes pulled back: drawPreimage's
+    // st without view, their fills opaque), then the globe draws its colour alone over them, kept where the alpha is;
+    // st.maskOver's passes (their layer: the band, under Inside regions) are drawn over the colour kept
     const masked = !!(P && st.maskRegions && keepInAlpha(true));
     // (a mask that cannot draw yet draws nothing: never the colour over the whole globe)
     if (st.maskRegions && !masked) { resetState(); return null; }
@@ -1679,6 +1681,7 @@
       writeMask(false, true);
       gl.depthMask(false);
       sphereRegions(st.maskRegions, sph, MVP, eye);
+      for (const pr of st.maskPre || []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null }));
       gl.depthMask(true);
       writeMask(true, false);
     }
@@ -1754,7 +1757,7 @@
     }
     // (Inside regions: the colour is kept inside the mask first, so the silhouette over it is drawn at the mask's alpha:
     // inside the regions it lies over the colour, as in a frame with no mask, and outside them it is the regions' globe's)
-    if (masked) { writeMask(true, true); keepInAlpha(); }
+    if (masked) { writeMask(true, true); keepInAlpha(); for (const pr of st.maskOver || []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null })); }
     // silhouette: the circle of tangency seen from the eye, 1.25 px axis at 50%
     const D2 = eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2];
     if (D2 > 1.0001) {
