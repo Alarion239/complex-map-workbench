@@ -34,6 +34,9 @@ ruff check
 
 - `npm test` runs every unit test (`test/t_*.js`) through `ci/unit.js`. The browser, GLSL, quality and perf gates
   run in CI (`ci/README.md`).
+- A browser suite you run locally (`node ci/browser.js --only …`) draws with CI's lavapipe where `mesa-vulkan-drivers` is installed, else
+  with SwiftShader and a warning; the run's first line names the renderer. Judge a red by it: a red on SwiftShader that CI does not show
+  is not a regression (`ci/README.md`, Locally).
 - Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
   versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
   test whose snapshot is missing fails and says so (#427).

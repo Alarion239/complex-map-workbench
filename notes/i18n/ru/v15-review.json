@@ -20,11 +20,6 @@
   "ru": "радиусы должны быть не меньше 0",
   "note": "Reason after \"r₁ = … = −1: \" (math-2)."
  },
- "v15r.zp_hint_touch": {
-  "en": "Or long-press a plane. Marks snap to the ruler.",
-  "ru": "Или удерживайте палец на плоскости. Метки привязываются к линейке.",
-  "note": "Inspector hint under Add zero / Add pole on touch screens (design-9, russian-8; GLOSSARY 3.12)."
- },
  "v15r.mob_const": {
   "en": "{f} is constant (= {v}).",
   "ru": "%{f} постоянна (= %{v}).",
@@ -40,49 +35,10 @@
   "ru": "Вставить функцию после него",
   "note": "Step ⋯ menu: the keyboard way to the connectors’ insert + (design-14). «него»: the step (шаг)."
  },
- "v15r.chain_more": {
-  "en": "More for the chain",
-  "ru": "Действия с цепочкой",
-  "note": "aria-label of the chain head’s ⋯ (holds Clear chain; design-18)."
- },
  "v15r.cyr_name": {
   "en": "The letter “{x}” is Cyrillic: names are written in Latin letters. Switch the keyboard layout.",
   "ru": "Буква «%{x}» — русская: имена пишутся латиницей. Переключите раскладку.",
   "note": "Parameters, + Number: a Cyrillic letter that is not a look-alike of a Latin one (russian-7)."
- },
- "v15r.every_point": {
-  "en": "every point maps here: an earlier step is constant",
-  "ru": "сюда переходит любая точка: один из предыдущих шагов постоянен",
-  "note": "Plane menu, muted line under Add zero/pole of fₖ here (math-6, math-12)."
- },
- "v15r.also_mult": {
-  "en": "also at {n} other point, counted with multiplicity",
-  "en_plural": [
-   "also at {n} other point, counted with multiplicity",
-   "also at {n} other points, counted with multiplicity"
-  ],
-  "plural": {
-   "one": "ещё в %{n} точке с учётом кратности",
-   "few": "ещё в %{n} точках с учётом кратности",
-   "many": "ещё в %{n} точках с учётом кратности",
-   "other": "ещё в %{n} точках с учётом кратности"
-  },
-  "note": "Plane menu muted line for polynomial and rational steps (math-12; russian-13a: no «также ещё»)."
- },
- "v15r.f_there": {
-  "en": "F there: {v} ({f} follows)",
-  "ru": "F здесь: %{v} (далее %{f})",
-  "note": "Plane menu muted line when active steps follow fₖ (math-4): the value of F at the new zero. {f} is f with a subscript (HTML)."
- },
- "v15r.added_zero_at": {
-  "en": "Added zero {mark} of {f} at {z}.",
-  "ru": "Добавлен нуль %{mark} функции %{f} в точке %{z}.",
-  "note": "Announcement after the plane menu adds a zero (regress-10, russian-13b)."
- },
- "v15r.added_pole_at": {
-  "en": "Added pole {mark} of {f} at {z}.",
-  "ru": "Добавлен полюс %{mark} функции %{f} в точке %{z}.",
-  "note": "Announcement after the plane menu adds a pole."
  },
  "v15r.added_zero": {
   "en": "Added zero {mark} of {f}.",

@@ -300,24 +300,29 @@
   // when it lies in the image of a carried triangle the draw keeps (LAND_CARRY_VS: its corners' images finite, its edges at
   // most lim long), of the box grid (cells x cells vertices over src), of a pole patch or of the far patch (patchN x patchN vertices,
   // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
-  // CPU only). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
+  // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
+  // default). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
-  window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = []) => {
+  window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null) => {
     const c = render3D.carried;
     if (!c || !c.map || c.sheets) return null;
     const F = cpuMap(c.map), b = c.box, cov = new Uint8Array(nx * ny);
     const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
-    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell)
-    const grid = (n, place) => {
-      const P = new Float64Array(2 * n * n);
+    // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell; with discs, a triangle
+    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch)
+    const grid = (n, place, discs = []) => {
+      const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n);
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
         const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
+        Z[o] = z[0]; Z[o + 1] = z[1];
         if (CX.isFin(w)) { P[o] = w.re; P[o + 1] = w.im; } else P[o] = P[o + 1] = NaN;
       }
       const at = (i, j) => 2 * (j * n + i);
+      const inDisc = (...v) => discs.some(([x, y, r]) => v.every((o) => Math.hypot(Z[o] - x, Z[o + 1] - y) < r));
+      const tri2 = (a, d, e) => { if (!inDisc(a, d, e)) tri(P, a, d, e); };
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
-        tri(P, at(i, j), at(i + 1, j), at(i + 1, j + 1));
-        tri(P, at(i, j), at(i + 1, j + 1), at(i, j + 1));
+        tri2(at(i, j), at(i + 1, j), at(i + 1, j + 1));
+        tri2(at(i, j), at(i + 1, j + 1), at(i, j + 1));
       }
     };
     const tri = (P, a, d, e) => {
@@ -335,16 +340,21 @@
         if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
       }
     };
-    const s = c.src, n = c.cells;
-    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)]);
-    for (const [px, py, r0, r1, N] of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
-      const m = (N || c.patchN || 96) - 1;
-      grid(m + 1, (i, j) => { const th = (-2 * Math.PI * i) / m, r = r0 * Math.pow(r1 / r0, j / m); return [px + r * Math.cos(th), py + r * Math.sin(th)]; });
+    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, 4).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
+    for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
+      const n = p[4] || c.patchN || 96;
+      grid(n, (i, j) => svPatchZ(p, i, j, n));
     }
-    let bare = 0;
+    let bare = 0, counted = 0;
     const at = [];
-    for (let k = 0; k < nx * ny; k++) if (!cov[k]) { bare++; if (at.length < 8) at.push([+(b.x0 + (k % nx) / kx).toFixed(3), +(b.y0 + Math.floor(k / nx) / ky).toFixed(3)]); }
-    return { n: nx * ny, bare, at };
+    for (let k = 0; k < nx * ny; k++) {
+      const x = b.x0 + (k % nx) / kx, y = b.y0 + Math.floor(k / nx) / ky;
+      if (where && !where(x, y)) continue;
+      counted++;
+      if (!cov[k]) { bare++; if (at.length < 8) at.push([+x.toFixed(3), +y.toFixed(3)]); }
+    }
+    return { n: counted, bare, at };
   };
   // the height error of the last carried Landscape frame's far patches, on the CPU: each cell of a far patch outside the pole patches'
   // discs ([x, y, r0, r1]; with skipPatches false, whole) whose centre's image lies in the block, its four corners' heights L = ln(1 + |h(z)|) (h: the carry's height map, plane s into the colour plane) averaged, the
@@ -412,7 +422,7 @@
   // (the test hooks go on: a second block, as t_publish caps a block's length)
   /** @type {any} */ (window).__cmwSvRingMade = (j) => { const P = svPlanes(); let made = 0, left = 0, unbuilt = 0; for (let k = 0; k + 1 < P.length; k++) { if (j != null && k !== j) continue; for (const { key } of svGlideRingKeys(k)) { const m = svRingSizes.get(key); if (m === undefined) left++; else { made++; if (m && m.polar && !svPolarRes.has(svPolarId(m))) unbuilt++; } } } return { made, left, unbuilt, glides: Math.max(0, P.length - 1), polar: svPolarRes.size, sizes: svRingSizes.size }; };   // (__cmwSvRingMade: the ring sizes of every glide of the chain (of glide j alone, given j), made or left, and the made polar ones whose mesh is not built, at the view the frames between planes draw in; the polar meshes kept and the sizes kept)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
-  /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey; with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
+  /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), per: k.per ? [k.per.re, k.per.im] : null, tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey (per: its period, [re, im] or null); with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());
   // the steps view's globe: whether its last frame drew the carried colour and by which path ('inverse' or 'mesh'),
@@ -465,10 +475,16 @@
   };
   // the steps view: where it is, what it shows; o moves it (go, park, x: the thread's place without the snap to a plane, T,
   // scope, surf, play, loop, order, span, range; bare: the colour layer alone; clock: ms of glide time a frame, 0 the wall
-  // clock; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten; ahead: false, a glide asks for
-  // no program ahead of the frame that draws with it, SV.ahead); glide: the last glide frame's
-  // record (svGlideRec), hold: the plane whose glide waits for its pole tracks (svHoldB), rest: the last plane at rest's (svRestRec)
-  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && 'ahead' in o) SV.ahead = !!o.ahead; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && o.play != null) { o.play ? svPlay() : svPause(true); } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, homAll: !!S.homAll, moving: svMoving(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
+  // clock; holdJobs: the idle jobs of svReady count as unfinished; warmInv: false stops the warm-up of the glides at rest
+  // (svPrestartInv; true back on); gate: false switches the Play gate off (true back on); play: false
+  // ends a wait of the gate too; moving counts a wait; poleFrameMs: a frame's pole search budget; dropTracks: every pole track forgotten; ahead: false, a glide asks for no
+  // program ahead of the frame that draws with it, SV.ahead); glide: the last glide frame's
+  // record (svGlideRec), hold: the plane whose glide waits for its pole tracks (svHoldB), rest: the last plane at rest's (svRestRec);
+  // playRec: a play's schedule ({ from, to, ms, t0, el: its time since it started from from, at t0 }), null without a play or for a
+  // slide; rebased: the schedule the last new speed set (svPlayRebase), with rebaseMinSpan, the least span it is timed over;
+  // invWarm: the glides of the plane shown made ready at rest (svPrestartInv's jobs for it done); fits: the head's fits so
+  // far that ran past their key (SV.fits)
+  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && 'ahead' in o) SV.ahead = !!o.ahead; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   // the loaded settings and ids, read back plain (a getter: the suites that load a saved state with a key left out or set oddly read what the load made of it)
   /** @type {any} */ (window).__cmwKeys = () => ({ alpha: S.alpha, meshN: S.meshN, nextId: S.nextId, shapeIds: S.shapes.map((s) => s.id), targetIds: S.targets.map((t) => t.id), shapeCi: S.shapes.map((s) => s.ci), shapeColor: S.shapes.map((s) => s.color || null), v3: !!S.v3, v4: !!S.v4, v5: !!S.v5, v6: !!S.v6, focus: S.focus });
