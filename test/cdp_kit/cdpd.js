@@ -108,6 +108,7 @@ H.sleep = sleep;
 // Each is recorded as a fault of the suite, and counts as handled once the suite reads what says so (`__exc`; `ok` or `at`),
 // so a suite that checks the answer is as it was and one that reads on as if the page had answered fails at its end,
 // with the expression or the wait and the text (kitFaults in its result; ci/browser.js failures()).
+const TIMEOUT_NEAR = 0.9;   // (a bare -32603 after this share of ev's timeout or more is the timeout's: the clock of the call and Chrome's own differ by a little)
 const FAULTS = [];
 const faultAnswer = (ans, key, what) => {
   const f = { what, handled: false };
@@ -141,7 +142,7 @@ const evRaw = async (expr, timeout = 20000) => {
   } catch (e) {
     // (Chrome ends a page call that outruns the timeout with a bare -32603 "Internal error": named here, as a page exception is, with the limit)
     const ms = Date.now() - t0;
-    if (/-32603/.test(String(e && e.message)) && ms >= timeout * 0.9) return { __exc: `ev: the page call outran its timeout of ${timeout} ms (Chrome answered -32603 Internal error after ${ms} ms)` };
+    if (/-32603/.test(String(e && e.message)) && ms >= timeout * TIMEOUT_NEAR) return { __exc: `ev: the page call outran its timeout of ${timeout} ms (Chrome answered -32603 Internal error after ${ms} ms)` };
     throw e;
   }
   if (r.exceptionDetails) return fail(r.exceptionDetails);

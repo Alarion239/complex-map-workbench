@@ -756,13 +756,20 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // uPeelOn = 1 (the carried colour's layers, GLR.carryLayers): only the fragments behind the previous layer's key, which
   // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
   const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
-  const PRE_KEY_DECL = glsl`${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN;
+  const PRE_KEY_DECL = glsl`${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN; uniform vec2 uKSingT;
 const float KEY_STEPS = 16384.0;
 const float KEY_DMAX = 63.0;
 const float KEY_SMAX = 68141.0;
 float preKeyDepth(vec2 sa, bool stepped) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
-  for (int i = 0; i < 4; i++) { if (i >= uKSingN) break; D += max(0.0, log2(uKRs / max(length(sa - uKSing[i]), 1e-30))); }
+  // (the distance to a point's class modulo the key's period uKSingT, 0: none; Inverse.sheetKey's)
+  float tt = dot(uKSingT, uKSingT);
+  for (int i = 0; i < 4; i++) {
+    if (i >= uKSingN) break;
+    vec2 dd = sa - uKSing[i];
+    if (tt > 0.0) dd -= uKSingT * floor(dot(dd, uKSingT) / tt + 0.5);
+    D += max(0.0, log2(uKRs / max(length(dd), 1e-30)));
+  }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
   float d = log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
