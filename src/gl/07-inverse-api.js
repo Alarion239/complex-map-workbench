@@ -28,14 +28,15 @@
   const FORM_DEBOUNCE = 300;
   const hashStr = (s) => { let h = 0; for (let i = 0; i < s.length; i++) h = (Math.imul(h, 31) + s.charCodeAt(i)) | 0; return (h >>> 0).toString(36) + ':' + s.length; };
   let bundle = { srcs: [], key: hashStr(''), exprs: [], ids: [] }, bundleWant = null, bundleT = 0, bundleTimer = 0;
-  // a traced curve's texels: its polylines' vertices (x, y, 1 where a polyline starts, 0) after one box per group of
+  // a traced curve's texels: its polylines' vertices (x, y, 1 where a polyline starts, arc) after one box per group of
   // CURVE_GROUP segments (group g: the vertices CURVE_GROUP g to CURVE_GROUP (g + 1)); a polyline of fewer than two
-  // finite vertices adds none. -> {n, texels}, or null for none
+  // finite vertices adds none. arc: a vertex's third value ([x, y, arc]: its arc length along the stroke at rest, for an
+  // open region's dash), else 0. -> {n, texels}, or null for none
   function traceRec(lines) {
     const v = [];
     for (const line of lines) {
-      const ps = (line || []).map(xyOf).filter((p) => Number.isFinite(p[0] + p[1]));
-      if (ps.length >= 2) ps.forEach((p, i) => v.push(p[0], p[1], i ? 0 : 1, 0));
+      const ps = (line || []).map((q) => { const p = xyOf(q); return [p[0], p[1], Array.isArray(q) && q.length > 2 ? +q[2] || 0 : 0]; }).filter((p) => Number.isFinite(p[0] + p[1]));
+      if (ps.length >= 2) ps.forEach((p, i) => v.push(p[0], p[1], i ? 0 : 1, p[2]));
     }
     const n = v.length / 4;
     if (n < 2) return null;
@@ -55,7 +56,9 @@
   // ok false: the shape cannot be drawn inverse (more than 64 polygon vertices, a traced curve of more than 1024, a
   // fifth formula shape, a formula whose GLSL failed); pending: a formula edited within the last 300 ms (draw it
   // forward meanwhile). opts.trace(s): the polylines (arrays of [x, y]) a traced curve of a later plane is stroked by;
-  // with none, a freehand curve's own vertices
+  // with none, a freehand curve's own vertices. opts.dash(s): for an open region of a later plane, the polylines (arrays
+  // of [x, y, arc]) its dashed outline is stroked by, packed after its own texels as rec.edge {nPts, ptsOff} (drawInverse
+  // strokes its boundary by them when the stroke has a dash); none, or more than INV_CURVE_MAX vertices: no rec.edge
   function packShapes(list, opts = {}) {
     const now = opts.now ?? performance.now();
     const recs = new Map(), data = [];
@@ -119,6 +122,12 @@
       rec.nPts = 0;
       if (s.kind === 'polygon' && rec.ok) { rec.nPts = pk.pts.length; for (const p of pk.pts) data.push(p[0], p[1], 0, 0); }
       if (tr && rec.ok) { rec.nPts = tr.n; for (const x of tr.texels) data.push(x); }
+      rec.edge = null;
+      if (stage && !traced && rec.ok && opts.dash) {
+        let ed = null;
+        try { const lines = opts.dash(s); ed = lines && traceRec(lines); } catch (e) { ed = null; }
+        if (ed && ed.n <= INV_CURVE_MAX) { rec.edge = { nPts: ed.n, ptsOff: data.length / 4 - rec.offset }; for (const x of ed.texels) data.push(x); }
+      }
     }
     // the formula bundle: an edit of the same formula shapes (same ids in the same slots) waits FORM_DEBOUNCE ms after
     // the last change, while the edited shapes are pending (forward) and the others keep the current program; a load,
@@ -189,7 +198,7 @@
   }
   // (cz: the Cauchy style's variant, CARRY_CAUCHY; without it the function has none of CAUCHY_CORE)
   function invCarryFns(cz) {
-    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + `
+    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + glsl`
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
@@ -204,7 +213,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 `;
     return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
 uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
-` + CARRY_W + `
+` + CARRY_W + glsl`
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   bool cz = uCT >= 0;
@@ -396,6 +405,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const sing = (prep.sing || []).slice(0, 4);
     sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
     d.singN = sing.length;
+    d.singT = prep.per ? [prep.per.re, prep.per.im] : [0, 0];
     // saturation anchors (SPEC 13.12): the anchor op's index in the program, the affine ops' (A, B), each anchor's
     // model, geometry and (p, log p); the pattern origin (p - Q, Q) depends on the cell: drawInverse
     d.ancJ = -1; d.ancAB = [1, 0, 0, 0]; d.ancLA = [0, 0]; d.anc = new Float32Array(32); d.ancP = [];
@@ -706,6 +716,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
     if (P.loc.uSing) gl.uniform2fv(P.loc.uSing, d.sing);
     u1i(P, 'uSingN', d.singN);
+    u2f(P, 'uSingT', d.singT[0], d.singT[1]);
     if (P.loc.uAncJ) {
       u1i(P, 'uAncJ', d.ancJ);
       if (d.ancJ >= 0) {
@@ -743,7 +754,17 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     uploadPack();
     gl.activeTexture(gl.TEXTURE4); gl.bindTexture(gl.TEXTURE_2D, invTex);
     u1i(P, 'uShOff', rec.offset);
-    gl.uniform4i(L_(P, 'uShape'), rec.kind, rec.complement ? 1 : 0, rec.nPts, rec.ptsOff);
+    // (an open region's dashed boundary, st.edge.dash [on, off] in CSS px: stroked by its polylines at rest, rec.edge, a
+    // traced curve whose vertices carry their arc at rest, dashed along that arc in device px at the view's scale, as
+    // GLR.drawLines dashes it at rest; the casing stays whole, as drawLines' does. An edge with a fill under it (st.edge.tint)
+    // keeps the region's own level, which the fill needs: a curve's level holds no point)
+    const ed = rec.stage > 0 && st.edge && st.edge.dash && !(st.edge.tint && st.edge.tint[3] > 0) && rec.edge ? rec.edge : null;
+    if (ed) gl.uniform4i(L_(P, 'uShape'), 16, 0, ed.nPts, ed.ptsOff);
+    else gl.uniform4i(L_(P, 'uShape'), rec.kind, rec.complement ? 1 : 0, rec.nPts, rec.ptsOff);
+    if (P.loc.uEdgeDash) {
+      const dd = ed && st.edge.dash, ddpr = st.dpr || 1;
+      u3(P, 'uEdgeDash', dd ? [dd[0] * ddpr, dd[1] * ddpr, (st.view ? st.view.s : 1) * ddpr] : [0, 0, 0]);
+    }
     u4f(P, 'uShA', ...rec.A); u4f(P, 'uShB', ...rec.B); u4f(P, 'uShC', ...rec.C);
     u1i(P, 'uFormSlot', rec.formSlot); u1i(P, 'uIxOne', 1);
     if (P.loc.uClipP) { u4f(P, 'uClipH', rec.clipH[0], rec.clipH[1], 0, 0); gl.uniform4fv(P.loc.uClipP, rec.clipU); }
@@ -1072,7 +1093,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
+    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, CARRY_DISC_IN,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a

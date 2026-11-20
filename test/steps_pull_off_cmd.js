@@ -14,6 +14,9 @@
 //    control counts the pane's pixels in it, from w₂ = ((z − i)/(z + i))³), so nothing is off view either;
 //  - the words keep off the axes, in English and Russian (at the default camera they sit beside the piece at -0.447 +
 //    0.124i, by the imaginary axis);
+//  - the plane's description says the count in words (#1770);
+//  - zoomed out in place, a frame that places no label leaves none in the placer's list (#1893);
+//  - with two regions counted, each count names its region (#1892);
 //  - on w₂, the disc's own plane, nothing is counted (the count is for pullbacks only).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -30,6 +33,8 @@ const STEPS = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on
 const CRIT_DISCS = [{ id: 'd3', kind: 'disc', c: [0.34, 0], r: 0.35, stage: 2 }, { id: 'd4', kind: 'disc', c: [0.5, 0], r: 0.7, stage: 2 }];
 // (the disc made large: its far piece reaches into the window)
 const BIG_DISC = { id: 'd5', kind: 'disc', c: [0.4465, 0.3], r: 0.25, stage: 2 };
+// (a second small disc on w₂, for two regions counted at once)
+const TWIN_DISC = { id: 'd7', kind: 'disc', c: [-0.4465, 0.3], r: 0.03, stage: 2 };
 // (the disc a little smaller: its far piece shows only at the window's top-left corner, at 1280 x 800)
 const SLIVER_DISC = { id: 'd6', kind: 'disc', c: [0.4465, 0.3], r: 0.18, stage: 2 }, SLIVER_VIEW = [1280, 800];
 const WORDS = { en: '+1 off view', ru: 'ещё 1 за краем' };
@@ -112,6 +117,41 @@ await open('en', 30);
 const all = await off();
 info['en z, zoomed out'] = all;
 ok('zoomed out so every piece is in the window: nothing is counted', Array.isArray(all) && !all.some((e) => e.id === 'd2'), all);
+// the count in words, in the plane's description (#1770): at the default camera, d2's 1 of 3 pieces off the view
+await open('en', 90);
+{
+  const said = await ev(`(() => {
+    const c = document.getElementById('overlayL'), id = c.getAttribute('aria-describedby'), d = id && document.getElementById(id);
+    const t = $t('Pieces of {name} pulled back off the view: {n} of {all}', { name: '\\u0000', n: 1, all: 3 }).split('\\u0000');
+    return { text: d ? d.textContent : null, head: t[0], tail: t[1] };
+  })()`);
+  info['en z, said'] = said;
+  const at = said.text ? said.text.indexOf(said.head) : -1;
+  ok('the plane\'s description says the count: "Pieces of <the disc> pulled back off the view: 1 of 3"', at >= 0 && said.text.indexOf(said.tail, at + said.head.length + 1) > at, said);
+}
+// a frame that places no label (zoomed out, with no reload): the placer's list (__cmwLabelsPlaced) is that frame's, with
+// none of the counts an earlier frame placed (#1893)
+{
+  const before = (await placed()).some((q) => q.text === WORDS.en);
+  await ev("__cmwSet('srcView', { cx: 0, cy: 0, s: 30 }), 1");
+  await until('__cmwSteps().ready.ready && Math.abs(__cmwSteps().win[2] - 30) < 1e-9');
+  await frames(); await settled({ max: 20000 });
+  const o2 = await off(), now = await placed();
+  info['en z, zoomed out in place'] = { o2, now };
+  ok('zoomed out in place: the count was placed before (the control)', before, before);
+  ok('zoomed out in place: nothing is counted, and the placer\'s list does not keep the last frame\'s count', Array.isArray(o2) && !o2.some((e) => e.id === 'd2') && !now.some((q) => /off view/.test(q.text)), { o2, now });
+}
+// two regions counted on z (the camera far from every piece): each count names its region as its row does, so the two are
+// told apart by more than their inks (#1892); one region counted keeps the bare count (the far scene above)
+await open('en', 90, [TWIN_DISC], FAR);
+{
+  const two = await off(), names = await ev(`(() => { const t = $t('{name}: +{n} off view', { name: '\\u0000', n: 9 }).split('\\u0000'); return t; })()`);
+  info['en z, two regions'] = { two, names };
+  const a = two && two.find((e) => e.id === 'd2'), b = two && two.find((e) => e.id === TWIN_DISC.id);
+  const nameOf = (e) => (e && e.text.endsWith(names[1].replace('9', String(e.n))) ? e.text.slice(names[0].length, e.text.length - names[1].replace('9', String(e.n)).length) : null);
+  ok('two regions counted (the control: both have pieces off the view)', !!a && !!b && a.n > 0 && b.n > 0, two);
+  ok('two regions counted: each count names its region ("<name>: +n off view"), and the names differ', !!a && !!b && !!nameOf(a) && !!nameOf(b) && nameOf(a) !== nameOf(b), [a && a.text, b && b.text]);
+}
 // on w₂, the disc's own plane: no pullback, no count
 await open('en', 90);
 await ev('__cmwSteps({ go: 2, now: true })');

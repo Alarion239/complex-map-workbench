@@ -4,14 +4,14 @@
 // The reference is held_frames.js's globeJudge: per sample point w of the sphere's front side (a lattice of the sphere,
 // its pixel P on the moving globe), z0 = H_u^-1(w) by Newton's method (the step is a Möbius map, so z0 is the one
 // point), and its pixel Q on the parked globe of plane z, where it shows on the front side; the globe's light is taken
-// out at Q and put back at P; points next to a colour line, a stroke or the limb are not compared. At most OVER_MAX of
-// at least N_MIN compared points may be more than TOL levels apart in a channel.
+// out at Q and put back at P; points next to a colour line, a stroke or the limb are not compared; its limits (at most
+// GLOBE_OVER of at least GLOBE_MIN_N compared points more than GLOBE_TOL levels apart in a channel) are the pass.
 // Both scopes: Everywhere (the whole globe in colour) and Inside regions (the colour inside the regions, which move).
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const TOL = 8, OVER_MAX = 0.005, N_MIN = 300, LOOK_U = [0.25, 0.5, 0.75];
+const LOOK_U = [0.25, 0.5, 0.75];
 await view(1200, 800);
 const ST = {
   pattern: 'phase', outline: true, lines: false, unit: false, alpha: 1, v3: true, v4: true, v5: true, v6: true, nextId: 50,
@@ -29,7 +29,6 @@ await ev(`__cmwSet('morphPaths', false), 1`);
 // the kept frames (grab) and the moving globe against the exact picture (globeJudge): test/lib/held_frames.js
 const { grab, globeJudge } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const { SCRIPT: PIXEL_DIFF } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'pixel_diff.js'), 'utf8'));
-const compare = (P, F) => globeJudge(P, F, { tol: TOL, minN: N_MIN, maxOver: OVER_MAX });
 // (a kept frame read in the page: its pixels, the canvas's size and its device pixels per CSS pixel)
 const FRAME = `const frame = (t) => { const c = document.getElementById('canvasL'); return { W: c.width, H: c.height, k: c.width / c.getBoundingClientRect().width, d: window.__heldPx[t] }; };`;
 for (const scope of ['all', 'in']) {
@@ -40,10 +39,9 @@ for (const scope of ['all', 'in']) {
     await ev(`__cmwSteps({ x: ${u} }); 1`);
     await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${u}) < 1e-9 && GLR.pendingLinks === 0 && __cmwSvGlobe(0, 0).path === 'inverse'` });
     ok(`${scope}, u = ${u}: the moving globe settles`, await grab('F'), null);
-    const r = await compare('P', 'F');
+    const r = await globeJudge('P', 'F');
     R[`${scope} ${u}`] = r;
-    ok(`${scope === 'all' ? 'Everywhere' : 'Inside regions'}, u = ${u}: the moving globe is the exact picture at u (at most ${OVER_MAX * 100} % of ≥ ${N_MIN} points over ${TOL} levels)`,
-      r.path === 'inverse' && r.n >= N_MIN && r.over <= OVER_MAX, r);
+    ok(`${scope === 'all' ? 'Everywhere' : 'Inside regions'}, u = ${u}: the moving globe is the exact picture at u (globeJudge)`, r.path === 'inverse' && r.pass, r);
   }
 }
 // The strokes: with two Möbius steps, a curve and a region's border of plane z and of plane w1, held at u = 0.25 and
@@ -123,10 +121,9 @@ for (const u of [0.25, 0.75]) {
   await ev(`__cmwSteps({ x: ${1 + u} }); 1`);
   await settled({ max: 60000, until: `Math.abs(__cmwSteps().x - ${1 + u}) < 1e-9 && GLR.pendingLinks === 0` });
   ok(`past the colour plane, u = ${u}: the moving globe settles`, await grab('F'), null);
-  const r = await compare('P', 'F');
+  const r = await globeJudge('P', 'F');
   R[`past T ${u}`] = r;
-  ok(`past the colour plane, u = ${u}: the moving globe is the exact picture at u, drawn by the inverse pass (at most ${OVER_MAX * 100} % of ≥ ${N_MIN} points over ${TOL} levels)`,
-    r.path === 'inverse' && r.n >= N_MIN && r.over <= OVER_MAX, r);
+  ok(`past the colour plane, u = ${u}: the moving globe is the exact picture at u, drawn by the inverse pass (globeJudge)`, r.path === 'inverse' && r.pass, r);
 }
 await ev(`__cmwSteps({ go: 2, now: true }); 1`);
 await settled({ max: 60000, until: '!__cmwSteps().moving && GLR.pendingLinks === 0' });
