@@ -17,9 +17,9 @@ const mk = (rep) => ({ v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's
   nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } });
 const open = async (w, h, touch, lang, st) => {
   await view(w, h, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && document.querySelectorAll('#svStrip .sv-step').length === 3` });
 };
 const rep = (k) => ev(`__cmwP().steps[${k - 1}].repeat || null`);

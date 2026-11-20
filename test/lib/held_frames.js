@@ -14,7 +14,8 @@
 //   and asks for the frame at the thread's place). It is the wait for a read after the thread is placed directly,
 //   __cmwSteps({ x }) or { park }, instead of held with hold(): on a chain with Newton members the frame there may be
 //   the first plane's held one until it is true. The same applies to a suite's own wait on a parked thread;
-// - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still),
+// - grab(tag): canvasL's pixels kept in the page as __heldPx[tag] once two reads 100 ms apart agree (the frame is still; each read has
+//   PIXEL_READ_MS, 120 s, since it waits for the GPU to finish the frame, not ev's 20 s),
 //   with the pane's camera then and the glide's record of that frame as __heldAt[tag] = { v, g }; true when they did;
 // - snap(tag): canvasL's pixels kept now, as grab keeps them, without waiting for a still frame (a frame read while it
 //   changes, a mesher's job running);
@@ -35,8 +36,8 @@
 //   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
 //   the roots in the regions (where P is not the paper: a map many-to-one onto
 //   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
-//   composites them: front to back (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger
-//   Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
+//   composites them: front to back (Inverse.front's order: the smaller key, keys within its tie band tying, ties by larger
+//   Im z, then larger Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
 //   parked frame, colours it (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
 //   the frame's window are graded too; the frame's by default). At alpha 1 that is the front root alone. A pixel where
 //   a root off P's canvas (whose cover and colour P cannot show) would weigh more than tol / 2 counts as none. Pixels next
@@ -59,7 +60,7 @@
 //   o.as: refOf's as;
 // - globeJudge(base, tag, o): the steps view's globe held between plane z and a later plane, the kept frame tag, graded
 //   against the exact picture from plane z's parked globe base (both kept by grab, the camera unmoved): for each point w
-//   of a lattice of the sphere's front side every o.step degrees (default GLOBE_STEP), its pixel on tag against the
+//   of a lattice of the sphere's front side every GLOBE_STEP degrees, its pixel on tag against the
 //   pixel of its front point z0 on base (z0: H_u's points over w by Newton's method, __cmwSvGlobe's H; several: the front
 //   one by the glide's sheet key, __cmwSvKey(b, u) through Inverse.sheetKey and Inverse.front, so a judge of Inside
 //   regions holds for a map one to one only), with the globe's light (SHADE_GLOBE: c = alb k(n, v) + spec(n, v) in
@@ -100,8 +101,9 @@
   // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
   // the front point alone)
   const A = g.alpha == null ? 1 : g.alpha;
-  // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
-  const ahead = (a, b) => { const sa = Math.round(a.k / 2 ** -8), sb = Math.round(b.k / 2 ** -8); return sa !== sb ? a.k < b.k : a.z.im !== b.z.im ? a.z.im > b.z.im : a.z.re > b.z.re; };
+  // (the renderer's front, Inverse.front itself: the smaller key, keys within its tie band tying, then larger Im z, then
+  // larger Re z)
+  const ahead = (a, b) => Inverse.front({ D: a.k, z: a.z }, { D: b.k, z: b.z });
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5), roots = [];
@@ -178,18 +180,20 @@
   const KEEP = (tag) => `window.__heldPx[${JSON.stringify(tag)}] = d;
     (window.__heldAt || (window.__heldAt = {}))[${JSON.stringify(tag)}] = { v: Object.assign({}, __cmwCards().main.view), g: typeof __cmwSteps === 'function' ? __cmwSteps().glide : null };`;
   const PIXELS = "const c = document.getElementById('canvasL'), d = c.getContext('2d').getImageData(0, 0, c.width, c.height).data, g = window.__heldPx || (window.__heldPx = {});";
+  // (a read of canvasL's pixels waits for the GPU to finish the frame, which a heavy glide frame on a software renderer takes most of 20 s over)
+  const PIXEL_READ_MS = 120000;
   const grab = async (tag) => {
     for (let n = 0; n < 150; n++) {
       const same = await ev(`(() => { ${PIXELS} const p = g._prev;
         g._prev = d; if (!p || p.length !== d.length) return false; for (let i = 0; i < d.length; i++) if (p[i] !== d[i]) return false;
         ${KEEP(tag)}
-        return true; })()`);
+        return true; })()`, PIXEL_READ_MS);
       if (same) return true;
       await sleep(100);
     }
     return false;
   };
-  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`);
+  const snap = (tag) => ev(`(() => { ${PIXELS} ${KEEP(tag)} return true; })()`, PIXEL_READ_MS);
   const wordsOff = () => ev(`(() => { const p = CanvasRenderingContext2D.prototype; for (const k of ['fillText', 'strokeText']) { const g = p[k]; p[k] = function (...a) { if (this.canvas.id !== 'canvasL') return g.apply(this, a); }; } return 1; })()`);
   const kept = {};
   const keep = async (tag) => {
@@ -350,7 +354,7 @@ ${REF}`;
     const q = r.ref;
     return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, far: q.far, pass: q.n >= minN && q.over <= maxOver };
   };
-  // the globe's judge (the header's globeJudge): a lattice of the sphere every o.step degrees, each point w's pixel on the
+  // the globe's judge (the header's globeJudge): a lattice of the sphere every GLOBE_STEP degrees, each point w's pixel on the
   // moving globe tag against the pixel of its front point z0 on plane z's parked globe base, with the globe's light
   // taken out at z0 and put back at w
   const GLOBE_TOL = 8, GLOBE_MIN_N = 300, GLOBE_OVER = 0.005, GLOBE_RANGE = 12, GLOBE_STEP = 2;
@@ -374,9 +378,9 @@ ${REF}`;
       const toSrgb = (x) => { x = cl(x); return x < 0.0031308 ? 12.92 * x : 1.055 * Math.pow(x, 1 / 2.4) - 0.055; };
       const px = (z) => { const q = __cmwGlobeXY('L', z.re, z.im); return q ? [q[0] * k - 0.5, q[1] * k - 0.5] : null; };
       const range = (D, x, y) => { let r = 0; for (let ch = 0; ch < 3; ch++) { let lo = 255, hi = 0; for (let dy = -1; dy <= 2; dy++) for (let dx = -1; dx <= 2; dx++) { const v = D[4 * ((y + dy) * W + x + dx) + ch]; lo = Math.min(lo, v); hi = Math.max(hi, v); } r = Math.max(r, hi - lo); } return r; };
-      // (the glide's sheet key, as its inverse pass prepares it: __cmwSvKey(b, u)'s window, R, rs and points)
+      // (the glide's sheet key, as its inverse pass prepares it: __cmwSvKey(b, u)'s window, R, rs, points and period)
       const kk = g.u > 0 && g.u < 1 ? __cmwSvKey(g.b, g.u) : null;
-      const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])) };
+      const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])), per: kk.per && C(kk.per[0], kk.per[1]) };
       // (H's points over w by Newton's method from w, 0, four points about it and rings of 8 seeds at radii 1/2, 1 and 2;
       // two roots within SAME are one; with several, the front one by the glide's sheet key, Inverse.front; none when
       // there are several and no key)
@@ -410,7 +414,7 @@ ${REF}`;
         return best.z;
       };
       let n = 0, over = 0, max = 0, none = 0, sum = 0;
-      for (let la = -84; la <= 84; la += ${o.step || GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${o.step || GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {
+      for (let la = -84; la <= 84; la += ${GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {
         const p3 = [Math.cos(la * Math.PI / 180) * Math.cos(lo * Math.PI / 180), Math.cos(la * Math.PI / 180) * Math.sin(lo * Math.PI / 180), Math.sin(la * Math.PI / 180)];
         if (p3[2] > 0.995) continue;
         const w = C(p3[0] / (1 - p3[2]), -p3[1] / (1 - p3[2])), pw = px(w);
@@ -434,5 +438,5 @@ ${REF}`;
     if (!r || r.__exc !== undefined) return { error: r && r.__exc, n: 0, pass: false };
     return Object.assign(r, { pass: r.n >= minN && r.over <= maxOver });
   };
-  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_TOL, GLOBE_MIN_N, GLOBE_OVER, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
+  return { hold, UNHELD, grab, snap, compare, wordsOff, keep, compareKept, sameAway, fade, judge, JUDGE_TOL, JUDGE_MIN_N, JUDGE_OVER, globeJudge, GLOBE_MIN_N, edgeRuns, refOf, gridOver, outlines, GI_REF, DIFF_TOL };
 })()
