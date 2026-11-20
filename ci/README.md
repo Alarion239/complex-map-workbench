@@ -127,7 +127,7 @@ Each platform's job is there for its own shader compiler:
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
   loops.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
-- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`): CPU WebGL2. Headless Chrome falls back to it without a
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; a local browser-suite run uses lavapipe instead where it is installed, below): CPU WebGL2. Headless Chrome falls back to it without a
   usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
   (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
   instead, which is not SwiftShader.
@@ -470,14 +470,14 @@ The sandbox has no `google-chrome` and no route to the CDNs, and its GL is softw
 
 ```sh
 export CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome | head -1)   # Playwright's Chromium; the browser suites look for google-chrome
-export CMW_ANGLE=swiftshader CMW_CHROME_ARGS="--no-sandbox"                              # CPU rendering; no Vulkan flags
+export CMW_CHROME_ARGS="--no-sandbox"                                                 # the renderer is chosen by default: lavapipe where installed, else SwiftShader (below)
 node ci/browser.js --only '^key_popup_cmd' --port 9950                                   # a suite; --no-build skips build.py
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'                                # the same with MathJax and the faces from vendor/ (no CDN here; see "No network" below)
 node ci/snapshots.js && node ci/unit.js                                                  # unit tests (see the clone note below)
 npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
 ```
 
-- **Do not use CI's Vulkan flags** (`--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`, `CMW_ANGLE=vulkan`) here: Chrome then has no WebGL, the colour keys are hidden and every picture is blank. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
+- **The browser suites pick their renderer themselves** (`test/cdp_kit/renderer.js`): lavapipe through ANGLE's Vulkan back end, as the browser jobs, when the machine has it (the Vulkan ICD `lvp_icd.json` and its library: the package `mesa-vulkan-drivers`), with `GALLIUM_OVERRIDE_CPU_CAPS=avx` and CI's Vulkan flags; else SwiftShader, with a warning line. The first line of `ci/browser.js`'s output says which one drew (`renderer: …; drawn by: …`). The Vulkan loader is pointed at the lavapipe ICD found (`VK_ICD_FILENAMES`, unless you set it), because the package also ships the GPU drivers' ICDs and a machine with a GPU would draw on that. If Chrome has no WebGL2 through lavapipe here (the colour keys hidden and every picture blank), the run goes on with SwiftShader and says so. `CMW_ANGLE=swiftshader`, as above, opts out. A red on SwiftShader that CI does not show (`steps_chain`, `steps_strip_layout`: #2025) is checked with lavapipe first. The GLSL, Quality and Perf runs keep SwiftShader on Linux, as their CI jobs do. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
 - **A shallow clone** lacks the old commits that `ci/snapshots.js` restores. It fetches them, and the six tests that read the snapshots fail with a line saying what is missing (never skip).
 - **Keep your own scripts' output out of the repository:** screenshots and measurements go to a scratch folder (a script run from the repository's root once left a `shots/` folder in it).
 - **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
@@ -493,7 +493,7 @@ output fail. `CMW_VENDOR=1` makes the browser daemon (test/cdp_kit/cdpd.js) answ
 `vendor/` (test/cdp_kit/vendor.js; the fonts as @font-face rules over the vendored faces, as the offline page has them)
 and lets every other request through. It is opt-in and never set in CI, which keeps testing the CDN path;
 test/t_vendor_serve.js checks that every CDN URL in src/ and build.py is answered. What it does not fix: in a sandbox
-with SwiftShader (no Vulkan/lavapipe, the CI's GL), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
+on SwiftShader (`CMW_ANGLE=swiftshader`, or a sandbox without lavapipe; the browser jobs draw with lavapipe), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
 holes, the welcome, the palette's Try line are typeset checks) and `custom_show_cmd` passes, but `tour_auto`,
 `ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail there on timing and software-GL
 checks that pass in CI (30 Oct, f4e601a).
@@ -523,7 +523,7 @@ Settings (environment variables):
 
 | variable | meaning |
 |---|---|
-| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
+| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) for the browser suites on Linux when it is installed, else `swiftshader` (CPU rendering, with a warning); the browser jobs use `vulkan` with lavapipe. `CMW_ANGLE=swiftshader` opts out of lavapipe (`test/cdp_kit/renderer.js`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CMW_DPR` | the device pixel ratio the browser daemon's `view()` emulates (default 1; `steps_glide_look_cmd.js` runs at 1 and at 2, ci/browser_suites.js) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |

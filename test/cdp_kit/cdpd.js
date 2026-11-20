@@ -10,18 +10,19 @@ const Q = path.join(DIR, 'q');
 // it and renamed into place, so it appears whole (a rename within one file system is atomic), never empty or part written
 const writeWhole = (f, data) => { fs.writeFileSync(f + '.tmp', data); fs.renameSync(f + '.tmp', f); };
 fs.mkdirSync(Q, { recursive: true });
-// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
-// and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
+// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome and, as CI,
+// lavapipe through ANGLE's Vulkan back end where the machine has it, else SwiftShader, CPU WebGL2: renderer.js. CHROME_BIN, CMW_ANGLE
+// and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
 const WIN = process.platform === 'win32', MAC = process.platform === 'darwin';
 const CHROME = process.env.CHROME_BIN || (WIN ? path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe')
   : MAC ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : ['/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p)) || 'google-chrome');
-const ANGLE = process.env.CMW_ANGLE || (WIN ? 'd3d11' : MAC ? 'metal' : 'swiftshader');
+const RENDERER = require('./renderer.js').resolveRenderer(), ANGLE = RENDERER.angle;
 const prof = fs.mkdtempSync(path.join(DIR, 'chprof-'));
 // (the disk cache in the profile, not the system's cache folder: deleting the profile deletes it)
 const ch = spawn(CHROME, ['--headless=new', `--use-angle=${ANGLE}`, `--user-data-dir=${prof}`, `--disk-cache-dir=${path.join(prof, 'cache')}`, '--remote-debugging-pipe',
   '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false',
-  ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []), ...(process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean), 'about:blank'],
-  { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
+  ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []), ...RENDERER.args, ...(process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean), 'about:blank'],
+  { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, RENDERER.env) });
 const wr = ch.stdio[3], rd = ch.stdio[4];
 let id = 0, buf = '';
 const pend = new Map();
