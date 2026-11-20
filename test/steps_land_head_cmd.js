@@ -1,13 +1,20 @@
 // The steps view's Landscape chrome (#846): the head is one row and the height axis reads evenly.
 // - the head (the plane's title, its controls, the Height key's chip, the status light) is one row, under 44 px tall, at
-//   1920, 1440, 1280, 1024 and 800 px wide, in en and ru, on plane w₁ (T = w₂) and on w₂ past T (T = w₁, the longest
+//   1920, 1440, 1280, 1024 and 780 px wide, in en and ru, on plane w₁ (T = w₂) and on w₂ past T (T = w₁, the longest
 //   title). The Height key's chip keeps its words only where the bar fits beside them at a level that drops no words of
 //   it (the scope as a menu, the colour-plane button as its wheel: SV_KEY_LEVEL); the surface button's name and the
 //   title's role outrank them, and the key is its glyph (the .glyph class) otherwise. Each head's state is pinned (WORDS),
 //   and on each page a head with more room (its width, which is not the window's: at 1280 px the pane is narrower than
-//   at 1024) never folds a key that a head with less room shows;
+//   at 1024) never folds a key that a head with less room shows. (The narrowest head, 780 px, keeps clear of where the
+//   key's words start to fit: at ru, T = 2, plane 1 they fit from 802 px wide, so at 800 px a pixel of another runner's
+//   font metrics would show them; at 780 px they miss by 21 px);
 // - short of room (1024 px, plane w₁, no spacer, then one of 100 and 200 px set in the head): the key keeps its words
 //   with none and folds to its glyph with either, the head still one row; folded with a spacer, folded with every wider one;
+// - the chip shown after the head's fit (the legend's draw shows it and writes its words on a later frame than a fit
+//   may run): at ru 780 px, T = 2, plane 1, the chip hidden while a 1 px resize fits the head, then shown again by the
+//   next draw, is folded to its glyph and the head is one row; the head is fitted at most LATE_FITS times from the
+//   chip's hiding on (when it hides, at the resize, then when it shows: its fold changes its size and fits nothing
+//   more), not once over IDLE_FRAMES idle frames, and no ResizeObserver loop is reported;
 // - the height axis (the last frame's labels, __cmwLandTicks) has no two labels less than 18 px apart on the screen, at
 //   plane w₁ and w₂ at rest and held between them.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
@@ -25,8 +32,8 @@ const open = async (w, lang, T, p) => {
   await ev(`__cmwSteps({ scope: 'in', surf: 'land'${T ? `, T: ${T}` : ''}, go: ${p}, now: true }); 1`);
   await settled({ max: 60000 });
 };
-// the key's state at each head: language, T, plane -> words (W) or glyph (G) at 1920, 1440, 1280, 1024 and 800 px
-const WIDTHS = [1920, 1440, 1280, 1024, 800];
+// the key's state at each head: language, T, plane -> words (W) or glyph (G) at 1920, 1440, 1280, 1024 and 780 px
+const WIDTHS = [1920, 1440, 1280, 1024, 780];
 const WORDS = { 'en 2 1': 'WWGWW', 'en 1 2': 'WWGGG', 'ru 2 1': 'WWGGG', 'ru 1 2': 'WGGGG' };
 info.head = {};
 for (const lang of ['en', 'ru']) for (const [T, p] of [[2, 1], [1, 2]]) for (const w of WIDTHS) {
@@ -62,6 +69,28 @@ for (const sp of [0, 100, 200]) {
 }
 const sps = Object.keys(info.spacer).map(Number).sort((a, b) => a - b), firstFold = sps.findIndex((sp) => info.spacer[sp] && info.spacer[sp].glyph);
 ok('the Height key chip, folded with a spacer, is folded with every wider one', firstFold < 0 || sps.slice(firstFold).every((sp) => info.spacer[sp] && info.spacer[sp].glyph), info.spacer);
+// the chip shown after the head's fit: hidden while a resize fits the head, then shown by the legend's next draw
+const LATE_FITS = 3, IDLE_FRAMES = 10;
+await open(780, 'ru', 2, 1);
+logs();
+await ev(`window.__roErr = []; addEventListener('error', (e) => { if (/ResizeObserver/.test(e.message || '')) window.__roErr.push(e.message); }); 1`);
+const fits0 = await ev('__cmwSteps().fits');
+await ev(`document.getElementById('leftLegend').hidden = true; 1`);
+await view(781, 900, false, false);
+await settled({ max: 20000, until: `!document.getElementById('leftLegend').hidden` });
+await ev(`await ${rAF2}; 1`);
+await settled({ max: 5000 });
+const late = info.late = await headOf();
+const fits1 = await ev('__cmwSteps().fits');
+await ev(`await new Promise((r) => { let n = 0; const f = () => (++n < ${IDLE_FRAMES} ? requestAnimationFrame(f) : r()); requestAnimationFrame(f); }); 1`);
+const fits2 = await ev('__cmwSteps().fits');
+const roErr = [...(await ev('window.__roErr')), ...logs().filter((l) => /ResizeObserver/.test(l.m)).map((l) => l.m)];
+info.lateFits = { fits0, fits1, fits2, roErr };
+ok(`the chip shown after the head's fit: the head is fitted at most ${LATE_FITS} times from the chip's hiding on`, fits1 - fits0 >= 1 && fits1 - fits0 <= LATE_FITS, info.lateFits);
+ok(`the chip shown after the head's fit: no fit over ${IDLE_FRAMES} idle frames`, fits2 === fits1, info.lateFits);
+ok('the chip shown after the head\'s fit: no ResizeObserver loop is reported', roErr.length === 0, info.lateFits);
+ok('the chip shown after the head\'s fit (ru 781 px, T = 2, plane 1): the head is one row (under 44 px)', !!late && late.inHead && late.h < 44, late);
+ok('the chip shown after the head\'s fit (ru 781 px, T = 2, plane 1): the Height key chip is its glyph', !!late && late.glyph && late.w < 40, late);
 // ---- the height axis ----
 await open(1440, 'en', 0, 1);
 info.ticks = {};
