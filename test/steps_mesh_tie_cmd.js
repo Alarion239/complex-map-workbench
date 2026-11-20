@@ -27,9 +27,9 @@ const drawn = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending
 const open = async (steps, extra = {}) => {
   const ns = 'svmt' + Date.now();
   const st = Object.assign({ v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } }, extra);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
   await ev(`document.querySelector('.sv-cp').click(); 1`);
   await settled({});

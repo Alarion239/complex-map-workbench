@@ -10,11 +10,6 @@
     "ru": " Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{m}$); это %{hom}.",
     "note": "Film captions of Phase, Landscape and the phase sphere; worded as the one-frame caption."
   },
-  "v15x.globe_arrows": {
-    "en": " Arrows are the paths $t\\mapsto H_t(z)$ of %{n} points, from $z$ (dot) to $%{F}(z)$.",
-    "ru": " Стрелки — пути $t\\mapsto H_t(z)$ выбранных точек (их %{n}): от $z$ (точка) до $%{F}(z)$.",
-    "note": "Paths figure on the globe; worded without a case after the number."
-  },
   "v15x.globe_solid": {
     "en": " Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; gray: the boundary at $t=0$.",
     "ru": " Сплошные линии — пути $t\\mapsto H_t(z)$ отмеченных точек до значения $t$ в кадре; точечные — оставшаяся часть каждого пути; серая — граница при $t=0$.",
@@ -182,11 +177,6 @@
     "ru": "Кадр видео",
     "note": ""
   },
-  "v15x.poster_hint": {
-    "en": "{w} × {h} · {fps} fps · {secs} s · this frame: t = {t}",
-    "ru": "%{w} × %{h} · %{fps} к/с · %{secs} с · этот кадр: t = %{t}",
-    "note": ""
-  },
   "v15x.fps_option": {
     "en": "{n} fps",
     "ru": "%{n} к/с",
@@ -252,11 +242,6 @@
     "ru": "Здесь не удалось создать видео.",
     "note": ""
   },
-  "v15x.globe_arrow_one": {
-    "en": " The arrow is the path $t\\mapsto H_t(z)$ of one point, from $z$ (dot) to $%{F}(z)$.",
-    "ru": " Стрелка — путь $t\\mapsto H_t(z)$ одной точки: от $z$ (точка) до $%{F}(z)$.",
-    "note": "Paths figure on the globe with one path."
-  },
   "r3.here_steps": {
     "en": " Here $H_t$, $0\\le t\\le %{m}$, deforms the identity ($t=0$) into %{map} ($t=%{m}$) and runs the steps in turn ($H_t=H^{(k)}_{t-k+1}$ on $k-1\\le t\\le k$): %{rest}.",
     "ru": " Здесь $H_t$, $0\\le t\\le %{m}$, непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{m}$), выполняя шаги по очереди ($H_t=H^{(k)}_{t-k+1}$ при $k-1\\le t\\le k$): %{rest}.",
@@ -290,16 +275,6 @@
   "r3.hiddenN": {
     "en": " The points %{list} are on the far side of the sphere and are not shown.",
     "ru": " Точки %{list} находятся на обратной стороне сферы и не видны.",
-    "note": "editor-3. Export review r3 (ROUND3.md, ledger-r3.json)."
-  },
-  "r3.arrow1": {
-    "en": " The arrow is the path $t\\mapsto H_t(z)$ of the point %{p}, from $z$ (dot) to $%{F}(z)$.",
-    "ru": " Стрелка — путь $t\\mapsto H_t(z)$ точки %{p}: от $z$ (точка) до $%{F}(z)$.",
-    "note": "editor-3: the globe's paths figure names the point. Export review r3 (ROUND3.md, ledger-r3.json)."
-  },
-  "r3.arrowN": {
-    "en": " Arrows are the paths $t\\mapsto H_t(z)$ of the points %{list}, from $z$ (dot) to $%{F}(z)$.",
-    "ru": " Стрелки — пути $t\\mapsto H_t(z)$ точек %{list}: от $z$ (точка) до $%{F}(z)$.",
     "note": "editor-3. Export review r3 (ROUND3.md, ledger-r3.json)."
   },
   "r3.solid1": {

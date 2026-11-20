@@ -8,7 +8,7 @@ const fails = [], info = { rows: [] };
 let phaseAria = '';
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
-const { openApp, probe } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'phase_key_kit.js'), 'utf8'))({ ev, send, view, sleep, DIR });
+const { openApp, probe } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'phase_key_kit.js'), 'utf8'))({ ev, go, view, sleep, DIR });
 for (const [lang, w] of [['', 1440], ['ru', 1440], ['it', 1440], ['ru', 1100]]) {
   await openApp(lang, w);
   const tag = `${lang || 'en'} ${w}`;

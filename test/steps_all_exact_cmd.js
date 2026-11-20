@@ -7,8 +7,17 @@
 //  - composed spans (Strip to disk; Cayley, then z³; 1.2 z, then Joukowski): the frames past u = 0.3 and 0.6 are the
 //    inverse pass's, All at once, and the frame just short of the last plane is the plane at rest on all but ARRIVE_MAX of
 //    the pane (no pop when it lands); not for z³ last, whose homotopy z^(1 + 2t) still differs from z³ in a wedge by its
-//    cut there (3.2 % of the pane at u = 0.9945 a step at a time, as all at once);
-//  - a span with a step whose homotopy is inverted by Newton's method ([cos, 1 z]) keeps the carried meshes, with the reason.
+//    cut there (3.2 % of the pane at u = 0.9945 a step at a time, as all at once). That frame is taken at NEAR_END, so
+//    close to the plane that the sheet key's period has met plane b's: the key takes the span's own period at u (eᶻ's path
+//    has 2 pi i / t, plane 2's 2 pi i), and the copies it puts in front differ from plane b's on the strip's period seams,
+//    pulled through the disk map, by an amount that shrinks to nothing at u = 1 (Strip to disk: 1.7 % at u = 0.9945, 0.07 %
+//    at u = 0.9997; a step at a time, eᶻ's own glide is 0.57 % apart at u = 0.9945). A pop on landing is not a seam
+//    and still shows at NEAR_END; the row's message gives the share at EARLY_END too;
+//  - the same at the Opacity slider's OPACITY (< 1) for z³ with the colour plane z: a frame's opacity goes from its first
+//    plane's look to its last plane's (svCarryAlpha), the span's first plane z, as a step's frame goes from z;
+//  - a span with a step whose homotopy is inverted by Newton's method ([inverse Joukowski, 1 z]: its NEWT op) keeps the
+//    carried meshes, with the reason; [cos, 1 z], whose homotopy has an exact inverse (cos's zoom path, AFF SIN AFF),
+//    is the inverse pass's all at once, its ops cos's.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -20,6 +29,7 @@ const MUL = (c) => ({ type: 'mul', params: { c }, on: true });
 // [f, 1 z] against [f]
 const SAME = [{ name: 'z³', f: POW(3), s: 80 }, { name: 'eᶻ', f: EXP, s: 80 }, { name: 'sin z', f: SIN, s: 80 }];
 const SAME_U = [0.3, 0.7];
+const OPACITY = 0.5;               // the Opacity slider's value of the opacity rows
 const SAME_MAX = 0.002;            // the share of the pane the two frames may differ in by more than DIFF_TOL
 // composed spans
 const CHAINS = [
@@ -27,22 +37,22 @@ const CHAINS = [
   { name: 'Cayley, then z³', steps: [CAYLEY, POW(3)], s: 90, arrive: false },
   { name: '1.2 z, then Joukowski', steps: [MUL('1.2'), { type: 'joukowski', params: {}, on: true }], s: 80 },
 ];
-const AT_U = [0.3, 0.6], NEAR_END = 0.985;
+const AT_U = [0.3, 0.6], EARLY_END = 0.985, NEAR_END = 0.9985;   // (the glide's x over n past which its arrival frames are taken)
 const ARRIVE_MAX = 0.005;          // the share of the pane the last frame may differ from the plane at rest in
 const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;   // the glide's time a frame while it runs, and once frozen
 const START_WAIT = 30000, GLIDE_WAIT = 180000, DRAWN_WAIT = 120000;   // ms
 await view(1200, 800, false, false);
 const drawn = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()`;
 const rec = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, all: q.all, mode: q.between && q.between.mode, rec: q.glide && { all: q.glide.all, u: q.glide.u, path: q.glide.path, reason: q.glide.reason } }; })()');
-const open = async (steps, s, homAll) => {
+const open = async (steps, s, homAll, alpha = 1) => {
   const ns = 'svae' + Date.now();
   const st = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s }, homAll };
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')` });
   await adopted();
-  await ev(`__cmwSet('alpha', 1), __cmwSet('morphPaths', false), 1`);
+  await ev(`__cmwSet('alpha', ${alpha}), __cmwSet('morphPaths', false), 1`);
   await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true })`); await settled({});
   await ev('__cmwSteps({ T: 0 })'); await settled({});
   return ev('__cmwSteps().planes.length - 1');
@@ -58,17 +68,17 @@ const frozenPast = async (n, x) => {
   await settled({ max: DRAWN_WAIT, until: drawn });
   return rec();
 };
-// ---- [f, 1 z] all at once against [f] a step at a time, at the same u ----
-for (const c of SAME) for (const u of SAME_U) {
+// ---- [f, 1 z] all at once against [f] a step at a time, at the same u (and z³ at the slider's OPACITY) ----
+for (const c of SAME.concat([Object.assign({}, SAME[0], { name: `z³ at opacity ${OPACITY}`, alpha: OPACITY })])) for (const u of SAME_U) {
   const tag = `${c.name}, u ${u}`;
-  await open([c.f, MUL('1')], c.s, true);
+  await open([c.f, MUL('1')], c.s, true, c.alpha);
   const g = await frozenPast(2, 2 * u);
   ok(`${tag}: [f, 1 z] all at once: a frame between the planes, the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.all && g.rec.path === 'inverse', g);
   ok(`${tag}: the All-at-once frame settles`, await grab('A'), null);
   await keep('A');
   // (the span's progress is x / 2; step 1 runs at that time, step 2 is the identity)
   const at = g.x / 2;
-  await open([c.f], c.s, false);
+  await open([c.f], c.s, false, c.alpha);
   await ev(`__cmwSteps({ x: ${at} }), 1`);
   await settled({ max: DRAWN_WAIT, until: `Math.abs(__cmwSteps().x - ${at}) < 1e-12 && ${drawn}` });
   const h = await rec();
@@ -90,20 +100,37 @@ for (const c of CHAINS) {
     ok(`${c.name} u ${u}: a frame between the planes, all at once, the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.all && g.rec.path === 'inverse', g);
   }
   if (c.arrive === false) continue;
-  const g = await frozenPast(n, NEAR_END * n);
+  // (the glide is frozen past EARLY_END, its frame read for the message, then let go on and frozen past NEAR_END)
+  const g0 = await frozenPast(n, EARLY_END * n);
+  const d0 = (await grab('E0')) ? await compare('E0', 'RN') : null;
+  await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS} })`);
+  await settled({ max: GLIDE_WAIT, until: `__cmwSteps().x > ${NEAR_END * n}`, only: true });
+  await ev(`__cmwSteps({ clock: ${FREEZE_CLOCK_MS} })`);
+  await settled({ max: DRAWN_WAIT, until: drawn });
+  const g = await rec();
   ok(`${c.name}: the frame short of the last plane settles`, await grab('E'), null);
   const d = await compare('E', 'RN');
-  info[`${c.name} arrive`] = { g, d };
-  ok(`${c.name}: the frame short of the last plane is the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.path === 'inverse', g);
-  ok(`${c.name}: it is the plane at rest (at most ${ARRIVE_MAX * 100} % of the pane apart)`, !!d && d.frac <= ARRIVE_MAX, d);
+  const at = { u: g.rec && g.rec.u, frac: d && d.frac, d }, early = { u: g0.rec && g0.rec.u, frac: d0 && d0.frac };
+  info[`${c.name} arrive`] = { g, at, early };
+  ok(`${c.name}: the frame short of the last plane is the inverse pass's`, g.all && g.mode === 3 && !!g.rec && g.rec.path === 'inverse' && g.x < n, g);
+  ok(`${c.name}: it is the plane at rest (at most ${ARRIVE_MAX * 100} % of the pane apart)`, !!d && d.frac <= ARRIVE_MAX, { at, early });
 }
 // a span with a step inverted by Newton's method keeps the carried meshes, and says why
 {
-  const n = await open([{ type: 'cos', params: {}, on: true }, MUL('1')], 80, true);
+  const n = await open([{ type: 'ijouk', params: {}, on: true }, MUL('1')], 80, true);
   const g = await frozenPast(n, 0.5 * n);
   info.newt = g;
+  ok('[inverse Joukowski, 1 z]: a frame between the planes, all at once', g.all && g.mode === 3, g);
+  ok("[inverse Joukowski, 1 z]: the carried meshes draw it, the reason naming Newton's method", !!g.rec && g.rec.path === 'mesh' && /Newton/.test(g.rec.reason || ''), g.rec);
+}
+// a span whose step has an exact inverse homotopy (cos's zoom path) is the inverse pass's, all at once
+{
+  const n = await open([{ type: 'cos', params: {}, on: true }, MUL('1')], 80, true);
+  const g = await frozenPast(n, 0.5 * n);
+  const ops = await ev('(() => { const q = __cmwSteps().glide; return q && q.ops; })()');
+  info.cos = { g, ops };
   ok('[cos, 1 z]: a frame between the planes, all at once', g.all && g.mode === 3, g);
-  ok("[cos, 1 z]: the carried meshes draw it, the reason naming Newton's method", !!g.rec && g.rec.path === 'mesh' && /Newton/.test(g.rec.reason || ''), g.rec);
+  ok("[cos, 1 z]: the inverse pass draws it, through cos's own ops (no NEWT)", !!g.rec && g.rec.all === true && g.rec.path === 'inverse' && Array.isArray(ops) && ops.includes('SIN') && !ops.includes('NEWT'), { rec: g.rec, ops });
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
