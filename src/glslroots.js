@@ -61,10 +61,10 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
   // GLSL of RAT<n> for n >= 5 (InvOps.opRatN by aberthRoots), op j with parameters at uInv[c ...]: P's coefficients
   // p_n ... p_0 two to a cell, then Q's from cell half. Once per w, _roots sets _A, the low-first coefficients
   // a_k = p_(n-k) - w q_(n-k) of p - w q (which _a reads, so Aberth's sweeps fetch no uniform), drops the degree where a
-  // leading coefficient is what cancellation leaves, below 1e-14 of |p_(n-k)| + |w| |q_(n-k)| (as aberthRoots), and keeps
-  // Aberth's roots (aberthFns), each polished by two Newton steps on p - w q, in increasing Re + 0.37 Im (aberthRoots'
-  // ROOT_ORDER; the finite ones first), each when finite and apart from every earlier one; root b's derivative (p/q)'
-  // by Horner on P and Q
+  // leading coefficient is what cancellation leaves, below 1e-14 of |p_(n-k)| + |w| |q_(n-k)| (InvOps.ratPoly's drop, as
+  // RAT3's and RAT4's _deg), and keeps Aberth's roots (aberthFns), each polished by two Newton steps on p - w q, in
+  // increasing Re + 0.37 Im (aberthRoots' ROOT_ORDER; the finite ones first), each when finite and apart from every
+  // earlier one; root b's derivative (p/q)' by Horner on P and Q
   function ratAberthFns(n, j, c, NOR, dedupe) {
     const P = `ix${j}`, half = Math.ceil((n + 1) / 2);
     const cell = (i, from) => `(${i} & 1) == 0 ? uInv[${c + from} + ${i} / 2].xy : uInv[${c + from} + ${i} / 2].zw`;

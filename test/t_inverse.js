@@ -1375,11 +1375,11 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
     }
   }
 }
-// InvOps.cubicRoots and quarticRoots on p - w q for random p and q (coefficients of modulus 0.1 to 10) and w far out, near
-// the value at infinity (the leading coefficient vanishes, one root runs off) or near p(0)/q(0) (a root near 0): every root
-// within 1e3 of 0 has a residual within 1e-12 of the polynomial's size there
+// InvOps.cubicRoots and quarticRoots on p - w q (InvOps.ratPoly's, as the ops give it) for random p and q (coefficients
+// of modulus 0.1 to 10) and w far out, near the value at infinity (the leading coefficient vanishes, one root runs off) or
+// near p(0)/q(0) (a root near 0): every root within 1e3 of 0 has a residual within 1e-12 of the polynomial's size there
 {
-  const { cubicRoots, quarticRoots } = InvOps;
+  const { cubicRoots, quarticRoots, ratPoly } = InvOps;
   let fz = 9;
   const fr = () => { fz = (fz * 16807) % 2147483647; return fz / 2147483647; };
   const rcm = () => { const m = 10 ** (fr() * 2 - 1), a = fr() * 2 * PI; return C(m * Math.cos(a), m * Math.sin(a)); };
@@ -1391,13 +1391,42 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
       const wInf = CX.isZero(Q[0]) ? C(0, 0) : CX.div(p[0], Q[0]), w0 = CX.div(p[n], Q[n]);
       const w = k % 3 === 0 ? CX.scale(dir, 10 ** (fr() * 6 - 3)) : CX.add(k % 3 === 1 ? wInf : w0, CX.scale(dir, near));
       const co = p.map((pk, i) => CX.sub(pk, CX.mul(w, Q[i])));
-      for (const { u } of roots(...co)) {
+      for (const { u } of roots(ratPoly(p, Q, w))) {
         if (CX.abs(u) > 1e3) continue;
         const e = CX.abs(CX.polyEval(co, u)) / co.reduce((s0, c, i) => s0 + CX.abs(c) * CX.abs(u) ** (n - i), 0);
         tried++; worst = Math.max(worst, e); if (!(e <= 1e-12)) bad++;
       }
     }
     check(`${n === 3 ? 'cubicRoots' : 'quarticRoots'} on p - w q: every root within 1e3 has a relative residual within 1e-12`, bad === 0 && tried > 1000, { bad, tried, worst });
+  }
+}
+
+// RAT3 and RAT4 far out and at the value at infinity (InvOps.ratPoly: a leading coefficient of p - w q is dropped only
+// when it cancels against its own terms, p_k and w q_k; Ferrari's resolvent keeps its exact leading 8): z^3 - 2z + 1 at
+// |w| = 3e7 to 1e18, whose roots all have modulus |w|^(1/3) (to 1e6), (z^3 + 1)/(z^2 - 4) at |w| = 1e6 to 1e15 (one
+// root near w, two near the poles +-2), z^3 + 1/z at |w| = 1e3 to 1e9 (roots of modulus |w|^(1/3), and one near 1/w),
+// and the quartic whose roots are 1e4, 1.1e4 i, -0.9e4 and -1e4 i at w = 0 each give 3 or 4 distinct members u, each a
+// root of p - w q to 1e-13 of its terms' sizes (|p|(|u|) + |w| |q|(|u|): near a pole H itself is too steep to say it);
+// (z^3 + 1)/(z^3 + z^2 - 2z + 1/2) gives 2 at its value at infinity w = 1, where the degree drops, and 3 at w = 1 + 1e-6,
+// one of them far out
+{
+  const R = (a) => a.map((x) => C(x, 0)), DISTINCT = 1e-9, ON_W = 1e-13;
+  const fromRoots = (rs) => rs.reduce((co, r) => [...co, C(0, 0)].map((x, i) => (i ? CX.sub(x, CX.mul(r, co[i - 1])) : x)), [C(1, 0)]);
+  const rows = [['z^3 - 2z + 1', R([1, 0, -2, 1]), R([1]), [C(3e7, 9e6), C(1e12, 0), C(1e15, 3e14), C(-1e18, 1e17)], 3],
+    ['(z^3 + 1)/(z^2 - 4)', R([1, 0, 0, 1]), R([1, 0, -4]), [C(1e6, 0), C(3e9, -1e9), C(1e15, 0)], 3],
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1, 0)], 2],
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1 + 1e-6, 0)], 3],
+    ['z^3 + 1/z', R([1, 0, 0, 0, 1]), R([1, 0]), [C(1e3, 0), C(1e6, -2e5), C(3e7, 9e6), C(1e9, 0)], 4],
+    ['the quartic with roots near 1e4', fromRoots([C(1e4, 0), C(0, 1.1e4), C(-0.9e4, 0), C(0, -1e4)]), R([1]), [C(0, 0)], 4]];
+  const absEval = (co, r) => co.reduce((s, x) => s * r + CX.abs(x), 0);
+  for (const [name, p, q, ws, want] of rows) {
+    const o = InvOps.opRatN(p, q);
+    for (const w of ws) {
+      const G = o.pre(w).map((m) => m.u);
+      const distinct = G.every((g, k) => G.every((h, m) => m >= k || CX.abs(CX.sub(g, h)) > DISTINCT * (1 + CX.abs(g))));
+      const res = Math.max(0, ...G.map((g) => CX.abs(CX.sub(CX.polyEval(p, g), CX.mul(w, CX.polyEval(q, g)))) / (absEval(p, CX.abs(g)) + CX.abs(w) * absEval(q, CX.abs(g)))));
+      check(`${o.kind} ${name} at w = ${w.re} ${w.im >= 0 ? '+' : '-'} ${Math.abs(w.im)}i: ${want} distinct members, each over w`, G.length === want && distinct && res <= ON_W, { n: G.length, res, mods: G.map((g) => CX.abs(g)) });
+    }
   }
 }
 
