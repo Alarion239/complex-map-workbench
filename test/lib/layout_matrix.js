@@ -1,6 +1,6 @@
 // The matrix of the layout checks (#470): the sizes, the states and how to open each, and walk(), which visits every
 // point of it. Shared by test/layout_invariants_cmd.js (the CI suite) and tools/inspect.js (the screenshot galleries).
-// Not a module: a CDP-daemon command file (test/cdp_kit README) evals this text, so that ev, key, sleep and send are in
+// Not a module: a CDP-daemon command file (test/cdp_kit README) evals this text, so that ev, go, key, sleep and send are in
 // scope: `const M = eval(fs.readFileSync(<this file>, 'utf8'));`. It also needs LIB, test/lib/layout.js's text.
 (() => {
   const SIZES = [
@@ -127,7 +127,7 @@
       await size(mine[0]);
       await theme(false);
       const ns = `lay-${lang}-${view}-${dev}-${Date.now() % 1e6}`;
-      await send('Page.navigate', { url: `${url}?ns=${ns}${lang === 'en' ? '' : '&lang=' + lang}${view === 'steps' ? '&view=steps' : ''}` });
+      await go(`${url}?ns=${ns}${lang === 'en' ? '' : '&lang=' + lang}${view === 'steps' ? '&view=steps' : ''}`);
       await sleep(4500);
       if (view === 'steps' && !(await ev(`document.documentElement.classList.contains('sv')`))) { skipped.push(`${lang} steps ${dev}: this build has no ?view=steps`); continue; }
       for (const sz of mine) {
