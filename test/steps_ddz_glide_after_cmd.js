@@ -17,6 +17,10 @@
 // And a chain with two d/dz steps, [z³ - 3z, d/dz, d/dz, M], Everywhere: no chain stands in for them (invDerivChain), so
 // the glide from w₃ to w₄ held at x = 3.5 keeps the carried mesh, its record 'mesh' with the reason 'more than one d/dz
 // step'.
+// And All at once (S.homAll), on [z³ - 3z, d/dz, M, 1.2z]: a span with the d/dz in it goes a step at a time (svAllOk),
+// but the glide from the d/dz plane w₂ to w₄ is one span (map mode 3), which invSpanPath would plan over the chain
+// itself, not the one that stands in for the d/dz; a frame of it, the glide frozen past x = 3.25, keeps the carried
+// mesh, its record (all) 'mesh' with the reason 'an All-at-once glide past a d/dz step'.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -31,10 +35,10 @@ const state = {
 
 await view(1200, 800, false, false);
 // the page opened on the chain steps with shapes, in scope, at rest on plane z
-const open = async (shapes, scope, steps = state.steps) => {
+const open = async (shapes, scope, steps = state.steps, homAll = false) => {
   const ns = `svddza${Date.now()}`;
   await go(`http://localhost:${PORT}/gl-helpers.html`);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({}, state, { shapes, steps })))}); 1`);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(Object.assign({}, state, { shapes, steps, homAll })))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && !!window.GLR && !!document.querySelector('.sv-rail')" });
   // (opacity 1: the carried colour at the slider's opacity is the colour plot's only at full opacity)
@@ -87,6 +91,23 @@ const disc = (stage, c, r) => ({ id: `d${stage}`, kind: 'disc', c, r, ci: 2, vis
   const g = info['two d/dz'] = await record();
   await ev('window.__svScrubUp && window.__svScrubUp(), 1');
   ok("two d/dz steps: the glide keeps the carried mesh, its reason 'more than one d/dz step'", !!g && g.b === 4 && g.path === 'mesh' && g.reason === 'more than one d/dz step', g);
+}
+
+{
+  // (from w2 at rest, the glide played on a slowed clock, GLIDE_CLOCK_MS a frame, and frozen once past x; then its frame
+  // drawn)
+  const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9, PAST = 3.25;
+  await open([], 'all', state.steps.concat([{ type: 'mul', params: { c: '1.2' }, on: true }]), true);
+  await ev('__cmwSteps({ go: 2, now: true }), 1');
+  await settled({ max: 60000, until: QUIET_UNTIL });
+  await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS} }), __cmwSteps({ go: 4 }), 1`);
+  const past = await settled({ max: 180000, until: `__cmwSteps().x > ${PAST}`, only: true });
+  await ev(`__cmwSteps({ clock: ${FREEZE_CLOCK_MS} }), 1`);
+  await settled({ max: 120000, until: "(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()" });
+  const g = info['all at once'] = await ev('(() => { const q = __cmwSteps(); return { x: q.x, all: q.all, mode: q.between && q.between.mode, rec: q.glide && { all: q.glide.all, b: q.glide.b, path: q.glide.path, reason: q.glide.reason } }; })()');
+  await ev('__cmwSteps({ clock: 0 }), 1');
+  ok(`all at once: the glide from w2 to w4 is frozen past x = ${PAST}, between the planes, as one span`, past.ok && g.all && g.mode === 3 && g.x > PAST && g.x < 4, g);
+  ok("all at once: its frame keeps the carried mesh, its reason 'an All-at-once glide past a d/dz step'", !!g.rec && g.rec.all === true && g.rec.path === 'mesh' && g.rec.reason === 'an All-at-once glide past a d/dz step', g);
 }
 
 await ev('__cmwSteps({ bare: false }); 1');
