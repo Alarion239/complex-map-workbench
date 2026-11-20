@@ -1530,6 +1530,8 @@
     $('patScale').addEventListener('input', (e) => { const tg = /** @type {HTMLInputElement} */ (e.target); setOpt('patternScale', 2 ** +tg.value); cellBase = 0; buildDisplay(); requestRender('L', 'R'); save(); });
     $('leftReadout').addEventListener('click', () => copyReadout('L'));
     $('rightReadout').addEventListener('click', () => copyReadout('R'));
+    // (where the primary pointer is coarse the chip is not a target, page.html's `.chip.readout` rule, so its "Click to copy" promises nothing a touch can do)
+    try { if (matchMedia('(pointer: coarse)').matches) for (const id of ['leftReadout', 'rightReadout']) $(id).removeAttribute('title'); } catch (e) { /* no matchMedia: the title stays */ }
   }
   // the panes' buttons: Fit, the legend chips, zoom (init: after applyLayout)
   function setupPaneButtons() {
