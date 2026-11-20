@@ -1,12 +1,12 @@
 // What the two top-bar suites share: opening the app at a width and language, walking Tab from the top of the page to Help,
 // and measuring every visible segmented control. An expression for eval in a suite:
-// `const { open, tabs, scan, settle } = eval(fs.readFileSync(...))({ ev, send, view, key, sleep, DIR })`.
-({ ev, send, view, key, sleep, DIR }) => {
+// `const { open, tabs, scan, settle } = eval(fs.readFileSync(...))({ ev, go, view, key, sleep, DIR })`.
+({ ev, go, view, key, sleep, DIR }) => {
   const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
   const settle = async (ms = 600) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
   const open = async (w, h, lang) => {
     await view(w, h, false, false);
-    await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=tbf${w}${lang}${Date.now()}&lang=${lang}` });
+    await go(`http://localhost:${PORT}/test.html?ns=tbf${w}${lang}${Date.now()}&lang=${lang}`);
     await sleep(2600); await settle();
   };
   // (a fresh page: no history, so Undo and Redo are not stops; the order is the bar's source order)

@@ -114,30 +114,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.at_most_funcs_zp",
-   "area": "chrome",
-   "file": "app.js:2627",
-   "kind": "toast",
-   "text": "At most {Funcs.ZP_MAX} {kind} (degree {Funcs.ZP_MAX}, as Write by zeros and poles allows).",
-   "context": "app zpAdd(); passed to toast(arg 0); placeholders: {Funcs.ZP_MAX} = Funcs.ZP_MAX; {kind} = kind; {Funcs.ZP_MAX} = Funcs.ZP_MAX",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "chrome.at_most_max_kind",
-   "area": "chrome",
-   "file": "app.js:2671",
-   "kind": "tooltip",
-   "text": "At most {MAX} {kind}",
-   "context": "app addBtn() in zpFields(); passed to h(arg 1); property data-tip; type=button; placeholders: {MAX} = MAX; {kind} = kind",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "chrome.add_zero_or_shift",
    "area": "chrome",
    "file": "app.js:2671",
@@ -160,18 +136,6 @@
    ]
   },
   {
-   "id": "chrome.add_one_f_k",
-   "area": "chrome",
-   "file": "app.js:2672",
-   "kind": "aria",
-   "text": "Add a {one} to f{k} ({x} now)",
-   "context": "app addBtn() in zpFields(); passed to h(arg 1); property aria-label; type=button; placeholders: {one} = one; {k} = sub(k); {x} = n[kind]",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "chrome.remove_sym",
    "area": "chrome",
    "file": "app.js:2703",
@@ -179,31 +143,6 @@
    "text": "Remove {sym}",
    "context": "app zpItemField(); passed to h(arg 1); property data-tip; type=button; placeholders: {sym} = sym",
    "hazards": []
-  },
-  {
-   "id": "chrome.remove_what_i_f",
-   "area": "chrome",
-   "file": "app.js:2703",
-   "kind": "aria",
-   "text": "Remove {what} {i} of f{k}",
-   "context": "app zpItemField(); passed to h(arg 1); property aria-label; type=button; placeholders: {what} = what; {i} = i + 1; {k} = sub(k)",
-   "hazards": [
-    "needs a plural",
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "chrome.choice_sym_drag_input",
-   "area": "chrome",
-   "file": "app.js:2705",
-   "kind": "tooltip",
-   "text": "{choice} {sym}: drag it in the input plane",
-   "context": "app zpItemField(); passed to h(arg 1); property data-tip; placeholders: {choice} = kind === 'zeros' ? 'Zero' : 'Pole'; {sym} = sym",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
   },
   {
    "id": "chrome.zero",
@@ -316,30 +255,6 @@
     "do-not-translate list: same literal used as an identifier (compared or a map key)",
     "display through a map; the key stays English",
     "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
-   ]
-  },
-  {
-   "id": "chrome.fntext_d_dv_around",
-   "area": "chrome",
-   "file": "app.js:5727",
-   "kind": "body",
-   "text": "∮ {fnText} d{dv} around {name}",
-   "context": "app (anon)() in openIntegralMenu(); property label; placeholders: {fnText} = fnText(); {dv} = dv; {name} = name",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "chrome.integrate_fntext_along_name",
-   "area": "chrome",
-   "file": "app.js:5727",
-   "kind": "body",
-   "text": "Integrate {fnText} along {name}",
-   "context": "app (anon)() in openIntegralMenu(); property label; placeholders: {fnText} = fnText(); {name} = name",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
    ]
   },
   {
@@ -509,15 +424,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.draw_target_yhtml_plane",
-   "area": "chrome",
-   "file": "app.js:6578",
-   "kind": "body",
-   "text": "Draw a target in the {yHtml}-plane",
-   "context": "app idleRight(); property hint; placeholders: {yHtml} = yHtml()",
-   "hazards": []
-  },
-  {
    "id": "chrome.display_options",
    "area": "chrome",
    "file": "app.js:6622",
@@ -657,27 +563,6 @@
    ]
   },
   {
-   "id": "chrome.deformation_time",
-   "area": "chrome",
-   "file": "app.js:6732",
-   "kind": "aria",
-   "text": "Deformation time",
-   "context": "app buildDock(); passed to h(arg 1); property aria-label; type=range",
-   "hazards": []
-  },
-  {
-   "id": "chrome.f_x_f_x",
-   "area": "chrome",
-   "file": "app.js:6737",
-   "kind": "body",
-   "text": "<i>f</i>{x}, …, <i>f</i>{x} at once",
-   "context": "app buildDock(); passed to h(arg 1); property html; placeholders: {x} = sub(ks[0]); {x} = sub(ks[ks.length - 1])",
-   "hazards": [
-    "contains LaTeX",
-    "contains HTML markup"
-   ]
-  },
-  {
    "id": "chrome.steps",
    "area": "chrome",
    "file": "app.js:6743",
@@ -697,17 +582,6 @@
    "text": "d/dz is not a map: its step deforms on its own, so the steps run one after another",
    "context": "app buildDock()",
    "hazards": []
-  },
-  {
-   "id": "chrome.deformation_off_m",
-   "area": "chrome",
-   "file": "app.js:6751",
-   "kind": "tooltip",
-   "text": "Deformation off  M",
-   "context": "app buildDock(); passed to h(arg 1); property data-tip",
-   "hazards": [
-    "contains a key name"
-   ]
   },
   {
    "id": "chrome.turn_deformation_off",
@@ -737,26 +611,6 @@
    "kind": "tooltip",
    "text": "Show",
    "context": "app pathsToggle(); passed to h(arg 1); property data-tip; id=pathsBtn",
-   "hazards": []
-  },
-  {
-   "id": "chrome.icons_paths_paths",
-   "area": "chrome",
-   "file": "app.js:6760",
-   "kind": "body",
-   "text": "{ICONS.paths}<span>Paths</span>",
-   "context": "app pathsToggle(); passed to h(arg 1); property html; id=pathsBtn; placeholders: {ICONS.paths} = ICONS.paths",
-   "hazards": [
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.d_dz_not_map_2",
-   "area": "chrome",
-   "file": "app.js:6761",
-   "kind": "tooltip",
-   "text": "d/dz is not a map, so there are no paths t ↦ H_t(z) to draw",
-   "context": "app pathsToggle()",
    "hazards": []
   },
   {
@@ -896,15 +750,6 @@
    ]
   },
   {
-   "id": "chrome.scale_f",
-   "area": "chrome",
-   "file": "app.js:6967",
-   "kind": "caption",
-   "text": "Scale |F′|",
-   "context": "app paintLegend(); passed to ctx.fillText(arg 0)",
-   "hazards": []
-  },
-  {
    "id": "chrome.pattern",
    "area": "chrome",
    "file": "app.js:6976",
@@ -920,33 +765,6 @@
    "kind": "caption",
    "text": "image of a cut",
    "context": "app paintLegend(); passed to ctx.fillText(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.left_view",
-   "area": "chrome",
-   "file": "app.js:7017",
-   "kind": "caption",
-   "text": "left view",
-   "context": "app paintLegend(); passed to ctx.fillText(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.snap_while_drawing",
-   "area": "chrome",
-   "file": "app.js:7145",
-   "kind": "tooltip",
-   "text": "Snap while drawing",
-   "context": "app buildTools(); passed to h(arg 1); property data-tip; id=railSnap",
-   "hazards": []
-  },
-  {
-   "id": "chrome.snap_while_drawing_2",
-   "area": "chrome",
-   "file": "app.js:7145",
-   "kind": "aria",
-   "text": "Snap while drawing",
-   "context": "app buildTools(); passed to h(arg 1); property aria-label; id=railSnap",
    "hazards": []
   },
   {
@@ -1011,51 +829,6 @@
    "text": "Remove all shapes and targets",
    "context": "app buildShapeList()",
    "hazards": []
-  },
-  {
-   "id": "chrome.z_plane",
-   "area": "chrome",
-   "file": "app.js:7326",
-   "kind": "body",
-   "text": "<span><i>z</i>-plane</span>",
-   "context": "app buildShapeList(); passed to h(arg 1); property html",
-   "hazards": [
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.no_shapes_yet_draw",
-   "area": "chrome",
-   "file": "app.js:7327",
-   "kind": "body",
-   "text": "No shapes yet. Draw one in the <i>z</i>-plane.",
-   "context": "app buildShapeList(); passed to h(arg 1); property html",
-   "hazards": [
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.out_plane",
-   "area": "chrome",
-   "file": "app.js:7333",
-   "kind": "body",
-   "text": "<span>{out}-plane</span>",
-   "context": "app buildShapeList(); passed to h(arg 1); property html; placeholders: {out} = out",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.no_targets_yet_draw",
-   "area": "chrome",
-   "file": "app.js:7334",
-   "kind": "body",
-   "text": "No targets yet. Draw one in the {out}-plane.",
-   "context": "app buildShapeList(); passed to h(arg 1); property html; placeholders: {out} = out",
-   "hazards": [
-    "needs grammatical case or gender"
-   ]
   },
   {
    "id": "chrome.show_3",
@@ -1204,33 +977,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.clear_targets",
-   "area": "chrome",
-   "file": "app.js:7368",
-   "kind": "menu",
-   "text": "Clear targets",
-   "context": "app onclick() in shapeRow(); passed to items.push(arg 0); property label",
-   "hazards": []
-  },
-  {
-   "id": "chrome.clear_shapes",
-   "area": "chrome",
-   "file": "app.js:7368",
-   "kind": "menu",
-   "text": "Clear shapes",
-   "context": "app onclick() in shapeRow(); passed to items.push(arg 0); property label",
-   "hazards": []
-  },
-  {
-   "id": "chrome.unbounded_drawn_about_200",
-   "area": "chrome",
-   "file": "app.js:7540",
-   "kind": "body",
-   "text": "Unbounded: drawn about 200 view-widths out, faded at the edge.",
-   "context": "app shapeEditor(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
    "id": "chrome.equation_has_no_points",
    "area": "chrome",
    "file": "app.js:7598",
@@ -1276,37 +1022,6 @@
    "kind": "body",
    "text": "z-plane",
    "context": "app check() in setupFormula()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.insert_function_where",
-   "area": "chrome",
-   "file": "app.js:7701",
-   "kind": "tooltip",
-   "text": "Insert a function {where}",
-   "context": "app connector(); passed to h(arg 1); property data-tip; placeholders: {where} = where",
-   "hazards": [
-    "needs grammatical case or gender"
-   ]
-  },
-  {
-   "id": "chrome.insert_function_where_2",
-   "area": "chrome",
-   "file": "app.js:7701",
-   "kind": "aria",
-   "text": "Insert a function {where}",
-   "context": "app connector(); passed to h(arg 1); property aria-label; placeholders: {where} = where",
-   "hazards": [
-    "needs grammatical case or gender"
-   ]
-  },
-  {
-   "id": "chrome.region_show_whole_chain",
-   "area": "chrome",
-   "file": "app.js:7741",
-   "kind": "aria",
-   "text": "Region: show the whole chain",
-   "context": "app buildPipeline(); passed to h(arg 1); property aria-label",
    "hazards": []
   },
   {
@@ -1507,17 +1222,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.parameters_f_k",
-   "area": "chrome",
-   "file": "app.js:7843",
-   "kind": "aria",
-   "text": "Parameters of f{k}",
-   "context": "app openCardPop(); passed to h(arg 1); property aria-label; placeholders: {k} = sub(k)",
-   "hazards": [
-    "needs a plural"
-   ]
-  },
-  {
    "id": "chrome.drag_change",
    "area": "chrome",
    "file": "app.js:7866",
@@ -1675,15 +1379,6 @@
    ]
   },
   {
-   "id": "chrome.add_region",
-   "area": "chrome",
-   "file": "app.js:8310",
-   "kind": "palette",
-   "text": "Add this region",
-   "context": "app paletteItems(); passed to items.push(arg 0); property label; kind=region",
-   "hazards": []
-  },
-  {
    "id": "chrome.set_z_plane",
    "area": "chrome",
    "file": "app.js:8310",
@@ -1714,15 +1409,6 @@
    "kind": "palette",
    "text": "Adds this formula as a step",
    "context": "app paletteItems(); passed to items.push(arg 0); property desc; kind=fn",
-   "hazards": []
-  },
-  {
-   "id": "chrome.add_region_2",
-   "area": "chrome",
-   "file": "app.js:8343",
-   "kind": "palette",
-   "text": "Add region",
-   "context": "app paletteItems(); passed to items.push(arg 0); property label; kind=region",
    "hazards": []
   },
   {
@@ -1915,29 +1601,11 @@
    "hazards": []
   },
   {
-   "id": "chrome.not_guaranteed",
-   "area": "chrome",
-   "file": "app.js:8621",
-   "kind": "tooltip",
-   "text": "not guaranteed",
-   "context": "app renderRail(); passed to h(arg 1); property data-tip",
-   "hazards": []
-  },
-  {
    "id": "chrome.guaranteed_2",
    "area": "chrome",
    "file": "app.js:8621",
    "kind": "aria",
    "text": "guaranteed",
-   "context": "app renderRail(); passed to h(arg 1); property aria-label",
-   "hazards": []
-  },
-  {
-   "id": "chrome.not_guaranteed_2",
-   "area": "chrome",
-   "file": "app.js:8621",
-   "kind": "aria",
-   "text": "not guaranteed",
    "context": "app renderRail(); passed to h(arg 1); property aria-label",
    "hazards": []
   },
@@ -1961,26 +1629,6 @@
    "text": "Copy the formula as LaTeX",
    "context": "app buildProps(); passed to h(arg 1); property aria-label",
    "hazards": []
-  },
-  {
-   "id": "chrome.composite_map",
-   "area": "chrome",
-   "file": "app.js:8648",
-   "kind": "heading",
-   "text": "Composite map",
-   "context": "app buildProps(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.hide_panel",
-   "area": "chrome",
-   "file": "app.js:8649",
-   "kind": "tooltip",
-   "text": "Hide panel  ]",
-   "context": "app buildProps(); passed to h(arg 1); property data-tip",
-   "hazards": [
-    "contains a key name"
-   ]
   },
   {
    "id": "chrome.hide_guarantees",
@@ -2034,15 +1682,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.lit_guaranteed_by_chain",
-   "area": "chrome",
-   "file": "app.js:8690",
-   "kind": "body",
-   "text": "Lit: guaranteed by the chain. Unlit: not implied by the steps (it may still hold).",
-   "context": "app buildProps(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
    "id": "chrome.natural_domain_d",
    "area": "chrome",
    "file": "app.js:8693",
@@ -2059,17 +1698,6 @@
    "file": "app.js:8700",
    "kind": "body",
    "text": "All <i>z</i> for which:",
-   "context": "app buildProps(); passed to h(arg 1); property html",
-   "hazards": [
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.w_k_value_after",
-   "area": "chrome",
-   "file": "app.js:8703",
-   "kind": "body",
-   "text": "<i>w</i><sub>k</sub> is the value after step <i>k</i>; <i>w</i><sub>0</sub> = <i>z</i>.",
    "context": "app buildProps(); passed to h(arg 1); property html",
    "hazards": [
     "contains HTML markup"
@@ -2097,15 +1725,6 @@
    ]
   },
   {
-   "id": "chrome.operator_not_map_row",
-   "area": "chrome",
-   "file": "app.js:8717",
-   "kind": "tooltip",
-   "text": "An operator, not a map: its row shows what the chain through it guarantees",
-   "context": "app buildProps(); passed to h(arg 1); property data-tip",
-   "hazards": []
-  },
-  {
    "id": "chrome.how_these_are_decided",
    "area": "chrome",
    "file": "app.js:8726",
@@ -2129,24 +1748,6 @@
    "file": "app.js:8728",
    "kind": "body",
    "text": "Each step is judged on its own natural domain, off its branch cut. So log is injective but exp is not; z ↦ 1/z is Möbius but not proper into ℂ, since |1/z| stays bounded as z → ∞.",
-   "context": "app buildProps(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.list_sound_but_not",
-   "area": "chrome",
-   "file": "app.js:8729",
-   "kind": "body",
-   "text": "The list is sound but not complete. For example, exp followed by log returns z, yet neither step is rational, so \"rational\" is not claimed.",
-   "context": "app buildProps(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.custom_formulas_are_classified",
-   "area": "chrome",
-   "file": "app.js:8730",
-   "kind": "body",
-   "text": "Custom formulas are classified from their expression tree: only z, constants, +, −, ×, ÷ and integer powers count as rational. A polynomial formula has its exact degree found numerically before \"proper\" is claimed.",
    "context": "app buildProps(); passed to h(arg 2)",
    "hazards": []
   },
@@ -2354,48 +1955,6 @@
    "hazards": []
   },
   {
-   "id": "export.preview_exported_figure",
-   "area": "export",
-   "file": "app.js:9420",
-   "kind": "caption",
-   "text": "Preview of the exported figure",
-   "context": "app rebuild() in openFigureDialog(); passed to h(arg 1); property alt",
-   "hazards": []
-  },
-  {
-   "id": "export.double_column",
-   "area": "export",
-   "file": "app.js:9422",
-   "kind": "caption",
-   "text": "Double column",
-   "context": "app rebuild() in openFigureDialog()",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "export.single_column",
-   "area": "export",
-   "file": "app.js:9422",
-   "kind": "caption",
-   "text": "Single column",
-   "context": "app rebuild() in openFigureDialog()",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "export.forward_image_reached_mesh",
-   "area": "export",
-   "file": "app.js:9422",
-   "kind": "caption",
-   "text": " A forward image reached its mesh budget and is drawn with coarser triangles in places.",
-   "context": "app rebuild() in openFigureDialog()",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
    "id": "export.figure_could_not_be",
    "area": "export",
    "file": "app.js:9425",
@@ -2423,47 +1982,11 @@
    "hazards": []
   },
   {
-   "id": "export.latex_figure_copied_export",
-   "area": "export",
-   "file": "app.js:9444",
-   "kind": "toast",
-   "text": "LaTeX figure copied. Export without the caption in the image to avoid printing it twice.",
-   "context": "app copyLatex() in openFigureDialog(); passed to toast(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "export.latex_figure_copied_with",
-   "area": "export",
-   "file": "app.js:9444",
-   "kind": "toast",
-   "text": "LaTeX figure copied, with the caption.",
-   "context": "app copyLatex() in openFigureDialog(); passed to toast(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "export.d_dz_has_no",
-   "area": "export",
-   "file": "app.js:9450",
-   "kind": "tooltip",
-   "text": "d/dz has no deformation: the panels show the current frame",
-   "context": "app figPanelsSeg() in openFigureDialog()",
-   "hazards": []
-  },
-  {
    "id": "export.export_figure",
    "area": "export",
    "file": "app.js:9454",
    "kind": "caption",
    "text": "Export figure",
-   "context": "app openFigureDialog(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "export.copy_latex_figure",
-   "area": "export",
-   "file": "app.js:9466",
-   "kind": "caption",
-   "text": "Copy LaTeX figure",
    "context": "app openFigureDialog(); passed to h(arg 2)",
    "hazards": []
   },
@@ -2486,15 +2009,6 @@
    "kind": "caption",
    "text": "Save figure",
    "context": "app openFigureDialog(); passed to h(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "export.figure_for_article",
-   "area": "export",
-   "file": "app.js:9538",
-   "kind": "caption",
-   "text": "Figure for an article…",
-   "context": "app openExportMenu(); property label",
    "hazards": []
   },
   {
@@ -2523,17 +2037,6 @@
    "text": "Save LaTeX with guarantees (.txt)",
    "context": "app openExportMenu(); property label",
    "hazards": []
-  },
-  {
-   "id": "chrome.chain_does_not_imply",
-   "area": "chrome",
-   "file": "app.js:9581",
-   "kind": "body",
-   "text": " The chain does not imply this; it may still hold.",
-   "context": "app fillProps()",
-   "hazards": [
-    "built from pieces"
-   ]
   },
   {
    "id": "chrome.empty_canvas",
@@ -2692,15 +2195,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.slit_plane_maps_onto",
-   "area": "chrome",
-   "file": "app.js:10801",
-   "kind": "body",
-   "text": "The slit plane maps onto a half-plane; change the sheet to flip it.",
-   "context": "app (anon)(); property blurb; name=Square root and its sheets",
-   "hazards": []
-  },
-  {
    "id": "chrome.cayley_then_cube",
    "area": "chrome",
    "file": "app.js:10806",
@@ -2800,18 +2294,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.every_sheet_logarithm",
-   "area": "chrome",
-   "file": "app.js:10833",
-   "kind": "heading",
-   "text": "Every sheet of the logarithm",
-   "context": "app (anon)(); property name; name=Every sheet of the logarithm",
-   "hazards": [
-    "test/ uses this literal (selector or expected text): tests must pin English or use ids",
-    "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
-   ]
-  },
-  {
    "id": "chrome.w_z_2",
    "area": "chrome",
    "file": "app.js:10833",
@@ -2842,29 +2324,6 @@
    "hazards": []
   },
   {
-   "id": "guide.using_workbench",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "Using the Workbench",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "guide.build_region_z_plane",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "Build a region in the <i>z</i>-plane, push it through a chain of functions <i>f</i><sub>1</sub>, <i>f</i><sub>2</sub>, …, and watch every intermediate image. The left pane is always <i>X</i>, the input of the focused step (the domain), and the right pane always <i>Y</i>, its output: the left pane shows the shapes, the right pane their images.",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces",
-    "contains HTML markup"
-   ]
-  },
-  {
    "id": "guide.regions",
    "area": "guide",
    "file": "app.js:11038",
@@ -2876,20 +2335,6 @@
    ]
   },
   {
-   "id": "guide.draw_with_tools_on",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "Draw with the tools on the left, or type a set such as <span class=\"chip ftag\" data-tex=\"|z-1|<2\"></span> or <span class=\"chip ftag\" data-tex=\"0<\\Im z<\\pi\"></span>. Formulas accept <i>and</i>, <i>or</i>, <i>not</i>, commas, chained comparisons, and <i>x</i>, <i>y</i>, <i>r</i>, <i>θ</i>. An equation is a curve: <span class=\"chip ftag\" data-tex=\"\\operatorname{Re} z=0\"></span> is a line, <span class=\"chip ftag\" data-tex=\"|z|=1,\\ \\operatorname{Im} z>0\"></span> an arc; lines, rays, segments, circles and arcs become shapes with handles, other curves such as <span class=\"chip ftag\" data-tex=\"|\\sin z|=1\"></span> are traced exactly. A set or curve in <i>w</i> is a target of the <i>w</i>-plane. Unbounded regions are meshed far beyond the visible window, so their whole image appears on the right; the fill fades out where the mesh ends. The pattern is drawn in <i>z</i>-coordinates and carried along by the map, so every tile can be followed.",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces",
-    "contains LaTeX",
-    "contains HTML markup",
-    "Russian notation (function names)"
-   ]
-  },
-  {
    "id": "guide.function_chain",
    "area": "guide",
    "file": "app.js:11038",
@@ -2898,20 +2343,6 @@
    "context": "app openGuide(); text run inside an HTML string",
    "hazards": [
     "built from pieces"
-   ]
-  },
-  {
-   "id": "guide.add_step_with_x",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "Add a step with {x}, the add card, or a connector's insert button; type a formula such as <span class=\"chip ftag\" data-tex=\"e^{z^2}\"></span> in the palette to add it directly. Click a card to focus it. <i>f</i><sup>−1</sup> replaces a step by its inverse, the jumper bypasses it, and the ⋯ menu moves, duplicates or removes it. Drag a card's header onto a connector to reorder.",
-   "context": "app openGuide(); text run inside an HTML string; placeholders: {x} = k('+')",
-   "hazards": [
-    "built from pieces",
-    "contains LaTeX",
-    "contains HTML markup",
-    "units or number format"
    ]
   },
   {
@@ -2938,32 +2369,6 @@
    ]
   },
   {
-   "id": "guide.logarithms_roots_complex_powers",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "Logarithms, roots and complex powers cut along a ray from 0. Focus the step and drag the seam's handle in the input plane; it snaps to 15° with Shift. The hatched side is the side the cut belongs to. The sheet number picks the branch.",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces",
-    "contains a key name",
-    "units or number format"
-   ]
-  },
-  {
-   "id": "guide.zeros_poles_polynomial_amp",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "<i>Zeros and poles</i> (in Polynomial &amp; custom) is the map <i>a</i>∏(<i>z</i> − ζ<sub><i>k</i></sub>)/∏(<i>z</i> − <i>p<sub>j</sub></i>). Its zeros (dots) and poles (crosses) are handles in its input plane (X for the first step, else focus the step): drag them, Shift-click to add a zero, Shift-⌘-click (Shift-Ctrl) to add a pole, and drag one off the plane or select it and press Delete to remove it. A polynomial or rational step can be rewritten this way from its <b>⋯</b> menu, and back.",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces",
-    "contains HTML markup",
-    "contains a key name"
-   ]
-  },
-  {
    "id": "guide.views",
    "area": "guide",
    "file": "app.js:11038",
@@ -2975,21 +2380,6 @@
    ]
   },
   {
-   "id": "guide.switch_middle_top_bar",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "The switch in the middle of the top bar picks the view ({x} {x} {x}). <b><i>X</i> → <i>Y</i></b> shows the two planes side by side: the shapes on the left, their images on the right, each pane with its own <b>Plane · Sphere</b> switch ({x} {x} for the left pane, {x} {x} for the right). The right plane has a derivative gauge under the probe. <b>Phase</b> is one wide panel that colours each point of <i>X</i> by arg <i>F</i>, with modulus contours, on the plane or on the Riemann sphere; the shapes are outlined. <b>Landscape</b> is one wide panel that lifts |<i>F</i>| over <i>X</i> into a surface, in the phase colours or in plaster: zeros are pits, poles are peaks; for a map with a branch cut, <b>All sheets</b> draws its whole Riemann surface instead of the cut principal branch (best with height Re <i>F</i> or Im <i>F</i>). Each view keeps its own camera and plane view. <b>Sphere</b> places a pane on the Riemann sphere, with ∞ at the north pole. You draw on it as in the plane (shapes on the left, targets on the right; Annulus, Sector and Polar grid draw in Plane only): a Disc or Circle is a cap of the sphere, and one whose rim passes ∞ becomes a half-plane or a line. With Select, drag a shape to move it (over ∞ it changes kind) and empty space to turn the globe; in every tool the middle button, Space held or two fingers turn it. The <b>Phase key</b> check in the right plane's options of <i>X</i> → <i>Y</i> paints the portrait's colours under it, so a colour of the portrait reads off as a value of <i>w</i>.",
-   "context": "app openGuide(); text run inside an HTML string; placeholders: {x} = k('1'); {x} = k('2'); {x} = k('3'); {x} = k('⇧ 1'); {x} = k('⇧ 2'); {x} = k('⇧ 3'); {x} = k('⇧ 4')",
-   "hazards": [
-    "built from pieces",
-    "contains LaTeX",
-    "contains HTML markup",
-    "contains a key name",
-    "units or number format"
-   ]
-  },
-  {
    "id": "guide.deformation",
    "area": "guide",
    "file": "app.js:11038",
@@ -2998,19 +2388,6 @@
    "context": "app openGuide(); text run inside an HTML string",
    "hazards": [
     "built from pieces"
-   ]
-  },
-  {
-   "id": "guide.deformation_top_bar_x",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "<b>Deformation</b> in the top bar ({x}) plays the homotopy from <i>z</i> to <i>F</i>(<i>z</i>), step by step, in every view. In <i>X</i> → <i>Y</i> the two panes merge into one plane (one globe when the right pane shows its Sphere): <i>X</i> in grey, the moving image <i>H</i><sub><i>t</i></sub>(<i>X</i>), and the paths <i>t</i> ↦ <i>H</i><sub><i>t</i></sub>(<i>z</i>) of well-spread points. In Phase and Landscape it paints <i>H</i><sub><i>t</i></sub>. Each step deforms along its natural path: <i>H</i><sub><i>t</i></sub> is analytic for every <i>t</i>, starts at the identity and ends at the map. Möbius maps move along their one-parameter groups, powers along <i>z</i><sup>1+(<i>n</i>−1)<i>t</i></sup>; exp, sin, cos, tan, the hyperbolic functions, their inverses and rational maps are zoomed into, so their zeros, poles and cuts fly in from infinity (sin(<i>tz</i>)/<i>t</i>); a polynomial switches its zeros on one by one; Joukowski closes the unit circle onto [−1, 1]. A formula that is none of these, or a constant, moves along the straight line. The transport under the panel scrubs <i>t</i> and sets the speed and, for two or more steps, the order: one after another (0 ≤ <i>t</i> ≤ <i>m</i>) or all at once (0 ≤ <i>t</i> ≤ 1, every step at the same <i>t</i>). <b>Paths</b> ({x}) shows or hides the paths. Turning the deformation off splits the panes again and returns to <i>t</i> at the end. A focused step deforms that step only.",
-   "context": "app openGuide(); text run inside an HTML string; placeholders: {x} = k('M'); {x} = k('P')",
-   "hazards": [
-    "built from pieces",
-    "contains LaTeX",
-    "contains HTML markup"
    ]
   },
   {
@@ -3048,19 +2425,6 @@
    ]
   },
   {
-   "id": "guide.f_1_on_card",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "<i>f</i><sup>−1</sup> on a card replaces the step by its inverse on the same branch. A step that takes some values more than once (a polynomial of degree 2 or more, for example) has no single inverse: the button says why and offers its preimages instead. The ⋯ menu's <b>Replace with derivative</b> turns a single step into its derivative <i>f</i>′ (a d/dz step differentiates the whole chain before it); both are in the palette as <b>Inverse of <i>f</i><sub><i>k</i></sub></b> and <b>Derivative of <i>f</i><sub><i>k</i></sub></b>, and both can be undone.",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces",
-    "contains HTML markup",
-    "units or number format"
-   ]
-  },
-  {
    "id": "guide.integrals",
    "area": "guide",
    "file": "app.js:11038",
@@ -3072,36 +2436,11 @@
    ]
   },
   {
-   "id": "guide.right_click_curve_or",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "Right-click a curve or a region's boundary (a long press on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces",
-    "contains HTML markup",
-    "contains a key name",
-    "units or number format"
-   ]
-  },
-  {
    "id": "guide.guarantees",
    "area": "guide",
    "file": "app.js:11038",
    "kind": "body",
    "text": "Guarantees",
-   "context": "app openGuide(); text run inside an HTML string",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "guide.lamps_on_right_are",
-   "area": "guide",
-   "file": "app.js:11038",
-   "kind": "body",
-   "text": "The lamps on the right are lit only when every step has the property and composition preserves it, so a lit lamp is always true. An unlit lamp means the chain does not imply it, not that it fails.",
    "context": "app openGuide(); text run inside an HTML string",
    "hazards": [
     "built from pieces"
@@ -3173,17 +2512,6 @@
    "context": "app init()",
    "hazards": [
     "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.mode_icons_morph_deformation",
-   "area": "chrome",
-   "file": "app.js:11682",
-   "kind": "body",
-   "text": "{MODE_ICONS.morph}<span>Deformation</span>",
-   "context": "app init(); placeholders: {MODE_ICONS.morph} = MODE_ICONS.morph",
-   "hazards": [
-    "contains HTML markup"
    ]
   },
   {
@@ -3817,17 +3145,6 @@
    ]
   },
   {
-   "id": "export.homotopy_h_t_v_5",
-   "area": "export",
-   "file": "funcs.js:1099",
-   "kind": "latex",
-   "text": "the homotopy $H_t({v})={v}^{{1}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$",
-   "context": "funcs homTex() in build(); property tex; id=pown; placeholders: {v} = v; {v} = v; {1} = expoTex(1 + 2 * (an - 1))",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "math.z_1_constant_so",
    "area": "math",
    "file": "funcs.js:1111",
@@ -4317,17 +3634,6 @@
    "hazards": []
   },
   {
-   "id": "math.log_powers_use_arg",
-   "area": "math",
-   "file": "funcs.js:1449",
-   "kind": "body",
-   "text": "log, √ and powers use arg ∈ ({cut}°, {cut}°]",
-   "context": "funcs build(); property branchNote; id=custom; placeholders: {cut} = fmtDeg(cut - 360); {cut} = fmtDeg(cut)",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "math.d_dz_differentiates_chain",
    "area": "math",
    "file": "funcs.js:1470",
@@ -4366,15 +3672,6 @@
    "hazards": [
     "needs grammatical case or gender"
    ]
-  },
-  {
-   "id": "math.cannot_evaluate_n_t",
-   "area": "math",
-   "file": "funcs.js:1737",
-   "kind": "error",
-   "text": "Cannot evaluate '{n.t}'",
-   "context": "funcs go() in pairCompile(); passed to Error(arg 0); placeholders: {n.t} = n.t",
-   "hazards": []
   },
   {
    "id": "math.combine_comparisons_with_or",
@@ -4456,15 +3753,6 @@
    ]
   },
   {
-   "id": "math.unexpected_ch",
-   "area": "math",
-   "file": "parse.js:144",
-   "kind": "error",
-   "text": "Unexpected '{ch}'",
-   "context": "parse tokenize(); passed to ParseError(arg 0); placeholders: {ch} = ch",
-   "hazards": []
-  },
-  {
    "id": "math.empty_expression",
    "area": "math",
    "file": "parse.js:151",
@@ -4503,15 +3791,6 @@
    "hazards": []
   },
   {
-   "id": "math.expected_close",
-   "area": "math",
-   "file": "parse.js:307",
-   "kind": "error",
-   "text": "Expected '{close}'",
-   "context": "parse parsePrimary() in parse(); passed to ParseError(arg 0); placeholders: {close} = close",
-   "hazards": []
-  },
-  {
    "id": "math.expected_combine_conditions_write",
    "area": "math",
    "file": "parse.js:314",
@@ -4530,30 +3809,12 @@
    "hazards": []
   },
   {
-   "id": "math.unexpected_tk_v",
-   "area": "math",
-   "file": "parse.js:318",
-   "kind": "error",
-   "text": "Unexpected '{tk.v}'",
-   "context": "parse parsePrimary() in parse(); passed to ParseError(arg 0); placeholders: {tk.v} = tk.v",
-   "hazards": []
-  },
-  {
    "id": "math.unexpected_end_expression",
    "area": "math",
    "file": "parse.js:320",
    "kind": "error",
    "text": "Unexpected end of expression",
    "context": "parse parsePrimary() in parse(); passed to ParseError(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "math.unexpected_tk_t",
-   "area": "math",
-   "file": "parse.js:321",
-   "kind": "error",
-   "text": "Unexpected '{tk.t}'",
-   "context": "parse parsePrimary() in parse(); passed to ParseError(arg 0); placeholders: {tk.t} = tk.t",
    "hazards": []
   },
   {
@@ -4777,18 +4038,6 @@
    "hazards": []
   },
   {
-   "id": "math.n_or_n_b",
-   "area": "math",
-   "file": "parse.js:1217",
-   "kind": "body",
-   "text": "{n.a}\\ \\text{or}\\ {n.b}",
-   "context": "parse go() in toTex(); property s; placeholders: {n.a} = go(n.a).s; {n.b} = go(n.b).s",
-   "hazards": [
-    "contains LaTeX",
-    "units or number format"
-   ]
-  },
-  {
    "id": "math.point",
    "area": "math",
    "file": "region.js:154",
@@ -4969,15 +4218,6 @@
    ]
   },
   {
-   "id": "math.curve_formulas_are_not",
-   "area": "math",
-   "file": "region.js:351",
-   "kind": "error",
-   "text": "Curve formulas are not available in this build",
-   "context": "region curveDesc(); passed to Error(arg 0)",
-   "hazards": []
-  },
-  {
    "id": "math.curve_formula",
    "area": "math",
    "file": "region.js:396",
@@ -5071,18 +4311,6 @@
    ]
   },
   {
-   "id": "tour.every_sheet_logarithm",
-   "area": "tour",
-   "file": "tour.js:63",
-   "kind": "heading",
-   "text": "Every sheet of the logarithm",
-   "context": "tour (anon)(); property name; name=Every sheet of the logarithm",
-   "hazards": [
-    "test/ uses this literal (selector or expected text): tests must pin English or use ids",
-    "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
-   ]
-  },
-  {
    "id": "tour.basics",
    "area": "tour",
    "file": "tour.js:77",
@@ -5101,17 +4329,6 @@
    "hazards": []
   },
   {
-   "id": "tour.draw_set_z_plane",
-   "area": "tour",
-   "file": "tour.js:80",
-   "kind": "body",
-   "text": "Draw a set in the $z$-plane, send it through a chain of functions and watch its image. This takes about two minutes, and your own work comes back when the tour ends.",
-   "context": "tour (anon)(); property body; id=welcome",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "tour.x_domain",
    "area": "tour",
    "file": "tour.js:81",
@@ -5119,31 +4336,6 @@
    "text": "X: the domain",
    "context": "tour (anon)(); property title; id=x",
    "hazards": []
-  },
-  {
-   "id": "tour.x_shows_your_shapes",
-   "area": "tour",
-   "file": "tour.js:82",
-   "kind": "body",
-   "text": "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Scroll to zoom, drag empty space to pan, and {Z} fits both planes.",
-   "context": "tour (anon)(); property body; id=x",
-   "hazards": [
-    "contains LaTeX",
-    "contains a key name",
-    "Russian notation (function names)"
-   ]
-  },
-  {
-   "id": "tour.x_shows_your_shapes_2",
-   "area": "tour",
-   "file": "tour.js:83",
-   "kind": "body",
-   "text": "X shows your shapes, here the strip $|\\operatorname{Im} z|<\\pi/2$, with a checkerboard drawn in $z$-coordinates. Pinch to zoom and drag empty space to pan.",
-   "context": "tour (anon)(); property touch; id=x",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ]
   },
   {
    "id": "tour.y_image",
@@ -5186,32 +4378,12 @@
    ]
   },
   {
-   "id": "tour.touch_hold_point_w",
-   "area": "tour",
-   "file": "tour.js:88",
-   "kind": "body",
-   "text": "Touch and hold a point $w$ in Y: X marks every $z$ in view with $F(z)=w$. Inside the disc there is exactly one in the strip, since $F$ maps the strip one-to-one onto the disc. Outside it there are two, $2\\pi i$ apart.",
-   "context": "tour (anon)(); property touch; id=preimages",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "tour.hover_inside_disc_then",
    "area": "tour",
    "file": "tour.js:89",
    "kind": "body",
    "text": "Hover inside the disc, then outside it.",
    "context": "tour (anon)(); property text; id=preimages",
-   "hazards": []
-  },
-  {
-   "id": "tour.touch_hold_inside_disc",
-   "area": "tour",
-   "file": "tour.js:89",
-   "kind": "body",
-   "text": "Touch and hold inside the disc, then outside it.",
-   "context": "tour (anon)(); property touch; id=preimages",
    "hazards": []
   },
   {
@@ -5286,18 +4458,6 @@
    ]
   },
   {
-   "id": "tour.drag_line_im_z",
-   "area": "tour",
-   "file": "tour.js:96",
-   "kind": "body",
-   "text": "Drag the line $\\operatorname{Im} z=0.8$ up or down.",
-   "context": "tour (anon)(); property touch; id=shapes",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ]
-  },
-  {
    "id": "tour.sets_from_formulas",
    "area": "tour",
    "file": "tour.js:97",
@@ -5327,50 +4487,6 @@
    "text": "The function chain",
    "context": "tour (anon)(); property title; id=chain",
    "hazards": []
-  },
-  {
-   "id": "tour.cards_apply_order_f",
-   "area": "tour",
-   "file": "tour.js:100",
-   "kind": "body",
-   "text": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Click a card to focus that step, and X and Y become its input and output.",
-   "context": "tour (anon)(); property body; id=chain",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.cards_apply_order_f_2",
-   "area": "tour",
-   "file": "tour.js:101",
-   "kind": "body",
-   "text": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card to focus that step, and X and Y become its input and output.",
-   "context": "tour (anon)(); property touch; id=chain",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.click_card_f_1",
-   "area": "tour",
-   "file": "tour.js:102",
-   "kind": "body",
-   "text": "Click the card $f_1$.",
-   "context": "tour (anon)(); property text; id=chain",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.tap_card_f_1",
-   "area": "tour",
-   "file": "tour.js:102",
-   "kind": "body",
-   "text": "Tap the card $f_1$.",
-   "context": "tour (anon)(); property touch; id=chain",
-   "hazards": [
-    "contains LaTeX"
-   ]
   },
   {
    "id": "tour.add_function",
@@ -5432,46 +4548,6 @@
    "hazards": []
   },
   {
-   "id": "tour.three_views",
-   "area": "tour",
-   "file": "tour.js:114",
-   "kind": "heading",
-   "text": "Three views",
-   "context": "tour (anon)(); property title; id=switch",
-   "hazards": []
-  },
-  {
-   "id": "tour.x_y_shows_two",
-   "area": "tour",
-   "file": "tour.js:115",
-   "kind": "body",
-   "text": "X → Y shows the two planes side by side. Phase and Landscape are pictures of $F$ over X, each in one wide panel. Keys {1} {2} {3}.",
-   "context": "tour (anon)(); property body; id=switch",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.x_y_shows_two_2",
-   "area": "tour",
-   "file": "tour.js:116",
-   "kind": "body",
-   "text": "X → Y shows the two planes. Phase and Landscape are pictures of $F$ over X, each in one wide panel.",
-   "context": "tour (anon)(); property touch; id=switch",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.choose_phase",
-   "area": "tour",
-   "file": "tour.js:117",
-   "kind": "body",
-   "text": "Choose Phase.",
-   "context": "tour (anon)(); property text; id=switch",
-   "hazards": []
-  },
-  {
    "id": "tour.phase_portrait",
    "area": "tour",
    "file": "tour.js:118",
@@ -5479,18 +4555,6 @@
    "text": "Phase portrait",
    "context": "tour (anon)(); property title; id=phase",
    "hazards": []
-  },
-  {
-   "id": "tour.each_z_coloured_by",
-   "area": "tour",
-   "file": "tour.js:119",
-   "kind": "body",
-   "text": "Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are level sets of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.",
-   "context": "tour (anon)(); property body; id=phase",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ]
   },
   {
    "id": "tour.landscape",
@@ -5543,26 +4607,6 @@
    "kind": "heading",
    "text": "Patterns",
    "context": "tour (anon)(); property title; id=patterns",
-   "hazards": []
-  },
-  {
-   "id": "tour.pattern_painted_on_x",
-   "area": "tour",
-   "file": "tour.js:125",
-   "kind": "body",
-   "text": "The pattern is painted on X and carried to Y by $F$. Checker shows how squares are bent and scaled, Log-polar cells stay square under a conformal map, and Stretch shades by $|F'(z)|$: blue shrinks, amber grows.",
-   "context": "tour (anon)(); property body; id=patterns",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.choose_stretch",
-   "area": "tour",
-   "file": "tour.js:126",
-   "kind": "body",
-   "text": "Choose Stretch.",
-   "context": "tour (anon)(); property text; id=patterns",
    "hazards": []
   },
   {
@@ -5768,15 +4812,6 @@
    ]
   },
   {
-   "id": "tour.step_built_from_zeros",
-   "area": "tour",
-   "file": "tour.js:152",
-   "kind": "body",
-   "text": "This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow.",
-   "context": "tour (anon)(); property body; id=zp",
-   "hazards": []
-  },
-  {
    "id": "tour.drag_zero_or_pole",
    "area": "tour",
    "file": "tour.js:153",
@@ -5806,34 +4841,12 @@
    ]
   },
   {
-   "id": "tour.touch_hold_circle_itself",
-   "area": "tour",
-   "file": "tour.js:156",
-   "kind": "body",
-   "text": "Touch and hold the circle itself and choose $\\oint F\\,dz$: you get the integral, the winding number and the zeros and poles inside. It encloses the pole $i$ of $1/(z^2+1)$, so $\\oint=2\\pi i\\,\\operatorname{Res}_i F=\\pi$.",
-   "context": "tour (anon)(); property touch; id=integral",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "tour.right_click_circle_then",
    "area": "tour",
    "file": "tour.js:157",
    "kind": "body",
    "text": "Right-click the circle, then choose $\\oint$.",
    "context": "tour (anon)(); property text; id=integral",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.touch_hold_circle_then",
-   "area": "tour",
-   "file": "tour.js:157",
-   "kind": "body",
-   "text": "Touch and hold the circle, then choose $\\oint$.",
-   "context": "tour (anon)(); property touch; id=integral",
    "hazards": [
     "contains LaTeX"
    ]
@@ -5848,32 +4861,12 @@
    "hazards": []
   },
   {
-   "id": "tour.where_every_step_defined",
-   "area": "tour",
-   "file": "tour.js:159",
-   "kind": "body",
-   "text": "Where every step is defined. For a typed formula the panel reads \"the formula is defined at $z$\": here that is every $z$ except the poles $\\pm i$.",
-   "context": "tour (anon)(); property body; id=domain",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "tour.guarantees",
    "area": "tour",
    "file": "tour.js:161",
    "kind": "heading",
    "text": "Guarantees",
    "context": "tour (anon)(); property title; id=guarantees",
-   "hazards": []
-  },
-  {
-   "id": "tour.lamp_lit_only_when",
-   "area": "tour",
-   "file": "tour.js:162",
-   "kind": "body",
-   "text": "A lamp is lit only when every step has the property and composition keeps it, so a lit lamp is always true; unlit means only that the chain does not imply it. Step by step, below, shows which step brings which property.",
-   "context": "tour (anon)(); property body; id=guarantees",
    "hazards": []
   },
   {
@@ -5895,18 +4888,6 @@
    "hazards": []
   },
   {
-   "id": "tour.z_needs_cut_red",
-   "area": "tour",
-   "file": "tour.js:169",
-   "kind": "body",
-   "text": "$\\log z$ needs a cut: the red ray in X is where its values jump by $2\\pi i$. Drag it to move the seam; the sheet $k$ on the card adds $2\\pi i k$.",
-   "context": "tour (anon)(); property body; id=cut",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ]
-  },
-  {
    "id": "tour.drag_red_cut",
    "area": "tour",
    "file": "tour.js:170",
@@ -5923,18 +4904,6 @@
    "text": "Inverses",
    "context": "tour (anon)(); property title; id=inverse",
    "hazards": []
-  },
-  {
-   "id": "tour.f_1_on_card",
-   "area": "tour",
-   "file": "tour.js:172",
-   "kind": "body",
-   "text": "$f^{-1}$ on a card replaces a step by its inverse when there is a single-valued one, as $e^z$ is for $\\log z$. When there is none, as for $z^2$, it says why and offers the preimages instead.",
-   "context": "tour (anon)(); property body; id=inverse",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ]
   },
   {
    "id": "tour.derivative_as_step",
@@ -5964,18 +4933,6 @@
    "text": "All sheets",
    "context": "tour (anon)(); property title; id=sheets",
    "hazards": []
-  },
-  {
-   "id": "tour.landscape_all_sheets_draws",
-   "area": "tour",
-   "file": "tour.js:176",
-   "kind": "body",
-   "text": "In Landscape, All sheets draws the whole Riemann surface of a multivalued map: $\\operatorname{Im}\\log z$ climbs a helicoid around $0$ instead of jumping at the cut.",
-   "context": "tour (anon)(); property body; id=sheets",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ]
   },
   {
    "id": "tour.export_latex",
@@ -6016,17 +4973,6 @@
    "hazards": []
   },
   {
-   "id": "tour.composite_map_f_closed",
-   "area": "tour",
-   "file": "tour.js:186",
-   "kind": "body",
-   "text": "Composite map: $F$ in closed form; the copy button puts its LaTeX on the clipboard.",
-   "context": "tour (anon)(); property body; id=formula-tex",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "tour.palette_keys",
    "area": "tour",
    "file": "tour.js:190",
@@ -6045,18 +4991,6 @@
    "hazards": []
   },
   {
-   "id": "tour.search_functions_region_formulas",
-   "area": "tour",
-   "file": "tour.js:193",
-   "kind": "body",
-   "text": "Search functions, region formulas, examples and commands with {mod}{K}. Type a formula such as $e^{z^2}$ to add it as a step.",
-   "context": "tour (anon)(); property body; id=palette",
-   "hazards": [
-    "contains LaTeX",
-    "contains a key name"
-   ]
-  },
-  {
    "id": "tour.press_mod_k",
    "area": "tour",
    "file": "tour.js:195",
@@ -6070,15 +5004,6 @@
    ]
   },
   {
-   "id": "tour.open_then_add_function",
-   "area": "tour",
-   "file": "tour.js:195",
-   "kind": "body",
-   "text": "Open ⋯, then Add function or command.",
-   "context": "tour (anon)(); property touch; id=palette",
-   "hazards": []
-  },
-  {
    "id": "tour.help_here",
    "area": "tour",
    "file": "tour.js:196",
@@ -6086,17 +5011,6 @@
    "text": "Help is here",
    "context": "tour (anon)(); property title; id=help",
    "hazards": []
-  },
-  {
-   "id": "tour.button_opens_tour_by",
-   "area": "tour",
-   "file": "tour.js:197",
-   "kind": "body",
-   "text": "This button opens the tour by chapter, the reference guide and every shortcut. {?} opens the guide directly.",
-   "context": "tour (anon)(); property body; id=help",
-   "hazards": [
-    "contains a key name"
-   ]
   },
   {
    "id": "tour.end_tour",
@@ -6146,15 +5060,6 @@
    "hazards": []
   },
   {
-   "id": "tour.try",
-   "area": "tour",
-   "file": "tour.js:1016",
-   "kind": "button",
-   "text": "Try it",
-   "context": "tour fill(); passed to el(arg 2)",
-   "hazards": []
-  },
-  {
    "id": "tour.start",
    "area": "tour",
    "file": "tour.js:1023",
@@ -6196,32 +5101,12 @@
    "hazards": []
   },
   {
-   "id": "tour.try_2",
-   "area": "tour",
-   "file": "tour.js:1033",
-   "kind": "body",
-   "text": " Try it: ",
-   "context": "tour announce()",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
    "id": "tour.done_2",
    "area": "tour",
    "file": "tour.js:1113",
    "kind": "body",
    "text": "Done.",
    "context": "tour hit() in armTry()",
-   "hazards": []
-  },
-  {
-   "id": "tour.dismiss_tour_suggestion",
-   "area": "tour",
-   "file": "tour.js:1179",
-   "kind": "aria",
-   "text": "Dismiss the tour suggestion",
-   "context": "tour showSuggest(); passed to el(arg 1); property aria-label; type=button",
    "hazards": []
   },
   {
@@ -6243,18 +5128,6 @@
    "hazards": []
   },
   {
-   "id": "tour.icon_play_take_tour",
-   "area": "tour",
-   "file": "tour.js:1188",
-   "kind": "body",
-   "text": "{ICON_PLAY}<span>Take the tour</span><span class=\"tour-time\">2 min</span>",
-   "context": "tour showSuggest(); placeholders: {ICON_PLAY} = ICON_PLAY",
-   "hazards": [
-    "contains HTML markup",
-    "units or number format"
-   ]
-  },
-  {
    "id": "tour.tour_suggestion",
    "area": "tour",
    "file": "tour.js:1189",
@@ -6262,27 +5135,6 @@
    "text": "Tour suggestion",
    "context": "tour showSuggest(); passed to el(arg 1); property aria-label",
    "hazards": []
-  },
-  {
-   "id": "tour.draw_region_send_through",
-   "area": "tour",
-   "file": "tour.js:1194",
-   "kind": "button",
-   "text": "Draw a region, send it through a chain of functions and watch its image. About two minutes, and your work is kept.",
-   "context": "tour showSuggest(); passed to el(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "tour.tour_suggestion_title_start",
-   "area": "tour",
-   "file": "tour.js:1215",
-   "kind": "aria",
-   "text": "Tour suggestion: {title}. Start the tour or Not now. The tour stays under {helpWhere}.",
-   "context": "tour showSuggest(); passed to say(arg 0); placeholders: {title} = title; {helpWhere} = helpWhere()",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
   },
   {
    "id": "tour.guided_tour",
@@ -6366,15 +5218,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.target_preimages_show_x",
-   "area": "chrome",
-   "file": "app.js:2924",
-   "kind": "body",
-   "text": "Target preimages show in X → Y and Phase (1, 2)",
-   "context": "app renderLeft(); passed to sphereCaption(arg 1)",
-   "hazards": []
-  },
-  {
    "id": "chrome.sphere_view_plane_not",
    "area": "chrome",
    "file": "app.js:2933",
@@ -6421,26 +5264,6 @@
    "context": "app updateDraftChips(); placeholders: {toolName} = toolName",
    "hazards": [
     "needs grammatical case or gender"
-   ]
-  },
-  {
-   "id": "chrome.shapes_are_drawn_z",
-   "area": "chrome",
-   "file": "app.js:2985",
-   "kind": "error",
-   "text": "Shapes are drawn in the z-plane; choose Whole chain to draw.",
-   "context": "app updateDraftChips()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.drawing_off_deformation_press",
-   "area": "chrome",
-   "file": "app.js:2995",
-   "kind": "error",
-   "text": "Drawing is off in the deformation: press M to turn it off.",
-   "context": "app updateDraftChips()",
-   "hazards": [
-    "contains a key name"
    ]
   },
   {
@@ -6622,18 +5445,6 @@
    ]
   },
   {
-   "id": "export.patword_joined_by",
-   "area": "export",
-   "file": "app.js:4859",
-   "kind": "latex",
-   "text": " ({patWord}), joined by ",
-   "context": "app morphCaption(); passed to out.push(arg 3); property t; placeholders: {patWord} = patWord",
-   "hazards": [
-    "built from pieces",
-    "needs grammatical case or gender"
-   ]
-  },
-  {
    "id": "export.boundary_point",
    "area": "export",
    "file": "app.js:4865",
@@ -6715,17 +5526,6 @@
    "hazards": []
   },
   {
-   "id": "export.arrows_are_paths",
-   "area": "export",
-   "file": "app.js:4874",
-   "kind": "caption",
-   "text": " Arrows are the paths ",
-   "context": "app morphCaption(); passed to out.push(arg 0); property t",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
    "id": "export.x",
    "area": "export",
    "file": "app.js:4874",
@@ -6736,28 +5536,6 @@
     "built from pieces",
     "test/ uses this literal (selector or expected text): tests must pin English or use ids",
     "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
-   ]
-  },
-  {
-   "id": "export.dot",
-   "area": "export",
-   "file": "app.js:4874",
-   "kind": "caption",
-   "text": " (dot) to ",
-   "context": "app morphCaption(); passed to out.push(arg 4); property t",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "export.arrows_that_meet_show",
-   "area": "export",
-   "file": "app.js:4875",
-   "kind": "caption",
-   "text": " Arrows that meet show points with the same image.",
-   "context": "app morphCaption(); passed to out.push(arg 0); property t",
-   "hazards": [
-    "built from pieces"
    ]
   },
   {
@@ -7054,97 +5832,6 @@
    ]
   },
   {
-   "id": "chrome.w",
-   "area": "chrome",
-   "file": "app.js:6022",
-   "kind": "body",
-   "text": "the {w}",
-   "context": "app the() in updateCalcChip(); placeholders: {w} = w",
-   "hazards": [
-    "needs a plural",
-    "needs grammatical case or gender"
-   ]
-  },
-  {
-   "id": "chrome.k_w_s",
-   "area": "chrome",
-   "file": "app.js:6022",
-   "kind": "body",
-   "text": "the {k} {w}s",
-   "context": "app the() in updateCalcChip(); placeholders: {k} = k; {w} = w",
-   "hazards": [
-    "needs a plural",
-    "needs grammatical case or gender",
-    "contains LaTeX",
-    "units or number format"
-   ]
-  },
-  {
-   "id": "chrome.on_left_shaded_where",
-   "area": "chrome",
-   "file": "app.js:6023",
-   "kind": "body",
-   "text": "<div class=\"cn\">On the left: shaded where {fxHtml} lands in {na}, and drawn the curves it maps onto {nc}.</div>",
-   "context": "app updateCalcChip(); passed to rows.push(arg 0); placeholders: {fxHtml} = fxHtml(); {na} = the(na, 'target area'); {nc} = the(nc, 'target curve')",
-   "hazards": [
-    "built from pieces",
-    "needs grammatical case or gender",
-    "contains LaTeX",
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.target_area",
-   "area": "chrome",
-   "file": "app.js:6023",
-   "kind": "body",
-   "text": "target area",
-   "context": "app updateCalcChip(); passed to the(arg 1)",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "chrome.target_curve",
-   "area": "chrome",
-   "file": "app.js:6023",
-   "kind": "body",
-   "text": "target curve",
-   "context": "app updateCalcChip(); passed to the(arg 1)",
-   "hazards": [
-    "built from pieces"
-   ]
-  },
-  {
-   "id": "chrome.drawn_on_left_curves",
-   "area": "chrome",
-   "file": "app.js:6024",
-   "kind": "body",
-   "text": "<div class=\"cn\">Drawn on the left: the curves {fxHtml} maps onto {nc}.</div>",
-   "context": "app updateCalcChip(); passed to rows.push(arg 0); placeholders: {fxHtml} = fxHtml(); {nc} = the(nc, 'target')",
-   "hazards": [
-    "built from pieces",
-    "needs grammatical case or gender",
-    "contains LaTeX",
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "chrome.shaded_on_left_where",
-   "area": "chrome",
-   "file": "app.js:6025",
-   "kind": "body",
-   "text": "<div class=\"cn\">Shaded on the left: where {fxHtml} lands in {choice}.</div>",
-   "context": "app updateCalcChip(); passed to rows.push(arg 0); placeholders: {fxHtml} = fxHtml(); {choice} = others === 1 ? 'the target' : `the ${others} targets`",
-   "hazards": [
-    "built from pieces",
-    "needs a plural",
-    "needs grammatical case or gender",
-    "contains LaTeX",
-    "contains HTML markup"
-   ]
-  },
-  {
    "id": "chrome.target",
    "area": "chrome",
    "file": "app.js:6025",
@@ -7153,19 +5840,6 @@
    "context": "app updateCalcChip(); passed to rows.push(arg 0)",
    "hazards": [
     "built from pieces"
-   ]
-  },
-  {
-   "id": "chrome.others_targets",
-   "area": "chrome",
-   "file": "app.js:6025",
-   "kind": "body",
-   "text": "the {others} targets",
-   "context": "app updateCalcChip(); passed to rows.push(arg 0); placeholders: {others} = others",
-   "hazards": [
-    "built from pieces",
-    "needs a plural",
-    "needs grammatical case or gender"
    ]
   },
   {
@@ -7187,15 +5861,6 @@
    "hazards": [
     "built from pieces"
    ]
-  },
-  {
-   "id": "chrome.all_sheets_2",
-   "area": "chrome",
-   "file": "app.js:6476",
-   "kind": "body",
-   "text": ", all sheets",
-   "context": "app paneTitles()",
-   "hazards": []
   },
   {
    "id": "chrome.cauchy_integral_over_cp",
@@ -7237,17 +5902,6 @@
    "context": "app paneTitles(); placeholders: {of} = of",
    "hazards": [
     "needs grammatical case or gender"
-   ]
-  },
-  {
-   "id": "chrome.choice_sphere",
-   "area": "chrome",
-   "file": "app.js:6485",
-   "kind": "body",
-   "text": "{choice}-sphere",
-   "context": "app paneTitles(); passed to T(arg 0); placeholders: {choice} = S.focus === 0 ? '<i>w</i>' : wHtml(rk)",
-   "hazards": [
-    "contains HTML markup"
    ]
   },
   {
@@ -7399,15 +6053,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.one_after_another",
-   "area": "chrome",
-   "file": "app.js:6742",
-   "kind": "menu",
-   "text": "One after another",
-   "context": "app buildDock(); passed to selectEl(arg 2)",
-   "hazards": []
-  },
-  {
    "id": "chrome.all_at_once",
    "area": "chrome",
    "file": "app.js:6742",
@@ -7418,15 +6063,6 @@
     "test/ uses this literal (selector or expected text): tests must pin English or use ids",
     "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
    ]
-  },
-  {
-   "id": "chrome.deformation_steps_one_after",
-   "area": "chrome",
-   "file": "app.js:6742",
-   "kind": "aria",
-   "text": "Deformation: the steps one after another or all at once",
-   "context": "app buildDock(); passed to selectEl(arg 4)",
-   "hazards": []
   },
   {
    "id": "chrome.speed",
@@ -7630,15 +6266,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.cells_sphere",
-   "area": "chrome",
-   "file": "app.js:6983",
-   "kind": "caption",
-   "text": " cells of the sphere",
-   "context": "app paintLegend(); passed to run(arg 0)",
-   "hazards": []
-  },
-  {
    "id": "chrome.cell",
    "area": "chrome",
    "file": "app.js:6985",
@@ -7765,15 +6392,6 @@
    ]
   },
   {
-   "id": "chrome.drag_from_one_end",
-   "area": "chrome",
-   "file": "app.js:7117",
-   "kind": "body",
-   "text": "Drag from one end to the other.",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
    "id": "chrome.line_2",
    "area": "chrome",
    "file": "app.js:7118",
@@ -7786,29 +6404,11 @@
    ]
   },
   {
-   "id": "chrome.drag_through_two_points",
-   "area": "chrome",
-   "file": "app.js:7118",
-   "kind": "body",
-   "text": "Drag through two points; the line extends to infinity.",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
    "id": "chrome.ray",
    "area": "chrome",
    "file": "app.js:7119",
    "kind": "button",
    "text": "Ray",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.drag_from_start_direction",
-   "area": "chrome",
-   "file": "app.js:7119",
-   "kind": "body",
-   "text": "Drag from the start in the direction of the ray.",
    "context": "app (anon)()",
    "hazards": []
   },
@@ -7839,15 +6439,6 @@
    "file": "app.js:7121",
    "kind": "button",
    "text": "Arc",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.drag_between_ends_then",
-   "area": "chrome",
-   "file": "app.js:7121",
-   "kind": "body",
-   "text": "Drag between the ends, then move the middle handle to bend it.",
    "context": "app (anon)()",
    "hazards": []
   },
@@ -8364,42 +6955,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.less_than",
-   "area": "chrome",
-   "file": "app.js:7549",
-   "kind": "body",
-   "text": " less than ",
-   "context": "app texSpeech(); passed to s.replace(/<=|\\\\leq?\\b/g, ' at most ').replace(/>=|\\\\geq?\\b/(arg 1)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.greater_than",
-   "area": "chrome",
-   "file": "app.js:7549",
-   "kind": "body",
-   "text": " greater than ",
-   "context": "app texSpeech(); passed to s.replace(/<=|\\\\leq?\\b/g, ' at most ').replace(/>=|\\\\geq?\\b/(arg 1)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.absolute_1",
-   "area": "chrome",
-   "file": "app.js:7550",
-   "kind": "body",
-   "text": " absolute $1 ",
-   "context": "app texSpeech(); passed to s.replace(/<=|\\\\leq?\\b/g, ' at most ').replace(/>=|\\\\geq?\\b/(arg 1)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.power_1",
-   "area": "chrome",
-   "file": "app.js:7551",
-   "kind": "body",
-   "text": " to the power $1 ",
-   "context": "app texSpeech(); passed to s.replace(/<=|\\\\leq?\\b/g, ' at most ').replace(/>=|\\\\geq?\\b/(arg 1)",
-   "hazards": []
-  },
-  {
    "id": "chrome.x_2",
    "area": "chrome",
    "file": "app.js:7551",
@@ -8804,39 +7359,12 @@
    "hazards": []
   },
   {
-   "id": "chrome.why_step_has_no",
-   "area": "chrome",
-   "file": "app.js:8073",
-   "kind": "aria",
-   "text": "Why this step has no single inverse",
-   "context": "app (anon)() in updateCards(); passed to c.invBtn.setAttribute(arg 1)",
-   "hazards": []
-  },
-  {
    "id": "chrome.drag_seam_input_plane",
    "area": "chrome",
    "file": "app.js:8079",
    "kind": "body",
    "text": "Drag the seam in the input plane",
    "context": "app (anon)() in updateCards()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.drag_zeros_poles_input",
-   "area": "chrome",
-   "file": "app.js:8079",
-   "kind": "body",
-   "text": "Drag the zeros and poles in the input plane",
-   "context": "app (anon)() in updateCards()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.not_guaranteed_3",
-   "area": "chrome",
-   "file": "app.js:8089",
-   "kind": "tooltip",
-   "text": "not guaranteed",
-   "context": "app (anon)() in updateCards(); passed to el.setAttribute(arg 1)",
    "hazards": []
   },
   {
@@ -9463,110 +7991,12 @@
    "hazards": []
   },
   {
-   "id": "chrome.what_f_k_nm",
-   "area": "chrome",
-   "file": "app.js:8350",
-   "kind": "body",
-   "text": "{what} of f{k} ({nm})",
-   "context": "app (anon)() in paletteItems(); placeholders: {what} = what; {k} = sub(k); {nm} = nm",
-   "hazards": [
-    "needs a plural",
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "chrome.what_f_k_nm_2",
-   "area": "chrome",
-   "file": "app.js:8351",
-   "kind": "body",
-   "text": "{what} of f{k} {nm}",
-   "context": "app (anon)() in paletteItems(); passed to score(arg 0); placeholders: {what} = what; {k} = k; {nm} = nm",
-   "hazards": [
-    "needs a plural",
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "chrome.steps_2",
    "area": "chrome",
    "file": "app.js:8351",
    "kind": "menu",
    "text": "Steps",
    "context": "app (anon)() in paletteItems(); passed to items.push(arg 0); property group; kind=cmd",
-   "hazards": []
-  },
-  {
-   "id": "chrome.x_y_x_y",
-   "area": "chrome",
-   "file": "app.js:8359",
-   "kind": "palette",
-   "text": "x to y, x -> y, split, both planes, domain and image, shapes and images, planes",
-   "context": "app paletteItems(); property xy",
-   "hazards": []
-  },
-  {
-   "id": "chrome.left_plane_domain_z",
-   "area": "chrome",
-   "file": "app.js:8360",
-   "kind": "palette",
-   "text": "left plane, domain, z-plane, shapes, regions",
-   "context": "app paletteItems(); property lplane",
-   "hazards": []
-  },
-  {
-   "id": "chrome.left_sphere_riemann_sphere",
-   "area": "chrome",
-   "file": "app.js:8360",
-   "kind": "palette",
-   "text": "left sphere, riemann sphere, globe, infinity, domain sphere, z-sphere, phase sphere",
-   "context": "app paletteItems(); property lsphere",
-   "hazards": []
-  },
-  {
-   "id": "chrome.left_landscape_landscape_3d",
-   "area": "chrome",
-   "file": "app.js:8361",
-   "kind": "palette",
-   "text": "left landscape, landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets",
-   "context": "app paletteItems(); property land",
-   "hazards": []
-  },
-  {
-   "id": "chrome.phase_portrait_domain_colouring",
-   "area": "chrome",
-   "file": "app.js:8362",
-   "kind": "palette",
-   "text": "phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus, left phase",
-   "context": "app paletteItems(); property phase",
-   "hazards": []
-  },
-  {
-   "id": "chrome.right_plane_image_image",
-   "area": "chrome",
-   "file": "app.js:8363",
-   "kind": "palette",
-   "text": "right plane, image, image plane, map, targets, preimages, w-plane",
-   "context": "app paletteItems(); property rplane",
-   "hazards": []
-  },
-  {
-   "id": "chrome.right_sphere_riemann_sphere",
-   "area": "chrome",
-   "file": "app.js:8363",
-   "kind": "palette",
-   "text": "right sphere, riemann sphere, globe, infinity, image sphere, w-sphere",
-   "context": "app paletteItems(); property rsphere",
-   "hazards": []
-  },
-  {
-   "id": "chrome.view_x_y",
-   "area": "chrome",
-   "file": "app.js:8367",
-   "kind": "palette",
-   "text": "View: X → Y",
-   "context": "app paletteItems()",
    "hazards": []
   },
   {
@@ -9584,105 +8014,6 @@
    "file": "app.js:8369",
    "kind": "palette",
    "text": "View: Landscape",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.phase_plane",
-   "area": "chrome",
-   "file": "app.js:8370",
-   "kind": "palette",
-   "text": "Phase: Plane",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.x_plane",
-   "area": "chrome",
-   "file": "app.js:8370",
-   "kind": "palette",
-   "text": "X: Plane",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.phase_sphere",
-   "area": "chrome",
-   "file": "app.js:8371",
-   "kind": "palette",
-   "text": "Phase: Sphere",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.x_sphere",
-   "area": "chrome",
-   "file": "app.js:8371",
-   "kind": "palette",
-   "text": "X: Sphere",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.y_plane",
-   "area": "chrome",
-   "file": "app.js:8372",
-   "kind": "palette",
-   "text": "Y: Plane",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.y_sphere",
-   "area": "chrome",
-   "file": "app.js:8373",
-   "kind": "palette",
-   "text": "Y: Sphere",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.deformation_off",
-   "area": "chrome",
-   "file": "app.js:8374",
-   "kind": "palette",
-   "text": "Deformation off",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.deformation_on_play_homotopy",
-   "area": "chrome",
-   "file": "app.js:8374",
-   "kind": "palette",
-   "text": "Deformation on (play the homotopy)",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.morph_deformation_homotopy_animate",
-   "area": "chrome",
-   "file": "app.js:8374",
-   "kind": "palette",
-   "text": "morph deformation homotopy animate animation merge",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.deformation_hide_paths_t",
-   "area": "chrome",
-   "file": "app.js:8375",
-   "kind": "palette",
-   "text": "Deformation: hide the paths t ↦ H_t(z)",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.deformation_show_paths_t",
-   "area": "chrome",
-   "file": "app.js:8375",
-   "kind": "palette",
-   "text": "Deformation: show the paths t ↦ H_t(z)",
    "context": "app paletteItems()",
    "hazards": []
   },
@@ -9719,15 +8050,6 @@
    "file": "app.js:8376",
    "kind": "palette",
    "text": "deformation order steps simultaneous together sequence homotopy at once",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.integrate_along_selected_curve",
-   "area": "chrome",
-   "file": "app.js:8377",
-   "kind": "palette",
-   "text": "Integrate along the selected curve",
    "context": "app paletteItems()",
    "hazards": []
   },
@@ -9777,15 +8099,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.fit_both_planes",
-   "area": "chrome",
-   "file": "app.js:8380",
-   "kind": "palette",
-   "text": "Fit both planes",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
    "id": "chrome.unit_circle_on_or",
    "area": "chrome",
    "file": "app.js:8381",
@@ -9795,29 +8108,11 @@
    "hazards": []
   },
   {
-   "id": "chrome.snap_while_drawing_on",
-   "area": "chrome",
-   "file": "app.js:8382",
-   "kind": "palette",
-   "text": "Snap while drawing on or off",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
    "id": "chrome.switch_theme",
    "area": "chrome",
    "file": "app.js:8383",
    "kind": "palette",
    "text": "Switch theme",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.region_tools_panel",
-   "area": "chrome",
-   "file": "app.js:8384",
-   "kind": "palette",
-   "text": "Region tools panel",
    "context": "app paletteItems()",
    "hazards": []
   },
@@ -9857,15 +8152,6 @@
    "file": "app.js:8390",
    "kind": "palette",
    "text": "Redo",
-   "context": "app paletteItems()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.clear_chain",
-   "area": "chrome",
-   "file": "app.js:8391",
-   "kind": "palette",
-   "text": "Clear the chain",
    "context": "app paletteItems()",
    "hazards": []
   },
@@ -9912,24 +8198,6 @@
    "kind": "palette",
    "text": "Insert after f{at}",
    "context": "app openPalette(); placeholders: {at} = sub(at)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.insert_after_f_s",
-   "area": "chrome",
-   "file": "app.js:8406",
-   "kind": "palette",
-   "text": "Insert after f{S.focus}",
-   "context": "app openPalette(); placeholders: {S.focus} = sub(S.focus)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.append_chain",
-   "area": "chrome",
-   "file": "app.js:8406",
-   "kind": "palette",
-   "text": "Append to the chain",
-   "context": "app openPalette()",
    "hazards": []
   },
   {
@@ -10493,15 +8761,6 @@
    "hazards": []
   },
   {
-   "id": "export.all_sheets_riemann_surface",
-   "area": "export",
-   "file": "app.js:9066",
-   "kind": "caption",
-   "text": "; all sheets of the Riemann surface are shown.",
-   "context": "app figureCaption(); passed to push(arg 8); property t",
-   "hazards": []
-  },
-  {
    "id": "export.zeros_are_pits_poles",
    "area": "export",
    "file": "app.js:9066",
@@ -11037,15 +9296,6 @@
    ]
   },
   {
-   "id": "export.arrows",
-   "area": "export",
-   "file": "app.js:9460",
-   "kind": "caption",
-   "text": "Arrows",
-   "context": "app openFigureDialog(); passed to seg(arg 2)",
-   "hazards": []
-  },
-  {
    "id": "export.none",
    "area": "export",
    "file": "app.js:9460",
@@ -11076,24 +9326,6 @@
    "hazards": []
   },
   {
-   "id": "export.single_column_2",
-   "area": "export",
-   "file": "app.js:9461",
-   "kind": "caption",
-   "text": "Single column",
-   "context": "app openFigureDialog(); passed to seg(arg 2)",
-   "hazards": []
-  },
-  {
-   "id": "export.double_column_2",
-   "area": "export",
-   "file": "app.js:9461",
-   "kind": "caption",
-   "text": "Double column",
-   "context": "app openFigureDialog(); passed to seg(arg 2)",
-   "hazards": []
-  },
-  {
    "id": "export.width_2",
    "area": "export",
    "file": "app.js:9461",
@@ -11109,15 +9341,6 @@
    "kind": "caption",
    "text": "Caption",
    "context": "app openFigureDialog(); passed to row(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "export.figure_2",
-   "area": "export",
-   "file": "app.js:9462",
-   "kind": "caption",
-   "text": "In the figure",
-   "context": "app openFigureDialog(); passed to seg(arg 2)",
    "hazards": []
   },
   {
@@ -11536,18 +9759,6 @@
    ]
   },
   {
-   "id": "chrome.non_badges_length",
-   "area": "chrome",
-   "file": "app.js:9558",
-   "kind": "body",
-   "text": "{nOn} of {BADGES.length}",
-   "context": "app fillProps(); placeholders: {nOn} = nOn; {BADGES.length} = BADGES.length",
-   "hazards": [
-    "needs a plural",
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "chrome.step_i_has_error",
    "area": "chrome",
    "file": "app.js:9561",
@@ -11563,15 +9774,6 @@
    "kind": "body",
    "text": "A step is constant, so F is constant on D.",
    "context": "app fillProps(); passed to warns.push(arg 0)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.not_guaranteed_4",
-   "area": "chrome",
-   "file": "app.js:9580",
-   "kind": "aria",
-   "text": "not guaranteed",
-   "context": "app fillProps(); passed to L.li.setAttribute(arg 1)",
    "hazards": []
   },
   {
@@ -11736,47 +9938,11 @@
    "hazards": []
   },
   {
-   "id": "guide.view_x_y_phase",
-   "area": "guide",
-   "file": "app.js:11032",
-   "kind": "body",
-   "text": "View: X → Y, Phase, Landscape",
-   "context": "app openGuide()",
-   "hazards": []
-  },
-  {
    "id": "guide.deformation_on_or_off",
    "area": "guide",
    "file": "app.js:11032",
    "kind": "body",
    "text": "Deformation on or off, in every view",
-   "context": "app openGuide()",
-   "hazards": []
-  },
-  {
-   "id": "guide.plane_sphere_x_phase",
-   "area": "guide",
-   "file": "app.js:11033",
-   "kind": "body",
-   "text": "Plane, Sphere of X (in Phase: of the portrait)",
-   "context": "app openGuide()",
-   "hazards": []
-  },
-  {
-   "id": "guide.plane_sphere_y",
-   "area": "guide",
-   "file": "app.js:11033",
-   "kind": "body",
-   "text": "Plane, Sphere of Y",
-   "context": "app openGuide()",
-   "hazards": []
-  },
-  {
-   "id": "guide.fit_both_planes",
-   "area": "guide",
-   "file": "app.js:11033",
-   "kind": "body",
-   "text": "Fit both planes",
    "context": "app openGuide()",
    "hazards": []
   },
@@ -11889,24 +10055,6 @@
    ]
   },
   {
-   "id": "chrome.checkerboard_z_coordinates_shows",
-   "area": "chrome",
-   "file": "app.js:11072",
-   "kind": "body",
-   "text": "Checkerboard in z-coordinates: shows how squares are bent and scaled",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.checkerboard_log_z_arg",
-   "area": "chrome",
-   "file": "app.js:11073",
-   "kind": "body",
-   "text": "Checkerboard in log|z| and arg z: conformal maps keep these cells square",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
    "id": "chrome.tiles_2",
    "area": "chrome",
    "file": "app.js:11074",
@@ -11917,15 +10065,6 @@
     "test/ uses this literal (selector or expected text): tests must pin English or use ids",
     "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
    ]
-  },
-  {
-   "id": "chrome.tiles_with_f_glyph",
-   "area": "chrome",
-   "file": "app.js:11074",
-   "kind": "body",
-   "text": "Tiles with an F glyph: shows rotation, scaling and reflection",
-   "context": "app (anon)()",
-   "hazards": []
   },
   {
    "id": "chrome.grid_2",
@@ -11940,15 +10079,6 @@
    ]
   },
   {
-   "id": "chrome.cartesian_grid_lines_z",
-   "area": "chrome",
-   "file": "app.js:11075",
-   "kind": "body",
-   "text": "Cartesian grid lines of z carried by the map",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
    "id": "chrome.polar_grid_2",
    "area": "chrome",
    "file": "app.js:11076",
@@ -11959,24 +10089,6 @@
     "test/ uses this literal (selector or expected text): tests must pin English or use ids",
     "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
    ]
-  },
-  {
-   "id": "chrome.circles_z_const_rays",
-   "area": "chrome",
-   "file": "app.js:11076",
-   "kind": "body",
-   "text": "Circles |z| = const and rays arg z = const carried by the map",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.colored_by_argument_source",
-   "area": "chrome",
-   "file": "app.js:11077",
-   "kind": "body",
-   "text": "Colored by the argument of the source point z",
-   "context": "app (anon)()",
-   "hazards": []
   },
   {
    "id": "chrome.stretch",
@@ -11991,15 +10103,6 @@
    ]
   },
   {
-   "id": "chrome.local_scale_factor_f",
-   "area": "chrome",
-   "file": "app.js:11078",
-   "kind": "body",
-   "text": "Local scale factor |F′(z)|: blue shrinks, amber grows",
-   "context": "app (anon)()",
-   "hazards": []
-  },
-  {
    "id": "chrome.sphere_checker",
    "area": "chrome",
    "file": "app.js:11080",
@@ -12012,15 +10115,6 @@
    ]
   },
   {
-   "id": "chrome.longitude_latitude_cells_riemann",
-   "area": "chrome",
-   "file": "app.js:11080",
-   "kind": "body",
-   "text": "Longitude and latitude cells of the Riemann sphere: {x} cells cover the plane and ∞",
-   "context": "app (anon)(); placeholders: {x} = sphN() * sphN() / 2",
-   "hazards": []
-  },
-  {
    "id": "chrome.solid",
    "area": "chrome",
    "file": "app.js:11081",
@@ -12031,15 +10125,6 @@
     "test/ uses this literal (selector or expected text): tests must pin English or use ids",
     "do-not-translate list: test/ uses this literal (selector or expected text): tests must pin English or use ids"
    ]
-  },
-  {
-   "id": "chrome.flat_fill",
-   "area": "chrome",
-   "file": "app.js:11081",
-   "kind": "button",
-   "text": "Flat fill",
-   "context": "app (anon)()",
-   "hazards": []
   },
   {
    "id": "chrome.show_both_planes",
@@ -12166,68 +10251,6 @@
    "text": "Left pane surface",
    "context": "app syncViewControls()",
    "hazards": []
-  },
-  {
-   "id": "chrome.x_y_shapes_their",
-   "area": "chrome",
-   "file": "app.js:11378",
-   "kind": "body",
-   "text": "X → Y: the shapes and their images  1",
-   "context": "app syncViewControls(); property xy",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.phase_portrait_f_2",
-   "area": "chrome",
-   "file": "app.js:11378",
-   "kind": "body",
-   "text": "Phase portrait of {F}  2",
-   "context": "app syncViewControls(); property phase; placeholders: {F} = F",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.landscape_f_3",
-   "area": "chrome",
-   "file": "app.js:11378",
-   "kind": "body",
-   "text": "Landscape of {F}  3",
-   "context": "app syncViewControls(); property land; placeholders: {F} = F",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.step_off_turn_on",
-   "area": "chrome",
-   "file": "app.js:11387",
-   "kind": "body",
-   "text": "This step is off: turn it on to deform",
-   "context": "app syncViewControls()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.add_function_deform",
-   "area": "chrome",
-   "file": "app.js:11387",
-   "kind": "body",
-   "text": "Add a function to deform",
-   "context": "app syncViewControls()",
-   "hazards": []
-  },
-  {
-   "id": "chrome.close_deformation_m",
-   "area": "chrome",
-   "file": "app.js:11387",
-   "kind": "body",
-   "text": "Close the deformation  M",
-   "context": "app syncViewControls()",
-   "hazards": [
-    "contains a key name"
-   ]
   },
   {
    "id": "math.curve_passes_through_singularity",
@@ -13743,19 +11766,6 @@
    ]
   },
   {
-   "id": "math.grid_math_min_math",
-   "area": "math",
-   "file": "region.js:216",
-   "kind": "body",
-   "text": "\\text{grid } [{Math.min},{Math.max}]\\times[{Math.min},{Math.max}]",
-   "context": "region tex(); type=curve; placeholders: {Math.min} = num(Math.min(s.a[0], s.b[0])); {Math.max} = num(Math.max(s.a[0], s.b[0])); {Math.min} = num(Math.min(s.a[1], s.b[1])); {Math.max} = num(Math.max(s.a[1], s.b[1]))",
-   "hazards": [
-    "needs a plural",
-    "contains LaTeX",
-    "units or number format"
-   ]
-  },
-  {
    "id": "math.polar_grid_p_s",
    "area": "math",
    "file": "region.js:231",
@@ -13853,17 +11863,6 @@
    "hazards": []
   },
   {
-   "id": "tour.where_every_step_defined_2",
-   "area": "tour",
-   "file": "tour.js:160",
-   "kind": "body",
-   "text": "Where every step is defined: here every $z$ except the poles $\\pm i$, which the panel writes $z\\notin\\{i,-i\\}$.",
-   "context": "tour (anon)(); property residueZp; id=domain",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
    "id": "tour.export_menu_makes_vector",
    "area": "tour",
    "file": "tour.js:184",
@@ -13873,26 +11872,6 @@
    "hazards": [
     "contains LaTeX"
    ]
-  },
-  {
-   "id": "tour.search_menu_finds_functions",
-   "area": "tour",
-   "file": "tour.js:194",
-   "kind": "body",
-   "text": "Search, in this menu, finds functions, formulas, examples and commands. Type a formula such as $e^{z^2}$ to add it as a step.",
-   "context": "tour (anon)(); property narrow; id=palette",
-   "hazards": [
-    "contains LaTeX"
-   ]
-  },
-  {
-   "id": "tour.help_menu_opens_tour",
-   "area": "tour",
-   "file": "tour.js:198",
-   "kind": "body",
-   "text": "Help, in this menu, opens the tour by chapter and the reference guide.",
-   "context": "tour (anon)(); property narrow; id=help",
-   "hazards": []
   },
   {
    "id": "tour.ctrl",
@@ -13913,15 +11892,6 @@
    "file": "tour.js:431",
    "kind": "body",
    "text": "Help",
-   "context": "tour helpWhere()",
-   "hazards": []
-  },
-  {
-   "id": "tour.help_3",
-   "area": "tour",
-   "file": "tour.js:431",
-   "kind": "body",
-   "text": "⋯ › Help",
    "context": "tour helpWhere()",
    "hazards": []
   },
@@ -13965,31 +11935,6 @@
    "hazards": []
   },
   {
-   "id": "tour.icon_play_continue_tour",
-   "area": "tour",
-   "file": "tour.js:1271",
-   "kind": "menu",
-   "text": "<span class=\"mi-ic\">{ICON_PLAY}</span><span class=\"mi-label\">Continue the tour<span class=\"tour-sub\">{resume.title}: {st.title}</span></span>",
-   "context": "tour openHelpMenu(); passed to mi(arg 1); placeholders: {ICON_PLAY} = ICON_PLAY; {resume.title} = esc(resume.title); {st.title} = esc(st.title)",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX",
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "tour.icon_play_take_tour_2",
-   "area": "tour",
-   "file": "tour.js:1274",
-   "kind": "menu",
-   "text": "<span class=\"mi-ic\">{ICON_PLAY}</span><span class=\"mi-label\">Take the tour</span><span class=\"mi-key\">2 min</span>",
-   "context": "tour openHelpMenu(); passed to mi(arg 1); placeholders: {ICON_PLAY} = ICON_PLAY",
-   "hazards": [
-    "contains HTML markup",
-    "units or number format"
-   ]
-  },
-  {
    "id": "tour.done_4",
    "area": "tour",
    "file": "tour.js:1279",
@@ -14001,17 +11946,6 @@
    ]
   },
   {
-   "id": "tour.new",
-   "area": "tour",
-   "file": "tour.js:1279",
-   "kind": "menu",
-   "text": " <span class=\"tour-new\">New</span>",
-   "context": "tour (anon)() in openHelpMenu(); passed to mi(arg 1)",
-   "hazards": [
-    "contains HTML markup"
-   ]
-  },
-  {
    "id": "tour.done_5",
    "area": "tour",
    "file": "tour.js:1279",
@@ -14020,29 +11954,6 @@
    "context": "tour (anon)() in openHelpMenu(); passed to mi(arg 1); aria-label attribute inside an HTML string",
    "hazards": [
     "built from pieces"
-   ]
-  },
-  {
-   "id": "tour.icon_book_reference_guide",
-   "area": "tour",
-   "file": "tour.js:1285",
-   "kind": "menu",
-   "text": "<span class=\"mi-ic\">{ICON_BOOK}</span><span class=\"mi-label\">Reference guide</span>{choice}",
-   "context": "tour openHelpMenu(); passed to mi(arg 1); placeholders: {ICON_BOOK} = ICON_BOOK; {choice} = keys ? '<span class=\"mi-key\">?</span>' : ''",
-   "hazards": [
-    "contains LaTeX",
-    "contains HTML markup"
-   ]
-  },
-  {
-   "id": "tour.icon_keys_keyboard_shortcuts",
-   "area": "tour",
-   "file": "tour.js:1286",
-   "kind": "menu",
-   "text": "<span class=\"mi-ic\">{ICON_KEYS}</span><span class=\"mi-label\">Keyboard shortcuts</span>",
-   "context": "tour openHelpMenu(); passed to mi(arg 1); placeholders: {ICON_KEYS} = ICON_KEYS",
-   "hazards": [
-    "contains HTML markup"
    ]
   },
   {
@@ -14113,71 +12024,11 @@
    "hazards": []
   },
   {
-   "id": "chrome.deformation_m",
-   "area": "chrome",
-   "file": "page.html:1654",
-   "kind": "tooltip",
-   "text": "Deformation  M",
-   "context": "page.html data-tip attribute; static markup (app.js may overwrite it later)",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
    "id": "chrome.deformation",
    "area": "chrome",
    "file": "page.html:1654",
    "kind": "aria",
    "text": "Deformation",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.add_function_command",
-   "area": "chrome",
-   "file": "page.html:1660",
-   "kind": "aria",
-   "text": "Add function or command",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.region_tools",
-   "area": "chrome",
-   "file": "page.html:1661",
-   "kind": "tooltip",
-   "text": "Region tools  [",
-   "context": "page.html title attribute; static markup (app.js may overwrite it later)",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.show_hide_region_tools",
-   "area": "chrome",
-   "file": "page.html:1661",
-   "kind": "aria",
-   "text": "Show or hide region tools",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.guarantees_2",
-   "area": "chrome",
-   "file": "page.html:1662",
-   "kind": "tooltip",
-   "text": "Guarantees  ]",
-   "context": "page.html title attribute; static markup (app.js may overwrite it later)",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.show_hide_guarantees",
-   "area": "chrome",
-   "file": "page.html:1662",
-   "kind": "aria",
-   "text": "Show or hide guarantees",
    "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
    "hazards": []
   },
@@ -14260,15 +12111,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.region_tools_2",
-   "area": "chrome",
-   "file": "page.html:1671",
-   "kind": "aria",
-   "text": "Region tools",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
    "id": "chrome.show_region_tools",
    "area": "chrome",
    "file": "page.html:1673",
@@ -14285,24 +12127,6 @@
    "file": "page.html:1673",
    "kind": "aria",
    "text": "Show region tools",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.snap_while_drawing_both",
-   "area": "chrome",
-   "file": "page.html:1679",
-   "kind": "tooltip",
-   "text": "Snap while drawing (both panes)",
-   "context": "page.html data-tip attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.snap_while_drawing_3",
-   "area": "chrome",
-   "file": "page.html:1679",
-   "kind": "aria",
-   "text": "Snap while drawing",
    "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
    "hazards": []
   },
@@ -14375,24 +12199,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.region_pattern",
-   "area": "chrome",
-   "file": "page.html:1704",
-   "kind": "aria",
-   "text": "Region pattern",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.pattern_cell_size",
-   "area": "chrome",
-   "file": "page.html:1705",
-   "kind": "aria",
-   "text": "Pattern cell size",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
    "id": "chrome.fill_opacity",
    "area": "chrome",
    "file": "page.html:1709",
@@ -14417,15 +12223,6 @@
    "kind": "tooltip",
    "text": "Up to date",
    "context": "page.html title attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.domain_plane",
-   "area": "chrome",
-   "file": "page.html:1733",
-   "kind": "aria",
-   "text": "Domain plane",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
    "hazards": []
   },
   {
@@ -14566,15 +12363,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.image_plane",
-   "area": "chrome",
-   "file": "page.html:1764",
-   "kind": "aria",
-   "text": "Image plane",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
    "id": "chrome.click_copy_2",
    "area": "chrome",
    "file": "page.html:1766",
@@ -14694,40 +12482,11 @@
    "hazards": []
   },
   {
-   "id": "chrome.card_size",
-   "area": "chrome",
-   "file": "page.html:1790",
-   "kind": "aria",
-   "text": "Card size",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
    "id": "chrome.guarantees_3",
    "area": "chrome",
    "file": "page.html:1798",
    "kind": "aria",
    "text": "Guarantees",
-   "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.show_guarantees",
-   "area": "chrome",
-   "file": "page.html:1800",
-   "kind": "tooltip",
-   "text": "Show guarantees  ]",
-   "context": "page.html title attribute; static markup (app.js may overwrite it later)",
-   "hazards": [
-    "contains a key name"
-   ]
-  },
-  {
-   "id": "chrome.show_guarantees_2",
-   "area": "chrome",
-   "file": "page.html:1800",
-   "kind": "aria",
-   "text": "Show guarantees",
    "context": "page.html aria-label attribute; static markup (app.js may overwrite it later)",
    "hazards": []
   },
@@ -14746,24 +12505,6 @@
    "file": "page.html:1659",
    "kind": "button",
    "text": "Examples",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.add_function_command_2",
-   "area": "chrome",
-   "file": "page.html:1660",
-   "kind": "button",
-   "text": "Add function or command",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.region_tools_panel_2",
-   "area": "chrome",
-   "file": "page.html:1661",
-   "kind": "button",
-   "text": "Region tools panel",
    "context": "page.html text node; static markup (app.js may overwrite it later)",
    "hazards": []
   },
@@ -14809,15 +12550,6 @@
    "file": "page.html:1665",
    "kind": "button",
    "text": "Guide",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.region_tools_3",
-   "area": "chrome",
-   "file": "page.html:1676",
-   "kind": "body",
-   "text": "Region tools",
    "context": "page.html text node; static markup (app.js may overwrite it later)",
    "hazards": []
   },
@@ -14890,15 +12622,6 @@
    "file": "page.html:1701",
    "kind": "heading",
    "text": "Display",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
-   "id": "chrome.pattern_carried_by_map",
-   "area": "chrome",
-   "file": "page.html:1703",
-   "kind": "body",
-   "text": "Pattern carried by the map",
    "context": "page.html text node; static markup (app.js may overwrite it later)",
    "hazards": []
   },
@@ -15060,15 +12783,6 @@
    "hazards": []
   },
   {
-   "id": "chrome.compact",
-   "area": "chrome",
-   "file": "page.html:1790",
-   "kind": "button",
-   "text": "Compact",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": []
-  },
-  {
    "id": "chrome.whole_chain",
    "area": "chrome",
    "file": "page.html:1791",
@@ -15152,22 +12866,6 @@
    "context": "app openGuide(); text run inside an HTML string",
    "hazards": [
     "built from pieces"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "guide.sound_top_bar_x",
-   "area": "guide",
-   "file": "work/xs/src/app.js:11057",
-   "kind": "body",
-   "text": "<b>Sound</b> in the top bar ({x}) is off until you turn it on; the setting stays on this device. Its caret sets the volume and what you hear: the interface, mathematical events (the deformation, a closed loop's winding number), and <b>Hear the function under the pointer</b>, a tone whose pitch class is arg <i>F</i>, so a loop around a zero of order <i>m</i> climbs <i>m</i> cycles. {x} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x} goes to the next zero or pole, {x} gives the order there, {x} describes the view, {x} draws a loop and {x} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.",
-   "context": "app openGuide(); text run inside an HTML string; placeholders: {x} = k('⇧ M'); {x} = k('Esc'); {x} = k('Z'); {x} = k('O'); {x} = k('D'); {x} = k('Enter'); {x} = k('L'); {x} = k('⇧ M')",
-   "hazards": [
-    "built from pieces",
-    "contains LaTeX",
-    "contains HTML markup",
-    "contains a key name",
-    "units or number format"
    ],
    "provisional": true
   },
@@ -15347,16 +13045,6 @@
    "provisional": true
   },
   {
-   "id": "sound.x_y_phase_landscape",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:197",
-   "kind": "body",
-   "text": "X → Y, Phase, Landscape: a degree of the scale each",
-   "context": "sound (anon)(); property what",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.export_ready",
    "area": "sound",
    "file": "work/xs/src/sound.js:199",
@@ -15437,26 +13125,6 @@
    "provisional": true
   },
   {
-   "id": "sound.deformation_scrub",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:212",
-   "kind": "body",
-   "text": "Deformation scrub",
-   "context": "sound (anon)(); property label",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.detent_every_0_05",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:212",
-   "kind": "body",
-   "text": "A detent every 0.05 of t; landmarks t = 0, ¼, ½, ¾, 1 are pitched D5 F♯5 A5 B5 D6",
-   "context": "sound (anon)(); property what",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.deformation_arrives",
    "area": "sound",
    "file": "work/xs/src/sound.js:218",
@@ -15487,16 +13155,6 @@
    "provisional": true
   },
   {
-   "id": "sound.winding_number_w_as",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:220",
-   "kind": "body",
-   "text": "Its winding number W as |W| pings, rising for W > 0, falling for W < 0; W = 0 a single soft knock",
-   "context": "sound (anon)(); property what",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.branch_cut",
    "area": "sound",
    "file": "work/xs/src/sound.js:230",
@@ -15517,26 +13175,6 @@
    "provisional": true
   },
   {
-   "id": "sound.probe_reached_zero_one",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:232",
-   "kind": "body",
-   "text": "The probe reached a zero; one ping per order (found by the argument principle on a small circle)",
-   "context": "sound (anon)(); property what",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.probe_reached_pole_one",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:234",
-   "kind": "body",
-   "text": "The probe reached a pole; one thump per order",
-   "context": "sound (anon)(); property what",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.many_zeros_or_poles",
    "area": "sound",
    "file": "work/xs/src/sound.js:239",
@@ -15547,34 +13185,12 @@
    "provisional": true
   },
   {
-   "id": "sound.more_than_two_zeros",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:239",
-   "kind": "body",
-   "text": "More than two zeros/poles entered within 300 ms (a cluster): one quiet cue, then 600 ms of silence for them",
-   "context": "sound (anon)(); property what",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
    "id": "sound.contour",
    "area": "sound",
    "file": "work/xs/src/sound.js:241",
    "kind": "body",
    "text": "Contour",
    "context": "sound (anon)(); property label",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.probe_crossed_level_line",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:241",
-   "kind": "body",
-   "text": "The probe crossed a level line of |F| (Height): the tone's own note, an octave up",
-   "context": "sound (anon)(); property what",
    "hazards": [],
    "provisional": true
   },
@@ -15589,32 +13205,12 @@
    "provisional": true
   },
   {
-   "id": "sound.arg_f_completed_turn",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:243",
-   "kind": "body",
-   "text": "arg F completed a turn and is \"home\": the loop's starting pitch class, two octaves above the tone; approached from below (up) or above (down)",
-   "context": "sound (anon)(); property what",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.many_turns",
    "area": "sound",
    "file": "work/xs/src/sound.js:249",
    "kind": "body",
    "text": "Many turns",
    "context": "sound (anon)(); property label",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.more_turns_than_can",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:249",
-   "kind": "body",
-   "text": "More turns than can be counted live (> 8 queued): the count is shown, announced and played back exactly",
-   "context": "sound (anon)(); property what",
    "hazards": [],
    "provisional": true
   },
@@ -15626,18 +13222,6 @@
    "text": "Preimages collide",
    "context": "sound (anon)(); property label",
    "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.w_crossed_critical_value",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:251",
-   "kind": "body",
-   "text": "w crossed a critical value: two preimages merged (a preimage of multiplicity ≥ 2), never a count change at the view's edge",
-   "context": "sound (anon)(); property what",
-   "hazards": [
-    "units or number format"
-   ],
    "provisional": true
   },
   {
@@ -15718,18 +13302,6 @@
    "text": "Hear the function off.",
    "context": "app soundHear(); passed to sndSay(arg 0)",
    "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.s_latency_ms",
-   "area": "sound",
-   "file": "work/xs/src/app.js:11703",
-   "kind": "body",
-   "text": " · {s.latency} ms",
-   "context": "app sndSync(); placeholders: {s.latency} = Math.round(s.latency * 1000)",
-   "hazards": [
-    "units or number format"
-   ],
    "provisional": true
   },
   {
@@ -15912,19 +13484,6 @@
    "provisional": true
   },
   {
-   "id": "sound.no_w_s",
-   "area": "sound",
-   "file": "work/xs/src/app.js:12069",
-   "kind": "body",
-   "text": "no {w}s",
-   "context": "app list() in sndKey(); placeholders: {w} = w",
-   "hazards": [
-    "needs a plural",
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
    "id": "sound.fntext_view_zs_ps",
    "area": "sound",
    "file": "work/xs/src/app.js:12072",
@@ -15995,225 +13554,11 @@
    "provisional": true
   },
   {
-   "id": "sound.noise_band_passed_at",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:187",
-   "kind": "body",
-   "text": "noise band-passed at 1.9 kHz, Q 1.4, 25 ms",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.key_a5",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:189",
-   "kind": "body",
-   "text": "key A5",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.key_e5_shorter",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:191",
-   "kind": "body",
-   "text": "key E5, shorter",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.keys_d5_then_a5",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:193",
-   "kind": "body",
-   "text": "keys D5 then A5, 55 ms apart",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.keys_a5_then_d5",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:195",
-   "kind": "body",
-   "text": "keys A5 then D5",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.soft_tick_key_d5",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:197",
-   "kind": "body",
-   "text": "soft tick and key D5 / F♯5 / A5",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.swish_noise_swept_1",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:199",
-   "kind": "body",
-   "text": "a swish (noise swept 1 → 3 kHz, 120 ms), then key A5: \"written\"",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.two_wooden_d4_knocks",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:201",
-   "kind": "body",
-   "text": "two wooden D4 knocks with a 1.2 kHz body and a D5 overtone (survives phone speakers)",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.soft_wooden_a5_knock",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:206",
-   "kind": "body",
-   "text": "a soft wooden A5 knock with a 1.5 kHz contact",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.d5_a5_swell_triangles",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:210",
-   "kind": "body",
-   "text": "D5 + A5 swell (triangles), low-pass opening 700 Hz → 3.5 kHz over 0.3 s",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.tick_landmarks_add_key",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:212",
-   "kind": "body",
-   "text": "tick; landmarks add a key; the ends ring",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.glass_d6_f_6",
    "area": "sound",
    "file": "work/xs/src/sound.js:218",
    "kind": "body",
    "text": "glass D6 and F♯6",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.glass_pings_on_pentatonic",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:220",
-   "kind": "body",
-   "text": "glass pings on the pentatonic, 125 ms apart, the first accented; > 8: a flourish",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.double_tick_stepping_down",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:230",
-   "kind": "body",
-   "text": "a double tick stepping down, 3.2 then 2.0 kHz",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.bell_d6_m_110",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:232",
-   "kind": "body",
-   "text": "bell D6 × m; 110 ms apart (150 ms for m ≥ 3); the first +3 dB",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.felt_thump_a4_a3",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:234",
-   "kind": "body",
-   "text": "felt thump A4 → A3 with its octave at −6 dB and a 1.5 kHz felt contact, × m",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.three_quiet_glass_ticks",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:239",
-   "kind": "body",
-   "text": "three quiet glass ticks D6 E6 F♯6, 40 ms apart",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "sound.organ_tick_on_level",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:241",
-   "kind": "body",
-   "text": "organ tick on the level's step of the Height scale, one octave up",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.grace_note_fifth_below",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:243",
-   "kind": "body",
-   "text": "a grace note a fifth below (up) or a fourth above (down), then glass on the home pitch class at 1.7–3.4 kHz",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.quick_run_five_glass",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:249",
-   "kind": "body",
-   "text": "a quick run of five glass notes, up or down",
-   "context": "sound (anon)(); property recipe",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.two_glass_tones_whole",
-   "area": "sound",
-   "file": "work/xs/src/sound.js:251",
-   "kind": "body",
-   "text": "two glass tones a whole tone apart gliding into one",
    "context": "sound (anon)(); property recipe",
    "hazards": [],
    "provisional": true
@@ -16349,36 +13694,6 @@
    "provisional": true
   },
   {
-   "id": "sound.continuous_tone_arg",
-   "area": "sound",
-   "file": "work/xs/src/page.html:1867",
-   "kind": "body",
-   "text": "A continuous tone: arg",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.as_pitch_class",
-   "area": "sound",
-   "file": "work/xs/src/page.html:1867",
-   "kind": "body",
-   "text": "as pitch class, |",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "sound.as_register_loudness_cuts",
-   "area": "sound",
-   "file": "work/xs/src/page.html:1867",
-   "kind": "body",
-   "text": "| as register and loudness; cuts, zeros and poles, contours, turns",
-   "context": "page.html text node; static markup (app.js may overwrite it later)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "sound.on_iphone_ipad_ring",
    "area": "sound",
    "file": "work/xs/src/page.html:1869",
@@ -16417,82 +13732,6 @@
    "context": "tour (anon)(); property body; id=key",
    "hazards": [
     "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "tour.phase_style_cauchy_plots",
-   "area": "tour",
-   "file": "work/xt/src/tour.js:154",
-   "kind": "body",
-   "text": "The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside, with its three zeros, and $0$ outside. Select another closed curve to use it instead.",
-   "context": "tour (anon)(); property body; id=cauchy",
-   "hazards": [
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "tour.step_built_from_zeros_2",
-   "area": "tour",
-   "file": "work/xt/src/tour.js:156",
-   "kind": "body",
-   "text": "This step is built from its zeros and poles. Drag one, and the map, its image and its guarantees follow. The axes button beside $a$, as beside every complex parameter, picks a value on a small Argand diagram.",
-   "context": "tour (anon)(); property body; id=zp",
-   "hazards": [
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "tour.sound_stays_off_until",
-   "area": "tour",
-   "file": "work/xt/src/tour.js:201",
-   "kind": "body",
-   "text": "Sound stays off until you turn it on here or with {Shift}{M}. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.",
-   "context": "tour (anon)(); property body; id=sound",
-   "hazards": [
-    "contains LaTeX",
-    "contains a key name",
-    "Russian notation (function names)"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "tour.sound_stays_off_until_2",
-   "area": "tour",
-   "file": "work/xt/src/tour.js:203",
-   "kind": "body",
-   "text": "Sound stays off until you turn it on here. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.",
-   "context": "tour (anon)(); property touch; id=sound",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "tour.tour_c_title",
-   "area": "tour",
-   "file": "work/xt/src/app.js:8400",
-   "kind": "body",
-   "text": "Tour: {c.title}",
-   "context": "app (anon)() in paletteItems(); placeholders: {c.title} = c.title",
-   "hazards": [
-    "needs grammatical case or gender"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "tour.sound_stays_off_until_3",
-   "area": "tour",
-   "file": "work/xt/src/tour.js:202",
-   "kind": "body",
-   "text": "Sound stays off until you turn it on, in this menu. Then quiet cues confirm what you do, a closed loop plays its winding number, and an optional tone plays $\\arg F$ as pitch.",
-   "context": "tour (anon)(); property narrow; id=sound",
-   "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
    ],
    "provisional": true
   },
@@ -16761,16 +14000,6 @@
    "provisional": true
   },
   {
-   "id": "export.mathjax_still_loading",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1296",
-   "kind": "error",
-   "text": "MathJax is still loading",
-   "context": "figure build(); passed to Error(arg 0)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "export.figure_at_printed_size",
    "area": "export",
    "file": "work/xr/src/figure.js:1479",
@@ -16935,62 +14164,12 @@
    "provisional": true
   },
   {
-   "id": "export.for_docs",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1536",
-   "kind": "caption",
-   "text": "For Docs",
-   "context": "figure open(); passed to h(arg 2)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "export.for_overleaf",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1537",
-   "kind": "caption",
-   "text": "For Overleaf",
-   "context": "figure open(); passed to h(arg 2)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "export.x_pt",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1553",
-   "kind": "latex",
-   "text": "· {x} pt",
-   "context": "figure sync() in open(); passed to h(arg 2); placeholders: {x} = +sz.pt.toFixed(2)",
-   "hazards": [],
-   "provisional": true
-  },
-  {
    "id": "export.sz_pt_pt",
    "area": "export",
    "file": "work/xr/src/figure.js:1555",
    "kind": "latex",
    "text": "{sz.pt}pt",
    "context": "figure sync() in open(); placeholders: {sz.pt} = sz.pt",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "export.for_slides",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1559",
-   "kind": "caption",
-   "text": "For Slides",
-   "context": "figure sync() in open()",
-   "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "export.for_beamer",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1560",
-   "kind": "caption",
-   "text": "For Beamer",
-   "context": "figure sync() in open()",
    "hazards": [],
    "provisional": true
   },
@@ -17284,42 +14463,6 @@
    "provisional": true
   },
   {
-   "id": "export.x_x_2",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1209",
-   "kind": "latex",
-   "text": "{x} and {x}",
-   "context": "figure joinWords(); placeholders: {x} = a[0]; {x} = a[1]",
-   "hazards": [
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "export.0_x",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1209",
-   "kind": "latex",
-   "text": "{0}, and {x}",
-   "context": "figure joinWords(); placeholders: {0} = a.slice(0, -1).join(', '); {x} = a[a.length - 1]",
-   "hazards": [
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "export.shown_at_t_2",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1215",
-   "kind": "latex",
-   "text": " Shown at $t={2}$, where $H_t$ deforms the identity ($t=0$) into {map} ($t={hom.m}$) along {hom.tex}.",
-   "context": "figure homDef() in captionFor(); placeholders: {2} = c.hom.T.toFixed(2); {map} = map; {hom.m} = c.hom.m; {hom.tex} = c.hom.tex",
-   "hazards": [
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
    "id": "export.drawn_as_level_sets",
    "area": "export",
    "file": "work/xr/src/figure.js:1219",
@@ -17404,20 +14547,6 @@
    "text": ": the color shows $\\arg {f}$ (key at right) and {lv}.",
    "context": "figure captionFor(); placeholders: {f} = f; {lv} = lv",
    "hazards": [
-    "contains LaTeX",
-    "Russian notation (function names)"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "export.color_shows_f_key_4",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1227",
-   "kind": "caption",
-   "text": ": the color shows $\\arg {f}$ (key at right), {lv}, and the shading steps in $|{f}|$ by factors of $e^{2\\pi/{n}}\\approx {x}$.",
-   "context": "figure captionFor(); placeholders: {f} = f; {lv} = lv; {f} = f; {n} = n; {x} = +Math.exp(2 * Math.PI / n).toFixed(2)",
-   "hazards": [
-    "needs a plural",
     "contains LaTeX",
     "Russian notation (function names)"
    ],
@@ -17545,32 +14674,6 @@
    "provisional": true
   },
   {
-   "id": "export.solid_paths_t_h",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1244",
-   "kind": "caption",
-   "text": " Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; dashed: the boundary at $t=0$.",
-   "context": "figure captionFor()",
-   "hazards": [
-    "contains LaTeX",
-    "units or number format"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "export.deformation_h_t_choice",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1251",
-   "kind": "caption",
-   "text": "The deformation $H_t${choice}{choice} Shown at $t={2}$, where $H_t$ deforms the identity ($t=0$) into {map} ($t={hom.m}$) along {hom.tex}.",
-   "context": "figure captionFor(); placeholders: {choice} = g.rGlobe ? ' on the Riemann sphere, with $\\\\infty$ at the north pol...; {choice} = list0 ? `: the image of ${list0} under $H_t$.` : '.'; {2} = c.hom.T.toFixed(2); {map} = map; {hom.m} = c.hom.m; {hom.tex} = c.hom.tex",
-   "hazards": [
-    "needs grammatical case or gender",
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
    "id": "export.on_riemann_sphere_with_3",
    "area": "export",
    "file": "work/xr/src/figure.js:1251",
@@ -17631,31 +14734,6 @@
    "provisional": true
   },
   {
-   "id": "export.map_wmap",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1262",
-   "kind": "latex",
-   "text": "The map {wmap}.",
-   "context": "figure captionFor(); placeholders: {wmap} = wmap",
-   "hazards": [
-    "needs a plural"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "export.cap1_plane",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1263",
-   "kind": "latex",
-   "text": "{cap1} in {plane}.",
-   "context": "figure captionFor(); placeholders: {cap1} = cap1; {plane} = plane",
-   "hazards": [
-    "needs a plural",
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
    "id": "export.point_goes",
    "area": "export",
    "file": "work/xr/src/figure.js:1264",
@@ -17698,31 +14776,6 @@
    "text": " Arrowheads: orientation.",
    "context": "figure captionFor()",
    "hazards": [],
-   "provisional": true
-  },
-  {
-   "id": "export.cap1_plane_2",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1270",
-   "kind": "latex",
-   "text": "{cap1} in {plane}",
-   "context": "figure captionFor(); placeholders: {cap1} = cap1; {plane} = plane",
-   "hazards": [
-    "needs a plural",
-    "contains LaTeX"
-   ],
-   "provisional": true
-  },
-  {
-   "id": "export.c_lvar_plane",
-   "area": "export",
-   "file": "work/xr/src/figure.js:1270",
-   "kind": "latex",
-   "text": "The {c.lvar}-plane",
-   "context": "figure captionFor(); placeholders: {c.lvar} = c.lvar",
-   "hazards": [
-    "needs a plural"
-   ],
    "provisional": true
   },
   {
