@@ -1,6 +1,7 @@
   // ---------------- the Play gate (a part of the steps view: svGo and svPlay start the wait) ----------------
   // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
-  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; it polls
+  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; svCheck
+  // ends it when another chain is loaded under it (an edit on the thread, a Split or an undo, keeps it); it polls
   // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
   // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
   // again or Cancel cancels; nothing starts afterwards
