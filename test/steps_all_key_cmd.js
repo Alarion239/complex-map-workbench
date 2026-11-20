@@ -31,9 +31,9 @@ const share = (a, b) => { let n = 0; for (let j = 0; j < a.data.length; j += a.c
 const open = async () => {
   const ns = 'svak' + Date.now();
   const st = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps: STEPS, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 }, homAll: true };
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')` });
   await adopted();
   await ev(`__cmwSet('alpha', 1), __cmwSet('morphPaths', false), 1`);
