@@ -57,6 +57,9 @@ const zp = await zAt(p0[0], p0[1]);
 let P = await pick();
 info.lit = P.lit;
 ok('a press lights the three twins: every point with the same image', twinsHold(P.lit, zp), P.lit);
+await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+const twinInk = await Promise.all(P.lit.zs.map(([re, im]) => ev(`__cmwOverlayInk('L', [${re}, ${im}], 7)`)));
+ok('the twins\' marks are on the plane\'s overlay, which holds ink at each of them', twinInk.length === 3 && twinInk.every((n) => n > 0), twinInk);
 ok('the live region says how many', /3 preimages on z/.test(P.live), P.live);
 ok('a press adds no shape', (await discs()).length === 0, await discs());
 

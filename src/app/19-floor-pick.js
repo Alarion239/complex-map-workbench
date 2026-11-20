@@ -125,7 +125,7 @@
   function drawFloorPick(pane) {
     if (!floorPick) return;
     if (floorPick.sig !== pickSig() || tool !== 'pick') { floorPick = null; return; }
-    const ctx = pane.ctx, b = pane.box(), z0 = floorPick.z0;
+    const ctx = pane.octx, b = pane.box(), z0 = floorPick.z0;
     ctx.save();
     for (const { z } of floorPick.zs) {
       if (!inBoxZ(z, b, 0)) continue;
