@@ -18,7 +18,7 @@ const fresh = async (w, h, lang) => {
   await view(w, h, false, true);
   const ns = 'ptc' + w + lang + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` });
+  await go(`${U}?ns=${ns}&lang=${lang}`);
   await settled({ max: 30000, until: `typeof __cmwAddStep === 'function' && !!window.Phone && Phone.isOn()` });
 };
 // (the toast stays 5 s: the measure runs once the sheet has made way for it)
