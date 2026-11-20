@@ -17,7 +17,7 @@ const fresh = async (w, h, mobile, lang, main = 'phase', state = ST) => {
   await view(w, h, false, mobile);
   const ns = 'dinl' + w + (lang || '') + (Date.now() % 1000000);
   await load(ns, state);
-  if (lang) { await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` }); await sleep(2500); }
+  if (lang) { await go(`${U}?ns=${ns}&lang=${lang}`); await sleep(2500); }
   await ev(`__cmwSetMain('${main}'); 1`); await settle(1200);
   // (a slow shared machine may still be laying the heads out: wait for both option rows, up to 5 s)
   for (let i = 0; i < 25 && !(await ev(`!!document.querySelector('#paneL .pane-head .options') && !!document.querySelector('#paneR .pane-head .options')`)); i++) await sleep(200);
@@ -50,7 +50,7 @@ const clickId = (id) => ev(`(() => { const i = document.getElementById('${id}');
 // shortened; this daemon's chip is empty, so here the check guards the room, the chip's case is checked by hand)
 {
   await view(1280, 800, false, false);
-  await send('Page.navigate', { url: `${U}?ns=dinlfirst${Date.now() % 1000000}` }); await sleep(3000);
+  await go(`${U}?ns=dinlfirst${Date.now() % 1000000}`); await sleep(3000);
   await ev(`__cmwSetMain('phase'); 1`); await settle(1500);
   const hd = await head('L');
   ok(`1280 en first scene, Phase: the title is whole (the toggles give way first) and the head does not overflow`, hd && !hd.__exc && hd.title && hd.title.shown && !/\b(short|terse|notag)\b/.test(hd.title.cls) && !hd.over && !hd.outside.length, hd);
@@ -213,7 +213,7 @@ for (const [w, lang] of [[390, ''], [360, ''], [390, 'ru'], [360, 'ru']]) {
     const body = document.querySelector('.ph-sheet .ph-body:not([hidden])') || document.querySelector('.ph-sheet'), s = document.getElementById('dcSeg'); if (!s) return null;
     const sb = s.closest('.ph-sheet, .ph-sb').getBoundingClientRect();
     const first = [...s.closest('.ph-vopts').parentElement.children].find((e) => e.getClientRects().length && !e.matches('.ph-h[hidden]'));
-    return { first: first === s.closest('.ph-vopts'), firstIsSeg: s.closest('.ph-vopts').firstElementChild === s, titles: [...document.querySelectorAll('.ph-sheet h3')].filter((e) => e.getClientRects().length).map((e) => e.textContent),
+    return { first: first === s.closest('.ph-vopts'), firstIsSeg: s.closest('.ph-vopts').querySelector(':scope > .ph-grp > :not(h3)') === s, titles: [...document.querySelectorAll('.ph-sheet h3')].filter((e) => e.getClientRects().length).map((e) => e.textContent),
       chip: !!document.querySelector('.ph-style') && document.querySelector('.ph-style').getClientRects().length > 0,
       btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, cut: n && n.scrollWidth > n.clientWidth + 1, broken: brokenWords(n) }; }) };
   })()`);
@@ -248,7 +248,7 @@ for (const lang of ['', 'ru']) {
     ${BROKEN}
     const s = document.getElementById('dcSeg'), v = s && s.closest('.ph-vopts'); if (!v) return { seg: s && (s.parentElement.id || s.parentElement.className) };
     const sb = s.closest('.ph-sheet, .ph-sb').getBoundingClientRect();
-    return { firstIsSeg: v.firstElementChild === s, ids: [...v.querySelectorAll('input, select')].map((i) => i.id),
+    return { firstIsSeg: v.querySelector(':scope > .ph-grp > :not(h3)') === s, ids: [...v.querySelectorAll('input, select')].map((i) => i.id),
       btns: [...s.children].map((b) => { const r = b.getBoundingClientRect(), n = b.querySelector('.sty-n'); return { w: r.width, h: r.height, in: r.left >= sb.left - 1 && r.right <= sb.right + 1, word: n && n.getClientRects().length > 0, broken: brokenWords(n) }; }) };
   })()`);
   ok(`${tag}: the Phase plane's Display sheet starts with the six styles, then its toggles`, sh && sh.firstIsSeg && sh.btns && sh.btns.length === 6 && ['outlineChk', 'unitChk'].every((id) => sh.ids.includes(id)), sh);
@@ -263,7 +263,7 @@ for (const lang of ['', 'ru']) {
   const runs = [];
   for (const w of [1280, 1180, 1100, 1024]) {
     await view(w, 800, false, false);
-    await send('Page.navigate', { url: `${U}?ns=dinlkey${w}${Date.now() % 1000000}` }); await sleep(2500);
+    await go(`${U}?ns=dinlkey${w}${Date.now() % 1000000}`); await sleep(2500);
     await ev(`__cmwSetMain('xy'); 1`); await settle(1200);
     // (the runners' wider fonts, emulated: titles that need more room, so the toggles give way as they did there)
     await ev(`(() => { const st = document.createElement('style'); st.textContent = '.pane-title { letter-spacing: ${w > 1200 ? 4 : 2}px; }'; document.head.append(st); return 1; })()`); await settle(600);

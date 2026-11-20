@@ -23,15 +23,15 @@ const openPopover = async (alpha) => {
   const st = Object.assign({ v3: true, v4: true, v5: true, v6: true,
     shapes: [{ id: 's2', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }, { id: 's3', kind: 'disc', c: [1.4, 0], r: 0.3, ci: 1, visible: true }],
     steps: [{ type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } }, alpha == null ? {} : { alpha });
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
   await ev(`document.querySelector('.sv-cp').click(); 1`);
   await settled({});
   await ev(`document.querySelector('#svStrip .sv-plane[data-i="1"]').click(); 1`);
   await settled({ max: 15000, until: `__cmwSteps().stage === 1 && !__cmwSteps().moving && __cmwSvFixed()` });
-  await ev(`[...document.querySelectorAll('.pane-head button')].find((b) => b.textContent.trim() === 'Inside regions').click(); 1`);
+  await ev(`document.querySelector('#svHead .sv-scope [data-v="in"]').click(); 1`);
   await settled({ max: 15000, until: '__cmwSvFixed()' });
   await ev(`document.querySelector('.pane-head .opts-btn').click(); 1`);
   await settled({ floor: 400 });

@@ -33,20 +33,24 @@ const loaded = async (pause, ms = 30000) => {
 const open = async (lang, w, dark, extra = '') => {
   const phone = w < 768;
   await view(w, phone ? 844 : 900, dark, phone);
-  await nav(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
+  await go(`${U}?ns=i18n-${lang}-${w}${dark ? 'd' : ''}-${Date.now()}${lang ? '&lang=' + lang : ''}${extra}`); await loaded(3500);
   // (until MathJax has typeset the page's formulas, at most 15 s: it starts after the first paint, 3 to 5 s on a software
   // renderer, and a formula shows its fallback until then, #288)
   for (let i = 0; i < 60 && !(await ev(`!!(window.MathJax && MathJax.startup && MathJax.startup.document) && !document.querySelector('.tex-fallback')`)); i++) await sleep(250);
 };
 logs();
 // ---- 1, 2: overflow and the first screen ----
+// (an element no one sees is never clipped for a reader: a box of 1 px or less each way, or one a clip-path of inset(50%)
+// or a clip of rect(0 0 0 0) hides, as the visually hidden live regions are styled (.sr-only); read from the computed style,
+// not the element's name, so the next live region is skipped too)
 const CLIP = `(() => {
   const out = [], W = innerWidth;
+  const unseen = (cs, r) => (r.width <= 1 && r.height <= 1) || /^inset\\(\\s*50%/.test(cs.clipPath) || /^rect\\(0(px)?,?\\s*0(px)?,?\\s*0(px)?,?\\s*0(px)?\\)$/.test(cs.clip);
   const name = (e) => (e.id ? '#' + e.id : (e.closest('[id]') ? '#' + e.closest('[id]').id + ' ' : '') + e.tagName.toLowerCase() + '.' + [...e.classList].slice(0, 2).join('.'));
   for (const e of document.querySelectorAll('body *')) {
     if (!e.offsetParent && getComputedStyle(e).position !== 'fixed') continue;
     const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none') continue;
-    const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    const r = e.getBoundingClientRect(); if (!r.width || !r.height || unseen(cs, r)) continue;
     if (e.closest('svg, mjx-container, canvas, .pane, .scroll, [data-scroll]')) continue;
     const text = [...e.childNodes].some((c) => c.nodeType === 3 && c.data.trim());
     if (text && (cs.overflow === 'hidden' || cs.textOverflow === 'ellipsis' || cs.overflowX === 'hidden') && e.scrollWidth > e.clientWidth + 1) out.push('clip ' + name(e));
@@ -55,6 +59,24 @@ const CLIP = `(() => {
   const top = document.querySelector('.top');
   return { page: document.documentElement.scrollWidth > W + 0.5, bar: top ? top.scrollWidth > top.clientWidth + 0.5 : false, els: [...new Set(out)] };
 })()`;
+// (the check itself, on the English page at 1440: a visually hidden live region with text, styled as .sr-only is but with no
+// class or id the check knows, is not reported; a visible element that cuts its text is)
+{
+  await open('en', 1440, false);
+  const got = await ev(`(() => {
+    const hid = document.createElement('div'), cut = document.createElement('div');
+    hid.id = 'xClipHidden'; hid.setAttribute('aria-live', 'polite'); hid.textContent = 'a long announcement that does not fit in one pixel';
+    hid.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0';
+    cut.id = 'xClipShown'; cut.textContent = 'a long label that does not fit in forty pixels';
+    cut.style.cssText = 'position:fixed;left:20px;top:200px;width:40px;overflow:hidden;white-space:nowrap';
+    document.body.append(hid, cut);
+    const r = ${CLIP};
+    hid.remove(); cut.remove();
+    return r.els;
+  })()`);
+  check('the clip check: a visually hidden live region with text is not reported', !got.includes('clip #xClipHidden'), got);
+  check('the clip check: a visible element that cuts its text is', got.includes('clip #xClipShown'), got);
+}
 const WIDTHS = [360, 390, 768, 900, 1024, 1440];
 for (const dark of [false, true]) {
   for (const w of WIDTHS) {
@@ -130,7 +152,7 @@ for (const w of [1024, 1440]) {
 {
   const ns = 'i18n-sw-' + Date.now();
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=${ns}`); await loaded(3500);
+  await go(`${U}?ns=${ns}`); await loaded(3500);
   check('switch: starts English', (await ev('I18N.lang')) === 'en');
   await key('k', 4); await until(PAL); await type('sin'); await until(ITEMS); await key('Enter'); await until(`!document.querySelector('#popHost .palette, .pop.palette') && !!document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')`);
   // a step chosen on the thread (the Inspector's step, the thread's place), the right panel hidden
@@ -141,7 +163,7 @@ for (const w of [1024, 1440]) {
   await ev(`document.getElementById('undoBtn').disabled, 1`);
   // (reads it once the page has booted: after a load or a language switch, fixed sleeps ran out on a machine that draws
   // in software, and the snapshot threw)
-  const snap = async () => { for (let i = 0; i < 300 && (await ev(`typeof __cmwState === 'function' && !!document.getElementById('undoBtn')`)) !== true; i++) await sleep(200); return JSON.parse(await ev(snapOf)); };
+  const snap = async () => { for (let i = 0; i < 300 && (await ev(`typeof __cmwState === 'function' && !!document.getElementById('undoBtn')`)) !== true; i++) await sleep(200); return await evJson(snapOf); };
   const before = await snap();
   await setLang('ru');
   await sleep(4500); await settle(1500);
@@ -160,7 +182,7 @@ for (const w of [1024, 1440]) {
   const after2 = await snap();
   check('switch ru→auto: English again (?ns= keeps English), same work', (await ev('I18N.lang')) === 'en' && JSON.stringify(after2.st) === JSON.stringify(before2.st) && after2.n === before2.n && after2.sv === before2.sv);
   // the phone (v15 phone layout: More is a sheet, Language a four-way switch in it since Italian, bd48ab3): More → Русский
-  await view(390, 844, false, true); await nav(`${U}?ns=${ns}`); await loaded(3500);
+  await view(390, 844, false, true); await go(`${U}?ns=${ns}`); await loaded(3500);
   const b3 = await snap();
   await ev(`document.getElementById('hdrMoreBtn').click(), 1`); await settle(500);
   const pm = await ev(`(() => { const b = document.querySelector('.ph-sheet .ph-seg button[data-v="ru"]'); if (!b) return null; const m = b.parentElement, r = m.getBoundingClientRect(); return { n: m.querySelectorAll('button').length, l: r.left, r: r.right, t: r.top }; })()`);
@@ -176,9 +198,10 @@ for (const w of [1024, 1440]) {
 // deformation and З its Paths; digits 1 and 2 pick X → Y and Phase, and the steps view picks its plane by stage)
 {
   await view(1440, 900, false, false);
-  await nav(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
+  await go(`${U}?ns=i18n-keys-${Date.now()}&lang=ru`); await loaded(3500);
   await ev(`document.activeElement && document.activeElement.blur(), 1`);
-  const press = async (k, code, mods = 0) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); await settled({ max: 3000 }); };
+  // (a key, then the page's quiet, at most 3 s; with quiet false, no wait: the caller waits for what the key starts)
+  const press = async (k, code, mods = 0, quiet = true) => { const p = { type: 'keyDown', key: k, code, modifiers: mods, windowsVirtualKeyCode: code.startsWith('Key') ? code.charCodeAt(3) : code.startsWith('Digit') ? code.charCodeAt(5) : 0 }; if (!(mods & 6) && k.length === 1) p.text = k; await send('Input.dispatchKeyEvent', p); await send('Input.dispatchKeyEvent', { type: 'keyUp', key: k, code, modifiers: mods }); if (quiet) await settled({ max: 3000 }); };
   const tool = () => ev(`(document.querySelector('.tool.on') || { dataset: {} }).dataset.tool || null`);
   // (С is C: the colour plane, as on a Latin layout; the thread is taken to the first plane, then С sets it as the colour plane)
   await ev(`__cmwSteps({ go: 0, now: true }), 1`);
@@ -192,10 +215,13 @@ for (const w of [1024, 1440]) {
   await press('.', 'Slash'); await until(PAL); check('ЙЦУКЕН «.» on the / key → palette', await ev(PAL)); await press('Escape', 'Escape'); await until(`!${PAL}`);
   // (K and M play and pause the thread, P toggles its Paths; the thread is idle first)
   await settled({ max: 20000, until: `!__cmwSteps().moving && !!document.querySelector('#svStrip .sv-play') && !!document.querySelector('#svStrip .sv-paths')` });
-  // (a play on a short thread ends within a few frames: the page counts the times the Play button's label changes, and
-  // a key plays when the count goes up)
+  // (the page counts the plays that start, the times the Play button's label leaves its idle label, so a check can read
+  // that a key played whether or not the play has ended by then; a key plays when the count goes up)
   await ev(`(() => { const b = document.querySelector('#svStrip .sv-play'); window.__starts = 0; let was = b.getAttribute('aria-label'); new MutationObserver(() => { const n = b.getAttribute('aria-label'); if (n !== was && n !== window.__idleLabel) window.__starts++; was = n; }).observe(b, { attributes: true, attributeFilter: ['aria-label'] }); window.__idleLabel = was; })(), 1`);
-  const playsTo = async (k, code, n) => { await press(k, code); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  // (a key that plays has no quiet wait of its own: the page is quiet only once the play has ended, 900 ms a plane at the
+  // normal speed and the arrival's frames after it, which can take more than 3 s on a software renderer; the play's start
+  // is waited for here, and its end after each check)
+  const playsTo = async (k, code, n) => { await settled({ max: 60000, until: '__cmwSteps().ready.ready' }); await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
   check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
   await settled({ max: 20000, until: `!__cmwSteps().moving` });
   check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
@@ -204,7 +230,10 @@ for (const w of [1024, 1440]) {
   const p0 = await ev(paths);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} !== ${JSON.stringify(p0)}` }); const p1 = await ev(paths); check('ЙЦУКЕН З (KeyP) → Paths toggled', p0 != null && p1 !== p0, [p0, p1]);
   await press('з', 'KeyP'); await settled({ max: 5000, only: true, until: `${paths} === ${JSON.stringify(p0)}` });
-  await press('у', 'KeyE', 4); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
+  // (⌘У has no quiet wait of its own: the export dialog it opens is there at once, but the page is quiet only once the
+  // dialog has built and typeset its figure, 1.6 to 2.6 s on a software renderer; the wait is for the dialog, and Escape
+  // stops the build)
+  await press('у', 'KeyE', 4, false); await until(`!!document.querySelector('.modal-bg')`, 10000); check('ЙЦУКЕН ⌘У (KeyE) → export dialog', await ev(`!!document.querySelector('.modal-bg')`));
   await press('Escape', 'Escape'); await until(`!document.querySelector('.modal-bg')`);
   // a text field keeps its letters: the region formula field
   await ev(`(() => { const f = document.getElementById('formulaInput'); f.value = ''; f.focus(); })()`);
@@ -215,7 +244,7 @@ for (const w of [1024, 1440]) {
 }
 // ---- 6: detection ----
 {
-  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await nav(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
+  const as = async (al, q) => { await send('Emulation.setUserAgentOverride', { userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36', acceptLanguage: al }); await go(U + q); await loaded(3000); return ev(`({ lang: I18N.lang, nav: navigator.languages.join(','), html: document.documentElement.lang })`); };
   await view(1440, 900, false, false);
   await nav(U + '?ns=i18n-det'); await ev(`(() => { for (const k of Object.keys(localStorage)) if (/^cmw-lang/.test(k)) localStorage.removeItem(k); })()`);
   const r1 = await as('ru-RU,ru,en', ''); check('a ru-RU browser gets Russian', r1.lang === 'ru' && r1.html === 'ru', r1);
@@ -252,14 +281,16 @@ for (const w of [1024, 1440]) {
   await clickSel('#examplesBtn'); await until(`!!document.querySelector('#popHost .examples .ex-name')`);
   const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
   check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
-  // (the plane head of the thread's first plane and of the plane after the logarithm both name the window of sheets)
+  // (the plane head of the thread's first plane names the window of sheets its Landscape draws; the plane after the
+  // logarithm, a carry from z, draws one surface, and its head names none: the title says what the pane draws, #1741)
   const head = `(document.querySelector('#svHead') || document.querySelector('.prole') || {}).textContent || ''`;
   const sheetsHead = `/, листы k = −2…2/.test(${head}) && !/все листы/.test(${head})`;
   await until(sheetsHead, 15000);
   check('ru: the steps plane head names the window of sheets («листы k = −2…2»), not «все листы»', await ev(sheetsHead), await ev(head));
   await ev(`__cmwSteps({ go: 1, now: true }), 1`);
   await until(`/w1/.test(${head}) || /w₁/.test(${head})`, 5000);
-  check('ru: the plane after the logarithm names it too', await ev(sheetsHead), await ev(head));
+  const one = await ev(`({ K: (__cmwLandSheets().drawn || {}).K || 1, head: ${head} })`);
+  check('ru: the plane after the logarithm draws one surface, and its head names no sheets (neither «листы» nor «все листы»)', one.K === 1 && !/листы/.test(one.head), one);
 }
 const errs = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404|fonts\.g/.test(JSON.stringify(l)));
 check('no console errors', errs.length === 0, errs.slice(0, 5));

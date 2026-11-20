@@ -11,7 +11,6 @@ if (!(await ev(`!!(window.__cmwSteps && __cmwSteps().on)`))) return { pass: fals
 await ev(`__cmwExample(3)`); await settled();
 const ln = await ev(`(() => { const l = document.querySelector('.tour-lane[data-lane="example"]'); return l ? { text: l.textContent.replace(/\\s+/g, ' ').trim(), btn: [...l.querySelectorAll('.tl-act')].map((b) => b.textContent.trim()) } : null; })()`);
 ok('an example opens with its Try line and a Show me', ln && /Joukowski/.test(ln.text) && /Try: drag the circle through 1, then press ›/.test(ln.text) && ln.btn.some((b) => /Show me/.test(b)), ln);
-await ev(`openGuide ? 0 : 0`).catch(() => 0);
 await key('?', 0); await settled();
 const g = await ev(`(() => { const m = document.querySelector('.modal'); if (!m) return null; return { toc: [...m.querySelectorAll('.guide-toc-b')].map((b) => b.textContent), secs: m.querySelectorAll('.guide-sec').length, find: !!m.querySelector('.guide-find'), show: [...m.querySelectorAll('.guide-show .btn')].length }; })()`);
 ok('the guide has a contents row and a search', g && g.toc.length >= 12 && g.find && g.secs === g.toc.length, g);

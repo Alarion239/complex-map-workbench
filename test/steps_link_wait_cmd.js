@@ -8,6 +8,8 @@
 // - while the link is pending the thread stays on plane 0;
 // - once it has linked, the glide runs, its frames between the planes drawn by the inverse pass (one at least: a
 //   software renderer's first draw of the program takes most of the glide's time), and arrives on plane 1.
+// It runs with the Play gate off (__cmwSteps({ gate: false })): it watches the hold of a glide that is already under way, which a press
+// the gate holds back would never start; the gate's own waits are svplay_gate_cmd.js's and the gate leg of steps_late_links_cmd.js.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -15,15 +17,17 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LINK_MS = 400;
 await view(1200, 800, false, false);
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const ex = names.indexOf('Sheets of the logarithm');
 ok('the example is found', ex >= 0, names.length);
 if (ex >= 0) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=lkw${Date.now()}`);
   await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
-  await ev(`__cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true }); 1`);
+  // (the Play gate off: this suite watches the hold of a glide that has started; the gate's waits are svplay_gate_cmd.js's)
+  await ev(`__cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true, gate: false }); 1`);
   await settled({ max: 30000 });
   await ev(`(() => {
     const R = window.__lkw = { frames: [], last: null, done: false, t0: performance.now(), draw: GLR.drawInverse, state: GLR.inverseState };

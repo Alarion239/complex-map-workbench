@@ -10,7 +10,8 @@ const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) 
 const ST = { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
 const probe = () => ev(`(() => { const r = document.documentElement, q = (id) => { const e = document.getElementById(id); if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return { l: Math.round(b.left), t: Math.round(b.top), r: Math.round(b.right), b: Math.round(b.bottom) }; }; return { ph: r.classList.contains('ph'), land: r.classList.contains('ph-land'), iw: innerWidth, ih: innerHeight, L: q('paneL'), R: q('paneR') }; })()`);
 // (the phone layout is entered once the app has initialised, which a slow runner takes a while over: wait for it, then probe)
-const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(600); };
+// (a page still loading has no document element yet: the poll reads that as "not yet")
+const waitPh = async () => { for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph')`)) break; await sleep(250); } await settle(600); };
 const open = async (w, h) => { await view(w, h, false, true); await load('pl' + w + 'x' + h + '-' + Date.now(), ST, '', 'classic'); await waitPh(); };
 
 // landscape phones, below and above 768 px: the landscape layout
@@ -63,7 +64,7 @@ ok('… and back to 375×812', back && back.heads === 0 && back.closed, back);
 for (const [w, h] of [[740, 360], [915, 412]]) {
   for (const v of ['', '&view=steps']) {
     await view(w, h, false, true); await load('pc' + w + v.length + '-' + Date.now(), ST, '', v ? undefined : 'classic');
-    if (v) { await send('Page.navigate', { url: `${U}?ns=pcs${w}-${Date.now()}${v}` }); }
+    if (v) { await go(`${U}?ns=pcs${w}-${Date.now()}${v}`); }
     await waitPh();
     await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'basics' }); return 1; })()`); await settle(1800);
     // (a slow runner builds the strip late: wait for Next, and for the × when the strip is a row, before measuring)

@@ -71,6 +71,10 @@ async function waitFor(files, child, ms) {
 // gpu_probe.js start: the same JSON in the log, the same line in the summary, and no WebGL2 fails
 // the job with the same error. -> null until asked, then { webgl2, renderer, vendor, parallelCompile }
 let PROBE = null;
+// the renderer the daemons' Chrome is started with (test/cdp_kit/renderer.js: CI's lavapipe where the machine has it), said once; the
+// probe below says which one answered
+let RENDERER = require('../test/cdp_kit/renderer.js').resolveRenderer();
+const rendererLine = () => `renderer: ANGLE ${RENDERER.angle}, chosen by ${RENDERER.source === 'CMW_ANGLE' ? 'CMW_ANGLE' : RENDERER.source === 'platform' ? 'the platform' : RENDERER.source === 'lavapipe' ? 'default: lavapipe found, as in CI' : 'default: no lavapipe'}`;
 const SOFTWARE_GL = /swiftshader|llvmpipe|softpipe|basic render|warp|microsoft basic|software/i;
 const PROBE_JS = `return await ev(\`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return { webgl2: false };
   const e = gl.getExtension('WEBGL_debug_renderer_info');
@@ -79,8 +83,11 @@ const PROBE_JS = `return await ev(\`(() => { const gl = document.createElement('
 function reportProbe(info) {
   const software = !info.webgl2 || SOFTWARE_GL.test(`${info.renderer} ${info.vendor}`);
   const machine = `${require('os').platform()} ${require('os').arch()} · ${(require('os').cpus()[0] || {}).model} · ${require('os').cpus().length} cores`;
-  const flags = [process.env.CMW_ANGLE && `--use-angle=${process.env.CMW_ANGLE}`, process.env.CMW_CHROME_ARGS].filter(Boolean).join(' ');
+  const flags = [`--use-angle=${RENDERER.angle}`, ...RENDERER.args, process.env.CMW_CHROME_ARGS].filter(Boolean).join(' ');
+  console.log(`${rendererLine()}; drawn by: ${info.webgl2 ? info.renderer : 'no WebGL2'}`);
+  if (RENDERER.warning) console.log(`warning: ${RENDERER.warning}`);
   console.log(JSON.stringify(Object.assign({ software, machine }, info, { flags }), null, 1));
+  if (RENDERER.warning) summary(`**Warning:** ${esc(RENDERER.warning)}  \n`);
   summary(`**WebGL2:** ${info.webgl2 ? esc(info.renderer) : 'none'}${software ? ' (software rendering)' : ''} · parallel compile ${info.parallelCompile ? 'yes' : 'no'}  \n${esc(machine)} · \`${esc(flags)}\`\n`);
 }
 // one run of one suite in a fresh daemon; -> { out (its return value), error, log, ms } (noWebgl2: the job's first
@@ -152,6 +159,8 @@ function keepShots(file, run) {
 function failures(out) {
   if (out == null || typeof out !== 'object' || Array.isArray(out)) return null;
   if (out.__daemonError) return [{ name: 'the suite threw', detail: out.__daemonError }];
+  // (#1328) answers the kit could not give as data that the suite did not read: a page exception, a wait that ran out
+  const kit = Array.isArray(out.kitFaults) && out.kitFaults.length ? [{ name: 'the kit answered a page exception or a wait that ran out, and the suite read on', detail: out.kitFaults }] : [];
   // (a suite whose fails are names keeps each check's detail in out.info[name]: the release smokes)
   const info = out.info && typeof out.info === 'object' && !Array.isArray(out.info) ? out.info : {};
   const item = (f) => (Array.isArray(f) ? { name: String(f[0]), detail: f[2] } : typeof f === 'string' ? { name: f, detail: info[f] }
@@ -160,7 +169,8 @@ function failures(out) {
   const verdict = typeof out.pass === 'boolean' ? out.pass : typeof out.ok === 'boolean' ? out.ok
     : typeof out.pass === 'number' && typeof out.of === 'number' ? out.pass === out.of : list ? !list.length : null;
   if (verdict == null) return null;
-  if (list && list.length) return list;
+  if (list && list.length) return list.concat(kit);
+  if (verdict && kit.length) return kit;
   return verdict ? [] : [{ name: typeof out.pass === 'number' ? `${out.pass} of ${out.of} checks passed` : 'the suite says it failed', detail: out }];
 }
 // the entry of a list (TIMING, SOFTWARE, KNOWN) that a failed check matches: by name, and, when the entry has a
@@ -194,7 +204,15 @@ async function main() {
       const cfg = SUITES[file] || {};
       n++;
       const name = file + (r.label ? ` (${r.label})` : '');
-      const res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      let res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      // (lavapipe was found and chosen, but Chrome has no WebGL2 with the Vulkan flags here: the run goes on with SwiftShader, once)
+      if (res.noWebgl2 && RENDERER.source === 'lavapipe') {
+        console.log('warning: Chrome has no WebGL2 through lavapipe on this machine; the suites run with SwiftShader (CMW_ANGLE=swiftshader), which CI does not use');
+        process.env.CMW_ANGLE = 'swiftshader';
+        RENDERER = require('../test/cdp_kit/renderer.js').resolveRenderer();
+        PROBE = null;
+        res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      }
       // (gpu_probe.js's error and exit code: the suites never run on a Chrome without WebGL2)
       if (res.noWebgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); return 1; }
       const fl = res.error ? [{ name: res.error }] : (res.out && res.out.__daemonError ? failures(res.out) : cfg.verdict ? cfg.verdict(res.out) : failures(res.out))
