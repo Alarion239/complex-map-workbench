@@ -14,10 +14,10 @@ const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/t
 // The kit's load() opens port 8793. This file loads through PORT, so the saved state, the sound settings and every
 // nav() share one origin. (With the kit's load(), the 360 px step would open 8793, where sound is never turned on.)
 const loadHere = async (ns, st, extra) => {
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); ${extra || ''}; 1`);
-  await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
+  await go(`${BASE}?ns=${ns}`); await sleep(2200);
   return ev(`({lamps: __qa.lamps()})`);
 };
 const fails = [], R = {};
@@ -450,9 +450,9 @@ const logsBefore = logs();
 // wins. (Sections 1 to 16 run under ?ns=, where sound starts off.)
 {
   const clean = `localStorage.removeItem('cmw-sound'); localStorage.removeItem('complex-map-workbench-v1'); 1`;
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
   await ev(clean);
-  await send('Page.navigate', { url: BASE }); await sleep(2200);
+  await go(BASE); await sleep(2200);
   await spy();
   let s = await ev('Sound.state()');
   const pre = { st: s, ac: await ev('__acN'), pressed: await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed')`), stored: await ev(`localStorage.getItem('cmw-sound')`) };
@@ -468,7 +468,7 @@ const logsBefore = logs();
   ok('v15 default: the first click creates the context, running', s.audio === 'running' && R.v15def.click.ac === 1, R.v15def.click);
   // a stored choice wins: off, stored, survives a reload
   await clickSel('#soundBtn'); await settle(400);
-  await send('Page.navigate', { url: BASE }); await sleep(2200);
+  await go(BASE); await sleep(2200);
   s = await ev('Sound.state()');
   await click(700, 400); await settle(400);
   R.v15def.stored = { on: s.on, ac: await ev('__acN'), stored: await ev(`localStorage.getItem('cmw-sound')`) };

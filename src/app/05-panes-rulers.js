@@ -1279,7 +1279,7 @@
       map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode || o.carryRegions ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
-      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
+      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
       post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
@@ -1388,10 +1388,11 @@
   const CAML = { yaw: -60 * DEG, pitch: -24 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const camL = Object.assign({ vyaw: 0, vpitch: 0 }, CAML);
   // the globe's pre passes: the targets' (pre) and those of the shapes of later planes (fills at half strength
-  // over a phase portrait, as the targets')
+  // over a phase portrait, as the targets'; none with the strokes left out, hideStrokes)
   function preAll(pre, half) {
     const out = pre && pre.targets.length ? [pre] : [];
-    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
+    // (the later planes' passes are the steps view's layer, left out with the strokes, hideStrokes)
+    for (const p of hideStrokes ? [] : stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
     return out.length ? out : null;
   }
   // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
@@ -1560,10 +1561,13 @@
       // has ended, its transform's transitionend, for the key is placed by where the bar stands)
       try {
         const rc = document.documentElement.classList, barState = () => (rc.contains('ph-ctx-on') ? 1 : 0) + (rc.contains('ph-ctx-tall') ? 2 : 0);
-        let bar0 = barState();
-        new MutationObserver(() => { const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        let bar0 = barState(), ph0 = rc.contains('ph');
+        new MutationObserver(() => { if (rc.contains('ph') !== ph0) { ph0 = !ph0; legendKeyButton(el, ''); } const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         document.addEventListener('transitionend', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (e.propertyName === 'transform' && t.classList && t.classList.contains('ph-ctx')) placeKeyPop(el); });
       } catch (e) { /* no MutationObserver */ }
+      // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
+      try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {

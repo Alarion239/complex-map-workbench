@@ -5,11 +5,6 @@
   "ru": "Ортогональная окружность",
   "note": "Tool name: tooltip, chip, palette."
  },
- "tool.perp_tile": {
-  "en": "Orthogonal",
-  "ru": "Ортого­нальная",
-  "note": "Tile text (52 px tile). v16.3 review user-7: English «Orthogonal» on one line (no soft hyphen; «perpendicular» stays the bisector's sense); Russian two lines at its soft hyphen."
- },
  "tool.perp_desc": {
   "en": "Pick a line or a circle, then two points: the circle through them crosses it at right angles. The curve stays picked for the next one.",
   "ru": "Выберите прямую или окружность, затем две точки: окружность через них пересечёт кривую под прямым углом. Кривая остаётся выбранной для следующей.",
@@ -54,11 +49,6 @@
   "en": "{x} is not a line or a circle",
   "ru": "{x}: не прямая и не окружность",
   "note": "Reason notCircle [C26]."
- },
- "menu.perp": {
-  "en": "Perpendicular circle…",
-  "ru": "Ортогональная окружность…",
-  "note": "Plane menu on a curve."
  },
  "insp.perp_t": {
   "en": "0 at {p}, ½ opposite it",
@@ -133,26 +123,6 @@
   "en": "Touching",
   "ru": "Касание",
   "note": "Tile text (52 px tile), like «Пересечение»."
- },
- "tool.touch_desc": {
-  "en": "Pick a line or a circle, then the point where the new circle touches it and a point it passes through, in either order. Click the dashed tangent for the tangent line, or a ring for a tangent from the point. The curve stays picked for the next one.",
-  "ru": "Выберите прямую или окружность, затем точку касания на ней и точку, через которую пройдёт окружность, в любом порядке. Щелчок по пунктирной касательной даёт касательную, по кольцу — касательную из точки. Кривая остаётся выбранной для следующей.",
-  "note": "Tooltip's second line."
- },
- "menu.touch": {
-  "en": "Touching circle…",
-  "ru": "Касающаяся окружность…",
-  "note": "Plane menu on a curve."
- },
- "chip.touch_T": {
-  "en": "Point {n} of {m}, or the tangent",
-  "ru": "Точка {n} из {m} или касательная",
-  "note": "Draft chip after T (C a circle)."
- },
- "chip.touch_P": {
-  "en": "Touching point on {c}",
-  "ru": "Точка касания на кривой: {c}",
-  "note": "Draft chip after P [C26]."
  },
  "toast.touch_on": {
   "en": "Click a point on {c}.",
@@ -320,11 +290,6 @@
   "en": "the edge of {x}",
   "ru": "граница ({x})",
   "note": "A half-plane picked as the curve: its edge (review user-13)."
- },
- "chip.touch_P_ring": {
-  "en": "Touching point on {c}, or a ring for a tangent",
-  "ru": "Точка касания на кривой: {c} или кольцо — касательная",
-  "note": "Draft chip after P when the tangents from P are offered (review user-6)."
  },
  "why.offCurve": {
   "en": "The touching point is not on {c}",
