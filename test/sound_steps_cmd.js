@@ -37,7 +37,7 @@ const open = async (w, h, mobile, classic) => {
   await view(w, h, false, mobile);
   await go(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(ST))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${classic ? '&view=classic' : '&view=steps'}` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en${classic ? '&view=classic' : '&view=steps'}`);
   await settled({ max: 30000, until: classic ? `typeof __cmwSound === 'function'` : `typeof __cmwSteps === 'function'` });
   // sound with Hear the function in Notes, and Mathematical events (Listen along, the play's events); the stream's calls
   // logged in __hl, the cues made in __made

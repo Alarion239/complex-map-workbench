@@ -21,9 +21,9 @@ const state = (extra) => Object.assign({ v3: true, v4: true, v5: true, v6: true,
   steps: [{ type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } }, extra);
 const open = async (st, query) => {
   const ns = 'svsw' + Date.now();
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en${query}` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en${query}`);
 };
 const drawn = () => settled({ max: DRAWN_WAIT, until: `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()` });
 const openSteps = async (extra) => {

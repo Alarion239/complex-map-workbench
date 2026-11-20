@@ -230,11 +230,6 @@
   "ru": "Показать f{x} отдельно",
   "note": "UX85 aria label; UX03 palette row."
  },
- "alone.draw_msg": {
-  "en": "Shapes are drawn in the z-plane; choose Show F to draw.",
-  "ru": "Фигуры рисуются на плоскости z; чтобы рисовать, выберите «Показать F».",
-  "note": "Note on X while a step is alone on the sphere (was: choose Whole chain)."
- },
  "pal.newnum": {
   "en": "Formula, with a new number {x} = 1",
   "ru": "Формула с новым числом {x} = 1",
@@ -601,11 +596,6 @@
   "ru": "например, |z−1| < 2",
   "note": "UX32 placeholder of the region formula field (page.html), in hint style."
  },
- "f.ident": {
-  "en": "F = z: no steps yet",
-  "ru": "F = z: шагов пока нет",
-  "note": "UX84 aria label of the F tile of an empty chain."
- },
  "mv.l": {
   "en": "Move f{x} left",
   "ru": "Сдвинуть f{x} влево",
@@ -675,16 +665,6 @@
   "en": "Type a new letter such as <i>a</i> in any field (a coefficient, a zero, a radius, a region formula such as Re <i>z</i> = <i>a</i>), and the number <i>a</i> appears under <b>Numbers</b> in the Inspector, with a slider and Play. Change it once, and everything that uses it follows. <b>Copy link to this figure</b>, in the Export menu, puts the whole figure in a link; <b>Save scene</b> and <b>Open scene</b> use a file.",
   "ru": "Введите новую букву, например <i>a</i>, в любое поле (коэффициент, нуль, радиус, формулу области вроде Re <i>z</i> = <i>a</i>), и число <i>a</i> появится в разделе <b>Числа</b> инспектора, с ползунком и воспроизведением. Измените его один раз, и всё, что его использует, изменится следом. <b>Скопировать ссылку на этот рисунок</b> в меню «Экспорт» помещает весь рисунок в ссылку; <b>Сохранить сцену</b> и <b>Открыть сцену</b> работают с файлом.",
   "note": "Guide, Numbers (UX65: was Parameters). Edited from the v16.4 Russian."
- },
- "tour.chain_touch": {
-  "en": "The cards apply in order: $F=f_2\\circ f_1$ with $f_1(z)=e^z$. Tap a card, and the sheet opens its editor; Show alone there shows that step alone, with X and Y as its input and output.",
-  "ru": "Карточки применяются по порядку: $F=f_2\\circ f_1$, где $f_1(z)=e^z$. Нажмите на карточку, и в панели откроется её редактор; кнопка «Показать отдельно» там показывает только этот шаг: X и Y становятся его входом и выходом.",
-  "note": "Tour Basics, The function chain, touch body (UX85: Show alone, not the lens)."
- },
- "tour.chain_try": {
-  "en": "Tap the card $f_1$, then Show alone in the sheet.",
-  "ru": "Нажмите на карточку $f_1$, затем «Показать отдельно» в панели.",
-  "note": "Tour task, touch (UX85)."
  },
  "tour.numbers_title": {
   "en": "Numbers",
