@@ -618,7 +618,8 @@
     if (own && !(f[0] === n && f[1] === 0)) o[k] = [f[0] / n, f[1] / n];
     return o.some(Boolean) ? o : null;
   }
-  // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
+  // (a glide's frames sample the cuts' banks at a quarter of the density, 121 points a bank where it runs straight;
+  // where a chord of them bends, cutBank takes the full set's samples there too)
   const SV_CUT_THIN = 4;
   // How the cuts' image curves are drawn in the picture of a svBetween result bt (drawCutCurvesAt's arguments):
   // - mapFor(j0): the map from the plane j0 (a cut's own plane) to the picture, the chain's steps up to the plane the glide
@@ -1074,9 +1075,9 @@
       }
     }
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
-    // (the period: the steps before b's, which h_{b,t} keeps whatever step b's path does, Inverse.keyPeriod; one point
-    // of each class modulo it, as at rest)
-    const per = b > 1 ? Inverse.keyPeriod(invPlan(0, b - 1)) : null;
+    // (the period: the glide map's at t, invHomPer, which meets plane b's as t -> 1; one point of each class modulo it,
+    // as at rest)
+    const per = invHomPer(0, b, t);
     return Object.assign({}, k, { sing: Inverse.keyClasses(acc.concat(poles), per).slice(0, 4), per });
   }
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a

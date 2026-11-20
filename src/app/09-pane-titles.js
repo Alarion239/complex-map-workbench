@@ -1190,8 +1190,9 @@
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
-    // (the phone's key button: the Regions key says which key it is before what it shows, "Regions key, cell 1")
-    legendKeyButton(box, !kind ? '' : kind === 'image' ? $t('Regions key, {x}', { x: legendSum(kind) }) : legendSum(kind));
+    // (the phone's key button is named for its kind, "Regions key" as "Height key" and "Colour key": what the key
+    // shows, its fill among it, is its description's (legendSaid), so a screen reader says it once)
+    legendKeyButton(box, !kind ? '' : kind === 'image' ? $t('Regions key') : legendSum(kind));
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
     if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');
