@@ -14,7 +14,7 @@
     const cv = pane.canvas, host = cv && cv.parentElement;
     if (!host) return [];
     const o = cv.getBoundingClientRect(), out = [];
-    for (const el of host.querySelectorAll(':scope > .chip, :scope > .legend-chip, :scope > .options, :scope > .viewstack, :scope > .empty-chip')) {
+    for (const el of host.querySelectorAll(':scope > .chip, :scope > .legend-chip, :scope > .options, :scope > .viewstack, :scope > .empty-chip, :scope > .ld-key')) {
       if (el.hidden || el.offsetParent === null) continue;
       const r = el.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) out.push({ x0: r.left - o.left, x1: r.right - o.left, y0: r.top - o.top, y1: r.bottom - o.top });

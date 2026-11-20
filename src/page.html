@@ -184,7 +184,7 @@ sup { top: -0.45em; }
 .lbl.note, .note-line { font: var(--t-label); color: var(--muted); }
 .row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .count { font: var(--t-label); color: var(--muted); }
-.err, .err-line { font: 400 11px/16px var(--f-ui); color: var(--error); }
+.err, .err-line { font: 400 11px/16px var(--f-ui); color: var(--cut); }
 
 /* MathJax: sizes per context are set on the containers below. The fallback is STIX italic at the
    same size with a one-line min-height so nothing jumps when MathJax arrives. */
@@ -483,7 +483,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .led.ok { background: var(--good); }
 /* (the three states differ in shape as well as hue: a filled dot is up to date, a ring is busy, a filled square is failed) */
 .led.busy { background: transparent; box-shadow: inset 0 0 0 1.5px var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
-.led.err { background: var(--error); border-radius: 1px; }
+.led.err { background: var(--cut); border-radius: 1px; }
 /* (the lowest opacity keeps the busy ring at 3:1 against the bar in light and dark) */
 @keyframes led-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.75; transform: scale(0.8); } }
 @container pane (max-width: 519px) {
@@ -531,7 +531,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot > canvas.overlay { touch-action: none; }
 
 /* level 2: anything floating over a canvas */
-.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip {
+.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip, .ld-key {
   background: var(--overlay); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1); border-radius: var(--r-2);
 }
 .chip.readout {
@@ -573,7 +573,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane.no-rulers .pane-body > .plot { grid-area: 1 / 1 / 3 / 3; }
 /* (the plot grows over the rulers' row, and the stack keeps its place above it: the key under the pointer is the same key after a surface switch) */
 :root:not(.ph) .pane.no-rulers .viewstack { bottom: calc(8px + var(--ruler)); }
-.field-err { grid-column: 1 / -1; margin-top: 2px; font: 400 11px/16px var(--f-ui); color: var(--error); }
+.field-err { grid-column: 1 / -1; margin-top: 2px; font: 400 11px/16px var(--f-ui); color: var(--cut); }
 .chip.readout .rv i, .chip.readout .rk i { font: italic 500 12px/16px var(--f-math); }
 /* a key set wholly in STIX (parentheses and subscripts with the variables), and a word key in the UI face */
 .chip.readout .rk .rm { font: 500 12px/16px var(--f-math); }
@@ -603,7 +603,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .calc-chip .cv { font: var(--t-readout); color: var(--ink); }
 .calc-chip .cm { font: var(--t-readout); color: var(--muted); }
 .calc-chip .cn { font: var(--t-label); color: var(--muted); white-space: normal; max-width: 232px; text-wrap: pretty; }
-.calc-chip .cn.err { color: var(--error); }
+.calc-chip .cn.err { color: var(--cut); }
 .calc-chip .ok { color: var(--good); }
 .calc-chip i { font: var(--t-math-s); color: var(--ink-2); }
 .calc-chip .sw { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; vertical-align: 0; }
@@ -641,7 +641,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .int-list .sw { display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--ink-2); vertical-align: 0; }
 .int-list .sw.pole { background: transparent; box-shadow: inset 0 0 0 1.5px var(--pole); }
 .int-note { font: var(--t-label); color: var(--muted); text-wrap: pretty; }
-.int-note.err { color: var(--error); }
+.int-note.err { color: var(--cut); }
 .int-note i { font: var(--t-math-s); }
 .int-plot { display: block; width: 100%; max-width: 264px; height: auto; aspect-ratio: 264 / 128; margin-top: 4px; border-radius: var(--r-2); }
 .int-cap { font: var(--t-label); color: var(--muted); }
@@ -726,6 +726,21 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 #warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
 #warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
+/* Look down's key (19-lookdown.js): what each mark over the plane is, at its bottom left, clear of the rulers and of the
+   view buttons at the bottom right */
+.ld-key {
+  position: absolute; z-index: 10; left: 28px; bottom: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  max-width: calc(100% - 96px); padding: 4px 10px; font: var(--t-label); color: var(--ink-2);
+}
+.ld-key[hidden] { display: none; }
+.ld-key .ld-ttl { color: var(--ink); }
+.ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ld-sw { display: inline-block; flex: none; box-sizing: border-box; width: 14px; }
+.ld-ring { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; }
+.ld-line { height: 0; border-top: 1.5px solid var(--ink); }
+.ld-dash { height: 0; border-top: 2px dashed var(--cut); }
+.ld-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cut); }
+.ld-cross { width: 11px; height: 11px; background: linear-gradient(45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%); }
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
   display: flex; align-items: center; gap: 10px; height: 32px; max-width: calc(100% - 16px); padding: 0 4px 0 10px;
@@ -809,8 +824,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .cx-read { display: block; height: 16px; font: 400 10px/16px var(--f-mono); color: var(--muted); white-space: nowrap; overflow: hidden; }
 .err-bubble {
   position: absolute; z-index: 30; max-width: 220px; padding: 4px 8px; border-radius: var(--r-2);
-  background: var(--surface); border: 1px solid var(--error); box-shadow: var(--shadow-3);
-  font: 400 11px/16px var(--f-ui); color: var(--error);
+  background: var(--surface); border: 1px solid var(--cut); box-shadow: var(--shadow-3);
+  font: 400 11px/16px var(--f-ui); color: var(--cut);
 }
 /* zeros and poles: a, the + zero / + pole buttons, then one field per zero (ζ, a dot) and per pole (p, a cross),
    marked as their handles are in the input plane */
@@ -833,7 +848,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .zp-add:disabled:hover { border-color: var(--line-strong); }
 .icon-btn.zp-del { position: absolute; right: 1px; top: 50%; translate: 0 -50%; width: 18px; height: 18px; color: var(--muted); }
 .icon-btn.zp-del svg { width: 12px; height: 12px; }
-.icon-btn.zp-del:hover { color: var(--error); background: var(--error-soft); }
+.icon-btn.zp-del:hover { color: var(--cut); background: var(--error-soft); }
 .pl.zp-sym { font-style: italic; }
 .pl.zp-sym.zeros { color: var(--ink); }
 .pl.zp-sym.poles { color: var(--pole); }
@@ -920,7 +935,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .btn.ghost { background: transparent; border-color: transparent; color: var(--muted); }
 .btn.ghost:not(:disabled, [aria-disabled="true"]):hover, .btn.ghost:not(:disabled, [aria-disabled="true"]):active { background: var(--well); border-color: transparent; color: var(--ink); }
 .btn.danger { background: transparent; border-color: transparent; color: var(--muted); }
-.btn.danger:not(:disabled):hover { background: var(--error-soft); border-color: transparent; color: var(--error); }
+.btn.danger:not(:disabled):hover { background: var(--error-soft); border-color: transparent; color: var(--cut); }
 .btn.small { height: 24px; padding: 0 8px; }
 .btn.icon-only { width: 28px; padding: 0; }
 .btn.small.icon-only { width: 24px; }
@@ -939,7 +954,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .icon-btn.xs { width: 20px; height: 20px; }
 .icon-btn:disabled { opacity: 0.4; cursor: default; }
 .icon-btn svg, .collapse-btn svg { width: 16px; height: 16px; display: block; }
-.icon-btn.danger:not(:disabled):hover { background: var(--error-soft); color: var(--error); }
+.icon-btn.danger:not(:disabled):hover { background: var(--error-soft); color: var(--cut); }
 
 .kbd {
   display: inline-flex; align-items: center; justify-content: center; flex: 0 0 auto;
@@ -958,8 +973,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .inp::placeholder { color: var(--muted); opacity: 1; }
 .inp:hover { border-color: var(--line-strong); }
 .inp:focus, .inp:focus-visible { background: var(--surface); border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); outline: none; }
-.inp.bad, .inp[aria-invalid="true"] { border-color: var(--error); }
-.inp.bad:focus, .inp[aria-invalid="true"]:focus { border-color: var(--error); box-shadow: 0 0 0 1px var(--error); }
+.inp.bad, .inp[aria-invalid="true"] { border-color: var(--cut); }
+.inp.bad:focus, .inp[aria-invalid="true"]:focus { border-color: var(--cut); box-shadow: 0 0 0 1px var(--cut); }
 .inp.text, input.inp[type="search"] { font: var(--t-body); }
 .inp[type="number"] { -moz-appearance: textfield; appearance: textfield; }
 .inp::-webkit-outer-spin-button, .inp::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
@@ -990,7 +1005,7 @@ select.sel option { background: var(--surface); color: var(--ink); }
 .field > label i, .field > span i { font: var(--t-math-s); color: var(--ink-2); }
 .field.wide { grid-column: 1 / -1; }
 .field > .inp { width: 100%; }
-.err-msg { font: 400 11px/16px var(--f-ui); color: var(--error); }
+.err-msg { font: 400 11px/16px var(--f-ui); color: var(--cut); }
 .err-msg:empty { display: none; }
 .scrub { display: inline-flex; align-items: center; gap: 4px; min-width: 0; }
 .scrub > .pl { min-width: 10px; text-align: right; }
@@ -1015,10 +1030,10 @@ select.sel option { background: var(--surface); color: var(--ink); }
 .texprev-row { display: flex; flex-wrap: wrap; align-items: center; column-gap: 8px; margin-top: 6px; padding-right: 6px; background: var(--well); border-radius: var(--r-2); min-width: 0; }
 .texprev-row > .texprev { flex: 1 1 auto; min-width: 0; margin-top: 0; background: none; }
 .texprev.ovf { -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent); }
-.texprev .err { font: 400 11px/16px var(--f-ui); color: var(--error); white-space: normal; }
+.texprev .err { font: 400 11px/16px var(--f-ui); color: var(--cut); white-space: normal; }
 /* what Add makes of an equation (a line, a traced curve ...) and the curve engine's notes */
 .formula-note { margin-top: 4px; padding: 0 2px; }
-.texprev u, .texprev .bad-tok, .err .bad-tok { text-decoration: underline wavy var(--error); text-decoration-skip-ink: none; text-underline-offset: 3px; }
+.texprev u, .texprev .bad-tok, .err .bad-tok { text-decoration: underline wavy var(--cut); text-decoration-skip-ink: none; text-underline-offset: 3px; }
 .chips { display: flex; flex-wrap: wrap; gap: 4px; margin-top: 8px; }
 .chip {
   display: inline-flex; align-items: center; height: 22px; padding: 0 6px; flex: 0 0 auto;
@@ -1276,8 +1291,8 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .mi-key.mi-math i { font-style: italic; }
 .mi-key.mi-math sub { font-size: 0.75em; line-height: 0; }
 .mi:disabled { opacity: 0.4; cursor: default; }
-.mi.danger:not(:disabled):hover, .mi.danger:focus-visible { background: var(--error-soft); color: var(--error); }
-.mi.danger:not(:disabled):hover .mi-ic, .mi.danger:focus-visible .mi-ic { color: var(--error); }
+.mi.danger:not(:disabled):hover, .mi.danger:focus-visible { background: var(--error-soft); color: var(--cut); }
+.mi.danger:not(:disabled):hover .mi-ic, .mi.danger:focus-visible .mi-ic { color: var(--cut); }
 .mi[aria-checked="true"]::after { content: ""; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--ink); margin-left: 8px; }
 .mi.has-sub::after { content: ""; flex: 0 0 auto; width: 5px; height: 5px; margin-left: 12px; border-right: 1.5px solid var(--faint); border-bottom: 1.5px solid var(--faint); transform: rotate(-45deg); }
 .msep { flex: 0 0 1px; height: 1px; margin: 4px 0; background: var(--line); }
@@ -1498,7 +1513,7 @@ details.how p { margin: 6px 0 0; max-width: 68ch; }
 .xf-caret { margin-left: auto; color: var(--muted); display: inline-flex; }
 select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
 .xf-custom { display: flex; align-items: center; gap: 8px; font: var(--t-label); color: var(--ink-2); }
-.xf-input[aria-invalid="true"] { border-color: var(--error); }
+.xf-input[aria-invalid="true"] { border-color: var(--cut); }
 .xf-input { height: 26px; width: 110px; padding: 0 8px; border: 1px solid var(--line-strong); border-radius: var(--r-2); background: var(--surface); font: var(--t-readout); color: var(--ink); }
 .xf-ftwrap { border-top: 1px solid var(--line); padding-top: 12px; display: grid; gap: 10px; }
 .xf-disc { display: flex; align-items: center; gap: 6px; font: var(--t-heading); color: var(--ink); text-align: left; }

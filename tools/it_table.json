@@ -3475,5 +3475,10 @@
  "{name}: {n} of its {all} pieces is off view\u0004{name}: {n} of its {all} pieces are off view": {
   "one": "{name}: {n} dei suoi {all} pezzi è fuori vista",
   "other": "{name}: {n} dei suoi {all} pezzi sono fuori vista"
- }
+ },
+ "target": "bersaglio",
+ "to the target": "verso il bersaglio",
+ "critical value": "valore critico",
+ "join radius": "raggio di unione",
+ "Look down": "Vista dall’alto"
 }

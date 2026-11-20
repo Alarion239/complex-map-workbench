@@ -62,7 +62,7 @@
   // drag draws a disc; true when the press is the picker's
   function pickDown(pane, z, x, y) {
     if (tool !== 'pick' || !pickAvail()) return false;
-    const k = leftStage(), s = pickPatch(k, z);
+    const k = leftStage(), s = pickPatch(k, z) || lookHit(x, y);
     if (s) {
       const F = rangeF(k, shapeStage(s));
       selected = s.id; zpSel = null; buildShapeList();
