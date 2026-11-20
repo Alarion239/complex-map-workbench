@@ -4,7 +4,8 @@
 //   the handle lies on one of them, and a drag of the handle up turns θ the way that bank moves (Im w = θ − 2π: up is θ
 //   larger); the θ chip carries the step's subscript;
 // - √z, plane w₁: the two banks are the rays at θ/2 and θ/2 + π;
-// - a drag into a region with no pull-back holds θ.
+// - a drag into a region with no pull-back holds θ;
+// - the handle's reach: 22 px for a finger, 12 px for a mouse; a zero or pole nearer than the handle takes the press.
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -85,5 +86,57 @@ if (hs.length) {
   const e1 = (await handles())[0];
   info.expTurn = [e0, e1 && e1.deg];
   ok('after exp: a drag of the handle turns θ', !!e1 && Math.abs(e1.deg - e0) > 0.5, info.expTurn);
+}
+// the handle's reach: a finger takes it within 22 px of its centre (a 44 px target), a mouse within 12 px; a press further out
+// pans the plane and leaves the cut
+{
+  const IN_T = 21, OUT_T = 24, IN_M = 11, OUT_M = 14, PULL = 40, GAP_MS = 16;
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  const press = async (kind, dx) => {
+    await open('log', { cut: 180 }, 1);
+    const h = (await handles())[0], c0 = h.deg, x = h.x + dx, y = h.y;
+    if (kind === 'touch') {
+      await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - PULL * i / 8, id: 1 }] }); await sleep(GAP_MS); }
+      await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } else {
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
+      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y: y - PULL * i / 8, button: 'left', buttons: 1 }); await sleep(GAP_MS); }
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x, y: y - PULL, button: 'left', clickCount: 1 });
+    }
+    await settled({ max: 20000 });
+    const c1 = await cut();
+    return Math.abs(((c1 - c0 + 540) % 360) - 180) > 1;
+  };
+  info.reach = { touchIn: await press('touch', IN_T), touchOut: await press('touch', OUT_T), mouseIn: await press('mouse', IN_M), mouseOut: await press('mouse', OUT_M) };
+  ok(`at rest, a finger ${IN_T} px from the handle's centre takes it (θ turns)`, info.reach.touchIn, info.reach);
+  ok(`at rest, a finger ${OUT_T} px away does not (the plane pans, θ stays)`, !info.reach.touchOut, info.reach);
+  ok(`at rest, a mouse ${IN_M} px from the centre takes it`, info.reach.mouseIn, info.reach);
+  ok(`at rest, a mouse ${OUT_M} px away does not: its reach stays 12 px`, !info.reach.mouseOut, info.reach);
+  // a zero a few px from the handle: a press nearer the handle takes the handle, one nearer the zero takes the zero (both reach
+  // 22 px for a finger). The logarithm's handle on plane w₁, a zeros-and-poles step there with a zero GAP_PX px from it
+  const GAP_PX = 16, T_NEAR = 0.3, T_FAR = 0.7;
+  const openZero = async (re, im) => open('log', { cut: 180 }, 1, [], [{ type: 'zp', params: { a: '1', zeros: `${re}+${im}i`, poles: '' }, on: true }]);
+  await openZero(0, 0);
+  const hc0 = (await handles())[0];
+  await openZero(hc0.w.re + 0.1, hc0.w.im);
+  const zp1 = (await J('__cmwZp()')).handles[0], hc1 = (await handles())[0], ppu = Math.hypot(zp1.x - hc1.x, zp1.y - hc1.y) / 0.1;
+  await openZero(hc0.w.re + GAP_PX / ppu, hc0.w.im);
+  const near = async (t) => {
+    await openZero(hc0.w.re + GAP_PX / ppu, hc0.w.im);
+    const hc = (await handles())[0], zp = (await J('__cmwZp()')).handles[0], c0 = hc.deg, z0 = (await J('__cmwZp()')).params.zeros;
+    const x = hc.x + t * (zp.x - hc.x), y = hc.y + t * (zp.y - hc.y);
+    await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+    for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - PULL * i / 8, id: 1 }] }); await sleep(GAP_MS); }
+    await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await settled({ max: 20000 });
+    const c1 = (await handles())[0], z1 = (await J('__cmwZp()')).params.zeros;
+    return { cut: !!c1 && Math.abs(((c1.deg - c0 + 540) % 360) - 180) > 1, zero: z1 !== z0, gap: Math.hypot(zp.x - hc.x, zp.y - hc.y) };
+  };
+  info.nearer = { handle: await near(T_NEAR), zero: await near(T_FAR) };
+  ok(`a press nearer the handle than the zero (${GAP_PX} px apart) takes the handle`, info.nearer.handle.cut && !info.nearer.handle.zero, info.nearer);
+  ok('a press nearer the zero than the handle takes the zero', info.nearer.zero.zero && !info.nearer.zero.cut, info.nearer);
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
 }
 return { pass: !fails.length, fails, info };

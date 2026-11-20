@@ -28,13 +28,21 @@
   const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
+  // the left pane's cut handle a press at (x, y) takes: the nearest within the handle's reach, 22 px for a finger (a 44 px
+  // target, as the zeros' and poles'), 12 px for a mouse
+  const cutHandlePressed = (x, y) => {
+    const r = ptrTouch ? 22 : 12;
+    let best = null, bd = r;
+    for (const hd of cutHandlesL) { const d = Math.hypot(hd.x - x, hd.y - y); if (d < bd) { best = hd; bd = d; } }
+    return best;
+  };
   // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
   // (constructions bind to the z-plane's shapes and the targets: in a plane of the chain the tools draw plain shapes)
   const cmHere = (side) => side === 'R' || leftStage() === 0;
   function emptyAt(pane, side, x, y) {
     if (side === 'L' ? !lFlat() : !rImage()) return false;
     pane.setView(side === 'L' ? leftView() : V.right);
-    if (side === 'L' && (cutHandlesL.some((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || (zpStep() && zpHit(x, y, 11)))) return false;
+    if (side === 'L' && (cutHandlePressed(x, y) || (zpStep() && zpHit(x, y, 11)))) return false;
     const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : planeShapes();
     const z = pane.s2w(x, y), tol = 7 / pane.view.s;
     for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, target ? targetWin() : winOf(s))) return false; } catch (e) { /* */ } }
@@ -404,7 +412,10 @@
       // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
       const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
       const onSel = !!selSh && (ptrTouch ? !!handleAt(pane, selSh, x, y) : Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; }));
-      const zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (other tools pick a zero)
+      let zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (other tools pick a zero)
+      // (a cut handle nearer than the zero or pole takes the press: both reach 22 px for a finger)
+      const ch = zh && cutHandlePressed(x, y);
+      if (ch && Math.hypot(ch.x - x, ch.y - y) < Math.hypot(zh.x - x, zh.y - y)) zh = null;
       if (zh) {
         zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
         if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
@@ -432,10 +443,11 @@
       }
     }
     // cut handles have priority
-    for (const hnd of cutHandlesL) {
+    {
       // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
       // drag runs the continuation alone, cutPull)
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
+      const hnd = cutHandlePressed(x, y);
+      if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
     }
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
