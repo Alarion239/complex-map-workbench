@@ -32,6 +32,7 @@ const VIEWS = {
   'led_a11y_cmd.js': steps({ pin: true }),
   'example_try_sv_cmd.js': steps(),
   'example_try_keys_cmd.js': steps(),
+  'nudge_target_cmd.js': steps({ pin: true }),
   'label_controls_cmd.js': steps({ pin: true }),
   'export_steps_cmd.js': steps(),
   'export_two_planes_cmd.js': steps(),
