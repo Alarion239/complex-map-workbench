@@ -17,7 +17,7 @@ for (const w of [1440, 1280]) {
   for (const lang of ['en', 'ru', 'it']) {
     const tag = `${lang} ${w}`;
     await view(w, 900, false, false);
-    await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=chipname${Date.now()}&lang=${lang}&view=steps` });
+    await go(`http://localhost:${PORT}/test.html?ns=chipname${Date.now()}&lang=${lang}&view=steps`);
     const up = await ready('!!window.__cmwSteps && __cmwSteps().on && document.querySelectorAll("#svStrip .sv-step").length > 1');
     ok(`${tag}: the steps view is up with its steps`, up, null);
     const p = await ev(probe);

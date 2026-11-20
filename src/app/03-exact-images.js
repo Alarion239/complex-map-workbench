@@ -413,6 +413,25 @@
     }
     return bs;
   }
+  // The period in z of the glide's map H_t o F_{k-1} from plane a, or null: Inverse.keyPeriod of its plan at t (step k
+  // standing for its homotopy, as invHomPath's plan), so the steps before k's where they have one, which H_t keeps,
+  // and where they are affine, that of step k's path at t (tan's, tan(t z) / t about its centre, has pi / t): the key
+  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Kept per (a, k, t, chain), as a
+  // glide's frames ask for each t a few times
+  const invHomPers = new Map();
+  function invHomPer(a, k, t) {
+    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    if (invHomPers.has(ck)) return invHomPers.get(ck);
+    let plan = null;
+    try {
+      const bs = invHomSkeleton(a, k), hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
+      if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(S.steps, bh, a, k); }
+    } catch (e) { plan = null; }
+    const per = plan && plan.ok ? Inverse.keyPeriod(plan) : k - 1 > a ? Inverse.keyPeriod(invPlan(a, k - 1)) : null;
+    if (invHomPers.size >= 4096) invHomPers.clear();
+    invHomPers.set(ck, per);
+    return per;
+  }
   function invHomPath(s, a, k, t, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -437,6 +456,8 @@
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
       h = invOwnPlan(S.steps, bh, a, k);
+      // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
+      h.per = invHomPer(a, k, t);
       if (invHoms.size >= 8) invHoms.clear();
       invHoms.set(ck, h);
     }
@@ -445,16 +466,18 @@
   }
   // A chain that stands in for the chain itself from plane a to plane b (a glide's homotopy in its step's place,
   // invHomPath; a d/dz step's derivative formula, invDerivPath), planned with its own inverse program:
-  // {plan, inv, preps, sing}, plan.ok false with the reason where the plan or the program cannot be made
+  // {plan, inv, preps, sing, per}, plan.ok false with the reason where the plan or the program cannot be made; per: the
+  // sheet key's period (Inverse.keyPeriod), which the caller may set, undefined for the plan's own
   function invOwnPlan(steps, bs, a, b) {
     let plan, inv;
     try { plan = Inverse.planChain(steps, bs, a, b); } catch (e) { plan = { ok: false, reason: 'plan: ' + (e && e.message) }; }
     try { inv = plan.ok ? GLChain.buildInverse(steps, bs) : null; } catch (e) { inv = null; plan = { ok: false, reason: 'inverse: ' + (e && e.message) }; }
     if (plan.ok && !(inv && inv.ok)) plan = { ok: false, reason: (inv && inv.reason) || 'no inverse program' };
-    return { plan, inv, preps: new Map(), sing: null };
+    return { plan, inv, preps: new Map(), sing: null, per: undefined };
   }
   // the inverse path of area shape s from plane a to plane b through h (invOwnPlan's), prepared once for each window and
-  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing)
+  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing),
+  // and its period h.per
   function invOwnPath(h, s, a, b, own) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
@@ -462,8 +485,8 @@
     let prep = h.preps.get(wk);
     if (!prep) {
       try {
-        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin) };
-        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v });
+        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per) };
+        prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v, per: h.per });
       } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
       h.preps.set(wk, prep);
     }
@@ -624,7 +647,7 @@
   }
   // the shape records of the visible shapes of plane 0 (the inverse pass's, GLR.packShapes), with extra ones after
   // them (the steps view's whole-plane region); staged: the shapes of the later planes too
-  function packRecs(extra = [], staged = false) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && (staged || !shapeStage(x))).concat(extra), { trace: invTrace }).recs; }
+  function packRecs(extra = [], staged = false) { return GLR.packShapes(S.shapes.filter((x) => x.visible !== false && (staged || !shapeStage(x))).concat(extra), { trace: invTrace, dash: invDashTrace }).recs; }
   // the visible area shapes, in list order
   const visibleAreas = () => S.shapes.filter((x) => x.visible !== false && kindType(x) === 'area');
   // the stroke of a shape's curve, in the shape's own colour on a plane of any colouring: its width and its halo casing by what
