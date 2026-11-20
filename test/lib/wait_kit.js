@@ -6,8 +6,8 @@
 // prepared(also, max, { only }): the steps view's chain is prepared (__cmwSteps().ready.ready: its programs linked, the carried
 // colour's warm draw made, the idle jobs finished, which is what a press of Play or an arrow waits for behind the gate) and `also`
 // (an expression in the page, none by default) holds. When it has not come by max ms (PREPARED_MS by default) it answers as settled
-// does (ok false) and records a failure that names the parts of the chain not done (jobs 1/3), or the extra condition when the chain
-// is prepared.
+// does (ok false) and records a failure that names the parts of the chain not done (jobs 1/3), that the chain is not up (no steps view,
+// no step or no GL: ready.total 0), or the extra condition when the chain is prepared.
 // still(read, step, limit): read() (an async reading of the page, JSON-comparable) again every step ms until two readings
 // in a row agree, and that reading; the last one if none has by limit ms (the default max).
 ({ settled, ev, sleep, fails, max = 8000, only = false }) => {
@@ -46,8 +46,9 @@
   const prepared = async (also = 'true', ms = PREPARED_MS, o = {}) => {
     const r = await settled({ until: `__cmwSteps().ready.ready && (${also})`, max: ms, only: o.only === undefined ? only : o.only });
     if (!r.ok) {
-      const left = await ev(`(() => { const r = __cmwSteps().ready; return Object.entries(r.parts || {}).filter(([, p]) => p.done !== p.total).map(([k, p]) => k + ' ' + p.done + '/' + p.total).join(', '); })()`);
-      if (left) fails.push({ name: 'the chain was not prepared in time', got: left });
+      const why = await ev(`(() => { const r = __cmwSteps().ready; return { total: r.total, left: Object.entries(r.parts || {}).filter(([, p]) => p.done !== p.total).map(([k, p]) => k + ' ' + p.done + '/' + p.total).join(', ') }; })()`);
+      if (why.left) fails.push({ name: 'the chain was not prepared in time', got: why.left });
+      else if (!why.total) fails.push({ name: 'the chain is not up (the steps view is off, there is no step, or there is no GL)', got: 'ready.total 0' });
       else fails.push({ name: 'the extra condition of prepared() did not hold', got: also });
     }
     return r;
