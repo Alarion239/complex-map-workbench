@@ -210,9 +210,6 @@
     }
     return null;
   };
-  // a point's name as the app writes it (F(z₀), w₂(z₁), Hₜ(z₀)) in TeX: subscripts as _{…}, primes as '
-  const SUBS = '₀₁₂₃₄₅₆₇₈₉';
-  const nameTex = (u) => String(u).replace(/([^₀-₉ₜ])([₀-₉ₜ]+)/g, (m, a, d) => `${a}_{${[...d].map((c) => (c === 'ₜ' ? 't' : SUBS.indexOf(c))).join('')}}`).replace(/′/g, "'");
   // a shape's map from its own plane into the panel's (A.shapeF), F the panel's map of the z-plane's shapes; null where the
   // page does not draw it there
   const shapeMapF = (s, side, F) => (A.shapeF ? A.shapeF(s, side, F) : F);
@@ -265,7 +262,7 @@
       let label = null;
       if (P.named) label = String.fromCharCode(65 + (k % 26)) + (primeName ? "'" : '');
       else if (s.label || !A.pointName) { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
-      else label = nameTex(A.pointName(s, k, side));
+      else { const n = A.pointName(s, k, side); label = Construct.nameTex(n) || texLabel({ label: n }, k); }   // (a name in words as a label's)
       if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : mk === 'ring' ? 'ring' : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
       else points.push({ z: [w.re, w.im], r: mk === 'ring' ? 1.7 : 1.5, kind: mk === 'ring' ? 'ring' : 'dot', fill: '#000000', label, at: 'auto', sw: mk === 'ring' ? 0.6 : undefined });
     });

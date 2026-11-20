@@ -41,9 +41,10 @@ for (const lang of ['en', 'ru']) {
   ok(`focus 0, ${lang}: panel (a), the z-plane, has z₀ and not the point of w₁`, has(L, Z0) && !has(L, W11) && (L || []).length === 1, L);
   ok(`focus 0, ${lang}: panel (b) has F(z₀) and the w₁ point at f₂(1 + 0.5i) = 0.75 + i`, has(R, F_Z0) && has(R, F2_W11) && (R || []).length === 2, R);
   ok(`focus 0, ${lang}: every point a panel draws is named, each by its own name`, named(L) && named(R), { L, R });
+  ok(`focus 0, ${lang}: z₀ is named z_{0} on (a) and F(z_{0}) on (b), in TeX`, (near(L, Z0)[0] || {}).label === 'z_{0}' && (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', { L, R });
   // (the caption: (a) lists z₀ alone; the w₁ point is named with its own plane, as (b) shows it)
   const capA = lang === 'ru' ? /^\\textit\{а\}~--- точка \$z_\{0\}=0\{,\}4\+0\{,\}3i\$ в~плоскости~\$z\$;/ : /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ in the \$z\$-plane\./;
-  const capW = lang === 'ru' ? /образ точки \$z_\{1\}=1\+0\{,\}5i\$ из~плоскости~\$w_\{1\}\$/ : /also shows the image of the point \$z_\{1\}=1\+0\.5i\$, drawn in the \$w_\{1\}\$-plane\./;
+  const capW = lang === 'ru' ? /образ точки \$z_\{1\}=1\+0\{,\}5i\$ из~плоскости~\$w_\{1\}\$/ : /Panel \(b\) also shows the image of the point \$z_\{1\}=1\+0\.5i\$, drawn in the \$w_\{1\}\$-plane\./;
   ok(`focus 0, ${lang}: the caption's (a) is the point of z alone, in the z-plane`, capA.test(f.cap || ''), f.cap);
   ok(`focus 0, ${lang}: the caption names the w₁ point with its own plane, w₁`, capW.test(f.cap || ''), f.cap);
 }

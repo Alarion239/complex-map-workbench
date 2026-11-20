@@ -748,6 +748,6 @@
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
  "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}",
- " (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показан образ %{list} из~плоскости~$%{p}$.",
- " (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показаны образы %{list} из~плоскости~$%{p}$."
+ " Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показан образ %{list} из~плоскости~$%{p}$.",
+ " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показаны образы %{list} из~плоскости~$%{p}$."
 }

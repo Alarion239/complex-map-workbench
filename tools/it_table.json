@@ -3444,6 +3444,6 @@
  "Stop on a plane to colour from it": "Fermati su un piano per prendere il colore da lì",
  "{name}: +{n} off view": "{name}: altri {n} fuori vista",
  "Pieces of {name} pulled back off the view: {n} of {all}": "Parti della controimmagine di {name} fuori vista: {n} su {all}",
- " (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " (b) mostra anche l'immagine di %{list} del piano $%{p}$.",
- " (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " (b) mostra anche le immagini di %{list} del piano $%{p}$."
+ " Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " Il riquadro (b) mostra anche l'immagine di %{list} del piano $%{p}$.",
+ " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " Il riquadro (b) mostra anche le immagini di %{list} del piano $%{p}$."
 }

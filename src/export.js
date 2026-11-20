@@ -843,7 +843,7 @@ const Export = (() => {
     const later = [];
     for (let k = lk + 1; k <= rk; k++) {
       const on = (s) => shapeStage(s) === k, n = vis.filter(on).length;
-      if (n) later.push({ p: `w_{${k}}`, n, list: listOf(undefined, on), gen: listOf('gen', on) });
+      if (n) later.push({ p: wvar(k), n, list: listOf(undefined, on), gen: listOf('gen', on) });
     }
     const lv = panelVar('L'), Fname = fNameTex();
     const Ftex = A.S.focus === 0 ? compositeTexShort(parkedAt()) : (A.built[A.S.focus - 1] && !A.built[A.S.focus - 1].error ? A.built[A.S.focus - 1].tex({ s: lv, p: 4 }).s : null);
