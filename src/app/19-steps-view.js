@@ -1257,9 +1257,8 @@
     const first = !A.held;
     if (first) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
-    // (the frame that starts the wait moved the thread on, and a play's crossing in it named the next plane in the head and
-    // the live region: what describes the thread goes back to the held place with the picture for the whole wait, the live
-    // region to the words it had before that crossing, A.said)
+    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
+    // to A.said, its words before the crossing of the frame that starts the hold)
     if (first) {
       const r = Math.round(A.held.at);
       if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
