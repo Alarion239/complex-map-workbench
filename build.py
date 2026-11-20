@@ -87,6 +87,10 @@ body = page + '\n' + data + mj + '<script>\n' + js + '\n</script>\n'
 pub_js = re.sub(r'\n[ \t]*// (?:TEST-HOOK \(dropped from the published page by build\.py\)|TEMP-DEBUG-HOOK \(removed before publishing\)).*?// (?:TEST-HOOK|TEMP-DEBUG-HOOK)\n', '\n', jsp, flags=re.S)
 assert '__cmw' not in pub_js, 'test hooks left in the published page'
 assert 'TEST-HOOK' not in pub_js and 'TEMP-DEBUG-HOOK' not in pub_js, 'a hook marker outside a block: its hook is left in the published page'
+# (#2012) the published script without its comments and indentation, every line break kept (tools/strip_js.js, which
+# checks that its output has the same tokens and line breaks); the test page keeps its source as written
+# (bytes both ways: a text-mode pipe on Windows would write CRLF)
+pub_js = subprocess.run(['node', str(root / 'tools' / 'strip_js.js')], input=pub_js.encode('utf-8'), stdout=subprocess.PIPE, check=True).stdout.decode('utf-8')
 # (a charset first, so the file decodes as UTF-8 even served without a charset header or opened from disk; the
 # artifact host's skeleton declares UTF-8 too)
 dist = root / 'dist'

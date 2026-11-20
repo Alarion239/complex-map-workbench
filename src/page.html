@@ -294,6 +294,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-hear { margin-top: 2px; border-bottom: 1px solid var(--line); }
 .snd-fine-touch { display: none; }
 @media (pointer: coarse) { .snd-fine-ptr { display: none; } .snd-fine-touch { display: inline; } .snd-keys { display: none; } }
+:root.sv .snd-keys-cl, :root:not(.sv) .snd-keys-sv { display: none; }
 .snd-more, .snd-diag { margin: 2px 0 4px; font: 400 11px/15px var(--f-ui); color: var(--muted); }
 .snd-more > summary, .snd-diag > summary { cursor: pointer; min-height: 24px; display: flex; align-items: center; font: var(--t-label); color: var(--ink-2); }
 .snd-diag { margin-top: 6px; }
@@ -2123,7 +2124,8 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
   <!-- no keyboard help on a touch screen; the engine line under Diagnostics -->
-  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys snd-keys-sv">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: Alt + the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys snd-keys-cl">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>

@@ -15,11 +15,6 @@
   "ru": "Новое",
   "note": "tour.js help menu badge (GLOSSARY 1.13)."
  },
- "p2b.tour.reference_guide": {
-  "en": "Reference guide",
-  "ru": "Руководство",
-  "note": "tour.js help menu (was inside markup: tour.icon_book_reference_guide)."
- },
  "p2b.tour.keyboard_shortcuts": {
   "en": "Keyboard shortcuts",
   "ru": "Сочетания клавиш",
@@ -30,20 +25,10 @@
   "ru": "Предложение пройти обзор: {title}. Кнопки «Начать обзор» и «Не сейчас».",
   "note": "tour.js screen-reader line, first sentence (tour.tour_suggestion_title_start split in three)."
  },
- "p2b.tour.suggestion_tab": {
-  "en": "Tab from Help reaches it; Escape hides it.",
-  "ru": "Клавиша Tab после кнопки «Справка» переходит к нему, Escape скрывает его.",
-  "note": "tour.js screen-reader line, middle sentence: «его» is the suggestion (предложение)."
- },
  "p2b.tour.phase_body": {
   "en": "Each $z$ is coloured by $\\arg F(z)$, here for $F(z)=(z^2-1)/(z^2+1)$, and the brightness bands are bounded by level curves of $|F|$. All colours meet at the zeros $\\pm1$ and the poles $\\pm i$, circling one way around a zero and the other way around a pole.",
   "ru": "Каждая точка $z$ окрашена по $\\arg F(z)$ (здесь $F(z)=(z^2-1)/(z^2+1)$), а полосы яркости ограничены линиями уровня $|F|$. Все цвета сходятся в нулях $\\pm1$ и полюсах $\\pm i$: вокруг нуля они идут в одну сторону, вокруг полюса — в другую.",
   "note": "English source fixed (README: bands bounded by level curves); Russian as tour.each_z_coloured_by."
- },
- "p2b.tour.cauchy_body": {
-  "en": "The phase style Cauchy plots $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ over a closed curve $\\gamma$, here the unit circle. It equals $F(z)=z^3-1$ inside and $0$ outside; the three zeros of $F$ lie on $\\gamma$ itself. Select another closed curve to use it instead.",
-  "ru": "Стиль «Интеграл Коши» строит фазовый портрет интеграла $\\frac{1}{2\\pi i}\\oint_\\gamma\\frac{F(\\zeta)}{\\zeta-z}\\,d\\zeta$ по замкнутой кривой $\\gamma$ — здесь это единичная окружность. Внутри он равен $F(z)=z^3-1$, снаружи — $0$; три нуля функции $F$ лежат на самой окружности $\\gamma$. Чтобы взять другую замкнутую кривую, выделите её.",
-  "note": "English source fixed (README: the zeros of z^3-1 lie on gamma); Russian as tour.phase_style_cauchy_plots."
  },
  "p2b.fig.phase_head": {
   "en": "Phase portrait of %{map} on $%{box}$",
@@ -104,16 +89,6 @@
   "en": "The $%{lvar}$-plane.",
   "ru": "Плоскость~$%{lvar}$.",
   "note": "export.extra.fig_left_only_plane."
- },
- "p2b.fig.preamble_homework": {
-  "en": "% Preamble: \\usepackage{graphicx,amsmath,amssymb,float}",
-  "ru": "% Преамбула (pdfLaTeX): \\usepackage[T2A]{fontenc}\\usepackage[russian]{babel}\\usepackage{graphicx,amsmath,amssymb,float}; в XeLaTeX и LuaLaTeX вместо fontenc — \\usepackage{fontspec}\\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf]",
-  "note": "Replaces export.extra.preamble_homework, whose Russian had %{fontenc} and %{babel} (a placeholder rename that would print % in the copied LaTeX)."
- },
- "p2b.fig.preamble_english_main": {
-  "en": "% English main document: \\usepackage[T2A,T1]{fontenc}\\usepackage[russian,english]{babel}, and the caption inside \\foreignlanguage{russian}{...}",
-  "ru": "% Если основной язык документа английский: \\usepackage[T2A,T1]{fontenc}\\usepackage[russian,english]{babel}, а подпись — внутри \\foreignlanguage{russian}{…}",
-  "note": "export.extra.preamble_english_main (it had no English source and %{fontenc}). Written only for a Russian caption, so the English text is never shown."
  },
  "p2b.fig.pt": {
   "en": "{x} pt",
