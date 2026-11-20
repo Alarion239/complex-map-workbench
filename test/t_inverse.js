@@ -1395,5 +1395,19 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   }
 }
 
+// RAT3 at a critical value (InvOps.rootMembers): the double root of z^3 - 3z + 2 at w = 0 (1 twice, -2) and of
+// z^3 - 1.2z + 0.3 at its critical value f(sqrt 0.4) is one member of multiplicity 2, the simple root another, as a
+// polynomial NEWT op lists them; 1e-6 off the critical value the two roots stay two
+{
+  const R = (a) => a.map((x) => C(x, 0)), s4 = Math.sqrt(0.4), f3 = (x) => x * x * x - 1.2 * x + 0.3;
+  for (const [name, p, w, dbl, other] of [['z^3 - 3z + 2 at 0', R([1, 0, -3, 2]), C(0, 0), C(1, 0), C(-2, 0)],
+    ['z^3 - 1.2z + 0.3 at f(sqrt 0.4)', R([1, 0, -1.2, 0.3]), C(f3(s4), 0), C(s4, 0), C(-2 * s4, 0)]]) {
+    const o = InvOps.opRat3(p, R([1])), G = o.pre(w), at = G.findIndex((m) => CX.abs(CX.sub(m.u, dbl)) <= 1e-7);
+    check(`RAT3 ${name}: two members, the double root once with multiplicity 2`, G.length === 2 && at >= 0 && G[at].mult === 2 && CX.abs(CX.sub(G[1 - at].u, other)) <= 1e-9, G.map((m) => [m.u, m.mult]));
+    const G2 = o.pre(CX.add(w, C(1e-6, 0)));
+    check(`RAT3 ${name}, 1e-6 off: three simple members`, G2.length === 3 && G2.every((m) => !m.mult), G2.map((m) => [m.u, m.mult]));
+  }
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;

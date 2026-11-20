@@ -648,7 +648,15 @@ const InvOps = (() => {
     while (i < co.length - 1 && abs(co[i]) <= 1e-14 * (abs(P[i]) + aw * abs(Q[i]))) i++;
     return co.slice(i);
   }
-  // p(u)/q(u) of degree 3 (coprime; q = 1 for a cubic polynomial): p(u) - w q(u) = 0 (ratPoly, cubicRoots)
+  // the roots rs ([{u, mult?}], closedRoots') of co as members: points that rounding cannot tell from one k-fold root of
+  // co (multipleRoots, NEWT's grouping: at a critical value the formulas give a double root as two points about
+  // sqrt(EPS) apart) are one root of multiplicity k at their centre; roots apart stay apart, and a root that is already
+  // a multiple one (Cardano's triple, Ferrari's quadruple) stays as it is
+  function rootMembers(co, rs) {
+    if (rs.length < 2 || rs.some((r) => r.mult)) return rs;
+    return multipleRoots(co, rs.map((r) => r.u), NEWT_COEF_ERR * co.length).map((g) => (g.k > 1 ? { u: g.u, mult: g.k } : { u: g.u }));
+  }
+  // p(u)/q(u) of degree 3 (coprime; q = 1 for a cubic polynomial): p(u) - w q(u) = 0 (ratPoly, cubicRoots, rootMembers)
   function opRat3(p, q, fwd) {
     const pad = (co) => [...Array(Math.max(0, 4 - co.length)).fill(ZERO), ...co];
     const P = pad(p), Q = pad(q);
@@ -659,10 +667,13 @@ const InvOps = (() => {
     return op('RAT3', { P, Q }, f, {
       fam: { type: 'fin', count: 3 }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im, critical: () => ratCritical(p, q, f),
-      pre: (w) => cubicRoots(ratPoly(P, Q, w)).map(({ u, mult }, m) => {
-        const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
-        return ONEM(u, CX.inv(div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu))), mult ? { m, mult } : { m });
-      }),
+      pre: (w) => {
+        const co = ratPoly(P, Q, w);
+        return rootMembers(co, cubicRoots(co)).map(({ u, mult }, m) => {
+          const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
+          return ONEM(u, CX.inv(div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu))), mult ? { m, mult } : { m });
+        });
+      },
     });
   }
 
