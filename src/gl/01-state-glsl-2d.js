@@ -1592,7 +1592,7 @@ ${sphere ? `  vec3 n = normalize(vP);
       float a = Cf.a * cov;
       acc = vec4(c * a, a) + acc * (1.0 - a);
       // the boundary: a band of half width bw over a casing in uHalo at uHaloA one css pixel wider each side, as the
-      // curves below have, so the band reaches 3:1 against the colour it covers in either theme (#1904)
+      // curves below have, so the band reaches 3:1 against the colour it covers in either theme
       float bw = 0.5 * max(uDpr, 0.55 * E.w);
       float cc = clamp(bw + uDpr - abs(sd) + 0.5, 0.0, 1.0) * uHaloA;
       acc = vec4(uHalo * cc, cc) + acc * (1.0 - cc);

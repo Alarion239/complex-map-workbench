@@ -15,7 +15,7 @@
 // without the later region) keeps that colour at full strength and the layer draws its band alone, no fill (#1889): there
 // the picture at the preimage's centre pixel differs by at most FILL_K of Everywhere's there (the fill alone: the band
 // and its casing take most of a small preimage's 5 × 5 patch).
-// The boundary band against the colour it covers (#1904): at rest on z, in the light and the dark theme, the strongest
+// The boundary band against the colour it covers: at rest on z, in the light and the dark theme, the strongest
 // pixel of the mark (the band over its casing) against the same pixel of the picture without the later region reaches
 // the 3:1 of a graphical object (CONTRAST), in a box BOX_PX about one preimage: z², Everywhere, and Joukowski in both
 // scopes (Inside regions its outer preimage, in z's own region, is the band alone over the colour). The glide's end:
@@ -25,7 +25,8 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the colour difference (summed over r, g, b) that counts as a fill drawn (a 5 × 5 mean; the fill is at half strength
-// over the colour), as an outline drawn (one pixel), and the most far from every preimage (a 5 × 5 mean)
+// over the colour), as an outline drawn (one pixel), and the most far from every preimage (a 5 × 5 mean); FILL_K: the
+// most share of Everywhere's difference at a preimage's centre pixel that Inside regions may show there (no fill)
 const PRE_D = 8, EDGE_D = 30, OUT_D = 3, FILL_K = 0.85;
 async function openApp(st) {
   const ns = 'pbl' + Date.now();
@@ -150,7 +151,7 @@ for (const c of CASES) {
     }
   }
 }
-// ---- the band against the colour it covers (#1904) ----
+// ---- the band against the colour it covers ----
 // (CONTRAST: the least ratio of the mark's strongest pixel, by theme (the dark theme's light ink reaches 3.1:1 without
 // a casing, the bar it keeps); MARK_D: a pixel's largest channel difference that counts it in the mark; BOX_PX: css px
 // each side of the preimage's point read; END_X: the glide's frame read against the plane at rest, held there (a park
@@ -195,7 +196,7 @@ for (const theme of ['light', 'dark']) {
     ok(`${tag}: the preimage's band, over its casing, reaches ${CONTRAST[theme]}:1 against the colour it covers (its strongest pixel)`, n > 0 && best >= CONTRAST[theme], info.band[tag]);
   }
   // the glide's end: z², Everywhere, the frame held at END_X against plane z at rest, both with the later region: the
-  // glide's layer (the inverse pass's) draws the band over its casing as the plane at rest does (#1904, #1733)
+  // glide's layer (the inverse pass's) draws the band over its casing as the plane at rest does
   {
     const c = CASES[0], at = [1.4177, 0.0705];
     await openApp({ srcView: c.view, steps: c.steps, shapes: c.own.concat([c.later]) });
