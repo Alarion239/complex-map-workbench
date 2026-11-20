@@ -208,6 +208,7 @@ const VIEWS = {
 
   // the classic views' own parts, pinned to the classic view
   'deform_range_cmd.js': steps({ pin: true }),
+  'figure_ticks_cmd.js': classic('the classic Image figure\'s two panels of points only, and the composer\'s tick labels'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
   'phone_plane_cmd.js': steps({ pin: true }),
