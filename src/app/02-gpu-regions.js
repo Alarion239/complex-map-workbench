@@ -762,7 +762,7 @@
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan || !plan.ok) return null;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R / 8, sing: invSing(plan) };
+    return { win: clipWin, R, rs: R / 8, sing: invSing(plan), per: Inverse.keyPeriod(plan) };
   }
   // SPEC 8.8: what to draw for forward shape s in a view -> null (the direct GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the
@@ -1221,6 +1221,47 @@
       }
       rec = { lines, tol, base };
       traces.set(polys, rec);
+    }
+    return rec.lines;
+  }
+  // The outline of an open region of a later plane as the inverse pass strokes it dashed (GLR.packShapes' opts.dash):
+  // the polylines its plane draws it by at rest (r.lpolys), simplified as invTrace's are, each kept vertex [x, y, arc]
+  // with its arc length under the map that plane draws it by at rest (arcOf's data, the rest dash's own: the identity
+  // of plane k), so the pass dashes it by OPEN_DASH in step with the rest frame. dashTraces keeps, for each r.lpolys
+  // array, {key (the arcs' key), lines}. Null: not an open region of a later plane, or no polylines
+  const dashTraces = new WeakMap();
+  function invDashTrace(s) {
+    const k = shapeStage(s), r = k > 0 ? shapeGPU(s) : null, polys = r && r.open ? r.lpolys || r.polys : null;
+    if (!polys || !polys.length) return null;
+    const map = { mode: 0, a: k, b: k }, arc = arcOf(r, cpuMap(map), mapKeyOf(map));
+    let rec = dashTraces.get(polys);
+    if (!rec || rec.key !== arc.key) {
+      // each polyline's vertex arcs from the segments' (arc at its start, length), in Region.Lines.arcs' order: the
+      // polylines of two or more vertices, one entry per segment
+      const full = [];
+      let o = 0;
+      for (const p of polys) {
+        const m = p.length / 2;
+        if (m < 2) continue;
+        const v = [];
+        for (let i = 0; i < m; i++) v.push([p[2 * i], p[2 * i + 1], i < m - 1 ? arc.data[2 * (o + i)] : arc.data[2 * (o + m - 2)] + arc.data[2 * (o + m - 2) + 1]]);
+        o += m - 1;
+        full.push(v);
+      }
+      const w = winOf(s), base = TRACE_TOL * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
+      let lines = [];
+      for (let t = 0, tol = base; ; t++, tol *= 2) {
+        // (simplifyOpen keeps a subset of the vertices in order: each kept one takes its own arc)
+        lines = full.map((v) => {
+          const kept = Calc.simplifyOpen(v.map((q) => C(q[0], q[1])), tol), out = [];
+          let j = 0;
+          for (const z of kept) { while (j < v.length - 1 && (v[j][0] !== z.re || v[j][1] !== z.im)) j++; out.push(v[j]); j++; }
+          return out;
+        });
+        if (lines.reduce((n, l) => n + l.length, 0) <= GLR.INV_CURVE_MAX || t === TRACE_DOUBLINGS) break;
+      }
+      rec = { key: arc.key, lines };
+      dashTraces.set(polys, rec);
     }
     return rec.lines;
   }

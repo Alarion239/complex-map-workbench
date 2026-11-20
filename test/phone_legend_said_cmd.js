@@ -31,7 +31,7 @@ for (const lang of ['en', 'ru']) {
   await view(360, 640, false, true);
   const ns = 'pls' + lang + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
   // the steps view's left key on each surface: [surface, the key's kind, the words of its rows after the caption]
   for (const [surf, kind, rows] of [['plane', 'color', [`$t('hue: the argument, red at 1, counterclockwise')`]], ['sphere', 'sphere', [`$t('hue: the argument, red at 1, counterclockwise')`]], ['land', '3d', [`$t('contours')`]]]) {
@@ -55,7 +55,7 @@ for (const lang of ['en', 'ru']) {
   {
     const tag = `${lang} classic Y`;
     await view(568, 320, false, true);
-    await send('Page.navigate', { url: `${U}?ns=${ns}c&lang=${lang}&view=classic` });
+    await go(`${U}?ns=${ns}c&lang=${lang}&view=classic`);
     await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
     await unfold('rightLegend');
     // (the regions' fill: the phase of z, or the grid's cell while its lines are drawn, as the key's first row draws it)
