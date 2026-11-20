@@ -9,7 +9,7 @@
 //   from it in more than CTL_FRAC of them;
 // - hovering the handle lights it, as at rest (the overlay about it changes, and comes back when the pointer leaves);
 // - the frame is still parked there, and the drag panned nothing (the view's centre within 1e-9);
-// - a finger takes the handle within 22 px of its centre (a drag from 21 px turns the cut, from 24 px pans the plane), a mouse within 12 px.
+// - a finger (a pen too) takes the handle within 22 px of its centre (a drag from 21 px turns the cut, from 24 px pans the plane), a mouse within 12 px.
 // Paths are off (their points are picked per view, not per chain). The branch point of the square root's cut is 0. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -110,10 +110,11 @@ await openParked(180, 0);
       for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + ux * i / 8, y: y + uy * i / 8, id: 1 }] }); await sleep(MOVE_GAP_MS); }
       await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     } else {
-      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y });
-      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1 });
-      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + ux * i / 8, y: y + uy * i / 8, button: 'left', buttons: 1 }); await sleep(MOVE_GAP_MS); }
-      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + ux, y: y + uy, button: 'left', clickCount: 1 });
+      const pointerType = kind;   // (mouse or pen)
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, pointerType });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1, pointerType });
+      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + ux * i / 8, y: y + uy * i / 8, button: 'left', buttons: 1, pointerType }); await sleep(MOVE_GAP_MS); }
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + ux, y: y + uy, button: 'left', clickCount: 1, pointerType });
     }
     await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim` });
     const s = await state();
@@ -122,11 +123,12 @@ await openParked(180, 0);
     return took;
   };
   info.reach = {
-    touchIn: await press('touch', TOUCH_IN), touchOut: await press('touch', TOUCH_OUT),
+    touchIn: await press('touch', TOUCH_IN), touchOut: await press('touch', TOUCH_OUT), penIn: await press('pen', TOUCH_IN), penOut: await press('pen', TOUCH_OUT),
     mouseIn: await press('mouse', MOUSE_IN), mouseOut: await press('mouse', MOUSE_OUT),
   };
   ok(`a finger ${TOUCH_IN} px from the parked handle's centre takes it (the cut turns)`, info.reach.touchIn, info.reach);
   ok(`a finger ${TOUCH_OUT} px away does not (the plane pans, the cut stays)`, !info.reach.touchOut, info.reach);
+  ok(`a pen ${TOUCH_IN} px from the parked handle's centre takes it, as a finger, and ${TOUCH_OUT} px away does not`, info.reach.penIn && !info.reach.penOut, info.reach);
   ok(`a mouse ${MOUSE_IN} px from the centre takes it`, info.reach.mouseIn, info.reach);
   ok(`a mouse ${MOUSE_OUT} px away does not: its reach stays 12 px`, !info.reach.mouseOut, info.reach);
   await send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });

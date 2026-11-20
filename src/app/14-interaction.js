@@ -28,10 +28,12 @@
   const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
-  // the left pane's cut handle a press at (x, y) takes: the nearest within the handle's reach, 22 px for a finger (a 44 px
-  // target, as the zeros' and poles'), 12 px for a mouse
-  const cutHandlePressed = (x, y) => {
-    const r = ptrTouch ? 22 : 12;
+  // the reach of a zero or pole and of the cut handle for a pointer that is a finger (touch, or a pen: ptrTouch) or not: 22 px (a 44 px
+  // target) for a finger, 11 and 12 px for a mouse
+  const zpReach = (finger) => (finger ? 22 : 11), cutReach = (finger) => (finger ? 22 : 12);
+  // the left pane's cut handle at (x, y): the nearest within the handle's reach (a hover is a mouse's, or a pen's near the glass: finger false)
+  const cutHandleNear = (x, y, finger) => {
+    const r = cutReach(finger);
     let best = null, bd = r;
     for (const hd of cutHandlesL) { const d = Math.hypot(hd.x - x, hd.y - y); if (d < bd) { best = hd; bd = d; } }
     return best;
@@ -42,7 +44,7 @@
   function emptyAt(pane, side, x, y) {
     if (side === 'L' ? !lFlat() : !rImage()) return false;
     pane.setView(side === 'L' ? leftView() : V.right);
-    if (side === 'L' && (cutHandlePressed(x, y) || (zpStep() && zpHit(x, y, 11)))) return false;
+    if (side === 'L' && (cutHandleNear(x, y, ptrTouch) || (zpStep() && zpHit(x, y, zpReach(ptrTouch))))) return false;
     const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : planeShapes();
     const z = pane.s2w(x, y), tol = 7 / pane.view.s;
     for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, target ? targetWin() : winOf(s))) return false; } catch (e) { /* */ } }
@@ -412,9 +414,9 @@
       // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
       const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
       const onSel = !!selSh && (ptrTouch ? !!handleAt(pane, selSh, x, y) : Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; }));
-      let zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (other tools pick a zero)
+      let zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, zpReach(ptrTouch));   // (other tools pick a zero)
       // (a cut handle nearer than the zero or pole takes the press: both reach 22 px for a finger)
-      const ch = zh && cutHandlePressed(x, y);
+      const ch = zh && cutHandleNear(x, y, ptrTouch);
       if (ch && Math.hypot(ch.x - x, ch.y - y) < Math.hypot(zh.x - x, zh.y - y)) zh = null;
       if (zh) {
         zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
@@ -443,12 +445,10 @@
       }
     }
     // cut handles have priority
-    {
-      // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
-      // drag runs the continuation alone, cutPull)
-      const hnd = cutHandlePressed(x, y);
-      if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
-    }
+    // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
+    // drag runs the continuation alone, cutPull)
+    const hnd = cutHandleNear(x, y, ptrTouch);
+    if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
@@ -1300,7 +1300,7 @@
   // the left pane's cut handle under the pointer (x, y) is the lit one (hoverCut, none: 0); a change sets the cursor and
   // draws the overlay again, where the handle is drawn lit or not
   function cutHover(pane, side, x, y) {
-    const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
+    const hc = (cutHandleNear(x, y, false) || {}).step || 0;
     if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); requestRender('OL'); }
   }
   function probeMoving() {
