@@ -74,7 +74,7 @@ float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #define IX_HASLAM(L) false
 #endif
 uniform vec4 uVp; uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uInvScale;
-uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN;
+uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
 // uKsat: the front count K of the drawn alpha (uncapped); uKall = 1: every covering candidate counts (the shape's own
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
@@ -95,6 +95,11 @@ uniform int uShStage;
 // at 0). With the colours zero it is a band of alpha alone, for a mask. uTint: under them the shape's fill in colour
 // uTint.rgb at alpha uTint.a (none at 0), the steps view's layer of a later plane's region over the colour
 uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA; uniform vec3 uEdgeC; uniform float uEdgeCW; uniform float uEdgeCA; uniform vec3 uEdgeCC;
+// uEdgeDash (on, off, px): an open region's dashed boundary, stroked as a kind-16 curve whose vertices carry their arc at
+// rest (.w): the line is on along [0, on) of each period of the arc at the nearest point (ixArcQ) times px, in device px,
+// anti-aliased over 1 px at both ends as GLR.drawLines' dash is; the casing stays whole. on = 0: solid
+uniform vec3 uEdgeDash;
+float ixArcQ;
 uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
@@ -192,8 +197,9 @@ vec3 ixKindLevel(vec2 z) {
     if (kind != 16) q = curveNearAB(kind, uShA, uShB, z);
     else {
       int n = uShape.z, s = uShape.w, ng = (n + ${CURVE_GROUP - 2}) / ${CURVE_GROUP}, v = s + ng;
-      q = ixRec(v).xy;
-      float best = dot(z - q, z - q);
+      vec4 q0 = ixRec(v);
+      q = q0.xy;
+      float best = dot(z - q, z - q), arcQ = q0.w;
       for (int g = 0; g < ${INV_CURVE_MAX / CURVE_GROUP} * uIxOne; g++) {
         if (g >= ng) break;
         vec4 bx = ixRec(s + g);
@@ -204,11 +210,18 @@ vec3 ixKindLevel(vec2 z) {
           if (i >= n) break;
           vec4 b = ixRec(v + i);
           if (b.z > 0.5) continue;
-          vec2 c = segNear(z, ixRec(v + i - 1).xy, b.xy);
+          vec4 va = ixRec(v + i - 1);
+          vec2 c = segNear(z, va.xy, b.xy);
           float d = dot(z - c, z - c);
-          if (d < best) { best = d; q = c; }
+          if (d < best) {
+            best = d; q = c;
+            vec2 ab = b.xy - va.xy;
+            float L2 = dot(ab, ab);
+            arcQ = mix(va.w, b.w, L2 > 0.0 ? clamp(dot(c - va.xy, ab) / L2, 0.0, 1.0) : 0.0);
+          }
         }
       }
+      ixArcQ = arcQ;
     }
     float d = cx_abs(z - q);
     return d > 0.0 ? vec3(-d, (q - z) / d) : vec3(0.0, 1.0, 0.0);
@@ -380,8 +393,14 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|_T)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
+// z - p reduced modulo the key's period uSingT (0: none), Inverse's perReduce
+vec2 ixSingD(vec2 z, vec2 p) {
+  vec2 d = z - p;
+  float tt = dot(uSingT, uSingT);
+  return tt > 0.0 ? d - uSingT * floor(dot(d, uSingT) / tt + 0.5) : d;
+}
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
@@ -391,7 +410,7 @@ float ixSheetKey(vec2 z, bool zf, Lf L) {
     if (i >= uSingN) break;
     vec2 p = uSing[i];
     if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
-    else D += max(0.0, log2(uWinRs / cx_abs(z - p)));
+    else D += max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
   }
   return D;
 }
@@ -412,7 +431,7 @@ vec2 ixMobT(vec2 u) {
 // 2^D of a finite point without the logs (the same order as ixSheetKey)
 float ixKeyExp(vec2 z) {
   float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
-  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(z - uSing[i])); }
+  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i]))); }
   return K;
 }
 // the Mobius-prefix centre: the smallest key among the u-projection, the member nearest the reference in z and the
@@ -795,7 +814,14 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
-  if (uEdgeOnly == 1 && s == s) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); ixFill = max(ixFill, clamp(s + 0.5, 0.0, 1.0)); }
+  if (uEdgeOnly == 1 && s == s) {
+    float on = 1.0;
+    if (uEdgeDash.x > 0.0) {
+      float dP = uEdgeDash.x + uEdgeDash.y, du = mod(ixArcQ * uEdgeDash.z, dP);
+      on = clamp(max(min(du, uEdgeDash.x - du), du - dP) + 0.5, 0.0, 1.0);
+    }
+    ixEdge = max(ixEdge, on * clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); ixFill = max(ixFill, clamp(s + 0.5, 0.0, 1.0));
+  }
 #endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
