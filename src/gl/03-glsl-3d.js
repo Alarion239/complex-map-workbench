@@ -1442,6 +1442,25 @@ ${phase ? `
   o = vec4(toSrgb(shade(toLin(col), n, v, 1.0)), 1.0);
 }
 `;
+  // The phase globe's stand-in while its program (sphereP) links (drawSphere's st.standIn): w = F(z) at the nodes of a
+  // longitude-latitude grid, texel (i, j) the node at longitude -pi + 2 pi i / (nx - 1) and latitude -pi / 2 + pi j / (ny - 1),
+  // z the stereographic projection of the node (SPHERE_FS's). w is interpolated at the pixel (standInW) and lined and
+  // lit as the globe is. Needs STANDIN_W
+  const SPHERE_STANDIN_FS = `
+in vec3 vP;
+uniform vec3 uEye; uniform sampler2D uWNodes;
+out vec4 o;
+void main() {
+  vec3 n = normalize(vP);
+  float net, re, eq;
+  sphereLines(n, net, re, eq);
+  vec2 nodes = vec2(textureSize(uWNodes, 0) - 1);
+  vec2 q = vec2(atan(n.y, n.x) / (2.0 * PI) + 0.5, asin(clamp(n.z, -1.0, 1.0)) / PI + 0.5) * nodes;
+  vec3 col = phaseLines(dcolor(standInW(uWNodes, q)), net, re, eq);
+  vec3 v = normalize(uEye - vP);
+  o = vec4(toSrgb(shade(toLin(col), n, v, 1.0)), 1.0);
+}
+`;
   const DISC_VS = `
 uniform mat4 uMVP; uniform float uR;
 out vec3 vPos;
