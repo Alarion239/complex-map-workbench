@@ -3602,10 +3602,12 @@
   // (prestartCarry), at most 40 times; the programs themselves link without waiting (prestartCarry, the parallel compile)
   const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true }, SV_WARM_IDLE_MS = 2000;
   let svWarmSig = null, svWarmAt = 0;
+  // (the chain whose warm draw waits for its fence: a second call meanwhile draws it no second time)
+  let svWarmFlushing = null;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
-    if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    if (svWarmSig === sig || svWarmFlushing === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
     const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
     if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
     const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 250));
@@ -3622,7 +3624,13 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
+      if (!done) { setTimeout(() => svWarmCarry(n + 1, t0), 500); return; }
+      // (made once the GPU has run the draw's commands (GLR.gpuDone's fence, polled, never waited on): left in the
+      // queue of the GL canvas, which no pane shows, they would run in the next copy of that canvas to a pane, the
+      // first glide frame's, and that frame would wait for the carried colour's machine code after all)
+      const made = () => { svWarmFlushing = null; if (chainSig[nSteps()] === sig) { svWarmSig = sig; svWarmAt = performance.now(); } };
+      svWarmFlushing = sig;
+      if (GLR.gpuDone) GLR.gpuDone().then(made); else made();
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----

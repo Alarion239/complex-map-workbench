@@ -5,6 +5,8 @@
 // z^-2, whose homotopy's second half (u > 1/2) has a program of its own. For each, at rest on plane z until the view is
 // ready and its glides' jobs are done (__cmwSteps().invWarm), the thread held at u (held_frames.js's hold, which waits for
 // the frame and its links) the first time:
+// - the carried colour's warm draw (svWarmCarry's speck) counts as made (__cmwSvWarm().at) only once a GPU fence asked
+//   for after it (GLR.gpuDone) has resolved: its commands run then, not in the first glide frame's copy to its pane;
 // - the frame is the inverse pass's;
 // - no inverse program was made from the rest to the held frame (GLR.landProgs' inv| and invS| entries);
 // - the hold took at most FIRST_MS (lavapipe: 545-2655 ms before the warm-up, about 80-130 ms with it).
@@ -26,6 +28,15 @@ const open = async (step, tag) => {
   const r = await settled({ max: 60000, until: 'typeof __cmwSteps === "function" && typeof __cmwSvX === "function" && !!window.GLR' });
   if (!r.ok) throw new Error('the page hooks are not up after the navigation: ' + JSON.stringify(r));
   await wordsOff();
+  // (the warm draw's time, its drawRegion told by svWarmCarry's arguments (the speck's map at t = 1/2 of the first step,
+  // no limit), and each fence's ask and answer, kept as __warmT and __fences)
+  await ev(`(() => {
+    const draw = GLR.drawRegion, done = GLR.gpuDone;
+    window.__warmT = null; window.__fences = [];
+    GLR.drawRegion = function (res, o) { if (o && o.lim === 1e30 && o.map && o.map.mode === 1 && o.map.hi === 1 && o.map.t === 0.5) window.__warmT = performance.now(); return draw.apply(this, arguments); };
+    GLR.gpuDone = function () { const f = { t0: performance.now(), t1: null }; window.__fences.push(f); return done.apply(this, arguments).then((r) => { f.t1 = performance.now(); return r; }); };
+    return 1;
+  })()`);
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane', bare: false, T: 0 }), 1`);
 };
 const rest = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true }), 1`); await settled({ max: 120000, until: `!__cmwSteps().moving && __cmwSvX() === ${i} && ${UNHELD}` }); };
@@ -40,6 +51,10 @@ for (const [name, step, us] of [['z^2', { type: 'pown', params: { n: 2 } }, [0.2
     await rest(0);
     const r = await settled({ max: 120000, until: '__cmwSteps().invWarm && __cmwSteps().ready.ready && GLR.pendingLinks === 0' });
     ok(`${name} u = ${u}: plane z rests with its glides made ready`, r.ok, r);
+    if (u === us[0]) {
+      const w = info[`${name} warm draw`] = await ev(`(() => { const t = window.__warmT, at = __cmwSvWarm().at; return { drawn: t, made: at, fenced: window.__fences.some((f) => f.t0 >= t && f.t1 != null && f.t1 <= at) }; })()`);
+      ok(`${name}: the carried colour's warm draw counts as made only after a fence asked for after it has resolved`, w.drawn != null && w.made >= w.drawn && w.fenced, w);
+    }
     const p0 = await invProgs();
     const t0 = Date.now();
     const h = await hold(u);
