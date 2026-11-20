@@ -73,7 +73,8 @@ const Critical = (() => {
         } else {
           const r = Inverse.pointPre({ ok: true, ops: [o] }, p);
           if (!r.exact) return null;
-          next.push(...r.zs);
+          // (a preimage past CRIT_INF is infinity, rounded: 1/z at a float that should be 0)
+          next.push(...r.zs.map((z) => (abs(z) < Inverse.CRIT_INF ? z : null)));
           if (o.infAt && o.infAt(p)) next.push(null);
         }
       }
@@ -115,22 +116,24 @@ const Critical = (() => {
         // (the units before it never reach it: no finite point, and not infinity)
         if (pt && !pt.zs.length && !pt.inf) continue;
         const w = Inverse.critForward(units, i + 1, e.w);
-        if (w !== null) pushOnce(values, { w, kind: 'critical' }, 'w');
+        // (no value: a later unit is undefined at the infinity it is given, so the point is no critical point of the chain)
+        if (w === undefined) continue;
+        if (w) pushOnce(values, { w, kind: 'critical' }, 'w');
         if (pt) for (const z of pt.zs) pushOnce(points, { z, w }, 'z', POINT_SAME);
         else complete = false;
       }
       if (c.lattice) {
         complete = false;
-        for (const v of c.lattice.values) { const w = Inverse.critForward(units, i + 1, v); if (w !== null) pushOnce(values, { w, kind: 'critical' }, 'w'); }
+        for (const v of c.lattice.values) { const w = Inverse.critForward(units, i + 1, v); if (w) pushOnce(values, { w, kind: 'critical' }, 'w'); }
       }
-      for (const v of c.asym) { const w = Inverse.critForward(units, i + 1, v); if (w !== null) pushOnce(values, { w, kind: 'asymptotic' }, 'w'); }
+      for (const v of c.asym) { const w = Inverse.critForward(units, i + 1, v); if (w) pushOnce(values, { w, kind: 'asymptotic' }, 'w'); }
     });
     if (complete) return { values: { known: true, list: values }, points: { complete: true, list: points } };
     // (infinitely many, or not all reached: those in the window, when every unit is an op that pulls back)
     if (!win || !units.every((o) => typeof o.pre === 'function')) {
       return { values: { known: true, list: values }, points: { complete: false, list: [], reason: win ? 'the critical points are infinitely many or cannot be pulled back here' : 'the critical points are infinitely many: give a window' } };
     }
-    const list = Inverse.singular({ ok: true, ops: units }, win, ['crit'], cap).map((e) => ({ z: e.z, w: fwdAll(units, e.z) }));
+    const list = Inverse.singular({ ok: true, ops: units }, win, ['crit'], cap).map((e) => ({ z: e.z, w: fwdAll(units, e.z) })).filter((p) => p.w !== undefined);
     return { values: { known: true, list: values }, points: { complete: false, inWindow: true, list } };
   }
   // Critical.joinRadii(values, c) -> [{r, values: C[]}]: for a target disc |w − c| < r, the radii at which pieces of its
