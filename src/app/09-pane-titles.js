@@ -1086,12 +1086,13 @@
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
     drawLegendSide('L'); drawLegendSide('R');
   }
+  const KEY_GUTTER = 4;   // px between an unfolded key and its plane's edge
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
   // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the
-  // distance to the lowest of them; it is recomputed each time the key is shown, and, on a phone, whenever a readout
-  // changes size or the context bar opens or closes)
+  // distance to the lowest of them, less what an unfolded card on a phone needs to end KEY_GUTTER above the plane's foot; it is
+  // recomputed each time the key is shown, and, on a phone, whenever a readout changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
   // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
@@ -1127,10 +1128,10 @@
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
-    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a gutter, KEY_GUTTER)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
     if (head && c0.width) {
-      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      const lo = pr.left + KEY_GUTTER - c0.left, hi = pr.right - KEY_GUTTER - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
       if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
     }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
@@ -1142,11 +1143,18 @@
         const r = e.getBoundingClientRect();
         if (r.width && r.left < c.right + reach && c.left - reach < r.right && r.top < c.bottom + reach && c.top - reach < r.bottom) drop = Math.max(drop, r.bottom + 6 + reach - c.top);
       }
-      if (drop <= 0) return;
+      if (drop <= 0) break;
       // (a folded chip does not go under the context bar: the readout it would touch is the lesser harm)
       const bar = reach ? document.querySelector('.ph-ctx.in') : null;
-      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) return;
+      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) break;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
+    }
+    // (on a phone the card stays inside the plane: a readout that wraps to more lines would drop it past the plane's foot, so the
+    // drop gives up what the card needs, down to none, and the card then overlaps the readout's last lines, which take no press
+    // there. A head's pop-up has no such room: the readout there takes presses, and it stays under the pop-up's drop)
+    if (!head) {
+      const over = el.getBoundingClientRect().bottom - (plot.getBoundingClientRect().bottom - KEY_GUTTER), dropNow = parseFloat(box.style.getPropertyValue('--lg-drop')) || 0;
+      if (over > 0 && dropNow > 0) box.style.setProperty('--lg-drop', `${Math.max(0, dropNow - Math.ceil(over))}px`);
     }
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
