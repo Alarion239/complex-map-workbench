@@ -3469,12 +3469,12 @@
   "one": "{n} buco",
   "other": "{n} buchi"
  },
- "Radius r": "Raggio r",
  "Preimage on {w}": "Controimmagine su {w}",
  "Pieces join at r = {list}": "I pezzi si uniscono a r = {list}",
  "No pieces join as r grows": "Al crescere di r nessun pezzo si unisce",
  "{n} piece off view\u0004{n} pieces off view": {
   "one": "{n} pezzo fuori vista",
   "other": "{n} pezzi fuori vista"
- }
+ },
+ "Radius r, against the join radii": "Raggio r, sulla scala dei raggi di unione"
 }

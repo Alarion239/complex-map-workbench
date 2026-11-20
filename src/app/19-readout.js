@@ -1,10 +1,11 @@
-  // ---------------- the readout card: a stage disc's preimage on the plane shown (the Stack's P1b, #1978, #1983) ----------------
+  // ---------------- the readout card: a stage disc's preimage on the plane shown ----------------
   // In the steps view, a disc of a later plane T (its stage) has its preimage drawn on the plane shown, k = leftStage()
   // (stagePullbacks). When it is selected, the Inspector's card for it reads that preimage:
   // - the counts: the preimages of its centre, with multiplicity, and the pieces of the preimage of the disc, those that
   //   cover it more than once, and the holes (Pieces.count: the roots followed once round the rim);
-  // - an r slider for its radius, with a red tick at each join radius, where pieces join or a piece closes round a hole
-  //   (Critical.joinRadii), the radii said in words under it;
+  // - an r slider for its radius, from its first step up (a radius is above 0), with a red tick at each join radius,
+  //   where pieces join or a piece closes round a hole (Critical.joinRadii), the radii said in words under it; the
+  //   counts are a polite live region, so they are said as the slider moves;
   // - how many of its pieces lie off the window ("+n off view" on the plane: drawPullOff).
   // Where the pieces cannot be counted (no exact inverse, or critical values not known), the card says so.
   const RO_SPAN = 2;          // the slider's top: RO_SPAN times the larger of r and the largest join radius
@@ -43,10 +44,17 @@
   // the card's part of the Inspector for shape s, or null: {root, counts, range, ticks, joins, off}
   function readoutBuild(s) {
     if (!readoutOn(s)) return null;
-    const counts = h('div', { class: 'ro-counts' });
+    const counts = h('div', { class: 'ro-counts', 'aria-live': 'polite' });
     const val = h('span', { class: 'fval mono' });
-    const range = h('input', { type: 'range', min: 0, class: 'ro-r', 'aria-label': $t('Radius r'),
-      oninput: () => { const sh = findShape(s.id), v = +range.value; if (!sh || !(v > 1e-9)) return; sh.r = v; readoutFill(E, sh); shapesChanged(false); },
+    const range = h('input', { type: 'range', min: 0, class: 'ro-r', 'aria-label': $t('Radius r, against the join radii'),
+      oninput: () => {
+        const sh = findShape(s.id);
+        if (!sh) return;
+        // (0, at the slider's left end, is no radius: the slider's first step is the least)
+        let v = +range.value;
+        if (!(v > 1e-9)) { v = +range.step; range.value = String(v); }
+        sh.r = v; readoutFill(E, sh); shapesChanged(false);
+      },
       onchange: () => commit() });
     const ticks = h('div', { class: 'ro-ticks', 'aria-hidden': 'true' });
     const joins = h('div', { class: 'ro-joins' }), off = h('div', { class: 'ro-off' });

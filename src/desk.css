@@ -435,7 +435,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .ro-counts { font: var(--t-body); color: var(--ink); }
 .ro-track { position: relative; grid-area: rng; min-width: 0; }
 .ro-ticks { position: absolute; inset: 0; pointer-events: none; }
-.ro-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--error); left: calc(5px + (100% - 10px) * var(--f)); }
+.ro-tick { position: absolute; top: 3px; bottom: 3px; width: 2px; margin-left: -1px; background: var(--cut); left: calc(5px + (100% - 10px) * var(--f)); }
 .ro-joins, .ro-off { font: var(--t-label); color: var(--muted); }
 .sh-insp > .shape-edit { grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 0; border-top: 0; }
 .sh-insp > .shape-edit .inp { height: 32px; padding: 0 8px; }

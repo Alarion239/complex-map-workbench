@@ -781,8 +781,7 @@
   "many": "%{n} дыр",
   "other": "%{n} дыры"
  },
- "Radius r": "Радиус r",
- "Preimage on {w}": "Прообраз на %{w}",
+ "Preimage on {w}": "Прообраз в плоскости %{w}",
  "Pieces join at r = {list}": "Части сливаются при r = %{list}",
  "No pieces join as r grows": "С ростом r части не сливаются",
  "{n} piece off view\u0004{n} pieces off view": {
@@ -790,5 +789,6 @@
   "few": "%{n} части за краем",
   "many": "%{n} частей за краем",
   "other": "%{n} части за краем"
- }
+ },
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
 }
