@@ -173,6 +173,7 @@ const VIEWS = {
   'phone_legend_said_cmd.js': steps(),
   'phone_legend_open_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
+  'steps_head_glide_cmd.js': steps(),
   'ruler_corner_cmd.js': steps(),
   'steps_menu_expanded_cmd.js': steps(),
   'example_integral_phone_cmd.js': steps({ pin: true }),
