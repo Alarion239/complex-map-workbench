@@ -433,7 +433,9 @@
     }
     // cut handles have priority
     for (const hnd of cutHandlesL) {
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
+      // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
+      // drag runs the continuation alone, cutPull)
+      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
     }
     if (pickDown(pane, z, x, y)) return;
     if (editDown(pane, 'L', z, x, y)) return;
@@ -1186,9 +1188,9 @@
     }
     // hover
     if (side === 'L') probeHover = { pane, e };
-    // (while the steps view's thread moves, the probe and its readout idle; Hear the function follows the pointer on the
-    // nearer plane's map, the point picked as a still pointer's re-pick is)
-    if (side === 'L' && SV.on && svMoving()) { probeMoving(); if (sndP.on && sndP.sonify) sndMove(x, y, sndPickAt('pointer', x, y), 'pointer'); return; }
+    // (while the steps view's thread moves, the probe and its readout idle; a parked plane's cut handle still lights under the
+    // pointer, and Hear the function follows the pointer on the nearer plane's map, the point picked as a still pointer's re-pick is)
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); cutHover(pane, side, x, y); if (sndP.on && sndP.sonify) sndMove(x, y, sndPickAt('pointer', x, y), 'pointer'); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
@@ -1226,8 +1228,7 @@
       return;
     }
     if (side === 'L') {
-      const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
-      if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); }
+      cutHover(pane, side, x, y);
       const zh = zpHit(x, y);
       if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
@@ -1286,6 +1287,12 @@
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
   // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
   let probeHover = null, probeHeld = false;
+  // the left pane's cut handle under the pointer (x, y) is the lit one (hoverCut, none: 0); a change sets the cursor and
+  // draws the overlay again, where the handle is drawn lit or not
+  function cutHover(pane, side, x, y) {
+    const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
+    if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); requestRender('OL'); }
+  }
   function probeMoving() {
     if (probe) { probe = null; setReadouts(null); }
     probeHeld = !!probeHover;
