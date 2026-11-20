@@ -4,9 +4,10 @@
 //   EXCLUDED  the files that do not run here, each with the reason: not pass/fail suites (benchmarks, recorders,
 //             screenshot writers), suites another job runs, superseded ones, and those that need the GPU machines
 //   SUITES    per suite: runs (one row each: a label, a preamble on the suite's first line, env), pages (extra pages
-//             in dist/: PAGES), timeoutMin, verdict (the failures from a result of another shape), keepShots (keep its
-//             screenshots when it passes: a suite that reports with marked shots), logLine (its result as one line
-//             of the job's log, from its result)
+//             in dist/: PAGES), timeoutMin, stream (the suite's console.log lines go to the job's log as they are
+//             written, not only with a failure: for a suite that can lose its runner), verdict (the failures from a
+//             result of another shape), keepShots (keep its screenshots when it passes: a suite that reports with
+//             marked shots), logLine (its result as one line of the job's log, from its result)
 //   TIMING    per suite, the checks that measure speed (by name): reported with their numbers, not gated. A check whose
 //             name has BUDGET60 (the 60 fps budget) is one already. When a check also asserts something else in the
 //             same condition, `measured` says from its recorded detail that the rest held: only then is its failure a
@@ -104,6 +105,7 @@ const SUITES = {
   // (one language a run; its pages: the test page without MathJax and with the vendored one)
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
+  'p5_accept_cmd.js': { stream: true },
   'newt_member0_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },

@@ -108,7 +108,8 @@ async function runOne(file, run, port) {
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
   let log = '';
-  child.stdout.on('data', (d) => { log += d; });
+  // (a suite with `stream` in ci/browser_suites.js: its lines reach the job's log as they are written, so a runner that dies keeps them)
+  child.stdout.on('data', (d) => { log += d; if (run.stream) process.stdout.write(d); });
   child.stderr.on('data', (d) => { log += d; });
   const Q = path.join(COPY, 'q'), FATAL = path.join(Q, 'FATAL');
   try {
@@ -204,14 +205,14 @@ async function main() {
       const cfg = SUITES[file] || {};
       n++;
       const name = file + (r.label ? ` (${r.label})` : '');
-      let res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+      let res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin, stream: cfg.stream }, r), port);
       // (lavapipe was found and chosen, but Chrome has no WebGL2 with the Vulkan flags here: the run goes on with SwiftShader, once)
       if (res.noWebgl2 && RENDERER.source === 'lavapipe') {
         console.log('warning: Chrome has no WebGL2 through lavapipe on this machine; the suites run with SwiftShader (CMW_ANGLE=swiftshader), which CI does not use');
         process.env.CMW_ANGLE = 'swiftshader';
         RENDERER = require('../test/cdp_kit/renderer.js').resolveRenderer();
         PROBE = null;
-        res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin }, r), port);
+        res = await runOne(file, Object.assign({ timeoutMin: cfg.timeoutMin, stream: cfg.stream }, r), port);
       }
       // (gpu_probe.js's error and exit code: the suites never run on a Chrome without WebGL2)
       if (res.noWebgl2) { console.error('::error title=No WebGL2::headless Chrome has no WebGL2 on this machine'); return 1; }
