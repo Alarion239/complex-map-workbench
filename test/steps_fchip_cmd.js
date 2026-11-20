@@ -21,9 +21,9 @@ const LONG = { type: 'sin', params: {}, on: true };
 const open = async (w, h, touch, lang, chain) => {
   const stx = chain ? Object.assign({}, st, { steps: chain }) : st;
   await view(w, h, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(stx))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 };
 const S = () => ev('__cmwSteps()');
@@ -56,7 +56,7 @@ const PLANES = 4;   // (z and the three steps' images)
 ok('F is not a step: the chain and the place on the thread are as they were', (await S()).planes.length === PLANES && (await S()).x === 0, await S());
 
 // a saved page that had F selected opens with the chip pressed
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
 await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 ok('a page saved with F selected opens with the chip pressed', (await S()).sel === 'F' && (await whole()).pressed === 'true', { sel: (await S()).sel, f: await whole() });
 // room: the chip is after the rail, the round F alone (its words are its label and tip):
