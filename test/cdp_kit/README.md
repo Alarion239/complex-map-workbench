@@ -22,7 +22,7 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
    alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that; a document whose body stops arriving
    is opened again after 5 s, at most twice, but a `#cmw=` link never is: its second document, which its open reloads into, can be slow, and a
-   navigation again would find the saved figure and ask instead of opening it; `go` waits on it for its limit and logs the stall); `settled({ until, floor,
+   navigation again would find the saved figure and ask instead of opening it; `go` waits on it for its limit and logs the stall). A suite that sends `Page.navigate` itself has none of this: `test/t_raw_navigates.js` counts those sites against `test/raw_navigates_baseline.json`, so open a page with `go` / `load` / `loadView`, or give a `raw-navigate: <why>` reason; `settled({ until, floor,
    max, panes, faces })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
    compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
    (8000), and answers `{ ok, ms, busy }`; with `faces: true` it also waits for the page's font faces to land (the layout is flushed first: a face is requested when its text is laid out).
