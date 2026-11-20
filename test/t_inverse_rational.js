@@ -269,6 +269,17 @@ for (const [e, deg] of RT) {
   }
 }
 
+// the order of RAT<n>'s roots: increasing Re u + 0.37 Im u, as the GLSL op orders them (which of Aberth's start points
+// finds which root depends on the rounding: at this w, next to the pole sqrt 3, float32 and float64 give 1.79 and 2.09
+// to different start points)
+{
+  const op = Inverse.stepOps(build('\\frac{z^{12}+z}{z^2-3}').b).ops[0];
+  for (const w of [C(5096.73583984375, -212.1465606689453), C(3, 0), C(-40, 7), C(1e10, 3e9)]) {
+    const ks = op.pre(w).map((r) => r.u.re + 0.37 * r.u.im);
+    check(`RAT12 at w = ${w.re} ${w.im < 0 ? '-' : '+'} ${Math.abs(w.im)}i: 12 roots in increasing Re + 0.37 Im`, ks.length === 12 && ks.every((k, i) => i === 0 || ks[i - 1] <= k), ks.map((k) => k.toFixed(4)).join(' '));
+  }
+}
+
 // =================================================================================================================
 // (d) degenerate values of w
 // =================================================================================================================
