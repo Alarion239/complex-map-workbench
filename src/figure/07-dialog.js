@@ -20,6 +20,8 @@
     return Object.assign({
       for: s.for, cols: s.cols, sizeId: s.size[sk] || null, customPt: s.customPt, text: s.text[s.for] || null,
       ink: s.ink, crop: cropOf(s), svPic: s.svPic === 'two' && A.svSurf() === 'land' ? 'plane' : s.svPic, svFrom: s.svFrom, svTo: s.svTo, axes: s.axes[s.for] || null, deform: s.deform,
+      // (a filmstrip over a Number: its name, first and last values ({re, im}) and frames)
+      film: s.film === 'number' && A.numbers && A.numbers().some((q) => q.name === s.numName) ? 'number' : 'planes', numName: s.numName, numFrom: A.numberParse ? A.numberParse(s.numFrom) : null, numTo: A.numberParse ? A.numberParse(s.numTo) : null, numN: s.numN,
       panels: s.panels || 'both', lang: capLangOf(s),
     }, extra || {});
   }
@@ -51,7 +53,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}.xf-nums{flex-wrap:wrap}.xf-nums input.xf-numv{width:7em}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -232,7 +234,45 @@
     }
     const svPlanesRow = A.svOn() ? row($t('Planes'), h('div', { class: 'xf-fmtrow xf-planes' }, h('span', null, $t('from')), fromSel, h('span', null, $t('to')), toSel)) : null;
     if (svPlanesRow) svPlanesRow.classList.add('wide');
-    function syncPlanes() { if (svPlanesRow) svPlanesRow.hidden = fmtOf() === 'video' || svPicOf() !== 'two'; }
+    // a filmstrip's source: the planes of the thread, or a Number at evenly spaced values: the Number, its first and last
+    // values (typed as its own field takes them, real or complex) and the frames. By default the Number's slider ends and
+    // four frames; the values are remembered for the same Number only
+    const nums = A.svOn() && A.numbers ? A.numbers() : [];
+    const filmOf = () => (set.film === 'number' && nums.length ? 'number' : 'planes');
+    const filmSeg = A.svOn() ? segB('xfFilmSrc', filmOf(), [['planes', $t('The planes')], ['number', $t('A Number')]], (v) => { set.film = v; syncPlanes(); changed(); }, $t('Filmstrip of')) : null;
+    const filmRow = filmSeg ? row($t('Filmstrip of'), filmSeg) : null;
+    if (filmRow) filmRow.classList.add('wide');
+    if (filmSeg && !nums.length) {
+      const nb = filmSeg.querySelector('[data-v="number"]'), why = $t('Add a Number to the formula first');
+      nb.setAttribute('aria-disabled', 'true'); nb.dataset.tip = why; nb.setAttribute('aria-description', why);
+    }
+    const numOf = () => nums.find((q) => q.name === set.numName) || nums[0] || null;
+    const numEnds = (q) => { set.numName = q.name; set.numFrom = String(q.min); set.numTo = String(q.max); };
+    if (nums.length) {
+      const q = numOf();
+      if (q.name !== set.numName || !A.numberParse(set.numFrom) || !A.numberParse(set.numTo)) numEnds(q);
+      if (!(set.numN >= 2 && set.numN <= 12)) set.numN = 4;
+    }
+    const numSel = h('select', { class: 'xf-select xf-num', id: 'xfNum', 'aria-label': $t('Number'), onchange: () => { numEnds(nums.find((q) => q.name === numSel.value)); numFrom.value = set.numFrom; numTo.value = set.numTo; changed(); } });
+    for (const q of nums) numSel.append(h('option', { value: q.name }, q.label));
+    // (a value that does not read as a number is marked and not taken: the last one that did stays)
+    const numInput = (id, label, key) => {
+      const el = /** @type {HTMLInputElement} */ (h('input', { type: 'text', class: 'xf-select xf-numv', id, 'aria-label': label, spellcheck: 'false' }));
+      el.addEventListener('change', () => { const ok = !!A.numberParse(el.value); el.setAttribute('aria-invalid', String(!ok)); if (ok) { set[key] = el.value.trim(); changed(); } });
+      return el;
+    };
+    const numFrom = numInput('xfNumFrom', $t('First value'), 'numFrom'), numTo = numInput('xfNumTo', $t('Last value'), 'numTo');
+    const numN = h('select', { class: 'xf-select xf-numn', id: 'xfNumN', 'aria-label': $t('Frames'), onchange: () => { set.numN = +numN.value; changed(); } });
+    for (let k = 2; k <= 12; k++) numN.append(h('option', { value: String(k) }, String(k)));
+    if (nums.length) { numSel.value = set.numName; numFrom.value = set.numFrom; numTo.value = set.numTo; numN.value = String(set.numN); }
+    const numRow = filmSeg && nums.length ? row($t('Number'), h('div', { class: 'xf-fmtrow xf-nums' }, numSel, h('span', null, $t('from')), numFrom, h('span', null, $t('to')), numTo, h('span', null, $t('Frames')), numN)) : null;
+    if (numRow) numRow.classList.add('wide');
+    function syncPlanes() {
+      const vid = fmtOf() === 'video';
+      if (svPlanesRow) svPlanesRow.hidden = vid || svPicOf() !== 'two';
+      if (filmRow) filmRow.hidden = vid || svPicOf() !== 'film';
+      if (numRow) numRow.hidden = vid || svPicOf() !== 'film' || filmOf() !== 'number';
+    }
     // (round 3) the format: PDF, PNG, SVG, and Video while the deformation is on; remembered
     injectCSS();
     // (a browser without a video encoder is told so at the format row, not after Save)
@@ -305,7 +345,7 @@
     const printBtn = h('button', { type: 'button', class: 'btn quiet xf-printbtn', id: 'xfPrintBtn', 'aria-expanded': 'false', onclick: () => { const on = printBox.dataset.open !== '1'; printBox.dataset.open = on ? '1' : '0'; printBtn.setAttribute('aria-expanded', String(on)); } }, $t('Print settings'));
     const printBox = h('div', { class: 'xf-print', 'data-open': matchMedia('(max-width: 560px)').matches ? '0' : '1' }, ...[forRow, sizeRow, inkRow, ...(capLangRow ? [capLangRow] : []), texRow, ftWrap]);
     printBtn.setAttribute('aria-expanded', String(printBox.dataset.open === '1'));
-    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
+    const ctl = h('div', { class: 'xf-ctl' }, fmtRow, printBtn, ...(svPicRow ? [svPicRow, svPlanesRow, filmRow, ...(numRow ? [numRow] : [])] : []), ...(deformRow ? [deformRow] : []), vidRow, printBox);
     // ---- the footer ----
     let nameEdited = false;
     const nameInp = h('input', { type: 'text', class: 'xf-nameinp', id: 'xfName', value: defaultName(view, deformOf(), fmtOf()), spellcheck: 'false', 'aria-label': $t('File name'), onchange: () => { changed(); }, oninput: () => { nameEdited = true; fitName(); } });

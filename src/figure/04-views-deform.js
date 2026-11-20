@@ -337,19 +337,16 @@
     boxes = boxes.map((b) => b || cam);
     return { boxes: boxes.every((b) => sameBox(b, cam)) ? null : boxes, fellBack };
   }
-  // The frames are laid out as the deformation's filmstrips (figFilmPic, figFilmPhase): 8 pt between frames, a title
-  // 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the frame and at least 2 pt
-  // of room right of it for the last x label
-  async function figSvFilm(o, P, W, T) {
-    const [tp, lp] = T;
-    const frames = A.svFrames(), n = frames.length, gap = 8;
+  // The frames of a filmstrip (figSvFilm, figNumFilm) laid out as the deformation's filmstrips (figFilmPic, figFilmPhase):
+  // 8 pt between frames, a title 4 pt above its frame (its height measured with that 4 pt), y tick labels 3 pt left of the
+  // frame and at least 2 pt of room right of it for the last x label. titles: the frames' typeset titles; artAt(i, opts):
+  // frame i's picture (svArt's options), in turn, null when cancelled; boxes: each frame's own window (its axes and
+  // ticks), or null for pictures with no axes. -> {items, defs, lines, H}, or null
+  async function filmGrid(o, P, W, T, titles, artAt, boxes) {
+    const [tp] = T;
+    const n = titles.length, gap = 8;
     const cols = Math.min(n, W >= 400 || o.for === 'slides' ? 4 : 3), rows = Math.ceil(n / cols);
     const ink = printInkFor(o, A.state().alpha);
-    // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
-    const fit = svFitBoxes(o, frames.map((f, i) => i));
-    let boxes = fit.boxes;
-    const fellBack = fit.fellBack;
-    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, lp));
     const tH = Math.max(...titles.map((it) => it.a + it.d + 4));
     // (with windows of their own, each frame carries its ticks: room for its y labels on the left and its x labels below)
     const roughW = (W - gap * (cols - 1)) / cols;
@@ -367,7 +364,7 @@
     for (let i = 0; i < n; i++) {
       // (rendered at SV_FILM_OVER times the frame's width: the frames are small, and the extra pixels keep thin level
       // lines sharp in print)
-      const r = await A.svArt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
+      const r = await artAt(i, Object.assign({ wpt: pw * SV_FILM_OVER, dpi: 300, ink, alive: o.alive }, boxes ? { box: boxes[i] } : {}));
       if (!r) return null;
       raws.push(r);
     }
@@ -378,7 +375,7 @@
       const x = (i % cols) * (mL + pw + mR + gap) + mL, y = Math.floor(i / cols) * (tH + ph + below + ROW_GAP) + tH, r = raws[i];
       if (boxes) {
         const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), boxes[i], { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
-        const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw });
+        const p = XD.panel({ x, y, w: pw, h: ph, box: boxes[i], step: steps[i], art: [a], curves: [], points: [], axes: 'box', ylab: 'left', tickPt: tp, labelPt: T[1], ink: '#000000', lw: P.lw });
         items.push(p.markup); defs += p.defs; lines.push(...p.lines);
       } else {
         const a = await XD.art(cropRGB(r, [0, r.w, 0, r.h]), { x0: 0, x1: 1, y0: 0, y1: 1 }, { mode: o.ink === 'bw' ? 'grey' : 'rgb', wpt: pw });
@@ -388,9 +385,40 @@
       }
       items.push(XD.at(titles[i], x, y - 4 - titles[i].d, 'start', 'base', 'title'));
     }
+    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2 };
+  }
+  async function figSvFilm(o, P, W, T) {
+    const frames = A.svFrames();
+    // (fellBack: a frame keeps the camera's window, so the caption says the windows are the planes' own where they fit)
+    const fit = svFitBoxes(o, frames.map((f, i) => i));
+    const boxes = fit.boxes;
+    const titles = frames.map((f) => XD.tex(f.f ? `${f.name}=${f.f}(${f.prev})` : f.name, T[1]));
+    const body = await filmGrid(o, P, W, T, titles, (i, opts) => A.svArt(i, opts), boxes);
+    if (!body) return null;
     // (ownWin: the frames' windows differ, which the caption says)
     const ownWin = !!boxes && boxes.some((b) => !sameBox(b, boxes[0]));
-    return { items, defs, lines, H: rows * (tH + ph + below + ROW_GAP) - 2, info: { svFilm: true, frames, ownWin, fellBack: ownWin && fellBack, boxes } };
+    return Object.assign(body, { info: { svFilm: true, frames, ownWin, fellBack: ownWin && fit.fellBack, boxes } });
+  }
+  // a filmstrip over a Number: the shown plane's picture at o.numN values of the Number o.numName, evenly from o.numFrom to
+  // o.numTo ({re, im}: along the segment between them for a complex Number), each titled with its value, laid out as the
+  // planes' filmstrip. The Number is set as a change at rest and the app settles before each frame is drawn (A.numberAt);
+  // it is back at its value and range at the end, also when the build is cancelled (A.numberHold)
+  const NUM_FILM_MIN = 2, NUM_FILM_MAX = 12;
+  async function figNumFilm(o, P, W, T) {
+    const nu = A.numbers().find((q) => q.name === o.numName);
+    const a = o.numFrom, b = o.numTo, n = Math.max(NUM_FILM_MIN, Math.min(NUM_FILM_MAX, Math.round(o.numN) || 4));
+    if (!nu || !a || !b) return null;
+    const vals = Array.from({ length: n }, (_, i) => ({ re: a.re + (b.re - a.re) * i / (n - 1), im: a.im + (b.im - a.im) * i / (n - 1) }));
+    const labs = vals.map((v) => cxTexL({ re: +v.re.toPrecision(6), im: +v.im.toPrecision(6) }));
+    const titles = labs.map((l) => XD.tex(`${nu.tex}=${l}`, T[1]));
+    const k = A.svIndex(), release = A.numberHold(nu.name);
+    if (!release) return null;
+    let body;
+    try {
+      body = await filmGrid(o, P, W, T, titles, async (i, opts) => ((await A.numberAt(nu.name, vals[i], o.alive)) ? A.svArt(k, opts) : null), null);
+    } finally { release(); }
+    if (!body) return null;
+    return Object.assign(body, { info: { numFilm: true, num: nu.tex, labs, plane: A.svFrames()[k].name } });
   }
   // the steps view's two-plane figure: plane o.svFrom and plane o.svTo of the thread (indexes into A.svFrames(); by
   // default z and the last plane) side by side, each as the Shown plane exports it, each headed by its name, with the
