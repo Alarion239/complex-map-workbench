@@ -13,8 +13,10 @@ const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'plane_key_kit.js'), 
 const fails = [], info = {};
 const PAD = 7;       // the hit area's reach beyond the 30 px glyph on each side (44 = 30 + 2 x 7), px: the folded key's ::before, whose inset is measured from the padding box, so the page's value is PAD + the glyph's border
 const OUT = 21.5;    // how far out from the glyph's centre the hit probes go, px: inside the 44 px area (22 from the centre), outside a 42 px one
+const GLYPH = 30;    // the folded key's glyph, px
+const LAND_TOP = 12;  // the least a landscape phone's folded key stands under the plane's top, px: the 8 px hit area and a 4 px gap
 const UI_WAIT = 5000;   // how long a toast may take to go and the card to unfold, ms
-const WIDTHS = [[412, 860, 'en'], [360, 740, 'en'], [320, 640, 'en'], [320, 640, 'ru'], [740, 360, 'en'], [667, 375, 'ru']];   // width, height, language (the last two are landscape phones)
+const WIDTHS = [[412, 860, 'en'], [360, 740, 'en'], [320, 640, 'en'], [320, 640, 'ru'], [740, 360, 'en'], [667, 375, 'ru'], [568, 320, 'en']];   // width, height, language (the last three are landscape phones)
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the key element's rect, its plane's rect, the screen, and what is on top at its middle and near its corners
 const probe = (pad = 0) => ev(`(() => {
@@ -29,6 +31,8 @@ const probe = (pad = 0) => ev(`(() => {
   return { shown: true, collapsed: k.classList.contains('collapsed'), open: k.classList.contains('open'), w: r(b.width), h: r(b.height),
     inPlane: b.left >= q.left - 0.5 && b.right <= q.right + 0.5 && b.top >= q.top - 0.5 && b.bottom <= q.bottom + 0.5,
     onScreen: b.left >= 0 && b.right <= innerWidth && b.top >= 0 && b.bottom <= innerHeight, top: pts, vw: innerWidth,
+    // (the globe key of the plane's column, and the plane: the folded key's centre stands level with the globe key's)
+    globe: (() => { const g = document.querySelector('#plotL > .ph-col .ph-sph'); if (!g || !g.getClientRects().length) return null; const gb = g.getBoundingClientRect(); return { cy: r(gb.top + gb.height / 2), top: r(gb.top) }; })(), plotTop: r(q.top), cy: r(b.top + b.height / 2), keyTop: r(b.top),
     // (how far the invisible ::before reaches beyond the glyph's border box on each side: its inset from the padding box less the border)
     reach: (() => { const bs = getComputedStyle(k), ps = getComputedStyle(k, '::before'), bw = parseFloat(bs.borderTopWidth) || 0;
       return ['top', 'right', 'bottom', 'left'].map((d) => r(-parseFloat(ps[d]) - bw)); })(),
@@ -55,6 +59,11 @@ for (const [w, h, lang] of WIDTHS) {
     ok(`${name}: the folded key shows on the phone, whole, and nothing covers it`, pr.shown && pr.collapsed && pr.inPlane && pr.onScreen && pr.top.every((t) => t === ''), pr);
     ok(`${name}: the folded key's hit area reaches ${PAD} px past the glyph on each side, as the suite measures it`, pr.reach.every((x) => x === PAD), pr.reach);
     ok(`${name}: the folded key does not cover the readout chip`, !pr.readout, pr.readout);
+    // (a landscape phone: the 30 px glyph is centred on the globe key's 44 px, unless that puts it above LAND_TOP px under the plane's top, where it stands at LAND_TOP; portrait keeps the key at the top of the plane)
+    if (w > h) {
+      const wantTop = pr.globe ? Math.max(pr.plotTop + LAND_TOP, pr.globe.cy - GLYPH / 2) : null;   // (the Landscape has no globe key)
+      if (pr.globe) ok(`${name}: the folded key is level with the globe key (centres within 1 px; at ${LAND_TOP} px under the plane's top where the globe is higher)`, Math.abs(pr.keyTop - wantTop) <= 1, { globe: pr.globe, plotTop: pr.plotTop, keyTop: pr.keyTop, wantTop });
+    }
     ok(`${name}: the folded key has a 44 px hit area: the key is on top at its centre and 21.5 px out from it on each side, and the padded box meets no other button`, pr.hit.every((t) => t === '') && pr.meets.length === 0, { hit: pr.hit, meets: pr.meets });
     // (a tap unfolds the card: it is as whole and as uncovered as the glyph, and larger than it)
     await ev(`(document.getElementById('leftLegend').click(), 1)`);
