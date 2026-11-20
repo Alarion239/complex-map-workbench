@@ -58,13 +58,40 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
 }
 `;
   }
+  // GLSL of an op's D roots in their order (InvOps' ROOT_ORDER): ${P}_r and ${P}_k, root i and whether it is kept, and
+  // _order, which sorts them by increasing Re + 0.37 Im (the kept ones first) and then keeps a root only when it is
+  // apart from every earlier kept one (within dedupe (1 + |z|)). Which start point of Aberth's sweeps converges to which
+  // root differs between float32 and float64 where two roots are near; this order is the CPU's. The polynomial NEWT
+  // op's and RAT<n>'s for n >= 5
+  function orderFns(P, D, dedupe) {
+    return `vec2 ${P}_r[${D}];
+bool ${P}_k[${D}];
+void ${P}_order() {
+  float o[${D}];
+  for (int i = 0; i < ${D}; i++) {
+    vec2 v = ${P}_r[i];
+    bool ok = ${P}_k[i];
+    float key = ok ? v.x + 0.37 * v.y : 3e38;
+    int m = i;
+    for (int k = ${D - 1}; k > 0; k--) {
+      if (k > m) continue;
+      if (o[k - 1] <= key) break;
+      o[k] = o[k - 1]; ${P}_r[k] = ${P}_r[k - 1]; ${P}_k[k] = ${P}_k[k - 1]; m = k - 1;
+    }
+    o[m] = key; ${P}_r[m] = v; ${P}_k[m] = ok;
+  }
+  for (int i = 1; i < ${D}; i++) {
+    for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (${P}_k[i] && ${P}_k[m] && cx_abs(${P}_r[i] - ${P}_r[m]) <= ${dedupe} * (1.0 + cx_abs(${P}_r[m]))) ${P}_k[i] = false; }
+  }
+}
+`;
+  }
   // GLSL of RAT<n> for n >= 5 (InvOps.opRatN by aberthRoots), op j with parameters at uInv[c ...]: P's coefficients
   // p_n ... p_0 two to a cell, then Q's from cell half. Once per w, _roots sets _A, the low-first coefficients
   // a_k = p_(n-k) - w q_(n-k) of p - w q (which _a reads, so Aberth's sweeps fetch no uniform), drops the degree where a
   // leading coefficient is what cancellation leaves, below 1e-14 of |p_(n-k)| + |w| |q_(n-k)| (InvOps.ratPoly's drop, as
-  // RAT3's and RAT4's _deg), and keeps Aberth's roots (aberthFns), each polished by two Newton steps on p - w q, in
-  // increasing Re + 0.37 Im (aberthRoots' ROOT_ORDER; the finite ones first), each when finite and apart from every
-  // earlier one; root b's derivative (p/q)' by Horner on P and Q
+  // RAT3's and RAT4's _deg), and keeps Aberth's roots (aberthFns), each polished by two Newton steps on p - w q, the
+  // finite ones in their order (orderFns); root b's derivative (p/q)' by Horner on P and Q
   function ratAberthFns(n, j, c, NOR, dedupe) {
     const P = `ix${j}`, half = Math.ceil((n + 1) / 2);
     const cell = (i, from) => `(${i} & 1) == 0 ? uInv[${c + from} + ${i} / 2].xy : uInv[${c + from} + ${i} / 2].zw`;
@@ -80,9 +107,7 @@ ${aberthFns(P, n)}void ${P}_pq(vec2 u, out vec2 pu, out vec2 qu, out vec2 dp, ou
 }
 bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
-vec2 ${P}_r[${n}];
-bool ${P}_k[${n}];
-void ${P}_roots(vec2 w) {
+${orderFns(P, n, dedupe)}void ${P}_roots(vec2 w) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
   float sz[${n + 1}];
@@ -95,23 +120,12 @@ void ${P}_roots(vec2 w) {
   vec2 z[${n}];
   ${P}_start(w, de, z);
   ${P}_aberth(w, de, z, ${Inverse.NEWT_ABERTH_IT});
-  float o[${n}];
   for (int i = 0; i < ${n}; i++) {
     vec2 v = z[i];
     for (int it = 0; it < 2; it++) { vec2 q, dq; ${P}_ev(v, w, de, q, dq); vec2 st = cdiv(q, dq); if (ixFin(st)) v -= st; }
-    bool ok = i < de && ixFin(v);
-    float key = ok ? v.x + 0.37 * v.y : 3e38;
-    int m = i;
-    for (int k = ${n - 1}; k > 0; k--) {
-      if (k > m) continue;
-      if (o[k - 1] <= key) break;
-      o[k] = o[k - 1]; ${P}_r[k] = ${P}_r[k - 1]; ${P}_k[k] = ${P}_k[k - 1]; m = k - 1;
-    }
-    o[m] = key; ${P}_r[m] = v; ${P}_k[m] = ok;
+    ${P}_r[i] = v; ${P}_k[i] = i < de && ixFin(v);
   }
-  for (int i = 1; i < ${n}; i++) {
-    for (int m = 0; m < ${n}; m++) { if (m >= i) break; if (${P}_k[i] && ${P}_k[m] && cx_abs(${P}_r[i] - ${P}_r[m]) <= ${dedupe} * (1.0 + cx_abs(${P}_r[m]))) ${P}_k[i] = false; }
-  }
+  ${P}_order();
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${n} : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
@@ -123,7 +137,7 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
   }
-  return { NEWT_STEP_TOL, aberthFns, ratAberthFns };
+  return { NEWT_STEP_TOL, aberthFns, orderFns, ratAberthFns };
 })();
 import { Inverse } from './inverse.js';
 export { GLSLRoots };

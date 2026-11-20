@@ -256,9 +256,14 @@ const InvOps = (() => {
   // roots of unity (newtPolyCoeffs); its degree at t, de, is the last coefficient above NEWT_POLY_EPS of the largest
   // (a homotopy pieced from several steps may have a lower one). Aberth's simultaneous iteration (newtAberth) finds the
   // de roots of a(u) - w from de points on the circle of Fujiwara's bound, rotated by NEWT_ABERTH_ROT; a root is then
-  // polished by Newton on H_t itself, as the other members are, and kept when it hits w and differs from every earlier
-  // one. glsl.js's NEWT runs the same iteration in float32 from the same start.
+  // polished by Newton on H_t itself, as the other members are; the roots that hit w are taken in increasing
+  // ROOT_ORDER, each m its place, and kept when it differs from every earlier one. glsl.js's NEWT runs the same iteration
+  // in float32 from the same start and orders its roots the same way (GLSLRoots.orderFns).
   const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4;
+  // the order of a polynomial's roots, here and in GLSL: increasing Re u + 0.37 Im u. Which of Aberth's start points
+  // converges to which root differs between float64 and float32 where two roots are near; the order of the roots does
+  // not (it changes only where two keys are equal; the direction 0.37 keeps conjugate roots apart)
+  const ROOT_ORDER = (u) => u.re + 0.37 * u.im;
   function newtPolyCoeffs(g, d) {
     const M = d + 1, v = [];
     for (let m = 0; m < M; m++) v.push(g(C(Math.cos(2 * Math.PI * m / M), Math.sin(2 * Math.PI * m / M))));
@@ -336,9 +341,9 @@ const InvOps = (() => {
           const aw = a.slice(0, de + 1);
           aw[0] = sub(aw[0], w);
           const out = [];
-          newtAberth(aw, de, newtAberthStart(aw, de)).forEach((z, m) => {
-            const v = isFin(z) ? polishAt(z, w) : null;
-            if (v && hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m }));
+          const vs = newtAberth(aw, de, newtAberthStart(aw, de)).map((z) => (isFin(z) ? polishAt(z, w) : null)).filter((v) => v && hits(v, w));
+          vs.sort((u, v) => ROOT_ORDER(u) - ROOT_ORDER(v)).forEach((v, m) => {
+            if (out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m }));
           });
           return out;
         },
@@ -536,10 +541,7 @@ const InvOps = (() => {
   // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX, its leading coefficient exact (a zero
   // one aside: ratPoly decides which leading coefficients are rounding), by Aberth's iteration (newtAberth from
   // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
-  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them: which start point converges to
-  // which root differs between float64 and float32 where two roots are near, the order of the roots does not (it
-  // changes only where two keys are equal; the direction 0.37 keeps conjugate roots apart)
-  const ROOT_ORDER = (u) => u.re + 0.37 * u.im;
+  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them (GLSLRoots.orderFns)
   function aberthRoots(co) {
     const i = co.findIndex((x) => !isZero(x)), c = i < 0 ? [] : co.slice(i), n = c.length - 1;
     if (n < 1) return [];

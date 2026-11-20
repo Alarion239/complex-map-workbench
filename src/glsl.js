@@ -2338,7 +2338,7 @@ vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int n, int k) {
   // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
   // its step is within NEWT_STEP_TOL (1 + |z|))
   const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3';
-  const { NEWT_STEP_TOL, aberthFns, ratAberthFns } = GLSLRoots;
+  const { NEWT_STEP_TOL, aberthFns, orderFns, ratAberthFns } = GLSLRoots;
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
   // InvOps.opNewt's full step with _fd's derivative; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at
@@ -2460,8 +2460,8 @@ bool ${P}_one_b(inout Lf L, int b) {
   // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
   // a_0; _ev, _start and _aberth, Aberth's iteration (aberthFns); _poly, H_t(u) = a(u); _roots, every root for w, polished and checked by Newton
   // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
-  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
-  // from every earlier one, once per w. With the NEWT roots pass
+  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map), in their order and kept
+  // when it differs from every earlier one (orderFns), once per w. With the NEWT roots pass
   // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
@@ -2477,10 +2477,8 @@ bool ${P}_one_b(inout Lf L, int b) {
   return k == 0 ? a - w : a;
 }
 ${aberthFns(P, D)}vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
-${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}bool ${P}_has = false;
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}${orderFns(P, D, NEWT_DEDUPE)}bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
-vec2 ${P}_r[${D}];
-bool ${P}_k[${D}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
@@ -2514,9 +2512,9 @@ ${fetch('uNrPrev')}
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
     bool ok = i < de && ixFin(v) && ${P}_settle(v, w, t);
-    for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
+  ${P}_order();
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${D} : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
