@@ -1160,7 +1160,7 @@
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
   // (a key is a button on a phone and in a pane's head: a name, a place in the focus order, aria-expanded (the fold's on a
-  // phone, the panel's in a head, which Enter, Space and Escape open and shut: setupKeyPop). A key lying open on the plane
+  // phone, the panel's in a head, which Enter, Space and Escape open and shut: setupPaneButtons). A key lying open on the plane
   // off the phone takes role img and leaves the focus order)
   function legendKeyButton(box, name) {
     const par = box.parentNode, head = !!par && (/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
