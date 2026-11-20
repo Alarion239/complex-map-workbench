@@ -70,11 +70,6 @@
   "ru": "Сыграть композицию (Григ, переложенный на эту кривую)",
   "note": "S9: the curve menu, a composed curve"
  },
- "hear.piece_chip": {
-  "en": "Playing the composition · Esc stops",
-  "ru": "Звучит композиция · Esc — стоп",
-  "note": "S10: the chip over X (desktop)"
- },
  "hear.piece_chip_ph": {
   "en": "Playing the composition",
   "ru": "Звучит композиция",
@@ -204,11 +199,6 @@
   "en": "Preparing to listen along: {p} %",
   "ru": "Готовим прослушивание: {p} %",
   "note": "X's chip while Listen along prepares a costly F's samples (phone: no room for Esc)."
- },
- "hear.prep.chipEsc": {
-  "en": "Preparing to listen along: {p} % · Esc stops",
-  "ru": "Готовим прослушивание: {p} % · Esc — стоп",
-  "note": "X's chip while Listen along prepares a costly F's samples (desktop)."
  },
  "hear.qoff": {
   "en": "Hear the function under the pointer is off: turn it on in the Sound menu to hear the point.",

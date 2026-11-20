@@ -1,10 +1,5 @@
 {
  "_about": "v16.5 wave 1, the plane piece (work/xu1-plane, notes/ux-build/w1-plane-AS-BUILT.md). id -> {en, ru, ctx?, note}. Read after every v16.4 table by tools/make_ru_table.py (V165_PLANE_HERE). Edit by read-modify-write only.",
- "cell.refit": {
-  "en": "The pattern cell is now {x}, fitted to the shapes; Display → Cell changes it.",
-  "ru": "Клетка узора теперь {x}: она подобрана по фигурам; изменить её можно в «Вид → Клетка».",
-  "note": "UX91 toast, once per session when an added shape refits the cell."
- },
  "poly.chip.touch": {
   "en": "Tap the first point to close · Undo removes the last point",
   "ru": "Коснитесь первой точки, чтобы замкнуть · «Отменить» убирает последнюю точку",
@@ -29,11 +24,6 @@
   "en": "Line grid",
   "ru": "Сетка линий",
   "note": "UX86 the drawing tool (was «Сетка»)."
- },
- "pat.grid": {
-  "en": "Square grid",
-  "ru": "Квадратная сетка",
-  "note": "UX86 the pattern (was «Сетка»)."
  },
  "probe.teach": {
   "en": "Hold and slide to read F(z)",
