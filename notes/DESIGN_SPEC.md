@@ -322,6 +322,8 @@ The ink family is the images of vertical lines; the accent family is the images 
 
 Labels are verbs in sentence case ("Add function", "Clear chain", "Reset camera"). Never append "→".
 
+**A pane head's trigger that holds a pop-up open** (the Display options ⋯, the Regions button, the key chip, and the steps view's Where colour shows and Surface menu buttons) adds a 1px inset `--ink-2` ring to its `--well` fill, because `--well` alone is about 1.06:1 on the head and a pressed state needs 3:1 (`test/head_press_cmd.js`).
+
 ### 5.5 Inputs
 - **Text field.** 28px (24 in cards), padding 0 8px, `--well`, 1px `--line`, `--r-2`; math text in `--t-readout`, plain text in `--t-body`. Hover: border `--line-strong`. Focus: `--surface`, border `--accent`, `box-shadow: 0 0 0 1px var(--accent)`. Invalid: border `--error` and an 11.5px `--error` message saying what to fix ("Expected a number like 1+2i or e^{iπ/4}"); in cards it is a tooltip-style bubble so the card never grows.
 - **Formula field** (region formula, custom *f*, coefficients). The field with a primary "Add" joined to its right edge. Below it a **preview strip** (`--well`, min-height 28, MathJax 13.5); on a parse error it shows the message and the offending token gets a wavy `--error` underline. Below that, **example tags**: 22px, `--r-1`, 1px `--line`, typeset at 12px (never raw LaTeX), six plus "More examples".
