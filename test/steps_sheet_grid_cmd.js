@@ -16,6 +16,17 @@ const CHOICE_TARGET = 48;   // (px: a colour-style choice)
 const SETTLE_FLOOR = 300;   // (ms the page stays quiet before a state is read)
 const SHEET_FLOOR = 700;   // (ms to let the sheet finish opening before it is measured)
 const ns = 'svsg' + Date.now();
+// a control's accessible name as the browser computes it (CDP Accessibility: a name from a list of aria-labelledby ids, or a label, is
+// what a voice-control user says), for the i-th element that selector matches, in document order
+const axName = async (selector, i = 0) => {
+  const { root } = await send('DOM.getDocument', { depth: 0 });
+  const { nodeIds } = await send('DOM.querySelectorAll', { nodeId: root.nodeId, selector });
+  if (!nodeIds[i]) return null;
+  const { nodes } = await send('Accessibility.getPartialAXTree', { nodeId: nodeIds[i], fetchRelatives: false });
+  const n = nodes && nodes[0];
+  return n && !n.ignored && n.name ? n.name.value : null;
+};
+await send('Accessibility.enable', {});
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 'circle', c: [0.3, 0.2], r: 0.8, ci: 0, visible: true }],
   steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 const open = async (w, lang, past) => {
@@ -57,13 +68,17 @@ const numChoice = () => ev(`(() => {
   const r = b.getBoundingClientRect(), row = b.parentElement.getBoundingClientRect(), sheet = document.querySelector('.ph-sheet').getBoundingClientRect();
   return { tag: b.tagName, popup: b.getAttribute('aria-haspopup'), h: r.height, rowFree: row.right - r.right, inside: r.right <= sheet.right && r.left >= sheet.left, name: b.getAttribute('aria-label') };
 })()`);
-const slider = () => ev(`(() => {
+const slider = async () => {
+  const r = await sliderRead();
+  return r && Object.assign(r, { named: await axName('.ph-sheet .fader-row input[type="range"]') });
+};
+const sliderRead = () => ev(`(() => {
   const row = document.querySelector('.ph-sheet .fader-row'); if (!row) return null;
   const rng = row.querySelector('input[type="range"]'), v = row.querySelector('.fval'), lab = row.querySelector('.fl'), r = (e) => e.getBoundingClientRect(), pr = r(row.parentElement);
   return { rowFree: pr.width - r(row).width, rngW: r(rng).width, rowW: r(row).width, rngH: r(rng).height, valRight: r(row).right - r(v).right, valLeftOfLabel: r(v).left < r(lab).right,
     tab: getComputedStyle(v).fontVariantNumeric, text: v.textContent, vt: rng.getAttribute('aria-valuetext'),
     ranges: [...document.querySelectorAll('.ph-sheet input[type="range"]')].filter((i) => i.getClientRects().length && /opacity|alpha/i.test(i.id + ' ' + i.className)).length,
-    labShown: lab.getClientRects().length > 0, named: (document.getElementById(rng.getAttribute('aria-labelledby')) || {}).textContent, groupLabel: row.closest('.ph-grp').firstElementChild.textContent };
+    labShown: lab.getClientRects().length > 0, groupLabel: row.closest('.ph-grp').firstElementChild.textContent };
 })()`);
 // the sheet's controls: each visible control's kind and its name, and the targets that are too small (a checkbox is its label's target)
 const controls = () => ev(`(() => {
@@ -152,10 +167,12 @@ ok('the sheet shows the opacity, grid step and mesh sliders', ['opacityRange', '
 ok('each slider\'s aria-valuetext is its readout\'s text (opacity "85 %", grid step "×1", mesh "240")', said.length > 0 && said.every((x) => x.text && x.said === x.text), said);
 ok('the readout is not the raw slider position (the mesh slider\'s position is not 240)', said.some((x) => x.id === 'meshRange' && x.value !== x.text), said);
 // (#1642, label in name: a voice-control user says what they see) each slider's accessible name contains its visible label
-const sliderNames = await ev(`(() => [...document.querySelectorAll('.ph-sheet input[type="range"]')].filter((i) => i.getClientRects().length).map((i) => {
-  const row = i.closest('.fader-row'), fl = row && row.querySelector('.fl'), lab = i.getAttribute('aria-labelledby'), head = lab && document.getElementById(lab);
-  return { id: i.id || i.className, visible: fl && fl.getClientRects().length ? fl.textContent.trim() : null, name: head ? head.textContent.trim() : i.getAttribute('aria-label') || '' };
-}))()`);
+const sliderRows = await ev(`(() => [...document.querySelectorAll('.ph-sheet input[type="range"]')].map((i, k) => {
+  const row = i.closest('.fader-row'), fl = row && row.querySelector('.fl');
+  return i.getClientRects().length ? { k, id: i.id || i.className, visible: fl && fl.getClientRects().length ? fl.textContent.trim() : null } : null;
+}).filter(Boolean))()`);
+const sliderNames = [];
+for (const r of sliderRows) sliderNames.push({ id: r.id, visible: r.visible, name: (await axName('.ph-sheet input[type="range"]', r.k)) || '' });
 info.sliderNames = sliderNames;
 ok('each slider\'s accessible name contains its visible label (the mesh slider\'s "Mesh quality")', sliderNames.some((x) => x.id === 'meshRange' && x.visible) && sliderNames.every((x) => !x.visible || x.name.toLowerCase().includes(x.visible.toLowerCase())), sliderNames);
 // a style chosen in the open sheet refills it: the settings that style has (n for Tiles, the grid step for Grid) replace the old style's
@@ -211,4 +228,26 @@ ok('on the Landscape surface the Height group holds the Height choice, the Scale
 ok('on the Landscape surface the Colouring choice is under Colour style', !!styleIds && styleIds.includes('landPaint'), styleIds);
 const overlays = await ev(idsIn('Overlays'));
 ok('on the Landscape surface Overlays holds none of the Height, Scale, View or Colouring controls', !!overlays && !overlays.some((i) => i === 'landPaint' || HEIGHT_GROUP.includes(i)), overlays);
+// The Style row is in Colour style, and the Landscape's Colouring is named by that group's heading
+const styleRow = await ev(`(() => { const r = document.querySelector('.ph-sheet .ph-style'), g = r && r.closest('.ph-grp'), lp = document.getElementById('landPaint'), lab = lp && lp.getAttribute('aria-labelledby'), head = lab && document.getElementById(lab);
+  return { shown: !!r && r.getClientRects().length > 0, group: g && g.querySelector('h3') && g.querySelector('h3').textContent, labelledBy: head ? head.textContent : null }; })()`);
+ok('on the Landscape surface the Style row is in the Colour style group', styleRow.shown && styleRow.group === 'Colour style', styleRow);
+ok('on the Landscape surface the Colouring choice is named by the Colour style heading', styleRow.labelledBy === 'Colour style', styleRow);
+// (#1640) Reset camera is a camera control, not an overlay: on the Landscape it follows View in the Height group, on the Sphere it
+// has a group of its own, View; either way its name is shown beside the icon (read as the user sees it: innerText and the word's
+// computed display and width, not textContent, which holds the word while it is display: none)
+const camOf = () => ev(`(() => { const b = document.querySelector('.ph-sheet [aria-label="Reset camera"]'), g = b && b.closest('.ph-grp'), prev = b && b.previousElementSibling;
+  return b ? { group: g && g.querySelector('h3') && g.querySelector('h3').textContent, after: prev && prev.id, shown: b.innerText.trim(), word: (() => { const w = b.querySelector('.cr-t'); return w ? { display: getComputedStyle(w).display, width: Math.round(w.getBoundingClientRect().width) } : null; })(), name: b.getAttribute('aria-label'), h: Math.round(b.getBoundingClientRect().height) } : null; })()`);
+const camLand = await camOf();
+ok('on the Landscape surface Reset camera follows View in the Height group, its name shown', !!camLand && camLand.group === 'Height' && camLand.after === 'viewSeg' && camLand.shown === 'Reset camera' && !!camLand.word && camLand.word.display !== 'none' && camLand.word.width > 0 && camLand.h >= 44, camLand);
+await ev(`document.querySelector('.ph-sheet .ph-x').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+await ev(`__cmwSteps({ surf: 'sphere' }); 1`);
+await settled({ max: 60000 });
+await ev(`document.querySelector('.ph-dsp').click(); 1`);
+await settled({ floor: SHEET_FLOOR });
+const camSphere = await camOf();
+ok('on the Sphere Reset camera is in a group of its own, View, its name shown', !!camSphere && camSphere.group === 'View' && camSphere.shown === 'Reset camera' && !!camSphere.word && camSphere.word.display !== 'none' && camSphere.word.width > 0 && camSphere.h >= 44, camSphere);
+const sphereOverlays = await ev(`(() => { const g = [...document.querySelectorAll('.ph-sheet .ph-grp')].find((e) => e.querySelector('h3') && e.querySelector('h3').textContent === 'Overlays'); return g ? !!g.querySelector('[aria-label="Reset camera"]') : false; })()`);
+ok('on the Sphere Overlays does not hold Reset camera', sphereOverlays === false, sphereOverlays);
 return { pass: fails.length === 0, fails, info };

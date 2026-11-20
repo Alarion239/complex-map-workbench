@@ -67,16 +67,19 @@ for (const lang of ['en', 'ru']) for (const [w, h] of [[390, 844], [360, 740]]) 
   ok(`${tag}: the message is inside the window`, m.win, m.toast);
 }
 // ---- a message through a rotation
-for (const [from, to, want0, want1] of [[[360, 640], [740, 360], 'two', 'one'], [[740, 360], [360, 640], 'one', 'two']]) {
-  const tag = `en ${from.join('×')} → ${to.join('×')}, a message up through the turn`;
+for (const [from, to, want0, want1, sheet] of [[[360, 640], [740, 360], 'two', 'one', false], [[740, 360], [360, 640], 'one', 'two', false], [[360, 640], [740, 360], 'two', 'one', true]]) {
+  const tag = `en ${from.join('×')} → ${to.join('×')}${sheet ? ' with the Display sheet open' : ''}, a message up through the turn`;
   await open(from[0], from[1], 'en');
+  if (sheet) { await ev(`Phone.open('display'), 1`); await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="display"].open')` }); }
   await show(SHORTISH, 'Undo');
   await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]')` });
   const a = await still();
   ok(`${tag}: before the turn it has ${want0} row${want0 === 'two' ? 's' : ''} (control)`, !!a && a.rows === want0, a);
   await view(to[0], to[1], false, true);
   await settled({ max: SETTLE_MAX, panes: false, until: `innerWidth === ${to[0]}` });
-  await sleep(600);
+  // (the rows are chosen again once per width: wait for them to be what the new width needs, then for the layout to be still)
+  const rowsNow = await settled({ max: SETTLE_MAX, only: true, panes: false, until: `(document.querySelector('#toastHost .toast') || {}).dataset && document.querySelector('#toastHost .toast').dataset.rows === '${want1}'` });
+  ok(`${tag}: the rows become ${want1} within ${SETTLE_MAX} ms`, rowsNow.ok, rowsNow);
   const b = await still();
   info[tag] = { a, b };
   ok(`${tag}: after the turn it has ${want1} row${want1 === 'two' ? 's' : ''}`, !!b && b.rows === want1, b);

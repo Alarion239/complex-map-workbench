@@ -3,6 +3,8 @@
 // until(expr, max) waits for one condition (an expression in the page) and records a failure that names it when it has not
 // come true by max ms; the options of the factory set the suite's default max and, with only, wait for the condition alone
 // (polled, with no animation frames) where the page's own quiet would use up a time-limited state.
+// still(read, step, limit): read() (an async reading of the page, JSON-comparable) again every step ms until two readings
+// in a row agree, and that reading; the last one if none has by limit ms (the default max).
 ({ settled, ev, sleep, fails, max = 8000, only = false }) => {
   const until = async (expr, ms = max) => { const r = await settled({ until: expr, max: ms, only }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
   // a tap on it would reach it and stay on it: it is inside the open sheet (the app scrolls the card it added into view
@@ -30,5 +32,10 @@
   };
   // the sheet of this kind is open and has finished sliding; `split`: the planes have been resized above it
   const sheetSettled = (kind, split) => `(() => { const sh = document.querySelector('.ph-sheet'); const r = document.documentElement; return Phone._state().kind === '${kind}' && Phone._state().split === ${!!split} && !!sh && !sh.hidden && sh.classList.contains('open') && !r.classList.contains('ph-ride') && sh.getAnimations().length === 0; })()`;
-  return { until, reachable, sheetSettled };
+  const still = async (read, step, limit = max) => {
+    let a = JSON.stringify(await read());
+    for (let i = 0; i < limit / step; i++) { await sleep(step); const b = JSON.stringify(await read()); if (a === b) return JSON.parse(b); a = b; }
+    return JSON.parse(a);
+  };
+  return { until, reachable, sheetSettled, still };
 };

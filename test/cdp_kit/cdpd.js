@@ -6,6 +6,9 @@ const path = require('path');
 const fs = require('fs');
 const DIR = __dirname;
 const Q = path.join(DIR, 'q');
+// a file the runner waits for (READY, N.out, FATAL; ci/browser.js polls for it and reads it as soon as it exists): written beside
+// it and renamed into place, so it appears whole (a rename within one file system is atomic), never empty or part written
+const writeWhole = (f, data) => { fs.writeFileSync(f + '.tmp', data); fs.renameSync(f + '.tmp', f); };
 fs.mkdirSync(Q, { recursive: true });
 // (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
 // and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
@@ -119,8 +122,7 @@ H.ev = async (expr, timeout = 20000) => {
   return r && typeof r === 'object' && Object.keys(r).length === 1 && typeof r.__exc === 'string' ? faultAnswer(r, ['__exc'], `ev ${JSON.stringify(String(expr).slice(0, 160))}: ${r.__exc.slice(0, 300)}`) : r;
 };
 // evJson(expr, timeout): ev() of an expression that answers a JSON string (JSON.stringify(...) in the page), parsed. A page
-// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception, where
-// JSON.parse of ev()'s { __exc } answer would throw "[object Object]" is not valid JSON.
+// exception, or an answer that is not a string, throws an Error that names the expression and the page's exception.
 H.evJson = async (expr, timeout) => {
   const r = await H.ev(expr, timeout);
   const what = JSON.stringify(String(expr).slice(0, 160));
@@ -132,7 +134,15 @@ const evRaw = async (expr, timeout = 20000) => {
   const t0 = Date.now();
   const group = 'ev';
   const fail = (d) => ({ __exc: (d.exception && d.exception.description) || d.text });
-  const r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: false, timeout, userGesture: true, replMode: true, objectGroup: group }, S);
+  let r;
+  try {
+    r = await send('Runtime.evaluate', { expression: expr, awaitPromise: true, returnByValue: false, timeout, userGesture: true, replMode: true, objectGroup: group }, S);
+  } catch (e) {
+    // (Chrome ends a page call that outruns the timeout with a bare -32603 "Internal error": named here, as a page exception is, with the limit)
+    const ms = Date.now() - t0;
+    if (/-32603/.test(String(e && e.message)) && ms >= timeout * 0.9) return { __exc: `ev: the page call outran its timeout of ${timeout} ms (Chrome answered -32603 Internal error after ${ms} ms)` };
+    throw e;
+  }
   if (r.exceptionDetails) return fail(r.exceptionDetails);
   const o = r.result;
   if (!o.objectId) return o.value;
@@ -216,10 +226,14 @@ H.nav = async (url) => {
 // o.until (an expression, e.g. '!__cmwSteps().moving') true. At most o.max ms (default 8000): it then answers why not,
 // and the suite's log says so, so a check after it sees the page as it is. Answers { ok, ms, busy, at }; at is ms when
 // ok and -1 when not, for a check that reads the wait as a time (at >= 0). With o.only the page's quiet is not asked, only
-// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true.
+// o.until (polled without animation frames, so on a hidden page too): the wait for one condition to come true. o.poll:
+// the ms between two looks (default 50), finer for a wait read as a time. o.faces: also until the page's font faces have landed
+// (the layout is flushed first, since a face is requested when its text is first laid out, and document.fonts says it is loaded).
+const FACES_LANDED = `(document.body.offsetHeight, document.fonts.status === 'loaded')`;
 H.settled = async (o = {}) => {
   if (o.floor) await sleep(o.floor);
-  const max = o.max || 8000, until = o.until ? `() => (${o.until})` : 'null';
+  const conds = [o.until, o.faces ? FACES_LANDED : null].filter(Boolean);
+  const max = o.max || 8000, until = conds.length ? `() => (${conds.map((c) => `(${c})`).join(' && ')})` : 'null', poll = o.poll || 50;
   const r = await H.ev(`await (async (until, max, panes, only) => {
     const t0 = performance.now(), frames = () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
     for (;;) {
@@ -235,12 +249,12 @@ H.settled = async (o = {}) => {
       const ms = Math.round(performance.now() - t0);
       if (!busy.length) return { ok: true, ms, busy };
       if (ms > max) return { ok: false, ms, busy };
-      await new Promise((r) => setTimeout(r, 50));
+      await new Promise((r) => setTimeout(r, ${poll}));
     }
   })(${until}, ${max}, ${o.panes !== false}, ${!!o.only})`, max + 5000);
   if (!r || r.__exc || !r.ok) LOG.push({ t: 'warn', m: `H.settled: ${o.only ? 'condition not met' : 'not quiet'} after ${max} ms (${JSON.stringify(r)})` });
   const ans = r && r.busy ? Object.assign(r, { at: r.ok ? r.ms : -1 }) : { ok: false, ms: max, busy: [(r && r.__exc) || 'no answer'], at: -1 };
-  return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${o.until ? JSON.stringify(String(o.until).slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
+  return ans.ok ? ans : faultAnswer(ans, ['ok', 'at'], `H.settled ${conds.length ? JSON.stringify(conds.join(' && ').slice(0, 160)) : '(quiet)'} did not come within ${max} ms: ${JSON.stringify(ans.busy)}`);
 };
 // H.reloaded(old, readyExpr, { limitMs }): waits for the page a reload brings: a document other than the one that began at
 // old (its performance.timeOrigin, read before the reload was asked for), loaded, with readyExpr (an expression, default
@@ -405,7 +419,7 @@ H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js
   // classic view (ci/suite_views.js: a suite tagged classic(why) or not yet ported)
   const pin = (process.env.CMW_VIEW === 'classic' ? "window.__cmwPinView = 'classic';\n" : '') + fs.readFileSync(path.join(DIR, 'pin_view.js'), 'utf8');
   await send('Page.addScriptToEvaluateOnNewDocument', { source: pin }, S);
-  fs.writeFileSync(path.join(DIR, 'q', 'READY'), 'ok');
+  writeWhole(path.join(Q, 'READY'), 'ok');
   const done = new Set();
   for (;;) {
     const files = fs.readdirSync(Q).filter((f) => /^\d+\.js$/.test(f) && !done.has(f)).sort((x, y) => parseInt(x) - parseInt(y));
@@ -420,9 +434,9 @@ H.exampleNames = () => require(path.join(DIR, '..', '..', 'ci', 'steps_scenes.js
       } catch (e) { out = { __daemonError: String(e && e.stack || e) }; }
       const unread = FAULTS.filter((x) => !x.handled).map((x) => x.what);
       if (unread.length && out && typeof out === 'object' && !Array.isArray(out)) out.kitFaults = unread;
-      fs.writeFileSync(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
+      writeWhole(path.join(Q, f.replace('.js', '.out')), JSON.stringify(out, null, 1));
     }
     if (fs.existsSync(path.join(Q, 'QUIT'))) { ch.kill(); process.exit(0); }
     await sleep(80);
   }
-})().catch((e) => { fs.writeFileSync(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
+})().catch((e) => { writeWhole(path.join(Q, 'FATAL'), String(e.stack || e)); ch.kill(); process.exit(1); });
