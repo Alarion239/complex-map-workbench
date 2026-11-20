@@ -13,7 +13,10 @@
 //   plane's frame asked for), nor before the left pane has drawn plane 1 again after a program landed; then at rest,
 //   until the app's warm-up has gone through its groups and nothing links: ready stays true (the programs of views no
 //   pane shows, the globes' and the Landscape's, are no part of it), no program links twice, and no Landscape program
-//   is started in map mode 1 (no pane draws one);
+//   is started in map mode 1 (no pane draws one). Twice: with the warm-up of the glides at rest off (__cmwSteps' warmInv),
+//   so that plane 1's inverse program is first asked for by its own frame and lands after the park; and as shipped, the
+//   park once that warm-up has linked the glide 0 -> 1's programs at rest: plane 1's first frame is then already the
+//   inverse pass's;
 // - on a fresh page, the Landscape shown while the warm-up links its programs: from the pane's first frame of it on,
 //   they are the pane's (GLR.pending() reads none of them offView) and ready counts them (its programs part is never
 //   complete while one of them links);
@@ -148,14 +151,21 @@ try {
   // sampled in the page on every animation frame, every few ms and right after each program of the main panes lands
   // (GLR.onReady, after the app's own handler). No sample may read ready while plane 1 is drawn by the carried meshes
   // (the stand-in while its inverse program links), nor while the left pane has drawn no frame of plane 1 since a
-  // program landed (__cmwSteps().rest: the record of the last frame at rest, a new object for each such frame)
-  {
+  // program landed (__cmwSteps().rest: the record of the last frame at rest, a new object for each such frame).
+  // First with the warm-up of the glides at rest off: it links plane 1's inverse program, which the glide 0 -> 1 draws
+  // with, while plane 0 rests, so no program would land after the park. Then as shipped, parked once that warm-up is done
+  // (__cmwSteps().invWarm): plane 1's first frame is the inverse pass's (s.first), no stand-in before it
+  for (const warm of [false, true]) {
+    const tag = warm ? 'as shipped, the glides made ready at rest' : 'the warm-up of the glides off';
     await example('llr', NEWT_EX, 'all');
+    if (!warm) await ev('__cmwSteps({ warmInv: false }), 1');
     await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
     await ev('__cmwSteps({ T: 0 }), __cmwSteps({ park: 0 }), 1');
     await settled({ max: READY_MS, until: '__cmwSteps().x === 0 && __cmwSteps().ready.ready' });
+    const rw = warm ? await settled({ max: WARM_MS, until: '__cmwSteps().invWarm && __cmwSteps().ready.ready && GLR.pendingLinks === 0' }) : null;
+    if (warm) ok(`${NEWT_EX}, ${tag}: plane 0 rests with its glides made ready`, rw.ok, rw);
     await ev(`(() => {
-      const s = window.__llSample = { n: 0, landed: 0, land: null, mesh: [], stale: [], on: true, rest: null, flips: [], seen: new Map(), relinked: [], twins: [] };
+      const s = window.__llSample = { n: 0, landed: 0, land: null, mesh: [], stale: [], on: true, rest: null, first: null, flips: [], seen: new Map(), relinked: [], twins: [] };
       // (at rest: each program linking is recorded; one that was linked or landed before, linking again, is a relink, and
       // a Landscape program of the chain in map mode 1 is another map mode of a view no pane shows)
       const links = () => {
@@ -170,6 +180,8 @@ try {
       const look = () => {
         const q = __cmwSteps(), r = q.rest;
         s.n++;
+        // (the first frame of plane 1 at rest after the park)
+        if (!s.first && q.x === 1 && r && r.a === 1) s.first = { path: r.path, reason: r.reason || null };
         // (the rest: from the first sample where plane 1 is the inverse pass's and ready, every program the table holds)
         if (!s.rest && q.ready.ready && q.x === 1 && r && r.a === 1 && r.path === 'inverse') {
           s.rest = { t: performance.now(), links: window.__lateLinks.links };
@@ -196,16 +208,17 @@ try {
     // (the rest goes on until the warm-up has gone through its groups and nothing links)
     const r4 = await settled({ max: WARM_MS, until: '__cmwWarm().phase === "done" && GLR.pendingLinks === 0' });
     const smp = await ev(`(() => { const s = window.__llSample; s.on = false; clearInterval(s.timer);
-      return { n: s.n, landed: s.landed, mesh: s.mesh, stale: s.stale, rest: !!s.rest, flips: s.flips, relinked: s.relinked, twins: s.twins,
+      return { n: s.n, landed: s.landed, mesh: s.mesh, stale: s.stale, rest: !!s.rest, first: s.first, flips: s.flips, relinked: s.relinked, twins: s.twins,
         restLinks: s.rest ? window.__lateLinks.links - s.rest.links : null, restMs: s.rest ? Math.round(performance.now() - s.rest.t) : null }; })()`);
-    const got = { samples: smp && { n: smp.n, landed: smp.landed }, wait: r3 };
-    ok(`${NEWT_EX}, colour plane 0, plane 1 parked at once: ready never reads true while plane 1 is the carried meshes' stand-in`, r3.ok && !!smp && smp.n > 0 && smp.mesh.length === 0, Object.assign({ mesh: smp && smp.mesh }, got));
-    ok(`${NEWT_EX}, colour plane 0, plane 1 parked at once: ready never reads true before the left pane has drawn a frame since a program landed`, r3.ok && !!smp && smp.landed > 0 && smp.stale.length === 0, Object.assign({ stale: smp && smp.stale }, got));
+    const got = { samples: smp && { n: smp.n, landed: smp.landed, first: smp.first }, wait: r3 };
+    ok(`${NEWT_EX}, ${tag}, colour plane 0, plane 1 parked at once: ready never reads true while plane 1 is the carried meshes' stand-in`, r3.ok && !!smp && smp.n > 0 && smp.mesh.length === 0, Object.assign({ mesh: smp && smp.mesh }, got));
+    if (!warm) ok(`${NEWT_EX}, ${tag}, colour plane 0, plane 1 parked at once: ready never reads true before the left pane has drawn a frame since a program landed`, r3.ok && !!smp && smp.landed > 0 && smp.stale.length === 0, Object.assign({ stale: smp && smp.stale }, got));
+    else ok(`${NEWT_EX}, ${tag}, colour plane 0, plane 1 parked at once: plane 1's first frame is the inverse pass's, and ready never reads true before the left pane has drawn a frame since a program landed`, r3.ok && !!smp && !!smp.first && smp.first.path === 'inverse' && smp.stale.length === 0, Object.assign({ stale: smp && smp.stale }, got));
     const rested = { rest: smp && { links: smp.restLinks, ms: smp.restMs }, wait: r4 };
-    ok(`${NEWT_EX}, plane 1 parked: at rest ready stays true while the warm-up links the programs of views no pane shows`, r3.ok && r4.ok && !!smp && smp.rest && smp.flips.length === 0, Object.assign({ flips: smp && smp.flips }, rested));
-    ok(`${NEWT_EX}, plane 1 parked: at rest no program links twice`, r4.ok && !!smp && smp.rest && smp.relinked.length === 0, Object.assign({ relinked: smp && smp.relinked }, rested));
-    ok(`${NEWT_EX}, plane 1 parked: at rest the warm-up starts no other map mode of the Landscape's programs, which no pane draws`, r4.ok && !!smp && smp.rest && smp.twins.length === 0, Object.assign({ twins: smp && smp.twins }, rested));
-    info.park = Object.assign({}, got.samples, rested.rest);
+    ok(`${NEWT_EX}, ${tag}, plane 1 parked: at rest ready stays true while the warm-up links the programs of views no pane shows`, r3.ok && r4.ok && !!smp && smp.rest && smp.flips.length === 0, Object.assign({ flips: smp && smp.flips }, rested));
+    ok(`${NEWT_EX}, ${tag}, plane 1 parked: at rest no program links twice`, r4.ok && !!smp && smp.rest && smp.relinked.length === 0, Object.assign({ relinked: smp && smp.relinked }, rested));
+    ok(`${NEWT_EX}, ${tag}, plane 1 parked: at rest the warm-up starts no other map mode of the Landscape's programs, which no pane draws`, r4.ok && !!smp && smp.rest && smp.twins.length === 0, Object.assign({ twins: smp && smp.twins }, rested));
+    info[warm ? 'parkWarm' : 'park'] = Object.assign({}, got.samples, rested.rest, warm ? { warm: rw } : {});
   }
   // the partial sums on a fresh page while the warm-up links its Landscape programs (a view no pane shows), then the
   // Landscape shown: from the left pane's first frame of it until its programs have landed and ready, sampled in the

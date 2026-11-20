@@ -36,8 +36,8 @@
 //   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
 //   the roots in the regions (where P is not the paper: a map many-to-one onto
 //   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
-//   composites them: front to back (Inverse.front's order: keys in steps of 2^-8 octave, ties by larger Im z, then larger
-//   Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
+//   composites them: front to back (Inverse.front's order: the smaller key, keys within its tie band tying, ties by larger
+//   Im z, then larger Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
 //   parked frame, colours it (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
 //   the frame's window are graded too; the frame's by default). At alpha 1 that is the front root alone. A pixel where
 //   a root off P's canvas (whose cover and colour P cannot show) would weigh more than tol / 2 counts as none. Pixels next
@@ -101,8 +101,9 @@
   // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
   // the front point alone)
   const A = g.alpha == null ? 1 : g.alpha;
-  // (the renderer's front, Inverse.front: keys in the same step of 2^-8 octave tie, then larger Im z, then larger Re z)
-  const ahead = (a, b) => { const sa = Math.round(a.k / 2 ** -8), sb = Math.round(b.k / 2 ** -8); return sa !== sb ? a.k < b.k : a.z.im !== b.z.im ? a.z.im > b.z.im : a.z.re > b.z.re; };
+  // (the renderer's front, Inverse.front itself: the smaller key, keys within its tie band tying, then larger Im z, then
+  // larger Re z)
+  const ahead = (a, b) => Inverse.front({ D: a.k, z: a.z }, { D: b.k, z: b.z });
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5), roots = [];

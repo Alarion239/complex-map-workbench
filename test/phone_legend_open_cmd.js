@@ -1,6 +1,6 @@
 // A phone's open legend key stays above the context bar, which overlays the foot of the plane. With the key unfolded and the bar opened for a
 // construction tool (the tall bar) or a selected shape (the Edit row), the key ends above the bar and stays inside the plane and clear of the readout;
-// when the bar goes the key is back where it was.
+// when the bar goes the key is back where it was. The keyboard folds it: Escape, and a focus on a plane key it lies over.
 // In the steps view at 568 × 320, 667 × 375, 740 × 360 and 360 × 640, in English and Russian. In the steps view (ci/suite_views.js).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -82,6 +82,60 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   const back = await stillY();
   ok(`${tag}: with the bar gone the key is whole again`, !!back.legend && Math.abs(back.legend.b - back.legend.t - (home.legend.b - home.legend.t)) <= 1 && back.scrollH <= back.clientH + EPS, { back, home: home.legend });
 }
+// The open key is operated by the keyboard: Escape folds it (the focus stays on the key, which is the folded one, aria-expanded false), and Enter
+// unfolds it again; a plane key the open key lies over folds it when the key takes focus (the focus is never hidden under the card). With real key
+// events, in the steps view at 568 × 320 and 360 × 640 (the key) and in the classic view at 568 × 320 and 600 × 320 under the tall bar (Y's keys).
+const keyState = (id) => ev(`(() => { const lg = document.getElementById(${JSON.stringify(id)}); return { open: !lg.classList.contains('collapsed'), expanded: lg.getAttribute('aria-expanded'), focused: document.activeElement === lg, role: lg.getAttribute('role') }; })()`);
+for (const [w, h] of [[568, 320], [360, 640]]) {
+  const tag = `${w}×${h} key by keyboard`;
+  await view(w, h, false, true);
+  const ns = 'plok' + w + (Date.now() % 1000000);
+  await load(ns, ST);
+  await go(`${U}?ns=${ns}&lang=en&view=steps`);
+  const up = await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
+  await ev(`document.getElementById('leftLegend').click(), document.getElementById('leftLegend').focus(), 1`);
+  const wOpen = await settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
+  const op = await keyState('leftLegend');
+  ok(`${tag}: the key is unfolded, a button with the focus on it (control)`, up.ok && wOpen.ok && op.open && op.expanded === 'true' && op.focused && op.role === 'button', { up, wOpen, op });
+  await key('Escape');
+  const wEsc = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('leftLegend').classList.contains('collapsed')` });
+  const esc = await keyState('leftLegend');
+  info[tag] = { op, esc };
+  ok(`${tag}: Escape folds the key, and the focus stays on it`, wEsc.ok && !esc.open && esc.expanded === 'false' && esc.focused, { wEsc, esc });
+  await key('Enter');
+  const wEnter = await settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
+  const ent = await keyState('leftLegend');
+  ok(`${tag}: Enter unfolds it again`, wEnter.ok && ent.open && ent.expanded === 'true' && ent.focused, { wEnter, ent });
+}
+// (focus events reach a page only while it has focus: a headless page is made to, until the rows end)
+await send('Emulation.setFocusEmulationEnabled', { enabled: true });
+for (const w of [568, 600]) {
+  const tag = `classic ${w}×320 tall bar, Y's keys`;
+  await view(w, 320, false, true);
+  await go(`${U}?ns=plokc${w}${Date.now() % 1000000}&lang=en&view=classic`);
+  const upY = await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden && !!document.querySelector('[data-tool="perp"]')` });
+  await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
+  const barY = await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
+  // (the key unfolded: a tap on it, and the wait for it)
+  const open = async () => {
+    await ev(`(() => { const lg = document.getElementById('rightLegend'); if (lg.classList.contains('collapsed')) lg.click(); return 1; })()`);
+    return settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
+  };
+  const opened = await open();
+  const covered = await ev(`(() => { const lg = document.getElementById('rightLegend'), a = lg.getBoundingClientRect();
+    return [...lg.parentNode.querySelectorAll('button, [tabindex]')].filter((e) => e !== lg && !lg.contains(e) && e.getClientRects().length).map((e, i) => { const b = e.getBoundingClientRect(); e.setAttribute('data-kk', i);
+      return { i, name: e.id || String(e.className), meets: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top }; }).filter((q) => q.meets); })()`);
+  info[tag] = covered;
+  ok(`${tag}: the open key lies over at least one of Y's keys (control)`, upY.ok && barY.ok && opened.ok && covered.length > 0, { upY, barY, opened, covered });
+  for (const c of covered) {
+    const w = await open();
+    // (focus() runs the page's focusin handlers before it returns: the key's fold is there to read at once)
+    await ev(`document.querySelector('[data-kk="${c.i}"]').focus(), 1`);
+    const st = await keyState('rightLegend');
+    ok(`${tag}: the focus on ${c.name}, under the open key, folds the key`, w.ok && !st.open && st.expanded === 'false', { w, st });
+  }
+}
+await send('Emulation.setFocusEmulationEnabled', { enabled: false });
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5);
 ok('no errors', !errs.length, errs);
 return { pass: fails.length === 0, fails, info };
