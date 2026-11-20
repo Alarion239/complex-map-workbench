@@ -25,12 +25,13 @@ for (const [w, h, lang] of POINTS) {
   ok(`${name}: the hint card is clear of the globe's disk (gap ≥ 0 px)`, m.gap >= 0, m);
   ok(`${name}: the hint card does not hide the i mark`, m.i && !m.iHidden, m);
 }
-// With a construction tool picked on the landscape globe, the construction chip ("Switch to the plane to pick the curve · Perpendicular ×")
-// stands in the same left column as the hint card, and the plane has no room for both (106 px tall at 320 px): the card gives way while the
-// chip stands, so no line of it shows behind the chip's words. The card is clear of the disk, hidden or not, and it is back when the chip's
-// × cancels the tool. Perpendicular has the tall context bar. Every landscape size, in English, Russian and Italian, light and then dark
+// With a construction tool picked on the globe, the construction chip ("Switch to the plane to pick the curve · Perpendicular ×")
+// stands over the same corner as the hint card (in landscape the same left column, and the plane has no room for both: 106 px tall at 320 px;
+// in portrait the card's wrap reaches the chip's rows): the card gives way while the
+// chip stands, so no line of it shows behind the chip's words. The card is clear of the disk, hidden or not (in portrait, while it shows: a hidden hint's
+// wrap may reach the disk), and it is back when the chip's × cancels the tool. Perpendicular has the tall context bar. Every landscape and portrait phone size, in English, Russian and Italian, light and then dark
 // (the same page, its colours switched).
-const CHIP_CASES = [[568, 320], [600, 320], [640, 360], [667, 375], [740, 360]];
+const CHIP_CASES = [[568, 320], [600, 320], [640, 360], [667, 375], [740, 360], [320, 568], [360, 640], [390, 844]];
 const meets = (a, b) => Math.min(a[2], b[2]) - Math.max(a[0], b[0]) > 0.5 && Math.min(a[3], b[3]) - Math.max(a[1], b[1]) > 0.5;
 const cardChip = () => ev(`(() => {
   const box = (el) => { const r = el.getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10); };
@@ -54,7 +55,24 @@ for (const [w, h] of CHIP_CASES) for (const lang of ['en', 'ru', 'it']) {
     const m = info[name] = await cardChip();
     ok(`${name}: the construction chip is shown`, m.chipShown, m);
     ok(`${name}: the hint card shows no line behind the chip (hidden, or clear of it)`, !m.cardVisible || !meets(m.card, m.chip), m);
-    ok(`${name}: the hint card is clear of the globe's disk (gap ≥ 0 px)`, m.gap >= 0, m);
+    ok(`${name}: the hint card is clear of the globe's disk (gap ≥ 0 px${h > w ? ' while it shows' : ''})`, (h > w && !m.cardVisible) || m.gap >= 0, m);
+    // a finger's reach: 21.5 px out from the centre of the chip's × and of its ?, each way (inside a 44 px square), still lands on that button, or on another control that stands there (the context bar's: a neighbour's tap wins over the chip's reach)
+    const reach = info[`${name} reach`] = await ev(`(() => {
+      const out = {};
+      for (const cls of ['cm-x', 'cm-q']) {
+        const b = document.querySelector('#draftChipL .' + cls);
+        if (!b) { out[cls] = null; continue; }
+        const r = b.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        const hit = ([dx, dy]) => document.elementFromPoint(cx + dx, cy + dy);
+        out[cls] = { size: [Math.round(r.width), Math.round(r.height)], miss: [[-21.5, 0], [21.5, 0], [0, -21.5], [0, 21.5]].filter((d) => {
+          const at = hit(d);
+          return !(at && (b.contains(at) || at.closest('button, .ph-ct')));
+        }).map((d) => d.join(',') + ' → ' + ((e) => e ? e.tagName + '.' + e.className : 'nothing')(hit(d))) };
+      }
+      return out;
+    })()`);
+    ok(`${name}: the chip's × is there`, !!reach['cm-x'], reach);
+    for (const cls of ['cm-x', 'cm-q']) if (reach[cls]) ok(`${name}: 21.5 px from the centre of the chip's ${cls === 'cm-x' ? '×' : '?'}, each way, reaches it or a control beside it`, reach[cls].miss.length === 0, reach[cls]);
   }
   // the chip's × cancels the tool: the hint card is back
   await ev(`document.querySelector('#draftChipL .cm-x').click(); 1`);
