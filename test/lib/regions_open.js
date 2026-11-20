@@ -7,7 +7,7 @@
 //                        sets a seeded pattern through the test hook): what a user's own saved work does; lang, when
 //                        given, is the page's language. It returns once the page, quiet, has the __cmwRegions hook, and
 //                        throws, naming the wait, when that does not happen within READY_MS
-(({ U, ev, send, go, sleep, settled }) => {
+(({ U, ev, go, sleep, settled }) => {
   const READY_MS = 60000;   // (the longest a page may take to have the hook)
   const HOOK = `typeof __cmwRegions === 'function'`;
   const DISC = { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true };
@@ -16,7 +16,7 @@
     rightMode: 'image', srcView: { cx: 0, cy: 0, s: 80 },
   }, o);
   const openSaved = async (ns, st, lang) => {
-    await send('Page.navigate', { url: `${U}/gl-helpers.html` }); await sleep(350);
+    await go(`${U}/gl-helpers.html`); await sleep(350);
     await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
     await go(`${U}/test.html?ns=${ns}${lang ? `&lang=${lang}` : ''}`);
     const first = await settled({ only: true, max: READY_MS, until: HOOK });
