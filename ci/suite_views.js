@@ -162,6 +162,7 @@ const VIEWS = {
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'steps_late_links_cmd.js': steps({ pin: true }),
+  'export_num_film_cmd.js': steps(),
   'steps_bare_status_cmd.js': steps({ pin: true }),
   'sv_globe_net_cmd.js': steps({ pin: true }),
   'steps_play_cmd.js': steps(),
