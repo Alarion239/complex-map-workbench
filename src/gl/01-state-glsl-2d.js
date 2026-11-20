@@ -1591,7 +1591,12 @@ ${sphere ? `  vec3 n = normalize(vP);
       vec3 c = mix(Cf.rgb, E.rgb, 0.4 * max(lg.x, lg.y));
       float a = Cf.a * cov;
       acc = vec4(c * a, a) + acc * (1.0 - a);
-      float ce = clamp(0.5 * max(uDpr, 0.55 * E.w) - abs(sd) + 0.5, 0.0, 1.0) * 0.9;   // the boundary
+      // the boundary: a band of half width bw over a casing in uHalo at uHaloA one css pixel wider each side, as the
+      // curves below have, so the band reaches 3:1 against the colour it covers in either theme (#1904)
+      float bw = 0.5 * max(uDpr, 0.55 * E.w);
+      float cc = clamp(bw + uDpr - abs(sd) + 0.5, 0.0, 1.0) * uHaloA;
+      acc = vec4(uHalo * cc, cc) + acc * (1.0 - cc);
+      float ce = clamp(bw - abs(sd) + 0.5, 0.0, 1.0) * 0.9;
       acc = vec4(E.rgb * ce, ce) + acc * (1.0 - ce);
     } else if (kind == 19) {
       // a curve formula's piece: g = 0 (formula K.z; K.w = 1: a complex piece, g = A - B as the pair of formulas K.z

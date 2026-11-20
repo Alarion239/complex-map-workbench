@@ -64,11 +64,11 @@
   // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share
   const layerFills = (ts) => fillsAt(ts, pullLayerFill());
   // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
-  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at pullLayerFill's
-  // share
+  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band, over its casing (TH.halo at TH.haloA, a css
+  // pixel wider each side, as PRE_FS draws it), over the fill of pullTargets at pullLayerFill's share
   function pullLayerEdge(s, dpr) {
-    const ink = shapeInk(s);
-    return { width: pullBandW(s, dpr), alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
+    const ink = shapeInk(s), width = pullBandW(s, dpr);
+    return { width, alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), casing: { width: width + 2 * dpr, alpha: TH.haloA, color: GLR.hexRGB(TH.halo) }, tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
   }
   // a second GL pass over the plane: where the map lands in each target
   function drawPullback(pane, map, targets) {
