@@ -774,8 +774,9 @@ void main() {
 `;
   // the steep base triangles while something moves (STEEP): a program without the chain, F from the corners (vW), as
   // landR's sub-cells, so facetW draws their contours on the facet; compiled once per page, warmed with the
-  // refinement's programs (rfWarmed)
-  const LAND_B_VS = REFINE + `
+  // refinement's programs (rfWarmed). All the base triangles, steep or not (all): the surface's stand-in while landTF and
+  // land link, over the heights and the values of F the app computed (drawLandscape's st.standIn)
+  const LAND_B_VS = (all) => REFINE + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
 uniform int uRefOn;
@@ -792,7 +793,7 @@ void main() {
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = tri == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = tri == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   // (the partition with land's draw, LAND_VS: a triangle without a jump on its edges, sloped over 1 at a corner)
-  if (!steepTri(V0, V1, V2) || (uRefOn == 1 && lvDrawnR(c))) return;
+  if (${all ? '' : '!steepTri(V0, V1, V2) || '}(uRefOn == 1 && lvDrawnR(c))) return;
   if (edgeOf(V0, V1).w > 0.5 || edgeOf(V1, V2).w > 0.5 || edgeOf(V2, V0).w > 0.5) return;
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;

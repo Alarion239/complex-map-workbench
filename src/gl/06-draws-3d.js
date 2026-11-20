@@ -288,6 +288,43 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
+  // The Landscape's stand-in surface while landTF and land link (st.standIn, {nx, ny, w}: F at the nx x ny nodes over the block's box,
+  // node (i, j) at w[2 (j nx + i)], the app's standIn grid): the heights texture the program landTF makes (F's value, the
+  // height of heightOf, 1 where F has a value), made on the CPU, and the normals the static pass landNrm makes of it. Drawn by
+  // landS, the base cells' program of the steep walls with F from the corners. null until landNrm has linked
+  let landStand = null;
+  function landStandSurface(st, mode, H, mu, aspect, heightOf) {
+    const g = st.standIn, P2 = program('landNrm');
+    if (!g || !P2) return null;
+    const N = g.nx, key = [mode, H, mu, aspect[0], aspect[1]].join('|');
+    if (!landStand) landStand = { tex1: floatTex(), tex2: floatTex(), edges: [floatTex(), floatTex(), floatTex()], grid: null };
+    const land = landStand;
+    if (land.grid !== g.w || land.key !== key) {
+      const t = new Float32Array(4 * N * N);
+      for (let i = 0; i < N * N; i++) {
+        const re = g.w[2 * i], im = g.w[2 * i + 1], v = mode < 2 ? Math.hypot(re, im) : mode % 2 ? im : re;
+        t[4 * i] = re; t[4 * i + 1] = im; t[4 * i + 2] = heightOf(v); t[4 * i + 3] = Number.isNaN(re) || Number.isNaN(im) ? 0 : 1;
+      }
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N, N, 0, gl.RGBA, gl.FLOAT, t);
+      use(P2);
+      u1i(P2, 'uN', N);
+      u2f(P2, 'uAspect', aspect[0], aspect[1]);
+      u1f(P2, 'uH', H);
+      u1i(P2, 'uCuts', -1);
+      for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, land.edges[d]); }
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(P2, empty(), gl.POINTS, N * N, 0, N * N * 16, land.tex2, N, N, gl.RGBA32F, gl.RGBA);
+      land.grid = g.w; land.key = key;
+    }
+    return Object.assign(land, { N, standIn: true, cuts: -1, rf: null });
+  }
+  function landStandRelease() {
+    if (!landStand) return;
+    for (const t of [landStand.tex1, landStand.tex2, ...landStand.edges]) gl.deleteTexture(t);
+    landStand = null;
+  }
   // The steps view's carried landscape (st.carry {map, s, T, hT, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
   // each vertex at the height of the stages (s, hT] at its point (hT default T), and coloured by G = the stages (s, T]
@@ -1274,7 +1311,10 @@
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
     // its own first would stall the GPU process once for them and once more for the sheets')
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (nothing to draw from yet, the principal surface's programs still linking: the stand-in's relief)
+    if (!hd && !st.carry && !sp) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
+    else if (hd && !hd.standIn) landStandRelease();
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
     const farPatches = [];
@@ -1494,6 +1534,18 @@
         if (landPane.drawn.size > 64) landPane.drawn.delete(landPane.drawn.values().next().value);
       }
       lvTailMark();
+    } else if (hd.standIn) {
+      // (the stand-in: every base triangle, F from the corners, no cut: the heights' step rule leaves a wall out)
+      const LS = program('landS');
+      if (LS) {
+        use(LS);
+        common(LS);
+        lightUniforms(LS, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        u3(LS, 'uCut', C.cut); u1i(LS, 'uHMode', mode); u1f(LS, 'uMu', mu); u2f(LS, 'uAspect', aspect[0], aspect[1]);
+        u1i(LS, 'uM', hd.N - 1); u1i(LS, 'uVW', 1); u1i(LS, 'uCuts', -1); u1i(LS, 'uRefOn', 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+        info.standIn = true;
+      }
     }
     if (below && !st.reliefOnly) {
       gl.enable(gl.BLEND);
