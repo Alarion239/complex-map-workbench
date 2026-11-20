@@ -23,7 +23,8 @@ const InvOps = (() => {
   //      is a preimage of the finite point w; critical() -> Crit | null (not known)}
   // Crit: {crit: [{u, mult, w}] (the critical points u in the input plane, null = infinity, where fwd' vanishes to order
   //      mult, and their values w, null = infinity), lattice: {base, step, values} | null (critical points base + n step,
-  //      each simple, their values among values), asym: C[] (asymptotic values: limits of fwd along a path to infinity)}
+  //      each simple, their values among values), asym: (C|null)[] (asymptotic values: limits of fwd along a path to
+  //      infinity, null = infinity)}
   // Member: {u, d: du/dw | anti: true, lvl (output units, +Infinity: no range), lg: unit gradient of lvl (output
   //      plane) | null, lam: log u | null, dlam: d(log u)/dw (with lam), m}
   // Parameters in p (read by glsl.js's uInv allocator): AFF {a, b}; MOB {m: [a, b, c, d]}; IPOW {n};
@@ -109,16 +110,18 @@ const InvOps = (() => {
   function famAdd(p, nb, bases, dudw) {
     return { type: 'add', p, nb, bases, member: (w, b, m, base) => { const u = add(base, scale(p, m)); return ONEM(u, dudw(u, w), { m }); } };
   }
+  // (exp's asymptotic values: 0, as Re u tends to -infinity, and infinity, as Re u tends to +infinity)
+  const EXP_ASYM = [ZERO, null];
   function opExp(Lc) {
     if (!Lc) {
       return op('EXP', {}, CX.exp, {
         undef: [null], fam: famAdd(C(0, TAU), 1, (w) => (isZero(w) ? [] : [log(w)]), (u, w) => CX.inv(w)), pre: () => [],
-        critical: () => crit([], null, [ZERO]),
+        critical: () => crit([], null, EXP_ASYM),
       });
     }
     return op('EXPC', { L0: Lc }, (u) => CX.exp(mul(u, Lc)), {
       undef: [null], fam: famAdd(div(C(0, TAU), Lc), 1, (w) => (isZero(w) ? [] : [div(log(w), Lc)]), (u, w) => CX.inv(mul(Lc, w))), pre: () => [],
-      critical: () => crit([], null, [ZERO]),
+      critical: () => crit([], null, EXP_ASYM),
     });
   }
   function opLog(theta, k, fwd) {
@@ -156,9 +159,10 @@ const InvOps = (() => {
   const atanhS = (w) => { const t = atanS(C(-w.im, w.re)); return C(t.im, -t.re); };        // -i atan(i w)
   const periodic = (kind, fwd, p, nb, bases, dudw, o) => op(kind, {}, fwd, Object.assign({ undef: [null], fam: famAdd(p, nb, bases, dudw), pre: () => [] }, o));
   // (sin and cos: critical points a lattice of step pi with the values +-1; sinh and cosh the same turned by i, with
-  // the values +-i and +-1; tan and tanh: no critical points, the asymptotic values +-i and +-1)
+  // the values +-i and +-1; each of the four the asymptotic value infinity, along the axis where it grows; tan and tanh:
+  // no critical points, the asymptotic values +-i and +-1)
   const MINUS_ONE = C(-1, 0), PM1 = [ONE, MINUS_ONE], PMI = [I, C(0, -1)];
-  const critLat = (base, step, values) => () => crit([], { base, step, values }, []);
+  const critLat = (base, step, values) => () => crit([], { base, step, values }, [null]);
   const opSin = () => periodic('SIN', CX.sin, C(TAU, 0), 2, (w) => { const a = asinS(w); return [a, sub(C(PI, 0), a)]; }, (u) => CX.inv(CX.cos(u)),
     { critical: critLat(C(PI / 2, 0), C(PI, 0), PM1) });
   const opCos = () => periodic('COS', CX.cos, C(TAU, 0), 2, (w) => { const a = acosS(w); return [a, neg(a)]; }, (u) => neg(CX.inv(CX.sin(u))),
