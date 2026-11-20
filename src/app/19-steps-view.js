@@ -2082,8 +2082,8 @@
     const st = svStagedOf();
     if (!st) return;
     svPulledEdge(pane, st, gl, (x, k) => {
-      const e = pullLayerEdge(x, pane.dpr);
-      return Object.assign(e, { alpha: e.alpha * k, tint: [e.tint[0], e.tint[1], e.tint[2], e.tint[3] * k] });
+      const e = svStrokeAt(pullLayerEdge(x, pane.dpr), k);
+      return Object.assign(e, { tint: [e.tint[0], e.tint[1], e.tint[2], e.tint[3] * k] });
     });
   }
   // The shapes of the plane the glide reaches, which the inverse pass strokes where it puts a region's boundary or the
