@@ -61,7 +61,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: touchUI() ? $t('Try: hold a finger on the circle, then choose ∮.') : $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: touchUI() ? $t('Try: hold a finger on the circle, then choose ∮.') : $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose ∮: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
       // (the circle and the pole at i inside it: a landscape phone's plane is under 200 px tall)
       fit: { x0: -1.25, x1: 1.25, y0: -0.25, y1: 2.25 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],

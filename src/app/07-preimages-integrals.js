@@ -64,11 +64,11 @@
   // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share
   const layerFills = (ts) => fillsAt(ts, pullLayerFill());
   // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
-  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at pullLayerFill's
-  // share
+  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band, over its casing (TH.halo at TH.haloA, a css
+  // pixel wider each side, as PRE_FS draws it), over the fill of pullTargets at pullLayerFill's share
   function pullLayerEdge(s, dpr) {
-    const ink = shapeInk(s);
-    return { width: pullBandW(s, dpr), alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
+    const ink = shapeInk(s), width = pullBandW(s, dpr);
+    return { width, alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), casing: { width: width + 2 * dpr, alpha: TH.haloA, color: GLR.hexRGB(TH.halo) }, tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
   }
   // a second GL pass over the plane: where the map lands in each target
   function drawPullback(pane, map, targets) {
@@ -640,19 +640,29 @@
     const b = pane.box(), labels = [];
     // (the axes, which the words keep off where they can)
     const [ax, ay] = pane.w2s(C(0, 0)), axes = [{ x0: ax - 1.5, x1: ax + 1.5, y0: 0, y1: pane.h }, { x0: 0, x1: pane.w, y0: ay - 1.5, y1: ay + 1.5 }];
+    const found = [];
     for (const s of S.shapes) {
       if (s.visible === false || shapeStage(s) <= j || kindType(s) !== 'area') continue;
       const e = pullOffPre(j, s);
       if (!e || !e.zs.length) continue;
       const seen = pullSeen(j, s, e, b, pane.w, pane.h), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
-      const n = offs.length;
-      if (!(n > 0)) continue;
-      const text = $t('+{n} off view', { n });
+      if (offs.length > 0) found.push({ s, e, vis, offs });
+    }
+    // (with more than one region counted, each count names its region as its row does, "Disc 1: +1 off view": the counts'
+    // inks alone, which are the regions' swatches and not the pieces' phase colours, would be the only cue to which is
+    // which; ux on #1726, #1892)
+    const names = found.length > 1 ? shapeNames() : null, said = [];
+    for (const { s, e, vis, offs } of found) {
+      const n = offs.length, name = names && names.get(s.id);
+      const text = name ? $t('{name}: +{n} off view', { name, n }) : $t('+{n} off view', { n });
       const dOff = (z) => Math.min(...offs.map((q) => CX.abs(CX.sub(z, q))));
       const [x, y] = vis.length ? pane.w2s(vis.slice().sort((p, q) => dOff(p) - dOff(q))[0]) : pullEdgeAt(pane, offs.slice().sort(byCentre(b))[0], text);
       labels.push({ x, y, text, word: true, chrome: true, avoid: axes, ink: shapeInk(s).edge });
       pullOffDrawn.push({ id: s.id, n, all: e.zs.length, text, x, y });
+      // (the same count in words, in the plane's description: paneSay)
+      said.push($t('Pieces of {name} pulled back off the view: {n} of {all}', { name: (names || shapeNames()).get(s.id), n, all: e.zs.length }));
     }
+    if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
