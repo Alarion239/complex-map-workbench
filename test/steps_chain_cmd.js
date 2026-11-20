@@ -22,9 +22,9 @@ const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 
   steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 const open = async (w, h, mobile) => {
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` }); await sleep(3000); await settle(500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`); await sleep(3000); await settle(500);
 };
 const types = async () => ev(`__cmwP().steps.map((s) => s.type + (s.on === false ? '-' : ''))`);
 const sv = () => ev('__cmwSteps()');
@@ -207,7 +207,7 @@ await undo();
 // column, and the strip's and the plane's controls are what a pointer finds at their centres
 const fitCase = async (w, lang) => {
   await view(w, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}fit${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}fit${w}${lang}&lang=${lang}&view=steps`); await sleep(3000); await settle(500);
   const r = await ev(`(() => {
     const L = document.getElementById('paneL').getBoundingClientRect(), st = document.getElementById('stage').getBoundingClientRect(), S = document.getElementById('svStrip'), sr = S.getBoundingClientRect();
     const hit = (sel) => { const e = document.querySelector(sel); if (!e) return sel + ': none'; const b = e.getBoundingClientRect(); if (!b.width) return sel + ': hidden'; const at = document.elementFromPoint(b.left + b.width / 2, b.top + b.height / 2); return e === at || e.contains(at) ? null : sel + ': covered by ' + (at && (at.id || at.className)); };
@@ -223,9 +223,9 @@ const fitCase = async (w, lang) => {
 const hintCase = async (w, lang) => {
   const es = Object.assign({}, st, { steps: [] });
   await view(w, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}h${w}${lang}', ${JSON.stringify(JSON.stringify(es))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}h${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}h${w}${lang}&lang=${lang}&view=steps`); await sleep(3000); await settle(500);
   const r = await ev(`(() => {
     const H = document.querySelector('.sv-empty'), hb = H.getBoundingClientRect(), P = document.getElementById('plotL').getBoundingClientRect();
     const X = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
@@ -236,7 +236,7 @@ const hintCase = async (w, lang) => {
 };
 for (const w of [1440, 1024]) for (const lang of ['en', 'ru']) {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`).catch(() => {});
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(300);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}fit${w}${lang}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await fitCase(w, lang);
 }
@@ -307,7 +307,7 @@ ok('360 px: the last plane is not covered, and "+" does not overlap it', end.ok 
 // every step's chip and its ⋯ are 44 px targets on a phone from 320 to 390 px, in English, Russian and Italian (that they overlap nothing is steps_strip_layout's)
 for (const [w, lang] of [[320, 'en'], [360, 'en'], [360, 'ru'], [360, 'it'], [390, 'en']]) {
   await view(w, 740, false, true);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}more${w}${lang}&lang=${lang}&view=steps` }); await sleep(3000); await settle(500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}more${w}${lang}&lang=${lang}&view=steps`); await sleep(3000); await settle(500);
   const t = await ev(`(() => { const R = (e) => { const b = e.getBoundingClientRect(); return [b.left, b.top, b.right, b.bottom]; }, boxes = [];
     for (const wr of document.querySelectorAll('#svStrip .sv-fwrap')) boxes.push(['chip', R(wr.querySelector('.sv-fchip'))], ['more', R(wr.querySelector('.sv-more'))]);
     const small = boxes.filter(([, b]) => b[2] - b[0] < 44 - 0.5 || b[3] - b[1] < 44 - 0.5).map(([n, b]) => n + ' ' + Math.round(b[2] - b[0]) + 'x' + Math.round(b[3] - b[1]));
