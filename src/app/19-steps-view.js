@@ -1458,17 +1458,32 @@
   // (KHR_parallel_shader_compile), on the plane, where a press glides (not under reduced motion, where › and ▶ step), and
   // once the warm-up has started every group, nothing links and the idle job's other work is done (the last of it), so
   // the plane shown and the warm-up come first: until then the idle job looks again every SV_SET_WAIT_MS. svSetDone: the
-  // key of the sets last begun (cleared with a lost context, whose programs went with it)
+  // key of the sets last begun, and svSetAsked their frames (cleared with a lost context, whose programs went with it)
   // (SV.restSet, a test hook's, true in the app: false begins nothing at rest; SV.ahead false neither)
   const SV_SET_WAIT_MS = 500;
-  let svSetDone = null, svSetTimer = 0;
-  // (the key of the sets to begin at rest, or null when there are none or they are begun)
-  function svSetNext() {
-    if (!SV.on || SV.ahead === false || SV.restSet === false || svReduced() || SV.surf !== 'plane' || !lFlat() || !GLR.parallelCompile || !GLR.inverseState || svMotion() || (SV.drag && SV.drag.moved)) return null;
+  let svSetDone = null, svSetAsked = [], svSetTimer = 0;
+  // (the key of the sets to begin at rest where the view is now, or null where there are none: none either while an
+  // export draws a frame off-screen, SV.offscreen, which moves the thread there for the time it draws, or while a press
+  // waits at the Play gate, SV.gate, whose glide asks for its own)
+  function svSetKey() {
+    if (!SV.on || SV.offscreen || SV.gate || SV.ahead === false || SV.restSet === false || svReduced() || SV.surf !== 'plane' || !lFlat() || !GLR.parallelCompile || !GLR.inverseState || svMotion() || (SV.drag && SV.drag.moved)) return null;
     const i = Math.round(SV.g.x), P = svPlanes();
     if (Math.abs(SV.g.x - i) > SV_REST_U || P.length < 2) return null;
-    const R = svRange(), key = [i, R ? R.lo + ':' + R.hi : '', svProgKey()].join('|');
-    return key === svSetDone ? null : key;
+    const R = svRange();
+    return [i, R ? R.lo + ':' + R.hi : '', svProgKey()].join('|');
+  }
+  // (that key while its sets are not begun, else null)
+  function svSetNext() { const key = svSetKey(); return key === svSetDone ? null : key; }
+  // (the program path k of a set's frame q asks for, as the sets count them: its op list's, the staged one apart)
+  const svSetProg = (q, k) => (q.paths[k].inv ? q.paths[k].inv.key : '') + '|' + (shapeStage(q.list[k]) > 0);
+  // The sets at rest of the view as it is now: null until they are begun (always, where the view begins none), then
+  // { pending: how many of their programs still link }. Looked up with ahead, which leaves each program's mark as it is
+  function svSetState() {
+    const key = svSetKey();
+    if (!key || key !== svSetDone) return null;
+    const pending = new Set();
+    for (const { q, b, u } of svSetAsked) q.paths.forEach((p, k) => { if (svInvState(q, k, b, u, null, false, true) === 'pending') pending.add(svSetProg(q, k)); });
+    return { pending: pending.size };
   }
   // the idle job's share: those sets begun once the warm-up is done, true; false while there are none, too little time
   // is left, or the warm-up or a link is still under way (then the job looks again SV_SET_WAIT_MS later)
@@ -1479,19 +1494,21 @@
       if (!svSetTimer) svSetTimer = setTimeout(() => { svSetTimer = 0; svPolesWatch(); }, SV_SET_WAIT_MS);
       return false;
     }
-    svSetDone = key;
+    svSetDone = key; svSetAsked = [];
     const P = svPlanes(), i = Math.round(SV.g.x), c = svPlayCourse(i);
     const js = i + 1 < P.length ? [i] : [];
     for (let j = Math.floor(c.from + SV_REST_U); j < c.end; j++) if (!js.includes(j)) js.push(j);
     let room = GLR.invRoom ?? Infinity;
     for (const j of js) {
       const set = svGlideSet(j, 1);
-      // (the programs it would begin: its paths' op lists, one each, and the staged ones apart, whose state now is 'none')
+      // (the programs it would begin, whose state now is 'none'; looked up with ahead, so a program an earlier set began
+      // keeps its mark)
       const fresh = new Set();
-      for (const { q, b, u } of set) q.paths.forEach((p, k) => { if (svInvState(q, k, b, u, null, false) === 'none') fresh.add((p.inv ? p.inv.key : '') + '|' + (shapeStage(q.list[k]) > 0)); });
+      for (const { q, b, u } of set) q.paths.forEach((p, k) => { if (svInvState(q, k, b, u, null, false, true) === 'none') fresh.add(svSetProg(q, k)); });
       if (j !== js[0] && fresh.size > room) break;
       room -= fresh.size;
       for (const { q, b, u } of set) q.paths.forEach((p, k) => svInvState(q, k, b, u, null, true, true));
+      svSetAsked.push(...set);
     }
     return true;
   }
@@ -3816,7 +3833,7 @@
   // made again, and the prestart runs again, so svReady counts the restored context's programs and reads ready once
   // they have linked
   function svContextRestored() {
-    svSetDone = null;
+    svSetDone = null; svSetAsked = [];
     svPolarRes.clear();
     svRingSizes.clear();
     svRingMemo = null;

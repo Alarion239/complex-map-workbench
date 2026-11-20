@@ -43,9 +43,10 @@
 //   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
 //   (its thread still never goes back), and it ends within seconds of the link landing; that with the glide asking for
 //   its frames' own programs alone, as they come (the latch's case); as the app glides, it has every program of its
-//   frames before it moves and then never stands still between the planes; at rest on plane 0, once the warm-up and
-//   every other link are done, the programs of the glide a press starts next link ahead of it (ready staying true), and
-//   › pressed once they have landed leaves plane 0 at once;
+//   frames before it moves and then never stands still between the planes; at rest on plane 0, typed once z² + 1's
+//   programs at rest had landed, once the warm-up and every other link are done, the programs of the glide a press
+//   starts next link ahead of it (ready staying true, and none of z² + 1's read as begun for it), and › pressed once
+//   they have landed leaves plane 0 at once;
 // - the default example, colour plane 0, the glide's program linked, then › pressed with the links from then on landing
 //   seconds late: from the landing until plane 1's own programs land, every frame at rest on plane 1 is the inverse
 //   pass's by the glide's ops at its end (its last picture), never the carried meshes', then plane 1's own, and those two
@@ -498,14 +499,22 @@ try {
     ok(`exp(sin z), its later frames' links late: the glide asks for every program of its frames before it moves, waits for them at its start, and then never stands still between the planes`, a0.ok && ahead.at0 >= STILL_FRAMES && ahead.mid < STILL_FRAMES, { ahead, wait: a0 });
     info.ahead = { ahead, wait: a0 };
   }
-  // exp(sin z) again, at rest on plane 0: once the warm-up is done and nothing links, the idle job begins the programs
-  // of the glides a press can start next (__cmwSteps().restSet), ahead of any frame. In the page, from the edit on, at
-  // every animation frame and every few ms: whether such a program links (an inverse program marked as a view's no pane
-  // shows, GLR.pending()'s offView), whether ready reads false while one does (once it has read true), and what else
-  // linked when the first one was seen. Then, those landed, › pressed: the run of frames the thread stays put at plane 0
+  // exp(sin z) typed over z² + 1, at rest on plane 0: once the warm-up is done and nothing links, the idle job begins
+  // the programs of the glides a press can start next, ahead of any frame (__cmwSteps().restSet: none begun, null, or
+  // how many of them still link). z² + 1's are begun and landed first, then exp(sin z) typed. In the page, from the
+  // edit on, at every animation frame and every few ms: whether such a program links (an inverse program marked as a
+  // view's no pane shows, GLR.pending()'s offView), whether ready reads false while one does (once it has read true),
+  // and what else linked when the first one was seen; restSet once the edit is adopted. Then, once restSet reads them
+  // all landed and nothing links, › pressed: the run of frames the thread stays put at plane 0
   {
     await loadView('steps', 'llz' + Date.now(), { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0 });
     await settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(\'input[data-pkey="expr"]\')' });
+    // (the glides' warm-up at rest, svPrestartInv, off: it asks for the next glide's programs at places of its own,
+    // unmarked, before the warm-up is done, so with it on this scene's sets find every program of theirs begun already)
+    await ev('__cmwSteps({ warmInv: false }), 1');
+    // (the sets of the view as it is now begun, and every program of them and any other linked)
+    const landed = '(() => { const r = __cmwSteps().restSet; return !!r && r.pending === 0 && GLR.pendingLinks === 0; })()';
+    const y0 = await settled({ only: true, max: WARM_MS, until: landed });
     await ev(`(() => {
       const s = window.__llRest = { on: true, seen: 0, first: null, readyOnce: false, readyFalse: 0 };
       const look = () => {
@@ -522,7 +531,8 @@ try {
       return 1; })()`);
     await ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = 'exp(sin(z))'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return 1; })()`);
     await adopted();
-    const z0 = await settled({ only: true, max: WARM_MS, until: '!!__cmwSteps().restSet && GLR.pendingLinks === 0' });
+    const typed = await ev('(() => { const r = __cmwSteps().restSet; return r === null || typeof r !== "object" ? r : { pending: r.pending }; })()');
+    const z0 = await settled({ only: true, max: WARM_MS, until: landed });
     const rest = await ev('(() => { const s = window.__llRest; s.on = false; clearInterval(s.timer); return { seen: s.seen, first: s.first, readyOnce: s.readyOnce, readyFalse: s.readyFalse }; })()');
     // (the sampler begun with the press, in one evaluation: no round trip counted as frames at plane 0)
     await ev(`(() => {
@@ -538,10 +548,11 @@ try {
       return 1; })()`);
     const z1 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
     const press = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
-    const got = { rest, press, waits: { z0, z1 } };
+    const got = { typed, rest, press, waits: { y0, z0, z1 } };
     // (the warm-up's phase 'land' once every group has started and a link is under way, here the ones begun ahead)
     ok('exp(sin z) at rest: the programs of the glide a press starts next link ahead of it, begun once the warm-up has started every group and no other link is under way', z0.ok && rest.seen > 0 && !!rest.first && rest.first.others.length === 0 && ['land', 'done'].includes(rest.first.warm), got);
     ok('exp(sin z) at rest: ready stays true while those programs link', z0.ok && rest.seen > 0 && rest.readyOnce && rest.readyFalse === 0, got);
+    ok("exp(sin z) typed over z² + 1 at rest, whose sets had landed: restSet reads none of exp(sin z)'s begun, or some still linking, never z² + 1's sets", y0.ok && (typed === null || (!!typed && typed.pending > 0)), got);
     ok(`exp(sin z), › pressed once they have landed: the glide leaves plane 0 at once, and never stands still on the way`, z0.ok && z1.ok && press.at0 < STILL_FRAMES && press.mid < STILL_FRAMES, got);
     info.restSet = got;
   }
