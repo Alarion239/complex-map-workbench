@@ -348,9 +348,10 @@
   // of the exact preimages of w (the inverse branches, whatever the cut), the one nearest q0; else reached from q0 by
   // moving the target from F(q0) to w in small steps, a Newton solve at each (the continuation keeps the drag on one
   // branch). Off the image of F's branch (the exact preimages are then none) the continuation runs on Fc, the same map
-  // with its cut turned half a turn away (cutFree), so a drag leaves the image either way. Null where there is none
+  // with its cut turned half a turn away (cutFree), so a drag leaves the image either way. Null where there is none.
+  // With no plane b (F the picture of a frame between two planes, the glide's map at its u) the continuation alone
   function cutPull(F, w, q0, a, b, Fc) {
-    const ex = exactPre(a, b, [w.re, w.im]);
+    const ex = b == null ? null : exactPre(a, b, [w.re, w.im]);
     if (ex && ex.zs.length) {
       let best = null, bd = Infinity;
       for (const z of ex.zs) { const d = CX.abs(CX.sub(z, q0)); if (d < bd) { bd = d; best = z; } }
@@ -511,7 +512,8 @@
   // the plane k at rest draws) carried by H (a map of plane k to the picture; none: the identity). The banks are stroked
   // as drawCarriedCuts draws them. look = { own, marks } makes the picture the cut's look at rest as well: with own(j0) true for the plane j0 a cut lives in, the hatches on the closed side of each
   // cut's solid bank and the dot at the image of its branch point (the marks of the plane the cut lives in); marks, an array (or null: no handles), takes the editable cuts' handles
-  // ({ x, y, step, deg }, for drawCutHandles: drawn, never hit-tested)
+  // ({ x, y, step, deg, p, q, F, from }, for drawCutHandles: the branch point p, the handle's point q on the ray, F and the cut's plane from, which a drag of the handle pulls the
+  // pointer back through, cutPull)
   function drawCutCurvesAt(pane, mapFor, proj, pre, step = 1, look = null) {
     if (artMode) return;
     carriedCuts = [];
@@ -541,7 +543,7 @@
         if (look && look.own && look.own(j - 1)) branchDot(pane, F(c.p), proj);
         if (look && look.marks && c.editable) {
           const h = cutHandleAt(pane, F, c, st, win, proj, !!(look.own && look.own(j - 1)));
-          if (h) look.marks.push({ x: h.s[0], y: h.s[1], step: j, deg: st.params.cut ?? 180 });
+          if (h) look.marks.push({ x: h.s[0], y: h.s[1], step: j, deg: st.params.cut ?? 180, p: c.p, q: h.q, F, from: j - 1 });
         }
       }
     }
