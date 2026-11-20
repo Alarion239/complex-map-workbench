@@ -104,24 +104,6 @@
    "en": "Typesetting…",
    "ru": "Вёрстка…"
   },
-  "export.preview_exported_figure": {
-   "en": "Preview of the exported figure",
-   "ru": "Предпросмотр рисунка"
-  },
-  "export.double_column": {
-   "en": "Double column",
-   "ru": "Во всю ширину",
-   "note": "First word of the info line `{width}: {W} × {H} in, text 8–9 pt, plots at {dpi} dpi.` That template is not in the inventory. Russian: «{width}: {W} × {H} см, текст 8–9 пт, графика {dpi} dpi.» with W, H in centimetres, one decimal, decimal comma (GLOSSARY 3.8)."
-  },
-  "export.single_column": {
-   "en": "Single column",
-   "ru": "В одну колонку",
-   "note": "See export.double_column for the info-line template."
-  },
-  "export.forward_image_reached_mesh": {
-   "en": " A forward image reached its mesh budget and is drawn with coarser triangles in places.",
-   "ru": " Один из образов достиг предела триангуляции и местами нарисован более крупными треугольниками."
-  },
   "export.figure_could_not_be": {
    "en": "The figure could not be made.",
    "ru": "Не удалось построить рисунок."
@@ -134,27 +116,9 @@
    "en": "The figure could not be saved.",
    "ru": "Не удалось сохранить рисунок."
   },
-  "export.latex_figure_copied_export": {
-   "en": "LaTeX figure copied. Export without the caption in the image to avoid printing it twice.",
-   "ru": "LaTeX-код рисунка скопирован. Чтобы подпись не напечаталась дважды, экспортируйте рисунок без подписи на изображении."
-  },
-  "export.latex_figure_copied_with": {
-   "en": "LaTeX figure copied, with the caption.",
-   "ru": "LaTeX-код рисунка скопирован вместе с подписью."
-  },
-  "export.d_dz_has_no": {
-   "en": "d/dz has no deformation: the panels show the current frame",
-   "ru": "У d/dz нет деформации: на панелях — текущий кадр"
-  },
   "export.export_figure": {
    "en": "Export figure",
    "ru": "Экспорт рисунка"
-  },
-  "export.copy_latex_figure": {
-   "en": "Copy LaTeX figure",
-   "ru": "Скопировать LaTeX-код рисунка",
-   "ru_short": "Скопировать LaTeX",
-   "note": "Footer button; the full form is 29 characters against 17."
   },
   "export.close": {
    "en": "Close",
@@ -164,10 +128,6 @@
    "en": "Save figure",
    "ru": "Сохранить рисунок",
    "ru_short": "Сохранить"
-  },
-  "export.figure_for_article": {
-   "en": "Figure for an article…",
-   "ru": "Рисунок для статьи…"
   },
   "export.copy_latex_with_guarantees": {
    "en": "Copy LaTeX with guarantees",
@@ -489,15 +449,6 @@
    "note": "Homotopy phrase. Russian keeps it in the nominative singular (гомотопия … / семейство …), lower case. Host templates must take it in the nominative: «…; их соединяет {hom}.» and «…; это {hom}.» Never «соединённые {hom}» (that needs the instrumental).",
    "en_key": "the homotopy $H_t(%{v})=%{v}^{%{n}}$ (principal branch)"
   },
-  "export.homotopy_h_t_v_5": {
-   "en": "the homotopy $H_t({v})={v}^{{1}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$",
-   "ru": "гомотопия $H_t(%{v})=%{v}^{%{odd}}$ при $0\\le t\\le 1/2$ (главная ветвь), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
-   "note": "Homotopy phrase. Russian keeps it in the nominative singular (гомотопия … / семейство …), lower case. Host templates must take it in the nominative: «…; их соединяет {hom}.» and «…; это {hom}.» Never «соединённые {hom}» (that needs the instrumental).",
-   "en_key": "the homotopy $H_t(%{v})=%{v}^{%{odd}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$",
-   "ph": {
-    "odd": "{1}"
-   }
-  },
   "math.z_1_constant_so": {
    "en": "z⁰ = 1 is constant, so it has no inverse",
    "ru": "z⁰ = 1 — постоянная, поэтому обратной функции нет"
@@ -746,14 +697,6 @@
    "ru": "у постоянной нет естественного пути",
    "note": "Stands where a homotopy phrase stands."
   },
-  "math.log_powers_use_arg": {
-   "en": "log, √ and powers use arg ∈ ({cut}°, {cut}°]",
-   "ru": "ln, √ и степени используют arg ∈ ({cut}°, {cut2}°]",
-   "en_key": "log, √ and powers use arg ∈ ({cut}°, {cut2}°]",
-   "ph": {
-    "cut2": "{cut}"
-   }
-  },
   "math.d_dz_differentiates_chain": {
    "en": "d/dz differentiates the chain so far; it is not a map of w, so it has no inverse",
    "ru": "d/dz дифференцирует цепочку до этого места; это не отображение переменной w, поэтому обратного нет"
@@ -782,14 +725,6 @@
    "en_key": "{label} must be a number",
    "ph": {
     "label": "{q.label}"
-   }
-  },
-  "math.cannot_evaluate_n_t": {
-   "en": "Cannot evaluate '{n.t}'",
-   "ru": "Не удаётся вычислить «{t}»",
-   "en_key": "Cannot evaluate '{t}'",
-   "ph": {
-    "t": "{n.t}"
    }
   },
   "math.combine_comparisons_with_or": {
@@ -829,10 +764,6 @@
    "en": "'={nx}' is not an operator: did you mean {choice}?",
    "ru": "«={nx}» — не оператор. Вы имели в виду {choice}?"
   },
-  "math.unexpected_ch": {
-   "en": "Unexpected '{ch}'",
-   "ru": "Здесь не ожидалось «{ch}»"
-  },
   "math.empty_expression": {
    "en": "Empty expression",
    "ru": "Пустое выражение"
@@ -855,10 +786,6 @@
     "tkV": "{tk.v}"
    }
   },
-  "math.expected_close": {
-   "en": "Expected '{close}'",
-   "ru": "Ожидалось «{close}»"
-  },
   "math.expected_combine_conditions_write": {
    "en": "Expected '|'. To combine conditions, write 'or' instead of ||",
    "ru": "Ожидалось «|». Чтобы объединить условия, пишите or вместо ||"
@@ -867,25 +794,9 @@
    "en": "Expected '|'",
    "ru": "Ожидалось «|»"
   },
-  "math.unexpected_tk_v": {
-   "en": "Unexpected '{tk.v}'",
-   "ru": "Здесь не ожидалось «{tkV}»",
-   "en_key": "Unexpected '{tkV}'",
-   "ph": {
-    "tkV": "{tk.v}"
-   }
-  },
   "math.unexpected_end_expression": {
    "en": "Unexpected end of expression",
    "ru": "Выражение не закончено"
-  },
-  "math.unexpected_tk_t": {
-   "en": "Unexpected '{tk.t}'",
-   "ru": "Здесь не ожидалось «{tkT}»",
-   "en_key": "Unexpected '{tkT}'",
-   "ph": {
-    "tkT": "{tk.t}"
-   }
   },
   "math.unexpected_choice_2": {
    "en": "Unexpected '{choice}'",
@@ -1018,16 +929,6 @@
    "ru": "В формуле есть и операция, принимающая значения по нескольку раз, и разрез, поэтому однозначной обратной нет; используйте команду «Показать прообразы»",
    "note": "Russian: «все решения f(z) = w покажет команда «Показать прообразы»». The English says \"the Preimage view\", which no longer exists (app.js:378: Preimage is now part of every view). Fix the English wording too."
   },
-  "math.n_or_n_b": {
-   "en": "{n.a}\\ \\text{or}\\ {n.b}",
-   "ru": "%{a}\\ \\text{или}\\ %{b}",
-   "note": "Cyrillic inside \\text: on screen it needs the CMU path of DESIGN 5 (cyrWord) or the word set in HTML; MathJax alone draws it as <text> in a system font.",
-   "en_key": "%{a}\\ \\text{or}\\ %{b}",
-   "ph": {
-    "a": "{n.a}",
-    "b": "{n.b}"
-   }
-  },
   "math.point": {
    "en": "Point",
    "ru": "Точка",
@@ -1101,10 +1002,6 @@
    "en": "Formula",
    "ru": "Формула"
   },
-  "math.curve_formulas_are_not": {
-   "en": "Curve formulas are not available in this build",
-   "ru": "В этой сборке формулы кривых недоступны"
-  },
   "math.curve_formula": {
    "en": "Curve formula",
    "ru": "Формула кривой"
@@ -1162,11 +1059,6 @@
    "en": "{mark} and ",
    "ru": "{mark} и ",
    "note": "For several sets the code appends \",\" to {mark} (English serial comma). Russian: no comma before « и »; drop it."
-  },
-  "export.patword_joined_by": {
-   "en": " ({patWord}), joined by ",
-   "ru": " ({patWord}); их соединяет ",
-   "note": "Homotopy phrase. Russian keeps it in the nominative singular (гомотопия … / семейство …), lower case. Host templates must take it in the nominative: «…; их соединяет {hom}.» and «…; это {hom}.» Never «соединённые {hom}» (that needs the instrumental). {patWord} is not inventoried: checkerboard «клетки», tiles «плитки», lines «линии сетки», coloured «цвет»."
   },
   "export.boundary_point": {
    "en": "boundary point",
@@ -1240,23 +1132,10 @@
    "en": "; each is a segment",
    "ru": "; каждый путь — отрезок"
   },
-  "export.arrows_are_paths": {
-   "en": " Arrows are the paths ",
-   "ru": " Стрелки — пути ",
-   "note": "Counted phrase in «Arrows are the paths t ↦ H_t(z) of {parts}, from z (dot) to F(z)». Russian governs it with «для» (genitive): « Стрелки — пути {path} для {parts}, от {z} (точка) до {Fz}{clause}.» Replace num(n, one, many) with $tn() and these forms. The template \" of {parts}, from \" is not inventoried."
-  },
   "export.x": {
    "en": " and ",
    "ru": " и ",
    "note": "Test code uses the English literal. Joins the counted phrases; I18N.list() should do this in Russian (no serial comma)."
-  },
-  "export.dot": {
-   "en": " (dot) to ",
-   "ru": " (точка) до "
-  },
-  "export.arrows_that_meet_show": {
-   "en": " Arrows that meet show points with the same image.",
-   "ru": " Сходящиеся стрелки показывают точки с общим образом."
   },
   "export.dashed_boundaries_do_not": {
    "en": " Dashed boundaries do not belong to the sets.",
@@ -1395,10 +1274,6 @@
   "export.colour": {
    "en": " and the colour ",
    "ru": ", а цвет показывает "
-  },
-  "export.all_sheets_riemann_surface": {
-   "en": "; all sheets of the Riemann surface are shown.",
-   "ru": "; показаны все листы римановой поверхности."
   },
   "export.zeros_are_pits_poles": {
    "en": "; zeros are pits and poles are peaks.",
@@ -1643,10 +1518,6 @@
    "ru": "Пути",
    "note": "Test code uses the English literal."
   },
-  "export.arrows": {
-   "en": "Arrows",
-   "ru": "Стрелки"
-  },
   "export.none": {
    "en": "None",
    "ru": "Нет"
@@ -1660,18 +1531,6 @@
    "en": "Width",
    "ru": "Ширина"
   },
-  "export.single_column_2": {
-   "en": "Single column",
-   "ru": "В одну колонку",
-   "ru_short": "Одна колонка",
-   "note": "Segment under «Ширина»; GLOSSARY 1.11."
-  },
-  "export.double_column_2": {
-   "en": "Double column",
-   "ru": "Во всю ширину",
-   "ru_short": "Две колонки",
-   "note": "Segment under «Ширина»; GLOSSARY 1.11."
-  },
   "export.width_2": {
    "en": "Width",
    "ru": "Ширина"
@@ -1679,10 +1538,6 @@
   "export.caption": {
    "en": "Caption",
    "ru": "Подпись"
-  },
-  "export.figure_2": {
-   "en": "In the figure",
-   "ru": "На рисунке"
   },
   "export.latex_only": {
    "en": "LaTeX only",
@@ -2665,20 +2520,6 @@
     "n": "{pts.length}"
    }
   },
-  "math.grid_math_min_math": {
-   "en": "\\text{grid } [{Math.min},{Math.max}]\\times[{Math.min},{Math.max}]",
-   "ru": "\\text{сетка } [%{xMin}%{xSep}%{xMax}]\\times[%{yMin}%{ySep}%{yMax}]",
-   "note": "Cyrillic inside \\text: on screen and in figures it needs the CMU path (DESIGN 5, cyrWord); MathJax alone draws <text> in a system font. The call site passes xMin, xMax, yMin, yMax from I18N.texNum and xSep = I18N.texSep([xMin, xMax]), ySep = I18N.texSep([yMin, yMax]) (GLOSSARY 2.3): [−1, 1] keeps its comma, [0{,}5;\\,1] gets the semicolon. English passes «,», so its output is unchanged.",
-   "en_key": "\\text{grid } [%{xMin}%{xSep}%{xMax}]\\times[%{yMin}%{ySep}%{yMax}]",
-   "ph": {
-    "xMin": "{Math.min}",
-    "xMax": "{Math.max}",
-    "yMin": "{Math.min}",
-    "yMax": "{Math.max}",
-    "xSep": ",",
-    "ySep": ","
-   }
-  },
   "math.polar_grid_p_s": {
    "en": "\\text{polar grid}, |{P}|\\le {s.r}",
    "ru": "\\text{полярная сетка}, |%{P}|\\le %{r}",
@@ -2883,12 +2724,6 @@
    "note": "Internal error; users should never see it.",
    "provisional": true
   },
-  "export.mathjax_still_loading": {
-   "en": "MathJax is still loading",
-   "ru": "MathJax ещё загружается",
-   "note": "Internal Error message; the dialog shows export.typesetter_still_loading_try instead. figure.js tests /MathJax/ on the message: keep the word MathJax in it.",
-   "provisional": true
-  },
   "export.figure_at_printed_size": {
    "en": "The figure at its printed size",
    "ru": "Рисунок в печатном размере",
@@ -2972,24 +2807,6 @@
    "ru": "Другие форматы ",
    "provisional": true
   },
-  "export.for_docs": {
-   "en": "For Docs",
-   "ru": "Для Docs",
-   "note": "Product or class names stay in Latin (GLOSSARY 3.11); the \"no English left\" test must allow them.",
-   "provisional": true
-  },
-  "export.for_overleaf": {
-   "en": "For Overleaf",
-   "ru": "Для Overleaf",
-   "note": "Product or class names stay in Latin (GLOSSARY 3.11); the \"no English left\" test must allow them.",
-   "provisional": true
-  },
-  "export.x_pt": {
-   "en": "· {x} pt",
-   "ru": "· {x} пт",
-   "note": " Decimal values: comma in Russian. Format {x} where it is made with I18N.texNum (in TeX) or I18N.num (in text), not toFixed(); inside brackets the separator comes from I18N.texSep.",
-   "provisional": true
-  },
   "export.sz_pt_pt": {
    "en": "{sz.pt}pt",
    "ru": "{pt}pt",
@@ -2999,18 +2816,6 @@
    "ph": {
     "pt": "{sz.pt}"
    }
-  },
-  "export.for_slides": {
-   "en": "For Slides",
-   "ru": "Для Slides",
-   "note": "Product or class names stay in Latin (GLOSSARY 3.11); the \"no English left\" test must allow them. (Google Slides).",
-   "provisional": true
-  },
-  "export.for_beamer": {
-   "en": "For Beamer",
-   "ru": "Для Beamer",
-   "note": "Product or class names stay in Latin (GLOSSARY 3.11); the \"no English left\" test must allow them.",
-   "provisional": true
   },
   "export.problem_3": {
    "en": "Problem 3.",
@@ -3185,37 +2990,6 @@
     "mult": "{r.mult}"
    }
   },
-  "export.x_x_2": {
-   "en": "{x} and {x}",
-   "ru": "{x} и {x2}",
-   "provisional": true,
-   "en_key": "{x} and {x2}",
-   "ph": {
-    "x2": "{x}"
-   }
-  },
-  "export.0_x": {
-   "en": "{0}, and {x}",
-   "ru": "{head} и {x}",
-   "note": "No serial comma in Russian. When the items contain decimal commas, join them with «; » (GLOSSARY 2.3). Better: use I18N.list().",
-   "provisional": true,
-   "en_key": "{head}, and {x}",
-   "ph": {
-    "head": "{0}"
-   }
-  },
-  "export.shown_at_t_2": {
-   "en": " Shown at $t={2}$, where $H_t$ deforms the identity ($t=0$) into {map} ($t={hom.m}$) along {hom.tex}.",
-   "ru": " Показан кадр при $t=%{t}$. Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{tEnd}$); это %{hom}.",
-   "note": "Caption text: it follows the caption language (I18N.using), not the interface language. {hom.tex} is a homotopy phrase in the nominative («гомотопия масштабирования …», «семейство сдвигов …»). {2}: decimal comma.",
-   "provisional": true,
-   "en_key": " Shown at $t=%{t}$, where $H_t$ deforms the identity ($t=0$) into %{map} ($t=%{tEnd}$) along %{hom}.",
-   "ph": {
-    "hom": "{hom.tex}",
-    "t": "{2}",
-    "tEnd": "{hom.m}"
-   }
-  },
   "export.drawn_as_level_sets": {
    "en": ", drawn as level sets of $\\arg {f}$ at multiples of $\\pi/6$; heavy: $\\arg {f}=0$, dashed: $\\arg {f}=\\pi$. Bands: $\\lfloor\\log_2|{f}|\\rfloor$ even (gray) or odd (white).",
    "ru": ", изображённый линиями уровня $\\arg %{f}$ с шагом $\\pi/6$; жирная линия: $\\arg %{f}=0$, штриховая: $\\arg %{f}=\\pi$. Заливка: серая, где $\\lfloor\\log_2|%{f}|\\rfloor$ чётно, белая, где нечётно.",
@@ -3258,13 +3032,6 @@
    "note": "{lv} is export.thin_lines_are_level.",
    "provisional": true,
    "en_key": ": the color shows $\\arg %{f}$ (key at right) and %{lv}."
-  },
-  "export.color_shows_f_key_4": {
-   "en": ": the color shows $\\arg {f}$ (key at right), {lv}, and the shading steps in $|{f}|$ by factors of $e^{2\\pi/{n}}\\approx {x}$.",
-   "ru": ": цвет показывает $\\arg %{f}$ (шкала справа), %{lv}, а затенение меняется ступенями: от ступени к ступени $|%{f}|$ растёт в $e^{2\\pi/%{n}}\\approx %{x}$ раза.",
-   "note": "{x} is a non-integer factor, so «раза» is always right; no plural needed. Decimal values: comma in Russian. Format {x} where it is made with I18N.texNum (in TeX) or I18N.num (in text), not toFixed(); inside brackets the separator comes from I18N.texSep.",
-   "provisional": true,
-   "en_key": ": the color shows $\\arg %{f}$ (key at right), %{lv}, and the shading steps in $|%{f}|$ by factors of $e^{2\\pi/%{n}}\\approx %{x}$."
   },
   "export.zeros_dots_at_listtex": {
    "en": " Zeros (dots) at {listTex}.",
@@ -3364,24 +3131,6 @@
     "m": "{i.m}"
    }
   },
-  "export.solid_paths_t_h": {
-   "en": " Solid: the paths $t\\mapsto H_t(z)$ of the marked points up to the frame's $t$; dotted: the rest of each path; dashed: the boundary at $t=0$.",
-   "ru": " Сплошные линии — пути $t\\mapsto H_t(z)$ отмеченных точек до значения $t$ в кадре; точечные — оставшаяся часть каждого пути; штриховая — граница при $t=0$.",
-   "provisional": true
-  },
-  "export.deformation_h_t_choice": {
-   "en": "The deformation $H_t${choice}{choice} Shown at $t={2}$, where $H_t$ deforms the identity ($t=0$) into {map} ($t={hom.m}$) along {hom.tex}.",
-   "ru": "Деформация $H_t$%{choice}%{choice2} Показан кадр при $t=%{t}$. Здесь $H_t$ непрерывно деформирует тождественное отображение ($t=0$) в %{map} ($t=%{tEnd}$); это %{hom}.",
-   "note": "The two {choice} are export.on_riemann_sphere_with_3 (or empty) and export.image_list0_under_h (or \".\"). Rename them. {hom.tex}: nominative homotopy phrase.",
-   "provisional": true,
-   "en_key": "The deformation $H_t$%{choice}%{choice2} Shown at $t=%{t}$, where $H_t$ deforms the identity ($t=0$) into %{map} ($t=%{tEnd}$) along %{hom}.",
-   "ph": {
-    "choice2": "{choice}",
-    "hom": "{hom.tex}",
-    "t": "{2}",
-    "tEnd": "{hom.m}"
-   }
-  },
   "export.on_riemann_sphere_with_3": {
    "en": " on the Riemann sphere, with $\\infty$ at the north pole",
    "ru": " на сфере Римана (точка $\\infty$ — северный полюс)",
@@ -3419,17 +3168,6 @@
    "ru": "их образы",
    "provisional": true
   },
-  "export.map_wmap": {
-   "en": "The map {wmap}.",
-   "ru": "Отображение {wmap}.",
-   "provisional": true
-  },
-  "export.cap1_plane": {
-   "en": "{cap1} in {plane}.",
-   "ru": "{cap1} в {plane}.",
-   "note": "{plane} must be the locative form «плоскости $z$» here: add a context key, e.g. $tx('loc', 'the ${c.lvar}$-plane') = «плоскости ${c.lvar}$».",
-   "provisional": true
-  },
   "export.point_goes": {
    "en": " The point $A$ goes to $A'$.",
    "ru": " Точка $A$ переходит в $A'$.",
@@ -3454,22 +3192,6 @@
    "en": " Arrowheads: orientation.",
    "ru": " Стрелки показывают ориентацию.",
    "provisional": true
-  },
-  "export.cap1_plane_2": {
-   "en": "{cap1} in {plane}",
-   "ru": "{cap1} в {plane}",
-   "note": "{plane} must be the locative form «плоскости $z$» here: add a context key, e.g. $tx('loc', 'the ${c.lvar}$-plane') = «плоскости ${c.lvar}$».",
-   "provisional": true
-  },
-  "export.c_lvar_plane": {
-   "en": "The {c.lvar}-plane",
-   "ru": "Плоскость {lvar}",
-   "note": "The English has no $…$ around the variable here (compare export.plane_2); probably a bug in figure.js:1270. Russian: «Плоскость $z$» once fixed.",
-   "provisional": true,
-   "en_key": "The {lvar}-plane",
-   "ph": {
-    "lvar": "{c.lvar}"
-   }
   },
   "export.their_images_2": {
    "en": "Their images",
@@ -3901,34 +3623,6 @@
     "several": "множества на рис. а"
    }
   },
-  "export.extra.image_after_steps": {
-   "file": "app.js:4851",
-   "en": "The image of {set} after {n} steps",
-   "ru": "Образ {set} после {n} шагов",
-   "plural": {
-    "one": "Образ {set} после {n} шага",
-    "few": "Образ {set} после {n} шагов",
-    "many": "Образ {set} после {n} шагов",
-    "other": "Образ {set} после {n} шага"
-   },
-   "note": "\"after the first step\" → «после первого шага». {set} in the genitive.",
-   "en_plural": [
-    "The image of {set} after {n} steps",
-    "The image of {set} after {n} steps"
-   ]
-  },
-  "export.extra.with_mark": {
-   "file": "app.js:4850",
-   "en": ", with {x},",
-   "ru": " ({x})",
-   "note": "No comma: « и » follows. Wraps export.dashed_outlines / export.dashed_outline."
-  },
-  "export.extra.patword_checker": {
-   "file": "app.js:4842",
-   "en": "checkerboard",
-   "ru": "клетки",
-   "note": "patWord in « ({patWord}); их соединяет »."
-  },
   "export.extra.patword_tiles": {
    "file": "app.js:4842",
    "en": "tiles",
@@ -3946,30 +3640,6 @@
    "en": "coloured",
    "ru": "цвет",
    "note": "patWord."
-  },
-  "export.extra.arrows_of_from": {
-   "file": "app.js:4874",
-   "en": " of {parts}, from ",
-   "ru": " для {parts}, от ",
-   "note": "Between export.arrows_are_paths + t ↦ H_t(z) and z (dot). {parts} uses the genitive plural forms on export.boundary_point etc."
-  },
-  "export.extra.plane_name": {
-   "file": "app.js:9045",
-   "en": "the {z}-plane",
-   "ru": "плоскость {z}",
-   "note": "planeName. Needs three Russian forms: nominative «плоскость $z$», locative «плоскости $z$» (after « в », « на »), instrumental «плоскостью $z$» (after « над »)."
-  },
-  "export.extra.plane_name_input": {
-   "file": "app.js:9045",
-   "en": "the {w}-plane, the input of {F}",
-   "ru": "плоскость {w}, исходная для {F}",
-   "note": "Same three forms: «плоскости $w_1$, исходной для $f_2$», «плоскостью $w_1$, исходной для $f_2$». Not «аргумент» (GLOSSARY 1.1)."
-  },
-  "export.extra.hom_def": {
-   "file": "app.js:9043",
-   "en": " Shown at {t}, where {H} deforms the identity ({t0}) into {map} ({t1}) along {hom}.",
-   "ru": " Показан кадр при {t}. Здесь {H} непрерывно деформирует тождественное отображение ({t0}) в {map} ({t1}); это {hom}.",
-   "note": "app.js homDef() segments; same sentence as export.shown_at_t_2."
   },
   "export.extra.prop_entire": {
    "file": "app.js:9111",
@@ -3989,12 +3659,6 @@
    "ru": "собственное отображение",
    "note": "Property list after «$F$ — »."
   },
-  "export.extra.on_domain": {
-   "file": "app.js:9118",
-   "en": " On its natural domain {D}, ",
-   "ru": " В естественной области определения {D}: ",
-   "note": "The (with $w_k$ the value after step $k$) aside: « (где $w_k$ — значение после шага $k$)»."
-  },
   "export.extra.where_defined": {
    "file": "app.js:9118",
    "en": " Where the formula is defined, ",
@@ -4007,79 +3671,12 @@
    "ru": "\\text{: разрез }",
    "note": "Sibling of export.sheet_kk; Cyrillic in \\text goes through cyrWord()."
   },
-  "export.extra.info_line": {
-   "file": "app.js:9422",
-   "en": "{width}: {W} × {H} in, text 8–9 pt, plots at {dpi} dpi.",
-   "ru": "{width}: {W} × {H} см, текст 8–9 пт, графика {dpi} dpi.",
-   "note": "W and H in centimetres, one decimal, decimal comma."
-  },
-  "export.extra.fig_phase_head": {
-   "file": "work/xr/src/figure.js:1218",
-   "en": "Phase portrait of {map} on {box}",
-   "ru": "Фазовый портрет функции {map} на {box}",
-   "note": "{box} = $[x_0;x_1]\\times[y_0;y_1]$ with «;» when decimals use commas."
-  },
-  "export.extra.fig_land_head": {
-   "file": "work/xr/src/figure.js:1233",
-   "en": "Landscape of {map}{over}: the height is {ht}",
-   "ru": "Рельеф функции {map}{over}: высота равна {ht}",
-   "note": "{over} is export.over_2."
-  },
-  "export.extra.fig_left_right": {
-   "file": "work/xr/src/figure.js:1263",
-   "en": "{cap1} (left) and {its image} under {wmap} (right).",
-   "ru": "Слева — {list}, справа — образ при отображении {wmap}.",
-   "note": "Homework caption, two panels (figure.js 1316). work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown.",
-   "split": {
-    "single": "Слева — {list}, справа — образ при отображении {wmap}.",
-    "several": "Слева — {list}, справа — образы при отображении {wmap}."
-   }
-  },
-  "export.extra.fig_images_of": {
-   "file": "work/xr/src/figure.js:1267",
-   "en": "The image{s} of {list} under {wmap}.",
-   "ru": "Образ {list_gen} при отображении {wmap}.",
-   "note": "Right panel only (figure.js 1317 homework, 1326 article; the article adds {pat}). work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown.",
-   "split": {
-    "single": "Образ {list_gen} при отображении {wmap}.",
-    "several": "Образы {list_gen} при отображении {wmap}."
-   }
-  },
-  "export.extra.fig_two_panels": {
-   "file": "work/xr/src/figure.js:1270",
-   "en": "(a) {cap1} in the ${lvar}$-plane. (b) {Its image} under {map}.{pat}",
-   "ru": "\\textit{а}~--- %{list} в~плоскости~$%{lvar}$; \\textit{б}~--- образ при отображении %{map}.%{pat}",
-   "note": "Article caption, two panels (figure.js 1324). Lower-case {list} after «а —». work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown.",
-   "split": {
-    "single": "\\textit{а}~--- %{list} в~плоскости~$%{lvar}$; \\textit{б}~--- образ при отображении %{map}.%{pat}",
-    "several": "\\textit{а}~--- %{list} в~плоскости~$%{lvar}$; \\textit{б}~--- образы при отображении %{map}.%{pat}"
-   },
-   "en_key": "(a) %{cap1} in the $%{lvar}$-plane. (b) {Its image} under %{map}.%{pat}"
-  },
   "export.extra.ink_bw": {
    "file": "work/xr/src/figure.js:1512",
    "en": "B/W",
    "ru": "Оттенки серого",
    "note": "Ink option next to «Цвет» (GLOSSARY 1.11: «Печать: цветная, оттенки серого»). ru_short «Ч/б» only if the segmented control overflows; it is the usual print-dialog label.",
    "ru_short": "Ч/б"
-  },
-  "export.extra.fig_two_panels_plane": {
-   "file": "work/xr/src/figure.js:1324",
-   "en": "(a) The {lvar}-plane. (b) The image under {map}.{pat}",
-   "ru": "\\textit{а}~--- плоскость~$%{lvar}$; \\textit{б}~--- её образ при отображении %{map}.%{pat}",
-   "note": "Article caption, two panels, no shapes drawn. «её» is the plane (feminine, known). work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown."
-  },
-  "export.extra.fig_left_only": {
-   "file": "work/xr/src/figure.js:1317",
-   "en": "{cap1} in the {lvar}-plane.",
-   "ru": "%{cap1} в~плоскости~$%{lvar}$.",
-   "note": "Left panel only (homework and article). {cap1}: the list with a capital. work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown."
-  },
-  "export.extra.fig_left_only_plane": {
-   "file": "work/xr/src/figure.js:1325",
-   "en": "The {lvar}-plane.",
-   "ru": "Плоскость~$%{lvar}$.",
-   "note": "Left panel only, no shapes."
   },
   "export.extra.fig_right_only_plane": {
    "file": "work/xr/src/figure.js:1326",
@@ -4092,36 +3689,6 @@
    "en": "The map {wmap}.",
    "ru": "Отображение {wmap}.",
    "note": "Homework caption with no shapes."
-  },
-  "export.extra.shape_point": {
-   "file": "app.js:8981",
-   "en": "the point {m}",
-   "ru": "точка {m}",
-   "split": {
-    "nom": "точка {m}",
-    "gen": "точки {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_segment": {
-   "file": "app.js:8983",
-   "en": "the segment {m}",
-   "ru": "отрезок {m}",
-   "split": {
-    "nom": "отрезок {m}",
-    "gen": "отрезка {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_line": {
-   "file": "app.js:8985",
-   "en": "the line {m}",
-   "ru": "прямая {m}",
-   "split": {
-    "nom": "прямая {m}",
-    "gen": "прямой {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
   },
   "export.extra.shape_line_through": {
    "file": "app.js:8985",
@@ -4143,26 +3710,6 @@
    },
    "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
   },
-  "export.extra.shape_circle": {
-   "file": "app.js:8987",
-   "en": "the circle {m}",
-   "ru": "окружность {m}",
-   "split": {
-    "nom": "окружность {m}",
-    "gen": "окружности {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_arc": {
-   "file": "app.js:8988",
-   "en": "the arc from {a} through {m} to {b}",
-   "ru": "дуга от {a} через {m} до {b}",
-   "split": {
-    "nom": "дуга от {a} через {m} до {b}",
-    "gen": "дуги от {a} через {m} до {b}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
   "export.extra.shape_curve": {
    "file": "app.js:8989",
    "en": "a freehand curve",
@@ -4170,26 +3717,6 @@
    "split": {
     "nom": "нарисованная от руки кривая",
     "gen": "нарисованной от руки кривой"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_disc": {
-   "file": "app.js:8990",
-   "en": "the disc {m}",
-   "ru": "круг {m}",
-   "split": {
-    "nom": "круг {m}",
-    "gen": "круга {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_rect": {
-   "file": "app.js:8991",
-   "en": "the rectangle {m}",
-   "ru": "прямоугольник {m}",
-   "split": {
-    "nom": "прямоугольник {m}",
-    "gen": "прямоугольника {m}"
    },
    "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
   },
@@ -4226,135 +3753,11 @@
    ],
    "ctx": "gen"
   },
-  "export.extra.shape_halfplane": {
-   "file": "app.js:8993",
-   "en": "the half-plane {m}",
-   "ru": "полуплоскость {m}",
-   "split": {
-    "nom": "полуплоскость {m}",
-    "gen": "полуплоскости {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_annulus": {
-   "file": "app.js:8994",
-   "en": "the annulus {m}",
-   "ru": "кольцо {m}",
-   "split": {
-    "nom": "кольцо {m}",
-    "gen": "кольца {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_sector": {
-   "file": "app.js:8995",
-   "en": "the sector {m}",
-   "ru": "сектор {m}",
-   "split": {
-    "nom": "сектор {m}",
-    "gen": "сектора {m}",
-    "nom_unbounded": "угол {m}",
-    "gen_unbounded": "угла {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma). An unbounded sector (radius 0) is «угол» in Russian books (GLOSSARY 1.1)."
-  },
-  "export.extra.shape_set": {
-   "file": "app.js:8996",
-   "en": "the set {m}",
-   "ru": "множество {m}",
-   "split": {
-    "nom": "множество {m}",
-    "gen": "множества {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_fcurve": {
-   "file": "app.js:8997",
-   "en": "the curve {m}",
-   "ru": "кривая {m}",
-   "split": {
-    "nom": "кривая {m}",
-    "gen": "кривой {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_cgrid": {
-   "file": "app.js:8998",
-   "en": "a Cartesian grid on {m}",
-   "ru": "декартова сетка на {m}",
-   "split": {
-    "nom": "декартова сетка на {m}",
-    "gen": "декартовой сетки на {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_pgrid": {
-   "file": "app.js:8999",
-   "en": "a polar grid in {m}",
-   "ru": "полярная сетка в {m}",
-   "split": {
-    "nom": "полярная сетка в {m}",
-    "gen": "полярной сетки в {m}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma)."
-  },
-  "export.extra.shape_other": {
-   "file": "app.js:9000",
-   "en": "a {kind}",
-   "ru": "{kind}",
-   "split": {
-    "nom": "{kind}",
-    "gen": "{kind}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma). {kind} is the tool label in lower case, nominative; the genitive needs one form per kind."
-  },
-  "export.extra.shape_complement": {
-   "file": "app.js:9003",
-   "en": "the complement of {segs}",
-   "ru": "дополнение {segs}",
-   "split": {
-    "nom": "дополнение {segs}",
-    "gen": "дополнения {segs}"
-   },
-   "note": "app.js 8976–8996 shapePhrase(): shape phrases in figure captions (review i18n-1: not in the inventory). split.nom: after «а —», in lists, after «Слева —»; split.gen: after «Образ», «Образы», «дополнение» ({list_gen} in export.extra.fig_images_of). Lower case; cap1() capitalizes. Lists join with «, » and a final « и » (no comma). {segs} is the shape phrase in the genitive (split.gen): «дополнение круга $|z|<1$»."
-  },
   "export.extra.list_and": {
    "file": "app.js:9009",
    "en": ", and ",
    "ru": " и ",
    "note": "joinList(): the last joiner. Russian puts no comma before the final «и» (« и » for two items and for more)."
-  },
-  "export.extra.pat_checker": {
-   "file": "app.js:9018",
-   "en": " Regions are shaded by a checkerboard of cell ${cell}$ in the $z$-plane, carried by the map.",
-   "ru": " Области раскрашены в клетку размера $%{cell}$: это шахматная раскраска плоскости $z$, перенесённая отображением.",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory).",
-   "en_key": " Regions are shaded by a checkerboard of cell $%{cell}$ in the $z$-plane, carried by the map."
-  },
-  "export.extra.pat_polar": {
-   "file": "app.js:9019",
-   "en": " Regions are shaded by a log-polar checkerboard in the $z$-plane, whose cells stay square under conformal maps.",
-   "ru": " Области раскрашены лог-полярными клетками плоскости $z$; при конформном отображении малые клетки остаются почти квадратными.",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory). «почти квадратными»: exact for small cells (the English says «stay square»)."
-  },
-  "export.extra.pat_tiles": {
-   "file": "app.js:9020",
-   "en": " Regions are shaded by tiles marked with the letter F, which show rotation, scaling and reflection.",
-   "ru": " Области покрыты плитками с буквой F; плитки показывают поворот, растяжение и отражение.",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory)."
-  },
-  "export.extra.pat_grid": {
-   "file": "app.js:9021",
-   "en": " Lines are the coordinate lines of the $z$-plane, spaced ${cell}$.",
-   "ru": " Линии — координатные линии плоскости $z$ с шагом $%{cell}$.",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory).",
-   "en_key": " Lines are the coordinate lines of the $z$-plane, spaced $%{cell}$."
-  },
-  "export.extra.pat_polargrid": {
-   "file": "app.js:9022",
-   "en": " Lines are circles about 0 and rays from 0 in the $z$-plane.",
-   "ru": " Линии — окружности с центром в точке 0 и лучи, выходящие из 0, в плоскости $z$.",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory)."
   },
   "export.extra.pat_phase": {
    "file": "app.js:9023",
@@ -4362,59 +3765,12 @@
    "ru": " Области окрашены по аргументу исходной точки.",
    "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory). «аргумент» is arg z here (GLOSSARY 1.15)."
   },
-  "export.extra.pat_stretch": {
-   "file": "app.js:9024",
-   "en": " The colour shows the local scale factor $|{F}'|$ (bar).",
-   "ru": " Цвет показывает коэффициент растяжения $|%{F}'|$ (шкала).",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory). GLOSSARY 1.2: «коэффициент растяжения».",
-   "en_key": " The colour shows the local scale factor $|%{F}'|$ (bar)."
-  },
-  "export.extra.pat_sphere": {
-   "file": "app.js:9025",
-   "en": " Regions are shaded by a checkerboard of ${n}$ longitude sectors and ${n2}$ latitude bands of the Riemann sphere of the $z$-plane, carried by the map.",
-   "ru": " Области раскрашены в шахматном порядке: сфера Римана плоскости $z$ разбита на долготные секторы ($%{n}$) и широтные пояса ($%{n2}$); раскраска перенесена отображением.",
-   "note": "app.js 9018–9025 patternSegs(): the sentence on the image's shading (review i18n-1: not in the inventory). The counts stand in brackets, so no plural forms are needed.",
-   "en_key": " Regions are shaded by a checkerboard of $%{n}$ longitude sectors and $%{n2}$ latitude bands of the Riemann sphere of the $z$-plane, carried by the map."
-  },
-  "export.extra.shown_for": {
-   "file": "app.js:4794",
-   "en": ", shown for ${range}$",
-   "ru": ", показан участок $%{range}$",
-   "note": "morphHomSegs() stop segment (review i18n-1): the homotopy is drawn only up to the frame's t: «…, показан участок $0\\le t\\le 1{,}5$».",
-   "en_key": ", shown for $%{range}$"
-  },
-  "export.extra.after_first_step": {
-   "file": "app.js:4856",
-   "en": "The image of {set} after the first step",
-   "ru": "Образ {set} после первого шага",
-   "note": "Sibling of export.extra.image_after_steps (n = 1 in the English code). {set} in the genitive (split.gen of the shape phrases)."
-  },
-  "export.extra.fig_morph_two_panels": {
-   "file": "app.js:9324",
-   "en": "(a) {list} in the $z$-plane. (b) The deformation ${H}$: {rest}",
-   "ru": "\\textit{а}~--- %{list} в~плоскости~$z$; \\textit{б}~--- деформация~$%{H}$: %{rest}",
-   "note": "Deformation figure, two panels (review i18n-1). {list}: shape phrases, nominative, lower case. {H} = H_t,\\ 0\\le t\\le T. {rest}: morphCaption(…, {both: true}). work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown.",
-   "en_key": "(a) %{list} in the $z$-plane. (b) The deformation $%{H}$: %{rest}"
-  },
-  "export.extra.fig_morph_two_panels_plane": {
-   "file": "app.js:9324",
-   "en": "(a) The plane in the $z$-plane. (b) The deformation ${H}$: {rest}",
-   "ru": "\\textit{а}~--- плоскость~$z$; \\textit{б}~--- деформация~$%{H}$: %{rest}",
-   "note": "The same with no shapes drawn. work/xr figure.js captionFor(), X → Y. One template per sentence (Russian word order). {list} is the shape list in the nominative, lower case (A.segsTex(c.shapeList)); {list_gen} the same list in the genitive (needs the genitive forms of the shape phrases). {lvar} is c.lvar. split: single = one shape (c.nShapes == 1), several = more. Subfigure letters «а», «б» are Cyrillic and italic (GLOSSARY 11): segsOf() must map \\textit{…} to an italic segment and ~ to U+00A0. No gendered «его/её» for the shape: its noun is unknown.",
-   "en_key": "(a) The plane in the $z$-plane. (b) The deformation $%{H}$: %{rest}"
-  },
   "export.extra.power_homotopy": {
    "file": "funcs.js:323",
    "en": "the power homotopy $H_t({v})={lead}{at}{base}^{{e}}${parts} (principal branch)",
    "ru": "степенная гомотопия $H_t(%{v})=%{lead}%{at}%{base}^{%{e}}$%{parts} (главная ветвь)",
    "note": "Homotopy phrase (review i18n-1), nominative like its siblings. {parts} lists $a=…$, $c=…$ with «, »; when a value has a decimal comma the separator is «; » (GLOSSARY 2.3).",
    "en_key": "the power homotopy $H_t(%{v})=%{lead}%{at}%{base}^{%{e}}$%{parts} (principal branch)"
-  },
-  "export.extra.preamble_homework": {
-   "file": "work/xr/src/figure.js:1446",
-   "en": "% Preamble: \\usepackage{graphicx,amsmath,amssymb,float}",
-   "ru": "% Преамбула (pdfLaTeX): \\usepackage[T2A]%{fontenc}\\usepackage[russian]%{babel}\\usepackage{graphicx,amsmath,amssymb,float}; в XeLaTeX и LuaLaTeX вместо fontenc — \\usepackage{fontspec}\\setmainfont{cmunrm.otf}[BoldFont=cmunbx.otf,ItalicFont=cmunti.otf]",
-   "note": "Homework snippet (review i18n-21). LaTeX comment, written only when the caption language is Russian (the English snippet keeps its own line). Tested 2026-10-22: pdfLaTeX with T2A + babel-russian; XeLaTeX and LuaLaTeX with fontspec and the CMU files (XeLaTeX does not find «CMU Serif» by name in TeX Live, so the file names are given)."
   },
   "export.extra.preamble_english_main": {
    "file": "work/xr/src/figure.js:1446,1462",
