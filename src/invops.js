@@ -895,7 +895,8 @@ const InvOps = (() => {
   // InvOps.ratCritical(p, q, f) -> Crit: the critical points of f = p/q (high-first coefficients, coprime, degree d):
   // the zeros of p'q - pq', clustered (rootClusters), and infinity for the rest of the 2 d - 2 of them, where f takes
   // its value at infinity (null = infinity). A zero of p'q - pq' that is a zero of q (to RAT_POLE_REL of q's terms
-  // there) is a pole of order 2 or more: its value is infinity
+  // there) is a pole of order 2 or more: its value is infinity. (rootClusters takes zeros within 1e-3 of each other for
+  // one: two simple critical points that close, as next to a simple pole of residue below about 2.5e-7, read as one)
   const RAT_POLE_REL = 1e-8;
   function ratCritical(p, q, f) {
     p = CX.polyTrim(p); q = CX.polyTrim(q);
