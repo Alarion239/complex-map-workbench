@@ -4,8 +4,9 @@
 //   - the chain prepared: it returns ok and records no failure;
 //   - a part not done (the test hook holdJobs counts the idle jobs unfinished): it gives up at its bound and records one failure
 //     that names the part and how far it is (jobs 0/3), and when the part is released it is ok again;
+//   - a chain that is not up (ready.total 0, as in the classic view): the failure says so;
 //   - an extra condition that does not hold while the chain is prepared: the failure names that condition, and no part.
-// It runs in the steps view. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// It runs in the steps view (its last leg opens the classic view). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const GIVE_UP_MS = 1500, WARM_MS = 120000;
@@ -50,5 +51,15 @@ const legKit = () => { const own = []; return { own, kit: eval(fs.readFileSync(p
   info.also = { r: r && r.ok, own };
   ok('an extra condition that never holds: ok false', !!r && r.ok === false, info.also);
   ok('an extra condition that never holds: the failure names it and no part', own.length === 1 && /window\.__never === 1/.test(String(own[0].got)) && !/\d\/\d/.test(String(own[0].got)), own);
+}
+// a chain that is not up (the classic view has none: ready.total 0): the failure says that, not that an extra condition did not hold
+{
+  await loadView('classic', 'kitprepcl' + Date.now(), {});
+  await settled({ max: WARM_MS, only: true, until: 'typeof __cmwSteps === "function" && __cmwSteps().ready.total === 0' });
+  const { own, kit } = legKit();
+  const r = await kit.prepared('true', GIVE_UP_MS);
+  info.down = { r: r && r.ok, own };
+  ok('a chain that is not up: prepared() gives up (ok false)', !!r && r.ok === false, info.down);
+  ok('a chain that is not up: one failure, naming the chain as not up and not an extra condition', own.length === 1 && /not up/.test(own[0].name) && !/extra condition/.test(own[0].name) && /ready\.total 0/.test(String(own[0].got)), own);
 }
 return { pass: fails.length === 0, fails, info };
