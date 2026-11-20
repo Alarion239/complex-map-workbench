@@ -198,7 +198,7 @@
   }
   // (cz: the Cauchy style's variant, CARRY_CAUCHY; without it the function has none of CAUCHY_CORE)
   function invCarryFns(cz) {
-    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + `
+    if (!cz) return DCOLOR.replace('uniform float uDpr;', '') + glsl`
 uniform int uGs; uniform int uGt; uniform bool uGan;
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
@@ -213,7 +213,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
 `;
     return DCOLOR.replace('uniform float uDpr;', '') + CAUCHY_CORE('sw', 'uCEdges') + `
 uniform int uGs; uniform int uGt; uniform bool uGan; uniform int uCT; uniform vec2 uEdgeO;
-` + CARRY_W + `
+` + CARRY_W + glsl`
 vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   if (!zf) return vec3(0.96078);   // a point at infinity: dcolor's +-infinity
   bool cz = uCT >= 0;
@@ -1093,7 +1093,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, IX_TIE_ORDER, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES,
+    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, CARRY_DISC_IN,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // since the last begin/viewport: error (plain words) when a chain program failed to compile, pending when one
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
