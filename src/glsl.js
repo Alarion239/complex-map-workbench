@@ -2236,7 +2236,7 @@ void ixAncTan(vec2 w) {
   // the reversed polynomial (roots 1/u) when its leading coefficient is the smaller end (InvOps.closedRoots), and every
   // root polished by two Newton steps on the polynomial itself (float32: the shifts and the cube root lose digits that
   // the steps win back)
-  const RAT_N = new Set(['RAT3', 'RAT4']);
+  const RAT_N = new Set(['RAT3', 'RAT4']), RAT_NEAR = '1e-2';
   const IX_ROOTS = `
 // root k of y^2 + beta y + gamma (stable)
 vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
@@ -2247,12 +2247,10 @@ vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
 }
 // Cardano on a u^3 + b u^2 + c u + d (a not 0): root k = w^k S + w^-k T - b3
 void ixCardano(vec2 a, vec2 b, vec2 c, vec2 d, out vec2 S, out vec2 T, out vec2 b3) {
-  vec2 b1 = cdiv(b, a), c1 = cdiv(c, a);
-  b3 = b1 / 3.0;
+  vec2 b1 = cdiv(b, a), c1 = cdiv(c, a); b3 = b1 / 3.0;
   vec2 p3 = (c1 - cmul(b1, b3)) / 3.0, hq = -0.5 * (2.0 * cmul(cmul(b3, b3), b3) - cmul(b3, c1) + cdiv(d, a));
   vec2 sq = csqrtp(cmul(hq, hq) + cmul(cmul(p3, p3), p3)), s1 = hq + sq, s2 = hq - sq, s = dot(s1, s1) >= dot(s2, s2) ? s1 : s2;
-  S = vec2(0.0); T = vec2(0.0);
-  if (s.x != 0.0 || s.y != 0.0) { S = cexp(clog(s, CX_PI, 0.0) / 3.0); T = cdiv(-p3, S); }
+  S = vec2(0.0); T = vec2(0.0); if (s.x != 0.0 || s.y != 0.0) { S = cexp(clog(s, CX_PI, 0.0) / 3.0); T = cdiv(-p3, S); }
 }
 vec2 ixCardanoRoot(vec2 S, vec2 T, vec2 b3, int k) {
   vec2 om = k == 0 ? vec2(1.0, 0.0) : vec2(-0.5, k == 1 ? 0.8660254037844386 : -0.8660254037844386);
@@ -2799,24 +2797,27 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
 `;
-      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg, a leading
-      // coefficient dropped when it cancels, at most 1e-14 of |p_k| + |w| |q_k|; its root b by IX_ROOTS. Cells: P's
-      // coefficients, highest first, two to a cell, then Q's from the next cell
+      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg (a leading
+      // coefficient dropped when it cancels, at most 1e-14 of |p_k| + |w| |q_k|), its root b by IX_ROOTS; a multiple root's
+      // point (|p'q - pq'| (1 + |u|) below RAT_NEAR of |q(u)| times the terms' size T of p - w q) within NEWT_DEDUPE (1 + |u|)
+      // of an earlier root is that root (InvOps.rootMembers). Cells: P's coefficients, two to a cell, then Q's from the next
       case 'RAT3': case 'RAT4': {
         const n = o.kind === 'RAT3' ? 3 : 4, half = Math.ceil((n + 1) / 2), co = (k, from) => `${U(from + (k >> 1))}.${k & 1 ? 'zw' : 'xy'}`;
         const cf = (k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`, A = [...Array(n + 1).keys()].map(cf).join(', ');
+        const l1 = (v) => `dot(abs(${v}), vec2(1.0))`, ab = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `(${acc}) * au + ${l1(co(k, from))}` : l1(co(0, from))), '');
         const ev = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${co(k, from)}` : co(0, from)), '');
         const dv = (from) => [...Array(n).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${n - k}.0 * ${co(k, from)}` : `${n}.0 * ${co(0, from)}`), '');
-        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > 1e-14 * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
+        const F = n === 3 ? 'ixCubic' : 'ixQuartic', deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > 1e-14 * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
         return `int ${P}_deg(vec2 w) {
   float aw = cx_abs(w);
 ${deg}  return 0;
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${P}_deg(L.u) : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
-  vec2 w = L.u, u = ${n === 3 ? 'ixCubic' : 'ixQuartic'}(${A}, ${P}_deg(w), b);
-  vec2 pu = ${ev(0)}, qu = ${ev(half)}, dp = ${dv(0)}, dq = ${dv(half)};
-  return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
+  vec2 w = L.u; int n = ${P}_deg(w); vec2 u = ${F}(${A}, n, b);
+  vec2 pu = ${ev(0)}, qu = ${ev(half)}, dp = ${dv(0)}, dq = ${dv(half)}, g = cmul(dp, qu) - cmul(pu, dq);
+  if (b > 0) { float au = ${l1('u')}; if (${l1('g')} * (1.0 + au) <= ${RAT_NEAR} * (${ab(0)} + ${l1('w')} * ${ab(half)}) * ${l1('qu')}) for (int c = 0; c < ${n - 1}; c++) if (c < b && cx_abs(u - ${F}(${A}, n, c)) <= ${NEWT_DEDUPE} * (1.0 + au)) return false; }
+  return ixApply(L, u, cinv(cdiv(g, cmul(qu, qu))), ${NOR});
 }
 `;
       }
