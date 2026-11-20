@@ -11,9 +11,9 @@ const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's2', kind: 
 const S = () => ev('__cmwSteps()');
 const openAt = async (w, lang = 'en', touch = false) => {
   await view(w, 900, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
   await ev(`document.querySelector('.sv-cp').click(); 1`);
   await settled({});
