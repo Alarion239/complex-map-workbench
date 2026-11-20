@@ -142,8 +142,9 @@ const sph = select(['src/sphere.js']);
 ok('T2: src/sphere.js is no GLSL page\'s input: no GLSL', sph.tier === 'T2' && !sph.glsl.length && sph.perf, sph.glsl);
 const inv = select(['src/inverse.js']);
 ok('T2: src/inverse.js -> only the inverse page\'s GLSL jobs', same(inv.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse', 'ubuntu-latestinverse']), inv.glsl);
-// (issue #20: the inverse's ops and patterns, out of inverse.js, are inputs of the same page only)
-for (const f of ['src/invops.js', 'src/invpatterns.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse', 'ubuntu-latestinverse']), p.glsl); }
+// (issue #20: the inverse's ops and patterns, and the GLSL of its closed-form root families, are inputs of the inverse
+// page only)
+for (const f of ['src/invops.js', 'src/invpatterns.js', 'src/glslroots.js']) { const p = select([f]); ok(`T2: ${f} -> only the inverse page's GLSL jobs`, p.tier === 'T2' && same(p.glsl.map((j) => j.os + j.page), ['windows-latestinverse', 'macos-latestinverse', 'ubuntu-latestinverse']), p.glsl); }
 // (issue #20: region.js's line refinement, out of it, selects what region.js selects)
 ok('T2: src/regionlines.js -> the same as src/region.js', (() => { const a = select(['src/regionlines.js']), b = select(['src/region.js']); return a.tier === b.tier && same(a.glsl, b.glsl) && same(a.browser, b.browser); })());
 // (issue #20: funcs.js's sheets and formula steps, out of it, select what funcs.js selects)
