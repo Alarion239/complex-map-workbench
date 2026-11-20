@@ -213,9 +213,14 @@ function atRes(roots) {
 }
 
 // still not exact: a degree above 12, a step that is not a polynomial
-for (const [name, st] of [['z¹³ + z', step('custom', { expr: 'z^{13}+z' })], ['exp', step('exp')], ['z³ + 1/z', step('custom', { expr: 'z^3+\\frac{1}{z}' })]]) {
+for (const [name, st] of [['z¹³ + z', step('custom', { expr: 'z^{13}+z' })], ['exp', step('exp')]]) {
   const r = pre([st], C(0.3, 0.7));
   check(`${name}: not exact`, hasPlan && !r.exact, r);
+}
+// a rational map of degree 4 is inverted in closed form (RAT4): z³ + 1/z at w, the 4 roots of z⁴ − w z + 1, each simple
+{
+  const w = C(0.3, 0.7), r = pre([step('custom', { expr: 'z^3+\\frac{1}{z}' })], w), want = dk([C(1), C(0), C(0), CX.neg(w), C(1)], C(0));
+  check('z³ + 1/z: exact, the 4 roots of z⁴ − w z + 1', r.exact && r.zs.length === 4 && r.total === 4 && want.every((z) => r.zs.some((q) => near(q, z, ROOT_TOL))), r);
 }
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);

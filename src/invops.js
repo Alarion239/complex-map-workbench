@@ -674,8 +674,16 @@ const InvOps = (() => {
     const i = co.findIndex((x) => !isZero(x));
     return i >= 0 && co.length - i === 5 ? closedRoots(co.slice(i), ferrari) : cubicRoots(i < 0 ? [] : co.slice(i));
   }
+  // the roots rs ([{u, mult?}], closedRoots') of co as members: points that rounding cannot tell from one k-fold root of
+  // co (multipleRoots, NEWT's grouping: at a critical value the formulas give a double root as two points about
+  // sqrt(EPS) apart) are one root of multiplicity k at their centre; roots apart stay apart, and a root that is already
+  // a multiple one (Cardano's triple, Ferrari's quadruple) stays as it is
+  function rootMembers(co, rs) {
+    if (rs.length < 2 || rs.some((r) => r.mult)) return rs;
+    return multipleRoots(co, rs.map((r) => r.u), NEWT_COEF_ERR * co.length).map((g) => (g.k > 1 ? { u: g.u, mult: g.k } : { u: g.u }));
+  }
   // p(u)/q(u) of degree n = 3 or 4 (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0 (ratPoly, then cubicRoots or
-  // quarticRoots), the op RAT<n>
+  // quarticRoots, rootMembers), the op RAT<n>
   function opRatN(p, q, fwd) {
     const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : quarticRoots;
     const pad = (co) => [...Array(Math.max(0, n + 1 - co.length)).fill(ZERO), ...co];
@@ -687,10 +695,13 @@ const InvOps = (() => {
     return op(`RAT${n}`, { P, Q }, f, {
       fam: { type: 'fin', count: n }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im, critical: () => ratCritical(p, q, f),
-      pre: (w) => roots(ratPoly(P, Q, w)).map(({ u, mult }, m) => {
-        const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
-        return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
-      }),
+      pre: (w) => {
+        const co = ratPoly(P, Q, w);
+        return rootMembers(co, roots(co)).map(({ u, mult }, m) => {
+          const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
+          return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
+        });
+      },
     });
   }
 
