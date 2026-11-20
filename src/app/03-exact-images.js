@@ -532,18 +532,26 @@
     return lines;
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
-  // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
+  // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre, and
+  // narrower beside the view buttons its band meets (a phone's stand over the plane), keeping CAPTION_PAD from them
+  // (noteBoxes: where it was last drawn, in the pane's CSS px)
+  const noteBoxes = new Map();
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const maxW = Math.max(80, Math.min(360, pane.w - 48));
-    const lines = wrapWords(ctx, text, maxW);
+    const mid = pane.w / 2, btns = paneButtons(pane);
+    const height = (n) => n * 18 + 14, top = (bh) => Math.min(pane.h - bh - 56, pane.h / 2 + 28);   // (below the centre, clear of a point at the view's middle)
+    // (n lines: the text's width in the chip that the band of n lines leaves beside the buttons)
+    const room = (n) => { const t = top(height(n)); return Math.max(80, Math.min(360, pane.w - 48, 2 * (roomBeside(btns, mid, t - CAPTION_PAD, t + height(n) + CAPTION_PAD) - 12))); };
+    let lines = wrapWords(ctx, text, room(1));
+    for (let i = 0; i < CAPTION_REWRAPS; i++) { const next = wrapWords(ctx, text, room(lines.length)); if (next.length === lines.length) break; lines = next; }
     const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
-    const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    const x0 = Math.round(pane.w / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
+    const bw = Math.round(tw + 24), bh = height(lines.length);
+    const x0 = Math.round(mid - bw / 2) + 0.5, y0 = Math.round(top(bh)) + 0.5;
+    noteBoxes.set(pane, { x: x0, y: y0, w: bw, h: bh });
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
@@ -567,10 +575,10 @@
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
-    // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane and
-    // its LED say why)
+    // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
+    // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
     const note = st && !st.error && st.over ? overNote(st.over) : '';
-    if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); }
+    if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
