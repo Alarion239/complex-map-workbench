@@ -61,9 +61,11 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose ∮: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: touchUI() ? $t('Try: hold a finger on the circle, then choose ∮.') : $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose ∮: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      // (the circle and the pole at i inside it: a landscape phone's plane is under 200 px tall)
+      fit: { x0: -1.25, x1: 1.25, y0: -0.25, y1: 2.25 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
-      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
+      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
       name: $t('Cauchy: a simple pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=\\frac{1}{z}', blurb: $t('F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
@@ -712,9 +714,10 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch: tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
+    // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips, and the steps
+    // view's colour button, whose tip says why it does nothing while the thread is parked between two planes)
     const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
-      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip]';
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip], .sv-cp[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
@@ -1101,7 +1104,7 @@
     return {
       EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
-      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild,
+      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
