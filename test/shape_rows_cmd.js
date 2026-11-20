@@ -32,7 +32,7 @@ await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="
 let sh = await shapes();
 ok('Enter keeps the name in the shape', sh.find((s) => s.id === 'a').name === 'My disc', sh);
 ok('the row shows it', (await ev(ROWS)).find((r) => r.id === 'a').k === 'My disc', null);
-// Esc leaves it as it was
+// Esc leaves it unchanged
 await ev(`document.querySelector('#shapeList .shape[data-id="c"] .more').click()`); await settle(300);
 await ev(`[...document.querySelectorAll('[role="menuitem"]')].find((e) => /^Rename/.test(e.textContent.trim())).click()`); await settle(300);
 await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="c"] .k input'); i.value = 'junk'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); })()`); await settle(400);
@@ -60,7 +60,7 @@ await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="
 sh = await shapes();
 ok('an empty name restores the automatic one', sh.find((s) => s.id === 'a').name === null && /^Disc 1$/.test((await ev(ROWS)).find((r) => r.id === 'a').k), [sh, await ev(ROWS)]);
 // Italian: the half-plane's words, and no row cut off at the name
-await nav(`${(await ev('location.href')).split('?')[0]}?ns=shaperowsit${Date.now()}&lang=it`); await settle(1500);
+await nav(`${(await ev('location.href')).split('?')[0]}?ns=shaperowsit${Date.now()}&lang=it`);
 const it = await ev(ROWS);
 info.it = it.map((r) => r.k);
 return { pass: fails.length === 0, fails, info };

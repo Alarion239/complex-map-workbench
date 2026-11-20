@@ -15,7 +15,7 @@ const open = async (w, h, lang, classic = false) => {
   if (classic) await loadView('classic', ns, ST, { lang });
   else {
     await load(ns, ST);
-    if (lang !== 'en') { const u = await ev('location.href'); await send('Page.navigate', { url: u + (u.includes('?') ? '&' : '?') + 'lang=' + lang }); }
+    if (lang !== 'en') { const u = await ev('location.href'); await go(u + (u.includes('?') ? '&' : '?') + 'lang=' + lang); }
   }
   // (a page still loading has no document element yet: the poll reads that as "not yet")
   for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined'`)) break; await sleep(250); }

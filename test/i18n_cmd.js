@@ -40,13 +40,17 @@ const open = async (lang, w, dark, extra = '') => {
 };
 logs();
 // ---- 1, 2: overflow and the first screen ----
+// (an element no one sees is never clipped for a reader: a box of 1 px or less each way, or one a clip-path of inset(50%)
+// or a clip of rect(0 0 0 0) hides, as the visually hidden live regions are styled (.sr-only); read from the computed style,
+// not the element's name, so the next live region is skipped too)
 const CLIP = `(() => {
   const out = [], W = innerWidth;
+  const unseen = (cs, r) => (r.width <= 1 && r.height <= 1) || /^inset\\(\\s*50%/.test(cs.clipPath) || /^rect\\(0(px)?,?\\s*0(px)?,?\\s*0(px)?,?\\s*0(px)?\\)$/.test(cs.clip);
   const name = (e) => (e.id ? '#' + e.id : (e.closest('[id]') ? '#' + e.closest('[id]').id + ' ' : '') + e.tagName.toLowerCase() + '.' + [...e.classList].slice(0, 2).join('.'));
   for (const e of document.querySelectorAll('body *')) {
     if (!e.offsetParent && getComputedStyle(e).position !== 'fixed') continue;
     const cs = getComputedStyle(e); if (cs.visibility === 'hidden' || cs.display === 'none') continue;
-    const r = e.getBoundingClientRect(); if (!r.width || !r.height) continue;
+    const r = e.getBoundingClientRect(); if (!r.width || !r.height || unseen(cs, r)) continue;
     if (e.closest('svg, mjx-container, canvas, .pane, .scroll, [data-scroll]')) continue;
     const text = [...e.childNodes].some((c) => c.nodeType === 3 && c.data.trim());
     if (text && (cs.overflow === 'hidden' || cs.textOverflow === 'ellipsis' || cs.overflowX === 'hidden') && e.scrollWidth > e.clientWidth + 1) out.push('clip ' + name(e));
@@ -55,6 +59,24 @@ const CLIP = `(() => {
   const top = document.querySelector('.top');
   return { page: document.documentElement.scrollWidth > W + 0.5, bar: top ? top.scrollWidth > top.clientWidth + 0.5 : false, els: [...new Set(out)] };
 })()`;
+// (the check itself, on the English page at 1440: a visually hidden live region with text, styled as .sr-only is but with no
+// class or id the check knows, is not reported; a visible element that cuts its text is)
+{
+  await open('en', 1440, false);
+  const got = await ev(`(() => {
+    const hid = document.createElement('div'), cut = document.createElement('div');
+    hid.id = 'xClipHidden'; hid.setAttribute('aria-live', 'polite'); hid.textContent = 'a long announcement that does not fit in one pixel';
+    hid.style.cssText = 'position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0';
+    cut.id = 'xClipShown'; cut.textContent = 'a long label that does not fit in forty pixels';
+    cut.style.cssText = 'position:fixed;left:20px;top:200px;width:40px;overflow:hidden;white-space:nowrap';
+    document.body.append(hid, cut);
+    const r = ${CLIP};
+    hid.remove(); cut.remove();
+    return r.els;
+  })()`);
+  check('the clip check: a visually hidden live region with text is not reported', !got.includes('clip #xClipHidden'), got);
+  check('the clip check: a visible element that cuts its text is', got.includes('clip #xClipShown'), got);
+}
 const WIDTHS = [360, 390, 768, 900, 1024, 1440];
 for (const dark of [false, true]) {
   for (const w of WIDTHS) {
@@ -199,7 +221,7 @@ for (const w of [1024, 1440]) {
   // (a key that plays has no quiet wait of its own: the page is quiet only once the play has ended, 900 ms a plane at the
   // normal speed and the arrival's frames after it, which can take more than 3 s on a software renderer; the play's start
   // is waited for here, and its end after each check)
-  const playsTo = async (k, code, n) => { await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
+  const playsTo = async (k, code, n) => { await settled({ max: 60000, until: '__cmwSteps().ready.ready' }); await press(k, code, 0, false); await settled({ max: 5000, only: true, until: `window.__starts >= ${n}` }); return ev(`window.__starts >= ${n}`); };
   check('ЙЦУКЕН Ь (KeyM) → the thread plays', await playsTo('ь', 'KeyM', 1));
   await settled({ max: 20000, until: `!__cmwSteps().moving` });
   check('ЙЦУКЕН Л (KeyK) → the thread plays', await playsTo('л', 'KeyK', 2));
@@ -259,14 +281,19 @@ for (const w of [1024, 1440]) {
   await clickSel('#examplesBtn'); await until(`!!document.querySelector('#popHost .examples .ex-name')`);
   const ex = await ev(`(() => { const b = [...document.querySelectorAll('#popHost .examples .ex-name')].find((e) => /Листы логарифма/.test(e.textContent)); if (!b) return [...document.querySelectorAll('#popHost .examples .ex-name')].map((e) => e.textContent).join(' | '); b.closest('button, [role="menuitem"], .mi').click(); return true; })()`);
   check('ru: the example is named «Листы логарифма» (not «Все листы»)', ex === true, ex);
-  // (the plane head of the thread's first plane and of the plane after the logarithm both name the window of sheets)
+  // (the plane head of the thread's first plane names the window of sheets its Landscape draws; the plane after the
+  // logarithm, a carry from z, draws one surface, and its head names none: the title says what the pane draws, #1741)
   const head = `(document.querySelector('#svHead') || document.querySelector('.prole') || {}).textContent || ''`;
   const sheetsHead = `/, листы k = −2…2/.test(${head}) && !/все листы/.test(${head})`;
   await until(sheetsHead, 15000);
   check('ru: the steps plane head names the window of sheets («листы k = −2…2»), not «все листы»', await ev(sheetsHead), await ev(head));
   await ev(`__cmwSteps({ go: 1, now: true }), 1`);
   await until(`/w1/.test(${head}) || /w₁/.test(${head})`, 5000);
-  check('ru: the plane after the logarithm names it too', await ev(sheetsHead), await ev(head));
+  // (the head changes as the step is taken; the Landscape's draw for plane 1 follows a frame or more later: until then
+  // __cmwLandSheets().drawn is still plane 0's window of sheets, K = 5)
+  await until('((__cmwLandSheets().drawn || {}).K || 1) === 1', 10000);
+  const one = await ev(`({ K: (__cmwLandSheets().drawn || {}).K || 1, head: ${head} })`);
+  check('ru: the plane after the logarithm draws one surface, and its head names no sheets (neither «листы» nor «все листы»)', one.K === 1 && !/листы/.test(one.head), one);
 }
 const errs = logs().filter((l) => /error|exception/i.test(JSON.stringify(l)) && !/favicon|404|fonts\.g/.test(JSON.stringify(l)));
 check('no console errors', errs.length === 0, errs.slice(0, 5));

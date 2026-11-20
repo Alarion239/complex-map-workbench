@@ -47,7 +47,6 @@ for (const dark of [false, true]) {
   const ns = 'spherelight' + theme + Date.now();
   await load(ns, st);
   await nav(`${base}test.html?ns=${ns}&lang=en`);
-  await settle(1500);
   // (the sphere: the Phase view's saved sphere in the classic view, the plane's Sphere surface in the steps view)
   const sv = await ev(`document.documentElement.classList.contains('sv')`);
   if (sv) { await ev(`__cmwSteps({ surf: 'sphere' })`); await settle(1200); }

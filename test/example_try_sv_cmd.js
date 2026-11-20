@@ -11,7 +11,6 @@ const byName = (re) => ev(`(() => { for (let i = 0; i < 60; i++) { try { __cmwEx
 const open = async (lang) => {
   await view(1280, 800, false, false);
   await nav(`http://localhost:${PORT}/test.html?ns=exsv${lang}${Date.now() % 1000000}&view=steps${lang === 'en' ? '' : '&lang=' + lang}`);
-  await sleep(2000);
   await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
 };
 const next = () => ev(`(() => { const b = document.querySelector('#svStrip .sv-next'); if (b) b.click(); return !!b; })()`);
@@ -31,13 +30,18 @@ for (const lang of ['en', 'ru']) {
   // › closes the quarter-plane line; another plane change does not close a line about something else
   await ev(`__cmwExample(${idx.quarter})`); await settle(1200);
   ok(`${lang}: quarter line is open`, !!(await lane()), null);
-  await next(); await settle(1500);
+  // (a › pressed during the prestart waits behind the loading bar and then steps: it is not dropped)
+  await next();
+  await settled({ max: 60000, until: '__cmwSteps().ready.ready' }); await settle(1500);
   ok(`${lang}: › closes the quarter line`, !(await lane()), await lane());
   await ev(`__cmwExample(${idx.gamma})`); await settle(1200);
+  await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
   await next(); await settle(1500);
   ok(`${lang}: a plane change does not close the Gamma line`, !!(await lane()), null);
   // Cayley then cube: one › is not enough, two are
   await ev(`__cmwExample(${idx.cayley})`); await settle(1200);
+  // (a › waits for the prestart: pressed once it is done, it glides at once)
+  await settled({ max: 60000, until: '__cmwSteps().ready.ready' });
   await next(); await settle(1200);
   const afterOne = await lane();
   await next(); await settle(1500);

@@ -1,4 +1,4 @@
-// The step glide (#246, src/homrange.js HomRange.glider): the chain position x that ‹ › move on a phone, as the owner
+// The step glide (#246, src/homrange.ts HomRange.glider): the chain position x that ‹ › move on a phone, as the owner
 // asked: a press starts the deformation from one state to the next, does not block the next press, several quick
 // presses go faster, a press the other way turns round from where x is with no jump, and a transit takes at most 2 s.
 //   (a) one step: x goes 0 → 1, never backwards, never past 1, settles exactly on 1 within 2 s (and visibly moves in
@@ -12,7 +12,7 @@
 //   (f) nudge from rest between steps goes to the next whole step that way (from 1.4: › 2, ‹ 1); set() is at rest.
 // Run: node test/t_glide.js
 const path = require('path');
-const HR = require(path.join(__dirname, '..', 'src', 'homrange.js'));
+const HR = require(path.join(__dirname, '..', 'src', 'homrange.ts'));
 let bad = 0, n = 0;
 const check = (name, ok, info = '') => { n++; if (!ok) { bad++; console.log('FAIL', name, typeof info === 'string' ? info : JSON.stringify(info)); } };
 

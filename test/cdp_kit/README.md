@@ -1,4 +1,4 @@
-# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux SwiftShader)
+# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux lavapipe through ANGLE Vulkan where installed, else SwiftShader: renderer.js)
 
 On Windows (or anywhere without zsh) use `node test/<you>_cdp/q.js /path/to/cmd.js` in place of `q.sh`; `CHROME_BIN`
 overrides the browser's path, `CMW_ANGLE` its ANGLE back end, `CMW_CHROME_ARGS` adds flags (ci/README.md) and `CMW_DPR`
@@ -10,7 +10,7 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
 1. Copy this folder to your own directory: `cp -R test/cdp_kit test/<you>_cdp` (never share a folder: the queue is per folder).
 2. Start the daemon in the background: `node test/<you>_cdp/cdpd.js` (Bash run_in_background). Wait for `test/<you>_cdp/q/READY`.
 3. Run a command file: `test/<you>_cdp/q.sh /path/to/cmd.js` prints the JSON result. The file is the BODY of an async
-   function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `evJson(expr)` (ev of an expression that answers a JSON string, parsed; a page exception or a non-string answer throws an Error that names the expression and the exception), `nav(url)` (navigates and waits for the load event, for the app's page its start-up and quiet, and through the reload of a `#cmw=` link),
+   function with these helpers in scope: `ev(expr)` (evaluate in the page, returns the value; a promise the expression returns is awaited, and a rejection or a promise still pending after the timeout answers `{ __exc }`), `evJson(expr)` (ev of an expression that answers a JSON string, parsed; a page exception or a non-string answer throws an Error that names the expression and the exception), `nav(url)` (navigates and waits for the load event, for the app's page its start-up and quiet, and through the reload of a `#cmw=` link: a suite does not sleep after it, and `test/t_nav_waits.js` fails on a fixed wait straight after `nav(`, unless a `nav-sleep: <why>` comment says what only time can show),
    `view(w, h, dark, mobile)`, `shot(name, clip?)` (PNG saved to `<folder>/shots/<name>.png`, view it with Read),
    `key(k, mods)` (mods: 1 Alt, 2 Ctrl, 4 Meta, 8 Shift), `type(text)`, `click(x, y)`, `move(x, y)`, `drag(x0, y0, x1, y1, n, dt, rel)` (rel `{ x, y, moves }`: the release point and how many of the n moves are sent),
    `clickSel(css)`, `choose(css, value)` (the steps view's Speed or Order button set through its menu), `load(ns, state, extra, view, { limitMs, stallMs, origin })` (writes a saved state for ?ns=<ns>, opens the app and waits until it has built the saved chain; throws after `limitMs`, 60 s, naming the page's state when it is not ready, and opens a stalled document again after `stallMs`, 15 s; `origin` names another server for the pages),
@@ -22,10 +22,10 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
    alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that; a document whose body stops arriving
    is opened again after 5 s, at most twice, but a `#cmw=` link never is: its second document, which its open reloads into, can be slow, and a
-   navigation again would find the saved figure and ask instead of opening it; `go` waits on it for its limit and logs the stall); `settled({ until, floor,
-   max, panes })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
+   navigation again would find the saved figure and ask instead of opening it; `go` waits on it for its limit and logs the stall). A suite that sends `Page.navigate` itself has none of this: `test/t_raw_navigates.js` counts those sites against `test/raw_navigates_baseline.json`, so open a page with `go` / `load` / `loadView`, or give a `raw-navigate: <why>` reason; `settled({ until, floor,
+   max, panes, faces })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
    compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
-   (8000), and answers `{ ok, ms, busy }`.
+   (8000), and answers `{ ok, ms, busy }`; with `faces: true` it also waits for the page's font faces to land (the layout is flushed first: a face is requested when its text is laid out).
    `reloaded(old, readyExpr, { limitMs })` waits for the page a reload brings: a document other than the one that began at `old` (its
    `performance.timeOrigin`, read before the reload was asked for), loaded, with `readyExpr` true (one that throws is not true yet); a call the
    reload cuts off is asked again, any other error is thrown, and after `limitMs` (20 s) it throws naming what is missing.

@@ -14,10 +14,12 @@
 //   once, without strokes, by the idle job, each with at least half a slice's time left;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs;
-// - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
+// - the Mountain King after a glide there and back, each pressed with the Play gate on (the page's default: a press
+//   waits until the chain is prepared): two scrubs of the rail, plane 0 to the last and back, each after a
 //   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
 //   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
-//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs), and
+//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs; a scratch
+//   texture freed and made again is named as such, its free's stack beside the allocation's), and
 //   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
 //   scrub's frames decompose no step of the chain (each glide's plans share its t-free part: invHomPath);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
@@ -211,6 +213,9 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   ok('before the scrubs: the outer ring\'s sizes of every glide are made, not only those next to the thread', made.glides > 1 && made.left === 0, made);
   // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
   await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svCarryRegions'], '__svAlloc');
+  // (each scratch texture freed (freeTmp: a chain edit, the keep time or the budget's sweep): an allocation after one
+  // is the same texture made again, one with none a texture the page had not made before)
+  await watchCalls('WebGL2RenderingContext.prototype', ['deleteTexture'], ['freeTmp'], '__svFreed');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a
   // framebuffer of its own, the map cache's or a point pass's; frames counted by a rAF loop)
   await ev(`(() => {
@@ -257,7 +262,8 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await scrub(-1, 0);
   await rest();
   const alloc = await ev('window.__svAlloc');
-  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
+  const freed = await ev('window.__svFreed');
+  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc, freed: Array.isArray(freed) ? { n: freed.length, first: freed.slice(0, 4) } : freed };
   ok('two scrubs of the Mountain King: the carried colour creates no texture, buffer or vertex array in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
   // (Everywhere: the whole plane's mesh and the outer ring's, each with its map cache's pass)
   const returns = Object.values(await ev('window.__svReturns'));
