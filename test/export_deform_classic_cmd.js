@@ -24,8 +24,7 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const open = async (ns, w = 1440, h = 900, dark = false) => {
   await view(w, h, dark, w < 500);
-  await go(`${BASE}test.html?ns=${ns}${Date.now()}`);
-  await settle(2400);
+  await nav(`${BASE}test.html?ns=${ns}${Date.now()}`);
   await move(5, 5);
   // saved files: test.html saves through a plain download link; record them instead
   await ev(`(() => { window.__saved = []; const click = HTMLAnchorElement.prototype.click; HTMLAnchorElement.prototype.click = function () { if (this.download) { window.__saved.push({ name: this.download, href: this.href }); return; } return click.call(this); };
@@ -165,8 +164,8 @@ const build3 = async (tag, opts) => {
 // 4a-fig: 4a's figures and the Russian captions; 4a-vid: 4a's videos, #429: each view is set up in both)
 const FIG4 = process.env.CMW_ONLY !== '4a-vid', VID4 = process.env.CMW_ONLY !== '4a-fig';
 if (process.env.CMW_ONLY !== '4b') {
-for (const [kind, go] of VIEWS3) {
-  await go(); await settle(2200);
+for (const [kind, show] of VIEWS3) {
+  await show(); await settle(2200);
   const dk = await ev('__cmwFig.defoOf()');
   ok(`${kind}: the view exports the deformation (defoOf)`, dk === kind, dk);
   if (FIG4) {

@@ -1,4 +1,4 @@
-  // ---------------- the steps view (#366 prototype, behind ?view=steps) ----------------
+  // ---------------- the steps view (behind ?view=steps) ----------------
   // One plane of the chain z → w₁ → … → w fills the screen. ‹ ›, the arrow keys, the chain strip and (on a touch
   // screen) a swipe from the plane's edge glide from one plane to the next along the step's deformation h_{k,t}.
   // The colour plane (SV.T, a stage) holds the colour: a plane at or before it is coloured by the phase of the
@@ -13,7 +13,7 @@
     on: (() => { try { return (new URLSearchParams(location.search).get('view') || /** @type {any} */ (window).cmwView) !== 'classic'; } catch (e) { return true; } })(),
     core: '',        // the core that drew the left plane last: 'carry' (svRenderMoving's) or 'still' (the classic one's)
     bare: false,     // (a test hook's) the left pane's frames draw the colour layer alone
-    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's)
+    poleFrameMs: 0,  // (a test hook's) a frame's pole search budget in ms, instead of SV_POLE_BUDGET when above 0 (a slow machine's): a glide frame's seed search (svPolesNow) and a held frame's tracks (svLinkHold)
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -21,10 +21,11 @@
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land'
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
-    anim: null,      // the glide to a plane: {from, to, t0, ms}, eased in and out over a fixed time (no spring tail)
+    anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
     footT: -1,       // the colour plane and Cauchy kind the style row was last built for
     dcSeen: '',      // the phase style svCheck saw last
+    sheetsSeen: null,   // All sheets as svCheck saw it last (null: not yet)
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
@@ -34,8 +35,9 @@
   const SV_SPEEDS = { fast: 450, normal: 900, slow: 2000, slower: 4500 };
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
-  SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1}, indices into svPlanes(); null: plane by plane
-  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms} a glide, or {slide, start, end, timer} one plane at a time
+  SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
@@ -60,13 +62,14 @@
   // (the colour plane's colour is pushed forward); the one flag the plane's UI reads, whatever the drawing core does
   const svPaint = (k = svStage()) => (svColoured(k) ? 'pull' : 'push');
   const svMap = () => { const k = svStage(); return k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() }; };
-  // Every plane's Landscape height is h(F_k), F_k the stages (k, last]: the same value of a
-  // point in every plane. The plane the heights of plane k read is the last one, unless a d/dz step on the way leaves
-  // no map from w_k (then the colour plane, or past it w_k itself)
-  function svHT(k) { const P = svPlanes(), L = P[P.length - 1]; return k === 0 || !derivIn(k, L) ? L : Math.max(k, svT()); }
-  // the height map of plane k (a map spec of plane k) and its CPU twin
-  const svHeightMap = (k) => ({ mode: 0, a: k, b: svHT(k) });
-  const svHeightF = (k) => { const t = svHT(k); return k === t ? (z) => z : rangeF(k, t); };
+  // The Landscape's height follows the colour plane T, as the colour does: a point's height is h of its image in T,
+  // the same on every plane. Plane k's heights are carried by the points of plane svHeightSrc(k): k itself up to T (the
+  // map from w_k into T, the colour's), T's own points past it (as they carry T's colour), and z's points where a d/dz
+  // step between k and T leaves no map from the later plane to the earlier one's, as the colour's carry
+  const svHeightSrc = (k) => { const T = svT(), a = Math.min(k, T); return derivIn(a, Math.max(k, T)) ? 0 : a; };
+  // the height map of plane k: a map spec from plane svHeightSrc(k) into T, and its CPU twin
+  const svHeightMap = (k) => ({ mode: 0, a: svHeightSrc(k), b: svT() });
+  const svHeightF = (k) => { const s = svHeightSrc(k), T = svT(); return s === T ? (z) => z : rangeF(s, T); };
   // plane k's Landscape is plain: k is before the colour plane T with a d/dz step between them, so its 2D picture has no
   // colour (shapes only). Every plane past T is coloured from T, through the z points it shares with T when a d/dz step
   // lies between them
@@ -74,7 +77,7 @@
   // (one name for a plane everywhere: the last is w₂ too, F is the name of the map into it)
   const svName = (k) => (k === 0 ? 'z' : `w${sub(k)}`);
   const svNameHtml = (k) => (k === 0 ? '<i>z</i>' : `<i>w</i><sub>${k}</sub>`);
-  // the map from plane k into the colour plane T, by name (#435): F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
+  // the map from plane k into the colour plane T, by name: F from z into the last plane, else f_T ∘ … ∘ f_{k+1}
   // (f₂, f₃∘f₂, f₄∘⋯∘f₂); null when k is T itself (the wheel is the plane's own phase). fmt 'html', 'text' or 'tex'
   function svMapName(fmt, k = svStage(), T = svT()) {
     const P = svPlanes(), ss = P.filter((s) => s > k && s <= T), h5 = fmt === 'html', tex = fmt === 'tex';
@@ -83,6 +86,13 @@
     const f = (s) => (h5 ? `<i>f</i>${sub(s)}` : tex ? `f_{${s}}` : `f${sub(s)}`), q = ss.slice().reverse();
     const o = tex ? '\\circ ' : '∘', dots = tex ? '\\cdots' : '⋯';
     return q.length === 1 ? f(q[0]) : q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
+  }
+  // the name of what the Landscape's height reads on plane k (fmt as svMapName's): the map into the colour plane up to T
+  // ("f₂", F from z into the last plane), the plane's own variable on T, and T's variable where the points carry T's
+  // heights (past T, or before it across a d/dz step)
+  function svHeightName(fmt, k = svStage()) {
+    const T = svT(), m = svColoured(k) ? svMapName(fmt, k, T) : null;
+    return m || (fmt === 'html' ? wHtml(T) : fmt === 'tex' ? (T === 0 ? 'z' : `w_{${T}}`) : svName(T));
   }
   // the longest step formula, in TeX characters, that the export's caption shows in its display: a longer one would
   // not fit the display's one line, so the caption names the map without it
@@ -125,14 +135,14 @@
     return hit.length ? hit[0].z : null;
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
-  // colour plane the colour is carried by the points, which the role says. A Landscape names its height, h(F) on every
-  // plane (svHeightF), then the carried colour past T
+  // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
+  // then past T that the points carry it and their colour from T
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
     if (SV.surf === 'land' && svMain(k) === 'land') {
-      const o = { h: heightHtml('<i>F</i>'), sheets: landSheetsHtml(), p: wHtml(T) };
-      role = k > T ? $t('landscape of {h}{sheets}, colour carried from {p}', o) : $t('landscape of {h}{sheets}', o);
+      const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
+      role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
       short = $t('landscape');
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === 0 && S.dc === 'cauchy' && cauchyPlot()) { role = $t('Cauchy integral over {name}', { name: cauchyPlot().name }); short = $t('Cauchy integral'); }
@@ -159,19 +169,25 @@
   // a state replaced under the view (an example, undo, a link): back to what the steps view shows, before it is drawn
   function svCheck() {
     // (only a glide or a drag under way holds it off: a view parked between planes still takes an example, a link or an
-    // undo; perf on #460)
+    // undo)
     if (!SV.on || !SV.els) return;
     const sig = svSigNow();
-    // (rework on #460: another chain loaded under a Play, Loop on: it stops, or it never adopts the new view)
+    // (another chain loaded under a Play, Loop on: it stops, or it never adopts the new view)
     if (SV.play && SV.sig != null && sig !== SV.sig) svPause(false);
     if (svGliding()) return;
     const P = svPlanes();
     if (SV.i > P.length - 1) { SV.i = P.length - 1; SV.g.set(SV.i); }
     if (SV.T >= 0 && !P.includes(SV.T)) SV.T = -1;
+    // (the Cauchy style's carried programs, its own variants, started as it is chosen)
+    if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy') svPrestartSoon(0);
     // (the Cauchy style is drawn on z, so choosing it, or loading a state, example or tour step that has it, colours from z)
     // (and the thread parks on z with it: the style's control is in the pane of the colour plane, which the view shows only while it is the plane the thread is on)
     if (S.dc === 'cauchy' && SV.dcSeen !== 'cauchy' && !SV.alone && P.length > 1) { if (SV.T !== P[0]) SV.T = P[0]; if (SV.i !== 0) { SV.dcSeen = S.dc; svGo(0, true); } }
     SV.dcSeen = S.dc;
+    // (All sheets ticked by any of its writers, the check, a tour step's look or an example, with the Landscape shown: its
+    // glide's carry places the sheets then, so that program starts linking at once, svPrestart)
+    if (S.sheets && SV.sheetsSeen === false && SV.surf === 'land') svPrestartSoon(300);
+    SV.sheetsSeen = !!S.sheets;
     // (another chain loaded with the state, an example or a link: its glide's programs are started too)
     if (SV.sig != null && sig !== SV.sig) svPrestartSoon(300);
     svAdopt(SV.sig != null && sig !== SV.sig);
@@ -189,7 +205,7 @@
     // other surface is one from outside too: a save that asked for the sphere opens on it)
     const own = ext === 'land' || Views.xOf(S.view).surf === (SV.surf === 'sphere' ? 'sphere' : 'plane');
     if ((ext === svMain() || ext === SV.main) && !force && own) return;
-    // (ux's review: always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
+    // (always from the last plane, F's; X → Y keeps its colour inside its regions when it has areas;
     // Views.svOf, concept §6)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
     const o = Views.svOf(S.view, areas, S.steps.length === 0);
@@ -202,14 +218,14 @@
   // svLoad reads it when the page opens on a state that has one, and after an undo
   function svStore() {
     if (!SV.on || !SV.ready) return;
-    // (#437: a step shown alone keeps the whole chain's place, which is what undo and a link restore)
+    // (a step shown alone keeps the whole chain's place, which is what undo and a link restore)
     const b = SV.alone && SV.back ? SV.back : null;
     const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed };
     if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
     setOpt('sv', o);
   }
   function svLoad(onPageOpen) {
-    // (#437: by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which clamped the place)
+    // (by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which would clamp the place)
     const o = Views.cleanSv(S.sv, svAloneOk() ? svPlanes() : svPlanesOf(S.steps));
     if (!o) return false;
     SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
@@ -236,11 +252,14 @@
   // an undo put another S.sv under the view
   function svRestored() {
     if (!SV.on || !SV.ready) return;
-    if (SV.alone) { SV.alone = 0; SV.back = null; }   // (#437: an undo leaves a step shown alone)
-    const ls = SV.lastSplit;
-    SV.lastSplit = null;
-    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did)
-    if (ls && svGliding() && S.steps.length === ls.len - (ls.n - 1)) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.own = true; return; }
+    if (SV.alone) { SV.alone = 0; SV.back = null; }   // (an undo leaves a step shown alone)
+    const ls = SV.lastSplit, lu = SV.lastUnsplit;
+    SV.lastSplit = null; SV.lastUnsplit = null;
+    // (the undo of the split just made, with a glide or a play under way: it goes on, as the split's did; and the redo of
+    // that split, as the split itself. Each is told by the chain it restores, the one before the Split or the one it made)
+    SV.restored = 'load';   // (how the last undo or redo was taken: 'unsplit', 'resplit' or 'load', for the test hook)
+    if (ls && svGliding() && ls.pre === svStepsSig()) { SV.split = { inv: true, k: ls.k, n: ls.n, j: ls.j }; SV.lastUnsplit = ls; SV.own = true; SV.restored = 'unsplit'; return; }
+    if (lu && svGliding() && lu.sig === svStepsSig()) { SV.split = { k: lu.k, n: lu.n, j: lu.j, x: SV.g.x, rest: false, moving: true }; SV.lastSplit = lu; SV.own = true; SV.restored = 'resplit'; return; }
     if (svLoad()) { SV.sig = null; setTimeout(svApply, 0); }
   }
   function svApply() {
@@ -248,6 +267,8 @@
     svViewFix();
     leftAuto = false;
     if (k > 0) Object.assign(V.left, S.srcView);
+    // (off-screen the view's state is all the picture needs; the page keeps showing where the view is, and is put back to)
+    if (SV.offscreen) return;
     applyLayout();
     buildShapeList();
     updateFocusUI();
@@ -256,8 +277,17 @@
   }
   // leave the shown plane: its view (panned or zoomed there) is the camera every plane shares
   function svKeepView() { const k = svStage(); if (k > 0) Object.assign(S.srcView, { cx: V.left.cx, cy: V.left.cy, s: V.left.s }); }
+  // the app's scroll of the rail to v (from s, where the rail is): its last two values are kept, by which its scroll events are told from the
+  // user's, and the first is what the rail is put back to when the browser clamps it while the rail's width changes
+  function svRailTo(E, v, s = E.scrollX) {
+    E.writes = [v, E.writes ? E.writes[0] : v];
+    if (v !== s) { E.rail.scrollLeft = v; E.scrollX = v; svFades(); }
+  }
+  // the rail's next follow brings the ring into view, though the ring has not moved (a press on the thread, ‹ and › at an end)
+  function svFollowRing() { if (SV.els) SV.els.followKey = null; }
   // go to plane i: a glide along the steps in between (at once under reduced motion)
   function svGo(i, now) {
+    svFollowRing();
     const P = svPlanes();
     i = Math.max(0, Math.min(P.length - 1, i));
     svPause(false);
@@ -274,6 +304,43 @@
     SV.anim = { from, to: i, t0: performance.now(), ms: per * Math.min(2, Math.max(0.35, Math.abs(i - from))) };
     draft = null; probe = null;
     requestRender('L');
+  }
+  // runs draw() with the view at plane i, then puts the view back where it was: on its plane, at the place between two planes
+  // it was parked at, with its view and with the plane it last arrived at. A visit, not an arrival: no plane-changed event, no
+  // sound relayout and no spoken label, and while it lasts the page is not written (svApply and svSync wait on SV.offscreen:
+  // the strip, the slider and the pane's name keep saying where the view is). A Play or a glide under way is held for the visit
+  // and goes on afterwards: a glide from where it was, its clock moved on by the visit's time; a slide (Play under reduced
+  // motion) on the plane it was on, its next step a full svSlideMs() after the visit. So a figure or a video drawn off-screen
+  // leaves the page as it found it. (They are drawn under a modal dialog, so no Play or glide starts during draw(): what is
+  // put back is what was held.) -> draw()'s result
+  async function svAtPlane(i, draw) {
+    const keep = { i: SV.i, x: SV.g.x, span: SV.span, at: SV.at, view: Object.assign({}, V.left), play: SV.play, anim: SV.anim };
+    // (stay: the view is at rest on plane i with nothing playing, so draw() needs no visit)
+    const stay = i === keep.i && Math.abs(keep.x - i) <= SV_REST_U && !keep.play && !keep.anim;
+    const visit = (k, x) => { SV.span = null; SV.g.set(x); SV.i = k; svApply(); };
+    const t0 = performance.now();
+    // (the counter goes up just before the try whose finally takes it down: a throw in either visit cannot leave it up)
+    SV.offscreen++;
+    try {
+      if (!stay) {
+        if (keep.play && keep.play.slide) clearTimeout(keep.play.timer);
+        SV.play = null; SV.anim = null;
+        svKeepView();
+        visit(i, i);
+      }
+      return await draw();
+    } finally {
+      if (stay) SV.offscreen--;
+      else {
+        const held = performance.now() - t0;
+        for (const A of [keep.play, keep.anim]) if (A && A.t0 != null) A.t0 += held;
+        SV.play = keep.play; SV.anim = keep.anim;
+        try { visit(keep.i, keep.x); } finally { SV.offscreen--; }
+        Object.assign(V.left, keep.view); SV.span = keep.span; SV.at = keep.at;
+        if (keep.play && keep.play.slide) keep.play.timer = setTimeout(() => svSlide(false), svSlideMs());
+        requestRender('L');
+      }
+    }
   }
   function svArrive() {
     svPolesWatch();
@@ -307,6 +374,8 @@
     if (SV.drag && SV.drag.moved) { dirty.L = true; svSync(); return false; }
     if (SV.play && !SV.play.slide) return svPlayFrame();
     if (SV.anim) {
+      // (held: it does not move while it waits, svLinkHold)
+      if (SV.anim.held) { dirty.L = true; return true; }
       // (SV.clock, a test hook's, null in the app: the glide's time advances that many ms a frame instead of by the wall
       // clock, so a suite reads its frames mid-glide however long each one takes to draw)
       const A = SV.anim, el = SV.clock ? (A.el = (A.el || 0) + SV.clock) : performance.now() - A.t0;
@@ -329,40 +398,79 @@
     return true;
   }
   // the plane a carry starts from: s0, unless a d/dz step lies between s0 and a plane in ts it must reach (the places,
-  // the colour plane, the planes the heights read), or All sheets draws a multivalued chain; then z's plane. Every stage
-  // is a function of z (chainRange from plane 0 crosses a d/dz step, from a later plane it cannot), and the sheets of a
-  // step before s0 exist only as the preimages of z's points
-  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet() || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
+  // the colour plane), or All sheets draws several sheets of a carry from z (landSheetsMap(0): the chain up to the colour
+  // plane, so a step after it changes nothing); then z's plane. Every stage is a function of z (chainRange from plane 0
+  // crosses a d/dz step, from a later plane it cannot), and the sheets of a step before s0 exist only as the preimages
+  // of z's points
+  const svCarryFrom = (s0, ts) => (S.sheets && multiSheet(landSheetsMap(0)) || ts.some((t) => t > s0 && derivIn(s0, t)) ? 0 : s0);
   // the longest edge a cell of the carried grid may have once placed by the glide's map, as a share of the pane's longer
   // side (svLandCarry's lim, in the plane's units): a cell stretched past it, by a pole of the map or a fold, is left
   // out, and the patches about the poles cover its place
   const LAND_CELL_SPAN = 0.35;
   // The Landscape as the points of a source plane s carried (render3D's carry), from plane a's surface at u = 0 to plane
   // b's at u = 1 (b null: a's). s is min(a, T), or z's plane when a d/dz step lies in the way or All sheets draws a
-  // multivalued chain (svCarryFrom), so every point past T keeps T's colour. Each point is placed by mapOf(s) (a map spec from plane s), at its height h(F) (the
-  // stages (s, hT] blended over u into (s, hT2]: the heights of planes a and b, svHT) and in its colour (the stages
-  // (s, T]), or in no colour while the nearer plane is plain (svPlain; T is then s). key: from z's
-  // plane to a later one, the 2D carried colour's sheet key of the plane the frame goes to (svSheetKey), so where the
-  // places fold the point in front is the one the 2D picture shows; else null. vs, va, vb: the shared camera's view (S.srcView: a glide moves the picture, never the view), the same for s, a and b.
+  // multivalued chain (svCarryFrom), so every point past T keeps T's colour and height. Each point is placed by mapOf(s)
+  // (a map spec from plane s), at the height of its image in T (hmap, the stages (s, T]: the same on planes a and b and
+  // in every frame between them) and in that image's colour, or in no colour while the nearer plane is plain (svPlain;
+  // T is then s, and the height plane hT stays the colour plane). key: from z's plane to a later one, the 2D carried
+  // colour's sheet key of the plane the frame goes to (svSheetKey), so where the places fold the point in front is the
+  // one the 2D picture shows; else null. vs, va, vb: the shared camera's view (S.srcView: a glide moves the picture,
+  // never the view), the same for s, a and b.
   // rest: the plane at rest the frame is (the probe picks on its relief), else null. zmap: the same map from z's plane, the
   // map the shapes' outlines are drawn under, so the floor's lines are carried as the surface is
   function svLandCarry(mapOf, a, b, u, rest = null) {
-    const T0 = svT(), e = b == null ? a : b, hT = svHT(a), hT2 = svHT(e), plain = svPlain(u < 0.5 ? a : e);
-    const s = svCarryFrom(Math.min(a, T0), [e, T0, hT, hT2]), T = plain ? s : T0;
-    const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: hT };
+    const T0 = svT(), e = b == null ? a : b, plain = svPlain(u < 0.5 ? a : e);
+    const s = svCarryFrom(Math.min(a, T0), [e, T0]), T = plain ? s : T0;
+    const lim = LAND_CELL_SPAN * Math.max(paneL.w, paneL.h) / S.srcView.s, hmap = { mode: 0, a: s, b: T0 };
     const cam = S.srcView;
     const key = !plain && s === 0 && e > 0 ? svSheetKey(e) : null;
-    return { map: mapOf(s), zmap: mapOf(0), s, T, hT, hT2, hmap, plain, key, lim, u, a, b, vs: cam, va: cam, vb: b == null ? null : cam, rest };
+    return { map: mapOf(s), zmap: mapOf(0), s, T, hT: T0, hmap, plain, key, lim, u, a, b, vs: cam, va: cam, vb: b == null ? null : cam, rest };
   }
   // plane k's Landscape at rest: its own relief (render3D without a carry, heights and colour of the one map into T)
-  // when it is coloured from T and its heights are of that map too; else plane k's points (k at or before T) or T's
-  // (past it) carried to plane k, so the height is h(F_k) and the colour that of the 2D picture. Undefined for the rest
-  // frame
+  // when it is coloured from T; else plane k's points (k before T, plain) or T's (past it) carried to plane k, at their
+  // heights and in their colour in T. Undefined for the rest frame
   function svLandRest(k = svStage()) {
     if (!SV.on) return undefined;
     const T = svT(), to = (s) => ({ mode: 0, a: s, b: k });
-    if (k <= T) return !svPlain(k) && svHT(k) === T ? undefined : svLandCarry(to, k, null, 0, k);
+    if (k <= T) return svPlain(k) ? svLandCarry(to, k, null, 0, k) : undefined;
     return svLandCarry(to, T, k, 1, k);
+  }
+  // The value of the height map at the point w of a carried Landscape at rest (render3D's carry with rest set, a plain
+  // plane or one past T), what the probe picks on and reads: a point p of plane s carried to w (carry.map, Newton's
+  // method from the LAND_PICK_SEEDS points of the LAND_PICK_GRID x LAND_PICK_GRID grid over plane s's box src whose images
+  // are nearest w), and p's image in the height plane (carry.hmap). Where sheets cross over w, the one whose height is
+  // highest, the one a ray from above meets first; null where no point of the box is carried to w. The grid is made on
+  // the first call
+  const LAND_PICK_GRID = 64, LAND_PICK_SEEDS = 4;
+  function svLandPickF(carry, src) {
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), N = LAND_PICK_GRID;
+    if (!F || !H) return () => null;
+    let pts = null;
+    const grid = () => {
+      const out = [];
+      for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+        const p = C(src.x0 + (i + 0.5) / N * (src.x1 - src.x0), src.y0 + (j + 0.5) / N * (src.y1 - src.y0)), q = F(p);
+        if (CX.isFin(q)) out.push({ p, q });
+      }
+      return out;
+    };
+    const size = Math.max(src.x1 - src.x0, src.y1 - src.y0);
+    return (w) => {
+      if (!pts) pts = grid();
+      const near = [];
+      for (const g of pts) {
+        const d = Math.hypot(g.q.re - w.re, g.q.im - w.im);
+        if (near.length < LAND_PICK_SEEDS || d < near[near.length - 1].d) { near.push({ d, p: g.p }); near.sort((x, y) => x.d - y.d); if (near.length > LAND_PICK_SEEDS) near.pop(); }
+      }
+      let best = null, top = -Infinity;
+      for (const { p } of near) {
+        const z = newtonTo(F, w, p, 1, 1e-9 * (1 + CX.abs(w)), 0.1 * size);
+        if (!z || z.re < src.x0 || z.re > src.x1 || z.im < src.y0 || z.im > src.y1) continue;
+        const v = H(z), h = CX.isFin(v) ? landValue(v) : Infinity;
+        if (h > top) { top = h; best = v; }
+      }
+      return best;
+    };
   }
   // The Landscape between two planes a and b: the points of plane s carried by the glide's map, each at its height and
   // colour (svLandCarry); at u = 0 and 1 that is plane a's and plane b's surface at rest, since F_s = F_b ∘ (the map
@@ -371,11 +479,14 @@
   // at rest. False when the Landscape is not on the pane
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
-    const g = svBetween();
-    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandRest(g.near)); return true; }
-    const mapOf = (s) => (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u });
-    render3D(pane, svLandCarry(mapOf, g.a, g.b, g.u));
+    render3D(pane, svLandCarryNow());
     return true;
+  }
+  // the carry the Landscape draws now (render3D's), undefined for a plane's own relief at rest
+  function svLandCarryNow() {
+    const g = svBetween();
+    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) return svLandRest(g.near);
+    return svLandCarry((s) => svGlideMap(g, s), g.a, g.b, g.u);
   }
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each: one about each pole of the carry's
   // map (from plane s) in plane s's carried box src, from a ten-thousandth of a cell of the box's N x N grid to eight
@@ -427,8 +538,9 @@
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
     return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
   };
-  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and the plane whose
-  // look the regions take, the nearer one: outlined over colour, filled past the colour plane, as each plane at rest)
+  // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
+  // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
+  // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
   // All at once (S.homAll, as the classic Deformation's order): a glide that crosses two planes or more is one homotopy, every step
   // of it at the same time t (the map spec of mode 3 and its CPU twin), the planes between left out; not across a d/dz, whose
   // step is no map
@@ -447,11 +559,12 @@
   function svBetween(x = SV.g.x, span = SV.span) {
     const P = svPlanes();
     if (span && span.x1 < P.length && x > span.x0 + SV_REST_U && x < span.x1 - SV_REST_U && svAllOk(span.x0, span.x1)) {
-      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), map = { mode: 3, a, b, t: u };
-      // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed)
-      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, u));
+      const a = P[span.x0], b = P[span.x1], u = (x - span.x0) / (span.x1 - span.x0), stepT = span.stepT || null, map = { mode: 3, a, b, t: u, stepT };
+      // (F is the map spec's own CPU twin; H, the homotopy alone, is the same steps' homF composed, each at its own time:
+      // span.stepT, the times of the steps Splits during this glide made of a formula, run as that formula's homotopy runs them)
+      const homs = P.slice(span.x0 + 1, span.x1 + 1).map((k) => homF(k, HR.stepTime(stepT, k, u)));
       const H = (z) => { let w = z; for (const f of homs) w = f(w); return w; };
-      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, x0: span.x0, x1: span.x1 };
+      return { a, b, u, map, F: cpuMap(map), H, near: u < 0.5 ? a : b, all: true, stepT, x0: span.x0, x1: span.x1 };
     }
     const j = Math.max(0, Math.min(P.length - 1, Math.floor(x + 1e-9))), u = x - j;
     const a = P[j], b = P[Math.min(P.length - 1, j + 1)];
@@ -461,6 +574,36 @@
     const hom = still || jump ? null : homF(b, u);
     const F = still ? stageF(a) : jump ? stageF(u < 0.5 ? a : b) : ((H, before) => (z) => H(before(z)))(hom, stageF(b - 1));
     return { a, b, u, map, F, H: hom, near: u < 0.5 ? a : b, all: false, x0: j, x1: j + 1 };
+  }
+  // the map spec of a svBetween result g from the plane s, for a carried draw (s <= g.a): All at once, its span's steps
+  // (at the span's step times) at g.u; else the step into g.b at g.u
+  function svGlideMap(g, s) { return g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s, stepT: g.stepT } : { mode: 1, base: s, hi: g.b, t: g.u }; }
+  // the chain's steps as a string, to tell a restored chain from another of the same length (svRestored)
+  function svStepsSig() { return JSON.stringify(S.steps.map((st) => [st.type, st.params, st.on !== false])); }
+  // a span's step times (stepT: [a, b] by step, or none) in a cache key (map and filter skip the sparse array's holes, the
+  // steps with no time of their own)
+  function svStepTKey(stepT) { return stepT ? stepT.map((m, k) => `${k}:${m[0]}:${m[1]}`).filter(Boolean).join(',') : ''; }
+  // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
+  // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0]). The rule
+  // composes, clamp(n clamp(a t - b, 0, 1) - i, 0, 1) = clamp(a n t - (b n + i), 0, 1), so it holds for a step with a time
+  // of its own as for any other (the steps a Split makes refuse a Split, R1)
+  function svStepTSplit(stepT, k, n) {
+    const o = [], f = (stepT && stepT[k]) || [1, 0];
+    if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
+    for (let i = 0; i < n; i++) o[k + i] = [f[0] * n, f[1] * n + i];
+    return o;
+  }
+  // the span's step times after the n steps k..k+n-1 are the formula again (an undo of their Split): a step after them
+  // moves n - 1 back, and the formula takes the time they ran in, [a, b] from their [a n, b n + i]; steps that ran
+  // otherwise (a Split made before this glide) leave it the glide's own time. Null when no step has a time of its own
+  function svStepTJoin(stepT, k, n) {
+    if (!stepT) return null;
+    const o = [], f = stepT[k];
+    stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i >= k + n) o[i - n + 1] = m; });
+    let own = !!f;
+    for (let i = 0; own && i < n; i++) { const m = stepT[k + i]; own = !!m && m[0] === f[0] && m[1] === f[1] + i; }
+    if (own && !(f[0] === n && f[1] === 0)) o[k] = [f[0] / n, f[1] / n];
+    return o.some(Boolean) ? o : null;
   }
   // (a glide's frames sample the cuts' banks at a quarter of the density: 121 points a bank, cutBank)
   const SV_CUT_THIN = 4;
@@ -492,7 +635,11 @@
     const P = svPlanes(), x = SV.g.x, n = P.length - 1;
     let lo, hi;
     if (SV.play && !SV.play.slide) { lo = Math.floor(Math.min(SV.play.from, SV.play.to) + 1e-9); hi = Math.ceil(Math.max(SV.play.from, SV.play.to) - 1e-9); }
-    else if (SV.anim) { lo = Math.floor(Math.min(SV.anim.from, SV.anim.to) + 1e-9); hi = Math.ceil(Math.max(SV.anim.from, SV.anim.to) - 1e-9); }
+    else if (SV.anim) {
+      // (All at once, the run is the span's: a Split under way moves the animation's start to where the glide is, not the run's)
+      const sp = SV.span;
+      if (sp && svAllOk(sp.x0, sp.x1)) { lo = sp.x0; hi = sp.x1; } else { lo = Math.floor(Math.min(SV.anim.from, SV.anim.to) + 1e-9); hi = Math.ceil(Math.max(SV.anim.from, SV.anim.to) - 1e-9); }
+    }
     else { lo = Math.floor(x + 1e-9); hi = lo + 1; }
     lo = Math.max(0, lo); hi = Math.min(n, hi);
     if (!(hi > lo) || (x - lo < SV_REST_U && !SV.anim && !SV.play) || derivIn(P[lo], P[hi])) return null;
@@ -514,123 +661,11 @@
     return {
       Fat: (T) => svBetween(lo + T * len).F, T: Math.max(0, Math.min(hi - lo, x - lo)) / len, Tend: (hi - lo) / len, seq: !all && hi - lo > 1,
       startId: start === 0,
-      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all]),
+      key: JSON.stringify(['steps', chainSig[nSteps()], lo, hi, P, all, svStepTKey(all ? SV.span.stepT : null)]),
       alive: () => SV.on && S.morphPaths !== false, side: 'L', nogo: () => [], win: (pane) => (start === 0 ? pane.box() : clipWin),
     };
   }
   const svColourMap = (k) => (k === 0 ? stageMap(svT()) : { mode: 0, a: k, b: svT() });
-  // The colour carried by the points: a grid over plane s's window (the camera's, half again as wide), each vertex
-  // painted by where it lands in the colour plane, G = f_T ∘ … ∘ f_{s+1} (its phase, the Arg pattern of the
-  // pre-mapped meshes, which reads (ln |G|, arg G) from the vertex), and placed where posF takes it. So the colour
-  // travels with the points along a deformation, and a plane past the colour plane shows the colour plane's colours
-  // pushed forward. Into the 2D context cc; false when a d/dz step is in the way (no map from plane s). The grid, its
-  // colours G and its places on plane a (rangeF(s, a)) are kept while the plane, the colour plane, the view and the
-  // chain stay (svCarryMemo), so a glide's frame evaluates only the step's homotopy H (null at rest)
-  let svCarryMemo = null, svCarryRes = null, svCarryBuf = null;
-  // (#439 I) frame: the GL frame the caller composes the colour layer in ({open}); the GPU path draws into it (opening
-  // it if need be) and leaves the copy to the caller; the CPU path first copies what it holds into cc
-  // the sheet key of the points of plane s carried from plane a (svCarry's and the globe's, svSphereMoving): the window
-  // of the camera every plane shares (S.srcView) at the pane's size, and the plan's accumulation set of the map from s
-  // to a, as smKeyOf for the forward meshes
-  function svCarryKey(pane, s, a) {
-    const v = S.srcView, hw = pane.w / 2 / v.s, hy = pane.h / 2 / v.s, R = Math.hypot(hw, hy);
-    const plan = a > s ? invPlan(s, a) : null;
-    return { win: { x0: v.cx - hw, y0: v.cy - hy, x1: v.cx + hw, y1: v.cy + hy }, R, rs: R * SV_KEY_RS, sing: plan && plan.ok ? invSing(plan) : [] };
-  }
-  function svCarry(pane, cc, s, a, H, frame) {
-    const T = svT();
-    if (s > 0 && derivIn(s, T)) return false;
-    const v = S.srcView, nx = 160, ny = Math.max(12, Math.round(nx * pane.h / Math.max(1, pane.w)));
-    // (#366 F) on the GPU when it can: the grid moved by the glide's map from plane s, each fragment coloured from the
-    // colour plane exactly (GLR.drawCarried); the CPU mesh below while its program compiles, or without it
-    if (GLR.drawCarried && !/** @type {any} */ (window).__svCpu) {
-      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, g = svBetween();
-      const map = H ? (g.all ? { mode: 3, a: g.a, b: g.b, t: g.u, base: s } : { mode: 1, base: s, hi: g.b, t: g.u }) : { mode: 0, a: s, b: a };
-      const key = svCarryKey(pane, s, a);
-      if (!frame || !frame.open) GLR.begin(pane.pw, pane.ph);
-      if (GLR.drawCarried({ map, s, T, view: v, dpr: pane.dpr, mesh: { x0: v.cx - hw, y0: v.cy - hy, dx: 2 * hw / nx, dy: 2 * hy / ny, nx, ny }, lim: 0.35 * Math.max(pane.w, pane.h) / v.s, key,
-        style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark })) {
-        if (frame) frame.open = true; else GLR.blit(cc);
-        return true;
-      }
-    }
-    // (the CPU mesh begins a frame of its own: what the caller's frame holds goes into cc first, and the caller composes
-    // from cc; a frame that must stay whole (frame.keep, the Inside regions mask) goes on without it while the GPU's
-    // program links)
-    if (frame && frame.keep) return false;
-    if (frame && frame.open) { GLR.blit(cc); frame.open = false; }
-    if (frame) frame.cc = true;
-    const key = [s, a, T, v.cx, v.cy, v.s, pane.w, pane.h, chainSig[nSteps()]].join('|');
-    let m = svCarryMemo;
-    if (!m || m.key !== key) {
-      const G = s === T ? (z) => z : rangeF(s, T), toA = s === a ? null : rangeF(s, a);
-      const ext = 1.5, hw = pane.w / 2 / v.s * ext, hy = pane.h / 2 / v.s * ext, W = (nx + 1) * (ny + 1);
-      m = svCarryMemo = { key, ax: new Float64Array(W), ay: new Float64Array(W), gl: new Float64Array(W), ga: new Float64Array(W), ok: new Uint8Array(W) };
-      for (let jy = 0; jy <= ny; jy++) for (let ix = 0; ix <= nx; ix++) {
-        const p = C(v.cx - hw + 2 * hw * ix / nx, v.cy - hy + 2 * hy * jy / ny), n = jy * (nx + 1) + ix;
-        let q, g;
-        try { q = toA ? toA(p) : p; g = G(p); } catch (e) { continue; }
-        if (!q || !g || !CX.isFin(q) || !CX.isFin(g)) continue;
-        m.ax[n] = q.re; m.ay[n] = q.im;
-        m.gl[n] = Math.max(-60, Math.log(Math.hypot(g.re, g.im))); m.ga[n] = Math.atan2(g.im, g.re); m.ok[n] = 1;
-      }
-    }
-    // (perf on #448) the mesh is made once per memo: every grid triangle whose corners have a colour, with its colours
-    // (arg unwrapped within it), on the GPU; a frame only moves its corners (GLR.updatePreMesh: one upload, no new
-    // buffer), and a triangle torn across a cut or a pole, or with a corner H cannot place, collapses to a point. The
-    // same frame again (at rest, parked) is drawn as it is
-    const fkey = key + '|' + (H ? SV.g.x.toFixed(6) : 'rest');
-    if (!m.tris) {
-      const K = 16 / TAU, tris = [], attr = [];
-      const add = (A, B, D) => {
-        if (!m.ok[A] || !m.ok[B] || !m.ok[D]) return;
-        const a0 = m.ga[A];
-        tris.push(A, B, D);
-        for (const n of [A, B, D]) { let t = m.ga[n] - a0; t -= TAU * Math.round(t / TAU); attr.push(0, 0, m.gl[n] * K, (a0 + t) * K); }
-      };
-      for (let jy = 0; jy < ny; jy++) for (let ix = 0; ix < nx; ix++) {
-        const n = jy * (nx + 1) + ix, e = n + 1, u = n + nx + 1, d = u + 1;
-        add(n, e, d); add(n, d, u);
-      }
-      m.tris = Uint32Array.from(tris);
-      m.pos = new Float32Array(tris.length * 2);
-      m.attr = Float32Array.from(attr);
-      if (svCarryRes) { GLR.destroy(svCarryRes.res); svCarryRes = null; }
-    }
-    const nt = m.tris.length / 3;
-    if (!nt) return true;
-    let res = svCarryRes && svCarryRes.memo === m && svCarryRes.res.n ? svCarryRes.res : null;
-    if (!res || svCarryRes.key !== fkey) {
-      const W = (nx + 1) * (ny + 1), lim2 = Math.pow(0.35 * Math.max(pane.w, pane.h) / v.s, 2);
-      if (!svCarryBuf || svCarryBuf.W !== W) svCarryBuf = { W, qx: new Float64Array(W), qy: new Float64Array(W), ok: new Uint8Array(W) };
-      const { qx, qy, ok } = svCarryBuf, pos = m.pos, T3 = m.tris;
-      for (let n = 0; n < W; n++) {
-        ok[n] = 0;
-        if (!m.ok[n]) continue;
-        if (!H) { qx[n] = m.ax[n] - v.cx; qy[n] = m.ay[n] - v.cy; ok[n] = 1; continue; }
-        let q;
-        try { q = H(C(m.ax[n], m.ay[n])); } catch (e) { continue; }
-        if (!q || !CX.isFin(q)) continue;
-        qx[n] = q.re - v.cx; qy[n] = q.im - v.cy; ok[n] = 1;
-      }
-      const d2 = (A, B) => { const dx = qx[A] - qx[B], dy = qy[A] - qy[B]; return dx * dx + dy * dy; };
-      for (let t = 0, o = 0; t < nt; t++, o += 6) {
-        const A = T3[3 * t], B = T3[3 * t + 1], D = T3[3 * t + 2];
-        if (!ok[A] || !ok[B] || !ok[D] || d2(A, B) > lim2 || d2(B, D) > lim2 || d2(D, A) > lim2) { pos.fill(3e7, o, o + 6); continue; }
-        pos[o] = qx[A]; pos[o + 1] = qy[A]; pos[o + 2] = qx[B]; pos[o + 3] = qy[B]; pos[o + 4] = qx[D]; pos[o + 5] = qy[D];
-      }
-      if (res) GLR.updatePreMesh(res, pos);
-      else {
-        res = GLR.createPreMesh({ n: nt, pos, attr: m.attr, tri: new Float32Array(nt), origin: [v.cx, v.cy], dynamic: true });
-        if (!res) return false;
-      }
-      svCarryRes = { key: fkey, memo: m, res };
-    }
-    GLR.begin(pane.pw, pane.ph);
-    GLR.drawPreMapped(res, { view: v, dpr: pane.dpr, color: [0.5, 0.5, 0.5], alpha: 1, pattern: 'phase', cell: 1, lines: false, sphN: 16 });
-    GLR.blit(cc);
-    return true;
-  }
   // The colour the points carry, by the region tiling's own machinery (the machinery that carries region patterns,
   // applied to colours): Inside regions, each visible region; Everywhere,
   // SV_ALL, the whole plane as one region (the outside of a speck far beyond any view: unbounded, as the tiling's
@@ -641,19 +676,24 @@
   // the reason svInvPaths gives when Inside regions has no area shape to draw (a curve, a point: strokes only): nothing
   // region-wise is drawn then, so a glide frame's path reads 'none'
   const SV_NO_AREA = 'no area region to draw';
-  // hom: a glide's frame, where a region of plane k holds the points z of plane 0 whose F_{0->k}(z) it holds (the inverse
-  // pass tests it there), so the regions of later planes are drawn too. null: a region of a later plane the frame cannot
-  // take (at rest, any; in a glide, one behind a d/dz step)
+  // hom: a glide's frame drawn by the inverse pass, where a region of plane k holds the points z of plane 0 whose
+  // F_{0->k}(z) it holds (the pass tests it there), so the regions of later planes are drawn too; null: a region behind
+  // a d/dz step, which the pass cannot take. The carried meshes (no hom) take a region of a later plane as the whole
+  // plane, SV_ALL: it has no points on plane 0, and svMask's moving regions keep the colour inside it, as Everywhere is
+  // under the mask
   function svCarryShapes(hom) {
     if (SV.scope !== 'in' || !svMaskOn()) return [SV_ALL];
     const areas = visibleAreas();
-    return areas.some((x) => shapeStage(x) && (!hom || derivIn(0, shapeStage(x)))) ? null : areas;
+    if (!areas.some((x) => shapeStage(x))) return areas;
+    if (!hom) return [SV_ALL];
+    return areas.some((x) => shapeStage(x) && derivIn(0, shapeStage(x))) ? null : areas;
   }
-  // the sheet key's parameters for the image on plane b: the region tiling's own (smKeyOf: clipWin, half its diagonal
-  // R, R / 8, Inverse.keySing of the map to b; with no inverse plan to b, the window alone), the one key the inverse
-  // pass, the pre-mapped meshes and these meshes all order sheets by (Inverse.sheetKey)
-  function svSheetKey(b) {
-    const k = smKeyOf(stageMap(b));
+  // the sheet key's parameters for the image on plane b of the points of plane s (default 0, plane z): the region
+  // tiling's own (smKeyOf: clipWin, half its diagonal R, R / 8, Inverse.keySing of the map from s to b; with no inverse
+  // plan, or s = b, the window alone), the one key the inverse pass, the pre-mapped meshes, these meshes and the
+  // globe's carried mesh all order sheets by (Inverse.sheetKey)
+  function svSheetKey(b, s = 0) {
+    const k = smKeyOf({ mode: 0, a: s, b });
     if (k) return k;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
     return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [] };
@@ -731,8 +771,61 @@
     return p && p.re >= box.x0 && p.re <= box.x1 && p.im >= box.y0 && p.im <= box.y1 ? p : null;
   }
   const SV_SING_BIG = 10;
+  // svSingNewton's limits: at most SV_SING_ITERS Newton steps; a point is kept only where |F| at SV_SING_R (1 + |z|)
+  // from it is past big at each of four points, and grows towards it by more than SV_SING_GROW from ten times as far
+  // (|F| ~ r^-a grows by 10^a: a root's a is at least about 0.2 where |F| at that distance is past SV_SING_BIG, and a
+  // bounded branch point, 20 + √z at 0, does not grow); the four points are turned SV_SING_TURN from the axes, so that a
+  // cut along an axis does not take one
+  const SV_SING_ITERS = 16, SV_SING_R = 1e-6, SV_SING_GROW = 10 ** 0.1, SV_SING_TURN = 0.3;
+  // a point where F is unbounded without being a pole, from z, by Newton's method on u = h/h' (h = 1/F): u has a simple
+  // zero where h has a zero of any order, a pole's (order 1) or a root's (|F| ~ |z - p|^-a, 0 < a < 1, where Newton's
+  // method on h reflects about p or crawls). It is the point Newton's method settles on (u or its step under 1e-12 or
+  // 1e-11 of 1 + |z|), within box, where |F| next to it is past big and grows towards it; null otherwise: a start that
+  // does not settle (Newton on u reflects where u's zero is not simple, as exp(√z)'s u = -2√z sends z to -z), that
+  // leaves the box, or that settles on no such point (a zero of h' alone)
+  function* svSingNewton(F, z, box, big, E) {
+    const h = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? (CX.isZero(w) ? null : CX.inv(w)) : C(0, 0); };
+    const u = (p, e) => {
+      const h0 = h(p), hp = h(CX.add(p, C(e, 0))), hm = h(CX.sub(p, C(e, 0)));
+      if (!h0 || !hp || !hm) return null;
+      const d = CX.div(CX.sub(hp, hm), C(2 * e, 0));
+      return CX.isZero(h0) ? C(0, 0) : CX.isFin(d) && !CX.isZero(d) ? CX.div(h0, d) : null;
+    };
+    yield* svPoleTick(E);
+    let gap = Infinity, settled = false;
+    for (let i = 0; i < SV_SING_ITERS && !settled; i++) {
+      // (the differences' step: a hundredth of the last distance u gave, at most 1e-6 (1 + |z|) and at least 1e-14 (1 + |z|),
+      // where float64 differences still resolve: steps that straddle the point would read the difference across it)
+      const s = CX.abs(z), e = Math.max(1e-14 * (1 + s), Math.min(1e-6 * (1 + s), gap / 100)), u0 = u(z, e);
+      if (!u0) return null;
+      if (CX.abs(u0) < 1e-12 * (1 + s)) { settled = true; break; }
+      // (a step more than twice the last: Newton's method moving away from the zero, not towards it)
+      if (CX.abs(u0) > 2 * gap) return null;
+      gap = CX.abs(u0);
+      const up = u(CX.add(z, C(e, 0)), e), um = u(CX.sub(z, C(e, 0)), e);
+      if (!up || !um) return null;
+      const d = CX.div(CX.sub(up, um), C(2 * e, 0));
+      if (!CX.isFin(d) || CX.isZero(d)) return null;
+      const step = CX.div(u0, d);
+      z = CX.sub(z, step);
+      if (!CX.isFin(z) || z.re < box.x0 || z.re > box.x1 || z.im < box.y0 || z.im > box.y1) return null;
+      yield* svPoleTick(E);
+      if (CX.abs(step) < 1e-11 * (1 + s)) settled = true;
+    }
+    if (!settled) return null;
+    const m = (p) => { let w = null; try { w = F(p); } catch (e) { w = null; } return !w ? null : CX.isFin(w) ? CX.abs(w) : Infinity; };
+    const r = SV_SING_R * (1 + CX.abs(z));
+    for (let a = 0; a < 4; a++) {
+      const c = Math.cos(a * Math.PI / 2 + SV_SING_TURN), sn = Math.sin(a * Math.PI / 2 + SV_SING_TURN);
+      const near = m(CX.add(z, C(r * c, r * sn))), far = m(CX.add(z, C(10 * r * c, 10 * r * sn)));
+      if (near == null || far == null || !(near > big) || (near < Infinity && !(near > SV_SING_GROW * far))) return null;
+    }
+    return z;
+  }
   // the poles of F in box: the local maxima of |F| on an n x n grid over it, each refined (kept while within lim); with
-  // sing, a start Newton's method does not settle on and where |F| is past SV_SING_BIG is refined to its singular point
+  // sing, a start Newton's method does not settle on is refined to its singular point: where |F| there is past
+  // SV_SING_BIG, by its nearest peak of |F|; else (and where that finds none) by svSingNewton, which finds a root's
+  // point (√ of a Möbius step at its pole) from a grid whose |F| next to it is small
   function* svPolesIn(F, box, n, lim, E, sing = false) {
     const dx = (box.x1 - box.x0) / n, dy = (box.y1 - box.y0) / n, M = [];
     yield* svPoleTick(E);
@@ -762,6 +855,7 @@
     for (const [i, j] of starts) {
       let p = yield* svPoleAt(F, at(i, j), lim, E);
       if (!p && sing && !(M[j * (n + 1) + i] < SV_SING_BIG)) p = yield* svSingularAt(F, at(i, j), SV_SING_BIG, E, lim);
+      if (!p && sing) p = yield* svSingNewton(F, at(i, j), lim, SV_SING_BIG, E);
       if (p && !out.some((q) => CX.abs(CX.sub(p, q)) < 1e-6 * (1 + CX.abs(p)))) out.push(p);
     }
     return out;
@@ -883,19 +977,28 @@
     const n = nSteps();
     for (const b of svHoldB ? [svHoldB] : []) if (b <= n && !derivIn(b - 1, b)) { const P = svPoleTracks(b, clipWin); if (P.k <= SV_POLE_K) return P; }
     for (let b = 1; b <= n; b++) {
-      if (derivIn(b - 1, b)) continue;
+      if (derivIn(b - 1, b) || svGlideEntire(b)) continue;
       const P = svPoleTracks(b, clipWin);
       if (P.k <= SV_POLE_K) return P;
     }
     return null;
   }
-  // Whether the frames of the glide into plane b are drawn from pole tracks that are not made: its inverse paths h have a
-  // Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's last whole ones
-  // (svSheetKeyAt) exist
+  // Whether the glide into plane b moves through entire maps alone, so its map h_{b,t} after the steps before b has no
+  // pole at any t: step b is a polynomial step, whose homotopy has none (Inverse.polyHom: a root power, a zoom, or a
+  // polynomial in u inverted by every root, NEWT with deg), and each active step before b is entire. Its frames' key then takes no pole tracks (svSheetKeyAt),
+  // none are made for it (svPolesLeft), and its glide never waits for them (svTracksMissing)
+  function svGlideEntire(b) {
+    if (isDeriv(b) || !Inverse.polyHom(built[b - 1])) return false;
+    for (let k = 1; k < b; k++) if (stepActive(k) && (isDeriv(k) || !(built[k - 1] && built[k - 1].props && built[k - 1].props.entire))) return false;
+    return true;
+  }
+  // The pole tracks the frames of the glide into plane b are drawn from, while they are not made (null otherwise): its
+  // inverse paths h have a Newton member (the poles it needs are plane b's tracks') and neither these tracks nor plane b's
+  // last whole ones (svSheetKeyAt) exist. A glide through entire maps alone has none to wait for (svGlideEntire)
   function svTracksMissing(b, h) {
-    if (!(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return false;
+    if (svGlideEntire(b) || !(h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT')))) return null;
     const P = svPoleTracks(b, svSheetKey(b).win), L = svPoleLast.get(b);
-    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]);
+    return P.k <= SV_POLE_K && !(L && L.sig === chainSig[b]) ? P : null;
   }
   // The idle job: every glide's pole tracks for the current windows, then the outer ring's sizes of the glides beside
   // the plane and of the chain's other glides, nearest first, with their meshes, as far as the caches take them (svRingAhead, svRingNext),
@@ -910,7 +1013,8 @@
     const next = (dl) => {
       if (tok !== svPoleJob) return;
       const t0 = performance.now();
-      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl ? dl.timeRemaining() : SV_POLE_BUDGET);
+      // (a callback the browser ran for its timeout, not in an idle moment, has no time remaining and still runs one slice)
+      const left = () => Math.min(SV_POLE_BUDGET - (performance.now() - t0), dl && !dl.didTimeout ? dl.timeRemaining() : SV_POLE_BUDGET);
       try {
         while (left() > 0) {
           const P = svPolesLeft();
@@ -937,9 +1041,10 @@
     // (this glide's tracks once they are whole; until then (a glide at once after an edit or a change of view, before
     // the idle moments made them), the plane's last whole tracks, for other windows (they find the same poles where the
     // windows overlap); with none, the poles a seed step finds at t itself: the same search, without the tracks through
-    // a cut. No tracks are made in a frame)
+    // a cut. A glide's frames make no tracks; the frames that hold the glide for them do, svLinkHold. A glide through
+    // entire maps alone has no poles: none, svGlideEntire)
     const s = t * SV_POLE_K, i = Math.min(SV_POLE_K - 1, Math.floor(s)), f = s - i;
-    let P = svPoleTracks(b, k.win), at = null;
+    let P = svGlideEntire(b) ? { tr: [] } : svPoleTracks(b, k.win), at = null;
     if (P.k <= SV_POLE_K) {
       svPolesWatch();
       const L = svPoleLast.get(b);
@@ -961,17 +1066,25 @@
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a
   // pixel gives the one down it)
   const svCarryStyle = (T) => ({ s: 0, T, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark,
-    an: Funcs.composeProps(activeSteps().filter((k) => k <= T).map((k) => built[k - 1].props)).analytic });
+    an: Funcs.composeProps(activeSteps().filter((k) => k <= T).map((k) => built[k - 1].props)).analytic, cauchy: svCauchyCarry() });
+  // the Cauchy style's residue data (plan, edges at the shared camera's scale, part shown) with the chain's length, for the carried colour on a plane past z; null for
+  // any other style, with no closed curve, or when the integral is not by the residue theorem (the carried colour is then the stages' colour)
+  const svCauchyCarry = () => {
+    if (S.dc !== 'cauchy') return null;
+    const cz = cauchyDraw(S.srcView.s);
+    return GLR.cauchyUsable(cz) && cz.plan.ok ? Object.assign({}, cz, { T: nSteps() }) : null;
+  };
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
-  // kind 'flat' or 'globe'); between planes through step b's homotopy at u (invHomPath). {list, paths}, or null with why.r
+  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath).
+  // {list, paths}, or null with why.r
   // the first reason unless every shape takes that path; with why.rest an array (at rest, shapes listed one by one), the shapes
   // that do not are put in it and left out of the lists
   function svInvPaths(b, u, kind, why) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
-    if (derivIn(0, b)) { why.r = 'a d/dz step'; return null; }
+    if (derivIn(0, b) && hom) { why.r = 'a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     const singAt = () => svSheetKeyAt(b, u).sing;
     // (a region of a later plane takes the whole plane's path: its test is in the pass, not in the path's preparation)
@@ -981,8 +1094,9 @@
     const viaHom = (x, t, sing) => (shapeStage(x) ? whole || (whole = invHomPath(SV_ALL, 0, b, t, sing)) : invHomPath(x, 0, b, t, sing));
     const paths = list.map((x) => {
       if (hom) return viaHom(x, u, singAt);
-      const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false, stepsRest: true });
-      // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is. The exactImages switch is not read here: a plane at rest is the exact pass's)
+      if (derivIn(0, b)) return invDerivPath(x, b);
+      const p = pathOf(x, stageMap(b), 'L', kind, { recs, budget: false });
+      // (only a step with no exact inverse falls back; a path still compiling or forced forward stays as it is)
       const m = normalizeMap(stageMap(b));
       if (p.path !== 'forward' || invPlan(m.a || 0, m.b || 0).ok) return p;
       const q = viaHom(x, 1, restHom);
@@ -1021,20 +1135,20 @@
     return { alpha: a === T ? 1 + (slider - 1) * glide.u : slider, alphaOwn: slider };
   };
   const svCarryLook = (base, shape, glide, T) => Object.assign(svCarryAlpha(base, shape, glide, T), { lastOpaque: base >= 1, pattern: 'carry', cell: 1, lines: false });
-  // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {w, a, ...} draws its boundary band alone (GLR.drawInverse's edge);
+  // drawInverse's arguments (without the view) for one shape's inverse path p. alphaOf(shape): the opacity of its fill; edgeOf(shape): {width, alpha, ...} draws its boundary alone (GLR.drawInverse's edge);
   // a shape of a later plane drawn as a fill is grown by half the band's width plus half a pixel, so the colour reaches as far
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf, glide) => {
     return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape, glide, carry.T),
       carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
   };
-  // At rest on plane a past the colour plane T: exactly, by the tiling's inverse pass (GLR.drawInverse, its carried
-  // colour variant): at each pixel w of plane a, the shapes' points z with F_a(z) = w, the front one's colour, so the
-  // colour is the points' own wherever they reach, with no grid, no window and no stray sheet. Into the open GL frame
-  // (opened if need be). False (nothing more drawn) unless every shape takes that path: a region of a later plane, a
-  // map with no inverse, a program still compiling
+  // At rest on plane a that is not coloured (past the colour plane T, or before it with a d/dz step between): exactly,
+  // by the tiling's inverse pass (GLR.drawInverse, its carried colour variant): at each pixel w of plane a, the shapes'
+  // points z with F_a(z) = w, the front one's colour, so the colour is the points' own wherever they reach, with no grid,
+  // no window and no stray sheet. Into the open GL frame (opened if need be). False (nothing more drawn) unless every
+  // shape takes that path: a region of a later plane, a map with no inverse, a program still compiling
   function svCarryExact(pane, a, T, frame) {
-    const h = a > T ? svInvPaths(a, null, 'flat', { r: null }) : null;
+    const h = !svColoured(a) ? svInvPaths(a, null, 'flat', { r: null }) : null;
     // (a path of the homotopy's inverse at t = 1, which has a NEWT op: its roots pass runs at t = 1)
     const nt = !!h && h.paths.some((p) => p.plan.ops.some((o) => o.kind === 'NEWT'));
     return !!h && (nt ? svDrawInverse(pane, h.list, h.paths, T, frame, 1, null, null, a) : svDrawInverse(pane, h.list, h.paths, T, frame)) === 'drawn';
@@ -1081,12 +1195,12 @@
   // Whether a glide frame between planes (plane b, at u) is drawn by the inverse pass with every program linked: its colour
   // layer then holds exactly the pixels whose front point of the regions lands there (svInvPaths: the pass tests each
   // region), so no mask from the regions' images is drawn under Inside regions (that mask's meshes, SphereMesh aside,
-  // lack parts of an unbounded region's image). A region of a later plane keeps the mask: its pullback's opacity and band
-  // come from the mask's pass (svStagedMask), which the colour layer does not draw
+  // lack parts of an unbounded region's image). The pullbacks of regions of later planes keep their own opacity and band,
+  // which only the mask's pass (svStagedMask) draws, so such a frame keeps a mask made of the inverse pass alone
   function svExactGlide(b, u) {
     if (!GLR.inverseState) return false;
     const h = svHomPaths(b, u).h;
-    return !!h && h.list.every((s) => !shapeStage(s)) && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
+    return !!h && h.paths.every((p, i) => svInvState(h, i, b, u) === 'ready');
   }
   // (the paths of the glide's frame at (b, u), svInvPaths, kept in svHomMemo { b, u, h, why } for the frame's other readers)
   let svHomMemo = null;
@@ -1094,32 +1208,68 @@
     if (!(svHomMemo && svHomMemo.b === b && svHomMemo.u === u)) { const why = { r: null }; svHomMemo = { b, u, h: svInvPaths(b, u, 'flat', why), why }; }
     return svHomMemo;
   }
-  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths) of the glide frame at
-  // (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
+  // the inverse program's state ('ready', 'pending', 'error') of path i of the paths h (svInvPaths, or svStagedOf's) of
+  // the glide frame at (b, u), as the carried colour draws it there (svCarryExactHom): with that frame's look, whose opacity picks the
   // program's B class (svCarryAlpha: sheets off before the colour plane, opacity 1)
   const svInvState = (h, i, b, u) => {
     const p = h.paths[i];
     return GLR.inverseState({ map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, viewKind: 'flat', look: svCarryLook(1, h.list[i], { b, u }, svT()), carry: true, staged: shapeStage(h.list[i]) > 0 });
   };
-  // A glide frame between planes whose step the inverse pass draws, while that pass's program still links, and once it
-  // is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): the glide waits
-  // on the plane it started from (a glide's or a play's clock starts again there; a scrub's frame is that of the plane
-  // before the thread), so no frame between the planes is the carried mesh's or one drawn without its tracks, and the
-  // first one drawn is exact. After it svHoldB is plane b when the glide waits for the tracks, else 0; such a wait also
-  // starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
+  // and the staged one of the later planes' shapes, svStagedOf and svStagedCurves, which draws their mask and strokes),
+  // and once it is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): a
+  // glide or a play waits where it is, at the place of its last frame drawn (its start when it has drawn none) with its
+  // clock still, judged at the place it was held for (A.held) until that place can be drawn, and then goes on from there
+  // in the time it had left; a scrub's frame is that of the plane before the thread. So no frame between the planes is
+  // the carried mesh's or one drawn without its tracks, and the first one drawn is exact. After it svHoldB is plane b
+  // when the glide waits for the tracks, else 0. Each frame of such a wait makes the tracks for a frame's pole budget, so
+  // the wait ends within a bounded number of frames: a held play or glide asks for frame after frame, and where each
+  // takes past its deadline (a software renderer) no idle moment comes between them. Such a wait also starts the idle
+  // job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
   function svLinkHold() {
     svHomMemo = null;
-    const g = svBetween();
-    if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return null;
+    const A = svMotion();
+    const g = svBetween(A && A.held ? A.held.x : SV.g.x);
+    if (!svHolds(g)) {
+      // (released: the frame is the one the motion waited on, and its clock goes on from there)
+      if (A && A.held) { SV.g.set(A.held.at); svSetElapsed(A, A.held.el); }
+      svMotionDrawn(A);
+      return null;
+    }
+    if (!A) return g.x0;
+    if (!A.held) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
+    svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
+    return A.held.at;
+  }
+  // the motion whose clock moves the thread: a glide, or a play a glide at a time; null
+  const svMotion = () => SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
+  // a motion's time since its start (ms), as svFrame and svPlayFrame read it (the test clock's, or the wall clock's), and
+  // that time set
+  const svElapsed = (A) => (SV.clock ? A.el || 0 : performance.now() - A.t0);
+  function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
+  // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
+  function svMotionDrawn(A) {
+    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; }
+  }
+  // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
+  // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0)
+  function svHolds(g) {
+    svHoldB = 0;
+    if (g.u <= SV_REST_U || g.all || g.b === g.a || g.map.mode !== 1 || isDeriv(g.b) || !GLR.inverseState) return false;
     const h = svHomPaths(g.b, g.u).h;
-    const linking = !!h && h.paths.some((p, i) => svInvState(h, i, g.b, g.u) === 'pending');
-    svHoldB = !linking && svTracksMissing(g.b, h) ? g.b : 0;
+    // (the Cauchy style's carried programs too, its own variants: while they link, nothing past z draws its colour)
+    const linking = (!!h && [h, svStagedOf(false, g), svStagedCurves(g)].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u) === 'pending')))
+      || (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry());
+    const P = linking ? null : svTracksMissing(g.b, h);
+    if (P) {
+      svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
+      // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
+      if (P.k > SV_POLE_K) svHomMemo = null;
+    }
+    svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
-    if (!linking && !svHoldB) return null;
-    const A = SV.anim || (SV.play && !SV.play.slide ? SV.play : null);
-    if (A) { A.t0 = performance.now(); A.el = 0; A.e0 = 0; SV.g.set(A.from); requestRender('L'); return A.from; }
-    return g.x0;
+    return linking || !!svHoldB;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
   // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
@@ -1153,10 +1303,10 @@
   const svRingSizes = new Map();
   let svRingMemo = null, svRingJob = null;
   // the key of m at the twentieth q of the glide g (svBetween's) for the view v of a pw x ph pane
-  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
+  const svRingKey = (g, q, v, pw, ph) => { const w = clipWin; return [g.a, g.b, g.all ? 1 : 0, svStepTKey(g.stepT), q, w.x0, w.x1, w.y0, w.y1, v.cx, v.cy, v.s, pw, ph, chainSig[nSteps()]].join('|'); };
   // m at the twentieth q of the glide g (null: no ring): a generator that pauses every 8 points
   function* svRingSize(g, q, v, pw, ph) {
-    const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1 } : null), w = clipWin;
+    const gq = svBetween(g.x0 + q / 20 * (g.x1 - g.x0), g.all ? { x0: g.x0, x1: g.x1, stepT: g.stepT } : null), w = clipWin;
     const hw = 0.55 * pw / v.s, hh = 0.55 * ph / v.s;
     const past = (z) => { const p = gq.F(z); return !p || !CX.isFin(p) || Math.abs(p.re - v.cx) > hw || Math.abs(p.im - v.cy) > hh; };
     const cx = (w.x0 + w.x1) / 2, cy = (w.y0 + w.y1) / 2, ax = (w.x1 - w.x0) / 2, ay = (w.y1 - w.y0) / 2, R = Math.hypot(ax, ay);
@@ -1540,9 +1690,9 @@
     svPolarWarmAll();
     return true;
   }
-  // While gliding (map: the glide's, h_{b,u} after the steps before b; b: the plane it goes to), or at rest while the
-  // exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by map, each
-  // fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
+  // While gliding (map: the glide's, h_{b,u} after the steps before b, or all at once; b: the plane it goes to), or at
+  // rest while the exact pass compiles: each shape's tessellated mesh, the one the tiling's patterns travel on, moved by
+  // map, each fragment its point's colour (GLR.drawRegion with carry), the sheet key as its depth. Into the open GL frame
   // (opened if need be). False (nothing more drawn) unless every shape draws so
   // (each base triangle in SV_CARRY_L^2, not the tiling's MESH_L^2: each fragment's colour is its own point's exactly,
   // the subdivision only places it, and the map at every vertex is most of a glide frame's cost)
@@ -1553,10 +1703,15 @@
   // trouble; the whole plane under a map with a family of poles, whose cells no fix-up budget resolves) is drawn from
   // that pre-mapped mesh once it is built (GLR.drawPreMapped with carry), in the same depth; its tessellated mesh stands
   // in while the mesher's job runs
+  // (the sheet key: a step at a time, the glide's at t (svSheetKeyAt, plane b's key with the glide's poles at t); all at
+  // once, the key of the span's top plane, map.b, with that plane's poles, so the front sheet is the one the inverse pass
+  // shows where the span ends, at plane b: an upward glide lands on that sheet, while a downward one, which ends at the
+  // span's first plane, keeps plane b's key to the end (the first plane's key lacks the later planes' poles, so where the
+  // map folds it would put the wrong sheet in front on the way); at rest, plane b's)
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
-    if (!list || !list.length || !GLR.drawRegion || derivIn(0, T) || GLR.carryProbes().oldGrid) return false;
-    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : svSheetKey(b);
+    if (!list || !list.length || !GLR.drawRegion) return false;
+    const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.b) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
     const draws = [], fixed = [], still = F && !(map.mode || 0);
@@ -1604,6 +1759,11 @@
     // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
     // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
     // layers cannot be drawn, the front layer alone is drawn)
+    // (while the carried colour's programs link: a still frame of plane z's colour (T = 0) whose shapes are all drawn from
+    // their SphereMeshes (the tiling's stand-in while a chain's first program links, smNeed's 'linking') shows those
+    // meshes in the phase of their source points, which is that colour, with programs that carry no chain)
+    const standIn = () => T === 0 && n > 0 && lay.every((d) => d.pre)
+      && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })));
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
     for (let pass = 0; pass < 2; pass++) {
@@ -1613,7 +1773,7 @@
         if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
       }
       if (ready) break;
-      if (!layers) return false;
+      if (!layers) return standIn();
       layers = false;
     }
     const drawAll = () => {
@@ -1628,12 +1788,12 @@
       return true;
     };
     const layered = layers ? GLR.carryLayers(a, drawAll) : null;
-    return layered === null ? drawAll() : layered;
+    return (layered === null ? drawAll() : layered) || standIn();
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
-  // colour carried by the points along h_{b,u} (svCarry), with each plane's exact pull-back colour blended in near it;
+  // colour carried by the points along h_{b,u} (the inverse pass, svCarryExactHom, or the carried meshes, svCarryRegions);
   // Inside regions masks it with the moving regions; the regions are outlined over it. The view stays.
-  // (#1059) the labels are placed in full once the picture has been still for SV_LABEL_STILL ms, held or released (on the
+  // the labels are placed in full once the picture has been still for SV_LABEL_STILL ms, held or released (on the
   // move they keep their offsets, see drawPoints). The picture is what it draws: a pan or a zoom counts as a change too
   const SV_LABEL_STILL = 120;
   let svPicKey = '', svPicAt = 0, svPicTimer = 0;
@@ -1652,14 +1812,71 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false;
-    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); SV.core = 'carry'; if (!svLandMoving(pane)) svRenderMoving(pane); return; } }
+    cutMarksL = [];
+    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; } SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
     svCheck(); svPolesWatch();
     if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    svHeldOn = null;
     SV.core = 'still'; still(pane);
   }
+  // A glide into a d/dz plane (svBetween's jump: the step has no homotopy) on the plane or the globe: the two planes'
+  // pictures at rest cross-faded, each drawn as the plane draws at rest (the classic core's pull-back on a coloured
+  // plane, else the carry core's exact pass or its meshes), plane a's on the pane and plane b's over it at opacity u
+  // from a canvas of its own. The glide's record: path 'inverse' when both ends are exact (a coloured plane's plot, or
+  // the exact pass past the colour plane), else 'mesh' ('none': an end drew no colour), each end's in ends. The cuts
+  // are each end's, faded with it; while the glide is under way, the handles of the plane it is nearest to, inert. False
+  // for any other frame (the Landscape's jump is svLandMoving's)
+  let svJumpCv = null;
+  function svJump(pane, still) {
+    if (SV.surf === 'land') return false;
+    const bt = svBetween();
+    if (bt.all || bt.b === bt.a || bt.u <= SV_REST_U || !isDeriv(bt.b)) return false;
+    const g = SV.g, keep = { x: g.x, target: g.target, v: g.v, i: SV.i }, globe = SV.surf === 'sphere' && lGlobe();
+    // (each end drawn with the thread on its plane and the view the steps view sets there, svViewFix's main view and
+    // surface, put back after)
+    const v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
+    const end = (j, p) => {
+      const k = svPlanes()[j], side = svColoured(k) ? 'P' : 'L', main = v.main, was = v[side].surf;
+      g.x = j; g.target = j; g.v = 0; SV.i = j; svRestRec = null; leftSphereInfo = null;
+      v.main = svMain(k);
+      if (v.main !== 'land') v[side].surf = surf;
+      try {
+        if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
+        else still(p);
+      } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
+      if (svColoured(k)) return 'plot';
+      if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
+      return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
+    };
+    // (each end's cut handles, as its draw leaves them: the editable ones of the classic core at rest (cutHandlesL), or
+    // the inert ones of the carry core, which draws them so while a scrub holds the thread (cutMarksL))
+    const handles = [];
+    const drawEnd = (j, p) => { cutHandlesL = []; cutMarksL = []; const e = end(j, p); handles.push(cutHandlesL.concat(cutMarksL)); return e; };
+    const ends = [drawEnd(bt.x0, pane)];
+    svJumpCv = svCanvas(svJumpCv, pane);
+    ends.push(drawEnd(bt.x1, svProxy(pane, svJumpCv)));
+    svFadeOver(pane, svJumpCv, bt.u);
+    // (no handle takes a press mid-glide; while the glide is under way the plane it is nearest to shows its handles
+    // inert, as a glide frame between two other planes does (cutMarksL); a frame parked between the planes shows none)
+    cutHandlesL = [];
+    cutMarksL = svGliding() ? handles[bt.u < 0.5 ? 0 : 1] : [];
+    const exact = (e) => e === 'plot' || e === 'inverse';
+    svGlideRec = { b: bt.b, u: bt.u, path: ends.every(exact) ? 'inverse' : ends.includes('none') ? 'none' : 'mesh', reason: 'a d/dz step', ends, key: null, H: bt.F, Hb: null, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+    SV.core = 'carry';
+    return true;
+  }
+  // the held frame on the left pane while a held glide's frames keep it there: { key: its inputs (the place held, the
+  // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn), cm:
+  // its cuts' inert handles (cutMarksL) }; null after any other frame
+  let svHeldOn = null;
   function svRenderMoving(pane) {
-    if (SV.surf === 'sphere' && lGlobe()) { svSphereMoving(pane); return; }
-    const hold = svLinkHold();
+    if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); svMotionDrawn(svMotion()); return; }
+    const asks = renderAsks, hold = svLinkHold();
+    // (a held frame with the inputs of the held frame on the pane, and no frame asked for since, would draw that frame
+    // again: the pane keeps it, its status included, and the hold's own checks above are all this frame does)
+    const key = hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
+    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; return; }
+    svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [] };
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
@@ -1678,92 +1895,98 @@
     const grid = (under) => !bare && !col && GLR.drawGrid && GLR.drawGrid({ view: pane.view, dpr: pane.dpr, plane: TH.planeRGB, minor: GLR.hexRGB(TH.gridMinor), medium: GLR.hexRGB(TH.gridMedium), major: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, unit: S.unit, unitAlpha: 0.55, under });
     svColCv = svCanvas(svColCv, pane);
     const cc = svColCv.getContext('2d');
-    const T = svT(), src = Math.min(a, T), still = u <= SV_REST_U || b === a;
+    const T = svT(), still = u <= SV_REST_U || b === a;
     // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
-    const frame = { open: false, cc: false };
-    const plot = (k, al) => {
+    const frame = { open: false };
+    // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
+    const plot = (k, al, noValue) => {
       if (al <= 0.01 || !svColoured(k)) return;
       if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
-      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true });
+      GLR.drawColorPlot({ map: svColourMap(k), view: pane.view, dpr: pane.dpr, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(), plane: TH.planeRGB, ink: TH.inkRGB, dark: TH.dark, cauchy: null, alpha: al, exact: true, noValue });
     };
     const colour = () => {
+      // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
+      // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
+      // (#1443's rule b: no blank, and at the arrival plane b's parked picture), and over it the departure plane's
+      // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
+      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions)
+      if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { plot(b, 1); plot(a, 1, true); }
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan: the exact
       // picture of the map at u, with nothing blended in; else the carried meshes below, with the planes' plots)
       if (!still && map.mode === 1 && !isDeriv(b)) {
         const why = { r: null }, drew = svCarryExactHom(pane, b, u, T, frame, why);
         const kp = drew ? invHomPath(SV_ALL, 0, b, u, () => svSheetKeyAt(b, u).sing) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h };
+        // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
+        // farthest opaque (svCarryLook at base 1))
+        const hl = drew ? svHomPaths(b, u).h : null, look = hl ? svCarryLook(1, hl.list[0], { b, u }, T) : null;
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
+          ...(look && { alpha: look.alpha }) };
         if (drew) return;
       }
-      // (meshed: drawn by the carried meshes, which nothing is drawn under or blended over)
-      let carried = false, meshed = false;
       // (at rest on a plane at or before the colour plane its exact colour covers it all: no carried colour under it)
       // (at rest past the colour plane, the points take their colour exactly, as the region tiling places them:
-      // svCarryExact; the carried grid only where neither path can draw)
+      // svCarryExact)
       const exact = still && !svColoured(a) && svCarryExact(pane, a, T, frame);
       if (still && !svColoured(a)) svRestRec = { a, path: exact ? 'inverse' : 'mesh' };
-      if (exact) carried = true;
-      // (and while gliding, or at rest while the exact pass compiles: the tessellated meshes the tiling's patterns
-      // travel on, each fragment its point's colour; Everywhere with the outer meshes, they cover the pane, so no
-      // plane's colour is drawn under them or blended over them)
-      else if ((still ? !svColoured(a) : (!isDeriv(b) && map.mode === 1)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) carried = meshed = true;
-      else {
-        // (under the rest, the two planes' exact colours cross-faded: where no carried point of the grid lands, and
-        // the whole picture of a d/dz step's glide)
-        if (!still) { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
-        // (the carried grid, svCarry, only where the region machinery cannot draw: a region of a later plane (it has
-        // no points on plane 0), a d/dz step before the colour plane (no map of the points), a program still compiling)
-        if (still ? !svColoured(a) : !isDeriv(b)) carried = svCarry(pane, cc, src, a, still ? null : Hb, frame);
-      }
-      // (over it, at a plane at or before the colour plane, its exact colour: all of it at rest; over the carried
-      // grid, blended in over the first and the last 15 % of a glide)
-      const near = (w) => Math.max(0, Math.min(1, w));
+      if (exact) return;
+      // (and while gliding, a step at a time or all at once, or at rest while the exact pass compiles: the tessellated
+      // meshes the tiling's patterns travel on, each fragment its point's colour; Everywhere with the outer meshes, they
+      // cover the pane, so no plane's colour is drawn under them or blended over them)
+      if ((still ? !svColoured(a) : !isDeriv(b)) && svCarryRegions(pane, map, T, still ? a : b, frame, rest ? F : null)) return;
+      // (at rest while the programs at rest link: the glide's own to plane a at its end, t = 1, the same places, with
+      // the programs the glide there linked)
+      if (still && !svColoured(a) && a > 0 && !isDeriv(a) && svCarryRegions(pane, { mode: 1, hi: a, t: 1 }, T, a, frame, null)) return;
+      // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, the two planes'
+      // cross-faded, the whole picture of a d/dz step's glide and of a glide while the carried meshes' programs link)
       if (still) plot(a, 1);
-      else if (carried && !meshed) { plot(a, near(1 - u / 0.15)); if (b !== a) plot(b, near((u - 0.85) / 0.15)); }
+      else { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
     // (mask: the regions' mask drawn under the colour; none for a frame the inverse pass draws, svExactGlide)
-    const mask = svMaskOn() && !(!still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u));
+    // (with a region of a later plane, the mask stays but is the inverse pass's too: svStagedMask draws every region)
+    const exact = svMaskOn() && !still && map.mode === 1 && !isDeriv(b) && svExactGlide(b, u);
+    const mask = svMaskOn() && !(exact && !svStagedOf());
     if (mask && svMask(pane, map, still ? a : undefined, {
+      exact,
       // (under the colour, the plane's paper and, past the colour plane, its grid, as the 2D path leaves the pane's
       // showing where none lands: a pixel of the regions the colour layer leaves empty (the inverse pass found no point
-      // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame: the
-      // carried colour's CPU mesh, which needs a frame of its own, waits)
-      paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; frame.keep = true; colour(); },
-      after: () => { grid(true); svOutlines(pane, map, frame, col); frame.open = false; frame.keep = false; },
+      // there) reads as the paper, never as the frame's cleared black; the colour layer stays in this frame)
+      paint: () => { GLR.clearRGB(TH.planeRGB); grid(false); frame.open = true; colour(); },
+      after: () => { grid(true); if (!bare) svOutlines(pane, map, frame, col); frame.open = false; },
     })) {
       // (drawn: the frame is on the page)
     } else {
       colour();
-      // (#492) the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
-      // to the page. Inside regions in 2D (the mask is a pass over the colour layer) or when the carried colour took
-      // the CPU path (it is in cc already), the layers go one by one, the grid first
-      if (!mask && !frame.cc) {
+      // the grid under the colour layer and the outlines over it, in the same frame: the frame's one copy goes
+      // to the page. Inside regions in 2D (the mask is a pass over the colour layer), the layers go one by one, the grid
+      // first
+      if (!mask) {
         if (!frame.open) { GLR.begin(pane.pw, pane.ph); frame.open = true; }
         grid(true);
-        // (Inside regions: the outlines in every frame, bare or not, as the frames drawn under the mask)
-        if (!bare || svMaskOn()) svOutlines(pane, map, frame, col);
+        if (!bare) svOutlines(pane, map, frame, col);
         GLR.blit(pane.ctx);
         frame.open = false;
       } else {
         if (frame.open) { GLR.blit(cc); frame.open = false; }
-        if (mask) svMask(pane, map, still ? a : undefined, { cc });
+        svMask(pane, map, still ? a : undefined, { cc });
         if (GLR.drawGrid && !col) { GLR.begin(pane.pw, pane.ph); grid(false); GLR.blit(pane.ctx); }
         pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(svColCv, 0, 0); pane.ctx.restore();
-        svOutlines(pane, map, null, col);
+        if (!bare) svOutlines(pane, map, null, col);
       }
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    if (bare) return;
+    if (bare) { glStatusNote(pane, true); return; }   // (the colour layer alone: its status is the pane's, with no note)
     if (col) colourGrid(pane);
     // (the points, carried too; at rest the plane's rulers, as every plane has)
     // (the paths t -> H_t(z) of the glide's run, svPathsSource: the classic deformation's, under the points)
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
-    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN); }
+    // (a frame between two planes shows the cuts as the plane it is nearest to does at rest: hatches and the branch point's dot on the cuts of that plane; while the
+    // glide is under way, a handle on each editable cut, inert. A frame parked between two planes draws no handle: there one would look draggable and take no press)
+    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN, { own: (j0) => j0 === near, marks: svGliding() ? cutMarksL : null }); }
     // (a glide or a play is under way: its frames stay on the move, whatever a stalled frame shows)
     const settled = rest || (!SV.anim && !SV.play && svPictureSettled(pane, a, b, u));
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, settled ? {} : { lite: true }));
@@ -1772,35 +1995,75 @@
     if (rest) drawRulers(pane, 'L');
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
+    if (svHeldOn) { svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; }
   }
-  // Inside regions between two planes: the alpha of the regions of later planes in the open frame, by the inverse pass
-  // (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's map), at the opacity they have
-  // at rest on the nearer plane (the pulled-back ones, stagePullbacks, at PULL_ALPHA), which writes alpha alone under the
-  // caller's write mask. Nothing when none is visible or the pass cannot draw them
-  function svStagedMask(pane) {
-    const st = svStagedOf();
+  // Inside regions between two planes: the alpha of the regions of later planes (all: and of the colour's plane) in the
+  // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
+  // map), which writes alpha alone under the caller's write mask. A region's look goes from the one it has at rest on
+  // the glide's first plane to the one it has on the plane the glide reaches, by its share of its own look (svStagedOf's
+  // own): its own opacity at 1, pulled back (stagePullbacks: PULL_ALPHA, and the boundary band, the mask's more opaque
+  // line that drawPreimage draws at rest, so the carried colour shows stronger there) at 0, mixed in between. Nothing
+  // when none is visible or the pass cannot draw them
+  function svStagedMask(pane, all) {
+    const st = svStagedOf(all);
     if (!st) return;
-    // (the regions of the planes up to the nearer one at their own opacity, the later ones pulled back, as the picture
-    // at rest on the nearer plane draws them; each of the pulled-back ones then has its boundary band, the mask's more
-    // opaque line that drawPreimage draws at rest, so the carried colour shows stronger there)
-    const nearer = (x) => shapeStage(x) <= st.g.near;
-    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => (nearer(x) ? 1 : PULL_ALPHA * dimK(x)));
-    const later = st.list.map((x, i) => i).filter((i) => !nearer(st.list[i]));
-    svDrawInverse(pane, later.map((i) => st.list[i]), later.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ w: pullBandW(x, pane.dpr), a: PULL_EDGE_A }));
+    svDrawInverse(pane, st.list, st.paths, svT(), { open: true }, null, (x) => { const p = PULL_ALPHA * dimK(x); return p + st.own(x) * (1 - p); });
+    const pulled = st.list.map((x, i) => i).filter((i) => st.own(st.list[i]) < 1);
+    svDrawInverse(pane, pulled.map((i) => st.list[i]), pulled.map((i) => st.paths[i]), svT(), { open: true }, null, null, (x) => ({ width: pullBandW(x, pane.dpr), alpha: PULL_EDGE_A * (1 - st.own(x)) }));
   }
-  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths}, or null
-  // when there is none or the pass cannot draw them
-  function svStagedOf() {
-    const g = svBetween();
+  // The shapes of the plane the glide reaches, which the inverse pass strokes where it puts a region's boundary or the
+  // curve itself, with the outline pass's stroke at rest on that plane (shapeStroke: the shape's colour over its casing)
+  // at the shape's share of its own look (svStagedOf's own: u), so the stroke comes in over the glide: Map shape ->
+  // { path: its inverse path, k: that share }, or null. Inside regions and Everywhere. The pulled-back regions' band is
+  // the mask's (svStagedMask); the earlier planes' strokes are the outline pass's (svShapeMap)
+  function svReached(map0) {
+    if (map0.mode !== 1) return null;
+    const g = svBetween(), m = new Map();
+    for (const q of [svStagedOf(), svStagedCurves()]) if (q) q.list.forEach((x, i) => { if (shapeStage(x) === g.b) m.set(x, { path: q.paths[i], k: g.u }); });
+    return m.size ? m : null;
+  }
+  // stroke st (shapeStroke's) at the share k of its opacity, its casing too
+  const svStrokeAt = (st, k) => Object.assign({}, st, { alpha: st.alpha * k }, st.casing ? { casing: Object.assign({}, st.casing, { alpha: st.casing.alpha * k }) } : {});
+  // the frame between two planes whose shapes of later planes the inverse pass draws: {g: svBetween's (by default the
+  // thread's place), h: its paths (svHomPaths)}, or null (at rest, a d/dz step, or no inverse paths)
+  function svStagedFrame(g = svBetween()) {
     if (g.a === g.b || g.map.mode !== 1 || isDeriv(g.b)) return null;
     const h = svHomPaths(g.b, g.u).h;
-    if (!h) return null;
-    const at = h.list.map((x, i) => i).filter((i) => shapeStage(h.list[i]));
-    return at.length ? { g, list: at.map((i) => h.list[i]), paths: at.map((i) => h.paths[i]) } : null;
+    return h ? { g, h } : null;
+  }
+  // the curve kinds the inverse pass strokes on a later plane (GLR.packShapes: their distance is its level; a freehand
+  // curve, a formula curve, an external ray and an equipotential by their polylines at rest, invTrace)
+  const SV_STAGED_CURVES = new Set(['segment', 'line', 'ray', 'circle', 'arc', 'curve', 'cgrid', 'pgrid', 'fcurve', 'dhray', 'dheq']);
+  // the curves of later planes of the frame between two planes, with their inverse path, the whole plane's (a shape of
+  // a later plane is tested on its own plane, svInvPaths): {list, paths}, or null when there is none or the pass cannot
+  // draw them
+  function svStagedCurves(g) {
+    const f = svStagedFrame(g);
+    if (!f) return null;
+    g = f.g;
+    const list = S.shapes.filter((x) => x.visible !== false && SV_STAGED_CURVES.has(x.kind) && shapeStage(x) > 0 && !derivIn(0, shapeStage(x)));
+    if (!list.length) return null;
+    const whole = invHomPath(SV_ALL, 0, g.b, g.u, () => svSheetKeyAt(g.b, g.u).sing);
+    return whole.path === 'inverse' ? { list, paths: list.map(() => whole) } : null;
+  }
+  // the regions of later planes of the frame between two planes, with their inverse paths: {g, list, paths, own(x): the
+  // share of its own plane's look region x has in this frame, 1 on a plane up to the glide's first, u on the plane it
+  // reaches, 0 past it}, or null when there is none or the pass cannot draw them.
+  // Everywhere (the pass draws the whole plane, SV_ALL) such a region takes the whole plane's path, as it does Inside
+  // regions (svInvPaths). all: the regions of the colour's plane too (Inside regions); g: the frame's place (svStagedFrame)
+  function svStagedOf(all, g) {
+    const f = svStagedFrame(g);
+    if (!f) return null;
+    const { h } = f;
+    g = f.g;
+    const whole = h.list.indexOf(SV_ALL);
+    const list = whole < 0 ? h.list.filter((x) => all || shapeStage(x)) : visibleAreas().filter((x) => shapeStage(x) && !derivIn(0, shapeStage(x)));
+    if (!list.length) return null;
+    return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), own: (x) => (shapeStage(x) <= g.a ? 1 : shapeStage(x) === g.b ? g.u : 0) };
   }
   // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
-  // - on the GPU, in one frame and one copy to the page (#545): the regions' fills (drawScene's fills, #561) write the
+  // - on the GPU, in one frame and one copy to the page: the regions' fills (drawScene's fills) write the
   //   frame's alpha alone; o.paint() draws the colour over it, its colour alone (into the open frame); the colour is
   //   kept where the alpha is (keepInAlpha); then o.after() (the grid, the outlines) and drawScene's one blit to the
   //   pane. True when it is on the page; false (nothing on the page) without the GL calls, while keepInAlpha's program
@@ -1828,6 +2091,8 @@
     }
     if (!GLR.writeMask || !GLR.keepInAlpha || !GLR.keepInAlpha(true)) return false;
     let onPage = false;
+    // (o.exact: the regions of the colour's plane are not filled from their forward image: svStagedMask draws them)
+    if (o.exact) opt.skip = (x) => !shapeStage(x);
     const mp = Object.create(pane);
     mp.begin = () => {};
     try {
@@ -1835,7 +2100,7 @@
         under: () => GLR.writeMask(false, true),
         over: () => {
           if (k != null) stagePullbacks(mp, k, true);
-          else svStagedMask(mp);
+          else svStagedMask(mp, o.exact);
           GLR.writeMask(true, false);
           o.paint();
           GLR.writeMask(true, true);
@@ -1848,13 +2113,17 @@
     GLR.writeMask(true, true);
     return onPage;
   }
-  // the shapes' outlines under map, open sets dashed (spec 6.5), along the curve under map; col: as the colour plot draws
-  // them (renderColor: with Outlines off, the selected shape's alone). Into the open GL frame frame, if given (the
-  // caller copies it), else a frame of their own
+  // the shapes' outlines in S.shapes order: under map, open sets dashed (spec 6.5), along the curve under map; the plane
+  // a glide reaches, in every frame of the glide, by the inverse pass per pixel (svReached) at opacity u (svStrokeAt);
+  // col: as the colour plot draws them (renderColor: with Outlines off, the selected shape's alone). Into the open GL
+  // frame frame, if given (the caller copies it), else a frame of their own
   function svOutlines(pane, map0, frame, col) {
     if (!frame) GLR.begin(pane.pw, pane.ph);
+    const reached = hideStrokes ? null : svReached(map0);
     for (const s of hideStrokes ? [] : S.shapes) {
       if (!outlineShown(s, !col)) continue;
+      const p = reached && reached.get(s);
+      if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k)); continue; }
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
@@ -1862,7 +2131,7 @@
     }
     if (!frame) GLR.blit(pane.ctx);
   }
-  // The Landscape with Inside regions (#846): which points of plane k's box are in the carried region set, the set the
+  // The Landscape with Inside regions: which points of plane k's box are in the carried region set, the set the
   // plane's 2D picture colours (svMask): {cv, key, box}, a canvas over box (512 pixels on its longer side, row 0 at its
   // top), opaque inside the set and clear outside; the surface is plain (the Plain material's colour) there. One per
   // chain, plane, box and shapes; null with the colour everywhere (Everywhere)
@@ -1938,10 +2207,13 @@
   // the carried mesh of plane a's globe (drawSphere's st.carried; its graticule shows at x <= T, as the exact pass's): the colour plane's grid, plane min(a, T)'s, placed by
   // map (the map into plane a at rest, or the glide's) and coloured from the colour plane. Null where a d/dz step lies
   // on the way from that plane to the colour plane
-  function svGlobeMesh(pane, a, T, map, x = a) {
+  // (svGlobeKeyRec: the sheet key the last carried mesh was built with, read by the test hooks)
+  let svGlobeKeyRec = null;
+  function svGlobeMesh(a, T, map, x = a) {
     const src = Math.min(a, T);
     if (src > 0 && derivIn(src, T)) return null;
-    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svCarryKey(pane, src, a), graticule: x <= T });
+    svGlobeKeyRec = svSheetKey(a, src);
+    return Object.assign(svCarryStyle(T), { map, s: src, mesh: SV_GLOBE_MESH, lim: SV_GLOBE_CHORD, key: svGlobeKeyRec, graticule: x <= T });
   }
   // the globe at rest on plane k past the colour plane: the colour carried to it per pixel (svGlobeCarryInv with no
   // homotopy), by the carried mesh where a region has no inverse plan (kept inside those regions alone when others take
@@ -1949,14 +2221,19 @@
   // neither can draw: the caller draws the regions' exact images instead
   function svGlobeRest(pane, k) {
     const T = svT(), fwd = [], inv = svGlobeCarryInv(pane, k, null, T, fwd);
-    const mesh = !inv || fwd.length ? svGlobeMesh(pane, k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
+    const mesh = !inv || fwd.length ? svGlobeMesh(k, T, { mode: 0, a: Math.min(k, T), b: k }) : null;
     if (!inv && !mesh) return null;
     if (inv && fwd.length && !mesh) return null;
-    const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' };
-    const info = sphereView(pane, camL, CAML, Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver()));
+    const look = { imageMode: false, stage: k, plane: !!xView().eq, role: 'L' }, mixed = !!inv && fwd.length > 0;
+    const over = Object.assign({ carryRegions: inv, carried: inv ? null : mesh }, look, leftGlobeOver());
+    const info = sphereView(pane, camL, CAML, mixed ? Object.assign({}, over, { marks: false }) : over);
     let meshed = !!(info && info.carried) && !inv;
-    // (the mesh over the exact pass's globe, kept inside the regions that take it)
-    if (info && inv && fwd.length) meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
+    // (the mesh over the exact pass's globe, kept inside the regions that take it, and the globe's marks over both, as
+    // sphereView's Inside regions draws them: not on the figure's art layer, which draws them as vectors)
+    if (info && mixed) {
+      meshed = maskedGlobe(pane, camL, CAML, Object.assign({ only: new Set(fwd), carried: mesh }, look));
+      if (!artMode) globeMarks(pane, info, over);
+    }
     const exact = !!inv && inv.length > 0;
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
@@ -1982,13 +2259,13 @@
     // (the carried mesh, between two planes that show the colour: the colour plane's grid carried by the glide's map)
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
-      ? svGlobeMesh(pane, a, T, all ? { mode: 3, a, b, t: u, base: src } : { mode: 1, base: src, hi: b, t: u }, a + u) : null;
+      ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
     const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
     if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
       svFadeCv = svCanvas(svFadeCv, pane);
       sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
-      pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = u; pane.ctx.drawImage(svFadeCv, 0, 0); pane.ctx.restore();
+      svFadeOver(pane, svFadeCv, u);
     }
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
@@ -2014,6 +2291,11 @@
     c.clearRect(0, 0, cv.width, cv.height);
     return cv;
   }
+  // canvas cv (svCanvas's, the pane's size in device pixels) drawn over the pane at opacity alpha: plane b's picture
+  // faded over plane a's
+  function svFadeOver(pane, cv, alpha) {
+    pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.globalAlpha = alpha; pane.ctx.drawImage(cv, 0, 0); pane.ctx.restore();
+  }
   // (Inside regions: the colour shows only inside the areas drawn, so with none, a curve or a point alone, the plane is
   // neutral)
   // the scope in force: the Cauchy style is always drawn everywhere
@@ -2023,7 +2305,7 @@
   // there while z is the colour plane, and with no closed curve (cz, cauchyDraw's data) there is nothing to draw
   function svCauchyWhy(cz) {
     if (S.dc !== 'cauchy') return '';
-    if (svT() !== 0) return $t('The Cauchy integral is drawn on z, where its curve lies: colour from z');
+    if (svT() !== 0) return cauchyOffZWhy();
     return cz ? '' : $t('Select a closed curve or a bounded region: its Cauchy integral is shown.');
   }
   // (Inside regions with no area drawn: the plane is neutral, and a chain with a step says what to do)
@@ -2031,11 +2313,12 @@
     return svScope() === 'in' && !S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
   }
   // Inside regions on the plane at rest (renderColor): the colour plot cst kept inside the plane's regions (its own, the
-  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, else the plot drawn,
-  // copied to a 2D canvas, cut to the regions there and copied to the page. A new GL frame is open after it
+  // earlier planes' images and the later planes' pulled back), svMask: on the GPU in its frame, over the paper (what the
+  // plot leaves undrawn, while its program links, reads as the paper), else the plot drawn, copied to a 2D canvas, cut
+  // to the regions there and copied to the page. A new GL frame is open after it, with the colour frame's status
   function svColourIn(pane, cst) {
     const k = svStage(), map = stageMap(k);
-    if (!svMask(pane, map, k, { paint: () => GLR.drawColorPlot(cst) })) {
+    if (!svMask(pane, map, k, { paint: () => { GLR.clearRGB(TH.planeRGB); GLR.drawColorPlot(cst); } })) {
       GLR.drawColorPlot(cst);
       svColCv = svCanvas(svColCv, pane);
       const cc = svColCv.getContext('2d');
@@ -2047,7 +2330,7 @@
       pane.ctx.restore();
     }
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    GLR.begin(pane.pw, pane.ph);
+    GLR.begin(pane.pw, pane.ph, null, true);
   }
 
   // ---- the controls: the plane's head and the chain strip ----
@@ -2057,16 +2340,19 @@
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
     return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(SV.i + 1), n: I18N.num(n), where });
   }
+  // the role's words, each in a span that takes the space before it: the head's fit drops the last ones (sv-wx) when the role is
+  // short of room. A space inside a tag ("<i class=…>") does not split
+  const svRoleWords = (role) => role.split(/ (?![^<]*>)/).map((w, i) => `<span class="sv-w">${i ? ' ' : ''}${w}</span>`).join('');
   function svFormulaHtml() {
     const { name, role, short } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${role}</span>`;
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${svRoleWords(role)}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
   // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
   function svChoiceBtn(cur, pairs, pick, title, cls) {
     let val = cur;
     const word = h('span', { class: 'sv-choice-t' });
-    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu',
+    const b = /** @type {HTMLButtonElement & { value: string, choices: string[][] }} */ (h('button', { type: 'button', class: 'btn sv-choice ' + cls, 'data-tip': title, 'aria-haspopup': 'menu', 'aria-expanded': 'false',
       onclick: () => { if (!svOff(b)) svChoiceMenu(b, pairs, val, title, (v) => { b.value = v; pick(v); }); } }, word, h('span', { class: 'sv-choice-i', html: ICONS.chevD, 'aria-hidden': 'true' })));
     b.choices = pairs;   // (the suites pick an item by its value through it)
     Object.defineProperty(b, 'value', { get: () => val, set: (v) => {
@@ -2150,12 +2436,16 @@
     const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
-    // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone; ux, #441: the
+    // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
+    // 360 px in Russian and Italian; the segment's name stays the whole one, and the tooltip says what it does)
+    const inSeg = scope.querySelector('[data-v="in"]');
+    if (inSeg) { inSeg.setAttribute('aria-label', SCOPES[1][1]); inSeg.textContent = ''; inSeg.append(h('span', { class: 'sc-full' }, SCOPES[1][1]), h('span', { class: 'sc-short' }, $t('Inside'))); }
+    // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
     const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
-    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', onclick: () => svSurfMenu() });
-    // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two; ux, #1047)
-    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', onclick: () => svScopeMenu() });
+    const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svSurfMenu() });
+    // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two)
+    const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svScopeMenu() });
     bar.append(title, cp, scope, scopeBtn, surf1);
     head.prepend(bar);
     // (the targets' note: a head item, not part of the bar, so the fit counts it and folds it to its icon first)
@@ -2184,7 +2474,7 @@
       h('span', { class: 'sv-add-i', html: ICONS.plus, 'aria-hidden': 'true' }), h('span', { class: 'sv-add-t' }, $t('Add function')));
     const loop = svLoopBtn('btn small sv-loop', $t('Start over at the end'));
     const band = h('div', { class: 'sv-band', role: 'group', hidden: '' });
-    // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it (#501), and inside the band it lay under the plane buttons)
+    // (the clear button is the strip's, over the rail's top edge: the rail scrolls and clips what is in it, and inside the band it lay under the plane buttons)
     const bandx = h('button', { type: 'button', class: 'sv-bandx', hidden: '', 'aria-label': $t('Clear the range'), 'data-tip': $t('Clear the range  Esc'), onclick: () => { svClearRange(); thumb.focus(); } }, '×');
     // (F, the whole map, after the rail: it opens the Inspector's page of the composition, its domain and its guarantees; no ⋯, no drag,
     // no step of the chain; outside the rail, so it never lies over a plane or a chip of a long thread)
@@ -2198,20 +2488,47 @@
     $('plotL').append(empty);
     const rail = strip.querySelector('.sv-rail');
     // (the slider is the ring that marks the place, not the thread: the thread holds the planes' and the steps' buttons,
-    // which a slider's children cannot be (axe nested-interactive, ux's re-check of #448))
+    // which a slider's children cannot be (axe nested-interactive))
     thumb.removeAttribute('aria-hidden');
     thumb.setAttribute('role', 'slider'); thumb.setAttribute('tabindex', '0'); thumb.setAttribute('aria-label', $t('Place on the chain'));
     thumb.setAttribute('aria-valuemin', '0'); thumb.setAttribute('aria-orientation', 'horizontal');
-    // (#549: the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
+    // (the thread's own width too: it grows when the fonts arrive or a name changes, and a stale width left the last
     // plane's node a few pixels under the rail's edge)
-    { const ro = new ResizeObserver(() => { if (SV.els) { SV.els.centres = null; svFitStrip(); svFitRail(); svSync(); } }); ro.observe(rail); ro.observe(track); }
+    // (the rail's scroll and size are read here, where the layout is clean, so that the follow in svSync only writes)
+    {
+      const ro = new ResizeObserver(() => {
+        const E = SV.els;
+        if (!E) return;
+        E.scrollX = rail.scrollLeft; E.railBoxW = rail.clientWidth; E.railBoxS = rail.scrollWidth;
+        E.centres = null; svFitStrip(); svFitRail(); svSync();
+      });
+      ro.observe(rail); ro.observe(track);
+    }
     // (the head's width, as the observer reports it: svFitHead fits the head again when it changes, with no read of its own)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.headW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(head);
     // (on a phone the bar sits in the header: its own width, as reported, keys the fit there; fonts that load late re-fit it)
     if (typeof ResizeObserver === 'function') new ResizeObserver((es) => { const E = SV.els; if (!E) return; E.barW = Math.round(es[es.length - 1].contentRect.width); svFitHead(); }).observe(bar);
     onFontsSettled(() => { svFitRail(); svFitHead(); });
     // (the rail's own scroll, by a wheel, a trackpad or a focus: where the ring is kept in view from, and its fades)
-    rail.addEventListener('scroll', () => { const E = SV.els; if (E) { E.scrollX = rail.scrollLeft; svFades(); svBandSync(E.centres || []); } }, { passive: true });
+    // (the app's own scrolls of the rail land where it wrote them (svRailTo). Any other scroll is the user's, from a wheel, a trackpad, find
+    // in page or a screen reader's reveal alike: until the ring moves, a resize leaves the rail where it is, and a rail left at its end stays
+    // at its end. A wheel that moves nothing brings no scroll event, and leaves the rail following. The exception is the browser's own clamp
+    // when the rail's size has changed since the last scroll or resize it saw (the event comes before the observer's callback of the same
+    // resize): that scroll is never the user's, and is put back where the app wrote it, unless focus is in the rail (a scroll to show the
+    // focused control stays). The rail has no touch scroll (touch-action: none))
+    rail.addEventListener('scroll', () => {
+      const E = SV.els;
+      if (!E) return;
+      const resized = rail.clientWidth !== E.railBoxW || rail.scrollWidth !== E.railBoxS;
+      E.railBoxW = rail.clientWidth; E.railBoxS = rail.scrollWidth;
+      E.scrollX = rail.scrollLeft;
+      E.atEnd = rail.scrollLeft >= rail.scrollWidth - rail.clientWidth - 1;
+      if (!(E.writes && E.writes.some((v) => Math.abs(v - rail.scrollLeft) <= 1))) {
+        if (!resized) { E.userScrolled = true; E.writes = null; }
+        else if (E.writes && !rail.contains(document.activeElement)) { rail.scrollLeft = E.writes[0]; return; }
+      }
+      svFades(); svBandSync(E.centres || []);
+    }, { passive: true });
     SV.els = { tnote, add, wholeMap, empty, rail, play, loop, band, bandx, speed, rowSpeed, rowLoop, paths, order, orderWhy, pathsWhy, pop, playMore, slider: thumb, bar, head, title, cp, scope, scopeBtn, surf1, SURF, SCOPES, strip, track, thumb, prev, next, live, sig: '' };
     svStripWire(strip, track);
     svFSync();
@@ -2222,7 +2539,7 @@
     if (sb && sb.parentNode) sb.parentNode.insertBefore(pb, sb);
   }
   // the strip's planes and steps, rebuilt when the chain changes
-  // (#437: a bypassed step keeps its chip, dashed, between the dots it sits between; "+ Add function" ends the thread;
+  // (a bypassed step keeps its chip, dashed, between the dots it sits between; "+ Add function" ends the thread;
   // a step shown alone has a "Whole chain" chip at its left)
   function svBuildTrack() {
     const E = SV.els, P = svPlanes(), T = svT(), al = svAloneOk();
@@ -2294,7 +2611,7 @@
   // the head, the strip's states and the names: written only when what they show changed (perf A1: a glide's frame
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
   function svSync() {
-    if (!SV.on || !SV.els) return;
+    if (!SV.on || !SV.els || SV.offscreen) return;
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
     // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
@@ -2341,8 +2658,11 @@
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       // (the Cauchy style draws everywhere: Inside regions would cut its outside part f₋ off, so the control reads Everywhere and says why it is off)
       const sc = svScope(), cWhy = S.dc === 'cauchy' ? $t('The Cauchy integral is drawn everywhere: its outside part is not cut to regions') : '';
-      setSeg(E.scope, sc);
-      for (const b of E.scope.querySelectorAll('button')) { /** @type {HTMLButtonElement} */ (b).disabled = !!cWhy; if (cWhy) b.dataset.tip = cWhy; }
+      for (const el of [E.scope, E.sheetScope]) {
+        if (!el) continue;
+        setSeg(el, sc);
+        for (const b of el.querySelectorAll('button')) { /** @type {HTMLButtonElement} */ (b).disabled = !!cWhy; if (cWhy) b.dataset.tip = cWhy; }
+      }
       const scName = sc === 'in' ? $t('Inside') : $t('Everywhere');
       E.scopeBtn.innerHTML = `<span class="sv-surf-t">${scName}</span>${ICONS.chevD || ''}`;
       E.scopeBtn.setAttribute('aria-label', `${$t('Where colour shows')}: ${E.SCOPES.find((v) => v[0] === sc)[1]}`);
@@ -2358,7 +2678,7 @@
       // (the thread as a slider: its place in planes, said as a plane or the two it is between)
       E.slider.setAttribute('aria-valuenow', x.toFixed(2)); E.slider.setAttribute('aria-valuemax', String(P.length - 1));
       svPlaySync();
-      // (#437: an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
+      // (an empty chain has no place to go: the ring and the speed are off, and the plane says what to do)
       const none = P.length < 2;
       E.slider.setAttribute('tabindex', none ? '-1' : '0'); E.slider.setAttribute('aria-disabled', String(none));
       svDisableWhy(E.speed, none ? $t('Add a function to send z through it.') : '', $t('Glide speed'));
@@ -2370,11 +2690,11 @@
       E.empty.hidden = !msg;
     }
     // (the ring round the shown plane's node, between two nodes in proportion to the glide)
-    // (and, when the thread is longer than its rail (#497), the rail's width and the thread's, and the nodes' height (the
+    // (and, when the thread is longer than its rail, the rail's width and the thread's, and the nodes' height (the
     // ring is centred on a node, clear of its name): measured with the centres)
     if (!E.centres || E.centresSig !== E.sig) {
       const pl = [...E.track.querySelectorAll('.sv-plane')];
-      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft;
+      E.centres = pl.map((b) => b.offsetLeft + b.offsetWidth / 2); E.centresSig = E.sig; E.railW = E.rail.clientWidth; E.trackW = E.wholeMap.parentNode === E.rail ? E.rail.scrollWidth : E.track.offsetWidth; E.railLeft = E.rail.offsetLeft; E.scrollMax = E.rail.scrollWidth - E.rail.clientWidth;
       const nd = pl[0] && pl[0].querySelector('.sv-node');
       if (nd) E.thumb.style.setProperty('--sv-node-y', `${(pl[0].offsetTop + nd.offsetTop + nd.offsetHeight / 2).toFixed(1)}px`);
       svFades();
@@ -2385,35 +2705,49 @@
     const tx = c[j] + ((c[Math.min(c.length - 1, j + 1)] ?? c[j]) - c[j]) * u;
     E.tx = tx;
     E.thumb.style.transform = `translateX(${tx.toFixed(1)}px)`;
-    // (between two planes the ring is a marker over the thread, above the step's chip: ux's wave 12 sweep)
+    // (between two planes the ring is a marker over the thread, above the step's chip)
     const between = Math.abs(x - Math.round(x)) > 0.02;
     if (between !== E.between) { E.between = between; E.thumb.classList.toggle('between', between); }
     // a thread longer than its rail scrolls in it, the ring kept in view a plane's width from either end (a write, no read)
-    // (#549: not while the keyboard's focus is on a plane or chip in the rail and nothing moves: Tab scrolled that control in, and
+    // (not while the keyboard's focus is on a plane or chip in the rail and nothing moves: Tab scrolled that control in, and
     // the ring's follow would carry the rail back to the ring, leaving the focus out of sight)
     const kf = document.activeElement, keepFocus = !!kf && kf !== E.thumb && E.rail.contains(kf) && kf.matches(':focus-visible') && !SV.anim && !SV.g.moving();
     if (keepFocus) { /* (the rail stays where the focus scrolled it) */ }
     else if (E.trackW > E.railW + 1) {
-      const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
-      // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
-      const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
-      // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
-      // under a drag or a glide, the ring is kept a plane's width from either end)
-      // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
-      const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
-      // (on a phone the rail stays where svRevealSel put it while the ring is parked on the plane it was parked on; once the ring
-      // moves, a jump, a glide or a drag, the ring decides again)
-      let aim = want;
-      if (E.hold && document.documentElement.classList.contains('ph') && !SV.alone) {
-        if (E.hold.tx == null) E.hold.tx = tx;
-        if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
-      } else E.hold = null;
-      const to = Math.max(0, Math.min(E.trackW - E.railW, Math.round(aim)));
-      // (the fades follow at once: the rail's scroll event comes a frame later)
-      if (to !== s) { E.rail.scrollLeft = to; E.scrollX = to; svFades(); }
-    } else if (E.scrollX) { E.rail.scrollLeft = 0; E.scrollX = 0; svFades(); }
+      // (the rail follows the ring when the ring moves, or a control asks for it (svFollowRing), or the user has not scrolled it
+      // since the last follow: a resize alone leaves a rail the user scrolled where it is, its scrollLeft clamped by the browser)
+      const key = `${x.toFixed(3)}|${c.length}|${SV.alone}`;
+      if (key !== E.followKey || !E.userScrolled) {
+        E.followKey = key; E.userScrolled = false;
+        const m = Math.min(60, E.railW / 3), s = E.scrollX ?? 0;
+        // (on a phone F follows the last plane in the rail: the ring there brings the rail to its end, with F whole in view)
+        const toEnd = E.wholeMap.parentNode === E.rail && !E.wholeMap.hidden && j >= c.length - 1;
+        // (parked on a plane, the shown dot is centred in the rail; the rail's ends take it as near as they can. Between planes, and
+        // under a drag or a glide, the ring is kept a plane's width from either end)
+        // (a step shown alone keeps the rail at its start, the Whole chain pill whole)
+        const want = SV.alone ? 0 : toEnd ? E.trackW : !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved) ? tx - E.railW / 2 : tx < s + m ? tx - m : tx > s + E.railW - m ? tx - E.railW + m : s;
+        // (on a phone the rail stays where svRevealSel put it while the ring is parked on the plane it was parked on; once the ring
+        // moves, a jump, a glide or a drag, the ring decides again)
+        let aim = want;
+        if (E.hold && document.documentElement.classList.contains('ph') && !SV.alone) {
+          if (E.hold.tx == null) E.hold.tx = tx;
+          if (E.hold.tx === tx && !between && !SV.anim && !SV.g.moving() && !(SV.drag && SV.drag.moved)) aim = E.hold.aim; else E.hold = null;
+        } else E.hold = null;
+        // (to the rail's real range, scrollWidth - clientWidth, which trackW - railW is not when the whole map sits outside the rail)
+        const to = Math.max(0, Math.min(E.scrollMax, Math.round(aim)));
+        // (the fades follow at once: the rail's scroll event comes a frame later)
+        svRailTo(E, to);
+      } else if (E.atEnd) {
+        // (a rail the user left at its end stays at its end when its range grows)
+        svRailTo(E, E.scrollMax);
+      }
+    } else {
+      // (a rail that fits has no scroll of the user's to keep: it follows the ring again when it overflows)
+      E.userScrolled = false; E.atEnd = false;
+      svRailTo(E, 0);
+    }
   }
-  // the thread's ends fade where more of it is out of sight in the rail (#501 review): from the widths measured with the
+  // the thread's ends fade where more of it is out of sight in the rail: from the widths measured with the
   // centres and the scroll the rail reported, no read
   function svFades() {
     const E = SV.els;
@@ -2424,13 +2758,24 @@
     if (r !== E.fadeR) { E.fadeR = r; E.rail.classList.toggle('fade-r', r); }
   }
   // a button's menu of choices, the current one checked (a menu's keys are its own: svKeys leaves them alone)
-  function svChoiceMenu(btn, pairs, cur, label, pick) {
-    openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true }));
+  // opener: the control that holds the menu, when btn leaves the page as the menu opens (openMenu's items.opener)
+  function svChoiceMenu(btn, pairs, cur, label, pick, opener) {
+    openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true, opener }));
   }
-  function svSurfMenu() {
-    svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), (v) => { SV.surf = v; if (v === 'sphere') { prestartGlobe(); svPrestartSoon(300); } svApply(); tourEmit('surface-changed', { s: v }); });
-  }
+  // the shown plane's surface, 'plane' | 'sphere' | 'land' (the Surface menu's choice and the command palette's), and null outside the steps view
+  const svSurface = () => (SV.on ? SV.surf : null);
+  // a surface's name as the Surface control reads it: 'Surface: Plane'
+  function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape') }[v]}`; }
+  function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
+  function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
+  // the scope switch again, for the phone's Display sheet (the sheet shows it full width; svSync keeps it with the head's)
+  function svSheetScope() {
+    const el = seg(null, SV.scope, SV.els.SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-sheet-scope', loop: true });
+    SV.els.sheetScope = el;
+    svSync();
+    return el;
+  }
   function svScopeMenu() { svChoiceMenu(SV.els.scopeBtn, SV.els.SCOPES, SV.scope, $t('Where colour shows'), svSetScope); }
   // "+ Add function" keeps its words while the whole thread fits beside them, and folds to the round + when the words
   // would make the thread scroll. The words' width is cached while they show, so the choice is the same before and
@@ -2470,7 +2815,11 @@
       E.strip.classList.remove('sv-measure');
       return { w, equal: fixed + w * ws.length, own: fixed + ws.reduce((a, b) => a + b, 0) };
     };
+    // (the measuring layouts have a narrower thread: the browser clamps the rail's scroll to their range. The scroll is put back to where it
+    // was: that is undoing the browser's clamp, not a scroll of the app's own, so it is not recorded by svRailTo)
+    const sx = E.rail.scrollLeft;
     const names = measure(false), letters = measure(true);
+    E.rail.scrollLeft = sx;
     const was = E.railMode == null ? SV_RAIL_EQUAL : E.railMode;
     const fits = (total, mode) => total <= room - (mode < was ? SV_RAIL_HYST : 0);
     const mode = E.centreLetters ? SV_RAIL_LETTERS : fits(names.equal, SV_RAIL_EQUAL) ? SV_RAIL_EQUAL : fits(names.own, SV_RAIL_OWN) ? SV_RAIL_OWN : SV_RAIL_LETTERS;
@@ -2500,7 +2849,7 @@
   // The thread is centred on the pane: the rail gives up, on the side of the narrower group, what the wider group takes
   // (▶ ‹ stay at the left edge, the right group at the right edge), so the first and last dots lie evenly about the pane's
   // centre line. It gives up no more than leaves the thread its width (need): a tight pane shifts the thread as little as
-  // it must, and one that cannot hold it scrolls as before. Called with a fitted rail only, never during a glide
+  // it must, and one that cannot hold it scrolls. Called with a fitted rail only, never during a glide
   // (svFitRail returns first), so a resize recentres and a play never moves the rail. A phone centres in the rail (CSS).
   function svCentreRail(E, need) {
     const rail = E.rail, was = E.railM || 0;
@@ -2592,18 +2941,25 @@
     if (on) { E.rowSpeed.append(E.speed); E.rowLoop.append(E.loop); } else { E.strip.insertBefore(E.speed, E.playMore); E.strip.insertBefore(E.loop, E.playMore); }
     E.rowSpeed.hidden = E.rowLoop.hidden = !on;
   }
-  // the head on one row (#441): beside the plane's controls it keeps the style row, a ⋯ and the lamp (#247 keeps the
-  // style row in the head whatever the room). When they do not fit, the colour-plane button gives up its words first
+  // the head on one row: beside the plane's controls it keeps the style row, a ⋯ and the lamp (whatever the room, the
+  // style row stays in the head). When they do not fit, the colour-plane button gives up its words first
   // (its wheel stays, its words in its name and tooltip, as on a phone), then the title its role ("phase of f₂", also in
   // the plane's accessible name). Read and written only when the head's width or the words in it change (the observer,
-  // or a new title, button or surface), and never while the view moves (#320)
+  // or a new title, button or surface), and never while the view moves
   // svFitHead's chip fit: the head is one row while it is under SV_HEAD_ROW px tall (40 px minimum, with 4 px for
   // the border and rounding). Short of room, a chip's name gives up its width in SV_NAME_STEP px steps (a few letters
   // each, so the fit takes few layouts), and once it is down to a step the chip drops it: it is the chip's tooltip and
   // its button's name, and the chip keeps what is not the name (the tool's count, the button, then Esc last)
   const SV_HEAD_ROW = 44, SV_NAME_STEP = 16;
+  // the title's role, cut to the whole words that the room allows with an ellipsis after them (SV_ROLE_ELL px), shows at least
+  // SV_ROLE_MORE px more than its first word: else it is its first word
+  const SV_ROLE_MORE = 40, SV_ROLE_ELL = 12;
   // the foot's ⋯ button and the gap before it: what the head's foot takes beside its first row
   const SV_FOOT_MORE = 4 + 26;
+  // the shortest level of the steps head's bar (svFitHead's set: 1 the scope as a menu, 2 the colour-plane button as its
+  // wheel, 3 the surface button as its icon, 4 the title's role cut to the room left, 5 its first word) at which the Height
+  // key keeps its words: the levels up to it keep the title's role and the surface button's name
+  const SV_KEY_LEVEL = 2;
   function svChipBare(chip, bare) {
     const t = chip.querySelector('.mc-t');
     const act = /** @type {HTMLElement | null} */ (chip.querySelector('.mc-stop, .icon-btn'));
@@ -2618,7 +2974,7 @@
       act.setAttribute('aria-label', act.dataset.name);
     }
   }
-  // the title's tooltip, its whole words, while the head shows its role as one word
+  // the title's tooltip, its whole words, while the head shows its role cut (sv-re) or as one word (sv-rs)
   function svTitleTip(short) {
     const t = SV.els.title;
     if (short) t.setAttribute('data-tip', t.textContent); else t.removeAttribute('data-tip');
@@ -2639,9 +2995,20 @@
     if (key === E.fitKey) return;
     E.fitKey = key;
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
-    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is its first word (sv-rs), then the title
-    // loses its role (sv-c2) last; a word is never cut)
-    const set = (lvl) => { E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3); E.bar.classList.toggle('sv-rs', lvl >= 4); E.bar.classList.toggle('sv-c2', lvl >= 5); };
+    // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is cut to the whole words that the room
+    // that is left allows, then an ellipsis (sv-re), while that shows clearly more than its first word, else it is its first word
+    // (sv-rs), then the title loses its role (sv-c2) last; a word is never cut)
+    const role = /** @type {HTMLElement | null} */ (E.title.querySelector('.sv-role'));
+    const rwords = role ? /** @type {HTMLElement[]} */ ([...role.children]) : [];
+    let roleN = 0;
+    const set = (lvl) => {
+      E.bar.classList.toggle('sv-sm', lvl >= 1); E.bar.classList.toggle('sv-c1', lvl >= 2); E.bar.classList.toggle('sv-si', lvl >= 3);
+      E.bar.classList.toggle('sv-re', lvl === 4); E.bar.classList.toggle('sv-rs', lvl >= 5); E.bar.classList.toggle('sv-c2', lvl >= 6);
+      // (level 4: the role's first roleN words, then an ellipsis)
+      const cut = lvl === 4 && roleN > 0;
+      if (role) role.classList.toggle('sv-cut', cut);
+      rwords.forEach((w, i) => w.classList.toggle('sv-wx', cut && i >= roleN));
+    };
     if (mc) {
       for (const c of mc.querySelectorAll('.mode-chip')) {
         svChipBare(c, false);
@@ -2651,19 +3018,21 @@
       }
     }
     // (a phone: the header holds the bar beside the menu button; short of room (360 px, Russian) the surface button is
-    // its icon and ▾ alone, its name in its label and tooltip; phone on #473)
-    E.bar.classList.remove('sv-c3', 'sv-c4');
+    // its icon and ▾ alone, its name in its label and tooltip)
+    E.bar.classList.remove('sv-c3', 'sv-c4', 'sv-c5');
     const legend = $('leftLegend');
     E.head.classList.remove('sv-lg');
     if (legend) legend.classList.remove('glyph');
     if (ph) {
       set(0);
-      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps and the scope's padding
-      // tighten; eyes on #473)
+      // (then, still short, as on w₁ at 360 px whose name is wider than z's, the bar's gaps tighten, and its segmented
+      // buttons' padding but the scope's, which keeps the spec's; last of all the scope's padding too, on w₁
+      // at 320 px, where nothing else is left to give)
       const more = $('hdrMoreBtn'), mr = more && more.getClientRects().length ? more.getBoundingClientRect() : null;
       const short = () => E.bar.scrollWidth > E.bar.clientWidth + 1 || (mr && E.surf1.getBoundingClientRect().right > mr.left - 2);
       if (short()) E.bar.classList.add('sv-c3');
       if (short()) E.bar.classList.add('sv-c4');
+      if (short()) E.bar.classList.add('sv-c5');
       return;
     }
     set(0);
@@ -2689,14 +3058,26 @@
     const levels = (legOk) => {
       let l = 0;
       set(0);
-      while (l < 5 && E.bar.scrollWidth + keep > room) {
+      while (l < 6 && E.bar.scrollWidth + keep > room) {
         if (legOk && legFoldable && !legFolded) {
           const w0 = legend.getBoundingClientRect().width;
           legend.classList.add('glyph'); head.classList.add('sv-lg'); legFolded = true;
           keep -= w0 - legend.getBoundingClientRect().width;
           continue;
         }
+        // (level 4 starts its search afresh: the search below leaves roleN as it is when no word fits)
+        if (l === 3) roleN = 0;
         set(++l);
+        if (l === 4) {
+          // (the role keeps the whole words that the room allows, and an ellipsis for the rest: not fewer than the first word's
+          // width and SV_ROLE_MORE px more, else the role is its first word. One layout reads every word's end)
+          const room4 = room - keep - (E.bar.scrollWidth - (role ? role.getBoundingClientRect().width : 0)), r0 = role ? role.getBoundingClientRect().left : 0;
+          let min = SV_ROLE_MORE;
+          if (role && role.dataset.short) { E.bar.classList.add('sv-rs'); min += role.getBoundingClientRect().width; E.bar.classList.remove('sv-rs'); }
+          const ends = rwords.map((w) => w.getBoundingClientRect().right - r0);
+          for (let i = ends.length - 1; i >= 1; i--) if (ends[i - 1] + SV_ROLE_ELL <= room4) { roleN = i; break; }
+          if (roleN && ends[roleN - 1] + SV_ROLE_ELL >= min) set(4); else { roleN = 0; set(++l); }
+        }
       }
       return l;
     };
@@ -2713,14 +3094,24 @@
       svTitleTip(lvl >= 4);
     }
     if (tn && lvl) { lvl = levels(true); svTitleTip(lvl >= 4); }
-    // (the levels settled, the key is unfolded again if the bar still fits beside it)
+    // The levels settled, the key shows its words where the bar fits beside them, at this level or a shorter one up to
+    // SV_KEY_LEVEL. Those levels keep the title's role and the surface button's name: the scope as a menu, the
+    // colour-plane button as its wheel. The role, which says what the relief reads, and the surface button's name outrank
+    // the key's words, so past SV_KEY_LEVEL the key stays its glyph, which keeps its words as its name and tooltip. The
+    // key folds first while the bar is too wide, and a head with more room never folds a key that a head with less room
+    // shows.
     if (legFolded) {
       const w1 = legend.getBoundingClientRect().width;
       legend.classList.remove('glyph'); head.classList.remove('sv-lg');
       // (the chip's own width: its words, not the width a squeezed chip is left with)
       const sum = /** @type {HTMLElement | null} */ (legend.querySelector('.lg-sum'));
       const dw = legend.getBoundingClientRect().width + (sum ? sum.scrollWidth - sum.clientWidth : 0) - w1;
-      if (E.bar.scrollWidth + keep + dw > room) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
+      // (whether the key's words fit beside the bar at level l, the bar set there)
+      const fits = (l) => l <= SV_KEY_LEVEL && E.bar.scrollWidth + keep + dw <= room;
+      let l2 = lvl;
+      while (!fits(l2) && l2 < SV_KEY_LEVEL) set(++l2);
+      if (l2 !== lvl) { if (fits(l2)) { lvl = l2; svTitleTip(lvl >= 4); } else set(lvl); }
+      if (!fits(lvl)) { legend.classList.add('glyph'); head.classList.add('sv-lg'); } else keep += dw;
     }
     // (the mode chips are the head's own items, counted above. Short of room even then, the plane never moves for a
     // chip: a chip's name shrinks, then goes, one chip after another)
@@ -2792,10 +3183,10 @@
     tourEmit('colour-plane-set', { k });
     if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
     // (the programs a new colour plane needs, started when the page is idle: else they link on the first glide past it,
-    // 8 s on WARP for the Mountain King; tiers on #456)
+    // 8 s on WARP for the Mountain King)
     svPrestartSoon(0);
   }
-  // the tour's own placing of the view (#442): plane i at once, the colour plane T (an index among the planes; -1 the last), the
+  // the tour's own placing of the view : plane i at once, the colour plane T (an index among the planes; -1 the last), the
   // scope and the surface; sends none of the events the user's own moves send
   function svTourPlace(o) {
     if (!SV.on || !SV.els || !o) return false;
@@ -2810,7 +3201,7 @@
     save();
     return true;
   }
-  // the phone's Sphere key on the plane (#471): in the steps view it toggles the view's surface between Plane and Sphere; null
+  // the phone's Sphere key on the plane : in the steps view it toggles the view's surface between Plane and Sphere; null
   // outside it, where the key works the pane's own tabs
   function svSphereKey() {
     if (!SV.on) return null;
@@ -2856,7 +3247,7 @@
     rail.addEventListener('click', (e) => {
       if (SV.dragEndT && performance.now() - SV.dragEndT < 50) return;
       if (e.target.closest('.sv-fwrap, .sv-wholemap, .sv-plane, .sv-add, .sv-whole, .sv-awalk, .sv-bandx')) return;
-      svOutsideBand(posX(e));
+      svOutsideBand(posX(e)); svFollowRing();
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1; svLetGo(true);
     });
     rail.addEventListener('pointermove', (e) => {
@@ -2866,7 +3257,9 @@
       if (!d.moved && Math.abs(e.clientX - d.px) < 6) return;
       if (!d.moved) { svPause(false); svKeepView(); SV.anim = null; }
       d.moved = true;
+      const x0 = SV.g.x;
       SV.span = null; SV.g.set(posX(e)); SV.g.max = svPlanes().length - 1;
+      sndScrub(x0, SV.g.x, SV.g.max);   // (the scrub's detents)
       requestRender('L');
     });
     const up = (e) => {
@@ -2874,7 +3267,7 @@
       if (!d || d.id !== e.pointerId || !d.strip) return;
       SV.drag = null;
       if (svRangeUp(d, rail)) { e.preventDefault(); return; }
-      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); }
+      if (d.moved) { e.preventDefault(); SV.dragEndT = performance.now(); svLetGo(); sndScrubEnd(); }
     };
     rail.addEventListener('pointerup', up);
     rail.addEventListener('pointercancel', up);
@@ -2914,7 +3307,7 @@
       SV.drag = null;
       const dx = e.clientX - d.px;
       // a flick (short and quick) goes one plane on; otherwise the view stays where it was let go. (The events' own times:
-      // a stalled frame between them delays the handler, not the finger; phone on #448)
+      // a stalled frame between them delays the handler, not the finger)
       if (Math.abs(dx) > 40 && e.timeStamp - d.t0 < 300) svGo(dx < 0 ? Math.floor(d.x0 + SV_REST_U) + 1 : Math.ceil(d.x0 - SV_REST_U) - 1);
       else svLetGo();
     };
@@ -2956,29 +3349,29 @@
     SV.g.max = P.length - 1;
     svLetGo();
   }
-  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it), C makes the shown
-  // plane the colour plane (not while typing)
+  // ← → move through the planes, also with a plane focused (a selected shape keeps them to nudge it, with a plane or its row in
+  // the Shapes list focused), C makes the shown plane the colour plane (not while typing)
   function svKeys() {
     document.addEventListener('keydown', (e) => {
       if (!SV.on || e.metaKey || e.ctrlKey || e.altKey) return;
       const t = /** @type {HTMLElement} */ (e.target);
-      // (#437: Esc brings the whole thread back from a step shown alone, unless a layer is open: its own Esc)
+      // (Esc brings the whole thread back from a step shown alone, unless a layer is open: its own Esc)
       if (e.key === 'Escape' && SV.alone && !svLayerOpen() && !(t && t.closest && t.closest('input, select, textarea, [contenteditable]'))) { e.preventDefault(); e.stopImmediatePropagation(); svLeaveAlone(true); return; }
       // (on the thread itself, a slider: ← → move a quarter of a step and stop there, Home / End go to z and the last plane)
       const onRail = !!(t && t.classList && t.classList.contains('sv-thumb'));
-      // (Shift+← → on the ring: the range, a plane at a time, #438)
+      // (Shift+← → on the ring: the range, a plane at a time)
       if (onRail && e.shiftKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) { e.preventDefault(); e.stopImmediatePropagation(); svRangeExtend(e.key === 'ArrowRight' ? 1 : -1); return; }
       if (onRail && (e.key === 'Home' || e.key === 'End')) { e.preventDefault(); e.stopImmediatePropagation(); svGo(e.key === 'Home' ? 0 : svPlanes().length - 1); return; }
       // (Shift+← → anywhere, or ← → on the thread: a quarter of a step, so the view can stop between two planes)
-      // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (ux's review of
-      // #448; the classic key handler's exclusions, 14-interaction.js): only the thread's own keys pass)
+      // (the keys of a control that has focus, or of an open dialog, menu, popover or sheet, are its own (
+      // the classic key handler's exclusions, 14-interaction.js): only the thread's own keys pass)
       if (!onRail && (svLayerOpen() || (t && t.closest && t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="radio"], [role="menu"], [role="menuitem"], [role="slider"], [role="dialog"], input, select, textarea, [contenteditable], #propsPanel, .ph-sheet, .cm-palette, #popHost')))) return;
       if ((e.shiftKey || onRail) && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
         e.preventDefault(); e.stopImmediatePropagation();
         svNudge(e.key === 'ArrowRight' ? 0.25 : -0.25);
         return;
       }
-      // (K or M plays and pauses; Esc pauses, or else clears the range, #438. By the Latin letter of the physical key, so
+      // (K or M plays and pauses; Esc pauses, or else clears the range. By the Latin letter of the physical key, so
       // that a Russian layout's Л, Ь, З and С work as K, M, P and C)
       const lk = (I18N.keyOf(e) || e.key || '').toLowerCase();
       if ((lk === 'k' || lk === 'm') && !e.shiftKey) { e.preventDefault(); e.stopImmediatePropagation(); svTogglePlay(); return; }
@@ -2986,9 +3379,10 @@
       if (lk === 'p' && !e.shiftKey && SV.els && SV.els.paths && !SV.els.paths.disabled) { e.preventDefault(); e.stopImmediatePropagation(); SV.els.paths.click(); return; }
       if (e.key === 'Escape' && (SV.play || svRange())) { e.preventDefault(); e.stopImmediatePropagation(); if (SV.play) svPause(true); else svClearRange(); return; }
       // (PageUp / PageDown on a focused plane too; ← → always step the chain, the sound probe's arrows being Alt / Option +
-      // arrow, except while a shape is selected, which they nudge while the focus is on a plane (14-interaction.js))
+      // arrow, except while a shape is selected, which they nudge while the focus is on a plane or a row of the Shapes list
+      // (14-interaction.js))
       const page = e.key === 'PageUp' || e.key === 'PageDown';
-      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR')))) return;
+      if (!page && ((selected && /^Arrow(Left|Right)$/.test(e.key) && t && t.closest && t.closest('canvas, #paneL, #paneR, #shapeList')))) return;
       if (e.key === 'ArrowLeft' || e.key === 'ArrowRight' || page) {
         e.preventDefault(); e.stopImmediatePropagation();
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
@@ -3027,8 +3421,8 @@
       if (h) h.list.forEach((x, i) => GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], x, carry))));
     }
   }
-  // (perf A2) the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
-  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs (#439); at start-up and when the
+  // the programs a glide draws with, started without waiting (KHR_parallel_shader_compile): the homotopy
+  // maps' (mode 1) and the carried colour's pre-mapped mesh, and its GPU programs; at start-up and when the
   // chain changes
   function svPrestart() {
     try {
@@ -3037,12 +3431,18 @@
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
       if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
-      // (#439: the carried colour's glide program only: carryId and the ones at rest link at their first use, the CPU mesh
-      // drawn until then; each a few seconds of FXC on WARP for the Mountain King, run 41148134848)
-      if (GLR.prestartNames) GLR.prestartNames(['carry'], [1]);
-      // (and the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn
-      // once: svWarmCarry)
+      // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
+      // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
+      if (SV.surf === 'land') {
+        if (GLR.prestartNames) GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
+        if (GLR.prestart) GLR.prestart(['landCarryNrm', 'lineFC']);
+      }
+      // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
+      // svWarmCarry; the programs at rest link at their first use, the glide's programs at its end drawn until then)
       if (GLR.prestartCarry) GLR.prestartCarry();
+      // (the Cauchy style's variants, CARRY_CAUCHY: the carried meshes' and the pre-mapped mesh's at rest and in the glide, so a
+      // plane past z at rest has them when the thread arrives, while its inverse program links)
+      if (S.dc === 'cauchy' && GLR.prestartNames && GLR.carryNames) GLR.prestartNames(GLR.carryNames(false, true).concat(['regionPKZ']), [0, 1]);
       svPrestartGlobeInv();
       svWarmCarry(0);
       svPolesWatch();
@@ -3129,14 +3529,14 @@
   // ---- play along the thread (#438): ▶, Loop, the range ----
   // The speed is the steps view's setting (SV.speed, saved as S.sv.speed), one for glide and play: the time a plane. ▶ glides on from the shown place to the
   // range's end (or the last plane) in a straight line, with no stop at the planes; Loop starts over at the range's start
-  // (or z). The landscape (no frames between planes) and reduced motion step a plane at a time instead (2 s under reduced
-  // motion, with the live region saying each plane).
+  // (or z), on the Landscape too (its sheets glide, svLandMoving). Reduced motion steps a plane at a time instead (2 s,
+  // with the live region saying each plane).
   const svPerPlane = () => SV_SPEEDS[SV.speed] || 900;
   // the range a…b (S.homRange: steps a…b are the band from w_{a−1} to w_b) as planes {lo, hi}, or null; the plane at or
   // before a stage
   const svIdxAt = (s) => { let r = 0; svPlanes().forEach((k, i) => { if (k <= s) r = i; }); return r; };
   function svRange() {
-    // (#437: none while a step is shown alone: the range maps onto the whole chain's planes, and the thread has two; it is kept in the
+    // (none while a step is shown alone: the range maps onto the whole chain's planes, and the thread has two; it is kept in the
     // state, and is back with the whole chain)
     const r = SV.on && !SV.alone ? homRangeOk() : null;
     return r ? { a: r.a, b: r.b, lo: svIdxAt(r.a - 1), hi: svIdxAt(r.b) } : null;
@@ -3281,7 +3681,10 @@
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
     if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
   }
+  // a slide's time on each plane (ms)
+  const svSlideMs = () => (svReduced() ? 2000 : svPerPlane());
   // a plane a tick (the landscape and reduced motion): the first tick shows the plane the press was on
   function svSlide(first) {
     const A = SV.play;
@@ -3289,12 +3692,12 @@
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return; }
     const i = Math.round(SV.g.x);
     if (!first) {
-      if (i >= A.end) { if (!SV.loop) { svPause(true); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
+      if (i >= A.end) { if (!SV.loop) { svPause(true); sndMorphArrive(svPerPlane() / 1000); if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) }); return; } SV.g.set(A.start); } else SV.g.set(i + 1);
       SV.i = Math.round(SV.g.x);
       svApply();
       if (SV.els.live) SV.els.live.textContent = svLabel();
     }
-    A.timer = setTimeout(() => svSlide(false), svReduced() ? 2000 : svPerPlane());
+    A.timer = setTimeout(() => svSlide(false), svSlideMs());
     svSync();
   }
   // one frame of the glide: a straight line in x; the plane the picture is nearest to is the shown one (the view's
@@ -3302,9 +3705,12 @@
   function svPlayFrame() {
     // (SV.clock, a test hook's: the play's time advances that many ms a frame, as a glide's, so a suite reads its speed in the
     // frames drawn however long each takes)
-    const A = SV.play, now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
+    const A = SV.play;
     // (another chain loaded under the play, an example, a link or an undo: it stops, and the new state's view is adopted)
     if (S.steps !== A.steps) { svPause(false); svCheck(); requestRender('L'); return false; }
+    // (held: it does not move while it waits, svLinkHold)
+    if (A.held) { dirty.L = true; return true; }
+    const now = performance.now(), v = Math.min(1, (SV.clock ? (A.el = (A.el || 0) + SV.clock) : now - A.t0) / A.ms);
     SV.g.set(A.from + (A.to - A.from) * v);
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
@@ -3313,9 +3719,10 @@
     dirty.L = true;
     svSync();
     if (v < 1) return true;
-    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
+    if (SV.loop && A.to > A.start) { A.from = A.start; A.t0 = now; A.el = 0; A.held = A.drawn = null; A.ms = svPerPlane() * (A.to - A.start); SV.span = svSpanOf(A.start, A.to); SV.g.set(A.start); SV.i = A.start; svSync(); return true; }
     SV.play = null;
     svArrive();
+    sndMorphArrive(svPerPlane() / 1000);   // (the arrival, at a play's own end only: never on a loop's repeat)
     if (SV.els.live) SV.els.live.textContent = $t('Stopped at {p}', { p: svName(svStage()) });
     svSync();
     return false;
@@ -3324,7 +3731,9 @@
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from);
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from); A.drawn = null;
+    // (held: it waits at the place it starts from now)
+    if (A.held) A.held.el = 0;
   }
   // stop: settle where it is (a plane near, or parked between two), as a scrub let go; quiet: another move took over
   function svPause(settle) {
@@ -3397,12 +3806,13 @@
     if (!svLoad(true)) svAdopt();
     SV.ready = true;
     svApply();
-    // (#leftLed and #leftLegend carry a label: an image's, for axe's aria-prohibited-attr; ux v6 re-check)
-    for (const id of ['leftLed', 'leftLegend']) { const el = $(id); if (el && !el.getAttribute('role')) el.setAttribute('role', 'img'); }
+    // (#leftLegend carries a label: an image's, for axe's aria-prohibited-attr)
+    const legend = $('leftLegend');
+    if (legend && !legend.getAttribute('role')) legend.setAttribute('role', 'img');
     svPrestartSoon(1500);
   }
 
-  // ---- chain editing on the thread (#437) ----
+  // ---- chain editing on the thread ----
   // The chain's own actions (11-pipeline.js: stepMenuItems, moveStep, duplicateStep, removeStep, toggleBypass) are
   // reused; this section is the thread's chips, its menu, the focus after each action, and the step shown alone.
   // The step shown alone: the thread narrows to the plane before it, the step and its own plane (SV.alone, a step index;
@@ -3456,7 +3866,7 @@
   function svSplitEdit(k, n) {
     const j = svPlanesOf(S.steps).indexOf(k) - 1;
     SV.split = { k, n, j, x: SV.g.x, rest: !svGliding(), moving: svGliding() };
-    SV.lastSplit = { k, n, j, len: S.steps.length - 1 + n };
+    SV.lastSplit = { k, n, j, pre: svStepsSig() }; SV.lastUnsplit = null;   // (pre: the chain before the Split, which only its Undo restores)
     SV.own = true;   // (an edit of the chain, not another chain loaded: svChainChanged keeps the planes it shows)
   }
   function svSplitApply(sp) {
@@ -3464,40 +3874,55 @@
     SV.T = r.T; SV.alone = r.alone; SV.back = r.back;
     SV.g.max = svPlanes().length - 1;
     if (!SV.alone && sp.rest) { SV.g.set(r.x); SV.i = Math.max(0, Math.min(SV.g.max, Math.round(r.x))); }
-    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x);
+    if (SV.lastSplit) SV.lastSplit.sig = svStepsSig();   // (the split chain, which only that Split's Redo restores)
+    if (sp.moving) svRemapMotion((x) => Funcs.splitSvPlace({ x, rest: true, T: -1, alone: 0, back: null }, sp.k, sp.n, sp.j).x, (st) => svStepTSplit(st, sp.k, sp.n));
   }
   // the undo of a split under way: the unit [j, j+n) of the n new steps is the formula's [j, j+1) again
   function svUnsplitApply(sp) {
     const { j, n } = sp, pl = (x) => (j < 0 || !(x >= j) ? x : x < j + n ? j + (x - j) / n : x - n + 1);
     SV.T = SV.T < 0 || SV.T < sp.k ? SV.T : SV.T < sp.k + n ? sp.k : SV.T - n + 1;
     SV.g.max = svPlanes().length - 1;
-    svRemapMotion(pl);
+    svRemapMotion(pl, (st) => svStepTJoin(st, sp.k, n));
   }
   // a glide or a play under way after the planes changed (pl: the old place on the thread -> the new one): it goes on from the
   // same place, to the same destination, with no jump. A glide keeps its ease's progress and its time; a play keeps the time
-  // it has left, so the picture's speed goes on; a reduced-motion play (a plane a tick) is remapped to its planes
-  function svRemapMotion(pl) {
+  // it has left, so the picture's speed goes on; a reduced-motion play (a plane a tick) is remapped to its planes.
+  // All at once: the glide's progress u in its span is what the picture is a function of, so u is kept, not the place; the
+  // span's step times (stepT, retime: the old ones -> the new) run the steps a Split made of a formula as that formula's
+  // own homotopy runs them (svBetween), so the picture is the same at the same u, through any number of Splits and their
+  // undos and redos. They last to the end of this glide
+  function svRemapMotion(pl, retime) {
     const A = SV.anim, B = SV.play, x = SV.g.x, last = svPlanes().length - 1, cl = (v) => Math.max(0, Math.min(last, v));
     SV.motionKept = true;
     const aim = SV.g.moving() ? SV.g.target : null;
-    SV.g.set(cl(pl(x)));
+    const sp = SV.span;
+    let span = null, nx = cl(pl(x));
+    if (sp) {
+      const x0 = cl(pl(sp.x0)), x1 = cl(pl(sp.x1));
+      if (x1 > x0 && svAllOk(x0, x1)) {
+        span = { x0, x1 };
+        const stepT = retime ? retime(sp.stepT || null) : sp.stepT;
+        if (stepT) span.stepT = stepT;
+        nx = x0 + (x - sp.x0) / (sp.x1 - sp.x0) * (x1 - x0);
+      }
+    }
+    SV.g.set(nx);
     if (aim != null) SV.g.to(cl(pl(aim)));
     if (A) {
-      const el = SV.clock ? A.el || 0 : performance.now() - A.t0, v = Math.min(1, el / A.ms);
+      const el = svElapsed(A), v = Math.min(1, el / A.ms);
       A.e0 = v < 0.5 ? 4 * v * v * v : 1 - Math.pow(-2 * v + 2, 3) / 2;
-      A.from = SV.g.x; A.to = cl(pl(A.to));
+      A.from = SV.g.x; A.to = cl(pl(A.to)); A.held = null; A.drawn = { at: A.from, el };
     }
     if (B) {
       B.steps = S.steps;
       if (B.slide) { B.start = cl(pl(B.start)); B.end = cl(pl(B.end)); } else {
-        const left = B.ms * (1 - Math.min(1, (SV.clock ? B.el || 0 : performance.now() - B.t0) / B.ms));
-        B.from = SV.g.x; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left);
+        const left = B.ms * (1 - Math.min(1, svElapsed(B) / B.ms));
+        B.from = SV.g.x; B.to = cl(pl(B.to)); B.start = cl(pl(B.start)); B.t0 = performance.now(); B.el = 0; B.ms = Math.max(1, left); B.held = null; B.drawn = { at: B.from, el: 0 };
       }
     }
-    const sp = SV.span;
-    if (sp) { const x0 = cl(pl(sp.x0)), x1 = cl(pl(sp.x1)); SV.span = x1 > x0 && svAllOk(x0, x1) ? { x0, x1 } : null; }
-    SV.i = Math.round(SV.g.x);
-    dirty.L = true;
+    if (sp) SV.span = span;
+    SV.i = cl(pl(SV.i));
+    leftChanged();
   }
   function svShifted() {
     const sp = SV.split;
@@ -3590,8 +4015,8 @@
       } });
     });
   }
-  // a message for an edit made on the thread (#515 would take the rail for it and hide the thread, with the focus on it): none on a
-  // desktop. It is said in the live region; Undo stays in the top bar's Undo button and Ctrl+Z; the focus stays on its chip (ux's choice A)
+  // a message for an edit made on the thread (a toast would take the rail for it and hide the thread, with the focus on it): none on a
+  // desktop. It is said in the live region; Undo stays in the top bar's Undo button and Ctrl+Z; the focus stays on its chip
   function svQuietToast(msg) {
     if (!SV.on || !SV.els || document.documentElement.classList.contains('ph')) return false;
     const a = document.activeElement, inRail = !!(a && a.closest && a.closest('#svStrip .sv-rail, #svStrip .sv-add'));
@@ -3656,7 +4081,7 @@
       { label: $t('Insert d/dz after it'), disabled: !Funcs.DEFS.deriv, run: () => addStep('deriv', null, k) });
     // (which steps the deformation deforms, SPEC 6.5)
     if (!(opt && opt.thread) && activeSteps().length >= 2) items.push({ id: 'deform', label: $t('Deformation'), kids: deformItems(k) });
-    // ([issue #6] Repeat × N)
+    // (Repeat × N)
     if (!isDerivStep(st, built[k - 1])) {
       const rk = repeatItems(k);
       // (the thread's menu has no submenu of one: a single choice is the item itself, and a repeated block's two are items)
@@ -3842,7 +4267,7 @@
     E.revealed = k;
     const rail = E.rail, a = stepEl.offsetLeft, s = rail.scrollLeft, w = rail.clientWidth;
     const to = Math.max(0, Math.min(rail.scrollWidth - w, Math.min(Math.max(s, a + stepEl.offsetWidth - w), a)));
-    if (to !== s) { rail.scrollLeft = to; E.scrollX = to; svFades(); }
+    svRailTo(E, to, s);
     E.hold = { tx: force ? null : E.tx ?? null, aim: to };
   }
   // the F chip says whether F is the selected step (S.sel); read by selectStep, so a selection by any route shows
@@ -3871,7 +4296,7 @@
     const chip = svChipBtn('sv-fchip', { 'data-tip': `${name} · ${$t('Edit step {k}', { k })}`,
       'aria-label': `f${sub(k)} ${name}${off ? $t(', bypassed') : ''}: ${$t('Edit step {k}', { k })}`, onclick: (e) => { e.stopPropagation(); svInspect(k); } },
     `<i>f</i><sub>${k}</sub>`, name);
-    const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
+    const more = h('button', { type: 'button', class: 'sv-more', 'aria-haspopup': 'menu', 'aria-expanded': 'false', 'data-tip': $t('More'), 'aria-label': $t('More for f{x} {name}', { x: sub(k), name }), html: ICONS.more,
       onclick: (e) => { e.stopPropagation(); svStepMenu(e.currentTarget, k); } });
     // (a repeated block: its chips are marked, and the last one carries the count, ×N)
     const rb = repeatOf(k);

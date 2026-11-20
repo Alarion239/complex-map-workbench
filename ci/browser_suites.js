@@ -83,8 +83,10 @@ const SUITES = {
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
   // (in parts, by their own CMW_ONLY: whole, the figure export did not finish in 30 min on SwiftShader; the
   // deformation's section 4 alone took 19 min on lavapipe, so it runs in parts)
-  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
+  'export_cmd.js': { timeoutMin: 40, runs: ['1-3', 'user5', 'user5-deform-steps'].map((only) => ({ label: only, env: { CMW_ONLY: only } })).concat(['user5-classic', 'user5-deform'].map((only) => ({ label: only, env: { CMW_ONLY: only, CMW_VIEW: '' } }))) },
   'export_deform_classic_cmd.js': { timeoutMin: 40, runs: ['4a-fig', '4a-vid', '4b', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
+  // (the one carry-vs-exact suite, its parts in the shards they balance: views-1 and formulas)
+  'steps_carry_exact_cmd.js': { runs: ['glide', 'inregion', 'far', 'chains', 'planes'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
   'export_deform_cmd.js': { timeoutMin: 30, runs: ['video', 'dialog', 'preview'].map((only) => ({ label: only, env: { CMW_ONLY: only } })) },
 
   // (section 1 compares with a snapshot of the merged tree taken before the deformation range, which is not in the
@@ -102,6 +104,7 @@ const SUITES = {
   // (one language a run; its pages: the test page without MathJax and with the vendored one)
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
+  'newt_member0_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
   'steps_paths_sphere_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
@@ -133,6 +136,7 @@ const griegCaptionsAll = (d) => Array.isArray(d) && d[0] > 0 && Array.isArray(d[
 const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
   'series_edit_cmd.js': [t(/^timing: /)],
+  'link_standin_cmd.js': [t(/^timing: /)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],
@@ -146,6 +150,7 @@ const TIMING = {
     t(/^dark theme: a video and a figure flip the theme/, (d) => d && d.dark && d.flips <= 2 && d.fig),
     t(/^preview: it advances at the video's frame rate/, (d) => d && typeof d.rate === 'number'), t(/^preview: no main-thread task/)],
   'deform_dirichlet_cmd.js': [t(/^timing: /)],
+  'steps_glide_negpow_cmd.js': [t(/^timing: /)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
@@ -247,6 +252,8 @@ const PAGES = {
   },
   'test-mj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '<script>window.MathJax.loader = { paths: { \'mathjax-stix2\': \'mj/mathjax-stix2\' } };</script>\n<script async src="mj/tex-svg-nofont.js"></script>')),
   'test-nomj.html': (dist, name) => fs.writeFileSync(path.join(dist, name), mjPage(dist, '')),
+  // (the inverse renderer's GPU-against-CPU page)
+  'glsl-inverse-test.html': () => { if (require('child_process').spawnSync('python3', ['test/make_glsl_inverse_test.py'], { cwd: path.join(__dirname, '..') }).status !== 0) throw new Error('glsl-inverse-test.html'); },
   // (a new Chrome asks the origin for /favicon.ico once: a 404 is a "Failed to load resource" console error, which a
   // suite's first look at the console reports; on the development machine one long-lived Chrome made that request
   // long before)

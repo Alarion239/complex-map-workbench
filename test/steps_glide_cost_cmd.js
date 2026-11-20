@@ -32,8 +32,9 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const { holdIdle, runIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 // the calls of the named methods of target (a page expression) whose stack holds every one of the frames named, kept in
 // the page as window[into]: each a line "name at < ... <" of the stack's first frames
 const GL_CREATES = ['createTexture', 'createBuffer', 'createVertexArray'];
@@ -53,6 +54,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gl${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 20000 });
@@ -60,7 +62,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await ev('GLR.holdLinks(true), 1');
   await ev(`__cmwAddStep('exp'), 1`);
   await settled({ max: 20000, panes: false, until: '!!document.querySelector(".sv-plane")' });
-  ok('the thread is held at x = 0.5', (await hold(0.5, false)).ok, null);
+  { const h = await hold(0.5, false); ok('the thread is held at x = 0.5', h.ok, h); }
   // (the glide's frames asked for the carry's own programs: the map cache's and the cached places')
   await settled({ max: 20000, panes: false, until: '["tfRegion", "regionKC"].every((n) => GLR.chainProgs().includes(n))' });
   const started = await ev('GLR.chainProgs()');
@@ -82,6 +84,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gp${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000, panes: false });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000, panes: false });
@@ -89,7 +92,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   // callback asked for is queued, and run with 50 ms left)
   await ev('__cmwSvKey(1, 0.5, true), __cmwSvKey(2, 0.5, true), 1');
   await settled({ max: 30000, panes: false, until: '!__cmwSvKey().busy' });
-  await ev('window.__svIdleQ = [], window.requestIdleCallback = (f) => (window.__svIdleQ.push(f), 1), 1');
+  await holdIdle();
   // (a step put between the King's two: plane 1's chain is the same)
   await ev(`__cmwAddStep('mul', { c: '1' }, 1), 1`);
   await settled({ max: 30000, panes: false, until: '!!document.querySelector(".sv-plane") && __cmwSteps().planes.length === 4' });
@@ -104,7 +107,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   // (and the searches a glide's frames make while the tracks are not whole: t over (0, 0.3) in 20 frames' steps)
   const sweep = await ev('(() => { globalThis.__svPathStats = {}; for (let i = 1; i <= 20; i++) __cmwSvKey(2, 0.3 * i / 20); const s = globalThis.__svPathStats; return s; })()');
   // (then the idle moments, until the job is done)
-  const idle = await ev('(() => { globalThis.__svPathStats = {}; const q = window.__svIdleQ; let n = 0; while (q.length && n < 5000) { n++; q.shift()({ timeRemaining: () => 50, didTimeout: false }); } const s = globalThis.__svPathStats; globalThis.__svPathStats = null; s.callbacks = n; return s; })()');
+  const idle = await runIdle(5000, '{ timeRemaining: () => 50, didTimeout: false }');
   const whole = await ev('__cmwSvKey(2, 0.5)');
   const near = (p, L) => L.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 1e-3 * (1 + Math.hypot(q[0], q[1])));
   info['after an edit'] = { kept, now: now.sing, nowTracks: now.tracks, frames: now.stats, sweep, idle, whole: whole.sing, wholeTracks: whole.tracks };
@@ -128,6 +131,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   // (the strokes built for the ring's meshes: their stack passes through svRingGPU)
   await watchCalls('GLR', ['createLines'], ['svRingGPU'], '__ringLines');
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   // (from here, the work counted: the idle job's after the page settles on plane 0, before any frame between planes)
   await ev('globalThis.__svPathStats = {}, 1');
@@ -168,12 +172,13 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=gz${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });
   // (held mid-scrub by plane 1, whose plane the left pane follows; the meshes rebuilt, so a fix-up is asked for: the
   // left pane's region under zeta, seconds of CPU work)
-  ok('the thread is held at x = 0.9', (await hold(0.9, false)).ok, null);
+  { const h = await hold(0.9, false); ok('the thread is held at x = 0.9', h.ok, h); }
   await ev(`globalThis.__svPathStats = {}, __cmwSet('meshN', __cmwState().meshN), window.__heldT = performance.now(), 1`);
   await settled({ max: 20000, panes: false, until: 'performance.now() - window.__heldT > 2000' });
   const held = await ev('(() => { const s = globalThis.__svPathStats; globalThis.__svPathStats = {}; return s; })()');
@@ -190,6 +195,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=ga${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 30000 });
   await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });

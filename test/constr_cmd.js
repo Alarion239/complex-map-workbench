@@ -396,7 +396,7 @@ await section('B', async () => {
   if (!run('A')) { await tool('circle3'); const a = await W(-1.5, 0), b = await W(0.5, -1), z = await W(1, 0.5); await click(a[0], a[1]); await settle(80); await click(b[0], b[1]); await settle(80); await click(z[0], z[1]); await settle(300); }
   let st = await ST();
   const before = st.list.filter((s) => s.def || s.at).map((s) => JSON.stringify([s.id, s.kind, s.def, s.at, s.c, s.r, s.p, s.a, s.b]));
-  await nav(`${U}?ns=${NS}`); await settle(1500);
+  await nav(`${U}?ns=${NS}`);
   st = await ST();
   const after = st.list.filter((s) => s.def || s.at).map((s) => JSON.stringify([s.id, s.kind, s.def, s.at, s.c, s.r, s.p, s.a, s.b]));
   ok('reload: every construction comes back, bitwise', before.length > 0 && before.join('\n') === after.join('\n'), { before: before.length, after: after.length, diff: before.filter((x, i) => x !== after[i]).slice(0, 2) });
@@ -411,7 +411,7 @@ await section('B', async () => {
   ok('after a reload ζ₁ still drives its disc', near(dist(zeta, c3b.c), c3b.r, 1e-12) && zeta[0] !== zeta0[0], [zeta, c3b.c, c3b.r]);
   // a link: encodeLink of the saved state, opened in a fresh namespace
   const payload = await ev(`await Params.encodeLink(__cmwP().figure)`);
-  await nav(`${U}?ns=${NS}lk#cmw=${payload}`); await settle(1800);
+  await nav(`${U}?ns=${NS}lk#cmw=${payload}`);
   st = await ST();
   const c3l = st.list.find((s) => s.id === c3.id);
   ok('a link opens the constructions', !!c3l && c3l.def && c3l.def.op === 'circle3' && near(dist(zeta, c3l.c), c3l.r, 1e-12), c3l);
@@ -423,7 +423,7 @@ await section('C', async () => {
   // Russian: the tiles, the chip, the rows, the cascade toast
   await view(1440, 900, false, false);
   await load(NS + 'ru', STATE);
-  await nav(`${U}?ns=${NS}ru&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}ru&lang=ru`);
   const tiles = await ev(`[...document.querySelectorAll('#constructTools .tool > span')].map((s) => s.textContent.replace(/\u00ad/g, ''))`);
   ok('RU tiles', JSON.stringify(tiles) === JSON.stringify(['По 3 точкам', 'Пересечение', 'Середина', 'Перпендикуляр', 'Ортогональная', 'Касание', 'Гиперболическая']), tiles);
   ok('RU heading', (await ev(`document.querySelector('#cmHead').textContent`)) === 'Построения', null);
@@ -523,7 +523,7 @@ await section('E', async () => {
   ok('phone: an empty spot makes a free point in the same step', c3.def && c3.def.op === 'circle3' && c3.def.args[2].s === fp.id && !fp.def, [c3.def, fp]);
   await shot('cm-p390-done');
   // Russian on the phone (the tiles at 390 px)
-  await nav(`${U}?ns=${NS}ph&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}ph&lang=ru`);
   const more2 = await center('#toolMore > summary');
   await touch(more2[0], more2[1]); await settle(500);
   await ev(`Phone.tab('construct')`); await settle(200);
@@ -676,7 +676,7 @@ await section('G', async () => {
   ok('G: in Y the circle picks z₂″ (an image ref)', yt.def && yt.def.args[0].img === 'u5' && st.list.length === st0.list.length + 3, [yt.def, info.yRing]);
   await shot('cm-d1440-y');
   // Russian caption
-  await nav(`${U}?ns=${NS}g&lang=ru`); await settle(1800);
+  await nav(`${U}?ns=${NS}g&lang=ru`);
   const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
     return f ? f.captionTex : null;
     })()`);

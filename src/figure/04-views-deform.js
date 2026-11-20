@@ -52,17 +52,25 @@
       return [x + (px - c[0]) * k, y + (py - c[2]) * k];
     };
   };
-  // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera
+  // a sphere's mark is labelled when its normal makes more than this with the line to the eye (the screen's labels start to show
+  // above it)
+  const GLOBE_LABEL_FACE = 0.05;
+  // the sphere's own labels (0, infinity, 1, i, -1, -i) beside the globe, where they face the camera and keep clear of its
+  // outline and of the other labels
   function globeLabels(g, r, c, x, y, k, tp) {
     if (!g || !A.lift) return '';
     const P = (p) => { const q = GLR.M4.apply(g.MVP, p); if (q[3] <= 1e-6) return null; return [x + ((q[0] / q[3] * 0.5 + 0.5) * r.w - c[0]) * k, y + ((1 - (q[1] / q[3] * 0.5 + 0.5)) * r.h - c[2]) * k]; };
     const face = (p) => { const tv = [g.eye[0] - p[0], g.eye[1] - p[1], g.eye[2] - p[2]]; return (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2]) / (Math.hypot(...tv) || 1); };
+    const limb = GLR.globeLimb(g.eye, P), centre = P([0, 0, 0]);
     let m = '';
     for (const [lab, p] of [['0', [0, 0, -1]], ['\\infty', [0, 0, 1]], ['1', A.lift(1, 0)], ['i', A.lift(0, 1)], ['-1', A.lift(-1, 0)], ['-i', A.lift(0, -1)]]) {
-      if (face(p) < 0.3) continue;
-      const q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
+      if (face(p) <= GLOBE_LABEL_FACE) continue;
+      let q = P(p[2] === 0 && Math.abs(p[0]) + Math.abs(p[1]) > 0.5 ? [p[0] * 1.06, p[1] * 1.06, 0.1] : p.map((v) => v * 1.1));
       if (!q) continue;
-      const it = XD.tex(lab, tp), b = XD.boxOf(it, q[0], q[1], 'middle', 'mid');
+      const it = XD.tex(lab, tp), boxAt = (at) => XD.boxOf(it, at[0], at[1], 'middle', 'mid');
+      q = GLR.clearOfLimb(q, boxAt, limb, centre);
+      if (!q) continue;
+      const b = boxAt(q);
       if (XD.boxes.some((o2) => o2.x0 < b.x1 + 0.6 && o2.x1 > b.x0 - 0.6 && o2.y0 < b.y1 + 0.6 && o2.y1 > b.y0 - 0.6)) continue;
       m += XD.at(it, q[0], q[1], 'middle', 'mid', 'globe-label', 0.4);
     }
@@ -262,7 +270,7 @@
     if (keyW) {
       // (the key's ring: 12 pt of the column's half width go to its marks and margins; 6 pt is the gap under each row)
       const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * (tH + ph + 6) / 2 + tH / 2;
-      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
       items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));
@@ -455,7 +463,7 @@
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     let keyBottom = 0;
     if (keyW) {
-      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp);
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }
@@ -526,7 +534,7 @@
     if (keyW) {
       // (the key's ring: 12 pt of the column's half width go to its marks and margins)
       const R = keyW / 2 - 12, kx = W - keyW / 2, ky = rows * rowH / 2;
-      items.push(await ringKeyMarkup(kx, ky, R, `${XD.ns}-key`));
+      items.push(ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, P.lw.frame));
       items.push(XD.at(XD.tex('0', tp - 1), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\pm\\pi', tp - 1), kx - R - 1.5, ky, 'end', 'mid', 'ring-mark'));
       items.push(XD.at(XD.tex('\\arg H_t', tp - 1), kx, ky - R - 3, 'middle', 'bottom', 'key'));

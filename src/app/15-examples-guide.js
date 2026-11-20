@@ -55,9 +55,9 @@
       steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
-      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the target 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
-      shapes: [{ kind: 'circle', c: [0, 0], r: 1 }],
-      targets: [{ kind: 'point', p: [0, 0] }, { kind: 'circle', c: [0, 0], r: 0.6 }],
+      name: $t('Roots as preimages'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }]], try: $t('Try: drag the target 0 in Y and see its preimages in X.'), trySv: $t('Try: on w₁, drag the point at 0, then press ‹.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'w' }], [{ on: 'plane-changed', test: (e) => e.i === 0 }]], tour: 'analysis', tex: 'z^{3}-1=0', blurb: $t('The target 0 in the w-plane pulls back to the three cube roots of unity; the target circle to curves around them.'), view: { cx: 0, cy: 0, s: 90 },
+      // (the point and the circle on w₁ are shapes of that plane, drawn and dragged there; their preimages show on z)
+      shapes: [{ kind: 'circle', c: [0, 0], r: 1 }, { kind: 'point', p: [0, 0], stage: 1 }, { kind: 'circle', c: [0, 0], r: 0.6, stage: 1 }],
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
@@ -103,7 +103,7 @@
       name: $t('In the Hall of the Mountain King'), tex: SEASONG.tex, blurb: $t('Edvard Grieg, Peer Gynt (1875), played by a function. Along the unit circle arg F climbs in steps, one for each note of the theme, and the sound plays each colour line it crosses. Choose Listen along in the circle\'s menu (right-click, or hold on touch): each lap is the theme twice, faster the second time, and the branch cut just before every downbeat is the drum.'),
       view: SEASONG.view, fit: SEASONG.fit, shapes: [{ kind: 'curve', pts: SEASONG.pts, song: true, nameKey: 'circle' }], steps: SEASONG.steps, sectors: SEASONG.sectors, song: true, rightMode: 'color', dc: 'phase', thumbX: true, tip: true,
     },
-    // [issue #4] the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
+    // the phase portraits of ζ (its first zeros on the critical line) and of Γ (its row of poles)
     {
       name: $t('Zeros of the zeta function'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'land' }]], try: $t('Try: switch to the Landscape and look for the zeros on the line Re z = 1/2.'), trySv: $t('Try: choose Landscape and look for the zeros on the line Re z = 1/2.'), tryDoneSv: [[{ on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'views', tex: 'w=\\zeta(z)', blurb: $t('The phase portrait of ζ over the critical strip 0 < Re z < 1: its first zeros ½ + 14.13i, ½ + 21.02i and ½ + 25.01i lie on the line Re z = ½, where every colour meets.'), view: { cx: 0.5, cy: 19.5, s: 40 },
       shapes: [
@@ -118,7 +118,7 @@
       shapes: [{ kind: 'rect', a: [-4.5, -1.5], b: [2.5, 1.5] }],
       steps: [{ type: 'gamma', params: {} }], rightMode: 'color',
     },
-    // [issue #5] series: the partial sums of e^z (N on a slider), a natural boundary, Li₂ from the Series step, ζ as a
+    // series: the partial sums of e^z (N on a slider), a natural boundary, Li₂ from the Series step, ζ as a
     // Dirichlet series
     {
       name: $t('Partial sums of the exponential'), tryDone: [[{ on: 'number-changed' }]], try: $t('Try: drag N under Numbers: the zeros of the partial sum move out as N grows.'), tex: 'w=\\sum_{n=0}^{N}\\frac{z^n}{n!}', blurb: $t('The phase portrait of the partial sum 1 + z + z²/2! + … + zᴺ/N! of the series of eᶻ. Its N zeros lie near a curve that grows with N (Szegő’s curve), and inside it the colours are those of eᶻ.'), view: { cx: 0, cy: 0, s: 60 },
@@ -141,14 +141,14 @@
       shapes: [{ kind: 'rect', a: [1.5, -6], b: [5, 6] }],
       steps: [{ type: 'series', params: { kind: 'dirichlet', an: '1', c: '0' } }], rightMode: 'color',
     },
-    // [issue #10] a complex number as a point: a Möbius map of the disc that moves a to 0
+    // a complex number as a point: a Möbius map of the disc that moves a to 0
     {
       name: $t('A disc map moved by a point'), tryDone: [[{ on: 'number-changed', test: (e) => (e.names || []).includes('a') }]], try: $t('Try: drag the point a, or press Play beside a under Numbers: it circles the origin.'), tex: 'w=\\frac{z-a}{1-\\bar{a}z}', blurb: $t('The map (z − a)/(1 − āz) takes the unit disc onto itself and moves the point a to 0. The number a is complex: its point on the plane is the number, so dragging the point changes the map.'), view: { cx: 0, cy: 0, s: 150 },
       params: [{ name: 'a', value: 0.5, im: 0.3, min: -1, max: 1, step: 0.01 }],
       shapes: [{ kind: 'disc', c: [0, 0], r: 0.85 }, { kind: 'point', p: [0.5, 0.3], bind: { p: 'a' } }],
       steps: [{ type: 'custom', params: { expr: '\\frac{z-a}{1-\\overline{a}\\,z}', cut: 180 } }], rightMode: 'color',
     },
-    // [issue #6] iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
+    // iteration: the Mandelbrot set (a region of X by its escape test), filled Julia sets that their map keeps,
     // and Newton's method for z³ − 1 as a Recurrence step
     {
       name: $t('The Mandelbrot set'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }]], try: $t('Try: zoom in on the boundary of the region: past about 10⁻⁵ the GPU’s float32 blurs it.'), tex: 'w=u_{12},\\ u_0=0,\\ u_{k+1}=u_k^2+z', blurb: $t('The region is the Mandelbrot set M: the c for which the orbit 0, c, c² + c, … stays bounded, drawn by its escape test |iter(u² + z, u, 0, 64)| ≤ 2. The map is the twelfth term of that orbit, a Recurrence step: it takes M into the disc |w| ≤ 2, and outside M its colours turn ever faster towards the boundary.'), view: { cx: -0.6, cy: 0, s: 150 },
@@ -175,7 +175,7 @@
       shapes: [{ kind: 'fcurve', expr: '|\\operatorname{iter}(u^2+i, u, z, 8)|=2' }],
       steps: [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: 'i' } }],
     },
-    // [issue #260] the Douady–Hubbard map with external rays and equipotentials of M, and the Böttcher coordinate of a
+    // the Douady–Hubbard map with external rays and equipotentials of M, and the Böttcher coordinate of a
     // Julia set whose c is a slider (at the end of the list: the examples before keep their places)
     {
       name: $t('The Douady–Hubbard map'), tryDone: [[{ on: 'view-moved', test: (e) => e.how === 'zoom' }, { on: 'dh-added' }]], try: $t('Try: zoom in where a ray meets M, or add a ray of your own on the card (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), trySv: $t('Try: zoom in where a ray meets M, or click f₁ and add a ray of your own (θ = 1/7, 2/7, …); past about 10⁻⁵ the GPU’s float32 blurs the picture.'), tex: 'w=\\Phi_M(z)', blurb: $t('Φ_M maps the outside of the Mandelbrot set M one to one onto the outside of the unit disc. The rays it sends to the radii arg w = 2πθ are the external rays of M, and the curves it sends to the circles |w| = r are its equipotentials. The rays of angle 1/3 and 2/3 land together at −3/4, the root of the disc of period 2; 1/7 and 2/7 at the root of the bulb of period 3; 1/2 at the tip −2.'), view: { cx: -0.6, cy: 0, s: 150 },
@@ -224,7 +224,7 @@
       const ic = b.querySelector('.ic-slot'); if (ic) ic.innerHTML = ICONS[{ auto: 'theme', light: 'themeLight', dark: 'themeDark' }[t]] || '';   // (the icon shows the state: half disc Auto, sun Light, moon Dark)
     }
   }
-  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.js): the
+  // Phase colors (issue 8): one palette for every view, a per-viewer setting like the theme (src/palette.ts): the
   // wheel or one of Arb's color functions. The header's button opens a menu with a preview of each
   const PAL_NAMES = () => ({
     wheel: [$t('Wheel'), $t('The workbench\'s hue wheel: every phase equally bright')],
@@ -277,10 +277,11 @@
     const pl = b.querySelector('.plabel'); if (pl) pl.textContent = name;
     const ic = /** @type {HTMLElement | null} */ (b.querySelector('.pcol-ic')); if (ic) ic.style.setProperty('--wheel', keyConic());
   }
-  // ---------------- the Phase style button (issue #81) ----------------
-  // The Phase view's style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
-  // beside the palette's disc, whenever X is the flat Phase view; in the Landscape the button is there too, dimmed, and says
-  // where the styles live. Schematic glyphs, not a render of the user's function: they cost nothing and read in both themes.
+  // ---------------- the Phase style button ----------------
+  // The phase style (Tiles, Plain, Modulus, Contours, Pulled-back grid, Cauchy) is one click away in the header,
+  // beside the palette's disc, whenever the plane is coloured; in the Landscape the button is there too, dimmed, and its menu
+  // leads to the Plane surface, where the styles are. Schematic glyphs, not a render of the user's function: they cost nothing
+  // and read in both themes.
   const STYLE_SVG = {
     enhanced: '<svg viewBox="0 0 16 16" aria-hidden="true"><rect x="1.5" y="1.5" width="6" height="6" rx="1" fill="#F58C7E"/><rect x="8.5" y="1.5" width="6" height="6" rx="1" fill="#53B8F7"/><rect x="1.5" y="8.5" width="6" height="6" rx="1" fill="#6EC580"/><rect x="8.5" y="8.5" width="6" height="6" rx="1" fill="#CFA93E"/></svg>',
     phase: '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 8V1.5A6.5 6.5 0 0 1 14.5 8z" fill="#F58C7E"/><path d="M8 8h6.5A6.5 6.5 0 0 1 8 14.5z" fill="#CFA93E"/><path d="M8 8v6.5A6.5 6.5 0 0 1 1.5 8z" fill="#6EC580"/><path d="M8 8H1.5A6.5 6.5 0 0 1 8 1.5z" fill="#53B8F7"/></svg>',
@@ -295,11 +296,12 @@
     setOpt('dc', v); setOpt('landPlain', false); buildRightFoot(); updateFocusUI(); paintChanged(); save();
     const sg = $('dcSeg'); if (sg) setSeg(sg, S.dc);
   }
-  // {show: X is the flat Phase view or the Landscape, land: the Landscape (the styles are not its own), name, id}
+  // {show: the plane is coloured or is the Landscape, land: the Landscape (the styles are not its own), name, id}
   function styleState() { return { show: lColor() || lLand(), land: lLand(), name: styleName(), id: S.dc }; }
   function styleItems(done) {
     if (lLand()) {
-      return Object.assign([{ label: $t('Styles belong to the flat Phase view'), disabled: true }, 'sep', { label: $t('Switch to Phase'), run: () => { setMain('phase'); if (done) done(); } }], { menuLabel: $t('Phase style') });
+      const note = $t('Styles show on the Plane surface');
+      return Object.assign([{ label: note, disabled: true }, 'sep', { label: svSurfaceLabel('plane'), tip: note, run: () => { svSetSurface('plane'); if (done) done(); } }], { menuLabel: $t('Phase style') });
     }
     const list = DC_STYLES.map(([id, name, tip]) => ({ label: name, tip, radio: true, checked: S.dc === id, iconHtml: `<span class="sty-prev">${STYLE_SVG[id]}</span>`, run: () => { pickPhaseStyle(id); if (done) done(); } }));
     return Object.assign(list, { menuLabel: $t('Phase style'), focusChecked: true });
@@ -310,7 +312,7 @@
   }
 
   // ---------------- left-panel display controls ----------------
-  // (#363) regions are filled by the phase of z carried by F (the renderer's pattern 'phase'), with the grid lines of
+  // regions are filled by the phase of z carried by F (the renderer's pattern 'phase'), with the grid lines of
   // z on them: the head's Regions button shows that fill as its swatch. The renderer's other patterns (solid, ...) stay
   // for the app's own draws (the steps view's masks), not offered to the user.
   // the swatch: wheel(arg s, L) with L = 0.62 + 0.14·saw(ln|s| / (π/6)), as the shader does
@@ -327,10 +329,13 @@
     }
     x.putImageData(img, 0, 0);
   }
-  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z
+  // the regions' note names the plane whose phase colours them: the colour plane of the steps view, else z. The Landscape under
+  // Plaster draws the relief with no phase colours, so there is no colouring to name and the note is hidden
   function regionsNote() {
-    const note = document.querySelector('#regionsBox > .lbl');
-    if (note) note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
+    const note = /** @type {HTMLElement | null} */ (document.querySelector('#regionsBox > .lbl'));
+    if (!note) return;
+    note.hidden = S.view.main === 'land' && !lPhase();
+    note.textContent = $t('Regions are coloured by the phase of {p}, carried by the map', { p: SV.on ? svName(svT()) : 'z' });
   }
   function buildDisplay() {
     // (the pane heads' Regions buttons: their swatch in the phase colours of the moment)
@@ -338,6 +343,7 @@
     const ps = Math.round(Math.log2(S.patternScale || 1));
     $('patScale').value = ps;
     $('patScaleVal').textContent = ps === 0 ? '×1' : ps > 0 ? `×${2 ** ps}` : `×1/${2 ** -ps}`;
+    $('patScale').setAttribute('aria-valuetext', $('patScaleVal').textContent);
     $('meshRange').min = 0; $('meshRange').max = 1000; $('meshRange').step = 1;
     $('meshRange').value = meshToPos(S.meshN);
     showMeshVal(S.meshN);
@@ -368,7 +374,7 @@
       if (!hideL && S.hideLeft) hideR = true;
       else if (!hideR && S.hideRight) hideL = true;
     }
-    // (review regress-1: a panel the one-dock rule closed is closed at run time only; the user's choice stays)
+    // (a panel the one-dock rule closed is closed at run time only; the user's choice stays)
     const forcedL = !!hideL && !reqL, forcedR = !!hideR && !reqR;
     if (sndP.on && (!!hideL !== !!S.hideLeft || !!hideR !== !!S.hideRight)) sndToggleCue(!(hideL && hideR) && (!hideL && S.hideLeft || !hideR && S.hideRight));
     setHidden('L', !!hideL); setHidden('R', !!hideR);
@@ -394,7 +400,7 @@
     placeKeys();
     if (oneDock() && !S.hideLeft && !S.hideRight) setHidden('L', true);   // (run time: the docked choice stays the user's)
     if (!S.hideRight) closeTemp(); else requestRender('P');
-    // ([v17 D4] the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
+    // (the selected shape's editor follows the Inspector: in it while it shows, under its row when hidden)
     if (shapeEdWhere !== inspEditsShapes()) { shapeEdWhere = inspEditsShapes(); if (selected != null) buildShapeList(); }
     lay.classList.toggle('hide-left', !!S.hideLeft);
     lay.classList.toggle('hide-right', !!S.hideRight);
@@ -453,6 +459,7 @@
   }
   function showMeshVal(n) {
     $('meshVal').textContent = `${n}`;
+    $('meshRange').setAttribute('aria-valuetext', `${n}`);   // (the slider's value is a position on the piecewise scale)
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('#meshPresets button'))) b.classList.toggle('on', +b.dataset.n === n);
     $('meshNote').hidden = n < 480;
     paintFader($('meshRange'));
@@ -480,7 +487,7 @@
   const VIEW_ICONS = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], phase: MODE_ICONS.color, xy: MODE_ICONS.xy };
   // the globes' static programs, started in the background when a switch to Sphere is coming (the pointer or focus on
   // a Sphere control, the switch itself a frame ahead of its draw), so the first globe frame does not link them one
-  // after another (GLR.prestart; P3 review: 51-55 ms long tasks on the first switch to X Sphere), as a view no pane
+  // after another (GLR.prestart; 51-55 ms long tasks on the first switch to X Sphere), as a view no pane
   // shows until a globe frame asks for them. Not at start-up: compiles there compete with the first scene's own
   // (example settle times)
   function prestartGlobe() { try { if (GLR.ok && GLR.prestart) GLR.prestart(GLR.GLOBE_PROGS, true); } catch (e) { /* the frame links them */ } }
@@ -513,7 +520,7 @@
       Object.assign(S.srcView, m.src); Object.assign(V.left, m.left); leftAuto = m.leftAuto;
       Object.assign(camL, m.camL, { vyaw: 0, vpitch: 0 });
     }
-    // an example's box (ex.fit), untouched since it opened, fits the X pane of a view seen for the first time (review ui-3)
+    // an example's box (ex.fit), untouched since it opened, fits the X pane of a view seen for the first time
     const refit = !m && exFitKey && exFitKey === JSON.stringify(S.srcView) && EX[currentExample] && EX[currentExample].fit;
     // a shape draft and the probe end with the view they were made in; targets are edited in Y (X → Y only)
     draft = null; probe = null; hoverCut = 0; setReadouts(null);
@@ -525,7 +532,7 @@
     updateFocusUI(); scheduleFix(); requestRender('L', 'R', 'OL', 'OR'); save();
     tourEmit('view-changed', { main });
   }
-  // U-b's Phase toggle, kept for the test hooks: on, the Phase view on X's surface; off, X → Y on the phase panel's
+  // the Phase toggle, kept for the test hooks: on, the Phase view on X's surface; off, X → Y on the phase panel's
   function setPhase(on) {
     if (!!on === (S.view.main === 'phase')) return;
     if (on) { if (S.view.main === 'xy') setViewOpt('P', 'surf', S.view.L.surf); setMain('phase'); }
@@ -535,7 +542,7 @@
     if (side === 'R') {
       // targets are drawn and edited in Y Plane; a target draft and a target selection end with it (the transport
       // stays open)
-      // targets are drawn in Y Plane and on the w-globe (P3b): a target draft ends with the view it was drawn in
+      // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
       if (draft && draft.target) draft = null;
       rHover = null; setHoverW(null);
       if (autoFit()) { rightAuto = true; fitRight(); }
@@ -587,7 +594,7 @@
     for (const b of /** @type {Iterable<HTMLElement>} */ (lt ? lt.children : [])) { const k = b.dataset.mode === 'plane' ? '⇧1' : '⇧2'; const tip = `${b.getAttribute('aria-label')}${k ? '  ' + k : ''}`; if (b.dataset.tip !== tip) b.dataset.tip = tip; }
     syncStackKeys();
   }
-  // Snap (the Draw heading and the rail) and Unit circle (Display) show the state (P3)
+  // Snap (the Draw heading and the rail) and Unit circle (Display) show the state
   function syncSnapUnit() {
     for (const id of ['snapBtn', 'railSnap']) { const b = $(id); if (b) b.setAttribute('aria-pressed', String(!!S.snap)); }
     const u = $('unitChk');
@@ -598,13 +605,13 @@
     const stage = $('stage'), panes = $('panes');
     const store = (k, v) => { try { localStorage.setItem(lsk(k), String(v)); } catch (e) { /* ignore */ } };
     const read = (k) => { try { return localStorage.getItem(lsk(k)); } catch (e) { return null; } };
-    // (the chain is 188 px with pictures, 96 with names; a height saved for the old 272 px cards is not reused)
+    // (the chain is 188 px with pictures, 96 with names; a height saved for 272 px cards is not reused)
     const ch = +read('cmw-chain-h2'); if (ch) document.documentElement.style.setProperty('--chain-h', ch + 'px');
-    else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names, saved before v15)
-    // TEMP-DEBUG-HOOK (removed before publishing)
-    // the quality and perf suites render their scenes at the v14 pane geometry (a 272 px chain), so their golden images
+    else if (S && S.compact) document.documentElement.style.setProperty('--chain-h', '96px');   // (Names)
+    // TEST-HOOK (dropped from the published page by build.py)
+    // the quality and perf suites render their scenes at the pane geometry of a 272 px chain, so their golden images
     // and baselines stay valid (test/regress/quality/run_quality.js, test/regress/perf/run.js set window.__cmwChainH)
-    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
+    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEST-HOOK
     const sp = +read('cmw-split'); if (sp) panes.style.setProperty('--split', String(sp));
     const drag1 = (el, onMove, onEnd) => el.addEventListener('pointerdown', (e) => {
       e.preventDefault(); el.setPointerCapture(e.pointerId); el.classList.add('active');
@@ -638,7 +645,7 @@
     // (a focus counts as keyboard navigation when a Tab or arrow key came this many ms before it)
     const NAV_KEY_MS = 300;
     let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
-    // (v16.5 UX17) the tool descriptions that say click, in touch words (the others drag, hold or pick)
+    // the tool descriptions that say click, in touch words (the others drag, hold or pick)
     const TOUCH_DESC = {
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
       polygon: () => $t('Tap the vertices; tap the first one to close.'),
@@ -651,10 +658,10 @@
     };
     const show = (el) => {
       const text = el.getAttribute('data-tip');
-      // (v16.5 UX34: never for an element that went away, or one the mouse already left)
+      // (never for an element that went away, or one the mouse already left)
       if (!text || !el.isConnected || (el !== lpShown && el !== kbdTip && !el.matches(':hover'))) return;
       const [label, key] = text.split(/\s{2,}/);
-      // (v16.5 UX17: a long-press tip on touch names no key and says tap, not click)
+      // (a long-press tip on touch names no key and says tap, not click)
       const byTouch = el === lpShown;
       tip.innerHTML = '';
       tip.append(document.createTextNode(label));
@@ -683,15 +690,15 @@
     document.addEventListener('pointerout', (e) => { if (cur && !lpShown && (!e.relatedTarget || !cur.contains(e.relatedTarget))) hide(); });
     document.addEventListener('pointerdown', hide, true);
     document.addEventListener('keydown', hide, true);
-    // v16.5 UX34 (restores 'tooltips never stick'): a tip shows on hover only, never after a focus (a focus the app
-    // moves, after a palette or a dialog closes, left the tip over the planes); it goes when its element goes, on a
+    // a tip shows on hover only, never after a focus (a focus the app
+    // moves, after a palette or a dialog closes, would leave the tip over the planes); it goes when its element goes, on a
     // scroll and when the window loses the pointer
     document.addEventListener('pointermove', () => { if (cur && !cur.isConnected) hide(); }, { passive: true, capture: true });
     document.addEventListener('scroll', (e) => { if (!tip.hidden && cur && (e.target === document || (e.target instanceof Element && e.target.contains(cur)))) { lpShown = null; hide(); } }, { passive: true, capture: true });
     window.addEventListener('blur', () => { lpCancel(); lpShown = null; hide(); });
-    // ([v16.5 fix regress-9] a keyboard user's Tab still names an icon and its key: a tip after a focus that Tab, Shift+Tab
+    // (a keyboard user's Tab still names an icon and its key: a tip after a focus that Tab, Shift+Tab
     // or an arrow key moved, on :focus-visible; a focus the app moves itself (after a click, a palette, a dialog, Enter or
-    // Esc) shows none, as UX34 asks. It goes with the focus, on any key and on any press)
+    // Esc) shows none. It goes with the focus, on any key and on any press)
     document.addEventListener('keydown', (e) => { if (e.key === 'Tab' || /^Arrow/.test(e.key)) navKeyAt = performance.now(); }, true);
     document.addEventListener('focusin', (e) => {
       const tg = /** @type {HTMLElement} */ (e.target);
@@ -703,9 +710,9 @@
       timer = setTimeout(() => show(el), 300);
     });
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
-    // touch (P5): tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
+    // touch: tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    // (#247: also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
+    // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
     const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
       + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
@@ -733,7 +740,7 @@
       if (!lpShown) return;
       // a release less than 450 ms after the press, by the events' times, is a tap: the tip goes, the click goes through
       if (down && e.pointerId === down.id && e.timeStamp - down.t < 450) { lpShown = null; hide(); return; }
-      // (v16.5 UX34) the tip goes when the finger lifts; the click that follows the release is swallowed
+      // the tip goes when the finger lifts; the click that follows the release is swallowed
       const el = lpShown;
       const swallow = (ev) => { if (el.contains(ev.target)) { ev.preventDefault(); ev.stopPropagation(); } };
       document.addEventListener('click', swallow, { capture: true, once: true });
@@ -898,7 +905,7 @@
   function undoToast(msg, also) {
     const at = hi;
     const t = toast(msg, $t('Undo'), () => { if (hi === at) $('undoBtn').click(); }, true);
-    // (v16.5 UX01: a second action before Undo, "Added f₃ Sine · Show alone · Undo")
+    // (a second action before Undo, "Added f₃ Sine · Show alone · Undo")
     if (t && also) { const u = t.querySelector('.toast-act'); u.before(h('button', { class: 'toast-act', onclick: () => { t.remove(); also[1](); } }, also[0])); }
     return t;
   }
@@ -906,7 +913,7 @@
     const host = $('toastHost');
     if (host) for (const t of host.querySelectorAll('.toast[data-undo]')) t.remove();
   }
-  // (v16.5 UX80, restores "nothing covers uninvited": a message never lands on a control) A desktop's messages sit
+  // (a message never lands on a control) A desktop's messages sit
   // above the chain, centred between X's and Y's button columns (and above the deformation's transport), as wide as
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
@@ -931,7 +938,12 @@
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
     // the tool row, which the planes and the sheet give up)
     if (phone) {
-      if (document.documentElement.classList.contains('ph-sheet-on')) { clear(); return; }   // (a sheet ends above the message's own row)
+      if (document.documentElement.classList.contains('ph-sheet-on')) {
+        clear();
+        // (a sheet ends above the message's own row, whatever its height, and the portrait More sheet's list takes the height as its bottom inset)
+        toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        return;
+      }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
       if (!sb || !pl || sb.top <= pl.top) { clear(); return; }
       host.setAttribute('data-placed', 'phone-plot');
@@ -1006,10 +1018,23 @@
     const t = document.querySelector('#toastHost .toast:not(.toast-out)');
     if (t) closeToast(/** @type {HTMLElement} */ (t));
   });
-  // (o.sticky: it stays until its action or its close button is used, or another toast replaces it: review v16 user-5;
+  // (o.sticky: it stays until its action or its close button is used, or another toast takes its place;
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
+  // a phone's message is one row when its words fit beside its buttons, else two (the words full width, the buttons below): measured
+  // with the words unwrapped and every part unshrunk, so that the choice follows the text and the buttons, not the language
+  // (and packed from the start: a row packed to the end, as the steps view's message is, overflows on the start side, which scrollWidth does not count)
+  function fitToastRows(t) {
+    if (!t.isConnected) return;
+    const parts = [...t.children], sp = /** @type {HTMLElement} */ (t.firstElementChild);
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = 'none';
+    sp.style.whiteSpace = 'nowrap'; t.style.flexWrap = 'nowrap'; t.style.justifyContent = 'flex-start';
+    t.dataset.rows = t.scrollWidth > t.clientWidth ? 'two' : 'one';
+    for (const c of parts) /** @type {HTMLElement} */ (c).style.flex = '';
+    sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
+    placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
+  }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
     const host = $('toastHost');
@@ -1022,6 +1047,8 @@
     if ((o && o.sticky) || !rt.contains('ph') || rt.contains('sv')) t.append(h('button', { class: 'icon-btn toast-x', 'aria-label': $t('Close'), html: ICONS.close, onclick: () => closeToast(t) }));
     t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
+    // (a phone's message picks its rows on the next frame: its caller may still add a button, as undoToast's Show alone)
+    if (rt.contains('ph')) requestAnimationFrame(() => fitToastRows(t));
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
@@ -1078,7 +1105,7 @@
       get sideDraw() { return sideDraw; }, set sideDraw(v) { sideDraw = v; },
     };
   }
-  // the app calls the module by the old names (as untyped calls: their types stay the module's own)
+  // the app calls the module by plain function names (as untyped calls: their types stay the module's own)
   const EXM = /** @type {any} */ (Examples);
   function exFitTo(...args) { return EXM.exFitTo(...args); }
   function exOk(...args) { return EXM.exOk(...args); }

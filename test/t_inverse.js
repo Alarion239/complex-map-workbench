@@ -7,6 +7,7 @@ global.Region = require('../src/region.js');
 const Recognize = require('../src/recognize.js');
 const Inverse = require('../src/inverse.js');
 const { InvOps } = require('../src/invops.js');
+const { cpuPerCall } = require('./lib/cpu_time');
 const C = CX.C;
 const PI = Math.PI, TAU = 2 * PI, DEG = PI / 180;
 const QUICK = process.argv.includes('--quick');
@@ -675,9 +676,8 @@ section('(f) singular points');
     ['tan∘exp', [{ type: 'exp' }, { type: 'tan' }], WIN0], ['tan(tan z)', [{ type: 'tan' }, { type: 'tan' }], WIN0]]) {
     const { plan } = planOf(steps);
     Inverse.singular(plan, win);
-    const t0 = process.hrtime.bigint(), N = 20;
-    let l; for (let i = 0; i < N; i++) l = Inverse.singular(plan, win, ['undef', 'branch', 'pole'], 16);
-    const ms = Number(process.hrtime.bigint() - t0) / 1e6 / N;
+    // (CPU time, test/lib/cpu_time.js: a busy machine does not count in it)
+    let l; const ms = cpuPerCall(() => { l = Inverse.singular(plan, win, ['undef', 'branch', 'pole'], 16); }, 20);
     const per = {}; for (const e of l) per[e.kind] = (per[e.kind] || 0) + 1;
     console.log(`singular ${name.padEnd(18)} ${ms.toFixed(3)} ms per call, ${JSON.stringify(per)}`);
     check(`singular ${name}: <= 16 per kind, < 2 ms`, Object.values(per).every((x) => x <= 16) && ms < 2, `${ms} ms ${JSON.stringify(per)}`);
@@ -1036,7 +1036,10 @@ section('singularAfter (ζ after an injective plan)');
 // a straight-line homotopy and a step with no ops have none
 {
   const cases = [['exp', {}], ['mobius', { a: '1', b: '-1', c: '1', d: '1' }], ['affine', { a: '2i', b: '1' }], ['pown', { n: 3 }], ['sin', {}],
-    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}]];
+    ['poly', { co: ['1', '0', '1'] }], ['custom', { expr: '((z-0.0945)/(1-0.0945*z))^2', cut: 180 }], ['joukowski', {}],
+    // (a formula recognised as a chain whose first sub-step, z^3 - 2z, has no exact ops: past it, at t >= 0.5, it stands
+    // for itself by its roots as at t = 1, then the second sub-step's homotopy)
+    ['custom', { expr: 'z^3-2z+1', cut: 180 }]];
   for (const [type, params] of cases) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1054,8 +1057,10 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
     }
   }
-  // root, powa and log: exact ops (no Newton), and every z of a cut plane's sheet is among its w's preimages by them
-  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }]];
+  // root, powa, log and z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|): exact ops (no
+  // Newton), and every z of a cut plane's sheet is among its w's preimages by them
+  const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }],
+    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }]];
   for (const [type, params] of exact) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1076,8 +1081,56 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${JSON.stringify(params)} at t = ${t}: exact ops (no NEWT) that compose to H_t and find z over H_t(z)`, h.ok && !/NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
     }
   }
+  // a recognised chain past its first sub-step, a polynomial with no exact ops (z^3 - 2z): the passed sub-step's NEWT op
+  // inverts it as at t = 1, so walking the ops' preimages back from H_t(z) finds z, as well as the ops composing to H_t;
+  // the polynomial chain z^3 - 2z + 1 (NEWT, AFF) and the rational 1/(z^3 - 2z) (NEWT, MOB), whose whole formula has no
+  // ops at t = 1
+  for (const expr of ['z^3-2z+1', '1/(z^3-2z)']) {
+    const b = Funcs.build(St('custom', { expr, cut: 180 }));
+    for (const t of [0.5, 0.667, 0.75, 0.999]) {
+      const h = Inverse.homOps(b, t), H = b.hom(t), kinds = h.ok ? h.ops.map((o) => o.kind).join() : h.reason;
+      let e = 0, miss = 0;
+      for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4), C(1.9, 0.1), C(-1.2, -1.5)]) {
+        const v = H(z);
+        if (!h.ok || !CX.isFin(v)) continue;
+        let w = z;
+        for (const o of h.ops) w = o.fwd(w);
+        e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+        let us = [v];
+        for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => h.ops[i].pre(x).map((m) => m.u));
+        if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
+      }
+      check(`homOps ${expr} at t = ${t}: past its first sub-step the ops compose to H_t and find z over H_t(z)`, h.ok && /NEWT/.test(kinds) && e < 1e-12 && miss === 0, `${kinds}; err ${e}; missed ${miss}`);
+    }
+  }
   const lin = Funcs.build(St('custom', { expr: 'z+0.2*conj(z)' }));
   check('homOps: a straight-line homotopy has none', !Inverse.homOps(lin, 0.5).ok);
+  // a recognised formula's NEWT op names its sub-step (sub), whose own homotopy the GPU walks; a NEWT op that is not
+  // polynomial keys it (@j), as its program calls that sub-step's homotopy (#1805)
+  {
+    const sub = (expr, t) => Inverse.homOps(Funcs.build(St('custom', { expr, cut: 180 })), t).ops.filter((o) => o.kind === 'NEWT').map((o) => [o.sub, Inverse.opSig(o)]);
+    const g25 = sub('gamma(z)+1', 0.25), g75 = sub('gamma(z+1)', 0.75), p25 = sub('z^3-2z+1', 0.25), p75 = sub('z^3-2z+1', 0.75);
+    check('homOps: Γ(z) + 1 at t = 0.25, its NEWT op names sub-step 0 and keys it', g25.length === 1 && g25[0][0] === 0 && /@0$/.test(g25[0][1]), g25);
+    check('homOps: Γ(z + 1) at t = 0.75, its NEWT op names sub-step 1 and keys it', g75.length === 1 && g75[0][0] === 1 && /@1$/.test(g75[0][1]), g75);
+    check('homOps: z^3 - 2z + 1 at t = 0.25 and 0.75, its polynomial NEWT op names sub-step 0 (its key is its degree)', p25.length === 1 && p25[0][0] === 0 && p25[0][1] === 'NEWT^3' && p75.length === 1 && p75[0][0] === 0 && p75[0][1] === 'NEWT^3', { p25, p75 });
+  }
+  // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
+  // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
+  // Repeated cos (len 1, N = 3: cos, cos, cos) at t = 0.5 and 0.8, and the block [exp, cos] twice (len 2: cos, exp, cos)
+  // at t = 0.2 and 0.9
+  for (const [steps, ts] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], [0.5, 0.8]], [[{ type: 'exp' }, { type: 'cos', repeat: { n: 2, len: 2 } }], [0.2, 0.9]]]) {
+    const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st))), b = built[built.length - 1], block = b.repeat.block;
+    for (const t of ts) {
+      const news = Inverse.homOps(b, t).ops.filter((o) => o.kind === 'NEWT'), bad = [];
+      for (const o of news) {
+        const st = block[o.sub];
+        if (!st) { bad.push({ sub: o.sub, len: block.length }); continue; }
+        const H = st.hom(o.p.t);
+        for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4)]) { const v = H(z), e = CX.abs(CX.sub(o.fwd(z), v)) / (1 + CX.abs(v)); if (!(e < 1e-12)) bad.push({ sub: o.sub, step: st.def.id, e }); }
+      }
+      check(`homOps: ${steps.map((st) => st.type).join(', ')} repeated (len ${block.length}) at t = ${t}: each NEWT op names the block step whose homotopy it walks`, news.length > 0 && bad.length === 0, { subs: news.map((o) => o.sub), bad: bad.slice(0, 3) });
+    }
+  }
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
 }
 

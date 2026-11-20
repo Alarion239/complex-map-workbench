@@ -303,7 +303,8 @@ const InvOps = (() => {
     const dH = (f, u) => { const h = 1e-6 * (1 + abs(u)); return scale(sub(f(add(u, C(h, 0))), f(sub(u, C(h, 0)))), 0.5 / h); };
     const hits = (u, w) => isFin(u) && abs(sub(Ht(u), w)) <= 1e-9 * (1 + abs(w));
     const step = (u, w, f) => sub(u, div(sub(f(u), w), dH(f, u)));
-    const polishAt = (u, w) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) u = step(u, w, Ht); return u; };
+    // (tr, when given: each iterate of the polish, as it is made)
+    const polishAt = (u, w, tr) => { for (let it = 0; it < NEWT_POL && isFin(u); it++) { u = step(u, w, Ht); if (tr) tr(u); } return u; };
     // f's i-th point over w (back's members in turn, the last op's first), or null
     const seedOf = (w, i) => {
       let u = w;
@@ -339,13 +340,18 @@ const InvOps = (() => {
     const k0 = newtGridK(t), grid = [null];
     for (let k = 1; k <= k0; k++) grid.push(H(k / NEWT_K));
     const prm = counts ? { t, back } : { t, anchor: anchor || null, pole: pole || null };
+    // pre(w, trace): the members over w; trace(m, u), when given, gets every iterate of member 0's walk and of the ladder's
+    // (a ladder member's seed first), as it is made, for a test that follows the walk (newt_member0_cmd.js). polish(u, w):
+    // u after NEWT_POL Newton steps on H_t for w, the polish every member ends with
     return op('NEWT', prm, Ht, {
       fam: { type: 'fin', count: counts ? 1 + seeds : 2 + NEWT_LADDER.length },
-      pre: (w) => {
+      polish: (u, w) => polishAt(u, w),
+      pre: (w, trace) => {
+        const tr = (m) => trace && ((v) => trace(m, v)), t0 = tr(0);
         let u = w;
-        for (let s = 1; s <= k0 && isFin(u); s++) u = step(u, w, grid[s]);
-        if (isFin(u)) u = step(u, w, Ht);
-        u = polishAt(u, w);
+        for (let s = 1; s <= k0 && isFin(u); s++) { u = step(u, w, grid[s]); if (t0) t0(u); }
+        if (isFin(u)) { u = step(u, w, Ht); if (t0) t0(u); }
+        u = polishAt(u, w, t0);
         const out = [];
         if (hits(u, w)) out.push(ONEM(u, CX.inv(dH(Ht, u)), { m: 0 }));
         if (counts) {
@@ -370,9 +376,11 @@ const InvOps = (() => {
         }
         // members 2 + i: Newton from the ladder's seed i, kept when it hits w and is new
         for (let i = 0; i < NEWT_LADDER.length; i++) {
+          const ti = tr(2 + i);
           let v = ladderSeed(w, t, prm.anchor, NEWT_LADDER[i]);
-          for (let it = 0; it < NEWT_LAD && isFin(v); it++) v = step(v, w, Ht);
-          v = polishAt(v, w);
+          if (ti) ti(v);
+          for (let it = 0; it < NEWT_LAD && isFin(v); it++) { v = step(v, w, Ht); if (ti) ti(v); }
+          v = polishAt(v, w, ti);
           if (hits(v, w) && out.every((e) => abs(sub(v, e.u)) > NEWT_SAME * (1 + abs(e.u)))) out.push(ONEM(v, CX.inv(dH(Ht, v)), { m: 2 + i }));
         }
         return out;
