@@ -19,7 +19,7 @@ const TOL = 6, FRAC = 0.002, CONTROL_MIN_FRAC = 0.05;
 // at most MAX_FRAMES, FRAME_GAP_MS apart)
 const W = 240, H = 160, VIEW = { cx: 0.13, cy: -0.07, s: 40 }, R = 1.7, EDGE_MARGIN_PX = 3, MIN_PIXELS = 5000, MESH_RES = 48, MAX_FRAMES = 480, FRAME_GAP_MS = 250;
 await view(1200, 800, false, false);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=regcentre${Date.now()}` });
+await go(`http://localhost:${PORT}/test.html?view=steps&ns=regcentre${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof GLR === "object" && typeof Region === "object"' });
 const CASES = [[1, 1], [5, 1], [8, 2], [26, 2]];
 // (the fill carries Tfill, the colour plot it is compared with is at Tplot)
