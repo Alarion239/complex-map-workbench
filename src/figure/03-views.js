@@ -210,6 +210,12 @@
     }
     return null;
   };
+  // a point's name as the app writes it (F(z₀), w₂(z₁), Hₜ(z₀)) in TeX: subscripts as _{…}, primes as '
+  const SUBS = '₀₁₂₃₄₅₆₇₈₉';
+  const nameTex = (u) => String(u).replace(/([^₀-₉ₜ])([₀-₉ₜ]+)/g, (m, a, d) => `${a}_{${[...d].map((c) => (c === 'ₜ' ? 't' : SUBS.indexOf(c))).join('')}}`).replace(/′/g, "'");
+  // a shape's map from its own plane into the panel's (A.shapeF), F the panel's map of the z-plane's shapes; null where the
+  // page does not draw it there
+  const shapeMapF = (s, side, F) => (A.shapeF ? A.shapeF(s, side, F) : F);
   const cxTex = (z) => (CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
   // the vector layers of one plane panel: boundaries and curves (mapped by F), points (and their names)
   function planeLayers(o, P, side, F, box, wpt, shapes, srcWin, primeName) {
@@ -245,16 +251,21 @@
     // plane labels it (helpers have no label and no index), and a fixed constructed point is a ring, as on screen
     const cmFig = shapes.some((x) => x.def || x.at);
     const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);
+    // (a point is carried from its own plane: one of a plane after the panel's is not drawn, as on the page; every point the
+    // panel draws is named as the page's figure frames name it, a label of its own as before)
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
+      const Fp = shapeMapF(s, side, F);
+      if (!Fp) return;
       const mk = markOf(s);
-      const z = C(s.p[0], s.p[1]), w = F(z);
+      const z = C(s.p[0], s.p[1]), w = Fp(z);
       const k = mk === 'helper' ? -1 : pi++;
       if (!fin(w) || s._atInf) return;
       if (mk === 'helper') { points.push({ z: [w.re, w.im], r: 1.1, kind: 'ring', label: null, at: 'auto', sw: 0.5 }); return; }
       let label = null;
       if (P.named) label = String.fromCharCode(65 + (k % 26)) + (primeName ? "'" : '');
-      else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
+      else if (s.label || !A.pointName) { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
+      else label = nameTex(A.pointName(s, k, side));
       if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : mk === 'ring' ? 'ring' : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
       else points.push({ z: [w.re, w.im], r: mk === 'ring' ? 1.7 : 1.5, kind: mk === 'ring' ? 'ring' : 'dot', fill: '#000000', label, at: 'auto', sw: mk === 'ring' ? 0.6 : undefined });
     });
@@ -416,7 +427,7 @@
       let cb = contentBox(q, big), must = null;
       for (const s of shapes) {
         if (kindType(s) === 'area') continue;
-        if (kindType(s) === 'point') { const w = Fs[side](C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
+        if (kindType(s) === 'point') { const Fp = shapeMapF(s, side, Fs[side]); if (!Fp) continue; const w = Fp(C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
         const b = ptsBox(shapeCurves(s, Fs[side], big, 300, srcWin).pts, big);
         if (b) {
           const ex = 0.01;
@@ -494,7 +505,7 @@
         if (r.globe) {
           const c = [0, r.w, 0, r.h], k = wpt / r.w, proj = globeProj(r.globe, r, c, x, y, k);
           const Fp = side === 'R' && A.defo && A.defo().on ? A.homF(A.defo().T) : Fs[side];
-          if (!(view0 === 'xyL' && st.main === 'phase')) items.push(shapes.filter((s) => kindType(s) === 'point' && s.p).map((s, q) => { const e = proj(Fp(C(s.p[0], s.p[1]))); return e ? XD.marker('dot', e[0], e[1], 1.6, o.ink === 'bw' ? '#000000' : PTS[q % 4][1], '#ffffff', 0.4) : ''; }).join(''));
+          if (!(view0 === 'xyL' && st.main === 'phase')) items.push(shapes.filter((s) => kindType(s) === 'point' && s.p && shapeMapF(s, side, Fp)).map((s, q) => { const e = proj(shapeMapF(s, side, Fp)(C(s.p[0], s.p[1]))); return e ? XD.marker('dot', e[0], e[1], 1.6, o.ink === 'bw' ? '#000000' : PTS[q % 4][1], '#ffffff', 0.4) : ''; }).join(''));
           items.push(globeLabels(r.globe, r, c, x, y, k, tp - 1));
         }
         if (two && axes === 'box') items.push(head(x, x + wpt, y - 3, panelLetter(i), vars[side], lp));
@@ -541,7 +552,7 @@
     const H = Math.max(y + h + bottom, keyBottom);
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
     const open = Object.values(panelOut).some((q) => q.lay.dashed > 0);
-    return { items, defs, lines, H, info: { boxes, open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
+    return { items, defs, lines, H, info: { boxes, points: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.points.map((p) => ({ z: p.z, label: p.label }))])), open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
   }
 
   // ---------- (2) Phase: colour (hue wheel, level lines, a ring key) and black and white (a contour portrait) ----------
