@@ -152,6 +152,7 @@ const TIMING = {
   'deform_dirichlet_cmd.js': [t(/^timing: /)],
   'steps_glide_negpow_cmd.js': [t(/^timing: /)],
   'steps_glide_closed_cmd.js': [t(/^timing: /)],
+  'steps_glide_warm_cmd.js': [t(/waits at most/)],
   'sound_cmd.js': [t(/^frames: Hear F keeps the hover sweep/), t(/^tracker cost:/)],
   'seasong_cmd.js': [t(/60 fps while it plays \(p95 under 20 ms\)$/)],
   'tour_perf_cmd.js': [t(/: 60 fps while /)],
