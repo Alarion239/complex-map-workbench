@@ -63,6 +63,8 @@
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
   const LEADER_ROWS = 3, LEADER_COST = 3;
+  // (a point whose marker, its ring and halo MARKER_R px out from its centre, lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control)
+  const MARKER_R = 5;
   // (a label's halo, and the leader's ink line, in px)
   const HALO_W = 3, LEADER_W = 1;
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
@@ -92,6 +94,16 @@
       out.push({ x0: r.left - pr.left - CTRL_PAD, x1: r.right - pr.left + CTRL_PAD, y0: r.top - pr.top - CTRL_PAD, y1: r.bottom - pr.top + CTRL_PAD });
     }
     return out;
+  }
+  // whether a control of the plane is on top at every one of the marker's sample points (its centre and corners): the marker is not seen
+  function markerHidden(pane, x, y) {
+    const plot = pane.ocanvas && pane.ocanvas.parentElement;
+    if (!plot) return false;
+    const pr = plot.getBoundingClientRect();
+    return [[0, 0], [-MARKER_R, -MARKER_R], [MARKER_R, -MARKER_R], [-MARKER_R, MARKER_R], [MARKER_R, MARKER_R]].every(([dx, dy]) => {
+      const e = document.elementFromPoint(pr.left + x + dx, pr.top + y + dy);
+      return !!e && e !== plot && e.tagName !== 'CANVAS' && !e.classList.contains('ph-col') && plot.contains(e);   // (the column's own box spans the gaps between its keys)
+    });
   }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
@@ -221,7 +233,7 @@
             const row = k % 2 ? (k + 1) / 2 : -k / 2;
             best = evalCand(cover.x0 - tw - g.x, row * (th + 2), LEADER_COST);
           }
-          leader = !!best;
+          leader = !!best && !markerHidden(pane, g.x, g.y);
         }
         if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
         ({ x, y } = best);
