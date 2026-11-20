@@ -2003,9 +2003,10 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
-    // (a frame between two planes shows the cuts as the plane it is nearest to does at rest: hatches and the branch point's dot on the cuts of that plane; while the
-    // glide is under way, a handle on each editable cut, inert. A frame parked between two planes draws no handle: there one would look draggable and take no press)
-    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN, { own: (j0) => j0 === near, marks: svGliding() ? cutMarksL : null }); }
+    // (a frame between two planes shows the cuts as the plane it is nearest to does at rest: hatches and the branch point's dot on the cuts of that plane, and a
+    // handle on each editable cut: while the glide is under way inert (cutMarksL), on a frame parked between two planes one that a drag turns, the pointer pulled
+    // back through the frame's own map, the glide's at its u (cutHandlesL))
+    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN, { own: (j0) => j0 === near, marks: svGliding() ? cutMarksL : svParked() ? cutHandlesL : null }); }
     // (a glide or a play is under way: its frames stay on the move, whatever a stalled frame shows)
     const settled = rest || (!SV.anim && !SV.play && svPictureSettled(pane, a, b, u));
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, settled ? {} : { lite: true }));
@@ -2667,10 +2668,10 @@
       SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
-    // (the folded key on a phone loses its head's words: as an image it keeps a name, the key's kind's, set again when the
-    // surface changes it; ux on #448. In a pane head the key's own words name it)
-    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key');
-    if (leg && ph && leg.getAttribute('role') === 'img' && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
+    // (the folded key on a phone, a button (legendKeyButton), is named for its kind, set again when the surface changes
+    // it; ux on #448. In a pane head the key's own words name it)
+    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key'), legRole = leg && leg.getAttribute('role');
+    if (leg && ph && (legRole === 'button' || legRole === 'img') && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
     const tn = svTargetNote(), tnShow = !!tn && !ph;
     if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;
@@ -3459,23 +3460,33 @@
   // is one part of a glide (svGlideParts) and takes an idle moment of its own: it asks for the inverse programs of its
   // frame (svInvPaths: the programs svCarryExactHom and svGlobeCarryInv draw with; with KHR_parallel_shader_compile they
   // link in the background, and a later moment looks again), then, on the plane, draws that frame once into the GL
-  // canvas, which no pane shows until a frame copies it (svWarmCarry's way). The glide on comes first, then the glide
-  // back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any input puts the job off;
-  // anything svInvKey names changing drops the rest, and svPrestart, which runs after such a change, queues them again
+  // canvas, which no pane shows until a frame copies it (svWarmCarry's way). A frame whose first op is a NEWT op is not
+  // drawn: its roots pass would keep a float texture of the pane's size a root, which the rest never needs. The jobs start
+  // once the rest's own work is done (svReady) and SV_WARM_IDLE_MS have passed since that, since the jobs were queued and
+  // since the last input, so a loaded example, an edit or a plane's first frame gets its programs first. The glide on
+  // comes first, then the glide back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any
+  // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
+  // change, queues them again
   const SV_INV_WARM_MAX = 4;
   // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
-  // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks)
-  let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false;
+  // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
+  // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
+  let svInvJobs = [], svInvWarmKey = null, svInvFlushing = false, svInvQueuedAt = 0, svInvReadyAt = 0;
+  // (test hook: no jobs queued while set, and those left dropped)
+  let svInvWarmOff = false;
+  const svInvWarmOffSet = (on) => { svInvWarmOff = !!on; if (on) svInvJobs = []; };
   const svInvKey = () => `${chainSig[nSteps()]}|${SV.surf}|${SV.scope}|${svT()}|${S.dc}|${Math.round(SV.g.x)}`;
   function svPrestartInv() {
     const globe = SV.surf === 'sphere', key = svInvKey();
-    if ((!globe && SV.surf !== 'plane') || !paneL || !GLR.inverseState || nSteps() < 1) return;
+    if (svInvWarmOff || (!globe && SV.surf !== 'plane') || !paneL || !GLR.inverseState || nSteps() < 1) return;
     const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
       if (b && !isDeriv(b) && !derivIn(0, b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
     }
     svInvWarmKey = key;
     svInvJobs = jobs.slice(0, SV_INV_WARM_MAX);
+    svInvQueuedAt = performance.now();
+    svInvReadyAt = 0;
     svInvWarmNext();
   }
   // a place in each part of step b's glide whose homotopy has ops of their own kinds (Inverse.homOps): a recognised
@@ -3493,6 +3504,11 @@
       if (key !== svInvWarmKey || !svInvJobs.length) return;
       if (key !== svInvKey()) { svInvJobs = []; return; }
       if (interacting() || svGliding()) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+      const now = performance.now();
+      if (!svReady().ready) { svInvReadyAt = 0; setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
+      if (!svInvReadyAt) svInvReadyAt = now;
+      const wait = Math.max(svInvQueuedAt, svInvReadyAt, lastInputT) + SV_WARM_IDLE_MS - now;
+      if (wait > 0) { setTimeout(svInvWarmNext, Math.max(wait, SV_INV_WARM_AGAIN_MS)); return; }
       const job = svInvJobs[0], globe = SV.surf === 'sphere', T = svT(), carry = svCarryStyle(T);
       const h = svInvPaths(job.b, job.u, globe ? 'globe' : 'flat', { r: null });
       const state = (i) => (globe ? GLR.inverseState(Object.assign({ viewKind: 'globe' }, svInvArg(paneL, h.paths[i], h.list[i], carry))) : svInvState(h, i, job.b, job.u));
@@ -3506,7 +3522,7 @@
           svInvJobs.shift();
           // (the frame's commands flushed, and the next job only once the GPU has run them (GLR.gpuDone's fence, polled,
           // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
-          if (!globe && st.every((x) => x === 'ready')) {
+          if (!globe && st.every((x) => x === 'ready') && !h.paths.some((q) => q.inv && q.inv.nr)) {
             let drawn = false;
             try { drawn = svDrawInverse(paneL, h.list, h.paths, T, { open: false }, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
             if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
