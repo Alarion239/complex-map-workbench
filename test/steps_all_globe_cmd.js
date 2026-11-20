@@ -4,7 +4,8 @@
 //    step-at-a-time frame of [f] at the same u, pixel for pixel within DIFF_TOL on all but SAME_MAX of the pane, for f = z³
 //    and eᶻ (colour from z, Everywhere); both frames are the inverse pass's;
 //  - Cayley, then z³: the frames past u = 0.3 and 0.6 are the inverse pass's, all at once;
-//  - a span with a step whose homotopy is inverted by Newton's method ([cos, 1 z]) keeps the carried mesh.
+//  - a span with a step whose homotopy is inverted by Newton's method ([inverse Joukowski, 1 z]: its NEWT op) keeps the
+//    carried mesh; [cos, 1 z], whose homotopy has an exact inverse (cos's zoom path), is the inverse pass's on the globe.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -84,10 +85,17 @@ for (const c of SAME.filter((q) => q.name !== 'sin z')) for (const u of SAME_U) 
   }
 }
 {
-  const n = await open([{ type: 'cos', params: {}, on: true }, MUL('1')], 80, true);
+  const n = await open([{ type: 'ijouk', params: {}, on: true }, MUL('1')], 80, true);
   const g = await frozenPast(n, 0.5 * n);
   info.newt = g;
-  ok('[cos, 1 z] on the globe: a frame between the planes, all at once, the carried mesh draws it', g.all && g.mode === 3 && g.globe.path === 'mesh', g);
+  ok('[inverse Joukowski, 1 z] on the globe: a frame between the planes, all at once, the carried mesh draws it', g.all && g.mode === 3 && g.globe.path === 'mesh', g);
+}
+// a span whose step has an exact inverse homotopy (cos's zoom path) is the inverse pass's on the globe too
+{
+  const n = await open([{ type: 'cos', params: {}, on: true }, MUL('1')], 80, true);
+  const g = await frozenPast(n, 0.5 * n);
+  info.cos = g;
+  ok('[cos, 1 z] on the globe: a frame between the planes, all at once, the inverse pass draws it', g.all && g.mode === 3 && g.globe.path === 'inverse', g);
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''));
 ok('no errors in the console', errs.length === 0, errs.slice(0, 5));
