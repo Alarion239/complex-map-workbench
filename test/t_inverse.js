@@ -1057,10 +1057,13 @@ section('singularAfter (ζ after an injective plan)');
       check(`homOps ${type} ${params.expr || ''} at t = ${t}: its ops compose to H_t`, h.ok && e < 1e-12, h.ok ? e : h.reason);
     }
   }
-  // root, powa, log and z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|): exact ops (no
-  // Newton), and every z of a cut plane's sheet is among its w's preimages by them
+  // root, powa, log, z^n for n < 0 (#1491: its power path, then the Möbius path to 1/w after z^|n|) and the zooms about
+  // a point other than 0 (cos, arccos, cosh, arcosh, and cos(z) as a formula): exact ops (no Newton), and every z of a
+  // cut plane's sheet is among its w's preimages by them
   const exact = [['root', { n: 2 }], ['root', { n: 3, cut: 60, k: 2 }], ['powa', {}], ['powa', { alpha: '-0.7+0.2i' }], ['log', {}], ['log', { cut: 45, k: -1 }],
-    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }]];
+    ['pown', { n: -1 }], ['pown', { n: -2 }], ['pown', { n: -3 }], ['cos', {}], ['arccos', {}], ['cosh', {}], ['arcosh', {}], ['custom', { expr: 'cos(z)', cut: 180 }]];
+  // (an additive family's members: its bases shifted by m periods, |m| <= ADD_M)
+  const ADD_M = 2;
   for (const [type, params] of exact) {
     const b = Funcs.build(St(type, params));
     for (const t of [0.01, 0.3, 0.5, 0.7, 0.99]) {
@@ -1074,7 +1077,9 @@ section('singularAfter (ζ after an injective plan)');
         e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
         let us = [v];
         // (a log family's members: m about its range, kept when the member's lambda lies in it)
-        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12) : o.pre(x));
+        const pre = (o, x) => (o.fam && o.fam.type === 'log' ? [...Array(2 * o.fam.count + 1).keys()].map((j) => o.fam.member(x, j - o.fam.count, o.fam.L0(x))).filter((q) => q.lam.im > o.fam.lo - 1e-12 && q.lam.im <= o.fam.hi + 1e-12)
+          : o.fam && o.fam.type === 'add' ? o.fam.bases(x).flatMap((base) => [...Array(2 * ADD_M + 1).keys()].map((j) => o.fam.member(x, 0, j - ADD_M, base)))
+            : o.pre(x));
         for (let i = h.ops.length - 1; i >= 0; i--) us = us.flatMap((x) => pre(h.ops[i], x).map((m) => m.u));
         if (!us.some((x) => CX.abs(CX.sub(x, z)) <= 1e-9 * (1 + CX.abs(z)))) miss++;
       }
@@ -1116,9 +1121,10 @@ section('singularAfter (ζ after an injective plan)');
   }
   // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
   // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
-  // Repeated cos (len 1, N = 3: cos, cos, cos) at t = 0.5 and 0.8, and the block [exp, cos] twice (len 2: cos, exp, cos)
-  // at t = 0.2 and 0.9
-  for (const [steps, ts] of [[[{ type: 'cos', repeat: { n: 3, len: 1 } }], [0.5, 0.8]], [[{ type: 'exp' }, { type: 'cos', repeat: { n: 2, len: 2 } }], [0.2, 0.9]]]) {
+  // Repeated inverse Joukowski (len 1, N = 3: three times) at t = 0.5 and 0.8, and the block [exp, inverse Joukowski]
+  // twice (len 2: inverse Joukowski, exp, inverse Joukowski) at t = 0.2 and 0.9
+  const ij = (repeat) => ({ type: 'ijouk', params: Funcs.defaults('ijouk'), repeat });
+  for (const [steps, ts] of [[[ij({ n: 3, len: 1 })], [0.5, 0.8]], [[{ type: 'exp' }, ij({ n: 2, len: 2 })], [0.2, 0.9]]]) {
     const built = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st))), b = built[built.length - 1], block = b.repeat.block;
     for (const t of ts) {
       const news = Inverse.homOps(b, t).ops.filter((o) => o.kind === 'NEWT'), bad = [];
@@ -1271,6 +1277,51 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   for (const t of [0.5, 0.75]) {
     const r = newtShare(b, t, { re: 0.5, y0: -2.8, y1: 13.8 }, (u) => u.re > 0 && u.re < 1 && u.im > -2.8 && u.im < 13.8, { re: [0.2, 0.5, 0.8], im0: -3, im1: 14, dim: 0.5 }, { x0: -10.1, x1: 11.1, y0: -2.8, y1: 13.8 }, 32, true);
     check(`opNewt zeta at t = ${t} over the pole's image: the members reach at least ${floor[t]} of the true image of the strip`, r.truth > MIN_TRUTH && r.share >= floor[t], r);
+  }
+}
+// The walks take the GPU kit's derivative (#1929): member 0's walk (op.pre(w, trace)'s first newtGridK(t) + 1 iterates: one
+// step at each grid stage k / NEWT_K, then one at t) is Newton with H' by the forward difference over NEWT_FD (1 + |u|) from
+// H(u), glsl.js's _step, step for step. Where a stage's one step leaves |H - w| large the walk leaps between basins and the
+// derivative decides where it lands: at the zeta pixel w = 0.0875 + 25.3125i of #1396, t = 0.5, a central difference over
+// 1e-6 (1 + |u|) walked to -0.905 + 38.244i, where the kit's walk ends on none. glsl.js's _fd has the same step. Member
+// 1's deflated steps (glsl.js's _defl) too.
+{
+  const GLSL = require('fs').readFileSync(require('path').join(__dirname, '..', 'src', 'glsl.js'), 'utf8');
+  const fdAt = /_fd\(vec2 u, vec2 hu, float t\) \{ float h = ([0-9.e-]+) \* \(1\.0 \+ cx_abs\(u\)\)/.exec(GLSL);
+  check('glsl.js\'s _fd differences H over InvOps.NEWT_FD (1 + |u|)', !!fdAt && Number(fdAt[1]) === InvOps.NEWT_FD, fdAt && fdAt[1]);
+  const fdStep = (u, w, f) => { const fu = f(u), h = InvOps.NEWT_FD * (1 + CX.abs(u)); return CX.sub(u, CX.div(CX.sub(fu, w), CX.scale(CX.sub(f(CX.add(u, { re: h, im: 0 })), fu), 1 / h))); };
+  const CASES = [['zeta', 0.5, [[0.0875, 25.3125], [0.5, 14], [-3, 20], [2, 30]]], ['zeta', 0.75, [[0.0875, 25.3125], [1, 8]]], ['series', 0.5, [[1, 1], [-2, 0.5]]]];
+  for (const [type, t, ws] of CASES) {
+    const b = Funcs.build(St(type)), op = Inverse.homOps(b, t).ops[0], k0 = InvOps.newtGridK(t);
+    for (const [x, y] of ws) {
+      const w = { re: x, im: y }, got = [];
+      op.pre(w, (m, u) => { if (m === 0) got.push(u); });
+      let u = w, worst = 0, steps = 0;
+      for (let k = 1; k <= k0 + 1 && k <= got.length && Number.isFinite(u.re + u.im); k++, steps++) {
+        u = fdStep(u, w, b.hom(k <= k0 ? k / InvOps.NEWT_K : t));
+        worst = Math.max(worst, CX.abs(CX.sub(u, got[k - 1])) / (1 + CX.abs(u)));
+      }
+      check(`opNewt ${type} at t = ${t}, w = ${x} + ${y}i: member 0's walk is the kit's, Newton with the forward difference, step for step`, steps === k0 + 1 && worst <= 1e-12, { steps, of: k0 + 1, worst });
+    }
+  }
+  // member 1, Newton deflated by member 0 u from 2w - u (no pole: the series), takes the same forward difference: its
+  // NEWT_DEF iterates are glsl.js's _defl's, step for step
+  {
+    const b = Funcs.build(St('series')), t = 0.5, op = Inverse.homOps(b, t).ops[0], Ht = b.hom(t);
+    for (const [x, y] of [[1, 1], [-2, 0.5], [0.5, -1.5]]) {
+      const w = { re: x, im: y }, got = [];
+      const m0 = op.pre(w, (m, v) => { if (m === 1) got.push(v); }).find((e) => e.m === 0);
+      // (both stop where a step leaves the finite numbers: on the root itself H(v) - w is 0 and the deflated step divides by it)
+      const fin = (z) => Number.isFinite(z.re + z.im);
+      let v = CX.sub(CX.scale(w, 2), m0.u), worst = 0, steps = 0;
+      for (let it = 0; it < got.length; it++, steps++) {
+        const hv = Ht(v), h = InvOps.NEWT_FD * (1 + CX.abs(v)), d = CX.scale(CX.sub(Ht(CX.add(v, { re: h, im: 0 })), hv), 1 / h);
+        v = CX.sub(v, CX.inv(CX.sub(CX.div(d, CX.sub(hv, w)), CX.inv(CX.sub(v, m0.u)))));
+        if (!fin(v) || !fin(got[it])) { if (fin(v) !== fin(got[it])) worst = Infinity; steps++; break; }
+        worst = Math.max(worst, CX.abs(CX.sub(v, got[it])) / (1 + CX.abs(v)));
+      }
+      check(`opNewt series at t = ${t}, w = ${x} + ${y}i: member 1's deflated steps are the kit's (_defl), forward difference, step for step`, got.length >= 3 && steps === got.length && worst <= 1e-12, { steps, traced: got.length, worst });
+    }
   }
 }
 // the exponential series sum z^n / n! (no exact inverse), the disc |z| < 2, w over [-3, 3]^2: the members keep reaching
