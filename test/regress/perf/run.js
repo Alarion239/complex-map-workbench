@@ -1036,6 +1036,8 @@ async function openSteps(state) {
   await B.until('(window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.document) ? "yes" : (performance.now() > 12000 ? "no" : "")', 15000).catch(() => 'no');
 }
 const SV_GLIDE_JANK_MS = 25;
+// the longest a glide unit with o.ready waits for its chain to be prepared
+const SV_READY_TIMEOUT_MS = 120000;
 async function svGlideUnit(scene, o = {}) {
   const id = o.id || `sv.glide.${scene}`, surf = o.surf || 'plane', scope = o.scope || 'all', [pa, pb] = o.planes || [0, 1];
   const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : ''; })()`)));
@@ -1056,7 +1058,7 @@ async function svGlideUnit(scene, o = {}) {
   };
   for (const dpr of [1, 2]) {
     const pre = `${id}${dpr === 2 ? '.dpr2' : ''}`;
-    const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], td = Date.now();
+    const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], readyMs = [], td = Date.now();
     if (dpr !== 1) await setDpr(dpr);
     try {
       for (let i = 0; i < REPS; i++) {
@@ -1069,6 +1071,10 @@ async function svGlideUnit(scene, o = {}) {
         if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
         dprOk.push(Math.abs((await B.ev('devicePixelRatio')) - dpr) < 1e-9);
         await B.ev(`__cmwSteps({ scope: '${scope}', surf: '${surf}', go: ${pa}, now: true }), 1`);
+        // (o.ready: the chain prepared first, its wait an info row: the Play gate holds a glide until the chain's jobs are
+        // done, and a chain whose carried meshes are built on the CPU can take longer than a settle to prepare. A build
+        // without the gate has no ready state and waits for nothing)
+        if (o.ready) { const t = Date.now(); await B.until('!__cmwSteps().ready || __cmwSteps().ready.ready', SV_READY_TIMEOUT_MS, 50); readyMs.push(Date.now() - t); }
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
@@ -1092,6 +1098,7 @@ async function svGlideUnit(scene, o = {}) {
     } finally { if (dpr !== 1) await setDpr(1); }
     put(`${pre}.dpr_ok`, 'check', '', dprOk);
     put(`${pre}.reps`, 'info', '', [R.length]);
+    if (o.ready) put(`${pre}.ready_ms`, 'info', 'ms', readyMs);
     putPooled(`${pre}.frame_p95_ms`, 'frame_ms', 'ms', R, 'frame', 0.95, 'frame_p95');
     putPooled(`${pre}.cpu_p95_ms`, 'frame_ms', 'ms', R, 'cpu', 0.95, 'cpu_p95');
     put(`${pre}.fps`, 'throughput', 'frames/s', R.map((r) => r.fps));
@@ -1810,7 +1817,7 @@ unit('sv.interact.king', 'the steps view (#366 K, on a GPU), the Mountain King, 
 unit('sv.glide.default', 'the steps view (#439 F, #443, on a GPU), the default page: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default'));
 unit('sv.glide.zeta', 'the steps view (#439 F, #443, on a GPU), the zeros of zeta: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('zeta'));
 unit('sv.glide.king', 'the steps view (#439 F, #443, on a GPU), the Mountain King: a warm glide there and back at dpr 1 and 2: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('king'), { timeoutS: 600 });
-unit('sv.glide.dilog', 'the steps view (on a GPU), the dilogarithm from its series (a Series step, aₙ = 1/n²): a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2. Its glide is the carried mesh\'s: the inverse pass inverts the Series step by Newton, and under Everywhere it has neither seeds nor every root for it (#885); info rows only: the number is that fallback\'s, which a per-pixel path for the step would replace', () => svGlideUnit('dilog', { info: true }));
+unit('sv.glide.dilog', 'the steps view (on a GPU), the dilogarithm from its series (a Series step, aₙ = 1/n²): a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2. Its glide is the carried mesh\'s: the inverse pass inverts the Series step by Newton, and under Everywhere it has neither seeds nor every root for it (#885); info rows only: the number is that fallback\'s, which a per-pixel path for the step would replace. Each rep waits for the chain to be prepared before its warm glide (its meshes are built on the CPU: ready_ms)', () => svGlideUnit('dilog', { info: true, ready: true }), { timeoutS: 600 });
 unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: a warm glide there and back between z and w₁ at dpr 1 and 2, Everywhere: frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('default', { id: 'sv.glide.globe', surf: 'sphere' }));
 unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
 // (a chain with a ray cut: √z (cut 180°) then z + 2, the glide between w₁ and w₂ carrying the cut's two banks and, on the
