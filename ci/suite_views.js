@@ -122,7 +122,7 @@ const VIEWS = {
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
   'steps_pull_off_cmd.js': steps(),
-  'floor_pick_cmd.js': steps(),
+  'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
   'steps_land_lscale_cmd.js': steps({ pin: true }),

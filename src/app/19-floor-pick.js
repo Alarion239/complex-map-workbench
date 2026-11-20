@@ -87,7 +87,7 @@
     else if (!d.disc) {
       // (the disc is in the chain's shapes while it is drawn, so its patches show; it is added as one edit on release)
       d.disc = newShape('disc', { c: [d.w0.re, d.w0.im], r: CX.abs(CX.sub(w, d.w0)), stage: d.T });
-      S.shapes.push(d.disc);
+      pushShape(d.disc);
       if (SV.sig != null) SV.sig = svSigNow();
     } else d.disc.r = CX.abs(CX.sub(w, d.w0));
     shapesChanged(false);
@@ -97,7 +97,7 @@
   function pickUp(d) {
     if (!d.moved) return;
     if (d.mode === 'pickOut' && d.disc) {
-      S.shapes.splice(S.shapes.indexOf(d.disc), 1);
+      setShapes(S.shapes.filter((s) => s !== d.disc));
       if (!(d.disc.r > 0)) { shapesChanged(true); return; }
       shapeVia = 'draw';
       addShape(d.disc);
