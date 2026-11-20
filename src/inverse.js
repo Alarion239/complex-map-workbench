@@ -17,7 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
-  const { polyMul, polySub, polyDer, taylorAt } = Derivs;
+  const { taylorAt } = Derivs;
   const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // the centres of cosh's zoom (arsinh 1, where cosh' = 1 and cosh = √2) and arcosh's (√2), as NatPaths.ZOOM takes them
@@ -621,7 +621,9 @@ const Inverse = (() => {
   // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
-  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out
+  // −1/4: −1/2 ×2; z⁸ at 0: 0 ×8); the mults sum to total less the branches left out.
+  // A polynomial step's roots (a NEWT op with deg) are its op's list, exact to InvOps.NEWT_POLY_RES, or not exact where
+  // the op has none.
   function pointPre(plan, p, cap = LEAF_CAP) {
     if (!plan || !plan.ok) return { exact: false, reason: plan ? plan.reason : 'no plan' };
     let total = 1;
@@ -636,7 +638,10 @@ const Inverse = (() => {
       const hole = (u) => !!o.holes && o.holes.some((h) => abs(sub(u, h)) <= 1e-7 * (1 + abs(h)));
       for (const { z: w, m } of cur) {
         // (a member listed once for several branches says so: IPOW at 0 is 0 ×n, RAT2's double root 0 is ×2)
-        for (const mem of o.pre(w)) {
+        let mems = o.pre(w);
+        // (a polynomial's roots, NEWT with deg: the op's list, mems.exact, or not exact where it has none)
+        if (o.kind === 'NEWT' && o.p.deg) { if (!mems.exact) return { exact: false, reason: mems.reason || 'a polynomial step with no roots listed' }; mems = mems.exact; }
+        for (const mem of mems) {
           if (mem.lvl < 0 || !isFin(mem.u) || hole(mem.u)) continue;
           const each = m * (mem.mult || 1);
           // (roots that meet at a critical value, QUAD, RAT2, JOUK's two branches there, merge into one; a double root
@@ -649,46 +654,44 @@ const Inverse = (() => {
     }
     return { exact: true, zs: cur.map((r) => r.z), mult: cur.map((r) => r.m), total };
   }
+  // Inverse.pointPlan(steps, built, a, b) -> the Plan for pointPre over the stages (a, b]: planChain's, where a polynomial
+  // step of degree 3 to NEWT_POLY_MAX with no exact ops has its roots instead (homOps at t = 1: one NEWT op, every root
+  // of f(u) = w by Aberth's iteration, a multiple root once with its multiplicity)
+  function pointPlan(steps, built, a = 0, b = steps.length) {
+    return planChain(steps, built.map((bb, k) => (k >= a && k < b && isLive(steps[k], bb) ? homBuilt(bb, homOps(bb, 1)) : bb)), a, b);
+  }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
-  // ops each have one branch or finitely many of these kinds: each op's own (IPOW 0 and infinity, JOUK ±1, QUAD its vertex
-  // and infinity, RAT2 ... RAT12 at the zeros of their derivatives and at infinity when that is one), carried through the
-  // ops after it,
-  // infinity too (z², then a Möbius map: infinity goes to a finite value); null when an op's are not known (NEWT, other
-  // finite families)
+  // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
+  // its vertex and infinity, RAT2 ... RAT12 at the zeros of their derivatives and at infinity when that is one, a
+  // polynomial NEWT op at the zeros of its derivative), carried through the ops after it, infinity too (z^2, then a
+  // Möbius map: infinity goes to a finite value); null when an op's are not known (a NEWT op that is not a polynomial's)
   function critValues(plan) {
     if (!plan || !plan.ok) return null;
     const ops = plan.ops, out = [];
-    // (infinity is null; an op's value at infinity is its value at CRIT_FAR, a value past CRIT_INF is infinity)
-    const CRIT_FAR = 1e150, CRIT_INF = 1e100;
-    const fwdAt = (o, w) => { const v = o.fwd(w === null ? C(CRIT_FAR, 0) : w); return isFin(v) && abs(v) < CRIT_INF ? v : null; };
     for (let i = 0; i < ops.length; i++) {
-      const o = ops[i];
-      let cv;
-      if (!o.fam) cv = [];
-      else if (o.fam.type !== 'fin') return null;
-      else if (o.kind === 'IPOW') cv = Math.abs(o.p.n) >= 2 ? [C(0, 0), null] : [];
-      else if (o.kind === 'JOUK') cv = [C(1, 0), C(-1, 0)];
-      else if (o.kind === 'QUAD') cv = [o.fwd(div(o.p.b, scale(o.p.a, -2))), null];
-      else if (o.kind === 'RAT2') {
-        // (p'q - pq' = (p2 q1 - p1 q2) u^2 + 2 (p2 q0 - p0 q2) u + (p1 q0 - p0 q1); of a lower degree, infinity is a
-        // critical point too)
-        const [p2, p1, p0] = o.p.P, [q2, q1, q0] = o.p.Q;
-        const co = [sub(mul(p2, q1), mul(p1, q2)), scale(sub(mul(p2, q0), mul(p0, q2)), 2), sub(mul(p1, q0), mul(p0, q1))];
-        cv = CX.polyRoots(isZero(co[0]) ? co.slice(1) : co).map((u) => fwdAt(o, u));
-        if (isZero(co[0])) cv.push(fwdAt(o, null));
-      } else if (/^RAT([3-9]|1\d)$/.test(o.kind)) {
-        // (the zeros of p'q - pq', of degree 2n - 2 at most: a rational map of degree n has 2n - 2 critical points, so one
-        // of a lower degree has infinity among them)
-        const { P, Q } = o.p, n = P.length - 1, W = CX.polyTrim(polySub(polyMul(polyDer(P), Q), polyMul(P, polyDer(Q))));
-        cv = (W.length > 1 ? CX.polyRoots(W) : []).map((u) => fwdAt(o, u));
-        if (W.length < 2 * n - 1) cv.push(fwdAt(o, null));
-      } else return null;
-      for (let w of cv) {
-        for (let k = i + 1; k < ops.length; k++) w = fwdAt(ops[k], w);
-        if (w !== null) out.push(w);
+      const o = ops[i], c = o.fam && o.fam.type !== 'fin' ? null : o.critical();
+      if (!c) return null;
+      for (const e of c.crit) {
+        const w = critForward(ops, i + 1, e.w);
+        if (w) out.push(w);
       }
     }
     return out;
+  }
+  // Inverse.critForward(ops, i, w) -> C | null | undefined: w (null = infinity) carried through ops i, i + 1, ... An
+  // op's value at infinity is its value at CRIT_FAR; an op undefined there (its undef holds infinity: exp, the
+  // trigonometric and hyperbolic functions, which have no limit there) gives no value, undefined, and the ops after it
+  // are not reached. A value past CRIT_INF, w's own too, is infinity: a pole in float64 comes out finite (tan at the
+  // float nearest pi/2 is 1.6e16)
+  const CRIT_FAR = 1e150, CRIT_INF = 1e14;
+  const critFin = (v) => (v !== null && isFin(v) && abs(v) < CRIT_INF ? v : null);
+  function critForward(ops, i, w) {
+    w = critFin(w);
+    for (let k = i; k < ops.length; k++) {
+      if (w === null && (ops[k].undef || []).includes(null)) return undefined;
+      w = critFin(ops[k].fwd(w === null ? C(CRIT_FAR, 0) : w));
+    }
+    return w;
   }
   // Inverse.keySing(plan, win, per) -> the sheet key's points P (at most 4): the accumulation set, then the poles pulled
   // back (a point beside a pole, which takes far-away values, is not in front for being near the centre alone); a
@@ -700,9 +703,10 @@ const Inverse = (() => {
     try { poles = singular(plan, win, ['pole'], 4).map((e) => e.z); } catch (e) { poles = []; }
     return keyClasses(acc.concat(poles.filter((p) => !acc.some((q) => abs(sub(p, q)) < 1e-9 * (1 + abs(p))))), per).slice(0, 4);
   }
-  // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole'}]: the chain's singular points
-  // pulled back to the z-plane, finite only, at most cap per kind, nearest win first. Lattices (tan, tanh poles) are
-  // enumerated only inside expandBox(win, 3).
+  // Inverse.singular(plan, win, kinds, cap) -> [{z, kind: 'undef' | 'branch' | 'pole' | 'crit'}]: the chain's singular
+  // points pulled back to the z-plane, finite only, at most cap per kind, nearest win first; 'crit': the ops' critical
+  // points (their critical(); an op whose are not known adds none). Lattices (tan, tanh poles; sin, cos, sinh, cosh
+  // critical points) are enumerated only inside expandBox(win, 3).
   function singular(plan, win, kinds = ['undef', 'branch', 'pole'], cap = 16) {
     if (!plan || !plan.ok || !plan.ops.length) return [];
     const ops = plan.ops, { refs } = refsOf(plan, win), zb = expandBox(win, 3);
@@ -713,9 +717,12 @@ const Inverse = (() => {
       for (let i = 0; i < ops.length; i++) {
         const o = ops[i];
         let src;
+        const cr = kind === 'crit' ? o.critical() : null, lat = kind === 'pole' ? o.lattice : cr && cr.lattice;
         if (kind === 'undef') src = o.undef;
         else if (kind === 'branch') src = o.branch;
-        else { src = o.poles.slice(); if (o.lattice) { if (!bt.has(i)) bt.set(i, boxThrough(ops, i, zb)); src.push(...latticeIn(o.lattice, bt.get(i), refs[i], cap)); } }
+        else if (kind === 'crit') src = cr ? cr.crit.map((e) => e.u) : [];
+        else src = o.poles.slice();
+        if (lat) { if (!bt.has(i)) bt.set(i, boxThrough(ops, i, zb)); src.push(...latticeIn(lat, bt.get(i), refs[i], cap)); }
         if (!src.length) continue;
         for (const z of pullBack(ops, refs, i, src, zb, cap, bt)) if (z && isFin(z)) pts.push(z);
       }
@@ -1851,7 +1858,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, critValues, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
+    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, NEWT_K, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
