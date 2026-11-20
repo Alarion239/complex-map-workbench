@@ -1,6 +1,6 @@
 // A chain's cache goes with the chain (#1157): everything the chains own (programs, inverse programs, cached
 // evaluations, the prestart lists and the version records of GLR.chainStats) belongs to the current chain alone after
-// - an example replaces the scene, and
+// - an example is opened on the scene, and
 // - an edit follows an Undo (the undone chain can no longer be redone);
 // and Undo / Redo cycles keep the chains' state within the caps.
 // A command file for a CDP daemon:  <runner> test/chain_discard_cmd.js
