@@ -1430,5 +1430,23 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   }
 }
 
+// RAT3 and RAT4 at a critical value (InvOps.rootMembers): a multiple root is one member of its multiplicity, the
+// simple roots others, as a polynomial NEWT op lists them: z^3 - 3z + 2 at 0 (1 twice, -2), z^3 - 1.2z + 0.3 at its
+// critical value f(sqrt 0.4), (z - 1)^2 (z + 2)(z - 3) and (z - 1)^3 (z + 2) at 0; 1e-6 off the critical value every
+// root is simple
+{
+  const R = (a) => a.map((x) => C(x, 0)), s4 = Math.sqrt(0.4), f3 = (x) => x * x * x - 1.2 * x + 0.3;
+  for (const [name, p, w, mr, k, others] of [['z^3 - 3z + 2 at 0', R([1, 0, -3, 2]), C(0, 0), C(1, 0), 2, [C(-2, 0)]],
+    ['z^3 - 1.2z + 0.3 at f(sqrt 0.4)', R([1, 0, -1.2, 0.3]), C(f3(s4), 0), C(s4, 0), 2, [C(-2 * s4, 0)]],
+    ['(z - 1)^2 (z + 2)(z - 3) at 0', R([1, -3, -3, 11, -6]), C(0, 0), C(1, 0), 2, [C(-2, 0), C(3, 0)]],
+    ['(z - 1)^3 (z + 2) at 0', R([1, -1, -3, 5, -2]), C(0, 0), C(1, 0), 3, [C(-2, 0)]]]) {
+    const o = InvOps.opRatN(p, R([1])), G = o.pre(w), at = G.findIndex((m) => CX.abs(CX.sub(m.u, mr)) <= 1e-6);
+    const rest = G.filter((m, i) => i !== at);
+    check(`${o.kind} ${name}: ${others.length + 1} members, the ${k}-fold root once with multiplicity ${k}`, G.length === others.length + 1 && at >= 0 && G[at].mult === k && others.every((z) => rest.some((m) => !m.mult && CX.abs(CX.sub(m.u, z)) <= 1e-9)), G.map((m) => [m.u, m.mult]));
+    const G2 = o.pre(CX.add(w, C(1e-6, 0)));
+    check(`${o.kind} ${name}, 1e-6 off: ${p.length - 1} simple members`, G2.length === p.length - 1 && G2.every((m) => !m.mult), G2.map((m) => [m.u, m.mult]));
+  }
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;

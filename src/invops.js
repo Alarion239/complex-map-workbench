@@ -687,8 +687,17 @@ const InvOps = (() => {
     const a = c.slice().reverse();
     return newtAberth(a, n, newtAberthStart(a, n)).filter(isFin).map((u) => polishRoot(c, u)).sort((u, v) => ROOT_ORDER(u) - ROOT_ORDER(v)).map((u) => ({ u }));
   }
+  // the roots rs ([{u, mult?}], closedRoots') of co as members: points that rounding cannot tell from one k-fold root of
+  // co (multipleRoots, NEWT's grouping: at a critical value the formulas give a double root as two points about
+  // sqrt(EPS) apart) are one root of multiplicity k at their centre; roots apart stay apart, and a root that is already
+  // a multiple one (Cardano's triple, Ferrari's quadruple) stays as it is
+  function rootMembers(co, rs) {
+    if (rs.length < 2 || rs.some((r) => r.mult)) return rs;
+    return multipleRoots(co, rs.map((r) => r.u), NEWT_COEF_ERR * co.length).map((g) => (g.k > 1 ? { u: g.u, mult: g.k } : { u: g.u }));
+  }
   // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0 (ratPoly, then
-  // cubicRoots, quarticRoots or, from degree 5, aberthRoots), the op RAT<n>
+  // cubicRoots, quarticRoots or, from degree 5, aberthRoots, then rootMembers; from degree 5 the members again in
+  // increasing ROOT_ORDER, as GLSL's RAT<n> orders them), the op RAT<n>
   function opRatN(p, q, fwd) {
     const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : n === 4 ? quarticRoots : aberthRoots;
     const pad = (co) => [...Array(Math.max(0, n + 1 - co.length)).fill(ZERO), ...co];
@@ -699,12 +708,15 @@ const InvOps = (() => {
     const f = fwd || ((u) => div(CX.polyEval(p, u), CX.polyEval(q, u)));
     return op(`RAT${n}`, { P, Q }, f, {
       fam: { type: 'fin', count: n }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
-      critical: () => ratCritical(p, q, f),
-      infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im,
-      pre: (w) => roots(ratPoly(P, Q, w)).map(({ u, mult }, m) => {
-        const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
-        return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
-      }),
+      infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im, critical: () => ratCritical(p, q, f),
+      pre: (w) => {
+        const co = ratPoly(P, Q, w), ms = rootMembers(co, roots(co));
+        if (n >= 5) ms.sort((a, b) => ROOT_ORDER(a.u) - ROOT_ORDER(b.u));
+        return ms.map(({ u, mult }, m) => {
+          const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
+          return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
+        });
+      },
     });
   }
 
