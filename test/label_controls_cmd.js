@@ -3,7 +3,8 @@
 // had its text covered. A point of z near the right edge of the plane, where the buttons are, at 360 × 640 (en and ru) and 1280 × 800:
 // its label is drawn (not dropped), and no label's box overlaps the box of a control over the plane.
 // On a phone the plane's key column and view stack ride up above the context bar (a selected shape) and above a message with a
-// transition: once they have stopped, the label of a point that was clear of them at rest is still clear of them.
+// transition: once they have stopped, the label of a point that was clear of them at rest is still clear of them, and a point that they cover has its
+// label in the free part of the plane with a leader to the point.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -63,7 +64,10 @@ for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru',
   const lifted = await ev('__cmwLabelsPlaced()');
   const hit = lifted.length === 1 ? await under(lifted[0]) : [];
   info[tag] = { rest, lifted, hit };
-  // (the lifted column covers the point itself, so its label may be dropped: it is never left under a control)
-  ok(`${tag}: once the keys have stopped rising the label lies under no control (a point under them may have none)`, lifted.length <= 1 && hit.length === 0, { lifted, hit });
+  // (the lifted column covers the point itself: its label stands in the free part of the plane, off the controls, never under one)
+  ok(`${tag}: once the keys have stopped rising the point has a label`, lifted.length === 1, { lifted, hit });
+  ok(`${tag}: once the keys have stopped rising the label lies under no control`, lifted.length <= 1 && hit.length === 0, { lifted, hit });
+  // (the leader joins a label to a point that a control covers: not at rest, where the point is clear of the keys)
+  ok(`${tag}: the label has a leader to the covered point, and at rest it has none`, lifted.length === 1 && lifted[0].leader === true && rest.length === 1 && rest[0].leader === false, { rest, lifted });
 }
 return { pass: fails.length === 0, fails, info };
