@@ -9,9 +9,9 @@
 //   for after it (GLR.gpuDone) has resolved: its commands run then, not in the first glide frame's copy to its pane;
 // - the frame is the inverse pass's;
 // - no inverse program was made from the rest to the held frame (GLR.landProgs' inv| and invS| entries);
-// - for tan and z^-2's second half, the hold took at most FIRST_MS (a timing row: lavapipe 594-1020 ms before the
-//   warm-up, 70-130 ms with it); every step's wait is in info. z^2, Joukowski and z^-2's first half still wait
-//   250-460 ms in a page's first glide frame, on the GPU (#2041).
+// - every hold took at most FIRST_MS (a timing row: lavapipe 594-1020 ms before the warm-up; with it, and the warm
+//   job's outlines drawn into its frame and flushed, 71-134 ms for a page's first glide frame and 95-155 ms for z^-2's
+//   second half, under CI's renderer); every step's wait is in info.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -47,8 +47,8 @@ await view(1200, 800, false, false);
 
 const FIRST_MS = 150;
 // (name, step, the places held, the places whose wait is bounded by FIRST_MS)
-for (const [name, step, us, timed] of [['z^2', { type: 'pown', params: { n: 2 } }, [0.25], []], ['Joukowski', { type: 'joukowski' }, [0.25], []],
-  ['tan', { type: 'tan' }, [0.25], [0.25]], ['z^-2', { type: 'pown', params: { n: -2 } }, [0.25, 0.75], [0.75]]]) {
+for (const [name, step, us, timed] of [['z^2', { type: 'pown', params: { n: 2 } }, [0.25], [0.25]], ['Joukowski', { type: 'joukowski' }, [0.25], [0.25]],
+  ['tan', { type: 'tan' }, [0.25], [0.25]], ['z^-2', { type: 'pown', params: { n: -2 } }, [0.25, 0.75], [0.25, 0.75]]]) {
   await open(step, `warm${name}`);
   for (const u of us) {
     await rest(0);
