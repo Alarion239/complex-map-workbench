@@ -28,10 +28,10 @@ const probe = `(() => {
 const open = async (w, lang) => {
   const ns = 'fmap' + Date.now();
   await view(w, w === 1440 ? 900 : 844, false, w !== 1440);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` });
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
   await ready('document.readyState === "complete"');
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   return ready(`!!window.__cmwSteps && __cmwSteps().on && document.querySelectorAll('#svStrip .sv-plane').length === 4 && (${w === 1440} || Phone.isOn())`);
 };
 for (const [lang, w] of [['en', 390], ['ru', 390], ['it', 390], ['en', 360], ['ru', 360], ['it', 360]]) {
