@@ -97,6 +97,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land .plot > .chip.readout:has(> .rglobe:not([hidden])) { --hint-col-min: 120px; --globe-half: 160px; max-width: max(var(--hint-col-min), calc(50% - var(--globe-half))); }   /* (a landscape pane has no room above the globe: the hint sits in the column left of it, as wide as the pane's half less the globe's half-width, --globe-half, and at least --hint-col-min) */
 /* (a construction tool picked on the globe: the construction chip says what to do, over the hint's corner, and the globe's hint would say "Drag to draw a perpendicular" where the tool picks by taps; a landscape plane is 106 px tall at 320 px, with no room for the two, and a portrait hint's wrap (two to four lines) reaches down into the chip's rows, so the hint gives way while the chip stands) */
 :root.ph .plot:has(> .draft-chip.cm-on:not([hidden])) > .chip.readout:has(> .rglobe:not([hidden])) { visibility: hidden; }
+/* (a portrait plane's chip then takes the card's place, 8 px under the plane's top, not 40 px under it with the card's empty band above) */
+:root.ph:not(.ph-land) .plot:has(> .chip.readout > .rglobe:not([hidden])) > .draft-chip.cm-on:not([hidden]) { top: 8px; }
 :root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
