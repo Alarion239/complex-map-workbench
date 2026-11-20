@@ -79,7 +79,7 @@ const carried = (at) => (expr) => ({ steps: [{ type: 'custom', params: { expr: '
 }
 // (a phone: the note's chip against the view buttons, PAD px apart at least, and the plane's description)
 const PAD = 4;
-await view(360, 640, true);
+await view(360, 640, false, true);
 for (const lang of ['en', 'ru']) {
   const m = await open(CASES[0].expr, lang), name = `phone, ${lang}, ${CASES[0].tag}`;
   const meets = m.box ? m.btns.filter((b) => b.l < m.box.x + m.box.w + PAD && b.r > m.box.x - PAD && b.t < m.box.y + m.box.h + PAD && b.b > m.box.y - PAD) : [];
