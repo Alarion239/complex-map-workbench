@@ -9,9 +9,9 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const { STATE, fig, noMathJax } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'fig_kit.js'), 'utf8'))({ ev });
 const ns = 'pse' + Date.now();
 await view(390, 844, false, true);
-await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE))}); 1`);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
 await settled({ until: '!!window.__cmwSteps && !!window.__cmwFig && __cmwSteps().on', max: 30000 });
 const { until } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails, max: 10000 });
 const park = async (i) => { await ev(`__cmwSteps({ go: ${i}, now: true })`); await until(`__cmwSteps().i === ${i} && !__cmwSteps().moving`); };

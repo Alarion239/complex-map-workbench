@@ -509,8 +509,10 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy || colourPending() ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : undefined);
-    setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
+    // (a pane whose "Compiling…" note is drawn is busy too, and its LED says so: the note is canvas text, which a screen reader does not read)
+    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
+    setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    setLed('R', errStep >= 0 ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -549,6 +551,9 @@
       if (svMaskOn()) svColourIn(pane, cst); else GLR.drawColorPlot(cst);
     }
     const cauchyIdle = S.dc === 'cauchy' && !cz && !hv && !SV.on;
+    // (the steps view, in both scopes: the regions of later planes pulled back here, a layer of their own over the colour,
+    // under the outlines; left out with the strokes, hideStrokes)
+    if (SV.on && !artMode && !hideStrokes) stagePullbacks(pane, leftStage(), true, true);
     // (with Outlines off the plane draws no curves but the selected shape's)
     if ((S.outline || selected) && !artMode && !hideStrokes) {
       const map0 = stageMap(leftStage());
@@ -571,7 +576,7 @@
     // map (area fills at half strength, so the portrait reads through them; their edges as drawn), the points, and
     // the cuts with their handles
     const k = leftStage();
-    if (hasTargets()) drawPullback(pane, endMap(), preimageTargets(false).map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)));
+    if (hasTargets()) drawPullback(pane, endMap(), halfFills(preimageTargets(false)));
     const handles = drawCuts(pane, k, true, false);
     drawPoints(pane, stageF(k), { primes: k, domain: k === 0, k, editK: k });
     // (the points of later planes, by their preimages here, as in X Plane)
@@ -1276,7 +1281,7 @@
       map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode || o.carryRegions ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
-      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
+      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
       post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
@@ -1385,10 +1390,11 @@
   const CAML = { yaw: -60 * DEG, pitch: -24 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const camL = Object.assign({ vyaw: 0, vpitch: 0 }, CAML);
   // the globe's pre passes: the targets' (pre) and those of the shapes of later planes (fills at half strength
-  // over a phase portrait, as the targets')
+  // over a phase portrait, as the targets'; none with the strokes left out, hideStrokes)
   function preAll(pre, half) {
     const out = pre && pre.targets.length ? [pre] : [];
-    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: p.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t)) }) : p);
+    // (the later planes' passes are the steps view's layer, left out with the strokes, hideStrokes)
+    for (const p of hideStrokes ? [] : stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
     return out.length ? out : null;
   }
   // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
@@ -1412,7 +1418,7 @@
     if (svMaskOn() && lPhase()) return sphereView(pane, camL, CAML, { inRegions: true, stage: svStage(), plane: !!xView().eq, role: 'L', pre: preAll(pre, false), net });
     if (lPhase()) {
       const hv = typeof homView === 'function' ? homView() : null;
-      if (pre) pre.targets = pre.targets.map((t) => (t.alpha < 1 ? Object.assign(t, { alpha: t.alpha * 0.5 }) : t));
+      if (pre) pre.targets = halfFills(pre.targets);
       return sphereView(pane, camL, CAML, { imageMode: false, stage: leftStage(), plane: !!xView().eq, probeW: probe || null, hom: hv, pre: preAll(pre, true), role: 'L', post: [globeDraftPass('L')], net });
     }
     // the left plane's point under the probe: the probe itself (it is kept in this plane's coordinates)
@@ -1423,12 +1429,13 @@
   // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
   // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
   // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
-  // caption), 'pre' (the marked preimages of the later planes' points)
-  const PANE_SAY_ORDER = ['land', 'pre'];
-  const paneSayAt = new Map();   // pane → { parts, begun, el, text }
+  // caption), 'pre' (the marked preimages of the later planes' points), 'off' (the pieces of the later planes' regions'
+  // pullbacks that lie off the view)
+  const PANE_SAY_ORDER = ['land', 'pre', 'off'];
+  const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
-    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, el: null, text: '' }));
+    if (!q) paneSayAt.set(pane, (q = { parts: {}, begun: 0, text: '' }));
     return q;
   }
   function paneSays(pane) { const q = paneSayOf(pane); q.parts = {}; q.begun = pane.begun; }
@@ -1439,9 +1446,16 @@
     const text = PANE_SAY_ORDER.map((k) => q.parts[k]).filter(Boolean).join(' ');
     if (text === q.text) return;
     q.text = text;
-    if (!q.el) { q.el = h('span', { class: 'sr-only', id: cv.id + 'Say' }); cv.after(q.el); }
-    q.el.textContent = text;
-    if (text) cv.setAttribute('aria-describedby', q.el.id); else cv.removeAttribute('aria-describedby');
+    srSay(cv, text, (sp) => cv.after(sp));
+  }
+  // el's hidden description: a span (class sr-only, id el.id + 'Say', placed once by put) holding text, which el's
+  // aria-describedby names while text is not empty; the span's text and the attribute are written only when they change
+  function srSay(el, text, put) {
+    let sp = $(el.id + 'Say');
+    if (!sp) { sp = h('span', { class: 'sr-only', id: el.id + 'Say' }); put(sp); }
+    if (sp.textContent !== text) sp.textContent = text;
+    if (!text) el.removeAttribute('aria-describedby');
+    else if (el.getAttribute('aria-describedby') !== sp.id) el.setAttribute('aria-describedby', sp.id);
   }
   const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
   const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
@@ -1550,10 +1564,25 @@
       // has ended, its transform's transitionend, for the key is placed by where the bar stands)
       try {
         const rc = document.documentElement.classList, barState = () => (rc.contains('ph-ctx-on') ? 1 : 0) + (rc.contains('ph-ctx-tall') ? 2 : 0);
-        let bar0 = barState();
-        new MutationObserver(() => { const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+        let bar0 = barState(), ph0 = rc.contains('ph');
+        new MutationObserver(() => { if (rc.contains('ph') !== ph0) { ph0 = !ph0; legendKeyButton(el, ''); } const b = barState(); if (b === bar0) return; bar0 = b; requestAnimationFrame(() => placeKeyPop(el)); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         document.addEventListener('transitionend', (e) => { const t = /** @type {HTMLElement} */ (e.target); if (e.propertyName === 'transform' && t.classList && t.classList.contains('ph-ctx')) placeKeyPop(el); });
       } catch (e) { /* no MutationObserver */ }
+      // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
+      try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      el.addEventListener('keydown', (e) => {
+        if (el.getAttribute('role') !== 'button') return;
+        if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); }
+        // (Escape folds the open key, the focus on it or on its switch, and stays on the key: the folded key is the same element)
+        else if (e.key === 'Escape' && !el.classList.contains('collapsed')) { e.preventDefault(); e.stopPropagation(); el.classList.add('collapsed'); el.focus(); }
+      });
+      // (a key the open key lies over takes no focus under it: it folds as the key takes focus. A plane key stands in the same plot)
+      document.addEventListener('focusin', (e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (el.getAttribute('role') !== 'button' || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
+        const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
+        if (b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) el.classList.add('collapsed');
+      });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {
