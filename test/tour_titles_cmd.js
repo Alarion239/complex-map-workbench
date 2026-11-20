@@ -41,7 +41,7 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang}: the plane step has its task`, g.cur === 'plane' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
   await settled();   // (the step's own actions have run and it listens: the wheel then ticks the task)
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 450, deltaX: 0, deltaY: -120 });
-  await settled({ until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 3000 });
+  await settled({ only: true, until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 8000 });   // (the tick is a class: the strip's animations are not asked)
   g = await strip();
   ok(`${lang}: a zoom ticks it`, g.done, g);
   info[lang] = g;

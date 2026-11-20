@@ -12,7 +12,8 @@ const rgb = (s) => (String(s).match(/[\d.]+/g) || []).slice(0, 3).map(Number);
 const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
 const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
 // (the button turns into Skip a moment after the step starts: wait for the class, up to 6 s, before reading its colours)
-const skipReady = async () => (await settled({ until: `!!document.querySelector('.tour-strip .ts-next.skip')`, max: 6000 })).ok;
+// (the button is there, then what animates is done: two waits, each with its cap, so an animation that runs on does not count against the button's)
+const skipReady = async () => { const b = await settled({ only: true, until: `!!document.querySelector('.tour-strip .ts-next.skip')`, max: 8000 }); return b.ok && (await settled({ max: 20000 })).ok; };
 const skip = () => ev(`(() => { const n = document.querySelector('.tour-strip .ts-next'); const cs = getComputedStyle(n); return { skip: n.classList.contains('skip'), bg: cs.backgroundColor, color: cs.color, hover: n.matches(':hover') }; })()`);
 for (const lang of ['en', 'ru']) {
   await view(390, 844, false, true);

@@ -25,6 +25,7 @@ const SPOT = eval(fs.readFileSync(DIR + '/../tour_audit_spot.js', 'utf8') + '; S
 const inject = () => ev(`window.__aud = ${SPOT}; 1`);
 const U = `http://localhost:${PORT}/test.html`;
 const R = [], ROWS = [];
+let PINNED = false;
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // (#504: readiness waits, not fixed sleeps; the kit's settled(): two frames, no finite animation running, and its until)
 // a step has settled: the strip not busy (show() sets aria-busy at once, before its first await), the spotlight's
@@ -33,8 +34,14 @@ const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // ux's review)
 const STEADY = `(!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
 const settle = () => settled({ floor: 350, panes: false, faces: true, until: STEADY });
-// a layer the step opened is shown (a layer that never opens still fails: after the cap, as noLayer)
-const shown = (sel) => settled({ panes: false, max: 3000, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
+// a layer the step opened is shown: first it is visible (a layer that never opens still fails: after that cap, as noLayer), then what
+// still animates is waited out with a cap of its own. One wait for both made a toast that was visible but still animating in count as
+// a layer that did not open, when a loaded runner took longer than the cap over its enter animation (#2109).
+const SHOWN_MS = 8000, ANIM_MS = 20000;
+const shown = async (sel) => {
+  const visible = await settled({ only: true, max: SHOWN_MS, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
+  return { visible: visible.ok, calm: visible.ok ? (await settled({ panes: false, max: ANIM_MS })).ok : false };
+};
 // after a close, a stop or a key: only what still animates (no condition of its own, so no check is let off)
 const calm = () => settled({ panes: false });
 logs();
@@ -144,6 +151,14 @@ for (const cfg of runs) {
   }
   // ---- layers (the pass for the strip): during a step, open each layer of the app
   if (CFG.layers && theme === 'light') {
+    if (!PINNED) {
+      // (shown() does not count a toast that is visible and still animating as one that did not open: this one's enter animation runs 4.5 s)
+      PINNED = true;
+      await ev(`(() => { __tourApi.toast('A toast whose enter animation outlasts the old 3 s cap'); document.querySelector('#toastHost > .toast').animate([{ opacity: 0.99 }, { opacity: 1 }], { duration: 4500 }); return true; })()`);
+      const t0 = Date.now(), sh = await shown('#toastHost > .toast'), took = Date.now() - t0;
+      check('shown() waits out a visible toast\'s enter animation (4.5 s) instead of counting it as a layer that did not open', sh.visible && sh.calm && took >= 4000, { sh, took });
+      await ev(`document.querySelector('#toastHost').innerHTML = ''; 1`); await calm();
+    }
     const runLayer = async (stepAt, name, open, close, sel) => {
       await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle();
       const id = stepAt.chapter + '/' + stepAt.step;
