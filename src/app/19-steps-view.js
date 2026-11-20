@@ -136,19 +136,22 @@
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
-  // then past T that the points carry it and their colour from T
+  // then past T that the points carry it and their colour from T. short: the role's short form for a narrow head, plain
+  // text; shortFirst: the head shows it in place of the role cut to its first words, which would lose what the short form
+  // keeps (a carried Landscape's "carried from w₁": its height stays in the title's tip and the Height key)
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
-    let role, short = '';
+    let role, short = '', shortFirst = false;
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
-      short = $t('landscape');
+      short = k > T ? $t('landscape, carried from {p}', { p: svName(T) }) : $t('landscape');
+      shortFirst = k > T;
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === 0 && S.dc === 'cauchy' && cauchyPlot()) { role = $t('Cauchy integral over {name}', { name: cauchyPlot().name }); short = $t('Cauchy integral'); }
     else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
-    return { name: svNameHtml(k), role, short };
+    return { name: svNameHtml(k), role, short, shortFirst };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
@@ -2388,8 +2391,9 @@
   // short of room. A space inside a tag ("<i class=…>") does not split
   const svRoleWords = (role) => role.split(/ (?![^<]*>)/).map((w, i) => `<span class="sv-w">${i ? ' ' : ''}${w}</span>`).join('');
   function svFormulaHtml() {
-    const { name, role, short } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${svRoleWords(role)}</span>`;
+    const { name, role, short, shortFirst } = svTitleParts();
+    const attr = (s) => s.replace(/&/g, '&amp;').replace(/"/g, '&quot;');
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${attr(short)}"` : ''}${shortFirst ? ' data-short-first=""' : ''}>${svRoleWords(role)}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
   // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
@@ -3042,7 +3046,8 @@
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
     // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is cut to the whole words that the room
     // that is left allows, then an ellipsis (sv-re), while that shows clearly more than its first word, else it is its first word
-    // (sv-rs), then the title loses its role (sv-c2) last; a word is never cut)
+    // (sv-rs), then the title loses its role (sv-c2) last; a word is never cut. A role whose short form keeps what a cut would
+    // lose (data-short-first, svTitleParts: a carried Landscape's "landscape, carried from w₁") goes from whole to that form)
     const role = /** @type {HTMLElement | null} */ (E.title.querySelector('.sv-role'));
     const rwords = role ? /** @type {HTMLElement[]} */ ([...role.children]) : [];
     let roleN = 0;
@@ -3113,7 +3118,7 @@
         // (level 4 starts its search afresh: the search below leaves roleN as it is when no word fits)
         if (l === 3) roleN = 0;
         set(++l);
-        if (l === 4) {
+        if (l === 4 && role && role.dataset.shortFirst != null) { roleN = 0; set(++l); } else if (l === 4) {
           // (the role keeps the whole words that the room allows, and an ellipsis for the rest: not fewer than the first word's
           // width and SV_ROLE_MORE px more, else the role is its first word. One layout reads every word's end)
           const room4 = room - keep - (E.bar.scrollWidth - (role ? role.getBoundingClientRect().width : 0)), r0 = role ? role.getBoundingClientRect().left : 0;
