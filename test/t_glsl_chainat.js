@@ -9,7 +9,7 @@ const root = path.join(__dirname, '..');
 const ctx = { console, performance: { now: () => 0 }, setTimeout, clearTimeout };
 vm.createContext(ctx);
 const { source } = require('./src_text');
-const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glsl: 'GLChain' };
+const NAMES = { cx: 'CX', symbolic: 'Symbolic', parse: 'Expr', derivs: 'Derivs', natpaths: 'NatPaths', sheets: 'Sheets', formulasteps: 'FormulaSteps', funcs: 'Funcs', invops: 'InvOps', invpatterns: 'InvPatterns', inverse: 'Inverse', recognize: 'Recognize', calc: 'Calc', glslroots: 'GLRoots', glsl: 'GLChain' };
 for (const f of Object.keys(NAMES)) vm.runInContext(source(f + '.js', path.join(root, 'src'), { esm: 'strip' }) + `\n;globalThis.${NAMES[f]} = ${NAMES[f]};`, ctx, { filename: f + '.js' });
 const { Funcs, GLChain } = ctx;
 let pass = 0, fail = 0;
