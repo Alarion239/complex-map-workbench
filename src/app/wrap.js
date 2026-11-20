@@ -8,6 +8,8 @@ import { Expr } from './parse.js';
 import { Funcs } from './funcs.js';
 import { HomRange } from './homrange.js';
 import { Inverse } from './inverse.js';
+import { Critical } from './critical.js';
+import { Pieces } from './pieces.js';
 import { Calc } from './calc.js';
 import { GLChain } from './glsl.js';
 import { Region } from './region.js';

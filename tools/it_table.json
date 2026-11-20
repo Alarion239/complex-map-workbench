@@ -3446,5 +3446,34 @@
   "one": "{n} controimmagine sul piano {plane}",
   "other": "{n} controimmagini sul piano {plane}"
  },
- "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre"
+ "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre",
+ "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "{n} controimmagine",
+  "other": "{n} controimmagini"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "{n} pezzo",
+  "other": "{n} pezzi"
+ },
+ "one covers the disc twice": "uno copre il disco due volte",
+ "one covers the disc {k} times": "uno copre il disco {k} volte",
+ "{n} cover the disc more than once": "{n} coprono il disco più di una volta",
+ "{n} hole\u0004{n} holes": {
+  "one": "{n} buco",
+  "other": "{n} buchi"
+ },
+ "Radius r": "Raggio r",
+ "Preimage on {w}": "Controimmagine su {w}",
+ "Pieces join at r = {list}": "I pezzi si uniscono a r = {list}",
+ "No pieces join as r grows": "Al crescere di r nessun pezzo si unisce",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "{n} pezzo fuori vista",
+  "other": "{n} pezzi fuori vista"
+ },
+ "{name}: +{n} off view": "{name}: altri {n} fuori vista",
+ "{name}: {n} of its {all} pieces is off view\u0004{name}: {n} of its {all} pieces are off view": {
+  "one": "{name}: {n} dei suoi {all} pezzi è fuori vista",
+  "other": "{name}: {n} dei suoi {all} pezzi sono fuori vista"
+ }
 }

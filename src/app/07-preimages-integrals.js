@@ -633,11 +633,14 @@
     return [x0, y0];
   }
   // the count for each region of a later plane that has pieces off the window, drawn in the region's ink: next to its
-  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view
+  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view. With
+  // two regions or more counted, each count carries its region's name (#1892); the plane's description says them all
+  // (paneSay, #1770). The selected region's count is also on its readout card (19-readout.js)
   function drawPullOff(pane, j) {
+    const offOf = (id) => { const e = pullOffDrawn.find((q) => q.id === id); return e ? e.n : 0; }, was = offOf(selected);
     pullOffDrawn = [];
     if (artMode) return;
-    const b = pane.box(), labels = [];
+    const b = pane.box(), labels = [], said = [], counted = [];
     // (the axes, which the words keep off where they can)
     const [ax, ay] = pane.w2s(C(0, 0)), axes = [{ x0: ax - 1.5, x1: ax + 1.5, y0: 0, y1: pane.h }, { x0: 0, x1: pane.w, y0: ay - 1.5, y1: ay + 1.5 }];
     for (const s of S.shapes) {
@@ -645,15 +648,21 @@
       const e = pullOffPre(j, s);
       if (!e || !e.zs.length) continue;
       const seen = pullSeen(j, s, e, b, pane.w, pane.h), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
-      const n = offs.length;
-      if (!(n > 0)) continue;
-      const text = $t('+{n} off view', { n });
+      if (offs.length > 0) counted.push({ s, e, vis, offs });
+    }
+    for (const { s, e, vis, offs } of counted) {
+      const n = offs.length, name = Construct.shapeLabel(s);
+      const text = counted.length > 1 ? $t('{name}: +{n} off view', { name, n }) : $t('+{n} off view', { n });
       const dOff = (z) => Math.min(...offs.map((q) => CX.abs(CX.sub(z, q))));
       const [x, y] = vis.length ? pane.w2s(vis.slice().sort((p, q) => dOff(p) - dOff(q))[0]) : pullEdgeAt(pane, offs.slice().sort(byCentre(b))[0], text);
       labels.push({ x, y, text, word: true, chrome: true, avoid: axes, ink: shapeInk(s).edge });
       pullOffDrawn.push({ id: s.id, n, all: e.zs.length, text, x, y });
+      said.push($tn('{name}: {n} of its {all} pieces is off view', '{name}: {n} of its {all} pieces are off view', n, { name, n, all: e.zs.length }));
     }
+    paneSay(pane, 'off', said.length ? said.join('. ') + '.' : '');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
+    // (the readout card follows the count as the window moves)
+    if (selected != null && offOf(selected) !== was) requestRender('P');
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {

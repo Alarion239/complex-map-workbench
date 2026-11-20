@@ -751,5 +751,44 @@
   "many": "%{n} прообразов в плоскости %{plane}",
   "other": "%{n} прообраза в плоскости %{plane}"
  },
- "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие"
+ "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
+ "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "%{n} прообраз",
+  "few": "%{n} прообраза",
+  "many": "%{n} прообразов",
+  "other": "%{n} прообраза"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "%{n} часть",
+  "few": "%{n} части",
+  "many": "%{n} частей",
+  "other": "%{n} части"
+ },
+ "one covers the disc twice": "одна накрывает круг дважды",
+ "one covers the disc {k} times": "одна накрывает круг %{k}-кратно",
+ "{n} cover the disc more than once": "%{n} из них накрывают круг больше одного раза",
+ "{n} hole\u0004{n} holes": {
+  "one": "%{n} дыра",
+  "few": "%{n} дыры",
+  "many": "%{n} дыр",
+  "other": "%{n} дыры"
+ },
+ "Radius r": "Радиус r",
+ "Preimage on {w}": "Прообраз на %{w}",
+ "Pieces join at r = {list}": "Части сливаются при r = %{list}",
+ "No pieces join as r grows": "С ростом r части не сливаются",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "%{n} часть за краем",
+  "few": "%{n} части за краем",
+  "many": "%{n} частей за краем",
+  "other": "%{n} части за краем"
+ },
+ "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
+ "{name}: {n} of its {all} pieces is off view\u0004{name}: {n} of its {all} pieces are off view": {
+  "one": "%{name}: за краем %{n} из %{all} частей",
+  "few": "%{name}: за краем %{n} из %{all} частей",
+  "many": "%{name}: за краем %{n} из %{all} частей",
+  "other": "%{name}: за краем %{n} из %{all} частей"
+ }
 }
