@@ -4,6 +4,15 @@
 // Structure (step types, on/off, errors, coefficient counts, custom formulas) is baked into the source and
 // summarised by `key`; every numeric parameter lives in `uniform vec4 uChain[]`, written by fill(), so
 // dragging a parameter or a branch cut never forces a recompile.
+// glsl`…`: a template of GLSL source (#2037). At run time it is the template as written, its strings joined with the
+// values between them as an untagged template joins them; the tag marks its text as GLSL for the published build, whose
+// strip (tools/strip_js.js) drops each line's `//` comment from it (GLSL has no strings: every `//` there starts a
+// comment), keeping each line, so a shader's compile errors keep their line numbers. src/gl/ takes it from here
+const glsl = (s, ...v) => {
+  let t = s[0];
+  for (let i = 0; i < v.length; i++) t += `${v[i]}${s[i + 1]}`;
+  return t;
+};
 const GLChain = (() => {
   const C = CX.C;
   const DEG = Math.PI / 180; // same expression as funcs.js, so cut*DEG is bit-identical
@@ -46,7 +55,7 @@ float cx_cos(float x) { return abs(x) <= 1e5 ? cx_sincos(x).y : abs(x) <= 3.4e38
     trigAccurate = TRIG_SOFT.test(String(r || ''));
     return trigAccurate;
   }
-  const LIB = `
+  const LIB = glsl`
 const float CX_PI = 3.141592653589793;
 // [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
 // loop a loop. ANGLE's Direct3D 11 back end hands the code to FXC, which unrolls a loop of constant trip count (its
@@ -555,7 +564,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       const nc = uBound(DIR_TMAX + 10);
       shape.push('D');
       const S = `${id}_S`, M = `${id}_M`, w = `${id}_w`;
-      out.push(`  vec2 ${S} = vec2(0.0); float ${M} = 0.0; vec4 ${id}_g = ${g1.v}, ${id}_h = ${g2.v};
+      out.push(glsl`  vec2 ${S} = vec2(0.0); float ${M} = 0.0; vec4 ${id}_g = ${g1.v}, ${id}_h = ${g2.v};
   if (${id}_g.y > 1.5) ${S} = ${NAN};
   else if (${id}_g.y > 0.5) {
     vec2 ${w} = z - vec2(${id}_h.x, 0.0), wm = ${w} - vec2(1.0, 0.0);
@@ -661,7 +670,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
       // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
       // the sum, as the CPU does: Expr's tailOf)
-      out.push(`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
+      out.push(glsl`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
   for (int sd = 0; sd < ${id}_nsd; sd++) {
     float from = ${id}_nsd == 2 ? (sd == 0 ? 0.0 : -1.0) : ${LO} < -1e30 ? ${HI} : ${LO};
     float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
@@ -841,7 +850,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
 
   // ---- [issue #4] Γ, ψ, ζ and ζ′ in float32, after CX.lgamma, CX.digamma, CX.zeta, CX.zetaDeriv: put in front of a
   // chain's (or a region formula's) source only when it calls them, so no other program compiles them (specialLib)
-  const GAMMA_LIB = `
+  const GAMMA_LIB = glsl`
 // sin(πz) and sin(πs/2) with the real part reduced by the period first (float32 keeps the phase)
 vec2 cx_pimod(vec2 z) { return vec2(CX_PI * (z.x - 2.0 * floor(0.5 * z.x)), CX_PI * z.y); }
 vec2 cx_halfpimod(vec2 s) { return vec2(CX_HALF_PI * (s.x - 4.0 * floor(0.25 * s.x)), CX_HALF_PI * s.y); }
@@ -898,7 +907,7 @@ vec2 cx_digamma(vec2 z) {
   // The entries of ZETA_LIB's table of ln k (k < ZETA_LN_K_COUNT, four to a uniform row; the host fills it, logK in src/gl/04-programs-resources.js)
   const ZETA_LN_K_COUNT = 132;
   // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
-  const ZETA_LIB = `
+  const ZETA_LIB = glsl`
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
 // ln k for k < ${ZETA_LN_K_COUNT}, four to a row: the host fills it once with the GPU's own log (logK, src/gl/04-programs-resources.js), so a term
@@ -998,7 +1007,7 @@ vec2 cx_ipowi(vec2 w, float e) {
 }
 `;
   // n! and the binomial coefficient (they need Γ's part)
-  const FACT_LIB = `
+  const FACT_LIB = glsl`
 vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
 // (issue #72: the three log Γ through one call site)
 vec2 cx_binom(vec2 a, vec2 b) {
@@ -1251,7 +1260,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const q = A.slot(), path = pathSlots(A);
         const m = `highp uint mh = uint(${q.v}.z), ml = uint(${q.v}.w);\n  highp int m = int((mh << 16u) | ml);`;
         // (one call each of cpowr, cx_ipow32 and the path, so FXC, which inlines every call, writes each once)
-        const ph = (cut) => `float n = ${q.v}.x;
+        const ph = (cut) => glsl`float n = ${q.v}.x;
   if (n >= 0.0 || t < 0.5) return cpowr(z, n >= 0.0 ? 1.0 + (n - 1.0) * t : 1.0 + (-n - 1.0) * (2.0 * t), ${cut}, 0.0);
   ${m}
   // inversion path applied to z^|n|; for |z| > 1 via u = (1/z)^|n|, since z^|n| itself may overflow float32
@@ -2116,7 +2125,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   // The CPU twin of every function here is src/inverse.js (op table 3.2, enumerate 3.5); test/glsl_inverse_test.js
   // compares them leaf by leaf.
   // =================================================================================================================
-  const INV_LIB = `
+  const INV_LIB = glsl`
 struct Lf { vec2 u; vec4 J; float lvl; vec2 lg; vec2 lam; vec4 JL; bool hasLam; };
 float ixPix;
 const float IX_RAMP = 1.0;
@@ -2578,7 +2587,7 @@ ${seeded ? '' : pole ? `  vec2 v1;
         const bk = newtBack(o);
         if (bk) return decl + newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
-        return `${decl}vec2 chainHom(int i, vec2 z, float t);
+        return glsl`${decl}vec2 chainHom(int i, vec2 z, float t);
 ${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
 vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
@@ -2599,7 +2608,7 @@ bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
   }
   return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
 }
-${pole ? `// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
+${pole ? glsl`// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
 // hits w and, when member 0 exists (k0), differs from it
 bool ${P}_pole2(vec2 w, float t, bool k0, vec2 u, out vec2 v) {
   vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
@@ -2664,7 +2673,7 @@ bool ${P}_one_b(inout Lf L, int b) {
 ${rng('u', '(vec2(1.0, 0.0) - cinv(cmul(w, w))) * 0.5', 's * (r - 1.0)', 'w * (s / (r > 0.0 ? r : 1.0))')}`);
       case 'CONJ': return one('  return ixApply(L, vec2(w.x, -w.y), vec2(0.0), true, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0));');
       // ---- finite families: ixJ_nb(L) members, ixJ_one_b(L, b) applies member b ----
-      case 'IPOW': return `int ${P}_nb(Lf L) {
+      case 'IPOW': return glsl`int ${P}_nb(Lf L) {
   if (!ixFin(L.u)) return 0;
   vec4 P = ${U(0)};
   if (L.u.x == 0.0 && L.u.y == 0.0) return P.x > 0.0 ? 1 : 0;
@@ -2984,7 +2993,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
     // IX_ANC: an ATANH / ATAN op can be the saturation anchor of a plan (SPEC 13.12; Inverse.prepare decides, uAncJ
     // names the op): its member records the stable offset from +-1 (+-i) for the leaf (gl.js ixAnchorPx)
     const anc = ops.some((o) => o.kind === 'ATANH' || o.kind === 'ATAN');
-    const head = `#define IX_LAM ${lam ? 1 : 0}
+    const head = glsl`#define IX_LAM ${lam ? 1 : 0}
 #define IX_MOB ${mob ? 1 : 0}
 #define IX_ANC ${anc ? 1 : 0}
 ${anc ? INV_ANC : ''}
@@ -3036,4 +3045,4 @@ import { CX } from './cx.js';
 import { Expr } from './parse.js';
 import { Funcs } from './funcs.js';
 import { Inverse } from './inverse.js';
-export { GLChain, GLChain as 'module.exports' };
+export { GLChain, glsl, GLChain as 'module.exports' };
