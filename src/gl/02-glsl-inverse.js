@@ -13,7 +13,7 @@
   // curve, an external ray, an equipotential): at most INV_CURVE_MAX vertices in all, in groups of CURVE_GROUP
   // segments with each group's box first, so the pass skips a group farther than the nearest point found so far
   const INV_CURVE_MAX = 1024, CURVE_GROUP = 16;
-  const INV_HEAD = (B, forms) => `
+  const INV_HEAD = (B, forms) => glsl`
 #ifndef IX_RECORD
 #define IX_RECORD(L, D, cov)
 #endif
@@ -647,7 +647,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
-${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
+${B >= 8 ? glsl`  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
   // candidate that cannot merge with a twin (fully covering, or no range gradient) while the admission limit is the
   // buffer's end: behind the last entry of a full buffer it is not kept (one comparison); otherwise it is inserted
   // from the end, entries behind it moving back one slot, up to the first entry in front of it (one comparison for
@@ -767,10 +767,10 @@ float invLeaf(Lf L, out bool cov) {
   // (GLChain's ixFoot under IX_ANISO; set by INV_MAIN(globe))
   const INV_GLOBE_PRE = '#define IX_ANISO 1\nvec2 ixAwX, ixAwY;\n';
   // B: compile-time buffer size; globe: Sphere view geometry (P3)
-  const INV_MAIN = (globe) => `
+  const INV_MAIN = (globe) => glsl`
 ${globe ? 'in vec3 vP; uniform vec3 uEye;' : ''}
 void main() {
-${globe ? `  vec3 P = normalize(vP);
+${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
   // with u = (P.x + i P.y) / (1 + P.z), no cancellation
   vec2 w = P.z <= 0.0 ? vec2(P.x, -P.y) / (1.0 - P.z) : cinv(P.xy / (1.0 + P.z));
