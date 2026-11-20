@@ -1,11 +1,13 @@
 // A figure survives a link: the state the page writes for a link (__cmwFigureState) is made into a deflate-raw link and reopened,
 // and every key the figure set comes back as it was set, except the keys the page normalises on opening, each named in NORMALISED
 // with its reason and the value it must take. The reopened figure is made into a link and reopened once more: that state is the
-// same as the first reopened one (a link's figure is a fixed point).
+// same as the first reopened one, compared both ways (a link's figure is a fixed point).
 // Covered, one case each: the steps' fields; every kind of shape and the targets' fields; the shared numbers; constructions with
 // references to a zeros-and-poles step; the view, the steps view's place (sv) and the right pane's camera; the display options.
-// Controls: the comparison reports a changed key, and a key the page does not carry is reported as lost.
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
+// Controls: every named normalisation is used by a case; the comparison reports a changed expression and a key the page does not
+// carry; a normalised key is a real difference of the figure as set; and the two-way comparison reports a key, or an array entry,
+// that only the second state has.
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const { openLinked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'link_kit.js'), 'utf8'));
 const fails = [], info = {};
@@ -15,17 +17,24 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const CURRENT = { v3: true, v4: true, v5: true, v6: true };
 // The figure's camera (figCam) is written at the link from the live camera and read at the load, so it is compared like any key, to
 // CAM_DIGITS places (the camera is kept as distance over the fit's, a float). The Deformation's time (figMorph) is the steps view's
-// place x at the load and not a key of the state; steps_link_migrate_cmd covers its reading, so it is left out here.
+// place x at the load and not a key of the state; steps_link_migrate_cmd covers its reading, so it is left out here. The window of
+// the left pane (clipWin) is no key a figure sets: the page derives it from the view at the left pane's size when it reads the
+// figure (20-init.js) and derives it again once the pane is laid out (14-interaction.js), so a read before or after that layout
+// differs; it is left out too.
 const CAM_DIGITS = 9;
 const strip = (o) => {
   const c = JSON.parse(JSON.stringify(o));
   delete c.figMorph;
+  delete c.clipWin;
   if (c.figCam) for (const k of Object.keys(c.figCam)) if (typeof c.figCam[k] === 'number') c.figCam[k] = +c.figCam[k].toFixed(CAM_DIGITS);
   return c;
 };
-// the differences of `got` from `want`, over the keys `want` has: 'path: wanted -> got'
-const diff = (want, got, p = '') => {
-  if (want && got && typeof want === 'object' && typeof got === 'object') return Object.keys(want).flatMap((k) => diff(want[k], got[k], p + '.' + k));
+// the differences of `got` from `want`, over the keys `want` has ('path: wanted -> got'); both: over the keys either has
+const diff = (want, got, p = '', both = false) => {
+  if (want && got && typeof want === 'object' && typeof got === 'object') {
+    const keys = both ? [...new Set([...Object.keys(want), ...Object.keys(got)])] : Object.keys(want);
+    return keys.flatMap((k) => diff(want[k], got[k], p + '.' + k, both));
+  }
   return JSON.stringify(want) === JSON.stringify(got) ? [] : [`${p}: ${JSON.stringify(want)} -> ${JSON.stringify(got)}`];
 };
 // The values the page changes on opening. Each is a path of the first figure and the value it takes, with the reason.
@@ -97,7 +106,7 @@ for (const [name, figure, used] of CASES) {
     const lost = diff(want, first);
     ok(`${name}: every key the figure set comes back (a normalised one at its named value)`, lost.length === 0, lost);
     const second = strip(await openLinked(first));
-    const moved = diff(first, second);
+    const moved = diff(first, second, '', true);
     ok(`${name}: a second round trip changes nothing`, moved.length === 0, moved);
     info[name] = { lost: lost.length, moved: moved.length };
   } catch (e) { ok(`${name}: the case runs to its end`, false, String(e && e.message || e).slice(0, 300)); }
@@ -116,6 +125,12 @@ ok('control: every normalisation is used by a case', Object.keys(NORMALISED).eve
   ok('control: the comparison reports a key the page does not carry', diff(missing, first).length === 1, diff(missing, first));
   // the normalised values are real changes: without them in `want`, the figure of this case differs
   ok('control: a normalised key is a difference of the figure as set', diff(figure, first).some((l) => l.startsWith('.params.1.value')), diff(figure, first));
+  // the fixed point's comparison is two-way: a key, or an array entry, that only the second state has is a difference
+  const more = JSON.parse(JSON.stringify(first));
+  more.params.push(JSON.parse(JSON.stringify(more.params[0])));
+  more.noSuchKey = 1;
+  const extra = diff(first, more, '', true);
+  ok('control: the two-way comparison reports what only the second state has', extra.length === 2 && diff(first, more).length === 0, extra);
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no page errors', !errs.length, errs.slice(0, 3).map((x) => String(x.m).slice(0, 200)));
