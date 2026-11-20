@@ -737,6 +737,14 @@
  "split f{x} into f{x}–f{x2}: {chain}": "разложение f%{x} на шаги f%{x}–f%{x2}: %{chain}",
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
+ "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Указатель в центре, %{v} = %{z}. Шаг %{st}; с Shift — %{x}.",
+ "{v} {z}. F is infinite here.": "%{v} %{z}. Здесь функция F обращается в бесконечность.",
+ "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
+  "one": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градус.",
+  "few": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса.",
+  "many": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градусов.",
+  "other": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса."
+ },
  "Marked preimages of {name}: {k} of {n}": "Отмеченные прообразы %{name}: %{k} из %{n}",
  "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие",
  "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",

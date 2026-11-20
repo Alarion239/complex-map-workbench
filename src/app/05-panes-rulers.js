@@ -1034,7 +1034,7 @@
       const a = P(p), b = P([p[0] + out[0] * 0.06, p[1] + out[1] * 0.06, z0]);
       if (a && b) for (const gap of [24, 34, 46]) { const r = label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true); if (r) { names.push(r); break; } }
     };
-    const vz = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
+    const vz = svName(leftStage());
     if (reOn) title([0, sy * ay, z0], [0, sy], [['Re ', false], [vz, true]]);
     if (imOn) title([sx * ax, 0, z0], [sx, 0], [['Im ', false], [vz, true]]);
     // height ruler: of the two corners on the block's silhouette, the one farther from the camera
