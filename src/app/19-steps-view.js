@@ -136,10 +136,16 @@
   }
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
-  // then past T that the points carry it and their colour from T
+  // then past T that the points carry it and their colour from T. Parked between two planes, the place is no plane: the
+  // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it)
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
+    const park = svParkedPair();
+    if (park && !(SV.surf === 'land' && svMain(k) === 'land')) {
+      role = park[1] <= T ? $t('coloured from {p}', { p: wHtml(T) }) : $t('colour carried from {p}', { p: wHtml(T) });
+      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short };
+    }
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
@@ -599,7 +605,8 @@
   // the span's step times after step k is split into n steps: a step after k moves n - 1 on, and the new steps k..k+n-1
   // run as the formula's homotopy runs them, in turn within the formula's own time [a, b] (none: [1, 0]). The rule
   // composes, clamp(n clamp(a t - b, 0, 1) - i, 0, 1) = clamp(a n t - (b n + i), 0, 1), so it holds for a step with a time
-  // of its own as for any other (the steps a Split makes refuse a Split, R1)
+  // of its own as for any other (the page offers no such step: the Split's reader and its gate refuse the steps a Split
+  // makes)
   function svStepTSplit(stepT, k, n) {
     const o = [], f = (stepT && stepT[k]) || [1, 0];
     if (stepT) stepT.forEach((m, i) => { if (i < k) o[i] = m; else if (i > k) o[i + n - 1] = m; });
@@ -709,7 +716,7 @@
     const k = smKeyOf({ mode: 0, a: s, b });
     if (k) return k;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [] };
+    return { win: clipWin, R, rs: R * SV_KEY_RS, sing: [], per: null };
   }
   // The sheet key mid-glide (the map h_{b,t} after the steps before b): plane b's key, and the glide's poles at t, which
   // move with t (a path's pole sweeps across the plane, or flies in from infinity): a point beside one is not in front
@@ -1074,7 +1081,10 @@
       }
     }
     poles.sort((p, q) => CX.abs(CX.sub(p, cz)) - CX.abs(CX.sub(q, cz)));
-    return Object.assign({}, k, { sing: acc.concat(poles).slice(0, 4) });
+    // (the period: the steps before b's, which h_{b,t} keeps whatever step b's path does, Inverse.keyPeriod; one point
+    // of each class modulo it, as at rest)
+    const per = b > 1 ? Inverse.keyPeriod(invPlan(0, b - 1)) : null;
+    return Object.assign({}, k, { sing: Inverse.keyClasses(acc.concat(poles), per).slice(0, 4), per });
   }
   // (an: the chain up to plane T analytic, as the F tile and the Inspector read it, so the colour's footprint across a
   // pixel gives the one down it)
@@ -1285,8 +1295,8 @@
     return linking || !!svHoldB;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
-  // pass's sheet key of a point of plane 0, H: the map of that frame (H_u o F_{b-1}), Hb: the glide's homotopy alone
-  // (H_u on the glide's first plane), view, w, h (the pane's css size)}
+  // pass's sheet key of a point of plane 0, per: that key's period ([re, im] or null), H: the map of that frame
+  // (H_u o F_{b-1}), Hb: the glide's homotopy alone (H_u on the glide's first plane), view, w, h (the pane's css size)}
   // (read by the test hooks)
   let svGlideRec = null;
   // (the last plane at rest past the colour plane: { a, path: 'inverse' | 'mesh' }, how its colour was drawn)
@@ -1947,7 +1957,7 @@
         // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
         // farthest opaque (svCarryLook at base 1))
         const hl = drew ? svHomPaths(b, u).h : null, look = hl ? svCarryLook(1, hl.list[0], { b, u }, T) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
           ...(look && { alpha: look.alpha }) };
         if (drew) return;
       }
@@ -2013,9 +2023,10 @@
     const paths = svPathsSource();
     if (paths) { try { drawMorphPathsX(pane, morphSelScreen(pane, paths), F, null, { T: paths.T, side: 'L' }); } catch (e) { console.error('steps view paths', e); } }
     cutHandlesL = still && rest ? drawCuts(pane, a, true, false) : [];
-    // (a frame between two planes shows the cuts as the plane it is nearest to does at rest: hatches and the branch point's dot on the cuts of that plane; while the
-    // glide is under way, a handle on each editable cut, inert. A frame parked between two planes draws no handle: there one would look draggable and take no press)
-    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN, { own: (j0) => j0 === near, marks: svGliding() ? cutMarksL : null }); }
+    // (a frame between two planes shows the cuts as the plane it is nearest to does at rest: hatches and the branch point's dot on the cuts of that plane, and a
+    // handle on each editable cut: while the glide is under way inert (cutMarksL), on a frame parked between two planes one that a drag turns, the pointer pulled
+    // back through the frame's own map, the glide's at its u (cutHandlesL))
+    if (!(still && rest)) { const cp = svCutPlan(bt); drawCutCurvesAt(pane, cp.mapFor, null, cp.pre, still ? 1 : SV_CUT_THIN, { own: (j0) => j0 === near, marks: svGliding() ? cutMarksL : svParked() ? cutHandlesL : null }); }
     // (a glide or a play is under way: its frames stay on the move, whatever a stalled frame shows)
     const settled = rest || (!SV.anim && !SV.play && svPictureSettled(pane, a, b, u));
     drawPoints(pane, F, Object.assign(still ? { primes: a, k: a, editK: a } : {}, settled ? {} : { lite: true }));
@@ -2176,7 +2187,8 @@
     for (const s of hideStrokes ? [] : S.shapes) {
       if (!outlineShown(s, !col)) continue;
       const p = reached && reached.get(s);
-      if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k)); continue; }
+      // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
+      if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
@@ -2486,7 +2498,7 @@
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
-    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: () => svSetT(svStage()) });
+    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: (e) => { if (!svOff(e.currentTarget)) svSetT(svStage()); } });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
@@ -2677,10 +2689,10 @@
       SV.play ? 1 : 0, SV.loop ? 1 : 0, S.morphPaths !== false ? 1 : 0, S.homAll ? 1 : 0, rangeKey(), ph ? 1 : 0, E.sig,
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
-    // (the folded key on a phone loses its head's words: as an image it keeps a name, the key's kind's, set again when the
-    // surface changes it; ux on #448. In a pane head the key's own words name it)
-    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key');
-    if (leg && ph && leg.getAttribute('role') === 'img' && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
+    // (the folded key on a phone, a button (legendKeyButton), is named for its kind, set again when the surface changes
+    // it; ux on #448. In a pane head the key's own words name it)
+    const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key'), legRole = leg && leg.getAttribute('role');
+    if (leg && ph && (legRole === 'button' || legRole === 'img') && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
     const tn = svTargetNote(), tnShow = !!tn && !ph;
     if (E.tnote.hidden === tnShow) E.tnote.hidden = !tnShow;
@@ -2700,13 +2712,16 @@
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
-      const cpText = k === T ? $t('Colour plane') : $t('Colour from here');
+      const cpText = k === T && !parked ? $t('Colour plane') : $t('Colour from here');
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
       E.cp.setAttribute('aria-label', cpText);
-      E.cp.setAttribute('aria-pressed', String(k === T));
-      E.cp.classList.toggle('on', k === T);
+      // (pressed on the colour plane only: a place parked between two planes is no plane)
+      E.cp.setAttribute('aria-pressed', String(k === T && !parked));
+      E.cp.classList.toggle('on', k === T && !parked);
+      // (a step shown alone: disabled, it is coloured from its own plane; else parked between two planes: off, with the
+      // reason, since a place between planes is no plane to colour from)
       E.cp.disabled = !!svAloneOk();
-      E.cp.setAttribute('data-tip', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
+      svDisableWhy(E.cp, !svAloneOk() && parked ? $t('Stop on a plane to colour from it') : '', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
       const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
@@ -3224,18 +3239,25 @@
     return $t('Step {k} of {m} · {f} · {p} %', { k: I18N.num(a + 1), m: I18N.num(P.length - 1), f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: I18N.num(Math.round(100 * (x - a))) });
   }
   function svPlaceText() {
-    const P = svPlanes(), x = SV.g.x;
-    if (!svParked()) return svName(svStage());
-    return $t('Between {a} and {b}', { a: svName(P[Math.floor(x)]), b: svName(P[Math.min(P.length - 1, Math.ceil(x))]) });
+    const pr = svParkedPair();
+    return pr ? $t('Between {a} and {b}', { a: svName(pr[0]), b: svName(pr[1]) }) : svName(svStage());
   }
+  // parked between two planes: their stages [a, b], either side of the thread; else null
+  function svParkedPair() {
+    if (!svParked()) return null;
+    const P = svPlanes(), x = SV.g.x;
+    return [P[Math.floor(x)], P[Math.min(P.length - 1, Math.ceil(x))]];
+  }
+  // says text in the steps view's live region (the colour plane set or refused, the place on the chain)
+  const svSay = (text) => { if (SV.els && SV.els.live) SV.els.live.textContent = text; };
   function svSetT(k) {
     // (#437: a step shown alone is coloured from its own plane; the button says so, and so does the key)
-    if (SV.alone) { if (SV.els && SV.els.live) SV.els.live.textContent = $t('The step shown alone is coloured from its own plane'); return; }
+    if (SV.alone) { svSay($t('The step shown alone is coloured from its own plane')); return; }
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
     save();
     tourEmit('colour-plane-set', { k });
-    if (SV.els && SV.els.live) SV.els.live.textContent = svLabel();
+    svSay(svLabel());
     // (the programs a new colour plane needs, started when the page is idle: else they link on the first glide past it,
     // 8 s on WARP for the Mountain King)
     svPrestartSoon(0);
@@ -3442,7 +3464,9 @@
         svStep(e.key === 'ArrowRight' || e.key === 'PageDown' ? 1 : -1);
       } else if (lk === 'c' && !e.shiftKey) {
         e.preventDefault(); e.stopImmediatePropagation();
-        svSetT(svStage());
+        // (parked between two planes, the key says why it does nothing, as the colour button's reason does)
+        if (!SV.alone && svParked()) svSay($t('Stop on a plane to colour from it'));
+        else svSetT(svStage());
       }
     }, true);
   }
@@ -3919,11 +3943,18 @@
     svSync();
     return false;
   }
+  // the least span, in planes, that a play given a new speed is timed over: one switched at its last plane still takes a
+  // moment, not 0 ms
+  const SV_REBASE_MIN_SPAN = 0.05;
   // a new speed while it plays: from here on at it
   function svPlayRebase() {
     const A = SV.play;
     if (!A || A.slide) return;
-    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(0.05, A.to - A.from); A.drawn = null;
+    A.from = SV.g.x; A.t0 = performance.now(); A.el = 0; A.ms = svPerPlane() * Math.max(SV_REBASE_MIN_SPAN, A.to - A.from); A.drawn = null;
+    // TEST-HOOK (dropped from the published page by build.py)
+    // the schedule this rebase set, kept after the play ends (__cmwSteps().rebased)
+    SV.rebased = { from: A.from, to: A.to, ms: A.ms, t0: A.t0 };
+    // TEST-HOOK
     // (held: it waits at the place it starts from now)
     if (A.held) A.held.el = 0;
   }
