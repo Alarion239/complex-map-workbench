@@ -5,7 +5,9 @@
 //   c = −1.5, −0.5, 0.5, 1.5, the caption naming the plane and the values; then c is back at −1 and its slider at −2 … 1;
 // - the build cancelled at its second value: no figure, and c and its slider are back as they were;
 // - the dialog: Filmstrip offers the planes or a Number, the Number row lists c with its slider's ends as the first and
-//   last values; a figure with no Number offers it greyed with its reason.
+//   last values, its value fields named with the words beside them and "Frames" on its select's line; c typed from −1.5 to
+//   1.5 there builds the filmstrip over c; on a phone (touch) its controls are 44 px tall; a figure with no Number offers it
+//   greyed with its reason.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -64,6 +66,28 @@ const dlg = await ev(`(() => { const s = document.getElementById('xfNum'); retur
 info.dialog = dlg;
 ok('the dialog: Filmstrip offers the planes or a Number', JSON.stringify(dlg.src) === JSON.stringify(['planes', 'number']), dlg);
 ok('the dialog: the Number row lists c, from its slider\'s ends, four frames', JSON.stringify(dlg.names) === JSON.stringify(['c']) && dlg.from === '-2' && dlg.to === '1' && dlg.n === '4', dlg);
+// (the value fields are named with the words beside them, "from" and "to"; "Frames" and its select keep one line)
+const named = await ev(`(() => { const row = document.getElementById('xfNum').closest('.xf-nums'), words = [...row.querySelectorAll(':scope span')].map((e) => e.textContent.trim().toLowerCase()).filter(Boolean);
+  const lab = [...row.querySelectorAll('span')].find((e) => /frames/i.test(e.textContent) && !e.children.length), n = document.getElementById('xfNumN');
+  const lr = lab && lab.getBoundingClientRect(), nr = n.getBoundingClientRect();
+  return { words, from: document.getElementById('xfNumFrom').getAttribute('aria-label'), to: document.getElementById('xfNumTo').getAttribute('aria-label'), framesTop: lr ? Math.round(lr.top + lr.height / 2) : null, selTop: Math.round(nr.top + nr.height / 2) }; })()`);
+info.named = named;
+ok('the dialog: each value field\'s name holds the word shown before it ("from", "to")', named.words.includes('from') && named.words.includes('to') && /\bfrom\b/i.test(named.from || '') && /\bto\b/i.test(named.to || ''), named);
+ok('the dialog at 1280: "Frames" stands on its select\'s line', named.framesTop != null && Math.abs(named.framesTop - named.selTop) <= 4, named);
+// (the dialog's own path: c from −1.5 to 1.5 typed in its fields, four frames, the figure it builds)
+await ev(`(() => { for (const [id, v] of [['xfNumFrom', '-1.5'], ['xfNumTo', '1.5']]) { const el = document.getElementById(id); el.value = v; el.dispatchEvent(new Event('change', { bubbles: true })); } return 1; })()`);
+await settled({ until: '(() => { const d = __cmwFig.dialog(); return !!d && !d.building && !!d.fig && d.fig.view === "svNumFilm" && JSON.stringify(d.fig.info && d.fig.info.labs) === JSON.stringify(["-1.5", "-0.5", "0.5", "1.5"]); })()', max: 180000, panes: false });
+const viaDlg = await ev('(() => { const d = __cmwFig.dialog(); return d && d.fig ? { view: d.fig.view, labs: d.fig.info && d.fig.info.labs, building: d.building } : null; })()');
+info.viaDialog = viaDlg;
+ok('the dialog: "A Number" with c typed from −1.5 to 1.5 builds the filmstrip over c, four frames titled with those values', !!viaDlg && viaDlg.view === 'svNumFilm' && JSON.stringify(viaDlg.labs) === JSON.stringify(['-1.5', '-0.5', '0.5', '1.5']), viaDlg);
+// (on a phone, touch: the new controls are 44 px tall, as the dialog's Picture buttons)
+await view(360, 640, false, true);
+await settled({ until: '!!document.querySelector("#xfFilmSrc")', max: 10000, panes: false });
+const phone = await ev(`(() => { const hs = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height)); return { src: hs('#xfFilmSrc > button'), nums: hs('.xf-nums select, .xf-nums input'), pic: hs('#xfSvPic > button') }; })()`);
+info.phone = phone;
+ok('a phone: the Picture buttons are 44 px tall (control)', phone.pic.length > 0 && phone.pic.every((x) => x >= 44), phone);
+ok('a phone: "Filmstrip of"\'s buttons and the Number row\'s controls are 44 px tall', phone.src.length === 2 && phone.nums.length === 4 && [...phone.src, ...phone.nums].every((x) => x >= 44), phone);
+await view(1280, 800, false);
 // ---- no Number: the source is offered greyed, with its reason
 await open('xnn' + Date.now(), Object.assign({}, STATE, { steps: [{ type: 'custom', params: { expr: 'z^2-1', cut: 180 }, on: true }], params: [] }));
 await ev('(Figure.open(), 1)');

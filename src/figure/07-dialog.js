@@ -53,7 +53,7 @@
   const ptTxt = (v) => $t('{x} pt', { x: I18 ? I18.num(v) : v });
   // (round 3) the styles of the format row, the LaTeX box and the video panel, from the app's theme tokens (light and
   // dark follow the page); injected once, so page.html stays as it is
-  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}.xf-nums{flex-wrap:wrap}.xf-nums input.xf-numv{width:7em}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
+  const CSS3 = `.xf [role="radio"][aria-disabled="true"]{opacity:.45;cursor:default}.xf-nums{flex-wrap:wrap}.xf-nums .xf-nw{display:inline-flex;gap:6px;align-items:center;white-space:nowrap}.xf-nums input.xf-numv{width:7em}#xfSvPic{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));height:auto}#xfSvPic>button{min-width:0;min-height:28px;padding-inline:4px;white-space:normal;line-height:1.15}.xf-fmtrow{display:flex;gap:6px;align-items:center}.xf-fmtrow .xf-seg{flex:1 1 auto}.xf-fmtrow select.xf-select{flex:0 0 auto;height:28px}@media (max-width:560px){#xfSvPic{grid-template-columns:repeat(2,minmax(0,1fr))}}
 .xf-ctl>.xf-row{min-width:0}.xf-texwrap{position:relative;display:grid;grid-template-columns:minmax(0,1fr);min-width:0}.xf-tex{margin:0;max-height:9.5em;overflow:auto;box-sizing:border-box;width:100%;padding:7px 8px 7px 9px;background:var(--well);border:1px solid var(--line);border-radius:var(--r-2);font:400 10px/14px var(--f-mono);color:var(--ink-2);white-space:pre-wrap;overflow-wrap:anywhere;tab-size:2}
 .xf-tex:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-texbar{display:flex;align-items:center;gap:8px;margin-top:6px}.xf-texnote{font:var(--t-label);color:var(--muted)}.xf-texnote code{font:var(--t-readout)}
 .xf-video{display:grid;gap:10px}.xf-video .xf-fr{grid-template-columns:64px minmax(0,1fr)}.xf-checks{display:flex;flex-wrap:wrap;gap:6px 14px;font:var(--t-label);color:var(--ink-2)}.xf-checks label{display:inline-flex;align-items:center;gap:6px;cursor:pointer}
@@ -62,7 +62,7 @@
 .xf-pv{display:flex;flex-direction:column;gap:6px;max-width:100%;margin:auto}.xf-scroll:not(.video) .xf-pv{display:none}.xf-pv .xf-poster{margin:0}.xf-pv.busy .xf-poster{opacity:.6;transition:opacity var(--t-med) var(--ease-out)}.xf-pv.busy .xf-pvbar{opacity:.55}
 .xf-pvcv{display:block;background:#fff;box-shadow:var(--xf-paper-shadow);cursor:pointer}.xf-pvbar{display:flex;align-items:center;gap:8px;min-width:0}.xf-pvbtn{flex:0 0 auto;width:28px;height:28px;padding:0;display:inline-grid;place-items:center;border-radius:var(--r-2);background:var(--surface);border:1px solid var(--line);color:var(--ink);cursor:pointer}.xf-pvbtn:hover{border-color:var(--line-strong)}
 .xf-pvbtn:focus-visible,.xf-pvrange:focus-visible{outline:2px solid var(--accent);outline-offset:1px}.xf-pvrange{flex:1 1 auto;min-width:60px;margin:0;accent-color:var(--accent)}.xf-pvtime{font:var(--t-label);color:var(--ink-2);white-space:nowrap;font-variant-numeric:tabular-nums}.xf-pvt i{font-family:var(--f-math, serif)}.xf-pvnote{font:var(--t-label);color:var(--muted);min-height:16px;overflow-wrap:anywhere}
-@media (max-width:560px){#xfSvPic>button{min-height:44px}.xf-fmtrow{flex-wrap:wrap}.xf-planes{flex-direction:column;align-items:stretch}.xf-planes select.xf-select{width:100%;height:44px}.xf-planes>span{padding:0 2px}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
+@media (max-width:560px){#xfSvPic>button,#xfFilmSrc>button{min-height:44px}.xf-nums select.xf-select,.xf-nums input.xf-numv{height:44px}.xf-fmtrow{flex-wrap:wrap}.xf-planes{flex-direction:column;align-items:stretch}.xf-planes select.xf-select{width:100%;height:44px}.xf-planes>span{padding:0 2px}.xf-video .xf-fr{grid-template-columns:1fr}.xf-pvt{display:none}}`;
   const injectCSS = () => { if (document.getElementById('xfR3css')) return; const st = document.createElement('style'); st.id = 'xfR3css'; st.textContent = CSS3; document.head.append(st); };
   let dlg = null; // the open dialog's state (tests read it)
   let lastFig = null;
@@ -251,7 +251,7 @@
     if (nums.length) {
       const q = numOf();
       if (q.name !== set.numName || !A.numberParse(set.numFrom) || !A.numberParse(set.numTo)) numEnds(q);
-      if (!(set.numN >= 2 && set.numN <= 12)) set.numN = 4;
+      if (!(set.numN >= NUM_FILM_MIN && set.numN <= NUM_FILM_MAX)) set.numN = NUM_FILM_N;
     }
     const numSel = h('select', { class: 'xf-select xf-num', id: 'xfNum', 'aria-label': $t('Number'), onchange: () => { numEnds(nums.find((q) => q.name === numSel.value)); numFrom.value = set.numFrom; numTo.value = set.numTo; changed(); } });
     for (const q of nums) numSel.append(h('option', { value: q.name }, q.label));
@@ -261,11 +261,11 @@
       el.addEventListener('change', () => { const ok = !!A.numberParse(el.value); el.setAttribute('aria-invalid', String(!ok)); if (ok) { set[key] = el.value.trim(); changed(); } });
       return el;
     };
-    const numFrom = numInput('xfNumFrom', $t('First value'), 'numFrom'), numTo = numInput('xfNumTo', $t('Last value'), 'numTo');
+    const numFrom = numInput('xfNumFrom', $t('From value'), 'numFrom'), numTo = numInput('xfNumTo', $t('To value'), 'numTo');
     const numN = h('select', { class: 'xf-select xf-numn', id: 'xfNumN', 'aria-label': $t('Frames'), onchange: () => { set.numN = +numN.value; changed(); } });
-    for (let k = 2; k <= 12; k++) numN.append(h('option', { value: String(k) }, String(k)));
+    for (let k = NUM_FILM_MIN; k <= NUM_FILM_MAX; k++) numN.append(h('option', { value: String(k) }, String(k)));
     if (nums.length) { numSel.value = set.numName; numFrom.value = set.numFrom; numTo.value = set.numTo; numN.value = String(set.numN); }
-    const numRow = filmSeg && nums.length ? row($t('Number'), h('div', { class: 'xf-fmtrow xf-nums' }, numSel, h('span', null, $t('from')), numFrom, h('span', null, $t('to')), numTo, h('span', null, $t('Frames')), numN)) : null;
+    const numRow = filmSeg && nums.length ? row($t('Number'), h('div', { class: 'xf-fmtrow xf-nums' }, numSel, h('span', null, $t('from')), numFrom, h('span', null, $t('to')), numTo, h('span', { class: 'xf-nw' }, h('span', null, $t('Frames')), numN))) : null;
     if (numRow) numRow.classList.add('wide');
     function syncPlanes() {
       const vid = fmtOf() === 'video';

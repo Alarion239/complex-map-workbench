@@ -403,10 +403,11 @@
   // o.numTo ({re, im}: along the segment between them for a complex Number), each titled with its value, laid out as the
   // planes' filmstrip. The Number is set as a change at rest and the app settles before each frame is drawn (A.numberAt);
   // it is back at its value and range at the end, also when the build is cancelled (A.numberHold)
-  const NUM_FILM_MIN = 2, NUM_FILM_MAX = 12;
+  // (the frames a filmstrip over a Number takes: at least, at most, and by default)
+  const NUM_FILM_MIN = 2, NUM_FILM_MAX = 12, NUM_FILM_N = 4;
   async function figNumFilm(o, P, W, T) {
     const nu = A.numbers().find((q) => q.name === o.numName);
-    const a = o.numFrom, b = o.numTo, n = Math.max(NUM_FILM_MIN, Math.min(NUM_FILM_MAX, Math.round(o.numN) || 4));
+    const a = o.numFrom, b = o.numTo, n = Math.max(NUM_FILM_MIN, Math.min(NUM_FILM_MAX, Math.round(o.numN) || NUM_FILM_N));
     if (!nu || !a || !b) return null;
     const vals = Array.from({ length: n }, (_, i) => ({ re: a.re + (b.re - a.re) * i / (n - 1), im: a.im + (b.im - a.im) * i / (n - 1) }));
     const labs = vals.map((v) => cxTexL({ re: +v.re.toPrecision(6), im: +v.im.toPrecision(6) }));
