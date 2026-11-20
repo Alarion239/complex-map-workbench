@@ -1126,6 +1126,8 @@ async function svGlideUnit(scene, o = {}) {
         longInt.push([...l1.ints, ...l2.ints].filter((d) => d > SV_GLIDE_JANK_MS).length);
       }
     } finally { if (dpr !== 1) await setDpr(1); }
+    // (prepared: 1 when every rep's chain was prepared, 0 when one was not, so the report shows a stall as a row)
+    if (o.ready) put(`${pre}.prepared`, 'info', '', [unready ? 0 : 1]);
     if (unready && !R.length) continue;   // (no rep reached its glide: the details say why)
     put(`${pre}.dpr_ok`, 'check', '', dprOk);
     put(`${pre}.reps`, 'info', '', [R.length]);
