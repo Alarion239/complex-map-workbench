@@ -40,7 +40,7 @@ const frameAt = async (state) => {
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: false }); ${state}; 1`);
   await settled({ max: 20000 });
 };
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}` });
+await go(`http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function"' });
 // a glide frame at u, under way: the thread held there by a scrub on the rail not let go, as a user holds it (held_frames.js), then put at u exactly
 const heldAt = async (u) => {

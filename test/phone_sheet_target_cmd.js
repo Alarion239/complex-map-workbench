@@ -10,7 +10,7 @@ const settle = async (ms = 700) => { await sleep(ms); await ev('new Promise((r) 
 const ST = { shapes: [], steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] };
 const open = async (w, h, lang) => {
   await view(w, h, false, true); await load(`pst${w}${lang}-${Date.now()}`, ST);
-  if (lang !== 'en') { const u = await ev('location.href'); await send('Page.navigate', { url: u + (u.includes('?') ? '&' : '?') + 'lang=' + lang }); }
+  if (lang !== 'en') { const u = await ev('location.href'); await go(u + (u.includes('?') ? '&' : '?') + 'lang=' + lang); }
   // (a page still loading has no document element yet: the poll reads that as "not yet")
   for (let i = 0; i < 40; i++) { if (await ev(`!!document.documentElement && document.documentElement.classList.contains('ph') && typeof Phone !== 'undefined'`)) break; await sleep(250); }
   await settle(900);
