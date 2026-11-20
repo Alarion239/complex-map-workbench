@@ -40,7 +40,7 @@
   /** @type {any} */ (window).__cmwToast = (msg, label, o) => toast(msg, label, () => {}, false, o);   // (a message with an optional action that does nothing)
   /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
   /** @type {any} */ (window).__cmwStepParam = (k, key, v) => { const st = S.steps[k]; if (!st) return false; st.params[key] = v; chainChanged(false); return true; };
-  // the label pass's count and time, and what the last pass of the left plane placed ({ text, x, y, x1, y1 }: its box in the pane's px)
+  // the label pass's count and time, and what the last pass of the left plane placed ({ text, x, y, x1, y1, leader }: its box in the pane's px, and whether a leader joins it to a point that a control covers)
   /** @type {any} */ (window).__cmwLabelStats = { n: 0, ms: 0 };
   setLabelProbe((ms, curves) => { const s = /** @type {any} */ (window).__cmwLabelStats; s.n++; s.ms += ms; (s.list = s.list || []).push({ ms: +ms.toFixed(2), curves }); });
   /** @type {any} */ (window).__cmwLabelsPlaced = () => (paneL.labelsPlaced || []).map((q) => ({ text: q.text, x: Math.round(q.x0 * 10) / 10, y: Math.round(q.y0 * 10) / 10, x1: Math.round(q.x1 * 10) / 10, y1: Math.round(q.y1 * 10) / 10, leader: !!q.leader }));

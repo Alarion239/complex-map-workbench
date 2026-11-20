@@ -45,6 +45,7 @@ for (const [W, H, mobile, lang, near] of [[360, 640, true, 'en', [1.4, -1.45]], 
 }
 // the keys' lift: a point clear of the column at rest, the shape selected (the context bar) or a message shown (the toast), at 360 × 640
 const LIFT_PT = [1.45, -0.645];
+const GLIDE_CLOCK_MS = 100, GLIDE_FRAMES = 120;   // the glide time a frame advances (ms), and the most frames the wait for a frame on the move lasts
 // no transition of the plane's keys is still running (the lift has stopped)
 const LIFT_STOPPED = `!document.getAnimations().some((a) => a.transitionProperty === 'bottom')`;
 for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru', 'selected', "__cmwSelect('pt')"], ['en', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"], ['ru', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"]]) {
@@ -69,5 +70,15 @@ for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru',
   ok(`${tag}: once the keys have stopped rising the label lies under no control`, lifted.length <= 1 && hit.length === 0, { lifted, hit });
   // (the leader joins a label to a point that a control covers: not at rest, where the point is clear of the keys)
   ok(`${tag}: the label has a leader to the covered point, and at rest it has none`, lifted.length === 1 && lifted[0].leader === true && rest.length === 1 && rest[0].leader === false, { rest, lifted });
+  // (the frames of a glide are on the move: they draw the label where the last full placement put it, leader and all)
+  if (what === 'selected') {
+    // (a press waits behind the Play gate until the chain is prepared)
+    await settled({ max: SETTLE_MS, only: true, until: '__cmwSteps().ready.ready' });
+    await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS}, go: 1 }); 1`);
+    const moving = await ev(`new Promise((resolve) => { let n = 0; const tick = () => { const s = __cmwSteps(), l = __cmwLabelsPlaced() || []; if ((s.anim && l.length) || ++n > ${GLIDE_FRAMES}) resolve({ anim: !!s.anim, labels: l }); else requestAnimationFrame(tick); }; tick(); })`);
+    info[`${tag} moving`] = moving;
+    ok(`${tag}: a frame of a glide keeps the label and its leader`, moving.anim && moving.labels.length === 1 && moving.labels[0].leader === true, moving);
+    await ev(`__cmwSteps({ clock: 0 }); 1`);
+  }
 }
 return { pass: fails.length === 0, fails, info };

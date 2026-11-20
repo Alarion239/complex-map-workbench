@@ -63,6 +63,8 @@
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
   const LEADER_ROWS = 3, LEADER_COST = 3;
+  // (a label's halo, and the leader's ink line, in px)
+  const HALO_W = 3, LEADER_W = 1;
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
   const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4, AVOID_COST = 1;
   // (the points that are gone, deleted or replaced with the chain, lose their offsets)
@@ -169,7 +171,7 @@
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round'; ctx.lineWidth = 3;
+    ctx.lineJoin = 'round'; ctx.lineWidth = HALO_W;
     for (const g of groups) {
       const text = g.texts.join(' = ');
       ctx.font = g.word ? wordFont() : `italic 500 13px ${TH.math}`;
@@ -228,9 +230,9 @@
       placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text, leader });
       if (leader) {
         ctx.beginPath(); ctx.moveTo(x + tw + 1, y - th / 2 + 1); ctx.lineTo(g.x, g.y);
-        ctx.strokeStyle = TH.halo; ctx.lineWidth = 3; ctx.stroke();
-        ctx.strokeStyle = g.ink || TH.ink; ctx.lineWidth = 1; ctx.stroke();
-        ctx.lineWidth = 3;
+        ctx.strokeStyle = TH.halo; ctx.lineWidth = HALO_W; ctx.stroke();
+        ctx.strokeStyle = g.ink || TH.ink; ctx.lineWidth = LEADER_W; ctx.stroke();
+        ctx.lineWidth = HALO_W;
       }
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
       ctx.fillStyle = g.ink || TH.ink; ctx.fillText(text, x, y);
