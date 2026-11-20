@@ -10,6 +10,7 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+const W = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const base = 'http://localhost:' + ((/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1]);
 await view(1280, 800, false, false);
 const SHAPES = [{ kind: 'disc', c: [0.3, 0.2], r: 0.6, id: 's1' }, { kind: 'circle', c: [-0.5, -0.3], r: 0.4, id: 's2' }];
@@ -25,12 +26,7 @@ await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'functio
 // (held: the frame pending on the lines' own program, read once two reads 300 ms apart agree: the regions' stand-in
 // meshes are made in idle slices)
 await settled({ panes: false });
-let px0 = null, px1 = (await K.lpx(pts)).px, still = false;
-for (let i = 0; i < 40 && !still; i++) {
-  await sleep(300);
-  px0 = px1; px1 = (await K.lpx(pts)).px;
-  still = JSON.stringify(px0) === JSON.stringify(px1);
-}
+const { reading: px1, agreed: still } = await W.still(async () => (await K.lpx(pts)).px, 300, 12000, true);
 const held = { x: await ev('__cmwSteps().x'), pending: await ev('GLR.frameStatus().pending'), progs: await ev('GLR.chainProgs()'), px: px1, still, made: await ev('GLR.lineStandIns()') };
 info.held = { x: held.x, still, pending: held.pending, tfLine: held.progs.includes('tfLine'), read: held.px.filter(Boolean).length };
 ok('(held: at rest on w₂, the frame pending, the lines\' program among those held)', held.x === 2 && still && held.pending === true && info.held.tfLine && info.held.read >= 80, info.held);
