@@ -1427,8 +1427,9 @@
   // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
   // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
   // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
-  // caption), 'pre' (the marked preimages of the later planes' points)
-  const PANE_SAY_ORDER = ['land', 'pre'];
+  // caption), 'pre' (the marked preimages of the later planes' points), 'off' (the pieces of the later planes' regions'
+  // pullbacks that lie off the view)
+  const PANE_SAY_ORDER = ['land', 'pre', 'off'];
   const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
