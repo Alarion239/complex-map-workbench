@@ -8,16 +8,15 @@
 // none, or a step whose critical points are not known, with the reason. The chain's critical values are each unit's
 // critical values, its lattice's values and its asymptotic values, carried through the units after it
 // (Inverse.critForward). A unit's critical point counts only where the units before it reach it, from a finite point
-// (Inverse.pointPre through them finds a preimage) or from infinity (they carry infinity to it), when they are all
-// finite; otherwise it counts. A critical point at infinity of a later unit is reached from the poles of the units
-// before it (and from infinity, where they keep it).
+// or from infinity, pulled back unit by unit through poles and points at infinity (pullThrough), when they are all
+// finite; otherwise it counts.
 // A branch of a root, of log or of an inverse trigonometric function is one-to-one: its branch points join no pieces
 // and are not critical points here (Inverse.singular lists them as 'branch').
 //
 // Pure JS: needs CX, Expr, InvOps and Inverse.
 const Critical = (() => {
   const { sub, abs, isFin } = CX;
-  // two values or points within SAME (1 + |w|) are one; two radii within SAME (1 + r) are one tick
+  // two values within SAME (1 + |w|) are one; two radii within SAME (1 + r) are one tick
   const SAME = 1e-9;
   const CRIT_NONE = Object.freeze({ crit: [], lattice: null, asym: [] });
   // the steps with no inverse ops whose critical points are known not to exist (conformal where they are defined)
@@ -54,31 +53,36 @@ const Critical = (() => {
   }
   // a unit whose preimages pointPre lists, all of them: one branch or finitely many, and no pole lattice
   const finite = (o) => typeof o.pre === 'function' && !o.lattice && (!o.fam || o.fam.type === 'fin');
-  // the finite preimages of u (null = infinity) through units 0 .. i - 1, or null when they are not all listed: of a
-  // finite u by pointPre; of infinity the poles of each unit k, pulled back through the units before it, as long as the
-  // units after it keep infinity at infinity (infPre). A unit with branch points (a branch of log or of a root) sends
-  // its singular points to infinity with no finite order, and no critical point comes through it from infinity
+  // the preimages of u (null = infinity) through units 0 .. i - 1, unit by unit back: {zs (finite), inf (z = infinity
+  // is one)}, or null when they are not all listed. A finite point's preimages under a unit are pointPre's and, where
+  // the unit takes infinity there (infAt), infinity; infinity's are the unit's poles and, where it keeps infinity at
+  // infinity (infPre), infinity. A unit with branch points (a branch of log or of a root) sends its singular points to
+  // infinity with no finite order, and no critical point comes through it from infinity. Points within POINT_SAME of
+  // each other are one (a double pole's two computed roots)
+  const POINT_SAME = 1e-7;
   function pullThrough(units, i, u) {
-    const prefix = units.slice(0, i);
-    if (!prefix.every(finite)) return null;
-    if (u !== null) {
-      const r = Inverse.pointPre({ ok: true, ops: prefix }, u);
-      return r.exact ? r.zs : null;
-    }
-    const out = [];
-    for (let k = i - 1; k >= 0 && !units[k].branch.length; k--) {
-      for (const p of units[k].poles) {
-        const r = Inverse.pointPre({ ok: true, ops: units.slice(0, k) }, p);
-        if (!r.exact) return null;
-        out.push(...r.zs);
+    if (!units.slice(0, i).every(finite)) return null;
+    let cur = [u];
+    for (let k = i - 1; k >= 0 && cur.length; k--) {
+      const o = units[k], next = [];
+      for (const p of cur) {
+        if (p === null) {
+          if (o.branch.length) continue;
+          next.push(...o.poles);
+          if (o.infPre) next.push(null);
+        } else {
+          const r = Inverse.pointPre({ ok: true, ops: [o] }, p);
+          if (!r.exact) return null;
+          next.push(...r.zs);
+          if (o.infAt && o.infAt(p)) next.push(null);
+        }
       }
-      if (!units[k].infPre) break;
+      cur = next.filter((z, x) => next.findIndex((q) => (z === null ? q === null : q !== null && abs(sub(q, z)) <= POINT_SAME * (1 + abs(z)))) === x);
     }
-    return out;
+    return { zs: cur.filter((z) => z !== null), inf: cur.includes(null) };
   }
-  // whether units 0 .. i - 1 carry infinity to the finite point u
-  const fromInf = (units, i, u) => { const v = Inverse.critForward(units.slice(0, i), 0, null); return v !== null && abs(sub(v, u)) <= SAME * (1 + abs(u)); };
-  const pushOnce = (list, e, key) => { if (!list.some((q) => abs(sub(q[key], e[key])) <= SAME * (1 + abs(e[key])))) list.push(e); };
+  // (two values within SAME of each other are one; two points within POINT_SAME)
+  const pushOnce = (list, e, key, tol = SAME) => { if (!list.some((q) => abs(sub(q[key], e[key])) <= tol * (1 + abs(e[key])))) list.push(e); };
   const fwdAll = (units, z) => Inverse.critForward(units, 0, z);
 
   // Critical.ofChain(steps, built, a, b, win) -> the critical data of the stages (a, b] (built: Funcs.build results;
@@ -107,12 +111,12 @@ const Critical = (() => {
     units.forEach((o, i) => {
       const c = o.critical();
       for (const e of c.crit) {
-        const zs = pullThrough(units, i, e.u);
+        const pt = pullThrough(units, i, e.u);
         // (the units before it never reach it: no finite point, and not infinity)
-        if (zs && !zs.length && e.u !== null && !fromInf(units, i, e.u)) continue;
+        if (pt && !pt.zs.length && !pt.inf) continue;
         const w = Inverse.critForward(units, i + 1, e.w);
         if (w !== null) pushOnce(values, { w, kind: 'critical' }, 'w');
-        if (zs) for (const z of zs) pushOnce(points, { z, w }, 'z');
+        if (pt) for (const z of pt.zs) pushOnce(points, { z, w }, 'z', POINT_SAME);
         else complete = false;
       }
       if (c.lattice) {

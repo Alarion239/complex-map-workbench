@@ -164,18 +164,47 @@ for (const [name, steps, want] of [
 }
 // ---- a pole of order 2 or more: its value is infinity, never a huge or infinite float
 for (const [name, st, want] of [
-  ['(z² + 1)/(z − 0.1)²', St('rational', { p: '1, 0, 1', q: '1, -0.2, 0.01' }), [C(1 / 1.01 + 0)]],
+  ['(z² + 1)/(z − 0.1)²', St('rational', { p: '1, 0, 1', q: '1, -0.2, 0.01' }), [C(1 / 1.01)]],
   ['(z⁴ − 0.3z³ + 0.03z² − 0.001z + 1)/(z − 0.1)³', St('rational', { p: '1, -0.3, 0.03, -0.001, 1', q: '1, -0.3, 0.03, -0.001' }), null],
 ]) {
   const r = ofChain([st]);
   const finiteOnly = !!r && r.values.known && r.values.list.every((v) => CX.isFin(v.w) && abs(v.w) < 1e6);
   check(`${name}: every value finite and of the map's size, and so every join radius`, finiteOnly && Critical.joinRadii(r.values.list, C(0)).every((e) => e.r < 1e6), r && r.values);
-  if (want) check(`${name}: the value 1/1.01 at −10, and the double pole's none`, !!r && sameSet(r.values.list.map((v) => v.w), want.map(() => C(0.99009900990099))), r && r.values);
+  if (want) check(`${name}: the value 1/1.01 at −10, and the double pole's none`, !!r && sameSet(r.values.list.map((v) => v.w), want), r && r.values);
 }
 {
   // Inverse.critValues on the app's own path (planChain): a double pole adds no value
   const st = St('custom', { expr: '\\frac{z^2+1}{(z-1)^2}' }), cv = Inverse.critValues(Inverse.planChain([st], [Funcs.build(st)]));
   check('Inverse.critValues((z² + 1)/(z − 1)²) through planChain: [0.5]', Array.isArray(cv) && sameSet(cv, [C(0.5)]), cv);
+}
+// ---- infinity in the middle of a chain: a critical point reached through it, at every stage
+for (const [name, steps, values, points] of [
+  ['1/z → 1/z → z² (z²)', [St('recip'), St('recip'), St('pown', { n: 2 })], [C(0)], [C(0)]],
+  ['1/(z − 1) → 1/z → z² ((z − 1)²)', [St('custom', { expr: '\\frac{1}{z-1}' }), St('recip'), St('pown', { n: 2 })], [C(0)], [C(1)]],
+  ['1/(z − 1) → 1/z → z² − 1', [St('custom', { expr: '\\frac{1}{z-1}' }), St('recip'), St('custom', { expr: 'z^2-1' })], [C(-1)], [C(1)]],
+  // (the composite is ((z − 1)/(z² + 1))²: z = 1, a double zero, comes through infinity in the middle, and ±i are its
+  // double poles)
+  ['(z² + 1)/(z − 1) → 1/z → z²', [St('custom', { expr: '\\frac{z^2+1}{z-1}' }), St('recip'), St('pown', { n: 2 })], null, [C(1), C(0, 1), C(0, -1)]],
+]) {
+  const r = ofChain(steps);
+  if (values) check(`${name}: the values ${values.map((w) => `${w.re}+${w.im}i`).join(', ')}`, !!r && r.values.known && sameSet(r.values.list.map((v) => v.w), values), r && r.values);
+  check(`${name}: the critical points ${points.map((z) => `${z.re}+${z.im}i`).join(', ')} among them, all listed`, !!r && r.points.complete && points.every((z) => r.points.list.some((p) => near(p.z, z, 1e-7))), r && r.points);
+}
+{
+  // a double pole of an earlier step is one point, not its two computed roots
+  const r = ofChain([St('rational', { p: '1', q: '1, -2, 1' }), St('pown', { n: 2 })]);
+  check('1/(z − 1)² → z²: the double pole 1 listed once, value infinity', !!r && r.points.list.length === 1 && near(r.points.list[0].z, C(1), 1e-7) && r.points.list[0].w === null, r && r.points);
+  // a step before it whose units are not all inverted (a rational formula of degree 3): the points are not complete
+  const r2 = ofChain([St('custom', { expr: 'z^2+\\frac{1}{z}' }), St('pown', { n: 2 })]);
+  check('z² + 1/z → z²: the points pulled back through it are not complete', !!r2 && r2.values.known && !r2.points.complete, r2 && r2.points);
+}
+{
+  // each of the two defences against a pole's huge value, alone: ratCritical's pole test, and critForward's clamp of the first value
+  const { InvOps } = require('../src/invops.js');
+  const P = [C(1), C(0), C(1)], Q = [C(1), C(-0.2), C(0.01)], rc = InvOps.ratCritical(P, Q, (z) => CX.div(CX.polyEval(P, z), CX.polyEval(Q, z)));
+  const pole = rc.crit.find((e) => e.u !== null && near(e.u, C(0.1), 1e-6));
+  check('ratCritical((z² + 1)/(z − 0.1)²): the double pole 0.1 has the value infinity (null)', !!pole && pole.w === null, rc.crit);
+  check('Inverse.critForward clamps a first value past CRIT_INF to infinity', Inverse.critForward([], 0, C(1e20, 0)) === null && near(Inverse.critForward([], 0, C(2, 1)), C(2, 1)), null);
 }
 // Inverse.critValues reads the ops' critical points too: M3 through pointPlan
 {
