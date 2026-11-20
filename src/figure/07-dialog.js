@@ -182,7 +182,7 @@
     const sizeRow = row($t('Size'), colsSeg, h('div', { class: 'xf-pair' }, sizeBtn, textSel), customRow);
     sizeRow.classList.add('wide');
     // (the button's name is its row's heading, then the size it shows: "Size, Two column ...")
-    sizeRow.firstChild.id = 'xfSizeH';
+    sizeRow.querySelector('.xf-h').id = 'xfSizeH';
     sizeBtn.setAttribute('aria-labelledby', 'xfSizeH xfSize');
     const forRow = row($t('For'), forSeg); forRow.classList.add('wide');
     const inkRow = row($t('Ink'), inkSeg); inkRow.classList.add('wide');
