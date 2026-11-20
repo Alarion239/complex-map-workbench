@@ -6,6 +6,8 @@
 // 568 x 320 in Russian and Italian; with the globe shown, the hint card stays clear of the globe's disk. Where the plane above
 // the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
 // what is left beside them, is checked only to lie over the keys (#1915 holds it).
+// The unfolded colour key shows all its lines, in the steps view and in the classic view's Regions key (the tall bar leaves it room, or it
+// scrolls: the last line must not be cut off).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -14,6 +16,14 @@ const MARGIN = 2;   // the keys stand at least this far from the header and from
 const ROOM = 140;   // the plane above the bar holds the unfolded colour key (74 px) beside a row of keys (44 px) only when it is this tall, px: the 320 px tall phones' 106 px is not, a 360 px tall phone's 146 px is
 const HIT_PX = 8;   // the folded colour key's hit area reaches this far past its glyph, px (phone.css)
 const SLACK = 0.5;  // layout rounding, px
+// the box of #id has held still for QUIET_FRAMES frames in a row (the key is placed by a frame after it unfolds, and again once the bar's slide ends)
+const QUIET_FRAMES = 3, QUIET_MAX_FRAMES = 120;
+const placed = (id) => ev(`new Promise((resolve) => {
+  const e = document.getElementById(${JSON.stringify(id)}); let last = '', same = 0, n = 0;
+  const tick = () => { const r = e.getBoundingClientRect(), k = [r.left, r.top, r.width, r.height].join(); same = k === last ? same + 1 : 0; last = k;
+    if (same >= ${QUIET_FRAMES} || ++n > ${QUIET_MAX_FRAMES}) resolve(true); else requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
+})`);
 const meet = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 const geometry = () => ev(`(() => {
   const plot = document.getElementById('plotL').getBoundingClientRect(), bar = document.querySelector('.ph-ctx').getBoundingClientRect();
@@ -33,6 +43,9 @@ const CASES = [[740, 360, 'en', 'plane'], [667, 375, 'en', 'plane'], [844, 390, 
 for (const [w, h, lang, surf] of CASES) {
   const name = `${w}x${h} ${lang} ${surf}`;
   await view(w, h, false, true);
+  // (the page teaches "Hold and slide to read" once a session, for 8 s, in a long readout that the card drops below: this case sees it, whatever ran before)
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
+  await ev(`(sessionStorage.removeItem('cmw-probe-taught'), 1)`);
   await go(`http://localhost:${PORT}/test.html?view=steps&lang=${lang}&ns=ctxkeys${w}${Date.now() % 100000}`);
   await settled({ max: 30000, until: '!!document.documentElement.classList.contains("ph") && typeof __cmwSteps === "function" && !!document.querySelector("#constructTools .tool[data-tool=perp]")' });
   if (surf === 'sphere') {
@@ -69,16 +82,19 @@ for (const [w, h, lang, surf] of CASES) {
     const st = open ? 'unfolded' : 'folded';
     await ev(`(() => { const c = document.getElementById('leftLegend'); if (c && ${open} === c.classList.contains('collapsed')) c.click(); return 1; })()`);
     await settled({ max: 10000, until: `(() => { const c = document.getElementById('leftLegend'); return !!c && !c.hidden && c.classList.contains('collapsed') === ${!open}; })()` });
+    await placed('leftLegend');
     const lgx = await ev(`(() => {
       const c = document.getElementById('leftLegend'), r = c.getBoundingClientRect(), bar = document.querySelector('.ph-ctx').getBoundingClientRect();
       const e = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2);
-      return { r: [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10), press: !!e && c.contains(e), bar: [bar.left, bar.top, bar.right, bar.bottom].map(Math.round), over: e ? (e.className || e.id || e.tagName) : null, over_box: e ? (() => { const q = e.closest('.draft-chip, .cm-chip') || e, b = q.getBoundingClientRect(); return [q.className, b.left, b.top, b.right, b.bottom].map((x) => typeof x === 'number' ? Math.round(x) : x); })() : null };
+      return { r: [r.left, r.top, r.right, r.bottom].map((x) => Math.round(x * 10) / 10), ch: c.clientHeight, sh: c.scrollHeight, press: !!e && c.contains(e), bar: [bar.left, bar.top, bar.right, bar.bottom].map(Math.round), over: e ? (e.className || e.id || e.tagName) : null, over_box: e ? (() => { const q = e.closest('.draft-chip, .cm-chip') || e, b = q.getBoundingClientRect(); return [q.className, b.left, b.top, b.right, b.bottom].map((x) => typeof x === 'number' ? Math.round(x) : x); })() : null };
     })()`);
     const lg = lgx.r;
     const hit = (await geometry()).keys.filter((k) => k.shown && meet(k.r, lg)).map((k) => k.name);
     info[`${name} key ${st}`] = lgx;
     // (with the colour key folded and unfolded, a press at each plane key's centre reaches it: the construction chip's Cancel is not over Fit view)
     const covered = (await geometry()).keys.filter((k) => k.shown && !k.press).map((k) => k.name);
+    // (#2083: the unfolded card shows all its lines: it is not cut to a scrolling box)
+    if (open) ok(`${name}: the unfolded colour key shows all its lines (clientHeight = scrollHeight)`, lgx.ch >= lgx.sh - SLACK, { ch: lgx.ch, sh: lgx.sh });
     if (roomy || !open) ok(`${name}: with the colour key ${st}, a press at every plane key's centre reaches it`, covered.length === 0, covered);
     if (roomy || !open) ok(`${name}: the ${st} colour key overlaps no plane key`, hit.length === 0, { lg, hit });
     if (roomy || !open) ok(`${name}: a press at the ${st} colour key's centre reaches it (nothing of the bar is over it)`, lgx.press && !meet(lg, lgx.bar), lgx);
@@ -109,5 +125,22 @@ for (const [w, h, lang, surf] of CASES) {
     info[`${name} hint`] = m;
     ok(`${name}: the hint card is clear of the globe's disk (gap >= 0 px)`, m.shown && m.gap >= 0, m);
   }
+}
+// The classic view's Regions key (Y's, #rightLegend), unfolded under the tall bar: it shows all its lines (#2083). Landscape phones in
+// English, Russian and Italian, light.
+const CLASSIC_CASES = [[568, 320], [640, 320]];
+for (const [w, h] of CLASSIC_CASES) for (const lang of ['en', 'ru', 'it']) {
+  const name = `${w}x${h} ${lang} classic`;
+  await view(w, h, false, true);
+  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${w}${Date.now() % 100000}`);
+  await settled({ max: 30000, until: '!!document.documentElement.classList.contains("ph") && typeof __cmwSteps === "function" && !!document.querySelector("#constructTools .tool[data-tool=perp]")' });
+  await ev(`document.querySelector('#constructTools .tool[data-tool="perp"]').click(); 1`);
+  await settled({ max: 20000, until: 'document.documentElement.classList.contains("ph-ctx-tall") && !!document.querySelector(".ph-ctx.in")' });
+  await ev(`(() => { const c = document.getElementById('rightLegend'); if (c && c.classList.contains('collapsed')) c.click(); return 1; })()`);
+  await settled({ max: 10000, until: `(() => { const c = document.getElementById('rightLegend'); return !!c && !c.hidden && !c.classList.contains('collapsed'); })()` });
+  await placed('rightLegend');
+  const cl = await ev(`(() => { const c = document.getElementById('rightLegend'); return { ch: c.clientHeight, sh: c.scrollHeight }; })()`);
+  info[name] = cl;
+  ok(`${name}: the unfolded Regions key shows all its lines (clientHeight = scrollHeight)`, cl.ch >= cl.sh - SLACK, cl);
 }
 return { pass: fails.length === 0, fails, info };
