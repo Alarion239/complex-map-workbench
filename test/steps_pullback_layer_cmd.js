@@ -13,8 +13,15 @@
 // pixel (its outline: more than the fill, Everywhere), far from every preimage by at most OUT_D (control: the same
 // picture read twice). Inside regions, a preimage the plane's own regions already colour (where the two scopes agree
 // without the later region) keeps that colour at full strength and the layer draws its band alone, no fill (#1889): there
-// the picture differs by at most FILL_K of Everywhere's difference at that preimage (the band alone: its small
-// preimages' 5 × 5 patches are mostly band). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
+// the picture at the preimage's centre pixel differs by at most FILL_K of Everywhere's there (the fill alone: the band
+// and its casing take most of a small preimage's 5 × 5 patch).
+// The boundary band against the colour it covers (#1904): at rest on z, in the light and the dark theme, the strongest
+// pixel of the mark (the band over its casing) against the same pixel of the picture without the later region reaches
+// the 3:1 of a graphical object (CONTRAST), in a box BOX_PX about one preimage: z², Everywhere, and Joukowski in both
+// scopes (Inside regions its outer preimage, in z's own region, is the band alone over the colour). The glide's end:
+// z², Everywhere, the frame held at END_X (the inverse pass's layer) draws the band and its casing as plane z at rest
+// does.
+// A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 // the colour difference (summed over r, g, b) that counts as a fill drawn (a 5 × 5 mean; the fill is at half strength
@@ -42,12 +49,13 @@ async function read3(expr) {
     try { return await ev(expr); } catch (e) { if (i >= 2 || !/-32603/.test(String(e))) throw e; await settled({ floor: 300 }); }
   }
 }
-// the mean colour of the 5 × 5 device pixels about each plane point (re, im) of the left pane, or null off the pane
-const patches = (pts) => read3(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, g = c.getContext('2d');
+// the mean colour of the (2 h + 1)² device pixels about each plane point (re, im) of the left pane (h = 2: 5 × 5;
+// h = 0: the one pixel there), or null off the pane
+const patches = (pts, h = 2) => read3(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, g = c.getContext('2d');
   return ${JSON.stringify(pts)}.map(([re, im]) => { const p = __cmwPlaneMenu().w2s('L', re, im), x = Math.round((p[0] - r.left) * k), y = Math.round((p[1] - r.top) * k);
     if (x < 3 || y < 3 || x > c.width - 4 || y > c.height - 4) return null;
-    const d = g.getImageData(x - 2, y - 2, 5, 5).data, m = [0, 0, 0];
-    for (let i = 0; i < d.length; i += 4) for (let j = 0; j < 3; j++) m[j] += d[i + j] / 25;
+    const d = g.getImageData(x - ${h}, y - ${h}, ${2 * h + 1}, ${2 * h + 1}).data, m = [0, 0, 0];
+    for (let i = 0; i < d.length; i += 4) for (let j = 0; j < 3; j++) m[j] += d[i + j] / ${(2 * h + 1) ** 2};
     return m.map((v) => Math.round(v * 10) / 10); }); })()`);
 // the colours of the 24 device pixels along the segment [p, q] of plane points, or null off the pane
 const across = ([p, q]) => read3(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, g = c.getContext('2d');
@@ -110,6 +118,7 @@ for (const c of CASES) {
         await atX(+k, withL || scope === 'all');
         const P = c.planes[k], pts = [...P.pre, ...(P.inner || []), ...P.out];
         read[k + withL] = await steady(pts);
+        read[k + withL + 'c'] = await patches([...P.pre, ...(P.inner || [])], 0);
         if (withL) read[k + 'state'] = await ev(`(() => { const s = __cmwSteps(); return { x: s.x, path: s.glide && s.glide.path, u: s.glide && s.glide.u }; })()`);
         if (!withL) read[k + 'again'] = await steady(pts);
         read[k + withL + 'edge'] = await Promise.all((P.edge || []).map(across));
@@ -119,24 +128,92 @@ for (const c of CASES) {
       const P = c.planes[k], n0 = P.pre.length, n1 = n0 + (P.inner || []).length;
       const d = read[k + true].map((p, j) => diff(p, read[k + false][j])), d0 = read[k + 'again'].map((p, j) => diff(p, read[k + false][j]));
       const tag = `${c.key}, ${scope === 'all' ? 'Everywhere' : 'Inside regions'}, ${Number.isInteger(+k) ? 'plane ' + k : 'parked at x = ' + k}`;
-      if (scope === 'all') every[k] = { d, at: read[k + false] };
+      // (the preimages' centre pixels: the fill alone, Inside regions' FILL_K row)
+      const dc = read[k + true + 'c'].map((p, j) => diff(p, read[k + false + 'c'][j]));
+      if (scope === 'all') every[k] = { d, dc, at: read[k + false] };
       const own = scope === 'in' ? read[k + false].slice(0, n1).map((p, j) => diff(p, every[k].at[j]) <= OUT_D) : null;
-      info[tag] = { d, d0, state: read[k + 'state'], own, dAll: scope === 'in' ? every[k].d : null };
+      info[tag] = { d, d0, dc, state: read[k + 'state'], own, dAll: scope === 'in' ? every[k].d : null, dcAll: scope === 'in' ? every[k].dc : null };
       if (!Number.isInteger(+k)) ok(`${tag}: the frame is parked there, drawn by the inverse pass`, Math.abs(read[k + 'state'].x - +k) < 1e-9 && read[k + 'state'].path === 'inverse', read[k + 'state']);
       ok(`${tag}: control: the picture without the later region, read twice, is the same (within ${OUT_D})`, d0.every((x) => x <= OUT_D), d0);
       if (!own) {
         ok(`${tag}: each preimage of the later region is drawn (differs by more than ${PRE_D})`, d.slice(0, n0).every((x) => x > PRE_D && x < Infinity), d.slice(0, n0));
         if (n1 > n0) ok(`${tag}: the inner preimage is drawn too`, d.slice(n0, n1).every((x) => x > PRE_D && x < Infinity), d.slice(n0, n1));
       } else {
-        const dA = every[k].d;
+        const dA = every[k].d, dcA = every[k].dc;
         ok(`${tag}: each preimage over the paper keeps the region's colour (differs by more than ${PRE_D})`, d.slice(0, n1).every((x, j) => own[j] || (x > PRE_D && x < Infinity)), { d: d.slice(0, n1), own });
-        ok(`${tag}: each preimage in the plane's own regions has no fill over the colour (differs by at most ${FILL_K} of Everywhere's; at least one such preimage where the plane has regions of its own)`, (!c.own.length || own.some(Boolean)) && d.slice(0, n1).every((x, j) => !own[j] || x <= FILL_K * dA[j]), { d: d.slice(0, n1), own, dAll: dA.slice(0, n1) });
+        ok(`${tag}: each preimage in the plane's own regions has no fill over the colour (at its centre pixel, differs by at most ${FILL_K} of Everywhere's; at least one such preimage where the plane has regions of its own)`, (!c.own.length || own.some(Boolean)) && dc.every((x, j) => !own[j] || x <= FILL_K * dcA[j]), { dc, own, dcAll: dcA });
       }
       const e = read[k + true + 'edge'].map((seg, j) => Math.max(...seg.map((p, i) => diff(p, read[k + false + 'edge'][j][i]))));
       info[tag].edge = e;
       if (e.length) ok(`${tag}: each preimage's boundary is outlined (one pixel across it differs by more than ${EDGE_D}${scope === 'all' ? ', and more than the fill' : ''})`, e.every((x) => x > EDGE_D && x < Infinity && (scope !== 'all' || x > Math.max(...d.slice(0, n0)))), e);
       ok(`${tag}: far from every preimage the picture is unchanged (within ${OUT_D})`, d.slice(n1).every((x) => x <= OUT_D), d.slice(n1));
     }
+  }
+}
+// ---- the band against the colour it covers (#1904) ----
+// (CONTRAST: the least ratio of the mark's strongest pixel, by theme (the dark theme's light ink reaches 3.1:1 without
+// a casing, the bar it keeps); MARK_D: a pixel's largest channel difference that counts it in the mark; BOX_PX: css px
+// each side of the preimage's point read; END_X: the glide's frame read against the plane at rest, held there (a park
+// this near a plane keeps to the plane); END_D, END_PX: a pixel that differs by more than END_D counts, and at most
+// END_PX may (the band and its casing drawn alike at the glide's end; the glide's frame also marks the later region's
+// centre beside it, which the plane at rest does not))
+const CONTRAST = { light: 3, dark: 3.1 }, MARK_D = 24, BOX_PX = 40, END_X = 0.002, END_D = 48, END_PX = 80;
+const box = (at) => read3(`(() => { const c = document.getElementById('canvasL'), r = c.getBoundingClientRect(), k = c.width / r.width, g = c.getContext('2d');
+  const p = __cmwPlaneMenu().w2s('L', ${at[0]}, ${at[1]}), x0 = Math.max(0, Math.round((p[0] - r.left - ${BOX_PX}) * k)), y0 = Math.max(0, Math.round((p[1] - r.top - ${BOX_PX}) * k));
+  const w = Math.min(c.width - x0, Math.round(2 * ${BOX_PX} * k)), h = Math.min(c.height - y0, Math.round(2 * ${BOX_PX} * k));
+  return Array.from(g.getImageData(x0, y0, w, h).data); })()`);
+// WCAG's relative luminance of the pixel at i, and the contrast of two
+const lum = (d, i) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(d[i]) + 0.7152 * f(d[i + 1]) + 0.0722 * f(d[i + 2]); };
+const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+const pxD = (a, b, i) => Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]));
+const BANDS = [
+  { c: CASES[0], scope: 'all', at: [1.4177, 0.0705] },
+  { c: CASES[1], scope: 'all', at: [2.6463, 0.6926] },
+  { c: CASES[1], scope: 'in', at: [2.6463, 0.6926] },
+];
+info.band = {};
+for (const theme of ['light', 'dark']) {
+  for (const B of BANDS) {
+    const px = [];
+    for (const withL of [false, true]) {
+      await openApp({ srcView: B.c.view, steps: B.c.steps, shapes: B.c.own.concat(withL ? [B.c.later] : []) });
+      await ev(`document.documentElement.setAttribute('data-theme', '${theme}'), 1`);
+      await setScope(B.scope);
+      await atX(0);
+      await steady([B.at]);
+      px.push(await box(B.at));
+    }
+    const [wo, w] = px;
+    let n = 0, best = 0;
+    for (let i = 0; i + 2 < w.length && i + 2 < wo.length; i += 4) {
+      if (pxD(w, wo, i) < MARK_D) continue;
+      n++;
+      best = Math.max(best, ratio(lum(w, i), lum(wo, i)));
+    }
+    const tag = `${B.c.key}, ${B.scope === 'all' ? 'Everywhere' : 'Inside regions'}, plane 0, ${theme} theme`;
+    info.band[tag] = { n, best: +best.toFixed(2) };
+    ok(`${tag}: the preimage's band, over its casing, reaches ${CONTRAST[theme]}:1 against the colour it covers (its strongest pixel)`, n > 0 && best >= CONTRAST[theme], info.band[tag]);
+  }
+  // the glide's end: z², Everywhere, the frame held at END_X against plane z at rest, both with the later region: the
+  // glide's layer (the inverse pass's) draws the band over its casing as the plane at rest does (#1904, #1733)
+  {
+    const c = CASES[0], at = [1.4177, 0.0705];
+    await openApp({ srcView: c.view, steps: c.steps, shapes: c.own.concat([c.later]) });
+    await ev(`document.documentElement.setAttribute('data-theme', '${theme}'), 1`);
+    await setScope('all');
+    await atX(0);
+    await steady([at]);
+    const rest = await box(at);
+    await ev(`__cmwSteps({ x: ${END_X} }), 1`);
+    await settled({ max: 30000, until: `(() => { const s = __cmwSteps(); return Math.abs(s.x - ${END_X}) < 1e-9 && !!s.glide && s.glide.path === 'inverse'; })()` });
+    await steady([at]);
+    const held = await box(at), inverse = await ev(`(() => { const s = __cmwSteps(); return Math.abs(s.x - ${END_X}) < 1e-9 && !!s.glide && s.glide.path === 'inverse'; })()`);
+    let n = 0;
+    for (let i = 0; i + 2 < held.length && i + 2 < rest.length; i += 4) if (pxD(held, rest, i) > END_D) n++;
+    const tag = `${c.key}, Everywhere, held at x = ${END_X}, ${theme} theme`;
+    info.band[tag] = { n, inverse };
+    ok(`${tag}: the frame is held there, drawn by the inverse pass`, inverse, info.band[tag]);
+    ok(`${tag}: the glide's end draws the band and its casing as plane z at rest does (at most ${END_PX} pixels differ by more than ${END_D})`, inverse && n <= END_PX, info.band[tag]);
   }
 }
 return { pass: fails.length === 0, fails, info };
