@@ -34,9 +34,9 @@ const rec = () => ev('(() => { const q = __cmwSteps(); return { x: q.x, all: q.a
 const open = async (steps, s, homAll, shapes = [], scope = 'all') => {
   const ns = 'svae' + Date.now();
   const st = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes, steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s }, homAll };
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
   await settled({ max: START_WAIT, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')` });
   await adopted();
   await ev(`__cmwSet('alpha', 1), __cmwSet('morphPaths', false), 1`);
