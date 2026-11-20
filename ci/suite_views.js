@@ -170,6 +170,7 @@ const VIEWS = {
   'example_integral_phone_cmd.js': steps({ pin: true }),
   'steps_ctx_keys_cmd.js': steps({ pin: true }),
   'menu_buttons_expanded_cmd.js': steps({ pin: true }),
+  'menu_item_names_cmd.js': steps({ pin: true }),
   'settings_theme_menu_cmd.js': steps({ pin: true }),
   'readout_touch_cmd.js': steps(),
   'phone_hint_globe_cmd.js': steps(),
