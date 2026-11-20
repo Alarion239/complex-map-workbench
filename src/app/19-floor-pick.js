@@ -1,4 +1,4 @@
-  // ---------------- the floor picker: the Pick tool in the steps view (the Stack's flat picking, #1978, #1982) ----------------
+  // ---------------- the floor picker: the Pick tool in the steps view ----------------
   // On the plane shown, the floor (stage k = leftStage()), with the target's plane T = svT() past it, the Pick tool picks
   // on the floor; F = rangeF(k, T).
   // - A press at z₀ lights its twins: every z with F(z) = F(z₀). They come from exactPre, all of them, where the steps
@@ -11,14 +11,13 @@
   // From the keyboard, with the plane focused, Enter lights the twins of the selected point of the floor, or else of the
   // view's centre; Enter again adds the disc about their image (PICK_KEY_PX at z₀ on the floor), selected, for the
   // Inspector and the arrows. The tool shows only where it picks (pickAvail); elsewhere its button keeps its place,
-  // hidden.
+  // hidden (syncGlobeTools).
   const PICK_SLOP = 4;                 // CSS px a press moves before it is a drag
   const PICK_KEY_PX = 40;              // a disc added from the keyboard: its radius on the floor, in CSS px at z₀
   const PICK_DOT = 4.5, PICK_RING = 6; // CSS px: the pressed point's dot, its twins' rings
   const PICK_SEARCH_MS = 120;          // the search's budget where the steps have no exact inverse
   const PICK_SEARCH_MAX = 40;          // the most twins the search lists
   let floorPick = null;                // the lit twins: {sig, k, T, z0, w, zs: [{z, mult}], more}
-  let pickShown = null;                // whether the Pick button shows (syncPickTool)
   // whether the Pick tool picks here: the steps view's flat plane, with the target's plane past it
   const pickAvail = () => !!(SV.on && lFlat() && svT() > leftStage());
   const pickSig = () => `${leftStage()}|${svT()}|${chainSig[nSteps()]}`;
@@ -117,8 +116,9 @@
     const lit = floorPick && floorPick.sig === pickSig() && CX.abs(CX.sub(floorPick.z0, z0)) <= 1e-12 * (1 + CX.abs(z0));
     if (!lit) { pickLight(k, T, z0); return true; }
     const [x, y] = paneL.w2s(z0), r = CX.abs(CX.sub(rangeF(k, T)(paneL.s2w(x + PICK_KEY_PX, y)), floorPick.w));
-    if (!(r > 0) || !CX.isFin(C(r, 0))) return true;
+    if (!(r > 0 && Number.isFinite(r))) return true;
     addShape(newShape('disc', { c: [floorPick.w.re, floorPick.w.im], r, stage: T }));
+    svSay($t('Disc added on {w}, about the image of the lit point', { w: svName(T) }));
     return true;
   }
   // the lit twins over the floor: the pressed point a dot, its twins rings (an overlay of the steps view's plane)
@@ -138,18 +138,6 @@
     }
     ctx.restore();
   }
-  // the Pick button shows where the tool picks and keeps its place, hidden, elsewhere; the tool itself is put down there
-  function syncPickTool() {
-    const on = pickAvail();
-    if (on === pickShown) return;
-    pickShown = on;
-    for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool="pick"]'))) {
-      b.classList.toggle('tool-na', !on);
-      b.setAttribute('aria-hidden', String(!on));
-      b.tabIndex = on ? 0 : -1;
-    }
-    if (!on && tool === 'pick') setTool('select');
-  }
   // TEST-HOOK (dropped from the published page by build.py): the lit twins, and the Pick button's state
-  window.__cmwPick = () => ({ avail: pickAvail(), shown: pickShown, tool, lit: floorPick ? { k: floorPick.k, T: floorPick.T, z0: [floorPick.z0.re, floorPick.z0.im], w: [floorPick.w.re, floorPick.w.im], zs: floorPick.zs.map((r) => [r.z.re, r.z.im, r.mult]), more: floorPick.more } : null, live: (SV.els && SV.els.live && SV.els.live.textContent) || '' });
+  window.__cmwPick = () => ({ avail: pickAvail(), shown: !!document.querySelector('.tool[data-tool="pick"]:not(.tool-na)'), tool, lit: floorPick ? { k: floorPick.k, T: floorPick.T, z0: [floorPick.z0.re, floorPick.z0.im], w: [floorPick.w.re, floorPick.w.im], zs: floorPick.zs.map((r) => [r.z.re, r.z.im, r.mult]), more: floorPick.more } : null, live: (SV.els && SV.els.live && SV.els.live.textContent) || '' });
   // TEST-HOOK

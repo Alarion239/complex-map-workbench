@@ -751,5 +751,7 @@
   "many": "%{n} прообразов в плоскости %{plane}",
   "other": "%{n} прообраза в плоскости %{plane}"
  },
- "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие"
+ "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
+ "phone tile\u0004Pick": "Точки",
+ "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки"
 }

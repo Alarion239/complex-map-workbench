@@ -69,15 +69,15 @@
     if (I18N.lang !== 'en') {
       const PHL = { circle: $tx('phone tile', 'Circle'), rect: $tx('phone tile', 'Rectangle'), polygon: $tx('phone tile', 'Polygon'), halfplane: $tx('phone tile', 'Half-plane'),
         meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Perpendicular'),
-        hyper: $tx('phone tile', 'Hyperbolic') };   // (the seventh Construct tool)
+        hyper: $tx('phone tile', 'Hyperbolic'), pick: $tx('phone tile', 'Pick') };   // (the seventh Construct tool)
       for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed
     if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
     syncModeChips();
-    pickShown = null;
-    syncPickTool();
+    globeToolsOff = null;
+    syncGlobeTools();
   }
   function setTool(id) {
     if (id === 'formula') { setPanels(false, S.hideRight); const f = $('formulaInput'); f.focus(); f.select(); return; }
