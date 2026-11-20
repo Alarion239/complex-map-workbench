@@ -13,7 +13,7 @@
 //         member's range level lies within 0.02 px of the -1 px ramp.
 //  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included)
 //  fs     REGION_FS(false / true) byte-identical to the fixtures (SPEC 6.1; patterns 0-8 since P3)
-//  flip   12.1 (l): poly 1,0,-1,0 <-> 1,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
+//  flip   12.1 (l): poly 1,0,0,0,-1,0 <-> 1,0,0,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
 //         forward key: the inverse key changes, the program drawn is the one of the current inverse key (its source
 //         is the current info's lib + walker), the forward uChain layout is unchanged, every frame draws (inverse when
 //         eligible and compiled, else the forward mesh)
@@ -112,6 +112,29 @@ window.__invTestRun = async (opts = {}) => {
     if (!d || !d.step) throw new Error('d/dz chain: ' + ((d && d.error) || 'no derivative'));
     chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
   }
+  // degree 3 in closed form (RAT3, Cardano's roots polished): a cubic polynomial, rational maps of degree 3 (the catalog's,
+  // formulas, zeros and poles), and a cubic inside a chain
+  chains.push({ name: 'cubic poly (1-i)z^3+2z^2+0.5iz-1', steps: [St('poly', { co: '1-i, 2, 0.5i, -1' })] });
+  chains.push({ name: 'cubic rational (z^3+1)/z', steps: [St('rational', { p: '1, 0, 0, 1', q: '1, 0' })] });
+  chains.push({ name: 'cubic rational (z^3+1)/(z^2-4)', steps: [St('custom', { expr: '\\frac{z^3+1}{z^2-4}', cut: 180 })] });
+  chains.push({ name: 'cubic zp zeros 1, 2i poles 0, 3, -1', steps: [St('zp', { a: '1', zeros: '1, 2i', poles: '0, 3, -1' })] });
+  chains.push({ name: 'cubic z^3-2z+1 > exp', steps: [St('poly', { co: '1, 0, -2, 1' }), St('exp')] });
+  // (its value at infinity, 1, inside the views: about w = 1 the cubic's leading coefficient vanishes and one root runs off)
+  chains.push({ name: 'cubic rational (z^3+1)/(z^3-2z+0.5)', steps: [St('custom', { expr: '\\frac{z^3+1}{z^3-2z+0.5}', cut: 180 })] });
+  // degree 4 in closed form (RAT4, Ferrari's roots through the cubic, polished): a quartic polynomial, rational maps of
+  // degree 4 (one with its value at infinity, 1, inside the views), zeros and poles, and a quartic inside a chain
+  chains.push({ name: 'quartic poly z^4+z^3-2z+1', steps: [St('poly', { co: '1, 1, 0, -2, 1' })] });
+  chains.push({ name: 'quartic rational z^3+1/z', steps: [St('custom', { expr: 'z^3+\\frac{1}{z}', cut: 180 })] });
+  chains.push({ name: 'quartic rational (z^4+1)/(z^4-z^2+2z)', steps: [St('custom', { expr: '\\frac{z^4+1}{z^4-z^2+2z}', cut: 180 })] });
+  chains.push({ name: 'quartic zp zeros 1, 2, i poles 0, 3, 4, -i', steps: [St('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' })] });
+  chains.push({ name: 'quartic mobius > (1-i)z^4+2z^3+0.5iz-1', steps: [St('mobius'), St('poly', { co: '1-i, 2, 0, 0.5i, -1' })] });
+  // degree 5 to 12 by Aberth's iteration (RAT<n>): rational maps of degree 5 (a formula, the catalog's, zeros and poles),
+  // of degree 6 with its value at infinity inside the views, and of degree 12
+  chains.push({ name: 'rat5 rational (z^5+z)/(2z^2-1)', steps: [St('custom', { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 })] });
+  chains.push({ name: 'rat5 catalog rational (z^5+1)/(z^2+z)', steps: [St('rational', { p: '1, 0, 0, 0, 0, 1', q: '1, 1, 0' })] });
+  chains.push({ name: 'rat5 zp zeros 1, 2, i, -i, 0.5 poles 0, 3', steps: [St('zp', { a: '1', zeros: '1, 2, i, -i, 0.5', poles: '0, 3' })] });
+  chains.push({ name: 'rat6 rational (z^6+z)/(z^6-z^2+2)', steps: [St('custom', { expr: '\\frac{z^6+z}{z^6-z^2+2}', cut: 180 })] });
+  chains.push({ name: 'rat12 rational (z^12+z)/(z^2-3)', steps: [St('custom', { expr: '\\frac{z^{12}+z}{z^2-3}', cut: 180 })] });
   // ---- shapes ----
   const SH = [];
   const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)
@@ -570,7 +593,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     const disc = { id: 7, kind: 'disc', c: [0.3, 0.2], r: 0.9 };
     const win = { x0: -3.4, x1: 3.4, y0: -4.3, y1: 4.3 };
     const seqs = [
-      ['poly', [{ co: '1, 0, -1, 0' }, { co: '1, 0, 0, 5' }, { co: '1, 0, -1, 0' }]],
+      ['poly', [{ co: '1, 0, 0, 0, -1, 0' }, { co: '1, 0, 0, 0, 0, 5' }, { co: '1, 0, 0, 0, -1, 0' }]],
       ['rational', [{ p: '1, 2', q: '1, 0' }, { p: '1, 2', q: '0, 1' }, { p: '1, 2', q: '1, 0' }]],
       // through degeneracy: (z + 2) / (2z + 4) is the constant 1/2 (its image is a point: nothing to fill)
       ['mobius', [{ a: '1', b: '2', c: '1', d: '3' }, { a: '1', b: '2', c: '2', d: '4' }, { a: '1', b: '2', c: '2', d: '4.1' }, { a: '1', b: '2', c: '2', d: '4' }, { a: '1', b: '2', c: '1', d: '3' }]],
