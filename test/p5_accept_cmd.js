@@ -16,6 +16,20 @@
 //      drawn, and after a context loss the pre-mapped GPU bytes equal the bytes of the meshes drawn
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+// Progress for a run that gives no result: the daemon's stdout is the runner's log when the suite is still going after its 30 min
+// (ci/browser.js prints the tail of it with the failure). mark() names the step the suite is in; the beat, every 2 min, prints the
+// step and the page's jobs (id: not started / phase N, cancelled, unwanted) with what the mesh driver waits on, so a hang shows where it is
+const T0 = Date.now();
+let STEP = 'start';
+const mark = (name) => { STEP = name; console.log(`p5 +${Math.round((Date.now() - T0) / 1000)}s ${name}`); };
+const beat = setInterval(async () => {
+  let page;
+  try {
+    const s = await Promise.race([evJson('JSON.stringify(__cmwSphere())'), sleep(15000).then(() => null)]);
+    page = s ? `${s.jobs.length} jobs [${s.jobs.map((j) => `${j.key.split('|')[0]}: ${j.cancelled ? 'cancelled' : j.started ? 'phase ' + j.phase : 'not started'}${j.wanted ? '' : ', unwanted'}`).join('; ')}], running ${s.running}, built ${s.stats.built}, waits ${JSON.stringify(s.wait)}` : 'the page gave no answer in 15 s';
+  } catch (e) { page = 'the page: ' + e.message; }
+  console.log(`p5 +${Math.round((Date.now() - T0) / 1000)}s beat in "${STEP}": ${page}`);
+}, 120000);
 const req = process.getBuiltinModule('module').createRequire(process.cwd() + '/');
 const Q = req('./test/regress/quality/scenes.js');
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
@@ -48,6 +62,7 @@ const stuckJobs = async (s) => {
 };
 const settle = async (ms = 120000, want = {}) => {
   const t0 = Date.now();
+  mark(`settle ${JSON.stringify(want)}`);
   let s = null;
   for (;;) {
     await sleep(300);
@@ -74,6 +89,7 @@ let curIds = [];
 const forceFwd = (ids) => ev(`__cmwForceForward(${JSON.stringify(ids)}); 1`);
 const setExact = (on) => forceFwd(on ? [] : curIds);
 const loadReady = async (ns, st, ms = 120000, fwd = false) => {
+  mark(`loadReady ${ns}`);
   const r = await load(ns, st);
   const t0 = Date.now();
   let missing = HOOKS;
@@ -99,6 +115,7 @@ const watchDraws = () => ev(`(() => { if (window.__p5w) return 1; const w = wind
 // run `trigger` (a statement that makes the app redraw), then wait until the app has drawn a SphereMesh (at `alpha`, when
 // given) in a frame after it, and one more frame has passed: the canvas then shows that state. false when none came
 const meshDrawn = async (trigger, alpha, ms = 90000) => {
+  mark('meshDrawn');
   const n0 = await ev('window.__p5w.pm');
   await ev(trigger);
   const t0 = Date.now();
@@ -113,6 +130,7 @@ const meshDrawn = async (trigger, alpha, ms = 90000) => {
 };
 // the exact image: wait until the pane has drawn the shape by the inverse path (`__cmwDrawn`), then a frame more
 const exactDrawn = async (ms = 90000) => {
+  mark('exactDrawn');
   const t0 = Date.now();
   for (;;) {
     if ((await ev('__cmwDrawn()["SV|s1"]')) === 'inverse') break;
@@ -180,6 +198,7 @@ const CRACK = [
 await view(1440, 900, false);
 R.crack = {};
 for (const [name, steps, shapes, , view, cls] of CRACK) {
+  mark(`crack ${name}`);
   await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView: view }, solid, SV), 120000, true);
   const st = await settle(60000, { entries: 1, built: 1 });
   // (the shape's strokes are left out of the frame: the fill under the image of the boundary inside the image, e.g.
@@ -321,6 +340,7 @@ for (const [name, steps, shapes, , view, pattern] of [
 await setExact(false);
 const stE0 = await settle();
 // (ev does not await a promise: the figure's result is polled)
+mark('export figure');
 await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["L"], widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');
 let fig = null;
 for (let i = 0; i < 400 && !fig; i++) { await sleep(300); fig = await ev('window.__p5fig'); }
@@ -348,6 +368,7 @@ R.memory = { entries: stM.entries.length, perSlot, preBytes: stM.preBytes, cpuBy
 ok('memory: one SphereMesh per slot at rest after 4 content changes', Object.values(perSlot).every((n) => n === 1) && stM.stats.built >= 5, R.memory);
 // ---- a context loss: the pre-mapped GPU accounting restarts from the meshes re-uploaded ----
 const drawnBytes = () => ev('(() => { const s = __cmwSphere(); return s.entries.filter((e) => e.gpu).length; })()');
+mark('context loss');
 await ev('(() => { const x = GLR.gl.getExtension("WEBGL_lose_context"); window.__p5lc = x; x.loseContext(); return 1; })()');
 await sleep(500);
 await ev('window.__p5lc.restoreContext(); 1');
@@ -374,4 +395,5 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
 }
 R.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);
 ok('no errors in the console', R.logs.length === 0, R.logs);
+clearInterval(beat);
 return { pass: fails.length === 0, fails, results: R };
