@@ -14,7 +14,7 @@ await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window
 const { hold } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const NAME = [/^z\b/, /^w\s*1/, /^w\s*2/];
 const head = () => ev(`(document.querySelector('.sv-title') || {}).textContent || ''`);
-// (read the header at rest on each plane first: its name is what a held frame near that plane is compared with)
+// (each held place: the header and the colour button are read with the thread held there, then it is let go and sent back to z)
 for (const x of [0.25, 0.75, 1.25, 1.75]) {
   const near = Math.round(x);
   const r = await hold(x, false);

@@ -33,7 +33,9 @@ const HISTORY = [
   [/\bnow (?:\w+ )?(?:has|have|caches|stores?|keeps?|clamps?|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|returns?|lives?|goes|comes|sits)\b/i, 'now <verb>'],
   [/\bpreviously\b/i, 'previously'], [/\bno longer (?:has|have|holds?|reads?|takes?|uses?|runs?|shows?|draws?|calls?|needs?|exists?|returns?|goes|comes)\b/i, 'no longer <verb>'],
   [/\breplaces\b/i, 'replaces'], [/\binstead of the old\b/i, 'instead of the old'],
-  [/\bv1\d(?:\.\d+)?(?:-beta(?:\.\d+)?)?\b/i, 'a version label'], [/\bbeta\.\d+\b/i, 'a version label'],
+  // (a version inside a path, notes/constructions-v16/, or before a file's extension, SPEC-v17.md, is a name, not a label;
+  // a point release, a release series ending in .x and a label after a hyphen are labels)
+  [/(?<![/\w])v1\d(?:\.\d+)*(?:\.x)?(?:-beta(?:\.\d+)?)?\b(?![\w.-]*\/)(?!\.(?:md|js|json|html|txt|py|ya?ml|css)\b)/i, 'a version label'], [/(?<![-_/.\w])beta\.\d+\b(?![/.]\w)/i, 'a version label'],
   [/\bwaves? \d+\b/i, 'a wave label'],
   [/\b(?:fixed|fixes|added|removed|changed|introduced) (?:in|by|after) #\d+/i, 'an issue number as a changelog'],
   [/\bafter #\d+/i, 'an issue number as a changelog'],
@@ -144,10 +146,10 @@ function check(files) {
 
 function report(found) {
   const rules = { history: 'history words in a comment', plan: 'plan label in a comment', asserts: 'dropped test assertions', marker: 'opt-out without a reason' };
-  if (!found.length) return '### Standards check: nothing found\n\nReport only (no check here fails the Gate). Opt a line out with `standards-ok: <reason>` in its comment.\n';
+  if (!found.length) return '### Standards check: nothing found\n\nA finding fails the Gate, which runs this check with --block. Opt a line out with `standards-ok: <reason>` in its comment.\n';
   const rows = found.map((x) => `| ${x.rule} | \`${x.file}:${x.line}\` | ${esc(x.why)} | ${x.text ? '`' + esc(x.text.slice(0, SHOWN_CHARS)) + '`' : ''} |`);
   const by = Object.entries(rules).map(([k, v]) => [v, found.filter((x) => x.rule === k).length]).filter(([, c]) => c).map(([v, c]) => `${c} ${v}`);
-  return ['### Standards check: ' + by.join(', '), '', 'Report only. Review each; opt a line out with `standards-ok: <reason>` in its comment.', '',
+  return ['### Standards check: ' + by.join(', '), '', 'Each fails the Gate, which runs this check with --block: fix it, or opt its line out with `standards-ok: <reason>` in its comment.', '',
     '| rule | where | found | line |', '|---|---|---|---|', ...rows, ''].join('\n');
 }
 
