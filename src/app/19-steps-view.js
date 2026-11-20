@@ -3499,8 +3499,8 @@
   const SV_INV_WARM_AGAIN_MS = 250;
   function svInvWarmNext() {
     if (!svInvJobs.length) return;
-    const key = svInvWarmKey, idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, SV_INV_WARM_AGAIN_MS));
-    idle(() => {
+    const key = svInvWarmKey;
+    svIdle(() => {
       if (key !== svInvWarmKey || !svInvJobs.length) return;
       if (key !== svInvKey()) { svInvJobs = []; return; }
       if (interacting() || svGliding()) { setTimeout(svInvWarmNext, SV_INV_WARM_AGAIN_MS); return; }
@@ -3617,6 +3617,10 @@
   // just after an edit holds back what the edit shows (the "Added" message). Tried again while the programs link
   // (prestartCarry), at most 40 times; the programs themselves link without waiting (prestartCarry, the parallel compile)
   const SV_WARM = { id: '__svWarm', kind: 'disc', c: [0, 0], r: 0.01, visible: true }, SV_WARM_IDLE_MS = 2000;
+  // f in an idle moment of the idle warm-ups (svWarmCarry, svInvWarmNext): run after SV_IDLE_CB_MS at the latest, or, with
+  // no requestIdleCallback, SV_IDLE_FALLBACK_MS from now
+  const SV_IDLE_CB_MS = 1000, SV_IDLE_FALLBACK_MS = 250;
+  const svIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: SV_IDLE_CB_MS }) : setTimeout(f, SV_IDLE_FALLBACK_MS));
   let svWarmSig = null, svWarmAt = 0;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
@@ -3624,8 +3628,7 @@
     if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
     const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
     if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
-    const idle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: 1000 }) : setTimeout(f, 250));
-    idle(() => {
+    svIdle(() => {
       if (chainSig[nSteps()] !== sig) return;
       const r = shapeGPU(SV_WARM, { base: 2 }), pane = paneL;
       let done = false;
