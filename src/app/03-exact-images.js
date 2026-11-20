@@ -385,6 +385,9 @@
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map(), invHomNewt = new Map();
+  // the glide plans invHoms keeps (a glide makes one for each u; an All-at-once span its own): at the cap the map is cleared,
+  // and the next frame's plan is made again
+  const INV_HOMS_MAX = 8;
   // How many (a, k, chain) entries the map below keeps: it holds the t-free parts of the entries a session has glided between. A glide
   // asks for its own (a, k) with the current chain, so a few pairs are in use, and eight leaves room for the pairs of a chain scrubbed
   // back and forth; at the cap the whole map is cleared, which is safe because the next glide builds its part once
@@ -457,7 +460,7 @@
       h = invOwnPlan(S.steps, bh, a, k);
       // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
       h.per = invHomPer(a, k, t);
-      if (invHoms.size >= 8) invHoms.clear();
+      if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
@@ -558,7 +561,7 @@
       }
       h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
       h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
-      if (invHoms.size >= 8) invHoms.clear();
+      if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
