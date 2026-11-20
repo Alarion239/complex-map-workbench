@@ -428,7 +428,7 @@ const Tour = (() => {
         try: { text: 'Press ›, then hover a point.', touch: 'Tap ›, then hold a point and slide.', on: 'probe', test: (e) => !e || !!e.past, ctl: ['svNext'] } },
       { id: 'inside', anchor: 'svScope', title: 'Inside regions', before: [['svPlace', { i: 0, T: -1, scope: 'all' }]],
         body: 'Colour only inside the regions you draw, in every plane: a region and its images keep the same colours through the chain.',
-        try: { text: 'Choose Inside regions.', touch: 'Choose Inside regions.', on: 'scope-changed', test: (e) => !e || e.s === 'in', ctl: ['svScope'] } },
+        try: { text: 'Choose Inside regions.', touch: 'Choose Inside.', on: 'scope-changed', test: (e) => !e || e.s === 'in', ctl: ['svScope'] } },
       { id: 'surface', anchor: 'svSurf', title: 'Sphere and Landscape', before: [['svPlace', { i: 0, scope: 'all', surf: 'plane' }]],
         body: 'The same plane on the Riemann sphere, or as a landscape of the modulus. ‹ › glide on the sphere too.',
         try: { text: 'Choose Sphere.', touch: 'Tap the surface button, then Sphere.', on: 'surface-changed', test: (e) => !e || e.s === 'sphere', ctl: ['svSurf'] } },
@@ -1244,7 +1244,7 @@ const Tour = (() => {
 #tourSlot:has(> .tour-lane[data-mode="desk"]) { padding-bottom: 8px; box-sizing: border-box; }
 .tour-lane[data-mode="port"], .tour-lane[data-mode="row"] { border-width: 0 0 1px; border-radius: 0; padding: 0 4px 0 8px; gap: 8px; }
 .tour-lane[data-mode="head"] { border: 0; border-left: 1px solid var(--line); border-radius: 0; background: transparent; padding: 0 2px 0 8px; gap: 6px; }
-:root.ph.ph-land .stage > #tourSlot > .tour-lane[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
+:root.ph.ph-land .stage > #tourSlot > .tour-lane[data-mode="row"] { position: fixed; left: 0; right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
 .tl-mark { flex: 0 0 24px; width: 24px; height: 24px; }
 .tl-mark svg { width: 24px; height: 24px; display: block; }
 .tour-lane:not([data-mode="desk"]) .tl-mark { display: none; }

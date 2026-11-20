@@ -294,6 +294,7 @@ mjx-container[jax="SVG"][display="true"] { margin: 0 !important; text-align: lef
 .snd-hear { margin-top: 2px; border-bottom: 1px solid var(--line); }
 .snd-fine-touch { display: none; }
 @media (pointer: coarse) { .snd-fine-ptr { display: none; } .snd-fine-touch { display: inline; } .snd-keys { display: none; } }
+:root.sv .snd-keys-cl, :root:not(.sv) .snd-keys-sv { display: none; }
 .snd-more, .snd-diag { margin: 2px 0 4px; font: 400 11px/15px var(--f-ui); color: var(--muted); }
 .snd-more > summary, .snd-diag > summary { cursor: pointer; min-height: 24px; display: flex; align-items: center; font: var(--t-label); color: var(--ink-2); }
 .snd-diag { margin-top: 6px; }
@@ -480,9 +481,11 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .pane-head .led { margin-left: 6px; margin-right: 4px; }
 .led { display: inline-block; flex: 0 0 6px; width: 6px; height: 6px; border-radius: 50%; background: var(--good); }
 .led.ok { background: var(--good); }
-.led.busy { background: var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
-.led.err { background: var(--error); }
-@keyframes led-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.35; } }
+/* (the three states differ in shape as well as hue: a filled dot is up to date, a ring is busy, a filled square is failed) */
+.led.busy { background: transparent; box-shadow: inset 0 0 0 1.5px var(--warn); animation: led-pulse 1.2s var(--ease-inout) infinite; }
+.led.err { background: var(--error); border-radius: 1px; }
+/* (the lowest opacity keeps the busy ring at 3:1 against the bar in light and dark) */
+@keyframes led-pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: 0.75; transform: scale(0.8); } }
 @container pane (max-width: 519px) {
   .seg.modes:not(#leftTabs, #rightTabs) > button > span { display: none; }
   .seg.modes:not(#leftTabs, #rightTabs) > button { padding: 0 7px; }
@@ -1532,7 +1535,12 @@ select.xf-select { appearance: auto; padding: 0 4px 0 8px; }
   .xf-name { flex: 1 1 100%; } .xf-nameinp { flex: 1 1 auto; width: auto; }
   .xf-hint { white-space: normal; font-size: 11px; line-height: 13px; }
   .xf-foot .xf-sp { display: none; }
-  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; }
+  /* (touch targets of 44 px: the destinations, and Cancel while a video is made; the progress row has the name row's place,
+     a row of its own, so its meter is not squeezed beside the destinations) */
+  .btn.xf-dest { flex: 1 1 0; padding: 0 8px; height: 44px; }
+  .xf-prog { flex: 1 1 100%; }
+  .xf-prog .btn { min-height: 44px; }
+  .xf-meter { min-width: 96px; }
 }
 .modal p, .modal li { max-width: 68ch; }
 .guide-nav { display: grid; gap: 8px; margin: 12px 0 4px; }
@@ -1816,7 +1824,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
 @media (prefers-reduced-motion: reduce) {
   :root { --t-fast: 0ms; --t-med: 0ms; --t-slow: 0ms; --t-view: 0ms; --t-hom: 0ms; }
   *, *::before, *::after { transition-duration: 0ms !important; scroll-behavior: auto !important; }
-  .led.busy { animation: none; opacity: 1; }
+  .led.busy { animation: none; opacity: 1; transform: none; }
   .hairline::before { animation: none; width: 100%; opacity: 0.6; }
   #warmBar.indet > i { animation: none; width: 100%; opacity: 0.6; }
   .pop, .modal, .modal-bg, .hdr-menu:popover-open { animation: fade-in 80ms linear !important; }
@@ -1934,7 +1942,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
     <span class="hdiv" aria-hidden="true"></span>
     <!-- Examples is the bar's first stop, ahead of the views, as it is on screen: in the bar itself, not in the menu below,
          whose buttons Tab reaches as one block after the views. On the phone the "more" sheet lists it, so the bar hides it. -->
-    <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
+    <button class="btn ghost menu-btn" id="examplesBtn" title="Worked examples" aria-haspopup="menu" aria-expanded="false"><span class="mlabel">Examples</span><span class="exlabel stale"></span><span class="ic-slot" data-icon="chevD"></span></button>
     <button class="icon-btn" id="undoBtn" title="Undo  ⌘Z" aria-label="Undo"><span class="ic-slot" data-icon="undo"></span></button>
     <button class="icon-btn" id="redoBtn" title="Redo  ⇧⌘Z" aria-label="Redo"><span class="ic-slot" data-icon="redo"></span></button>
     <div class="spacer"></div>
@@ -1947,11 +1955,11 @@ table.keys th { font: var(--t-label); color: var(--muted); }
       <button class="cmd-field" id="cmdBtn" aria-label="Add function" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="search"></span><span class="cmd-text">Add function</span><span class="kbd" id="cmdKbd">⌘K</span></button>
       <button class="icon-btn" id="toggleLeft" aria-pressed="true" title="Draw  [" aria-label="Show or hide the Draw panel" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelL"></span><span class="mlabel">Draw panel</span></button>
       <button class="icon-btn" id="toggleRight" aria-pressed="true" title="Inspector  ]" aria-label="Show or hide the Inspector" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="panelR"></span><span class="mlabel">Inspector panel</span></button>
-      <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
-      <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
-      <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span><span class="hw">Theme</span><span class="ic-slot hc" data-icon="chevD"></span></button>
+      <button class="icon-btn" id="exportBtn" title="Export images or LaTeX" aria-label="Export images or LaTeX" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="download"></span><span class="mlabel">Export</span><span class="hw">Export</span><span class="ic-slot hc" data-icon="chevD"></span></button>
+      <button class="icon-btn" id="shareBtn" title="Share: a link to this figure, scene files" aria-label="Share" aria-haspopup="menu" aria-expanded="false"><span class="ic-slot" data-icon="share"></span><span class="hw">Share</span><span class="ic-slot hc" data-icon="chevD"></span></button>
+      <button class="icon-btn" id="themeBtn" title="Theme: Auto" aria-label="Theme: Auto" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="theme"></span><span class="mlabel">Theme: <span class="tlabel">Auto</span></span><span class="hw">Theme</span><span class="ic-slot hc" data-icon="chevD"></span></button>
       <!-- Phase colors (issue 8): the palette every view paints with, a per-viewer setting; app.js opens its menu -->
-      <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
+      <button class="icon-btn" id="palBtn" title="Phase colours" aria-label="Phase colours" aria-haspopup="menu" aria-expanded="false" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot"><span class="pcol-ic" aria-hidden="true"></span></span><span class="mlabel">Phase colours: <span class="plabel">Wheel</span></span></button>
       <!-- Sound (notes/sound/DESIGN.md §2.1): a split button, the switch and its settings; on by default (notes/sound/README.md), it starts with the first click or key -->
       <button class="icon-btn snd-btn" id="soundBtn" aria-pressed="false" aria-label="Sound" title="Sound (Shift+M)" aria-keyshortcuts="Shift+M" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot snd-ic"></span><span class="slbl">Sound</span></button>
       <button class="icon-btn snd-caret" id="soundMore" aria-haspopup="dialog" aria-expanded="false" aria-controls="sndPop" title="Sound settings" aria-label="Sound settings" popovertarget="hdrMenu" popovertargetaction="hide"><span class="ic-slot" data-icon="chevD"></span><span class="mlabel">Sound settings</span></button>
@@ -2028,7 +2036,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             </div>
             <div class="pane-title" id="leftTitle"></div>
             <div class="grow"></div>
-            <span class="led" id="leftLed" title="Up to date"></span>
+            <span class="led" id="leftLed" role="img" tabindex="0" title="Up to date"></span>
           </div>
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerLY" aria-hidden="true"></canvas>
@@ -2057,7 +2065,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             </div>
             <div class="pane-title" id="rightTitle"></div>
             <div class="grow"></div>
-            <span class="led" id="rightLed" title="Up to date"></span>
+            <span class="led" id="rightLed" role="img" tabindex="0" title="Up to date"></span>
           </div>
           <div class="pane-body">
             <canvas class="ruler ruler-y" id="rulerRY" aria-hidden="true"></canvas>
@@ -2116,11 +2124,13 @@ table.keys th { font: var(--t-label); color: var(--muted); }
   </fieldset>
   <p class="snd-fine" id="sndIos" hidden>On iPhone and iPad, the ring/silent switch mutes these sounds.</p>
   <!-- no keyboard help on a touch screen; the engine line under Diagnostics -->
-  <p class="snd-fine snd-keys">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys snd-keys-sv">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: Alt + the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
+  <p class="snd-fine snd-keys snd-keys-cl">Shift+M turns sound on or off; Esc stops any playback. On a focused plane: the arrows move a probe, Q plays the point, Z finds the next zero or pole, O the order here, D describes the view, Enter draws a loop, L listens along it.</p>
   <p class="snd-fine">Saved on this device only, never in your work or a shared link.</p>
   <details class="snd-diag"><summary>Diagnostics</summary><p class="snd-fine mono" id="sndState">Audio engine: not started</p></details>
 </div>
 <div id="sndLive" class="sr-only" aria-live="polite"></div>
+<div id="ledLive" class="sr-only" aria-live="polite"></div>
 <div id="popHost"></div>
 <div id="toastHost" aria-live="polite"></div>
 <div id="tip" role="tooltip" hidden></div>
