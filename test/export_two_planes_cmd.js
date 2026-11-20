@@ -11,21 +11,27 @@ await load('xtp' + Date.now(), {});
 const base = await ev('location.origin');
 // the images of a figure's SVG, each as a GX x GY grid of RGB means (base64), so two figures' pictures can be compared
 const GX = 48, GY = 32;
+// a box or the key's right edge may overshoot the figure's size by this much (SVG units) to count as inside it
+const FIT_SLACK = 0.01;
+// pt a label's text may sit from its glyph box (position, width, and the box's top and bottom)
+const GLYPH_SLACK_PT = 2;
+// ms for the page to settle and for a figure build plus its PDF
+const BUILD_TIMEOUT_MS = 120000;
 const PAGE_GRID = `window.__grid = async (svg) => { const out = [], re = /<image\\b[^>]*?(?:xlink:)?href="(data:image\\/[^"]+)"/g; let m;
   while ((m = re.exec(svg))) { const im = new Image(); im.src = m[1]; await im.decode(); const cv = document.createElement('canvas'); cv.width = ${GX}; cv.height = ${GY};
     const g = cv.getContext('2d'); g.drawImage(im, 0, 0, ${GX}, ${GY}); out.push(Array.from(g.getImageData(0, 0, ${GX}, ${GY}).data).filter((v, i) => i % 4 < 3)); }
   return out; }; 1`;
-const SPEC = { 'F': 'F', 'f_{2}': 'f₂', 'f_{1}': 'f₁' };
+const SPEC = { 'F': 'F', 'f_{2}': 'f₂', '\\sqrt{z}': '√z', '\\sqrt{z+1}': '√(z+1)', '\\sqrt[3]{z}': '³√z', '\\sqrt[n]{z}': 'ⁿ√z', '\\sqrt2': '√2', '\\frac{1}{z^{2}}': '1/z^2', '\\frac{1}{e^{-z}+1}': '1/(e^-z+1)', '\\frac{1}{\\sqrt{z}}': '1/√z', '\\frac{\\pi}{2}': 'π/2', 'f_{1}': 'f₁' };
 const build = async (opts) => {
   await ev(`window.__xtp = null; (async () => { const f = await Figure.build(${JSON.stringify(opts)}); if (!f) return { none: true };
-    return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
-  await settled({ until: 'window.__xtp != null', max: 120000, panes: false });
+    return { svg: f.svg, cap: String(f.captionTex || ''), view: f.view, info: f.info && { svTwo: f.info.svTwo, from: f.info.from, to: f.info.to, arrow: f.info.arrow, frames: f.info.frames && f.info.frames.map((q) => q.name), ownWin: f.info.ownWin, keyLine: f.info.keyLine, W: f.W, keyR: Math.max(0, ...f.boxes.filter((b) => b.kind === 'key' || b.kind === 'ring-mark').map((b) => b.x1)), boxes: f.info.boxes } }; })().then((r) => { window.__xtp = r; }, (e) => { window.__xtp = { err: String(e) }; }); 1`);
+  await settled({ until: 'window.__xtp != null', max: BUILD_TIMEOUT_MS, panes: false });
   return ev('window.__xtp');
 };
 const grids = async (svg) => { await ev(PAGE_GRID); await ev(`window.__xtpg = null; window.__grid(${JSON.stringify(svg)}).then((g) => { window.__xtpg = g; }); 1`); await settled({ until: 'window.__xtpg != null', max: 30000, panes: false }); return ev('window.__xtpg'); };
 const diff = (a, b) => a.reduce((s, v, i) => s + Math.abs(v - b[i]), 0) / a.length;
-const ready = async (ex) => {
-  await go(`${base}/test.html?view=steps&ns=xtp${ex}${Date.now() % 1e7}`);
+const ready = async (ex, lang) => {
+  await go(`${base}/test.html?view=steps&ns=xtp${ex}${Date.now() % 1e7}${lang ? `&lang=${lang}` : ''}`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwSteps && !!window.Figure', max: 30000 });
   await ev(`(__cmwExample(${ex}), __cmwSet('wKey', false), 1)`);
   await settled({ until: '__cmwSteps().planes.length > 1', max: 15000 });
@@ -66,6 +72,31 @@ for (const c of CASES) {
   }
 }
 
+// a To plane past the colour plane brings the pane's key: the hue ring and the line saying where the colour is carried from,
+// in a column right of the second picture, inside the figure; a To plane that is the colour plane (T at the last plane,
+// where each plane is coloured by its own map) has none
+const nPlanes = planes;
+for (const [T, to] of [[0, 1], [0, 2], [nPlanes - 1, 1], [nPlanes - 1, 2]]) {
+  await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${to}, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === ${to} && !__cmwSteps().moving && __cmwSteps().T === ${T}`, max: 15000 });
+  const wk = await evJson(`JSON.stringify(__cmwFig.svKey(${to}))`);
+  const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: to });
+  const carried = wk && wk.carried ? wk.carried.text : null;
+  const tag = `T ${T}, to plane ${to}`;
+  ok(`${tag}: the figure's key line is ${carried ? 'the pane\'s' : 'absent'}`, r && r.info && (r.info.keyLine || null) === carried, { carried, got: r && r.info && r.info.keyLine });
+  // (the ring is the key's group of sectors, <g id="…-key">)
+  ok(`${tag}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<g id="[^"]*-key"><path\b/.test(r.svg) === !!carried, null);
+  info[`key ${tag}`] = carried;
+  ok(`${tag}: a carried key is ${T === 0 ? 'present' : 'absent'}`, !!carried === (T === 0), carried);
+}
+// the key's words are inside the figure in every language (the Italian line is the widest)
+for (const lang of ['en', 'ru', 'it']) {
+  await ready(1, lang);
+  await ev(`(__cmwSteps({ T: 0 }), __cmwSteps({ go: 1, now: true }), 1)`);
+  await settled({ until: `__cmwSteps().i === 1 && !__cmwSteps().moving && __cmwSteps().T === 0`, max: 15000 });
+  const r = await build({ svPic: 'two', crop: 'screen', svFrom: 0, svTo: 1 });
+  ok(`${lang}: the key stands in the figure and ends inside its width`, r && r.info && !!r.info.keyLine && r.info.keyR > 0 && r.info.keyR <= r.info.W + FIT_SLACK, r && r.info && { keyLine: r.info.keyLine, keyR: r.info.keyR, W: r.info.W });
+}
 // the default planes follow the thread: example 18 has z and ζ's values only
 await ready(18);
 const r18 = await build({ svPic: 'two', crop: 'fit' });
@@ -75,4 +106,77 @@ ok('example 18: Fit frames each plane, and the caption says so', r18 && r18.info
 const r18s = await build({ svPic: 'two', crop: 'screen' });
 ok('example 18: As on screen keeps the camera window, with no note', r18s && r18s.info && !r18s.info.ownWin && !/own window/.test(r18s.cap), r18s && r18s.cap);
 
+// (node) the text layer of a PDF given in base64: the strings shown in render mode 3 (invisible) in content-stream order,
+// which is reading order, read back through the font's ToUnicode map (the font is embedded with Identity-H, so a string is
+// its glyph ids in hex); whether every font the PDF uses is embedded (no Type 1 font without a file, each font descriptor
+// with its font file); and the embedded font file's bytes, base64
+const zlib = await import('node:zlib');
+const pdfLayer = (b64) => {
+  const pdf = Buffer.from(b64, 'base64'), raw = pdf.toString('latin1'), streams = [], toUni = new Map(), shown = [];
+  for (const m of raw.matchAll(/stream\r?\n/g)) {
+    const from = m.index + m[0].length, to = pdf.indexOf('endstream', from);
+    try { streams.push(zlib.inflateSync(pdf.subarray(from, to))); } catch (e) { /* not a deflated stream */ }
+  }
+  for (const d of streams.map((x) => x.toString('latin1'))) for (const b of d.matchAll(/beginbfchar([\s\S]*?)endbfchar/g)) for (const c of b[1].matchAll(/<([0-9a-f]+)>\s*<([0-9a-f]+)>/gi)) toUni.set(c[1].toLowerCase(), String.fromCodePoint(parseInt(c[2], 16)));
+  for (const d of streams.map((x) => x.toString('latin1'))) for (const t of d.matchAll(/3 Tr[^<]*<([0-9a-f]+)> Tj/gi)) shown.push(t[1].toLowerCase().match(/.{4}/g).map((g) => toUni.get(g) || '?').join(''));
+  const descriptors = [...raw.matchAll(/\/Type \/FontDescriptor[\s\S]*?>>/g)].map((m) => m[0]);
+  const ff = /\/FontFile2 (\d+) 0 R/.exec(raw), fontObj = ff ? new RegExp(`\\n${ff[1]} 0 obj[\\s\\S]*?stream\\r?\\n`).exec(raw) : null;
+  let font = null;
+  if (fontObj) { const from = fontObj.index + fontObj[0].length; try { font = zlib.inflateSync(pdf.subarray(from, pdf.indexOf('endstream', from))).toString('base64'); } catch (e) { font = pdf.subarray(from, pdf.indexOf('endstream', from)).toString('base64'); } }
+  return { shown, font, embedded: !/\/Subtype \/Type1\b/.test(raw) && descriptors.length > 0 && descriptors.every((d) => /\/FontFile[23]?\b/.test(d)), fonts: { type1: raw.match(/\/BaseFont \/[A-Za-z-]+/g) || [], descriptors: descriptors.map((d) => d.slice(0, 200)) } };
+};
+// (in the page) the figure built with options o, and its PDF made twice, base64 -> JSON { texts, a, b } or { err }
+const pdfTwice = (o) => evJson(`await (async () => { try {
+  const f = await Figure.build(${JSON.stringify(o)}), out = [];
+  for (let n = 0; n < 2; n++) { const buf = new Uint8Array(await (await Figure.pdf(f)).arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192)); out.push(btoa(bin)); }
+  return JSON.stringify({ texts: (f.texts || []).map((q) => q.text), a: out[0], b: out[1] });
+} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
+
+// the labels carry text (#1015): an invisible <text> over each label's glyph box (within GLYPH_SLACK_PT), in the SVG; the same words,
+// invisible, in the PDF's text layer, in reading order, in a font the PDF embeds
+await ready(1);
+const tl = await evJson(`await (async () => { try {
+  const f = await Figure.build({ svPic: 'two', crop: 'screen' });
+  const buf = new Uint8Array(await (await Figure.pdf(f)).arrayBuffer()); let bin = ''; for (let i = 0; i < buf.length; i += 8192) bin += String.fromCharCode(...buf.subarray(i, i + 8192));
+  const els = [...new DOMParser().parseFromString(f.svg, 'image/svg+xml').querySelectorAll('g.cmw-text > text')].map((t) => ({ text: t.textContent, x: +t.getAttribute('x'), y: +t.getAttribute('y'), fs: +t.getAttribute('font-size'), len: +t.getAttribute('textLength'), op: t.getAttribute('fill-opacity') }));
+  return JSON.stringify({ els, boxes: f.boxes, pdf: btoa(bin) });
+} catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
+ok('the two-plane figure builds with its text layer', !tl.err && tl.els.length >= 3, tl.err || tl.els);
+if (!tl.err) {
+  const words = tl.els.map((t) => t.text);
+  ok('the layer has the panel names and the arrow\'s label', ['z', 'w₂', 'F'].every((w) => words.includes(w)), words);
+  ok('the figure\'s title is not a text of the layer (it is the <title>)', !words.some((w) => /joined by/.test(w)), words);
+  ok('every text is invisible', tl.els.every((t) => t.op === '0'), tl.els);
+  const pl = await evJson(`JSON.stringify(Object.fromEntries(['\\\\arg H_{t}', '\\\\sin z', '\\\\zeta(z)', '\\\\bar z', '\\\\frac{1}{z}', '\\\\frac{z+1}{z-1}', 'z \\\\le 1', '\\\\operatorname{Re} z', 'f_{2}', '\\\\sqrt{z}', '\\\\sqrt{z+1}', '\\\\sqrt[3]{z}', '\\\\sqrt[n]{z}', '\\\\sqrt2', '\\\\frac{1}{z^{2}}', '\\\\frac{1}{e^{-z}+1}', '\\\\frac{1}{\\\\sqrt{z}}', '\\\\frac{\\\\pi}{2}', '\\\\text{colour carried from }w_{2}'].map((t) => [t, typeof __cmwFig.XD.plain === 'function' ? __cmwFig.XD.plain(t) : null])))`);
+  const WANT = { '\\arg H_{t}': 'arg H_t', '\\sin z': 'sin z', '\\zeta(z)': 'ζ(z)', '\\bar z': 'z\u0304', '\\frac{1}{z}': '1/z', '\\frac{z+1}{z-1}': '(z+1)/(z-1)', 'z \\le 1': 'z ≤ 1', '\\operatorname{Re} z': 'Re z', 'f_{2}': 'f₂', '\\text{colour carried from }w_{2}': 'colour carried from w₂' };
+  ok('XD.plain reads TeX as people read it', Object.entries(WANT).every(([k, v]) => pl[k] === v), pl);
+  ok('a key\'s ring marks (1, i, -1, -i) carry no text', !words.includes('1') && !words.includes('i') && !words.includes('-1'), words);
+  const near = (t) => tl.boxes.some((b) => Math.abs(b.x0 - t.x) <= GLYPH_SLACK_PT && Math.abs((b.x1 - b.x0) - t.len) <= GLYPH_SLACK_PT && b.y0 - GLYPH_SLACK_PT <= t.y && t.y <= b.y1 + GLYPH_SLACK_PT);
+  const labels = tl.els.filter((t) => t.len > 0);
+  ok('each label\'s text lies within the glyph slack of its glyph box', labels.length >= 3 && labels.every(near), labels.filter((t) => !near(t)));
+  const lay = pdfLayer(tl.pdf);
+  ok('the PDF shows the panel names, then the arrow\'s label, as invisible text', lay.shown.indexOf('z') >= 0 && lay.shown.indexOf('w₂') > lay.shown.indexOf('z') && lay.shown.indexOf('F') > lay.shown.indexOf('w₂'), lay.shown);
+  ok('the PDF embeds every font it uses (no standard 14 font, each descriptor with its font file)', lay.embedded, lay.fonts);
+}
+
+// the PDF's text layer holds every character of the labels, as the labels read: the filmstrip's subscripts (w₁=f₁(z)), and a
+// Russian figure's key ("на полосу яркости", "×1,69", read in reading order across the key's lines, which may wrap); the
+// same figure's PDF made twice embeds the same font bytes
+await ready(1);
+const film = await pdfTwice({ svPic: 'film' });
+ok('the filmstrip\'s PDF builds', !film.err, film.err);
+if (!film.err) {
+  const la = pdfLayer(film.a), lb = pdfLayer(film.b);
+  ok('the filmstrip\'s PDF shows its titles as they read, subscripts and all', ['w₁=f₁(z)', 'w₂=f₂(w₁)'].every((w) => la.shown.includes(w)) && la.embedded, { shown: la.shown, texts: film.texts });
+  ok('the same figure\'s PDF made twice embeds the same font file', !!la.font && la.font === lb.font, { a: la.font && la.font.length, b: lb.font && lb.font.length });
+}
+await ready(1, 'ru');
+await ev(`(__cmwSet('wKey', true), 1)`);
+await settled({ until: '!__cmwSteps().moving', max: 15000 });
+const ru = await pdfTwice({ svPic: 'plane' });
+ok('a Russian plane figure\'s PDF builds', !ru.err, ru.err);
+if (!ru.err) {
+  const lr = pdfLayer(ru.a);
+  ok('a Russian figure\'s PDF shows its key\'s words in Cyrillic, and embeds its font', ['на полосу яркости', '×1,69'].every((w) => lr.shown.join(' ').includes(w)) && lr.embedded, { shown: lr.shown, texts: ru.texts });
+}
 return { pass: fails.length === 0, fails, info };

@@ -264,7 +264,8 @@
       return s + homDef();
     }
     if (view === 'land') {
-      const f = hm ? 'H_t' : c.Fname, ht = { log: `\\log|${f}|`, abs: `|${f}|`, re: `\\operatorname{Re} ${f}`, im: `\\operatorname{Im} ${f}` }[c.height || 'log'];
+      // (fh: what the height reads, the steps view's c.hName where it is not the plane's own map, past the colour plane)
+      const f = hm ? 'H_t' : c.Fname, fh = hm ? f : c.hName || f, ht = { log: `\\log|${fh}|`, abs: `|${fh}|`, re: `\\operatorname{Re} ${fh}`, im: `\\operatorname{Im} ${fh}` }[c.height || 'log'];
       // (all sheets: the multivalued function, Ln in Russian: GLOSSARY 2.2; c.sheets: what the landscape
       // draws, null for the principal branch; the clause says exactly which sheets, also of H_t while deforming)
       const shc = c.sheets && (hm || !c.sheets.hom) && A.sheetsClause ? A.sheetsClause(c.sheets, 'tex', c.Fname) : null;
@@ -357,7 +358,7 @@
     }
   }
   const plainOf = (tex, lang) => segsOf(tex, lang).map((s) => (s.d != null ? ` ${plainMath(s.d.replace(/\\displaystyle\s*/g, ''))} ` : s.m != null ? plainMath(s.m) : s.b != null ? s.b : s.i != null ? s.i : s.t)).join('').replace(/ {2,}/g, ' ');
-  const plainMath = (m) => m.replace(/\\frac\{([^{}]*)\}\{([^{}]*)\}/g, '($1)/($2)').replace(/\\(operatorname|mathrm|text)\{([^}]*)\}/g, '$2').replace(/\\[a-zA-Z]+/g, (m) => ({ '\\pi': 'π', '\\infty': '∞', '\\arg': 'arg', '\\log': 'log', '\\times': '×', '\\mapsto': '↦', '\\in': '∈', '\\le': '≤', '\\pm': '±' }[m] || '')).replace(/[{}]/g, '');
+  const plainMath = XD.plain;
   // (the steps view: the stage's window, As on screen, unless a crop is asked for)
   const defaults = () => ({ for: 'article', cols: 1, sizeId: null, text: null, ink: 'colour', crop: A && A.svOn && A.svOn() ? 'screen' : 'fit', axes: null, panels: 'both', deform: 'film' });
   // the default file name and \label: the scene, the view and the kind of figure, so two

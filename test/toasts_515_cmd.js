@@ -18,7 +18,7 @@ for (const [w, h] of [[1280, 800], [1440, 900]]) CASES.push(['en', 'steps', w, h
 for (const [lang, vw, w, h] of CASES) {
   const at = `${lang} ${vw} ${w}`;
   await view(w, h, false);
-  await nav(`${U}?ns=toast515-${lang}-${vw}-${w}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`); await settle(2500);
+  await nav(`${U}?ns=toast515-${lang}-${vw}-${w}-${Date.now()}${vw === 'steps' ? '&view=steps' : ''}&lang=${lang}`);
   await ev(LIB);
   await add('sine'); await add('exponential');
   // (a slow page can show the toast and drop it before the measure: another step brings a fresh one)
@@ -38,7 +38,7 @@ for (const [lang, vw, w, h] of CASES) {
   else if (r.win === false) fails.push(`${at}: the toast leaves the window: ${JSON.stringify(r.box)}`);
   else if (r.cut > 0) fails.push(`${at}: the message is cut by ${r.cut} px`);
   if (vw === 'steps' && r.shown) {
-    // a message over the plot's bottom edge replaces nothing: the strip's rail keeps its planes, chips and place, the toast lies
+    // a message over the plot's bottom edge displaces nothing: the strip's rail keeps its planes, chips and place, the toast lies
     // inside the left plot above the strip and clear of every control of the pane, and a press on its body dismisses it
     const g = await ev(`(() => {
       const th = document.getElementById('toastHost'), t = th.querySelector('.toast'), strip = document.getElementById('svStrip'), pl = document.getElementById('plotL').getBoundingClientRect();

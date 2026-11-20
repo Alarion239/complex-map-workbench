@@ -6,7 +6,7 @@ global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 try { global.Recognize = require('../src/recognize.js'); } catch (e) { /* optional */ }
 const FN = require('../src/funcs.js');
-const HomRange = require('../src/homrange.js');
+const HomRange = require('../src/homrange.ts');
 const { C } = CX;
 let checks = 0, failed = 0;
 const check = (name, cond, got) => { checks++; if (!cond) { failed++; if (failed < 60) console.log('FAIL', name, got === undefined ? '' : JSON.stringify(got)); } };
@@ -287,6 +287,17 @@ check('math-7: sheetCount = sheetCountOf for q <= 24', [0.5, 0.25, 1.2, 0.1, 2 /
   check('unsupported: a d/dz among the steps', FN.sheetMapPieces(dch.S.steps, dch.built, { mode: 1, hi: 1, t: 0.5 }) === null || FN.sheetMapPieces(dch.S.steps, dch.built, { mode: 3, a: 0, b: 2, t: 0.5 }) === null);
   check('unsupported: mode 2', FN.sheetMapPieces(S.steps, built, { mode: 2, a: 0, b: 1, t: 0.5 }) === null);
   check('mode 0 = sheetEval', eqb(FN.sheetMapEval(S.steps, built, { mode: 0, a: 0, b: 2 }, C(1, 1), C(1.1, 1), 3, W), FN.sheetEval(S.steps, built, 2, C(1, 1), C(1.1, 1), 3, W, { a: 0 })));
+}
+
+// ---- the GPU's twin (src/glsl.js, GLChain's sheetHom): chainSheetHom applies a recognized formula, in full and on its
+// path, through the one call of its path function, so each of its steps' sheet functions has one call site there (a
+// shader compiler inlines every call: two call sites put two copies of the formula's steps in the program) ----
+{
+  global.Funcs = FN; global.Region = require('../src/region.js'); global.Curves = require('../src/curves.js');
+  const GLChain = require('../src/glsl.js');
+  const steps = [{ type: 'custom', params: Object.assign(FN.defaults('custom'), { expr: '2\\exp(0.5\\log z)+1', cut: 180 }), on: true }];
+  const sh = GLChain.build(steps, steps.map(FN.build)).sheetHom || '', hom = sh.slice(sh.indexOf('vec2 chainSheetHom('));
+  check('chainSheetHom: a recognized formula through its path function alone', /\bcxs1_sh\(/.test(sh) && (hom.match(/\bcxs1_sh\(/g) || []).length === 1 && !/\bcxs1_s\(/.test(hom), hom.slice(0, 400));
 }
 
 console.log(`${checks} checks, ${failed} failed (${cases} cases)`);

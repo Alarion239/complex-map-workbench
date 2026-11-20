@@ -33,7 +33,7 @@ const diff = (a, b) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(a
 const redraw = () => ev('__cmwHideStrokes(false), 1');
 // (at rest: the tiling's fix-up landed and no SphereMesh job is running or queued)
 const rest = '__cmwSvFixed() && !__cmwSphere().running && !__cmwSphere().jobs.length';
-const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+const names = exampleNames();
 for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   const ex = names.indexOf(name);
   ok(`${name}: the example is found`, ex >= 0, names.length);
@@ -41,6 +41,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   await go(`http://localhost:${PORT}/test.html?view=steps&ns=cfpt${Date.now()}`);
   await ready();
   await ev(`__cmwExample(${ex}); 1`);
+  await adopted();
   await settled({ max: 20000 });
   for (const scope of ['in', 'all']) for (const x of [0.25, 0.5]) {
     const tag = `${name} ${scope} ${x}`;

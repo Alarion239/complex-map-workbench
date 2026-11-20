@@ -5,7 +5,7 @@
 // One camera shows every plane (S.srcView): the scenes' views of the image are their srcView.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/p5_accept_cmd.js
 // Prints {pass, fails, results}.
-//  (k) the crack test: exact images off, each scene's region drawn from its SphereMesh; every interior pixel (the
+//  (k) the crack test: each scene's region forced forward (__cmwForceForward), drawn from its SphereMesh; every interior pixel (the
 //      analytic truth, 4 px from the rims) is covered (fill = more than 24 (summed over the channels) from the plane's
 //      own picture with no fill: its paper, its grid lines and axes, and their anti-aliased blends with the paper)
 //  12.3 the trouble classification (__cmwSmVerdict) is the same at 1x, 4x and 1/4x zoom for every quality scene
@@ -19,21 +19,25 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const req = process.getBuiltinModule('module').createRequire(process.cwd() + '/');
 const Q = req('./test/regress/quality/scenes.js');
 const H = { id: 's1', kind: 'halfplane', a: [0, 0], b: [1, 0] };
-const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false, exactImages: false };
+const solid = { pattern: 'solid', alpha: 1, lines: false, unit: false };
 // the steps view at the chain's last plane (sv.at is clamped to it), coloured from plane z, on Inside regions
 const SV = { dc: 'phase', sv: { at: 99, T: 0, scope: 'in' } };
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 // wait until every SphereMesh job has published and the canvas is still. `want`: the least number of meshes and of
-// builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet)
+// builds the scene must have reached (a job is asked for by a draw, so on a slow renderer there can be none yet). A wait
+// that runs out its ms fails the suite, naming the want and the last read, so a timed-out read is never taken as data
 const settle = async (ms = 120000, want = {}) => {
   const t0 = Date.now();
   let s = null;
   for (;;) {
     await sleep(300);
-    s = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+    s = await evJson('JSON.stringify(__cmwSphere())');
     const there = s.entries.length >= (want.entries || 0) && s.stats.built >= (want.built || 0);
     if (!s.running && !s.jobs.length && there && Date.now() - t0 > 1200) break;
-    if (Date.now() - t0 > ms) break;
+    if (Date.now() - t0 > ms) {
+      ok(`settle: the meshes settled with ${JSON.stringify(want)} within ${ms} ms`, false, { running: s.running, jobs: s.jobs.length, entries: s.entries.length, stats: s.stats });
+      break;
+    }
   }
   await sleep(400);
   await ev(rAF2);
@@ -43,8 +47,13 @@ const settle = async (ms = 120000, want = {}) => {
 // hooks below are not defined yet (an early run fails with "ReferenceError: __cmwSmVerdict is not defined"). So wait for the hooks this suite
 // calls, as long as it takes, and fail with the hook that never came rather than a ReferenceError later. Then count what the
 // app draws (watchDraws below).
-const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSmReset', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
-const loadReady = async (ns, st, ms = 120000) => {
+const HOOKS = ['__cmwSphere', '__cmwSmVerdict', '__cmwSet', '__cmwState', '__cmwW2S', '__cmwHideStrokes', '__cmwBuildFigure', '__cmwDrawn'];
+// The steps view's rest frame is the exact pass's, so a scene whose frame must be the meshes' (loadReady's fwd) has its shapes
+// forced forward (the test hook), and the exact image is read with none forced
+let curIds = [];
+const forceFwd = (ids) => ev(`__cmwForceForward(${JSON.stringify(ids)}); 1`);
+const setExact = (on) => forceFwd(on ? [] : curIds);
+const loadReady = async (ns, st, ms = 120000, fwd = false) => {
   const r = await load(ns, st);
   const t0 = Date.now();
   let missing = HOOKS;
@@ -57,6 +66,8 @@ const loadReady = async (ns, st, ms = 120000) => {
     if (Date.now() - t0 > ms) { const where = await ev('({ href: location.href, readyState: document.readyState })').catch((e) => String(e).slice(0, 80)); throw new Error(`the app's test hooks are not defined ${ms / 1000} s after load(${ns}): ${JSON.stringify(missing)}; the page: ${JSON.stringify(where)}`); }
     await sleep(250);
   }
+  curIds = fwd ? (st.shapes || []).map((x) => x.id) : [];
+  if (fwd) await forceFwd(curIds);
   await watchDraws();
   return r;
 };
@@ -149,7 +160,7 @@ const CRACK = [
 await view(1440, 900, false);
 R.crack = {};
 for (const [name, steps, shapes, , view, cls] of CRACK) {
-  await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView: view }, solid, SV));
+  await loadReady('p5k' + name + Date.now(), Object.assign({ shapes, steps: steps.map((s) => Object.assign({ on: true }, s)), srcView: view }, solid, SV), 120000, true);
   const st = await settle(60000, { entries: 1, built: 1 });
   // (the shape's strokes are left out of the frame: the fill under the image of the boundary inside the image, e.g.
   // exp(H)'s positive real axis or e^{1/z}'s exp of the unit circle, is tested too; the 85 % casing over it hid it)
@@ -176,8 +187,8 @@ for (const run of Q.runs()) {
   seen.add(run.scene.name);
   const v = [];
   for (const k of [1, 4, 0.25]) {
-    const st = Object.assign({}, run.state, SV, { exactImages: false, srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
-    await loadReady('p5v' + Date.now(), st);
+    const st = Object.assign({}, run.state, SV, { srcView: Object.assign({}, run.scene.rightView, { s: run.scene.rightView.s * k }) });
+    await loadReady('p5v' + Date.now(), st, 120000, true);
     // (the verdict reads the pane's GPU resources: it is asked for once the app has drawn a frame after the hooks were there (one
     // is asked for here: the first may have come before) and the LED rests)
     await ev('window.__p5f = window.__p5w.frames; __cmwHideStrokes(false); 1');
@@ -196,14 +207,14 @@ ok('12.3: the SphereMesh verdict is the same at 1x, 4x and 1/4x for every qualit
 // ---- 8.8: a pan of plane z that re-centres clipWin; the stand-in is the old mesh, never the GPU image ----
 // (in the steps view the meshing window is plane z's: a pan of a later plane moves the one camera and leaves clipWin,
 // whose mesh stays valid; so plane z is panned, and the frames are read back on the last plane)
-await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5pan' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 ok('8.8: the app drew the mesh before the rest frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest0');
 const rL = await ev('(() => { const r = document.getElementById("canvasL").getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()');
 const cxL = rL[0] + rL[2] / 2, cyL = rL[1] + rL[3] / 2;
-await ev('__cmwSmReset ? 1 : 0');
-const st0 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const st0 = await evJson('JSON.stringify(__cmwSphere())');
+const win0 = await ev('JSON.stringify(__cmwLook("s1", "L").win)');
 // a 45% pan of plane z (re-centres the meshing window at rest); a middle-button drag pans the pane
 const last = await ev('__cmwSteps().i');
 await ev('__cmwSteps({ go: 0, now: true }); 1');
@@ -212,6 +223,9 @@ await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cxL, y: cyL });
 await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: cxL, y: cyL, button: 'middle', buttons: 4, clickCount: 1 });
 for (let i = 1; i <= 12; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: cxL - 0.45 * rL[2] * i / 12, y: cyL, button: 'middle', buttons: 4 }); await sleep(16); }
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: cxL - 0.45 * rL[2], y: cyL, button: 'middle', buttons: 0, clickCount: 1 });
+// (the window re-centres at the gesture's end, a moment after the release and only while plane z is shown
+// (sourceViewChanged.apply): stay on z until it has, or 10 s have passed)
+for (let i = 0; i < 200 && (await ev('JSON.stringify(__cmwLook("s1", "L").win)')) === win0; i++) await sleep(50);
 R.panWin = await ev('JSON.stringify(__cmwLook("s1", "L").win)');
 // (back on the last plane, once the app has drawn a frame of it: the frames below are read while the rebuild runs)
 await ev(`window.__p5f = window.__p5w.frames; __cmwSteps({ go: ${last}, now: true }); 1`);
@@ -220,7 +234,7 @@ await ev(rAF2);
 const during = [];
 let nDur = 0;
 for (let i = 0; i < 40; i++) {
-  const s = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+  const s = await evJson('JSON.stringify(__cmwSphere())');
   during.push({ jobs: s.jobs.length, entries: s.entries.length });
   // (frames while the rebuild runs: the old mesh stands in, compared below with the rest frame and the truth)
   if (s.jobs.length && nDur < 4) { await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); await grab('dur' + nDur++); }
@@ -230,15 +244,22 @@ for (let i = 0; i < 40; i++) {
 const st1 = await settle(120000, { entries: 1, built: 2 });
 ok('8.8: the app drew the rebuilt mesh before the rest frame after it was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('rest1');
-await ev('__cmwSet("exactImages", true); 1');
+await setExact(true);
 const truthOk = await exactDrawn();
 await grab('truth1');
-await ev('__cmwSet("exactImages", false); 1');
+await setExact(false);
 const diff = (a, b) => ev(`(() => { const A = window.__p5[${JSON.stringify(a)}], B = window.__p5[${JSON.stringify(b)}]; if (!A || !B || A.length !== B.length) return null; let n = 0, n8 = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i+1] - B[i+1]), Math.abs(A[i+2] - B[i+2])); n++; if (d > 8) n8++; if (d > 32) n32++; } return { frac8: +(n8 / n).toFixed(5), frac32: +(n32 / n).toFixed(5) }; })()`);
 R.panFrames = { n: nDur, restVsTruth: await diff('rest1', 'truth1'), duringVsRest: [], duringVsTruth: [] };
 for (let k = 0; k < nDur; k++) { R.panFrames.duringVsRest.push(await diff('dur' + k, 'rest1')); R.panFrames.duringVsTruth.push(await diff('dur' + k, 'truth1')); }
 R.pan = { before: st0.entries.length, during: during.slice(0, 6), after: st1.entries.map((e) => ({ why: e.why, n: e.n, partial: e.partial })), maxSlice: +st1.stats.maxSlice.toFixed(1), built: st1.stats.built };
-ok('8.8: a re-centred window rebuilds the mesh', st1.stats.built >= 2, st1.stats);
+// (the meshing window re-centres at the gesture's end when the pan moved it far enough (sourceViewChanged); then the
+// region's mesh is the new window's: built for the panned view, with the new window in its key. The old mesh, built
+// for the view before the pan with the old window, stands in while it builds)
+const winKey = (w) => { const q = JSON.parse(w); return `${q.x0},${q.x1},${q.y0},${q.y1}`; };
+const v0 = st0.entries.length === 1 ? st0.entries[0].view : null, v1 = st1.entries.length === 1 ? st1.entries[0].view : null;
+R.pan.mesh = { win0, panWin: R.panWin, view0: v0 && [v0.cx, v0.cy, v0.s], view1: v1 && [v1.cx, v1.cy, v1.s] };
+ok('8.8: the pan re-centred the meshing window', R.panWin !== win0, R.pan.mesh);
+ok('8.8: a re-centred window rebuilds the mesh (one mesh, built for the panned view and the new window)', !!v0 && !!v1 && v1.cx !== v0.cx && st1.entries[0].key.includes(winKey(R.panWin)) && !st1.entries[0].key.includes(winKey(win0)), { mesh: R.pan.mesh, key: st1.entries.map((e) => e.key), stats: st1.stats });
 ok('8.8: the exact image was drawn', truthOk);
 ok('8.8: the slices of the rebuild stay within 6 ms', st1.stats.maxSlice <= 6, st1.stats.maxSlice);
 ok('8.8: the rest frame after the rebuild matches the exact image (<= 0.5 % of pixels > 8/255)', R.panFrames.restVsTruth && R.panFrames.restVsTruth.frac8 <= 0.005, R.panFrames.restVsTruth);
@@ -246,11 +267,11 @@ ok('8.8: frames during the rebuild match the rest frame (<= 0.5 % of pixels > 32
 ok('8.8: frames during the rebuild match the exact image (<= 0.5 % of pixels > 32/255)', R.panFrames.duringVsTruth.every((d) => d && d.frac32 <= 0.005), R.panFrames);
 
 // ---- the forward image of exp(H) (checker, alpha 0.85) against the exact inverse image ----
-await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5cmp' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 ok('exp(H) forward vs inverse: the app drew the mesh before the forward frame was grabbed', await meshDrawn('__cmwHideStrokes(false); 1'));
 await grab('fwd');
-await ev('__cmwSet("exactImages", true); 1');
+await setExact(true);
 const invOk = await exactDrawn();
 await grab('inv');
 R.fwdVsInv = await ev(`(() => { const A = window.__p5.fwd, B = window.__p5.inv; let n = 0, n8 = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i+1] - B[i+1]), Math.abs(A[i+2] - B[i+2])); n++; if (d > 8) n8++; if (d > 32) n32++; } return { n, frac8: +(n8 / n).toFixed(5), frac32: +(n32 / n).toFixed(5) }; })()`);
@@ -264,11 +285,11 @@ for (const [name, steps, shapes, , view, pattern] of [
   ['e1z_checker', [{ type: 'recip', params: {}, on: true }, { type: 'exp', params: {}, on: true }], [{ id: 's1', kind: 'disc', c: [0, 0], r: 1 }], { cx: 0, cy: 0, s: 120 }, { cx: 0, cy: 0, s: 60 }, 'checker'],
   ['ziH_polar', [{ type: 'powa', params: { alpha: 'i', cut: 180, k: 0 }, on: true }], [H], { cx: 0, cy: 1, s: 60 }, { cx: 0, cy: 0, s: 190 }, 'polar'],
 ]) {
-  await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView: view }, solid, { pattern, alpha: 1 }, SV));
+  await loadReady('p5cmp' + name + Date.now(), Object.assign({ shapes, steps, srcView: view }, solid, { pattern, alpha: 1 }, SV), 120000, true);
   await settle(120000, { entries: 1, built: 1 });
   ok(`${name} forward vs inverse: the app drew the mesh before the forward frame was grabbed`, await meshDrawn('__cmwHideStrokes(false); 1'));
   await grab('fwd');
-  await ev('__cmwSet("exactImages", true); 1');
+  await setExact(true);
   const exact = await exactDrawn();
   await grab('inv');
   R.fwdVsInvSheets[name] = await ev(`(() => { const A = window.__p5.fwd, B = window.__p5.inv; let n = 0, n8 = 0, n32 = 0; for (let i = 0; i < A.length; i += 4) { const d = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i+1] - B[i+1]), Math.abs(A[i+2] - B[i+2])); n++; if (d > 8) n8++; if (d > 32) n32++; } return { n, frac8: +(n8 / n).toFixed(5), frac32: +(n32 / n).toFixed(5) }; })()`);
@@ -277,14 +298,14 @@ for (const [name, steps, shapes, , view, pattern] of [
 }
 // ---- 10.6: an export of a forward-drawn panel meshes at the export's own resolution, then draws with it ----
 // (7 in at 300 dpi: more than 2x the screen's zoom, so the screen mesh is not valid for it; a 3 in figure reuses it)
-await ev('__cmwSet("exactImages", false); 1');
+await setExact(false);
 const stE0 = await settle();
 // (ev does not await a promise: the figure's result is polled)
 await ev('window.__p5fig = null; __cmwBuildFigure({ panels: ["L"], widthIn: 7 }).then((f) => { window.__p5fig = { ok: !!f, partial: f ? f.partial : null }; }, (e) => { window.__p5fig = { ok: false, err: String(e) }; }); 1');
 let fig = null;
 for (let i = 0; i < 400 && !fig; i++) { await sleep(300); fig = await ev('window.__p5fig'); }
 const figOk = !!(fig && fig.ok);
-const stE1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const stE1 = await evJson('JSON.stringify(__cmwSphere())');
 const exE = stE1.entries.filter((e) => e.why === 'export');
 R.export = { figOk, fig, built: stE1.lastExport, kept: exE.length, preBytes: [stE0.preBytes, stE1.preBytes], cpuBytes: [stE0.cpuBytes, stE1.cpuBytes], maxSlice: +stE1.stats.maxSlice.toFixed(1) };
 ok('10.6: the export built a SphereMesh at its own resolution', figOk && stE1.lastExport && stE1.lastExport.length >= 1, R.export);
@@ -292,7 +313,7 @@ ok('10.6: the export meshes are freed once the figure is drawn', exE.length === 
 ok('10.6: the export mesh ended on no budget', stE1.lastExport && stE1.lastExport.every((e) => !e.partial), R.export);
 
 // ---- memory: one mesh per slot at rest after four moves of the region (each a new mesh content) ----
-await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+await loadReady('p5mem' + Date.now(), Object.assign({ shapes: [H], steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } }, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
 await settle(120000, { entries: 1, built: 1 });
 // (each change is a new mesh: wait for its build, a job is asked for by a draw that may come late)
 let builtNow = 1;
@@ -300,7 +321,7 @@ for (const y of [0.1, 0.2, 0.3, 0.4]) {
   await ev(`__cmwSet("shapes", [${JSON.stringify(Object.assign({}, H, { a: [0, y], b: [1, y] }))}]); 1`);
   builtNow = (await settle(60000, { entries: 1, built: builtNow + 1 })).stats.built;
 }
-const stM = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const stM = await evJson('JSON.stringify(__cmwSphere())');
 const perSlot = {};
 for (const e of stM.entries) perSlot[e.slot] = (perSlot[e.slot] || 0) + 1;
 R.memory = { entries: stM.entries.length, perSlot, preBytes: stM.preBytes, cpuBytes: stM.cpuBytes, built: stM.stats.built };
@@ -312,7 +333,7 @@ await sleep(500);
 await ev('window.__p5lc.restoreContext(); 1');
 await sleep(1500);
 await settle();
-const stC = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+const stC = await evJson('JSON.stringify(__cmwSphere())');
 const nGpu = await drawnBytes();
 R.contextLoss = { preBytes: stC.preBytes, before: stM.preBytes, entriesOnGpu: nGpu, entries: stC.entries.length };
 ok('context loss: the pre-mapped bytes count only the meshes uploaded after the restore', stC.preBytes <= stM.preBytes + 1 && (nGpu > 0 ? stC.preBytes > 0 : stC.preBytes === 0), R.contextLoss);
@@ -321,12 +342,12 @@ ok('context loss: the pre-mapped bytes count only the meshes uploaded after the 
 {
   const hs = [0, 1, 2, 3].map((k) => ({ id: 'h' + k, kind: 'halfplane', a: [0, 0.4 * k], b: [1, 0.4 * k + 0.3 * (k % 2)] }));
   const st = { shapes: hs, steps: [{ type: 'exp', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 30 } };
-  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV));
+  await loadReady('p5rest' + Date.now(), Object.assign(st, solid, { pattern: 'checker', alpha: 0.85 }, SV), 120000, true);
   const s0 = await settle(120000, { entries: 4, built: 4 });
   // (the window watched: 2 s of the page's own time from here, through its frames)
   await ev('window.__restT = performance.now(), 1');
   await settled({ max: 20000, panes: false, until: 'performance.now() - window.__restT > 2000' });
-  const s1 = JSON.parse(await ev('JSON.stringify(__cmwSphere())'));
+  const s1 = await evJson('JSON.stringify(__cmwSphere())');
   R.rest4 = { built: [s0.stats.built, s1.stats.built], entries: s1.entries.length, preBytes: s1.preBytes, cpuBytes: s1.cpuBytes };
   ok('memory: at rest with four unbounded regions, no mesh is rebuilt over 2 s',
     s1.entries.length >= 4 && s1.stats.built === s0.stats.built && !s1.jobs.length, R.rest4);

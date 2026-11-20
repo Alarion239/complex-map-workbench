@@ -6,6 +6,7 @@ text is the old single file byte for byte. test/src_text.js does the same for th
 """
 import pathlib
 import re
+import subprocess
 
 SRC = pathlib.Path(__file__).resolve().parent.parent / 'src'
 PARTS_RE = re.compile(r'^ *// @parts\b.*\n', re.M)
@@ -30,11 +31,24 @@ def strip_esm(text):
     return EXPORT_RE.sub('', IMPORT_RE.sub('', text))
 
 
+def ts_strip(path):
+    """The text of a TypeScript file of src/ without its types, as node strips them (tools/ts_strip.js): the same lines
+    and columns, plain JavaScript."""
+    tool = pathlib.Path(__file__).resolve().parent / 'ts_strip.js'
+    return subprocess.run(['node', str(tool), str(path)], check=True, capture_output=True, text=True, encoding='utf-8').stdout
+
+
 def source(f, src=SRC, esm=None):
     """The text of src/<f>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line;
-    esm='strip' drops its import and export lines (strip_esm), for a page that inlines it as a classic script."""
+    esm='strip' drops its import and export lines (strip_esm), for a page that inlines it as a classic script. A
+    TypeScript file comes without its types (ts_strip), and src/<x>.js names src/<x>.ts where only that exists, as the
+    bundler resolves the modules' './<x>.js' imports."""
     p = parts(f, src)
-    if p is None:
+    if p is None and f.endswith('.js') and not (pathlib.Path(src) / f).is_file() and (pathlib.Path(src) / f).with_suffix('.ts').is_file():
+        f = f.removesuffix('.js') + '.ts'
+    if p is None and f.endswith('.ts'):
+        text = ts_strip(pathlib.Path(src) / f)
+    elif p is None:
         text = (pathlib.Path(src) / f).read_text(encoding='utf-8')
     else:
         wrap = (pathlib.Path(src) / f.removesuffix('.js') / 'wrap.js').read_text(encoding='utf-8')
