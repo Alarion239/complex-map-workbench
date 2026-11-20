@@ -16,7 +16,7 @@ const step = (type, params = {}) => ({ type, params: Object.assign(Funcs.default
 const cs = (z) => `${z.re}${z.im < 0 ? '-' : '+'}${Math.abs(z.im)}i`;
 // a simple root to 1e-9 of its size; a multiple root of multiplicity m moves by about (ε |w| / |f^(m)/m!|)^(1/m) when
 // w is rounded, so a double root's place is good to about √ε
-const ROOT_TOL = 1e-9, MULT_TOL = 1e-7, FAMILY = 400;
+const ROOT_TOL = 1e-9, MULT_TOL = 1e-7, FAMILY = 400, FLOOR_KFOLD = 360, FLOOR_PAIR = 175, FLOOR_EXACT = 195;
 const near = (a, b, tol) => abs(sub(a, b)) <= tol * (1 + abs(b));
 const hasPlan = typeof Inverse.pointPlan === 'function';
 check('Inverse.pointPlan exists', hasPlan);
@@ -119,46 +119,69 @@ const G6 = P([[-0.687, -0.099], [-1.17, 0.121]]);
 multiple('(z + 0.689 + 0.094i)⁴ beside −0.687 − 0.099i (degree 6)', polyOf([C(-0.689, -0.094), C(-0.689, -0.094), C(-0.689, -0.094), C(-0.689, -0.094), ...G6]), C(0), C(-0.689, -0.094), 4, 3, 6, G6, NEAR_MULT);
 const G12 = P([[-0.17, 2.82], [-1.27, 1.21], [0.42, -0.58], [-0.41, -1.26], [1.08, -2.44], [1.45, 0.15], [1.75, -1.33], [0.23, 2.16]]);
 multiple('−0.16 + 2.9i ×4 beside −0.17 + 2.82i (degree 12)', polyOf([C(-0.16, 2.9), C(-0.16, 2.9), C(-0.16, 2.9), C(-0.16, 2.9), ...G12]), C(0), C(-0.16, 2.9), 4, 9, 12, G12, NEAR_MULT);
-// pointPre's answer for the roots `roots` at w = 0, where it says it is exact, against them: true roots within
-// CLUSTER (1 + |z|) of each other may come as one cluster, so each cluster's members (each member to its nearest true
-// root, within CLUSTER (1 + |z|) of it) have the cluster's multiplicity; '' when right, or not exact
-const CLUSTER = 3e-3;
-function wrongWhileExact(roots) {
+// pointPre's answer for the roots `roots` at w = 0 against them, exact to POLY_RES as src/inverse.js says: true roots
+// within POLY_RES (1 + |z|) of each other (a chain of them) may come as one member. Each member goes to its nearest
+// distinct true root, within POLY_RES (1 + |z|) of it, and no two members to the same one (a multiple root is not split);
+// the members of each chain of roots have its multiplicity. {exact, err: '' when right}
+const POLY_RES = 1e-2;
+function atRes(roots) {
   const r = pre([polyOf(roots)], C(0));
-  if (!r.exact) return '';
-  const top = roots.map((_, i) => i), find = (i) => (top[i] === i ? i : (top[i] = find(top[i])));
-  roots.forEach((a, i) => roots.forEach((b, j) => { if (j > i && near(b, a, CLUSTER)) top[find(i)] = find(j); }));
-  const want = new Map(), got = new Map(), bad = [];
-  roots.forEach((_, i) => want.set(find(i), (want.get(find(i)) || 0) + 1));
+  if (!r.exact) return { exact: false, err: '' };
+  const D = [];
+  for (const z of roots) { const e = D.find((q) => abs(sub(q.z, z)) <= 1e-12 * (1 + abs(z))); if (e) e.k++; else D.push({ z, k: 1 }); }
+  const top = D.map((_, i) => i), find = (i) => (top[i] === i ? i : (top[i] = find(top[i])));
+  D.forEach((a, i) => D.forEach((b, j) => { if (j > i && near(b.z, a.z, POLY_RES)) top[find(i)] = find(j); }));
+  const want = new Map(), got = new Map(), taken = new Set(), errs = [];
+  D.forEach((d, i) => want.set(find(i), (want.get(find(i)) || 0) + d.k));
   r.zs.forEach((z, m) => {
-    const i = roots.reduce((best, q, j) => (abs(sub(q, z)) < abs(sub(roots[best], z)) ? j : best), 0);
-    if (!near(z, roots[i], CLUSTER)) bad.push(`${cs(z)} is no root`);
-    else got.set(find(i), (got.get(find(i)) || 0) + r.mult[m]);
+    const i = D.reduce((best, q, j) => (abs(sub(q.z, z)) < abs(sub(D[best].z, z)) ? j : best), 0);
+    if (!near(z, D[i].z, POLY_RES)) { errs.push(`${cs(z)} is no root`); return; }
+    if (taken.has(i)) errs.push(`${cs(D[i].z)} is split`);
+    taken.add(i);
+    got.set(find(i), (got.get(find(i)) || 0) + r.mult[m]);
   });
-  for (const [c, k] of want) if (got.get(c) !== k) bad.push(`${cs(roots[c])} ×${k} has ${got.get(c) || 0}`);
-  return bad.join('; ');
+  for (const [c, k] of want) if (got.get(c) !== k) errs.push(`${cs(D[c].z)} ×${k} has ${got.get(c) || 0}`);
+  return { exact: true, err: errs.join('; ') };
 }
 {
-  // a double and a triple root 6e-5 apart, degree 12: no member stands 0.08 off in their rounding cloud
+  // a double and a triple root 6e-5 apart, degree 12, where rounding spreads them 0.08: right to POLY_RES where exact
+  // (no member 0.08 off in their cloud)
   const R = P([[-0.9341128907270848, -2.1476425193775563], [-0.9341128907270848, -2.1476425193775563], [-0.9340554204173177, -2.1476184451486784], [-0.9340554204173177, -2.1476184451486784], [-0.9340554204173177, -2.1476184451486784], [-0.37885362360029046, -1.5611011570115079], [2.313042398562536, -0.06975604449194375], [-1.5549094160163155, 0.2762565857647208], [-1.072906504020072, -1.711407858129532], [-1.0163548541919554, -2.1892230001085875], [-1.1765271348575228, -2.073035806460783], [2.181351204481983, 0.35248438453218733]]);
-  const e = wrongWhileExact(R);
-  check('a double and a triple root 6e-5 apart (degree 12): right where exact', !e, e);
+  const e = atRes(R);
+  check('a double and a triple root 6e-5 apart (degree 12): right to POLY_RES where exact', !e.err, e);
 }
 {
-  // seeded: a k-fold root (k = 2 to 4) with a simple root 1e-3 to 0.3 away, |z| 0.5 to 2.9, degrees 6 to 12: right
-  // wherever pointPre says it is exact
+  // a 4-fold root with a simple root 1e-3 away (degree 6): rounding cannot tell the five apart, and they are not split
+  // into simple members 9e-4 apart in the 4-fold root's cloud; one ×5 member stands for them, within POLY_RES
+  const z0 = C(-0.689, -0.094), e = atRes([z0, z0, z0, z0, CX.add(z0, C(1e-3 * Math.cos(0.7), 1e-3 * Math.sin(0.7))), C(-1.17, 0.121)]);
+  check('(z + 0.689 + 0.094i)⁴ beside a simple root 1e-3 away (degree 6): exact, and right to POLY_RES', e.exact && !e.err, e);
+}
+// seeded families: right to POLY_RES wherever pointPre says it is exact, and exact in at least `floor` of the cases
+{
   let s5 = 7;
   const r5 = () => (s5 = (s5 * 1103515245 + 12345) % 2147483648) / 2147483648;
   const disc = (lo, hi) => { const rr = Math.sqrt(lo * lo + (hi * hi - lo * lo) * r5()), a = 2 * Math.PI * r5(); return C(rr * Math.cos(a), rr * Math.sin(a)); };
-  const wrong = [];
-  for (let c = 0; c < FAMILY; c++) {
-    const k = 2 + Math.floor(r5() * 3), d = 6 + Math.floor(r5() * 7), z0 = disc(0.5, 2.9), a = 2 * Math.PI * r5(), s = 10 ** (-3 + Math.log10(300) * r5());
-    const roots = Array(k).fill(z0).concat([CX.add(z0, C(s * Math.cos(a), s * Math.sin(a)))]);
-    while (roots.length < d) roots.push(disc(0, 2.9));
-    const e = wrongWhileExact(roots);
-    if (e) wrong.push(e);
-  }
-  check(`a k-fold root beside a simple one, ${FAMILY} seeded cases: right wherever exact`, !wrong.length, wrong);
+  const near1 = (z0, lo, hi) => { const s = 10 ** (Math.log10(lo) + Math.log10(hi / lo) * r5()), a = 2 * Math.PI * r5(); return CX.add(z0, C(s * Math.cos(a), s * Math.sin(a))); };
+  const family = (name, count, floor, make) => {
+    let exact = 0;
+    const wrong = [];
+    for (let c = 0; c < count; c++) { const e = atRes(make()); if (e.exact) exact++; if (e.err) wrong.push(e.err); }
+    check(`${name}, ${count} seeded cases: right to POLY_RES wherever exact`, !wrong.length, wrong);
+    check(`${name}: exact in at least ${floor} of ${count}`, exact >= floor, exact);
+  };
+  const fill = (roots, d, R) => { while (roots.length < d) roots.push(disc(0, R)); return roots; };
+  family('a k-fold root (k = 2 to 4) beside a simple one 1e-3 to 0.3 away, |z| 0.5 to 2.9', FAMILY, FLOOR_KFOLD, () => {
+    const k = 2 + Math.floor(r5() * 3), d = 6 + Math.floor(r5() * 7), z0 = disc(0.5, 2.9);
+    return fill([...Array(k).fill(z0), near1(z0, 1e-3, 0.3)], d, 2.9);
+  });
+  family('a double and a triple root 1e-5 to 1e-3 apart, degree 12', 200, FLOOR_PAIR, () => {
+    const z0 = disc(0.5, 2.5), z1 = near1(z0, 1e-5, 1e-3);
+    return fill([z0, z0, z1, z1, z1], 12, 2.5);
+  });
+  family('an exact k-fold root (k = 2 to 5), |z| <= 2', 200, FLOOR_EXACT, () => {
+    const k = 2 + Math.floor(r5() * 4), z0 = disc(0, 2);
+    return fill(Array(k).fill(z0), Math.max(k + 1, 3 + Math.floor(r5() * 10)), 2);
+  });
 }
 // twelve roots at seeded random places on |z| = 3, where H_t's own rounding is about 1e-7: each a root to its rounding
 // bound, every one found
