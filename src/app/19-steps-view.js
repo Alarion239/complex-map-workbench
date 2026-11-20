@@ -140,16 +140,18 @@
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
   // then past T that the points carry it and their colour from T. Parked between two planes, the place is no plane: the
-  // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it)
+  // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it); a
+  // Landscape keeps its role after them, the height of the nearer plane as its axis names it: "z → w₁ · landscape of log|w₁|"
   function svTitleParts() {
     const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
-    const park = svParkedPair();
-    if (park && !(SV.surf === 'land' && svMain(k) === 'land')) {
+    const park = svParkedPair(), land = SV.surf === 'land' && svMain(k) === 'land';
+    const name = park ? `${svNameHtml(park[0])} → ${svNameHtml(park[1])}` : svNameHtml(k);
+    if (park && !land) {
       role = park[1] <= T ? $t('coloured from {p}', { p: wHtml(T) }) : $t('colour carried from {p}', { p: wHtml(T) });
-      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short };
+      return { name, role, short };
     }
-    if (SV.surf === 'land' && svMain(k) === 'land') {
+    if (land) {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
       short = $t('landscape');
@@ -157,7 +159,7 @@
     else if (k === 0 && S.dc === 'cauchy' && cauchyPlot()) { role = $t('Cauchy integral over {name}', { name: cauchyPlot().name }); short = $t('Cauchy integral'); }
     else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
-    return { name: svNameHtml(k), role, short };
+    return { name, role, short };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)

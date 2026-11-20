@@ -33,7 +33,7 @@ const NAMES = ['z', 'w₁', 'w₂'];
 const PARKED = [[1, 0.5, 0, 1, 'col'], [1, 0.25, 0, 1, 'col'], [2, 0.5, 0, 1, 'col'], [1, 1.5, 1, 2, 'carried'], [0, 0.5, 0, 1, 'carried']];
 // the colour button's reason while parked
 const PARK_WHY = { en: 'Stop on a plane to colour from it', ru: 'Чтобы взять из плоскости цвет, остановитесь на ней' };
-// the colour button's words while parked, and the Landscape title's role (kept while parked)
+// the colour button's words while parked, and the Landscape title's role (kept while parked, after the span: #1754)
 const PARK_BTN = { en: 'Colour from here', ru: 'Цвет отсюда' };
 const LAND_ROLE = { en: 'landscape of', ru: 'рельеф функции' };
 const PARK_WORD = { en: { col: 'coloured from', carried: 'colour carried from' }, ru: { col: 'цвет из', carried: 'цвет, перенесённый из' } };
@@ -144,7 +144,8 @@ for (const lang of ['en', 'ru']) {
       ok(`${tag}: the C key says why`, afterC.live >= 1, afterC);
     }
   }
-  // parked in the Landscape: the title keeps the relief's role ("landscape of …"), and the colour button is off as on the plane
+  // parked in the Landscape: the title names the span, as on the plane, then keeps the relief's role ("z → w₁ · landscape of
+  // …", #1754), and the colour button is off as on the plane
   {
     const tag = `${lang} Landscape, T=w₁ parked at 0.5`;
     await ev(`__cmwSteps({ T: 1 }); __cmwSteps({ go: 0, now: true }); __cmwSteps({ surf: 'land' }); 1`);
@@ -154,7 +155,7 @@ for (const lang of ['en', 'ru']) {
     await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
     const title = await txt('.sv-title'), dis = await ev("document.querySelector('.sv-cp').getAttribute('aria-disabled')"), words = await txt('.sv-cp .sv-cp-t');
     info[tag] = { title, dis, words };
-    ok(`${tag}: the title keeps the relief's role`, (title || '').includes(LAND_ROLE[lang]) && !(title || '').includes('→'), title);
+    ok(`${tag}: the title names the span, then the relief's role ("z → w1 · ${LAND_ROLE[lang]} …")`, (title || '').startsWith(`z → w1 · ${LAND_ROLE[lang]} `), title);
     ok(`${tag}: the colour button is off and reads "${PARK_BTN[lang]}"`, dis === 'true' && words === PARK_BTN[lang], { dis, words });
     await ev(`__cmwSteps({ surf: 'plane' }); __cmwSteps({ go: 0, now: true }); 1`);
     await until("__cmwSteps().surf === 'plane' && __cmwSteps().i === 0 && !__cmwSteps().moving");
