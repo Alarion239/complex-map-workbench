@@ -4,6 +4,9 @@
 //    T, carried", with no X and no F where the map is f₂;
 //  - the probe's readout names that map ("f₂(w₁)") and reads its value on the plane under the pointer (not F of the point);
 //  - the key's caption follows the same map; the last plane has one name, w₂;
+//  - parked between two planes, the title names them ("z → w₁ · coloured from w₁") and the colour button is not pressed but
+//    off (aria-disabled, its reason as its description): neither Enter on it nor the C key changes the colour plane, and the key
+//    says the reason; parked in the Landscape, the title keeps the relief's role and the colour button is off too;
 //  - the left panel groups the shapes by plane ("In z", "In w₁") with no X or Y, and the phone's probe hint names the map.
 // A command file for a CDP daemon (test/cdp_kit README):  python3 build.py && test/<you>_cdp/q.sh test/steps_names_cmd.js
 // Prints { pass, fails, info }.
@@ -26,6 +29,14 @@ const WANT = [
   [['phase', 'F'], ['phase', 'f₂'], ['plane', 'w₂']],
 ];
 const NAMES = ['z', 'w₁', 'w₂'];
+// parked places: [colour plane T, x, the planes either side, role kind]
+const PARKED = [[1, 0.5, 0, 1, 'col'], [1, 0.25, 0, 1, 'col'], [2, 0.5, 0, 1, 'col'], [1, 1.5, 1, 2, 'carried'], [0, 0.5, 0, 1, 'carried']];
+// the colour button's reason while parked
+const PARK_WHY = { en: 'Stop on a plane to colour from it', ru: 'Чтобы взять из плоскости цвет, остановитесь на ней' };
+// the colour button's words while parked, and the Landscape title's role (kept while parked)
+const PARK_BTN = { en: 'Colour from here', ru: 'Цвет отсюда' };
+const LAND_ROLE = { en: 'landscape of', ru: 'рельеф функции' };
+const PARK_WORD = { en: { col: 'coloured from', carried: 'colour carried from' }, ru: { col: 'цвет из', carried: 'цвет, перенесённый из' } };
 
 for (const lang of ['en', 'ru']) {
   await view(1440, 900, false);
@@ -98,6 +109,56 @@ for (const lang of ['en', 'ru']) {
     if (kind === 'plane') ok(`${tag}: the readout does not repeat itself at the colour plane`, !/∠/.test(ro || ''), ro);
     info[tag] = { title, ro };
   }
+  // parked between two planes: the title names the span the live label names ("z → w₁ · coloured from w₁", past T
+  // "colour carried from"), and the colour button is not pressed, as the place is no plane
+  for (const [T, x, a, b, kind] of PARKED) {
+    const tag = `${lang} T=${NAMES[T]} parked at ${x}`;
+    await ev(`__cmwSteps({ T: ${T} }); __cmwSteps({ park: ${x} }); 1`);
+    await until(`(() => { const s = __cmwSteps(); return s.T === ${T} && Math.abs(s.x - ${x}) < 1e-9 && !s.anim; })()`);
+    await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+    const plain = (t) => t.replace(/[₀-₉]/g, (c) => String(c.charCodeAt(0) - 0x2080));
+    const want = `${plain(NAMES[a])} → ${plain(NAMES[b])} · ${PARK_WORD[lang][kind]} ${NAMES[T]}`;
+    const title = await txt('.sv-title'), s = await ev('__cmwSteps()');
+    const pressed = await ev("(document.querySelector('.sv-cp') || { getAttribute: () => null }).getAttribute('aria-pressed')");
+    const words = await txt('.sv-cp .sv-cp-t');
+    info[tag] = { title, label: s.label, pressed, words, i: s.i };
+    ok(`${tag}: the colour button reads "${PARK_BTN[lang]}"`, words === PARK_BTN[lang], words);
+    ok(`${tag}: the live label names the span`, s.label.includes(NAMES[a]) && s.label.includes(NAMES[b]), s.label);
+    ok(`${tag}: the title reads "${want}"`, title === want, title);
+    ok(`${tag}: the colour button is not pressed`, pressed === 'false', pressed);
+    const off = await ev("(() => { const b = document.querySelector('.sv-cp'); return b ? { dis: b.getAttribute('aria-disabled'), desc: b.getAttribute('aria-description'), tip: b.getAttribute('data-tip') } : null; })()");
+    info[tag].off = off;
+    ok(`${tag}: the colour button is off, with its reason`, !!off && off.dis === 'true' && off.desc === PARK_WHY[lang] && off.tip === PARK_WHY[lang], off);
+    if (T === 1 && x === 0.5) {
+      // (Enter on the button, then the C key with the focus off it: the colour plane stays, and the key says why)
+      await ev("document.querySelector('.sv-cp').focus(); 1");
+      await key('Enter');
+      await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+      const afterEnter = await ev('__cmwSteps().T');
+      ok(`${tag}: Enter on the colour button leaves the colour plane`, afterEnter === T, afterEnter);
+      await ev("document.activeElement && document.activeElement.blur(); 1");
+      await key('c');
+      await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+      const afterC = await ev("({ T: __cmwSteps().T, x: __cmwSteps().x, live: [...document.querySelectorAll('[aria-live]')].map((e) => e.textContent).filter((t) => t.includes(" + JSON.stringify(PARK_WHY[lang]) + ")).length })");
+      ok(`${tag}: the C key leaves the colour plane and stays parked`, afterC.T === T && Math.abs(afterC.x - x) < 1e-9, afterC);
+      ok(`${tag}: the C key says why`, afterC.live >= 1, afterC);
+    }
+  }
+  // parked in the Landscape: the title keeps the relief's role ("landscape of …"), and the colour button is off as on the plane
+  {
+    const tag = `${lang} Landscape, T=w₁ parked at 0.5`;
+    await ev(`__cmwSteps({ T: 1 }); __cmwSteps({ go: 0, now: true }); __cmwSteps({ surf: 'land' }); 1`);
+    await until("__cmwSteps().surf === 'land' && __cmwSteps().main === 'land'");
+    await ev('__cmwSteps({ park: 0.5 }); 1');
+    await until('(() => { const s = __cmwSteps(); return Math.abs(s.x - 0.5) < 1e-9 && !s.anim; })()');
+    await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
+    const title = await txt('.sv-title'), dis = await ev("document.querySelector('.sv-cp').getAttribute('aria-disabled')"), words = await txt('.sv-cp .sv-cp-t');
+    info[tag] = { title, dis, words };
+    ok(`${tag}: the title keeps the relief's role`, (title || '').includes(LAND_ROLE[lang]) && !(title || '').includes('→'), title);
+    ok(`${tag}: the colour button is off and reads "${PARK_BTN[lang]}"`, dis === 'true' && words === PARK_BTN[lang], { dis, words });
+    await ev(`__cmwSteps({ surf: 'plane' }); __cmwSteps({ go: 0, now: true }); 1`);
+    await until("__cmwSteps().surf === 'plane' && __cmwSteps().i === 0 && !__cmwSteps().moving");
+  }
   // the left panel: shapes by plane, no X and no Y
   await ev(`__cmwSteps({ T: 2 }); __cmwSteps({ go: 0, now: true }); 1`); await settle(500);
   const heads = await ev(`[...document.querySelectorAll('#shapeList .shapes-sub')].map((e) => e.textContent.replace(/\\s+/g, ' ').trim())`);
@@ -137,6 +198,24 @@ for (const [lang, pw] of [['en', 390], ['ru', 390], ['en', 360], ['ru', 360]]) {
   const cut = await ev(`(() => { const l = [...document.querySelectorAll('#leftReadout > .rln')]; return { n: l.length, cut: l.filter((e) => { const rg = document.createRange(); rg.selectNodeContents(e); return rg.getBoundingClientRect().width > e.getBoundingClientRect().width + 1; }).length, text: document.getElementById('leftReadout').textContent }; })()`);
   ok(`${lang} ${pw} phone: the probing readout is two lines, none cut`, cut.n === 2 && cut.cut === 0, cut);
   info[`${lang} ${pw} phone`] = { h0, h1, cut };
+  // parked between two planes, the colour button is off: on a phone a long-press on it shows its tip, the reason (a sighted
+  // touch user's only way to it), and the release leaves the colour plane as it was
+  if (pw === 360) {
+    await ev('__cmwSteps({ T: 1 }); __cmwSteps({ park: 0.5 }); 1'); await settle(700);
+    const p = await ev(`(() => { const b = [...document.querySelectorAll('.sv-cp')].find((e) => e.getClientRects().length); if (!b) return null; const r = b.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top + r.height / 2, off: b.getAttribute('aria-disabled') }; })()`);
+    let tip = null;
+    if (p) {
+      await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: p.x, y: p.y, id: 1 }] });
+      await sleep(750);
+      tip = await ev(`(() => { const t = document.getElementById('tip'); return t && t.getClientRects().length && getComputedStyle(t).visibility !== 'hidden' && getComputedStyle(t).opacity !== '0' ? t.textContent : null; })()`);
+      await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await settle(400);
+    }
+    const st = await ev('(() => { const s = __cmwSteps(); return { T: s.T, x: s.x }; })()');
+    info[`${lang} ${pw} phone, parked`] = { p, tip, st };
+    ok(`${lang} ${pw} phone: parked at 0.5, a long-press on the off colour button shows its reason ("${PARK_WHY[lang]}")`, !!p && p.off === 'true' && (tip || '').includes(PARK_WHY[lang]), { p, tip });
+    ok(`${lang} ${pw} phone: parked at 0.5, the long-press's release leaves the colour plane and the thread where they were`, st.T === 1 && Math.abs(st.x - 0.5) < 1e-9, st);
+  }
 }
 // the Landscape's title carries the sheets clause when All sheets is on, as the classic title and the caption do
 const SHEETS = [

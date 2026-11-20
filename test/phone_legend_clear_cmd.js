@@ -24,7 +24,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await view(w, h, false, true);
   const ns = 'plc' + w + lang + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden && !!document.querySelector('#shapeList .shape[data-id="s1"]')` });
   const home = await still();
   ok(`${tag}: the legend is a folded chip (control)`, home.collapsed && !!home.legend, home);
@@ -51,7 +51,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   await view(w, h, false, true);
   const ns = 'plc2' + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=steps` });
+  await go(`${U}?ns=${ns}&lang=en&view=steps`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden` });
   const home = await still();
   // (the page writes the idle readout again whenever the pointer is off the plane, setReadouts(null), which would put its short idle text back
@@ -80,7 +80,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   const [w, h] = [568, 320];
   await view(w, h, false, true);
   const ns = 'plc3' + (Date.now() % 1000000);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=en&view=classic` });
+  await go(`${U}?ns=${ns}&lang=en&view=classic`);
   await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
   await ev(`document.querySelector('[data-tool="disc"]').click(), 1`);
   const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('rightLegend').style.getPropertyValue('--lg-drop') !== ''` });
@@ -113,7 +113,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
     await view(w, h, false, true);
     const ns = 'plk' + w + lang + q + (Date.now() % 1000000);
     if (q === 'steps') await load(ns, ST);
-    await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=${q}` });
+    await go(`${U}?ns=${ns}&lang=${lang}&view=${q}`);
     await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && ${ids.map((id) => `!!document.getElementById('${id}') && !document.getElementById('${id}').hidden`).join(' && ')}` });
     // (the key drawn: drawLegendSide names it, on any build)
     await settled({ max: SETTLE_MAX, panes: false, until: ids.map((id) => `!!document.getElementById('${id}').getAttribute('aria-label')`).join(' && ') });
