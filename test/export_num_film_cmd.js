@@ -83,10 +83,15 @@ ok('the dialog: "A Number" with c typed from −1.5 to 1.5 builds the filmstrip 
 // (on a phone, touch: the new controls are 44 px tall, as the dialog's Picture buttons)
 await view(360, 640, false, true);
 await settled({ until: '!!document.querySelector("#xfFilmSrc")', max: 10000, panes: false });
-const phone = await ev(`(() => { const hs = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height)); return { src: hs('#xfFilmSrc > button'), nums: hs('.xf-nums select, .xf-nums input'), pic: hs('#xfSvPic > button') }; })()`);
+const phone = await ev(`(() => { const hs = (sel) => [...document.querySelectorAll(sel)].filter((e) => e.getClientRects().length).map((e) => Math.round(e.getBoundingClientRect().height));
+  // (how far each of a segment's buttons stands out of the segment's track, px)
+  const out = (sel) => { const t = document.querySelector(sel).getBoundingClientRect(); return [...document.querySelectorAll(sel + ' > button')].map((e) => { const r = e.getBoundingClientRect(); return Math.round(Math.max(0, t.left - r.left, r.right - t.right, t.top - r.top, r.bottom - t.bottom)); }); };
+  return { src: hs('#xfFilmSrc > button'), nums: hs('.xf-nums select, .xf-nums input'), pic: hs('#xfSvPic > button'), srcOut: out('#xfFilmSrc'), picOut: out('#xfSvPic') }; })()`);
 info.phone = phone;
 ok('a phone: the Picture buttons are 44 px tall (control)', phone.pic.length > 0 && phone.pic.every((x) => x >= 44), phone);
 ok('a phone: "Filmstrip of"\'s buttons and the Number row\'s controls are 44 px tall', phone.src.length === 2 && phone.nums.length === 4 && [...phone.src, ...phone.nums].every((x) => x >= 44), phone);
+ok('a phone: the Picture buttons stand inside their segment (control)', phone.picOut.length > 0 && phone.picOut.every((x) => x <= 1), phone);
+ok('a phone: "Filmstrip of"\'s buttons stand inside their segment', phone.srcOut.length === 2 && phone.srcOut.every((x) => x <= 1), phone);
 await view(1280, 800, false);
 // ---- no Number: the source is offered greyed, with its reason
 await open('xnn' + Date.now(), Object.assign({}, STATE, { steps: [{ type: 'custom', params: { expr: 'z^2-1', cut: 180 }, on: true }], params: [] }));
