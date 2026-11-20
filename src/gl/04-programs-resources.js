@@ -1038,7 +1038,7 @@ float wabs(vec2 w) {
         data[o++] = (hn ? p[in_] : p[i + 2]) - ox; data[o++] = (hn ? p[in_ + 1] : p[i + 3]) - oy;
       }
     }
-    const res = { kind: 'lines', buf: makeBuf(data), n, org: [ox, oy], vaos: new Map(), tf: null, arcs: new Map() };
+    const res = { kind: 'lines', buf: makeBuf(data), src: data, n, org: [ox, oy], vaos: new Map(), tf: null, arcs: new Map() };
     live.add(res);
     return res;
   }
@@ -1325,10 +1325,11 @@ float wabs(vec2 w) {
   // current program compiled (an older ready program under the same app key, or an earlier version's stand-in at this
   // template size): those entries can never be looked up again (the current chain's key is checked first, and the
   // stand-in is only drawn while the current program is pending), so they are freed now instead of holding their
-  // texture until the resource is rebuilt (a loaded example kept a second full-size evaluation of each shape)
+  // texture until the resource is rebuilt (a loaded example kept a second full-size evaluation of each shape); a CPU
+  // stand-in (cpuEntry's) at any template size, its own being coarser than L where L's did not fit its budget
   function dropSuperseded(c, e) {
     for (const o of [...c.values()]) {
-      if (o === e || o.L !== e.L) continue;
+      if (o === e || (o.L !== e.L && !o.cpu)) continue;
       if (o.ck === e.ck || o.ck === 'stand-in') freeEntry(o);
     }
   }
@@ -1362,6 +1363,70 @@ float wabs(vec2 w) {
     use(P, map);
     originUniforms(P, res.org);
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
+    // (the chain evaluates res itself from now on: its CPU stand-ins go)
+    if (res.tf) for (const o of [...res.tf.values()]) if (o.cpu) freeEntry(o);
+    return e;
+  }
+  // The lines' stand-in while the chain's first version links (no earlier version's tfLine to stand in, stand()):
+  // the template points of res under the map's CPU twin (cpuOf(): the app's cpuMap of it), in an entry as tfEntry's,
+  // which lineC draws. Kept under the current chain's key and freed once the chain evaluates res itself
+  // (dropSuperseded, tmpEntry). It is made within the frame, so it keeps to CPU_LINE_MS: template size M, or the
+  // largest of 4, 2 and 1 below it whose evaluations fit, costed at the time per evaluation of the first
+  // CPU_LINE_PROBE segments (the first ones wait on the JIT: an estimate on the high side). The entry's L is its
+  // template size, which drawLines draws it at. null when not even size 1 fits (res.cpuNo then keeps the map and
+  // chain, so later frames do not try again), res has no source segments, or the CPU twin throws. cpuLines keeps the
+  // last CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms} (tests: GLR.lineStandIns)
+  const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
+  const cpuLineNote = (n, m, t0) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1) }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
+  function cpuEntry(res, M, map, cpuOf) {
+    if (!res.src) return null;
+    const want = `${M}|${mapKeyOf(map)}|${cur.key}|${cur.hash}`;
+    if (res.cpuNo === want) return null;
+    if (!res.tf) res.tf = new Map();
+    for (const o of res.tf.values()) if (o.cpu && o.want === want) return touch(o);
+    const t0 = performance.now(), d = res.src, ox = res.org[0], oy = res.org[1];
+    let F;
+    try { F = cpuOf(); } catch (err) { console.error('line stand-in', err); return null; }
+    // the values at template size m, or the time per evaluation measured when they would not fit what is left
+    const run = (m) => {
+      // (lineTemplate's points along a segment: its m + 1 ends, then its m midpoints)
+      const ts = [];
+      for (let k = 0; k <= m; k++) ts.push(k / m);
+      for (let k = 0; k < m; k++) ts.push((k + 0.5) / m);
+      const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(ts.length * res.n / W));
+      if (H > maxTex) return { per: Infinity };
+      const vals = new Float32Array(W * H * 2), r0 = performance.now();
+      for (let j = 0, o = 0; j < res.n; j++) {
+        const ax = ox + d[j * LSTRIDE], ay = oy + d[j * LSTRIDE + 1], bx = ox + d[j * LSTRIDE + 2], by = oy + d[j * LSTRIDE + 3];
+        for (const t of ts) {
+          const w = F({ re: ax + t * (bx - ax), im: ay + t * (by - ay) });
+          vals[o++] = w ? w.re : NaN; vals[o++] = w ? w.im : NaN;
+        }
+        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > CPU_LINE_MS) {
+          const now = performance.now(), per = (now - r0) / ((j + 1) * ts.length);
+          if (now - t0 + per * (res.n - j - 1) * ts.length > CPU_LINE_MS) return { per };
+        }
+      }
+      return { vals, W, H, P: ts.length };
+    };
+    let m = M, got = null;
+    try {
+      for (;;) {
+        got = run(m);
+        if (got.vals) break;
+        const left = CPU_LINE_MS - (performance.now() - t0), per = got.per;
+        m = [4, 2, 1].find((k) => k < m && res.n * (2 * k + 1) * per <= left);
+        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0); return null; }
+      }
+    } catch (err) { console.error('line stand-in', err); return null; }
+    cpuLineNote(res.n, m, t0);
+    const { vals, W, H, P } = got, tex = floatTex();
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, vals);
+    const key = `cpu|${want}`, bytes = W * H * 8;
+    const e = { tex, W, H, P, bytes, res, key, want, t: performance.now(), ck: 'stand-in', L: m, cpu: true };
+    while (res.tf.size >= CACHE_MAX) freeEntry(res.tf.values().next().value);
+    res.tf.set(key, e); cacheAll.set(e, true); cacheBytes += bytes;
     return e;
   }
   // The fill's point pass (fillPts, FILL_PTS_VS) of mesh res at template size L (at most 2: uSub's size) under map,

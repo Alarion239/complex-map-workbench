@@ -881,7 +881,7 @@
       const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
       const area = kindType(s) === 'area';
-      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
+      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null, cpu: () => cpuMap(sm) }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
       if (area && r.open && !opt.thin) { st.dash = OPEN_DASH; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
