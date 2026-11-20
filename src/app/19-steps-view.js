@@ -1291,7 +1291,8 @@
     return linking || !!svHoldB;
   }
   // the last frame between two planes: {b, u, path: 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse
-  // pass's sheet key of a point of plane 0, per: that key's period ([re, im] or null), H: the map of that frame
+  // pass's sheet key of a point of plane 0, per: that key's period ([re, im] or null), ops: the kinds of the ops the
+  // inverse pass inverted (InvOps' AFF, SIN, NEWT, ...), in the chain's order, or null, H: the map of that frame
   // (H_u o F_{b-1}), Hb: the glide's homotopy alone (H_u on the glide's first plane), view, w, h (the pane's css size)}
   // (read by the test hooks)
   let svGlideRec = null;
@@ -1950,7 +1951,7 @@
         // (alpha, on a frame the inverse pass drew: the opacity it composited the frame's points with, front to back, the
         // farthest opaque (svCarryLook at base 1))
         const hl = drew ? svHomPaths(b, u).h : null, look = hl ? svCarryLook(1, hl.list[0], { b, u }, T) : null;
-        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
+        svGlideRec = { b, u, path: drew ? 'inverse' : why.r === SV_NO_AREA ? 'none' : 'mesh', reason: why.r, key: kp && kp.prep ? (z) => Inverse.sheetKey(kp.prep, z) : null, per: kp && kp.prep && kp.prep.per ? [kp.prep.per.re, kp.prep.per.im] : null, ops: kp && kp.plan ? kp.plan.ops.map((o) => o.kind) : null, H: F, Hb, view: Object.assign({}, pane.view), w: pane.w, h: pane.h,
           ...(look && { alpha: look.alpha }) };
         if (drew) return;
       }
