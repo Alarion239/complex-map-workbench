@@ -243,7 +243,7 @@ const Derivs = (() => {
       return { error: e.message };
     }
   }
-  return { init, XN, texOf, taylorAt, polyMul, polySub, polyDer, ratOf, derivAst, derivativeStep };
+  return { init, XN, texOf, taylorAt, polyDer, polyMul, polySub, ratOf, derivAst, derivativeStep };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
