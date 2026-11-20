@@ -19,7 +19,7 @@ await view(1280, 800, false);
 const linked = `(() => { if (typeof __cmwPaneStatus !== 'function') return false; const s = __cmwPaneStatus('L'); return !!s && !s.pending && !s.compiling; })()`;
 // (said: the plane's description, the text of what the canvas's aria-describedby names; box: the note's chip, and btns:
 // the view buttons and a phone's keys over the plane, in the pane's CSS px)
-const state = () => ev(`(() => { const s = __cmwPaneStatus('L'), e = document.getElementById('leftLed'), cv = document.getElementById('canvasL'), c = cv.getBoundingClientRect();
+const state = () => ev(`(() => { const s = __cmwPaneStatus('L'), e = document.getElementById('leftLed'), cv = document.getElementById('overlayL'), c = cv.getBoundingClientRect();
   const said = (cv.getAttribute('aria-describedby') || '').split(' ').map((id) => document.getElementById(id)).filter(Boolean).map((d) => d.textContent).join(' ');
   const btns = [...cv.parentElement.querySelectorAll('.vbtn, .ph-key')].map((b) => b.getBoundingClientRect()).filter((r) => r.width && r.height).map((r) => ({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }));
   return { note: s.note || '', error: s.error || '', led: e ? { cls: e.className, tip: e.getAttribute('data-tip') } : null, said, box: typeof __cmwNoteBox === 'function' ? __cmwNoteBox('L') : null, btns }; })()`);
