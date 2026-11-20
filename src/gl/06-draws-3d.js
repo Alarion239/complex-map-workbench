@@ -288,7 +288,7 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
-  // The Landscape's stand-in surface while landTF and land link (st.standIn, {nx, ny, w}: F at the nx x ny nodes over the block's box,
+  // The Landscape's stand-in surface while landTF and land link (st.standIn, {nx, ny, w}: F at the nx x ny nodes over the block's box; the grid is square and only nx is read,
   // node (i, j) at w[2 (j nx + i)], the app's standIn grid): the heights texture the program landTF makes (F's value, the
   // height of heightOf, 1 where F has a value), made on the CPU, and the normals the static pass landNrm makes of it. Drawn by
   // landS, the base cells' program of the steep walls with F from the corners. null until landNrm has linked
@@ -1266,6 +1266,8 @@
     const C = landColors(st);
     const material = MATERIALS[st.material] ?? (st.style === 'classic' ? 0 : 0);
     const lt = { sky: toLin3(C.hemiSky), ground: toLin3(C.hemiGround) };
+    // (the relief programs' light: the material's specular strength and exponent, the rim)
+    const landLight = (P) => lightUniforms(P, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
     const heightOf = (v) => {
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
@@ -1410,7 +1412,7 @@
       const Pc = program('landCarry', st.carry.map);
       use(Pc, st.carry.map);
       common(Pc);
-      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+      landLight(Pc);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
@@ -1460,7 +1462,7 @@
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
-      lightUniforms(Lp, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+      landLight(Lp);
       u3(Lp, 'uCut', C.cut);
       // (principal: up to 3 triangles where a real cut splits one; All sheets with linear heights: the triangle
       // clipped at the block, up to 3)
@@ -1523,7 +1525,7 @@
       if (LB) {
         use(LB);
         common(LB);
-        lightUniforms(LB, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        landLight(LB);
         u3(LB, 'uCut', C.cut); u1i(LB, 'uHMode', mode); u1f(LB, 'uMu', mu); u2f(LB, 'uAspect', aspect[0], aspect[1]);
         u1i(LB, 'uM', hd.N - 1); u1i(LB, 'uVW', 1); u1i(LB, 'uCuts', hd.cuts || 0); u1i(LB, 'uRefOn', R ? 1 : 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
@@ -1531,7 +1533,7 @@
       if (R && LR) {
         use(LR);
         common(LR);
-        lightUniforms(LR, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        landLight(LR);
         u3(LR, 'uCut', C.cut); u1i(LR, 'uHMode', mode); u1f(LR, 'uMu', mu); u2f(LR, 'uAspect', aspect[0], aspect[1]);
         u1i(LR, 'uM', hd.N - 1); u1i(LR, 'uVW', 1); u1i(LR, 'uCuts', hd.cuts || 0);
       }
@@ -1557,7 +1559,7 @@
       if (LS) {
         use(LS);
         common(LS);
-        lightUniforms(LS, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        landLight(LS);
         u3(LS, 'uCut', C.cut); u1i(LS, 'uHMode', mode); u1f(LS, 'uMu', mu); u2f(LS, 'uAspect', aspect[0], aspect[1]);
         u1i(LS, 'uM', hd.N - 1); u1i(LS, 'uVW', 1); u1i(LS, 'uCuts', -1); u1i(LS, 'uRefOn', 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
