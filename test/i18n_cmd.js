@@ -290,6 +290,9 @@ for (const w of [1024, 1440]) {
   check('ru: the steps plane head names the window of sheets («листы k = −2…2»), not «все листы»', await ev(sheetsHead), await ev(head));
   await ev(`__cmwSteps({ go: 1, now: true }), 1`);
   await until(`/w1/.test(${head}) || /w₁/.test(${head})`, 5000);
+  // (the head changes as the step is taken; the Landscape's draw for plane 1 follows a frame or more later: until then
+  // __cmwLandSheets().drawn is still plane 0's window of sheets, K = 5)
+  await until('((__cmwLandSheets().drawn || {}).K || 1) === 1', 10000);
   const one = await ev(`({ K: (__cmwLandSheets().drawn || {}).K || 1, head: ${head} })`);
   check('ru: the plane after the logarithm draws one surface, and its head names no sheets (neither «листы» nor «все листы»)', one.K === 1 && !/листы/.test(one.head), one);
 }
