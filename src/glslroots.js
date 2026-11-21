@@ -10,8 +10,12 @@ const GLSLRoots = (() => {
   // ${P}_a(k, w): _ev, a(u) and its derivative (Horner) at degree de; _start, de points on the circle of Fujiwara's
   // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within NEWT_STEP_TOL (1 + |z_i|)
   // (InvOps.newtAberth's iteration in float32, whose rounding the tolerance allows). The polynomial NEWT op's and
-  // RAT<n>'s for n >= 5
+  // RAT<n>'s for n >= 5: evFns is _ev and sweepFns _start and _aberth, apart so that the polynomial NEWT op puts its
+  // Newton walks (GLChain's newtCoreFns, which call _ev) between them
   function aberthFns(P, D) {
+    return evFns(P, D) + sweepFns(P, D);
+  }
+  function evFns(P, D) {
     return `void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
   q = vec2(0.0); dq = vec2(0.0);
   for (int k = ${D}; k >= 0; k--) {
@@ -20,7 +24,10 @@ const GLSLRoots = (() => {
     q = cmul(q, u) + ${P}_a(k, w);
   }
 }
-void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
+`;
+  }
+  function sweepFns(P, D) {
+    return `void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
   vec2 ad = ${P}_a(de, w);
   float R = 0.0;
   for (int k = 1; k <= ${D}; k++) {
@@ -132,7 +139,7 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
   }
-  return { NEWT_STEP_TOL, aberthFns, ratAberthFns };
+  return { NEWT_STEP_TOL, aberthFns, evFns, sweepFns, ratAberthFns };
 })();
 import { Inverse } from './inverse.js';
 export { GLSLRoots };
