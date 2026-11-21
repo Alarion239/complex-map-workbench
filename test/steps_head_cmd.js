@@ -179,9 +179,11 @@ for (const [lang, W, H] of [['en', 1024, 768], ['ru', 1024, 768], ['it', 1024, 7
   }
 }
 const SV_ELL = 12, SV_MORE = 40;   // (the ellipsis' room, and the room a cut role has beyond its first word: svFitHead's SV_ROLE_ELL and SV_ROLE_MORE)
-// the Landscape carried past the colour plane, ln|w₁| on w₂: the title's role is long ("landscape of ln|w₁|, carried from w₁")
-// and the head gives it the room that is left, not a first word with the room left empty
-for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 800]]) {
+// the Landscape carried past the colour plane, ln|w₁| on w₂: the title's role is long ("landscape of ln|w₁|, carried from w₁").
+// Where it does not fit whole (1024 and 1280 px) the head shows its short form, which keeps where the surface is carried from
+// ("landscape, carried from w₁"), the whole title in its tip; at 1440 px it is whole
+const CLAUSE = { en: 'carried from w₁', ru: 'перенесённый из w₁', it: 'trasportato da w₁' };
+for (const [lang, W, H] of [1024, 1280, 1440].flatMap((w) => ['en', 'ru', 'it'].map((l) => [l, w, w === 1024 ? 768 : w === 1280 ? 800 : 900]))) {
   await view(W, H, false, false);
   const CARRY = Object.assign({}, st, { shapes: [], height: 'log', steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] });
   await up(`carry ${lang}`, 'steps', `${ns}carry${lang}`, CARRY, lang, "typeof __cmwSteps === 'function' && __cmwSteps().on && !!document.querySelector('#svHead .sv-title')", true);
@@ -193,15 +195,24 @@ for (const [lang, W, H] of [['en', 1280, 800], ['ru', 1280, 800], ['it', 1280, 8
     const sp = [...head.children].find((c) => c.classList.contains('grow')), wordW = (text) => { const r = document.createElement('span'); r.style.cssText = 'position:absolute;visibility:hidden;white-space:nowrap;font:400 13px ' + getComputedStyle(role).fontFamily; r.textContent = text; document.body.appendChild(r); const w = r.getBoundingClientRect().width; r.remove(); return Math.round(w); };
     const words = role.textContent.trim().split(' '), re = b.classList.contains('sv-re'), rs = b.classList.contains('sv-rs'), shown = re ? [...role.children].filter((w) => !w.classList.contains('sv-wx')).length : rs ? 1 : words.length;
     return { hh: Math.round(hr.height), empty: sp ? Math.round(sp.getBoundingClientRect().width) : -1, has: { title: !!t.getClientRects().length, cp: !!b.querySelector('.sv-cp').getClientRects().length, surf: !!b.querySelector('.sv-surf1').getClientRects().length, styles: !!document.getElementById('dcSeg') && document.getElementById('dcSeg').getClientRects().length > 0 },
-      cut: role.classList.contains('sv-cut') && getComputedStyle(role, '::after').content.replace(/"/g, '') === '…' && role.scrollWidth <= role.clientWidth + 1, tip: t.getAttribute('data-tip'), firstW: wordW(words[0]), nextW: shown < words.length ? wordW(words[shown]) : 0, bar: b.className, full: t.textContent, shown: t.innerText, roleW: Math.round(role.getBoundingClientRect().width), tnote: !!document.querySelector('#svTnote') && !document.querySelector('#svTnote').hidden,
+      cut: role.classList.contains('sv-cut') && getComputedStyle(role, '::after').content.replace(/"/g, '') === '…' && role.scrollWidth <= role.clientWidth + 1, tip: t.getAttribute('data-tip'), firstW: wordW(words[0]), nextW: shown < words.length ? wordW(words[shown]) : 0, bar: b.className, full: t.textContent, shown: t.innerText, roleW: Math.round(role.getBoundingClientRect().width), role: role.textContent, short: (role.dataset.short || '') + (role.dataset.shortP || ''), shortP: role.dataset.shortP || '', shortFont: getComputedStyle(role, '::after').fontStyle + ' ' + getComputedStyle(role, '::after').fontFamily, nameFont: (() => { const i = t.querySelector('.sv-role i'); return i ? getComputedStyle(i).fontStyle + ' ' + getComputedStyle(i).fontFamily : ''; })(), kept: [...role.children].filter((w) => !w.classList.contains('sv-wx')).map((w) => w.textContent).join(''), tnote: !!document.querySelector('#svTnote') && !document.querySelector('#svTnote').hidden,
       hw: Math.round(head.clientWidth), kids: kids.map((c) => (c.id || String(c.className).slice(0, 14)) + ':' + Math.round(c.getBoundingClientRect().left - hr.left) + '+' + Math.round(c.getBoundingClientRect().width)), T: __cmwSteps().T, surf: __cmwSteps().surf, stage: __cmwSteps().stage }; })()`);
-  info[`carry${lang}`] = C;
+  info[`carry${lang}${W}`] = C;
   const n = `${lang} ${W} carried Landscape`;
   const cut = /\bsv-(re|rs)\b/.test(C.bar);
   ok(`${n}: the head is one row, the title, the colour plane and the surface all show`, C.hh <= 44 && C.has.title && C.has.cp && C.has.surf, C);
-  // (the scenario: at 1280 px the carried title does not fit whole, and the fold lands on the cut role: a leg that the fold never reaches would pass empty)
-  ok(`${n}: the role is shown cut to the room (sv-re), not dropped (sv-c2) or left whole over the head`, /\bsv-re\b/.test(C.bar) && !/\bsv-c2\b/.test(C.bar) && C.roleW > 0, C);
-  ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !cut || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
+  // (the role as the head shows it: whole, its whole words cut by the room with an ellipsis (sv-re), its short form (sv-rs), or none
+  // (sv-c2))
+  const seen = /\bsv-c2\b/.test(C.bar) ? '' : /\bsv-rs\b/.test(C.bar) ? C.short : /\bsv-re\b/.test(C.bar) ? C.kept + '…' : C.role;
+  ok(`${n}: the role shown keeps where the surface is carried from ("${CLAUSE[lang]}")`, !!seen && seen.includes(CLAUSE[lang]), { seen, C });
+  if (W === 1440) ok(`${n}: the role is whole (control)`, !cut && !/\bsv-c2\b/.test(C.bar), C);
+  // (the scenario: at 1024 and 1280 px the carried title does not fit whole, and the fold lands on the role: a leg that the fold
+  // never reaches would pass empty)
+  else ok(`${n}: the role is shown short (sv-rs) or cut to the room (sv-re), not dropped (sv-c2) or left whole over the head`, cut && !/\bsv-c2\b/.test(C.bar) && C.roleW > 0, C);
+  if (W !== 1440) ok(`${n}: the role is shown as its short form (sv-rs)`, /\bsv-rs\b/.test(C.bar) && !/\bsv-c2\b/.test(C.bar), C);
+  if (W !== 1440) ok(`${n}: shown short, the plane's name that ends it is set as the role's other plane names are (italic, the maths face)`, C.shortP === 'w₁' && !!C.nameFont && C.shortFont === C.nameFont, { shortP: C.shortP, shortFont: C.shortFont, nameFont: C.nameFont });
+  ok(`${n}: shown short, the title's tip has the whole title`, !/\bsv-rs\b/.test(C.bar) || C.tip === C.full, C);
+  ok(`${n}: a role cut short leaves no room for the word that follows it (the room left is the role's, not a first word with a gap after it)`, !/\bsv-re\b/.test(C.bar) || C.nextW === 0 || C.empty < C.nextW + SV_ELL, C);
   ok(`${n}: a role cut to the room is its whole words and an ellipsis (no word cut), and the title's tip has the whole title`, !/\bsv-re\b/.test(C.bar) || (C.cut && C.tip === C.full), C);
   ok(`${n}: the role shows more than its first word when it is cut by the room`, !/\bsv-re\b/.test(C.bar) || C.roleW >= C.firstW + SV_MORE, C);
 }
