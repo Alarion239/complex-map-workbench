@@ -41,6 +41,7 @@
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill}
   SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -1366,6 +1367,7 @@
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
     // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
     // to A.said, its words before the crossing of the frame that starts the hold)
+    if (first && SV.play === A) svHoldWaitBegin(A);
     if (first) {
       const r = Math.round(A.held.at);
       if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
@@ -1382,6 +1384,7 @@
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
     if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
+    svHoldWaitEnd(true);
   }
   // whether the glide frame g (svBetween: a step's glide, or an All-at-once span's) on the plane must wait: the inverse
   // pass draws it and that pass's programs still link, or, once linked, the pole tracks a step's frames are drawn from
@@ -4061,13 +4064,13 @@
   }
   // ▶ and pause, the loop's state
   function svPlaySync() {
-    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown && SV.gate.btn === E.play ? $t('Cancel') : on ? $t('Pause') : $t('Play');
+    const E = SV.els, on = !!SV.play, waits = svWaitOn(E.play), label = waits ? $t('Cancel') : on ? $t('Pause') : $t('Play');
     // (the pause is two bars, drawn: no glyph of the bundled faces)
-    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
+    if (E.play.dataset.on !== String(on) && !waits) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
     // (a plain button, Cancel, while the press waits: a "not pressed" toggle named Cancel would be read as one)
-    if (SV.gate && SV.gate.shown && SV.gate.btn === E.play) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
+    if (waits) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
@@ -4137,33 +4140,75 @@
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
-    if (g.keep) {
-      g.btn.replaceChildren(...g.keep.kids);
-      for (const [k, v] of g.keep.attrs) { if (v == null) g.btn.removeAttribute(k); else g.btn.setAttribute(k, v); }
-    }
-    g.btn.toggleAttribute('aria-busy', false);
-    delete g.btn.dataset.wait;
-    g.btn.style.removeProperty('--wait');
-    if (g.btn === (SV.els && SV.els.play)) { delete g.btn.dataset.on; svPlaySync(); }
+    svWaitRestore(g);
   }
-  function svGateSync() {
-    const g = SV.gate;
-    if (!g || !g.shown) return;
-    const B = g.btn;
-    if (!g.keep) {
-      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
+  // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its icon a
+  // cross in a ring that fills by the programs ready, named Cancel and described "Preparing the glide…". w: {btn, keep, fill,
+  // hung?}, kept so svWaitRestore gives the control back as it was
+  function svWaitLook(w) {
+    const B = w.btn;
+    if (!w.keep) {
+      w.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
     const r = svReady();
     B.toggleAttribute('aria-busy', true);
-    B.dataset.wait = g.hung ? 'hung' : 'busy';
-    g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
-    B.style.setProperty('--wait', String(g.fill));
+    B.dataset.wait = w.hung ? 'hung' : 'busy';
+    w.fill = Math.max(w.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
+    B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
+  }
+  function svWaitRestore(w) {
+    const B = w.btn;
+    if (w.keep) {
+      B.replaceChildren(...w.keep.kids);
+      for (const [k, v] of w.keep.attrs) { if (v == null) B.removeAttribute(k); else B.setAttribute(k, v); }
+    }
+    B.toggleAttribute('aria-busy', false);
+    delete B.dataset.wait;
+    B.style.removeProperty('--wait');
+    if (B === (SV.els && SV.els.play)) { delete B.dataset.on; svPlaySync(); }
+  }
+  // whether button B shows the wait look: the Play gate's (once shown) or a hold's
+  const svWaitOn = (B) => !!((SV.gate && SV.gate.shown && SV.gate.btn === B) || (SV.hold && SV.hold.shown && SV.hold.btn === B));
+  function svGateSync() {
+    const g = SV.gate;
+    if (!g || !g.shown) return;
+    svWaitLook(g);
+  }
+  // A hold in the middle of a play (svLinkHold: the programs of a later glide still link, so the play's clock stands still):
+  // past SV_GATE_SHOW_MS ▶ takes the gate's look and the live region says "Preparing the glide…" once, and when the hold ends
+  // ▶ goes back to Pause and the live region says the play's words once. A shorter hold shows nothing. Pressing ▶ (Cancel) or
+  // Esc pauses the play, as for any play
+  function svHoldWaitBegin(A) {
+    if (SV.hold) return;
+    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0 };
+    w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
+  }
+  function svHoldWaitTick() {
+    const w = SV.hold;
+    if (!w) return;
+    if (SV.play !== w.A || !w.A.held) { svHoldWaitEnd(SV.play === w.A); return; }
+    if (!w.shown) {
+      w.shown = true;
+      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
+    }
+    svWaitLook(w);
+    w.timer = setTimeout(svHoldWaitTick, SV_GATE_POLL_MS);
+  }
+  // the hold is over (say: the play goes on, so its words are said again)
+  function svHoldWaitEnd(say) {
+    const w = SV.hold;
+    if (!w) return;
+    clearTimeout(w.timer);
+    SV.hold = null;
+    if (!w.shown) return;
+    svWaitRestore(w);
+    if (say && SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
   }
   function svGateTick() {
     const g = SV.gate;
@@ -4192,6 +4237,8 @@
     if (SV.play || svPlanes().length < 2) return;
     svGated(SV.els.play, svPlayNow);
   }
+  // the live region's words for a play to plane index end, from the plane the thread is near
+  const svPlayWords = (end) => $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(svPlanes()[end]) });
   function svPlayNow() {
     const P = svPlanes();
     if (P.length < 2 || SV.play) return;
@@ -4214,7 +4261,7 @@
     svSync();
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
-    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(P[end]) });
+    if (SV.els.live) SV.els.live.textContent = svPlayWords(end);
     sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
   }
   // a slide's time on each plane (ms)
@@ -4282,6 +4329,7 @@
     const A = SV.play;
     if (!A) return;
     SV.play = null;
+    svHoldWaitEnd(false);
     if (A.slide) clearTimeout(A.timer);
     // (parked between two planes, the full apply the crossings skipped is done now, once)
     if (settle) { if (A.slide) { svArrive(); } else { svLetGo(); if (svParked()) svApply(); } }

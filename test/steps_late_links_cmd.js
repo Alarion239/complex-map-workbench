@@ -64,6 +64,8 @@ const names = exampleNames();
 // ms a link reads not complete; the waits (ms) for a page, for the chain's programs, for a glide's frame and for a play
 // to its end
 const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000, PLAY_MS = 120000;
+// the longest a hold in the middle of a play may take to show on ▶ (the gate's 300 ms threshold and a slow frame)
+const HOLD_SHOWN_MS = 5000;
 const NEWT_EX = 'Partial sums of the exponential', POLES_EX = 'Poles of the Gamma function', GLIDE_U = 0.5;
 // (z + 1/z)
 const POLE_EX = 'Cauchy: a regular part and a pole';
@@ -329,11 +331,26 @@ try {
     try {
       await chain('llq');
       await record('requestIdleCallback');
+      // (what ▶ and the live region say through the play: ▶'s aria-busy, name and description, and each text the polite regions get)
+      await ev(`(window.__playLog = [], window.__liveLog = [], (() => {
+        const b = document.querySelector('.sv-play');
+        new MutationObserver(() => window.__playLog.push({ busy: b.hasAttribute('aria-busy'), label: b.getAttribute('aria-label'), desc: b.getAttribute('aria-description') })).observe(b, { attributes: true, childList: true });
+        new MutationObserver((ms) => { for (const m of ms) { const r = m.target.nodeType === 1 ? m.target : m.target.parentElement, l = r && r.closest('[aria-live]'); if (l && l.textContent) window.__liveLog.push(l.textContent); } }).observe(document.body, { subtree: true, childList: true, characterData: true });
+      })(), 1)`);
       await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
       const q0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0.5 && !!__cmwSteps().play` });
+      // (the hold has gone past the gate's threshold: ▶ is the gate's Cancel, said once)
+      const busyW = await settled({ only: true, max: HOLD_SHOWN_MS, until: '!!document.querySelector(".sv-play[aria-busy]")' });
+      const busy = await ev(`(() => { const b = document.querySelector('.sv-play'); return { busy: b.hasAttribute('aria-busy'), label: b.getAttribute('aria-label'), desc: b.getAttribute('aria-description'), wait: b.dataset.wait, play: !!__cmwSteps().play }; })()`);
       const q1 = await recorded();
       const second = Object.assign(q1.got, await ev('({ links: GLR.pendingLinks })'));
       const q2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
+      const said = await ev('({ btn: window.__playLog, live: window.__liveLog })');
+      // (the play meets more than one hold in this scene: each is said once, and each is followed by the play's words, with nothing between)
+      const seq = said.live.filter((t, i, a) => t !== a[i - 1]), preps = seq.flatMap((t, i) => (t === 'Preparing the glide…' ? [i] : []));
+      ok(`${POLE_EX}, then z⁴ + z: a hold in the middle of the play for ${HOLD_SHOWN_MS / 1000} s: ▶ is the gate's Cancel (busy, named Cancel, described "Preparing the glide…") while the play is still on`, busyW.ok && busy.busy && busy.label === 'Cancel' && busy.desc === 'Preparing the glide…' && busy.play, { busyW, busy });
+      ok(`${POLE_EX}, then z⁴ + z: the hold ends: ▶ is Pause again while the play goes on`, said.btn.some((e, i) => e.busy && said.btn.slice(i + 1).some((f) => !f.busy && f.label === 'Pause')), said.btn);
+      ok(`${POLE_EX}, then z⁴ + z: the live region says "Preparing the glide…" once for each hold, and the play's words ("Playing from …") the next time it is written`, preps.length > 0 && preps.every((i) => /^Playing from /.test(seq[i + 1] || '')), seq);
       await ev('window.__llHeld.done = true, 1');
       const got = { second, waits: { q0, q1: q1.wait, q2 } }, still = q0.ok && q1.wait.ok && second.xs.length === 1;
       ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, for the programs of the glide into plane 2: the play waits where it is`, still, got);
