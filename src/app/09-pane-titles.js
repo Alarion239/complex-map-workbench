@@ -130,6 +130,21 @@
     const comp = q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
     return `(${comp})(${x})`;
   }
+  // a plane's accessible name is its head's own words: its title and its role in plain text ("w₁ · phase of f₂"), so it follows the
+  // plane shown as the head does
+  function titleName(html) {
+    const d = h('div', { html });
+    // (the subscript's digits and the deformation's t as Unicode subscripts: Hₜ, as the page writes it elsewhere)
+    for (const s of d.querySelectorAll('sub')) s.textContent = sub(s.textContent).replace(/t/g, '\u209C');
+    const words = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+    return [words(d.querySelector('.ptitle')), words(d.querySelector('.rf') || d.querySelector('.prole'))].filter(Boolean).join(', ');
+  }
+  function nameCanvases(t) {
+    for (const [id, html] of [['overlayL', t.left], ['overlayR', t.right]]) {
+      const el = $(id), name = titleName(html);
+      if (el && name && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
+    }
+  }
   function updateFocusUI() {
     const t = paneTitles();
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
@@ -137,6 +152,7 @@
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
+    nameCanvases(t);
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
@@ -1013,6 +1029,8 @@
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the steps view on a plane other than the colour plane: the colour wheel, with the plane its colour is carried from
+  const svCarriedKey = () => SV.on && !!svCarriedFrom();
   // the Landscape's key under Plaster: the height and the contours, with no hue
   const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
@@ -1020,8 +1038,8 @@
     if (side === 'R') return rImage() ? 'image' : null;
     // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
     if (lLand()) return '3d';
-    // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
-    if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
+    if (svCarriedKey()) return 'color';
+    if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
@@ -1039,6 +1057,7 @@
       // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key and
       // Y's pattern key stay chips in the head)
       const onPlot = side === 'L' && !ph && keyOnPlot();
+      if (!ph) delete leg.dataset.phKey;
       if (onPlot) {
         if (leg.parentNode !== plot) {
           leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
@@ -1054,7 +1073,9 @@
         if (er && er.parentNode !== head) head.insertBefore(er, leg);
       } else {
         const ro = $(side === 'L' ? 'leftReadout' : 'rightReadout'), vs = plot.querySelector(':scope > .viewstack');
-        if (leg.parentNode !== plot) {
+        // (data-ph-key marks a legend this branch has placed: one the desktop's branch left on the plot is placed again, folded)
+        if (leg.parentNode !== plot || !leg.dataset.phKey) {
+          leg.dataset.phKey = '1';
           // (the head's words and tooltip go: on the plane the key is the folded glyph, a tap unfolds it)
           leg.classList.remove('open'); plot.insertBefore(leg, ro ? ro.nextSibling : vs);
           const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
@@ -1081,12 +1102,13 @@
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
     drawLegendSide('L'); drawLegendSide('R');
   }
+  const KEY_GUTTER = 4;   // px between an unfolded key and its plane's edge
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
   // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the
-  // distance to the lowest of them; it is recomputed each time the key is shown, and, on a phone, whenever a readout
-  // changes size or the context bar opens or closes)
+  // distance to the lowest of them, less what an unfolded card on a phone needs to end KEY_GUTTER above the plane's foot; it is
+  // recomputed each time the key is shown, and, on a phone, whenever a readout changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
   // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
@@ -1122,10 +1144,10 @@
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
-    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a gutter, KEY_GUTTER)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
     if (head && c0.width) {
-      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      const lo = pr.left + KEY_GUTTER - c0.left, hi = pr.right - KEY_GUTTER - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
       if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
     }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
@@ -1137,11 +1159,18 @@
         const r = e.getBoundingClientRect();
         if (r.width && r.left < c.right + reach && c.left - reach < r.right && r.top < c.bottom + reach && c.top - reach < r.bottom) drop = Math.max(drop, r.bottom + 6 + reach - c.top);
       }
-      if (drop <= 0) return;
+      if (drop <= 0) break;
       // (a folded chip does not go under the context bar: the readout it would touch is the lesser harm)
       const bar = reach ? document.querySelector('.ph-ctx.in') : null;
-      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) return;
+      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) break;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
+    }
+    // (on a phone the card stays inside the plane: a readout that wraps to more lines would drop it past the plane's foot, so the
+    // drop gives up what the card needs, down to none, and the card then overlaps the readout's last lines, which take no press
+    // there. A head's pop-up has no such room: the readout there takes presses, and it stays under the pop-up's drop)
+    if (!head) {
+      const over = el.getBoundingClientRect().bottom - (plot.getBoundingClientRect().bottom - KEY_GUTTER), dropNow = parseFloat(box.style.getPropertyValue('--lg-drop')) || 0;
+      if (over > 0 && dropNow > 0) box.style.setProperty('--lg-drop', `${Math.max(0, dropNow - Math.ceil(over))}px`);
     }
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
@@ -1358,8 +1387,8 @@
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
-    // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (kind === 'color' && SV.on && svCarriedFrom() && !lPhase()) {
+    // (the steps view on every plane but the colour plane's own: the wheel is the colour plane's, carried by the points)
+    if (kind === 'color' && svCarriedKey()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
