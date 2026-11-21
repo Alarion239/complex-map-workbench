@@ -4113,6 +4113,12 @@
   function svDiscardCaches() {
     svPoleMemo.clear(); svPoleLast.clear(); svRingSizes.clear(); svRingMemo = null; svPolarRes.clear();
   }
+  // the play's schedule from where the view is: { start, end (the range's ends), x (where it is), from (where it plays from) }
+  function svPlayFrom() {
+    const P = svPlanes(), R = svRange(), start = R ? R.lo : 0, end = R ? R.hi : P.length - 1, x = SV.anim ? SV.anim.to : SV.g.x;
+    // (at the end, or past it: from the start)
+    return { start, end, x, from: x >= end - SV_REST_U ? start : x };
+  }
   function svPlay() {
     if (SV.play || svPlanes().length < 2) return;
     // (from rest, its frames may be drawn ahead while it waits; resumed where a play paused on frames drawn ahead, it goes
