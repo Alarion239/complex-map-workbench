@@ -173,6 +173,14 @@
   // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
   const TICK_DEC_MAX = 15;
   XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
+  // the decimals of an axis that a figure labels itself (the video's axes, the Landscape figure's floor, a filmstrip's reliefs):
+  // XD.tickDec's, for its ticks ts at step; fmt(v, d) is the label the figure prints. While XD.axes is a list (the tests set
+  // it), each axis is recorded there, { name, ticks, step, d, labels }
+  XD.axisDec = (name, ts, step, fmt = XD.tickTex) => {
+    const d = XD.tickDec(ts, step);
+    if (XD.axes) XD.axes.push({ name, ticks: ts.slice(), step, d, labels: ts.map((v) => fmt(v, d)) });
+    return d;
+  };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own
