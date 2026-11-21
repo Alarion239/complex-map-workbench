@@ -458,6 +458,7 @@ node ci/perf_shards.js matrix                      # the shards; check: every pe
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
+node ci/browser.js --wait --only '^smoke_cmd'     # one run per worktree (a lock, .ci/browser.lock: a run rewrites test/ci_cdp, .ci/browser and dist/): a second refuses and names the holder, --wait waits; a killed run's lock and daemon are swept by the next (ci/run_lock.js, #2163)
 node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (add --block to fail on a finding, as the Gate does)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
