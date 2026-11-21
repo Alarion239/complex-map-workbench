@@ -101,6 +101,8 @@
     E.range.setAttribute('aria-valuetext', `r = ${roNum(s.r)}`);
     E.val.textContent = roNum(s.r);
     paintFader(E.range);
+    // (the phone's 44 px thumb: its track is filled to the thumb's centre from --f, phone.css)
+    E.range.style.setProperty('--f', String(s.r / E.top));
     const sig = joins.map((r) => r.toPrecision(6)).join(',') + '|' + E.top;
     if (E.ticks.dataset.sig !== sig) {
       E.ticks.dataset.sig = sig;

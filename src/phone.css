@@ -133,12 +133,14 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: calc(100% - var(--ruler) - 72px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
 :root.ph .ld-key.folded { padding-bottom: 0; }
 :root.ph .ld-key.folded > .ld-list { display: none; }
+/* (a mark's words wrap under its swatch's line where the plane is narrow: a landscape phone's plane beside a sheet is about 200 px) */
+:root.ph .ld-it { white-space: normal; min-width: 0; }
 :root.ph .ld-key > .ld-ttl { flex: 1 0 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: var(--t-label); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
 :root.ph .ld-key.folded > .ld-ttl { flex-basis: auto; }
 :root.ph .ld-key > .ld-ttl::after { content: ""; width: 0; height: 0; border: 4px solid transparent; border-bottom-color: currentColor; translate: 0 -2px; }
 :root.ph .ld-key:not(.folded) > .ld-ttl::after { border-bottom-color: transparent; border-top-color: currentColor; translate: 0 2px; }
 :root.ph .ld-key > .ld-ttl:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
-:root.ph .ld-key:not(.folded) { background: var(--surface); }
+:root.ph .ld-key:not(.folded) { background: var(--surface); max-height: calc(100% - 2 * var(--ruler) - 12px - var(--ph-lift)); overflow-y: auto; overscroll-behavior: contain; }
 /* (with a sheet open on a portrait phone the plane keeps its title chip only, as its other keys: design-11) */
 :root.ph.ph-split:not(.ph-land) .ld-key { display: none !important; }
 
@@ -289,6 +291,12 @@ html:not(.ph) .ph-only { display: none !important; }
   box-shadow: inset 0 0 0 1px var(--ink-2);
 }
 :root.ph .ro-r:active::-webkit-slider-thumb { box-shadow: inset 0 0 0 1px var(--accent); background: linear-gradient(var(--accent), var(--accent)) 50% 50% / 1px 8px no-repeat, var(--surface); background-clip: padding-box; }
+/* (its fill runs to the thumb's centre, --ro-th / 2 in from each end at r / top of the way: --f, set by the card) */
+:root.ph .ro-r::-webkit-slider-runnable-track {
+  background:
+    linear-gradient(var(--accent), var(--accent)) 0 50% / calc(22px + (100% - 44px) * var(--f, 0)) 2px no-repeat,
+    linear-gradient(var(--line-strong), var(--line-strong)) 0 50% / 100% 2px no-repeat;
+}
 :root.ph .ro-r::-moz-range-thumb {
   width: 44px; height: 44px; border: solid transparent; border-width: 14px 17px; border-radius: 0;
   background: linear-gradient(var(--ink-2), var(--ink-2)) 50% 50% / 1px 8px no-repeat, var(--surface); background-clip: padding-box;
