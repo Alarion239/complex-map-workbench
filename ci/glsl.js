@@ -20,8 +20,9 @@
 // runs whole (its chains come from one seeded sequence). --filter TEXT: only the glsl page's chains whose name holds
 // TEXT (?filter=; to time a few chains' shaders on one platform). The dh page (outright) compares the Douady-Hubbard /
 // Böttcher orbit's shader with another form of itself on the same GPU, bit for bit or within its certificate, so it
-// holds on any renderer: it always passes outright, and no reference is built or run for it. Exit 0 pass, 1 a failure,
-// 2 setup problem.
+// holds on any renderer: when it runs, it passes outright, and no reference is built or run for it. With --ref it is
+// skipped, as the others are, when its inputs are the same as the reference's (unless --force). Exit 0 pass, 1 a
+// failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
 const { execFileSync } = require('child_process');
