@@ -953,10 +953,7 @@
       host.setAttribute('data-placed', 'phone-plot');
       // (above the context bar's row while one is open: the bar stands on the strip, so its height is the room it takes)
       const bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx')), barH = document.documentElement.classList.contains('ph-ctx-on') && bar ? bar.offsetHeight : 0;
-      // (and above the left plane's "Compiling…" note while it is drawn, 4 px clear of it, when the note stands above the message's foot)
-      const cvp = compileShown.L && compileBox ? box($('canvasL')) : null, noteTop = cvp ? cvp.top + compileBox.y : 0;
-      const up = noteTop && noteTop < sb.top - barH - 8 ? Math.round(sb.top - barH - 8 - noteTop + 4) : 0;
-      st.bottom = Math.round(H0() - sb.top + barH + 8 + up) + 'px';
+      st.bottom = Math.round(H0() - sb.top + barH + 8) + 'px';
       // (a landscape plane is too short to hold the message above a construction chip: it stands right of the chip, left of the keys' column)
       const land = document.documentElement.classList.contains('ph-land'), chip = land ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
       if (chip) st.left = Math.round(chip.right + 8) + 'px'; else st.removeProperty('left');
@@ -964,7 +961,7 @@
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
       const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
-      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8 - up;
+      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
       // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
@@ -981,9 +978,7 @@
       host.setAttribute('data-placed', 'plot');
       st.left = Math.round(plot.left + plot.width / 2) + 'px';
       st.maxWidth = Math.round(plot.width - 128) + 'px';
-      // (above the left plane's "Compiling…" note while it is drawn, 4 px clear of it: the note stands at the plane's foot, which the message's edge would cover; a note below the floor is under the strip)
-      const cv = box($('canvasL')), lift = compileShown.L && compileBox && cv ? Math.round(floor - (cv.top + compileBox.y)) + 4 : 12;
-      st.bottom = Math.round(H0() - floor + Math.max(12, lift)) + 'px';
+      st.bottom = Math.round(H0() - floor + 12) + 'px';
       return;
     }
     const chain = box(document.querySelector('.pipe-wrap'));

@@ -76,6 +76,8 @@
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
+  // the 10 s message is on the screen
+  const svGateMessageUp = () => !!(SV.gate && SV.gate.toast && SV.gate.toast.isConnected);
   // The first part of svReady's gauge not done, in the gauge's order, or null
   function svGateMissing() {
     const parts = svReady().parts;
@@ -111,8 +113,10 @@
         g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
         // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
         const msg = g.toast, btn = g.btn;
-        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
+        // (a press on the message may close it: the plane's note is drawn again once it has gone)
+        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); setTimeout(() => requestRender('L'), TOAST_OUT_MS * 2); }, true);
       }
+      requestRender('L');   // (the plane's "Compiling…" note goes while the message names the programs)
     }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);

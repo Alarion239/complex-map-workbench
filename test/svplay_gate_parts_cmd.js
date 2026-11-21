@@ -11,7 +11,8 @@
 // - at 360 px, for each language, the longest sentence keeps the message two rows tall (the words, then Retry, Cancel and the
 //   close button), inside the viewport;
 // - at 1280, 1024 and 560 px, for each language, with the links held (the left plane draws its "Compiling…" note): Retry, Cancel and the
-//   close button are on one row (none alone on a row of its own) and the message is clear of the note.
+//   close button are on one row (none alone on a row of its own), and the note is not drawn while the message is up;
+// - on a phone in portrait (360 and 412 px), with the links held: the message covers no key of the left plane.
 // A command file for a CDP daemon:  <runner> test/svplay_gate_parts_cmd.js
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -52,8 +53,8 @@ const MSG = '#toastHost .toast';
 const esc = () => ev('(document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })), 1)');
 
 // the example's steps view, the links held (programs not done) or not
-async function open(w, h, lang, hold) {
-  await view(w, h, false);
+async function open(w, h, lang, hold, mobile = false) {
+  await view(w, h, false, mobile);
   await load(ns, {});
   await ev('(__cmwExample(1), 1)');
   const o = await ev('location.origin');
@@ -66,11 +67,18 @@ async function open(w, h, lang, hold) {
 async function hung(holdJobs) {
   await ev(`(__cmwSteps({ holdJobs: ${JSON.stringify(holdJobs)} }), 1)`);
   const missing = await ev('__cmwGateMissing()');
+  // (with the links held the left plane draws its "Compiling…" note once it has compiled for 300 ms: it is there before the message)
+  const PILL = 'typeof __cmwCompileBox === "function" && !!__cmwCompileBox()';
+  let pillBefore = await ev(PILL);
+  for (let i = 0; holdJobs === true && !pillBefore && i < 40; i++) { await sleep(200); pillBefore = await ev(PILL); }
   await ev('(__cmwSteps({ play: true }), 1)');
   await settled({ max: HANG_WAIT_MS, only: true, until: `!!document.querySelector("${MSG}")` });
   // (the message picks its rows on the frame after it is made)
   await sleep(ROWS_MS);
   const g = await ev(`(() => { const t = document.querySelector('${MSG}'), r = t.getBoundingClientRect(), w = t.querySelector('span').getBoundingClientRect(); const tops = [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)); return { text: t.querySelector('span').textContent, top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), wordsBottom: Math.round(w.bottom), tops: [...new Set(tops)], vw: innerWidth, vh: innerHeight, pill: (() => { const b = typeof __cmwCompileBox === 'function' ? __cmwCompileBox() : null, c = document.getElementById('canvasL').getBoundingClientRect(); return b && { left: Math.round(c.left + b.x), right: Math.round(c.left + b.x + b.w), top: Math.round(c.top + b.y), bottom: Math.round(c.top + b.y + b.h) }; })() }; })()`);
+  // (the left plane's key column: Fit view and the view stack around it, where a message must not stand)
+  g.keys = await ev(`[...document.querySelectorAll('#leftFit, .pane:not(.ph-inset) .viewstack')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(); return { id: e.id || e.className, left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom) }; })`);
+  g.pillBefore = pillBefore;
   await ev('(__cmwSteps({ play: false }), 1)');
   await esc();
   await settled({ max: 5000, only: true, until: `!document.querySelector("${MSG}")` });
@@ -122,19 +130,35 @@ for (const lang of ['en', 'ru', 'it']) {
 }
 
 // 4. desktop widths, each language, the links held (the left plane draws its "Compiling…" note): the buttons stay together (Retry, Cancel and
-// the close button on one row: none alone on a row of its own), and the message is clear of the note
+// the close button on one row: none alone on a row of its own), and the "Compiling…" note, which the message's own words make
+// redundant, is not drawn under or beside it
 const DESK = [[1280, 800], [1024, 768], [560, 800]];
 for (const [w, h] of DESK) {
   for (const lang of ['en', 'ru', 'it']) {
     await open(w, h, lang, true);
     const g = await hung(true);
     info[`desk_${w}_${lang}`] = g;
-    const hit = g.pill && g.left < g.pill.right && g.right > g.pill.left && g.top < g.pill.bottom && g.bottom > g.pill.top;
-    ok(`${w} px ${lang}: the "Compiling…" note is drawn (control)`, !!g.pill, g);
+    ok(`${w} px ${lang}: the "Compiling…" note was drawn before the message (control)`, g.pillBefore === true, g);
     // (the close button is smaller than the others and centred on the row: its top is a pixel or two lower)
     ok(`${w} px ${lang}: Retry, Cancel and the close button are on one row`, Math.max(...g.tops) - Math.min(...g.tops) <= ROW_SPREAD_PX, g);
-    ok(`${w} px ${lang}: the message is clear of the "Compiling…" note`, !hit, g);
+    ok(`${w} px ${lang}: the "Compiling…" note is not drawn while the message is up (the message names the programs)`, !g.pill, g);
     ok(`${w} px ${lang}: the message is inside the viewport`, g.left >= 0 && g.right <= g.vw && g.bottom <= g.vh, g);
+  }
+}
+
+// 5. a phone in portrait (touch), the links held: the message covers no key of the left plane (Fit view and the view stack, which stand
+// above it), and the note is not drawn under it. rvE: a message lifted over the note reached Fit view's lowest 13 px
+const PHONES = [[360, 640], [412, 915]];
+const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+for (const [w, h] of PHONES) {
+  for (const lang of ['en', 'ru', 'it']) {
+    await open(w, h, lang, true, true);
+    const g = await hung(true);
+    info[`phone_${w}_${lang}`] = g;
+    ok(`phone ${w} px ${lang}: the "Compiling…" note was drawn before the message (control)`, g.pillBefore === true, g);
+    ok(`phone ${w} px ${lang}: the left plane's keys are found (control)`, g.keys.length > 0, g);
+    ok(`phone ${w} px ${lang}: the message covers none of the left plane's keys`, !g.keys.some((k) => overlap(g, k)), g);
+    ok(`phone ${w} px ${lang}: the "Compiling…" note is not drawn while the message is up`, !g.pill, g);
   }
 }
 
