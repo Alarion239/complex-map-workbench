@@ -60,6 +60,9 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { hold, grab, compare, sameAway, edgeRuns, refOf, gridOver, outlines, DIFF_TOL } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
 const SAME_FRAC = 0.005;
 const LOOK_U = [0.25, 0.5, 0.75], LOOK_TOL = 3, END_X = 0.001, MIN_SAME = 20000, MIN_COMPARED = 1000, MIN_LINE_PX = 100, FIRST = 0.02, EDGE = 0.005;
+// (the exact picture's page call for a case sampled every few px (its step): Newton's method from every seed at four times
+// the pixels of the 10 px default, which a software renderer's page takes past refOf's 20 s on an arcosh frame)
+const REF_FINE_MS = 120000;
 const EDGE_RUN = 16, COVER_U = [0.02, 0.98, 0.999], COVER_TOL = 0.001, SPECK_TOL = 24, CUT_R = 4;
 await view(1200, 800, false, false);
 info.dpr = await ev('devicePixelRatio');
@@ -255,7 +258,7 @@ async function look(c, r) {
     ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
     if (c.seeds) await ev(`window.__giSeeds = ${JSON.stringify(c.seeds)}, 1`);
     if (c.dots) await ev(`window.__giMarks = ${JSON.stringify(c.dots)}, 1`);
-    look[u] = Object.assign({ held, still, ops: await ev('(() => { const g = __cmwSteps().glide; return g && g.ops ? g.ops : null; })()') }, await refOf('R0', 'M' + u, LOOK_TOL, c.step));
+    look[u] = Object.assign({ held, still, ops: await ev('(() => { const g = __cmwSteps().glide; return g && g.ops ? g.ops : null; })()') }, await refOf('R0', 'M' + u, LOOK_TOL, c.step, c.step ? REF_FINE_MS : undefined));
     if (c.dots) await ev('delete window.__giMarks, 1');
     if (c.seeds) await ev('delete window.__giSeeds, 1');
     // (the lines over the colour, read while the glide's record has this frame's camera)
