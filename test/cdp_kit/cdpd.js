@@ -193,7 +193,10 @@ H.go = async (url, ms = 15000) => {
     let t;
     ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
     clearTimeout(t);
-    if (!ok && reloads < LOAD_RELOADS && await docStalled() && (!link || await linkUnread())) { reloads++; await (link ? send('Page.reload', { ignoreCache: true }, S) : send('Page.navigate', { url }, S)); }
+    if (!ok && reloads < LOAD_RELOADS && await docStalled()) {
+      if (!link) { reloads++; await send('Page.navigate', { url }, S); }
+      else if (await H.reloadIfUnread()) reloads++;
+    }
   }
   if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; a link\'s stalled document is opened again only while the page still has its hash: after that the app has saved the figure and a second navigation would ask' : ''})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
@@ -380,8 +383,14 @@ H.LOAD_RELOADS = LOAD_RELOADS;   // (for a suite that checks how often a stalled
 const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
 // docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
 const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
-// linkUnread(): the page still has the #cmw= hash (the app drops it before it saves the figure and reloads), so it has not read the link
-const linkUnread = async () => { try { return (await H.ev(`/[#&]cmw=/.test(location.hash)`)) === true; } catch (e) { return false; } };
+// H.reloadIfUnread(): reloads the page if it still has the #cmw= hash, and answers whether it did. The app drops the hash before it saves the
+// figure and reloads, so a page that has it has not read the link; the check and the reload are one call in the page, so the app cannot
+// read the link between them and have the reload load the url without its hash (the page that asks whether to open the link). A call the
+// reload itself cuts off counts as reloaded. The reload is the page's own (location.reload): the same url again, hash included, is a
+// navigation within the document and makes no request; the server's answers are no-store, so the cache is not in it.
+H.reloadIfUnread = async () => {
+  try { return (await H.ev(`/[#&]cmw=/.test(location.hash) ? (location.reload(), true) : false`)) === true; } catch (e) { return NAV_GONE.test(String((e && e.message) || e)); }
+};
 H.load = async (ns, st, extra, viewName, opts = {}) => {
   const origin = opts.origin || 'http://localhost:8793';
   await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);
