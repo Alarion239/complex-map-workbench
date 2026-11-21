@@ -12,7 +12,7 @@
 //  - the same disc made large (r 0.25): its third piece reaches into the window's top-left, so nothing is off view;
 //  - smaller (r 0.18, at 1280 x 800): its third piece shows only as a sliver at the window's top-left corner (the
 //    control counts the pane's pixels in it, from w₂ = ((z − i)/(z + i))³), so nothing is off view either;
-//  - the words keep off the axes, in English and Russian (at the default camera they sit beside the piece at -0.447 +
+//  - the words keep off the axes, in English, Russian and Italian (at the default camera they sit beside the piece at -0.447 +
 //    0.124i, by the imaginary axis);
 //  - the plane's description says the count in words (#1770), in en, ru and it; in ru the region's name is set in «», as Russian
 //    quotes a name;
@@ -149,7 +149,7 @@ await open('ru', 90);
   info['ru z, said'] = said;
   ok('ru: the description quotes the region\'s name: "Части прообраза «<the disc>» за краем вида: 1 из 3"', /Части прообраза «[^«»]+» за краем вида: 1 из 3/.test(said || ''), said);
 }
-// and in it: the count in Italian words, the region named as its row names it
+// and in it: the count in Italian words, a name between them (the region's name in Italian is not read here)
 await open('it', 90);
 {
   const said = await ev(`(() => { const c = document.getElementById('overlayL'), id = c.getAttribute('aria-describedby'), d = id && document.getElementById(id); return d ? d.textContent : null; })()`);
