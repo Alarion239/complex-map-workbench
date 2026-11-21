@@ -20,13 +20,15 @@
 //   meshes meet);
 // - the logarithm's coverage (the moving frame has no sheet key, so no reference by Newton's method either): the
 //   colour layer alone (__cmwSteps({ bare })) of the frames at u (LOOK_U and COVER_U) sampled every 3 device px, the
-//   pixels more than 3 CSS px from the edge of H_u's image (the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t,
-//   sends the plane cut along (-inf, 0] onto the sector s - 1/s + rho e^(i phi), |phi| < s pi): inside it, none is the
-//   paper, and outside it, where no point of the glide arrives, the frame shows what plane 1 draws there at rest
-//   (#1443's ux rule, case b: plane 1's own colour layer, its parked frame drawn bare with the strokes hidden, each
-//   channel within LOOK_TOL of a pixel in the same pixel's 3 x 3 neighbourhood, so that a line of that frame one pixel
-//   wide is not counted, and away from plane 1's cut, the lines Im w = +-pi it draws at rest, by CUT_R CSS px), at most
-//   COVER_TOL of each off;
+//   pixels more than 3 CSS px from the edge of H_u's image on the sheets the glide draws (the log step's homotopy
+//   H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut along (-inf, 0] on sheet k onto the sector
+//   s - 1/s + rho e^(i phi), |phi - 2 pi k s| < s pi; the glide draws the sheets k its record names, sheetKs, the log
+//   step's offset in each combo drawn): inside them, none is the paper, and outside them, where no point of the glide
+//   arrives, the frame shows what plane 1 draws there at rest (#1443's ux rule, case b: plane 1's own colour layer, its
+//   parked frame drawn bare with the strokes hidden, each channel within LOOK_TOL of a pixel in the same pixel's 3 x 3
+//   neighbourhood, so that a line of that frame one pixel wide is not counted, and away from plane 1's cut, the lines
+//   Im w = +-pi it draws at rest, by CUT_R CSS px), at most COVER_TOL of each off (one sheet's sector leaves part of
+//   the view outside it; the sheets' may cover it all);
 // - the ends: the frames at x = END_X (a case's end, if it names one) from either end (__cmwSteps({ x }), a glide's frame there) are the planes' parked
 //   frames, pixel by pixel away from the colour lines (held_frames.js's sameAway: at least MIN_SAME pixels, at most
 //   SAME_FRAC more than LOOK_TOL apart); the logarithm's inside H_u's image only;
@@ -123,15 +125,20 @@ const CASES = [
   // fewer than MIN_COMPARED pixels to compare)
   { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', scope: 'in', parked: [0.3, 0.5, 0.7], only: 'parked' },
 ];
-// (the page's __logSector(): for the glide's last frame, where its device pixel (x, y) is against H_u's image, the
-// sector the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut along (-inf, 0] onto: 1 inside
-// it, -1 outside it, 0 within 3 CSS px of its edge)
+// (the page's __logSector(): for the glide's last frame, where its device pixel (x, y) is against H_u's image on the
+// sheets the frame draws, the sectors the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t, sends the plane cut
+// along (-inf, 0] onto, one per sheet: 1 inside one of them, -1 outside all, 0 within 3 CSS px of an edge)
 const LOG_SECTOR = `window.__logSector = () => {
   const g = __cmwSteps().glide, v = g.view, dpr = document.getElementById('canvasL').width / g.w, s = 1 - g.u, A = s - 1 / s;
+  const ks = g.sheetKs ? g.sheetKs.map((o) => o[0]) : [0];
+  const wrap = (t) => t - 2 * Math.PI * Math.round(t / (2 * Math.PI));
   return (x, y) => {
   const pr = v.cx + ((x + 0.5) / dpr - g.w / 2) / v.s - A, pi = v.cy - ((y + 0.5) / dpr - g.h / 2) / v.s;
-  const rho = Math.hypot(pr, pi), dphi = s * Math.PI - Math.abs(Math.atan2(pi, pr));
-  return (Math.abs(dphi) < Math.PI / 2 ? rho * Math.sin(Math.abs(dphi)) : rho) < 3 / v.s ? 0 : dphi > 0 ? 1 : -1;
+  const rho = Math.hypot(pr, pi), phi = Math.atan2(pi, pr);
+  // (the signed distance from the sector of sheet k, centred on 2 pi k s: positive inside it)
+  const d = ks.map((k) => { const dphi = s * Math.PI - Math.abs(wrap(phi - 2 * Math.PI * k * s)); return (Math.abs(dphi) < Math.PI / 2 ? rho * Math.sin(Math.abs(dphi)) : rho) * Math.sign(dphi); });
+  const m = 3 / v.s;
+  return d.some((e) => e > m) ? 1 : d.every((e) => e < -m) ? -1 : 0;
   };
 }, 1`;
 // the logarithm's coverage of the frame held at u: its colour layer alone read every 3 device px, against the sector:
@@ -156,7 +163,7 @@ const coverage = async (tag) => {
       if (k > 0) ins.push([[d[i], d[i + 1], d[i + 2]], i]);
       else if (k < 0 && !nearCut(y)) outs.push([[d[i], d[i + 1], d[i + 2]], i]);
     }
-    return { u: +g.u.toFixed(4), path: g.path, paper, ins: ins.length, holes: paper ? ins.filter(([p]) => off(p, paper) <= 3).length : -1, outs: outs.length, strays: outs.filter(([p, i]) => nearB(p, i) > ${LOOK_TOL}).length };
+    return { u: +g.u.toFixed(4), path: g.path, paper, sheets: g.sheets, ins: ins.length, holes: paper ? ins.filter(([p]) => off(p, paper) <= 3).length : -1, outs: outs.length, strays: outs.filter(([p, i]) => nearB(p, i) > ${LOOK_TOL}).length };
   })()`);
   await ev('__cmwSteps({ bare: false }), 1');
   return Object.assign({ still }, r);
@@ -237,7 +244,7 @@ async function look(c, r) {
   for (const u of c.cover ? US.concat(COVER_U) : []) {
     const V = look[u].cover;
     if (look[u].specks) ok(`${c.tag}: the moving frame at u = ${u} has no speck in its colour (a pixel more than ${SPECK_TOL}/255 off each of its 8 neighbours, which agree, inside H_u's image)`, look[u].specks.n > 1000 && look[u].specks.specks === 0, look[u].specks);
-    ok(`${c.tag}: the frame at u = ${u} covers H_u's image, and past it shows plane 1's colour as at rest (its colour layer: at most ${COVER_TOL * 100} % of the pixels inside on the paper, and of those outside more than ${LOOK_TOL}/255 from plane 1's parked colour layer)`, look[u].held && V.still && V.ins > 1000 && V.outs > 0 && V.holes >= 0 && V.holes <= COVER_TOL * V.ins && V.strays <= COVER_TOL * V.outs, look[u]);
+    ok(`${c.tag}: the frame at u = ${u} covers H_u's image on the sheets drawn, and past them shows plane 1's colour as at rest (its colour layer: at most ${COVER_TOL * 100} % of the pixels inside on the paper, and of those outside more than ${LOOK_TOL}/255 from plane 1's parked colour layer)`, look[u].held && V.still && V.ins > 1000 && (V.outs > 0 || V.sheets > 1) && V.holes >= 0 && V.holes <= COVER_TOL * V.ins && V.strays <= COVER_TOL * V.outs, look[u]);
   }
   for (const u of c.cover ? [] : US) {
     const L = look[u], R = L.ref;
