@@ -763,5 +763,5 @@
  "{x} move a probe": "{x} перемещают указатель",
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
- "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}"
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза «%{name}» за краем вида: %{n} из %{all}"
 }
