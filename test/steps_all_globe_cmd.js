@@ -43,8 +43,9 @@ const open = async (steps, s, homAll, query = '') => {
   await settled({ max: START_WAIT, panes: !query, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')` });
   await adopted();
   await ev(`__cmwSet('alpha', 1), __cmwSet('morphPaths', false), 1`);
-  await ev(`__cmwSteps({ scope: 'all', surf: 'sphere', go: 0, now: true })`); await settled({});
-  await ev('__cmwSteps({ T: 0 })'); await settled({});
+  // (with the links held (query: ?glhold) the panes stay compiling: the waits are for the page's quiet without them)
+  await ev(`__cmwSteps({ scope: 'all', surf: 'sphere', go: 0, now: true })`); await settled({ panes: !query });
+  await ev('__cmwSteps({ T: 0 })'); await settled({ panes: !query });
   return ev('__cmwSteps().planes.length - 1');
 };
 // at rest on plane i, its frame drawn
