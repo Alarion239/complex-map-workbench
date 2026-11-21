@@ -474,6 +474,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land.view-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { bottom: calc(8px + var(--ruler) + var(--ph-lift)); }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip { top: 4px; }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 120px); }
+/* (the construction chip keeps its place, top: 40px as the plane's chips have, when the colour key unfolds: the key stands in the top row at the right
+   here, not over the chip's column, and the drop below an unfolded key that a plane's chip takes where the key stands at the top left (page.html) would
+   put the chip under the bar) */
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden], .collapsed)) > .draft-chip.cm-on { top: 40px; }
 /* (under 340 px of window, the 320 px tall phones, the plane above the bar is 106 px, shorter than two keys: the three keys stand in one
    row, Fit view, Sphere, Display from the left, 44 px each with 8 px between. Fit view's right edge is 112 px in: 8 + 44 + 8 + 44 + 8, the
    two keys at its right and the gaps; the construction chip stops 172 px short of the plane's right edge: 112 + 44 + 16, Fit view's lane
@@ -483,9 +487,10 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
 }
-/* (an unfolded key is the one the person opened to read: it stands over the keys it meets (Fit view, the zoom group, Sphere), at any height
-   where it meets them, so its words are not hidden, and opaque, so the keys under it do not show through; a tap on it folds it, and the keys
-   are under it only while it is open. A key that takes keyboard focus rises over it: the focus is never hidden under the card) */
+/* (an unfolded key is the one the person opened to read: it stands over what it meets, the keys (Fit view, the zoom group, Sphere) at any height where
+   it meets them and the end of the construction chip, so its words are not hidden, and opaque, so what is under it does not show through; a tap on it
+   folds it, and those are under it only while it is open. A key that takes keyboard focus rises over it, and a control of the chip under it folds it
+   as it takes focus (05-panes-rulers.js): the focus is never hidden under the card) */
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip:not(.collapsed) { z-index: 14; background: var(--surface); }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(:is(.ph-col, .viewstack) :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
