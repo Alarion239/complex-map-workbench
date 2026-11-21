@@ -855,6 +855,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .tool:hover { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .tool.on, .tool.on:hover, .tool[aria-pressed="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--inverse-ink); }
+/* a tool that does not apply here (Pick, outside the steps view's floor) keeps its slot, hidden */
+.tool.tool-na { visibility: hidden; }
 /* Annulus, Sector and Polar grid while X shows its globe (P3b: they draw in Plane only) */
 .tool.globe-off:not(.on) { opacity: 0.45; }
 .tool.rail-tool { width: 28px; height: 28px; display: grid; place-items: center; }
