@@ -18,7 +18,7 @@ const fresh = async (w, h, lang) => {
   await view(w, h, false, true);
   const ns = 'ptc' + w + lang + (Date.now() % 1000000);
   await load(ns, ST);
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}` });
+  await go(`${U}?ns=${ns}&lang=${lang}`);
   await settled({ max: 30000, until: `typeof __cmwAddStep === 'function' && !!window.Phone && Phone.isOn()` });
 };
 // (the toast stays 5 s: the measure runs once the sheet has made way for it)
@@ -52,7 +52,6 @@ const measureMore = (k = 'more') => ev(`(() => {
 // keeps the one-line control
 const LIST_BASE_PAD = '16px', FLUSH_TOL = 1, TOAST_GAP = 12, BTN_GAP_MAX = TOAST_GAP + 1, CUT_MAX = 1, TOAST_LINE_H = 18, TOAST_MAX_LINES = 2, TARGET_PX = 44, TOAST_ONE_ROW_H = 56, X_EDGE_MAX = 12, PHONE_360 = [360, 640], PHONE_390 = [390, 844];
 const FACES_MAX_MS = 15000;   // the bound on waiting for the faces
-const FACES_SETTLED = `(document.body.offsetHeight, document.fonts.status === 'loaded')`;   // (the layout is flushed first: a face is requested when its text is laid out)
 for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 844], [740, 360]]) {
   const tag = `${lang} ${w}×${h} More sheet`;
   // (the first leg's font faces land late, as on a slow network: the Language row's words change width when they do. The page's Google
@@ -69,7 +68,7 @@ for (const lang of ['en', 'ru', 'it']) for (const [w, h] of [[360, 640], [390, 8
   // (the sheet's words need their script's face, fetched when they are first laid out: the controls are read once it has landed)
   const early = late ? await ysNow() : null;
   if (late) await fontSheets(true);
-  await settled({ max: FACES_MAX_MS, panes: false, until: FACES_SETTLED });
+  await settled({ max: FACES_MAX_MS, panes: false, faces: true });
   // (the control of the switch: the faces moved the sheet's controls, so reading the page before they landed would have been wrong)
   if (late) ok(`${tag}: the faces landing late move the sheet's controls (the switch has an effect)`, JSON.stringify(early) !== JSON.stringify(await ysNow()), { early, landed: await ysNow() });
   let m = null, ysBefore = null;

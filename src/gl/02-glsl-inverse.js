@@ -9,11 +9,54 @@
   // in the points texture (unit 4) at uShOff holds the clip primitive (header, 2 texels per piece) and the polygon's
   // vertices, or the polylines' group boxes and vertices.
   // IX_RECORD(L, D, cov) is a hook for the parity test (test/glsl_inverse_test.js), empty here.
+  // The buffer's final order (the CPU twin is Inverse.order): ixTieOrder puts the walk's buffer front to back. Needs IX_B, IX_TIE_D, ixTieBand, nb and the buffer arrays bD, bZ, bC, bCol; a standalone shader of the
+  // test (test/glsl_tie_order_cmd.js) declares them and includes this text.
+  const IX_TIE_ORDER = `
+// the tie rule: a before b when its tie point has the larger Im z, then the larger Re z
+bool ixTieWins(vec2 t1, vec2 t2) {
+  if (t1.y != t2.y) return t1.y > t2.y;
+  return t1.x > t2.x;
+}
+// two keys tie when equal or within the tie band of each other (Inverse.dTie)
+bool ixKeyTie(float D1, float D2) { return D1 == D2 || abs(D1 - D2) <= ixTieBand(min(D1, D2)); }
+// buffer entries i and j swap
+void ixSwap(int i, int j) {
+  float d = 0.0; vec2 z = vec2(0.0); float c = 0.0; highp uint col = 0u;
+  for (int k = 0; k < IX_B; k++) if (k == i) { d = bD[k]; z = bZ[k]; c = bC[k]; col = bCol[k]; }
+  for (int k = 0; k < IX_B; k++) if (k == j) { float d2 = bD[k]; vec2 z2 = bZ[k]; float c2 = bC[k]; highp uint col2 = bCol[k]; bD[k] = d; bZ[k] = z; bC[k] = c; bCol[k] = col; d = d2; z = z2; c = c2; col = col2; }
+  for (int k = 0; k < IX_B; k++) if (k == i) { bD[k] = d; bZ[k] = z; bC[k] = c; bCol[k] = col; }
+}
+// The buffer front to back (Inverse.order), after the walk, which keeps it in key steps: the front of the entries still
+// to place is the tie rule's winner among those whose key is within the tie band of the smallest of them, so no entry's
+// place depends on where the walk put it. Most pixels have no two keys within a tie of each other: one comparison per
+// slot, and the buffer stands.
+void ixTieOrder() {
+  bool tie = false;
+  for (int i = 0; i < IX_B - 1; i++) if (i + 1 < nb && bD[i + 1] - bD[i] <= ixTieBand(bD[i])) tie = true;
+  if (!tie) return;
+  for (int r = 0; r < IX_B - 1; r++) {
+    if (r + 1 >= nb) break;
+    float dmin = bD[r];
+    int best = r;
+    for (int j = 1; j < IX_B; j++) {
+      if (j <= r || j >= nb) continue;
+      if (bD[j] < dmin) { dmin = bD[j]; best = j; }
+    }
+    vec2 bz = bZ[best];
+    float bd = bD[best];
+    for (int j = 0; j < IX_B; j++) {
+      if (j < r || j >= nb || j == best) continue;
+      if (ixKeyTie(dmin, bD[j]) && (ixTieWins(bZ[j], bz) || (bz == bZ[j] && bD[j] < bd))) { bz = bZ[j]; bd = bD[j]; best = j; }
+    }
+    if (best != r) ixSwap(r, best);
+  }
+}
+`;
   // A curve of a later plane stroked by its polylines (kind 16 in the staged program: a freehand curve, a formula
   // curve, an external ray, an equipotential): at most INV_CURVE_MAX vertices in all, in groups of CURVE_GROUP
   // segments with each group's box first, so the pass skips a group farther than the nearest point found so far
   const INV_CURVE_MAX = 1024, CURVE_GROUP = 16;
-  const INV_HEAD = (B, forms) => `
+  const INV_HEAD = (B, forms) => glsl`
 #ifndef IX_RECORD
 #define IX_RECORD(L, D, cov)
 #endif
@@ -31,7 +74,7 @@ float ixStopBand(float D) { return IX_STOP_D + ixTieBand(D); }
 #define IX_HASLAM(L) false
 #endif
 uniform vec4 uVp; uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uInvScale;
-uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN;
+uniform vec4 uWin; uniform float uWinR; uniform float uWinRs; uniform vec2 uSing[4]; uniform int uSingN; uniform vec2 uSingT;
 // uKsat: the front count K of the drawn alpha (uncapped); uKall = 1: every covering candidate counts (the shape's own
 // alpha: when K > IX_B the early stop is off, and the candidates the buffer does not keep enter the composite through
 // their transmittance ixTr); uKall = 0 (hover-dimmed draws): K capped at IX_B, the stop at the IX_B-th key
@@ -49,18 +92,25 @@ uniform int uFormSlot;
 uniform int uShStage;
 // uEdgeOnly = 1: the pass draws the shape's boundary alone, not its fill: a line of colour uEdgeC at alpha uEdgeA within
 // uEdgeW device px of the boundary of any candidate, over a casing of colour uEdgeCC at alpha uEdgeCA within uEdgeCW (none
-// at 0). With the colours zero it is a band of alpha alone, for a mask
+// at 0). With the colours zero it is a band of alpha alone, for a mask. uTint: under them the shape's fill in colour
+// uTint.rgb at alpha uTint.a (none at 0), the steps view's layer of a later plane's region over the colour
 uniform int uEdgeOnly; uniform float uEdgeW; uniform float uEdgeA; uniform vec3 uEdgeC; uniform float uEdgeCW; uniform float uEdgeCA; uniform vec3 uEdgeCC;
+// uEdgeDash (on, off, px): an open region's dashed boundary, stroked as a kind-16 curve whose vertices carry their arc at
+// rest (.w): the line is on along [0, on) of each period of the arc at the nearest point (ixArcQ) times px, in device px,
+// anti-aliased over 1 px at both ends as GLR.drawLines' dash is; the casing stays whole. on = 0: solid
+uniform vec3 uEdgeDash;
+float ixArcQ;
+uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
-float ixEdge, ixEdgeC;
+float ixEdge, ixEdgeC, ixFill;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
 ${PAT_FNS}${forms || 'float formulaLevel(int f, vec2 z) { return -1.0; }\n'}
 vec2 ixDwX, ixDwY;
 const int IX_B = ${B};
-float bD[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; float bG[IX_B]; highp uint bCol[IX_B];   // colour: 8 bits per channel
+float bD[IX_B]; float bQ[IX_B]; vec2 bZ[IX_B]; float bC[IX_B]; float bG[IX_B]; highp uint bCol[IX_B];   // colour: 8 bits per channel
 highp uint ixPack(vec3 c) { uvec3 u = uvec3(clamp(c, 0.0, 1.0) * 255.0 + 0.5); return u.r | (u.g << 8) | (u.b << 16); }
 vec3 ixUnpack(highp uint u) { return vec3(float(u & 255u), float((u >> 8) & 255u), float((u >> 16) & 255u)) / 255.0; }
 int nb; int nCov; float U; bool ixTailInf; float ixTr;
@@ -147,8 +197,9 @@ vec3 ixKindLevel(vec2 z) {
     if (kind != 16) q = curveNearAB(kind, uShA, uShB, z);
     else {
       int n = uShape.z, s = uShape.w, ng = (n + ${CURVE_GROUP - 2}) / ${CURVE_GROUP}, v = s + ng;
-      q = ixRec(v).xy;
-      float best = dot(z - q, z - q);
+      vec4 q0 = ixRec(v);
+      q = q0.xy;
+      float best = dot(z - q, z - q), arcQ = q0.w;
       for (int g = 0; g < ${INV_CURVE_MAX / CURVE_GROUP} * uIxOne; g++) {
         if (g >= ng) break;
         vec4 bx = ixRec(s + g);
@@ -159,11 +210,18 @@ vec3 ixKindLevel(vec2 z) {
           if (i >= n) break;
           vec4 b = ixRec(v + i);
           if (b.z > 0.5) continue;
-          vec2 c = segNear(z, ixRec(v + i - 1).xy, b.xy);
+          vec4 va = ixRec(v + i - 1);
+          vec2 c = segNear(z, va.xy, b.xy);
           float d = dot(z - c, z - c);
-          if (d < best) { best = d; q = c; }
+          if (d < best) {
+            best = d; q = c;
+            vec2 ab = b.xy - va.xy;
+            float L2 = dot(ab, ab);
+            arcQ = mix(va.w, b.w, L2 > 0.0 ? clamp(dot(c - va.xy, ab) / L2, 0.0, 1.0) : 0.0);
+          }
         }
       }
+      ixArcQ = arcQ;
     }
     float d = cx_abs(z - q);
     return d > 0.0 ? vec3(-d, (q - z) / d) : vec3(0.0, 1.0, 0.0);
@@ -335,8 +393,14 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   vec2 g = cs * r.yz;
   ixFromGrad(cs * r.x, dot(g, dX), dot(g, dY), s, n);
 }
-// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|)), c W's centre ----
+// ---- sheet order (SPEC 5): D = log2(1 + |z - c| / R) + sum over P of max(0, log2(rs / |z - p|_T)), c W's centre ----
 float ixBoxDist(vec2 z) { return ixBoxDistTo(z, uWin); }
+// z - p reduced modulo the key's period uSingT (0: none), Inverse's perReduce
+vec2 ixSingD(vec2 z, vec2 p) {
+  vec2 d = z - p;
+  float tt = dot(uSingT, uSingT);
+  return tt > 0.0 ? d - uSingT * floor(dot(d, uSingT) / tt + 0.5) : d;
+}
 float ixSheetKey(vec2 z, bool zf, Lf L) {
   if (IX_HASLAM(L) && L.lam.x > 60.0) return (L.lam.x - log(uWinR)) / IX_LN2;
   if (!zf) return 1e38;
@@ -346,7 +410,7 @@ float ixSheetKey(vec2 z, bool zf, Lf L) {
     if (i >= uSingN) break;
     vec2 p = uSing[i];
     if (IX_HASLAM(L) && L.lam.x < -60.0 && p.x == 0.0 && p.y == 0.0) D += max(0.0, log2(uWinRs) - L.lam.x / IX_LN2);
-    else D += max(0.0, log2(uWinRs / cx_abs(z - p)));
+    else D += max(0.0, log2(uWinRs / cx_abs(ixSingD(z, p))));
   }
   return D;
 }
@@ -367,7 +431,7 @@ vec2 ixMobT(vec2 u) {
 // 2^D of a finite point without the logs (the same order as ixSheetKey)
 float ixKeyExp(vec2 z) {
   float K = 1.0 + cx_abs(z - 0.5 * (uWin.xy + uWin.zw)) / uWinR;
-  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(z - uSing[i])); }
+  for (int i = 0; i < 4; i++) { if (i >= uSingN) break; K *= max(1.0, uWinRs / cx_abs(ixSingD(z, uSing[i]))); }
   return K;
 }
 // the Mobius-prefix centre: the smallest key among the u-projection, the member nearest the reference in z and the
@@ -480,7 +544,7 @@ void ixRangeLog(int j, Lf L, vec2 L0, vec2 S, vec4 P, vec4 Q, out float lo, out 
   }
   ixRangeFinish(lo, hi, hlo, hhi, ms);
 }
-// ---- compositing buffer (4.2): front to back by D, ties larger Im z, then larger Re z ----
+// ---- compositing buffer (4.2): in key steps during the walk (ties larger Im z, then larger Re z); ixTieOrder puts it front to back ----
 // the buffer is indexed by loop counters only (unrolled: entries stay in registers, no thread-memory spill)
 int ixK() { return min(uKsat, IX_B); }
 float ixDK() {
@@ -507,11 +571,12 @@ float ixDKTail() {
 // a covering candidate the buffer does not keep (not admitted, or dropped off its end): its transmittance, with the
 // drawn alpha and the coverage relative to the running union U, enters the composite behind the buffer
 void ixRest(float cv) { ixTr *= 1.0 - uAlpha * min(1.0, cv / max(U, 1e-6)); }
-bool ixFront(float D1, vec2 t1, float D2, vec2 t2) {
-  // (keys within the tie band of each other are ties: Inverse.front's)
-  if (abs(D1 - D2) > ixTieBand(min(D1, D2))) return D1 < D2;
-  if (t1.y != t2.y) return t1.y > t2.y;
-  return t1.x > t2.x;
+${IX_TIE_ORDER}// the step of a key (Inverse's dStep): ln(1 + D) / IX_TIE_D rounded; bQ holds each buffer entry's, one log per key as it enters
+float ixStep(float D) { return floor(log(1.0 + D) / IX_TIE_D + 0.5); }
+bool ixFront(float q1, vec2 t1, float q2, vec2 t2) {
+  // (the walk's buffer order, Inverse's byStep: keys in the same step are ordered by the tie rule, so a buffer cut to its first entries keeps those of that total order; ixTieOrder then puts the entries front to back)
+  if (q1 != q2) return q1 < q2;
+  return ixTieWins(t1, t2);
 }
 // ---- early stop (3.6): a side stops when its members' keys provably exceed the front's by more than the stop band
 // (a member within the tie band may still come in front by the tie rule) ----
@@ -645,7 +710,8 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
-${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
+  float q = ixStep(D);
+${B >= 8 ? glsl`  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, admission was 60 % of the pass.) The common case, a
   // candidate that cannot merge with a twin (fully covering, or no range gradient) while the admission limit is the
   // buffer's end: behind the last entry of a full buffer it is not kept (one comparison); otherwise it is inserted
   // from the end, entries behind it moving back one slot, up to the first entry in front of it (one comparison for
@@ -656,10 +722,10 @@ ${B >= 8 ? `  // (B = 8, alpha < 0.5: up to 17 covering candidates per pixel, ad
   // call sites would hold two copies of the shading. (The scan keeps its indentation inside if (!fast): the text B 3 and
   // 5 compile stays the same.)
   bool fast = (cv >= 1.0 || ga >= 50.0) && ixK() + 2 >= IX_B;
-  if (fast && nb == IX_B && !ixFront(D, tz, bD[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
+  if (fast && nb == IX_B && !ixFront(q, tz, bQ[IX_B - 1], bZ[IX_B - 1])) { ixRest(cv); return; }
 ` : ''}  // position: the entries in front of the candidate (a prefix of the sorted buffer)
   int pos = 0;
-${B >= 8 ? '  if (!fast) {\n' : ''}  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(D, tz, bD[i], bZ[i])) pos = i + 1;
+${B >= 8 ? '  if (!fast) {\n' : ''}  for (int i = 0; i < IX_B; i++) if (i < nb && !ixFront(q, tz, bQ[i], bZ[i])) pos = i + 1;
   // twin merge with the neighbour at pos - 1 (first) or pos
   if (cv < 1.0 && ga < 50.0) {
     int tw = -1;
@@ -671,7 +737,18 @@ ${B >= 8 ? '  if (!fast) {\n' : ''}  for (int i = 0; i < IX_B; i++) if (i < nb &
       return;
     }
   }
-  if (pos >= min(IX_B, ixK() + 2)) { ixRest(cv); return; }
+  // (past the admission limit only a candidate within the tie band above the K-th smallest kept key, which may still be
+  // among the first K by ixTieOrder, and only while the buffer has room)
+  if (pos >= min(IX_B, ixK() + 2)) {
+    float dK = 1e38;
+    for (int i = 0; i < IX_B; i++) {
+      if (i >= nb) break;
+      int below = 0;
+      for (int j = 0; j < IX_B; j++) if (j < nb && bD[j] < bD[i]) below++;
+      if (below < min(ixK(), nb)) dK = dK == 1e38 ? bD[i] : max(dK, bD[i]);
+    }
+    if (pos >= IX_B || !(D - dK <= ixTieBand(dK))) { ixRest(cv); return; }
+  }
 ${B >= 8 ? '  }\n' : ''}  if (nb == IX_B) ixRest(bC[IX_B - 1]);
   highp uint col = ixShadeAdm(z, zf, dX, dY, L, pv, pq, pk, pg, phl, plam, dLX, dLY);
 ${B >= 8 ? `  if (fast) {
@@ -679,18 +756,18 @@ ${B >= 8 ? `  if (fast) {
     bool done = false;
     for (int i = IX_B - 1; i > 0; i--) {
       if (done || i > p) continue;
-      if (ixFront(D, tz, bD[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-      else { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
+      if (ixFront(q, tz, bQ[i - 1], bZ[i - 1])) { bD[i] = bD[i - 1]; bQ[i] = bQ[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+      else { bD[i] = D; bQ[i] = q; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; done = true; }
     }
-    if (!done) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+    if (!done) { bD[0] = D; bQ[0] = q; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
     nb = min(nb + 1, IX_B);
     return;
   }
 ` : ''}  for (int i = IX_B - 1; i > 0; i--) {
-    if (i > pos) { bD[i] = bD[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
-    else if (i == pos) { bD[i] = D; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
+    if (i > pos) { bD[i] = bD[i - 1]; bQ[i] = bQ[i - 1]; bZ[i] = bZ[i - 1]; bC[i] = bC[i - 1]; bG[i] = bG[i - 1]; bCol[i] = bCol[i - 1]; }
+    else if (i == pos) { bD[i] = D; bQ[i] = q; bZ[i] = tz; bC[i] = cv; bG[i] = ga; bCol[i] = col; }
   }
-  if (pos == 0) { bD[0] = D; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
+  if (pos == 0) { bD[0] = D; bQ[0] = q; bZ[0] = tz; bC[0] = cv; bG[0] = ga; bCol[0] = col; }
   nb = min(nb + 1, IX_B);
 }
 float invLeaf(Lf L, out bool cov) {
@@ -737,7 +814,14 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
-  if (uEdgeOnly == 1 && s == s) { ixEdge = max(ixEdge, clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); }
+  if (uEdgeOnly == 1 && s == s) {
+    float on = 1.0;
+    if (uEdgeDash.x > 0.0) {
+      float dP = uEdgeDash.x + uEdgeDash.y, du = mod(ixArcQ * uEdgeDash.z, dP);
+      on = clamp(max(min(du, uEdgeDash.x - du), du - dP) + 0.5, 0.0, 1.0);
+    }
+    ixEdge = max(ixEdge, on * clamp(uEdgeW - abs(s) + 0.5, 0.0, 1.0)); ixEdgeC = max(ixEdgeC, clamp(uEdgeCW - abs(s) + 0.5, 0.0, 1.0)); ixFill = max(ixFill, clamp(s + 0.5, 0.0, 1.0));
+  }
 #endif
   bool bound = L.lvl < 1e30 && (L.lg.x != 0.0 || L.lg.y != 0.0);
   vec2 lgi = bound ? ixUnit(vec2(dot(L.lg, ixDwX), dot(L.lg, ixDwY))) : vec2(0.0);
@@ -765,10 +849,10 @@ float invLeaf(Lf L, out bool cov) {
   // (GLChain's ixFoot under IX_ANISO; set by INV_MAIN(globe))
   const INV_GLOBE_PRE = '#define IX_ANISO 1\nvec2 ixAwX, ixAwY;\n';
   // B: compile-time buffer size; globe: Sphere view geometry (P3)
-  const INV_MAIN = (globe) => `
+  const INV_MAIN = (globe) => glsl`
 ${globe ? 'in vec3 vP; uniform vec3 uEye;' : ''}
 void main() {
-${globe ? `  vec3 P = normalize(vP);
+${globe ? glsl`  vec3 P = normalize(vP);
   // S = 0, N = infinity, the conjugate lift's inverse w = (P.x - i P.y) / (1 - P.z); near the north pole w = 1 / u
   // with u = (P.x + i P.y) / (1 + P.z), no cancellation
   vec2 w = P.z <= 0.0 ? vec2(P.x, -P.y) / (1.0 - P.z) : cinv(P.xy / (1.0 + P.z));
@@ -783,10 +867,11 @@ ${globe ? `  vec3 P = normalize(vP);
   ixPix = uInvScale.x;`}
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
 #ifdef IX_STAGED
-  ixEdge = 0.0; ixEdgeC = 0.0;
+  ixEdge = 0.0; ixEdgeC = 0.0; ixFill = 0.0;
 #endif
   invWalk(w);
-${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA; o = vec4(uEdgeC * l, l) + vec4(uEdgeCC * cc, cc) * (1.0 - l); return; }\n#endif\n'}  float T = 1.0;
+${globe ? '' : '#ifdef IX_STAGED\n  if (uEdgeOnly == 1) { float cc = ixEdgeC * uEdgeCA, l = ixEdge * uEdgeA, f = ixFill * uTint.a; o = vec4(uEdgeC * l, l) + (vec4(uEdgeCC * cc, cc) + vec4(uTint.rgb * f, f) * (1.0 - cc)) * (1.0 - l); return; }\n#endif\n'}  ixTieOrder();
+  float T = 1.0;
   vec3 C = vec3(0.0);
   for (int i = 0; i < IX_B; i++) {
     if (i >= nb || T < 1.0 / 255.0) break;
