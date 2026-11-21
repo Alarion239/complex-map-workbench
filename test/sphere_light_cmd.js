@@ -12,13 +12,14 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const base = process.env.CMW_BASE || 'http://localhost:8793/';
 const shots = process.env.SPHERE_LIGHT_SHOTS || '';
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 // the mean OKLab L of the upper and the lower half of the globe's disc in #canvasL (device px), and the disc itself
 const MEASURE = `(() => {
   const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height;
   const c = __cmwCam('L'), d = __cmwGlobeDisk('L');
   const r = d.R * H / d.h, cx = W / 2, cy = H / 2;
   const px = cv.getContext('2d').getImageData(0, 0, W, H).data;
-  const lin = (u) => (u <= 0.04045 ? u / 12.92 : Math.pow((u + 0.055) / 1.055, 2.4));
+  ${LUM_JS}
   const okL = (R8, G8, B8) => {
     const r1 = lin(R8 / 255), g1 = lin(G8 / 255), b1 = lin(B8 / 255);
     const l = Math.cbrt(0.4122214708 * r1 + 0.5363325363 * g1 + 0.0514459929 * b1);

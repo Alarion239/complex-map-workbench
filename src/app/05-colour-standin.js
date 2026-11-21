@@ -43,9 +43,10 @@
     return standInOf({ vkey: 'globe', name: 'sphereP', map, globe: true });
   }
   // the stand-in GLR.drawLandscape gets with the left pane's Landscape of map over box (landscapeView), drawn by landTF and
-  // land: F's values over the box, from which the relief and its colour are drawn while they link
-  function landStandIn(pane, map, box) {
-    const names = ['landTF', 'land'], waited = pane === paneL && !offRender && !artMode && !sideDraw && (map.mode || 0) === 0 ? GLR.bareMs(map, names) : 0;
+  // land: F's values over the box, from which the relief and its colour are drawn while they link. With All sheets (sheeted)
+  // it waits on the sheets' programs (landSheetTF, landSheet) and the principal branch stands in for the covering surface
+  function landStandIn(pane, map, box, sheeted) {
+    const names = sheeted ? ['landSheetTF', 'landSheet'] : ['landTF', 'land'], waited = pane === paneL && !offRender && !artMode && !sideDraw && (map.mode || 0) === 0 ? GLR.bareMs(map, names) : 0;
     if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
     return standInOf({ vkey: `land|${box.x0},${box.x1},${box.y0},${box.y1}`, name: 'land', names, map, land: box });
   }

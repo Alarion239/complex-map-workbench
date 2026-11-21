@@ -65,7 +65,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; }
+      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; }
       invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
@@ -85,7 +85,7 @@
     if (preActive) { preActive = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
     if (halfOpen && halfOpen.pre) halfOpen = null;
     fw = w; fh = h; vpX = x; vpY = y;
-    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; invFrame++;
     gl.viewport(x, y, w, h);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, w, h);
@@ -302,8 +302,9 @@
   }
   // nothing ready for a direct draw while the current chain compiles: an earlier version's cached evaluation of
   // the (translated) map stands in, so the pane keeps showing the previous image instead of going blank (or, for a
-  // deformation whose mode compiles, this chain's evaluation of its start)
-  function stand(res, isMesh, L, map, name) {
+  // deformation whose mode compiles, this chain's evaluation of its start); with none, lines whose caller gave the
+  // map's CPU twin (cpuOf) are evaluated by it (cpuEntry)
+  function stand(res, isMesh, L, map, name, cpuOf) {
     const d = progs.get(progId(name, cur, map));
     if (!d || d.state !== 'pending' || sideMode) return null;   // a failed compile is reported, never covered up
     for (const h of hist) {
@@ -311,7 +312,8 @@
       if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
     }
     const T = modeOf(map) ? getProg(isMesh ? 'tfRegion' : 'tfLine', cur, false, startOf(map)) : null;
-    return T ? tfEntry(res, isMesh, L, map, 'stand-in', T) : null;
+    if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
+    return !isMesh && cpuOf ? cpuEntry(res, L, map, cpuOf) : null;
   }
   function freeTmp(e) {
     if (!tmpAll.delete(e)) return;
@@ -710,7 +712,8 @@
     } finally { if (st.sync) syncDepth--; }
   }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,
-  //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}}
+  //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}, cpu}
+  // cpu (2D only): () => the map's CPU twin, which evaluates the stand-in while the chain's first version links (stand)
   // arc.data: per segment (in createLines order) the arc length of the mapped curve at the segment start and the
   // segment's length, in plane units (the dash phase follows the curve across pieces and segments).
   function drawLines(res, st) {
@@ -724,7 +727,7 @@
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
       let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
-      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
+      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), sph || flo ? null : st.cpu))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
       if (e) bindCache(P, e);
@@ -741,7 +744,9 @@
         }
       } else view2D(P, st.view, dpr, res.org);
       fadeUniforms(P, st.fade);
-      gl.bindVertexArray(lineVAO(res, M));
+      // (a CPU stand-in's own template size, which may be coarser than M)
+      const Me = e && e.cpu ? e.L : M;
+      gl.bindVertexArray(lineVAO(res, Me));
       const dash = !sph && !flo && st.dash && st.arc && st.arc.data && res.arcs && st.arc.data.length >= 2 * res.n ? st.dash : null;
       if (dash) {
         let b = res.arcs.get(st.arc.key);
@@ -755,7 +760,7 @@
         attrib(12, 2, 8, 0, 1);
         u1f(P, 'uArcPx', st.view.s * dpr);
       } else { gl.disableVertexAttribArray(12); gl.vertexAttrib2f(12, 0, 0); }
-      const count = lineTemplate(M).count;
+      const count = lineTemplate(Me).count;
       const pass = (width, color, alpha, d) => {
         u1f(P, 'uWidth', width);
         u3(P, 'uColor', col3(color, [0, 0, 0]));

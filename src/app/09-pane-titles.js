@@ -1126,12 +1126,17 @@
     if (!c.width) return;
     const over = Math.ceil(c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX));
     if (over <= 0) return;
-    let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    const planeTop = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    let top = planeTop;
     for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
       if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom + LEGEND_BAR_GAP_PX);
     }
-    const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
+    // (under the readouts it would meet when it then stands whole above the bar; else it takes the plane's top, over them, and the readouts it
+    // then covers give way, .over-readout: the key's words are the greater loss)
+    const below = Math.max(0, Math.min(over, Math.floor(c.top - top))), up = below >= over ? below : Math.max(0, Math.min(over, Math.floor(c.top - planeTop)));
+    const cTop = c.top - up, cBottom = c.bottom - up;
+    box.classList.toggle('over-readout', up > below && [...plot.querySelectorAll(':scope > .chip.readout')].some((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left < c.right && c.left < r.right && r.top < cBottom && cTop < r.bottom; }));
     if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
     if (over > up) {
       const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
@@ -1145,7 +1150,7 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y'); box.classList.remove('over-readout');
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
@@ -1217,11 +1222,6 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      // (its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
-      // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
-      // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
-      if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
     // (the phone's key button is named for its kind, "Regions key" as "Height key" and "Colour key": what the key
     // shows, its fill among it, is its description's (legendSaid), so a screen reader says it once)
@@ -1269,7 +1269,9 @@
       paintLegend(octx, anyCut, kind, st);
       st.key = key; st.drawn = '';
     }
-    legendSaid(box, (st.say || []).join('; '));
+    // (a head's key opens by pointing and by keys, which its name does not say: the instruction ends its description)
+    const inHead = !!box.parentNode && /** @type {HTMLElement} */ (box.parentNode).classList.contains('pane-head');
+    legendSaid(box, [(st.say || []).join('; '), inHead ? $t('Point at it to unfold; click it or press Enter to keep it open') : ''].filter(Boolean).join('. '));
     const dyn = img ? '' : `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
     if (st.drawn === key + dyn) return;
     st.drawn = key + dyn;
