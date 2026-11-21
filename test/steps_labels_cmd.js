@@ -40,8 +40,8 @@ const same = (a, b) => a.length === b.length && a.every((q, i) => q.text === b[i
 // a glide from plane 0 to plane 1, the label passes counted while it is under way. The glide runs on the test clock (the steps view's
 // SV.clock: its time advances CLOCK_MS a frame, whatever a frame costs), so it draws the same number of frames on any machine: a loaded
 // one that draws few frames in a wall-clock glide would leave fewer moving passes than the row asks, which says nothing of the passes.
-// A glide of the normal speed is as many passes as it is long over CLOCK_MS (about ten on the move, then the landing's pass at rest, in a
-// run here), on any machine. The step is not smaller: more frames would each cost seconds on a loaded software renderer, past quiet()'s 20 s
+// A glide of the normal speed is as many frames as it is long over CLOCK_MS (five on any machine), and each frame runs about two label
+// passes on the move (about ten in a run here), then the landing's pass at rest. The step is not smaller: more frames would each cost seconds on a loaded software renderer, past quiet()'s 20 s
 const CLOCK_MS = 200;
 const glideCost = async () => {
   await ctl({ go: 0, now: true }); await quiet();
