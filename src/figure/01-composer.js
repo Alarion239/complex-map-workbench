@@ -169,8 +169,10 @@
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
   XD.decimals = (step) => { for (let d = 0; d < 7; d++) if (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) < 1e-9) return d; return 6; };
-  // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike
-  XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < 15 && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
+  // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike, up to
+  // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
+  const TICK_DEC_MAX = 15;
+  XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own

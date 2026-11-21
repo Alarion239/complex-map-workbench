@@ -1,9 +1,9 @@
 // Figure export, the axes' tick labels: on every axis of a figure panel the labels are pairwise different, and each
 // reads back to its tick's value (to the precision it prints). The composer's panel (XD.panel) over boxes of span 1, 0.1
-// and 0.01, around 0 and off it, and a sliver 1.5·10⁻¹⁰ wide (what a figure framing one point made); and the classic Image
-// figure of points only (e^z then z², the point 0.4 + 0.3i on z and 1 + 0.5i on w₁, no other shape), at focus 0 and 2,
-// in en and ru (the decimal comma), whose panel (b) printed "2 2 2 2" and "1 1 1": a lone point is framed by a window
-// of its own size, not by a sliver around it.
+// and 0.01, around 0 and off it, and of span 1.5·10⁻¹⁰ (a step of 5·10⁻¹¹); and the classic Image figure of points only
+// (e^z then z², the point 0.4 + 0.3i on z and 1 + 0.5i on w₁, no other shape), at focus 0 and 2, in en and ru (the
+// decimal comma), whose panel (b) holds one point: there each panel's labels are different, and its window is at least
+// LONE_MIN of the size of its values wide.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };

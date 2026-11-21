@@ -153,7 +153,7 @@
     let b = { x0: content.x0, x1: content.x1, y0: content.y0, y1: content.y1 };
     // (a lone point, or points that coincide to the window's precision: framed by LONE_FRAME of the window, not a sliver)
     if (Math.max(b.x1 - b.x0, b.y1 - b.y0) < LONE_SPAN * Math.max(sw, sh)) { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, r = LONE_FRAME * Math.max(sw, sh) / 2; b = { x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + r }; }
-    const span0 = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1e-9 * Math.max(sw, sh));
+    const span0 = Math.max(b.x1 - b.x0, b.y1 - b.y0);
     // 8 % of each side's own span (at least 2 % of the long side), so a wide strip is not framed as a square
     const px = 0.08 * Math.max(b.x1 - b.x0, 0.25 * span0), py = 0.08 * Math.max(b.y1 - b.y0, 0.25 * span0);
     const t = content.touch || {};
