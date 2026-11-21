@@ -1355,8 +1355,16 @@
       return null;
     }
     if (!A) return g.x0;
-    if (!A.held) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
+    const first = !A.held;
+    if (first) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
+    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
+    // to A.said, its words before the crossing of the frame that starts the hold)
+    if (first) {
+      const r = Math.round(A.held.at);
+      if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
+      svSync();
+    }
     return A.held.at;
   }
   // the motion whose clock moves the thread: a glide, or a play a glide at a time; null
@@ -1367,7 +1375,7 @@
   function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
-    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; }
+    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
   }
   // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
   // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0)
@@ -4166,7 +4174,8 @@
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
     const r = Math.round(SV.g.x);
-    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) SV.els.live.textContent = svLabel(); }
+    // (A.said: the live region's words before the crossing, which a hold that starts in this frame puts back, svLinkHold)
+    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) { A.said = SV.els.live.textContent; SV.els.live.textContent = svLabel(); } }
     dirty.L = true;
     svSync();
     if (v < 1) return true;
