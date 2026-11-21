@@ -76,6 +76,24 @@
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
+  // The first part of svReady's gauge not done, in the gauge's order, or null
+  function svGateMissing() {
+    const parts = svReady().parts;
+    for (const k in parts) if (parts[k].done < parts[k].total) return k;
+    return null;
+  }
+  // The 10 s message: the sentence, then what is missing. One sentence per part, so each language puts its words in its own order
+  function svGateStill(part) {
+    switch (part) {
+      case 'programs': return $t('Still preparing the glide: the programs are still linking.');
+      case 'warm': return $t('Still preparing the glide: the first picture of the colour is not drawn.');
+      case 'poles': return $t('Still preparing the glide: the pole tracks are not done.');
+      case 'ring': return $t('Still preparing the glide: the outer ring is not done.');
+      case 'meshes': return $t('Still preparing the glide: the meshes are not built.');
+      case 'redraw': return $t('Still preparing the glide: the first frame is not drawn.');
+      default: return $t('Still preparing the glide.');
+    }
+  }
   function svGateTick() {
     const g = SV.gate;
     if (!g) return;
@@ -88,7 +106,7 @@
     }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
-      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
+      g.toast = toast(svGateStill(svGateMissing()), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
       if (g.toast) {
         g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
         // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)

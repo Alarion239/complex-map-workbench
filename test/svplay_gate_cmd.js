@@ -138,7 +138,7 @@ await section('narrow', 360, 780);
 // the 10 s message at 360 px, in English and Russian: the words on a row of their own and Retry, Cancel and the close
 // button together on the row below (the toast two rows tall, not three), inside the viewport
 // (the toast's most: its padding (6 + 6), the words on two lines of 18 px (Italian at 360 px), one row of 44 px buttons (and, in the phone's plot, its 1 px border either side); the
-// measured heights are 74-76 px in portrait, 58 px on one row. HANG_WAIT_MS: the hang guard's 10 s and the poll's slack; ROW_EDGE_PX: a layout rounds a
+// measured heights are 74-76 px in portrait with a one-line message, 94 px with the part named on two lines, 58 px on one row. HANG_WAIT_MS: the hang guard's 10 s and the poll's slack; ROW_EDGE_PX: a layout rounds a
 // rect's edge to a pixel, so the buttons' top may sit that far above the words' bottom)
 const GATE_TOAST_PAD = 12, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44, GATE_HANG_WAIT_MS = 14000, ROW_EDGE_PX = 1, GATE_TOAST_BORDER = 2;
 for (const lang of ['en', 'ru']) {
@@ -149,7 +149,7 @@ for (const lang of ['en', 'ru']) {
   info['gateToast_' + lang] = gt;
   ok(`narrow ${lang}: the 10 s message keeps its buttons on one row`, gt.tops.length === 1, gt);
   ok(`narrow ${lang}: the buttons are below the words`, gt.tops[0] >= gt.wordsBottom - ROW_EDGE_PX, gt);
-  ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
+  ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_BORDER + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
 }
 
 // a landscape phone (740 x 360) has the room: the words and the buttons share one row (the toast one button row tall), as the
