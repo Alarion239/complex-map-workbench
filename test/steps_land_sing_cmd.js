@@ -12,8 +12,10 @@
 //   svPatchSeam, at angle pi/2 from the patch's centre within SEAM_TOL, on each ring it samples);
 // - with the box grid alone (the hook without the patches), points are bare, and the patch covers some of them;
 // - the patch about the branch point 0.1i (svLandBranches) draws only where the rest leave a hole: the frame with it and
-//   the frame without it (__cmwSteps({ landBranches: 0 })) are at most BAND_PX pixels over 16/255 apart in a channel.
-//   (Drawn over the box's finer cells, its coarse outer cells carried the shading bands' edges in straight segments)
+//   the frame without it (__cmwSteps({ landBranches: 0 })) are at most BAND_PX pixels over 16/255 apart in a channel,
+//   outside the column BAND_COL px either side of the floor point of w = 0, 0.1i's image, over which the patch fills
+//   its hole. (Drawn over the box's finer cells, its coarse outer cells carried the shading bands' edges in straight
+//   segments)
 // - at rest, no point of the block is bare.
 // Held at those u and at every u = 0.04 to 0.96 in steps of 0.04 (p read from the map at 0.05i, on the cut):
 // - no point of the wedge |arg w| > p pi + EDGE is covered (no carried triangle straddles the cut and bridges it), at
@@ -39,10 +41,11 @@ await settled({ max: 60000 });
 const carried = async () => await evJson('JSON.stringify((({ u, s, patches, polar }) => ({ u, s, patches, polar: (polar || []).slice(0, patches || 0).map((p) => [p[0], p[1]]) }))(__cmwLandCarry() || {}))');
 const cover = async (patches = true) => await evJson(`JSON.stringify(__cmwLandCover(480, 400, ${patches}))`);
 // (SEAM_TOL: the patch's centre is the refined point, a few 1e-12 off -0.1i, an angle of about 1e-6 on its innermost ring)
-const EDGE = 0.02, NEAR_W = 0.3, MIN_N = 200, SEAM_TOL = 1e-5, BAND_PX = 40;
-// (the Landscape canvas kept as tag; the pixels of two kept frames over 16/255 apart in a channel)
+const EDGE = 0.02, NEAR_W = 0.3, MIN_N = 200, SEAM_TOL = 1e-5, BAND_PX = 15, BAND_COL = 16;
+// (the Landscape canvas kept as tag; the pixels of two kept frames over 16/255 apart in a channel, outside the column
+// BAND_COL px either side of w = 0's floor point, where the patch stands over the hole it fills)
 const keep = (tag) => ev(`window.__lsKeep = window.__lsKeep || {}; window.__lsKeep[${JSON.stringify(tag)}] = (() => { const cv = document.getElementById('canvasL'); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; })(); 1`);
-const apart = (a, b) => ev(`(() => { const A = window.__lsKeep[${JSON.stringify(a)}], B = window.__lsKeep[${JSON.stringify(b)}]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 16) n++; return n; })()`);
+const apart = (a, b) => ev(`(() => { const A = window.__lsKeep[${JSON.stringify(a)}], B = window.__lsKeep[${JSON.stringify(b)}], W = document.getElementById('canvasL').width, c = __cmwLandFloorPx(0, 0) || [-1e9, -1e9]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 16 && Math.abs((i / 4) % W - c[0]) > ${BAND_COL}) n++; return n; })()`);
 // the branch's sector and the wedge past it, read with the patches: p from the map at 0.05i (on the cut, where the Möbius
 // step is negative, so its image is at arg p pi), the points of each
 const branch = async () => evJson(`JSON.stringify((() => {
@@ -70,7 +73,7 @@ for (const [tag, x, rest] of [['held at u = 0.1', 1.1, false], ['held at u = 0.5
   await keep('without');
   await ev('__cmwSteps({ landBranches: 1 }); 1'); await hold(x);
   const band = c.band = { apart: await apart('with', 'without'), patches: c.carried.patches, without: without.patches };
-  ok(`${tag}: the branch point's patch draws only in the holes the rest leave (at most ${BAND_PX} px over 16/255 apart from the frame without it)`, band.without === band.patches - 1 && band.apart <= BAND_PX, band);
+  ok(`${tag}: the branch point's patch draws only in the holes the rest leave (at most ${BAND_PX} px over 16/255 apart from the frame without it, away from w = 0)`, band.without === band.patches - 1 && band.apart <= BAND_PX, band);
   // (the patch's seam: pi/2 from its centre, the direction of the cut to 0.1i, on every ring it samples)
   const seam = c.seam = await ev('(() => { const c = __cmwLandCarry(), p = (c.polar || []).find((q) => Math.hypot(q[0], q[1] + 0.1) < 1e-6); return p && p.seam ? [...p.seam] : null; })()');
   ok(`${tag}: the patch's rings start at the cut (its seam at angle pi/2 from -0.1i)`, Array.isArray(seam) && seam.every((t) => Math.abs(Math.atan2(Math.sin(t - Math.PI / 2), Math.cos(t - Math.PI / 2))) < SEAM_TOL), seam);
