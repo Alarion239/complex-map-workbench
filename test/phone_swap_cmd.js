@@ -68,13 +68,17 @@ const W = () => ev(`(() => {
 })()`);
 const same = (a, b, tol = TOL) => !!a && !!b && Math.abs(a.u / b.u - 1) <= tol && Math.abs(a.cx - b.cx) <= tol * b.u && Math.abs(a.cy - b.cy) <= tol * b.u;
 const fmt = (p) => p && `${p.cx.toFixed(3)},${p.cy.toFixed(3)} u=${p.u.toPrecision(5)} w=${p.w}`;
-// the planes' windows hold still: W() read again every FIT_STEP_MS until two reads agree (the step is longer than the longest gap in the
-// sheet's sequence, X's re-centre 200 ms after the planes resize, so a read between two stages is not taken for the end), and a row if
-// they still move after FIT_MS
+// the planes' windows hold still: W() (both windows and the layout) read again every FIT_STEP_MS until two reads agree. The wait
+// relies on W() changing until the fit is done, not on the step being longer than every gap: the sheet's wait leaves Y's window moving
+// for up to 700 ms more (X's 200 ms re-centre, then the first frame of Y's fit tween), and a read on its own can fall between two stages.
+// A row if the reads never agree by FIT_MS, and another if two agreed and the next one moved.
 const FIT_STEP_MS = 300, FIT_MS = 15000;
 const fitted = async (what) => {
-  const a = await still(W, FIT_STEP_MS, FIT_MS), b = await W();
-  if (JSON.stringify(a) !== JSON.stringify(b)) fails.push({ name: `${what}: the planes' windows still move after ${FIT_MS} ms`, got: `L ${fmt(b.L)} | R ${fmt(b.R)}`, want: `L ${fmt(a.L)} | R ${fmt(a.R)}` });
+  const t0 = Date.now(), a = await still(W, FIT_STEP_MS, FIT_MS), ran = Date.now() - t0, b = await W();
+  if (JSON.stringify(a) !== JSON.stringify(b)) {
+    const never = ran >= FIT_MS;
+    fails.push({ name: never ? `${what}: the planes' windows still move after ${FIT_MS} ms` : `${what}: the planes' windows held still for ${FIT_STEP_MS} ms, then moved`, got: `L ${fmt(b.L)} | R ${fmt(b.R)}`, want: `L ${fmt(a.L)} | R ${fmt(a.R)}` });
+  }
   return b;
 };
 const ratio = (a, b) => +(a.u / b.u).toFixed(4);
