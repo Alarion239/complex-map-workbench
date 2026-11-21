@@ -341,14 +341,14 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- walk parity ----
   const SPC = opts.shapesPerChain ?? 2;
-  let seedRat = null;   // the rational chains (last in the list) hand the random stream back as they found it: the clip test keeps its sample
   // the first gChains eligible chains take one exact-form disc after their other shapes, on a
   // random stream of its own (the other cases stay the same cases); the GPU packs it at the window's centre, as the app does
   let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
   R.gWalk = { cases: 0 };
   // (test/glsl_tiers.js: the whole page, tier all, walks every chain on one random stream, as it always did; a tier or a
   // part walks the chains it keeps, each on a stream seeded by its name, so a chain's cases do not depend on which
-  // other chains run; the clip test after the walk then starts from the page's seed)
+  // other chains run; the clip test after the walk starts from the page's seed either way, so its sample does not depend
+  // on the chains or on which of them are eligible)
   const legacy = GLSLTiers.LEGACY || (GLSLTiers.TIER === 'all' && GLSLTiers.PARTS === 1), seed0 = opts.seed || 20261019;
   let prevCh = null, prevT = 0;
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -363,7 +363,6 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
-    if (RA && seedRat === null) seedRat = seed;
     const plan = Inverse.planChain(steps, built);
     if (!plan.ok) { R.skipped.ineligible++; continue; }
     if (RA) { RA.chains++; const k = plan.ops.map((o) => o.kind).join('>'); RA.kinds[k] = (RA.kinds[k] || 0) + 1; }
@@ -466,9 +465,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     }
   }
   if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
-  if (seedRat !== null) seed = seedRat;
-  if (!legacy) seed = seed0;
-  if (gSaved !== null) { seed = gSaved; gSaved = null; }
+  seed = seed0; gSaved = null;
   if (GLR.setFormAnchor) GLR.setFormAnchor(null);
   // ---- saturation anchors (SPEC 13.12, P2 review): artanh / arctan of shapes through +-1 / +-i, far out in the strip
   // (|Re w| up to 40: float32 tanh w is +-1 there): GPU leaf coverage = CPU (anchored, float64), and the coverage of
