@@ -252,6 +252,10 @@ vec3 ixKindLevel(vec2 z) {
 }
 // a formula shape's level with its complement (formulas only: their gradient is taken by central differences)
 float ixFormLevel(vec2 z) { float L = formulaLevel(uFormSlot, z); return uShape.y == 1 ? -L : L; }
+#ifdef IX_STAGED
+// (the shape's level at w on its plane, whose sign is the side of the boundary; a curve's is minus its distance)
+float ixLevelAt(vec2 w) { return uShape.x == 7 ? ixFormLevel(w) : ixKindLevel(w).x; }
+#endif
 void ixFromGrad(float L, float gx, float gy, out float s, out vec2 n) {
   vec2 g = vec2(gx, gy);
   float m = max(abs(gx), abs(gy));
@@ -324,6 +328,19 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
     // by more than a quarter of the larger, as about a critical value of the frame's map, whose inverse's footprint
     // grows without bound, that distance is not the pixel's: the region's sign alone, and no band, invLeaf)
     ixNonLin = bk && (!ixFin(gbx) || !ixFin(gby) || length(gx - gbx) > 0.25 * max(length(gx), length(gbx)) || length(gy - gby) > 0.25 * max(length(gy), length(gby)));
+    if (ixNonLin) {
+      // (unless a boundary crosses the footprint, as where a region's preimages meet at the critical value: its band
+      // stays. The level at the footprint's five images changes sign among them, or for a curve one of them is within
+      // the footprint's reach of it; a level that is not finite keeps the band too)
+      float aq = ixArcQ;   // (a curve's level sets the dash's arc: kept as it was)
+      float l0 = ixLevelAt(g0), l1 = ixLevelAt(g0 + gx), l2 = ixLevelAt(g0 - gbx), l3 = ixLevelAt(g0 + gy), l4 = ixLevelAt(g0 - gby);
+      ixArcQ = aq;
+      float lo = min(min(min(l0, l1), min(l2, l3)), l4), hi = max(max(max(l0, l1), max(l2, l3)), l4);
+      float reach = max(max(length(gx), length(gbx)), max(length(gy), length(gby)));
+      bool curve = (uShape.x >= 11 && uShape.x <= 18) || uShape.x == 20;
+      bool fin = l0 == l0 && l1 == l1 && l2 == l2 && l3 == l3 && l4 == l4 && abs(lo) < 1e37 && abs(hi) < 1e37;
+      if (!fin || (curve ? hi >= -reach : lo <= 0.0 && hi >= 0.0)) ixNonLin = false;
+    }
     z = g0; dX = gx; dY = gy;
   }
   bool ixOwn = uShStage == 0;
