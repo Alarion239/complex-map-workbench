@@ -19,8 +19,9 @@
 //   pixels grey: the paper, its grid and rulers; plane w1's frame at rest would stand in another chain's picture while
 //   a chain links, so a held scrub off plane z is not drawn as it), no colour plot drawn; and the glide from w1 played
 //   on the stepped clock for CUT_FRAMES frames is still on w1; let go, the carried meshes draw it;
-// - Sphere, opened again with every program held, a scrub held at x = 0.75: the frame is plane z's globe at rest (as
-//   above), and each frame draws one kind of globe (GLR.drawSphere, with the carried mesh or plain), not the carried
+// - Sphere, opened again with every program held: plane z's globe at rest is drawn from the phase globe's stand-in
+//   (globeStandIn, __cmwStandIn: its job ended), grabbed once that is so; a scrub held at x = 0.75: the frame is that
+//   globe at rest (as above), and each frame draws one kind of globe (GLR.drawSphere, with the carried mesh or plain), not the carried
 //   mesh's attempt and then plane w1's plain globe faded over it; the links let go, the frame at x = 0.75 is the
 //   carried mesh's alone.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
@@ -160,6 +161,13 @@ await open('plane', [ROOT, CONJ]);
 
 // ---- the Sphere ----
 await open('sphere', [CONJ]);
+{
+  // (the globe's own program held, sphereP's stand-in colours it once it has waited SM_LINKING_MS: the rest frame is
+  // grabbed with the stand-in's job ended, as the held frames are drawn)
+  const w = await settled({ only: true, max: 60000, panes: false, until: '!!__cmwStandIn() && __cmwStandIn().globe && __cmwStandIn().end !== null' });
+  const si = info['sphere stand-in'] = { wait: w.ok, standIn: await ev('__cmwStandIn()') };
+  ok('Sphere, links held: plane z\'s globe at rest is drawn from the phase globe\'s stand-in (its job ended, its levels drawn)', w.ok && !!si.standIn && si.standIn.globe && si.standIn.nodes > 0 && (si.standIn.end === 'done' || si.standIn.end === 'budget'), si);
+}
 info['sphere rest'] = await restOf(0);
 {
   const r = info['sphere held x=0.75'] = await at(0.75);
