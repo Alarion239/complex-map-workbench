@@ -45,13 +45,6 @@ const FormulaSteps = (host) => {
     }
     return out;
   }
-  function splitSubst(ast, by) {
-    if (!ast || typeof ast !== 'object') return ast;
-    if (ast.t === 'var' && ast.n === 'z') return by;
-    const o = Object.assign({}, ast);
-    for (const k of ['a', 'b', 'n']) if (o[k]) o[k] = splitSubst(o[k], by);
-    return o;
-  }
   // rule 1: a light symbolic affine reader over the piece as typed (u = a z + b, a quotient of two of them); it folds
   // two typed numbers only into a short exact number, and keeps names, i, π and e as written
   const sNum = (n) => n.t === 'num' && n.param == null;
@@ -374,7 +367,7 @@ const FormulaSteps = (host) => {
       if (named) nameBlock = true;
       // rule 3: the group stays a formula part (joined with a formula part before it)
       const prev = out[out.length - 1];
-      if (prev && prev.kept && prev.src) { prev.src = splitSubst(g.src, prev.src); prev.params = { expr: Expr.toTex(prev.src).s, cut }; }
+      if (prev && prev.kept && prev.src) { prev.src = Expr.substZ(g.src, prev.src); prev.params = { expr: Expr.toTex(prev.src).s, cut }; }
       else out.push({ type: 'custom', params: { expr: Expr.toTex(g.src).s, cut }, kept: true, src: g.src });
     }
     // every formula part is the formula's own piece again (its TeX read back)

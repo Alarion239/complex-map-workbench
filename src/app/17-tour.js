@@ -9,8 +9,12 @@
   let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
-  // a shape or target moved (a drag's end, a nudge by the arrow keys)
-  function tourShapeMoved(id, target) { tourEmit('shape-moved', { id, plane: target ? 'w' : 'z' }); }
+  // a shape or target moved (a drag's end, a nudge by the arrow keys, a committed edit of a position field in the Inspector): a
+  // target, or a shape drawn on a later plane of the steps view, is on a w plane
+  function tourShapeMoved(id, target, shape) {
+    const sh = shape || S.shapes.find((x) => x.id === id);
+    tourEmit('shape-moved', { id, plane: target || shapeStage(sh) > 0 ? 'w' : 'z' });
+  }
   function tourEmit(ev, p) {
     const fs = tourL[ev];
     if (fs) for (const f of fs.slice()) { try { f(p); } catch (e) { console.warn('[tour] event', ev, e); } }
@@ -88,7 +92,7 @@
   function tourDragEnd(d) {
     if (!d) return;
     const id = d.shape && typeof d.shape === 'object' ? d.shape.id : d.shape;
-    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourShapeMoved(id, d.target);
+    if (/^g?(move|handle)$/.test(d.mode) && d.moved) tourShapeMoved(id, d.target, d.shape && typeof d.shape === 'object' ? d.shape : null);
     else if (d.mode === 'zp' && d.moved && !d.off) tourEmit('zp-moved', { kind: String(d.kind).replace(/s$/, ''), i: d.i });
     else if (d.mode === 'cut') { const st = S.steps[(d.step | 0) - 1]; tourEmit('cut-moved', { k: d.step, cut: st && st.params ? st.params.cut : null }); }
   }

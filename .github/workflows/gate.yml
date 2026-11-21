@@ -203,9 +203,10 @@ jobs:
       - name: Browser shards (every suite in exactly one)
         run: node ci/browser_shards.js check
       # the standards check (ci/README.md, Standards check): history words, plan labels and dropped assertions on the
-      # lines this change adds; it reports in the job summary and as warnings, and never fails the job
-      - name: Standards check (report only)
-        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github
+      # lines this change adds; it reports in the job summary and as warnings, and a finding fails the job (--block); an
+      # added line opts out with `standards-ok: <reason>` in its comment
+      - name: Standards check
+        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github --block
       # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
       # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
       # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
@@ -468,10 +469,11 @@ jobs:
           python-version: '3.12'
       # Mesa's Vulkan drivers (ci/lavapipe.sh): from Ubuntu's mirrors, or, when they cannot be reached, from an Actions
       # cache of the package's files, or from a fallback mirror on another domain. The cache is keyed by the runner's
-      # image and the package's version in the image's lists, restored by that exact key only (files from another image
-      # are never installed), and saved after an install from a mirror, Ubuntu's or the fallback, of that version only
-      # (after a Mesa update, a download with refreshed lists installs a newer one; a pull request's run reads its own
-      # saves and main's)
+      # Ubuntu release (ImageOS) and the package's version in the image's lists, so a new image of the same release finds
+      # the files; restored by that key, else by its release prefix (an older version's files, which ci/lavapipe.sh
+      # installs only after every mirror failed); and saved after an install from a mirror, Ubuntu's or the fallback, of
+      # the key's version only (after a Mesa update, a download with refreshed lists installs a newer one; a pull
+      # request's run reads its own saves and main's)
       - name: Mesa cache key
         id: mesa-key
         run: ci/lavapipe.sh --key >> "$GITHUB_OUTPUT"
@@ -481,6 +483,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/cmw-lavapipe-debs
           key: ${{ steps.mesa-key.outputs.key }}
+          restore-keys: ${{ steps.mesa-key.outputs.prefix }}
       - name: Mesa's Vulkan drivers (lavapipe)
         id: mesa
         run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"

@@ -1,0 +1,214 @@
+// The steps view's glides wait behind the prestart (#1157): with every link held (?glhold) a press of Play or an arrow
+// starts no glide and marks that button busy (a ring over a faint track, after 300 ms and not before), Esc or the button
+// again cancels the wait, after 10 s a message offers Retry (which keeps the ring) and Cancel, and once the links are
+// released the pressed glide starts; a wait ends when another chain is loaded under it (nothing starts once that chain is
+// prepared). Run at 1440 px and at 360 px, and under reduced motion (an arrow jumps; Play still waits).
+// A command file for a CDP daemon:  <runner> test/svplay_gate_cmd.js
+const fails = [], info = {};
+const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
+const BUSY = '!!document.querySelector(".sv-play[aria-busy]")';
+const state = (sel) => `(() => { const b = document.querySelector("${sel}"); return { busy: b.hasAttribute("aria-busy"), label: b.getAttribute("aria-label"), fill: b.style.getPropertyValue("--wait"), play: __cmwSteps().play, anim: !!__cmwSteps().anim, ring: getComputedStyle(b, "::after").backgroundImage.includes("conic-gradient"), spin: getComputedStyle(b, "::after").animationName }; })()`;
+const esc = () => ev('(document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })), 1)');
+const ns = 'svg' + Date.now();
+// window.__played turns true when a play starts. The Play button changes in the same task that starts it, so a mutation
+// observer sees the start even when the first frames of a cold page run so long that a short play ends before a timer
+// could poll it
+const WATCH_PLAY = `(window.__played = false, new MutationObserver((_, o) => { if (__cmwSteps().play !== null) { window.__played = true; o.disconnect(); } }).observe(document.querySelector(".sv-play"), { attributes: true, childList: true, subtree: true }))`;
+
+
+async function open(w, h, lang = '', mobile = false) {
+  await view(w, h, false, mobile);
+  await load(ns, {});
+  await ev('(__cmwExample(1), 1)');
+  const o = await ev('location.origin');
+  await nav(`${o}/test.html?ns=${ns}&glhold&view=steps${lang ? '&lang=' + lang : ''}`);
+  await settled({ max: 30000, only: true, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on' });
+  await ev('(__cmwSteps({ go: 0, now: true }), 1)');
+  await settled({ max: 30000, only: true, until: '__cmwSteps().ready.total > 0' });
+}
+
+async function section(tag, w, h) {
+  await open(w, h);
+  // Play
+  await ev('(__cmwSteps({ play: true }), 1)');
+  ok(`${tag} under 300 ms: no ring`, (await ev(BUSY)) === false);
+  await settled({ max: 3000, only: true, until: BUSY });
+  const wait = await ev(state('.sv-play'));
+  info[tag + 'Wait'] = wait;
+  ok(`${tag} held: a press starts no glide`, wait.play === null && !wait.anim, wait);
+  ok(`${tag} held: the button is Cancel with a ring and a fill`, wait.busy && wait.label === 'Cancel' && wait.fill !== '' && wait.ring, wait);
+  ok(`${tag} the ring does not spin`, wait.spin === 'none', wait);
+  await esc();
+  const cancelled = await ev(state('.sv-play'));
+  ok(`${tag} Esc cancels the wait`, !cancelled.busy && cancelled.play === null && cancelled.label === 'Play', cancelled);
+  // the arrow
+  await ev('(document.querySelector(".sv-next").click(), 1)');
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  const arrow = await ev(state('.sv-next'));
+  info[tag + 'Arrow'] = arrow;
+  ok(`${tag} an arrow waits too: no glide, its ring`, arrow.busy && arrow.label === 'Cancel' && !arrow.anim && arrow.ring, arrow);
+  await ev('(document.querySelector(".sv-next").click(), 1)');
+  const again = await ev(state('.sv-next'));
+  ok(`${tag} the arrow again cancels, and its label returns`, !again.busy && again.label === 'Next plane' && !again.anim, again);
+  // the → key is the same glide: it waits and Esc cancels it
+  await key('ArrowRight');
+  await settled({ max: 3000, only: true, until: '!!document.querySelector(".sv-next[aria-busy]")' });
+  const keyed = await ev(state('.sv-next'));
+  info[tag + 'Key'] = keyed;
+  ok(`${tag} the → key waits too: no glide, the arrow's ring`, keyed.busy && keyed.label === 'Cancel' && !keyed.anim && keyed.ring, keyed);
+  await esc();
+  const keyedEnd = await ev(state('.sv-next'));
+  ok(`${tag} Esc cancels the → key's wait, and the arrow's label returns`, !keyedEnd.busy && keyedEnd.label === 'Next plane' && !keyedEnd.anim, keyedEnd);
+  return;
+}
+
+await section('wide', 1440, 900);
+
+// the Landscape steps a plane at a time with no frames between planes: an arrow waits for nothing, however much is
+// unprepared, and a press of Play still waits
+await open(1440, 900);
+await ev('(__cmwSteps({ surf: "land" }), 1)');
+await ev('(document.querySelector(".sv-next").click(), 1)');
+// (the arrow went through: the thread has left plane 0, with no wait on the button)
+await settled({ max: 5000, only: true, until: '__cmwSteps().x > 0' });
+const landArrow = await ev(state('.sv-next'));
+ok('Landscape: an arrow waits for nothing', !landArrow.busy && (await ev('__cmwSteps().x')) > 0, landArrow);
+await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 3000, only: true, until: BUSY });
+const landPlay = await ev(state('.sv-play'));
+ok('Landscape: a press of Play still waits', landPlay.busy && landPlay.play === null, landPlay);
+await ev('(__cmwSteps({ play: false }), 1)');
+// (play: false ends the wait the press began: the button is Play again and nothing plays)
+const landEnded = await ev(state('.sv-play'));
+ok('Landscape: play: false ends the wait', !landEnded.busy && landEnded.play === null && landEnded.label === 'Play', landEnded);
+await ev('(__cmwSteps({ play: false, surf: "plane" }), 1)');
+
+// 10 s: Retry keeps the ring, Cancel ends it, a release starts the glide
+await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+const hung = await ev('Array.from(document.querySelectorAll("#toastHost .toast button")).map((b) => b.textContent)');
+info.hung = hung;
+ok('after 10 s: the message offers Retry and Cancel', hung.includes('Retry') && hung.includes('Cancel'), hung);
+// (the keyboard user acts on the message: the focus goes back to the button the wait is on, never to the page)
+const FOCUS_IN_MSG = (name) => `(() => { const b = Array.from(document.querySelectorAll("#toastHost .toast button")).find((x) => x.textContent === ${JSON.stringify(name)}); if (!b) return false; b.focus(); return document.activeElement === b; })()`;
+const FOCUS_ON = (sel) => `(() => { const a = document.activeElement; return a ? a.matches(${JSON.stringify(sel)}) : false; })()`;
+ok('Retry in the message takes the focus', await ev(FOCUS_IN_MSG('Retry')), null);
+await key('Enter');
+const retry = await ev(state('.sv-play'));
+ok('after Retry by the keyboard the focus is on Play, which is not "pressed" while it is Cancel', await ev(FOCUS_ON('.sv-play')) && (await ev('document.querySelector(".sv-play").getAttribute("aria-pressed")')) === null, await ev('document.activeElement && document.activeElement.className'));
+info.retry = retry;
+ok('Retry keeps the ring with no gap', retry.busy && retry.ring && retry.label === 'Cancel', retry);
+// the message again after 10 s more: Cancel by the keyboard ends the wait with the focus on Play, whose "pressed" state is back
+await settled({ max: 14000, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+ok('Cancel in the message takes the focus', await ev(FOCUS_IN_MSG('Cancel')), null);
+await key('Enter');
+const cancelled2 = await ev(state('.sv-play'));
+ok('after Cancel by the keyboard the wait is over and the focus is on Play', !cancelled2.busy && cancelled2.label === 'Play' && (await ev(FOCUS_ON('.sv-play'))), cancelled2);
+ok('Play has its "pressed" state back', (await ev('document.querySelector(".sv-play").getAttribute("aria-pressed")')) === 'false', null);
+await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 3000, only: true, until: BUSY });
+await ev(`(${WATCH_PLAY}, 1)`);
+await ev('(GLR.holdLinks(false), 1)');
+await settled({ max: 40000, only: true, until: 'window.__played === true' });
+const run = await ev(state('.sv-play'));
+info.run = run;
+ok('released: the glide starts', await ev('window.__played'), run);
+ok('released: the button is no longer busy', !run.busy, run);
+
+// reduced motion: an arrow jumps to the plane at once (svGo decides before the gate), and a press of Play still waits
+await open(1440, 900);
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
+ok('reduced motion is on', await ev('matchMedia("(prefers-reduced-motion: reduce)").matches'), null);
+await ev('(document.querySelector(".sv-next").click(), 1)');
+await settled({ max: 5000, only: true, until: '__cmwSteps().i === 1' });
+const reducedArrow = await ev(state('.sv-next'));
+info.reducedArrow = reducedArrow;
+ok('reduced motion: an arrow jumps to the next plane and waits for nothing', !reducedArrow.busy && !reducedArrow.anim, reducedArrow);
+await ev('(__cmwSteps({ go: 0, now: true }), 1)');
+await ev('(__cmwSteps({ play: true }), 1)');
+await settled({ max: 3000, only: true, until: BUSY });
+const reducedPlay = await ev(state('.sv-play'));
+info.reducedPlay = reducedPlay;
+ok('reduced motion: a press of Play still waits', reducedPlay.busy && reducedPlay.play === null && reducedPlay.label === 'Cancel', reducedPlay);
+await esc();
+await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
+
+await section('narrow', 360, 780);
+
+// the 10 s message at 360 px, in English and Russian: the words on a row of their own and Retry, Cancel and the close
+// button together on the row below (the toast two rows tall, not three), inside the viewport
+// (the toast's most: its padding (6 + 6), the words on two lines of 18 px (Italian at 360 px), one row of 44 px buttons (and, in the phone's plot, its 1 px border either side); the
+// measured heights are 74-76 px in portrait, 58 px on one row. HANG_WAIT_MS: the hang guard's 10 s and the poll's slack; ROW_EDGE_PX: a layout rounds a
+// rect's edge to a pixel, so the buttons' top may sit that far above the words' bottom)
+const GATE_TOAST_PAD = 12, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44, GATE_HANG_WAIT_MS = 14000, ROW_EDGE_PX = 1, GATE_TOAST_BORDER = 2;
+for (const lang of ['en', 'ru']) {
+  await open(360, 780, lang);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: GATE_HANG_WAIT_MS, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+  const gt = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), w = t.querySelector('span').getBoundingClientRect(); const tops = [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)); return { top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), wordsBottom: Math.round(w.bottom), tops: [...new Set(tops)], vw: innerWidth, vh: innerHeight }; })()`);
+  info['gateToast_' + lang] = gt;
+  ok(`narrow ${lang}: the 10 s message keeps its buttons on one row`, gt.tops.length === 1, gt);
+  ok(`narrow ${lang}: the buttons are below the words`, gt.tops[0] >= gt.wordsBottom - ROW_EDGE_PX, gt);
+  ok(`narrow ${lang}: the message is two rows (words, buttons) and inside the viewport`, gt.bottom - gt.top <= GATE_TOAST_PAD + GATE_TOAST_WORDS_MAX + GATE_TOAST_BUTTON_ROW && gt.left >= 0 && gt.right <= gt.vw && gt.bottom <= gt.vh, gt);
+}
+
+// a landscape phone (740 x 360) has the room: the words and the buttons share one row (the toast one button row tall), as the
+// layout's measured fit decides it
+{
+  await open(740, 360, 'en', true);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: GATE_HANG_WAIT_MS, only: true, until: '!!document.querySelector("#toastHost .toast")' });
+  const gl = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), r = t.getBoundingClientRect(), w = t.querySelector('span').getBoundingClientRect(); const tops = [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)); return { height: Math.round(r.height), wordsBottom: Math.round(w.bottom), tops: [...new Set(tops)], vw: innerWidth }; })()`);
+  info.gateToastLand = gl;
+  ok('landscape 740 x 360: the 10 s message is one row', gl.tops.length === 1 && gl.tops[0] < gl.wordsBottom - ROW_EDGE_PX && gl.height <= GATE_TOAST_PAD + GATE_TOAST_BORDER + GATE_TOAST_BUTTON_ROW, gl);
+}
+
+// the idle jobs (pole tracks, ring, meshes) are part of the wait: with the programs linked and the warm draw made but a
+// job left, a press of Play starts nothing; when the job is done the glide starts
+{
+  const ns2 = 'svj' + Date.now();
+  await view(1440, 900, false);
+  await load(ns2, {});
+  await ev('(__cmwExample(1), 1)');
+  const o = await ev('location.origin');
+  await nav(`${o}/test.html?ns=${ns2}&view=steps`);
+  await settled({ max: 60000, only: true, until: 'typeof __cmwSteps === "function" && typeof GLR === "object" && GLR.ok && __cmwSteps().on && __cmwSteps().ready.ready' });
+  await ev('(__cmwSteps({ go: 0, now: true, holdJobs: true }), 1)');
+  await ev('(__cmwSteps({ play: true }), 1)');
+  // (the wait's ring shows after 300 ms: the press is being held)
+  await settled({ max: 10000, only: true, until: BUSY });
+  const held = await ev(state('.sv-play'));
+  info.jobsHeld = held;
+  ok('a job left: a press of Play starts no glide', held.play === null && !held.anim, held);
+  ok('a job left: the wait is under way', await ev('__cmwSteps().moving'), held);
+  await ev(`(${WATCH_PLAY}, 1)`);
+  await ev('(__cmwSteps({ holdJobs: false }), 1)');
+  await settled({ max: 20000, only: true, until: 'window.__played === true' });
+  ok('the job done: the glide starts', await ev('window.__played'), held);
+}
+
+// a wait ends when another chain is loaded under it (an example, a link, an undo): ▶ or an arrow pressed behind the held
+// links, then example CHAIN_EX loaded and the links released; once the new chain is prepared nothing has started (a
+// frame loop sets window.__started on the first frame with a play or a glide), and the button is Play (Next plane) again
+const CHAIN_EX = 3;
+for (const [tag, sel, press, label] of [['Play', '.sv-play', '__cmwSteps({ play: true })', 'Play'], ['an arrow', '.sv-next', 'document.querySelector(".sv-next").click()', 'Next plane']]) {
+  await open(1440, 900);
+  await ev(`(${press}, 1)`);
+  await settled({ max: 3000, only: true, until: `!!document.querySelector("${sel}[aria-busy]")` });
+  await ev('(window.__started = false, (function f() { const s = __cmwSteps(); if (s.play !== null || s.anim) window.__started = true; else requestAnimationFrame(f); })(), 1)');
+  await ev(`(__cmwExample(${CHAIN_EX}), 1)`);
+  await ev('(GLR.holdLinks(false), 1)');
+  const prepared = await settled({ max: 60000, only: true, until: '__cmwSteps().ready.ready' });
+  // (until the press is settled: a wait that ended leaves the button not busy at once; one that survived stays busy until a
+  // poll, SV_GATE_POLL_MS, starts its glide on the new chain)
+  await settled({ max: 20000, only: true, until: `window.__started || __cmwSteps().play !== null || !!__cmwSteps().anim || !document.querySelector("${sel}[aria-busy]")` });
+  const after = Object.assign(await ev(state(sel)), { started: await ev('window.__started'), planes: await ev('document.querySelectorAll(".sv-track .sv-plane").length'), prepared: prepared.ok });
+  info['chainChanged ' + tag] = after;
+  ok(`another chain loaded under a waiting ${tag}: the new chain is prepared and has more than one plane (control)`, after.prepared && after.planes > 1, after);
+  ok(`another chain loaded under a waiting ${tag}: nothing starts once it is prepared`, !after.started && after.play === null && !after.anim, after);
+  ok(`another chain loaded under a waiting ${tag}: the button is ${label} again, not busy`, !after.busy && after.label === label, after);
+}
+
+const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
+ok('no console errors', exc.length === 0, exc.slice(0, 4));
+return { pass: fails.length === 0, nfails: fails.length, fails: fails.slice(0, 30), info };
