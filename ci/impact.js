@@ -68,6 +68,7 @@ const MAP = [
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone', 'layout')],                                       // the header, its menus, the panels and drawers (#385)
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
+  ['src/app/19-steps-ahead.js', { core: true, areas: ['views'] }],                              // the steps view's render-ahead frames (#1339; its suite is in the exact shard)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
   ['src/app/19-readout.js', ui('views', 'desktop', 'phone')],                                      // a stage disc's readout card in the Inspector (#1983)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
