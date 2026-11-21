@@ -142,6 +142,7 @@ const VIEWS = {
   'head_press_cmd.js': steps({ pin: true }),
   'steps_land_lscale_cmd.js': steps({ pin: true }),
   'steps_land_caption_cmd.js': steps(),
+  'steps_land_opacity_cmd.js': steps({ pin: true }),
   'pre_more_said_cmd.js': steps(),
   'compile_pill_cmd.js': steps({ pin: true }),
   'steps_chipname_cmd.js': steps(),

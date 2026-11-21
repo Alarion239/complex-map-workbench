@@ -873,20 +873,21 @@
     if (inp) { inp.disabled = true; inp.setAttribute('aria-description', reason); }
   }
   // the steps view's Opacity slider: svOpacity's range in whole percents, valuetext and the value beside it saying the
-  // percent; setFillOpacity (S.alpha's one setter) keeps it and the regions' own slider at one value
+  // percent; setFillOpacity (S.alpha's one setter) keeps it and the regions' own slider at one value. The Landscape's
+  // (data-land) shows and sets its own opacity, svLandOpacity (setLandOpacity)
   const opacityText = (v) => I18N.num(Math.round(v * 100)) + ' %';
   function syncOpacityRange(rng) {
-    const v = svOpacity();
-    rng.value = String(v); rng.setAttribute('aria-valuetext', opacityText(v));
+    const v = rng.dataset.land ? svLandOpacity() : svOpacity();
+    // (the Landscape's names the view whose opacity it is: "85 %, Landscape")
+    rng.value = String(v); rng.setAttribute('aria-valuetext', rng.dataset.land ? `${opacityText(v)}, ${$t('Landscape')}` : opacityText(v));
     rng.nextElementSibling.textContent = opacityText(v);
     paintFader(rng);
   }
-  // (on the Landscape the sheets are opaque: the slider is there, disabled, after the Landscape's own controls, and its tip says so)
+  // (on the Landscape (land) it comes after the Landscape's own controls, and sets how much its surfaces behind show through)
   function opacityScrub(idSuffix, land) {
-    const rng = h('input', { type: 'range', class: 'sv-opacity', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, 'aria-label': $t('Opacity'), oninput: (e) => setFillOpacity(+e.target.value) });
-    const tip = land ? $t('The Landscape draws its sheets opaque; opacity applies to the plane.') : $t('How much the layers behind show through where the picture covers a point more than once.');
-    if (land) { rng.disabled = true; rng.setAttribute('aria-disabled', 'true'); rng.setAttribute('aria-description', tip); }
-    const row = h('label', { class: 'fader-row compact' + (land ? ' is-disabled' : ''), 'data-tip': tip }, h('span', { class: 'fl' }, $t('Opacity')), rng, h('span', { class: 'fval mono' }));
+    const rng = h('input', { type: 'range', class: 'sv-opacity', id: 'opacityRange' + idSuffix, min: SV_OPACITY_MIN, max: 1, step: 0.05, 'aria-label': land ? $t('Landscape opacity') : $t('Opacity'), 'data-land': land ? '1' : null, oninput: (e) => (land ? setLandOpacity : setFillOpacity)(+e.target.value) });
+    const tip = land ? $t('How much the Landscape\'s surfaces behind show through where the relief covers a point more than once.') : $t('How much the layers behind show through where the picture covers a point more than once.');
+    const row = h('label', { class: 'fader-row compact', 'data-tip': tip }, h('span', { class: 'fl' }, land ? $t('Landscape opacity') : $t('Opacity')), rng, h('span', { class: 'fval mono' }));
     syncOpacityRange(rng);
     return row;
   }
