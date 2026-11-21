@@ -14,7 +14,10 @@
 // - plane w₁ coloured from w₂ (T = 2), which is not coloured (the d/dz lies between it and the colour plane) and takes
 //   the carried colour: 'inverse', each point w of w₁ the colour w₂ gives its front preimage z, z³ - 3z = w (the three
 //   roots, carry_kit fronts on plane 1), against plane z coloured from w₂;
-// - on the Sphere (T = 0): the globe at rest on w₂ carries its colour by the exact pass (__cmwSvGlobe's path 'inverse').
+// - on the Sphere (T = 0): the globe at rest on w₂ carries its colour by the exact pass (__cmwSvGlobe's path 'inverse');
+// - more than one live step before the d/dz: [z², z + 1, d/dz], at rest on the d/dz plane w₃, whose points are
+//   D(z) = (z² + 1)′ = 2z, coloured from z (T = 0), Everywhere: 'inverse', each point w the colour plane z shows at w/2,
+//   the same way.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -116,6 +119,33 @@ for (const c of [{ T: 0, scope: 'all' }, { T: 1, scope: 'all' }, { T: 0, scope: 
 await at({ go: 2, now: true, T: 0, scope: 'all', surf: 'sphere' });
 info.globe = await ev('(() => { const g = __cmwSvGlobe(0, 0); return { path: g.path, carried: g.carried }; })()');
 ok("the globe at rest on w2 carries its colour by the exact pass (path 'inverse')", info.globe.path === 'inverse', info.globe);
+
+// more than one live step before the d/dz
+{
+  const tag = 'two steps T=0 all';
+  const state = {
+    v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], srcView: { cx: 0, cy: 0, s: 90 },
+    steps: [{ type: 'pown', params: { n: 2 }, on: true }, { type: 'add', params: { c: '1' }, on: true }, { type: 'deriv', params: {}, on: true }],
+  };
+  const ns = `svddzr2${Date.now()}`;
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(state))}); 1`);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
+  await settled({ max: 60000, until: "typeof __cmwSteps === 'function' && !!window.GLR && !!document.querySelector('.sv-rail')" });
+  await ev(`__cmwSet('morphPaths', false); __cmwSet('alpha', 1); __cmwSteps({ bare: true }); 1`);
+  ok(`${tag}: its planes are z, w1, w2 and the d/dz plane w3`, JSON.stringify((await at({ go: 0, now: true, T: 0, scope: 'all', surf: 'plane' })).planes) === '[0,1,2,3]', null);
+  const P = await paneOf(), W = [], Z = [];
+  for (const w of grid(P, 70, 70, 0.9)) { const z = [w[0] / 2, w[1] / 2]; if (shown(P, z)) { W.push(w); Z.push(z); } }
+  const ref = (await lpx(Z)).px;
+  const st = await at({ go: 3, now: true, T: 0, scope: 'all', surf: 'plane' });
+  const got = (await lpx(W)).px;
+  const skip = (k) => spread(ref[k]) > LINE || spread(got[k]) > LINE;
+  info[tag] = Object.assign(tally(got, ref, { skip, note: (k) => ({ w: fmt(W[k]), z: fmt(Z[k]) }) }), { rest: st.rest, x: st.x, T: st.T });
+  ok(`${tag}: at rest on w3, coloured from plane z`, st.x === 3 && st.T === 0, info[tag]);
+  ok(`${tag}: drawn by the exact pass (the record at rest: 'inverse')`, !!st.rest && st.rest.a === 3 && st.rest.path === 'inverse', info[tag]);
+  ok(`${tag}: each point the colour plane's colour of its preimage w/2, at most 1 % wrong`, info[tag].n >= 300 && info[tag].wrong <= 0.01 * info[tag].n, info[tag]);
+  ok(`${tag}: no point on the bare paper`, info[tag].paper === 0, info[tag]);
+}
 
 await ev('__cmwSteps({ bare: false }); 1');
 info.logs = (await logs()).filter((l) => /error|exception/i.test(l.t) && !/Failed to load resource/.test(l.m)).slice(0, 5);

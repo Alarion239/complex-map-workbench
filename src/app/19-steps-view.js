@@ -32,6 +32,7 @@
     dcSeen: '',      // the phase style svCheck saw last
     sheetsSeen: null,   // All sheets as svCheck saw it last (null: not yet)
     main: null,      // the view the steps view set last (svViewFix): a parked view rounds to a plane it was not set for
+    restHeld: -1,    // the plane whose frame at rest the left pane holds for a waiting glide (svDrawPlane), -1 for any other frame: the pane's stage (leftStage), so its rulers, scale and corner, handles and probe are that plane's, as its picture is
     drag: null,      // a scrub of the strip or a swipe of the plane: {x0, i0, px, w, id, edge}
     els: null,
     ready: false,    // setup is done: S.sv may be written (before it, the state's own place is still to be read)
@@ -60,9 +61,6 @@
   // the carried globe's mesh (cells along longitude and latitude), and the chord, on the unit sphere, over which a
   // triangle is torn across a cut or a pole and left out (CARRY_GLOBE_VS)
   const SV_GLOBE_MESH = { nx: 192, ny: 96 }, SV_GLOBE_CHORD = 0.5;
-  // plane b's globe is cross-faded in over a's only past this u (under it its alpha, u, is below 3 of 255 levels, not
-  // worth a second globe's draw)
-  const SV_FADE_U = 0.01;
   // the shown plane is coloured from the colour plane: at or before it, and not across a d/dz (whose input is z's plane, not w_k's)
   function svColoured(k = svStage()) { const T = svT(); return k <= T && (k === 0 || !derivIn(k, T)); }
   // which way the shown plane is painted: 'pull' on a coloured plane (the colour is pulled back through the map), 'push' past it
@@ -240,15 +238,21 @@
     SV.i = 0; SV.g.set(0);
   }
   // S.sv, the steps view's place, saved in the state, in links and kept by undo (Views.cleanSv; the speed is the state's, and
-  // the device's setting for a state without one). svStore writes it before a save, a link or an undo entry;
-  // svLoad reads it when the page opens on a state that has one, and after an undo
+  // the device's setting for a state without one). svStore writes it before a save and an undo entry; a link and a scene
+  // file take the place on screen from svPlace (figureState), without writing S; svLoad reads it when the page opens on a
+  // state that has one, and after an undo
   function svStore() {
-    if (!SV.on || !SV.ready) return;
+    const o = svPlace();
+    if (o) setOpt('sv', o);
+  }
+  // the steps view's place as svStore writes it, or null while the view is off or not set up
+  function svPlace() {
+    if (!SV.on || !SV.ready) return null;
     // (a step shown alone keeps the whole chain's place, which is what undo and a link restore)
     const b = SV.alone && SV.back ? SV.back : null;
     const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed };
     if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
-    setOpt('sv', o);
+    return o;
   }
   function svLoad(onPageOpen) {
     // (by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which would clamp the place)
@@ -1252,16 +1256,22 @@
   };
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
-  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath),
-  // or, span {a, stepT} given (an All-at-once glide from plane a to b, map mode 3), through each of its steps' homotopies
-  // at its own time (invSpanPath). {list, paths}, or null with why.r the first reason unless every shape takes that path;
-  // with why.rest an array (at rest, shapes listed one by one), the shapes that do not are put in it and left out of the
+  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath,
+  // past a d/dz over the chain that stands in for it), or, span {a, stepT} given (an All-at-once glide from plane a to
+  // b, map mode 3), through each of its steps' homotopies at its own time (invSpanPath; a span past a d/dz step keeps
+  // the carried mesh). {list, paths}, or null with why.r the first reason unless every shape takes that path; with
+  // why.rest an array (at rest, shapes listed one by one), the shapes that do not are put in it and left out of the
   // lists
   function svInvPaths(b, u, kind, why, span) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
-    if (derivIn(0, b) && hom) { why.r = 'a d/dz step'; return null; }
+    // (a glide past a d/dz is planned over the chain that stands in for it, the steps before the d/dz off (invHomBase), so
+    // a region of plane k > 0, tested where F_{0->k}(z) lies in it, would be tested against z: such a frame keeps the
+    // carried mesh)
+    if (hom && derivIn(0, b - 1) && list.some((x) => x !== SV_ALL && shapeStage(x))) { why.r = 'a region of a plane before a d/dz step'; return null; }
+    // (invSpanPath plans the span on the chain itself, not on the one that stands in past a d/dz (invHomBase))
+    if (span && derivIn(0, b)) { why.r = 'an All-at-once glide past a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     // (an All-at-once glide keys its sheets by its last plane, as its carried meshes do: svCarryRegions)
     const singAt = span ? () => svSheetKey(b).sing : () => svSheetKeyAt(b, u).sing;
@@ -1403,29 +1413,39 @@
   };
   // A glide frame between planes whose step the inverse pass draws, while that pass's programs still link (the colour's,
   // and the staged one of the later planes' shapes, svStagedOf and svStagedCurves, which draws their mask and strokes),
-  // and once it is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing): a
+  // and once it is linked, while the pole tracks the glide's frames are drawn from are not made (svTracksMissing); or
+  // whose step the carried meshes draw (no inverse plan, or All at once), while their programs link (svMeshLinking): a
   // glide or a play waits where it is, at the place of its last frame drawn (its start when it has drawn none) with its
   // clock still, judged at the place it was held for (A.held) until that place can be drawn, and then goes on from there
   // in the time it had left; a scrub's frame is that of the plane before the thread. So no frame between the planes is
-  // the carried mesh's or one drawn without its tracks, and the first one drawn is exact. After it svHoldB is plane b
-  // when the glide waits for the tracks, else 0. Each frame of such a wait makes the tracks for a frame's pole budget, so
-  // the wait ends within a bounded number of frames: a held play or glide asks for frame after frame, and where each
-  // takes past its deadline (a software renderer) no idle moment comes between them. Such a wait also starts the idle
-  // job (svPolesWatch), which makes plane b's tracks first (svPolesLeft)
+  // the carried mesh's, one drawn without its tracks or the planes' plots in place of the meshes, and the first one drawn
+  // is the glide's own. After it svHoldB is plane b when the glide waits for the tracks, else 0. Each frame of such a
+  // wait makes the tracks for a frame's pole budget, so the wait ends within a bounded number of frames: a held play or
+  // glide asks for frame after frame, and where each takes past its deadline (a software renderer) no idle moment comes
+  // between them. Such a wait also starts the idle job (svPolesWatch), which makes plane b's tracks first (svPolesLeft).
+  // holds: whether a frame must wait (svHolds on the plane, svGlobeHolds on the globe)
   // -> the place to draw instead of the thread's, or null (draw the thread's)
-  function svLinkHold() {
+  function svLinkHold(holds = svHolds) {
     svHomMemo = null;
     const A = svMotion();
     const g = svBetween(A && A.held ? A.held.x : SV.g.x);
-    if (!svHolds(g)) {
+    if (!holds(g)) {
       // (released: the frame is the one the motion waited on, and its clock goes on from there)
       if (A && A.held) { SV.g.set(A.held.at); svSetElapsed(A, A.held.el); }
       svMotionDrawn(A);
       return null;
     }
     if (!A) return g.x0;
-    if (!A.held) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
+    const first = !A.held;
+    if (first) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
+    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
+    // to A.said, its words before the crossing of the frame that starts the hold)
+    if (first) {
+      const r = Math.round(A.held.at);
+      if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
+      svSync();
+    }
     return A.held.at;
   }
   // the motion whose clock moves the thread: a glide, or a play a glide at a time; null
@@ -1436,19 +1456,21 @@
   function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
-    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; }
+    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
   }
-  // whether the glide frame g (svBetween) must wait: the inverse pass draws its step and that pass's programs still
-  // link, or, once linked, the pole tracks its frames are drawn from are not made (svHoldB is then plane b, else 0)
+  // whether the glide frame g (svBetween: a step's glide, or an All-at-once span's) on the plane must wait: the inverse
+  // pass draws it and that pass's programs still link, or, once linked, the pole tracks a step's frames are drawn from
+  // are not made (svHoldB is then plane b, else 0); or the carried meshes draw it and their programs link
   function svHolds(g) {
     svHoldB = 0;
-    if (g.u <= SV_REST_U || g.b === g.a || !(g.map.mode === 1 || g.map.mode === 3) || isDeriv(g.b) || !GLR.inverseState) return false;
+    if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b)) return false;
+    const inv = (g.map.mode === 1 || g.map.mode === 3) && !!GLR.inverseState;
     // (an All-at-once frame: its span's paths alone, no shapes of later planes, no pole tracks of its own)
-    const span = svSpanPaths(g), h = svHomPaths(g.b, g.u, span).h;
+    const span = inv ? svSpanPaths(g) : null, h = inv ? svHomPaths(g.b, g.u, span).h : null;
     // (the Cauchy style's carried programs too, its own variants: while they link, nothing past z draws its colour)
-    const linking = (!!h && [h].concat(span ? [] : [svStagedOf(false, g), svStagedCurves(g)]).some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending')))
+    const linking = (h ? [h].concat(span ? [] : [svStagedOf(false, g), svStagedCurves(g)]).some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending')) : svMeshLinking(g.map, null))
       || (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry());
-    const P = linking || span ? null : svTracksMissing(g.b, h);
+    const P = inv && !linking && !span ? svTracksMissing(g.b, h) : null;
     if (P) {
       svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
       // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
@@ -1457,6 +1479,13 @@
     svHoldB = P && P.k <= SV_POLE_K ? g.b : 0;
     if (svHoldB) svPolesWatch();
     return linking || !!svHoldB;
+  }
+  // whether the carried meshes a glide's frame of map draws with are still linking (GLR.carryState; globe: {id}, the
+  // carried globe's): a frame of the glide would draw something else in their place
+  function svMeshLinking(map, globe) {
+    if (!GLR.carryState) return false;
+    if (!globe && !(svCarryShapes() || []).length) return false;
+    return GLR.carryState(map, globe) === 'pending';
   }
   // the last frame between two planes: {b, u, all (an All-at-once frame: b the span's last plane, u its progress), path:
   // 'inverse' | 'mesh', reason (why not inverse), key(z): the inverse pass's sheet key of a point of plane 0, per: that
@@ -2000,9 +2029,44 @@
   // carry core, svRenderMoving, which paints the colour plane's colour forward; every other plane at rest by `still`, the
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
-    svHoldB = 0; svRedrawDue = false;
+    svHoldB = 0; svRedrawDue = false; SV.restHeld = -1;
     cutMarksL = [];
-    if (svMoving()) { if (svParked()) svCheck(); if (svMoving()) { probeMoving(); if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; } SV.core = 'carry'; if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane); return; } }
+    if (svMoving()) {
+      if (svParked()) svCheck();
+      if (svMoving()) {
+        probeMoving();
+        if (svJump(pane, still)) { svHeldOn = null; svMotionDrawn(svMotion()); return; }
+        // (a glide waiting for its programs (svLinkHold): held on plane z, that plane's frame as it is at rest (svRestAt:
+        // its plot, plane z's own colours whatever chain's programs draw it, which the carry core's frame at u = 0
+        // cannot draw while the chain links). Any other plane's frame at rest would stand in another chain's picture
+        // while this one links: a scrub held is drawn at the thread's place and a glide's or a play's frame where it
+        // waits, by the carry core, which draws nothing of another chain)
+        // (asks: the frames asked for before the hold's own ask, svRenderMoving's held-frame test)
+        const asks = renderAsks, land = SV.surf === 'land', hold = land ? null : svLinkHold(SV.surf === 'sphere' && lGlobe() ? svGlobeHolds : svHolds);
+        const at = hold == null ? -1 : Math.round(hold), onPlane = at >= 0 && Math.abs(hold - at) <= SV_REST_U;
+        // (plane z's own plot waiting on its program with no stand-in yet, so that its frame at rest would be blank: the
+        // carry core's frame at the held place instead, whose late-link stand-in draws plane z's colour; the frame at rest
+        // is tried again once nothing links, svRestFell)
+        if (onPlane && svPlanes()[at] === 0) {
+          SV.restHeld = at;
+          const key = ['rest', at, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
+          if (svRestFell !== key || !GLR.pendingLinks) {
+            SV.core = 'still';
+            if (svHeldKept(key, asks)) return;
+            const n0 = colourAsks;
+            svRestAt(at, pane, still);
+            if (colourAsks === n0 || !colourBlank) { svRestFell = null; svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; return; }
+            svRestFell = key;
+          }
+          SV.core = 'carry';
+          svRenderMoving(pane, hold, asks);
+          return;
+        }
+        SV.core = 'carry';
+        if (svLandMoving(pane)) { svHeldOn = null; svMotionDrawn(svMotion()); } else svRenderMoving(pane, onPlane && !SV.anim && !SV.play ? null : hold, asks);
+        return;
+      }
+    }
     svCheck(); svPolesWatch();
     // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
     if (svGateDraws() || (svPaint() === 'push' && SV.surf === 'plane' && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
@@ -2134,19 +2198,9 @@
     if (SV.surf === 'land') return false;
     const bt = svBetween();
     if (bt.all || bt.b === bt.a || bt.u <= SV_REST_U || !isDeriv(bt.b)) return false;
-    const g = SV.g, keep = { x: g.x, target: g.target, v: g.v, i: SV.i }, globe = SV.surf === 'sphere' && lGlobe();
-    // (each end drawn with the thread on its plane and the view the steps view sets there, svViewFix's main view and
-    // surface, put back after)
-    const v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
+    const globe = SV.surf === 'sphere' && lGlobe();
     const end = (j, p) => {
-      const k = svPlanes()[j], side = svColoured(k) ? 'P' : 'L', main = v.main, was = v[side].surf;
-      g.x = j; g.target = j; g.v = 0; SV.i = j; svRestRec = null; leftSphereInfo = null;
-      v.main = svMain(k);
-      if (v.main !== 'land') v[side].surf = surf;
-      try {
-        if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
-        else still(p);
-      } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
+      const k = svRestAt(j, p, still);
       if (svColoured(k)) return 'plot';
       if (globe) return (leftSphereInfo && leftSphereInfo.carryPath) || 'none';
       return svRestRec && svRestRec.a === k ? svRestRec.path : 'none';
@@ -2168,18 +2222,43 @@
     SV.core = 'carry';
     return true;
   }
+  // plane j's frame at rest (svPlanes' j-th) drawn on pane p, as the steps view draws it at rest: the thread on that
+  // plane and the view the steps view sets there (svViewFix's main view and surface), all put back after; the classic
+  // core's still, or the carry core where the plane's colour is pushed forward -> the plane
+  function svRestAt(j, p, still) {
+    const g = SV.g, keep = { x: g.x, target: g.target, v: g.v, i: SV.i }, v = S.view, surf = SV.surf === 'sphere' ? 'sphere' : 'plane';
+    const k = svPlanes()[j], side = svColoured(k) ? 'P' : 'L', main = v.main, was = v[side].surf;
+    g.x = j; g.target = j; g.v = 0; SV.i = j; svRestRec = null; leftSphereInfo = null;
+    v.main = svMain(k);
+    if (v.main !== 'land') v[side].surf = surf;
+    try {
+      if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
+      else still(p);
+    } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
+    return k;
+  }
   // the held frame on the left pane while a held glide's frames keep it there: { key: its inputs (the place held, the
   // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn), cm:
   // its cuts' inert handles (cutMarksL) }; null after any other frame
   let svHeldOn = null;
-  function svRenderMoving(pane) {
-    if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane); svMotionDrawn(svMotion()); return; }
-    const asks = renderAsks, hold = svLinkHold();
-    // (a held frame with the inputs of the held frame on the pane, and no frame asked for since, would draw that frame
-    // again: the pane keeps it, its status included, and the hold's own checks above are all this frame does)
-    const key = hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|');
-    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; return; }
+  // the held frame at rest on plane z (its svHeldKept key) whose plot drew nothing while its program linked: drawn by the
+  // carry core until nothing links (svDrawPlane); null otherwise
+  let svRestFell = null;
+  // a held frame with the inputs of the held frame on the pane (key: the place held, the view, the pane's size, the
+  // chain), and no frame asked for since asks, would draw that frame again: the pane keeps it, its status included,
+  // and the hold's own checks are all this frame does -> true; else -> false, svHeldOn starts over for key (null: none),
+  // the frame's moving paths and cut handles put on it once drawn
+  function svHeldKept(key, asks) {
+    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; return true; }
     svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [] };
+    return false;
+  }
+  // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
+  // frames asked for (renderAsks) before that hold asked for its own
+  function svRenderMoving(pane, hold = null, asks = renderAsks) {
+    // (the globe's frame: the motion's frame drawn where it is, unless it waits, svLinkHold with svGlobeHolds)
+    if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane, hold); if (hold == null) svMotionDrawn(svMotion()); return; }
+    if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
     // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
@@ -2258,10 +2337,10 @@
       // (at rest while the programs at rest link: the glide's own to plane a at its end, t = 1, the same places, with
       // the programs the glide there linked)
       if (still && !svColoured(a) && a > 0 && !isDeriv(a) && svCarryRegions(pane, { mode: 1, hi: a, t: 1 }, T, a, frame, null)) return;
-      // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, the two planes'
-      // cross-faded, the whole picture of a d/dz step's glide and of a glide while the carried meshes' programs link)
-      if (still) plot(a, 1);
-      else { plot(a, svColoured(b) ? 1 : 1 - u); if (b !== a) plot(b, u); }
+      // (else the planes' exact colours: at rest, a plane at or before the colour plane; mid-glide, where the carried
+      // meshes cannot draw (the glide waits while they link, svLinkHold), the colour of the plane the frame is nearest
+      // to, as it is at rest: never two planes blended)
+      plot(still ? a : near, 1);
     };
     // (Inside regions on the GPU, #440: the colour layer over the regions' mask and kept inside it, the grid under it and
     // the outlines over it, in one frame and one copy to the page, #545)
@@ -2537,8 +2616,21 @@
     p.begin = (bg) => { p.ctx.setTransform(1, 0, 0, 1, 0, 0); p.ctx.clearRect(0, 0, cv.width, cv.height); if (bg) { p.ctx.fillStyle = bg; p.ctx.fillRect(0, 0, cv.width, cv.height); } p.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0); };
     return p;
   }
-  // the glide on the globe: the globe of plane a, its colour fading into plane b's, with the shapes moving on it
-  let svFadeCv = null;
+  // whether the globe's glide frame g (svBetween) must wait (svLinkHold's hold test on the globe): the globe's carried
+  // mesh draws it (All at once, or a step with no inverse plan, between two planes that show the colour) and links
+  function svGlobeHolds(g) {
+    svHoldB = 0;
+    const T = svT(), shows = (k) => svColoured(k) || k > T;
+    if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b) || !shows(g.a) || !shows(g.b)) return false;
+    // (a glide the globe's inverse pass draws, as svSphereMoving asks it (svGlobeCarryInv), draws no carried mesh)
+    if (!g.all && (g.map.mode !== 1 || svInvPaths(g.b, g.u, 'globe', { r: null }))) return false;
+    const src = Math.min(g.a, T);
+    if (src > 0 && derivIn(src, T)) return false;
+    return svMeshLinking(svGlideMap(g, src), { id: src === T });
+  }
+  // the glide on the globe: the globe of plane a with the colour carried by the glide's map, the shapes moving on it.
+  // While the carried mesh it is drawn with links, the glide waits where it is (svLinkHold with svGlobeHolds); hold: the
+  // place it is drawn at then
   // the regions' colour on the globe per pixel through the inverse pass, as drawSphere's regions draw records: between
   // two planes, step b's homotopy at u (svCarryExactHom's records); at rest on plane b past the colour plane (u null),
   // the map into b (svCarryExact's). A point of the plane shown is walked back to plane 0 and coloured as the colour
@@ -2588,8 +2680,8 @@
     if (info) { info.carryPath = exact ? (fwd.length ? (meshed ? 'mixed' : null) : 'inverse') : meshed ? 'mesh' : null; info.carried = !!info.carryPath; }
     return info;
   }
-  function svSphereMoving(pane) {
-    const bt = svBetween(), { a, b, u, map, F, near, all } = bt;
+  function svSphereMoving(pane, hold = null) {
+    const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, near, all } = bt;
     // (Inside regions: a coloured plane's globe in its colour only inside the regions, lifted under the glide's map as
     // the outlines are, sphereView's inRegions)
     const look = (k) => ({
@@ -2600,7 +2692,8 @@
     // (svGlobeCarryInv), the regions' own colour on the plain globe, nothing blended in, so the ends are the planes'
     // own globes. A plane past the colour plane shows the colour carried to it, at rest too (u null), as the plane's
     // svCarryExact. For a step with no inverse plan, at rest or between two planes that show the colour, the carried mesh
-    // (svGlobeMesh); while neither can draw, plane b's globe fading in over plane a's
+    // (svGlobeMesh); where neither can draw (the glide waits while the mesh links, svGlobeHolds), the plain globe of
+    // the plane the frame is nearest to: never two globes blended
     const T = svT(), still = u <= SV_REST_U || b === a;
     const shows = (k) => svColoured(k) || k > T;
     const rest = still && !svColoured(a) ? svGlobeRest(pane, a) : null;
@@ -2610,13 +2703,9 @@
     const src = Math.min(a, T);
     const carried = !inv && !still && shows(a) && shows(b) && (all || map.mode === 1)
       ? svGlobeMesh(a, T, svGlideMap(bt, src), a + u) : null;
-    const info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
+    let info = inv ? sphereView(pane, camL, CAML, Object.assign(look(a), { imageMode: false, inRegions: false, carryRegions: inv }))
       : sphereView(pane, camL, CAML, Object.assign(look(a), carried ? { imageMode: false, carried } : { carried }));
-    if (!inv && !(info && info.carried) && b !== a && (svColoured(b) || !svColoured(near)) && u > SV_FADE_U) {
-      svFadeCv = svCanvas(svFadeCv, pane);
-      sphereView(svProxy(pane, svFadeCv), camL, CAML, look(b));
-      svFadeOver(pane, svFadeCv, u);
-    }
+    if (!inv && !(info && info.carried) && near === b && b !== a) info = sphereView(pane, camL, CAML, look(b));
     if (info) { info.carryPath = inv ? 'inverse' : info.carried ? 'mesh' : null; info.carried = !!info.carryPath; }
     // (the paths t -> H_t(z) of the glide's run over both globes, as the plane draws them (svRenderMoving): chosen in
     // the plane's camera, drawn lifted to the sphere)
@@ -3807,7 +3896,7 @@
     if (svInvWarmOff || (!globe && SV.surf !== 'plane') || !paneL || !GLR.inverseState || nSteps() < 1) return;
     const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
-      if (b && !isDeriv(b) && !derivIn(0, b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
+      if (b && !isDeriv(b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
     }
     svInvWarmKey = key;
     svInvJobs = jobs.slice(0, SV_INV_WARM_MAX);
@@ -4269,7 +4358,8 @@
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
     const r = Math.round(SV.g.x);
-    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) SV.els.live.textContent = svLabel(); }
+    // (A.said: the live region's words before the crossing, which a hold that starts in this frame puts back, svLinkHold)
+    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) { A.said = SV.els.live.textContent; SV.els.live.textContent = svLabel(); } }
     dirty.L = true;
     svSync();
     if (v < 1) return true;
