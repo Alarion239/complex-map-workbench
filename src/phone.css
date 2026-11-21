@@ -565,9 +565,11 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
 :root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
 /* the construction chip stands at the plane's left and ends short of the folded legend's hit area (the key's 30 px glyph, 60 px from the plane's right edge,
-   pressed 8 px out from it), so the × that cancels it is never under the key; its words take a third line before they are cut */
+   pressed 8 px out from it), so the × that cancels it is never under the key; its words take a third line before they are cut, and in portrait a
+   fourth: at 320 px wide Russian and Italian words need four lines, and a clamp that cuts the last line cuts the tool's name, which ends them */
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { left: 8px; translate: none; max-width: calc(100% - 110px); }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on .cm-chip > .cm-t { -webkit-line-clamp: 3; }
+:root.ph:not(.ph-land) .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on .cm-chip > .cm-t { -webkit-line-clamp: 4; }
 /* the phone's messages (a toast with its Undo) take the context bar's row over the tool row, which the planes give up
    while one shows: a message covers no part of a plane */
 :root.ph #toastHost { left: 0; right: 0; translate: none; width: auto; max-width: none; align-items: stretch; gap: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); }

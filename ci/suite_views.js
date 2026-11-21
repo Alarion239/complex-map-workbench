@@ -205,6 +205,7 @@ const VIEWS = {
   'settings_theme_menu_cmd.js': steps({ pin: true }),
   'readout_touch_cmd.js': steps(),
   'phone_hint_globe_cmd.js': steps(),
+  'phone_chip_words_cmd.js': steps(),
   'steps_seg_focus_cmd.js': steps(),
   'steps_shapekeys_cmd.js': steps(),
   'steps_view_cmd.js': steps(),
