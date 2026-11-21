@@ -230,7 +230,7 @@
     if (P3r && !P3 && st.motion) rfLater();
     if (!cm || !defo) edgeAhead(P1, em, st, rf, cm, P3r);
     const cuts = cm && (!P3 || P3.ch !== P1.ch || P3.mode !== P1.mode) ? -1 : cm;
-    const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapIn(P1, st.map)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu, cuts].join('|');
+    const key = [P1.ch.key, P1.ch.hash, mapKeyOf(mapIn(P1, st.map)), b.x0, b.x1, b.y0, b.y1, N, mode, H, mu, landHComp, cuts].join('|');
     if (land && land.key === key) { lastLand = land; landRefine(st, land, P1, N, mode, H, mu, aspect, rf); return land; }
     if (!land) {
       // (the pane's grid and the stage cards' (64) are kept, one each: another pane size is freed)
@@ -249,7 +249,7 @@
     use(P1, st.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); u1i(P1, 'uPass', 0);
+    heightUniforms(P1, mode, mu, H); u1i(P1, 'uPass', 0);
     // (landTF built on the stages' sheets: its heights are the continuation at each point's own centre over
     // the stages the map applies, a..b)
     if (tfKind(P1.ch, P1.mode) === 'S') { const m0 = mapIn(P1, st.map) || {}; u1i(P1, 'uSheetA', m0.a || 0); u1i(P1, 'uSheetB', m0.b || 0); }
@@ -260,7 +260,7 @@
       use(P3, st.map);
       u1i(P3, 'uN', N);
       u4f(P3, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-      u1i(P3, 'uHMode', mode); u1f(P3, 'uH', H); u1f(P3, 'uMu', mu);
+      heightUniforms(P3, mode, mu, H);
       // (bisection steps: the cut to 2^-14 of an edge in mode 1, the step's shrinking over 12 halvings in mode 2)
       u1i(P3, 'uSteps', 13); u1i(P3, 'uTwo', 2);
       if (P3 === P1) u1i(P3, 'uPass', 3);   // (landTF's own edge pass)
@@ -350,7 +350,7 @@
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     polarUniforms(P1, polar, true);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    heightUniforms(P1, mode, mu, H);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
     runTF(P1, empty(), gl.POINTS, N * N, 0, bytes, out.tex1, N, N, gl.RGBA32F, gl.RGBA);
@@ -364,11 +364,23 @@
     runTF(P2, empty(), gl.POINTS, N * N, 0, bytes, out.tex2, N, N, gl.RGBA32F, gl.RGBA);
     return out;
   }
-  // the carried All sheets' places (LAND_CARRY_PLACE_TF_VS): the grid of the sheets' cells (N points a side) over the
-  // box src, or a pole's patch (polar, CARRY_Z), each at its image under the glide's map; bound to unit 11 (uCP) for the
-  // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
-  // i + 1
-  const landCP = [];
+  // the carried All sheets' places, bound to unit 11 (uCP) for the sheets' draw and run every frame, as the places
+  // change with the glide; the box's in landCP[0], a patch's in slot i + 1. sh ({sp: the sheets' plan, tileC: their
+  // heights' tiles a row}): each sheet's cells' corners at their image under the glide's map on that sheet, in the
+  // tiles of its heights (LAND_CARRY_PLACE_S_TF_VS), so each sheet stands over its own image; 2. Without sh, or until
+  // that program has compiled: the grid of N points a side over the box src, or a pole's patch (polar, CARRY_Z), at its
+  // image on the principal sheet, where every sheet stands (LAND_CARRY_PLACE_TF_VS); 1. 0 when neither program is ready
+  // (CP_NONE, CP_PRINCIPAL, CP_SHEETS)
+  const landCP = [], CP_NONE = 0, CP_PRINCIPAL = 1, CP_SHEETS = 2;
+  // linear heights on a carried glide: the share of the compressed height in them (HEIGHT's uHComp, st.heightComp), set
+  // by drawLandscape for the frame's height passes and their caches
+  let landHComp = 0;
+  // the height uniforms every height pass and relief program reads (HEIGHT): the mode, mu, the compressed share and,
+  // when given, the height H
+  const heightUniforms = (P, mode, mu, H) => {
+    u1i(P, 'uHMode', mode); u1f(P, 'uMu', mu); u1f(P, 'uHComp', landHComp);
+    if (H != null) u1f(P, 'uH', H);
+  };
   // a grid's patch uniforms (CARRY_ZIN): uPolar, and the seam along the glide map's cut (polar.seam, svPatchSeam) with
   // seam; the box's grid (polar null) and the sheets' patches (their cuts are the sheets') take none
   function polarUniforms(P, polar, seam) {
@@ -386,17 +398,30 @@
     const l = L_(P, 'uDisc');
     if (l && D.length) gl.uniform3fv(l, D.flatMap((p) => [p[0], p[1], CARRY_DISC_IN * p[3]]));
   }
-  function carryPlaces(st, N, polar, slot = 0) {
-    const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
-    if (!P) return false;
+  function carryPlaces(st, N, polar, slot = 0, sh = null) {
+    const c = st.carry, sb = c.src || st.box, PS = sh ? program('landCarryPlaceS', c.map) : null;
     if (!landCP[slot]) landCP[slot] = floatTex();
+    if (PS && hasSheets(PS.ch.info)) {
+      const sp = sh.sp, M = N - 1, texW = sh.tileC * 2 * M, texH = Math.ceil(sp.K / sh.tileC) * 2 * M;
+      use(PS, c.map);
+      u1i(PS, 'uN', N);
+      u4f(PS, 'uBox', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
+      polarUniforms(PS, polar, false);
+      u1i(PS, 'uSheetA', sp.a); u1i(PS, 'uSheetB', sp.b); u1i(PS, 'uSheetK', sp.K); u1i(PS, 'uSheetW', sp.W); u1i(PS, 'uTileC', sh.tileC); u1i(PS, 'uTexW', texW); u1iv(PS, 'uSheetMap', sp.map);
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(PS, empty(), gl.POINTS, texW * texH, 0, texW * texH * 16, landCP[slot], texW, texH, gl.RGBA32F, gl.RGBA);
+      gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
+      return CP_SHEETS;
+    }
+    const P = program('landCarryPlace', c.map);
+    if (!P) return CP_NONE;
     use(P, c.map);
     u1i(P, 'uN', N);
     u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
     polarUniforms(P, polar, false);
     runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP[slot], N, N, gl.RGBA32F, gl.RGBA);
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
-    return true;
+    return CP_PRINCIPAL;
   }
   // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
   // the slot after them): their textures, kept between frames
@@ -870,7 +895,7 @@
     const chain = (pass, n) => {
       use(P1, st.map);
       u1i(P1, 'uN', n); u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-      u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu); u1i(P1, 'uPass', pass);
+      heightUniforms(P1, mode, mu, H); u1i(P1, 'uPass', pass);
     };
     gl.activeTexture(gl.TEXTURE15);
     for (const k of ['lvTex', 'lstTex', 'rfTex', 'latTex', 'ptsTex', 'evTex']) if (!land[k]) land[k] = floatTex();
@@ -1045,7 +1070,7 @@
     polarUniforms(P1, polar, false);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    heightUniforms(P1, mode, mu, H);
     // linear heights run on past the block (LAND_SHEET_VS clips the surface there exactly)
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     u1i(P1, 'uPass', 0);
@@ -1061,7 +1086,7 @@
     const K = sp.K, tileC = Math.ceil(Math.sqrt(K)), tileR = Math.ceil(K / tileC);
     const M = Math.max(8, Math.min(N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
     const b = st.carry.src || st.box;
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), polar.join(','), M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), polar.join(','), M, mode, H, mu, landHComp, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     const o = landSP[slot] || (landSP[slot] = { tex1: floatTex() });
     if (o.key !== key) {
       sheetCellsTF(st, sp, P1, b, polar, M, tileC, tileR, mode, H, mu, aspect, o.tex1);
@@ -1078,7 +1103,7 @@
     M = Math.max(8, Math.min(M, N - 1, Math.floor(maxTex / (2 * tileC)), Math.floor(maxTex / (2 * tileR))));
     const b = st.box;
     // (the map's key too: a deformation's surfaces change with t)
-    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
+    const key = [P1.ch.key, P1.ch.hash, sp.a, sp.b, sp.W, K, sp.map.join(','), b.x0, b.x1, b.y0, b.y1, M, mode, H, mu, landHComp, sp.hom ? mapKeyOf(mapIn(P1, st.map)) : '0'].join('|');
     if (landS && landS.key === key) { sheetRefine(st, sp, landS, P1, mode, H, mu, aspect, rf); return landS; }
     if (!landS) landS = { tex1: floatTex() };
     sheetCellsTF(st, sp, P1, b, null, M, tileC, tileR, mode, H, mu, aspect, landS.tex1);
@@ -1144,7 +1169,7 @@
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', o.tileC); u1iv(P1, 'uSheetMap', sp.map);
-    u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
+    heightUniforms(P1, mode, mu, H);
     u1f(P1, 'uHClip', mode === 4 || mode === 5 ? 1e4 : 0);
     u1f(P1, 'uPxW', rf.pxW); u1f(P1, 'uCellW', 2 * Math.max(aspect[0], aspect[1]) / M); u1f(P1, 'uMinPx', rf.minPx);
     u1i(P1, 'uLat', move ? 0 : 1);
@@ -1275,6 +1300,8 @@
     const modeName = st.heightMode || 'log';
     const mode = { log: 0, abs: 1, re: 2, im: 3, reLin: 4, imLin: 5, reKnee: 6, imKnee: 7 }[modeName] ?? 0;
     const mu = st.mu > 0 ? st.mu : 1;
+    landHComp = mode === 4 || mode === 5 ? clamp(+st.heightComp || 0, 0, 1) : 0;
+    const hComp = landHComp;
     const N = clamp(Math.round(st.cells || 256), 32, 512);
     const dpr = st.dpr || Math.min(2, (typeof window !== 'undefined' && window.devicePixelRatio) || 1);
     const C = landColors(st);
@@ -1286,7 +1313,7 @@
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
       if (mode >= 6) { const x = v / mu, a = Math.abs(x), c = 0.5 / Math.PI; return H * Math.sign(x) * (a <= 1 ? a : 1 + c * Math.atan((a - 1) / c)); }
-      if (mode >= 4) return H * Math.max(-1.25, Math.min(1.25, v / mu));
+      if (mode >= 4) { const l = Math.max(-1.25, Math.min(1.25, v / mu)); return H * (hComp > 0 ? l + (Math.atan(v / mu) * 2 / Math.PI - l) * hComp : l); }
       return H * (2 / Math.PI) * Math.atan(v / mu);
     };
     const info = { MVP, eye, aspect, floorZ, top: H, H, hs: H, heightOf, sheets: null };
@@ -1494,10 +1521,11 @@
       const polar = (st.carry.polar || []).slice(0, CARRY_POLES), far = (st.carry.far || []).slice(0, CARRY_FAR_N.length);
       [...polar.map((p) => [p, CARRY_POLE_N]), ...far.map((p, k) => [p, CARRY_FAR_N[k]])].forEach(([p, n], i) => {
         const h = sheetPatchHeights(st, sp, p, n, i, mode, H, mu, aspect);
-        if (h && carryPlaces(st, h.N, p, h.slot)) sheetPatches.push(Object.assign(h, { far: i >= polar.length }));
+        const cp = h ? carryPlaces(st, h.N, p, h.slot, { sp, tileC: h.tileC }) : CP_NONE;
+        if (cp !== CP_NONE) sheetPatches.push(Object.assign(h, { far: i >= polar.length, cps: cp === CP_SHEETS ? 1 : 0 }));
       });
     }
-    const carried = !!st.carry && !!hs && carryPlaces(st, hs.N);
+    const cpBox = st.carry && hs ? carryPlaces(st, hs.N, null, 0, { sp, tileC: hs.tileC }) : CP_NONE, carried = cpBox !== CP_NONE;
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
@@ -1505,7 +1533,7 @@
       u3(Lp, 'uCut', C.cut);
       // (principal: up to 3 triangles where a real cut splits one; All sheets with linear heights: the triangle
       // clipped at the block, up to 3)
-      u1i(Lp, 'uHMode', mode); u1f(Lp, 'uMu', mu);
+      heightUniforms(Lp, mode, mu);
       u2f(Lp, 'uAspect', aspect[0], aspect[1]);
       const clip = !!hs && (mode === 4 || mode === 5);
       if (hs) {
@@ -1521,7 +1549,8 @@
         u1i(Lp, 'uSheetK', hs.K); u1iv(Lp, 'uSheetMap', sp.map);
         u1i(Lp, 'uCarry', carried ? 1 : 0);
         u2f(Lp, 'uClipA', aspect[0], aspect[1]);
-        if (carried) { info.carried = true; u4f(Lp, 'uCBox', box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1)); }
+        u1i(Lp, 'uCPS', cpBox === CP_SHEETS ? 1 : 0);
+        if (carried) { info.carried = true; info.sheetPlaces = cpBox === CP_SHEETS; u4f(Lp, 'uCBox', box.x0, box.y0, box.x1 - box.x0, box.y1 - box.y0); u1f(Lp, 'uCLim', st.carry.lim * (N - 1) / (hs.N - 1)); }
       } else {
         u1i(Lp, 'uCuts', hd.cuts || 0);
         for (let d = 0; d < 3; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, hd.edges[d]); }
@@ -1546,7 +1575,7 @@
         gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
         u1i(Lp, 'uPatch', 1); u1i(Lp, 'uRefOn', 0); u1f(Lp, 'uCLim', st.carry.lim);
         const drawPatch = (p) => {
-          u1i(Lp, 'uN', p.N); polarUniforms(Lp, p.polar, false);
+          u1i(Lp, 'uN', p.N); polarUniforms(Lp, p.polar, false); u1i(Lp, 'uCPS', p.cps);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.tex1);
           gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[p.slot]);
           gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
@@ -1555,7 +1584,7 @@
         gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         for (const p of sheetPatches) if (p.far) drawPatch(p);
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
-        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); polarUniforms(Lp, null, false);
+        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); polarUniforms(Lp, null, false); u1i(Lp, 'uCPS', cpBox === CP_SHEETS ? 1 : 0);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
         gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
         info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
@@ -1565,7 +1594,7 @@
         use(LB);
         common(LB);
         landLight(LB);
-        u3(LB, 'uCut', C.cut); u1i(LB, 'uHMode', mode); u1f(LB, 'uMu', mu); u2f(LB, 'uAspect', aspect[0], aspect[1]);
+        u3(LB, 'uCut', C.cut); heightUniforms(LB, mode, mu); u2f(LB, 'uAspect', aspect[0], aspect[1]);
         u1i(LB, 'uM', hd.N - 1); u1i(LB, 'uVW', 1); u1i(LB, 'uCuts', hd.cuts || 0); u1i(LB, 'uRefOn', R ? 1 : 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
       }
@@ -1573,7 +1602,7 @@
         use(LR);
         common(LR);
         landLight(LR);
-        u3(LR, 'uCut', C.cut); u1i(LR, 'uHMode', mode); u1f(LR, 'uMu', mu); u2f(LR, 'uAspect', aspect[0], aspect[1]);
+        u3(LR, 'uCut', C.cut); heightUniforms(LR, mode, mu); u2f(LR, 'uAspect', aspect[0], aspect[1]);
         u1i(LR, 'uM', hd.N - 1); u1i(LR, 'uVW', 1); u1i(LR, 'uCuts', hd.cuts || 0);
       }
       const PR = LR || Lp;
@@ -1662,7 +1691,7 @@
         u2f(Pp, 'uAspect', ax, ay);
         u1f(Pp, 'uFloorZ', floorZ);
         u1f(Pp, 'uDpr', dpr);
-        u1i(Pp, 'uHMode', mode); u1f(Pp, 'uH', H); u1f(Pp, 'uMu', mu);
+        heightUniforms(Pp, mode, mu, H);
         u3(Pp, 'uColor', C.probe);
         gl.bindVertexArray(empty());
         // inside the block the needle is hidden: shown ghosted, so the ring on the surface leads
