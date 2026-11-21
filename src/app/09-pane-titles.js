@@ -1216,11 +1216,6 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      // (its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
-      // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
-      // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
-      if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
     // (the phone's key button is named for its kind, "Regions key" as "Height key" and "Colour key": what the key
     // shows, its fill among it, is its description's (legendSaid), so a screen reader says it once)
@@ -1268,7 +1263,9 @@
       paintLegend(octx, anyCut, kind, st);
       st.key = key; st.drawn = '';
     }
-    legendSaid(box, (st.say || []).join('; '));
+    // (a head's key opens by pointing and by keys, which its name does not say: the instruction ends its description)
+    const inHead = !!box.parentNode && /** @type {HTMLElement} */ (box.parentNode).classList.contains('pane-head');
+    legendSaid(box, [(st.say || []).join('; '), inHead ? $t('Point at it to unfold; click it or press Enter to keep it open') : ''].filter(Boolean).join('. '));
     const dyn = img ? '' : `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
     if (st.drawn === key + dyn) return;
     st.drawn = key + dyn;
