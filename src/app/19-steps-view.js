@@ -3802,26 +3802,27 @@
   }
   // a program of the main panes landed (GLR.onReady) and the left pane has drawn no frame since (svDrawPlane clears it)
   let svRedrawDue = false;
-  // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts: the chain's
-  // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
-  // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
-  // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
-  // meshes); while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
+  // How much of what a glide of the current chain needs is ready: {done, total, parts, ready}. parts, in the order the
+  // Play gate's message names the first one not done (svGateMissing): programs, the chain's programs linked (both map
+  // modes, the carried colour and its cut fills, the glide's map mode of the programs the panes draw, which the warm-up
+  // starts in the init part (WARM's first group, in the same modes), any inverse one still compiling); warm, the
+  // carried colour's warm draw made; poles, ring, meshes, the idle jobs finished (the pole tracks, the outer ring, the
+  // meshes); redraw, only while svRedrawDue, the left pane's frame that draws with the program that landed. The
   // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
   // is not up; ready is true only when done = total > 0
-  // (test hook: the idle jobs count as unfinished while set)
-  let svJobsHold = false;
-  const svJobsHoldSet = (on) => { svJobsHold = !!on; };
+  // (test hook: the parts named in svJobsHold count as unfinished: true for the three idle jobs)
+  let svJobsHold = null;
+  const svJobsHoldSet = (on) => { svJobsHold = Array.isArray(on) ? on : on ? true : null; };
   function svReady() {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
+    const held = (k) => svJobsHold === true ? k === 'poles' || k === 'ring' || k === 'meshes' : !!svJobsHold && svJobsHold.includes(k);
+    let left = {};
+    try { left = { poles: svPolesLeft(), ring: svRingLeft(), meshes: svMeshNext() }; } catch (e) { left = {}; }
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
-    parts.warm = { done: svWarmSig === chainSig[nSteps()] ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
-    let jobs = 0;
-    try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
-    if (svJobsHold) jobs = 3;
-    parts.jobs = { done: 3 - jobs, total: 3 };
-    if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
+    parts.warm = { done: svWarmSig === chainSig[nSteps()] && !held('warm') ? 1 : 0, total: derivIn(0, 1) ? 0 : 1 };
+    for (const k of ['poles', 'ring', 'meshes']) parts[k] = { done: left[k] || held(k) ? 0 : 1, total: 1 };
+    if (svRedrawDue || held('redraw')) parts.redraw = { done: 0, total: 1 };
     let done = 0, total = 0;
     for (const k in parts) { done += parts[k].done; total += parts[k].total; }
     return { done, total, parts, ready: total > 0 && done === total };
