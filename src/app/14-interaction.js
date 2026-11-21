@@ -1287,11 +1287,14 @@
   // fixed-width readout; a component that is rounding noise next to the other (9×10⁻¹⁷ + 1.5i) reads 0
   // (atol: below it a component is 0 too; the left readout passes a billionth of X's pixel, so a probe that lands a
   // rounding error off an axis reads 0.0000, not 7.11×10⁻¹⁵)
-  function fmtCxHtml(w, dp = 4, atol = 0) {
+  function fmtCxHtml(w, dp = 4, atol = 0) { return fmtCxWith(w, dp, atol, '<i>i</i>'); }
+  // the same reading as plain text, for a message: 0.500 − 1.250i
+  function fmtCxText(w, dp = 4, atol = 0) { return fmtCxWith(w, dp, atol, 'i'); }
+  function fmtCxWith(w, dp, atol, unit) {
     if (!CX.isFin(w)) return '∞';
     const tol = Math.max(atol, 1e-12 * Math.max(Math.abs(w.re), Math.abs(w.im)));
     const re = Math.abs(w.re) < tol ? 0 : w.re, im = Math.abs(w.im) < tol ? 0 : w.im;
-    return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}<i>i</i>`;
+    return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}${unit}`;
   }
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
   let rHover = null; // a point hovered in the right (image) plane
