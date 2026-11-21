@@ -1084,10 +1084,11 @@ void main() {
     if (R.trigAccurate && outside) R.errors.push(`sin and cos of the library outside [-1, 1]: ${JSON.stringify(outside)}`);
   } catch (e) { R.errors.push('trig: ' + e.message); }
 
-  // (on SwiftShader GLSLTiers.keep left GLSLTiers.SWIFTSHADER_HANG's chains out, whose programs do not finish there:
+  // (a renderer of GLSLTiers.NOT_ON: GLSLTiers.keep left its set's chains out, whose programs do not survive there:
   // GLSLTiers.notRun, each 'name (reason)')
-  R.notOnSwiftShader = GLSLTiers.notRun;
-  for (const name of GLSLTiers.SWIFTSHADER_HANG.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.SWIFTSHADER_HANG: no chain is named ${name}`);
+  const notOn = GLSLTiers.NOT_ON_HERE;
+  R.notOn = notOn ? { renderer: notOn.name, issue: notOn.issue, chains: GLSLTiers.notRun } : null;
+  for (const n of GLSLTiers.NOT_ON) for (const name of n.chains.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.${n.set}: no chain is named ${name}`);
   for (const ch of selected) {
     const tc = performance.now();
     try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 3000)}`); }

@@ -34,7 +34,7 @@ await ev('window.dispatchEvent(new Event("pagehide")); 1'); await sleep(900);
 const w = await saved();
 info.written = w;
 ok('the next save writes the place back (fractional)', w && Math.abs(w.at - 2.25) < 1e-6 && w.T === 2 && w.scope === 'in' && w.speed === 'slow', w);
-// undo: an example replaces the state, undo brings the place back
+// undo: an example takes over the state, undo brings the place back
 await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);
 await ev('__cmwSteps({ go: 1, now: true })'); await sleep(300);
 await ev('(__cmwExample(3), 1)'); await sleep(2500);
@@ -66,7 +66,7 @@ await go(`${base}/test.html?ns=${ns}a&view=steps#cmw=${alonePayload}`);
 await settled({ until: "window.__cmwSteps && __cmwSteps().on && __cmwSteps().planes.length === 2", max: 30000 });
 const ra = await ev(`typeof __cmwSteps === 'function' ? __cmwSteps() : null`);
 ok('a link carries the step shown alone', ra && ra.on && ra.planes.length === 2 && ra.planes[1] === 2, ra && { on: ra.on, planes: ra.planes });
-// a saved alone that the chain no longer has (a step bypassed) opens on the whole chain
+// a saved alone that the chain does not have (a step bypassed) opens on the whole chain
 const byp = steps.map((x, i) => (i === 1 ? Object.assign({}, x, { on: false }) : x));
 await load(ns, { steps: byp, sv: aloneSv });
 await openSv(`${base}/test.html?ns=${ns}&view=steps`, true);

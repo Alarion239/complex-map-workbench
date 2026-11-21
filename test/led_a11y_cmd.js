@@ -1,10 +1,11 @@
 // The pane heads' LEDs, in every state they have (ok, busy, err): a keyboard user reaches each one by Tab and reads its state
 // in the tip; a screen-reader user is told, politely, when its state has held for a moment; busy, up to date and failed
 // differ in shape, not only in hue, and a busy LED keeps 3:1 against the bar at the pulse's lowest opacity, light and
-// dark. The classic view has both LEDs (left, right); the steps view has the left; a phone shows none.
+// dark. The classic view has both LEDs (left, right); the steps view has the left; a phone shows none, and its pane's states are said all the same.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 const BAD = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], srcView: { cx: 0, cy: 0, s: 90 },
   steps: [{ type: 'custom', params: { expr: '\\frac{', cut: 180 }, on: true }] };
 const open = async (viewName, w, h, mobile, st, lang) => {
@@ -111,14 +112,13 @@ const pulse = await ev(`(() => {
   const lows = kf ? [...kf.cssRules].map((r) => parseFloat(r.style.opacity)).filter((v) => !isNaN(v)) : [];
   const low = lows.length ? Math.min(...lows) : null, root = document.documentElement, e = document.getElementById('leftLed');
   const rgb = (css) => { const p = document.createElement('i'); p.style.color = css; document.body.append(p); const m = /rgba?\\(([^)]*)\\)/.exec(getComputedStyle(p).color)[1].split(',').map(Number); p.remove(); return m; };
-  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
-  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  ${LUM_JS}
   const barBg = () => { for (let n = e.parentElement; n; n = n.parentElement) { const m = /rgba?\\(([^)]*)\\)/.exec(getComputedStyle(n).backgroundColor); if (m) { const v = m[1].split(',').map(Number); if (v[3] === undefined || v[3] > 0.5) return v; } } return [255, 255, 255]; };
   const out = { low };
   for (const th of ['light', 'dark']) {
     root.setAttribute('data-theme', th);
     const bg = barBg(), fg = rgb('var(--warn)'), a = low === null ? 1 : low;
-    out[th] = +cr([0, 1, 2].map((i) => Math.round(a * fg[i] + (1 - a) * bg[i])), bg).toFixed(2);
+    out[th] = +ratio([0, 1, 2].map((i) => Math.round(a * fg[i] + (1 - a) * bg[i])), bg).toFixed(2);
   }
   root.removeAttribute('data-theme');
   return out;
@@ -139,8 +139,29 @@ info.reduced = { busy: rb, ok: ro };
 ok('reduced motion: the busy LED is steady', rb.anim === 'none', rb);
 ok('reduced motion: busy and up to date still differ in shape', shape(rb) !== shape(ro), { busy: shape(rb), ok: shape(ro) });
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'no-preference' }] });
-// ---- a phone shows no LED, so none is a Tab stop
+// ---- a phone shows no LED, so none is a Tab stop, and its pane's states are said all the same: the polite region holds the LED's
+// words (one pane is shown, the steps view's left, so no title or letter goes before them), once per change
 await open('steps', 390, 844, true);
 const ph = await led('leftLed');
 ok('phone: the LED is not shown, so it is not a Tab stop', !ph || !ph.shown, ph);
+// (a colour plot's program held linking, ?glhold: the left LED goes busy with its stand-in's tip while it links, and ok when it has)
+const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
+for (const lang of ['en', 'ru', 'it']) {
+  const leg = `phone ${lang}`;
+  await view(360, 640, false, true);
+  const ns = `ledph${lang}${Date.now() % 100000}`;
+  await seed(ns, { steps: [{ type: 'custom', params: { expr: '\\frac{z^2-1}{z^2+1}', cut: 180 } }], shapes: [{ kind: 'disc', c: [0, 0], r: 1, id: 's1' }], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&glhold&view=steps&lang=${lang}`);
+  await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'function' && !!window.GLR && !!document.getElementById('ledLive')" });
+  const w = await settled({ max: 20000, only: true, panes: false, until: "document.querySelector('#leftLed').classList.contains('busy')" });
+  const tip = (await led('leftLed')).tip;
+  ok(`${leg}: the LED is not shown (display none), and busy while the colour plot's program links`, w.ok && !(await led('leftLed')).shown, await led('leftLed'));
+  const s1 = await settled({ max: 6000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(tip)})` });
+  ok(`${leg}: a busy state that holds is said, once, by #ledLive: "${tip}"`, s1.ok && (await live()) === tip, { said: await live(), tip });
+  await ev('GLR.holdLinks(false), 1');
+  await settled({ max: 20000, only: true, panes: false, until: "document.querySelector('#leftLed').classList.contains('ok')" });
+  const okTip = (await led('leftLed')).tip;
+  const s2 = await settled({ max: 6000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(okTip)})` });
+  ok(`${leg}: up to date again is said, once: "${okTip}"`, s2.ok && (await live()) === okTip, { said: await live(), okTip });
+}
 return { pass: fails.length === 0, fails, info };

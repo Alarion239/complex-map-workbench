@@ -1,4 +1,4 @@
-// v16.4 (notes/tour-r3/SPEC.md 7.4): the audit of the docked strip, every step of every chapter at 390 × 844, 1024 × 700
+// The audit of the docked strip (notes/tour-r3/SPEC.md 7.4): every step of every chapter at 390 × 844, 1024 × 700
 // and 1440 × 900, light and dark, English and Russian, mouse and touch (24 runs). Per step: the strip meets none of the
 // panes, the chain, the tool row and the header's controls; its box is the same for every step of a chapter (a desktop:
 // the panes' too); no lead, task, result or caption is cut (scrollHeight <= clientHeight + 1, scrollWidth <= clientWidth
@@ -7,34 +7,47 @@
 // the anchor (90 %); no app layer is left open by the tour (a phone's sheet the step opens aside). The old callout
 // audit (place(), the docked callout, the mini bar) went with the callout. With AUDIT_SHOTS, every step is shot at 390
 // and 1440 (touch and mouse), light and dark, English and Russian, into AUDIT_SHOTS (a folder).
-// r3 review regress-3: v16.2's engine-independent passes are back, ported to the strip (test/tour_audit_spot.js holds
-// v16.2's probe): spotlight-exact (each lit element's visible border box, its corner radius included, matches a drawn
+// The engine-independent passes, ported to the strip (test/tour_audit_spot.js holds
+// their probe): spotlight-exact (each lit element's visible border box, its corner radius included, matches a drawn
 // hole or ring within 1 px, the paths mapped through getScreenCTM; no hole that no lit element explains; the strip is a
 // window of the shade), the task's control lit (ctl), layers (the palette, Examples, More, export, a toast, the sound
 // settings, the guide and the Language menu over a step: the tour covers none of them and its rings are masked off
 // each; layerAll: the palette and a toast on every step at 390, 768 and 1440), follow (a scroll, a resize and a layout
 // change: the spotlight right in the next frame) and focus (each strip control shows a focus ring; the palette opened
-// from the strip and closed with Esc gives the focus back to the strip). The sizes are v16.2's again: 360, 390, 844 ×
+// from the strip and closed with Esc gives the focus back to the strip). The sizes: 360, 390, 844 ×
 // 390, 768, 1024 × 700, 1152 × 720 and 1440 (inputs 'auto': touch on a phone's sizes, a mouse elsewhere).
 // Run: test/<you>_cdp/q.sh test/tour_audit_cmd.js. A subset: prepend `const AUDIT_CFG = { sizes: [[390, 844]], ... }`.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const CFG = Object.assign({ sizes: [[360, 780], [390, 844], [844, 390], [768, 1024], [1024, 700], [1152, 720], [1440, 900]], themes: ['light', 'dark'], langs: ['en', 'ru'], inputs: ['mouse', 'touch'], shots: null,
   steps: true, spot: true, layers: true, follow: true, focus: true, layerAll: [390, 768, 1440] },
   typeof AUDIT_CFG !== 'undefined' ? AUDIT_CFG : {});
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 const SPOT = eval(fs.readFileSync(DIR + '/../tour_audit_spot.js', 'utf8') + '; SPOT');
 const inject = () => ev(`window.__aud = ${SPOT}; 1`);
 const U = `http://localhost:${PORT}/test.html`;
 const R = [], ROWS = [];
+let PINNED = false;
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 // (#504: readiness waits, not fixed sleeps; the kit's settled(): two frames, no finite animation running, and its until)
-// a step has settled: the strip no longer busy (show() sets aria-busy at once, before its first await), the spotlight's
+// a step has settled: the strip not busy (show() sets aria-busy at once, before its first await), the spotlight's
 // morph over; a floor of 350 ms for the step's own 300 ms re-sync of its buttons (syncAct, a sound step); and the web
 // fonts in (display=swap: a face the strip uses first can swap in after the load, changing cut, titleOk and the sizes;
 // ux's review)
 const STEADY = `(!Tour.isActive() || (!document.querySelector('.tour-strip[aria-busy]') && !!Tour.lit() && !Tour.lit().moving))`;
 const settle = () => settled({ floor: 350, panes: false, faces: true, until: STEADY });
-// a layer the step opened is shown (a layer that never opens still fails: after the cap, as noLayer)
-const shown = (sel) => settled({ panes: false, max: 3000, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
+// a layer the step opened is shown: first it is visible (the condition alone, with its cap: a layer that never opens fails its row here),
+// then what still animates is waited out (its own, larger cap: an enter animation that runs past the first cap is no layer that failed to
+// open). Each wait makes a row, so reading its answer goes with a check that can fail; o.rows takes the rows instead of the suite's own
+// (the pin's probes), o.visibleMs and o.calmMs the caps.
+const SHOWN_MS = 8000, ANIM_MS = 20000, PROBE_MS = 800;
+const shown = async (sel, o = {}) => {
+  const rows = o.rows || check;
+  const v = await settled({ only: true, max: o.visibleMs || SHOWN_MS, until: `[...document.querySelectorAll(${JSON.stringify(sel)})].some(__aud.vis)` });
+  rows(`${sel} is shown`, v.ok, v);
+  const c = v.ok ? await settled({ panes: false, max: o.calmMs || ANIM_MS }) : null;
+  if (c) rows(`${sel} is calm`, c.ok, c);
+  return { visible: v.ok, calm: !!c && c.ok };
+};
 // after a close, a stop or a key: only what still animates (no condition of its own, so no check is let off)
 const calm = () => settled({ panes: false });
 logs();
@@ -62,8 +75,7 @@ const PROBE = `(() => {
   for (let i = 1; i < btns.length; i++) gap = Math.min(gap, btns[i].l - btns[i - 1].r);
   // contrast of the strip's text on its background (alpha over the page), and of Next's label on its fill
   const rgb = (s) => { const m = String(s).match(/[\\d.]+/g); return m ? m.map(Number) : [0, 0, 0, 1]; };
-  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
-  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  ${LUM_JS}
   const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length < 4 || c[3] > 0.5) return c; } return rgb(getComputedStyle(document.body).backgroundColor); };
   const con = {};
   for (const [n, sel] of [['title', '.ts-title'], ['lead', '#tourLead'], ['count', '.ts-count'], ['why', '.ts-chev']]) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && e.textContent.trim()) con[n] = +ratio(rgb(getComputedStyle(e).color), bgOf(e)).toFixed(2); }
@@ -116,7 +128,7 @@ for (const cfg of runs) {
     if (g.frac != null) check(`${n}: the lit patch holds the anchor`, g.frac >= 0.9, g.frac);
     check(`${n}: no app layer left open by the tour`, g.layers === 0, g.layers);
     if (CFG.spot) {
-      // (v16.2's spotlight-exact and lit-control checks, through its own probe)
+      // (the spotlight-exact and lit-control checks, through its own probe)
       const sp = await ev(`({ spot: __aud.spot(), ctl: __aud.ctl() })`);
       const bad = (sp.spot || []).filter((x) => x.d > 1 || x.radD > 1 || x.cut || x.hiddenAnchor || (x.extra && x.extra.length) || (x.zero && x.zero.length));
       check(`${n}: spotlight exact (each lit box a drawn hole within 1 px, radii too; no stray hole)`, !bad.length, bad);
@@ -133,7 +145,7 @@ for (const cfg of runs) {
     await ev('Tour.next()'); await settle();
     if ((await ev('Tour.isActive()')) && JSON.stringify(await ev('Tour.current()')) === before) { check(`${n}: Next moves on`, false, before); break; }
   }
-  // every step this build has was visited
+  // every step this build has must be visited
   const n = [...seen].filter((s) => s.startsWith(tag + ':')).length;
   // (the classic tour has 45 steps and the steps view's 42; a desk walks all of them, a phone's layout leaves some out. The
   // floors: classic 43, steps view 42 at a desk and 40 on a phone)
@@ -142,8 +154,27 @@ for (const cfg of runs) {
   check(`${tag}: every step visited (${sv ? 42 : 45}, less what the layout leaves out)`, n >= floor, n);
   await ev('Tour.isActive() && Tour.stop()'); await calm();
   }
-  // ---- layers (v16.2's pass, for the strip): during a step, open each layer of the app
+  // ---- layers (the pass for the strip): during a step, open each layer of the app
   if (CFG.layers && theme === 'light') {
+    if (!PINNED) {
+      // (shown(): a toast whose enter animation runs 4.5 s is shown and calm; a layer that never opens, and an animation that outlasts the
+      // calm cap, each make a failing row)
+      PINNED = true;
+      const toast = (ms) => ev(`(() => { __tourApi.toast('A toast with a ${ms} ms enter animation'); document.querySelector('#toastHost > .toast').animate([{ opacity: 0.99 }, { opacity: 1 }], { duration: ${ms} }); return true; })()`);
+      const clear = async () => { await ev(`document.querySelector('#toastHost').innerHTML = ''; 1`); await calm(); };
+      await toast(4500);
+      const t0 = Date.now(), sh = await shown('#toastHost > .toast'), took = Date.now() - t0;
+      check('shown() waits out a toast with a 4.5 s enter animation, and says visible and calm', sh.visible && sh.calm && took >= 4000, { sh, took });
+      await clear();
+      const never = [];
+      const nv = await shown('#no-such-layer', { rows: (name, pass) => never.push([name, pass]), visibleMs: PROBE_MS });
+      check('shown() makes a failing row for a layer that never opens', !nv.visible && never.some(([, pass]) => !pass), { nv, never });
+      await toast(4500);
+      const slow = [];
+      const sw = await shown('#toastHost > .toast', { rows: (name, pass) => slow.push([name, pass]), calmMs: PROBE_MS });
+      check('shown() makes a failing row for an animation that outlasts the calm cap', sw.visible && !sw.calm && slow.some(([n, pass]) => /is calm/.test(n) && !pass), { sw, slow });
+      await clear();
+    }
     const runLayer = async (stepAt, name, open, close, sel) => {
       await ev(`Tour.start(${JSON.stringify(stepAt)})`); await settle();
       const id = stepAt.chapter + '/' + stepAt.step;
@@ -179,7 +210,7 @@ for (const cfg of runs) {
     const X = { chapter: 'basics', step: 1 };
     const toastOpen = async () => ev(`(() => { __tourApi.toast('Deleted: circle 3. A long message so the toast is wide'); return true; })()`);
     const toastClose = async () => ev(`(() => { document.querySelector('#toastHost').innerHTML = ''; return true; })()`);
-    // (v16.5 UX17: "Palette and keys" is a chapter for the keyboard, not offered on a touch screen: there the palette is
+    // ("Palette and keys" is a chapter for the keyboard, not offered on a touch screen: there the palette is
     // checked at the next step only)
     if (await ev(`Tour._t.chapterShown(Tour._t.CHAPTERS.find((c) => c.id === 'keys'))`)) await runLayer({ chapter: 'keys', step: 0 }, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
     await runLayer(X, 'palette', async () => { await key('k', 4); return true; }, esc, '#popHost > .pop.palette');
@@ -263,8 +294,8 @@ for (const cfg of runs) {
     })()`));
   }
 }
-// (as v16.2's: a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
-// views/key at 844 × 390 since v15, notes/tour/POLISH.md)
+// (a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
+// views/key at 844 × 390, notes/tour/POLISH.md)
 const LALL = logs();
 const SKIPS = LALL.filter((l) => /\[tour\] step skipped/.test(l.m)).map((l) => l.m);
 const L = LALL.filter((l) => /EXC|\[tour\]/i.test(l.t + l.m) && !/\[tour\] step skipped/.test(l.m)).slice(0, 12);

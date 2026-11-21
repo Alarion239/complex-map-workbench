@@ -11,8 +11,8 @@
 //    (Each frame's places w are read from its own camera, and the pixel compared is parked plane 1's at the same w.)
 //  - Control: parked plane 0 differs from parked plane 1 there (at most CONTROL_MAX of those pixels match), so the
 //    match is plane 1's own picture and not any coloured frame.
-// The glide is drawn by the carried meshes (path 'mesh'), the path the Douady–Hubbard glide takes; the paint is under
-// the carried colour, so the inverse pass's path takes it too.
+// The glide is drawn by the inverse pass (path 'inverse'), the path the Douady–Hubbard glide takes (#1339); the paint is
+// under the carried colour, so the carried meshes' path takes it too.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -39,7 +39,7 @@ for (const x of [0, ARRIVE_U, 0.5]) ok(`the frame at x = ${x} settles`, await pa
 const rec = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u, w: g.w, h: g.h }; })()');
 info.glide = rec;
 ok('the frame at u = 0.5 is a glide frame', !!rec && Math.abs(rec.u - 0.5) < 1e-9, rec);
-ok('the glide is drawn by the carried meshes (path \'mesh\', the Douady–Hubbard glide\'s)', !!rec && rec.path === 'mesh', rec && rec.path);
+ok('the glide is drawn by the inverse pass (path \'inverse\', the Douady–Hubbard glide\'s)', !!rec && rec.path === 'inverse', rec && rec.path);
 // (parked plane 1: the glide run to its end; a held x keeps the plane the thread was last let go on)
 await ev(`__cmwSteps({ go: 1, now: true }), 1`);
 const at1 = await settled({ max: SETTLE_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 1 && __cmwSteps().i === 1 && GLR.pendingLinks === 0' });

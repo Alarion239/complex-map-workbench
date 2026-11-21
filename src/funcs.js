@@ -84,7 +84,7 @@ const Funcs = (() => {
   const degIv = (a, b) => { const x = fmtDeg(a), y = fmtDeg(b); return `(${x}°${I18N.comma() && /,/.test(x + y) ? '; ' : ', '}${y}°]`; };
 
   // the homotopies, natural paths and derivatives live in src/natpaths.js and src/derivs.js
-  const { XN, texOf, taylorAt, polyMul, ratOf, derivAst, derivativeStep } = Derivs;
+  const { XN, texOf, taylorAt, polyMul, ratOf, derivAst, derivativeStep, chainDerivativeStep } = Derivs;
   const { mobHom, mobHomTex, linHom, memoAt, powHom, powaHom, twoPhaseNeg, NEG_INV, expHom, expHomTex, logHom, logHomTex, joukHom, ijoukHom, joukTex, vTex, expoTex, branchOr, ends, ZOOM, ZOOM_TEX, natData, genericZoomNat, customNat, polyNat, ratPath, ratZoomAt, ratZoomData, rationalNat, monomialOf, zerosPolesNat } = NatPaths;
 
   // ---- parameter helpers ----
@@ -768,6 +768,11 @@ const Funcs = (() => {
   // orbit and the square roots nearest to it. NaN on M (on the filled Julia set), wherever the orbit needs more than N
   // steps to pass 10⁴, and for φ_c below the critical potential. The external rays and equipotentials of the Inspector
   // card are Region's dhray and dheq. Both deform along the straight line (no zoom path: they are not defined at 0)
+  // (identitySeed on a step's build: one-to-one onto the outside of a disk and f(z)/z -> 1 at infinity, so z = w is a
+  // seed of f(z) = w for large |w|; Inverse.newtOps verifies it; degreeOne: every H_t has at most one root over a w,
+  // which Inverse.singleRoot checks over a grid of seeds, so the seed's walk is skipped where member 0 already hit;
+  // dualDerivative: the shader computes H' with H in one walk, so the Newton kit takes its derivative from that, not
+  // from differences)
   const DH_NMAX = 64;
   // (its tooltip: why a band next to the set stays blank)
   const DH_NTIP = $t('Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank');
@@ -784,6 +789,9 @@ const Funcs = (() => {
         props: props({ analytic: true, injective: true }),
         domain: (v) => `${v}\\notin M`,
         inverseNote: dhNoInv(),
+        identitySeed: true,
+        degreeOne: true,
+        dualDerivative: true,
       };
     },
   });
@@ -797,6 +805,9 @@ const Funcs = (() => {
         f, hom: linHom(f), homTex: dhHomTex,
         tex: (a) => ({ s: `\\varphi_{${valTex(c)}}${paren(a.s)}`, p: 3 }),
         props: props({ analytic: true, injective: true }),
+        identitySeed: true,
+        degreeOne: true,
+        dualDerivative: true,
         domain: (v) => (rho > 1 ? `G_c(${v})>G_c(0)` : `${v}\\notin K_c`),
         inverseNote: dhNoInv(),
         dh: { rho },
@@ -1604,11 +1615,11 @@ const Funcs = (() => {
   }
 
   // ---------------- whole Riemann surfaces and the deformation's sheets (src/sheets.js) ----------------
-  const { SHEET_MAX, branchNode, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets } = Sheets({ DEG, PI, circleAt, circleRel, isLive });
+  const { SHEET_MAX, branchNode, sheetOffsets, sheetCombos, sheetCount, sheetCountOf, sheetEval, sheetHomOk, sheetMapCombos, sheetMapEval, sheetMapHow, sheetMapPieces, sheetSteps, stepSheets } = Sheets({ DEG, PI, circleAt, circleRel, isLive });
 
   return {
-    DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, twoPhaseNeg, NEG_INV, setOnePhase: NatPaths.setOnePhase, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst,
-    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
+    DH_NMAX, DEFS, GROUPS, PROP_KEYS, defaults, build, buildVals, showKey, showIn, twoPhaseNeg, NEG_INV, setOnePhase: NatPaths.setOnePhase, natData, ZOOM, ratZoomData, ratZoomAt, ratPath, polyNat, rationalNat, zerosPolesNat, monomialOf, ZP_MAX, splitList, parseCxList, typedList, typedKeep, zpItem, toZerosPoles, fromZerosPoles, mobHomTex, composeProps, derivProps, props, polyTex, numericPolyDegree, derivativeStep, derivAst, chainDerivativeStep,
+    REPEAT_MAX, REPEAT_STEPS, repeatN, repeatOk, repeatBuilt, applyRepeats, stageFollow, stageFunctions, circleAt, circleRel, SHEET_MAX, sheetCount, sheetCountOf, branchNode, sheetOffsets, stepSheets, sheetSteps, sheetCombos, sheetEval, sheetMapHow, sheetHomOk, sheetMapPieces, sheetMapCombos, sheetMapEval,
     splitSteps, splitReason, splitLabel, splitStepTex, splitMorphT, splitSvPlace, splitRowsVar, splitSubRows, splitMoves, shortCx,
   };
 })();

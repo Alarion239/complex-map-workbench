@@ -67,7 +67,11 @@ const MAP = [
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone', 'layout')],                                       // the header, its menus, the panels and drawers (#385)
+  ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
+  ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
+  ['src/app/19-readout.js', ui('views', 'desktop', 'phone')],                                      // a stage disc's readout card in the Inspector (#1983)
+  ['src/app/19-lookdown.js', ui('views', 'desktop', 'phone')],                                     // Look down: the target ring, lines, critical marks and key (#1984)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
@@ -114,7 +118,7 @@ const MAP = [
   ['src/page.html', Object.assign(ui('desktop', 'phone', 'layout'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
+  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,invops,invpatterns,inverse,critical,pieces,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
   ['src/{palette,homrange}.ts', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
@@ -178,7 +182,8 @@ const MAC_JOBS = ['glsl', 'adv', 'inverse'].map((page) => ({ os: 'macos-latest',
 // (Linux: Chrome's own SwiftShader, CPU WebGL2, what headless Chrome falls back to without a GPU and what the figure
 // exports render on: its built-in sin and cos keep only Vulkan's minimum accuracy, and its last bits differ from the
 // GPUs'. Its core tier on every run: the glsl page in halves (its chains compile on one core), adv and inverse whole.
-// A chain SwiftShader does not finish is not run there (GLSLTiers.SWIFTSHADER_HANG, which lists none))
+// A chain a renderer does not survive is not run there (GLSLTiers.NOT_ON: SwiftShader's SWIFTSHADER_HANG, which lists
+// none, and lavapipe's LAVAPIPE_CRASH))
 const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },

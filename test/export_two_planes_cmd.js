@@ -72,9 +72,9 @@ for (const c of CASES) {
   }
 }
 
-// a To plane past the colour plane brings the pane's key: the hue ring and the line saying where the colour is carried from,
-// in a column right of the second picture, inside the figure; a To plane that is the colour plane (T at the last plane,
-// where each plane is coloured by its own map) has none
+// a To plane other than the colour plane, before it as well as past it, brings the pane's key: the hue ring and the line saying
+// where the colour is carried from, in a column right of the second picture, inside the figure; a To plane that is the colour plane
+// (T at that plane, where it is coloured by its own map) has none
 const nPlanes = planes;
 for (const [T, to] of [[0, 1], [0, 2], [nPlanes - 1, 1], [nPlanes - 1, 2]]) {
   await ev(`(__cmwSteps({ T: ${T} }), __cmwSteps({ go: ${to}, now: true }), 1)`);
@@ -87,7 +87,7 @@ for (const [T, to] of [[0, 1], [0, 2], [nPlanes - 1, 1], [nPlanes - 1, 2]]) {
   // (the ring is the key's group of sectors, <g id="…-key">)
   ok(`${tag}: the ring is ${carried ? 'drawn' : 'absent'}`, r && !!r.svg && /<g id="[^"]*-key"><path\b/.test(r.svg) === !!carried, null);
   info[`key ${tag}`] = carried;
-  ok(`${tag}: a carried key is ${T === 0 ? 'present' : 'absent'}`, !!carried === (T === 0), carried);
+  ok(`${tag}: a carried key is ${to === T ? 'absent' : 'present'}`, !!carried === (to !== T), carried);
 }
 // the key's words are inside the figure in every language (the Italian line is the widest)
 for (const lang of ['en', 'ru', 'it']) {

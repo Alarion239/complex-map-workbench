@@ -155,8 +155,9 @@ const near = (a, b, tol) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].ever
 const OPEN_TOAST = 'Opened the figure from the link.';
 const openCams = async (state, tag, atRest = true) => {
   const old = await ev('performance.timeOrigin');
-  // (a raw navigation and the kit's reloaded, not go: go opens the url again when the document it is waiting for is slow to arrive, and
-  // a link opened again finds the state its own first open saved, and asks before opening it)
+  // (go opens the url again when the document it is waiting for is slow to arrive, and a link opened again finds the state its own
+  // first open saved, and asks before opening it)
+  // raw-navigate: a link is opened by a raw navigation and the kit's reloaded, which waits for the link's reload
   await send('Page.navigate', { url: `${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}` });
   try {
     if (atRest) await reloadedFigure(old, OPEN_TOAST);
@@ -337,6 +338,21 @@ n++;
   info['?i18n-debug: with the flag'] = on;
   ok('?i18n-debug: a lookup miss is recorded in the steps view', on.debug && on.ru && on.recorded, on);
   await grab('?i18n-debug');
+}
+
+// a link copied before the save carries the steps view's place as it is on screen: the place is moved and the figure a
+// link carries (__cmwFigureState) read in the same task, before the save that follows a change (300 ms later); the page
+// opens from a link with no place of its own, so the figure's place can only come from the view on screen
+n++;
+{
+  const ns = 'lmigP' + n + Date.now();
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(LINK_STATE, true)}`);
+  await reloadedFigure(old, 'Opened the figure from the link.');
+  const got = await ev(`(() => { __cmwSteps({ go: 2, now: true, scope: 'in' }); const s = __cmwSteps(); return { fig: __cmwFigureState().sv || null, x: s.x, scope: s.scope }; })()`);
+  info['a link copied before the save: its place'] = got;
+  ok('a link copied before the save carries the place on screen (at, scope)', !!got.fig && got.fig.at === got.x && got.x === 2 && got.fig.scope === 'in' && got.scope === 'in', got);
+  await grab('link before the save');
 }
 
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);

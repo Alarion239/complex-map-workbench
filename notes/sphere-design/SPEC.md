@@ -78,7 +78,9 @@ bound. Rev 2 therefore:
   formula shape, an unrecognised unbounded formula under a window family, member indices beyond 2²⁰ (precision).
   A curve of a later plane stroked by its polylines at rest (a freehand curve, a formula curve, an external ray, an
   equipotential) has no 64-vertex limit: its polylines are simplified to fit 1024 vertices (`GLR.INV_CURVE_MAX`), and
-  one that still does not fit is left out of the frames between planes.
+  one that still does not fit is left out of the frames between planes. An open region of a later plane is stroked
+  dashed, as at rest, by its outline's polylines at rest within the same 1024 vertices, each vertex with its arc at
+  rest; an outline that does not fit is stroked solid, by the region's level.
 - Frames of a **playing** homotopy (morph, transitions) keep today's GPU path, as do all shapes during the first frames
   of a pending compile.
 
@@ -739,7 +741,7 @@ shapeClip, ixRange, sheetKey, compositor, ixDK, ixStop, patternColor, invLeaf) +
 |---|---|
 | view (flat) | `uCenter` (hi), `uCenterLo`, `uInvScale`, `uVp`, `uDpr` |
 | view (globe) | `uMVP`, `uEye`, light (`lightUniforms`), via `SPHERE_VS` |
-| sheet key | `uWin` (x0, y0, x1, y1 of `clipWin`), `uWinR` (half-diagonal), `uWinRs` (= R/8), `uSing[4]`, `uSingN` |
+| sheet key | `uWin` (x0, y0, x1, y1 of `clipWin`), `uWinR` (half-diagonal), `uWinRs` (= R/8), `uSing[4]`, `uSingN`, `uSingT` (the period T of 5.1, 0 for none) |
 | compositing | `uAlpha` (the shape's alpha, hover-dimmed), `uKsat` (K, capped at B) |
 | shape | `uPts` (texture unit 4: every shape's record, packed once per frame), `uShOff` (this shape's record offset), `uShape` (kind, complement, count), `uShA`, `uShB`, `uFormSlot` |
 | look | as `regionUniforms`: `uC0`, `uC1`, `uK`, `uPattern`, `uCell`, `uLines`, `uShrink`, `uGrow`, `uMid`, `uOrigin`, `uQ`, plus `uSphN` |
@@ -964,12 +966,19 @@ suite's machine for every acceptance scene.
 ### 5.1 The key D
 
 ```
-D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|))
+D(z) = log2(1 + dist(z, W) / R) + sum over p in P of max(0, log2(rs / |z - p|_T))
 ```
 
 - W is the box of `clipWin`, R its half-diagonal, and rs = R/8.
 - dist is Euclidean, and 0 inside W.
 - P is the accumulation set of 3.7 (at most 4 points).
+- T is the key's period (`Inverse.keyPeriod`), or none. A chain whose first step after affine ones u = A z + B is
+  periodic (an additive family of period p: exp, sin, cos, tan and their kin) has F(z + T) = F(z) with T = p / A, so
+  its singular points come in classes modulo T. P holds one point of each class, and |z - p|_T is the distance from z
+  to the nearest point of p's class. Every copy z + kT of a point then takes the same singular terms, and the copies
+  rank by their distance to W alone. A key without T would penalise only the copies beside the listed poles, so a copy
+  beside a pole P leaves out would come in front of the copies near the window (on Strip to disk's w₂, copies 3
+  periods down). Mid-glide, T is the period of the steps before the glide's step, which the glide's map keeps.
 - With Λ and Re Λ > 60: dist ≈ e^{Re Λ}, so log2(1 + dist/R) ≈ (Re Λ − ln R)/ln 2. For p = 0 the singular term is
   log2(rs) − Re Λ/ln 2.
 
@@ -1086,6 +1095,22 @@ net at cell edges, as `net()`.
 - **float32 transcendentals** on real GPUs are 2–4 ulp. The GLSL parity test (12.2) checks enumerator outputs on the
   GPU against `Inverse.enumerate`. The real-GPU benchmark reproduced the z^i hole, rims and polar checker exactly
   (4.7).
+- **A Series step's float32 limit (#1898): where a pixel is white.** A glide's inverse pass through a Series step draws a pixel
+  only where a member of its walk lies inside the regions (Inside regions). `SER_CANCEL` (src/glsl.js) makes the series'
+  value NaN where its largest term times float32's epsilon passes a share of 1 + |S|, as does |z| > 88, so a walk that meets
+  such a point has no member. A pixel is white, and never carries a colour, in three cases:
+  1. *cancelled*: every member inside the rectangle has a walk that meets a cancelled point (none at u = ½ of the default
+     series, 0 of 1,050 sampled pixels);
+  2. *off canvas*: the members lie outside the plane's canvas;
+  3. *outside the rectangle*: no member lies inside the regions' rectangle, the picture outside the regions' image, which
+     Inside regions leaves white (501 of the 503 white pixels sampled at u = ½).
+
+  The edge of the white area is ragged where float32 loses a member the CPU's float64 walk keeps: a band a few pixels wide
+  along the image's boundary (2 of the 503 white pixels sampled, ≈ 0.2 % of the pane), moving with u. It is a float32 limit,
+  not drawn differently: the GPU does not know, per pixel, which lost walks would have ended inside the rectangle (a "walk met
+  a cancelled point" flag also marks the whole empty area, since the polynomial's far roots die at cancelled points for
+  every pixel), so the page draws no fill for it, and a colour always means a true member. `test/series_limit_cmd.js` pins
+  it at u = ½: no coloured pixel without a root inside the rectangle, and the band at most 8 of the sampled pixels.
 - **Fallback.** float64 vertices in two charts (z, and u = 1/z). Relative precision is 1e−13 at the refinement floor,
   and |z| is resolved from 1e−290 to 1e290 (sphere-native section 11).
 

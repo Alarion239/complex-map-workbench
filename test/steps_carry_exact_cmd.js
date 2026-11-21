@@ -12,7 +12,9 @@
 //  - the frame is drawn by the inverse pass and the judge passes: at least JUDGE_MIN_N pixels compared, at most JUDGE_OVER
 //    of them more than JUDGE_TOL apart in a channel (the colour lines are left out);
 //  - negative control: the cross-fade of plane z's and plane w1's parked frames at the same u (the picture a glide that
-//    blended the two planes would show) does not pass the same judge.
+//    blended the two planes would show) does not pass the same judge;
+//  - the inverse pass's sheet key has the period of the steps view's key at u (__cmwSvKey(1, u)): the glide map's at u,
+//    exp's path's 2 pi i / u here (invHomPer).
 //
 // ---- part inregion ----
 // The steps view's carried colour, against the exact colour pulled back pixel by pixel. Each case is a plane w1
@@ -40,7 +42,8 @@
 // Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
 // - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (drawn by the inverse pass; the front
 //   point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
-// - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered.
+// - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered; and the
+//   glide's key at t = 0.999 puts the copy of a point in front that plane w1's key does at rest.
 //
 // ---- part chains ----
 // The steps view's colour at rest on the planes past the colour plane of long chains, coloured from z ("colour of z,
@@ -59,6 +62,8 @@
 // shows, the region's or not, so it can pick a copy of z outside the region) has over 1 % wrong: the check tells the
 // two rules apart.
 // - Strip to disk (exp, then (z - 1)/(z + 1); the strip |Im z| < pi/2): planes w1 and w2, Inside regions and Everywhere;
+//   and w2 Everywhere over the whole pane against the copy nearest the centre (every point at w is a copy of one, all
+//   as near a pole: the key ranks them by their distance to the centre alone);
 // - exp, z^2, (z - i)/(z + i), z^3 with the disc |z - (0.3 + 0.2i)| < 1.2: planes w2, w3 and w4 Everywhere, w4 Inside regions;
 // - sin, (z - 1)/(z + 1), z^2, (z - i)/(z + i) with the disc |z| < 1.4: plane w4 Everywhere and Inside regions;
 // - exp, (z - 1)/(z + 1), z^3, (z - i)/(z + i), z^2 with the strip: plane w5 Everywhere and Inside regions.
@@ -76,7 +81,7 @@
 //   1.1 x + 0.9 i y.
 // - A d/dz between plane z and the colour plane (z², d/dz, exp; coloured from w₃: exp(2z) at z), Everywhere, parked at
 //   x = 5/2, past the d/dz (plane w₂'s points 2z on exp's zoom path at t = 1/2: 2(e^z − 1) + 1/2); the colour evaluates
-//   the chain through the d/dz.
+//   the chain through the d/dz, and the inverse pass draws the frame (the glide's path 'inverse').
 // A command file for a CDP daemon (test/cdp_kit README); CI runs its parts in the views and formulas shards
 // (ci/browser_shards.js). Prints {pass, fails, info}.
 const ONLY = process.env.CMW_ONLY || '';
@@ -129,8 +134,10 @@ async function glidePart() {
   for (const u of HELD_U) {
     { const h = await hold(u); ok(`u = ${u}: the thread is held`, h.ok, h); }
     ok(`u = ${u}: the moving frame settles`, await grab('M' + u), null);
-    const g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, b: g.b }; })()');
+    const g = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, b: g.b, per: g.per }; })()');
     ok(`u = ${u}: the frame is the inverse pass's`, !!g && g.path === 'inverse', g);
+    const kper = (await ev(`__cmwSvKey(1, ${u})`)).per;
+    ok(`u = ${u}: the inverse pass's sheet key has the period of the steps view's key at u`, !!g && JSON.stringify(g.per) === JSON.stringify(kper), { pass: g && g.per, key: kper });
     const j = await judge('R0', 'M' + u);
     info['judge u=' + u] = j;
     ok(`u = ${u}: the carried colour is the exact picture's (judge passes)`, j.pass, j);
@@ -423,7 +430,7 @@ async function farPart() {
     ok("Joukowski key along t: its points are J's pole and the path's pole at t", keyOff.length === 0, keyOff);
     const ws = grid(P0, 8, 5, 0.9), seq = ws.map(() => []);
     for (let s = 30; s <= 70; s++) {
-      const cs = ws.map(J.candAt(s / 100)), F = await fronts(cs.map((L) => L.map((e) => e.z)), 1, (await ev(`__cmwSvKey(1, ${s / 100})`)).sing);
+      const cs = ws.map(J.candAt(s / 100)), F = await fronts(cs.map((L) => L.map((e) => e.z)), 1, null, s / 100);
       cs.forEach((L, k) => seq[k].push(F[k] < 0 ? null : L[F[k]].z));
     }
     // (a step of t moves a point by about |z| / 100: the front jumps when it moves more than a tenth of 1 + |z|, and
@@ -455,7 +462,7 @@ async function farPart() {
     // them)
     const c = [-0.12, 0.1], r = 1.1244998888, outside = (z) => Math.hypot(z[0] - c[0], z[1] - c[1]) - r;
     // (the Joukowski path's candidates at t and its key's points: joukPath of the kit; the key along t reads every candidate)
-    const P0 = await paneOf(), J = joukPath(outside, () => false);
+    const P0 = await paneOf(), J = joukPath(outside);
     await keyAlongT(P0, J);
     await farFrames(P0);
   }
@@ -481,6 +488,14 @@ async function farPart() {
     // (at once: under 5 ms, where making the tracks again is a whole grid search per seed step, tens of ms or more)
     ok("tan all parked 0.5: the glide's pole tracks are kept for it (a second key at once)", k.again < 5, k);
     ok('tan all parked 0.5: no point of the inner 90 % on the bare paper', paper === 0 && info['tan all parked 0.5'].n > 1000, info['tan all parked 0.5']);
+    // The glide's key as t -> 1 meets plane w1's: of the 13 copies atan w + k pi (k = -6 .. 6) landing at w, the front
+    // point under the key at t = 0.999 is the one at rest (the glide's key has the period of tan's path at t, pi / t)
+    const atan = ([x, y]) => [(Math.atan2(2 * x, 1 - x * x - y * y)) / 2, Math.log((x * x + (y + 1) * (y + 1)) / (x * x + (y - 1) * (y - 1))) / 4];
+    const ws = [[5, 0], [8, 1], [-6, 0.5], [3, 3]], lists = ws.map((w) => { const a = atan(w); return Array.from({ length: 13 }, (_, i) => [a[0] + (i - 6) * Math.PI, a[1]]); });
+    const near1 = await fronts(lists, 1, null, 0.999), rest = await fronts(lists, 1, null);
+    const jumps = ws.map((w, j) => ({ w, glide: lists[j][near1[j]], rest: lists[j][rest[j]] })).filter((e, j) => near1[j] !== rest[j]);
+    info['tan key at t = 0.999'] = { per: (await ev('__cmwSvKey(1, 0.999)')).per, rest: (await ev('__cmwSvKey(1)')).per, jumps };
+    ok("tan: the glide's front point at t = 0.999 is plane w1's at rest", rest.every((i) => i >= 0) && jumps.length === 0, info['tan key at t = 0.999']);
   }
   // The warm draw of the glide's carried colour (svWarmCarry) waits until the chain and the input have been still for 2 s:
   // on a renderer that makes a program's machine code at its first draw it takes the main thread for a second or more,
@@ -508,6 +523,14 @@ async function chainsPart() {
   // (the axes, which plane z and the planes past it draw over the colour, within AXIS_PX; and plane z's zero, where every
   // colour meets, within ZERO_PX: a pixel's colour there is not that of a point a pixel away)
   const AXIS_PX = 3, ZERO_PX = 12;
+  // the front where every point landing at w is a copy of one point, all equally beside a pole (a chain periodic in z):
+  // the copy nearest the key's window centre (the window win of __cmwSvKey), whatever the key's points
+  const nearest = (win) => async (lists) => lists.map((L) => {
+    const c = [(win.x0 + win.x1) / 2, (win.y0 + win.y1) / 2];
+    let bi = -1;
+    L.forEach((z, i) => { if (bi < 0 || Math.hypot(z[0] - c[0], z[1] - c[1]) < Math.hypot(L[bi][0] - c[0], L[bi][1] - c[1])) bi = i; });
+    return bi;
+  });
   // the control's front: of the points landing at w that plane z's pane P shows, the one with the larger Im z
   const larger = (P) => async (lists) => lists.map((L) => {
     let bi = -1;
@@ -515,8 +538,9 @@ async function chainsPart() {
     return bi;
   });
 
-  // One chain (the page's steps, chainSteps) at rest on its planes: cases [{ b, scope, box }] (box: the plane's points
-  // read, 60 x 46 over [x0, x1, y0, y1]; 40 x 28 over the middle 90 % of the pane by default), inR(z) the region (a signed
+  // One chain (the page's steps, chainSteps) at rest on its planes: cases [{ b, scope, box, near }] (box: the plane's points
+  // read, 60 x 46 over [x0, x1, y0, y1]; 40 x 28 over the middle 90 % of the pane by default; near: the front point is the
+  // copy nearest the centre, nearest(), in place of the page's key), inR(z) the region (a signed
   // distance to its outline, > 0 inside). The points z are looked for over plane z's window and its size again on each side (a point the key
   // puts in front lies near the window's centre). min: the points a case compares at least. A point w is left out where
   // the page draws over the colour: where any of its points z is within EDGE of the region's outline (the outline's
@@ -528,8 +552,8 @@ async function chainsPart() {
     const cands = chainPoints(chainSteps, { x0: P.v.cx - hw, x1: P.v.cx + hw, y0: P.v.cy - hh, y1: P.v.cy + hh });
     const axis = (p) => Math.min(Math.abs(p[0]), Math.abs(p[1])) < AXIS_PX / P.v.s, zero = (z) => Math.hypot(z[0], z[1]) < ZERO_PX / P.v.s;
     const drawn = (p, b) => axis(p) || (b === 0 && zero(p)) || (!!o.drawn && o.drawn(p, b));
-    for (const { b, scope, box } of cases) for (const mesh of [false, true]) {
-      const tag = `${name}: w${b} ${scope === 'in' ? 'Inside regions' : 'Everywhere'}${mesh ? ', meshes' : ''}`;
+    for (const { b, scope, box, near } of cases) for (const mesh of [false, true]) {
+      const tag = `${name}: w${b} ${scope === 'in' ? 'Inside regions' : 'Everywhere'}${near ? ', the copy nearest the centre' : ''}${mesh ? ', meshes' : ''}`;
       const pts = box ? grid({ v: { cx: (box[0] + box[1]) / 2, cy: (box[2] + box[3]) / 2, s: 1 }, w: box[1] - box[0], h: box[3] - box[2] }, 60, 46, 1) : grid(P, 40, 28, 0.9);
       const all = (w) => {
         const L = cands(w, b), out = drawn(w, b) || L.some((e) => Math.abs(inR(e.z)) < EDGE || drawn(e.z, 0));
@@ -538,7 +562,7 @@ async function chainsPart() {
       const cand = scope === 'in' ? (w) => all(w).filter((e) => inR(e.z) > 0) : all;
       const at = { scope, go: b, now: true };
       if (mesh) await ev('window.__cmwInv = GLR.drawInverse, GLR.drawInverse = null, 1');
-      const r = await measure(at, b, P, pts, cand);
+      const r = await measure(at, b, P, pts, cand, near ? nearest((await ev(`__cmwSvKey(${b})`)).win) : undefined);
       info[tag] = r;
       info[tag].path = (await ev('__cmwSteps().rest')) || null;
       ok(`${tag}: at rest on plane ${b}, coloured from z`, r.state.x === b && r.state.T === 0, r.state);
@@ -575,9 +599,11 @@ async function chainsPart() {
     // 20 px and more)
     const LABEL = 0.7, LINE = 0.1, z0At = [[0, 0], [1, 0], [0, 0]];
     const drawn = (p, b) => Math.hypot(p[0] - z0At[b][0], p[1] - z0At[b][1]) < LABEL || (b === 0 && Math.abs(p[1] - 0.8) < LINE);
-    // (w2: the disc, the strip's image, which is small at this view; past it the front points lie past plane z's window)
+    // (w2 Inside regions: the disc, the strip's image, which is small at this view)
     const disc = [-1.3, 1.3, -1, 1];
-    await chain('Strip to disk', [EXP, MOB_STRIP], [{ b: 1, scope: 'in' }, { b: 1, scope: 'all' }, { b: 2, scope: 'in', box: disc }, { b: 2, scope: 'all', box: disc }], strip, 300, { drawn });
+    // (w2 Everywhere over the whole pane: every point landing at w is a copy z + 2 pi i k of one, each beside a pole
+    // i pi (2m + 1) of the Möbius step pulled back, as near as the others, so the front is the copy nearest the centre)
+    await chain('Strip to disk', [EXP, MOB_STRIP], [{ b: 1, scope: 'in' }, { b: 1, scope: 'all' }, { b: 2, scope: 'in', box: disc }, { b: 2, scope: 'all', box: disc }, { b: 2, scope: 'all', near: true }], strip, 300, { drawn });
   }
   // ---- exp, z^2, Cayley, z^3 with a disc ----
   {
@@ -626,7 +652,8 @@ async function planesPart() {
     return { W, Z };
   };
   // at: the frame's state (park: the thread's place); T: the colour plane; path: the
-  // glide record's path the frame must have (the carried meshes': 'mesh'), null for a frame that writes no record
+  // glide record's path the frame must have (the carried meshes': 'mesh'; the inverse pass's: 'inverse'), null for a
+  // frame that writes no record
   async function check(tag, at, T, W, Z, min, path) {
     await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true, T })}); 1`);
     await wait();
@@ -639,7 +666,7 @@ async function planesPart() {
     ok(`${tag}: parked at x = ${at.park}, coloured from w${T}`, Math.abs(state.x - at.park) < 1e-9 && state.T === T, info[tag].state);
     ok(`${tag}: the colour plane's colour of each point, at most 1 % wrong`, info[tag].n >= min && info[tag].wrong <= 0.01 * info[tag].n, info[tag]);
     ok(`${tag}: no point on the bare paper`, info[tag].paper === 0, info[tag]);
-    if (path) ok(`${tag}: drawn by the carried meshes (the glide's path '${path}')`, !!state.glide && state.glide.path === path, info[tag].state);
+    if (path) ok(`${tag}: drawn by ${path === 'mesh' ? 'the carried meshes' : 'the inverse pass'} (the glide's path '${path}')`, !!state.glide && state.glide.path === path, info[tag].state);
   }
 
   // ---- beside a region of a later plane (a disc on w₁), a region of plane z, under a step with no inverse ----
@@ -670,7 +697,7 @@ async function planesPart() {
     const offGrid = (v) => Math.abs(v - Math.round(v)) * P.v.s > 2.5;
     const place = (z) => { const e = Math.exp(z[0]), w = [2 * (e * Math.cos(z[1]) - 1) + 0.5, 2 * e * Math.sin(z[1])]; return w.every(offGrid) ? w : null; };
     const past = pairs(P, 60, (z) => clear(z) && Math.abs(z[1]) < 2.5 && z[0] > -1.2, place);
-    await check('a d/dz before the colour plane, glided past it', { scope: 'all', park: 2.5 }, 3, past.W, past.Z, 200, 'mesh');
+    await check('a d/dz before the colour plane, glided past it', { scope: 'all', park: 2.5 }, 3, past.W, past.Z, 200, 'inverse');
   }
 }
 

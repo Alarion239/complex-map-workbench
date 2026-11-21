@@ -1,4 +1,4 @@
-# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux SwiftShader)
+# Headless Chrome harness (real WebGL2 via ANGLE Metal; on Windows ANGLE Direct3D 11; on Linux lavapipe through ANGLE Vulkan where installed, else SwiftShader: renderer.js)
 
 On Windows (or anywhere without zsh) use `node test/<you>_cdp/q.js /path/to/cmd.js` in place of `q.sh`; `CHROME_BIN`
 overrides the browser's path, `CMW_ANGLE` its ANGLE back end, `CMW_CHROME_ARGS` adds flags (ci/README.md) and `CMW_DPR`
@@ -21,8 +21,9 @@ The in-app Browser pane currently has no WebGL2, so GPU views must be tested her
    since the last call; the daemon's own `cdp` entries name the navigations and crashes it saw), `forgetCause()` (forgets the last one, for a check that a failure with none says so; a call the page went under fails with `[method: the event that came first]` appended), `send(method, params)` (raw CDP), `sleep(ms)`.
    Instead of a fixed sleep (#504): `go(url)` navigates and waits for the page's load event (a change of the hash
    alone fires none: `go` then waits its 15 s and logs it, so use `nav` or `ev` for that; a document whose body stops arriving
-   is opened again after 5 s, at most twice, but a `#cmw=` link never is: its second document, which its open reloads into, can be slow, and a
-   navigation again would find the saved figure and ask instead of opening it; `go` waits on it for its limit and logs the stall); `settled({ until, floor,
+   is opened again after 5 s, at most twice; a `#cmw=` link's document is reloaded the same way only while the page still has the hash (the
+   app has not read the link yet), and its second document, which its open reloads into, is never opened again: a navigation then would find the
+   saved figure and ask instead of opening it; `go` waits on that one for its limit and logs the stall). A suite that sends `Page.navigate` itself has none of this: `test/t_raw_navigates.js` counts those sites against `test/raw_navigates_baseline.json`, so open a page with `go` / `load` / `loadView`, or give a `raw-navigate: <why>` reason; `settled({ until, floor,
    max, panes, faces })` waits until two animation frames find the page loaded, neither pane's GPU frame pending or
    compiling (unless `panes: false`), no finite animation running and `until` (an expression) true, at most `max` ms
    (8000), and answers `{ ok, ms, busy }`; with `faces: true` it also waits for the page's font faces to land (the layout is flushed first: a face is requested when its text is laid out).

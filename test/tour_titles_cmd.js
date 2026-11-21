@@ -1,7 +1,7 @@
 // The tour's task titles and the Phase portrait task (issue #34): a step whose title is a task reads as one in Russian
 // (Draw a shape: «Нарисуйте фигуру», Add a function: «Добавьте функцию», where the same words on a button stay in the
 // infinitive), a title that starts in lower case (Cauchy integral) is capitalised in every language, and the Phase
-// portrait step of Views now has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it. It runs in
+// portrait step of Views has a task (zoom in on a zero or a pole), done by a wheel zoom. 1440 px, en/ru/it. It runs in
 // the steps view (ci/suite_views.js: steps({ pin: true })); a step is found by its id, not by its place in the chapter.
 // (Tour.start returns a promise that ev would await, so the call ends in a value and the strip is read as it shows.)
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -9,6 +9,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
+const TICK_MS = 8000;   // (the cap on the zoom task's tick)
 // (the strip as the page shows it: a step's task may be done at once and the countdown moves the tour on, so a step's strip is
 // read at the moment it first shows, in the wait for it)
 const READ = `(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`;
@@ -41,7 +42,7 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang}: the plane step has its task`, g.cur === 'plane' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
   await settled();   // (the step's own actions have run and it listens: the wheel then ticks the task)
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 450, deltaX: 0, deltaY: -120 });
-  await settled({ until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 3000 });
+  await settled({ only: true, until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: TICK_MS });   // (the tick is a class: the strip's animations are not asked)
   g = await strip();
   ok(`${lang}: a zoom ticks it`, g.done, g);
   info[lang] = g;
