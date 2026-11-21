@@ -146,9 +146,9 @@ async function runPage(base, p, side) {
       const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
-      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, maxSlots: R.maxSlots, maxSlotsChain: R.maxSlotsChain, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOnSwiftShader: R.notOnSwiftShader, ms: R.ms }; })()');
+      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, maxSlots: R.maxSlots, maxSlotsChain: R.maxSlotsChain, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOn: R.notOn, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
-      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.maxSlots != null ? `, max ${r.maxSlots} uniform slots (${r.maxSlotsChain})` : ''}${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOnSwiftShader && r.notOnSwiftShader.length ? `; not run on SwiftShader (#1809): ${r.notOnSwiftShader.join('; ')}` : ''}`;
+      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.maxSlots != null ? `, max ${r.maxSlots} uniform slots (${r.maxSlotsChain})` : ''}${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOn && r.notOn.chains.length ? `; not run on ${r.notOn.renderer} (${r.notOn.issue}): ${r.notOn.chains.join('; ')}` : ''}`;
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');
@@ -208,15 +208,20 @@ async function main() {
   const R = ref ? buildReference(ref) : null;
   legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
   if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
-  // (#1809) a reference whose test/glsl_tiers.js has no SWIFTSHADER_HANG would run on SwiftShader the chains whose
-  // programs do not finish there: its pages are built with this change's test/glsl_tiers.js, which leaves them out as
-  // this side does (elsewhere it leaves nothing out), so both sides run the same chains; the reference's file is put
-  // back after the build
+  // (#1809, #1815) a reference whose test/glsl_tiers.js lacks one of the sets of chains a renderer does not survive
+  // (SWIFTSHADER_HANG, LAVAPIPE_CRASH), or has other chains in it, would run on that renderer chains this side leaves out:
+  // its pages are built with this change's test/glsl_tiers.js, so both sides run the same chains; the reference's file is
+  // put back after the build
   const notes = [];
   const refTiers = R && !legacy ? path.join(R.dir, 'test', 'glsl_tiers.js') : null;
-  const overlay = !!refTiers && !fs.readFileSync(refTiers, 'utf8').includes('SWIFTSHADER_HANG');
+  const setOf = (text, name) => (new RegExp(`const ${name} = new Map\\(\\[(.*?)\\]\\);`, 's').exec(text) || [])[1];
+  const sets = ['SWIFTSHADER_HANG', 'LAVAPIPE_CRASH'];
+  const overlay = !!refTiers && (() => {
+    const mine = fs.readFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), 'utf8'), theirs = fs.readFileSync(refTiers, 'utf8');
+    return sets.some((n) => setOf(theirs, n) === undefined || setOf(theirs, n) !== setOf(mine, n));
+  })();
   if (overlay) {
-    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own has no \`SWIFTSHADER_HANG\`, #1809): both sides run the same chains.`);
+    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own lacks ${sets.join(' or ')}, or lists other chains, #1809 #1815): both sides run the same chains.`);
     console.log(notes[0].replace(/`/g, ''));
     fs.copyFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), refTiers);
   }

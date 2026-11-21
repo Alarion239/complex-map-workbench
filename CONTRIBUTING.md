@@ -34,6 +34,9 @@ ruff check
 
 - `npm test` runs every unit test (`test/t_*.js`) through `ci/unit.js`. The browser, GLSL, quality and perf gates
   run in CI (`ci/README.md`).
+- A browser suite you run locally (`node ci/browser.js --only …`) draws with CI's lavapipe where `mesa-vulkan-drivers` is installed, else
+  with SwiftShader and a warning; the run's first line names the renderer. Judge a red by it: a red on SwiftShader that CI does not show
+  is not a regression (`ci/README.md`, Locally).
 - Run `node ci/snapshots.js` once before the unit tests: `t_constr`, `t_i18n_english` and `t_i18n_parse` compare with old
   versions it restores from the git history into `notes/*/src`. In a shallow clone it fetches the commits it needs; a
   test whose snapshot is missing fails and says so (#427).
@@ -82,7 +85,7 @@ ruff check
 - **Keep functions short.** A new function over about 80 lines needs a reason; split it where a split is natural.
 - **Generated files are not edited by hand:** `src/i18n_ru.js`, `src/i18n_it.js`, `src/seasong.js`
   (each names its generator at the top). `node test/t_i18n_tables.js` fails a pull request whose ru or it table is not a
-  fresh generation (a changed ru or it JSON, or a comment edit that drops a key only that comment held): run the generator it
+  fresh generation (a changed ru or it JSON, or a changed string): run the generator it
   names (`python3 tools/make_ru_table.py --strict`, `python3 tools/make_it_table.py`; `--check` writes nothing).
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
@@ -99,6 +102,9 @@ ruff check
 - The size budget is two ESLint warnings in `eslint.config.js`. `max-lines` is 1500 per file, and each file still over
   it has its own limit in `SIZE_BUDGET`, its size when the budget was set: such a file may shrink, never grow, and
   `max-lines` warns when it does. When a file shrinks, lower its number; once it is under 1500, drop it from the table.
+  `src/app/` is joined from parts (`src/app/NN-*.js`): a part has its own entry, keyed by its path from the repository's root
+  (`src/app/19-steps-view.js`), and `max-lines` measures the part, not the joined `app.js`; a part without an entry is
+  measured against the 1500.
   `max-lines-per-function` is today's largest function, so a change that makes one bigger is flagged. Lower the limits
   when you split something; never raise them.
 

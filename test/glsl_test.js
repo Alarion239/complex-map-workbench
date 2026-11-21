@@ -349,7 +349,7 @@
   // chains are refused at the first step count over the live cap and built one step short of it; at the WebGL2 minimum the
   // cap is SPEC_MIN_SLOTS and a chain of 60 Möbius steps is refused
   {
-    const SPEC_MIN = 224, LIMIT_BIG = 1024, SPEC_MIN_SLOTS = 141, FEW_STEPS = 60;
+    const SPEC_MIN = 224, LIMIT_BIG = 1024, SPEC_MIN_SLOTS = 140, FEW_STEPS = 60;
     const tryBuild = (steps, vecs) => { try { return { slots: GLChain.build(steps, steps.map((st) => Funcs.build(st)), vecs).slots }; } catch (e) { return { err: String(e && e.message) }; } };
     const mob = (n) => Array.from({ length: n }, () => S('mobius'));
     const refused = (r) => !!(r && r.err && /exceed the cap of/.test(r.err));
@@ -1114,10 +1114,11 @@ void main() {
     if (R.trigAccurate && outside) R.errors.push(`sin and cos of the library outside [-1, 1]: ${JSON.stringify(outside)}`);
   } catch (e) { R.errors.push('trig: ' + e.message); }
 
-  // (on SwiftShader GLSLTiers.keep left GLSLTiers.SWIFTSHADER_HANG's chains out, whose programs do not finish there:
+  // (a renderer of GLSLTiers.NOT_ON: GLSLTiers.keep left its set's chains out, whose programs do not survive there:
   // GLSLTiers.notRun, each 'name (reason)')
-  R.notOnSwiftShader = GLSLTiers.notRun;
-  for (const name of GLSLTiers.SWIFTSHADER_HANG.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.SWIFTSHADER_HANG: no chain is named ${name}`);
+  const notOn = GLSLTiers.NOT_ON_HERE;
+  R.notOn = notOn ? { renderer: notOn.name, issue: notOn.issue, chains: GLSLTiers.notRun } : null;
+  for (const n of GLSLTiers.NOT_ON) for (const name of n.chains.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.${n.set}: no chain is named ${name}`);
   for (const ch of selected) {
     const tc = performance.now();
     try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 3000)}`); }

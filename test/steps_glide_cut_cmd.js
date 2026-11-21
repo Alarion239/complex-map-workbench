@@ -5,7 +5,7 @@
 // ruler's one pixel of rasterization), and at most SAME_FRAC of the band's pixels may fail. The handle's disc is checked apart, in a box around the
 // parked handle, the same way, and the glide leaves it no hit target (an inert handle). Controls (each must fail the same measure): the glide frame against the plane it arrives at, and the parked plane
 // against itself shifted SHIFT_PX px. The dashed bank's dashes keep the parked plane's phase at the arrival and through the glide (read off the line's red
-// along the bank's polyline). A glide frame's handle is never drawn hot, and labels keep clear of its chip. The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws no handle.
+// along the bank's polyline). A glide frame's handle is never drawn hot, and labels keep clear of its chip. The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws its handle as one that takes presses (test/steps_paused_cut_cmd.js turns the cut by it).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -40,7 +40,7 @@ const frameAt = async (state) => {
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: false }); ${state}; 1`);
   await settled({ max: 20000 });
 };
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}` });
+await go(`http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function"' });
 // a glide frame at u, under way: the thread held there by a scrub on the rail not let go, as a user holds it (held_frames.js), then put at u exactly
 const heldAt = async (u) => {
@@ -67,10 +67,10 @@ if (mid.every((m) => !!m)) {
   info.midJump = { jump, walk };
   ok(`the handle is continuous across the middle: its move from u = ${MID_U - STEP_U / 2} to ${MID_U + STEP_U / 2} is at most ${JUMP_RATIO} times the move between neighbouring steps (at least ${JUMP_FLOOR_PX} px)`, jump <= Math.max(JUMP_FLOOR_PX, JUMP_RATIO * walk), { jump, walk });
 }
-// A frame parked between two planes draws no handle: there one would look draggable and take no press. The pictures (the pane with its overlay) of the
-// glide frame held at MID_U and of the frame parked there are read in the held frame's chip box: from DISC_R + CHIP_GAP px right of its handle to CHIP_W,
-// BAND_PX rows each side, clear of the cut's line through the handle. A pixel there in the cut's red counts (the chip's border and its "θ" label; the
-// control: the held frame's count is over MIN_INK)
+// A frame parked between two planes draws the handle as one that takes presses (a hit target, __cmwCutHandles), not as the glide's inert mark, at the
+// place the glide frame held there draws its mark. The pictures (the pane with its overlay) of the glide frame held at MID_U and of the frame parked there
+// are read in the held frame's chip box: from DISC_R + CHIP_GAP px right of its handle to CHIP_W, BAND_PX rows each side, clear of the cut's line through
+// the handle. A pixel there in the cut's red counts (the chip's border and its "θ" label; the control: the held frame's count is over MIN_INK)
 const MIN_INK = 50, CHIP_GAP = 4;
 const inkAt = (tag, m) => ev(`(() => {
   // (m: the mark's place on the page, as __cmwCutMarks gives it)
@@ -90,7 +90,7 @@ const paused = { moving: await ev('__cmwSteps().moving'), label: await ev('__cmw
 if (heldMark) Object.assign(paused, { heldInk: await inkAt('heldMid', heldMark), ink: await inkAt('pausedMid', heldMark) });
 info.paused = paused;
 ok(`the control: the glide frame held at u = ${MID_U} draws its handle's chip, over ${MIN_INK} pixels of the cut's red in its box`, !!heldMark && paused.heldInk > MIN_INK, paused);
-ok(`a frame parked at u = ${MID_U}, between two planes, draws no cut handle: no mark, no hit target and none of the chip's red in the held frame's chip box`, paused.marks === 0 && paused.handles === 0 && paused.ink === 0, paused);
+ok(`a frame parked at u = ${MID_U}, between two planes, draws its cut handle as one that takes presses: one hit target, no inert mark, and the chip's red in the held frame's chip box (over ${MIN_INK} pixels)`, paused.marks === 0 && paused.handles === 1 && paused.ink > MIN_INK, paused);
 // A glide frame's handle is never drawn hot: the hover a parked plane's handle had (the pointer left on it, the pane's pointer not moved since) does
 // not carry over to the inert mark. Two pictures are compared within RING_R px of a handle, the pixels more than TOL levels apart counted: the parked
 // plane 0 with the pointer on its handle against with the pointer away (the control: a hot handle is drawn bigger, HOT_MIN px differ at least), then
@@ -202,6 +202,37 @@ ok('the control: the parked chip against itself: no pixel fails', rows['the park
 ok('the control: the parked plane against itself: no pixel fails', rows['the parked plane against itself'].fail === 0, rows['the parked plane against itself']);
 ok(`the control: the parked plane against itself shifted ${SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the parked plane against itself'].failShift > CONTROL_FACTOR * SAME_FRAC, rows['the parked plane against itself']);
 ok(`the control: the same glide frame against plane 1: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % of the band fails`, rows['the glide frame against plane 1'].fail > CONTROL_FACTOR * SAME_FRAC, rows['the glide frame against plane 1']);
+// The arrival: the glide frame ARRIVE_EPS short of plane 1 against the parked plane 1, by the same measure, along plane
+// 1's cut (the image of the cut, __cmwCutCurves, a vertical line here) from ARRIVE_PX px left of it to the handle's
+// disc (DISC_R right of it; the chip beyond, labelled z0 on the glide and z0' at rest, is left out), over the pane's
+// rows:
+// - beside the line (its LINE_PX px each side left out): every sheet's colour arrives (#1413), so the colour on either
+//   side of the cut is the parked plane's. Control: the principal sheet alone (__cmwSteps({ glideSheets: 1 })), which
+//   leaves the paper on one side. Both frames leave out plane 1's picture under the carried colour
+//   (__cmwSteps({ restPaint: 0 })), which is the parked plane's and would cover a missing sheet;
+// - the solid bank's rows, the line with its casing: control, the parked plane 1 against itself shifted SHIFT_PX px.
+//   (The dashed bank's line is pinned by its dash phase below: its dashes' ends are anti-aliased a fraction of a pixel
+//   apart, which this measure reads.)
+// ARRIVE_EPS: the glide's map moves the line about 0.15 px between u = 1 - 1e-4 and 1, so the frame is taken a
+// hundredth of that away
+const ARRIVE_PX = 12, LINE_PX = 3, ARRIVE_EPS = 1e-6;
+await frameAt('__cmwSteps({ park: 1 })'); await grab('parked1');
+const banks1 = await ev(`(() => { const cv = document.getElementById('canvasL'), r = cv.getBoundingClientRect(), k = cv.width / r.width; const box = (cs) => { const ps = cs.flatMap((c) => c.s.filter(Boolean)); if (!ps.length) return null; const xs = ps.map((q) => q[0] * k), ys = ps.map((q) => q[1] * k); return { x0: Math.min(...xs), x1: Math.max(...xs), y0: Math.min(...ys), y1: Math.max(...ys) }; }; const cs = __cmwCutCurves().filter((c) => c.step === 1); return { all: box(cs), solid: box(cs.filter((c) => c.solid)) }; })()`);
+ok('the parked plane 1 has its cut banks, one solid', !!banks1 && !!banks1.all && !!banks1.solid, banks1);
+const lineX = banks1 && banks1.all ? Math.round((banks1.all.x0 + banks1.all.x1) / 2) : 0;
+const besideBox = { x0: lineX - ARRIVE_PX, x1: lineX + DISC_R, y0: 0, y1: dim.H }, lineSkip = { x0: lineX - LINE_PX, x1: lineX + LINE_PX + 1 };
+const solidBox = banks1 && banks1.solid ? { x0: besideBox.x0, x1: besideBox.x1, y0: Math.max(0, Math.floor(banks1.solid.y0) + DISC_R), y1: Math.min(dim.H, Math.ceil(banks1.solid.y1)) } : null;
+await ev('__cmwSteps({ restPaint: 0 }); 1'); await heldAt(1 - ARRIVE_EPS); ok('the glide frame near plane 1 is drawn', !!(await grab('arrive')), null);
+await ev('__cmwSteps({ glideSheets: 1 }); 1'); await heldAt(1 - ARRIVE_EPS); ok('the glide frame near plane 1, the principal sheet alone, is drawn', !!(await grab('arriveOne')), null);
+await ev('__cmwSteps({ glideSheets: 0, restPaint: 1 }); 1');
+const arrival = info.arrival = {
+  beside: await measure('arrive', 'parked1', besideBox, lineSkip), besideOne: await measure('arriveOne', 'parked1', besideBox, lineSkip),
+  solid: solidBox ? await measure('arrive', 'parked1', solidBox) : null, solidSelf: solidBox ? await measure('parked1', 'parked1', solidBox) : null, boxes: { besideBox, solidBox },
+};
+ok(`beside plane 1's cut, the glide frame ${ARRIVE_EPS} short of plane 1 is the parked plane's colour, at most ${SAME_FRAC * 100} % of the pixels without a pixel of its 3 x 3 within ${TOL} levels`, arrival.beside.n > MIN_PIXELS && arrival.beside.fail <= SAME_FRAC, arrival);
+ok(`the control: beside the cut, the principal sheet alone: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % fails`, arrival.besideOne.fail > CONTROL_FACTOR * SAME_FRAC, arrival);
+ok(`the solid bank of plane 1's cut in the glide frame ${ARRIVE_EPS} short of plane 1 is the parked plane's within one pixel, by the same bound`, !!arrival.solid && arrival.solid.n > MIN_PIXELS && arrival.solid.fail <= SAME_FRAC, arrival);
+ok(`the control: the parked plane 1's solid bank against itself shifted ${SHIFT_PX} px: more than ${CONTROL_FACTOR * SAME_FRAC * 100} % fails`, !!arrival.solidSelf && arrival.solidSelf.fail === 0 && arrival.solidSelf.failShift > CONTROL_FACTOR * SAME_FRAC, arrival);
 // The dashed bank: its dashes keep the phase the parked plane gives them, counted from the bank's start, at the arrival (the glide frame END_EPS short of
 // plane 1 against the parked plane 1) and through the glide (at DASH_US). The phase is read off the pane's canvas along the bank's own polyline
 // (__cmwCutCurves), a sample every DASH_STEP px of arc length from DASH_SKIP px on, a sample on where the line's red is there: the offset in [0, DASH_PERIOD)

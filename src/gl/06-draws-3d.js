@@ -288,6 +288,43 @@
     landRefine(st, land, P1, N, mode, H, mu, aspect, rf);
     return land;
   }
+  // The Landscape's stand-in surface while landTF and land link (st.standIn, {nx, ny, w}: F at the nx x ny nodes over the block's box; the grid is square and only nx is read,
+  // node (i, j) at w[2 (j nx + i)], the app's standIn grid): the heights texture the program landTF makes (F's value, the
+  // height of heightOf, 1 where F has a value), made on the CPU, and the normals the static pass landNrm makes of it. Drawn by
+  // landS, the base cells' program of the steep walls with F from the corners. null until landNrm has linked
+  let landStand = null;
+  function landStandSurface(st, mode, H, mu, aspect, heightOf) {
+    const g = st.standIn, P2 = program('landNrm');
+    if (!g || !P2) return null;
+    const N = g.nx, key = [mode, H, mu, aspect[0], aspect[1]].join('|');
+    if (!landStand) landStand = { tex1: floatTex(), tex2: floatTex(), edges: [floatTex(), floatTex(), floatTex()], grid: null };
+    const land = landStand;
+    if (land.grid !== g.w || land.key !== key) {
+      const t = new Float32Array(4 * N * N);
+      for (let i = 0; i < N * N; i++) {
+        const re = g.w[2 * i], im = g.w[2 * i + 1], v = mode < 2 ? Math.hypot(re, im) : mode % 2 ? im : re;
+        t[4 * i] = re; t[4 * i + 1] = im; t[4 * i + 2] = heightOf(v); t[4 * i + 3] = Number.isNaN(re) || Number.isNaN(im) ? 0 : 1;
+      }
+      gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, land.tex1);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA32F, N, N, 0, gl.RGBA, gl.FLOAT, t);
+      use(P2);
+      u1i(P2, 'uN', N);
+      u2f(P2, 'uAspect', aspect[0], aspect[1]);
+      u1f(P2, 'uH', H);
+      u1i(P2, 'uCuts', -1);
+      for (let d = 0; d < 2; d++) { gl.activeTexture(gl.TEXTURE5 + d); gl.bindTexture(gl.TEXTURE_2D, land.edges[d]); }
+      gl.activeTexture(gl.TEXTURE15);
+      runTF(P2, empty(), gl.POINTS, N * N, 0, N * N * 16, land.tex2, N, N, gl.RGBA32F, gl.RGBA);
+      land.grid = g.w; land.key = key;
+    }
+    return Object.assign(land, { N, standIn: true, cuts: -1, rf: null });
+  }
+  function landStandRelease() {
+    if (!landStand) return;
+    for (const t of [landStand.tex1, landStand.tex2, ...landStand.edges]) gl.deleteTexture(t);
+    landStand = null;
+  }
   // The steps view's carried landscape (st.carry {map, s, T, hT, u, lim, src, key}): plane s's grid over its box src
   // (default the block's, st.box) moved by the glide's map (mapPoint of map, from plane s) into the block over st.box,
   // each vertex at the height of the stages (s, hT] at its point (hT default T), and coloured by G = the stages (s, T]
@@ -311,7 +348,7 @@
     use(P1, c.map);
     u1i(P1, 'uN', N);
     u4f(P1, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    polarUniforms(P1, polar, true);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
     const h1 = c.hT == null ? c.T : c.hT;
     u1i(P1, 'uGs', c.s); u1i(P1, 'uGt', h1);
@@ -331,6 +368,23 @@
   // sheets' draw. Run every frame, as the places change with the glide. The box's grid is landCP[0], the patches' slot
   // i + 1
   const landCP = [];
+  // a grid's patch uniforms (CARRY_ZIN): uPolar, and the seam along the glide map's cut (polar.seam, svPatchSeam) with
+  // seam; the box's grid (polar null) and the sheets' patches (their cuts are the sheets') take none
+  function polarUniforms(P, polar, seam) {
+    u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    const s = seam && polar && polar.seam;
+    u1i(P, 'uSeamOn', s ? 1 : 0);
+    if (s) { u1fv(P, 'uSeam', s); u1f(P, 'uSeamEnd', s.end); }
+  }
+  // the box's draw (LAND_CARRY_VS): the discs of the seamed patches of polar (at most CARRY_DISCS), each CARRY_DISC_IN of its
+  // radius, inside which the box's triangles are left to the patch; the patch reaches past them, so no crack opens
+  const CARRY_DISC_IN = 0.98;
+  function discUniforms(P, polar) {
+    const D = (polar || []).filter((p) => p.seam).slice(0, CARRY_DISCS);
+    u1i(P, 'uDiscN', D.length);
+    const l = L_(P, 'uDisc');
+    if (l && D.length) gl.uniform3fv(l, D.flatMap((p) => [p[0], p[1], CARRY_DISC_IN * p[3]]));
+  }
   function carryPlaces(st, N, polar, slot = 0) {
     const c = st.carry, sb = c.src || st.box, P = program('landCarryPlace', c.map);
     if (!P) return false;
@@ -338,7 +392,7 @@
     use(P, c.map);
     u1i(P, 'uN', N);
     u4f(P, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-    u4f(P, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    polarUniforms(P, polar, false);
     runTF(P, empty(), gl.POINTS, N * N, 0, N * N * 16, landCP[slot], N, N, gl.RGBA32F, gl.RGBA);
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return true;
@@ -974,7 +1028,7 @@
     use(P1, sp.hom ? st.map : null);
     u1i(P1, 'uN', M + 1);
     u4f(P1, 'uBox', b.x0, b.y0, b.x1 - b.x0, b.y1 - b.y0);
-    u4f(P1, 'uPolar', ...(polar || [0, 0, 0, 0]));
+    polarUniforms(P1, polar, false);
     u2f(P1, 'uAspect', aspect[0], aspect[1]);
     u1i(P1, 'uSheetA', sp.a); u1i(P1, 'uSheetB', sp.b); u1i(P1, 'uSheetK', sp.K); u1i(P1, 'uSheetW', sp.W); u1i(P1, 'uTileC', tileC); u1i(P1, 'uTexW', texW); u1iv(P1, 'uSheetMap', sp.map);
     u1i(P1, 'uHMode', mode); u1f(P1, 'uH', H); u1f(P1, 'uMu', mu);
@@ -1212,6 +1266,8 @@
     const C = landColors(st);
     const material = MATERIALS[st.material] ?? (st.style === 'classic' ? 0 : 0);
     const lt = { sky: toLin3(C.hemiSky), ground: toLin3(C.hemiGround) };
+    // (the relief programs' light: the material's specular strength and exponent, the rim)
+    const landLight = (P) => lightUniforms(P, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
     const heightOf = (v) => {
       if (mode === 0) return H * (2 / Math.PI) * Math.atan(Math.log(Math.max(v, 1e-300)) / 1.4);
       if (mode === 1) return H * ((4 / Math.PI) * Math.atan(v / mu) - 1);
@@ -1272,9 +1328,12 @@
     if (!Ls) hs = null;
     // (while the sheets' programs compile, the principal branch stands in only with programs that have run before, an
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
-    // its own first would stall the GPU process once for them and once more for the sheets')
+    // its own first would stall the GPU process once for them and once more for the sheets'; with none, the CPU stand-in's)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
-    const hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
+    // (nothing to draw from yet, the principal surface's programs still linking: the stand-in's relief)
+    if (!hd && !st.carry) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
+    else if (hd && !hd.standIn) landStandRelease();
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
     const farPatches = [];
@@ -1353,7 +1412,7 @@
       const Pc = program('landCarry', st.carry.map);
       use(Pc, st.carry.map);
       common(Pc);
-      lightUniforms(Pc, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+      landLight(Pc);
       u3(Pc, 'uCut', C.cut);
       u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
       // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
@@ -1361,7 +1420,7 @@
       u2f(Pc, 'uClipA', aspect[0], aspect[1]);
       const sb = st.carry.src || box;
       u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-      u4f(Pc, 'uPolar', 0, 0, 0, 0);
+      polarUniforms(Pc, null, false); discUniforms(Pc, st.carry.polar);
       // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
       // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
       gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
@@ -1370,7 +1429,7 @@
       // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
       // the box's cells, so a patch shows only where they leave a hole)
       const drawPatch = (p) => {
-        u4f(Pc, 'uPolar', ...p.polar); u1i(Pc, 'uN', p.N);
+        polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
@@ -1403,7 +1462,7 @@
     if (Lp) {
       use(Lp, st.map);
       common(Lp);
-      lightUniforms(Lp, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+      landLight(Lp);
       u3(Lp, 'uCut', C.cut);
       // (principal: up to 3 triangles where a real cut splits one; All sheets with linear heights: the triangle
       // clipped at the block, up to 3)
@@ -1448,7 +1507,7 @@
         gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2, 8);
         u1i(Lp, 'uPatch', 1); u1i(Lp, 'uRefOn', 0); u1f(Lp, 'uCLim', st.carry.lim);
         const drawPatch = (p) => {
-          u1i(Lp, 'uN', p.N); u4f(Lp, 'uPolar', ...p.polar);
+          u1i(Lp, 'uN', p.N); polarUniforms(Lp, p.polar, false);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.tex1);
           gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[p.slot]);
           gl.drawArraysInstanced(gl.TRIANGLES, 0, clip ? 9 : 3, hs.K * 2 * (p.N - 1) * (p.N - 1));
@@ -1457,7 +1516,7 @@
         gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         for (const p of sheetPatches) if (p.far) drawPatch(p);
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
-        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); u4f(Lp, 'uPolar', 0, 0, 0, 0);
+        u1i(Lp, 'uPatch', 0); u1i(Lp, 'uN', hd.N); polarUniforms(Lp, null, false);
         gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, hd.tex1);
         gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[0]);
         info.patches = sheetPatches.filter((p) => !p.far).length; info.patchN = CARRY_POLE_N; info.far = sheetPatches.filter((p) => p.far).map((p) => [...p.polar, p.N]);
@@ -1466,7 +1525,7 @@
       if (LB) {
         use(LB);
         common(LB);
-        lightUniforms(LB, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        landLight(LB);
         u3(LB, 'uCut', C.cut); u1i(LB, 'uHMode', mode); u1f(LB, 'uMu', mu); u2f(LB, 'uAspect', aspect[0], aspect[1]);
         u1i(LB, 'uM', hd.N - 1); u1i(LB, 'uVW', 1); u1i(LB, 'uCuts', hd.cuts || 0); u1i(LB, 'uRefOn', R ? 1 : 0);
         gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
@@ -1474,7 +1533,7 @@
       if (R && LR) {
         use(LR);
         common(LR);
-        lightUniforms(LR, lt, material === 2 ? 0.05 : 0.16, material === 2 ? 12 : 48, 0.10);
+        landLight(LR);
         u3(LR, 'uCut', C.cut); u1i(LR, 'uHMode', mode); u1f(LR, 'uMu', mu); u2f(LR, 'uAspect', aspect[0], aspect[1]);
         u1i(LR, 'uM', hd.N - 1); u1i(LR, 'uVW', 1); u1i(LR, 'uCuts', hd.cuts || 0);
       }
@@ -1494,6 +1553,18 @@
         if (landPane.drawn.size > 64) landPane.drawn.delete(landPane.drawn.values().next().value);
       }
       lvTailMark();
+    } else if (hd.standIn) {
+      // (the stand-in: every base triangle, F from the corners, no cut: the heights' step rule leaves a wall out)
+      const LS = program('landS');
+      if (LS) {
+        use(LS);
+        common(LS);
+        landLight(LS);
+        u3(LS, 'uCut', C.cut); u1i(LS, 'uHMode', mode); u1f(LS, 'uMu', mu); u2f(LS, 'uAspect', aspect[0], aspect[1]);
+        u1i(LS, 'uM', hd.N - 1); u1i(LS, 'uVW', 1); u1i(LS, 'uCuts', -1); u1i(LS, 'uRefOn', 0);
+        gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1));
+        info.standIn = true;
+      }
     }
     if (below && !st.reliefOnly) {
       gl.enable(gl.BLEND);
@@ -1665,9 +1736,14 @@
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(true);
     const phase = st.mode === 'color';
-    const P = program(phase ? 'sphereP' : 'sphere', st.map);
+    // (st.standIn: the colour globe's stand-in while sphereP links, {nx, ny, w}: standInTexture's grid, over longitude and latitude)
+    let P = program(phase ? 'sphereP' : 'sphere', st.map);
+    const standIn = !P && phase && !!st.standIn && !!(P = program('sphereStandIn'));
+    if (phase && P && !standIn) standInRelease();
     // st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
-    // these regions write the frame's alpha, then the globe draws its colour alone over them, kept where the alpha is
+    // these regions write the frame's alpha (and st.maskPre's passes, the regions of later planes pulled back: drawPreimage's
+    // st without view, their fills opaque), then the globe draws its colour alone over them, kept where the alpha is;
+    // st.maskOver's passes (their layer: the band, under Inside regions) are drawn over the colour kept
     const masked = !!(P && st.maskRegions && keepInAlpha(true));
     // (a mask that cannot draw yet draws nothing: never the colour over the whole globe)
     if (st.maskRegions && !masked) { resetState(); return null; }
@@ -1679,6 +1755,7 @@
       writeMask(false, true);
       gl.depthMask(false);
       sphereRegions(st.maskRegions, sph, MVP, eye);
+      for (const pr of st.maskPre || []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null }));
       gl.depthMask(true);
       writeMask(true, false);
     }
@@ -1687,6 +1764,7 @@
       uM4(P, 'uMVP', MVP);
       u3(P, 'uEye', eye);
       dcUniforms(P, { style: st.style, sectors: st.sectors, grid: st.grid, plane, ink: c.ink, dark }, dpr);
+      if (standIn) standInTexture(st.standIn);
       u3(P, 'uPlaneCol', plane);
       u3(P, 'uGridMaj', gridMajor);
       u3(P, 'uAxisCol', axis);
@@ -1754,7 +1832,7 @@
     }
     // (Inside regions: the colour is kept inside the mask first, so the silhouette over it is drawn at the mask's alpha:
     // inside the regions it lies over the colour, as in a frame with no mask, and outside them it is the regions' globe's)
-    if (masked) { writeMask(true, true); keepInAlpha(); }
+    if (masked) { writeMask(true, true); keepInAlpha(); for (const pr of st.maskOver || []) drawPreimage(Object.assign({}, pr, { sphere: sph, dpr, view: null })); }
     // silhouette: the circle of tangency seen from the eye, 1.25 px axis at 50%
     const D2 = eye[0] * eye[0] + eye[1] * eye[1] + eye[2] * eye[2];
     if (D2 > 1.0001) {

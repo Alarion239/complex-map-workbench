@@ -32,7 +32,7 @@ await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="
 let sh = await shapes();
 ok('Enter keeps the name in the shape', sh.find((s) => s.id === 'a').name === 'My disc', sh);
 ok('the row shows it', (await ev(ROWS)).find((r) => r.id === 'a').k === 'My disc', null);
-// Esc leaves it as it was
+// Esc leaves it unchanged
 await ev(`document.querySelector('#shapeList .shape[data-id="c"] .more').click()`); await settle(300);
 await ev(`[...document.querySelectorAll('[role="menuitem"]')].find((e) => /^Rename/.test(e.textContent.trim())).click()`); await settle(300);
 await ev(`(() => { const i = document.querySelector('#shapeList .shape[data-id="c"] .k input'); i.value = 'junk'; i.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); })()`); await settle(400);

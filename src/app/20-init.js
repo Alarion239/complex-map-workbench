@@ -5,6 +5,9 @@
     const out = Object.assign({}, S, { rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
     const o = JSON.parse(JSON.stringify(out, cmSaveReplacer(out)));
     delete o.hideLeft; delete o.hideRight;
+    // (the steps view's place on screen, as a save writes it: S.sv is written only by a save and an undo entry)
+    const sv = svPlace();
+    if (sv) o.sv = sv;
     // (the recipient sees the same picture: the Landscape camera, relative to its fit, and the
     // deformation at its t; read once at load, never kept in the saved state)
     // (the camera of the surface the steps view shows: the z-globe's camL when it shows the sphere, else the Landscape's cam;
@@ -158,6 +161,8 @@
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
     I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R'); });
     GLR.init();
+    // (the steps view draws the Landscape's chain programs in map mode 0 only: the warm-up plans no other mode of them)
+    GLR.setStepsView(SV.on);
     GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); svContextRestored(); requestRender('L', 'R'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
     GLR.onLost = () => requestRender('L', 'R');
