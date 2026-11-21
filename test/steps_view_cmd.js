@@ -27,6 +27,11 @@ const open = async (w, h, mobile, flag) => {
 const S = () => ev('__cmwSteps()');
 // (a glide: until it lands, at most 15 s on a software renderer)
 const rest = async () => { for (let i = 0; i < 150; i++) { const s = await S(); if (!s.moving) return s; await sleep(100); } return S(); };
+// (the page quiet instead of a fixed sleep: no frame pending, no animation running, and the state the step above stands for; a wait that
+// ran out fails the suite at the line that waited, not at a later read)
+const LANDED = `!__cmwSteps().moving`, ON_PLANE = `__cmwSteps().surf === 'plane'`, ON_SPHERE = `__cmwSteps().surf === 'sphere'`;
+const parkedAt = (x) => `Math.abs(__cmwSteps().x - ${x}) < 1e-9`;   // (a parked view is still "moving": its place is the x it was parked at)
+const quiet = async (o = {}) => { const r = await settled({ max: 30000, ...o }); ok(`the page went quiet (${o.until || 'no state asked'})`, r.ok, r); return r; };
 const plot = async () => ev(`(() => { const b = document.getElementById('plotL').getBoundingClientRect(); return { x: b.left, y: b.top, width: b.width, height: b.height, scale: 1 }; })()`);
 const hash = async (name) => { await settle(400); await shot(name, await plot()); return fnv(fs.readFileSync(`${DIR}/shots/${name}.png`)); };
 // (#471) axe over the steps view's own markup: the plane, its head and the thread (test.html's own lang and the draw
@@ -128,8 +133,8 @@ ok('… the upper half-plane coloured and the lower one paper; coloured everywhe
 await ev(`__cmwSteps({ scope: 'in', surf: 'plane' }); 1`); await settle(800);
 // (#440) Inside regions is drawn on the GPU: no read-back of a canvas at rest, parked, while gliding, or on the globe
 await ev(`(() => { const P = CanvasRenderingContext2D.prototype, f = P.getImageData; window.__gid = 0; P.getImageData = function (...a) { window.__gid++; return f.apply(this, a); }; window.__gidF = f; return 1; })()`);
-await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settle(600);
-await ev(`__cmwSteps({ park: 0.5 }); 1`); await settle(600);
+await ev(`__cmwSteps({ go: 1, now: true }); 1`); await quiet({ until: LANDED });
+await ev(`__cmwSteps({ park: 0.5 }); 1`); await quiet({ until: parkedAt(0.5) });
 await ev(`__cmwSteps({ go: 0 }); 1`); await rest();
 await ev(`__cmwSteps({ surf: 'sphere' }); 1`); await settle(1500);
 await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(800);
@@ -138,14 +143,14 @@ ok('Inside regions reads no canvas back (at rest, parked, gliding, on the globe)
 // (#471) axe on the steps view: on z, parked between planes, on the globe
 const ax = {};
 ax.z = await axe();
-await ev(`__cmwSteps({ park: 0.5 }); 1`); await settle(600); ax.parked = await axe();
+await ev(`__cmwSteps({ park: 0.5 }); 1`); await quiet({ until: parkedAt(0.5) }); ax.parked = await axe();
 await ev(`__cmwSteps({ go: 0, now: true, surf: 'sphere' }); 1`); await settle(1200); ax.sphere = await axe();
-await ev(`__cmwSteps({ surf: 'plane' }); 1`); await settle(600);
+await ev(`__cmwSteps({ surf: 'plane' }); 1`); await quiet({ until: ON_PLANE });
 ok('desktop: no axe violation in the steps view (z, parked, Sphere)', !ax.z.length && !ax.parked.length && !ax.sphere.length, ax);
 // (ux's review of #448) the arrows of a focused radio group, or of an open pop-up, are theirs: the plane stays
 const before = (await S()).x;
 await ev(`__cmwSteps({ scope: 'all' }); 1`); await settle(300);
-await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await settle(600);
+await ev(`(() => { const b = document.querySelector('#svHead .sv-scope [role=radio][aria-checked=true]'); b.focus(); b.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowRight', bubbles: true, cancelable: true })); return 1; })()`); await quiet();
 const rg = await S();
 ok('→ on a focused scope radio picks the next one, not the next plane', rg.x === before && rg.scope === 'in', rg);
 // (#595: the scope switch is the shared seg() with its arrows looping, as before: from the last radio → goes to the first, from the first ↑ to the last)
@@ -158,11 +163,11 @@ ok('↑ on the first scope radio wraps to the last, and the checked one is the o
 // (#441) the surface is one button with a menu: its keys are the menu's, and a pick changes the surface, not the plane
 await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
 await ev(`(() => { const m = document.querySelector('.pop.menu'); const t = document.activeElement; t.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true, cancelable: true })); return !!m; })()`); await settle(300);
-await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((e) => /Sphere/.test(e.textContent)); if (b) b.click(); return !!b; })()`); await settle(600);
+await ev(`(() => { const b = [...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((e) => /Sphere/.test(e.textContent)); if (b) b.click(); return !!b; })()`); await quiet({ until: ON_SPHERE });
 const sm = await S();
 ok('the surface menu picks Sphere, and its keys leave the plane alone', sm.x === before && sm.surf === 'sphere', sm);
-await ev(`__cmwSteps({ surf: 'plane' }); document.activeElement.blur(); 1`); await settle(600);
-await ev(`document.getElementById('examplesBtn').click(); 1`); await settle(600);
+await ev(`__cmwSteps({ surf: 'plane' }); document.activeElement.blur(); 1`); await quiet({ until: ON_PLANE });
+await ev(`document.getElementById('examplesBtn').click(); 1`); await quiet();
 await press('ArrowRight');
 const pop = await S();
 ok('→ with the Examples gallery open leaves the plane alone', pop.x === before && !pop.anim, pop);
@@ -180,15 +185,15 @@ ok('the strip, the plane and the steps have names', /Planes of the chain/.test(a
 
 // a view parked past half-way across the colour plane stays where it is: the plane it rounds to has another view
 // (Phase before the colour plane, X → Y after it) than the one last set, which is not a state from outside
-await ev(`__cmwSteps({ go: 0, now: true, T: 0 }); 1`); await settle(600);
-await ev(`__cmwSteps({ park: 0.6 }); 1`); await settle(600);
+await ev(`__cmwSteps({ go: 0, now: true, T: 0 }); 1`); await quiet({ until: LANDED });
+await ev(`__cmwSteps({ park: 0.6 }); 1`); await quiet({ until: parkedAt(0.6) });
 await ev(`__cmwSteps({ scope: 'in' }); 1`); await settle(800);
 const pk = await S();
 ok('parked at 0.6 past the colour plane z, the view stays there', Math.abs(pk.x - 0.6) < 1e-9 && pk.T === 0 && pk.scope === 'in', pk);
 await ev(`__cmwSteps({ T: 2 }); 1`);
 // (perf on #460) parked between two planes, the view still takes an example: it opens on it, from its first plane
 await ev(`__cmwSteps({ go: 1, now: true }); 1`); await settle(400);
-await ev(`__cmwSteps({ park: 1.5 }); 1`); await settle(600);
+await ev(`__cmwSteps({ park: 1.5 }); 1`); await quiet({ until: parkedAt(1.5) });
 const before2 = await S();
 await ev(`__cmwExample(0); 1`); await settle(1500);
 const ex = await S();
@@ -213,10 +218,10 @@ await ev(`(() => { const p = document.getElementById('plotL'), r = p.getBounding
 const sst = await rest();
 ok('a flick with a stalled frame inside it still goes on to w₁', sst.i === 1 && Math.abs(sst.x - 1) < 1e-9, sst);
 // (#471) the plane's own Sphere key switches the view's surface, and says so
-await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
+await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await quiet({ until: ON_SPHERE });
 const sk = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
 ok('the plane\'s Sphere key puts the plane on the sphere', sk.surf === 'sphere' && sk.pressed === 'true', sk);
-await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await settle(600);
+await ev(`document.querySelector('#paneL .ph-sph').click(); 1`); await quiet({ until: ON_PLANE });
 const sk2 = await ev(`({ surf: __cmwSteps().surf, pressed: document.querySelector('#paneL .ph-sph').getAttribute('aria-pressed') })`);
 ok('… and back on the plane', sk2.surf === 'plane' && sk2.pressed === 'false', sk2);
 const axP = await axe();

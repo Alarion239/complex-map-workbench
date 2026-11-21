@@ -3,7 +3,8 @@
 // (hold a finger on the circle), elsewhere the curve's menu. The line closes when the user opens the integral. The circle's box
 // is mapped from the plane's view (__cmwSteps().win: its centre and scale) about the centre of the plane's own rect
 // (#overlayL), on a desktop, on phones in portrait and in landscape at 740 × 360, 600 × 320 and 568 × 320 (each in en, ru
-// and it), and the Try line's text (.tl-text) is not cut in its lane.
+// and it), the Try line's text (.tl-text) is not cut in its lane, and its Close and action buttons are on top at their centres (a landscape lane ends at the right rail)
+// and 44 px on a touch device.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -40,6 +41,7 @@ const legs = [
   ['phone landscape 568×320 ru', 568, 320, true, 'ru', false],
   ['phone landscape 568×320 it', 568, 320, true, 'it', false],
 ];
+let EXAMPLE_AT = -1;   // the example's place in the page's list
 for (const [name, w, h, touch, lang, open] of legs) {
   await view(w, h, false, touch);
   await go(`http://localhost:${PORT}/test.html?ns=exint${w}${lang}${Date.now() % 100000}&lang=${lang}`);
@@ -48,6 +50,7 @@ for (const [name, w, h, touch, lang, open] of legs) {
   // (the example by its name in the page's language: the page's own list, not an index)
   const idx = await ev(`(() => { const want = $t('A residue by integration'); for (let i = 0; i < 80; i++) { try { __cmwExample(i); } catch (e) { return -1; } const l = document.querySelector('#examplesBtn .exlabel'); if (l && l.textContent.trim() === want) return i; } return -1; })()`);
   ok(`${name}: the example is found`, idx >= 0, idx);
+  if (idx >= 0) EXAMPLE_AT = idx;
   if (idx < 0) continue;
   await ev(`__cmwExample(${idx}); 1`);
   await frames(); await settled({ max: 10000 });
@@ -59,7 +62,11 @@ for (const [name, w, h, touch, lang, open] of legs) {
     const plane = R(document.getElementById('overlayL')), [cx, cy, s] = __cmwSteps().win;
     const X = (x) => plane.l + (plane.r - plane.l) / 2 + (x - cx) * s, Y = (y) => plane.t + (plane.b - plane.t) / 2 - (y - cy) * s;
     const lane = document.querySelector(${JSON.stringify(LANE)}), body = lane && lane.querySelector('.tl-text');
-    return { plane, lane: R(lane), circle: { l: X(-1), t: Y(2), r: X(1), b: Y(0) }, win: [cx, cy, s],
+    // (the lane's buttons: each one's box, and the topmost element at its centre, which must be the button itself)
+    const btn = (b) => { if (!b) return null; const q = b.getBoundingClientRect(), at = document.elementFromPoint(q.left + q.width / 2, q.top + q.height / 2);
+      return { w: Math.round(q.width), h: Math.round(q.height), right: Math.round(q.right), onTop: !!at && (at === b || b.contains(at)), at: at ? (at.id || at.className || at.tagName) + '' : 'none' }; };
+    const buttons = lane ? { close: btn(lane.querySelector('.tl-x')), act: btn(lane.querySelector('.tl-act')) } : null;
+    return { plane, lane: R(lane), buttons, circle: { l: X(-1), t: Y(2), r: X(1), b: Y(0) }, win: [cx, cy, s],
       text: lane ? lane.textContent.replace(/\\s+/g, ' ').trim() : '', cut: body ? body.scrollWidth > body.clientWidth + 1 || body.scrollHeight > body.clientHeight + 1 : null };
   })()`);
   const n = await count(POP);
@@ -68,6 +75,18 @@ for (const [name, w, h, touch, lang, open] of legs) {
   const want = TRY[lang][touch ? 'touch' : 'mouse'], other = TRY[lang][touch ? 'mouse' : 'touch'];
   ok(`${name}: the Try line asks for the integral in the device's words (${touch ? 'hold a finger' : "the curve's menu"})`, want.test(g.text) && !other.test(g.text), g.text);
   ok(`${name}: the Try line's words are not cut in its lane`, g.cut === false, g.cut);
+  // the lane's Close and its action are the topmost elements at their centres (the right rail does not stand over them) and, on a touch device, 44 px
+  for (const [which, label] of [['close', 'Close'], ['act', 'action']]) {
+    const b = g.buttons && g.buttons[which];
+    ok(`${name}: the Try line has its ${label} button`, !!b, g.buttons);
+    if (!b) continue;
+    ok(`${name}: the Try line's ${label} button is on top at its centre`, b.onTop, b);
+    if (touch) ok(`${name}: the Try line's ${label} button is 44 px tall${which === 'close' ? ' and wide' : ''}`, b.h >= 44 && (which !== 'close' || b.w >= 44), b);
+  }
+  if (g.buttons && g.buttons.close && w > h && touch) {
+    const rail = await ev(`(() => { const r = document.getElementById('secDraw'); return r ? Math.round(r.getBoundingClientRect().left) : null; })()`);
+    ok(`${name}: the Try line ends at the rail's left edge (its Close is left of it)`, rail !== null && g.buttons.close.right <= rail, { close: g.buttons.close, rail });
+  }
   const c = g.circle, p = g.plane;
   ok(`${name}: the circle is inside the plane`, c.l >= p.l + EDGE_PX && c.r <= p.r - EDGE_PX && c.t >= p.t + EDGE_PX && c.b <= p.b - EDGE_PX, { circle: c, plane: p });
   ok(`${name}: the circle is clear of the Try line's lane`, !g.lane || c.t >= g.lane.b || c.b <= g.lane.t || c.r <= g.lane.l || c.l >= g.lane.r, { circle: c, lane: g.lane });
@@ -79,5 +98,20 @@ for (const [name, w, h, touch, lang, open] of legs) {
   ok(`${name}: choosing the integral opens the popover`, (await count(POP)) >= 1, await count(POP));
   await settled({ max: 10000, until: `!document.querySelector(${JSON.stringify(LANE)})` });
   ok(`${name}: the Try line closes once the user opens the integral`, (await count(LANE)) === 0, await count(LANE));
+}
+// the gallery card's description names the menu item the line names: on touch (a long press) it says ∮, in en, ru and it, and neither
+// it nor the mouse's right-click version names the open curve's "Integrate"
+for (const [lang, w, h, touch] of [['en', 360, 640, true], ['ru', 360, 640, true], ['it', 360, 640, true], ['en', 1280, 800, false]]) {
+  const tag = `${lang} ${touch ? 'touch' : 'mouse'}: the gallery card`;
+  await view(w, h, false, touch);
+  await go(`http://localhost:${PORT}/test.html?ns=exblurb${lang}${Date.now() % 100000}&lang=${lang}`);
+  await settled({ max: 30000, until: 'typeof __cmwExample === "function"' });
+  await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); return 1; })()`);
+  await ev(`document.getElementById('examplesBtn').click(); 1`);
+  await settled({ max: 20000, until: `document.querySelectorAll('#popHost .examples .ex-item').length > ${EXAMPLE_AT}` });
+  const blurb = await ev(`(() => { const b = document.querySelectorAll('#popHost .examples .ex-item')[${EXAMPLE_AT}]; return b ? b.querySelector('.ex-blurb').textContent : null; })()`);
+  info[tag] = blurb;
+  if (touch) ok(`${tag} names the menu item ∮`, !!blurb && blurb.includes('∮'), blurb);
+  ok(`${tag} does not name an Integrate item (the circle's menu has none)`, !!blurb && !/Integrate|Integra»|Вычислить интеграл/.test(blurb), blurb);
 }
 return { pass: fails.length === 0, fails, info };
