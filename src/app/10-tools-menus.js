@@ -390,7 +390,7 @@
       if (!selected || selected !== s.id || !name) return;
       // (a point's place is its own value; another shape's the middle of its box)
       const b = s.kind === 'point' ? { x0: s.p[0], x1: s.p[0], y0: s.p[1], y1: s.p[1] } : Region.bboxOf(s);
-      toast(b ? $t('Moved {name} to {x}, {y}.', { name, x: fmtR((b.x0 + b.x1) / 2, 3), y: fmtR((b.y0 + b.y1) / 2, 3) }) : $t('Moved {name}.', { name }));
+      toast(b ? $t('Moved {name} to {z}.', { name, z: fmtCxText(C((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2), 3) }) : $t('Moved {name}.', { name }));
     }, 700);
     return true;
   }
@@ -511,8 +511,8 @@
     const name = h('span', { class: 'k' }, label);
     // the name is the row's button; the eye and ⋯ buttons sit beside it, not inside it
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
-      // (the keys that move a selected shape, said where its row is read)
-      'aria-description': selected === s.id && !s.def ? $t('Arrow keys move it; Shift for ten steps') : null,
+      // (the keys that move a selected shape, said where its row is read; a touch phone has no arrow keys)
+      'aria-description': selected === s.id && !s.def && !touchUI() ? $t('Arrow keys move it; Shift for ten steps') : null,
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
       onclick: (e) => {
