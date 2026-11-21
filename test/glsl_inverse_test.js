@@ -521,9 +521,10 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   // (InvOps.rootMembers): (z - 1)^2 (z + 2) and (z - 1)^2 (z + 2)(z - 3) at w = 0 (the double root 1), and at points
   // off it, where every root is simple: down to w = 1e-6, whose pair about 1 (8e-4 apart for the quartic, 1e-3 for the
   // cubic) float32 still resolves. The GPU's leaves (visited count, and each leaf's z) against Inverse.enumerate's, a disc
-  // of radius 4 about 0 holding every root. Pinned: closer in (the band rows, w = 1e-8 for the cubic and 1e-7 for the
-  // quartic) the pair lies within float32's rounding of the double root, and the GPU lists it once, one leaf fewer
-  // than the CPU ----
+  // of radius 4 about 0 holding every root. Closer in (the band rows, w = 1e-8 for the cubic and 1e-7 for the quartic)
+  // the pair lies within float32's rounding of the double root: whether the GPU's arithmetic tells it apart depends on
+  // the GPU (lavapipe and SwiftShader list it once), so there the GPU lists it once or twice, each leaf a CPU leaf. A
+  // failure is listed in the walk's fails and byChain too ----
   {
     const MR = R.multi = { compared: 0, failCount: 0, fails: [] };
     const shape = { id: 'mr', kind: 'disc', c: [0, 0], r: 4, ci: 0, visible: true }, win = { x0: -5, x1: 5, y0: -5, y1: 5 }, pix = 0.01;
@@ -542,16 +543,17 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       pts.forEach((w, i) => {
         const cpu = Inverse.enumerate(plan, prep, w, Math.fround(pix), { K: 1, B: 3, paths: true }), o = g.out;
         const at = (row) => [o[4 * (row * NP + i)], o[4 * (row * NP + i) + 1]], bad = [];
-        const want = w.re === band ? cpu.visited - 1 : cpu.visited;
-        if (at(8)[0] !== want) bad.push(`visited gpu ${at(8)[0]} cpu ${cpu.visited}${w.re === band ? ' (band: one fewer)' : ''}`);
-        else if (w.re === band) {
-          for (let r = 0; r < Math.min(want, 8); r++) { const q = at(r); if (!cpu.leaves.some((c) => Math.hypot(q[0] - c.z.re, q[1] - c.z.im) <= 1e-3 * (1 + cabs(c.z)))) bad.push(`band leaf ${r} gpu ${q[0]}, ${q[1]} is no CPU leaf`); }
+        const inBand = w.re === band, gv = at(8)[0];
+        if (inBand ? gv !== cpu.visited && gv !== cpu.visited - 1 : gv !== cpu.visited) bad.push(`visited gpu ${gv} cpu ${cpu.visited}${inBand ? ' (band: the same or one fewer)' : ''}`);
+        else if (inBand) {
+          for (let r = 0; r < Math.min(gv, 8); r++) { const q = at(r); if (!cpu.leaves.some((c) => Math.hypot(q[0] - c.z.re, q[1] - c.z.im) <= 1e-3 * (1 + cabs(c.z)))) bad.push(`band leaf ${r} gpu ${q[0]}, ${q[1]} is no CPU leaf`); }
         } else cpu.leaves.slice(0, 8).forEach((c, r) => { const q = at(r); if (Math.hypot(q[0] - c.z.re, q[1] - c.z.im) > 1e-3 * (1 + cabs(c.z))) bad.push(`leaf ${r} gpu ${q[0]}, ${q[1]} cpu ${c.z.re}, ${c.z.im}`); });
         MR.compared++;
         if (bad.length) { MR.failCount++; MR.fails.push({ chain: name, w: [w.re, w.im], bad }); }
       });
     }
     if (MR.failCount) R.failCount += MR.failCount;
+    for (const f of MR.fails) { const k = 'multiple roots ' + f.chain; R.byChain[k] = (R.byChain[k] || 0) + 1; R.fails.unshift(Object.assign({ multi: true }, f)); }
   }
   // ---- shapeClip vs Region.shapeClip ----
   {
