@@ -315,6 +315,7 @@
  "From value": "От значения",
  "To value": "До значения",
  "Frames": "Кадры",
+ "landscape, carried from {p}": "рельеф, перенесённый из %{p}",
  "Preparing the page": "Подготовка страницы",
  "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
@@ -441,7 +442,7 @@
  "e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.": "У e^{1/z} в 0 существенная особенность: в её главной части бесконечно много членов. Поэтому картина строит сам интеграл, точка за точкой, а не F минус конечную главную часть.",
  "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Попробуйте: вытащите окружность за особенность в 0: внутри будет F, снаружи 0.",
  "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Известное ограничение: в нескольких пикселях от нуля arg <i>F</i> меняется так быстро, что дрожащий палец может пересечь цветовую линию и сыграть ноту.",
- "Height key: point at it to unfold; click it or press Enter to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть; щёлкните или нажмите Enter, чтобы оставить открытой",
+ "Point at it to unfold; click it or press Enter to keep it open": "Наведите указатель, чтобы развернуть; щёлкните или нажмите Enter, чтобы оставить открытой",
  "Download offline page ({size})": "Скачать офлайн-версию ({size})",
  "{n} MB": "{n} МБ",
  "Skip": "Пропустить",
@@ -763,5 +764,48 @@
  "{x} move a probe": "{x} перемещают указатель",
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
- "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}"
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза «%{name}» за краем вида: %{n} из %{all}",
+ "Pick": "Выбор точек",
+ "Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.": "Нажмите на точку, чтобы подсветить её двойников — точки с тем же образом; потяните, чтобы нарисовать круг в целевой плоскости; перетащите подсвеченный участок, чтобы сдвинуть его. Двумя пальцами или правой кнопкой — сдвиг вида. На выбранной плоскости Enter подсвечивает двойников выделенной точки, повторный Enter добавляет круг.",
+ "{n} preimage on {plane}\u0004{n} preimages on {plane}": {
+  "one": "%{n} прообраз в плоскости %{plane}",
+  "few": "%{n} прообраза в плоскости %{plane}",
+  "many": "%{n} прообразов в плоскости %{plane}",
+  "other": "%{n} прообраза в плоскости %{plane}"
+ },
+ "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
+ "phone tile\u0004Pick": "Точки",
+ "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки",
+ "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "%{n} прообраз",
+  "few": "%{n} прообраза",
+  "many": "%{n} прообразов",
+  "other": "%{n} прообраза"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "%{n} часть",
+  "few": "%{n} части",
+  "many": "%{n} частей",
+  "other": "%{n} части"
+ },
+ "one covers the disc twice": "одна накрывает круг дважды",
+ "one covers the disc {k} times": "одна накрывает круг %{k}-кратно",
+ "{n} cover the disc more than once": "%{n} из них накрывают круг больше одного раза",
+ "{n} hole\u0004{n} holes": {
+  "one": "%{n} дыра",
+  "few": "%{n} дыры",
+  "many": "%{n} дыр",
+  "other": "%{n} дыры"
+ },
+ "Preimage on {w}": "Прообраз в плоскости %{w}",
+ "Pieces join at r = {list}": "Части сливаются при r = %{list}",
+ "No pieces join as r grows": "С ростом r части не сливаются",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "%{n} часть за краем",
+  "few": "%{n} части за краем",
+  "many": "%{n} частей за краем",
+  "other": "%{n} части за краем"
+ },
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
 }
