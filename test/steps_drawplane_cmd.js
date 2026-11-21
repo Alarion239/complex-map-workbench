@@ -19,7 +19,8 @@ await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!docume
 await ev(`document.querySelector('.sv-cp').click(); 1`);
 await settled({});
 // (a press waits for the prestart and its idle jobs: the suite presses once the chain is prepared)
-const calm = () => settled({ max: 120000, only: true, until: '__cmwSteps().ready.ready' });
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const calm = () => kit.prepared('true', 120000, { only: true });
 const toPlane = async (i) => { await calm(); await ev(`document.querySelector('#svStrip .sv-plane[data-i="${i}"]').click(); 1`); await quiet(); await settled({ floor: 400 }); return ctl(); };
 // (a picture: the plane's pixels are not all one colour)
 const picture = async () => { const r = await planePixels('', '(r, g, b) => Math.max(r, g, b) - Math.min(r, g, b) > 40 || r < 235'); return r.__exc ? r : r.n > 50; };

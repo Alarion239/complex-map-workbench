@@ -114,7 +114,7 @@ function hooks(o = {}) {
     paneL: { w: 800, h: 400, ocanvas: new El('paneL') }, paneR: { w: 800, h: 400, ocanvas: new El('paneR') }, probe: null,
     snd: { rope: { x: 1, y: 2, src: 'pointer' }, phi: 0, last: null, kz: null, kbd: false, ptrT: -1e9, kloop: null, lastLoop: null, play: null, prep: null, prepR: null, listenN: 0, tracker: true, voice: null, ptrOn: true, cv: {} },
     F: o.F || ((z) => z), fk: 'f1', view: { cx: 0, cy: 1, s: 100 }, solo: () => '', morphOn: () => false,
-    leftView: () => ctx.view, sndF: () => ctx.F, sndFKey: () => ctx.fk,
+    leftView: () => ctx.view, leftStage: () => 0, svName: (k) => (k === 0 ? 'z' : 'w' + k), sndF: () => ctx.F, sndFKey: () => ctx.fk,
     // (the classic view: no steps view, never past its colour plane)
     stepsView: () => null, sndSvQuiet: () => false, sndSvPast: () => '',
     sndSay: (s) => said.push(s), sndFmt: (z) => CX.fmt(z, 2), sndHover: (z, px, src) => calls.push(['hover', z, src]),

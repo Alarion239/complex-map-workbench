@@ -28,6 +28,7 @@ const reopen = async (nsx) => {
 const GLIDE_CLOCK_MS = 100, UNDERWAY_MAX_MS = 30000;   // the glide time a frame advances (ms), and the longest wait for a glide to be under way
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 // (the glide's clock is armed for the reads of a glide under way, and let go of here, so that the glide ends in its own time, not frame by frame:
 // frames cost seconds on a software renderer)
 let clocked = false;
@@ -35,7 +36,7 @@ const arm = async () => { clocked = true; await ctl({ clock: GLIDE_CLOCK_MS }); 
 const arrived = async () => {
   if (clocked) await ctl({ clock: 0 });
   // (ready: a press waits for the prestart, so the next one is made once it is done)
-  const r = await settled({ max: 60000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play && s.ready.ready; })()` });
+  const r = await kit.prepared('(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()', 60000);
   if (clocked) await ctl({ clock: GLIDE_CLOCK_MS });
   return r;
 };
