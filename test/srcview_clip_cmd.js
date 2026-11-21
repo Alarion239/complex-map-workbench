@@ -8,7 +8,7 @@
 // - the camera zoomed in ZOOM times in place: clipWin is the new box;
 // - the camera moved FAR away with { keepClip: true }: clipWin kept (the hook's option for a suite that wants the
 //   window the scene came with).
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views-2 shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
