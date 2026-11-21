@@ -31,6 +31,15 @@ const single = source('\\sum_{n=1}^{\\infty} \\frac{\\sin(n z)}{2^n}');
 ok(count(single, DECL) === 1 && count(single, DEC) === 1 && count(single, STOP) === 1, 'a single loop sum: one declaration, one count, one stop', { decl: count(single, DECL), dec: count(single, DEC), stop: count(single, STOP) });
 const deep = source('\\sum_{a=1}^{4} \\sum_{b=1}^{4} \\sum_{c=1}^{4} \\frac{1}{(a+b+c+z)^2}');
 ok(count(deep, DEC) === 1 && count(deep, STOP) === 3, 'three nested loops: the innermost counts, all three stop', { dec: count(deep, DEC), stop: count(deep, STOP) });
+// a recurrence (iter) in a sum's term is no loop of the sum's kind (the CPU's runs count the sums it runs, and iter is not one): the sum
+// around it is the loop with no sum inside it, and counts the terms; with a sum around that one, the innermost still counts
+const ITER = 'iter(u^2+z, u, 0, 3)';
+const withIter = source(`\\sum_{n=1}^{\\infty} \\frac{${ITER}}{n^2}`);
+ok(count(withIter, DECL) === 1 && count(withIter, DEC) === 1 && count(withIter, STOP) === 1, 'a sum whose term holds an iter: one declaration, one count, one stop', { decl: count(withIter, DECL), dec: count(withIter, DEC), stop: count(withIter, STOP) });
+const nestedIter = source(`\\sum_{m=1}^{\\infty} \\sum_{n=1}^{4} \\frac{${ITER}}{(m+n)^2}`);
+ok(count(nestedIter, DEC) === 1 && count(nestedIter, STOP) === 2, 'two nested sums with an iter in the inner term: the inner counts, both stop', { dec: count(nestedIter, DEC), stop: count(nestedIter, STOP) });
+const iterOuter = source(`\\sum_{m=1}^{\\infty} ${ITER} \\sum_{n=1}^{4} \\frac{1}{(m+n)^2}`);
+ok(count(iterOuter, DEC) === 1 && count(iterOuter, STOP) === 2, 'an iter beside the inner sum in the outer term: the inner sum counts, both stop', { dec: count(iterOuter, DEC), stop: count(iterOuter, STOP) });
 for (const [tag, expr] of [['a chain with no sum', 'z^2+1'], ['a power series (no loop)', '\\sum_{n=0}^{\\infty} \\frac{z^n}{n!}'], ['a Dirichlet series (no loop)', '\\sum_{n=1}^{\\infty} n^{-z}']]) {
   const src = source(expr);
   ok(count(src, DECL) === 0 && count(src, DEC) === 0 && count(src, STOP) === 0, `${tag}: no terms counter`, { decl: count(src, DECL), dec: count(src, DEC), stop: count(src, STOP) });

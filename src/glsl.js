@@ -480,7 +480,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
     // [issue #5] the loop variables of the sums being generated, innermost last
     const idxVar = [];
-    let sums = 0;
+    let sums = 0, nest = 0;   // (sums: the names of the sums' and recurrences' loops; nest: the sums only, which the innermost test counts)
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
     // a loop's trip count as a uniform (a cell its writer fills with n, or with n() at write time), never a constant:
     // D3D's FXC (ANGLE on Windows) unrolls a loop with a constant bound, so a long series body becomes hundreds of copies
@@ -688,10 +688,10 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       out = inner;
       idxVar.push(me);
       let t;
-      const sums0 = sums;
+      const nest0 = nest;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
       // (a loop with no sum inside it takes the terms; the loops around it only stop once they are spent)
-      const innermost = sums === sums0;
+      const innermost = nest === nest0;
       lines[termsAt] = `  float ${TL} = ${SER_GPU_TERMS}.0;`;
       if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
       for (const e of outerFn) e.used = true;
@@ -758,6 +758,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
     }
     function genSum(n) {
       const id = `${P}_s${sums++}`;
+      nest++;
       let plan = Expr.planOf(n);
       if (!plan && !idxVar.length) { try { Expr.compile(n); } catch (e) { /* summed as it is */ } plan = Expr.planOf(n); }
       // (a plan's terms never involve an outer index: inside another sum the loop is used)

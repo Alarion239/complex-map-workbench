@@ -62,11 +62,11 @@ for (const lang of ['en', 'ru', 'it']) {
 // The three notes (the 512-term one, the budget one, both) at 320 px, the narrowest phone, in each language: each fits NOTE_LINES
 // lines, and the two that name the budget say what to do (they name the sums' upper limits). __cmwPaneNote draws a note on the
 // left plane and returns its box (18 px a line, 14 of padding)
-const NOTE_LINES = 6;
+const NOTE_LINES = 7;
 const NOTES = [
   ['the 512 terms', 'Part of this plane is blank: an infinite sum does not converge there within {terms} terms.'],
-  ['the budget', 'Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Lower their upper limits to draw it.'],
-  ['both', 'Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Lower their upper limits.'],
+  ['the budget', 'Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.'],
+  ['both', 'Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.'],
 ];
 await view(320, 640, false, true);
 for (const lang of ['en', 'ru', 'it']) {
