@@ -9,7 +9,8 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // (waits for the page to be quiet: no glide or play under way, the panes' frames drawn; `extra` is one more condition)
-const quiet = (extra) => settled({ max: 20000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play && s.ready.ready${extra ? ' && (' + extra + ')' : ''}; })()` });
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const quiet = (extra) => kit.prepared(`(() => { const s = __cmwSteps(); return !s.anim && !s.play${extra ? ' && (' + extra + ')' : ''}; })()`, 20000);
 const ns = 'svl' + Date.now();
 // zeta, a circle and a point: the circle's 600 samples go through zeta's map, the point has a label
 const st = { v3: true, v4: true, v5: true, v6: true,
