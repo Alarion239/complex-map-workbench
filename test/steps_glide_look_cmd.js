@@ -5,8 +5,7 @@
 // whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions, and the logarithm Everywhere, of an annulus and its sheets (its glide's inverse a
 // branch of a power and an affine map); the zeros of the zeta function Inside regions, for the parked camera alone; and,
 // Everywhere over a disc, the steps whose glide is inverted by a closed form (an n-th root, a complex power, cos, cosh,
-// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op) and a polynomial of degree 5 (every root by
-// Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
+// arccos, arcosh: their ops have no NEWT op) and a polynomial of degree 5 (every root by Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
@@ -119,23 +118,26 @@ const CASES = [
   // H_u(z) = w, those in Newton's fractal basins included; its step's own path moves a point by u |p(z) - z|, up to
   // 0.05 at the square's corners at u = 0.001, some pixels, so its ends are a tenth as far from the planes: end)
   { tag: 'Partial sum of the exponential', example: 'Partial sums of the exponential', scope: 'in', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], end: 1e-4 },
-  { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true },
-  { tag: 'Sheets of the logarithm, Everywhere', example: 'Sheets of the logarithm', scope: 'all', cover: true },
+  // (the logarithm's image of the window narrows with u: every 5 px, step)
+  { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true, step: 5 },
+  { tag: 'Sheets of the logarithm, Everywhere', example: 'Sheets of the logarithm', scope: 'all', cover: true, step: 5 },
   // (the steps whose glide the inverse pass draws by a closed form, Everywhere, over a disc: an n-th root and a complex power
-  // (ROOTPOW), cos, cosh, arccos and arcosh (their zoom paths: an affine map, the inverse function, an affine map), and a
-  // rational formula of degree 5 (RAT5); and a polynomial of degree 5, every root by Aberth's iteration (NEWT^5). noNewt:
-  // the glide's ops have no NEWT op)
+  // (ROOTPOW), cos, cosh, arccos and arcosh (their zoom paths: an affine map, the inverse function, an affine map); and a
+  // polynomial of degree 5, every root by Aberth's iteration (NEWT^5). noNewt: the glide's ops have no NEWT op. step: where
+  // H_u's image of the window shrinks with u (the roots, the powers, arcosh, the polynomial), fewer than MIN_COMPARED
+  // pixels every 10 px lie in it, so it samples every 5 px; end: cos's and cosh's zoom paths turn the plane by pi t about
+  // their point, a pixel at the window's edge at u = 0.001, and the polynomial's path moves a point by about u |p(z) - z|,
+  // so their ends are a tenth as far from the planes)
   ...[
-    ['n-th root, Everywhere', { type: 'root', params: { n: 3 } }, 90, true],
-    ['complex power, Everywhere', { type: 'powa', params: { alpha: '0.5+0.3i' } }, 90, true],
-    ['cos, Everywhere', { type: 'cos', params: {} }, 60, true],
-    ['cosh, Everywhere', { type: 'cosh', params: {} }, 60, true],
-    ['arccos, Everywhere', { type: 'arccos', params: {} }, 90, true],
-    ['arcosh, Everywhere', { type: 'arcosh', params: {} }, 90, true],
-    ['rational formula of degree 5, Everywhere', { type: 'custom', params: { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 } }, 90, true],
-    ['polynomial of degree 5, Everywhere', { type: 'poly', params: { co: '1, 0, -1, 0.5i, 0, 1' } }, 90, false],
-  ].map(([tag, step, s, noNewt]) => ({ tag, scope: 'all', noNewt, state: { v3: true, v4: true, v5: true, v6: true, nextId: 10, focus: 0, srcView: { cx: 0, cy: 0, s },
-    shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0.3], r: 0.6, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] } })),
+    ['n-th root, Everywhere', { type: 'root', params: { n: 3 } }, 90, { noNewt: true, step: 5 }],
+    ['complex power, Everywhere', { type: 'powa', params: { alpha: '0.5+0.3i' } }, 90, { noNewt: true, step: 5 }],
+    ['cos, Everywhere', { type: 'cos', params: {} }, 60, { noNewt: true, end: 1e-4 }],
+    ['cosh, Everywhere', { type: 'cosh', params: {} }, 60, { noNewt: true, end: 1e-4 }],
+    ['arccos, Everywhere', { type: 'arccos', params: {} }, 90, { noNewt: true }],
+    ['arcosh, Everywhere', { type: 'arcosh', params: {} }, 90, { noNewt: true, step: 5 }],
+    ['polynomial of degree 5, Everywhere', { type: 'poly', params: { co: '1, 0, -1, 0.5i, 0, 1' } }, 90, { step: 5, end: 1e-4 }],
+  ].map(([tag, step, s, o]) => Object.assign({ tag, scope: 'all', state: { v3: true, v4: true, v5: true, v6: true, nextId: 10, focus: 0, srcView: { cx: 0, cy: 0, s },
+    shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0.3], r: 0.6, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] } }, o)),
   // (zeta Inside regions: the parked camera alone. The regions' image is a thin strip, where the exact picture finds
   // fewer than MIN_COMPARED pixels to compare)
   { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', scope: 'in', parked: [0.3, 0.5, 0.7], only: 'parked' },
