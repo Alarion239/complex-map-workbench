@@ -51,6 +51,7 @@ const VIEWS = {
   'sound_steps_cmd.js': steps(),   // (Hear the function in the steps view; one check opens the classic view)
   'steps_carry_cmd.js': steps(),
   'steps_ddz_glide_cmd.js': steps(),
+  'steps_ddz_glide_after_cmd.js': steps(),
   'steps_ddz_rest_cmd.js': steps(),
   'steps_ddz_glide_cut_cmd.js': steps(),
   'steps_globe_key_cmd.js': steps(),
@@ -73,6 +74,7 @@ const VIEWS = {
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
+  'steps_glide_mesh_wait_cmd.js': steps(),
   'steps_glide_cut_dash_cmd.js': steps(),
   'steps_sheets_readback_cmd.js': steps(),
   'steps_land_head_cmd.js': steps(),
@@ -171,6 +173,7 @@ const VIEWS = {
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'steps_late_links_cmd.js': steps({ pin: true }),
+  'steps_hold_readout_cmd.js': steps(),
   'export_num_film_cmd.js': steps(),
   'steps_bare_status_cmd.js': steps({ pin: true }),
   'sv_globe_net_cmd.js': steps({ pin: true }),
@@ -179,6 +182,7 @@ const VIEWS = {
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
   'phone_toast_lines_cmd.js': steps(),
+  'phone_toast_sheet_cmd.js': steps(),
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
   'phone_legend_said_cmd.js': steps(),
@@ -228,6 +232,7 @@ const VIEWS = {
   // the classic views' own parts, pinned to the classic view
   'deform_range_cmd.js': steps({ pin: true }),
   'export_stage_points_cmd.js': classic('the classic Image figure\'s two panels at a focused step: a point of w₁ carried from its own plane, and the caption that names its plane'),
+  'figure_ticks_cmd.js': classic('the classic Image figure\'s two panels of points only, and the composer\'s tick labels'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
   'phone_plane_cmd.js': steps({ pin: true }),

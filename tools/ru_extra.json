@@ -698,7 +698,7 @@
  "No step before f{k}": "Перед f%{k} шагов нет",
  "No step after f{k}": "После f%{k} шагов нет",
  "Step shown alone": "Шаг, показанный отдельно",
- "Moved {name} to {x}, {y}.": "{name} перемещена в {x}, {y}.",
+ "Moved {name} to {z}.": "{name} перемещена в {z}.",
  "Moved {name}.": "{name} перемещена.",
  "Previous or next plane": "Предыдущая или следующая плоскость",
  "With a shape selected: nudge it by one grid step, ⇧ for ten": "При выбранной фигуре: сдвинуть её на один шаг сетки, ⇧ — на десять",
