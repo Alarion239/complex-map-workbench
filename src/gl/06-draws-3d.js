@@ -1246,6 +1246,8 @@
   }
   function drawLandscape(st) {
     if (!ok) return null;
+    // (the Landscape's warm-up may start from now on, landWarmOk; a side chain's draw is not the user's view)
+    if (!sideMode) landDrawn = true;
     // TEST-HOOK (dropped from the published page by build.py)
     // (walls tests) api._lw.motion: the frame is drawn on the moving path (its levels, budget and list) while
     // the scene stands still, as the motion part measures it
