@@ -484,6 +484,10 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (the classic view's planes are half the screen, and the keys' row takes 172 px of the plane's width: the chip is 52 px wide at 568 px (68 at 600) with the tall bar and
+     156 px (172) without it, too narrow for its words, which showed a few letters of each line. They are folded away, the chip keeps its × and ?, and the bar says the whole
+     sentence in one line; the steps view's plane is wide and keeps them) */
+  :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip > .cm-t { display: none; }
 }
 /* (an unfolded key is the one the person opened to read: it stands over the keys it meets (Fit view, the zoom group, Sphere), at any height
    where it meets them, so its words are not hidden, and opaque, so the keys under it do not show through; a tap on it folds it, and the keys
