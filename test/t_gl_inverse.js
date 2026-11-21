@@ -72,9 +72,9 @@ for (const t of TYPES) {
 {
   const a = build([St('powa', { alpha: '1.5' })]).inverse.key, b = build([St('powa', { alpha: 'i' })]).inverse.key;
   check('powa 1.5 -> i keeps the inverse key (ROOTPOW mode is a uniform)', a === b);
-  const p1 = build([St('poly', { co: '1, 0, -1, 0' })]), p2 = build([St('poly', { co: '1, 0, 0, 5' })]);
-  check('poly 1,0,-1,0 -> 1,0,0,5: the forward key and layout stay', p1.key === p2.key && p1.slots === p2.slots);
-  check('poly 1,0,-1,0 -> 1,0,0,5: the inverse key changes (X -> IPOW, AFF)', p1.inverse.key !== p2.inverse.key && /"X"/.test(p1.inverse.key) && /IPOW/.test(p2.inverse.key));
+  const p1 = build([St('poly', { co: '1, 0, 0, 0, -1, 0' })]), p2 = build([St('poly', { co: '1, 0, 0, 0, 0, 5' })]);
+  check('poly 1,0,0,0,-1,0 -> 1,0,0,0,0,5: the forward key and layout stay', p1.key === p2.key && p1.slots === p2.slots);
+  check('poly 1,0,0,0,-1,0 -> 1,0,0,0,0,5: the inverse key changes (X -> IPOW, AFF)', p1.inverse.key !== p2.inverse.key && /"X"/.test(p1.inverse.key) && /IPOW/.test(p2.inverse.key));
   const m1 = build([St('mobius', { a: '1', b: '2', c: '1', d: '3' })]), m2 = build([St('mobius', { a: '1', b: '2', c: '2', d: '4' })]);
   check('Mobius through degeneracy: forward key and layout stay, inverse key changes', m1.key === m2.key && m1.slots === m2.slots && m1.inverse.key !== m2.inverse.key);
   // the forward uChain values of the same structure keep their cells (the inverse has its own allocator)
@@ -372,6 +372,38 @@ for (const t of TYPES) {
     for (const [v, c] of inn) if (out.has(v)) { pairs++; if (out.get(v) !== c) bad0.push(`${name}.${v}: vs ${out.get(v) ? 'centroid' : 'plain'}, fs ${c ? 'centroid' : 'plain'}`); }
   }
   check('every program\'s vertex outputs and fragment inputs agree on centroid', pairs > 20 && bad0.length === 0, JSON.stringify({ pairs, bad: bad0 }));
+}
+// ---- RAT3's root polish near a double root ----
+// The polish is up to two Newton steps on p - w q, each taken only when it lowers |p(u)|. At a double root p'(u) is
+// small and p(u) is float32's rounding of its terms, so an unguarded step is that rounding over p' and throws the root
+// off wherever that rounding is not 0. The rule on (z - 1)^2 (z + 2) at w = 0 from a root
+// 1e-5 off, p(u) carrying float32 rounding of its terms (2^-24 T, T = 6 the terms' size at u = 1, at a fixed phase):
+// with the guard the root stays within 1e-4 of 1, without it the first step throws it past 1e-3 (the control). And
+// the RAT3 op's source carries the guard
+{
+  const C = (re, im = 0) => ({ re, im }), add = (a, b) => C(a.re + b.re, a.im + b.im), sub = (a, b) => C(a.re - b.re, a.im - b.im);
+  const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re), cabs = (a) => Math.hypot(a.re, a.im);
+  const div = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+  const ev = (co, u) => co.reduce((acc, c) => add(mul(acc, u), C(c)), C(0));
+  const P = [1, 0, -3, 2], DP = [3, 0, -3], NOISE = 6 * 2 ** -24;
+  const f = (u) => add(ev(P, u), C(NOISE * Math.cos(1), NOISE * Math.sin(1)));
+  const polish = (u, guard) => {
+    let fu = f(u);
+    for (let it = 0; it < 2; it++) {
+      const g = ev(DP, u);
+      if (g.re === 0 && g.im === 0) break;
+      const v = sub(u, div(fu, g)), fv = f(v);
+      if (!Number.isFinite(v.re + v.im) || (guard && !(cabs(fv) < cabs(fu)))) break;
+      u = v; fu = fv;
+    }
+    return u;
+  };
+  const u0 = C(1 + 1e-5), on = polish(u0, true), off = polish(u0, false);
+  check('RAT3 polish near a double root: with the guard the root stays within 1e-4 of 1', cabs(sub(on, C(1))) < 1e-4, JSON.stringify(on));
+  check('RAT3 polish near a double root (control): an unguarded step throws it past 1e-3', cabs(sub(off, C(1))) > 1e-3, JSON.stringify(off));
+  const steps = [St('custom', { expr: 'z^3-3z+2', cut: 180 })], inv = GLChain.build(steps, steps.map(Funcs.build)).inverse;
+  const src = inv && inv.ok ? inv.lib + inv.walker : '';
+  check('the RAT3 op\'s source carries the polish guard', src.includes('!(cx_abs(fv) < cx_abs(f))'), src.length);
 }
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
