@@ -541,13 +541,24 @@ void main() {
   // (pole x, y, r0, r1; r1 > 0), a patch about a pole of the glide's map: the angle once round clockwise with i (so its
   // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
   // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
-  // are left out
+  // are left out. uSeamOn 1: the glide's map has a cut out of the pole (the branch of a power or a log that ends there,
+  // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / 8 of the way out (linear between them), SEAM_EPS
+  // inside it on each side out to the cut's end (uSeamEnd, a fraction of the way out), so the ring's first and last cells
+  // end at the cut and no cell straddles it; past its end the ring closes round
+  const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
+  const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
   const CARRY_ZIN = `
-uniform vec4 uPolar;
+uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[9]; uniform float uSeamEnd;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
   float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
+  if (uSeamOn == 1) {
+    float t = clamp(ij.y * f, 0.0, 1.0) * 8.0;
+    int k = min(int(t), 7);
+    float e = ij.y * f <= uSeamEnd ? ${SEAM_EPS} : 0.0;
+    th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
+  }
   return uPolar.xy + r * vec2(cos(th), sin(th));
 }
 `;
@@ -613,11 +624,21 @@ void main() {
   // height step over uStep (a cut of G, which the edge passes split at rest) is left out. uStep is 0.3 H for the
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
-  // evaluates G exactly (LAND_FS's carry form)
+  // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
+  // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
+  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep;
+uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}];
+bool inDisc(vec2 a, vec2 b, vec2 c) {
+  for (int k = 0; k < ${CARRY_DISCS}; k++) {
+    if (k >= uDiscN) break;
+    vec3 d = uDisc[k];
+    if (length(a - d.xy) < d.z && length(b - d.xy) < d.z && length(c - d.xy) < d.z) return true;
+  }
+  return false;
+}
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
@@ -632,6 +653,7 @@ void main() {
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
+  if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
@@ -774,8 +796,9 @@ void main() {
 `;
   // the steep base triangles while something moves (STEEP): a program without the chain, F from the corners (vW), as
   // landR's sub-cells, so facetW draws their contours on the facet; compiled once per page, warmed with the
-  // refinement's programs (rfWarmed)
-  const LAND_B_VS = REFINE + `
+  // refinement's programs (rfWarmed). All the base triangles, steep or not (all): the surface's stand-in while landTF and
+  // land link, over the heights and the values of F the app computed (drawLandscape's st.standIn)
+  const LAND_B_VS = (all) => REFINE + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
 uniform int uRefOn;
@@ -792,7 +815,7 @@ void main() {
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = tri == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = tri == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   // (the partition with land's draw, LAND_VS: a triangle without a jump on its edges, sloped over 1 at a corner)
-  if (!steepTri(V0, V1, V2) || (uRefOn == 1 && lvDrawnR(c))) return;
+  if (${all ? '' : '!steepTri(V0, V1, V2) || '}(uRefOn == 1 && lvDrawnR(c))) return;
   if (edgeOf(V0, V1).w > 0.5 || edgeOf(V1, V2).w > 0.5 || edgeOf(V2, V0).w > 0.5) return;
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
@@ -1438,6 +1461,25 @@ ${phase ? glsl`
   vec3 col = mix(uPlaneCol, uGridMaj, net);
   col = mix(col, uAxisCol, 0.7 * re);
   col = mix(col, uAxisCol, eq);`}
+  vec3 v = normalize(uEye - vP);
+  o = vec4(toSrgb(shade(toLin(col), n, v, 1.0)), 1.0);
+}
+`;
+  // The phase globe's stand-in while its program (sphereP) links (drawSphere's st.standIn): w = F(z) at the nodes of a
+  // longitude-latitude grid, texel (i, j) the node at longitude -pi + 2 pi i / (nx - 1) and latitude -pi / 2 + pi j / (ny - 1),
+  // z the stereographic projection of the node (SPHERE_FS's). w is interpolated at the pixel (standInW) and lined and
+  // lit as the globe is. Needs STANDIN_W
+  const SPHERE_STANDIN_FS = `
+in vec3 vP;
+uniform vec3 uEye; uniform sampler2D uWNodes;
+out vec4 o;
+void main() {
+  vec3 n = normalize(vP);
+  float net, re, eq;
+  sphereLines(n, net, re, eq);
+  vec2 nodes = vec2(textureSize(uWNodes, 0) - 1);
+  vec2 q = vec2(atan(n.y, n.x) / (2.0 * PI) + 0.5, asin(clamp(n.z, -1.0, 1.0)) / PI + 0.5) * nodes;
+  vec3 col = phaseLines(dcolor(standInW(uWNodes, q)), net, re, eq);
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(col), n, v, 1.0)), 1.0);
 }
