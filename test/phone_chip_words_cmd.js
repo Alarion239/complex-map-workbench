@@ -8,7 +8,7 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const WARM_MS = 60000, QUIET_FRAMES = 3, QUIET_MAX_FRAMES = 120;
 const CASES = [[320, 568, ['perp', 'touch', 'hyper', 'meet', 'midpoint']], [360, 640, ['perp', 'touch', 'meet']]];
-// the box of #id has held still for QUIET_FRAMES frames in a row (the chip and the bar are placed by frames after the tool is picked)
+// the box of the element `sel` matches has held still for QUIET_FRAMES frames in a row (the chip and the bar are placed by frames after the tool is picked)
 const quiet = (sel) => ev(`new Promise((resolve) => {
   const e = document.querySelector(${JSON.stringify(sel)}); let last = '', same = 0, n = 0;
   const tick = () => { const r = e.getBoundingClientRect(), k = [r.left, r.top, r.width, r.height].join(); same = k === last ? same + 1 : 0; last = k;
