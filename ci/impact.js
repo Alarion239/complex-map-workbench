@@ -188,6 +188,7 @@ const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },
   { os: 'ubuntu-latest', page: 'inverse', part: '1/1', tier: 'core' },
+  { os: 'ubuntu-latest', page: 'dh', part: '1/1', tier: 'core' },
 ];
 const GLSL_JOBS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/8`, tier: 'all' })),
