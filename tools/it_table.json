@@ -1207,7 +1207,6 @@
  "Principal branch": "Ramo principale",
  "Principal branch; cuts on the imaginary axis beyond ±i": "Ramo principale; tagli sull'asse immaginario oltre ±i",
  "Principal branch; cuts on the real axis beyond ±1": "Ramo principale; tagli sull'asse reale oltre ±1",
- "Probe at the centre, z = {z}. Steps of {st}; Shift for {x}.": "Sonda al centro, z = {z}. Incrementi di {st}; Shift per {x}.",
  "Problem 3.": "Esercizio 3.",
  "Proper": "Propria",
  "Pull further to free {x}": "Tira ancora per svincolare {x}",
@@ -2577,11 +2576,6 @@
   "one": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w",
   "other": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w"
  },
- "z {z}. F is infinite here.": "z {z}. Qui F è infinita.",
- "z {z}. Modulus {modulus}, argument {n} degrees.\u0004z {z}. Modulus {modulus}, argument {n} degrees.": {
-  "one": "z {z}. Modulo {modulus}, argomento {n} grado.",
-  "other": "z {z}. Modulo {modulus}, argomento {n} gradi."
- },
  "z-plane": "piano z",
  "z^α on a chosen branch": "z^α su un ramo scelto",
  "zeros": "zeri",
@@ -3020,6 +3014,15 @@
  "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})",
  "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "Questa somma ha più termini di quelli che la GPU disegna ({n} su un massimo di {cap}), quindi il riquadro resta vuoto. Abbassa il suo estremo superiore per disegnarla.",
  "Part of this plane is blank: an infinite sum does not converge there within {terms} terms.": "Parte di questo piano è vuota: una somma infinita lì non converge entro {terms} termini.",
+ "The plane $%{p}$ at $%{c}=%{list}$.": "Il piano $%{p}$ per $%{c}=%{list}$.",
+ "The planes": "I piani",
+ "A Number": "Un numero",
+ "Filmstrip of": "Sequenza di",
+ "Add a Number to the formula first": "Aggiungi prima un numero alla formula",
+ "From value": "Dal valore",
+ "To value": "Al valore",
+ "Frames": "Fotogrammi",
+ "landscape, carried from {p}": "paesaggio, trasportato da {p}",
  "Preparing the page": "Preparazione della pagina",
  "Preparing {done} of {total} shaders, first time only": "Shader preparati: {done} di {total} (solo la prima volta)",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",
@@ -3429,6 +3432,12 @@
  "Overlays": "Sovrapposizioni",
  "Quality": "Qualità",
  "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
+ "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Sonda al centro, {v} = {z}. Incrementi di {st}; Shift per {x}.",
+ "{v} {z}. F is infinite here.": "{v} {z}. Qui F è infinita.",
+ "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
+  "one": "{v} {z}. Modulo {modulus}, argomento {n} grado.",
+  "other": "{v} {z}. Modulo {modulus}, argomento {n} gradi."
+ },
  "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
  "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre",
  "This curve is in {plane}, a later plane: listen along it there.": "Questa curva sta nel piano {plane}, più avanti nella catena: usa «Ascolta lungo la curva» da quel piano.",
@@ -3445,5 +3454,38 @@
  "{x} move a probe": "{x} muovono una sonda",
  "Stop on a plane to colour from it": "Fermati su un piano per prendere il colore da lì",
  "{name}: +{n} off view": "{name}: altri {n} fuori vista",
- "Pieces of {name} pulled back off the view: {n} of {all}": "Parti della controimmagine di {name} fuori vista: {n} su {all}"
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Parti della controimmagine di {name} fuori vista: {n} su {all}",
+ "Pick": "Scegli punti",
+ "Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.": "Premi un punto per illuminarne i gemelli, i punti con la stessa immagine; trascina per disegnare un disco sul piano bersaglio; trascina una zona illuminata per spostarla. Due dita o il tasto destro spostano la vista. Con il piano attivo, Invio illumina i gemelli del punto selezionato, un secondo Invio aggiunge il disco.",
+ "{n} preimage on {plane}\u0004{n} preimages on {plane}": {
+  "one": "{n} controimmagine sul piano {plane}",
+  "other": "{n} controimmagini sul piano {plane}"
+ },
+ "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre",
+ "phone tile\u0004Pick": "Punti",
+ "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",
+ "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "{n} controimmagine",
+  "other": "{n} controimmagini"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "{n} pezzo",
+  "other": "{n} pezzi"
+ },
+ "one covers the disc twice": "uno copre il disco due volte",
+ "one covers the disc {k} times": "uno copre il disco {k} volte",
+ "{n} cover the disc more than once": "{n} coprono il disco più di una volta",
+ "{n} hole\u0004{n} holes": {
+  "one": "{n} buco",
+  "other": "{n} buchi"
+ },
+ "Preimage on {w}": "Controimmagine su {w}",
+ "Pieces join at r = {list}": "I pezzi si uniscono a r = {list}",
+ "No pieces join as r grows": "Al crescere di r nessun pezzo si unisce",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "{n} pezzo fuori vista",
+  "other": "{n} pezzi fuori vista"
+ },
+ "Radius r, against the join radii": "Raggio r, sulla scala dei raggi di unione"
 }

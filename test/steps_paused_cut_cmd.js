@@ -8,7 +8,8 @@
 //   blocks of BLOCK px, at most SAME_FRAC of them with a mean channel more than TOL levels apart); control: the frame before the drag differs
 //   from it in more than CTL_FRAC of them;
 // - hovering the handle lights it, as at rest (the overlay about it changes, and comes back when the pointer leaves);
-// - the frame is still parked there, and the drag panned nothing (the view's centre within 1e-9).
+// - the frame is still parked there, and the drag panned nothing (the view's centre within 1e-9);
+// - a finger (a pen too) takes the handle within 22 px of its centre (a drag from 21 px turns the cut, from 24 px pans the plane), a mouse within 12 px.
 // Paths are off (their points are picked per view, not per chain). The branch point of the square root's cut is 0. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -47,6 +48,7 @@ const state = () => ev(`(() => {
 const scr = (pts) => ev(`(() => { const g = __cmwSteps().glide, r = document.getElementById('canvasL').getBoundingClientRect();
   return ${JSON.stringify(pts)}.map(([re, im]) => { const w = g.Hb({ re, im }), s = __cmwPlaneMenu().w2s('L', w.re, w.im); return [s[0], s[1]]; }); })()`);
 const s0 = await state();
+let pullTo = null;   // (the drag's end on screen: the reach rows pull toward it)
 info.before = s0;
 ok(`a frame parked at x = ${MID_U} draws one cut handle that takes presses, and no inert mark`, s0.handles.length === 1 && s0.marks === 0 && s0.hasHb, s0);
 if (s0.handles.length === 1 && s0.hasHb) {
@@ -58,6 +60,7 @@ if (s0.handles.length === 1 && s0.hasHb) {
   const a1 = TO_DEG * Math.PI / 180, from = a0 < 0 ? a0 + 2 * Math.PI : a0;
   const arc = Array.from({ length: ARC_N + 1 }, (_, i) => { const t = from + (a1 - from) * i / ARC_N; return [R * Math.cos(t), R * Math.sin(t)]; });
   const pts = await scr(arc), target = pts[pts.length - 1];
+  pullTo = target;
   // hovering the handle lights it on the parked frame as at rest: the overlay's pixels within HOVER_PX of the handle with
   // the pointer on it differ from those with the pointer HOVER_OFF px away (more than HOVER_MIN of them), and come back
   // when it leaves
@@ -91,5 +94,43 @@ if (s0.handles.length === 1 && s0.hasHb) {
   info.picture = { after: apart(after, ref), before: apart(before, ref) };
   ok(`the picture follows: the parked frame after the drag is the frame of a page opened with the cut there (at most ${SAME_FRAC * 100} % of the blocks apart)`, info.picture.after <= SAME_FRAC, info.picture);
   ok(`control: the frame before the drag differs from it (more than ${CTL_FRAC * 100} % of the blocks apart)`, info.picture.before > CTL_FRAC, info.picture);
+}
+// a finger takes the handle within TOUCH_PX of its centre (44 px target), a mouse within MOUSE_PX; a press past that pans the plane
+// instead and leaves the cut. A press at an offset of the handle's centre (px) is dragged PULL px along the way the cut's own drag goes, then released.
+await openParked(180, 0);
+{
+  const TOUCH_IN = 21, TOUCH_OUT = 24, MOUSE_IN = 11, MOUSE_OUT = 14, PULL = 40;
+  const h = (await state()).handles[0], len = Math.hypot(pullTo[0] - h.x, pullTo[1] - h.y), ux = (pullTo[0] - h.x) / len * PULL, uy = (pullTo[1] - h.y) / len * PULL;
+  await send('Emulation.setTouchEmulationEnabled', { enabled: true, maxTouchPoints: 5 });
+  // (the press at the handle's centre + (dx, 0) takes the handle when the cut turns, and then nothing pans)
+  const press = async (kind, dx) => {
+    const cut0 = (await state()).cut, x = h.x + dx, y = h.y;
+    if (kind === 'touch') {
+      await send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 1 }] });
+      for (let i = 1; i <= 8; i++) { await send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x + ux * i / 8, y: y + uy * i / 8, id: 1 }] }); await sleep(MOVE_GAP_MS); }
+      await send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    } else {
+      const pointerType = kind;   // (mouse or pen)
+      await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y, pointerType });
+      await send('Input.dispatchMouseEvent', { type: 'mousePressed', x, y, button: 'left', clickCount: 1, pointerType });
+      for (let i = 1; i <= 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x + ux * i / 8, y: y + uy * i / 8, button: 'left', buttons: 1, pointerType }); await sleep(MOVE_GAP_MS); }
+      await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x + ux, y: y + uy, button: 'left', clickCount: 1, pointerType });
+    }
+    await settled({ max: 60000, until: `GLR.pendingLinks === 0 && !__cmwSteps().anim` });
+    const s = await state();
+    const took = Math.abs(((s.cut - cut0 + 540) % 360) - 180) > 1;
+    await openParked(180, 0);
+    return took;
+  };
+  info.reach = {
+    touchIn: await press('touch', TOUCH_IN), touchOut: await press('touch', TOUCH_OUT), penIn: await press('pen', TOUCH_IN), penOut: await press('pen', TOUCH_OUT),
+    mouseIn: await press('mouse', MOUSE_IN), mouseOut: await press('mouse', MOUSE_OUT),
+  };
+  ok(`a finger ${TOUCH_IN} px from the parked handle's centre takes it (the cut turns)`, info.reach.touchIn, info.reach);
+  ok(`a finger ${TOUCH_OUT} px away does not (the plane pans, the cut stays)`, !info.reach.touchOut, info.reach);
+  ok(`a pen ${TOUCH_IN} px from the parked handle's centre takes it, as a finger, and ${TOUCH_OUT} px away does not`, info.reach.penIn && !info.reach.penOut, info.reach);
+  ok(`a mouse ${MOUSE_IN} px from the centre takes it`, info.reach.mouseIn, info.reach);
+  ok(`a mouse ${MOUSE_OUT} px away does not: its reach stays 12 px`, !info.reach.mouseOut, info.reach);
+  await send('Emulation.setTouchEmulationEnabled', { enabled: false, maxTouchPoints: 1 });
 }
 return { pass: fails.length === 0, fails, info };

@@ -14,7 +14,7 @@
 //    control counts the pane's pixels in it, from w₂ = ((z − i)/(z + i))³), so nothing is off view either;
 //  - the words keep off the axes, in English and Russian (at the default camera they sit beside the piece at -0.447 +
 //    0.124i, by the imaginary axis);
-//  - the plane's description says the count in words (#1770);
+//  - the plane's description says the count in words (#1770); in ru the region's name is set in «», as Russian quotes a name;
 //  - zoomed out in place, a frame that places no label leaves none in the placer's list (#1893);
 //  - with two regions counted, each count names its region (#1892);
 //  - on w₂, the disc's own plane, nothing is counted (the count is for pullbacks only).
@@ -140,6 +140,13 @@ await open('en', 90);
   info['en z, zoomed out in place'] = { o2, now };
   ok('zoomed out in place: the count was placed before (the control)', before, before);
   ok('zoomed out in place: nothing is counted, and the placer\'s list does not keep the last frame\'s count', Array.isArray(o2) && !o2.some((e) => e.id === 'd2') && !now.some((q) => /off view/.test(q.text)), { o2, now });
+}
+// the same in ru: the region's name in «», as Russian sets a name in running text
+await open('ru', 90);
+{
+  const said = await ev(`(() => { const c = document.getElementById('overlayL'), id = c.getAttribute('aria-describedby'), d = id && document.getElementById(id); return d ? d.textContent : null; })()`);
+  info['ru z, said'] = said;
+  ok('ru: the description quotes the region\'s name: "Части прообраза «<the disc>» за краем вида: 1 из 3"', /Части прообраза «[^«»]+» за краем вида: 1 из 3/.test(said || ''), said);
 }
 // two regions counted on z (the camera far from every piece): each count names its region as its row does, so the two are
 // told apart by more than their inks (#1892); one region counted keeps the bare count (the far scene above)
