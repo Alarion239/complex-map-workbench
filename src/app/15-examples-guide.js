@@ -953,7 +953,10 @@
       host.setAttribute('data-placed', 'phone-plot');
       // (above the context bar's row while one is open: the bar stands on the strip, so its height is the room it takes)
       const bar = /** @type {HTMLElement | null} */ (document.querySelector('.ph-ctx')), barH = document.documentElement.classList.contains('ph-ctx-on') && bar ? bar.offsetHeight : 0;
-      st.bottom = Math.round(H0() - sb.top + barH + 8) + 'px';
+      // (and above the left plane's "Compiling…" note while it is drawn, 4 px clear of it, when the note stands above the message's foot)
+      const cvp = compileShown.L && compileBox ? box($('canvasL')) : null, noteTop = cvp ? cvp.top + compileBox.y : 0;
+      const up = noteTop && noteTop < sb.top - barH - 8 ? Math.round(sb.top - barH - 8 - noteTop + 4) : 0;
+      st.bottom = Math.round(H0() - sb.top + barH + 8 + up) + 'px';
       // (a landscape plane is too short to hold the message above a construction chip: it stands right of the chip, left of the keys' column)
       const land = document.documentElement.classList.contains('ph-land'), chip = land ? box(document.querySelector('#plotL > .draft-chip.cm-on')) : null;
       if (chip) st.left = Math.round(chip.right + 8) + 'px'; else st.removeProperty('left');
@@ -961,7 +964,7 @@
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
       const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
-      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8 - up;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
       // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
@@ -978,7 +981,9 @@
       host.setAttribute('data-placed', 'plot');
       st.left = Math.round(plot.left + plot.width / 2) + 'px';
       st.maxWidth = Math.round(plot.width - 128) + 'px';
-      st.bottom = Math.round(H0() - floor + 12) + 'px';
+      // (above the left plane's "Compiling…" note while it is drawn, 4 px clear of it: the note stands at the plane's foot, which the message's edge would cover; a note below the floor is under the strip)
+      const cv = box($('canvasL')), lift = compileShown.L && compileBox && cv ? Math.round(floor - (cv.top + compileBox.y)) + 4 : 12;
+      st.bottom = Math.round(H0() - floor + Math.max(12, lift)) + 'px';
       return;
     }
     const chain = box(document.querySelector('.pipe-wrap'));
@@ -1037,7 +1042,8 @@
     const t = document.querySelector('#toastHost .toast:not(.toast-out)');
     if (t) closeToast(/** @type {HTMLElement} */ (t));
   });
-  // (o.sticky: it stays until its action or its close button is used, or another toast takes its place;
+  // (o.fit: off the phone, the message keeps its buttons together, beside the words or on a row under them (fitToastButtons);
+  // o.sticky: it stays until its action or its close button is used, or another toast takes its place;
   // o.ms: how long an ordinary one stays, 4 s, or 6 s when it has an action; the time stops while the pointer is over the
   // message or the focus is in it)
   const TOAST_DRAG_DISMISS_PX = 32, TOAST_DRAG_NO_PRESS_PX = 8, TOAST_CLICK_EAT_MS = 100;   // (a drag of 32 px dismisses; one of 8 px is no press, and the click after it is eaten for 100 ms)
@@ -1055,6 +1061,17 @@
     sp.style.whiteSpace = ''; t.style.flexWrap = ''; t.style.justifyContent = '';
     toastFitW.set(t, t.clientWidth);
     placeToasts();   // (the message's height may have changed: the More sheet's inset follows it)
+  }
+  // off the phone, a message with several buttons keeps them on one row: when they are not (the first beside the words, the others
+  // wrapped under), the words take a row of their own and the buttons stand together under them
+  const TOAST_ROW_SPREAD_PX = 4;   // (the close button is smaller than the others and centred on the row: its top is a pixel or two lower)
+  function fitToastButtons(t) {
+    if (!t.isConnected) return;
+    delete t.dataset.rows;
+    const tops = [...t.querySelectorAll('button')].map((b) => b.getBoundingClientRect().top);
+    if (tops.length > 1 && Math.max(...tops) - Math.min(...tops) > TOAST_ROW_SPREAD_PX) t.dataset.rows = 'two';
+    toastFitW.set(t, t.clientWidth);
+    placeToasts();
   }
   function toast(msg, actionLabel, action, isUndo, o) {
     if (isUndo && typeof svQuietToast === 'function' && svQuietToast(msg)) return null;   // (the steps view: an edit or an undo with the focus on the thread: said in the live region)
@@ -1075,6 +1092,10 @@
       try {
         new ResizeObserver(() => { if (t.clientWidth && t.clientWidth !== toastFitW.get(t)) requestAnimationFrame(() => fitToastRows(t)); }).observe(t);
       } catch (e) { /* no ResizeObserver */ }
+    }
+    if (o && o.fit && !rt.contains('ph')) {
+      requestAnimationFrame(() => fitToastButtons(t));
+      try { new ResizeObserver(() => { if (t.clientWidth && t.clientWidth !== toastFitW.get(t)) requestAnimationFrame(() => fitToastButtons(t)); }).observe(t); } catch (e) { /* no ResizeObserver */ }
     }
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;

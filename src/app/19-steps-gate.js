@@ -85,12 +85,12 @@
   // The 10 s message: the sentence, then what is missing. One sentence per part, so each language puts its words in its own order
   function svGateStill(part) {
     switch (part) {
-      case 'programs': return $t('Still preparing the glide: the programs are still linking.');
-      case 'warm': return $t('Still preparing the glide: the first picture of the colour is not drawn.');
-      case 'poles': return $t('Still preparing the glide: the pole tracks are not done.');
-      case 'ring': return $t('Still preparing the glide: the outer ring is not done.');
-      case 'meshes': return $t('Still preparing the glide: the meshes are not built.');
-      case 'redraw': return $t('Still preparing the glide: the first frame is not drawn.');
+      case 'programs': return $t('Still preparing the glide: the drawing programs are not ready yet.');
+      case 'warm': return $t('Still preparing the glide: the colour is not drawn yet.');
+      case 'poles': return $t('Still preparing the glide: the paths of the poles are not computed yet.');
+      case 'ring': return $t('Still preparing the glide: the outer part of the plane is not computed yet.');
+      case 'meshes': return $t('Still preparing the glide: the regions are not meshed yet.');
+      case 'redraw': return $t('Still preparing the glide: the first frame is not drawn yet.');
       default: return $t('Still preparing the glide.');
     }
   }
@@ -106,7 +106,7 @@
     }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
-      g.toast = toast(svGateStill(svGateMissing()), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
+      g.toast = toast(svGateStill(svGateMissing()), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true, fit: true });
       if (g.toast) {
         g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
         // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
