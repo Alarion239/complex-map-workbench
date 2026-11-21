@@ -487,11 +487,13 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
 ${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
   // (the sheet key's error across the triangle, for the resolve of ties (uKRes 2, PRE_KEY_RES): the fragment stage
-  // interpolates the source point linearly across the triangle's places, which is off the map's own point by up to
-  // |f''| h^2 / (8 |f'|), h the longest source edge, at an edge's middle. f' is fitted to the edges; f'' comes from the
-  // centroid's place wm, off the corners' mean by -f'' m2 / 2, m2 the mean of the corners' squared offsets from their
-  // mean (kept to at least a twentieth of h^2, a triangle near equilateral in z). The error in units of s: the key's
-  // change over that distance)
+  // interpolates the source point linearly across the triangle's places, that is it interpolates g = f^-1, whose error is
+  // up to |g''| hw^2 / 8 = |f''| h^2 / (8 |f'|), h the longest source edge, at an edge's middle. f' is fitted to the edges;
+  // f is analytic, so f'' is one complex number, which the centroid's place wm gives: off the corners' mean by
+  // -f'' m2 / 2, m2 the mean of the corners' squared offsets from their mean (h^2 / 9 for the grid's right isosceles
+  // triangles; kept to at least a twentieth of h^2, where a triangle near equilateral in z averages the term out). Near a
+  // pole or a critical point of f the estimate grows. The error in units of s: the key's gradient (by differences, so
+  // the key's own poles count) times that distance)
   vKErr = 0.0;
   if (uKRes == 2) {
     vec2 z0 = srcOf(s0), z1 = srcOf(s1), z2 = srcOf(s2), zb = (z0 + z1 + z2) / 3.0;
@@ -503,7 +505,7 @@ ${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
     float f2 = 2.0 * len2(wm - (w0 + w1 + w2) / 3.0) / max(len2(m2), 0.05 * h * h + 1e-30);
     float dz = 0.125 * f2 * h * h / max(len2(fp), 1e-30);
     float t0, t1, t2, sb = preKeyS(zb, t0);
-    vKErr = max(abs(preKeyS(zb + vec2(dz, 0.0), t1) - sb), abs(preKeyS(zb + vec2(0.0, dz), t2) - sb));
+    vKErr = length(vec2(preKeyS(zb + vec2(dz, 0.0), t1) - sb, preKeyS(zb + vec2(0.0, dz), t2) - sb));
   }
 ` : ''}${o.sheet && o.own ? glsl`  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)

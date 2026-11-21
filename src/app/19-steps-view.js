@@ -1859,7 +1859,10 @@
   // KEY_ERR_K times the key's error across each triangle and at least SV_TIE_BAND, ordered by the tie order), which costs
   // every mesh a second draw, so a frame whose sheets cannot tie draws them once.
   // The map tested: at rest plane b's own; a step's glide the steps before b, which the glide's map runs first; All at
-  // once, the steps up to the span's first plane (a rotation the later ones keep, as a step's glide's own, is not seen)
+  // once, the steps up to the span's first plane (a rotation the later ones keep, as a step's glide's own, is not seen).
+  // Not covered: a rotation of order past SV_TIE_N (z^12 about 0 keeps the key's own order), and equal keys that no
+  // rotation makes, which lie on curves alone (z + 1/z: z and 1/z on |z| = 1). A map a rotation keeps only nearly is
+  // harmless: the resolve reorders only fragments within the mesh's error of the smallest key
   const SV_TIE_N = 8, SV_TIE_PTS = 7, SV_TIE_REL = 1e-9, SV_TIE_BAND = 1;
   const svTieMemo = new Map();
   // (the band's floor, SV_TIE_BAND unless a test hook set another: __cmwSteps({ tieBand }))
