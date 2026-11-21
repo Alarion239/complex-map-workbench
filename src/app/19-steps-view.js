@@ -4043,7 +4043,9 @@
     const { btn, start } = g;
     svGateEnd();
     svGated(btn, start);
-    if (SV.gate) { SV.gate.shown = true; svGateSync(); svSay($t('Preparing the glide…')); }
+    // (its line is said on the next poll, a task after svGateEnd emptied the live region, so the write is a change a screen
+    // reader announces)
+    if (SV.gate) { SV.gate.shown = true; SV.gate.sayAgain = true; svGateSync(); }
   }
   function svGateEnd() {
     const g = SV.gate;
@@ -4094,7 +4096,7 @@
     if (!g.shown && t >= SV_GATE_SHOW_MS) {
       g.shown = true;
       if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
-    }
+    } else if (g.sayAgain && SV.els.live) { g.sayAgain = false; SV.els.live.textContent = $t('Preparing the glide…'); }
     if (!g.hung && t > SV_GATE_HANG_MS) {
       g.hung = true;
       g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
