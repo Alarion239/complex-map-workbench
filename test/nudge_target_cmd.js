@@ -14,7 +14,8 @@ const STATE = { v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], ta
 const target = () => ev(`(() => { const t = __cmwShapes().targets.find((x) => x.id === 't1'); return t ? t.p : null; })()`);
 // the grid step of the plane the target is on: the pixels a unit takes there (the plane menu's w2s on the side) through the page's own gridStep
 const stepOf = (side) => ev(`(() => { const m = __cmwPlaneMenu(), a = m.w2s('${side}', 0, 0), b = m.w2s('${side}', 1, 0); return Constr.gridStep(Math.hypot(b[0] - a[0], b[1] - a[1])); })()`);
-const said = (want) => ev(`new Promise((res) => { const t0 = performance.now(); let last = null; const f = () => { for (const x of document.querySelectorAll('#toastHost .toast')) { const t = x.textContent; if (/^Moved /.test(t)) { last = t; if (t.indexOf(${JSON.stringify(want)}) >= 0) return res(t); } } if (performance.now() - t0 > ${SAID_MS}) res(last); else setTimeout(f, 50); }; f(); })`);
+// the toast of a run's end whose words begin with lead (a pattern) and hold want, or the last such toast within SAID_MS
+const said = (want, lead = '^Moved ') => ev(`new Promise((res) => { const t0 = performance.now(); let last = null; const f = () => { for (const x of document.querySelectorAll('#toastHost .toast')) { const t = x.textContent; if (new RegExp(${JSON.stringify(lead)}).test(t)) { last = t; if (t.indexOf(${JSON.stringify(want)}) >= 0) return res(t); } } if (performance.now() - t0 > ${SAID_MS}) res(last); else setTimeout(f, 50); }; f(); })`);
 const leg = async (view) => {
   await seed(`ntg${view}`, STATE);
   await nav(`http://localhost:${PORT}/test.html?ns=ntg${view}&view=${view}`);
@@ -44,20 +45,23 @@ const leg = async (view) => {
 await view(1280, 800, false, false);
 await leg('steps');
 await leg('classic');
-// in ru the toast says «Объект «<the row's name>» перемещён …»: the shape's name in «», and a participle that agrees with
-// «Объект», not with the shape (a «Точка», a «Круг» or an «Отрезок» alike)
-{
-  await seed('ntgru', STATE);
-  await nav(`http://localhost:${PORT}/test.html?ns=ntgru&view=classic&lang=ru`);
+// in ru and it the toast says «Объект «<the row's name>» перемещён …» and «Oggetto «…» spostato …»: the name in «», and a
+// participle that agrees with «Объект» and «Oggetto», not with the shape, which may be a target (a point, a circle or a segment alike)
+const LANG = {
+  ru: { lead: '^Объект «', re: /^Объект «([^«»]+)» перемещён в -?[\d.,]+, -?[\d.,]+\.$/, says: '«Объект «<the row\'s name>» перемещён в x, y.»' },
+  it: { lead: '^Oggetto «', re: /^Oggetto «([^«»]+)» spostato in -?[\d.,]+, -?[\d.,]+\.$/, says: '«Oggetto «<the row\'s name>» spostato in x, y.»' },
+};
+for (const [lang, L] of Object.entries(LANG)) {
+  await seed(`ntg${lang}`, STATE);
+  await nav(`http://localhost:${PORT}/test.html?ns=ntg${lang}&view=classic&lang=${lang}`);
   await settled({ max: WARM_MS, only: true, until: `typeof __cmwShapes === 'function' && __cmwShapes().targets.length === 1` });
   const name = await ev(`(() => { const r = ${ROW}, k = r && r.querySelector('.k'); return k ? k.textContent.trim() : null; })()`);
   await ev(`${ROW}.focus(); 1`);
   await key('Enter'); await settled({ only: true, max: WARM_MS, until: `${ROW}.getAttribute('aria-pressed') === 'true'` });
   await key('ArrowRight');
-  // (the toast of the run's end, the first that says the shape moved, within SAID_MS)
-  const w = await ev(`new Promise((res) => { const t0 = performance.now(); const f = () => { for (const x of document.querySelectorAll('#toastHost .toast')) if (/перемещ/.test(x.textContent)) return res(x.textContent); if (performance.now() - t0 > ${SAID_MS}) res(null); else setTimeout(f, 50); }; f(); })`);
-  info.ru = { name, said: w };
-  const m = /^Объект «([^«»]+)» перемещён в -?[\d.,]+, -?[\d.,]+\.$/.exec(w || '');
-  ok('ru: the toast is «Объект «<the row\'s name>» перемещён в x, y.»', !!m && m[1] === name, info.ru);
+  const w = await said('', L.lead);
+  info[lang] = { name, said: w };
+  const m = L.re.exec(w || '');
+  ok(`${lang}: the toast is ${L.says}`, !!name && !!m && m[1] === name, info[lang]);
 }
 return { pass: fails.length === 0, fails, info };
