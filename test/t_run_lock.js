@@ -4,7 +4,7 @@
 // release, and a SIGTERM, remove the lock. Run: node test/t_run_lock.js
 const fs = require('fs'), os = require('os'), path = require('path');
 const { spawn } = require('child_process');
-const { acquire, alive } = require('../ci/run_lock');
+const { acquire, alive, killDaemon } = require('../ci/run_lock');
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'run-lock-'));
 const file = path.join(dir, '.ci', 'browser.lock');
 let pass = 0, fail = 0;
@@ -79,6 +79,23 @@ const holder = () => new Promise((resolve) => {
     t.release();
   }
   for (const d of [other, mine]) { try { process.kill(-d.pid, 'SIGKILL'); } catch (e) { /* gone */ } }
+
+  // the command line read by `ps` where there is no /proc (macOS): what each answer of the reader does to a daemon number (a process of
+  // this test that leads a group of its own; the reader is given in place of the system's)
+  const target = () => spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)', 'target'], { detached: true, stdio: 'ignore' });
+  for (const [name, reader, killed] of [
+    ['a command line with the marker', () => ({ cmd: `node /w/test/ci_cdp/cdpd.js ${MARK}` }), true],
+    ['a command line without the marker', () => ({ cmd: 'node /other/worktree/test/ci_cdp/cdpd.js' }), false],
+    ['a command line that cannot be read', () => ({ unknown: true }), false],
+    ['no such process', () => ({ gone: true }), true],
+    ['an empty command line (a zombie leader)', () => ({ cmd: '' }), true]]) {
+    const t = target();
+    await sleep(200);
+    const did = killDaemon(t.pid, MARK, reader);
+    await sleep(300);
+    ok(did === killed && alive(t.pid) === !killed, `killDaemon with ${name}: ${killed ? 'kills' : 'does not kill'} the group`, { did, alive: alive(t.pid) });
+    try { process.kill(-t.pid, 'SIGKILL'); } catch (e) { /* gone */ }
+  }
 
   // a stale lock and three runs acquiring together: one holder at a time (a run that read the stale lock must not remove the fresh one
   // another made), over 20 trials of three holders that each keep it 150 ms
