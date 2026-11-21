@@ -2306,8 +2306,8 @@ void ixAncTan(vec2 w) {
   // the reversed polynomial (roots 1/u) when its leading coefficient is the smaller end (InvOps.closedRoots), and every
   // root polished by up to two Newton steps on the polynomial itself (float32: the shifts and the cube root lose digits
   // that the steps win back). A step is taken only when it lowers |p(u)|: near a multiple root p'(u) is small and p(u)
-  // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off
-  // (on Metal, (z - 1)^2 (z + 2)'s root 1 came out 0.16 away)
+  // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off,
+  // where that rounding is not 0 (a GPU that fuses or reorders the products)
   const RAT_N = new Set(['RAT3', 'RAT4']), RAT_NEAR = '1e-2', F32_EPS = '5.96e-8';
   const IX_ROOTS = `
 // root k of y^2 + beta y + gamma (stable)
