@@ -871,7 +871,7 @@
     if (st.failed || !job.mesh) { if (job.mesh) job.mesh.dispose(); return; }
     const data = job.mesh.publish(), stats = job.mesh.stats();
     job.mesh.dispose();
-    const bytes = (data.pos ? data.pos.byteLength : 0) + (data.pos3 ? data.pos3.byteLength : 0) + data.attr.byteLength + data.tri.byteLength;
+    const bytes = (data.pos ? data.pos.byteLength : 0) + (data.pos3 ? data.pos3.byteLength : 0) + data.attr.byteLength + data.tri.byteLength + (data.cart ? data.cart.byteLength : 0);
     const e = { key: job.key, ck: job.ck, ck0: job.ck0, slot: job.slot, role: job.role, kind: job.kind, view: job.view, guardBox: data.guardBox, data, res: null, t: performance.now(), bytes, why: job.why, exp: !!job.exp, expGen: job.expGen || 0,
       info: { n: data.n, partial: !!data.partial, nodes: stats.nodes, work: stats.work, ms: +job.ms.toFixed(1), slices: job.slices, settleMs: +(performance.now() - job.t0).toFixed(0), budgetWhy: stats.budgetWhy } };
     // one mesh per slot: the slot's older meshes (another content: pattern, alpha, lines, a paused T, the map; or

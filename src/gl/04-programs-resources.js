@@ -174,6 +174,9 @@
     // (and on a pre-mapped mesh, drawPreMapped with st.carry: places mapped on the CPU, the carried colour per fragment,
     // its depth the sheet key)
     regionPK: { chain: true, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(false, true, true) },
+    // (and from plane z's own colour (T = 0): the colour of the source point itself, a program without the chain, so
+    // the SphereMeshes' carried colour never waits for the chain's links, as the globe's carryGId is carryG's at T = 0)
+    regionPKid: { chain: false, vs: () => PRE_VS(false), fs: () => UTIL + DCOLOR + CARRY_FS(true, true, true) },
     regionS: { chain: true, vs: () => REGION_VS(true, 'chain'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionSC: { chain: false, vs: () => FIN + REGION_VS(true, 'tex'), fs: () => F_UTIL + SHADE_GLOBE + REGION_FS(true) },
     regionP: { chain: false, vs: () => PRE_VS(false), fs: () => F_UTIL + REGION_PRE_FS(false) },
@@ -1152,7 +1155,7 @@ float wabs(vec2 w) {
   // d: SphereMesh.publish() -> res {kind: 'pre', n (triangles), count (vertices), sph, org}
   function createPreMesh(d) {
     if (!ok || !d || !d.n) return null;
-    const sph = !!d.pos3, pc = sph ? 3 : 2, stride = pc + 5, n = d.n;
+    const sph = !!d.pos3, pc = sph ? 3 : 2, stride = pc + 6, n = d.n;
     const data = new Float32Array(n * 3 * stride);
     for (let t = 0; t < n; t++) for (let j = 0; j < 3; j++) {
       const o = (t * 3 + j) * stride;
@@ -1160,13 +1163,13 @@ float wabs(vec2 w) {
       else { data[o] = d.pos[t * 6 + 2 * j]; data[o + 1] = d.pos[t * 6 + 2 * j + 1]; }
       const a = t * 12 + 4 * j;
       data[o + pc] = d.attr[a]; data[o + pc + 1] = d.attr[a + 1]; data[o + pc + 2] = d.attr[a + 2]; data[o + pc + 3] = d.attr[a + 3];
-      data[o + pc + 4] = d.tri[t];
+      data[o + pc + 4] = d.tri[t]; data[o + pc + 5] = d.cart ? d.cart[t] : 0;
     }
     const buf = makeBuf(data);
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0);
+    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0); attrib(4, 1, stride * 4, (pc + 5) * 4, 0);
     gl.bindVertexArray(null);
     const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
@@ -1182,12 +1185,14 @@ float wabs(vec2 w) {
   // (A depth-only pre-pass and separate passes for the layers behind and the front, which keep those layers, drew the
   // mesh three times: gl_FragDepth turns early depth tests off, and exp(exp z)(H)'s settle frames jank by 20 ms.)
   // st.carry (flat only, the steps view's carried colour): each fragment the colour plane's colour of its source point
-  // (regionPK), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the source
-  // point itself (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program compiles
+  // (regionPK; regionPKZ while the style is Cauchy; else regionPKid when the colour plane is the mesh's own plane,
+  // st.carry.s = T), its depth the sheet key, st.depth shared as drawRegionCarry's; st.preZ: the mesh's vP is the
+  // source point itself (graph paper's mesh), not its polar coordinates; -> true when drawn, false while its program
+  // compiles
   function drawPreMapped(res, st) {
     if (!ok || !res || !res.n) return false;
     const sph = !!st.sphere, carry = !!st.carry && !sph;
-    const P = carry ? program(carryCauchyOn(st.carry) ? 'regionPKZ' : 'regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
+    const P = carry ? program(carryCauchyOn(st.carry) ? 'regionPKZ' : st.carry.s === st.carry.T ? 'regionPKid' : 'regionPK', st.map) : program(sph ? 'regionSP' : 'regionP');
     if (!P) return false;
     // (moved to the end: preAll is kept least recently drawn first, the order its byte cap drops meshes in)
     preAll.delete(res); preAll.set(res, true);
