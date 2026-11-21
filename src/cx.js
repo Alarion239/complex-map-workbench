@@ -341,20 +341,31 @@ const CX = (() => {
   // nearest the orbit point w_k: φ_c(w)/w → 1 at ∞, and this is the branch continued from ∞ (checked against the
   // continuation on 300 random points, and at the 10 points of tools/dh_reference.py to 50 digits)
   const DH_R = 1e4;
-  function bottcher(z0, c, N) {
+  function bottcher(z0, c, N) { return bottcherWalk(z0, c, N, null).p; }
+  // {p: φ_c(z0), dp: its derivative} by the same walk with the derivative alongside: dc = dc/dz (1 for Φ_M, where c =
+  // z, 0 for φ_c at a fixed c). Forward dw_{k+1} = 2 w_k dw_k + dc from dw_0 = 1; the start p_0 = w_n √(1 + c/w_n²) has
+  // p_0² = w_n² + c = w_{n+1}, so dp_0 = dw_{n+1} / (2 p_0), and each root p_{j+1}² = p_j gives dp_{j+1} = dp_j / (2
+  // p_{j+1}). NaN where bottcher is
+  function bottcherD(z0, c, N, dc) { return bottcherWalk(z0, c, N, dc); }
+  // the walk of bottcher and bottcherD: φ_c(z0) as above, and with dc its derivative (dp null without dc) -> {p, dp}
+  function bottcherWalk(z0, c, N, dc) {
     const orb = [z0];
-    let w = z0;
+    let w = z0, dw = dc ? ONE : null;
     for (let k = 0; Math.hypot(w.re, w.im) <= DH_R; k++) {
-      if (k >= N) return C(NaN, NaN);
+      if (k >= N) return { p: C(NaN, NaN), dp: dc ? C(NaN, NaN) : null };
+      if (dc) dw = add(mul(scale(w, 2), dw), dc);
       w = add(mul(w, w), c);
       orb.push(w);
     }
     let p = mul(w, sqrt(add(ONE, div(div(c, w), w))));
+    let dp = dc ? div(add(mul(scale(w, 2), dw), dc), scale(p, 2)) : null;
+    // (each root the one nearest the orbit point: r·o >= 0)
     for (let k = orb.length - 2; k >= 0; k--) {
-      const r = sqrt(p), o = orb[k];
-      p = r.re * o.re + r.im * o.im >= 0 ? r : neg(r);
+      const r = sqrt(p), o = orb[k], q = r.re * o.re + r.im * o.im >= 0 ? r : neg(r);
+      if (dc) dp = div(dp, scale(q, 2));
+      p = q;
     }
-    return p;
+    return { p, dp };
   }
   // e^{G_c(0)} = |Φ_M(c)|^{1/2}, the critical potential's radius (1 when the critical orbit stays bounded for N steps):
   // φ_c is the conformal map of {G_c > G_c(0)} only, so the Julia map is NaN where |φ_c| ≤ this
@@ -882,7 +893,7 @@ const CX = (() => {
     setTexExact,
     TAU, C, ZERO, ONE, I, INF, add, sub, neg, mul, div, inv, scale, conj, abs, abs2, arg, isFin, eq, isZero,
     exp, log, argCut, pow, powReal, ipow, sqrt, sin, cos, tan, sinh, cosh, tanh, asin, acos, atan, asinh, acosh, atanh, ijouk, lgamma, gamma, fact, binom, digamma, zeta, zetaDeriv, ZETA_MAX, dirichletForm, dirichletEM, dirichletPartial, powTable, DIR_Q, DIR_HEAD,
-    DH_R, bottcher, bottcherJ, dhCritRho, dhAngle, dhRay, dhRayGen, dhLanding, dhEquipotential, dhEquipotentialGen, dhFollow,
+    DH_R, bottcher, bottcherD, bottcherJ, dhCritRho, dhAngle, dhRay, dhRayGen, dhLanding, dhEquipotential, dhEquipotentialGen, dhFollow,
     mobApply, mobPath, mobScaled, mobRel, mobDetZero, MOB_EPS, polyEval, polyTrim, polyRoots, fmtNum, fmt, fmtExact, numExact, texNum, tex,
   };
 })();
