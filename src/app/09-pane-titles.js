@@ -1195,7 +1195,7 @@
       if (sm.textContent !== tx) sm.textContent = tx;
       // (its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
       // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
+      const tip = kind === '3d' ? $t('Height key: point at it to unfold; click it or press Enter to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold; click it or press Enter to keep it open') : $t('Colour key: point at it to unfold; click it or press Enter to keep it open'));
       // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
       if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }

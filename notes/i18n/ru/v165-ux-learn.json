@@ -161,13 +161,13 @@
   "note": "X's chip in Phase."
  },
  "key.tip.pattern": {
-  "en": "Regions key: point at it to unfold, click to keep it open",
-  "ru": "Шкала областей: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+  "en": "Regions key: point at it to unfold; click it or press Enter to keep it open",
+  "ru": "Шкала областей: наведите указатель, чтобы развернуть; щёлкните или нажмите Enter, чтобы оставить открытой",
   "note": "#363: the regions' key (their fill, the phase of z, and the grid's cell), Y's chip in X → Y."
  },
  "key.tip.colour": {
-  "en": "Colour key: point at it to unfold, click to keep it open",
-  "ru": "Шкала цвета: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+  "en": "Colour key: point at it to unfold; click it or press Enter to keep it open",
+  "ru": "Шкала цвета: наведите указатель, чтобы развернуть; щёлкните или нажмите Enter, чтобы оставить открытой",
   "note": ""
  },
  "key.edge": {
