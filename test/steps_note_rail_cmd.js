@@ -43,6 +43,11 @@ for (const [w, h] of [[360, 640], [320, 568]]) {
       // the GPU-preparing note (the page's own words, in this language) with a message standing over the plane's foot
       await ev(`__cmwToast('Colour plane: z', 'Undo'); 1`);
       await settled({ max: 10000, until: `document.documentElement.classList.contains('ph-toast-on') && !!document.querySelector('#toastHost .toast')` });
+      // the plane's own note, as the page drew it before the message came, once the message has stopped moving: it has been drawn again clear of the message
+      await settled({ max: 10000, until: `(() => { const r = document.querySelector('#toastHost .toast').getBoundingClientRect(), k = r.top + ',' + r.left, same = window.__toastKey === k; window.__toastKey = k; return same; })()` });
+      const r = await measure();
+      info[tag + ' redrawn'] = r;
+      ok(`${tag}: the plane's note, drawn before the message came, is clear of the message once it stands (${r.n} on screen)`, !!r.note && r.hit.length === 0 && r.n >= 4, r);
       const g = await measure(`__cmwPaneNote('Preparing the GPU… (first time only; shaders left: {n})', { n: 19 })`);
       info[tag + ' gpu'] = g;
       ok(`${tag}: the GPU note is drawn`, !!g.note, g);
