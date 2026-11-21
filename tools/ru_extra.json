@@ -809,5 +809,6 @@
  },
  "Radius r, against the join radii": "Радиус r на шкале радиусов слияния",
  " Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показан образ %{list} из~плоскости~$%{p}$.",
- " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показаны образы %{list} из~плоскости~$%{p}$."
+ " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показаны образы %{list} из~плоскости~$%{p}$.",
+ " Here $F=%{chain}$ is the whole map.": " Здесь $F=%{chain}$~--- всё отображение."
 }

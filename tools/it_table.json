@@ -3487,5 +3487,6 @@
  },
  "Radius r, against the join radii": "Raggio r, sulla scala dei raggi di unione",
  " Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " Il riquadro (b) mostra anche l'immagine di %{list} del piano $%{p}$.",
- " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " Il riquadro (b) mostra anche le immagini di %{list} del piano $%{p}$."
+ " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " Il riquadro (b) mostra anche le immagini di %{list} del piano $%{p}$.",
+ " Here $F=%{chain}$ is the whole map.": " Qui $F=%{chain}$ è la mappa intera."
 }

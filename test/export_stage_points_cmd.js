@@ -46,6 +46,7 @@ for (const lang of ['en', 'ru']) {
   // the image on w₂)
   ok(`focus 0, ${lang}: (a) names z₀ z_{0}`, (near(L, Z0)[0] || {}).label === 'z_{0}', L);
   ok(`focus 0, ${lang}: (b) names z₀'s image F(z_{0})`, (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', R);
+  ok(`focus 0, ${lang}: the caption defines F as the map, and says nothing more of it (control)`, !/\$F=f_\{2\}\\circ/.test(f.cap || ''), f.cap);
   ok(`focus 0, ${lang}: (b) names the w₁ point's image w_{2}(w_{1,\\,1})`, (near(R, F2_W11)[0] || {}).label === 'w_{2}(w_{1,\\,1})', R);
   // (the caption: (a) lists z₀ alone; the w₁ point is named with its own plane, as (b) shows it)
   const capA = lang === 'ru' ? /^\\textit\{а\}~--- точка \$z_\{0\}=0\{,\}4\+0\{,\}3i\$ в~плоскости~\$z\$;/ : /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ in the \$z\$-plane\./;
@@ -64,8 +65,10 @@ for (const lang of ['en', 'ru']) {
   ok('focus 2: (a), the w₁-plane, names z₀\'s image w_{1}(z_{0}), not by the focused step', (near(L, F1_Z0)[0] || {}).label === 'w_{1}(z_{0})', L);
   ok('focus 2: (a) names the w₁ point by its own name, w_{1,\\,1}', (near(L, W11)[0] || {}).label === 'w_{1,\\,1}', L);
   ok('focus 2: (b) names z₀\'s image F(z_{0}), the whole map\'s', (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', R);
+  ok('focus 2: the caption defines F, which (b)\'s label names: the whole map, F = f₂∘f₁', /\$F=f_\{2\}\\circ f_\{1\}\$/.test(f.cap || ''), f.cap);
   ok('focus 2: (b) names the w₁ point\'s image f_{2}(w_{1,\\,1}), the focused step\'s', (near(R, F2_W11)[0] || {}).label === 'f_{2}(w_{1,\\,1})', R);
-  ok('focus 2: the caption\'s (a) has both points in the w₁-plane, and says nothing more of the w₁ point', /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$w_\{1,\\,1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
+  // (z₀ is not a point of w₁: the caption gives its image there, as (a) draws and names it, w₁(z₀) = e^{z₀} ≈ 1.425 + 0.441i)
+  ok('focus 2: the caption\'s (a) gives z₀\'s image on w₁, w₁(z₀) = 1.425 + 0.441i, and the w₁ point, in the w₁-plane, and says nothing more', /^\(a\) The point \$w_\{1\}\(z_\{0\}\)=1\.425\+0\.441i\$ and the point \$w_\{1,\\,1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
 }
 // ---- (control) both points on z: both on panel (a) at their coordinates
 {

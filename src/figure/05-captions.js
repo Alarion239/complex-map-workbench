@@ -328,7 +328,9 @@
     const head = ru ? list : cap1;
     // (the shapes of a plane after (a)'s, which (b) shows by their images: named with their own plane)
     const laterS = (c.later || []).map((pl) => (pl.n > 1 ? $t(' Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.', { list: A.segsTex(us(pl.gen)), p: pl.p }) : $t(' Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.', { list: A.segsTex(us(pl.gen)), p: pl.p }))).join('');
-    if (two) return (list ? (many ? $t('(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}', { head, lvar, map, pat }) : $t('(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}', { head, lvar, map, pat })) : $t('(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}', { lvar, map, pat })) + laterS;
+    // (F, which (b)'s labels name at a focused step, defined as the whole map)
+    const defS = c.defF ? $t(' Here $F=%{chain}$ is the whole map.', { chain: c.defF }) : '';
+    if (two) return (list ? (many ? $t('(a) %{head} in the $%{lvar}$-plane. (b) Their images under %{map}.%{pat}', { head, lvar, map, pat }) : $t('(a) %{head} in the $%{lvar}$-plane. (b) Its image under %{map}.%{pat}', { head, lvar, map, pat })) : $t('(a) The %{lvar}-plane. (b) The image under %{map}.%{pat}', { lvar, map, pat })) + laterS + defS;
     // (the steps view past its colour plane: the left panel shows the shapes carried there, their images)
     if (i.panels[0] === 'L' && !c.carried) return list ? $t('%{cap1} in the $%{lvar}$-plane.', { cap1, lvar }) : $t('The $%{lvar}$-plane.', { lvar });
     return list ? (many ? $t('The images of %{list} under %{map}.%{pat}', { list: genOf(), map, pat }) : $t('The image of %{list} under %{map}.%{pat}', { list: genOf(), map, pat })) : $t('The image under %{map}.%{pat}', { map, pat });
