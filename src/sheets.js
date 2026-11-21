@@ -142,7 +142,7 @@ const Sheets = (host) => {
     return [];
   }
   // a multivalued piece's sheets in the order its digit counts them (sheetSteps' e: n sheets, 0 for infinitely many):
-  // digit d is sheet d of n, or sheet d − W of the window −W … W (W: the sheets shown on each side of the principal one)
+  // digit d is sheet d of n, or sheet d − W of the window −W … W (W: the sheets on each side of the principal one)
   const sheetRadix = (e, W) => (e.n > 0 ? e.n : 2 * W + 1);
   const sheetOfDigit = (e, d, W) => (e.n > 0 ? d : d - W);
   const sheetOffsets = (e, W) => Array.from({ length: sheetRadix(e, W) }, (_, d) => sheetOfDigit(e, d, W));
