@@ -531,7 +531,7 @@ const Recognize = (() => {
       a = root(a); b = root(b);
       if (a === b) return;
       const [lo, hi] = a < b ? [a, b] : [b, a];
-      for (let k = lo + 1; k <= hi; k++) if (gs[k].to === undefined) { gs[lo].src = subst(gs[k].src, gs[lo].src); gs[k].to = lo; }
+      for (let k = lo + 1; k <= hi; k++) if (gs[k].to === undefined) { gs[lo].src = Expr.substZ(gs[k].src, gs[lo].src); gs[k].to = lo; }
     };
     const out = [];   // {s, first: item index}
     let run = [], runIdx = [];
@@ -557,7 +557,7 @@ const Recognize = (() => {
     const res = [];
     for (const o of out) {
       const prev = res[res.length - 1];
-      if (o.s.type === 'custom' && prev && prev.s.type === 'custom') { prev.s.vals = { ast: subst(o.s.vals.ast, prev.s.vals.ast) }; unite(gi[prev.first], gi[o.first]); }
+      if (o.s.type === 'custom' && prev && prev.s.type === 'custom') { prev.s.vals = { ast: Expr.substZ(o.s.vals.ast, prev.s.vals.ast) }; unite(gi[prev.first], gi[o.first]); }
       else res.push(o);
     }
     const steps = res.map((o) => o.s), groups = [];
@@ -567,13 +567,6 @@ const Recognize = (() => {
       else groups.push({ g, from: j, to: j + 1 });
     });
     return { steps, groups: groups.map((x) => ({ from: x.from, to: x.to, src: gs[x.g].src })) };
-  }
-  function subst(ast, by) {
-    if (!ast || typeof ast !== 'object') return ast;
-    if (ast.t === 'var' && ast.n === 'z') return by;
-    const o = Object.assign({}, ast);
-    for (const k of ['a', 'b', 'n']) if (o[k]) o[k] = subst(o[k], by);
-    return o;
   }
 
   // ---- shared numbers: the key of a tree without their values, and the tree at generic values ----
