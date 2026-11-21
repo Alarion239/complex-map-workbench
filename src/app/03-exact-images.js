@@ -593,6 +593,59 @@
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
   const overNote = (n) => $t('This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.', { n, cap: GLChain.FINITE_CAP });
+  // An infinite sum that does not converge within its term cap leaves the plot blank where it does. The GPU stops at SER_GPU_LOOP terms and so
+  // does the CPU's evaluation (Expr's SER_CAP, its SUM_STAT.out counts the sums that end NaN without converging), so the page evaluates the steps
+  // the colour plot applies at a grid of the window's points and says so when some points ran out. The grid is a sample: a
+  // small area can be missed, and the note says "part" and the count of the points. It is taken once the window and the
+  // chain have rested for SUM_IDLE_MS (a drag or a slider does not wait on it), and kept per pane for the chain and window it
+  // was taken at.
+  const SUM_GRID = [24, 16], SUM_IDLE_MS = 250, SUM_BUDGET_MS = 40;
+  const sumRuns = new Map();   // pane -> { chain, view, hit, tried, timer }: the last sample (hit: points that ran out; tried: points where an infinite sum ran)
+  const sumSay = (r) => $t('Part of this plane is blank: an infinite sum had not converged within {terms} terms at {n} of {m} sample points.', { terms: Expr.SER_CAP, n: r.hit, m: r.tried });
+  // the sample of the pane's colour plot for its map, at its window: null when a step of the map is a derivative (it has no function of its own)
+  function sumSample(pane, map) {
+    const [lo, hi] = GLR.stepsOf(map), fs = [];
+    for (let k = Math.max(1, lo); k <= Math.min(hi, nSteps()); k++) {
+      if (isDeriv(k)) return null;
+      const f = stepFn(k);
+      if (f) fs.push(f);
+    }
+    const stat = Expr.SUM_STAT, v = pane.view;
+    let hit = 0, tried = 0;
+    const t0 = performance.now();
+    // (a chain that is slow to evaluate is sampled for SUM_BUDGET_MS, by rows: the points tried are the count it says)
+    for (let j = 0; j < SUM_GRID[1] && (j === 0 || performance.now() - t0 < SUM_BUDGET_MS); j++) for (let i = 0; i < SUM_GRID[0]; i++) {
+      let z = C(v.cx + ((i + 0.5) / SUM_GRID[0] - 0.5) * pane.w / v.s, v.cy - ((j + 0.5) / SUM_GRID[1] - 0.5) * pane.h / v.s);
+      const inf0 = stat.inf, out0 = stat.out;
+      for (const f of fs) { z = f(z); if (!CX.isFin(z)) break; }
+      if (stat.inf > inf0) { tried++; if (stat.out > out0) hit++; }
+    }
+    return { hit, tried };
+  }
+  // called with the colour plot's map each time the pane draws it: the pane's last sample if it is of this chain and map (one
+  // at another window stands until the new one is taken), and a new one is due after SUM_IDLE_MS if the window changed
+  function sumWatch(pane, map) {
+    const chain = chainSig[Math.min(GLR.stepsOf(map)[1], chainSig.length - 1)] + '|' + JSON.stringify(GLR.stepsOf(map)),
+      v = pane.view, view = [v.cx, v.cy, v.s, pane.w, pane.h].join(',');
+    let r = sumRuns.get(pane);
+    if (!r || r.chain !== chain) { if (r && r.timer) clearTimeout(r.timer); sumRuns.set(pane, (r = { chain, view: null, hit: 0, tried: 0, timer: 0 })); }
+    if (r.view === view || r.timer) return;
+    const role = pane === paneL ? 'L' : 'R';
+    const take = () => {
+      r.timer = 0;
+      if (sumRuns.get(pane) !== r) return;
+      if (interacting()) { r.timer = setTimeout(take, SUM_IDLE_MS); return; }
+      const now = pane.view, nowKey = [now.cx, now.cy, now.s, pane.w, pane.h].join(',');
+      let out = null;
+      try { out = sumSample(pane, map); } catch (e) { out = null; }
+      const was = r.hit > 0;
+      r.view = nowKey; r.hit = out ? out.hit : 0; r.tried = out ? out.tried : 0;
+      if (was !== r.hit > 0) requestRender(role);
+    };
+    r.timer = setTimeout(take, SUM_IDLE_MS);
+  }
+  // the pane's note for it: '' when the sample found no point that ran out
+  const sumNote = (pane) => { const r = sumRuns.get(pane); return r && r.hit ? sumSay(r) : ''; };
   const gpuWait = new Map();   // screen pane (paneL, paneR) -> when its frames began waiting for programs
   // (quiet: the status is recorded and no note is drawn or timed: a frame that is the colour layer alone, the steps view's bare glide)
   function glStatusNote(pane, quiet) {
@@ -600,7 +653,7 @@
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
-    const note = st && !st.error && st.over ? overNote(st.over) : '';
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane)) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;

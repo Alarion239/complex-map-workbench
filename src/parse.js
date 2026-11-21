@@ -876,15 +876,20 @@ const Expr = (() => {
     if (!(p > 1.5) || !(p <= 1.25 * p1)) return null;
     return CX.scale(t, (ak + 0.5) * Math.pow(ak / (ak + 0.5), p) / (p - 1));
   }
+  // (what the sums evaluated so far did: inf, the infinite ones run; out, those that ended NaN without converging: at their
+  // SER_CAP terms with no tail to add, or at a term that overflowed; a caller reads it before and after an evaluation. The GPU
+  // stops at the same cap, SER_GPU_LOOP, and is NaN for the same sums, so the points where this counts are pixels it leaves blank)
+  const SUM_STAT = { inf: 0, out: 0 };
   function runOne(term, k0, dk, k1, prod, capInf = SER_CAP) {
     let S = prod ? C(1, 0) : C(0, 0), mH = 0, kH = 0, mQ = 0, kQ = 0, A = 0;
     const win = [];
     const infinite = !Number.isFinite(k1);
+    if (infinite) SUM_STAT.inf++;
     const cap = infinite ? capInf : Math.abs(k1 - k0) + 1;
     if (cap > SER_FINITE) return C(NaN, NaN);
     for (let j = 0, k = k0; j < cap; j++, k += dk) {
       const t = term(k);
-      if (!CX.isFin(t)) return C(NaN, NaN);
+      if (!CX.isFin(t)) { if (infinite) SUM_STAT.out++; return C(NaN, NaN); }
       S = prod ? CX.mul(S, t) : CX.add(S, t);
       if (!prod) A += CX.abs(t);
       if (!infinite) continue;
@@ -898,7 +903,7 @@ const Expr = (() => {
       if (j === cap - 1) {
         // the rest, added as its integral when the terms fall as a power (a product: its log); kept when it is under a tenth of the sum (its own error is about 1/N of it)
         const r = tailOf(prod ? CX.sub(t, CX.ONE) : t, k, big, mH, kH, mQ, kQ);
-        if (!r || CX.abs(r) > 0.1 * Math.max(ref, 1e-300)) return C(NaN, NaN);
+        if (!r || CX.abs(r) > 0.1 * Math.max(ref, 1e-300)) { SUM_STAT.out++; return C(NaN, NaN); }
         S = prod ? CX.mul(S, CX.exp(r)) : CX.add(S, r);
         return !prod && cancelled(A, S) ? C(NaN, NaN) : S;
       }
@@ -1693,7 +1698,7 @@ const Expr = (() => {
   const hasIter = (n) => hasT(n, 'iter');
   // the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
-  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, SUM_STAT, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();
 import { CX } from './cx.js';
 import { Symbolic } from './symbolic.js';

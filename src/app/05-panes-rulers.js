@@ -570,6 +570,7 @@
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    if (!cauchyWhy) sumWatch(pane, cst.map);
     // (the grid under the pane's notes, which glStatusNote draws)
     if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
     glStatusNote(pane);
