@@ -5,10 +5,8 @@
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 // (waits on the condition the next check reads, with the kit's settled: no fixed time. After an edit the thread links its programs
-// again; the next click waits for that, as README names it: __cmwSteps().ready.ready). That re-link takes 2-3.5 s on a
-// local software renderer and about three times that on a hosted runner, so the bound is READY_MS, not the 8 s default.)
-const READY_MS = 30000;
-const until = (expr, max = READY_MS) => settled({ until: `(${expr}) && __cmwSteps().ready.ready`, max });
+// again; the next click waits for that, as README names it: __cmwSteps().ready.ready)
+const until = (expr, max = 8000) => settled({ until: `(${expr}) && __cmwSteps().ready.ready`, max });
 const zp2 = (k) => `__cmwP().steps[1].params.${k}.split(',').length`;
 const FIELD_PX = 32, ADD_PX = 36;
 const ns = 'svi' + Date.now();
