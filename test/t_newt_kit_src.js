@@ -3,8 +3,8 @@
 // them. For each chain of CHAINS at each t of TS, the inverse program of the glide's frame (the steps' homotopies at t,
 // Inverse.homBuilt of Inverse.homOps, as the steps view builds it) is hashed: its library, its walker and its NEWT roots
 // pass's main. The hashes were recorded from the integration branch at 6fb1c6bc (test/fixtures/newt_kit_src.json, written by
-// this file with --write); the polynomial chains' with their roots pass keeping its roots in increasing Re + 0.37 Im
-// (GLSLRoots.orderFns, part of their program), the one change to those programs. The chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth; of degree 5
+// this file with --write); the polynomial chains' with their roots pass sorting its roots by Re + 0.37 Im and deduping
+// them in that order (GLSLRoots.orderFns), the one change to those programs. The chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth; of degree 5
 // and 6, since degrees 3 and 4 are the closed forms' RAT3 and RAT4 ops), a seeded one
 // (back ops: the inverse Joukowski map), one with a pole member (zeta) and a generic one; the run fails if a kind is missing.
 // The Douady-Hubbard map and the Böttcher coordinate are left out: their NEWT ops are the ones that carry the ray.
