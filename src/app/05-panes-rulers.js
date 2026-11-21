@@ -517,10 +517,13 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    // (a pane whose "Compiling…" note is drawn is busy too, and its LED says so: the note is canvas text, which a screen reader does not read)
+    // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
+    // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
+    const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
-    setLed('R', errStep >= 0 ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || compTip('R'));
+    if (note('L')) setLed('L', 'err', note('L'));
+    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -578,9 +581,10 @@
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    // (the grid under the pane's notes, which glStatusNote draws)
+    if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
     glStatusNote(pane);
-    if (artMode) return []; // the figure's art layer: no screen grid, axes, targets, cuts or points
-    colourGrid(pane);
+    if (artMode) return [];
     // as in X Plane (panels.md 1, target preimages in every X view): the w-plane targets pulled back by the focused
     // map (area fills at half strength, so the portrait reads through them; their edges as drawn), the points, and
     // the cuts with their handles
@@ -1440,10 +1444,10 @@
   // (paneSay, by part, while the pane draws), and paneSaid writes it, once the frame is drawn, to a hidden span beside the
   // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
   // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
-  // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
-  // caption), 'pre' (the marked preimages of the later planes' points), 'off' (the pieces of the later planes' regions'
-  // pullbacks that lie off the view)
-  const PANE_SAY_ORDER = ['land', 'pre', 'off'];
+  // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'note' (why the plane has
+  // no colours, glStatusNote's), 'land' (the Landscape's caption), 'pre' (the marked preimages of the later planes' points),
+  // 'off' (the pieces of the later planes' regions' pullbacks that lie off the view)
+  const PANE_SAY_ORDER = ['note', 'land', 'pre', 'off'];
   const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
@@ -1471,13 +1475,20 @@
   }
   const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
   const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
-  // the boxes of the view buttons (zoom, Fit, …) over a pane, in the pane's CSS px
+  // the boxes of the view buttons over a pane (zoom, Fit, …, and a phone's keys: the globe, …), in the pane's CSS px
   function paneButtons(pane) {
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
+  }
+  // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons
+  // (btns, paneButtons') the band meets, keeping CAPTION_PAD from them and from the pane's sides
+  function roomBeside(btns, mid, top, bottom) {
+    let half = mid - CAPTION_PAD;
+    for (const b of btns) if (b.t < bottom && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
+    return half;
   }
   // a note at the foot of a pane, centred on a halo (what the view leaves out): its words wrap to the widest centred
   // lines that keep CAPTION_PAD from the pane's sides and from the view buttons beside the lines (a phone's buttons stand
@@ -1488,12 +1499,7 @@
     ctx.font = `12px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     const foot = pane.h - 14, mid = pane.w / 2, btns = paneButtons(pane);
     // (n lines: the width a centred line may take beside the buttons the band of n lines meets)
-    const room = (n) => {
-      const top = foot - n * CAPTION_LINE - CAPTION_PAD, bot = foot + CAPTION_PAD;
-      let half = mid - CAPTION_PAD;
-      for (const b of btns) if (b.t < bot && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
-      return 2 * half;
-    };
+    const room = (n) => 2 * roomBeside(btns, mid, foot - n * CAPTION_LINE - CAPTION_PAD, foot + CAPTION_PAD);
     let lines = wrapWords(ctx, text, room(1));
     // (more lines take a taller band, which can meet more buttons: wrapped again for the band, at most CAPTION_REWRAPS times)
     for (let i = 0; i < CAPTION_REWRAPS; i++) { const next = wrapWords(ctx, text, room(lines.length)); if (next.length === lines.length) break; lines = next; }

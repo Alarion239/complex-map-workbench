@@ -476,7 +476,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -1099,7 +1099,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
     // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
     // and that program has not landed yet; refining: the Landscape's refinement follows (the frame is drawn without it)
-    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
+    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow(), over: frameOver }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
     // false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at

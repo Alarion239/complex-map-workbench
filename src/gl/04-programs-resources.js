@@ -786,11 +786,25 @@ float wabs(vec2 w) {
     return map;
   }
   const LIVE = (sig) => sig !== 'off' && sig !== 'err' && sig !== 'unsupported';
+  // the steps map m applies, [lo, hi] (1-based; none when lo > hi)
+  function stepsOf(map) {
+    const m = map || {}, mode = m.mode || 0;
+    return [mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, Math.max(mode === 1 ? (m.hi || 0) : (m.b || 0), mode === 1 || mode === 3 ? (m.post || 0) : 0)];
+  }
+  // the most terms past the GPU's budget that a finite sum takes in the steps map m applies, in chain version ch (its
+  // GLChain stepTerms; 0: none): what the draw adds to frameOver
+  function overIn(ch, m) {
+    const t = ch && ch.info && ch.info.stepTerms;
+    if (!t) return 0;
+    const [lo, hi] = stepsOf(m);
+    let n = 0;
+    for (let k = Math.max(1, lo); k <= Math.min(hi, t.length); k++) n = Math.max(n, t[k - 1]);
+    return n;
+  }
   // true when no step that the map applies acts on the GPU (the chain skips the others): drawn without the chain
   function isIdent(map) {
     if (!cur.info) return true;
-    const m = map || {}, mode = m.mode || 0;
-    const lo = mode === 0 ? (m.a || 0) + 1 : (m.base || 0) + 1, hi = Math.max(mode === 1 ? (m.hi || 0) : (m.b || 0), mode === 1 || mode === 3 ? (m.post || 0) : 0);
+    const [lo, hi] = stepsOf(map);
     for (let k = Math.max(1, lo); k <= Math.min(hi, cur.sigs.length); k++) if (LIVE(cur.sigs[k - 1])) return false;
     return true;
   }
@@ -815,6 +829,7 @@ float wabs(vec2 w) {
     if (P.chain) {
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, P.ch.data);
       const m = mapIn(P, map) || {};
+      frameOver = Math.max(frameOver, overIn(P.ch, m));
       u1i(P, 'uMode', m.mode || 0); u1i(P, 'uA', m.a || 0); u1i(P, 'uB', m.b || 0); u1i(P, 'uHi', m.hi || 0); u1f(P, 'uT', m.t || 0); u1i(P, 'uBase', m.base || 0); u1i(P, 'uPost', m.post || 0);
       if (P.loc.uStepT) gl.uniform2fv(P.loc.uStepT, stepTData(m.stepT, Math.max(1, P.ch.sigs.length)));
     }
@@ -1333,8 +1348,10 @@ float wabs(vec2 w) {
     for (const c of caps) gl.enable(c);
     if (masked) gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
   }
+  // (a hit: its values stand for the chain's evaluation this frame, so its sums past the GPU's budget count, frameOver)
   function touch(e) {
     e.t = performance.now();
+    frameOver = Math.max(frameOver, e.over || 0);
     cacheAll.delete(e); cacheAll.set(e, true);
     e.res.tf.delete(e.key); e.res.tf.set(e.key, e);
     return e;
@@ -1366,7 +1383,7 @@ float wabs(vec2 w) {
       if (cacheBytes + bytes <= CACHE_BYTES) break;
       if (now - e0.t > 250) freeEntry(e0);
     }
-    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L, chk: P.ch.key };
+    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L, chk: P.ch.key, over: overIn(P.ch, mapIn(P, map)) };
     use(P, map);
     originUniforms(P, res.org);
     const vao = isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L);
@@ -1405,7 +1422,7 @@ float wabs(vec2 w) {
     const now = performance.now();
     sweepTmpLater();
     if (e) e.t = now;
-    if (e && e.W === W && e.H === H && e.key === key) return e;
+    if (e && e.W === W && e.H === H && e.key === key) { frameOver = Math.max(frameOver, e.over || 0); return e; }
     const alloc = !e || e.W !== W || e.H !== H;
     if (alloc) {
       if (e) freeTmp(e);
@@ -1413,7 +1430,7 @@ float wabs(vec2 w) {
       if (cacheBytes + e.bytes > CACHE_BYTES) freeStaleTmp(now, e.bytes);
       res.tmp.set(slot, e); tmpAll.add(e); cacheBytes += e.bytes;
     }
-    e.key = key;
+    e.key = key; e.over = overIn(P.ch, mapIn(P, map));
     use(P, map);
     originUniforms(P, res.org);
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
