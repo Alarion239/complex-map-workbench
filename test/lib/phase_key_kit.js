@@ -1,15 +1,15 @@
 // What the two Phase-key suites share: opening the app with a recurrence at a width and language, and the probe of the
-// colour key's place. An expression for eval in a suite: `const { openApp, probe } = eval(fs.readFileSync(...))({ ev, send, view, sleep, DIR })`.
-({ ev, send, view, sleep, DIR }) => {
+// colour key's place. An expression for eval in a suite: `const { openApp, probe } = eval(fs.readFileSync(...))({ ev, go, view, sleep, DIR })`.
+({ ev, go, view, sleep, DIR }) => {
 const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 async function openApp(lang, w) {
   const ns = 'pk' + Date.now();
   await view(w, 800, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(350);
   const o = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 's1', kind: 'rect', a: [-2, -2], b: [2, 2] }], steps: [{ type: 'recurrence', params: { u0: '0', g: 'u^2+z', N: 12, cut: 180 }, on: true }], nextId: 50, focus: 0, rightMode: 'color' };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${lang ? '&lang=' + lang : ''}` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}${lang ? '&lang=' + lang : ''}`); await sleep(2300);
   await settle(800);
 }
 const probe = () => ev(`(() => {
