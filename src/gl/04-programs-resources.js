@@ -363,6 +363,11 @@ float wabs(vec2 w) {
     }
     return e.state === 'ready' ? e : null;
   }
+  // The static programs (the ones no chain owns, as the globes': sphere, regionSC, lineSC, disc, mark) that prestart was asked for a view
+  // a pane shows, by name. progStatus counts them with the current chain's programs, so the gauge is not complete before each has
+  // linked (or failed); nothing else reads the set. A static program belongs to no chain, so freeChain never drops it and the set
+  // is not cleared with one
+  const staticWanted = new Set();
   // Static programs started ahead of their first use, in the background (KHR_parallel_shader_compile): getProg links
   // a static program synchronously at its first use, so the first frame of a view paid for all of its programs. The
   // globes' (sphere, regionSC, lineSC, disc, mark) held the first frame after a switch to Sphere for 35-45 ms of main
@@ -375,6 +380,7 @@ float wabs(vec2 w) {
     let n = 0;
     for (const name of names) {
       const d = DEFS[name];
+      if (d && !d.chain && !offView) staticWanted.add(name);
       if (!d || d.chain || progs.has(name + '|static')) continue;
       // (finished by the poll when its link lands, or at its first use, whichever comes first)
       getProg(name, null, true, null, offView);
@@ -463,7 +469,7 @@ float wabs(vec2 w) {
   }
   // How far the current chain's programs that prestartNames was asked for have come, with those prestartModes plans
   // for the map modes `modes` (the other map modes of the programs the views draw, which the warm-up starts once
-  // nothing else links): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
+  // nothing else links), and the static programs that prestart was asked for (staticWanted): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
   // counts in total only. The chain's other programs still compiling are counted in total as well, so the answer is
   // complete only when nothing of the chain is left linking: its programs that a draw starts at their first use (as the
   // carried colour's region fills; while one links, no inverse program of the chain is started, invProgram) and its
@@ -475,10 +481,57 @@ float wabs(vec2 w) {
     // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
     if (!w) return { done: 0, total: 1 };
     for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
+    for (const name of staticWanted) ids.push(name + '|static');
     const extra = [];
     for (const e of progs.values()) if (e.state === 'pending' && !e.offView && (e.inv ? e.askKey === cur.key : e.chain && !e.side && e.key === cur.key)) extra.push(e.id);
     const r = warmCount([['chain', ids], ['modes', warmIds('modes', modes)]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
     return { done: r.done, total: r.total };
+  }
+  // ---- what a chain owns ----
+  // A chain's GPU and CPU state is its programs (forward, and the inverse ones, owned by the chain that asked for them last:
+  // askKey), its cached transform-feedback evaluations (chk), its prestart list and its version record (hist). freeChain
+  // deletes all of it; the current chain and the side chains are never freed.
+  function dropProg(e) {
+    if (e.p) gl.deleteProgram(e.p);
+    if (e.vs) gl.deleteShader(e.vs);
+    if (e.fs) gl.deleteShader(e.fs);
+    progs.delete(e.id);
+  }
+  function freeChain(key) {
+    if (!key || key === cur.key) return;
+    for (const e of [...progs.values()]) {
+      if (e.side || (e.chain ? e.key : e.askKey) !== key) continue;
+      dropProg(e);
+    }
+    wanted.delete(key);
+    const i = hist.findIndex((h) => h.key === key);
+    if (i >= 0) hist.splice(i, 1);
+    for (const e of [...cacheAll.keys()]) if (e.chk === key) freeEntry(e);
+  }
+  // Every chain but the current one is freed at the next setChain: the user discarded them (an example or a new scene
+  // replaced the chain), so none of them can be drawn again
+  let discardPending = false;
+  const discardChains = () => { discardPending = true; };
+  // the keys of every chain that owns a program, a cached evaluation, a prestart list or a version record
+  function chainKeys() {
+    const keys = new Set(hist.map((h) => h.key));
+    for (const k of wanted.keys()) keys.add(k);
+    for (const e of progs.values()) if (!e.side && (e.chain || e.inv)) keys.add(e.chain ? e.key : e.askKey);
+    for (const e of cacheAll.keys()) if (e.chk) keys.add(e.chk);
+    return keys;
+  }
+  function dropOtherChains() {
+    discardPending = false;
+    for (const k of chainKeys()) freeChain(k);
+  }
+  // What the chains own, for the tests: the chain keys that own anything, and the counts of what they own
+  function chainStats() {
+    const n = { hist: hist.length, wanted: wanted.size, programs: 0, inverse: 0, cache: 0 };
+    for (const e of progs.values()) if (!e.side) { if (e.chain) n.programs++; else if (e.inv) n.inverse++; }
+    for (const e of cacheAll.keys()) if (e.chk) n.cache++;
+    const keys = chainKeys();
+    if (cur.info) keys.add(cur.key);
+    return Object.assign(n, { keys: [...keys].sort(), cacheBytes });
   }
   // the Landscape's programs for the current chain (its heights and surface, mode 0, and the normals'
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation:
@@ -615,10 +668,7 @@ float wabs(vec2 w) {
     list.sort((a, b) => a.used - b.used);
     for (let i = 0; i < list.length - ((sideMode ? SIDE_KEEP : PROG_KEEP) - 1); i++) {
       const e = list[i];
-      if (e.p) gl.deleteProgram(e.p);
-      if (e.vs) gl.deleteShader(e.vs);
-      if (e.fs) gl.deleteShader(e.fs);
-      progs.delete(e.id);
+      dropProg(e);
     }
   }
   function schedulePoll() { if (!pollT) pollT = setTimeout(pollCompiles, 16); }
@@ -1314,7 +1364,7 @@ float wabs(vec2 w) {
       if (cacheBytes + bytes <= CACHE_BYTES) break;
       if (now - e0.t > 250) freeEntry(e0);
     }
-    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L };
+    const e = { tex: floatTex(), W, H, P: tpl.P, bytes, res, key, t: now, ck: cacheKey, L, chk: P.ch.key };
     use(P, map);
     originUniforms(P, res.org);
     const vao = isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L);

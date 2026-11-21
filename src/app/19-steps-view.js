@@ -3915,6 +3915,11 @@
   // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
   let svGateOff = false;
   const svGateOffSet = (off) => { svGateOff = !!off; };
+  // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
+  // when the chain is discarded (opening an example or a new scene discards it)
+  function svDiscardCaches() {
+    svPoleMemo.clear(); svPoleLast.clear(); svRingSizes.clear(); svRingMemo = null; svPolarRes.clear();
+  }
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
   // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
