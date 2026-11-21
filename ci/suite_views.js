@@ -131,6 +131,7 @@ const VIEWS = {
   'steps_long_549_cmd.js': steps(),
   'steps_names_cmd.js': steps(),
   'steps_point_names_cmd.js': steps(),
+  'figure_point_names_cmd.js': steps(),
   'steps_pull_off_cmd.js': steps(),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),

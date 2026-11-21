@@ -1023,6 +1023,8 @@
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
-    if (figMode && primes > 0) return `${S.focus === 0 && primes === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(primes)}`}(${base})`;
+    // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
+    // that plane is stage + primes; F is the whole map from z)
+    if (figMode && primes > 0) { const k = st + primes; return `${S.focus === 0 && st === 0 && k === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(k)}`}(${base})`; }
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');
   }
