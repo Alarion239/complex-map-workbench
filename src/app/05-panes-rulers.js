@@ -462,8 +462,8 @@
     ledSay(side, state, el.getAttribute('data-tip'));
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
-  // with its pane's title before it when the pane has one. A page that starts up to date says nothing, and a state that
-  // comes and goes within the wait is not said
+  // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
+  // to date says nothing, and a state that comes and goes within the wait is not said
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
   function ledSay(side, state, tip) {
@@ -477,8 +477,9 @@
   }
   function ledFlush() {
     const parts = [];
-    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'); return !!el && el.getClientRects().length > 0; };
-    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two LEDs are shown:
+    // (a pane that is shown: its LED may not be, on a phone, whose pane heads show none, and its words are heard all the same)
+    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'), pane = el && el.closest('.pane'); return !!pane && pane.getClientRects().length > 0; };
+    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two panes are shown:
     // the words alone would not say which pane they are about)
     const two = shown('L') && shown('R');
     for (const side of ['L', 'R']) {
