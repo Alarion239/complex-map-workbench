@@ -205,6 +205,7 @@ const VIEWS = {
   'steps_sphere_marks_cmd.js': steps(),
   'steps_sphere_cayley_cmd.js': steps(),
   'steps_sphere_cut_cmd.js': steps(),
+  'glsl_tie_order_cmd.js': steps(),
   'sv_globe_edit_cmd.js': steps({ pin: true }),
   'sv_globe_stage_shape_cmd.js': steps({ pin: true }),
   'shape_stroke_cmd.js': steps({ pin: true }),
