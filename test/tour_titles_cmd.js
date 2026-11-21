@@ -9,6 +9,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push(`${name}: ${JSON.stringify(detail)}`); };
 const TOUR = `typeof Tour === 'object' && typeof I18N === 'object'`;
+const TICK_MS = 8000;   // (the cap on the zoom task's tick)
 // (the strip as the page shows it: a step's task may be done at once and the countdown moves the tour on, so a step's strip is
 // read at the moment it first shows, in the wait for it)
 const READ = `(() => { const s = document.querySelector('.tour-strip'); const t = s && s.querySelector('.ts-title'), l = s && s.querySelector('.ts-l2'); return { title: t ? t.textContent.trim() : null, l2: l ? l.textContent.trim() : null, done: !!(l && l.classList.contains('done')), cur: Tour.current().id }; })()`;
@@ -41,7 +42,7 @@ for (const lang of ['en', 'ru', 'it']) {
   ok(`${lang}: the plane step has its task`, g.cur === 'plane' && (g.l2 || '').endsWith(w.zoom) && !g.done, g);
   await settled();   // (the step's own actions have run and it listens: the wheel then ticks the task)
   await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 450, deltaX: 0, deltaY: -120 });
-  await settled({ until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: 3000 });
+  await settled({ only: true, until: `!!document.querySelector('.tour-strip .ts-l2.done')`, max: TICK_MS });   // (the tick is a class: the strip's animations are not asked)
   g = await strip();
   ok(`${lang}: a zoom ticks it`, g.done, g);
   info[lang] = g;

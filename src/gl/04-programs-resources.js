@@ -225,7 +225,9 @@
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
-    landB: { chain: false, vs: () => LAND_B_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
+    landB: { chain: false, vs: () => LAND_B_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
+    // (its all-triangles draw: the stand-in surface while landTF and land link)
+    landS: { chain: false, vs: () => LAND_B_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
     ulevel: { chain: false, vs: () => ULEVEL_VS, fs: () => ULEVEL_FS },
     probe: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(false), fs: () => MARK_FS },
@@ -363,6 +365,11 @@ float wabs(vec2 w) {
     }
     return e.state === 'ready' ? e : null;
   }
+  // The static programs (the ones no chain owns, as the globes': sphere, regionSC, lineSC, disc, mark) that prestart was asked for a view
+  // a pane shows, by name. progStatus counts them with the current chain's programs, so the gauge is not complete before each has
+  // linked (or failed); nothing else reads the set. A static program belongs to no chain, so freeChain never drops it and the set
+  // is not cleared with one
+  const staticWanted = new Set();
   // Static programs started ahead of their first use, in the background (KHR_parallel_shader_compile): getProg links
   // a static program synchronously at its first use, so the first frame of a view paid for all of its programs. The
   // globes' (sphere, regionSC, lineSC, disc, mark) held the first frame after a switch to Sphere for 35-45 ms of main
@@ -370,7 +377,6 @@ float wabs(vec2 w) {
   // coming (the pointer over a Sphere control, or the switch itself, a frame ahead of its draw): the links run in
   // parallel, and the first use reads a finished one or waits for the slowest only. offView: they are a view's no pane
   // shows (e.offView). -> the number started
-  const staticWanted = new Set();
   function prestart(names, offView) {
     if (!ok || lost || !pcExt) return 0;
     let n = 0;
@@ -465,7 +471,7 @@ float wabs(vec2 w) {
   }
   // How far the current chain's programs that prestartNames was asked for have come, with those prestartModes plans
   // for the map modes `modes` (the other map modes of the programs the views draw, which the warm-up starts once
-  // nothing else links): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
+  // nothing else links), and the static programs that prestart was asked for (staticWanted): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
   // counts in total only. The chain's other programs still compiling are counted in total as well, so the answer is
   // complete only when nothing of the chain is left linking: its programs that a draw starts at their first use (as the
   // carried colour's region fills; while one links, no inverse program of the chain is started, invProgram) and its
@@ -547,10 +553,10 @@ float wabs(vec2 w) {
   // start-up instead of each other. And the colour plot's stand-in (colorStandIn), which a first chain's coloured plane
   // draws while that chain's own programs link: started first, it is linked well before them
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark', 'colorStandIn'];
-  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
+  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static ones and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
-  const LAND_STATIC = ['landNrm'];
+  const LAND_STATIC = ['landNrm', 'landS'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
   // they have started: the lists above and the current chain's, so the total is known before the work is
