@@ -1796,8 +1796,11 @@
     const key = svMeshNext();
     if (!key || ms < SV_POLE_BUDGET / 2) return false;
     svMeshDone = key;
-    if (svOpacity() < 0.999 && GLR.carryLayersReserve) GLR.carryLayersReserve(svOpacity());
-    for (const x of svCarryShapes() || []) {
+    // (the layers' targets and their programs only where the meshes draw layers: not for the whole plane, SV_ALL, whose
+    // meshes draw the front layer alone, svCarryRegions)
+    const list = svCarryShapes() || [];
+    if (svOpacity() < 0.999 && GLR.carryLayersReserve && !list.includes(SV_ALL)) GLR.carryLayersReserve(svOpacity());
+    for (const x of list) {
       const r = svCarryGPU(x);
       if (r && r.meshRes) GLR.carryReserve(r.meshRes, SV_CARRY_L);
     }
@@ -1878,8 +1881,15 @@
     // meshes in the phase of their source points, which is that colour, with programs that carry no chain)
     const standIn = () => T === 0 && n > 0 && lay.every((d) => d.pre)
       && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })));
+    // (#845) The whole plane, SV_ALL, draws the front layer alone, as at opacity 1. That covers Everywhere, and Inside
+    // regions with a region of a later plane, which these meshes take as the whole plane (svCarryShapes). They cover
+    // clipWin and the ring, not every point behind the front one, so a layer behind ends where they end, along their
+    // triangles' edges. Through the front layer at the slider's opacity, those ends would show as sawtooth bands of whole
+    // triangles (exp(sin z) on w1 at 85 %). So in the frames these meshes draw (a plane at rest the exact pass refuses,
+    // a glide the meshes draw, the stand-in while the exact pass links), Opacity shows no layer behind and All sheets
+    // shows the front sheet alone. A region's own meshes cover all of the region, so its layers are whole and are drawn.
     const a = svOpacity();
-    let layers = a < 0.999 && !!GLR.carryLayers;
+    let layers = a < 0.999 && !!GLR.carryLayers && !list.includes(SV_ALL);
     for (let pass = 0; pass < 2; pass++) {
       let ready = true;
       for (let i = 0; i < n; i++) {

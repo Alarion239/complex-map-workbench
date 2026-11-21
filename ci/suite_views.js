@@ -55,6 +55,7 @@ const VIEWS = {
   'steps_ddz_glide_cut_cmd.js': steps(),
   'steps_globe_key_cmd.js': steps(),
   'steps_carry_exact_cmd.js': steps(),
+  'steps_carry_bands_cmd.js': steps(),
   'steps_rim_inverse_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
   'steps_link_wait_cmd.js': steps(),
