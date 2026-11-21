@@ -163,9 +163,9 @@ const box = (at) => read3(`(() => { const c = document.getElementById('canvasL')
   const p = __cmwPlaneMenu().w2s('L', ${at[0]}, ${at[1]}), x0 = Math.max(0, Math.round((p[0] - r.left - ${BOX_PX}) * k)), y0 = Math.max(0, Math.round((p[1] - r.top - ${BOX_PX}) * k));
   const w = Math.min(c.width - x0, Math.round(2 * ${BOX_PX} * k)), h = Math.min(c.height - y0, Math.round(2 * ${BOX_PX} * k));
   return Array.from(g.getImageData(x0, y0, w, h).data); })()`);
-// WCAG's relative luminance of the pixel at i, and the contrast of two
-const lum = (d, i) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(d[i]) + 0.7152 * f(d[i + 1]) + 0.0722 * f(d[i + 2]); };
-const ratio = (a, b) => (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+// the WCAG contrast of two colours (test/lib/contrast.js), and the pixel at i of an RGBA array as a colour
+const { ratio } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
+const rgbAt = (d, i) => [d[i], d[i + 1], d[i + 2]];
 const pxD = (a, b, i) => Math.max(Math.abs(a[i] - b[i]), Math.abs(a[i + 1] - b[i + 1]), Math.abs(a[i + 2] - b[i + 2]));
 const BANDS = [
   { c: CASES[0], scope: 'all', at: [1.4177, 0.0705] },
@@ -189,7 +189,7 @@ for (const theme of ['light', 'dark']) {
     for (let i = 0; i + 2 < w.length && i + 2 < wo.length; i += 4) {
       if (pxD(w, wo, i) < MARK_D) continue;
       n++;
-      best = Math.max(best, ratio(lum(w, i), lum(wo, i)));
+      best = Math.max(best, ratio(rgbAt(w, i), rgbAt(wo, i)));
     }
     const tag = `${B.c.key}, ${B.scope === 'all' ? 'Everywhere' : 'Inside regions'}, plane 0, ${theme} theme`;
     info.band[tag] = { n, best: +best.toFixed(2) };
