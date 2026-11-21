@@ -10,6 +10,7 @@
 // off-centre ones, whose sheets cannot tie, are not: they draw each mesh once.
 // The control: z³ then 1 z at rest on plane 2, the same ties drawn by the inverse pass (which orders keys within its band
 // by the tie order, Inverse.order), is smooth by the same measure: at most SMOOTH_MAX of its points are rough.
+// Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};

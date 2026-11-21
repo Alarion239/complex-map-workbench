@@ -7,6 +7,7 @@
 //   at its own time (invSpanPath, #1742): at most ROUGH_MARGIN more of its points are rough than the rest frame's.
 // The carried meshes' frame of the same plane (every shape forced forward, __cmwForceForward(['__svAll'])) is not yet: its leg
 // waits on #1647, and comes back with the same measure when that is fixed.
+// Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
