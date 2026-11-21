@@ -7,7 +7,8 @@
 // the bar is shorter than ROOM (the 320 px tall phones: 106 px) the keys stand in one row and the unfolded colour key, taller than
 // what is left beside them, stands over the keys it meets: no point of it lies under a key or a chip, and the keys it does not meet
 // take their presses; the card is opaque, and a plane key that real Tab presses reach stands over it (its focus is never hidden). The classic
-// view's Y has the same: its unfolded Regions key stands over Y's keys at 568 x 320 and 600 x 320, in en, ru and it.
+// view's Y has the same: its unfolded Regions key stands over Y's keys at 568 x 320 and 600 x 320, and as far up as it meets them (740 x 360, 667 x 375
+// and 740 x 400), in en, ru and it.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -152,12 +153,14 @@ for (const [w, h, lang, surf] of CASES) {
     ok(`${name}: the hint card is clear of the globe's disk (gap >= 0 px)`, m.shown && m.gap >= 0, m);
   }
 }
-// the classic view's Y has the same state at 320 px tall: its Regions key, unfolded under the tall bar, stands over Y's keys, and no point of it
-// lies under a key or a chip
-for (const [w, lang] of [[568, 'en'], [568, 'ru'], [568, 'it'], [600, 'en'], [600, 'ru'], [600, 'it']]) {
-  const name = `${w}x320 ${lang} classic`;
-  await view(w, 320, false, true);
-  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${w}${Date.now() % 100000}`);
+// the classic view's Y has the same state at 320 px tall and above: its Regions key, unfolded under the tall bar, stands over Y's keys, and no
+// point of it lies under a key or a chip
+// (and as tall as the keys and the card meet: 740 x 360, 667 x 375 and 740 x 400 reach the zoom group and Fit view, as 568 x 320 reaches Fit view and Sphere)
+const CLASSIC_SIZES = [[568, 320], [600, 320], [740, 360], [667, 375], [740, 400]];
+for (const [w, h, lang] of CLASSIC_SIZES.flatMap(([a, b]) => ['en', 'ru', 'it'].map((l) => [a, b, l]))) {
+  const name = `${w}x${h} ${lang} classic`;
+  await view(w, h, false, true);
+  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=ctxcl${w}${h}${Date.now() % 100000}`);
   await settled({ max: 30000, until: '!!document.documentElement.classList.contains("ph") && !!document.querySelector("#constructTools .tool[data-tool=perp]") && !!document.getElementById("rightLegend")' });
   await ev(`document.querySelector('#constructTools .tool[data-tool="perp"]').click(); 1`);
   await settled({ max: 20000, until: 'document.documentElement.classList.contains("ph-ctx-tall") && !!document.querySelector(".ph-ctx.in")' });
