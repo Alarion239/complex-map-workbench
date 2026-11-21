@@ -2845,8 +2845,11 @@ bool ${P}_one_b(inout Lf L, int b) {
 `;
       // p(u) - w q(u) = A u^3 + B u^2 + C u + D = 0 (InvOps.ratPoly, cubicRoots): a leading coefficient dropped when it
       // cancels, at most 1e-14 of |p_k| + |w| |q_k|; else Cardano's root b, of the reversed cubic (roots 1/u) when
-      // |A| < |D| (InvOps.closedRoots), polished by two Newton steps on the cubic itself (float32: the shift and the cube
-      // root lose digits that the steps win back). Cells: (P3, P2), (P1, P0), (Q3, Q2), (Q1, Q0)
+      // |A| < |D| (InvOps.closedRoots), polished by up to two Newton steps on the cubic itself (float32: the shift and the
+      // cube root lose digits that the steps win back). A step is taken only when it lowers |p(u)|: near a multiple root
+      // p'(u) is small and p(u) is float32's rounding of its terms, so a step there is that rounding over p' and can throw
+      // an exact root far off (on Metal, (z - 1)^2 (z + 2)'s root 1 came out 0.16 away). Cells: (P3, P2), (P1, P0),
+      // (Q3, Q2), (Q1, Q0)
       case 'RAT3': return `void ${P}_co(vec2 w, out vec2 A, out vec2 B, out vec2 Cc, out vec2 D) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
   A = S0.xy - cmul(w, S2.xy); B = S0.zw - cmul(w, S2.zw); Cc = S1.xy - cmul(w, S3.xy); D = S1.zw - cmul(w, S3.zw);
@@ -2878,11 +2881,15 @@ bool ${P}_one_b(inout Lf L, int b) {
     vec2 om = b == 0 ? vec2(1.0, 0.0) : vec2(-0.5, b == 1 ? 0.8660254037844386 : -0.8660254037844386);
     u = cmul(om, S) + cmul(vec2(om.x, -om.y), T) - b3;
     if (rev) u = cinv(u);
+    vec2 f = cmul(cmul(cmul(A, u) + B, u) + Cc, u) + D;
     for (int it = 0; it < 2; it++) {
-      vec2 f = cmul(cmul(cmul(A, u) + B, u) + Cc, u) + D, g = cmul(3.0 * cmul(A, u) + 2.0 * B, u) + Cc;
+      vec2 g = cmul(3.0 * cmul(A, u) + 2.0 * B, u) + Cc;
       if (g.x == 0.0 && g.y == 0.0) break;
       vec2 v = u - cdiv(f, g);
-      if (ixFin(v)) u = v;
+      vec2 fv = cmul(cmul(cmul(A, v) + B, v) + Cc, v) + D;
+      if (!ixFin(v) || !(cx_abs(fv) < cx_abs(f))) break;
+      u = v;
+      f = fv;
     }
   }
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
