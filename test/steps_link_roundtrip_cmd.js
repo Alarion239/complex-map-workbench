@@ -5,8 +5,8 @@
 // Covered, one case each: the steps' fields; every kind of shape and the targets' fields; the shared numbers; constructions with
 // references to a zeros-and-poles step; the view, the steps view's place (sv) and the right pane's camera; the display options.
 // Controls: every named normalisation is used by a case; the comparison reports a changed expression and a key the page does not
-// carry; a normalised key is a real difference of the figure as set; and the two-way comparison reports a key, or an array entry,
-// that only the second state has.
+// carry; a normalised key is a real difference of the figure as set; the two-way comparison reports a key, or an array entry,
+// that only the second state has; and a clipWin that differs is no difference, while a display option that differs is.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const { openLinked } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'link_kit.js'), 'utf8'));
@@ -115,7 +115,7 @@ for (const [name, figure, used] of CASES) {
 ok('control: every normalisation is used by a case', Object.keys(NORMALISED).every((k) => CASES.some((c) => c[2].includes(k))), Object.keys(NORMALISED).filter((k) => !CASES.some((c) => c[2].includes(k))));
 {
   const figure = CASES[3][1];
-  const first = strip(await openLinked(figure));
+  const raw = await openLinked(figure), first = strip(raw);
   const want = strip(expected(figure, CASES[3][2]));
   const changed = JSON.parse(JSON.stringify(want));
   changed.params[1].expr = 'a+2';
@@ -131,6 +131,14 @@ ok('control: every normalisation is used by a case', Object.keys(NORMALISED).eve
   more.noSuchKey = 1;
   const extra = diff(first, more, '', true);
   ok('control: the two-way comparison reports what only the second state has', extra.length === 2 && diff(first, more).length === 0, extra);
+  // the window is left out of both sides of the fixed point: a clipWin that differs between the round trips is no difference,
+  // and a display option that differs beside it still is
+  const win = raw.clipWin, shifted = JSON.parse(JSON.stringify(raw));
+  if (win) shifted.clipWin = { x0: win.x0 + 0.5, x1: win.x1 + 0.5, y0: win.y0 - 0.25, y1: win.y1 + 0.25 };
+  const option = JSON.parse(JSON.stringify(shifted));
+  option.alpha = raw.alpha === 0.5 ? 0.6 : 0.5;
+  const winMoved = diff(strip(raw), strip(shifted), '', true), optionMoved = diff(strip(raw), strip(option), '', true);
+  ok('control: a clipWin that differs between the round trips is no difference, a display option that differs is', !!win && winMoved.length === 0 && optionMoved.length === 1 && optionMoved[0].startsWith('.alpha'), { win, winMoved, optionMoved });
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 ok('no page errors', !errs.length, errs.slice(0, 3).map((x) => String(x.m).slice(0, 200)));
