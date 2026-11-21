@@ -444,7 +444,7 @@
  "e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.": "У e^{1/z} в 0 существенная особенность: в её главной части бесконечно много членов. Поэтому картина строит сам интеграл, точка за точкой, а не F минус конечную главную часть.",
  "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Попробуйте: вытащите окружность за особенность в 0: внутри будет F, снаружи 0.",
  "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Известное ограничение: в нескольких пикселях от нуля arg <i>F</i> меняется так быстро, что дрожащий палец может пересечь цветовую линию и сыграть ноту.",
- "Height key: point at it to unfold, click to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+ "Point at it to unfold; click it or press Enter to keep it open": "Наведите указатель, чтобы развернуть; щёлкните или нажмите Enter, чтобы оставить открытой",
  "Download offline page ({size})": "Скачать офлайн-версию ({size})",
  "{n} MB": "{n} МБ",
  "Skip": "Пропустить",
@@ -700,7 +700,7 @@
  "No step before f{k}": "Перед f%{k} шагов нет",
  "No step after f{k}": "После f%{k} шагов нет",
  "Step shown alone": "Шаг, показанный отдельно",
- "Moved {name} to {x}, {y}.": "{name} перемещена в {x}, {y}.",
+ "Moved {name} to {z}.": "{name} перемещена в {z}.",
  "Moved {name}.": "{name} перемещена.",
  "Previous or next plane": "Предыдущая или следующая плоскость",
  "With a shape selected: nudge it by one grid step, ⇧ for ten": "При выбранной фигуре: сдвинуть её на один шаг сетки, ⇧ — на десять",
@@ -809,5 +809,10 @@
   "many": "%{n} частей за краем",
   "other": "%{n} части за краем"
  },
- "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния",
+ "target": "цель",
+ "to the target": "к цели",
+ "critical value": "критическое значение",
+ "join radius": "радиус слияния",
+ "Look down": "Взгляд сверху"
 }

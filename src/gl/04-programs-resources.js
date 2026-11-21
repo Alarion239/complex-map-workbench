@@ -710,22 +710,25 @@ float wabs(vec2 w) {
   }
   // (tests) holdLinks(true): the current chain's forward programs stay linking (COMPLETION_STATUS held false, and no
   // synchronous link) until holdLinks(false), on any back end: SwiftShader and lavapipe link synchronously. ?glhold
-  // starts with it on (a cold load: no earlier version of the chain)
+  // starts with it on (a cold load: no earlier version of the chain). holdLinks(true, names): those programs alone
   let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
-  function heldOf(e) { return held && e.chain && !e.side && !e.inv; }
+  let heldNames = null;
+  function heldOf(e) { return held && e.chain && !e.side && !e.inv && (!heldNames || heldNames.has(e.name)); }
   // (tests) the names of the programs started for the current chain (of any map mode), each once
   function chainProgs() {
     const out = new Set();
     for (const e of progs.values()) if (e.chain && e.key === cur.key) out.add(e.name);
     return [...out];
   }
-  function holdLinks(on) {
+  function holdLinks(on, names) {
     held = !!on;
-    if (held) return;
-    // (released: the programs held finish as they would have, linked at once where links are synchronous (no parallel
-    // compile), polled where they run in the background; a program no frame asks for again would stay pending)
+    heldNames = held && names ? new Set(names) : null;
+    if (held && !heldNames) return;
+    // (released, or held to names alone: the programs no longer held finish as they would have, linked at once where
+    // links are synchronous (no parallel compile), polled where they run in the background; a program no frame asks for
+    // again would stay pending)
     if (pcExt) schedulePoll();
-    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv) finishLink(e);
+    else for (const e of [...progs.values()]) if (e.state === 'pending' && e.chain && !e.side && !e.inv && !heldOf(e)) finishLink(e);
     if (api.onReady) api.onReady({ main: true, side: false });
   }
   // The program `name` for the current chain. While it compiles in the background, the newest earlier chain version
@@ -1108,7 +1111,8 @@ float wabs(vec2 w) {
         data[o++] = (hn ? p[in_] : p[i + 2]) - ox; data[o++] = (hn ? p[in_ + 1] : p[i + 3]) - oy;
       }
     }
-    const res = { kind: 'lines', buf: makeBuf(data), n, org: [ox, oy], vaos: new Map(), tf: null, arcs: new Map() };
+    // (src: the segments as uploaded, which the CPU stand-in reads, cpuEntry, until the chain evaluates them itself)
+    const res = { kind: 'lines', buf: makeBuf(data), src: data, n, org: [ox, oy], vaos: new Map(), tf: null, arcs: new Map() };
     live.add(res);
     return res;
   }
@@ -1390,7 +1394,7 @@ float wabs(vec2 w) {
     if (P.rt) runRT(P, vao, tpl.P, res.n, e.tex, W, H);
     else runTF(P, vao, gl.POINTS, tpl.P, res.n, bytes, e.tex, W, H, gl.RG32F, gl.RG);
     c.set(key, e); cacheAll.set(e, true); cacheBytes += bytes;
-    if (P.ch === cur && !sideMode) dropSuperseded(c, e);
+    if (P.ch === cur && !sideMode) { dropSuperseded(c, e); if (!isMesh) chainEvaluated(res); }
     return e;
   }
   // The current chain's evaluation of (cacheKey, L) supersedes what earlier chain versions computed for it while the
@@ -1434,6 +1438,75 @@ float wabs(vec2 w) {
     use(P, map);
     originUniforms(P, res.org);
     runRT(P, isMesh ? meshTFVAO(res, L) : lineTFVAO(res, L), tpl.P, res.n, e.tex, W, H, alloc);
+    if (!isMesh && !sideMode) chainEvaluated(res);
+    return e;
+  }
+  // lines res evaluated by the current chain itself: its CPU stand-ins go, and with them the segments they read
+  // (res.src); a later chain version stands in with this one's evaluation (stand())
+  function chainEvaluated(res) {
+    if (res.tf) for (const o of [...res.tf.values()]) if (o.cpu) freeEntry(o);
+    res.src = null;
+  }
+  // The lines' stand-in while the chain's first version links (no earlier version's tfLine to stand in, stand()):
+  // the template points of res under the map's CPU twin (cpuOf(): the app's cpuMap of it), in an entry as tfEntry's,
+  // which lineC draws. Kept under the current chain's key and freed once the chain evaluates res itself
+  // (chainEvaluated). It is made within the frame, so it keeps to CPU_LINE_MS: template size M, or the largest of 4, 2
+  // and 1 below it whose evaluations fit, costed at the time per evaluation of the first CPU_LINE_PROBE segments (the
+  // first ones wait on the JIT: an estimate on the high side). The entry's L is its template size, which drawLines
+  // draws it at. null when not even size 1 fits (res.cpuNo then keeps the map and chain, so later frames do not try
+  // again), res has no source segments (the chain has evaluated it), or the CPU twin throws. cpuLines keeps the last
+  // CPU_LINE_LOG made or refused, {n (segments), m (template size, 0: refused), ms} (tests: GLR.lineStandIns)
+  const CPU_LINE_MS = 25, CPU_LINE_PROBE = 8, CPU_LINE_LOG = 8, cpuLines = [];
+  const cpuLineNote = (n, m, t0) => { cpuLines.push({ n, m, ms: +(performance.now() - t0).toFixed(1) }); if (cpuLines.length > CPU_LINE_LOG) cpuLines.shift(); };
+  function cpuEntry(res, M, map, cpuOf) {
+    if (!res.src) return null;
+    const want = `${M}|${mapKeyOf(map)}|${cur.key}|${cur.hash}`;
+    if (res.cpuNo === want) return null;
+    if (!res.tf) res.tf = new Map();
+    for (const o of res.tf.values()) if (o.cpu && o.want === want) return touch(o);
+    const t0 = performance.now(), d = res.src, ox = res.org[0], oy = res.org[1];
+    let F;
+    try { F = cpuOf(); } catch (err) { console.error('line stand-in', err); return null; }
+    // the values at template size m, or the time per evaluation measured when they would not fit what is left
+    const run = (m) => {
+      // (lineTemplate's points along a segment: its m + 1 ends, then its m midpoints)
+      const ts = [];
+      for (let k = 0; k <= m; k++) ts.push(k / m);
+      for (let k = 0; k < m; k++) ts.push((k + 0.5) / m);
+      const W = Math.min(maxTex, 4096), H = Math.max(1, Math.ceil(ts.length * res.n / W));
+      if (H > maxTex) return { per: Infinity };
+      const vals = new Float32Array(W * H * 2), r0 = performance.now();
+      for (let j = 0, o = 0; j < res.n; j++) {
+        const ax = ox + d[j * LSTRIDE], ay = oy + d[j * LSTRIDE + 1], bx = ox + d[j * LSTRIDE + 2], by = oy + d[j * LSTRIDE + 3];
+        for (const t of ts) {
+          const w = F({ re: ax + t * (bx - ax), im: ay + t * (by - ay) });
+          vals[o++] = w ? w.re : NaN; vals[o++] = w ? w.im : NaN;
+        }
+        if (j + 1 === CPU_LINE_PROBE || performance.now() - t0 > CPU_LINE_MS) {
+          const now = performance.now(), per = (now - r0) / ((j + 1) * ts.length);
+          if (now - t0 + per * (res.n - j - 1) * ts.length > CPU_LINE_MS) return { per };
+        }
+      }
+      return { vals, W, H, P: ts.length };
+    };
+    let m = M, got = null;
+    try {
+      for (;;) {
+        got = run(m);
+        if (got.vals) break;
+        const left = CPU_LINE_MS - (performance.now() - t0), per = got.per;
+        m = [4, 2, 1].find((k) => k < m && res.n * (2 * k + 1) * per <= left);
+        if (!m) { res.cpuNo = want; cpuLineNote(res.n, 0, t0); return null; }
+      }
+    } catch (err) { console.error('line stand-in', err); return null; }
+    cpuLineNote(res.n, m, t0);
+    const { vals, W, H, P } = got, tex = floatTex();
+    gl.pixelStorei(gl.UNPACK_ALIGNMENT, 4);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, W, H, 0, gl.RG, gl.FLOAT, vals);
+    const key = `cpu|${want}`, bytes = W * H * 8;
+    const e = { tex, W, H, P, bytes, res, key, want, t: performance.now(), ck: 'stand-in', L: m, cpu: true };
+    while (res.tf.size >= CACHE_MAX) freeEntry(res.tf.values().next().value);
+    res.tf.set(key, e); cacheAll.set(e, true); cacheBytes += bytes;
     return e;
   }
   // The fill's point pass (fillPts, FILL_PTS_VS) of mesh res at template size L (at most 2: uSub's size) under map,

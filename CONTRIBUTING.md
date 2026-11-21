@@ -102,6 +102,9 @@ ruff check
 - The size budget is two ESLint warnings in `eslint.config.js`. `max-lines` is 1500 per file, and each file still over
   it has its own limit in `SIZE_BUDGET`, its size when the budget was set: such a file may shrink, never grow, and
   `max-lines` warns when it does. When a file shrinks, lower its number; once it is under 1500, drop it from the table.
+  `src/app/` is joined from parts (`src/app/NN-*.js`): a part has its own entry, keyed by its path from the repository's root
+  (`src/app/19-steps-view.js`), and `max-lines` measures the part, not the joined `app.js`; a part without an entry is
+  measured against the 1500.
   `max-lines-per-function` is today's largest function, so a change that makes one bigger is flagged. Lower the limits
   when you split something; never raise them.
 

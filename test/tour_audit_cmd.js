@@ -21,6 +21,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const CFG = Object.assign({ sizes: [[360, 780], [390, 844], [844, 390], [768, 1024], [1024, 700], [1152, 720], [1440, 900]], themes: ['light', 'dark'], langs: ['en', 'ru'], inputs: ['mouse', 'touch'], shots: null,
   steps: true, spot: true, layers: true, follow: true, focus: true, layerAll: [390, 768, 1440] },
   typeof AUDIT_CFG !== 'undefined' ? AUDIT_CFG : {});
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 const SPOT = eval(fs.readFileSync(DIR + '/../tour_audit_spot.js', 'utf8') + '; SPOT');
 const inject = () => ev(`window.__aud = ${SPOT}; 1`);
 const U = `http://localhost:${PORT}/test.html`;
@@ -74,8 +75,7 @@ const PROBE = `(() => {
   for (let i = 1; i < btns.length; i++) gap = Math.min(gap, btns[i].l - btns[i - 1].r);
   // contrast of the strip's text on its background (alpha over the page), and of Next's label on its fill
   const rgb = (s) => { const m = String(s).match(/[\\d.]+/g); return m ? m.map(Number) : [0, 0, 0, 1]; };
-  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
-  const ratio = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  ${LUM_JS}
   const bgOf = (e) => { for (let a = e; a; a = a.parentElement) { const c = rgb(getComputedStyle(a).backgroundColor); if (c.length < 4 || c[3] > 0.5) return c; } return rgb(getComputedStyle(document.body).backgroundColor); };
   const con = {};
   for (const [n, sel] of [['title', '.ts-title'], ['lead', '#tourLead'], ['count', '.ts-count'], ['why', '.ts-chev']]) { const e = strip.querySelector(sel); if (e && e.getClientRects().length && e.textContent.trim()) con[n] = +ratio(rgb(getComputedStyle(e).color), bgOf(e)).toFixed(2); }

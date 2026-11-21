@@ -406,11 +406,27 @@
     if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(invHomOnce) });
     return o;
   }
+  // whether a live d/dz step lies between planes a and k, so that invHomBase(a, k) is the substitute chain
+  function invHomPastDdz(a, k) {
+    for (let j = a + 1; j < k; j++) if (stepActive(j) && isDeriv(j)) return true;
+    return false;
+  }
+  // the chain a glide from plane a into plane k is planned over: the chain itself; or, with a d/dz step between them,
+  // the chain that stands in for it (invDerivChain: every live step before the d/dz off, and in the d/dz's place the
+  // derivative of their composition, by the chain rule).
+  // {steps, built}, or {reason} where no such chain can be made
+  function invHomBase(a, k) {
+    return invHomPastDdz(a, k) ? invDerivChain(k) : { steps: S.steps, built };
+  }
+  // the built steps of invHomBase(a, k), each live one decomposed once (invHomOnce); null where that chain cannot be
+  // made
   function invHomSkeleton(a, k) {
     const sk = `${a}|${k}|${chainSig[nSteps()]}`;
     let bs = invHomSkels.get(sk);
     if (!bs) {
-      bs = built.map((b, i) => (!S.steps[i] || S.steps[i].on === false ? b : invHomOnce(b)));
+      const c = invHomBase(a, k);
+      if (!c.steps) return null;
+      bs = c.built.map((b, i) => (!c.steps[i] || c.steps[i].on === false ? b : invHomOnce(b)));
       if (invHomSkels.size >= INV_HOM_SKELS_MAX) invHomSkels.clear();
       invHomSkels.set(sk, bs);
     }
@@ -419,18 +435,24 @@
   // The period in z of the glide's map H_t o F_{k-1} from plane a, or null: Inverse.keyPeriod of its plan at t (step k
   // standing for its homotopy, as invHomPath's plan), so the steps before k's where they have one, which H_t keeps,
   // and where they are affine, that of step k's path at t (tan's, tan(t z) / t about its centre, has pi / t): the key
-  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Kept per (a, k, t, chain), as a
-  // glide's frames ask for each t a few times
+  // at t -> 1 meets plane k's. A step with no inverse plan at t: the steps before k's. Planned on invHomBase's chain, as
+  // invHomPath's plan is (the substitute one past a d/dz step). Kept per (a, k, t, chain, and which of the two chains),
+  // as a glide's frames ask for each t a few times
   const invHomPers = new Map();
   function invHomPer(a, k, t) {
-    const ck = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    const sub = invHomPastDdz(a, k), ck = `${a}|${k}|${t}|${chainSig[nSteps()]}|${sub ? 'ddz' : 'own'}`;
     if (invHomPers.has(ck)) return invHomPers.get(ck);
-    let plan = null;
+    let per = null;
     try {
-      const bs = invHomSkeleton(a, k), hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
-      if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(S.steps, bh, a, k); }
-    } catch (e) { plan = null; }
-    const per = plan && plan.ok ? Inverse.keyPeriod(plan) : k - 1 > a ? Inverse.keyPeriod(invPlan(a, k - 1)) : null;
+      const base = invHomBase(a, k), bs = base.steps && invHomSkeleton(a, k);
+      if (bs) {
+        const hk = Inverse.homOps(bs[k - 1], t), bh = bs.slice();
+        let plan = null;
+        if (hk && hk.ok) { bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk); plan = Inverse.planChain(base.steps, bh, a, k); }
+        per = plan && plan.ok ? Inverse.keyPeriod(plan)
+          : k - 1 > a ? Inverse.keyPeriod(sub ? Inverse.planChain(base.steps, bs, a, k - 1) : invPlan(a, k - 1)) : null;
+      }
+    } catch (e) { per = null; }
     if (invHomPers.size >= 4096) invHomPers.clear();
     invHomPers.set(ck, per);
     return per;
@@ -440,10 +462,12 @@
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared; whether the
     // step has a NEWT op at t is remembered, as finding out decomposes the step)
+    const base = invHomBase(a, k), skel = invHomSkeleton(a, k);
+    if (!base.steps || !skel) return F(base.reason || 'no chain to plan');
     const bk = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
     let hk = null, byShape = invHomNewt.get(bk);
     if (byShape === undefined) {
-      try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      try { hk = Inverse.homOps(skel[k - 1], t); } catch (e) { hk = null; }
       byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
       if (invHomNewt.size >= 4096) invHomNewt.clear();
       invHomNewt.set(bk, byShape);
@@ -451,14 +475,14 @@
     const ck = bk + (byShape ? `|${shapeKey(s)}|${winKey()}` : '');
     let h = invHoms.get(ck);
     if (!h) {
-      const bs = invHomSkeleton(a, k), bh = bs.slice();
+      const bs = skel, bh = bs.slice();
       // (ops of its own for each plan: the anchor is set on them)
-      if (!hk) try { hk = Inverse.homOps(invHomSkeleton(a, k)[k - 1], t); } catch (e) { hk = null; }
+      if (!hk) try { hk = Inverse.homOps(bs[k - 1], t); } catch (e) { hk = null; }
       let anchor = null;
-      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(S.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
+      if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(base.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;
       bh[k - 1] = Inverse.homBuilt(bs[k - 1], hk);
-      h = invOwnPlan(S.steps, bh, a, k);
+      h = invOwnPlan(base.steps, bh, a, k);
       // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
       h.per = invHomPer(a, k, t);
       if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
@@ -498,9 +522,9 @@
   }
   // A plane b past a d/dz step k: its points are D(z) carried on by the steps after k, D = (f_{k-1} ∘ … ∘ f_1)′, a map of
   // z. The chain with D in step k's place, the steps before it off, plans that map from z and builds its own inverse
-  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the one live step
-  // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
-  // asked of it) or {reason}
+  // program, as a glide's homotopy stands in for its step (invHomPath). D is the derivative formula of the live steps
+  // before the d/dz, the chain rule composed into one formula (Funcs.chainDerivativeStep); {steps, built, k, h} (h: its
+  // plan, invOwnPlan's, made at the first path asked of it) or {reason}
   const invDerivs = new Map();
   // (its entries, one for each plane past the d/dz of a chain: the planes of a few chains; at the cap the map is cleared,
   // and a plane's chain is made again when it is next drawn)
@@ -514,9 +538,9 @@
     const k = ks[0], before = [];
     for (let j = 1; k && j < k; j++) if (stepActive(j)) before.push(j);
     if (ks.length !== 1) r = { reason: ks.length ? 'more than one d/dz step' : 'no d/dz step' };
-    else if (before.length !== 1) r = { reason: before.length ? 'a d/dz step after more than one step' : 'a d/dz step of the identity' };
+    else if (!before.length) r = { reason: 'a d/dz step of the identity' };
     else {
-      const d = Funcs.derivativeStep(S.steps[before[0] - 1]);
+      const d = Funcs.chainDerivativeStep(before.map((j) => S.steps[j - 1]));
       const db = d && d.step ? Funcs.build(d.step) : null;
       if (!db || db.error) r = { reason: (d && d.error) || (db && db.error) || 'no derivative formula' };
       else {
@@ -994,7 +1018,7 @@
       const r = role && r0.hold && kindType(s) === 'area' && sm === map ? linesOf(r0, pairFor(s, r0, role).p) : r0;
       if (!r.lineRes) continue;
       const area = kindType(s) === 'area';
-      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null }, shapeStroke(s, pane.dpr, opt));
+      const st = Object.assign({ map: sm, view: pane.view, dpr: pane.dpr, M: opt.thin ? 4 : 8, sync, cacheKey: cache ? `${r.lineKey}|${mapKeyOf(sm)}` : null, cpu: () => cpuMap(sm) }, shapeStroke(s, pane.dpr, opt));
       // open sets: the boundary is not included, drawn dashed 5/3.5 (spec 6.5)
       if (area && r.open && !opt.thin) { st.dash = OPEN_DASH; st.arc = sm === map ? arcOf(r, arcF(), arcKey) : arcOf(r, cpuMap(sm), mapKeyOf(sm)); }
       GLR.drawLines(r.lineRes, st);
