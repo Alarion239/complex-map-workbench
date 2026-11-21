@@ -877,22 +877,28 @@ const Expr = (() => {
     return CX.scale(t, (ak + 0.5) * Math.pow(ak / (ak + 0.5), p) / (p - 1));
   }
   // (what the sums evaluated so far did: inf, the infinite ones run; out, those that ended NaN without converging: at their
-  // SER_CAP terms with no tail to add, or at a term that overflowed; terms, the terms evaluated, so that a caller can bound
-  // its work by what it did, not by the clock. A caller reads the counts before and after an evaluation. The GPU stops at the
-  // same cap, SER_GPU_LOOP (test/t_sum_caps.js pins that they are one number), and is NaN for the same sums, so the points where this
+  // SER_CAP terms with no tail to add, or at a term that overflowed; over, evaluations that took more terms in all than
+  // SER_BUDGET; terms, the terms evaluated, so that a caller can bound its work by what it did, not by the clock; runs, the sums
+  // run (a loop with none inside it is the one that takes the terms); left, the terms the evaluation may still take, Infinity
+  // unless a caller arms it with SER_BUDGET for one value (the page's sample), so no other use of the evaluator is limited. A caller
+  // reads the counts before and after an evaluation. The GPU stops at the same cap, SER_GPU_LOOP, and the same budget,
+  // SER_GPU_TERMS (test/t_sum_caps.js pins that each pair is one number), and is NaN for the same sums, so the points where this
   // counts are pixels it leaves blank)
-  const SUM_STAT = { inf: 0, out: 0, terms: 0 };
+  const SER_BUDGET = 2048;
+  const SUM_STAT = { inf: 0, out: 0, over: 0, terms: 0, runs: 0, left: Infinity };
   function runOne(term, k0, dk, k1, prod, capInf = SER_CAP) {
     let S = prod ? C(1, 0) : C(0, 0), mH = 0, kH = 0, mQ = 0, kQ = 0, A = 0;
     const win = [];
     const infinite = !Number.isFinite(k1);
+    SUM_STAT.runs++;
     if (infinite) SUM_STAT.inf++;
     const cap = infinite ? capInf : Math.abs(k1 - k0) + 1;
     if (cap > SER_FINITE) return C(NaN, NaN);
     for (let j = 0, k = k0; j < cap; j++, k += dk) {
-      const t = term(k);
+      const runs0 = SUM_STAT.runs, over0 = SUM_STAT.over, t = term(k);
       SUM_STAT.terms++;
-      if (!CX.isFin(t)) { if (infinite) SUM_STAT.out++; return C(NaN, NaN); }
+      if (SUM_STAT.runs === runs0 && --SUM_STAT.left < 0) { SUM_STAT.over++; return C(NaN, NaN); }
+      if (!CX.isFin(t)) { if (infinite && SUM_STAT.over === over0) SUM_STAT.out++; return C(NaN, NaN); }
       S = prod ? CX.mul(S, t) : CX.add(S, t);
       if (!prod) A += CX.abs(t);
       if (!infinite) continue;
@@ -1701,7 +1707,7 @@ const Expr = (() => {
   const hasIter = (n) => hasT(n, 'iter');
   // the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
-  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, SUM_STAT, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, SER_BUDGET, SUM_STAT, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
 })();
 import { CX } from './cx.js';
 import { Symbolic } from './symbolic.js';

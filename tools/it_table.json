@@ -3020,6 +3020,8 @@
  "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})",
  "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "Questa somma ha più termini di quelli che la GPU disegna ({n} su un massimo di {cap}), quindi il riquadro resta vuoto. Abbassa il suo estremo superiore per disegnarla.",
  "Part of this plane is blank: an infinite sum does not converge there within {terms} terms.": "Parte di questo piano è vuota: una somma infinita lì non converge entro {terms} termini.",
+ "Part of this plane is blank: an infinite sum does not converge there within {terms} terms, or a pixel's sums there take more than the GPU's {budget} terms.": "Parte di questo piano è vuota: una somma infinita lì non converge entro {terms} termini, oppure le somme di un pixel lì richiedono più dei {budget} termini della GPU.",
+ "Part of this plane is blank: a pixel's sums there take more than the GPU's {budget} terms.": "Parte di questo piano è vuota: le somme di un pixel lì richiedono più dei {budget} termini della GPU.",
  "Preparing the page": "Preparazione della pagina",
  "Preparing {done} of {total} shaders, first time only": "Shader preparati: {done} di {total} (solo la prima volta)",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",

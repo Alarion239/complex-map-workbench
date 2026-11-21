@@ -309,6 +309,8 @@
  "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
  "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "В этой сумме больше слагаемых, чем рисует видеокарта (%{n} при максимуме %{cap}), поэтому панель остаётся пустой. Уменьшите верхний предел суммы, чтобы её нарисовать.",
  "Part of this plane is blank: an infinite sum does not converge there within {terms} terms.": "Часть этой плоскости пуста: бесконечная сумма там не сходится за %{terms} слагаемых.",
+ "Part of this plane is blank: an infinite sum does not converge there within {terms} terms, or a pixel's sums there take more than the GPU's {budget} terms.": "Часть этой плоскости пуста: бесконечная сумма там не сходится за %{terms} слагаемых или суммы в пикселе там требуют больше %{budget} слагаемых (предел видеокарты).",
+ "Part of this plane is blank: a pixel's sums there take more than the GPU's {budget} terms.": "Часть этой плоскости пуста: суммы в пикселе там требуют больше %{budget} слагаемых (предел видеокарты).",
  "Preparing the page": "Подготовка страницы",
  "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
