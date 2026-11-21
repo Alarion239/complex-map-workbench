@@ -386,6 +386,9 @@
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map(), invHomNewt = new Map();
+  // the glide plans invHoms keeps (a glide makes one for each u; an All-at-once span its own): at the cap the map is cleared,
+  // and the next frame's plan is made again
+  const INV_HOMS_MAX = 8;
   // How many (a, k, chain) entries the map below keeps: it holds the t-free parts of the entries a session has glided between. A glide
   // asks for its own (a, k) with the current chain, so a few pairs are in use, and eight leaves room for the pairs of a chain scrubbed
   // back and forth; at the cap the whole map is cleared, which is safe because the next glide builds its part once
@@ -458,7 +461,7 @@
       h = invOwnPlan(S.steps, bh, a, k);
       // (the key's period: the glide map's at t, invHomPer, as svSheetKeyAt's)
       h.per = invHomPer(a, k, t);
-      if (invHoms.size >= 8) invHoms.clear();
+      if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
@@ -499,6 +502,9 @@
   // before the d/dz (Funcs.derivativeStep); {steps, built, k, h} (h: its plan, invOwnPlan's, made at the first path
   // asked of it) or {reason}
   const invDerivs = new Map();
+  // (its entries, one for each plane past the d/dz of a chain: the planes of a few chains; at the cap the map is cleared,
+  // and a plane's chain is made again when it is next drawn)
+  const INV_DERIVS_MAX = 8;
   function invDerivChain(b) {
     const ck = `${b}|${chainSig[nSteps()]}`;
     let r = invDerivs.get(ck);
@@ -520,7 +526,7 @@
         r = { steps, built: bs, k };
       }
     }
-    if (invDerivs.size >= 8) invDerivs.clear();
+    if (invDerivs.size >= INV_DERIVS_MAX) invDerivs.clear();
     invDerivs.set(ck, r);
     return r;
   }
@@ -567,7 +573,7 @@
       }
       h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
       h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
-      if (invHoms.size >= 8) invHoms.clear();
+      if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }
     const own = singAt && h.plan.ok && h.plan.ops.some((o) => o.kind === 'NEWT' || o.glideKey) ? singAt() : null;
@@ -597,17 +603,22 @@
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
+  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const maxW = Math.max(80, Math.min(360, pane.w - 48));
+    // (a phone's note is centred in the room left of the key column and wraps to that width)
+    const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
+    const maxW = Math.max(80, Math.min(360, free - 48));
     const lines = wrapWords(ctx, text, maxW);
-    const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
+    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
     const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    const x0 = Math.round(pane.w / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
+    const x0 = Math.round(free / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
+    const tx = free / 2;   // (the words' centre: the room's, as the box is)
+    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
@@ -615,7 +626,7 @@
     ctx.shadowColor = 'transparent';
     ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1; ctx.stroke();
     ctx.fillStyle = TH.ink2;
-    lines.forEach((t, i) => ctx.fillText(t, pane.w / 2, y0 + 7 + 9 + i * 18));
+    lines.forEach((t, i) => ctx.fillText(t, tx, y0 + 7 + 9 + i * 18));
     ctx.restore();
   }
   // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6); that the picture is not
@@ -1014,10 +1025,15 @@
   function pointLabel(s, idx, primes) {
     // (a new point is z₀, z₁, …; a plain lowercase letter would read as a shared number)
     const bn = s.bind ? boundNumber(s) : '';
-    const base = exLabel(s.label) || (bn ? Params.display(bn) : 'z' + sub(Number.isInteger(s.num) ? s.num : idx));
+    // (a point is named for the plane it was drawn on, and its number: z₀ on z, w₁,₁ on w₁; the comma keeps the plane's subscript and
+    // the number's apart, as w₁₁ would read as one)
+    const st = shapeStage(s), num = sub(Number.isInteger(s.num) ? s.num : idx);
+    const base = exLabel(s.label) || (bn ? Params.display(bn) : (st > 0 ? `w${sub(st)},` : 'z') + num);
     // (a one-panel figure of the deformation draws H_t at the current t: its moving points read H_t(z₀))
     if (figMode && primes > 0 && morphOn() && !figVec) return `Hₜ(${base})`;
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
-    if (figMode && primes > 0) return `${S.focus === 0 && primes === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(primes)}`}(${base})`;
+    // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
+    // that plane is stage + primes; F is the whole map from z)
+    if (figMode && primes > 0) { const k = st + primes; return `${S.focus === 0 && st === 0 && k === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(k)}`}(${base})`; }
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');
   }
