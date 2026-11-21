@@ -156,6 +156,7 @@
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
       if (hist.length > PROG_KEEP) hist.length = PROG_KEEP;
     }
+    if (discardPending && !sideMode) dropOtherChains();
     cur.info = info;
     const n = Math.max(4, info.slots * 4);
     if (!cur.data || cur.data.length !== n) cur.data = new Float32Array(n); else cur.data.fill(0);
@@ -484,6 +485,35 @@
     return cz ? named.map((n) => (n === 'fillPts' || /m$/.test(n) ? n : n + 'Z')) : named;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
+  // the programs a frame of map draws its carried colour with at full quality (carryPrep's for a glide's meshes, under
+  // the sheet key): with the map cache (rtOK), its places' program (tfRegion), the cached program and, for a chain with
+  // a cut, the fill's (carryNames); without it, the plain program or, with a cut, the sheet program and its mask. On the
+  // globe (globe: {id}, plane s the colour plane), drawCarriedGlobe's
+  function carryProgs(map, globe) {
+    if (globe) return [globe.id ? 'carryGId' : 'carryG'];
+    const m = map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
+    const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
+    if (rtOK && !isIdent(m)) return carryNames(false).concat(['tfRegion']);
+    return !cuts ? [noCutProg('regionK', false)] : clip ? ['regionKSclip'] : ['regionKS', 'regionKSm'];
+  }
+  // the state of the carried colour a frame of map would draw, nothing drawn: 'ready' when every program it draws with
+  // (carryProgs) is linked for this chain and map mode, not an earlier version's or the start's that program() stands
+  // in with; 'error' when one cannot link; else 'pending'. Asking starts the programs not yet started, as a draw does,
+  // and a frame that waits on them is drawn again when they land (as program() has it); a renderer that links at once
+  // has them linked here
+  function carryState(map, globe) {
+    if (!ok || lost || !cur.info) return 'error';
+    let state = 'ready';
+    for (const name of carryProgs(map, globe)) {
+      if (!DEFS[name] || getProg(name, cur, true, map)) continue;
+      const e = progs.get(progId(name, cur, map));
+      if (e && e.state === 'error') return 'error';
+      framePending = true;
+      standIn(e && e.id);
+      state = 'pending';
+    }
+    return state;
+  }
   // whether a carried program of the Cauchy style (CARRY_CAUCHY: the meshes' and the pre-mapped mesh's, both map modes, started
   // as the style is chosen) is still linking for the current chain: a glide waits on its first plane for them (svLinkHold),
   // as for its inverse program, since no other program draws the Cauchy integral past z
@@ -827,10 +857,11 @@
     cauchyPlan(P, cp, CARRY_EDGE_UNIT);
     u2f(P, 'uEdgeO', edgeO[0], edgeO[1]);
   }
-  // the colour plot's stand-in (st.standIn): its texture (unit 4) and the w array last uploaded into it
+  // the stand-ins' node texture (unit 4: the colour plot's and the phase globe's) and the w array last uploaded into it
   let standInTex = null, standInKey = null;
-  function standInUniforms(P, st, dpr) {
-    const g = st.standIn, k = st.view.s * dpr;
+  // binds the stand-in grid g ({nx, ny, w}: w = F(z) at the nx x ny nodes, node (i, j) at w[2 (j nx + i)], re and im; a
+  // Float32Array) to unit 4, uploading it when it is not the one there
+  function standInTexture(g) {
     gl.activeTexture(gl.TEXTURE4);
     if (!standInTex) standInTex = floatTex(); else gl.bindTexture(gl.TEXTURE_2D, standInTex);
     if (standInKey !== g.w) {
@@ -838,6 +869,11 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, g.nx, g.ny, 0, gl.RG, gl.FLOAT, g.w);
       standInKey = g.w;
     }
+  }
+  const standInRelease = () => { if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; } };
+  function standInUniforms(P, st, dpr) {
+    const g = st.standIn, k = st.view.s * dpr;
+    standInTexture(g);
     u2f(P, 'uGO', (g.x0 - st.view.cx) * k + fw / 2, (g.y0 - st.view.cy) * k + fh / 2);
     u1f(P, 'uGC', g.h * k);
   }
@@ -867,7 +903,7 @@
       standInUniforms(P, st, dpr);
       return colorPass(P, st, dpr);
     }
-    if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; }
+    standInRelease();
     use(P, st.map);
     if (cp) {
       cauchyPlan(P, cp);
