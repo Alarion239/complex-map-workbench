@@ -168,6 +168,7 @@ const VIEWS = {
   'newt_member0_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
   'steps_zeta_member0_cmd.js': steps(),
+  'newt_ab_cmd.js': steps({ pin: true }),
   'steps_glide_label_cmd.js': steps(),
   'steps_newt_everywhere_cmd.js': steps({ pin: true }),
   'steps_late_links_cmd.js': steps({ pin: true }),
