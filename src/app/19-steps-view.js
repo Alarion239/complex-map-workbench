@@ -18,6 +18,7 @@
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
     glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
+    landBranches: 1, // (a test hook's) 0: the carried Landscape draws no patches about its map's branch points (svLandPatches); any other value draws them
     fits: 0,         // (for a test) the head's fits (svFitHead's) that ran past their key
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -533,9 +534,12 @@
   // The carried grid's patches for GLR.drawLandscape (CARRY_Z), [x, y, r0, r1] each, from a ten-thousandth of a cell of
   // the box's N x N grid to eight cells: one about each pole of the carry's map (from plane s) in plane s's carried box
   // src, nearest the box's centre first, at most 4; one about each of the map's branch points (svLandBranches) not within
-  // a cell of one of them; and with hF, one about each pole of the height map in the far patches' ring
-  // (svLandHeightPoles). Near a pole the map carries a small disc over the far plane, where the box's cells stretch past
-  // the tear limit and are left out; about a branch point the sheets meet and the cells stretch the same way.
+  // a cell of one of them, out to svLandBranchReach and marked hole; and with hF, one about each pole of the height map in
+  // the far patches' ring (svLandHeightPoles). Near a pole the map carries a small disc over the far plane, where the
+  // box's cells stretch past the tear limit and are left out; about a branch point the sheets meet and the cells stretch
+  // the same way. On the principal surface's carry a branch point's patch (hole) draws only where the box's cells and
+  // the pole patches leave a hole (GLR.drawLandscape): its coarse outer cells would otherwise lie over finer ones that
+  // draw the surface well. All sheets' carry draws it as it draws a pole's patch.
   // The glide map's poles and branch points take the map's seam (svPatchSeam): a patch's rings start at the cut out of
   // its point, so no cell straddles the cut. branchSeams false (the carry draws the other sheets' copies, which draw no
   // patches of their own) leaves a branch point's patch without it, so it covers the point on both sides of the cut,
@@ -555,11 +559,22 @@
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
     Object.assign(svLandPoleMemo, { key, poles: near });
-    const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
-    const branches = svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
+    const patch = (p, r1 = cell * 8) => [p.re, p.im, cell * 1e-4, r1];
+    const branches = SV.landBranches === 0 ? [] : svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
     // (each patch's rings start at the map's cut out of its point, if it has one; a branch point's only with branchSeams)
-    const seamed = (p) => Object.assign(patch(p), { seam: svPatchSeam(F, patch(p)) });
-    return near.map(seamed).concat(branches.map(branchSeams ? seamed : patch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    const seamed = (q) => Object.assign(q, { seam: svPatchSeam(F, q) });
+    const branch = (b) => { const q = patch(b, svLandBranchReach(b, src, cell)); return Object.assign(branchSeams ? seamed(q) : q, { hole: true }); };
+    return near.map((p) => seamed(patch(p))).concat(branches.map(branch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map((p) => patch(p)) : []);
+  }
+  // The reach of a branch point b's patch (svLandPatches) over plane s's carried box src of cells cell wide: eight cells,
+  // or outside src, LAND_BRANCH_FAR cells of the far patch whose ring holds b (svLandFar, GLR.CARRY_FAR_N points a side)
+  // if those are wider. There the far patch's cells next to b straddle the cut out of it and are torn, leaving a hole as
+  // wide as they are, which a patch of the box's cells' size would fill only part of
+  const LAND_BRANCH_FAR = 2;
+  function svLandBranchReach(b, src, cell) {
+    if (b.re >= src.x0 && b.re <= src.x1 && b.im >= src.y0 && b.im <= src.y1) return cell * 8;
+    const [inner] = svLandFar(src), rho = Math.hypot(b.re - inner[0], b.im - inner[1]), k = rho <= inner[3] ? 0 : 1;
+    return Math.max(cell * 8, (LAND_BRANCH_FAR * 2 * Math.PI * rho) / (GLR.CARRY_FAR_N[k] - 1));
   }
   // The branch points of a carry's map from plane s: where the input of a multivalued step it applies (a root, power or
   // logarithm, SV_SHEET_STEPS) is 0, in the carried box src or the far patches' inner ring about it (and within reach of
