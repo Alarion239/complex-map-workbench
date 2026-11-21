@@ -67,8 +67,9 @@ for (const lang of ['en', 'ru']) {
   ok('focus 2: (b) names z₀\'s image F(z_{0}), the whole map\'s', (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', R);
   ok('focus 2: the caption defines F, which (b)\'s label names, by its formula: F(z) = (e^z)², the whole map', /Here \$F\(z\)=\\left\(e\^\{z\}\\right\)\^\{2\}\$ is the whole map\./.test(f.cap || ''), f.cap);
   ok('focus 2: (b) names the w₁ point\'s image f_{2}(w_{1,\\,1}), the focused step\'s', (near(R, F2_W11)[0] || {}).label === 'f_{2}(w_{1,\\,1})', R);
-  // (z₀ is not a point of w₁: the caption gives its image there, as (a) draws and names it, w₁(z₀) = e^{z₀} ≈ 1.425 + 0.441i)
-  ok('focus 2: the caption\'s (a) gives z₀\'s image on w₁, w₁(z₀) ≈ 1.425 + 0.441i (rounded, so ≈) with z₀ = 0.4 + 0.3i, and the w₁ point, in the w₁-plane, and says nothing more', /^\(a\) The point \$w_\{1\}\(z_\{0\}\)\\approx 1\.425\+0\.441i\\ \(z_\{0\}=0\.4\+0\.3i\)\$ and the point \$w_\{1,\\,1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
+  // (z₀ is not a point of w₁: the caption gives its image there, as (a) draws and names it, w₁(z₀) = e^{z₀} ≈ 1.425 + 0.441i, and z₀'s
+  // value in a math run of its own, so a line may break before it)
+  ok('focus 2: the caption\'s (a) gives z₀\'s image on w₁, w₁(z₀) ≈ 1.425 + 0.441i (rounded, so ≈) with z₀ = 0.4 + 0.3i, and the w₁ point, in the w₁-plane, and says nothing more', /^\(a\) The point \$w_\{1\}\(z_\{0\}\)\\approx 1\.425\+0\.441i\$ \(\$z_\{0\}=0\.4\+0\.3i\$\) and the point \$w_\{1,\\,1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
 }
 // ---- step 2 focused, a point of z with its own label, A: named by the same rule as the others, w₁(A) on (a) and F(A) on (b), and
 // the caption's (a) by (a)'s name
@@ -78,13 +79,14 @@ for (const lang of ['en', 'ru']) {
   info['focus 2, labelled'] = { points: f.points, cap: f.cap };
   ok('focus 2, a labelled point A of z: (a) names its image w_{1}(A)', (near(L, F1_Z0)[0] || {}).label === 'w_{1}(A)', L);
   ok('focus 2, a labelled point A of z: (b) names its image F(A), the whole map\'s', (near(R, F_Z0)[0] || {}).label === 'F(A)', R);
-  ok('focus 2, a labelled point A of z: the caption\'s (a) gives it by the same name as (a)\'s label, w_{1}(A) ≈ 1.425 + 0.441i with A = 0.4 + 0.3i', /^\(a\) The point \$w_\{1\}\(A\)\\approx 1\.425\+0\.441i\\ \(A=0\.4\+0\.3i\)\$ in the \$w_\{1\}\$-plane\./.test(f.cap || ''), f.cap);
+  ok('focus 2, a labelled point A of z: the caption\'s (a) gives it by the same name as (a)\'s label, w_{1}(A) ≈ 1.425 + 0.441i with A = 0.4 + 0.3i', /^\(a\) The point \$w_\{1\}\(A\)\\approx 1\.425\+0\.441i\$ \(\$A=0\.4\+0\.3i\$\) in the \$w_\{1\}\$-plane\./.test(f.cap || ''), f.cap);
+  ok('focus 2, a labelled point A of z: the caption defines F, which (b)\'s label F(A) names, by its formula', /Here \$F\(z\)=\\left\(e\^\{z\}\\right\)\^\{2\}\$ is the whole map\./.test(f.cap || ''), f.cap);
 }
 // ---- step 2 focused, in Russian: the image of z₀ with ≈ and z₀'s value, and F defined by its formula
 {
   const f = await build('xsp2ru' + Date.now(), scene(2), 'ru');
   info['focus 2 ru'] = { cap: f.cap };
-  ok('focus 2, ru: the caption gives z₀\'s image ≈ 1{,}425 + 0{,}441i with z₀ = 0{,}4 + 0{,}3i', /\$w_\{1\}\(z_\{0\}\)\\approx 1\{,\}425\+0\{,\}441i\\ \(z_\{0\}=0\{,\}4\+0\{,\}3i\)\$/.test(f.cap || ''), f.cap);
+  ok('focus 2, ru: the caption gives z₀\'s image ≈ 1{,}425 + 0{,}441i with z₀ = 0{,}4 + 0{,}3i', /\$w_\{1\}\(z_\{0\}\)\\approx 1\{,\}425\+0\{,\}441i\$ \(\$z_\{0\}=0\{,\}4\+0\{,\}3i\$\)/.test(f.cap || ''), f.cap);
   ok('focus 2, ru: the caption defines F by its formula', /Здесь \$F\(z\)=\\left\(e\^\{z\}\\right\)\^\{2\}\$~--- всё отображение\./.test(f.cap || ''), f.cap);
 }
 // ---- (control) both points on z: both on panel (a) at their coordinates
