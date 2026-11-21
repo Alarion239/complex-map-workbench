@@ -626,13 +626,13 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
   // the state of the program drawInverse(st) would draw with (st.staged: for a shape of a later plane), nothing drawn: 'ready' (it or a ready B class of it
   // draws), 'pending' (still linking: drawInverse answers 'pending'), 'error' or 'none' (drawInverse cannot draw st);
-  // asking begins its compile when it is missing, as drawInverse does. For st.coldOk callers: a cold ready program counts
-  // as ready
+  // asking begins its compile when it is missing, as drawInverse does (st.start false: it does not, and a missing one is
+  // 'none'). For st.coldOk callers: a cold ready program counts as ready
   function inverseState(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';
     const globe = st.viewKind === 'globe', look = st.look || {};
     const B = invB(look.alphaOwn ?? look.alpha ?? 1), extra = st.carry ? carryExtra(st, !globe && stagedOf(st, pack && pack.recs.get(st.shapeId ?? (st.shape && st.shape.id)))) : st.extra;
-    const pr = /** @type {any} */ (invProgram(B, globe, true, extra, st.inv));
+    const pr = /** @type {any} */ (invProgram(B, globe, st.start !== false, extra, st.inv));
     if (pr.state === 'pending') return !st.inv && invAltProgram(B, globe, extra, true) ? 'ready' : 'pending';
     return pr.state;
   }
