@@ -25,7 +25,6 @@
     lookDrawn = null;
     const s = findShape(selected);
     syncLookKey(lookDownOn(s));
-    fitLookKey();
     if (!lookDownOn(s)) return;
     const k = leftStage(), T = shapeStage(s), c = C(s.c[0], s.c[1]), b = pane.box(), ctx = pane.octx;
     const [cx, cy] = pane.w2s(c), px = (r) => Math.hypot(...pane.w2s(C(c.re + r, c.im)).map((v, i) => v - [cx, cy][i]));
@@ -68,7 +67,7 @@
   }
   // the key chip over the left plane, shown with the marks. On a phone it starts folded to its title, a button that
   // unfolds it (the open key covers a fifth of a 360 px plane)
-  let lookKey = null, lookKeyOpen = false;
+  let lookKey = null, lookKeyOpen = false, lookFits = 0;
   const LD_KEY = [
     { kind: 'ring', text: () => $t('target') }, { kind: 'line', text: () => $t('to the target') }, { kind: 'cross', text: () => $t('critical point') },
     { kind: 'dot', text: () => $t('critical value') }, { kind: 'dash', text: () => $t('join radius') },
@@ -77,29 +76,38 @@
   function syncLookKey(on) {
     const host = $('plotL');
     if (!host) return;
-    if (!lookKey) { lookKey = h('div', { class: 'ld-key', role: 'note' }); host.append(lookKey); }
+    if (!lookKey) {
+      lookKey = h('div', { class: 'ld-key', role: 'note' });
+      host.append(lookKey);
+      // (its room is measured again when the key or the plane changes size, or the root's classes change: the context bar
+      // opening or closing, a turn to landscape; never per overlay frame)
+      try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLookKey)); ro.observe(lookKey); ro.observe(host); } catch (e) { /* no ResizeObserver */ }
+      try { new MutationObserver(() => requestAnimationFrame(fitLookKey)).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+    }
     const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}` : '';
     if (lookKey.dataset.sig === sig) return;
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
-    if (!on) return;
+    if (!on) { fitLookKey(); return; }
     const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
     const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
     // (the marks are a list, so a screen reader says them one by one)
     lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     lookKey.classList.toggle('folded', ph && !lookKeyOpen);
     if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
+    fitLookKey();
   }
   // an open key on a landscape phone that the room under the plane's readout would cut: it takes the plane's top, over the
   // readout, which gives way (phone.css)
   function fitLookKey() {
     if (!lookKey) return;
+    lookFits++;
     lookKey.classList.remove('over-readout');
     const rc = document.documentElement.classList;
     if (lookKey.hidden || !lookKeyOpen || !rc.contains('ph') || !rc.contains('ph-land')) return;
     if (lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
   }
-  // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, and the key's words, its marks after
-  // its title, "; " between them
-  window.__cmwLookDown = () => (lookDrawn ? Object.assign({ key: lookKey && !lookKey.hidden ? [lookKey.querySelector('.ld-ttl'), ...lookKey.querySelectorAll('.ld-it')].map((e) => e.textContent).join('; ') : '' }, JSON.parse(JSON.stringify(lookDrawn))) : null);
+  // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, the key's words (its marks after its
+  // title, "; " between them), and how many times the key's room was measured (fits)
+  window.__cmwLookDown = () => (lookDrawn ? Object.assign({ key: lookKey && !lookKey.hidden ? [lookKey.querySelector('.ld-ttl'), ...lookKey.querySelectorAll('.ld-it')].map((e) => e.textContent).join('; ') : '', fits: lookFits }, JSON.parse(JSON.stringify(lookDrawn))) : null);
   // TEST-HOOK

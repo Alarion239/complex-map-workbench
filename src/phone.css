@@ -134,7 +134,8 @@ html:not(.ph) .ph-only { display: none !important; }
    plane's top, below the chips there: the readout (8 px down, 28 px tall) and, on a portrait phone, where the key reaches
    under it, the folded colour key (44 px down, 30 px tall); it scrolls when it is taller than that room. On a landscape
    phone an open key that the room under the readout would cut takes the plane's top instead, and the readout gives way
-   (over-readout: fitLookKey) */
+   (over-readout: fitLookKey, when the key or the plane changes size, the key is folded or unfolded, or the root's
+   classes change) */
 :root.ph { --ld-top: 80px; }
 :root.ph.ph-land { --ld-top: 40px; }
 :root.ph.ph-land .ld-key.over-readout { --ld-top: 4px; }

@@ -9,6 +9,8 @@
 //  - The card is in the disc's row in Shapes, under its editor: the counts; the r slider's thumb 44 × 44, with the
 //    ticks at the join radii placed for that thumb; a touch drag on the slider sets the disc's radius; the card's Look
 //    down switch turns the marks and the key off.
+//  - The open key's room is measured when its size or the root's classes change, not per overlay frame: 8 wheel steps
+//    that zoom the plane measure it no more than once.
 //  - With the Pick tool, a second finger on the plane while one draws a disc ends the drawing: no disc is added.
 //  - In Russian the disc added from the keyboard is said «В плоскости w₁ добавлен круг…», as the rest of the view says it.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -151,4 +153,21 @@ await until(`__cmwShapes().shapes.length === 2`, 10000);
 const said = await ev('__cmwPick().live');
 info.ru = said;
 ok('ru: the disc added is said «В плоскости w₁ добавлен круг…»', /^В плоскости w₁ добавлен круг с центром в образе выбранной точки/.test(said), said);
+// ---- the open key's room is not measured per overlay frame: 8 wheel steps zoom the plane and redraw the overlay with
+// the key's size unchanged (568 × 320, ru, the key open over the readout)
+await open(568, 320, 'ru');
+await select('d');
+{
+  const btn = await box('#plotL .ld-key > button.ld-ttl');
+  if (btn) await tap([(btn[0] + btn[2]) / 2, (btn[1] + btn[3]) / 2]);
+  await frames(); await frames(); await frames();
+  // (the wheel on the plane right of the open key, left of the button column)
+  const f0 = (await look()).fits, v0 = await ev(`__cmwPlaneMenu().view('L')`), kb = await box('#plotL .ld-key');
+  const p = [kb[2] + 40, (kb[1] + kb[3]) / 2];
+  for (let i = 0; i < 8; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: p[0], y: p[1], deltaX: 0, deltaY: -40 }); await frames(); }
+  await frames(); await frames();
+  const L1 = await look(), v1 = await ev(`__cmwPlaneMenu().view('L')`);
+  info.fits = { f0, f1: L1 && L1.fits, v0, v1, over: await ev(`document.querySelector('#plotL .ld-key').classList.contains('over-readout')`) };
+  ok('8 wheel steps redraw the overlay but measure the open key\'s room no more than once', v1.s !== v0.s && !!L1 && L1.fits - f0 <= 1 && info.fits.over, info.fits);
+}
 return { pass: fails.length === 0, passed: pass, fails, info };
