@@ -3014,7 +3014,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
   return {
     get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
     useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
-    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE,
+    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE, LOOP_CAP: SER_GPU_LOOP,
   };
 })();
 import { CX } from './cx.js';

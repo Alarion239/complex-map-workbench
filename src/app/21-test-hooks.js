@@ -57,7 +57,7 @@
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
-  window.__cmwSumRun = (role = 'L') => { const r = sumRuns.get(role === 'R' ? paneR : paneL); return r ? { taken: r.view !== null, hit: r.hit, tried: r.tried } : null; };   // (the pane's last sample of infinite sums that reach their term cap: sumWatch)
+  window.__cmwSumRun = (role = 'L', work) => { if (work) { sumWork = work; sumRuns.clear(); requestRender('L', 'R'); } const r = sumRuns.get(role === 'R' ? paneR : paneL); return r ? { taken: r.view !== null, hit: r.hit, tried: r.tried } : null; };   // (the pane's last sample of infinite sums that do not converge, sumWatch; work: the terms a sample may evaluate from now on, and a new sample)
   window.__cmwNoteBox = (role = 'L') => { const b = noteBoxes.get(role === 'R' ? paneR : paneL); return b ? Object.assign({}, b) : null; };   // (the pane's last note's box, paneNote's, in the pane's CSS px)
   window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
   // the colour plot's stand-in (colourStandIn): the cell of its finest level done (css px; null before one) and its

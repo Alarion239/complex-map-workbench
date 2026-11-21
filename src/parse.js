@@ -877,9 +877,11 @@ const Expr = (() => {
     return CX.scale(t, (ak + 0.5) * Math.pow(ak / (ak + 0.5), p) / (p - 1));
   }
   // (what the sums evaluated so far did: inf, the infinite ones run; out, those that ended NaN without converging: at their
-  // SER_CAP terms with no tail to add, or at a term that overflowed; a caller reads it before and after an evaluation. The GPU
-  // stops at the same cap, SER_GPU_LOOP, and is NaN for the same sums, so the points where this counts are pixels it leaves blank)
-  const SUM_STAT = { inf: 0, out: 0 };
+  // SER_CAP terms with no tail to add, or at a term that overflowed; terms, the terms evaluated, so that a caller can bound
+  // its work by what it did, not by the clock. A caller reads the counts before and after an evaluation. The GPU stops at the
+  // same cap, SER_GPU_LOOP (test/t_sum_caps.js pins that they are one number), and is NaN for the same sums, so the points where this
+  // counts are pixels it leaves blank)
+  const SUM_STAT = { inf: 0, out: 0, terms: 0 };
   function runOne(term, k0, dk, k1, prod, capInf = SER_CAP) {
     let S = prod ? C(1, 0) : C(0, 0), mH = 0, kH = 0, mQ = 0, kQ = 0, A = 0;
     const win = [];
@@ -889,6 +891,7 @@ const Expr = (() => {
     if (cap > SER_FINITE) return C(NaN, NaN);
     for (let j = 0, k = k0; j < cap; j++, k += dk) {
       const t = term(k);
+      SUM_STAT.terms++;
       if (!CX.isFin(t)) { if (infinite) SUM_STAT.out++; return C(NaN, NaN); }
       S = prod ? CX.mul(S, t) : CX.add(S, t);
       if (!prod) A += CX.abs(t);
