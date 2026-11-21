@@ -3014,6 +3014,8 @@
  "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})",
  "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "Questa somma ha più termini di quelli che la GPU disegna ({n} su un massimo di {cap}), quindi il riquadro resta vuoto. Abbassa il suo estremo superiore per disegnarla.",
  "Part of this plane is blank: an infinite sum does not converge there within {terms} terms.": "Parte di questo piano è vuota: una somma infinita lì non converge entro {terms} termini.",
+ "Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Lower their upper limits.": "Parte di questo piano è vuota. Una somma infinita lì non converge entro {terms} termini, e altre somme richiedono più dei {budget} termini che la GPU somma in un punto. Abbassa i loro estremi superiori.",
+ "Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Lower their upper limits to draw it.": "Parte di questo piano è vuota: le somme lì richiedono più dei {budget} termini che la GPU somma in un punto. Abbassa i loro estremi superiori per disegnarla.",
  "The plane $%{p}$ at $%{c}=%{list}$.": "Il piano $%{p}$ per $%{c}=%{list}$.",
  "The planes": "I piani",
  "A Number": "Un numero",

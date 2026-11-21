@@ -100,6 +100,7 @@ const VIEWS = {
   'steps_glstatus_cmd.js': steps(),
   'sum_budget_note_cmd.js': steps(),
   'sum_runout_cmd.js': steps(),
+  'sum_terms_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
   'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
