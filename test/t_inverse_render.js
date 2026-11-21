@@ -228,7 +228,7 @@ for (const name of ['expH', 'zi_H', 'e1z_disc']) {
 // (h) golden emulation: the forward draw (emulated: the region meshes as the GPU places and orders them) vs the
 // inverse render of the bounded controls. Where a region covers a pixel more than once, both show the front point of
 // the one sheet key the region tiling, the pre-mapped meshes and the steps view's colours share (Inverse.sheetKey:
-// the point nearest the window's centre, the poles penalised, keys within TIE_D tied and ordered by the tie rule),
+// the point nearest the window's centre, the poles penalised, keys within the tie band tied and ordered by the tie rule),
 // which is also the forward draw's depth
 // ---------------------------------------------------------------------------------------------------------------
 console.log('--- (h) golden emulation');
@@ -272,7 +272,7 @@ console.log('--- (h) golden emulation');
           const b = bary(x + 0.5, y + 0.5);
           if (b[0] < -1e-12 || b[1] < -1e-12 || b[2] < -1e-12) continue;
           const z = srcAt(b), k = y * W + x, cand = { z, D: Inverse.sheetKey(kp, z, null), lam: null };
-          if (best[k] && !(rev ? Inverse.front(best[k], cand) : Inverse.front(cand, best[k]))) continue;
+          if (best[k] && !(rev ? Inverse.frontByStep(best[k], cand) : Inverse.frontByStep(cand, best[k]))) continue;
           best[k] = cand;
           const pc = Inverse.patternColor(look, { z, dX, dY, lam: null, J: [1, 0, 0, 1] });
           col[3 * k] = pc.col[0]; col[3 * k + 1] = pc.col[1]; col[3 * k + 2] = pc.col[2]; cov[k] = 1;
@@ -330,6 +330,43 @@ console.log('--- (h) golden emulation');
       maxRate = Math.max(maxRate, (d1 - d0) / h);
     }
     check('the sheet key is continuous: it grows from the window\'s centre out across its side, within 1 / (R ln 2)', grows && maxRate <= KEY_RATE_SLACK / (R * Math.LN2), `${grows} ${maxRate}`);
+  }
+  // a chain periodic in z (exp, then (z - 1)/(z + 1)): the key's period is 2 pi i, its points hold one pole of the
+  // class i pi (2m + 1), and the copies z + 2 pi i k of a point beside a pole rank by their distance to the window's
+  // centre: at w = 2 + 2i the front is the copy nearest the centre, 0.48 + 2.62i, not one beside a pole the key's list
+  // leaves out (0.48 - 9.94i); control: the same points without the period put that far copy in front
+  {
+    const steps = [{ type: 'exp' }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }];
+    const plan = planOf(steps), win = { x0: -8.4, x1: 8.4, y0: -6, y1: 6 }, R = Math.hypot(16.8, 12) / 2;
+    const per = Inverse.keyPeriod(plan), sing = Inverse.keySing(plan, win);
+    check('a chain periodic in z: its key\'s period is 2 pi i', !!per && Math.abs(per.re) < 1e-12 && Math.abs(Math.abs(per.im) - 2 * Math.PI) < 1e-12, per);
+    check('a chain periodic in z: one key point of each class modulo the period', sing.length === 1 && Math.abs(Math.abs(sing[0].im) % (2 * Math.PI) - Math.PI) < 1e-9, sing);
+    const u = CX.div(C(3, 2), C(-1, -2)), base = CX.log(u), copies = [-3, -2, -1, 0, 1, 2, 3].map((k) => C(base.re, base.im + 2 * Math.PI * k));
+    const frontOf = (kp) => { let best = null; for (const z of copies) { const c = { z, D: Inverse.sheetKey(kp, z, null), lam: null }; if (!best || Inverse.front(c, best)) best = c; } return best.z; };
+    const f = frontOf({ win, R, rs: R / 8, sing, per });
+    const nearC = copies.reduce((a, z) => (CX.abs(z) < CX.abs(a) ? z : a));
+    check('a chain periodic in z: the front copy is the one nearest the centre', CX.abs(CX.sub(f, nearC)) < 1e-9, { f, nearC });
+    const raw = Inverse.keySing(plan, win, null), g = frontOf({ win, R, rs: R / 8, sing: raw, per: null });
+    check('control: without the period the key puts a copy far from the centre in front', CX.abs(g) > 2 * CX.abs(nearC), { g, raw });
+  }
+  // a Möbius step with c = 0 before the periodic step is affine: 2z + 1, exp, (z - 1)/(z + 1) has the period pi i,
+  // and its poles (-1 + i pi (2m + 1)) / 2 make one class modulo it
+  {
+    const steps = [{ type: 'mobius', params: { a: '2', b: '1', c: '0', d: '1' } }, { type: 'exp' }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }];
+    const plan = planOf(steps), win = { x0: -8.4, x1: 8.4, y0: -6, y1: 6 };
+    const per = Inverse.keyPeriod(plan), sing = Inverse.keySing(plan, win);
+    check('a Möbius step with c = 0 before exp: the key\'s period is pi i', !!per && Math.abs(per.re) < 1e-12 && Math.abs(Math.abs(per.im) - Math.PI) < 1e-12, per);
+    check('a Möbius step with c = 0 before exp: one key point of each class modulo the period', sing.length === 1, sing);
+  }
+  // an affine scale so small that the period's |T|^2 overflows: float32's, where the inverse pass divides by it
+  // (a = 1e-20 before exp, |T| about 6e20), and float64's (a = 1e-300): no period, and the key stays a number; a scale
+  // of 1e-10 (|T| about 6e10) keeps its period
+  for (const [a, has] of [['1e-300', false], ['1e-20', false], ['1e-10', true]]) {
+    const steps = [{ type: 'mobius', params: { a, b: '0', c: '0', d: '1' } }, { type: 'exp' }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }];
+    const plan = planOf(steps), win = { x0: -8.4, x1: 8.4, y0: -6, y1: 6 }, R = Math.hypot(16.8, 12) / 2;
+    const per = Inverse.keyPeriod(plan), sing = Inverse.keySing(plan, win, per);
+    const D = Inverse.sheetKey({ win, R, rs: R / 8, sing, per }, C(1, 2), null);
+    check(`an affine scale of ${a} before exp: ${has ? 'its period' : 'no period (|T|^2 past float32\'s range)'}, and the key is a number`, (has ? !!per : per === null) && Number.isFinite(D), { per, D });
   }
 }
 
