@@ -175,7 +175,8 @@
   XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
   // the decimals of an axis that a figure labels itself (the video's axes, the Landscape figure's floor, a filmstrip's reliefs):
   // XD.tickDec's, for its ticks ts at step; fmt(v, d) is the label the figure prints. While XD.axes is a list (the tests set
-  // it), each axis is recorded there, { name, ticks, step, d, labels }
+  // it), each axis is recorded there, { name, ticks, step, d, labels }; the video's y axis adds left, the leftmost edge of
+  // the labels it draws (px from the frame's left edge)
   XD.axisDec = (name, ts, step, fmt = XD.tickTex) => {
     const d = XD.tickDec(ts, step);
     if (XD.axes) XD.axes.push({ name, ticks: ts.slice(), step, d, labels: ts.map((v) => fmt(v, d)) });

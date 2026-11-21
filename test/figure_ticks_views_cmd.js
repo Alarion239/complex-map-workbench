@@ -3,7 +3,7 @@
 // d, labels }, recorded by XD.axisDec while the figure is made). Over a window zoomed in to a span of about 2.4·10⁻⁶ (a
 // step below 10⁻⁶), on every axis the labels are pairwise different and each reads back to its tick, in en and ru (the
 // decimal comma). Over windows of a span of about 14 and of about 0.01, every axis keeps its step's own decimals
-// (XD.decimals), so the figures that were fine print the same labels.
+// (XD.decimals), so the figures that were fine print the same labels. The video's y labels start inside its frame.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -52,6 +52,8 @@ for (const [win, srcView] of [['zoomed', ZOOM], ['wide', WIDE], ['0.01-wide', NA
       if (!r || r.err) continue;
       if (win === 'zoomed') ok(`${n}: on each axis the labels differ and read back to their ticks`, r.axes.every(axisOk), r.axes.map((a) => ({ name: a.name, labels: a.labels })));
       else ok(`${n}: each axis keeps its step's decimals`, r.axes.every((a, i) => a.d === r.decimals[i]), r.axes.map((a, i) => ({ name: a.name, step: a.step, d: a.d, decimals: r.decimals[i] })));
+      // (the video's y labels start inside the frame: at the zoomed window the y axis is pinned to the frame's left edge)
+      if (tag === 'the video') { const y = r.axes.find((a) => a.name === 'y'); ok(`${n}: the y labels start inside the frame`, !!y && y.left >= 0, y && { left: y.left, labels: y.labels }); }
       if (lang === 'ru') ok(`${n}: the labels with decimals have a decimal comma`, r.axes.every((a) => a.labels.every((l) => !/\./.test(l))), r.axes.map((a) => a.labels));
     }
   }
