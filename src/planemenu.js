@@ -203,7 +203,7 @@ const PlaneMenu = (() => {
         out.push({ id: 'zp-edit', icon: 'edit', html: $t('Edit {mark}', { mark: nm }), run: () => api.zp.edit(m.k, m.kind, m.i) });
         return out;
       }
-      const c = api.cutAt(ctx.x, ctx.y);
+      const c = api.cutAt(ctx.x, ctx.y, ctx.touch);
       if (c) {
         out.push({ id: 'cut-reset', icon: 'cut', html: $t('Reset the cut of {f}', { f: fHtml(c) }), run: () => api.resetCut(c) });
         if (api.inspect) out.push({ id: 'cut-edit', icon: 'edit', html: $t('Edit {f} in the Inspector', { f: fHtml(c) }), run: () => api.inspect(c) });
