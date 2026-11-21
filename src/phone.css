@@ -132,7 +132,7 @@ html:not(.ph) .ph-only { display: none !important; }
    stands over what it meets, on the surface */
 :root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: calc(100% - var(--ruler) - 72px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
 :root.ph .ld-key.folded { padding-bottom: 0; }
-:root.ph .ld-key.folded > .ld-it { display: none; }
+:root.ph .ld-key.folded > .ld-list { display: none; }
 :root.ph .ld-key > .ld-ttl { flex: 1 0 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: var(--t-label); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
 :root.ph .ld-key.folded > .ld-ttl { flex-basis: auto; }
 :root.ph .ld-key > .ld-ttl::after { content: ""; width: 0; height: 0; border: 4px solid transparent; border-bottom-color: currentColor; translate: 0 -2px; }

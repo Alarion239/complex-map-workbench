@@ -8,7 +8,9 @@
 //    join ring of radius 0.294;
 //  - M2 Joukowski, |w − 0.6 − 0.5i| < 0.35: crosses and dots at ±1, the join ring of radius 0.64;
 //  - the key chip names the marks, clear of the plane's other controls; the card's Look down switch turns it all off;
-//  - with the Pick tool, a press 7 css px inside the ring (within its 16 px to the touch) drags the target.
+//  - with the Pick tool, a press 7 css px inside the ring (within its 16 px to the touch) drags the target;
+//  - sin z, |w − 0.5| < 0.2, infinitely many critical points: crosses at π/2 + kπ in the window, again after a pan;
+//  - on a phone, where the card is not shown, Look down is off.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LOAD_MS = 40000, READY_MS = 60000;
@@ -20,10 +22,10 @@ const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestA
 const M1 = [{ type: 'pown', params: { n: 2 }, on: true }];
 const M2 = [{ type: 'joukowski', params: {}, on: true }];
 const M3 = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
-const open = async (steps, shapes, cam = [0, 0, 80]) => {
+const open = async (steps, shapes, cam = [0, 0, 80], phone = false) => {
   const ns = `lookdown-${Date.now()}`;
   const st = { v3: true, v4: true, v5: true, v6: true, shapes, steps, nextId: 50, focus: 0, srcView: { cx: cam[0], cy: cam[1], s: cam[2] } };
-  await view(1440, 900, false, false);
+  await (phone ? view(360, 640, false, true) : view(1440, 900, false, false));
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
@@ -56,6 +58,7 @@ ok('M1: the overlay holds ink on the ring, at the critical point and on the join
 const chip = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'); if (!k || k.hidden) return null; const r = k.getBoundingClientRect(), o = document.getElementById('overlayL').getBoundingClientRect(); return { text: k.textContent, box: [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top], pane: [o.width, o.height] }; })()`);
 info.key = chip;
 ok('the key chip names the marks', !!chip && ['target', 'to the target', 'critical point', 'critical value', 'join radius'].every((w) => chip.text.includes(w)), chip);
+ok('the key\'s marks are a list of five, said one by one', !!L && L.key === 'Look down; target; to the target; critical point; critical value; join radius' && (await ev(`document.querySelectorAll('#plotL .ld-key [role=list] > [role=listitem]').length`)) === 5, L && L.key);
 const chrome = await ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(); return [...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .options, #plotL > .viewstack, #plotL > .empty-chip')].filter((e) => !e.hidden && e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return [r.left - o.left, r.top - o.top, r.right - o.left, r.bottom - o.top]; }); })()`);
 const meets = (a, b) => a[0] < b[2] && a[2] > b[0] && a[1] < b[3] && a[3] > b[1];
 ok('the key chip lies in the pane, clear of its other controls', !!chip && chip.box[0] >= 0 && chip.box[1] >= 0 && chip.box[2] <= chip.pane[0] && chip.box[3] <= chip.pane[1] && !chrome.some((b) => meets(b, chip.box)), { chip, chrome });
@@ -97,4 +100,33 @@ info.m2 = L;
 const c2 = await at(0.6, 0.5), j2 = await at(0.6 + Math.hypot(0.4, 0.5), 0.5);
 ok('M2: crosses and dots at ±1', !!L && has(L.crit, await at(1, 0)) && has(L.crit, await at(-1, 0)) && has(L.vals, await at(1, 0)) && has(L.vals, await at(-1, 0)), L && [L.crit, L.vals]);
 ok('M2: the join ring of radius 0.64', !!L && Math.abs(L.join - (j2[0] - c2[0])) <= 0.75, L && L.join);
+
+// sin z: the critical points π/2 + kπ are infinitely many; those in the window are drawn, and again after a pan
+const SIN = [{ type: 'custom', params: { expr: 'sin(z)' }, on: true }];
+await open(SIN, [{ id: 'd', kind: 'disc', c: [0.5, 0], r: 0.2, stage: 1 }], [0, 0, 60]);
+await select('d');
+const crossesAt = async () => {
+  const L = await look(), want = [];
+  for (let k = -12; k <= 12; k++) { const p = await at(Math.PI / 2 + k * Math.PI, 0), pane = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.width, r.height]; })()`); if (p[0] > 4 && p[0] < pane[0] - 4 && p[1] > 4 && p[1] < pane[1] - 4) want.push(p); }
+  return { L, want, okay: !!L && want.length >= 3 && want.every((p) => has(L.crit, p)) && L.crit.length === want.length };
+};
+let sx = await crossesAt();
+info.sin = [sx.L && sx.L.crit, sx.want];
+ok('sin z: a cross at each π/2 + kπ in the window, and no other', sx.okay, [sx.L && sx.L.crit, sx.want]);
+const pc = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
+await drag(pc[0], pc[1], pc[0] - 230, pc[1], 12, 16);
+await frames(); await frames();
+const panned = await ev(`__cmwPlaneMenu().view('L').cx`);
+// (the press on the plane let go of the disc: it is selected again)
+await select('d');
+sx = await crossesAt();
+info.sinPan = [sx.L && sx.L.crit, sx.want];
+ok('sin z, the view panned: the crosses follow, at each π/2 + kπ in the window', panned > 1 && sx.okay, [panned, sx.L && sx.L.crit, sx.want]);
+
+// on a phone the card is not shown, nor is Look down
+await open(M1, [{ id: 'd', kind: 'disc', c: [1, 0], r: 0.5, stage: 1 }], [0, 0, 80], true);
+await select('d');
+const phoneL = await look(), phoneKey = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.hidden; })()`);
+info.phone = [phoneL, phoneKey];
+ok('on a phone, with no card shown, Look down is off: no marks and no key', phoneL === null && !phoneKey, info.phone);
 return { pass: fails.length === 0, passed: pass, fails, info };
