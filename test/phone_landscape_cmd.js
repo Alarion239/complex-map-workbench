@@ -64,7 +64,7 @@ ok('… and back to 375×812', back && back.heads === 0 && back.closed, back);
 for (const [w, h] of [[740, 360], [915, 412]]) {
   for (const v of ['', '&view=steps']) {
     await view(w, h, false, true); await load('pc' + w + v.length + '-' + Date.now(), ST, '', v ? undefined : 'classic');
-    if (v) { await send('Page.navigate', { url: `${U}?ns=pcs${w}-${Date.now()}${v}` }); }
+    if (v) { await go(`${U}?ns=pcs${w}-${Date.now()}${v}`); }
     await waitPh();
     await ev(`(() => { Tour.dismissSuggestion(); Tour.auto(false); Tour.start({ chapter: 'basics' }); return 1; })()`); await settle(1800);
     // (a slow runner builds the strip late: wait for Next, and for the × when the strip is a row, before measuring)

@@ -1,6 +1,7 @@
 'use strict';
 // The published page (dist/complex-map-workbench.html, what pages.yml deploys) is the test page without its test hooks:
-// the build drops every block from the opening marker line to the next marker (tools/hook_marker.js).
+// the build drops every block from the opening marker line to the next marker (tools/hook_marker.js), then the script's
+// comments and indentation (tools/strip_js.js, test/t_strip_js.js).
 // A start marker without its end marker (a block moved out of app.js with the end left behind) drops everything
 // up to the next end marker, thousands of lines, and the published script does not parse, while every other test
 // runs the test page and passes. A marker outside a block (a plain pair, or a lone marker) drops nothing and the hook
@@ -54,6 +55,40 @@ ok('the published page has its scripts', scripts.length >= 2, scripts.length);
 scripts.forEach((s, i) => { try { new vm.Script(s, { filename: `published script ${i + 1}` }); } catch (e) { ok(`the published page's script ${i + 1} parses`, false, String(e.message)); } });
 ok('no test hook left in the published page', !/__cmw/.test(scripts.join('\n')), null);
 ok('no hook marker left in the published page', !scripts.some((x) => (x.match(ANY) || []).length), scripts.map((x) => (x.match(ANY) || []).length));
+// (#2012) the app's script ships without comments or indentation (tools/strip_js.js): no comment, and no gap between two
+// tokens holds more than one line break or one space; strings, regexes and template literals (the GLSL) are tokens, kept
+{
+  const app = scripts[scripts.length - 1], gaps = { comments: 0, wide: 0 };
+  let last = 0;
+  require('acorn').parse(app, { ecmaVersion: 'latest', onComment: () => { gaps.comments++; }, onToken: (t) => { if (t.type.label === 'eof') return; const g = app.slice(last, t.start); if (g && g !== ' ' && g !== '\n') gaps.wide++; last = t.end; } });
+  ok('the published app script has no comment (tools/strip_js.js)', gaps.comments === 0, gaps.comments);
+  ok('… and no indentation: each gap between two tokens is one line break or one space', gaps.wide === 0, gaps.wide);
+  // (#2037) the GLSL in template strings ships without its comments: the GLSL templates are marked (glsl`…`,
+  // src/glsl.js), and their strings hold no `//` but one that runs on into a value ${…} (kept: tools/strip_js.js);
+  // all the template strings together hold at most TEMPLATE_COMMENT_MAX bytes of `//` to a line's end, the text and
+  // URLs of the templates that are not GLSL (about 1 kB) with those few
+  const GLSL_TEMPLATES_MIN = 80, TEMPLATE_COMMENT_MAX = 2000;
+  const tpl = { glsl: 0, glslComments: 0, commentBytes: 0 };
+  const walk = (nd, inGlsl) => {
+    if (!nd || typeof nd.type !== 'string') return;
+    if (nd.type === 'TaggedTemplateExpression' && nd.tag.type === 'Identifier' && /^glsl\d*$/.test(nd.tag.name)) {
+      tpl.glsl++;
+      for (const q of nd.quasi.quasis) {
+        const lines = q.value.raw.split('\n');
+        lines.forEach((l, i) => { if (l.includes('//') && (q.tail || i < lines.length - 1) && !/\\$/.test(l)) tpl.glslComments++; });
+      }
+    }
+    if (nd.type === 'TemplateLiteral') for (const q of nd.quasis) for (const m of q.value.raw.match(/\/\/[^\n]*/g) || []) tpl.commentBytes += m.length;
+    for (const k in nd) {
+      const v = nd[k];
+      if (Array.isArray(v)) { for (const x of v) walk(x); } else if (v && typeof v.type === 'string') walk(v);
+    }
+  };
+  walk(require('acorn').parse(app, { ecmaVersion: 'latest' }));
+  ok(`the published app script marks its GLSL templates (glsl\`…\`: at least ${GLSL_TEMPLATES_MIN})`, tpl.glsl >= GLSL_TEMPLATES_MIN, tpl);
+  ok('… and their strings hold no `//` comment but one that runs on into a value', tpl.glsl > 0 && tpl.glslComments === 0, tpl);
+  ok(`the published app script's template strings hold at most ${TEMPLATE_COMMENT_MAX} bytes of \`//\` to a line's end`, tpl.commentBytes <= TEMPLATE_COMMENT_MAX, tpl);
+}
 const test = fs.readFileSync(path.join(ROOT, 'dist', 'test.html'), 'utf8');
 ok('the published script is the test script less its hooks (smaller, by less than a fifth)', pub.length < test.length && pub.length > 0.8 * test.length, { pub: pub.length, test: test.length });
 // the offline page (issue #21, option b): the published page with MathJax and the faces inline, and nothing from a CDN;
@@ -73,12 +108,11 @@ ok('the published page names the offline page\'s size', named && Number(named[1]
 // the built pages' size budget (bytes), raised only on purpose: the published page is what every visit loads; the
 // offline page is it plus MathJax (MathJax 4 and its STIX2 font, every range of it, which the live page loads on demand,
 // #288: 4.1 MB of JSON, gzipped in base64 as 1.75 MB, #491), the faces (0.7 MB as base64) and the PDF library (jsPDF and
-// svg2pdf.js, 0.47 MB, #393), about 2.95 MB more. Each budget leaves about 0.1 MB above its page as built (5.22 and 8.00
-// MB, #2010): room for the page work queued for the wave (about 34 kB measured), all of it the app's own code, none of
-// it test code or a second copy. #2012 holds what would trim them: the comments that still reach the page (about 124 kB:
-// the classic scripts' own, GLSL's inside its template strings, JSDoc casts), the bundle's whitespace, the language
-// tables' repeated English keys
-const BUDGET = { 'complex-map-workbench.html': 5.35e6, 'complex-map-workbench-offline.html': 8.1e6, offlineExtra: 3.1e6 };
+// svg2pdf.js, 0.47 MB, #393), about 2.78 MB more. Each budget leaves about 0.14 MB above its page as built (4.46 and
+// 7.23 MB, with the app's script stripped of its comments and indentation, #2012, and its GLSL templates of their
+// comments, #2037), all of it for the app's own code, none of it test code or a second copy. What still ships that the
+// page does not run: the language tables' repeated English keys
+const BUDGET = { 'complex-map-workbench.html': 4.6e6, 'complex-map-workbench-offline.html': 7.4e6, offlineExtra: 3.1e6 };
 const bytes = { 'complex-map-workbench.html': Buffer.byteLength(pub), 'complex-map-workbench-offline.html': Buffer.byteLength(off) };
 for (const f of Object.keys(bytes)) ok(`dist/${f}: ${(bytes[f] / 1e6).toFixed(2)} MB, within its budget of ${BUDGET[f] / 1e6} MB`, bytes[f] <= BUDGET[f], bytes[f]);
 const extra = bytes['complex-map-workbench-offline.html'] - bytes['complex-map-workbench.html'];
