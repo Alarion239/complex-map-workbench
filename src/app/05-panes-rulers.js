@@ -471,8 +471,8 @@
     ledSay(side, state, el.getAttribute('data-tip'));
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
-  // with its pane's title before it when the pane has one. A page that starts up to date says nothing, and a state that
-  // comes and goes within the wait is not said
+  // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
+  // to date says nothing, and a state that comes and goes within the wait is not said
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
   function ledSay(side, state, tip) {
@@ -486,8 +486,9 @@
   }
   function ledFlush() {
     const parts = [];
-    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'); return !!el && el.getClientRects().length > 0; };
-    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two LEDs are shown:
+    // (a pane that is shown: its LED may not be, on a phone, whose pane heads show none, and its words are heard all the same)
+    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'), pane = el && el.closest('.pane'); return !!pane && pane.getClientRects().length > 0; };
+    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two panes are shown:
     // the words alone would not say which pane they are about)
     const two = shown('L') && shown('R');
     for (const side of ['L', 'R']) {
@@ -540,6 +541,7 @@
     ctx.restore();
   }
   function renderColor(pane) {
+    pane.noteBox = null;   // (no note drawn yet in this frame: noGL, glStatusNote and the Cauchy notes each set it)
     pane.setView(leftView());
     if (!GLR.ok) { pane.begin(TH.plane); noGL(pane); return; }
     pane.begin(TH.plane);
@@ -675,7 +677,7 @@
     // (while deforming, F's digits, given F's last step; a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
-    const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const sheetW = sheetWOf(S.sheetW);
     const sheetMap = landSheetsMap(carry ? carry.s : null);
     const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet(sheetMap) ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
@@ -840,8 +842,9 @@
       outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
         : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
+    const landMap = carry ? carry.hmap : hv ? hv.map : focusMap();
     const info = GLR.drawLandscape({
-      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: landMap, standIn: carry || hv ? null : landStandIn(pane, landMap, box), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
@@ -1042,7 +1045,7 @@
       const a = P(p), b = P([p[0] + out[0] * 0.06, p[1] + out[1] * 0.06, z0]);
       if (a && b) for (const gap of [24, 34, 46]) { const r = label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true); if (r) { names.push(r); break; } }
     };
-    const vz = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
+    const vz = svName(leftStage());
     if (reOn) title([0, sy * ay, z0], [0, sy], [['Re ', false], [vz, true]]);
     if (imOn) title([sx * ax, 0, z0], [sx, 0], [['Im ', false], [vz, true]]);
     // height ruler: of the two corners on the block's silhouette, the one farther from the camera
@@ -1286,8 +1289,10 @@
         if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
       }
     }
+    const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && !o.carryRegions;
     const info = GLR.drawSphere({
-      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode || o.carryRegions ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      map: colorMap, mode: colorGlobe ? 'color' : 'image', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      standIn: colorGlobe ? globeStandIn(pane, colorMap) : null,
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
@@ -1579,16 +1584,30 @@
       } catch (e) { /* no MutationObserver */ }
       // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
       try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      // (a key in a pane's head: its panel shows while the key is hovered, has the keyboard focus, or is kept open, and not while it is
+      // shut, which Escape or a second Enter does until the focus leaves or the pointer comes back; see legendKeyButton)
+      const inHead = () => !!el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head');
       el.addEventListener('keydown', (e) => {
         if (el.getAttribute('role') !== 'button') return;
-        if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); }
+        const press = e.target === el && (e.key === 'Enter' || e.key === ' ');
+        if (inHead()) {
+          // (Enter or Space keeps the panel open, and again closes it; Escape closes it; the focus stays on the key)
+          const shown = el.classList.contains('open') || !el.classList.contains('shut');
+          if (press || (e.key === 'Escape' && shown)) {
+            e.preventDefault(); e.stopPropagation();
+            const keep = press && !el.classList.contains('open');
+            el.classList.toggle('open', keep); el.classList.toggle('shut', !keep);
+          }
+        } else if (press) { e.preventDefault(); el.click(); }
         // (Escape folds the open key, the focus on it or on its switch, and stays on the key: the folded key is the same element)
         else if (e.key === 'Escape' && !el.classList.contains('collapsed')) { e.preventDefault(); e.stopPropagation(); el.classList.add('collapsed'); el.focus(); }
       });
+      // (a shut head key opens again at the next focus or hover; aria-expanded follows what is shown)
+      for (const ev of ['focusin', 'focusout', 'pointerenter']) el.addEventListener(ev, () => { if (ev !== 'focusin' || !el.matches(':focus-visible')) el.classList.remove('shut'); legendKeyButton(el, ''); });
       // (a key the open key lies over takes no focus under it: it folds as the key takes focus. A plane key stands in the same plot)
       document.addEventListener('focusin', (e) => {
         const t = /** @type {HTMLElement} */ (e.target);
-        if (el.getAttribute('role') !== 'button' || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
+        if (el.getAttribute('role') !== 'button' || inHead() || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
         const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
         if (b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) el.classList.add('collapsed');
       });

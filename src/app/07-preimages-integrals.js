@@ -827,7 +827,7 @@
         // (the fields are the Inspector's: Edit opens step k there, the temporary Inspector when the panel is hidden)
         edit(k, kind, i) { inspectStep(k); const el = /** @type {HTMLInputElement | null} */ (this.field(k, kind, i)); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
       },
-      cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
+      cutAt: (x, y, finger) => (lFlat() ? (cutHandleNear(x, y, !!finger) || {}).step || 0 : 0),
       // step k in the Inspector (a click on its card does the same)
       inspect: (k) => inspectStep(k),
       resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },
