@@ -146,7 +146,10 @@
     const p = svProxy(pane, /** @type {any} */ (R.cv));
     p.labels = null;
     return svAheadVisit(M, k, x, (A) => {
-      svRenderMoving(p);
+      // (a hold is read as the screen's frame reads it, svDrawPlane on the flat plane: a frame that waits is drawn at the held
+      // place and marks the copy held, A.held, so it is not kept)
+      const asks = renderAsks, hold = svLinkHold();
+      svRenderMoving(p, hold, asks);
       if (p.labels) flushLabels(p, p.labels);
       const bt = svBetween(x, M.span), still = bt.u <= SV_REST_U || bt.b === bt.a;
       // (R.reject: why the last frame was not kept: 'hold', a glide record's path and its reason ('mesh: <why the inverse pass
