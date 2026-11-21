@@ -3830,7 +3830,11 @@
           // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
           if (!globe && st.every((x) => x === 'ready') && !h.paths.some((q) => q.inv && q.inv.nr)) {
             let drawn = false;
-            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, { open: false }, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            const warmFrame = { open: false };
+            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            // (and the outlines over it, into the same frame, which no pane shows: the first glide frame would build
+            // their pass's scratch and pipeline otherwise)
+            if (drawn && !SV.bare) { try { svOutlines(paneL, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
             if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
           }
         }
@@ -3928,10 +3932,12 @@
   const SV_IDLE_CB_MS = 1000, SV_IDLE_FALLBACK_MS = 250;
   const svIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: SV_IDLE_CB_MS }) : setTimeout(f, SV_IDLE_FALLBACK_MS));
   let svWarmSig = null, svWarmAt = 0;
+  // (the chain whose warm draw waits for its fence: a second call meanwhile draws it no second time)
+  let svWarmFlushing = null;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
-    if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    if (svWarmSig === sig || svWarmFlushing === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
     const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
     if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
     svIdle(() => {
@@ -3947,7 +3953,13 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
+      if (!done) { setTimeout(() => svWarmCarry(n + 1, t0), 500); return; }
+      // (made once the GPU has run the draw's commands (GLR.gpuDone's fence, polled, never waited on): left in the
+      // queue of the GL canvas, which no pane shows, they would run in the next copy of that canvas to a pane, the
+      // first glide frame's, and that frame would wait for the carried colour's machine code after all)
+      const made = () => { svWarmFlushing = null; if (chainSig[nSteps()] === sig) { svWarmSig = sig; svWarmAt = performance.now(); } };
+      svWarmFlushing = sig;
+      if (GLR.gpuDone) GLR.gpuDone().then(made); else made();
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
