@@ -238,6 +238,7 @@ const VIEWS = {
   'field_settle_cmd.js': steps({ pin: true }),
   'kbd_nav_cmd.js': steps({ pin: true }),
   'key_popup_cmd.js': steps({ pin: true }),
+  'head_key_keys_cmd.js': steps({ pin: true }),
   'mode_chips_cmd.js': steps({ pin: true }),
   'param_planes_cmd.js': steps({ pin: true }),
   'phase_key_cmd.js': steps({ pin: true }),

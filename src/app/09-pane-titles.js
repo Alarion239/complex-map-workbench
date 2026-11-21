@@ -1175,13 +1175,16 @@
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
-  // (on a phone the folded key is a button: a name, a place in the focus order, aria-expanded that follows its fold; Enter
-  // and Space press it (setupPaneButtons). Off the phone (a key in a pane's head, hovered open) it is no button: a key
-  // that leaves the phone takes role img and leaves the focus order)
+  // (a key is a button on a phone and in a pane's head: a name, a place in the focus order, aria-expanded (the fold's on a
+  // phone, the panel's in a head, which Enter, Space and Escape open and shut: setupPaneButtons). A key lying open on the plane
+  // off the phone takes role img and leaves the focus order)
   function legendKeyButton(box, name) {
-    const par = box.parentNode, btn = document.documentElement.classList.contains('ph') && !!par && !(/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    const par = box.parentNode, head = !!par && (/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    const btn = !!par && (head || document.documentElement.classList.contains('ph'));
     if (btn) {
-      const open = box.classList.contains('collapsed') ? 'false' : 'true';
+      // (a head's key shows its panel while kept open, or focused and not shut: pointing at it shows it too, which a button's state does not follow)
+      const shown = head ? box.classList.contains('open') || (!box.classList.contains('shut') && box.matches(':focus-visible')) : !box.classList.contains('collapsed');
+      const open = shown ? 'true' : 'false';
       if (box.getAttribute('role') !== 'button') box.setAttribute('role', 'button');
       if (box.tabIndex !== 0) box.tabIndex = 0;
       if (box.getAttribute('aria-expanded') !== open) box.setAttribute('aria-expanded', open);

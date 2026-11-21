@@ -1573,16 +1573,30 @@
       } catch (e) { /* no MutationObserver */ }
       // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
       try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      // (a key in a pane's head: its panel shows while the key is hovered, has the keyboard focus, or is kept open, and not while it is
+      // shut, which Escape or a second Enter does until the focus leaves or the pointer comes back; see legendKeyButton)
+      const inHead = () => !!el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head');
       el.addEventListener('keydown', (e) => {
         if (el.getAttribute('role') !== 'button') return;
-        if (e.target === el && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); el.click(); }
+        const press = e.target === el && (e.key === 'Enter' || e.key === ' ');
+        if (inHead()) {
+          // (Enter or Space keeps the panel open, and again closes it; Escape closes it; the focus stays on the key)
+          const shown = el.classList.contains('open') || !el.classList.contains('shut');
+          if (press || (e.key === 'Escape' && shown)) {
+            e.preventDefault(); e.stopPropagation();
+            const keep = press && !el.classList.contains('open');
+            el.classList.toggle('open', keep); el.classList.toggle('shut', !keep);
+          }
+        } else if (press) { e.preventDefault(); el.click(); }
         // (Escape folds the open key, the focus on it or on its switch, and stays on the key: the folded key is the same element)
         else if (e.key === 'Escape' && !el.classList.contains('collapsed')) { e.preventDefault(); e.stopPropagation(); el.classList.add('collapsed'); el.focus(); }
       });
+      // (a shut head key opens again at the next focus or hover; aria-expanded follows what is shown)
+      for (const ev of ['focusin', 'focusout', 'pointerenter']) el.addEventListener(ev, () => { if (ev !== 'focusin' || !el.matches(':focus-visible')) el.classList.remove('shut'); legendKeyButton(el, ''); });
       // (a key the open key lies over takes no focus under it: it folds as the key takes focus. A plane key stands in the same plot)
       document.addEventListener('focusin', (e) => {
         const t = /** @type {HTMLElement} */ (e.target);
-        if (el.getAttribute('role') !== 'button' || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
+        if (el.getAttribute('role') !== 'button' || inHead() || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
         const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
         if (b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) el.classList.add('collapsed');
       });
