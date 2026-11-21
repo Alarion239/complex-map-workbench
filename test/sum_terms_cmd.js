@@ -59,4 +59,26 @@ for (const lang of ['en', 'ru', 'it']) {
   ok('en, the sum that converges in a few terms everywhere (control): coloured at all three points', Object.values(m.colours).every((c) => c.coloured), m.colours);
   ok('en, the sum that converges in a few terms everywhere (control): sample points tried, none over the budget or out of terms, no note', m.wait.ok && !!m.run && m.run.tried > 0 && m.run.spent === 0 && m.run.hit === 0 && !m.note, { run: m.run, note: m.note });
 }
+// The three notes (the 512-term one, the budget one, both) at 320 px, the narrowest phone, in each language: each fits NOTE_LINES
+// lines, and the two that name the budget say what to do (they name the sums' upper limits). __cmwPaneNote draws a note on the
+// left plane and returns its box (18 px a line, 14 of padding)
+const NOTE_LINES = 6;
+const NOTES = [
+  ['the 512 terms', 'Part of this plane is blank: an infinite sum does not converge there within {terms} terms.'],
+  ['the budget', 'Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Lower their upper limits to draw it.'],
+  ['both', 'Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Lower their upper limits.'],
+];
+await view(320, 640, false, true);
+for (const lang of ['en', 'ru', 'it']) {
+  const ns = 'stn' + Date.now();
+  await seed(ns, { steps: [{ type: 'custom', params: { expr: FAST, cut: 180 } }], sv: { at: 0, T: 1, scope: 'all', surf: 'plane' } });
+  await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=steps`);
+  await settled({ max: WAIT_MS, until: sampled });
+  for (const [tag, key] of NOTES) {
+    const b = await ev(`(() => { const b = __cmwPaneNote(${JSON.stringify(key)}, { terms: 512, budget: ${BUDGET} }); return b && { h: b.h, w: b.w }; })()`);
+    const lines = b ? Math.round((b.h - 14) / 18) : null;
+    info[`note ${lang} ${tag}`] = { box: b, lines };
+    ok(`${lang} at 320 px, the note for ${tag} has at most ${NOTE_LINES} lines`, lines !== null && lines <= NOTE_LINES, { box: b, lines });
+  }
+}
 return { pass: fails.length === 0, fails, info };

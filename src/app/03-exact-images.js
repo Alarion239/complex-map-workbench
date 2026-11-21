@@ -639,12 +639,12 @@
   const SUM_GRID = [24, 16], SUM_STEP = 235, SUM_IDLE_MS = 250;
   let sumWork = 150000;   // the terms a sample may evaluate (it stops after the point that passes them; a test sets it, __cmwSumRun)
   const sumRuns = new Map();   // pane -> { chain, view, hit, spent, tried, timer }: the last sample (see sumSay; tried: points where an infinite sum ran)
-  // (hit: points where an infinite sum did not converge within SER_CAP terms; spent: points where the pixel's sums took more than
-  // the GPU's SER_GPU_TERMS in all; the note names the limit or limits the sample met)
+  // (hit: points where an infinite sum did not converge within SER_CAP terms; spent: points where the sums took more than
+  // the GPU's SER_GPU_TERMS in all; the note names the limit or limits the sample met, and for the second says what to do)
   const sumSay = (r) => (r.hit && r.spent
-    ? $t('Part of this plane is blank: an infinite sum does not converge there within {terms} terms, or a pixel\'s sums there take more than the GPU\'s {budget} terms.', { terms: Expr.SER_CAP, budget: GLChain.TERMS_BUDGET })
+    ? $t('Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Lower their upper limits.', { terms: Expr.SER_CAP, budget: GLChain.TERMS_BUDGET })
     : r.spent
-      ? $t('Part of this plane is blank: a pixel\'s sums there take more than the GPU\'s {budget} terms.', { budget: GLChain.TERMS_BUDGET })
+      ? $t('Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Lower their upper limits to draw it.', { budget: GLChain.TERMS_BUDGET })
       : $t('Part of this plane is blank: an infinite sum does not converge there within {terms} terms.', { terms: Expr.SER_CAP }));
   // the sample of the pane's colour plot for its map, at its window: null when a step of the map is a derivative (it has no function of its own)
   function sumSample(pane, map) {
