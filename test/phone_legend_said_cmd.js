@@ -37,22 +37,24 @@ for (const lang of ['en', 'ru', 'it']) {
   // the steps view's left key on each surface, with the thread at T's plane (the style's own key) and on a plane before it (the hue ring with
   // the plane its colour is carried from; on the Landscape the height key either way): [surface, the key's kind, the words of its rows after the
   // caption, the thread's place]
-  const PLANE = ['z', 'w₁', 'w₂'];   // (the planes' names: T is the last)
   const HUE = [`$t('hue: the argument, red at 1, counterclockwise')`];
-  for (const [surf, kind, rows, at] of [['plane', 'color', HUE, 'T'], ['plane', 'color', HUE, 'carried'], ['sphere', 'sphere', HUE, 'T'], ['sphere', 'color', HUE, 'carried'], ['land', '3d', [`$t('contours')`], 'T']]) {
+  for (const [surf, kind, rows, at] of [['plane', 'color', HUE, 'T'], ['plane', 'color', HUE, 'carried'], ['sphere', 'sphere', HUE, 'T'], ['sphere', 'color', HUE, 'carried'], ['land', '3d', [`$t('contours')`], 'T'], ['land', '3d', [`$t('contours')`], 'carried']]) {
     const tag = `${lang} steps ${surf}${at === 'carried' ? ', a plane before T' : ''}`;
     await ev(`__cmwSteps({ surf: ${JSON.stringify(surf)} }), 1`);
     await settled({ max: 20000, until: `__cmwSteps().surf === ${JSON.stringify(surf)} && !document.getElementById('leftLegend').hidden` });
     const nPl = await ev('__cmwSteps().planes.length'), place = at === 'T' ? nPl - 1 : 0;
-    await ev(`(__cmwSteps({ T: ${nPl - 1} }), __cmwSteps({ go: ${place}, now: true }), 1)`);
-    await settled({ max: 20000, until: `!__cmwSteps().moving && __cmwSteps().i === ${place} && !document.getElementById('leftLegend').hidden` });
+    // (T's name, as the page names the colour plane: read with the thread at T)
+    const park = async (i) => { await ev(`(__cmwSteps({ T: ${nPl - 1} }), __cmwSteps({ go: ${i}, now: true }), 1)`); await settled({ max: 20000, until: `!__cmwSteps().moving && __cmwSteps().i === ${i} && !document.getElementById('leftLegend').hidden` }); };
+    await park(nPl - 1);
+    const tName = await ev('__cmwSteps().names.key');
+    if (place !== nPl - 1) await park(place);
     await unfold('leftLegend');
     const lg = await ev('__cmwLegend()');
     const want = await ev(`[${rows.join(', ')}]`);
     const ax = await axOf('leftLegend');
     info[tag] = { lg, ax };
     ok(`${tag}: the key is the ${kind} key`, lg && lg.kind === kind, lg);
-    if (at === 'carried' && surf !== 'land') ok(`${tag}: the caption names the plane its colour is carried from`, !!lg && lg.caption === await ev(`$tx('key line', 'colour carried from {p}', { p: ${JSON.stringify(PLANE[nPl - 1])} })`), lg);
+    if (at === 'carried' && surf !== 'land') ok(`${tag}: the caption names the plane its colour is carried from`, !!lg && lg.caption === await ev(`$tx('key line', 'colour carried from {p}', { p: ${JSON.stringify(tName)} })`), lg);
     ok(`${tag}: the key box is a button`, !!ax && ax.role === 'button', ax);
     ok(`${tag}: the key box is named for its kind (${kind === '3d' ? 'Height key' : 'Colour key'})`, !!ax && ax.name === (await ev(`$t(${JSON.stringify(kind === '3d' ? 'Height key' : 'Colour key')})`)), ax);
     ok(`${tag}: the key box has a description`, !!ax && !ax.ignored && ax.description.length > 0, ax);
