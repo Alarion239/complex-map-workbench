@@ -11,7 +11,8 @@
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
 //         2e-4 (1 + |w|) of it (a cut, a window or a range boundary: float32 decides those differently) or when a
 //         member's range level lies within 0.02 px of the -1 px ramp.
-//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included)
+//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included; a line float32
+//         cannot place, one whose crossings its inputs' float32 rounding moves past the tolerance, left out)
 //  fs     REGION_FS(false / true) byte-identical to the fixtures (SPEC 6.1; patterns 0-8 since P3)
 //  flip   12.1 (l): poly 1,0,0,0,-1,0 <-> 1,0,0,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
 //         forward key: the inverse key changes, the program drawn is the one of the current inverse key (its source
@@ -536,7 +537,9 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     GLR.setChain(GLChain.build(steps, built));
     const plan = Inverse.planChain(steps, built);
     const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
-    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0 };
+    // (ULP32: float32's rounding, relative; illCond: of skipped, the lines float32 cannot place)
+    const ULP32 = 2 ** -24;
+    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0, illCond: 0 };
     const N = 1024;
     // after the nV15 shapes (their random stream unchanged), the exact-form discs: near
     // collinear, a far anchor (1e4 away; the GPU packs at the view's centre, as the app does), complements
@@ -569,6 +572,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
         const emptyC = !(c.lo <= c.hi), emptyG = !(o[0] <= o[1]);
         // near-tangent lines (interval shorter than the tolerance) decide emptiness by rounding
         if (emptyC !== emptyG) { if ((!emptyC && (c.hi - c.lo) <= 4 * tol(c.lo)) || emptyC) { CL.skipped++; continue; } }
+        // lines float32 cannot place: their inputs moved by float32's rounding (q turned by ULP32 either way, z0 moved by
+        // ULP32 (1 + |z0|) across q) move the CPU's own crossings by more than the tolerance (a line nearly parallel to a
+        // boundary, whose crossing is that rounding over the sine of their angle), so the GPU's are rounding too
+        if (!emptyC) {
+          const n = C(-q.im / qa, q.re / qa), dz = ULP32 * (1 + cabs(z0));
+          const moved = [C(q.re - ULP32 * q.im, q.im + ULP32 * q.re), C(q.re + ULP32 * q.im, q.im - ULP32 * q.re)].map((q2) => Region.shapeClip(prim, z0, q2, m))
+            .concat([1, -1].map((sg) => Region.shapeClip(prim, C(z0.re + sg * dz * n.re, z0.im + sg * dz * n.im), q, m)));
+          if (moved.some((c2) => !(c2.lo <= c2.hi) || !same(c.lo, c2.lo) || !same(c.hi, c2.hi))) { CL.skipped++; CL.illCond++; continue; }
+        }
         CL.compared++;
         const bad = [];
         if (emptyC !== emptyG) bad.push(`empty cpu ${emptyC} gpu ${emptyG}`);
