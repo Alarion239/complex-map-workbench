@@ -84,9 +84,9 @@
     lookKey.hidden = !on;
     if (!on) return;
     const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
-    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
     // (the marks are a list, so a screen reader says them one by one)
-    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
+    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     lookKey.classList.toggle('folded', ph && !lookKeyOpen);
     if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
   }

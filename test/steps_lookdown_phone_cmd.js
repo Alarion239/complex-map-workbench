@@ -50,10 +50,10 @@ for (const [w, h, lang] of [[360, 640, 'en'], [412, 915, 'it'], [740, 360, 'en']
   await open(w, h, lang);
   await select('d');
   const L = await look(), pane = await box('#overlayL'), key = await box('#plotL .ld-key'), btn = await box('#plotL .ld-key > button.ld-ttl'), bar = await ctxTop(), oth = await others();
-  const folded = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), b = k && k.querySelector('button.ld-ttl'); return !!k && k.classList.contains('folded') && !!b && b.getAttribute('aria-expanded') === 'false' && !k.querySelector('.ld-list').getClientRects().length; })()`);
+  const folded = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), b = k && k.querySelector('button.ld-ttl'); return !!k && k.classList.contains('folded') && !!b && b.getAttribute('aria-expanded') === 'false' && document.getElementById(b.getAttribute('aria-controls')) === k.querySelector('.ld-list') && !k.querySelector('.ld-list').getClientRects().length; })()`);
   info[at] = { L: !!L, pane, key, btn, bar, oth };
   ok(`${at}: Look down draws for the selected disc of w₁`, !!L && L.id === 'd' && L.lines.length === 3, L);
-  ok(`${at}: the key is folded to its title, a button at least 44 × 44`, folded && !!btn && btn[2] - btn[0] >= 44 && btn[3] - btn[1] >= 44, { folded, btn });
+  ok(`${at}: the key is folded to its title, a button at least 44 × 44 that controls the marks' list`, folded && !!btn && btn[2] - btn[0] >= 44 && btn[3] - btn[1] >= 44, { folded, btn });
   ok(`${at}: the folded key lies in the plane, above the context bar`, !!key && !!pane && inside(key, pane) && key[3] <= bar + 0.5, { key, pane, bar });
   ok(`${at}: the folded key meets none of the plane's other keys`, !!key && !oth.some((o) => meets(o.b, key)), { key, oth });
   if (btn) await tap([(btn[0] + btn[2]) / 2, (btn[1] + btn[3]) / 2]);
