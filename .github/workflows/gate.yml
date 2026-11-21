@@ -497,10 +497,11 @@ jobs:
       # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
       # (the glsl page's one chain that crashed Mesa 25's lavapipe, GLSLTiers.LAVAPIPE_CRASH: this image's Mesa 26, on LLVM 21,
-      # runs it, and the job fails if the GPU process is lost again or a value is off; 7172 values; #1835)
+      # runs it, and the job fails if the GPU process is lost again or a value is off, or fewer than its 7172 values are compared (a lavapipe
+      # on LLVM 20 or older, which the cache could fall back to, runs none of it and would pass empty); #1835)
       - name: GLSL page, the chain that crashed Mesa 25's lavapipe
         if: matrix.shard == 'smoke'
-        run: node ci/glsl.js --only glsl --filter 'sheets sqrt d d'
+        run: node ci/glsl.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172
       - if: always()
         uses: actions/upload-artifact@v6
         with:
