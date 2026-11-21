@@ -525,12 +525,16 @@
   // a cell of one of them; and with hF, one about each pole of the height map in the far patches' ring
   // (svLandHeightPoles). Near a pole the map carries a small disc over the far plane, where the box's cells stretch past
   // the tear limit and are left out; about a branch point the sheets meet and the cells stretch the same way.
+  // The glide map's poles and branch points take the map's seam (svPatchSeam): a patch's rings start at the cut out of
+  // its point, so no cell straddles the cut. branchSeams false (the carry draws the other sheets' copies, which draw no
+  // patches of their own) leaves a branch point's patch without it, so it covers the point on both sides of the cut,
+  // where a seamed patch would leave the far side bare
   // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
   const svLandPoleMemo = { key: '', poles: [] };
-  function svLandPatches(map, src, N, hF, hKey) {
+  function svLandPatches(map, src, N, hF, hKey, branchSeams = true) {
     const F = cpuMap(map);
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
@@ -542,10 +546,9 @@
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
     const branches = svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
-    // (the glide map's own points: each patch's rings start at the map's cut out of the point, if it has one; a branch
-    // point's patch takes none)
-    return near.map((p) => Object.assign(patch(p), { seam: svPatchSeam(F, patch(p)) }))
-      .concat(branches.map(patch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    // (each patch's rings start at the map's cut out of its point, if it has one; a branch point's only with branchSeams)
+    const seamed = (p) => Object.assign(patch(p), { seam: svPatchSeam(F, patch(p)) });
+    return near.map(seamed).concat(branches.map(branchSeams ? seamed : patch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
   }
   // The branch points of a carry's map from plane s: where the input of a multivalued step it applies (a root, power or
   // logarithm, SV_SHEET_STEPS) is 0, in the carried box src or the far patches' inner ring about it (and within reach of
