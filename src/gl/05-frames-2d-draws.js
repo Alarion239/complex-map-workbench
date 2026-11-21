@@ -481,7 +481,9 @@
   // caller draws the front layer as it does at opacity 1; else draw()'s last result (false: a layer's draw failed, nothing
   // reached the frame)
   // (band: the frame's sheets can tie, carryResolve's band: each pixel's smallest key is drawn first, and the layers peel in
-  // the order it resolves, the tied sheets by their tie order, so each layer is one sheet where they tie too)
+  // the order it resolves, the tied sheets by their tie order, so each layer is one sheet where they tie too. The band is
+  // about the front group's key alone: a second group of tied sheets behind it (z³ + z⁶'s outer ring of three) peels by
+  // the key's own order)
   function carryLayers(alpha, draw, band = null) {
     if (!ok || peelBad || peelOn || resOn) return null;
     let n = Math.min(PEEL_MAX, invK(alpha));
