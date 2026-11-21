@@ -1112,14 +1112,17 @@ async function svGlideUnit(scene, o = {}) {
 // heights, the pole patches' and far rings' textures, whatever the sheets add. The glide is held at the middle of the plane
 // run [a, b] on a page opened fresh, then __perf.mem() (the live and peak bytes of every buffer, texture and renderbuffer the
 // page allocated: the allocator's count, so a software renderer reads the same as a GPU) is read, with how many patches the
-// frame draws, and the live bytes the Landscape added to those the plane surface held. One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), and the default page's Möbius step, whose
-// poles are in the carried box. Info rows: the phones' limit is read off them, nothing gates (#1205).
+// frame draws, and the live bytes the Landscape added to those the plane surface held. One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), the default page's Möbius step, whose
+// poles are in the carried box, and SV_LAND_POLES12_STATE, whose frame draws as many pole patches as the Landscape keeps
+// (CARRY_POLES, 12). Info rows: the phones' limit is read off them, nothing gates (#1205). A case with patches checks that
+// its frame draws that many (patches_ok), so it measures what it is named for.
 async function svLandBytesUnit() {
   const cases = [
     { tag: 'k2', state: SV_SHEETS_STATE },
     { tag: 'k4', state: svRootState(4) },
     { tag: 'k6', state: svRootState(6) },
     { tag: 'poles', state: null },
+    { tag: 'poles12', state: SV_LAND_POLES12_STATE, patches: SV_LAND_POLES_MAX },
   ];
   for (const c of cases) {
     const pre = `sv.land_bytes.${c.tag}`;
@@ -1135,6 +1138,7 @@ async function svLandBytesUnit() {
     put(`${pre}.gpu_peak_bytes`, 'info', 'B', [mem.peak]);
     put(`${pre}.gpu_land_added_bytes`, 'info', 'B', [mem.live - flat.live]);
     put(`${pre}.patches`, 'info', '', [carry ? carry.patches : 0]);
+    if (c.patches != null) put(`${pre}.patches_ok`, 'check', '', [!!carry && carry.patches === c.patches]);
     detail(`${pre}.carry`, JSON.stringify(carry));
   }
 }
@@ -1829,8 +1833,23 @@ const SV_SHEETS_STATE = Object.assign({}, SV_CUT_STATE, { sheets: true, height: 
 unit('sv.glide.land_sheets', 'the steps view\'s Landscape with All sheets (Surface: Landscape, on a GPU), √z then z + 2: a warm glide there and back between w₁ and w₂ at dpr 1 and 2, the carry from z\'s plane drawing the √z step\'s two sheets (#1099); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets', surf: 'land', state: SV_SHEETS_STATE, planes: [1, 2], info: true }));
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
 // (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
+// The carried Landscape's most pole patches (CARRY_POLES in src/gl/06-draws-3d.js): svLandPatches keeps the 4 poles of the
+// glide's map nearest the carried box's centre and the 8 poles of the height map (LAND_HEIGHT_POLES) outside the box
+// within a patch's reach of the far patches' inner ring
+const SV_LAND_POLES_MAX = 12;
+// a ring of n points of radius r about 0, from the angle ph, as a zeros-and-poles step's list
+const svRingList = (n, r, ph = 0) => Array.from({ length: n }, (_, k) => {
+  const a = ph + (2 * Math.PI * k) / n, x = r * Math.cos(a), y = r * Math.sin(a);
+  return `${x.toFixed(4)}${y < 0 ? '-' : '+'}${Math.abs(y).toFixed(4)}i`;
+}).join(', ');
+// z + 0.1, then a zeros-and-poles step with 4 poles on the circle of radius 0.5, inside the carried box, and 8 on the circle
+// of radius 10, outside it (the box is about 14 by 12) and within the far patches' reach. The glide w₁ → w₂ carries plane 1,
+// so the glide's map has the 4 inner poles and the height map (the same step) the 8 outer ones: 12 patches. The scale
+// 10¹² lifts every pole's residue (each is divided by its distances to the 11 others) to where svPolesIn finds it; at 10⁶
+// it finds 4
+const SV_LAND_POLES12_STATE = Object.assign({}, SV_CUT_STATE, { steps: [{ type: 'add', params: { c: '0.1' }, on: true }, { type: 'zp', params: { a: '1e12', zeros: '', poles: `${svRingList(4, 0.5)}, ${svRingList(8, 10, 0.2)}` }, on: true }] });
 function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
-unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows (#1205)', svLandBytesUnit);
+unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2), the default page\'s Möbius step (its pole patches) and a zeros-and-poles step whose frame draws all 12 pole patches (patches_ok); info rows (#1205)', svLandBytesUnit);
 unit('hover.default', 'hover the last plane past the colour plane z: the probe\'s preimage search, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover the last plane past the colour plane z: the probe\'s preimage search, z^3 - 1', () => hoverUnit('cubic'));
 // SPEC 12.5 (P0): exact images through infinity (the new units are NEW in the comparison until the baseline is
