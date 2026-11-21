@@ -195,7 +195,7 @@
     grid: { chain: false, vs: () => QUAD_VS, fs: () => GRID_FS },
     color: { chain: true, vs: () => QUAD_VS, fs: () => UTIL + DCOLOR + COLORPLOT_FS },
     // (its stand-in while it links: F's values on the app's grid, coloured the same way, COLOR_STANDIN_FS)
-    colorStandIn: { chain: false, vs: () => QUAD_VS, fs: () => FIN + UTIL + DCOLOR + COLOR_STANDIN_FS },
+    colorStandIn: { chain: false, vs: () => QUAD_VS, fs: () => FIN + UTIL + DCOLOR + STANDIN_W + COLOR_STANDIN_FS },
     // (the same on the globe, CARRY_GLOBE_VS)
     carryG: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(false) },
     carryGId: { chain: true, vs: () => CARRY_GLOBE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + CARRY_GLOBE_FS(true) },
@@ -241,6 +241,8 @@
     mark: { chain: false, vs: () => MARK_VS, fs: () => MARK_FS },
     sphere: { chain: false, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(false) },
     sphereP: { chain: true, vs: () => SPHERE_VS, fs: () => UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + SPHERE_FS(true) },
+    // (its stand-in while it links: F's values on the app's longitude-latitude grid, coloured and lined the same way, SPHERE_STANDIN_FS)
+    sphereStandIn: { chain: false, vs: () => SPHERE_VS, fs: () => FIN + UTIL + DCOLOR + SHADE_GLOBE + TIERS + SPHERE_LINES + STANDIN_W + SPHERE_STANDIN_FS },
     disc: { chain: false, vs: () => DISC_VS, fs: () => UTIL + 'uniform float uDpr;\n' + TIERS + DISC_FS },
     invUp: { chain: false, vs: () => QUAD_VS, fs: () => INV_UP_FS },
     carryLayers: { chain: false, vs: () => QUAD_VS, fs: () => CARRY_LAYERS_FS },
@@ -499,7 +501,7 @@ float wabs(vec2 w) {
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark', 'colorStandIn'];
   // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
-  const GLOBE_PROGS = ['sphere', 'regionSC', 'lineSC', 'disc', 'mark'];
+  const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
   const LAND_STATIC = ['landNrm'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not

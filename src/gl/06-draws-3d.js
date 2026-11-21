@@ -1684,7 +1684,10 @@
     gl.depthFunc(gl.LEQUAL);
     gl.depthMask(true);
     const phase = st.mode === 'color';
-    const P = program(phase ? 'sphereP' : 'sphere', st.map);
+    // (st.standIn: the colour globe's stand-in while sphereP links, {nx, ny, w}: standInTexture's grid, over longitude and latitude)
+    let P = program(phase ? 'sphereP' : 'sphere', st.map);
+    const standIn = !P && phase && !!st.standIn && !!(P = program('sphereStandIn'));
+    if (phase && P && !standIn) standInRelease();
     // st.maskRegions: the steps view's Inside regions on the globe, in this frame: the globe's depth alone, then
     // these regions write the frame's alpha (and st.maskPre's passes, the regions of later planes pulled back: drawPreimage's
     // st without view, their fills opaque), then the globe draws its colour alone over them, kept where the alpha is;
@@ -1709,6 +1712,7 @@
       uM4(P, 'uMVP', MVP);
       u3(P, 'uEye', eye);
       dcUniforms(P, { style: st.style, sectors: st.sectors, grid: st.grid, plane, ink: c.ink, dark }, dpr);
+      if (standIn) standInTexture(st.standIn);
       u3(P, 'uPlaneCol', plane);
       u3(P, 'uGridMaj', gridMajor);
       u3(P, 'uAxisCol', axis);
