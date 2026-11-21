@@ -307,6 +307,7 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Вращайте пальцем или двумя, касанием выбирайте фигуру; ∞ — северный полюс",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
+ "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "В этой сумме больше слагаемых, чем рисует видеокарта (%{n} при максимуме %{cap}), поэтому панель остаётся пустой. Уменьшите верхний предел суммы, чтобы её нарисовать.",
  "The plane $%{p}$ at $%{c}=%{list}$.": "Плоскость $%{p}$ при $%{c}=%{list}$.",
  "The planes": "Плоскостям цепочки",
  "A Number": "Числу",
@@ -442,7 +443,7 @@
  "e^{1/z} has an essential singularity at 0: its principal part has infinitely many terms. The picture then draws the integral itself, point by point, instead of F minus a finite principal part.": "У e^{1/z} в 0 существенная особенность: в её главной части бесконечно много членов. Поэтому картина строит сам интеграл, точка за точкой, а не F минус конечную главную часть.",
  "Try: drag the circle until the singularity at 0 is outside it: the inside becomes F, the outside 0.": "Попробуйте: вытащите окружность за особенность в 0: внутри будет F, снаружи 0.",
  "A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.": "Известное ограничение: в нескольких пикселях от нуля arg <i>F</i> меняется так быстро, что дрожащий палец может пересечь цветовую линию и сыграть ноту.",
- "Height key: point at it to unfold, click to keep it open": "Шкала высоты: наведите указатель, чтобы развернуть, щёлкните, чтобы оставить открытой",
+ "Point at it to unfold; click it or press Enter to keep it open": "Наведите указатель, чтобы развернуть; щёлкните или нажмите Enter, чтобы оставить открытой",
  "Download offline page ({size})": "Скачать офлайн-версию ({size})",
  "{n} MB": "{n} МБ",
  "Skip": "Пропустить",
@@ -807,5 +808,10 @@
   "many": "%{n} частей за краем",
   "other": "%{n} части за краем"
  },
- "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния",
+ "target": "цель",
+ "to the target": "к цели",
+ "critical value": "критическое значение",
+ "join radius": "радиус слияния",
+ "Look down": "Взгляд сверху"
 }
