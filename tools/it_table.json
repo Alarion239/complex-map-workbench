@@ -1207,7 +1207,6 @@
  "Principal branch": "Ramo principale",
  "Principal branch; cuts on the imaginary axis beyond ±i": "Ramo principale; tagli sull'asse immaginario oltre ±i",
  "Principal branch; cuts on the real axis beyond ±1": "Ramo principale; tagli sull'asse reale oltre ±1",
- "Probe at the centre, z = {z}. Steps of {st}; Shift for {x}.": "Sonda al centro, z = {z}. Incrementi di {st}; Shift per {x}.",
  "Problem 3.": "Esercizio 3.",
  "Proper": "Propria",
  "Pull further to free {x}": "Tira ancora per svincolare {x}",
@@ -2577,11 +2576,6 @@
   "one": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w",
   "other": "z compare {n} volte nella formula, quindi non si può ricavare z invertendo un'operazione alla volta; la vista delle controimmagini mostra tutte le soluzioni di f(z) = w"
  },
- "z {z}. F is infinite here.": "z {z}. Qui F è infinita.",
- "z {z}. Modulus {modulus}, argument {n} degrees.\u0004z {z}. Modulus {modulus}, argument {n} degrees.": {
-  "one": "z {z}. Modulo {modulus}, argomento {n} grado.",
-  "other": "z {z}. Modulo {modulus}, argomento {n} gradi."
- },
  "z-plane": "piano z",
  "z^α on a chosen branch": "z^α su un ramo scelto",
  "zeros": "zeri",
@@ -3018,6 +3012,14 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})",
+ "The plane $%{p}$ at $%{c}=%{list}$.": "Il piano $%{p}$ per $%{c}=%{list}$.",
+ "The planes": "I piani",
+ "A Number": "Un numero",
+ "Filmstrip of": "Sequenza di",
+ "Add a Number to the formula first": "Aggiungi prima un numero alla formula",
+ "From value": "Dal valore",
+ "To value": "Al valore",
+ "Frames": "Fotogrammi",
  "Preparing the page": "Preparazione della pagina",
  "Preparing {done} of {total} shaders, first time only": "Shader preparati: {done} di {total} (solo la prima volta)",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",
@@ -3427,6 +3429,12 @@
  "Overlays": "Sovrapposizioni",
  "Quality": "Qualità",
  "Drawing a quick preview; the exact plot is still being built": "Disegno un'anteprima rapida; il grafico esatto è ancora in costruzione",
+ "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Sonda al centro, {v} = {z}. Incrementi di {st}; Shift per {x}.",
+ "{v} {z}. F is infinite here.": "{v} {z}. Qui F è infinita.",
+ "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
+  "one": "{v} {z}. Modulo {modulus}, argomento {n} grado.",
+  "other": "{v} {z}. Modulo {modulus}, argomento {n} gradi."
+ },
  "Marked preimages of {name}: {k} of {n}": "Controimmagini segnate di {name}: {k} su {n}",
  "Marked preimages of {name}: {k}, and there may be more": "Controimmagini segnate di {name}: {k}, e potrebbero essercene altre",
  "This curve is in {plane}, a later plane: listen along it there.": "Questa curva sta nel piano {plane}, più avanti nella catena: usa «Ascolta lungo la curva» da quel piano.",
