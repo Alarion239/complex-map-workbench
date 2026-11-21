@@ -58,9 +58,10 @@ critical('Joukowski at -1', [step('joukowski')], C(-1, 0), C(-1, 0), 2);
 }
 critical('(z^2+1)/(z^2+z+1) at 1, its value at infinity (RAT2): the simple root 0', [step('custom', { expr: '\\frac{z^2+1}{z^2+z+1}' })], C(1, 0), C(0, 0), 1);
 critical('z^2/(z^2+1) at 0 (RAT2): the double root 0', [step('custom', { expr: '\\frac{z^2}{z^2+1}' })], C(0, 0), C(0, 0), 2);
+critical('z^3 - 3z at 2 (RAT3): the double root -1 and the simple root 2', [step('custom', { expr: 'z^3-3z' })], C(2, 0), C(-1, 0), 2, 2);
 critical('z^2 + z, then z^3, at -1/64', [step('custom', { expr: 'z^2+z' }), step('pown', { n: 3 })], C(-1 / 64, 0), C(-0.5, 0), 2, 5);
 // not exact: infinitely many branches, a degree the catalog does not invert, above the cap
-for (const [name, steps] of [['exp', [step('exp')]], ['sin', [step('sin')]], ['z^3 + z (a cubic)', [step('custom', { expr: 'z^3+z' })]],
+for (const [name, steps] of [['exp', [step('exp')]], ['sin', [step('sin')]], ['z^5 + z (degree 5)', [step('custom', { expr: 'z^5+z' })]],
   ['z^8 -> z^16 (128 > the cap)', [step('pown', { n: 8 }), step('pown', { n: 16 })]]]) {
   const ch = chain(steps), q = Inverse.pointPre(Inverse.planChain(ch.steps, ch.built), p);
   check(`${name}: not exact (the app searches)`, !q.exact, JSON.stringify(q).slice(0, 120));

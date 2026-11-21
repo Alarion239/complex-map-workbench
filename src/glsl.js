@@ -2293,13 +2293,97 @@ void ixAncTan(vec2 w) {
 `;
   // ops of the op table (SPEC 3.2) by structure: single-valued, finite families (with the static base bound) and
   // additive families (bases per point); ROOTPOW is a log family (its int mode scans one member)
-  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
+  const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3, RAT3: 4, RAT4: 6 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
   // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops
   // early charges it in its hit test
   const DH_STOP_TOL = +NEWT_HIT_F / 16;
-  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
+  const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3, RAT4: 4 };
+  // RAT5 ... RAT<NEWT_POLY_MAX> (rational maps by Aberth's roots, ratAberthFns): n roots; P's and Q's n + 1 coefficients,
+  // two to a cell. Added by buildInverse (ixRatTables), once Inverse is loaded
+  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
+  const ixRatTables = () => { for (let n = 5; n <= Inverse.NEWT_POLY_MAX; n++) { IX_SLOTS[`RAT${n}`] = 2 * Math.ceil((n + 1) / 2); IX_FIN[`RAT${n}`] = n; } };
+  // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: of the
+  // degree n the op gives (its _deg, InvOps.ratPoly's drop), root b of the linear polynomial, of the stable quadratic,
+  // of Cardano's formula or of Ferrari's (its resolvent's root of largest modulus by Cardano's), each closed formula on
+  // the reversed polynomial (roots 1/u) when its leading coefficient is the smaller end (InvOps.closedRoots), and every
+  // root polished by up to two Newton steps on the polynomial itself (float32: the shifts and the cube root lose digits
+  // that the steps win back). A step is taken only when it lowers |p(u)|: near a multiple root p'(u) is small and p(u)
+  // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off,
+  // where that rounding is not 0 (a GPU that fuses or reorders the products)
+  const RAT_N = new Set(['RAT3', 'RAT4']);
+  const IX_ROOTS = `
+// root k of y^2 + beta y + gamma (stable)
+vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
+  vec2 disc = csqrtp(cmul(beta, beta) - 4.0 * gamma);
+  if (dot(beta, disc) < 0.0) disc = -disc;
+  vec2 q = -0.5 * (beta + disc);
+  return (q.x == 0.0 && q.y == 0.0) ? vec2(0.0) : (k == 0 ? q : cdiv(gamma, q));
+}
+// Cardano on a u^3 + b u^2 + c u + d (a not 0): root k = w^k S + w^-k T - b3
+void ixCardano(vec2 a, vec2 b, vec2 c, vec2 d, out vec2 S, out vec2 T, out vec2 b3) {
+  vec2 b1 = cdiv(b, a), c1 = cdiv(c, a);
+  b3 = b1 / 3.0;
+  vec2 p3 = (c1 - cmul(b1, b3)) / 3.0, hq = -0.5 * (2.0 * cmul(cmul(b3, b3), b3) - cmul(b3, c1) + cdiv(d, a));
+  vec2 sq = csqrtp(cmul(hq, hq) + cmul(cmul(p3, p3), p3)), s1 = hq + sq, s2 = hq - sq, s = dot(s1, s1) >= dot(s2, s2) ? s1 : s2;
+  S = vec2(0.0); T = vec2(0.0);
+  if (s.x != 0.0 || s.y != 0.0) { S = cexp(clog(s, CX_PI, 0.0) / 3.0); T = cdiv(-p3, S); }
+}
+vec2 ixCardanoRoot(vec2 S, vec2 T, vec2 b3, int k) {
+  vec2 om = k == 0 ? vec2(1.0, 0.0) : vec2(-0.5, k == 1 ? 0.8660254037844386 : -0.8660254037844386);
+  return cmul(om, S) + cmul(vec2(om.x, -om.y), T) - b3;
+}
+vec2 ixPolish3(vec2 a, vec2 b, vec2 c, vec2 d, vec2 u) {
+  vec2 f = cmul(cmul(cmul(a, u) + b, u) + c, u) + d;
+  for (int it = 0; it < 2; it++) {
+    vec2 g = cmul(3.0 * cmul(a, u) + 2.0 * b, u) + c;
+    if (g.x == 0.0 && g.y == 0.0) break;
+    vec2 v = u - cdiv(f, g);
+    vec2 fv = cmul(cmul(cmul(a, v) + b, v) + c, v) + d;
+    if (!ixFin(v) || !(cx_abs(fv) < cx_abs(f))) break;
+    u = v;
+    f = fv;
+  }
+  return u;
+}
+vec2 ixCubic(vec2 a, vec2 b, vec2 c, vec2 d, int n, int k) {
+  if (n == 1) return -cdiv(d, c);
+  if (n == 2) return ixQuadMonic(cdiv(c, b), cdiv(d, b), k);
+  bool rev = cx_abs(a) < cx_abs(d);
+  vec2 S, T, b3;
+  if (rev) ixCardano(d, c, b, a, S, T, b3); else ixCardano(a, b, c, d, S, T, b3);
+  vec2 u = ixCardanoRoot(S, T, b3, k);
+  return ixPolish3(a, b, c, d, rev ? cinv(u) : u);
+}
+// Ferrari on a u^4 + b u^3 + c u^2 + d u + e (a not 0), root k
+vec2 ixFerrari(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int k) {
+  vec2 b4 = cdiv(b, a) / 4.0, c1 = cdiv(c, a), d1 = cdiv(d, a), e1 = cdiv(e, a), b42 = cmul(b4, b4);
+  vec2 p = c1 - 6.0 * b42, q = d1 - 2.0 * cmul(b4, c1) + 8.0 * cmul(b42, b4), r = e1 - cmul(b4, d1) + cmul(b42, c1) - 3.0 * cmul(b42, b42);
+  vec2 ra = vec2(8.0, 0.0), rb = 8.0 * p, rc = 2.0 * cmul(p, p) - 8.0 * r, rd = -cmul(q, q);
+  vec2 m = vec2(0.0);
+  for (int j = 0; j < 3; j++) { vec2 x = ixCubic(ra, rb, rc, rd, 3, j); if (dot(x, x) > dot(m, m)) m = x; }
+  vec2 s = csqrtp(2.0 * m), h = 0.5 * p + m, qs = (s.x == 0.0 && s.y == 0.0) ? vec2(0.0) : cdiv(q, 2.0 * s);
+  vec2 y = k < 2 ? ixQuadMonic(-s, h + qs, k) : ixQuadMonic(s, h - qs, k - 2);
+  return y - b4;
+}
+vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int n, int k) {
+  if (n < 4) return ixCubic(b, c, d, e, n, k);
+  bool rev = cx_abs(a) < cx_abs(e);
+  vec2 u = rev ? cinv(ixFerrari(e, d, c, b, a, k)) : ixFerrari(a, b, c, d, e, k);
+  vec2 f = cmul(cmul(cmul(cmul(a, u) + b, u) + c, u) + d, u) + e;
+  for (int it = 0; it < 2; it++) {
+    vec2 g = cmul(cmul(4.0 * cmul(a, u) + 3.0 * b, u) + 2.0 * c, u) + d;
+    if (g.x == 0.0 && g.y == 0.0) break;
+    vec2 v = u - cdiv(f, g);
+    vec2 fv = cmul(cmul(cmul(cmul(a, v) + b, v) + c, v) + d, v) + e;
+    if (!ixFin(v) || !(cx_abs(fv) < cx_abs(f))) break;
+    u = v;
+    f = fv;
+  }
+  return u;
+}
+`;
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
@@ -2333,7 +2417,8 @@ void ixAncTan(vec2 w) {
   // (GLSL literals of the Newton passes: a coordinate below NEWT_FINITE is a root; NEWT_NO_LEVEL is the level of an op's
   // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
   // its step is within NEWT_STEP_TOL (1 + |z|))
-  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3', NEWT_STEP_TOL = '1e-5';
+  const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3';
+  const { NEWT_STEP_TOL, evFns, sweepFns, ratAberthFns } = GLSLRoots;
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
   // InvOps.opNewt's full step with _fd's derivative; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at
@@ -2497,9 +2582,8 @@ bool ${P}_one_b(inout Lf L, int b) {
   }
   // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
   // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
-  // a_0; _ev, a(u) - w and its derivative (Horner); _poly, H_t(u) = a(u); _start, de points on the circle of Fujiwara's
-  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's
-  // iteration in float32, whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton
+  // a_0; _ev, _start and _aberth, Aberth's iteration (GLSLRoots' evFns and sweepFns, the walks between them); _poly,
+  // H_t(u) = a(u); _roots, every root for w, polished and checked by Newton
   // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
   // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
   // from every earlier one, once per w. With the NEWT roots pass
@@ -2517,52 +2601,8 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec2 a = (k & 1) == 0 ? v.xy : v.zw;
   return k == 0 ? a - w : a;
 }
-void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
-  q = vec2(0.0); dq = vec2(0.0);
-  for (int k = ${D}; k >= 0; k--) {
-    if (k > de) continue;
-    dq = cmul(dq, u) + q;
-    q = cmul(q, u) + ${P}_a(k, w);
-  }
-}
-vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
-${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
-  vec2 ad = ${P}_a(de, w);
-  float R = 0.0;
-  for (int k = 1; k <= ${D}; k++) {
-    if (k > de) break;
-    R = max(R, pow(cx_abs(cdiv(${P}_a(de - k, w), ad)) / (k == de ? 2.0 : 1.0), 1.0 / float(k)));
-  }
-  R = R > 0.0 ? 2.0 * R : 1.0;
-  for (int i = 0; i < ${D}; i++) {
-    float th = 6.283185307179586 * float(i) / float(max(de, 1)) + ${Inverse.NEWT_ABERTH_ROT};
-    z[i] = R * vec2(cos(th), sin(th));
-  }
-}
-bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
-  bool cv[${D}];
-  for (int i = 0; i < ${D}; i++) cv[i] = i >= de;
-  for (int it = 0; it < its; it++) {
-    bool all = true;
-    for (int i = 0; i < ${D}; i++) {
-      if (cv[i]) continue;
-      vec2 q, dq;
-      ${P}_ev(z[i], w, de, q, dq);
-      if (q.x == 0.0 && q.y == 0.0) { cv[i] = true; continue; }
-      vec2 N = cdiv(q, dq), s = vec2(0.0);
-      for (int k = 0; k < ${D}; k++) if (k != i && k < de) s += cinv(z[i] - z[k]);
-      vec2 den = vec2(1.0, 0.0) - cmul(N, s);
-      vec2 st = den.x == 0.0 && den.y == 0.0 ? N : cdiv(N, den);
-      if (!ixFin(st)) { cv[i] = true; continue; }
-      z[i] -= st;
-      if (cx_abs(st) <= ${NEWT_STEP_TOL} * (1.0 + cx_abs(z[i]))) cv[i] = true;
-      else all = false;
-    }
-    if (all) return true;
-  }
-  return false;
-}
-bool ${P}_has = false;
+${evFns(P, D)}vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}${sweepFns(P, D)}bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
 vec2 ${P}_r[${D}];
 bool ${P}_k[${D}];
@@ -2673,6 +2713,7 @@ ${seeded ? '' : pole ? `  vec2 v1;
     const lam0 = j === 0 ? 'true' : 'false';
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
     const one = (body) => `bool ${P}_one(inout Lf L) {\n  if (!ixFin(L.u)) return false;\n  vec2 w = L.u;\n${body}\n}\n`;
+    if (ratDeg(o.kind) >= 5) return ratAberthFns(ratDeg(o.kind), j, c, NOR, NEWT_DEDUPE);
     const rng = (u, d, lvl, lg) => `  return ixApply(L, ${u}, ${d}, false, ${lvl}, ${lg}, false, vec2(0.0), vec2(0.0));`;
     const sg = (x) => `(${x} < 0.0 ? 1.0 : -1.0)`;   // -sgn(x), sgn(0) = 1 (Inverse's sgn)
     switch (o.kind) {
@@ -2843,6 +2884,27 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
 `;
+      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg, a leading
+      // coefficient dropped when it cancels, at most 1e-14 of |p_k| + |w| |q_k|; its root b by IX_ROOTS. Cells: P's
+      // coefficients, highest first, two to a cell, then Q's from the next cell
+      case 'RAT3': case 'RAT4': {
+        const n = o.kind === 'RAT3' ? 3 : 4, half = Math.ceil((n + 1) / 2), co = (k, from) => `${U(from + (k >> 1))}.${k & 1 ? 'zw' : 'xy'}`;
+        const cf = (k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`, A = [...Array(n + 1).keys()].map(cf).join(', ');
+        const ev = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${co(k, from)}` : co(0, from)), '');
+        const dv = (from) => [...Array(n).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${n - k}.0 * ${co(k, from)}` : `${n}.0 * ${co(0, from)}`), '');
+        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > 1e-14 * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
+        return `int ${P}_deg(vec2 w) {
+  float aw = cx_abs(w);
+${deg}  return 0;
+}
+int ${P}_nb(Lf L) { return ixFin(L.u) ? ${P}_deg(L.u) : 0; }
+bool ${P}_one_b(inout Lf L, int b) {
+  vec2 w = L.u, u = ${n === 3 ? 'ixCubic' : 'ixQuartic'}(${A}, ${P}_deg(w), b);
+  vec2 pu = ${ev(0)}, qu = ${ev(half)}, dp = ${dv(0)}, dq = ${dv(half)};
+  return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
+}
+`;
+      }
       // ---- log family (ROOTPOW): L_m = u0 + m st with u0 = beta Log w, st = S = 2 pi i beta, d0 = beta / w ----
       case 'ROOTPOW': return `int ${P}_nb(Lf L) { return ixFin(L.u) && (L.u.x != 0.0 || L.u.y != 0.0) ? 1 : 0; }
 bool ${P}_line(Lf L, int b, out vec2 u0, out vec2 st, out vec2 d0) {
@@ -3016,11 +3078,18 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
         put(c, P0.re, P0.im, P1.re, P1.im); put(c + 1, P2.re, P2.im, Q0.re, Q0.im); put(c + 2, Q1.re, Q1.im, Q2.re, Q2.im);
         break;
       }
+      default: {
+        if (ratDeg(o.kind) < 3) break;
+        const half = Math.ceil(p.P.length / 2), cells = (co, from) => { for (let k = 0; k < co.length; k += 2) { const a = z(co[k]), b = z(co[k + 1]); put(from + k / 2, a.re, a.im, b.re, b.im); } };
+        cells(p.P, c); cells(p.Q, c + half);
+        break;
+      }
     }
   }
   // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
+    if (!IX_FIN.RAT5) ixRatTables();
     // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
     const ops = [], sigs = [];
     steps.forEach((st, i) => {
@@ -3065,7 +3134,8 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
-      txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
+      const roots = ops.some((o) => RAT_N.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => RAT_N.has(q.kind))));
+      txt = { lib: head + INV_LIB + (roots ? IX_ROOTS : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
@@ -3097,4 +3167,5 @@ import { CX } from './cx.js';
 import { Expr } from './parse.js';
 import { Funcs } from './funcs.js';
 import { Inverse } from './inverse.js';
+import { GLSLRoots } from './glslroots.js';
 export { GLChain, glsl, GLChain as 'module.exports' };

@@ -84,11 +84,14 @@ const TABLE_ROWS = [
   ['z^4+2z^2', 'IPOW>QUAD'],
   ['\\frac{z^{16}+1}{z^{16}-1}', 'IPOW>MOB'],
   ['(z+0.1)^2-z^2', 'AFF'],
-  ['z^3-z', 'X:polynomial formula of degree 3'],
-  ['z^2+\\frac{1}{z}', 'X:rational formula of degree 3'],
-  ['\\frac{z^3-1}{z^2+1}', 'X:rational formula of degree 3'],
+  ['z^3-z', 'RAT3'],
+  ['z^2+\\frac{1}{z}', 'RAT3'],
+  ['\\frac{z^3-1}{z^2+1}', 'RAT3'], ['\\frac{z^3+1}{z^3-1}', 'IPOW>MOB'],
+  ['z^5-z', 'X:polynomial formula of degree 5'],
+  ['z^4+\\frac{1}{z}', 'RAT5'], ['\\frac{z^5+z}{2z^2-1}', 'RAT5'], ['\\frac{z^6+z}{z^2+0.5}', 'RAT6'], ['\\frac{z^{12}+z}{z^2-3}', 'RAT12'],
+  ['\\frac{z^{13}+z}{z^2-3}', 'X:rational formula of degree 13'],
   ['(z^2+z)^2', 'QUAD>IPOW'],
-  ['z^4+z^3+1', 'X:polynomial formula of degree 4'], ['(z^2+z^3)^2', 'X:polynomial formula of degree 3'],
+  ['z^4+z^3+1', 'RAT4>AFF'], ['z^3+\\frac{1}{z}', 'RAT4'], ['\\frac{z^4+1}{z^2-2z}', 'RAT4'], ['(z^2+z^3)^2', 'RAT3>IPOW'], ['(z^2+z^5)^2', 'X:polynomial formula of degree 5'],
   ['\\frac{z^{17}+1}{z^{17}-1}', 'X:rational formula of degree 17'],
   ['(z+1)^{40}-z^{40}', 'X:degree above 32'],
   ['\\frac{z}{z}', 'X:constant map'],
@@ -218,6 +221,8 @@ const RT = [
   ['\\frac{1}{z}+\\frac{1}{z+1}', 2], ['\\frac{z}{z^2+1}', 2], ['\\frac{z+1/z}{z-1/z}', 2], ['\\frac{z^2-1}{z-1}', 1], ['\\frac{z^2}{z^2+z}', 1],
   ['\\frac{(1+i)z^2-3}{(2-i)z^2+z-0.5i}', 2], ['\\frac{(z-0.3)(z+0.7i)}{(z+1)(z-2)}', 2], ['z^3+\\frac{1}{z^3}', 6], ['\\frac{z^4-1}{z^4+1}', 4],
   ['z^4+2z^2', 4], ['\\left(\\frac{z-i}{z+i}\\right)^3', 3], ['\\frac{z^{16}+1}{z^{16}-1}', 16],
+  // degree 5 to 12 by Aberth's iteration on p - w q (RAT<n>)
+  ['z^4+\\frac{1}{z}', 5], ['\\frac{z^5+z}{2z^2-1}', 5], ['\\frac{(z-0.5)^6+i}{(z+1)(z-2i)}', 6], ['\\frac{z^{12}+z}{z^2-3}', 12],
   // families over a rational part (the count is not checked)
   ['\\log\\frac{z-1}{z+1}', 0], ['\\sqrt{z^2-1}', 0], ['e^{z+\\frac{1}{z}}', 0], ['\\sin(z+1/z)', 0],
 ];
@@ -247,6 +252,32 @@ for (const [e, deg] of RT) {
   }
   check(`round trip ${e} [${kindsOf(plan)}]`, !unsound && !miss && !dec && !cnt && tried > (QUICK ? 50 : 200),
     `unsound ${unsound} missed ${miss} decomposition ${dec} count ${cnt} (of ${tried}); worst |f(z) - w| ${worst.toExponential(1)}`);
+}
+
+// large values: RAT<n>'s degree drops only where p_n - w q_n cancels, never because w q's coefficients are large: all n
+// roots of (z^12 + z)/(z^2 - 3) and of (z^5 + z)/(2z^2 - 1) at |w| up to 1e16, each a root of p - w q to its rounding
+// (|p(u) - w q(u)| within 1e-12 of sum_k (|p_k| + |w q_k|) |u|^k, the backward error: f itself loses digits next to its
+// poles, where two of them lie)
+{
+  for (const [e, n] of [['\\frac{z^{12}+z}{z^2-3}', 12], ['\\frac{z^5+z}{2z^2-1}', 5]]) {
+    const { b } = build(e), op = Inverse.stepOps(b).ops[0], { P, Q } = op.p;
+    for (const m of [1e6, 1e10, 1e14, 1e16]) {
+      const w = C(m, 0.3 * m), us = op.pre(w).map((r) => r.u);
+      const bad = us.filter((u) => { const r = CX.abs(CX.sub(CX.polyEval(P, u), CX.mul(w, CX.polyEval(Q, u)))), sc = P.reduce((a, pk, k) => a + (CX.abs(pk) + CX.abs(w) * CX.abs(Q[k])) * CX.abs(u) ** (P.length - 1 - k), 0); return !(r <= 1e-12 * sc); });
+      check(`${e} at |w| = ${m.toExponential(0)}: its ${n} roots, each a root of p - w q`, us.length === n && bad.length === 0, `got ${us.length}, off ${bad.length}`);
+    }
+  }
+}
+
+// the order of RAT<n>'s roots: increasing Re u + 0.37 Im u, as the GLSL op orders them (which of Aberth's start points
+// finds which root depends on the rounding: at this w, next to the pole sqrt 3, float32 and float64 give 1.79 and 2.09
+// to different start points)
+{
+  const op = Inverse.stepOps(build('\\frac{z^{12}+z}{z^2-3}').b).ops[0];
+  for (const w of [C(5096.73583984375, -212.1465606689453), C(3, 0), C(-40, 7), C(1e10, 3e9)]) {
+    const ks = op.pre(w).map((r) => r.u.re + 0.37 * r.u.im);
+    check(`RAT12 at w = ${w.re} ${w.im < 0 ? '-' : '+'} ${Math.abs(w.im)}i: 12 roots in increasing Re + 0.37 Im`, ks.length === 12 && ks.every((k, i) => i === 0 || ks[i - 1] <= k), ks.map((k) => k.toFixed(4)).join(' '));
+  }
 }
 
 // =================================================================================================================
