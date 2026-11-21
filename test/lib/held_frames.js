@@ -36,8 +36,9 @@
 //   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
 //   the roots in the regions (where P is not the paper: a map many-to-one onto
 //   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
-//   composites them: front to back (Inverse.front's order: the smaller key, keys within its tie band tying, ties by larger
-//   Im z, then larger Re z), each at alpha and the farthest opaque, until less than 1/255 shows through, each coloured as P, plane z's
+//   composites them: front to back (Inverse.order: the front is the largest Im z, then the largest Re z, among the keys
+//   within the tie band of the smallest, then the front of the rest, and so on), each at alpha and the farthest opaque,
+//   until less than 1/255 shows through, each coloured as P, plane z's
 //   parked frame, colours it (bilinear; P.v: P's camera, which may be wider than the frame's, so that front roots past
 //   the frame's window are graded too; the frame's by default). At alpha 1 that is the front root alone. A pixel where
 //   a root off P's canvas (whose cover and colour P cannot show) would weigh more than tol / 2 counts as none. Pixels next
@@ -62,7 +63,7 @@
 //   against the exact picture from plane z's parked globe base (both kept by grab, the camera unmoved): for each point w
 //   of a lattice of the sphere's front side every GLOBE_STEP degrees, its pixel on tag against the
 //   pixel of its front point z0 on base (z0: H_u's points over w by Newton's method, __cmwSvGlobe's H; several: the front
-//   one by the glide's sheet key, __cmwSvKey(b, u) through Inverse.sheetKey and Inverse.front, so a judge of Inside
+//   one by the glide's sheet key, __cmwSvKey(b, u) through Inverse.sheetKey and Inverse.order, so a judge of Inside
 //   regions holds for a map one to one only), with the globe's light (SHADE_GLOBE: c = alb k(n, v) + spec(n, v) in
 //   linear light, the key light and the eye from __cmwSvGlobe) taken out at z0 and put back at w. Points next to a
 //   colour line, a stroke or the limb (a 4 x 4 neighbourhood spanning more than GLOBE_RANGE levels in either frame) are
@@ -101,9 +102,6 @@
   // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
   // the front point alone)
   const A = g.alpha == null ? 1 : g.alpha;
-  // (the renderer's front, Inverse.front itself: the smaller key, keys within its tie band tying, then larger Im z, then
-  // larger Re z)
-  const ahead = (a, b) => Inverse.front({ D: a.k, z: a.z }, { D: b.k, z: b.z });
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5), roots = [];
@@ -124,12 +122,13 @@
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
       if (roots.some((q) => Math.hypot(q.z.re - z.re, q.z.im - z.im) <= 1e-6 * (1 + Math.hypot(z.re, z.im)))) continue;
-      roots.push({ z, k: g.key(z), cv: covers(z) });
+      const k = g.key(z);
+      roots.push({ z, k, D: k, lam: null, cv: covers(z) });
     }
     // (the layers front to back: the covering points, and those off P's canvas, which may cover (the regions run past the
     // canvas) and whose colour P cannot show; w's colour is not known when such a point would weigh more than half the
     // tolerance. With no point covering, w is the paper: the front point, outside the regions, where P shows the paper)
-    const order = (L) => L.sort((a, b) => (ahead(a, b) ? -1 : ahead(b, a) ? 1 : 0));
+    const order = (L) => Inverse.order(L);
     const lay = order(roots.filter((q) => q.cv !== false));
     const layers = [];
     let T = 1, unknown = false;
@@ -382,7 +381,7 @@ ${REF}`;
       const kk = g.u > 0 && g.u < 1 ? __cmwSvKey(g.b, g.u) : null;
       const prep = kk && { win: kk.win, R: kk.R, rs: kk.rs, sing: kk.sing.map((p) => C(p[0], p[1])), per: kk.per && C(kk.per[0], kk.per[1]) };
       // (H's points over w by Newton's method from w, 0, four points about it and rings of 8 seeds at radii 1/2, 1 and 2;
-      // two roots within SAME are one; with several, the front one by the glide's sheet key, Inverse.front; none when
+      // two roots within SAME are one; with several, the front one by the glide's sheet key, Inverse.order; none when
       // there are several and no key)
       const SAME = 1e-7, seeds = [C(0, 0), C(1, 1), C(-1, -1), C(2, -2)];
       for (const r of [0.5, 1, 2]) for (let j = 0; j < 8; j++) seeds.push(C(r * Math.cos(j * Math.PI / 4 + 0.3), r * Math.sin(j * Math.PI / 4 + 0.3)));
@@ -409,9 +408,7 @@ ${REF}`;
         if (roots.length < 2) return roots[0] || null;
         if (!prep) return null;
         several++;
-        let best = null;
-        for (const z of roots) { const e = { z, D: Inverse.sheetKey(prep, z, null), lam: null }; if (!best || Inverse.front(e, best)) best = e; }
-        return best.z;
+        return Inverse.order(roots.map((z) => ({ z, D: Inverse.sheetKey(prep, z, null), lam: null })))[0].z;
       };
       let n = 0, over = 0, max = 0, none = 0, sum = 0;
       for (let la = -84; la <= 84; la += ${GLOBE_STEP}) for (let lo = 0; lo < 360; lo += ${GLOBE_STEP} / Math.max(0.1, Math.cos(la * Math.PI / 180))) {

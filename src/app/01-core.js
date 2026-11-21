@@ -284,6 +284,10 @@
     }
   }
   const regionLook = () => solidKeep || { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
+  // the sheets drawn on each side of an infinitely sheeted step's principal one (S.sheetW, the Landscape's "sheets ±"):
+  // SHEET_W_MIN to SHEET_W_MAX, SHEET_W_DEFAULT when unset; sheetWOf(w): w within them
+  const SHEET_W_MIN = 1, SHEET_W_MAX = 4, SHEET_W_DEFAULT = 2;
+  const sheetWOf = (w) => Math.max(SHEET_W_MIN, Math.min(SHEET_W_MAX, Math.round(w) || SHEET_W_DEFAULT));
   // whether the regions are being drawn as a mask (inside withSolidRegions)
   const regionsAsMask = () => solidKeep !== null;
   function blankState() {
@@ -295,7 +299,7 @@
       // w-plane targets, drawn in the right plane in Image mode; their preimages show in the left plane in every
       // mode (none by default); the optional Riemann sphere view of the left plane; Landscape: all sheets of a
       // multivalued map (S.sheets) with a window of 2W + 1 sheets for log and irrational powers (S.sheetW)
-      targets: [], sheets: false, sheetW: 2, v5: true,
+      targets: [], sheets: false, sheetW: SHEET_W_DEFAULT, v5: true,
       // the left pane is X (domain of the map in focus), the right pane Y (its codomain), each with its own
       // surface; Phase paints X (Views in view.js; a saved state without `view` is migrated by Views.migrate). wKey: the colour key of
       // the phase portrait painted in the Y plane (the Key switch in X's legend chip). landPlain: the relief paints
@@ -327,6 +331,8 @@
   // undo history of {s: shapes, steps and nextId as JSON, focus}. The focus of the current entry follows
   // the live focus at the start of every user input (noteFocus), so undo returns to the step focused before the action.
   let hist = [], hi = -1;
+  // the chains Undo left that Redo can still return to: freed once an edit drops the redo entries
+  const redoChains = new Set();
   let exAt = -1;   // (the history entry an example opened at; the Examples button names it until an edit)
   // (and the deformation's bracket, S.homRange, normalised first; moving it is not an undo step)
   const rangeCopy = () => { if (S.homRange) HR.resolve(S, true); return S.homRange ? JSON.parse(JSON.stringify(S.homRange)) : null; };
@@ -337,6 +343,7 @@
   function commit() {
     const e = snap();
     if (hist[hi] && hist[hi].s === e.s) { hist[hi].focus = e.focus; hist[hi].range = e.range; hist[hi].sv = e.sv; return; }
+    if (hist.length > hi + 1) { if (GLR.ok) for (const k of redoChains) GLR.freeChain(k); redoChains.clear(); }
     hist = hist.slice(0, hi + 1);
     hist.push(e);
     if (hist.length > 200) hist.shift();
@@ -703,7 +710,7 @@
     delete st.exactImages;   // (exact images are always on: a saved switch is ignored)
     st.params = Params.sanitize(o.params);
     { const sv = Views.cleanSv(st.sv, svPlanesOf(steps)); if (sv) st.sv = sv; else delete st.sv; }
-    st.sheetW = Number.isInteger(st.sheetW) ? Math.max(1, Math.min(4, st.sheetW)) : d0.sheetW;
+    st.sheetW = Number.isInteger(st.sheetW) ? sheetWOf(st.sheetW) : d0.sheetW;
     st.v5 = true;
     // regions are filled by the phase of z alone: a saved or linked pattern (checker, stretch, ...) opens as the
     // phase; its cell (patternScale) stays the grid lines' spacing

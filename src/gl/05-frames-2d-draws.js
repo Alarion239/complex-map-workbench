@@ -156,6 +156,7 @@
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
       if (hist.length > PROG_KEEP) hist.length = PROG_KEEP;
     }
+    if (discardPending && !sideMode) dropOtherChains();
     cur.info = info;
     const n = Math.max(4, info.slots * 4);
     if (!cur.data || cur.data.length !== n) cur.data = new Float32Array(n); else cur.data.fill(0);
@@ -827,10 +828,11 @@
     cauchyPlan(P, cp, CARRY_EDGE_UNIT);
     u2f(P, 'uEdgeO', edgeO[0], edgeO[1]);
   }
-  // the colour plot's stand-in (st.standIn): its texture (unit 4) and the w array last uploaded into it
+  // the stand-ins' node texture (unit 4: the colour plot's and the phase globe's) and the w array last uploaded into it
   let standInTex = null, standInKey = null;
-  function standInUniforms(P, st, dpr) {
-    const g = st.standIn, k = st.view.s * dpr;
+  // binds the stand-in grid g ({nx, ny, w}: w = F(z) at the nx x ny nodes, node (i, j) at w[2 (j nx + i)], re and im; a
+  // Float32Array) to unit 4, uploading it when it is not the one there
+  function standInTexture(g) {
     gl.activeTexture(gl.TEXTURE4);
     if (!standInTex) standInTex = floatTex(); else gl.bindTexture(gl.TEXTURE_2D, standInTex);
     if (standInKey !== g.w) {
@@ -838,6 +840,11 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, g.nx, g.ny, 0, gl.RG, gl.FLOAT, g.w);
       standInKey = g.w;
     }
+  }
+  const standInRelease = () => { if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; } };
+  function standInUniforms(P, st, dpr) {
+    const g = st.standIn, k = st.view.s * dpr;
+    standInTexture(g);
     u2f(P, 'uGO', (g.x0 - st.view.cx) * k + fw / 2, (g.y0 - st.view.cy) * k + fh / 2);
     u1f(P, 'uGC', g.h * k);
   }
@@ -867,7 +874,7 @@
       standInUniforms(P, st, dpr);
       return colorPass(P, st, dpr);
     }
-    if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; }
+    standInRelease();
     use(P, st.map);
     if (cp) {
       cauchyPlan(P, cp);

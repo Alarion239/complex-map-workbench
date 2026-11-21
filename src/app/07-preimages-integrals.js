@@ -466,8 +466,9 @@
   const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
   // the solutions follow their points' moves (an entry keeps the p it was solved for)
   // (option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
-  // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
-  // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
+  // rational, recognized rational formulas, a polynomial of degree 3 to 12 by its roots: Inverse.pointPlan): every
+  // preimage by those branches composed, Inverse.pointPre, a few microseconds (z^8: 5 µs, degree 64: 17 µs; a cubic's
+  // roots about 50 µs), so it is listed whole, off the window too, and again in every frame of
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
@@ -476,7 +477,7 @@
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
     let plan = prePlans.get(key);
     if (!plan) {
-      try { plan = Inverse.planChain(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
+      try { plan = Inverse.pointPlan(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
       prePlans.set(key, plan);
       while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
     }
@@ -632,8 +633,10 @@
     return [x0, y0];
   }
   // the count for each region of a later plane that has pieces off the window, drawn in the region's ink: next to its
-  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view
+  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view. The
+  // selected region's count is also on its readout card (19-readout.js)
   function drawPullOff(pane, j) {
+    const offOf = (id) => { const e = pullOffDrawn.find((q) => q.id === id); return e ? e.n : 0; }, was = offOf(selected);
     pullOffDrawn = [];
     if (artMode) return;
     const b = pane.box(), labels = [];
@@ -663,6 +666,8 @@
     }
     if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
+    // (the readout card follows the count as the window moves)
+    if (selected != null && offOf(selected) !== was) requestRender('P');
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {
@@ -822,7 +827,7 @@
         // (the fields are the Inspector's: Edit opens step k there, the temporary Inspector when the panel is hidden)
         edit(k, kind, i) { inspectStep(k); const el = /** @type {HTMLInputElement | null} */ (this.field(k, kind, i)); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
       },
-      cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
+      cutAt: (x, y, finger) => (lFlat() ? (cutHandleNear(x, y, !!finger) || {}).step || 0 : 0),
       // step k in the Inspector (a click on its card does the same)
       inspect: (k) => inspectStep(k),
       resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },
