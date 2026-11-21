@@ -68,10 +68,10 @@ bool ${P}_aberth(vec2 w, int de, inout vec2 z[${D}], int its) {
   // GLSL of RAT<n> for n >= 5 (InvOps.opRatN by aberthRoots), op j with parameters at uInv[c ...]: P's coefficients
   // p_n ... p_0 two to a cell, then Q's from cell half. Once per w, _roots sets _A, the low-first coefficients
   // a_k = p_(n-k) - w q_(n-k) of p - w q (which _a reads, so Aberth's sweeps fetch no uniform), drops the degree where a
-  // leading coefficient is what cancellation leaves, below 1e-14 of |p_(n-k)| + |w| |q_(n-k)| (InvOps.ratPoly's drop, as
-  // RAT3's and RAT4's _deg), and keeps Aberth's roots (aberthFns), each polished by up to two Newton steps on p - w q,
-  // each step taken only when it lowers |p - w q| (GLChain's IX_ROOTS polish, which says why: near a multiple root a
-  // step is float32's rounding over a small derivative), in increasing Re + 0.37 Im (aberthRoots' ROOT_ORDER; the
+  // leading coefficient is what cancellation leaves, below RAT_DROP of |p_(n-k)| + |w| |q_(n-k)| (InvOps.ratPoly's drop, as
+  // RAT3's and RAT4's _deg), and keeps Aberth's roots (aberthFns), each polished by up to ROOT_POLISH Newton steps on p - w q,
+  // each step taken only when it lowers |p - w q| (GLChain's ixRoots polish, which says why: near a multiple root a
+  // step is float32's rounding over a small derivative), in increasing Re + ROOT_DIR Im (aberthRoots' ROOT_ORDER; the
   // finite ones first), each when finite and apart from every earlier one; root b's derivative (p/q)' by Horner on P
   // and Q
   function ratAberthFns(n, j, c, NOR, dedupe) {
@@ -98,7 +98,7 @@ void ${P}_roots(vec2 w) {
   for (int k = 0; k <= ${n}; k++) { int i = ${n} - k; vec2 p = ${cell('i', 0)}, q = ${cell('i', half)}; ${P}_A[k] = p - cmul(w, q); sz[k] = cx_abs(p) + cx_abs(w) * cx_abs(q); }
   int de = ${n};
   for (int d = ${n}; d > 0; d--) {
-    if (cx_abs(${P}_A[d]) > 1e-14 * sz[d]) break;
+    if (cx_abs(${P}_A[d]) > ${Inverse.RAT_DROP} * sz[d]) break;
     de = d - 1;
   }
   vec2 z[${n}];
@@ -109,14 +109,14 @@ void ${P}_roots(vec2 w) {
     vec2 v = z[i];
     vec2 f, dq;
     ${P}_ev(v, w, de, f, dq);
-    for (int it = 0; it < 2; it++) {
+    for (int it = 0; it < ${Inverse.ROOT_POLISH}; it++) {
       vec2 st = cdiv(f, dq), u = v - st, fv, du;
       ${P}_ev(u, w, de, fv, du);
       if (!ixFin(u) || !(cx_abs(fv) < cx_abs(f))) break;
       v = u; f = fv; dq = du;
     }
     bool ok = i < de && ixFin(v);
-    float key = ok ? v.x + 0.37 * v.y : 3e38;
+    float key = ok ? v.x + ${Inverse.ROOT_DIR} * v.y : 3e38;
     int m = i;
     for (int k = ${n - 1}; k > 0; k--) {
       if (k > m) continue;

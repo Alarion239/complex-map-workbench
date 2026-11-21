@@ -2302,7 +2302,7 @@ void ixAncTan(vec2 w) {
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3, RAT4: 4 };
   // RAT5 ... RAT<NEWT_POLY_MAX> (rational maps by Aberth's roots, ratAberthFns): n roots; P's and Q's n + 1 coefficients,
   // two to a cell. Added by buildInverse (ixRatTables), once Inverse is loaded
-  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
+  const ratDeg = (kind) => Inverse.ratDeg(kind);
   const ixRatTables = () => { for (let n = 5; n <= Inverse.NEWT_POLY_MAX; n++) { IX_SLOTS[`RAT${n}`] = 2 * Math.ceil((n + 1) / 2); IX_FIN[`RAT${n}`] = n; } };
   // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: of the
   // degree n the op gives (its _deg, InvOps.ratPoly's drop), root b of the linear polynomial, of the stable quadratic,
@@ -2313,7 +2313,7 @@ void ixAncTan(vec2 w) {
   // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off,
   // where that rounding is not 0 (a GPU that fuses or reorders the products)
   const RAT_N = new Set(['RAT3', 'RAT4']);
-  const IX_ROOTS = `
+  const ixRoots = () => `
 // root k of y^2 + beta y + gamma (stable)
 vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
   vec2 disc = csqrtp(cmul(beta, beta) - 4.0 * gamma);
@@ -2336,7 +2336,7 @@ vec2 ixCardanoRoot(vec2 S, vec2 T, vec2 b3, int k) {
 }
 vec2 ixPolish3(vec2 a, vec2 b, vec2 c, vec2 d, vec2 u) {
   vec2 f = cmul(cmul(cmul(a, u) + b, u) + c, u) + d;
-  for (int it = 0; it < 2; it++) {
+  for (int it = 0; it < ${Inverse.ROOT_POLISH}; it++) {
     vec2 g = cmul(3.0 * cmul(a, u) + 2.0 * b, u) + c;
     if (g.x == 0.0 && g.y == 0.0) break;
     vec2 v = u - cdiv(f, g);
@@ -2372,7 +2372,7 @@ vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int n, int k) {
   bool rev = cx_abs(a) < cx_abs(e);
   vec2 u = rev ? cinv(ixFerrari(e, d, c, b, a, k)) : ixFerrari(a, b, c, d, e, k);
   vec2 f = cmul(cmul(cmul(cmul(a, u) + b, u) + c, u) + d, u) + e;
-  for (int it = 0; it < 2; it++) {
+  for (int it = 0; it < ${Inverse.ROOT_POLISH}; it++) {
     vec2 g = cmul(cmul(4.0 * cmul(a, u) + 3.0 * b, u) + 2.0 * c, u) + d;
     if (g.x == 0.0 && g.y == 0.0) break;
     vec2 v = u - cdiv(f, g);
@@ -2865,7 +2865,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)};
   vec2 A = S0.xy - cmul(w, S1.zw), B = S0.zw - cmul(w, S2.xy), Cc = S1.xy - cmul(w, S2.zw);
   r0 = vec2(0.0); r1 = vec2(0.0);
-  if (cx_abs(A) <= 1e-14 * (cx_abs(B) + cx_abs(Cc))) { if (cx_abs(B) > 0.0) { r0 = -cdiv(Cc, B); return 1; } return 0; }
+  if (cx_abs(A) <= ${Inverse.RAT_DROP} * (cx_abs(B) + cx_abs(Cc))) { if (cx_abs(B) > 0.0) { r0 = -cdiv(Cc, B); return 1; } return 0; }
   vec2 disc = csqrtp(cmul(B, B) - 4.0 * cmul(A, Cc));
   if (dot(B, disc) < 0.0) disc = -disc;
   vec2 qq = -0.5 * (B + disc);
@@ -2885,14 +2885,14 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
       // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg, a leading
-      // coefficient dropped when it cancels, at most 1e-14 of |p_k| + |w| |q_k|; its root b by IX_ROOTS. Cells: P's
+      // coefficient dropped when it cancels, at most RAT_DROP of |p_k| + |w| |q_k|; its root b by ixRoots. Cells: P's
       // coefficients, highest first, two to a cell, then Q's from the next cell
       case 'RAT3': case 'RAT4': {
         const n = o.kind === 'RAT3' ? 3 : 4, half = Math.ceil((n + 1) / 2), co = (k, from) => `${U(from + (k >> 1))}.${k & 1 ? 'zw' : 'xy'}`;
         const cf = (k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`, A = [...Array(n + 1).keys()].map(cf).join(', ');
         const ev = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${co(k, from)}` : co(0, from)), '');
         const dv = (from) => [...Array(n).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${n - k}.0 * ${co(k, from)}` : `${n}.0 * ${co(0, from)}`), '');
-        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > 1e-14 * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
+        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > ${Inverse.RAT_DROP} * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
         return `int ${P}_deg(vec2 w) {
   float aw = cx_abs(w);
 ${deg}  return 0;
@@ -3135,7 +3135,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       const roots = ops.some((o) => RAT_N.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => RAT_N.has(q.kind))));
-      txt = { lib: head + INV_LIB + (roots ? IX_ROOTS : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
+      txt = { lib: head + INV_LIB + (roots ? ixRoots() : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
