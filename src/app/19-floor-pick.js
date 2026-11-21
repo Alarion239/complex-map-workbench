@@ -61,7 +61,7 @@
   // drag draws a disc; true when the press is the picker's
   function pickDown(pane, z, x, y) {
     if (tool !== 'pick' || !pickAvail()) return false;
-    const k = leftStage(), s = pickPatch(k, z);
+    const k = leftStage(), s = pickPatch(k, z) || lookHit(x, y);
     if (s) {
       const F = rangeF(k, shapeStage(s));
       selected = s.id; zpSel = null; buildShapeList();
@@ -105,6 +105,12 @@
     }
     shapesChanged(true);
     commit();
+  }
+  // the press of the picker ended by a second finger: a disc it was drawing goes, with no edit
+  function pickCancel(d) {
+    if (!d.disc) return;
+    setShapes(S.shapes.filter((s) => s !== d.disc));
+    shapesChanged(true);
   }
   // Enter with the Pick tool on the focused plane: the twins of the selected point of the floor, or of the view's centre,
   // then the disc about their image; true when it acted

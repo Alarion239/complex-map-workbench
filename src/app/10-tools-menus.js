@@ -69,7 +69,8 @@
     if (I18N.lang !== 'en') {
       const PHL = { circle: $tx('phone tile', 'Circle'), rect: $tx('phone tile', 'Rectangle'), polygon: $tx('phone tile', 'Polygon'), halfplane: $tx('phone tile', 'Half-plane'),
         meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Perpendicular'),
-        hyper: $tx('phone tile', 'Hyperbolic'), pick: $tx('phone tile', 'Pick') };   // (the seventh Construct tool)
+        hyper: $tx('phone tile', 'Hyperbolic'),   // (the seventh Construct tool)
+        pick: $tx('phone tile', 'Pick') };
       for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed
@@ -531,7 +532,10 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
+    // (a disc of a later plane's readout card under its editor where the Inspector does not edit shapes: 19-readout.js)
+    const ro = ed && !inspEditsShapes() ? readoutBuild(s) : null;
+    if (ro) { box.append(ro.root); readoutFill(ro, s); }
+    shapeRows.set(s.id, { d, box, sw, ed, ro, kind: rowKind(s), row, k: name, more: openMore });
     // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
     if (!touchUI() && list.length > 1) {
       box.draggable = true;
@@ -589,6 +593,7 @@
       const r = shapeRows.get(s.id);
       if (!r) continue;
       if (r.ed && r.ed._sync) r.ed._sync();
+      if (r.ro) readoutFill(r.ro, s);
       r.sw.style.cssText = swatchStyle(s);
       let tex;
       try { tex = shapeTexOf(s); } catch (e) { tex = '\\text{?}'; }

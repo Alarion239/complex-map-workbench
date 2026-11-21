@@ -253,6 +253,8 @@
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
     if (showL && !sphL) {
+      // (Look down's marks under the handles and the probe)
+      drawLookDown(paneL);
       drawCutHandles(paneL, cutHandlesL);
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
@@ -263,7 +265,7 @@
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
-    }
+    } else syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
     if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
     if (intPop && showR && rImage() && !morphOn() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
