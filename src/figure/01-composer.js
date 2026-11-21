@@ -168,11 +168,13 @@
   const niceStep = (span, n) => { const raw = span / n, e = Math.floor(Math.log10(raw)), b = raw / 10 ** e; return (b < 1.5 ? 1 : b < 3.5 ? 2 : b < 7.5 ? 5 : 10) * 10 ** e; };
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
-  // (the tolerance is relative to the scaled step, which must reach at least 1: an absolute one read a step below 1e-9 as a whole number;
-  // DEC_MAX decimals, the digits a double keeps for a tick of magnitude one or more; a step that no count of them represents keeps 6)
-  const DEC_MAX = 12;
+  // (the tolerance is relative to the scaled step, which must reach at least 1: an absolute one read a step below 1e-9 as a whole number.
+  // It is 1e-14 of it, a few ulps of a double's error and below 10^-DEC_MAX, so that a step no count of decimals represents (1/3, pi)
+  // is not taken for one; DEC_MAX decimals are the digits a double keeps for a tick of magnitude one or more; such a step keeps 6)
+  const DEC_MAX = 12, DEC_TOL = 1e-14;
   XD.decimals = (step) => {
-    for (let d = 0; d <= DEC_MAX; d++) { const v = Math.abs(step) * 10 ** d, r = Math.round(v); if (r >= 1 && Math.abs(v - r) <= 1e-9 * r) return d; }
+    if (step === 0) return 0;
+    for (let d = 0; d <= DEC_MAX; d++) { const v = Math.abs(step) * 10 ** d, r = Math.round(v); if (r >= 1 && Math.abs(v - r) <= DEC_TOL * r) return d; }
     return 6;
   };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
