@@ -60,6 +60,7 @@ const VIEWS = {
   'steps_fill_points_cmd.js': steps(),
   'steps_link_wait_cmd.js': steps(),
   'steps_link_migrate_cmd.js': steps({ pin: true }),
+  'steps_link_roundtrip_cmd.js': steps({ pin: true }),
   'steps_classic_fixture_cmd.js': steps({ pin: true }),
   'steps_seams_cmd.js': steps(),
   'gl_uniform_units_cmd.js': steps(),
