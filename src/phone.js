@@ -482,7 +482,8 @@ const Phone = (() => {
       });
       return t;
     };
-    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
+    // (a tool hidden where it does not apply, the Pick tool's tool-na, has no tile)
+    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]:not(.tool-na)')].map(tile);
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     // the long press, taught where people look (never on the plane)
