@@ -544,6 +544,35 @@
     return cz ? named.map((n) => (n === 'fillPts' || /m$/.test(n) ? n : n + 'Z')) : named;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
+  // the programs a frame of map draws its carried colour with at full quality (carryPrep's for a glide's meshes, under
+  // the sheet key): with the map cache (rtOK), its places' program (tfRegion), the cached program and, for a chain with
+  // a cut, the fill's (carryNames); without it, the plain program or, with a cut, the sheet program and its mask. On the
+  // globe (globe: {id}, plane s the colour plane), drawCarriedGlobe's
+  function carryProgs(map, globe) {
+    if (globe) return [globe.id ? 'carryGId' : 'carryG'];
+    const m = map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
+    const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
+    if (rtOK && !isIdent(m)) return carryNames(false).concat(['tfRegion']);
+    return !cuts ? [noCutProg('regionK', false)] : clip ? ['regionKSclip'] : ['regionKS', 'regionKSm'];
+  }
+  // the state of the carried colour a frame of map would draw, nothing drawn: 'ready' when every program it draws with
+  // (carryProgs) is linked for this chain and map mode, not an earlier version's or the start's that program() stands
+  // in with; 'error' when one cannot link; else 'pending'. Asking starts the programs not yet started, as a draw does,
+  // and a frame that waits on them is drawn again when they land (as program() has it); a renderer that links at once
+  // has them linked here
+  function carryState(map, globe) {
+    if (!ok || lost || !cur.info) return 'error';
+    let state = 'ready';
+    for (const name of carryProgs(map, globe)) {
+      if (!DEFS[name] || getProg(name, cur, true, map)) continue;
+      const e = progs.get(progId(name, cur, map));
+      if (e && e.state === 'error') return 'error';
+      framePending = true;
+      standIn(e && e.id);
+      state = 'pending';
+    }
+    return state;
+  }
   // whether a carried program of the Cauchy style (CARRY_CAUCHY: the meshes' and the pre-mapped mesh's, both map modes, started
   // as the style is chosen) is still linking for the current chain: a glide waits on its first plane for them (svLinkHold),
   // as for its inverse program, since no other program draws the Cauchy integral past z
