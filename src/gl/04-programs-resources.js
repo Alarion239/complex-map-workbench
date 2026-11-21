@@ -388,6 +388,11 @@ float wabs(vec2 w) {
   // last deformation mode asked for here)
   let aheadMode = 1;
   const EDGE_PROGS = ['landEdgeS', 'landEdgeH', 'landEdge2'];
+  // The steps view (setStepsView): it draws the Landscape's heights, surface and floor (LAND_MODE0) in map mode 0 only, at
+  // rest and under a glide's carry (whose own programs are landCarry*), so they are planned in no other map mode
+  const LAND_MODE0 = ['landTF', 'land', 'floor'];
+  let stepsView = false;
+  function setStepsView(on) { stepsView = !!on; }
   // (the programs prestartModes starts, started or not: each chain program the views draw for the current chain, in
   // each of these map modes; a view's no pane shows is none of them, e.offView)
   function modesPlan(modes) {
@@ -395,6 +400,7 @@ float wabs(vec2 w) {
     if (sideMode || !cur.info) return out;
     for (const e of [...progs.values()]) {
       if (!e.chain || e.inv || e.side || e.offView || e.key !== cur.key || e.mode !== 0 || EDGE_PROGS.includes(e.name)) continue;
+      if (stepsView && LAND_MODE0.includes(e.name)) continue;
       for (const m of modes) {
         const mm = modeOf({ mode: m });
         if (mm) out.push({ name: e.name, mode: mm, id: progId(e.name, cur, { mode: mm }) });
@@ -739,6 +745,7 @@ float wabs(vec2 w) {
   const u1f = (P, n, v) => gl.uniform1f(L_(P, n), v);
   const u1i = (P, n, v) => gl.uniform1i(L_(P, n), v);
   const u1iv = (P, n, v) => { const l = L_(P, n); if (l) gl.uniform1iv(l, v); };
+  const u1fv = (P, n, v) => { const l = L_(P, n); if (l) gl.uniform1fv(l, v); };
   const u2f = (P, n, a, b) => gl.uniform2f(L_(P, n), a, b);
   const u3 = (P, n, v) => gl.uniform3f(L_(P, n), v[0], v[1], v[2]);
   const u4f = (P, n, a, b, c, d) => gl.uniform4f(L_(P, n), a, b, c, d);

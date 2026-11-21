@@ -1,6 +1,7 @@
 // The shipped Russian and Italian tables (src/i18n_ru.js, src/i18n_it.js) are what their generators give now. The Russian generator
-// keeps a key only while some source holds its English, comments included (tools/make_ru_table.py held()), so editing a comment
-// can drop a key from the table that ships; this fails the pull request that does it, not the next regeneration.
+// keeps a key while some source holds its English (a string literal of the code, or the page's own text: tools/make_ru_table.py
+// held(); a comment holds nothing), so a pull request that changes a string or a table must regenerate it, and this fails the
+// one that does not.
 //   node test/t_i18n_tables.js
 const { spawnSync } = require('child_process');
 const path = require('path');
