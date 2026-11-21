@@ -130,6 +130,21 @@
     const comp = q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
     return `(${comp})(${x})`;
   }
+  // a plane's accessible name is its head's own words: its title and its role in plain text ("w₁ · phase of f₂"), so it follows the
+  // plane shown as the head does
+  function titleName(html) {
+    const d = h('div', { html });
+    // (the subscript's digits and the deformation's t as Unicode subscripts: Hₜ, as the page writes it elsewhere)
+    for (const s of d.querySelectorAll('sub')) s.textContent = sub(s.textContent).replace(/t/g, '\u209C');
+    const words = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+    return [words(d.querySelector('.ptitle')), words(d.querySelector('.rf') || d.querySelector('.prole'))].filter(Boolean).join(', ');
+  }
+  function nameCanvases(t) {
+    for (const [id, html] of [['overlayL', t.left], ['overlayR', t.right]]) {
+      const el = $(id), name = titleName(html);
+      if (el && name && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
+    }
+  }
   function updateFocusUI() {
     const t = paneTitles();
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
@@ -137,6 +152,7 @@
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
+    nameCanvases(t);
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
@@ -1164,13 +1180,16 @@
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
-  // (on a phone the folded key is a button: a name, a place in the focus order, aria-expanded that follows its fold; Enter
-  // and Space press it (setupPaneButtons). Off the phone (a key in a pane's head, hovered open) it is no button: a key
-  // that leaves the phone takes role img and leaves the focus order)
+  // (a key is a button on a phone and in a pane's head: a name, a place in the focus order, aria-expanded (the fold's on a
+  // phone, the panel's in a head, which Enter, Space and Escape open and shut: setupPaneButtons). A key lying open on the plane
+  // off the phone takes role img and leaves the focus order)
   function legendKeyButton(box, name) {
-    const par = box.parentNode, btn = document.documentElement.classList.contains('ph') && !!par && !(/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    const par = box.parentNode, head = !!par && (/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    const btn = !!par && (head || document.documentElement.classList.contains('ph'));
     if (btn) {
-      const open = box.classList.contains('collapsed') ? 'false' : 'true';
+      // (a head's key shows its panel while kept open, or focused and not shut: pointing at it shows it too, which a button's state does not follow)
+      const shown = head ? box.classList.contains('open') || (!box.classList.contains('shut') && box.matches(':focus-visible')) : !box.classList.contains('collapsed');
+      const open = shown ? 'true' : 'false';
       if (box.getAttribute('role') !== 'button') box.setAttribute('role', 'button');
       if (box.tabIndex !== 0) box.tabIndex = 0;
       if (box.getAttribute('aria-expanded') !== open) box.setAttribute('aria-expanded', open);
