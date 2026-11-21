@@ -164,6 +164,7 @@ const VIEWS = {
   'steps_paths_caption_cmd.js': steps({ pin: true }),
   'steps_glide_inverse_cmd.js': steps(),
   'steps_glide_exterior_cmd.js': steps(),
+  'steps_dh_stop_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),

@@ -1354,7 +1354,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // k + DH_STOP_STEPS <= N, so the escape test of N steps (the blank band) is the same. Squared, with no square
         // root taken
         const DH_STOP_STEPS = 6;
-        const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
+        let DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
+        // TEST-HOOK (dropped from the published page by build.py)
+        // (tests: ?dhnostop runs every orbit to |w| > 10⁴, the stop off: steps_dh_stop_cmd's frames against the stop's)
+        try { if (new URLSearchParams(location.search).has('dhnostop')) DH_STOP = 'false'; } catch (err) { /* no page: node */ }
+        // TEST-HOOK
         // H and H' in one walk (the dual derivative): forward dw_{k+1} = 2 w_k dw_k + dc (dc = dc/dz: 1 for Φ_M, where
         // c = z, 0 for φ_c), dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j
         // divides dp by 2 p_{j+1}: the product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The
