@@ -369,6 +369,7 @@ const VIEWS = {
   'land_release_cmd.js': steps({ pin: true }),
   'link_standin_cmd.js': steps({ pin: true }),
   'globe_standin_cmd.js': steps({ pin: true }),
+  'land_standin_cmd.js': steps({ pin: true }),
   'svready_cmd.js': steps({ pin: true }),
   'svplay_gate_cmd.js': steps({ pin: true }),
   'chain_discard_cmd.js': steps({ pin: true }),

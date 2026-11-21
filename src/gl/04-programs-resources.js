@@ -225,7 +225,9 @@
     landCarryNrm: { chain: false, vs: () => LAND_CARRY_NRM_VS, fs: () => TF_FS, tf: true },
     landCarry: { chain: true, vs: () => LAND_CARRY_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + LAND_FS(false, false, true, true) },
     landR: { chain: false, vs: () => LAND_R_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
-    landB: { chain: false, vs: () => LAND_B_VS, fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
+    landB: { chain: false, vs: () => LAND_B_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
+    // (its all-triangles draw: the stand-in surface while landTF and land link)
+    landS: { chain: false, vs: () => LAND_B_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
     ulevel: { chain: false, vs: () => ULEVEL_VS, fs: () => ULEVEL_FS },
     probe: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(false), fs: () => MARK_FS },
@@ -551,10 +553,10 @@ float wabs(vec2 w) {
   // start-up instead of each other. And the colour plot's stand-in (colorStandIn), which a first chain's coloured plane
   // draws while that chain's own programs link: started first, it is linked well before them
   const PRESTART_2D = ['grid', 'regionC', 'region0', 'lineC', 'line0', 'mark', 'colorStandIn'];
-  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static one and its chain
+  // the lists of the app's background warm-up (the globes' static programs, the Landscape's static ones and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
-  const LAND_STATIC = ['landNrm'];
+  const LAND_STATIC = ['landNrm', 'landS'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
   // they have started: the lists above and the current chain's, so the total is known before the work is
