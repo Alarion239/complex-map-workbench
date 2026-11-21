@@ -259,8 +259,17 @@ await rest(0);
     await ev('__cmwSteps({ clock: 1e-6 }), __cmwSteps({ go: 1 }), 1');
     // (the plan's decision first: the glide waits while its frames are made, or it plays live, said at once with the chain's cost)
     await need(await settled({ only: true, max: WAIT_MS, until: '(() => { const s = __cmwSteps(), a = s.ahead; return (!!a && (a.n >= 2 || a.state === "live")) || (!a && !!s.anim); })()' }), 'two frames made, or the glide played live');
-    const plan = (await S()).ahead;
-    if (!ok('hold: the glide waits while its frames are made (not played live for their time or memory)', !!plan && !(plan.state === 'live' && (plan.why === 'time' || plan.why === 'memory')), { ahead: plan, cost: probe.cost })) throw new Error('the glide played live');
+    const plan = (await S()).ahead, drawn = !!plan && !(plan.state === 'live' && (plan.why === 'time' || plan.why === 'memory'));
+    // (a glide the plan plays live keeps no frames record: it is let end, at PRIME_CLOCK_MS of glide time a frame, and the
+    // reason it says at its end, the time or the memory, is named)
+    let why = plan ? plan.why : null;
+    if (!plan) {
+      await ev(`__cmwSteps({ clock: ${PRIME_CLOCK_MS} }), 1`);
+      await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving' });
+      const live = (await S()).live || '';
+      why = live.includes(TIME) ? 'time' : live.includes(MEMORY) ? 'memory' : `none said (${live})`;
+    }
+    if (!ok('hold: the glide waits while its frames are made (not played live for their time or memory)', drawn, { ahead: plan, why, cost: probe.cost })) throw Object.assign(new Error('the glide played live'), { said: true });
     await ev('__cmwSteps({ poleFrameMs: 0.001, dropTracks: true }), 1');
     await need(await settled({ only: true, max: WAIT_MS, until: '(() => { const a = __cmwSteps().ahead; return !a || a.rejects > 0 || a.state !== "fill"; })()' }), 'the hold met, or the frames made');
     const R = (await S()).ahead;
@@ -283,7 +292,8 @@ await rest(0);
     await ev(`__cmwSteps({ clock: ${PRIME_CLOCK_MS}, poleFrameMs: null }), 1`);
     await need(await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving' }), 'the glide ends');
   } catch (e) {
-    fails.push({ name: 'hold: the section ended at a wait that did not come', got: String(e && e.message || e) });
+    // (a row that failed and ended the section has said why; any other end is a wait that did not come)
+    if (!(e && e.said)) fails.push({ name: 'hold: the section ended at a wait that did not come', got: String(e && e.message || e) });
   } finally {
     if (held) await releaseIdle();
   }
