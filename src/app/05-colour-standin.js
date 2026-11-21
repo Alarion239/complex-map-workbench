@@ -4,7 +4,9 @@
   // the plot's map) and coloured on the GPU as the plot is (GLR.drawColorPlot's st.standIn). The grid's nodes lie on the
   // pane's CSS pixels, every STANDIN_CELLS px, a level at a time: each level is drawn once it is complete, and the next,
   // twice as fine, takes the nodes it shares with it. The phase globe's program (sphereP) has the same stand-in over
-  // a longitude-latitude grid (globeStandIn, GLOBE_STANDIN_NODES: drawSphere's st.standIn), in the same job. A stand-in starts once the plot's program has had nothing to draw
+  // a longitude-latitude grid (globeStandIn, GLOBE_STANDIN_NODES: drawSphere's st.standIn), and the Landscape's
+  // (landTF and land) over a grid of the block's box (landStandIn, LAND_STANDIN_NODES: drawLandscape's st.standIn), in the
+  // same job. A stand-in starts once the plot's program has had nothing to draw
   // for SM_LINKING_MS, so a quick link never computes one, and it runs in idle slices, none while anything moves: each
   // ends before an evaluation as long as the last would pass STANDIN_SLICE ms (the clock read after each), short of the
   // idle drivers' 6 ms by the collector's pause that the evaluations' garbage can bring into a slice. It spends at most
@@ -15,9 +17,11 @@
   const STANDIN_CELLS = [64, 32, 16, 8, 4];
   // the phase globe's levels: the nodes across (longitude, the seam's node twice) and up (latitude, pole to pole)
   const GLOBE_STANDIN_NODES = [[33, 17], [65, 33], [129, 65], [257, 129]];
+  // the Landscape's levels: the nodes across and up the block's box
+  const LAND_STANDIN_NODES = [[33, 33], [65, 65], [129, 129], [257, 257]];
   const STANDIN_SLICE = 3, STANDIN_BUDGET = 250;
-  // the stand-in of the plot's map in its view: {key, vkey, name (the plot's program), map, F, globe (the globe's: no view
-  // in it), x0, y0, s, w, h, next (the level being evaluated), grid (the finest level done, drawn), prev (the same map's
+  // the stand-in of the plot's map in its view: {key, vkey, name (the plot's program; names: the programs the job waits on,
+  // else [name]), map, F, globe (the globe's: no view in it), land (the Landscape's: the box), x0, y0, s, w, h, next (the level being evaluated), grid (the finest level done, drawn), prev (the same map's
   // grid in an earlier view, drawn until this one has a level), ms, n (evaluations), slices, firstSlice and maxSlice (ms:
   // the first slice, the longest after it), need (the work as last costed, ms: standInNeed), end (why it stopped:
   // 'done', 'budget', 'error', 'linked'), dead, check and slice (standInRun's)}; null when there is none
@@ -40,6 +44,13 @@
     if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
     return standInOf({ vkey: 'globe', name: 'sphereP', map, globe: true });
   }
+  // the stand-in GLR.drawLandscape gets with the left pane's Landscape of map over box (landscapeView), drawn by landTF and
+  // land: F's values over the box, from which the relief and its colour are drawn while they link
+  function landStandIn(pane, map, box) {
+    const names = ['landTF', 'land'], waited = pane === paneL && !offRender && !artMode && !sideDraw && (map.mode || 0) === 0 ? GLR.bareMs(map, names) : 0;
+    if (!(waited > SM_LINKING_MS)) { standInStop(); return null; }
+    return standInOf({ vkey: `land|${box.x0},${box.x1},${box.y0},${box.y1}`, name: 'land', names, map, land: box });
+  }
   // the job's grid for what a stand-in is of (key: the map, vkey: its view; the fields colourStandIn and globeStandIn
   // give), started when there is none for it: -> the finest level done, else the same map's from an earlier view
   function standInOf(o) {
@@ -49,7 +60,7 @@
       const prev = j && j.key === key && j.name === o.name ? j.grid || j.prev : null;
       standInStop();
       j = standInJob = Object.assign({ key, F: cpuMap(o.map), next: null, grid: null, prev, ms: 0, n: 0, slices: 0, firstSlice: 0, maxSlice: 0, end: null, dead: false,
-        check: () => (mapKeyOf(o.map) !== key ? 'dead' : !(GLR.bareMs(o.map, [o.name]) > 0) ? 'linked' : null), slice: (t0) => standInSlice(j, t0) }, o);
+        check: () => (mapKeyOf(o.map) !== key ? 'dead' : !(GLR.bareMs(o.map, o.names || [o.name]) > 0) ? 'linked' : null), slice: (t0) => standInSlice(j, t0) }, o);
       standInLevel(j, 0);
       standInRun(j);
     }
@@ -71,19 +82,22 @@
   // level li of job j, to evaluate: its nodes over the pane (one past each edge), with those it shares with the level
   // before, every other node across and up, taken from it
   function standInLevel(j, li) {
-    const cell = j.globe ? 0 : STANDIN_CELLS[li], [nx, ny] = j.globe ? GLOBE_STANDIN_NODES[li] : [Math.ceil(j.w / cell) + 1, Math.ceil(j.h / cell) + 1];
+    const cell = j.globe || j.land ? 0 : STANDIN_CELLS[li], [nx, ny] = standInNodes(j)[li] || [Math.ceil(j.w / cell) + 1, Math.ceil(j.h / cell) + 1];
     const w = new Float32Array(2 * nx * ny), g = j.grid;
     if (g) {
       for (let b = 0; b < g.ny && 2 * b < ny; b++) {
         for (let a = 0; a < g.nx && 2 * a < nx; a++) { const p = 4 * (b * nx + a), q = 2 * (b * g.nx + a); w[p] = g.w[q]; w[p + 1] = g.w[q + 1]; }
       }
     }
-    j.next = j.globe ? { nx, ny, w, li, cell, k: 0 } : { x0: j.x0, y0: j.y0, h: cell / j.s, nx, ny, w, li, cell, k: 0 };
+    j.next = j.globe || j.land ? { nx, ny, w, li, cell, k: 0 } : { x0: j.x0, y0: j.y0, h: cell / j.s, nx, ny, w, li, cell, k: 0 };
   }
-  // the point of the plane that grid node (a, b) of level L is: on the pane, its pixel; on the globe, the point of
-  // longitude -pi + 2 pi a / (nx - 1) and latitude -pi / 2 + pi b / (ny - 1), projected from the north pole as the globe's
-  // shader does (a node at the pole is far out on the plane)
+  // job j's levels' nodes ([across, up] each; none for the plane's, whose levels are cells of STANDIN_CELLS)
+  const standInNodes = (j) => (j.globe ? GLOBE_STANDIN_NODES : j.land ? LAND_STANDIN_NODES : STANDIN_CELLS.map(() => null));
+  // the point of the plane that grid node (a, b) of level L is: on the pane, its pixel; on the Landscape, the box's point a / (nx - 1)
+  // across and b / (ny - 1) up; on the globe, the point of longitude -pi + 2 pi a / (nx - 1) and latitude
+  // -pi / 2 + pi b / (ny - 1), projected from the north pole as the globe's shader does (a node at the pole is far out on the plane)
   function standInPoint(j, L, a, b) {
+    if (j.land) return C(j.land.x0 + (j.land.x1 - j.land.x0) * a / (L.nx - 1), j.land.y0 + (j.land.y1 - j.land.y0) * b / (L.ny - 1));
     if (!j.globe) return C(L.x0 + a * L.h, L.y0 + b * L.h);
     if (b === 0) return C(0, 0);
     if (b === L.ny - 1) return C(1e12, 0);
@@ -142,7 +156,7 @@
       }
       j.grid = L; j.prev = null;
       requestRender('L');
-      if (L.li === (j.globe ? GLOBE_STANDIN_NODES : STANDIN_CELLS).length - 1) return 'done';
+      if (L.li === standInNodes(j).length - 1) return 'done';
       const spent = j.ms + performance.now() - t0;
       standInLevel(j, L.li + 1);
       if (j.slices && standInNeed(j, spent, standInLeft(j.next, 0)) > STANDIN_BUDGET) return 'budget';
