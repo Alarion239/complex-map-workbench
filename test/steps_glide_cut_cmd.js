@@ -5,7 +5,7 @@
 // ruler's one pixel of rasterization), and at most SAME_FRAC of the band's pixels may fail. The handle's disc is checked apart, in a box around the
 // parked handle, the same way, and the glide leaves it no hit target (an inert handle). Controls (each must fail the same measure): the glide frame against the plane it arrives at, and the parked plane
 // against itself shifted SHIFT_PX px. The dashed bank's dashes keep the parked plane's phase at the arrival and through the glide (read off the line's red
-// along the bank's polyline). A glide frame's handle is never drawn hot, and labels keep clear of its chip. The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws no handle.
+// along the bank's polyline). A glide frame's handle is never drawn hot, and labels keep clear of its chip. The glide frames are under way, the thread held by a scrub on the rail; a frame parked between two planes draws its handle as one that takes presses (test/steps_paused_cut_cmd.js turns the cut by it).
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js names.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -40,7 +40,7 @@ const frameAt = async (state) => {
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: false }); ${state}; 1`);
   await settled({ max: 20000 });
 };
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}` });
+await go(`http://localhost:${PORT}/test.html?view=steps&ns=glidecut${Date.now()}`);
 await settled({ max: 30000, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function"' });
 // a glide frame at u, under way: the thread held there by a scrub on the rail not let go, as a user holds it (held_frames.js), then put at u exactly
 const heldAt = async (u) => {
@@ -67,10 +67,10 @@ if (mid.every((m) => !!m)) {
   info.midJump = { jump, walk };
   ok(`the handle is continuous across the middle: its move from u = ${MID_U - STEP_U / 2} to ${MID_U + STEP_U / 2} is at most ${JUMP_RATIO} times the move between neighbouring steps (at least ${JUMP_FLOOR_PX} px)`, jump <= Math.max(JUMP_FLOOR_PX, JUMP_RATIO * walk), { jump, walk });
 }
-// A frame parked between two planes draws no handle: there one would look draggable and take no press. The pictures (the pane with its overlay) of the
-// glide frame held at MID_U and of the frame parked there are read in the held frame's chip box: from DISC_R + CHIP_GAP px right of its handle to CHIP_W,
-// BAND_PX rows each side, clear of the cut's line through the handle. A pixel there in the cut's red counts (the chip's border and its "θ" label; the
-// control: the held frame's count is over MIN_INK)
+// A frame parked between two planes draws the handle as one that takes presses (a hit target, __cmwCutHandles), not as the glide's inert mark, at the
+// place the glide frame held there draws its mark. The pictures (the pane with its overlay) of the glide frame held at MID_U and of the frame parked there
+// are read in the held frame's chip box: from DISC_R + CHIP_GAP px right of its handle to CHIP_W, BAND_PX rows each side, clear of the cut's line through
+// the handle. A pixel there in the cut's red counts (the chip's border and its "θ" label; the control: the held frame's count is over MIN_INK)
 const MIN_INK = 50, CHIP_GAP = 4;
 const inkAt = (tag, m) => ev(`(() => {
   // (m: the mark's place on the page, as __cmwCutMarks gives it)
@@ -90,7 +90,7 @@ const paused = { moving: await ev('__cmwSteps().moving'), label: await ev('__cmw
 if (heldMark) Object.assign(paused, { heldInk: await inkAt('heldMid', heldMark), ink: await inkAt('pausedMid', heldMark) });
 info.paused = paused;
 ok(`the control: the glide frame held at u = ${MID_U} draws its handle's chip, over ${MIN_INK} pixels of the cut's red in its box`, !!heldMark && paused.heldInk > MIN_INK, paused);
-ok(`a frame parked at u = ${MID_U}, between two planes, draws no cut handle: no mark, no hit target and none of the chip's red in the held frame's chip box`, paused.marks === 0 && paused.handles === 0 && paused.ink === 0, paused);
+ok(`a frame parked at u = ${MID_U}, between two planes, draws its cut handle as one that takes presses: one hit target, no inert mark, and the chip's red in the held frame's chip box (over ${MIN_INK} pixels)`, paused.marks === 0 && paused.handles === 1 && paused.ink > MIN_INK, paused);
 // A glide frame's handle is never drawn hot: the hover a parked plane's handle had (the pointer left on it, the pane's pointer not moved since) does
 // not carry over to the inert mark. Two pictures are compared within RING_R px of a handle, the pixels more than TOL levels apart counted: the parked
 // plane 0 with the pointer on its handle against with the pointer away (the control: a hot handle is drawn bigger, HOT_MIN px differ at least), then
