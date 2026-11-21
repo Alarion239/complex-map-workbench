@@ -3020,6 +3020,7 @@
  "From value": "Dal valore",
  "To value": "Al valore",
  "Frames": "Fotogrammi",
+ "landscape, carried from {p}": "paesaggio, trasportato da {p}",
  "Preparing the page": "Preparazione della pagina",
  "Preparing {done} of {total} shaders, first time only": "Shader preparati: {done} di {total} (solo la prima volta)",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",
@@ -3451,5 +3452,38 @@
  "{x} move a probe": "{x} muovono una sonda",
  "Stop on a plane to colour from it": "Fermati su un piano per prendere il colore da lì",
  "{name}: +{n} off view": "{name}: altri {n} fuori vista",
- "Pieces of {name} pulled back off the view: {n} of {all}": "Parti della controimmagine di {name} fuori vista: {n} su {all}"
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Parti della controimmagine di {name} fuori vista: {n} su {all}",
+ "Pick": "Scegli punti",
+ "Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.": "Premi un punto per illuminarne i gemelli, i punti con la stessa immagine; trascina per disegnare un disco sul piano bersaglio; trascina una zona illuminata per spostarla. Due dita o il tasto destro spostano la vista. Con il piano attivo, Invio illumina i gemelli del punto selezionato, un secondo Invio aggiunge il disco.",
+ "{n} preimage on {plane}\u0004{n} preimages on {plane}": {
+  "one": "{n} controimmagine sul piano {plane}",
+  "other": "{n} controimmagini sul piano {plane}"
+ },
+ "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre",
+ "phone tile\u0004Pick": "Punti",
+ "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",
+ "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "{n} controimmagine",
+  "other": "{n} controimmagini"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "{n} pezzo",
+  "other": "{n} pezzi"
+ },
+ "one covers the disc twice": "uno copre il disco due volte",
+ "one covers the disc {k} times": "uno copre il disco {k} volte",
+ "{n} cover the disc more than once": "{n} coprono il disco più di una volta",
+ "{n} hole\u0004{n} holes": {
+  "one": "{n} buco",
+  "other": "{n} buchi"
+ },
+ "Preimage on {w}": "Controimmagine su {w}",
+ "Pieces join at r = {list}": "I pezzi si uniscono a r = {list}",
+ "No pieces join as r grows": "Al crescere di r nessun pezzo si unisce",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "{n} pezzo fuori vista",
+  "other": "{n} pezzi fuori vista"
+ },
+ "Radius r, against the join radii": "Raggio r, sulla scala dei raggi di unione"
 }

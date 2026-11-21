@@ -449,6 +449,7 @@
     // drag runs the continuation alone, cutPull)
     const hnd = cutHandleNear(x, y, ptrTouch);
     if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
+    if (pickDown(pane, z, x, y)) return;
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
@@ -1101,6 +1102,7 @@
         return;
       }
       if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
+      if (drag.mode === 'pickMove' || drag.mode === 'pickOut') { pickMove(drag, pane, x, y); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1525,6 +1527,7 @@
     if (d.mode === 'cut') { commit(); return; }
     if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'pre') { if (d.moved) { if (d.bn) Params.rest(d.bn); shapesChanged(true); commit(); } return; }
+    if (d.mode === 'pickMove' || d.mode === 'pickOut') { pickUp(d); return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;
@@ -1592,6 +1595,7 @@
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
+      if (e.key === 'Enter' && !mod && !e.altKey && t.id === 'overlayL' && pickKey()) { e.preventDefault(); return; }
       // ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
       if (mod && !e.altKey && selected && (key === 'd' || kk === ']' || kk === '[')) {
         const s = findShape(selected);
