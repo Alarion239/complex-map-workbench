@@ -17,7 +17,8 @@
 // - the Mountain King after a glide there and back, each pressed with the Play gate on (the page's default: a press
 //   waits until the chain is prepared): two scrubs of the rail, plane 0 to the last and back, each after a
 //   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
-//   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
+//   as such), the carried entries' keep time long for the block (on a slow machine the rests outlast 30 s); the
+//   carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
 //   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs; a scratch
 //   texture freed and made again is named as such, its free's stack beside the allocation's; each texture made names
 //   its mesh, that mesh's scratch entry before the draw and at its last draw before, and whether the idle job reserved
@@ -200,11 +201,18 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await ev(`__cmwExample(${ex}); 1`);
   await adopted();
   await settled({ max: 30000 });
-  // (each carried draw on this page, by the mesh it is for (GLR.carryPrep), from before the glides: once the watch below
-  // begins, each one that creates a texture is kept, with that mesh's scratch entry in its slot before the draw and at
-  // its last draw before ([W, H], or null: none), whether it was drawn before, whether the idle job reserved it
-  // (GLR.carryReserve) and when. tmpEntry makes a texture for a mesh with no entry (a mesh not drawn before, or whose
-  // entry was freed) or remakes one whose size no longer fits it; meshes numbered in the order first seen)
+  // (each carried draw on this page, by the mesh it is for (GLR.carryPrep), from before the glides: once the watch
+  // below begins, each one that creates a texture is kept, with that mesh's scratch entry in its slot before the draw
+  // and at its last draw before ([W, H], or null: none), whether it was drawn before, whether the idle job reserved it
+  // (GLR.carryReserve), when, and idle: how long since the last carried draw or reservation (past the keep time, the
+  // sweep has freed every carried entry). tmpEntry makes a texture for a mesh with no entry (a mesh not drawn before,
+  // or whose entry was freed) or remakes one whose size no longer fits it; meshes numbered in the order first seen)
+  // (the carried scratch entries' keep time, CARRY_TMP_MS, long for this block: the idle job reserves the entries
+  // (GLR.carryReserve) of glides no frame has drawn yet, and the sweep frees every carried entry once none has been
+  // drawn or reserved for the keep time; on a slow machine the idle job's tail, the rests and the Play gate's wait
+  // before a scrub's first carried frame outlast 30 s, and the scrub would make them again, the keep time's doing,
+  // not a frame's. The rows of the keep time itself shorten it on their own below; set back at the block's end)
+  const keepDefault = await ev('GLR.carryKeepMs(600000)');
   await ev(`(() => {
     const C = window.__svCarryMade = [], P = WebGL2RenderingContext.prototype, mk = P.createTexture;
     let made = 0;
@@ -213,14 +221,16 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
     let meshes = 0;
     const id = (r) => { if (!ids.has(r)) ids.set(r, ++meshes); return ids.get(r); };
     const wh = (e) => (e ? [e.W, e.H] : null);
+    let lastT = performance.now();
     const rsv = GLR.carryReserve;
-    GLR.carryReserve = function (res) { if (res) reserved.add(res); return rsv.apply(this, arguments); };
+    GLR.carryReserve = function (res) { if (res) reserved.add(res); lastT = performance.now(); return rsv.apply(this, arguments); };
     const prep = GLR.carryPrep;
     GLR.carryPrep = function (res, st) {
       const slot = 'm' + ((st && st.L) || 4), e = res && res.tmp && res.tmp.get(slot), n0 = made;
       const r = prep.apply(this, arguments);
-      if (made > n0 && window.__svCarryT0 != null) C.push({ t: Math.round(performance.now() - window.__svCarryT0), mesh: res ? id(res) : null, n: res && res.n, entry: wh(e), drawnBefore: !!res && last.has(res), entryBefore: res && last.has(res) ? last.get(res) : null, reserved: !!res && reserved.has(res) });
+      if (made > n0 && window.__svCarryT0 != null) C.push({ t: Math.round(performance.now() - window.__svCarryT0), idle: Math.round(performance.now() - lastT), mesh: res ? id(res) : null, n: res && res.n, entry: wh(e), drawnBefore: !!res && last.has(res), entryBefore: res && last.has(res) ? last.get(res) : null, reserved: !!res && reserved.has(res) });
       if (res) { id(res); last.set(res, wh(res.tmp && res.tmp.get(slot))); }
+      lastT = performance.now();
       return r;
     };
     return 1;
@@ -351,6 +361,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   })()`);
   info['the kept scratch entries'] = { king: kept, after };
   ok('a step bypassed: the carried colour\'s kept scratch entries are freed', kept && kept.n > 0 && after && after.changed && after.held.n === 0, info['the kept scratch entries']);
+  await ev(`GLR.carryKeepMs(${keepDefault}), 1`);
 }
 // ---- a long-lived page: the far glide's ring meshes once the polar meshes kept are SV_POLAR_KEEP ----
 {
