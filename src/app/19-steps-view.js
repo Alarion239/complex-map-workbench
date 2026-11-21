@@ -1177,16 +1177,22 @@
   };
   // The shapes list (svCarryShapes) of the carried colour and their inverse paths: each pixel is coloured by the front point
   // z of plane 0 that lands on it, in the colour dcolor(F_T(z)). At rest on plane b (u null) through the map into b (pathOf,
-  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath),
-  // or, span {a, stepT} given (an All-at-once glide from plane a to b, map mode 3), through each of its steps' homotopies
-  // at its own time (invSpanPath). {list, paths}, or null with why.r the first reason unless every shape takes that path;
-  // with why.rest an array (at rest, shapes listed one by one), the shapes that do not are put in it and left out of the
+  // kind 'flat' or 'globe'; past a d/dz step, invDerivPath); between planes through step b's homotopy at u (invHomPath,
+  // past a d/dz over the chain that stands in for it), or, span {a, stepT} given (an All-at-once glide from plane a to
+  // b, map mode 3), through each of its steps' homotopies at its own time (invSpanPath; a span past a d/dz step keeps
+  // the carried mesh). {list, paths}, or null with why.r the first reason unless every shape takes that path; with
+  // why.rest an array (at rest, shapes listed one by one), the shapes that do not are put in it and left out of the
   // lists
   function svInvPaths(b, u, kind, why, span) {
     const hom = u != null, list = svCarryShapes(hom);
     if (!list || !list.length) { why.r = list ? SV_NO_AREA : hom ? 'a region of a plane behind a d/dz step' : 'a region of a later plane'; return null; }
     if (!GLR.drawInverse || !GLR.packShapes) { why.r = 'no inverse renderer'; return null; }
-    if (derivIn(0, b) && hom) { why.r = 'a d/dz step'; return null; }
+    // (a glide past a d/dz is planned over the chain that stands in for it, the steps before the d/dz off (invHomBase), so
+    // a region of plane k > 0, tested where F_{0->k}(z) lies in it, would be tested against z: such a frame keeps the
+    // carried mesh)
+    if (hom && derivIn(0, b - 1) && list.some((x) => x !== SV_ALL && shapeStage(x))) { why.r = 'a region of a plane before a d/dz step'; return null; }
+    // (invSpanPath plans the span on the chain itself, not on the one that stands in past a d/dz (invHomBase))
+    if (span && derivIn(0, b)) { why.r = 'an All-at-once glide past a d/dz step'; return null; }
     const recs = packRecs(list.includes(SV_ALL) ? [SV_ALL] : [], hom);
     // (an All-at-once glide keys its sheets by its last plane, as its carried meshes do: svCarryRegions)
     const singAt = span ? () => svSheetKey(b).sing : () => svSheetKeyAt(b, u).sing;
@@ -3698,7 +3704,7 @@
     if (svInvWarmOff || (!globe && SV.surf !== 'plane') || !paneL || !GLR.inverseState || nSteps() < 1) return;
     const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
-      if (b && !isDeriv(b) && !derivIn(0, b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
+      if (b && !isDeriv(b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });
     }
     svInvWarmKey = key;
     svInvJobs = jobs.slice(0, SV_INV_WARM_MAX);
