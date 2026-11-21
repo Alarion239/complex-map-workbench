@@ -3483,5 +3483,10 @@
   "one": "{n} pezzo fuori vista",
   "other": "{n} pezzi fuori vista"
  },
- "Radius r, against the join radii": "Raggio r, sulla scala dei raggi di unione"
+ "Radius r, against the join radii": "Raggio r, sulla scala dei raggi di unione",
+ "target": "bersaglio",
+ "to the target": "verso il bersaglio",
+ "critical value": "valore critico",
+ "join radius": "raggio di unione",
+ "Look down": "Vista dall’alto"
 }

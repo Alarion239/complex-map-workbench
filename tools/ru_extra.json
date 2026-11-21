@@ -807,5 +807,10 @@
   "many": "%{n} частей за краем",
   "other": "%{n} части за краем"
  },
- "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния",
+ "target": "цель",
+ "to the target": "к цели",
+ "critical value": "критическое значение",
+ "join radius": "радиус слияния",
+ "Look down": "Взгляд сверху"
 }
