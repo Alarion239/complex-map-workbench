@@ -340,5 +340,20 @@ n++;
   await grab('?i18n-debug');
 }
 
+// a link copied before the save carries the steps view's place as it is on screen: the place is moved and the figure a
+// link carries (__cmwFigureState) read in the same task, before the save that follows a change (300 ms later); the page
+// opens from a link with no place of its own, so the figure's place can only come from the view on screen
+n++;
+{
+  const ns = 'lmigP' + n + Date.now();
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(LINK_STATE, true)}`);
+  await reloadedFigure(old, 'Opened the figure from the link.');
+  const got = await ev(`(() => { __cmwSteps({ go: 2, now: true, scope: 'in' }); const s = __cmwSteps(); return { fig: __cmwFigureState().sv || null, x: s.x, scope: s.scope }; })()`);
+  info['a link copied before the save: its place'] = got;
+  ok('a link copied before the save carries the place on screen (at, scope)', !!got.fig && got.fig.at === got.x && got.x === 2 && got.fig.scope === 'in' && got.scope === 'in', got);
+  await grab('link before the save');
+}
+
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);
 return { pass: fails.length === 0, fails, info, errs };
