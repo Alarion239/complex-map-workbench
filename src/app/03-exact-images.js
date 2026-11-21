@@ -1025,6 +1025,11 @@
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
     // that plane is stage + primes; F is the whole map from z)
-    if (figMode && primes > 0) { const k = st + primes; return `${S.focus === 0 && st === 0 && k === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(k)}`}(${base})`; }
+    if (figMode && primes > 0) {
+      // (F for a point of z on the last plane; the focused step's f_k for the image of a point of the plane before it; else the plane
+      // shown, w_k, whatever step is focused)
+      const k = st + primes, f = st === 0 && k === nSteps() ? 'F' : S.focus > 0 && primes === 1 && k === S.focus ? `f${sub(k)}` : `w${sub(k)}`;
+      return `${f}(${base})`;
+    }
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');
   }

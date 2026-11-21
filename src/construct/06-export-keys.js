@@ -1,16 +1,17 @@
   // ---------------------------------------------------------------- export phrases (SPEC 12)
   // a caption phrase for capT: {src, params}; values are text or {m: TeX} (the app sets the maths: z₂ = −1 − 1.5i)
   const SUBR = { '₀': 0, '₁': 1, '₂': 2, '₃': 3, '₄': 4, '₅': 5, '₆': 6, '₇': 7, '₈': 8, '₉': 9 };
-  // a point's name as TeX (z₂ -> z_{2}, ζ₁ -> \zeta_{1}, z₀″ -> z_{0}''), an image's too (F(z₀) -> F(z_{0}), w₂(z₁) ->
-  // w_{2}(z_{1}), Hₜ(z₀) -> H_{t}(z_{0})), or null for a name in words
+  // a point's name as TeX (z₂ -> z_{2}, ζ₁ -> \zeta_{1}, z₀″ -> z_{0}'', a plane's point w₁,₁ -> w_{1,\,1}), an image's too
+  // (F(z₀) -> F(z_{0}), w₂(z₁) -> w_{2}(z_{1}), Hₜ(z₀) -> H_{t}(z_{0})), or null for a name in words
   function nameTex(nm) {
     const img = /^([A-Za-z])([₀-₉ₜ]*)\((.+)\)$/u.exec(nm);
     if (img) { const inner = nameTex(img[3]); return inner ? `${img[1]}${img[2] ? `_{${[...img[2]].map((c) => (c === 'ₜ' ? 't' : SUBR[c])).join('')}}` : ''}(${inner})` : null; }
     if (/^[A-Za-z]$/.test(nm)) return nm;            // (a user's one-letter label)
-    const m = /^([a-zζ])([₀-₉]+)([′″‴]*)$/u.exec(nm);
+    const m = /^([a-zζ])([₀-₉]+)(?:,([₀-₉]+))?([′″‴]*)$/u.exec(nm);
     if (!m) return nm === '∞' ? '\\infty' : null;
-    const base = m[1] === 'ζ' ? '\\zeta' : m[1];
-    return `${base}_{${[...m[2]].map((c) => SUBR[c]).join('')}}${"'".repeat([...m[3]].reduce((n, c) => n + ('′″‴'.indexOf(c) + 1), 0))}`;
+    const base = m[1] === 'ζ' ? '\\zeta' : m[1], digits = (d) => [...d].map((c) => SUBR[c]).join('');
+    // (a plane's point, w₁,₁: a thin space after the comma, so its two numbers do not read as one, w₁₁)
+    return `${base}_{${digits(m[2])}${m[3] ? `,\\,${digits(m[3])}` : ''}}${"'".repeat([...m[4]].reduce((n, c) => n + ('′″‴'.indexOf(c) + 1), 0))}`;
   }
   // a caption names each point once with its value (a point shape's own phrase does: "the point
   // $z_0=-1.5$"), so a definition names point shapes by their label only (the figure labels them), a zero by name and

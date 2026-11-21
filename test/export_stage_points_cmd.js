@@ -4,7 +4,8 @@
 //   F(z₀) = e^(0.8 + 0.6i) and f₂(1 + 0.5i) = 0.75 + i;
 // - step 2 focused (w₁ and w₂): panel (a) has f₁(z₀) = e^(0.4 + 0.3i) and the w₁ point at 1 + 0.5i itself; panel (b) has F(z₀)
 //   and 0.75 + i;
-// - every point a panel draws is named, and the names on a panel are different;
+// - every point a panel draws is named, and the names on a panel are different: by the plane it is shown on (z₀; w₁(z₀) on w₁;
+//   F(z₀) on the last plane; f₂(…) for the focused step's image of a point of its plane; w₁,₁ with a thin space after its comma);
 // - the caption's (a) lists the shapes of (a)'s plane and earlier ones, and names the w₁ point with its own plane (en, ru).
 // (control: the same scene with both points on z keeps both on panel (a), at focus 0, at their coordinates)
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -41,7 +42,11 @@ for (const lang of ['en', 'ru']) {
   ok(`focus 0, ${lang}: panel (a), the z-plane, has z₀ and not the point of w₁`, has(L, Z0) && !has(L, W11) && (L || []).length === 1, L);
   ok(`focus 0, ${lang}: panel (b) has F(z₀) and the w₁ point at f₂(1 + 0.5i) = 0.75 + i`, has(R, F_Z0) && has(R, F2_W11) && (R || []).length === 2, R);
   ok(`focus 0, ${lang}: every point a panel draws is named, each by its own name`, named(L) && named(R), { L, R });
-  ok(`focus 0, ${lang}: z₀ is named z_{0} on (a) and F(z_{0}) on (b), in TeX`, (near(L, Z0)[0] || {}).label === 'z_{0}' && (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', { L, R });
+  // (each point by the plane it is shown on: z₀ on z, F(z₀) on the last plane; the w₁ point, w₁,₁ with a thin space after its comma, as
+  // the image on w₂)
+  ok(`focus 0, ${lang}: (a) names z₀ z_{0}`, (near(L, Z0)[0] || {}).label === 'z_{0}', L);
+  ok(`focus 0, ${lang}: (b) names z₀'s image F(z_{0})`, (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', R);
+  ok(`focus 0, ${lang}: (b) names the w₁ point's image w_{2}(w_{1,\\,1})`, (near(R, F2_W11)[0] || {}).label === 'w_{2}(w_{1,\\,1})', R);
   // (the caption: (a) lists z₀ alone; the w₁ point is named with its own plane, as (b) shows it)
   const capA = lang === 'ru' ? /^\\textit\{а\}~--- точка \$z_\{0\}=0\{,\}4\+0\{,\}3i\$ в~плоскости~\$z\$;/ : /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ in the \$z\$-plane\./;
   const capW = lang === 'ru' ? /образ точки \$z_\{1\}=1\+0\{,\}5i\$ из~плоскости~\$w_\{1\}\$/ : /Panel \(b\) also shows the image of the point \$z_\{1\}=1\+0\.5i\$, drawn in the \$w_\{1\}\$-plane\./;
@@ -56,6 +61,10 @@ for (const lang of ['en', 'ru']) {
   ok('focus 2: panel (a), the w₁-plane, has f₁(z₀) and the w₁ point at 1 + 0.5i itself', has(L, F1_Z0) && has(L, W11) && (L || []).length === 2, L);
   ok('focus 2: panel (b) has F(z₀) and the w₁ point at 0.75 + i', has(R, F_Z0) && has(R, F2_W11) && (R || []).length === 2, R);
   ok('focus 2: every point a panel draws is named, each by its own name', named(L) && named(R), { L, R });
+  ok('focus 2: (a), the w₁-plane, names z₀\'s image w_{1}(z_{0}), not by the focused step', (near(L, F1_Z0)[0] || {}).label === 'w_{1}(z_{0})', L);
+  ok('focus 2: (a) names the w₁ point by its own name, w_{1,\\,1}', (near(L, W11)[0] || {}).label === 'w_{1,\\,1}', L);
+  ok('focus 2: (b) names z₀\'s image F(z_{0}), the whole map\'s', (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', R);
+  ok('focus 2: (b) names the w₁ point\'s image f_{2}(w_{1,\\,1}), the focused step\'s', (near(R, F2_W11)[0] || {}).label === 'f_{2}(w_{1,\\,1})', R);
   ok('focus 2: the caption\'s (a) has both points in the w₁-plane, and says nothing more of the w₁ point', /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$z_\{1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
 }
 // ---- (control) both points on z: both on panel (a) at their coordinates
