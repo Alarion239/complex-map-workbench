@@ -1342,9 +1342,12 @@ ${print === 'map' ? '  vec2 w = mapF(z);\n' : `  vec2 ub = clamp((z - uBox.xy) /
   ivec2 i0 = clamp(ivec2(floor(ub)), ivec2(0), ivec2(uN - 2));
   vec2 fb = ub - vec2(i0);
   vec2 w = mix(mix(texelFetch(uT1, i0, 0).xy, texelFetch(uT1, i0 + ivec2(1, 0), 0).xy, fb.x), mix(texelFetch(uT1, i0 + ivec2(0, 1), 0).xy, texelFetch(uT1, i0 + ivec2(1, 1), 0).xy, fb.x), fb.y);
+  // (a node where F has no value, as a pole's: its cells carry no print, the paper alone)
+  bool nanw = isnan(w.x) || isnan(w.y) || !(w.x < 0.0 || w.x >= 0.0) || !(w.y < 0.0 || w.y >= 0.0);
+  if (nanw) w = vec2(0.0);
 `}  vec3 alb = albedo(w);
   vec3 col = tiersOver(z, vec4(uFloorCol, 1.0), 1.0).rgb;
-  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint); // phase portrait printed at 10%
+  vec3 lin = mix(toLin(col), toLin(alb), ${print === 'map' ? '0.10 * uPrint' : '(nanw ? 0.0 : 0.10 * uPrint)'}); // phase portrait printed at 10%
   // contact shading under the surface: where the sheet comes close to the plate (no walls, nothing outside);
   // All sheets (uSheetK > 0): the lowest sheet over the point, from the per-cell height tiles
   float contact = 0.0;
