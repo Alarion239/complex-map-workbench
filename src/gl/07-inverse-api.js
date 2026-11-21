@@ -205,7 +205,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   vec2 w = z, wx = dX, wy = dY;
   if (uGs < uGt) {
     bool an = uGan && dot(dX, dX) > 0.0;
-    ixChain3(z, dX, dY, uGs, uGt, an, w, wx, wy);
+    vec2 wbx, wby;
+    ixChain3(z, dX, dY, uGs, uGt, an, false, w, wx, wy, wbx, wby);
     if (an) wy = cmul(cdiv(wx, dX), dY);
   }
   return dcolorD(w, wx, wy);
