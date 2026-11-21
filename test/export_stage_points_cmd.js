@@ -6,7 +6,7 @@
 //   and 0.75 + i;
 // - every point a panel draws is named, and the names on a panel are different: by the plane it is shown on (z₀; w₁(z₀) on w₁;
 //   F(z₀) on the last plane; f₂(…) for the focused step's image of a point of its plane; w₁,₁ with a thin space after its comma);
-// - the caption's (a) lists the shapes of (a)'s plane and earlier ones, and names the w₁ point with its own plane (en, ru).
+// - the caption's (a) lists the shapes of (a)'s plane and earlier ones, and names the w₁ point w₁,₁ with its own plane (en, ru).
 // (control: the same scene with both points on z keeps both on panel (a), at focus 0, at their coordinates)
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
@@ -49,7 +49,7 @@ for (const lang of ['en', 'ru']) {
   ok(`focus 0, ${lang}: (b) names the w₁ point's image w_{2}(w_{1,\\,1})`, (near(R, F2_W11)[0] || {}).label === 'w_{2}(w_{1,\\,1})', R);
   // (the caption: (a) lists z₀ alone; the w₁ point is named with its own plane, as (b) shows it)
   const capA = lang === 'ru' ? /^\\textit\{а\}~--- точка \$z_\{0\}=0\{,\}4\+0\{,\}3i\$ в~плоскости~\$z\$;/ : /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ in the \$z\$-plane\./;
-  const capW = lang === 'ru' ? /образ точки \$z_\{1\}=1\+0\{,\}5i\$ из~плоскости~\$w_\{1\}\$/ : /Panel \(b\) also shows the image of the point \$z_\{1\}=1\+0\.5i\$, drawn in the \$w_\{1\}\$-plane\./;
+  const capW = lang === 'ru' ? /образ точки \$w_\{1,\\,1\}=1\+0\{,\}5i\$ из~плоскости~\$w_\{1\}\$/ : /Panel \(b\) also shows the image of the point \$w_\{1,\\,1\}=1\+0\.5i\$, drawn in the \$w_\{1\}\$-plane\./;
   ok(`focus 0, ${lang}: the caption's (a) is the point of z alone, in the z-plane`, capA.test(f.cap || ''), f.cap);
   ok(`focus 0, ${lang}: the caption names the w₁ point with its own plane, w₁`, capW.test(f.cap || ''), f.cap);
 }
@@ -65,7 +65,7 @@ for (const lang of ['en', 'ru']) {
   ok('focus 2: (a) names the w₁ point by its own name, w_{1,\\,1}', (near(L, W11)[0] || {}).label === 'w_{1,\\,1}', L);
   ok('focus 2: (b) names z₀\'s image F(z_{0}), the whole map\'s', (near(R, F_Z0)[0] || {}).label === 'F(z_{0})', R);
   ok('focus 2: (b) names the w₁ point\'s image f_{2}(w_{1,\\,1}), the focused step\'s', (near(R, F2_W11)[0] || {}).label === 'f_{2}(w_{1,\\,1})', R);
-  ok('focus 2: the caption\'s (a) has both points in the w₁-plane, and says nothing more of the w₁ point', /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$z_\{1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
+  ok('focus 2: the caption\'s (a) has both points in the w₁-plane, and says nothing more of the w₁ point', /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$w_\{1,\\,1\}=1\+0\.5i\$ in the \$w_\{1\}\$-plane\./.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
 }
 // ---- (control) both points on z: both on panel (a) at their coordinates
 {
