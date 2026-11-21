@@ -3993,7 +3993,13 @@
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
-  function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
+  // ▶, K and M: a play pauses; a wait on ▶ is cancelled; a wait on another control (an arrow's) ends and the play waits
+  // instead, as svGo does for an arrow pressed while ▶ waits
+  function svTogglePlay() {
+    if (SV.play) { svPause(true); return; }
+    if (SV.gate) { const same = SV.gate.btn === SV.els.play; svGateEnd(); if (same) return; }
+    svPlay();
+  }
   // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
   // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; svCheck
   // ends it when another chain is loaded under it (an edit on the thread, a Split or an undo, keeps it); it polls
