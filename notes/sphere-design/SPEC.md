@@ -1095,6 +1095,22 @@ net at cell edges, as `net()`.
 - **float32 transcendentals** on real GPUs are 2–4 ulp. The GLSL parity test (12.2) checks enumerator outputs on the
   GPU against `Inverse.enumerate`. The real-GPU benchmark reproduced the z^i hole, rims and polar checker exactly
   (4.7).
+- **A Series step's float32 limit (#1898): where a pixel is white.** A glide's inverse pass through a Series step draws a pixel
+  only where a member of its walk lies inside the regions (Inside regions). `SER_CANCEL` (src/glsl.js) makes the series'
+  value NaN where its largest term times float32's epsilon passes a share of 1 + |S|, as does |z| > 88, so a walk that meets
+  such a point has no member. A pixel is white, and never carries a colour, in three cases:
+  1. *cancelled*: every member inside the rectangle has a walk that meets a cancelled point (none at u = ½ of the default
+     series, 0 of 1,050 sampled pixels);
+  2. *off canvas*: the members lie outside the plane's canvas;
+  3. *outside the rectangle*: no member lies inside the regions' rectangle, the picture outside the regions' image, which
+     Inside regions leaves white (501 of the 503 white pixels sampled at u = ½).
+
+  The edge of the white area is ragged where float32 loses a member the CPU's float64 walk keeps: a band a few pixels wide
+  along the image's boundary (2 of the 503 white pixels sampled, ≈ 0.2 % of the pane), moving with u. It is a float32 limit,
+  not drawn differently: the GPU does not know, per pixel, which lost walks would have ended inside the rectangle (a "walk met
+  a cancelled point" flag also marks the whole empty area, since the polynomial's far roots die at cancelled points for
+  every pixel), so the page draws no fill for it, and a colour always means a true member. `test/series_limit_cmd.js` pins
+  it at u = ½: no coloured pixel without a root inside the rectangle, and the band at most 8 of the sampled pixels.
 - **Fallback.** float64 vertices in two charts (z, and u = 1/z). Relative precision is 1e−13 at the refinement floor,
   and |z| is resolved from 1e−290 to 1e290 (sphere-native section 11).
 

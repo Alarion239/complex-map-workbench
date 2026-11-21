@@ -637,8 +637,8 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   const PRE_SRC = `vec2 preRT(vec2 gp) { return vec2(exp(clamp(gp.x * (TAU / 16.0), -${PRE_LN}.0, ${PRE_LN}.0)), gp.y * (TAU / 16.0)); }
 vec2 preSrc(vec2 gp) { vec2 rt = preRT(gp); return rt.x * vec2(cos(rt.y), sin(rt.y)); }
 `;
-  // 1/v, a finite stand-in for infinity at v = 0: the stand-ins' (COLOR_STANDIN_FS, CARRY_FS's w option), programs
-  // without the chain (whose GLSL has a cinv of its own)
+  // 1/v, a finite stand-in for infinity at v = 0: the stand-ins' (STANDIN_W, CARRY_FS's w option), programs without the
+  // chain (whose GLSL has a cinv of its own)
   const CINV = 'vec2 cinv(vec2 v) { float q = dot(v, v); return q > 0.0 ? vec2(v.x, -v.y) / q : vec2(1e38); }\n';
   const PAT_CHAIN = glsl`  if (uPattern == 1) {              // Checker
     col = mix(mix(c0, c1, checker(g, gw)), 0.5 * (c0 + c1), m);
@@ -1234,26 +1234,32 @@ void main() {
   o = vec4(dcolor(w), 1.0);
 }
 `;
+  // w at the grid coordinate q of the stand-in's node texture t (node (i, j) at q = (i, j); texel (i, j) holds its w = F(z)):
+  // bilinear in w, or in 1/w where the cell's four nodes all have |w| > 1 (about a pole, where 1/w is close to linear); a
+  // cell with a node that is not finite takes its nearest node's value. Needs FIN
+  const STANDIN_W = `
+${CINV}vec2 standInW(sampler2D t, vec2 q) {
+  ivec2 n = textureSize(t, 0);
+  ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
+  vec2 f = clamp(q - vec2(i), 0.0, 1.0);
+  vec2 a = texelFetch(t, i, 0).xy, b = texelFetch(t, i + ivec2(1, 0), 0).xy;
+  vec2 c = texelFetch(t, i + ivec2(0, 1), 0).xy, d = texelFetch(t, i + ivec2(1, 1), 0).xy;
+  if (!(cfin(a) && cfin(b) && cfin(c) && cfin(d))) return texelFetch(t, i + ivec2(step(0.5, f)), 0).xy;
+  if (min(min(dot(a, a), dot(b, b)), min(dot(c, c), dot(d, d))) > 1.0) return cinv(mix(mix(cinv(a), cinv(b), f.x), mix(cinv(c), cinv(d), f.x), f.y));
+  return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
+}
+`;
   // The colour plot's stand-in while its program links (drawColorPlot's st.standIn): w = F(z) at the nodes of a grid,
   // texel (i, j) the node i across and j up; uGO is node (0, 0) and uGC the cell, in device px from the viewport's
-  // corner. w is interpolated at each pixel and coloured by dcolor, as the plot colours F(z): bilinear in w, or in 1/w
-  // where the cell's four nodes all have |w| > 1 (about a pole, where 1/w is close to linear); a cell with a node that
-  // is not finite takes its nearest node's value. Off the grid nothing is drawn
+  // corner. w is interpolated at each pixel (standInW) and coloured by dcolor, as the plot colours F(z). Off the grid
+  // nothing is drawn
   const COLOR_STANDIN_FS = `
 uniform vec2 uGO; uniform float uGC; uniform vec4 uVp; uniform sampler2D uWNodes;
 out vec4 o;
-${CINV}void main() {
+void main() {
   ivec2 n = textureSize(uWNodes, 0);
   vec2 q = (gl_FragCoord.xy - uVp.xy - uGO) / uGC;
-  ivec2 i = clamp(ivec2(floor(q)), ivec2(0), n - 2);
-  vec2 f = clamp(q - vec2(i), 0.0, 1.0);
-  vec2 a = texelFetch(uWNodes, i, 0).xy, b = texelFetch(uWNodes, i + ivec2(1, 0), 0).xy;
-  vec2 c = texelFetch(uWNodes, i + ivec2(0, 1), 0).xy, d = texelFetch(uWNodes, i + ivec2(1, 1), 0).xy;
-  vec2 w;
-  if (!(cfin(a) && cfin(b) && cfin(c) && cfin(d))) w = texelFetch(uWNodes, i + ivec2(step(0.5, f)), 0).xy;
-  else if (min(min(dot(a, a), dot(b, b)), min(dot(c, c), dot(d, d))) > 1.0) w = cinv(mix(mix(cinv(a), cinv(b), f.x), mix(cinv(c), cinv(d), f.x), f.y));
-  else w = mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
-  vec3 col = dcolor(w);
+  vec3 col = dcolor(standInW(uWNodes, q));
   if (any(lessThan(q, vec2(0.0))) || any(greaterThan(q, vec2(n - 1)))) discard;
   o = vec4(col, 1.0);
 }
