@@ -5,8 +5,8 @@
     const out = Object.assign({}, S, { rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
     const o = JSON.parse(JSON.stringify(out, cmSaveReplacer(out)));
     delete o.hideLeft; delete o.hideRight;
-    // (the steps view's place now, as a save writes it: S.sv is written only by a save and an undo entry)
-    const sv = typeof svPlace === 'function' ? svPlace() : null;
+    // (the steps view's place on screen, as a save writes it: S.sv is written only by a save and an undo entry)
+    const sv = svPlace();
     if (sv) o.sv = sv;
     // (the recipient sees the same picture: the Landscape camera, relative to its fit, and the
     // deformation at its t; read once at load, never kept in the saved state)

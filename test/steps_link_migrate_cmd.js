@@ -332,9 +332,9 @@ n++;
   await grab('?i18n-debug');
 }
 
-// a link copied before the save carries the steps view's place as it is (#2088): the place is moved and the figure a link
-// carries (__cmwFigureState) read in the same task, before the save that follows a change (300 ms later); the page was
-// opened from a link with no place of its own, so before the fix its figure carried none
+// a link copied before the save carries the steps view's place as it is on screen: the place is moved and the figure a
+// link carries (__cmwFigureState) read in the same task, before the save that follows a change (300 ms later); the page
+// opens from a link with no place of its own, so the figure's place can only come from the view on screen
 n++;
 {
   const ns = 'lmigP' + n + Date.now();
