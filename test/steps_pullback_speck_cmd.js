@@ -12,7 +12,7 @@
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
-const DIFF = 48, SPECK_R = 0.4, SPECK_MAX = 2, BAND_MIN = 100, SPECK = [-1.13, -2.03], JUNCTION_R = 5, JUNCTION_MIN = 10;
+const DIFF = 48, SPECK_R = 0.4, SPECK_MAX = 2, BAND_MIN = 300, SPECK = [-1.13, -2.03], JUNCTION_R = 5, JUNCTION_MIN = 10;
 const sh = (id, o) => Object.assign({ id, ci: 0, visible: true }, o);
 const steps = [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }];
 const own = [sh('c1', { kind: 'halfplane', a: [0, 0], b: [1, 0] })];

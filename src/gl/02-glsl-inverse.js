@@ -61,8 +61,10 @@ uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
 float ixEdge, ixEdgeC, ixFill;
-// (ixShapePx: the band pass's candidate is where the chain to the shape's plane is not linear over the footprints)
+// (ixShapePx: the band pass's candidate is where the chain to the shape's plane is not linear over the footprints, its
+// forward and backward differences more than IX_BEND of the larger apart)
 bool ixNonLin;
+const float IX_BEND = 0.25;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
@@ -325,20 +327,25 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
     ixChain3(z, dX, dY, 0, uShStage, false, bk, g0, gx, gy, gbx, gby);
     if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
     // (the band's distance is linear in the footprints' images: where a footprint's forward and backward images differ
-    // by more than a quarter of the larger, as about a critical value of the frame's map, whose inverse's footprint
+    // by more than IX_BEND of the larger, as about a critical value of the frame's map, whose inverse's footprint
     // grows without bound, that distance is not the pixel's: the region's sign alone, and no band, invLeaf)
-    ixNonLin = bk && (!ixFin(gbx) || !ixFin(gby) || length(gx - gbx) > 0.25 * max(length(gx), length(gbx)) || length(gy - gby) > 0.25 * max(length(gy), length(gby)));
+    ixNonLin = bk && (!ixFin(gbx) || !ixFin(gby) || length(gx - gbx) > IX_BEND * max(length(gx), length(gbx)) || length(gy - gby) > IX_BEND * max(length(gy), length(gby)));
     if (ixNonLin) {
       // (unless a boundary crosses the footprint, as where a region's preimages meet at the critical value: its band
       // stays. The level at the footprint's five images changes sign among them, or for a curve one of them is within
-      // the footprint's reach of it; a level that is not finite keeps the band too)
+      // the footprint's reach of it; a level that is not finite keeps the band too). One ixLevelAt call site, in a loop
+      // whose trip count is a uniform, as ixChain3's: each call would hold its own copy of the shape's level code
       float aq = ixArcQ;   // (a curve's level sets the dash's arc: kept as it was)
-      float l0 = ixLevelAt(g0), l1 = ixLevelAt(g0 + gx), l2 = ixLevelAt(g0 - gbx), l3 = ixLevelAt(g0 + gy), l4 = ixLevelAt(g0 - gby);
+      float lo = 1e38, hi = -1e38;
+      bool fin = true;
+      for (int k = 0; k < 5 * uIxOne; k++) {
+        float l = ixLevelAt(k == 0 ? g0 : k == 1 ? g0 + gx : k == 2 ? g0 - gbx : k == 3 ? g0 + gy : g0 - gby);
+        if (!(abs(l) < 1e37)) fin = false;
+        lo = min(lo, l); hi = max(hi, l);
+      }
       ixArcQ = aq;
-      float lo = min(min(min(l0, l1), min(l2, l3)), l4), hi = max(max(max(l0, l1), max(l2, l3)), l4);
       float reach = max(max(length(gx), length(gbx)), max(length(gy), length(gby)));
       bool curve = (uShape.x >= 11 && uShape.x <= 18) || uShape.x == 20;
-      bool fin = l0 == l0 && l1 == l1 && l2 == l2 && l3 == l3 && l4 == l4 && abs(lo) < 1e37 && abs(hi) < 1e37;
       if (!fin || (curve ? hi >= -reach : lo <= 0.0 && hi >= 0.0)) ixNonLin = false;
     }
     z = g0; dX = gx; dY = gy;
@@ -787,8 +794,9 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
-  // (a footprint over which the chain bends, ixShapePx: in or out by its sign, no band)
-  if (ixNonLin && s > -1e37 && s < 1e37) s = s > 0.0 ? 1e38 : -1e38;
+  // (a footprint over which the chain bends, ixShapePx: in or out by its sign, no band; an anchor's answer, done, is
+  // its own)
+  if (!done && ixNonLin && s > -1e37 && s < 1e37) s = s > 0.0 ? 1e38 : -1e38;
   if (uEdgeOnly == 1 && s == s) {
     float on = 1.0;
     if (uEdgeDash.x > 0.0) {
