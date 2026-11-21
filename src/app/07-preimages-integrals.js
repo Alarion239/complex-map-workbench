@@ -20,7 +20,7 @@
   function preimageTargets(areasOnly) {
     return pullTargets((S.targets || []).filter((s) => s.visible !== false && kindType(s) !== 'point' && (!areasOnly || kindType(s) === 'area')));
   }
-  // the opacity of a pulled-back region's fill
+  // the opacity of a pulled-back region's fill over a picture (a mask takes it opaque: pullTargets' asMask)
   const PULL_ALPHA = 0.42;
   // a pulled-back region's boundary band (the shader's PRE_FS): its alpha, and the share of its width (at least one css
   // pixel) it is drawn at
@@ -29,7 +29,9 @@
   const pullBandW = (s, dpr) => Math.max(dpr, PULL_EDGE_MIN * pullWidth(s, dpr));
   // the width (device px) of a pulled-back region's boundary: 2 css px, 2.75 for the selected one
   const pullWidth = (s, dpr) => (s.id === selected ? 2.75 : 2) * dpr;
-  function pullTargets(list) {
+  // (asMask: drawn into the regions' mask, the steps view's Inside regions, where a region's fill is opaque, as the plane's
+  // own regions are, so the colour kept inside it is as strong as Everywhere's; dimK still dims it)
+  function pullTargets(list, asMask) {
     let nv = 0;
     for (const s of list) if (s.pts) nv += s.pts.length;
     const keep = nv > 256 ? 256 / nv : 1;
@@ -40,7 +42,7 @@
         t.pts = Array.from({ length: n }, (_, i) => s.pts[Math.round(i * (s.pts.length - 1) / Math.max(1, n - 1))]);
       }
       const ink = shapeInk(s), area = kindType(s) === 'area';
-      let a = area ? PULL_ALPHA : 1;
+      let a = area && !asMask ? PULL_ALPHA : 1;
       a *= dimK(s);
       t.color = GLR.hexRGB(area ? ink.c0 : ink.edge);
       t.edge = GLR.hexRGB(ink.edge);
@@ -48,6 +50,25 @@
       t.width = pullWidth(s, paneL ? paneL.dpr : 1);
       return t;
     });
+  }
+  // preimage targets ts (pullTargets') with their area fills at the share k of their opacity; curves and boundaries as
+  // drawn (an area by its kind: a curve's alpha is dimK's, below 1 too while another shape is hovered)
+  const fillsAt = (ts, k) => ts.map((t) => (kindType(t) === 'area' ? Object.assign(t, { alpha: t.alpha * k }) : t));
+  // preimage targets over a picture in colour (a phase portrait, the steps view's carried colour): the area fills at half
+  // strength, so the colour reads through them
+  const halfFills = (ts) => fillsAt(ts, 0.5);
+  // the share of a pulled-back region's fill that the steps view's layer over the colour draws: half Everywhere, so the
+  // colour reads through it; none Inside regions, where the mask keeps the colour inside the region at full strength and
+  // the layer is the region's boundary band alone, as the outline of a region of the plane itself is
+  const pullLayerFill = () => (svMaskOn() ? 0 : 0.5);
+  // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share
+  const layerFills = (ts) => fillsAt(ts, pullLayerFill());
+  // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
+  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band, over its casing (TH.halo at TH.haloA, a css
+  // pixel wider each side, as PRE_FS draws it), over the fill of pullTargets at pullLayerFill's share
+  function pullLayerEdge(s, dpr) {
+    const ink = shapeInk(s), width = pullBandW(s, dpr);
+    return { width, alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), casing: { width: width + 2 * dpr, alpha: TH.haloA, color: GLR.hexRGB(TH.halo) }, tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
   }
   // a second GL pass over the plane: where the map lands in each target
   function drawPullback(pane, map, targets) {
@@ -64,8 +85,10 @@
   // (full propagation) the shapes of a later plane s seen in plane j < s: their preimages under the steps
   // j + 1 … s, pulled back per pixel as the targets are (the map forward, then the shape's membership test), one pass
   // per plane s. A point's preimages are not drawn (they are roots, not a picture)
-  // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask, 19)
-  function stagePullbacks(pane, j, inFrame) {
+  // (inFrame: drawn into GL's frame as it is, with no begin or copy of its own: the steps view's mask and its layer, 19;
+  // over: over a picture in colour, the steps view's layer, so the area fills are at pullLayerFill's share and the
+  // colour reads through them; with neither, inside withSolidRegions, the regions' mask, where the fills are opaque)
+  function stagePullbacks(pane, j, inFrame, over) {
     const by = new Map();
     for (const s of S.shapes) {
       const st = shapeStage(s);
@@ -80,15 +103,16 @@
     try {
       if (!inFrame) GLR.begin(pane.pw, pane.ph);
       cmFormAnchor('Y');
-      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: pullTargets(list), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
+      for (const [st, list] of by) GLR.drawPreimage({ map: { mode: 0, a: j, b: st }, view: pane.view, dpr: pane.dpr, targets: over ? layerFills(pullTargets(list)) : pullTargets(list, regionsAsMask()), ink: TH.inkRGB, halo: GLR.hexRGB(TH.halo) });
       pending = !!(GLR.frameStatus && GLR.frameStatus().pending);
       if (!inFrame) GLR.blit(pane.ctx);
     } catch (e) { console.error('drawPreimage', e); }
     if (!inFrame) pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return pending;
   }
-  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s
-  function stagePreList(j) {
+  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s; drawn into the regions' mask (inside
+  // withSolidRegions) their fills are opaque, as stagePullbacks'; over: the steps view's layer over the colour (layerFills)
+  function stagePreList(j, over = false) {
     const by = new Map();
     for (const s of S.shapes) {
       const st = shapeStage(s);
@@ -96,7 +120,7 @@
       if (!by.has(st)) by.set(st, []);
       by.get(st).push(s);
     }
-    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: pullTargets(list), halo: GLR.hexRGB(TH.halo) }));
+    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: over ? layerFills(pullTargets(list)) : pullTargets(list, regionsAsMask()), halo: GLR.hexRGB(TH.halo) }));
   }
   // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
   function strokeTargets(pane) {
@@ -447,9 +471,8 @@
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
-  // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
-  function exactPre(j, st, p) {
-    if (!Inverse.pointPre) return null;
+  // the inverse plan of the steps from plane j to plane st, kept per chain
+  function prePlan(j, st) {
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
     let plan = prePlans.get(key);
     if (!plan) {
@@ -457,7 +480,12 @@
       prePlans.set(key, plan);
       while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
     }
-    const r = Inverse.pointPre(plan, C(p[0], p[1]));
+    return plan;
+  }
+  // (no deadline as trackPre's: LEAF_CAP, 64 preimages, bounds it, 5–17 µs measured)
+  function exactPre(j, st, p) {
+    if (!Inverse.pointPre) return null;
+    const r = Inverse.pointPre(prePlan(j, st), C(p[0], p[1]));
     return r.exact ? r : null;
   }
   function trackPre(P, j, box) {
@@ -500,17 +528,154 @@
       requestRender(side);
     }, 100);
   }
+  // the regions of later planes seen in plane j are pulled back per pixel (stagePullbacks), and a piece of a preimage
+  // that lies outside the window shows nothing: "+n off view" says how many there are. A region's pieces are counted
+  // where its chain has finitely many inverse branches (exactPre) and the region holds none of the chain's critical
+  // values (Inverse.critValues) and has no hole (PULL_SIMPLE: a disc, a rectangle, a polygon, a half-plane, a sector of
+  // less than a full turn, not taken as a complement): then each piece holds exactly one preimage of a point inside it
+  // (Region.interiorPoint), so those preimages count the pieces. Around a critical value, inside the region or in a hole
+  // of it, several of them lie in one piece (z³ over a disc or an annulus about 0: one piece, three preimages), so such a
+  // region, or one whose chain's critical values are not known, gets no count. Kept per shape, plane and chain; the
+  // window is read each frame
+  const PULL_SIMPLE = new Set(['disc', 'rect', 'polygon', 'halfplane', 'sector']);
+  const pullSimple = (s) => PULL_SIMPLE.has(s.kind) && !s.complement && !(s.kind === 'sector' && ((((s.t2 - s.t1) % 360) + 360) % 360) === 0);
+  const pullOffCache = new Map();
+  let pullOffDrawn = [];
+  // {p, zs} for region s seen in plane j: p a point inside it, zs its preimages (one per piece), or null (no count)
+  function pullOffPre(j, s) {
+    const st = shapeStage(s), key = JSON.stringify([j, st, chainSig[nSteps()], s]);
+    // (a region with no count is kept as null too)
+    let e = pullOffCache.get(key);
+    if (e === undefined) {
+      let p = null, cv = null, inside = null;
+      if (pullSimple(s)) try { p = Region.interiorPoint(s, winOf(s)); cv = Inverse.critValues(prePlan(j, st)); inside = Region.levelOf(s); } catch (err) { p = null; }
+      const ex = p && cv && !cv.some((w) => inside(w) >= 0) ? exactPre(j, st, p) : null;
+      e = ex ? { p, zs: ex.zs.filter((z) => z && CX.isFin(z)) } : null;
+      pullOffCache.set(key, e);
+      while (pullOffCache.size > 64) pullOffCache.delete(pullOffCache.keys().next().value);
+    }
+    return e;
+  }
+  // the pieces of region s that show in the window b: a piece shows where its preimage point is in the window, or where a
+  // point of the window lies in it. A sample of the window (PULL_GRID, and its border every PULL_EDGE_GAP css px of the
+  // pane, wpx by hpx, so that a piece that shows only at a corner or an edge is met) that the map takes into the region
+  // is followed back to the region's point p along the segment between them (PULL_WALK steps, each preimage the nearest
+  // to the last, inside the region, which holds no critical value), and so names its piece: the index of the preimage of
+  // p it reaches.
+  // A Set of indices into e.zs, kept per region and window; while the view moves (interacting), the region's last answer
+  // stands, and at most PULL_FOLLOW samples are followed back
+  const PULL_GRID = [24, 16], PULL_EDGE_GAP = 8, PULL_WALK = 16, PULL_FOLLOW = 64;
+  const pullSeenCache = new Map(), pullSeenLast = new Map();
+  function pullSeen(j, s, e, b, wpx, hpx) {
+    const st = shapeStage(s), rk = JSON.stringify([j, st, chainSig[nSteps()], s]), key = rk + JSON.stringify([b.x0, b.x1, b.y0, b.y1].map((v) => +v.toPrecision(6)).concat([wpx, hpx]));
+    let seen = pullSeenCache.get(key);
+    if (seen) return seen;
+    if (interacting() && pullSeenLast.has(rk)) return pullSeenLast.get(rk);
+    seen = new Set();
+    e.zs.forEach((z, k) => { if (inBoxZ(z, b, 0)) seen.add(k); });
+    if (seen.size < e.zs.length) {
+      const F = rangeF(j, st), inside = Region.levelOf(s), P = C(e.p[0], e.p[1]);
+      const near = (list, u) => { let bi = -1, bd = Infinity; list.forEach((q, i) => { const d = CX.abs(CX.sub(q, u)); if (d < bd) { bd = d; bi = i; } }); return bi; };
+      // (the samples in the region, those nearest a piece not yet seen first: a piece that shows reaches in from its side)
+      const [nx, ny] = PULL_GRID, hits = [], unseen = e.zs.filter((z, k) => !seen.has(k));
+      const at = (fx, fy) => {
+        const u = C(b.x0 + (b.x1 - b.x0) * fx, b.y0 + (b.y1 - b.y0) * fy), w0 = F(u);
+        if (CX.isFin(w0) && inside(w0) > 0) hits.push({ u, w0, d: Math.min(...unseen.map((q) => CX.abs(CX.sub(q, u)))) });
+      };
+      for (let gi = 0; gi < nx; gi++) for (let gj = 0; gj < ny; gj++) at((gi + 0.5) / nx, (gj + 0.5) / ny);
+      const bx = Math.max(2, Math.ceil(wpx / PULL_EDGE_GAP)), by = Math.max(2, Math.ceil(hpx / PULL_EDGE_GAP));
+      for (let k = 0; k <= bx; k++) { at(k / bx, 0); at(k / bx, 1); }
+      for (let k = 1; k < by; k++) { at(0, k / by); at(1, k / by); }
+      hits.sort((p, q) => p.d - q.d);
+      for (const h of hits.slice(0, PULL_FOLLOW)) {
+        if (seen.size >= e.zs.length) break;
+        let u = h.u, ok = true;
+        const w0 = h.w0;
+        for (let t = 1; t <= PULL_WALK && ok; t++) {
+          const w = CX.add(w0, CX.scale(CX.sub(P, w0), t / PULL_WALK)), ex = inside(w) >= 0 ? exactPre(j, st, [w.re, w.im]) : null;
+          if (!ex || !ex.zs.length) ok = false; else u = ex.zs[near(ex.zs, u)];
+        }
+        const k = ok ? near(e.zs, u) : -1;
+        if (k >= 0 && CX.abs(CX.sub(e.zs[k], u)) <= 1e-6 * (1 + CX.abs(u))) seen.add(k);
+      }
+    }
+    pullSeenCache.set(key, seen);
+    pullSeenLast.set(rk, seen);
+    while (pullSeenLast.size > 64) pullSeenLast.delete(pullSeenLast.keys().next().value);
+    while (pullSeenCache.size > 64) pullSeenCache.delete(pullSeenCache.keys().next().value);
+    return seen;
+  }
+  // the points z nearest the centre of the window b first
+  const byCentre = (b) => { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2; return (p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy); };
+  // the "+n more" words sit this far right of and below the last dot shown, in css px
+  const PRE_MORE_PX = 14;
+  // with no piece in view, "+n off view" is placed this far inside the window's edge, in css px, where the edge meets the
+  // ray from the window's centre toward the nearest piece, moved along the edge by PULL_EDGE_STEP px at a time (up to
+  // PULL_EDGE_TRIES each way) until it is clear of the controls over the plane (labelChrome)
+  const PULL_EDGE_PX = 24, PULL_EDGE_STEP = 24, PULL_EDGE_TRIES = 12;
+  const PULL_REACH_X = 14, PULL_REACH_Y = 30;   // px: how far the placer's spots around a label's anchor reach, margins included
+  // where "+n off view" goes when no piece is in view: [x, y] on the window's edge toward z, clear of the controls
+  function pullEdgeAt(pane, z, text) {
+    const W = pane.w, H = pane.h, E = PULL_EDGE_PX, [tx, ty] = pane.w2s(z), dx = tx - W / 2, dy = ty - H / 2;
+    const k = Math.min(dx ? (W / 2 - E) / Math.abs(dx) : Infinity, dy ? (H / 2 - E) / Math.abs(dy) : Infinity);
+    const x0 = W / 2 + dx * k, y0 = H / 2 + dy * k, side = Math.abs(Math.abs(dx * k) - (W / 2 - E)) < 0.5;
+    const ctx = pane.ctx;
+    ctx.save(); ctx.font = wordFont(); const tw = ctx.measureText(text).width; ctx.restore();
+    // (the box the placer's spots around [x, y] can take, its own margins included)
+    const clear = (x, y, ch) => !ch.some((r) => x - tw - PULL_REACH_X < r.x1 && x + tw + PULL_REACH_X > r.x0 && y - PULL_REACH_Y < r.y1 && y + PULL_REACH_Y > r.y0);
+    const ch = labelChrome(pane);
+    for (let i = 0; i <= 2 * PULL_EDGE_TRIES; i++) {
+      const d = PULL_EDGE_STEP * (i % 2 ? (i + 1) / 2 : -i / 2);
+      const x = side ? x0 : Math.max(E, Math.min(W - E, x0 + d)), y = side ? Math.max(E, Math.min(H - E, y0 + d)) : y0;
+      if (clear(x, y, ch)) return [x, y];
+    }
+    return [x0, y0];
+  }
+  // the count for each region of a later plane that has pieces off the window, drawn in the region's ink: next to its
+  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view
+  function drawPullOff(pane, j) {
+    pullOffDrawn = [];
+    if (artMode) return;
+    const b = pane.box(), labels = [];
+    // (the axes, which the words keep off where they can)
+    const [ax, ay] = pane.w2s(C(0, 0)), axes = [{ x0: ax - 1.5, x1: ax + 1.5, y0: 0, y1: pane.h }, { x0: 0, x1: pane.w, y0: ay - 1.5, y1: ay + 1.5 }];
+    const found = [];
+    for (const s of S.shapes) {
+      if (s.visible === false || shapeStage(s) <= j || kindType(s) !== 'area') continue;
+      const e = pullOffPre(j, s);
+      if (!e || !e.zs.length) continue;
+      const seen = pullSeen(j, s, e, b, pane.w, pane.h), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
+      if (offs.length > 0) found.push({ s, e, vis, offs });
+    }
+    // (with more than one region counted, each count names its region as its row does, "Disc 1: +1 off view": the counts'
+    // inks alone, which are the regions' swatches and not the pieces' phase colours, would be the only cue to which is
+    // which; ux on #1726, #1892)
+    const names = found.length > 1 ? shapeNames() : null, said = [];
+    for (const { s, e, vis, offs } of found) {
+      const n = offs.length, name = names && names.get(s.id);
+      const text = name ? $t('{name}: +{n} off view', { name, n }) : $t('+{n} off view', { n });
+      const dOff = (z) => Math.min(...offs.map((q) => CX.abs(CX.sub(z, q))));
+      const [x, y] = vis.length ? pane.w2s(vis.slice().sort((p, q) => dOff(p) - dOff(q))[0]) : pullEdgeAt(pane, offs.slice().sort(byCentre(b))[0], text);
+      labels.push({ x, y, text, word: true, chrome: true, avoid: axes, ink: shapeInk(s).edge });
+      pullOffDrawn.push({ id: s.id, n, all: e.zs.length, text, x, y });
+      // (the same count in words, in the plane's description: paneSay)
+      said.push($t('Pieces of {name} pulled back off the view: {n} of {all}', { name: (names || shapeNames()).get(s.id), n, all: e.zs.length }));
+    }
+    if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
+    if (labels.length) placeLabels(pane.ctx, pane, labels);
+  }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {
     const P = preOf[side];
     P.hits = [];
+    if (side === 'L') drawPullOff(pane, j);
     if (artMode || P.sig !== preSig(j)) return;
-    const ctx = pane.ctx, labels = [], said = [], b = pane.box(), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2;
+    const ctx = pane.ctx, labels = [], said = [], b = pane.box();
     for (const e of P.list) {
       const s = S.shapes.find((x) => x.id === e.id);
       if (!s) continue;
       const ink = shapeInk(s), name = pointLabel(s, 0, 0);
-      const vis = e.sols.filter((r) => inBoxZ(r.z, b, 0)).sort((p, q) => Math.hypot(p.z.re - cx, p.z.im - cy) - Math.hypot(q.z.re - cx, q.z.im - cy));
+      const near = byCentre(b), vis = e.sols.filter((r) => inBoxZ(r.z, b, 0)).sort((p, q) => near(p.z, q.z));
       vis.slice(0, PRE_SHOW).forEach((r, i) => {
         const [x, y] = pane.w2s(r.z);
         ctx.save();
@@ -524,7 +689,7 @@
       const rest = (e.exact ? e.sols.length : vis.length) - Math.min(PRE_SHOW, vis.length);
       if (vis.length && (rest > 0 || e.more)) {
         const [x, y] = pane.w2s(vis[Math.min(PRE_SHOW, vis.length) - 1].z);
-        labels.push({ x: x + 14, y: y + 14, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
+        labels.push({ x: x + PRE_MORE_PX, y: y + PRE_MORE_PX, text: rest > 0 ? $t('+{n} more', { n: rest }) : $t('more'), word: true });
         // (the same count in words, in the plane's description: paneSay)
         const k = Math.min(PRE_SHOW, vis.length);
         said.push(rest > 0 ? $t('Marked preimages of {name}: {k} of {n}', { name, k, n: k + rest }) : $t('Marked preimages of {name}: {k}, and there may be more', { name, k }));
@@ -564,6 +729,8 @@
   // whether a step from plane j to plane s uses the number nm (Q4: such a dot is not dragged)
   const preUses = (j, s, nm) => S.steps.slice(j, s).some((st) => stepUses(st, new Set([nm])));
   // TEST-HOOK (dropped from the published page by build.py)
+  // the regions' off-window counts drawn in the last frame
+  /** @type {any} */ (window).__cmwPullOff = () => pullOffDrawn.map((e) => Object.assign({}, e));
   /** @type {any} */ (window).__cmwPre = (side = 'L') => ({ sig: preOf[side].sig, list: preOf[side].list.map((e) => ({ id: e.id, s: e.s, p: e.p, sols: e.sols.map((r) => [r.z.re, r.z.im]), more: e.more, exact: !!e.exact })), trackMs: preOf[side].trackMs, hits: preOf[side].hits.map((h) => ({ id: h.id, x: h.x, y: h.y })) });
   // TEST-HOOK
 

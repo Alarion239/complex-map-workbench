@@ -1,5 +1,5 @@
   // ---------- landscape (spec 6.9) ----------
-  const HEIGHT = `
+  const HEIGHT = glsl`
 uniform int uHMode; uniform float uH; uniform float uMu; uniform float uHClip; uniform float uHComp;
 // (height, valid) of a value w; the same formulas as the JS heightOf
 vec2 heightW(vec2 w) {
@@ -43,7 +43,7 @@ vec2 heightW(vec2 w) {
   // While something moves the levels may be a frame or two older than the heights (read back fenced, never waited for):
   // a cell that holds a real jump (LAND_EDGE_VS, the current heights') counts as level 0 in
   // every program, so its refined neighbours meet its base edges and the base draw splits it at the cut
-  const REFINE = `
+  const REFINE = glsl`
 uniform highp sampler2D uLv; uniform highp sampler2D uLst; uniform int uM;
 uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform highp sampler2D uE2; uniform int uCuts;
 bool cellJump(ivec2 c) {
@@ -70,7 +70,7 @@ ivec2 lstCell(int e) {
 `;
   // (the refinement's build: the levels and the refined vertices' positions; not in the draw programs, whose first
   // compile is a formula's first Landscape)
-  const REFINE_BUILD = `
+  const REFINE_BUILD = glsl`
 // sub-grid vertex s (0..2^Lx, 0..2^Ly) of cell c at levels L: its position in 16ths of a cell (xy) and the levels of
 // its normal's spacing along x and y (zw; -1: a base vertex next to a base cell, whose height and normal are the base
 // passes'). A vertex on a side of the cell moves to the nearest point of the grid of the lower of the two levels
@@ -172,7 +172,7 @@ uniform int uSheetA; uniform int uSheetB;
 vec2 evalAt(vec2 zc, vec2 z) { return chainSheetRange(zc, z, uSheetA, uSheetB, 0); }
 ` : `
 vec2 evalAt(vec2 zc, vec2 z) { return mapF(z); }
-`) + `
+`) + glsl`
 uniform int uN; uniform vec4 uBox; uniform int uPass; uniform highp sampler2D uPq;
 uniform highp sampler2D uT1; uniform int uDir; uniform int uSteps; uniform int uTwo;
 const int uCutMode = ${kind === 'P' ? 2 : 1};
@@ -271,7 +271,7 @@ void main() {
   // quarter cells, uLat 1, or of half cells while something moves, uLat 0): a cell that touches a real cut
   // (LAND_EDGE_VS) or has a corner that is not finite on a map with cuts stays at 0; a lattice point that is not finite
   // asks for the most
-  const LAND_LV_VS = REFINE + REFINE_BUILD + `
+  const LAND_LV_VS = REFINE + REFINE_BUILD + glsl`
 uniform highp sampler2D uLp; uniform int uJ0;
 out vec4 tfOut;
 // uLat 2 (moving, a mesh over 256 cells): uLp holds the base heights; the second differences around the cell at one
@@ -354,7 +354,7 @@ void main() {
   tfOut = vec4(z + (k == 0 ? vec2(0.0) : (k == 1 ? vec2(d.x, 0.0) : (k == 2 ? vec2(-d.x, 0.0) : (k == 3 ? vec2(0.0, d.y) : vec2(0.0, -d.y))))), 0.0, 0.0);
 }
 `;
-  const LAND_RA_VS = REFINE + REFINE_BUILD + `
+  const LAND_RA_VS = REFINE + REFINE_BUILD + glsl`
 uniform vec4 uBox; uniform vec2 uAspect; uniform ivec2 uL; uniform int uGE; uniform int uTot;
 uniform highp sampler2D uT1; uniform highp sampler2D uT2; uniform highp sampler2D uPv;
 out vec4 tfOut;
@@ -411,7 +411,7 @@ vec2 contAt(vec2 zc, vec2 z) { return chainSheetHom(zc, z, uMode, uBase, uA, uHi
 uniform int uSheetA; uniform int uSheetB;
 vec2 princAt(vec2 z) { return z; }
 vec2 contAt(vec2 zc, vec2 z) { return chainSheetRange(zc, z, uSheetA, uSheetB, 0); }
-`) + `
+`) + glsl`
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform int uDir; uniform int uSteps; uniform int uTwo;
 const int uCutMode = ${kind === '2' ? 2 : 1};
 out vec4 tfOut;
@@ -512,7 +512,7 @@ float landAO(ivec2 p, float h) {
 uniform highp sampler2D uT1; uniform highp sampler2D uE0; uniform highp sampler2D uE1; uniform int uN; uniform vec2 uAspect; uniform float uH;
 uniform int uCuts;
 out vec4 tfOut;
-` + LAND_AO + `
+` + LAND_AO + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, p, 0); }
 // (uCuts -1: the edge pass still compiles, the former rule stands in: a height step over 0.3 H)
 bool jx(ivec2 p) { return uCuts > 0 ? texelFetch(uE0, p, 0).w > 0.5 : uCuts < 0 && abs(T(p + ivec2(1, 0)).z - T(p).z) > 0.3 * uH; }
@@ -543,13 +543,24 @@ void main() {
   // (pole x, y, r0, r1; r1 > 0), a patch about a pole of the glide's map: the angle once round clockwise with i (so its
   // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
   // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
-  // are left out
+  // are left out. uSeamOn 1: the glide's map has a cut out of the pole (the branch of a power or a log that ends there,
+  // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / 8 of the way out (linear between them), SEAM_EPS
+  // inside it on each side out to the cut's end (uSeamEnd, a fraction of the way out), so the ring's first and last cells
+  // end at the cut and no cell straddles it; past its end the ring closes round
+  const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
+  const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
   const CARRY_ZIN = `
-uniform vec4 uPolar;
+uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[9]; uniform float uSeamEnd;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
   float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
+  if (uSeamOn == 1) {
+    float t = clamp(ij.y * f, 0.0, 1.0) * 8.0;
+    int k = min(int(t), 7);
+    float e = ij.y * f <= uSeamEnd ? ${SEAM_EPS} : 0.0;
+    th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
+  }
   return uPolar.xy + r * vec2(cos(th), sin(th));
 }
 `;
@@ -613,7 +624,7 @@ void main() {
 uniform highp sampler2D uT1; uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uStep; uniform float uLim;
 uniform float uPatch;
 out vec4 tfOut;
-` + LAND_AO + `
+` + LAND_AO + glsl`
 vec4 T(ivec2 p) { return texelFetch(uT1, clamp(p, ivec2(0), ivec2(uN - 1)), 0); }
 vec3 placeOf(vec4 t) { return vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z); }
 bool near(vec4 a, vec4 b) { return b.w > 0.5 && length(b.xy - a.xy) <= uLim && abs(b.z - a.z) <= uStep; }
@@ -638,11 +649,21 @@ void main() {
   // height step over uStep (a cut of G, which the edge passes split at rest) is left out. uStep is 0.3 H for the
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
-  // evaluates G exactly (LAND_FS's carry form)
+  // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
+  // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
+  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep;
+uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}];
+bool inDisc(vec2 a, vec2 b, vec2 c) {
+  for (int k = 0; k < ${CARRY_DISCS}; k++) {
+    if (k >= uDiscN) break;
+    vec3 d = uDisc[k];
+    if (length(a - d.xy) < d.z && length(b - d.xy) < d.z && length(c - d.xy) < d.z) return true;
+  }
+  return false;
+}
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
@@ -657,6 +678,7 @@ void main() {
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
+  if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));
@@ -680,7 +702,7 @@ void main() {
   // jump, is drawn by landB instead (LAND_B_VS), which has facetW; the levels come a frame or two late, and a wall that
   // has moved past them lies on base cells (at the Max mesh it moves 15 to 20 cells between two
   // reads near the domain's edge, past any fill-in around the walls of the last levels)
-  const STEEP = `
+  const STEEP = glsl`
 // the jump data of the grid segment a -> b oriented from a: (t, height on a's bank, on b's bank, jump)
 vec4 edgeOf(ivec2 a, ivec2 b) {
   if (uCuts <= 0) return vec4(0.5, 0.0, 0.0, 0.0);
@@ -699,7 +721,7 @@ bool steepTri(ivec2 a, ivec2 b, ivec2 c) {
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
 uniform int uRefOn; uniform int uSteep;
-` + STEEP + `
+` + STEEP + glsl`
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 void main() {
@@ -756,7 +778,7 @@ void main() {
   // before): one instance per triangle of the sub-cells of one group's cells (levels uL, list entries from uRefE,
   // vertex records from texel uRefT of uRf), 3 vertices each; F at the vertices (vW), interpolated: the sub-cells are
   // under about a pixel on screen, and in a figure the levels rise with its size
-  const LAND_R_VS = REFINE + `
+  const LAND_R_VS = REFINE + glsl`
 uniform highp sampler2D uT2; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform mat4 uMVP;
 uniform ivec2 uL; uniform int uRefE; uniform int uRefT;
@@ -804,7 +826,7 @@ void main() {
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
 uniform int uRefOn;
-` + STEEP + `
+` + STEEP + glsl`
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 void main() {
@@ -857,7 +879,7 @@ vec2 mapSheet(vec2 zc, vec2 z, int surf) {
   // left inside a cell is at a branch point, in the one sub-cell (under half a pixel) that holds it (the log log z fin).
   const LAND_SHEET_TF_VS = (ref) => SHEET_MAP + (ref ? REFINE + REFINE_BUILD : '') + `
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform int uSheetK; uniform int uTileC; uniform int uTexW;
-` + CARRY_ZIN + `
+` + CARRY_ZIN + glsl`
 ${ref ? 'uniform int uPass; uniform highp sampler2D uT1; uniform ivec2 uL; uniform int uGE; uniform int uTot; uniform int uRow0;' : ''}
 out vec4 tfOut;
 ${ref ? `vec2 zOfG(vec2 G) { return uBox.xy + G * (uBox.zw / float(16 * uM)); }
@@ -872,7 +894,7 @@ void main() {
   int n = 5, combo = 0, part = 0;
   ivec2 cor = ivec2(0), G = ivec2(0);
   vec2 z = vec2(0.0), zc = vec2(0.0), e = vec2(0.0);
-${ref ? `  int Mq = (M + 3) / 4, q = 0, j = 0;
+${ref ? glsl`  int Mq = (M + 3) / 4, q = 0, j = 0;
   if (uPass == 1) {
     q = gl_VertexID % Mq; j = gl_VertexID / Mq; n = (uLat == 1 ? 84 : 20) * uSheetK;
   } else if (uPass == 2) {
@@ -910,7 +932,7 @@ ${ref ? `  int Mq = (M + 3) / 4, q = 0, j = 0;
   vec4 lv = vec4(0.0), hc = vec4(0.0);
   bool bad = false;
   float lat[25];
-  int per = uLat == 1 ? 21 : 5;` : `  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
+  int per = uLat == 1 ? 21 : 5;` : glsl`  ivec2 p = ivec2(gl_VertexID % uTexW, gl_VertexID / uTexW);
   ivec2 tile = p / T, qq = p - tile * T;
   combo = tile.y * uTileC + tile.x;
   ivec2 cell = qq / 2;
@@ -986,7 +1008,7 @@ ${ref ? `  if (uPass == 1) { tfOut = lv; return; }
   // (clip: the variant for linear heights, whose triangles are clipped at the block, landSheetC; its polygon's arrays
   // in the same program cost every vertex of every other mode too: the GPU sizes a program's registers by its largest
   // path, and the sheets' draw at the Max mesh takes twice the base's, 27 to 38 fps orbiting)
-  const LAND_SHEET_VS = (clip) => REFINE + `
+  const LAND_SHEET_VS = (clip) => REFINE + glsl`
 uniform highp sampler2D uT1; uniform highp sampler2D uRf;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform int uTileC; uniform int uClip;
 uniform int uSheetK; uniform int uRef; uniform ivec2 uL; uniform int uRefE; uniform int uRefT; uniform int uRefOn; uniform float uZBias;
@@ -1003,7 +1025,7 @@ vec4 cpAt(int combo, ivec2 c, ivec2 cor) {
   if (uCPS == 1) return texelFetch(uCP, ivec2(combo % uTileC, combo / uTileC) * (2 * (uN - 1)) + 2 * c + cor, 0);
   return texelFetch(uCP, c + cor, 0);
 }
-` + CARRY_ZIN + `
+` + CARRY_ZIN + glsl`
 out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE; flat out vec2 vZc; flat out int vCombo;
 vec3 nrmOf(vec4 t) { return vec3(t.zw, sqrt(max(1.0 - dot(t.zw, t.zw), 0.0))); }
@@ -1111,7 +1133,7 @@ void main() {
     emitV(vec3(pq.zw, tq.x), nrmOf(tq), pq.xy, vec3(0.0), k, c, s0, L, combo);
     return;
   }
-${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal, plane flag (0 a corner, +1 / -1 on the top /
+${clip ? glsl`  // the polygon: (grid x, grid y in 16ths of a cell, height), normal, plane flag (0 a corner, +1 / -1 on the top /
   // bottom of the block)
   vec3 Q[5]; vec3 Nn[5]; float Fl[5];
   for (int i = 0; i < 5; i++) { Q[i] = vec3(0.0); Nn[i] = vec3(0.0, 0.0, 1.0); Fl[i] = 0.0; }
@@ -1158,7 +1180,7 @@ ${clip ? `  // the polygon: (grid x, grid y in 16ths of a cell, height), normal,
   emitV(Q[vi], Nn[vi], vi < 3 ? Wv[vi] : vec2(0.0), boxE, k, c, s0, L, combo);
 ` : ''}}
 `;
-  const LAND_COMMON = `
+  const LAND_COMMON = glsl`
 uniform int uMaterial; uniform vec3 uPlaster; uniform vec3 uModLine; uniform vec3 uArgLine; uniform vec3 uFogCol; uniform float uSea;
 uniform vec3 uEye; uniform float uFogNear; uniform float uFogFar;
 // (the steps view's Inside regions, uMaskOn 1: the points of the surface's plane in its carried region set, the
@@ -1204,12 +1226,12 @@ float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoo
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
-  const LAND_FS = (sheet, plain, lite, carry = false) => `
+  const LAND_FS = (sheet, plain, lite, carry = false) => glsl`
 in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : `\n${PEEL_DECL}`}${LAND_PEEL_DECL}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
-${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? `flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
+${carry ? 'uniform int uGs; uniform int uGt; uniform vec2 uClipA; uniform vec4 uSrc;\nvec2 landW(vec2 z) { return chainRange(z, uGs, uGt); }' : plain ? 'vec2 landW(vec2 z) { return vW; }' : sheet ? glsl`flat in vec2 vZc; flat in int vCombo; uniform float uCue; uniform int uCueK;${SHEET_MAP}
 vec2 landW(vec2 z) { return mapSheet(vZc, z, vCombo); }
 // the per-sheet cue: the albedo's OKLab lightness times 1 + s, its hue and chroma kept
 vec3 cueTint(vec3 c, float s) {
@@ -1232,7 +1254,7 @@ vec3 cueTint(vec3 c, float s) {
 // 1 (45 degrees) keep F as it is: there the step along the gradient is not small. (Not in the base cells' program, land:
 // its fragment stage stays the base's, r3 cold opens: with this in it, a heavy formula's first Landscape held the GPU
 // process 0.7 to 0.8 s where the base did not stall; the base cells are the flat ones, a wall is refined)
-${lite ? '' : `// the inverse of the linear height (modes 4, 5) with its compressed share uHComp: h = (1 - c) x + c (2/pi) atan x, by
+${lite ? '' : glsl`// the inverse of the linear height (modes 4, 5) with its compressed share uHComp: h = (1 - c) x + c (2/pi) atan x, by
 // Newton's method from the blend of the two inverses (the function rises everywhere, so it settles in a few steps:
 // LIN_INV_STEPS; LIN_INV_EDGE keeps the compressed inverse's tan finite)
 const int LIN_INV_STEPS = 6;
@@ -1295,7 +1317,7 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
     float edgePx = (inside - 0.5) / max(fwidth(inside), 1e-6);
     a = mix(a, ml, CUT_EDGE_INK * (1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, edgePx)));
   } else a = mix(toLin(uPlaster), a, inside);
-${sheet ? `  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
+${sheet ? glsl`  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
   // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
   // front where two coincide, had no tint, and the pair could not be told apart
@@ -1349,7 +1371,7 @@ void main() {
 }
 `;
   // graph-paper tiers with per-fragment scale (perspective); composited premultiplied over col
-  const TIERS = `
+  const TIERS = glsl`
 uniform vec3 uMinor; uniform vec3 uMed; uniform vec3 uMajor;
 vec4 tiersOver(vec2 p, vec4 col, float amul) {
   vec2 fw = max(fwidth(p), vec2(1e-30));
@@ -1367,7 +1389,7 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
   return col;
 }
 `;
-  const FLOOR_FS = `
+  const FLOOR_FS = glsl`
 in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
 uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
@@ -1463,7 +1485,7 @@ void main() { vP = aPos3; gl_Position = uMVP * vec4(aPos3, 1.0); }
   // The graticule's coverages at the sphere point n (unit): net (the tier of uNet), re (the real great circle) and eq
   // (|z| = 1), each 0..1, and phaseLines' mix of them over a colour (the globe's phase portrait, and the steps view's
   // carried colour, which share it). Needs TIERS and UTIL.
-  const SPHERE_LINES = `
+  const SPHERE_LINES = glsl`
 uniform int uNet;
 void sphereLines(vec3 n, out float net, out float re, out float eq) {
   float nz = clamp(n.z, -1.0, 1.0);
@@ -1495,7 +1517,7 @@ void main() {
   vec3 n = normalize(vP);
   float net, re, eq;
   sphereLines(n, net, re, eq);
-${phase ? `
+${phase ? glsl`
   vec3 base = dcolor(mapF(vec2(n.x, -n.y) / max(1.0 - clamp(n.z, -1.0, 1.0), 1e-7))); // S = 0, N = infinity (the conjugate lift's inverse)
   vec3 col = phaseLines(base, net, re, eq);` : `
   vec3 col = mix(uPlaneCol, uGridMaj, net);
@@ -1519,7 +1541,7 @@ void main() {
   // where a layer covers the pixel, the last one the farthest surface. Each layer is laid at uA over the ones behind it
   // and the farthest that covers the pixel is opaque; the nearest one's depth (uD) is written, so the front surface is
   // drawn over them
-  const LAND_LAYERS_FS = `
+  const LAND_LAYERS_FS = glsl`
 uniform highp sampler2DArray uL; uniform highp sampler2D uD; uniform int uN; uniform float uA;
 out vec4 o;
 void main() {
@@ -1540,7 +1562,7 @@ void main() {
   gl_FragDepth = texelFetch(uD, p, 0).r;
 }
 `;
-  const DISC_FS = `
+  const DISC_FS = glsl`
 in vec3 vPos;
 uniform float uR; uniform vec3 uPlaneCol; uniform vec3 uAxisCol;
 out vec4 o;

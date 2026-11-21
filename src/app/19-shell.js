@@ -5,8 +5,9 @@
   // a theme picked from the header's menu, Settings' entry or the phone's sheet
   function pickTheme(v) { curTheme = v; setTheme(v); sndToggleCue(v !== 'light'); }
   // the theme's one menu, from the header button and from Settings: Auto, Light, Dark, the current one checked
-  function openThemeMenu(btn) {
-    svChoiceMenu(btn, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], curTheme, $t('Theme'), pickTheme);
+  // (opener: the control that holds the menu when btn leaves the page as it opens, Settings' link with its popover)
+  function openThemeMenu(btn, opener) {
+    svChoiceMenu(btn, [['auto', $t('Auto')], ['light', $t('Light')], ['dark', $t('Dark')]], curTheme, $t('Theme'), pickTheme, opener);
   }
   // the header: the icons, the command field, its fit (init: before the view controls)
   function setupHeader() {
@@ -66,7 +67,8 @@
       if (th) {
         let q = 0;
         const ro = new ResizeObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); });
-        for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap')]) if (el) ro.observe(el);
+        // (and the plane's colour keys: a key unfolding under a message moves the message off it)
+        for (const el of [$('plotL'), $('plotR'), document.querySelector('.pipe-wrap'), $('leftLegend'), $('rightLegend')]) if (el) ro.observe(el);
         // (a phone's sheet opening or closing moves the message between the plot and the sheet's row)
         new MutationObserver(() => { if (!q && th.firstElementChild) q = requestAnimationFrame(() => { q = 0; refreshToasts(); }); }).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
         // (a dialog opening or closing under a message decides whether the message is live)
@@ -135,7 +137,7 @@
       pb.addEventListener('click', (e) => openMenu(e.currentTarget, palItems()));
       syncPalBtn();
     }
-    // [v17 D5, #82] Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
+    // Settings (⚙): what is rarely changed, in one pop-down under the button: the theme, the language,
     // sound and its settings, the panels, mesh quality (lent from #settingsHome) and help. The Language setting (device
     // only: Auto, English, Русский, Italiano; a choice that changes the language reloads) is here and in the palette:
     // the header's globe went (notes/i18n/USER-DECISIONS.md, 2026-10-28)
@@ -153,15 +155,15 @@
       run: () => { const a = h('a', { href: file, download: file }); document.body.append(a); a.click(); a.remove(); } };
   }
   function openSettings(btn) {
-    if (popEl && popEl.classList.contains('set-pop')) { closePalette(); btn.focus(); return; }   // (a re-click closes)
+    if (popEl && (popEl.classList.contains('set-pop') || popEl._opener === btn)) { closePalette(); btn.focus(); return; }   // (a re-click closes, Settings' Theme menu too)
     closePalette();
     const sep = (t, first) => h('div', { class: 'opts-h' + (first ? '' : ' opts-sep') }, t);
-    // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English, review eng-12; the languages'
+    // (Auto's tooltip names what it would pick here: a test page's ?ns= stays English; the languages'
     // own names are never translated)
     const autoName = { en: 'English', ru: 'Русский', it: 'Italiano' }[I18N._resolve({ param: null, pref: 'auto', ns: I18N.NS, nav: navigator })] || 'English';
     const themeName = { auto: $t('Auto'), light: $t('Light'), dark: $t('Dark') };
-    const kids = [sep($t('Theme'), true), h('button', { type: 'button', id: 'setTheme', class: 'set-link', 'aria-haspopup': 'menu', onclick: (e) => openThemeMenu(e.currentTarget) }, $t('Theme: {name}', { name: themeName[curTheme] })),
-      sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'))];
+    const kids = [sep($t('Theme'), true), h('button', { type: 'button', id: 'setTheme', class: 'set-link', 'aria-haspopup': 'menu', onclick: (e) => openThemeMenu(e.currentTarget, btn) }, $t('Theme: {name}', { name: themeName[curTheme] })),
+      sep($t('Language')), seg('setLang', I18N.readPref(), [['auto', $t('Auto'), $t('Auto ({name})', { name: autoName })], ['en', 'English'], ['ru', 'Русский'], ['it', 'Italiano']], (v) => pickLang(v), $t('Language'), { wrap: false })];
     if (SND) {
       const sw = h('input', { type: 'checkbox', class: 'snd-switch', role: 'switch', 'aria-label': $t('Sound') });
       sw.checked = !!SND.prefs().on;

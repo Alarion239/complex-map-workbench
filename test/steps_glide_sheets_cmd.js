@@ -1,7 +1,9 @@
 // The steps view's 2D glide over a multivalued step draws every sheet, as the plane it arrives at does: the glide's
 // frames are the copies of plane z, one per sheet combo of the steps it crosses, each placed by the glide's map
 // continued on its combo and coloured on it. The Plane surface, Everywhere, the colour plane the last plane (so the
-// plane a glide arrives at is coloured by its own variable over the whole plane), no lines, paths or strokes:
+// plane a glide arrives at is coloured by its own variable over the whole plane), no lines, paths or strokes, and
+// the arrival plane's picture under a glide's carried colour left out (__cmwSteps({ restPaint: 0 }); that picture is
+// steps_glide_rest_paint_cmd.js's), so that a frame's paper is where no copy is drawn:
 // - square root alone (the inverse path) and z³ − 3z then square root (the mesh path: the cubic has no inverse plan),
 //   the glide onto the square root's plane at u = SHORT, 1/2 and 1 − SHORT, and at u = TINY and 1 − TINY:
 //   - no frame leaves paper where the copies' images cover the plane: its paper share is at most PAPER_MAX (one sheet
@@ -15,10 +17,16 @@
 //   SAT (no paper, no black) at least the parked plane's less COLOUR_TOL;
 // - the K = 1 control (__cmwSteps({ glideSheets: 1 }): the principal combo alone) leaves the left half paper again, so
 //   the rows above read the sheets the glide draws;
-// - the logarithm (an infinitely sheeted step), zoomed out to LOG_SCALE px per unit: the glide's record names the
-//   sheets it draws (sheetKs), the window −W..W about the principal sheet, each once (W = S.sheetW, 2), and near u = 1
-//   the frame is as much paper above the real axis as below it, within SYM_TOL (the window of sheets is symmetric
-//   about 0);
+// - the logarithm (an infinitely sheeted step), zoomed out to LOG_SCALE px per unit: the glide's record names the sheets
+//   it draws (sheetKs), the window −W..W about the principal sheet, each once (W = S.sheetW, 2), and near u = 1 the
+//   frame is as much paper above the real axis as below it, within SYM_TOL (the window of sheets is symmetric about 0);
+// - combos the glide's planes cannot tell apart are drawn once, and combos they can are all drawn (a frame is placed by
+//   the map to the plane it leaves and coloured by the map to the plane it reaches), at u = 1/2:
+//   - log, exp, sin, then a cube root, onto the root's plane: exp undoes the logarithm's sheet before both planes, so the
+//     record's sheets are the root's 3, not the 8 its 15 combos would fill;
+//   - square root then z², onto z²'s plane: z² undoes the root's sheet on the plane the glide reaches but not on the one
+//     it leaves, so both sheets are drawn (2) and the frame leaves no paper (at most PAPER_MAX);
+//   - log then exp, onto exp's plane: the same, the logarithm's 5 sheets;
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copies (its record's sheets 1), and at u = 1 − TINY the frame is as close
 //   to the parked plane as at u = TINY to the plane it leaves, within SAME_FRAC.
@@ -55,7 +63,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   const r = info[name] = {};
   await loadView('steps', 'glidesheets' + Date.now(), { shapes: [], steps, srcView: { cx: 0, cy: 0, s: 90 } });
   await settled({ max: 30000, until: READY });
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true, restPaint: 0 }); 1`);
   await settled({ max: 60000 });
   const b = steps.length, a = b - 1;
   // the planes at the glide's ends, parked
@@ -91,13 +99,33 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   const r = info.log = {};
   await loadView('steps', 'glidesheetslog' + Date.now(), { shapes: [], steps: [step('log', { cut: 180 })], srcView: { cx: 0, cy: 0, s: LOG_SCALE } });
   await settled({ max: 30000, until: READY });
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true, bare: true, restPaint: 0 }); 1`);
   await settled({ max: 60000 });
   const f = r.arrival = await at(1 - SHORT, 'log');
   const ks = (f.glide.sheetKs || []).map((o) => o[0]).sort((x, y) => x - y);
   ok('logarithm: the glide draws the sheets −2..2 about the principal one, each once', JSON.stringify(ks) === JSON.stringify([-2, -1, 0, 1, 2]), f.glide);
   r.top = await halfPaper('log', true); r.bottom = await halfPaper('log', false);
   ok(`logarithm, u = ${1 - SHORT}: as much paper above the real axis as below it (within ${SYM_TOL})`, Math.abs(r.top - r.bottom) <= SYM_TOL, r);
+}
+// ---- combos the glide's planes can or cannot tell apart ----
+// exp undoes the logarithm's sheet (exp(log z + 2πik) = z) and z² the square root's, so the planes after them cannot
+// tell those combos apart; a glide onto such a plane still leaves the plane before, which can
+{
+  const COINCIDE = [
+    { name: 'log, exp, sin, cube root', steps: [step('log', { cut: 180 }), step('exp'), step('sin'), step('root', { n: 3, cut: 180 })], b: 4, sheets: 3, ks: (g) => JSON.stringify((g.sheetKs || []).map((o) => o[1]).sort((x, y) => x - y)) === '[0,1,2]', what: 'the root\'s three sheets, each once' },
+    { name: 'square root then z²', steps: [step('root', { n: 2, cut: 180 }), step('pown', { n: 2 })], b: 2, sheets: 2, paper: true, what: 'both sheets of the root' },
+    { name: 'log then exp', steps: [step('log', { cut: 180 }), step('exp')], b: 2, sheets: 5, what: 'the logarithm\'s five sheets' },
+  ];
+  for (const c of COINCIDE) {
+    const r = info[c.name] = {};
+    await loadView('steps', 'glidesheetsco' + Date.now(), { shapes: [], steps: c.steps, srcView: { cx: 0, cy: 0, s: 90 } });
+    await settled({ max: 30000, until: READY });
+    await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'plane', go: ${c.b - 1}, now: true, bare: true, restPaint: 0 }); 1`);
+    await settled({ max: 60000 });
+    const f = r.mid = await at(c.b - 0.5, 'co' + c.b);
+    ok(`${c.name}, u = 0.5: the glide draws ${c.what}`, f.glide.sheets === c.sheets && (!c.ks || c.ks(f.glide)), f.glide);
+    if (c.paper) ok(`${c.name}, u = 0.5: no paper (≤ ${PAPER_MAX})`, f.paper <= PAPER_MAX, f);
+  }
 }
 // ---- Inside regions: an annulus under the square root ----
 {
@@ -106,7 +134,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   await loadView('steps', ns, { shapes: [{ id: 'a1', kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2, ci: 0, visible: true }], steps: [ROOT], srcView: { cx: 0, cy: 0, s: 90 } });
   await go(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps`);
   await settled({ max: 30000, until: READY });
-  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true, bare: true }); 1`);
+  await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'in', surf: 'plane', go: 0, now: true, bare: true, restPaint: 0 }); 1`);
   await settled({ max: 60000 });
   for (const k of [0, 1]) {
     await ev(`__cmwSteps({ go: ${k}, now: true }); 1`);
@@ -118,7 +146,7 @@ for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ −
   const d = {};
   for (const [u, end] of [[TINY, 0], [1 - TINY, 1]]) {
     const f = r[`u ${u}`] = await at(u, `it${u}`);
-    ok(`Inside regions, u = ${u}: the principal sheet's image of the region alone (no copies)`, f.glide.sheets === 1 && f.paper < 1, f);
+    ok(`Inside regions, u = ${u}: the principal sheet's image of the region alone (no copies)`, f.glide.sheets === 1, f);
     d[end] = r[`u ${u} against ${end}`] = await compare(`it${u}`, `ip${end}`);
   }
   ok(`Inside regions, u = ${1 - TINY}: the frame is as close to plane 1 parked as u = ${TINY} is to plane 0 (within ${SAME_FRAC})`, !!d[0] && !!d[1] && d[1].frac <= d[0].frac + SAME_FRAC, d);

@@ -338,6 +338,11 @@
     add('series finite 2000 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2000} n^{-z}' })]);
     // (exactly the cap's 2048 terms: the last one is taken and the sum is done)
     add('series finite 2048 terms n^-z', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{n=1}^{2048} n^{-z}' })]);
+    // finite sums inside one another share the budget: a pixel takes the product of their terms. 32 x 64 = 2048,
+    // the budget, against the CPU; 33 x 64 = 2112, past it: blank on the GPU (gpuBlank), though each sum alone is within
+    add('series nested 32 x 64 terms (the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{32} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
+    add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
+    chains[chains.length - 1].gpuBlank = true;
   }
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -948,6 +953,19 @@ void main() {
             }
           }
         }
+        // (a chain past the GPU's budget, gpuBlank: its whole chain's row must be blank on the GPU, whatever the CPU finds
+        // there; its other rows are not compared)
+        if (ch.gpuBlank) {
+          if (!(row.mode === 0 && row.a === 0 && row.b === n)) continue;
+          const kb = (ri * P + p) * 4;
+          R.compared++;
+          if (Number.isFinite(out[kb]) || Number.isFinite(out[kb + 1])) {
+            R.failCount++;
+            R.failByChain[ch.name] = (R.failByChain[ch.name] || 0) + 1;
+            if (R.failures.length < 50) R.failures.push({ chain: ch.name, row: rowName(row), point: [Z[p].re, Z[p].im], cpu: [e.w.re, e.w.im], gpu: [out[kb], out[kb + 1]], wantBlank: true });
+          }
+          continue;
+        }
         R.compared++;
         if (stageRow) { if (row.mode === 4) R.comparedSheet = (R.comparedSheet || 0) + 1; else R.comparedDeriv = (R.comparedDeriv || 0) + 1; }
         if (row.mode === 5) R.comparedSheetRange = (R.comparedSheetRange || 0) + 1;
@@ -1058,10 +1076,11 @@ void main() {
     if (R.trigAccurate && outside) R.errors.push(`sin and cos of the library outside [-1, 1]: ${JSON.stringify(outside)}`);
   } catch (e) { R.errors.push('trig: ' + e.message); }
 
-  // (on SwiftShader GLSLTiers.keep left GLSLTiers.SWIFTSHADER_HANG's chains out, whose programs do not finish there:
+  // (a renderer of GLSLTiers.NOT_ON: GLSLTiers.keep left its set's chains out, whose programs do not survive there:
   // GLSLTiers.notRun, each 'name (reason)')
-  R.notOnSwiftShader = GLSLTiers.notRun;
-  for (const name of GLSLTiers.SWIFTSHADER_HANG.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.SWIFTSHADER_HANG: no chain is named ${name}`);
+  const notOn = GLSLTiers.NOT_ON_HERE;
+  R.notOn = notOn ? { renderer: notOn.name, issue: notOn.issue, chains: GLSLTiers.notRun } : null;
+  for (const n of GLSLTiers.NOT_ON) for (const name of n.chains.keys()) if (!chains.some((c) => c.name === name)) R.errors.push(`GLSLTiers.${n.set}: no chain is named ${name}`);
   for (const ch of selected) {
     const tc = performance.now();
     try { testChain(ch); R.chains++; } catch (e) { R.errors.push(`${ch.name}: ${String(e.message || e).slice(0, 3000)}`); }

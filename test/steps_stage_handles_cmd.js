@@ -11,10 +11,10 @@ const STATE = { v3: true, v4: true, v5: true, v6: true,
   steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
 const ns = 'stagehandles' + Date.now();
 await view(1440, 900, false, false);
-await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` });
+await go(`http://localhost:${PORT}/gl-helpers.html`);
 await ready('document.readyState === "complete"');
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(STATE))}); 1`);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps` });
+await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
 ok('the steps view is up on plane z with its shapes', await ready('!!window.__cmwSteps && __cmwSteps().on && __cmwSteps().i === 0 && __cmwShapes().shapes.length === 2'), null);
 const ink = (z) => ev(`__cmwOverlayInk('L', ${JSON.stringify(z)}, 7)`);
 const pick = async (id) => { await ev(`__cmwSelect(${JSON.stringify(id)}); 1`); await ready(`__cmwShapes().selected === ${JSON.stringify(id)}`); await settled({ panes: false }); };

@@ -42,7 +42,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
-| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
+| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
 | **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
@@ -127,7 +127,7 @@ Each platform's job is there for its own shader compiler:
 - **Windows** (Direct3D 11 behind ANGLE, WARP on GitHub's machines): FXC, which inlines every call and unrolls
   loops.
 - **macOS** (Metal behind ANGLE, a virtual GPU): Apple's compiler, and a GPU's last bits in `exp`, `sin` and `cos`.
-- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`): CPU WebGL2. Headless Chrome falls back to it without a
+- **Linux** (Chrome's own SwiftShader, no `CMW_ANGLE`; a local browser-suite run uses lavapipe instead where it is installed, below): CPU WebGL2. Headless Chrome falls back to it without a
   usable GPU, and the figure exports render on it. Its built-in `sin` and `cos` keep only Vulkan's minimum accuracy
   (#1739), and it has corner cases of its own (`atan(−0, x)`, #1709). The Linux browser jobs render with lavapipe
   instead, which is not SwiftShader.
@@ -152,12 +152,19 @@ The Gate (`gate.yml`, GitHub's machines):
 | a pull request with the label `glsl-deep` | all | all | core |
 
 On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 20 minutes
-of machine time together. Three random d/dz chains of the `glsl` page do not finish on SwiftShader (minutes of one
-core, then the GPU process is lost and every later chain errors; #1809): `GLSLTiers.SWIFTSHADER_HANG` lists them, and
-`GLSLTiers.keep` leaves them out when the page's renderer is SwiftShader. The job summary names each with its reason
-("not run on SwiftShader"); Windows and macOS run them. A reference whose `test/glsl_tiers.js` has no such set (one
-from before it) has its pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the
-same chains and the `glsl` page is compared on Linux too.
+of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
+finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
+the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
+macOS run them. A chain's cost there is its first draw (SwiftShader makes the pipeline then, from SPIR-V, with
+every call inlined; compile and link take milliseconds), and it grows faster than the shader's size with the number of call
+sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inner `cxs0_sg<p>` from one site per level
+(`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
+pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
+compared on Linux too.
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
+no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
+error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
 with *machines* `windows` or `both` (#169). Windows compiles on one core (FXC): the glsl page alone took over 170
@@ -253,12 +260,14 @@ artifact.
 - **Mesa's lavapipe** (`ci/lavapipe.sh`, the step *Mesa's Vulkan drivers*): each job installs `mesa-vulkan-drivers`.
   It downloads the files the image lacks from Ubuntu's mirrors with the image's own package lists (no refresh: seconds;
   on the 26.04 image two files, the package and `libdisplay-info3`, both `amd64v3` builds) and installs them with `dpkg`. Those files are kept in an Actions cache,
-  keyed by the runner's image (`ImageOS`, `ImageVersion`) and the package's version in the image's lists and restored
-  by that exact key only, so files from another image are never installed. A job that installed from a mirror saves
-  them when the key had no entry and the version installed is the key's (`dpkg-query`, the step outputs `version`);
-  a pull request's run restores what it saved itself or what main's runs saved (each wave's push, the nightly run).
-  GitHub evicts an entry after 7 days unused, so an image's entry goes soon after the image does.
-  - **When Ubuntu's mirrors cannot be reached**, the cached files are installed after that first download fails. With
+  keyed by the runner's Ubuntu release (`ImageOS`) and the package's version in the image's lists, what the files
+  depend on: a new image of the same release with the same version finds them (GitHub's images change weekly, the
+  package seldom). When the key has no entry, the restore takes the newest entry of the release (`restore-keys`, the key
+  up to the version). A job that installed from a mirror saves the files when the key had no entry and the version
+  installed is the key's (`dpkg-query`, the step outputs `version`); a pull request's run restores what it saved
+  itself or what main's runs saved (each wave's push, the nightly run). GitHub evicts an entry after 7 days unused.
+  - **When Ubuntu's mirrors cannot be reached**, cached files of the key's version are installed after that first
+    download fails. With
     none, or when they do not install, the same version comes from a fallback mirror on another domain:
     kernel.org's mirror of Ubuntu's archive (`https://mirrors.edge.kernel.org/ubuntu`), which a DNS failure of
     `*.ubuntu.com` leaves reachable. Ubuntu's list of archive mirrors has kernel.org's once, as "Kernel.org" at
@@ -272,6 +281,9 @@ artifact.
     security pocket (an older version can stay there after the updates pocket has moved on: 25.2.8-0ubuntu0.24.04.2
     stayed in noble-security after …04.3 replaced it in noble-updates). The downloads with refreshed lists install the
     newer version, which the job does not save under the key that names the image's.
+  - **Last, an older version from the cache:** when no mirror gave the key's version and the restore matched the
+    release prefix alone, the cached files of that other version are installed. `dpkg` checks their dependencies, so a
+    copy that does not fit the image fails at its install, and the job does not save them.
   - **Time limits:** each apt call is stopped after 15 s for a download and 25 s for a refresh of the lists (apt does
     not retry by itself), and an attempt whose refresh got no answer downloads nothing. With no mirror answering and no
     cache, the step fails within 2 minutes when SIGTERM stops apt, and within 140 s when apt has to be killed
@@ -281,7 +293,7 @@ artifact.
     the time limits when every apt call was stopped at its limit; otherwise how many calls ended with an error (apt's
     errors are in the log), got no answer, ended without an error but downloaded no files, or were refreshes of the
     lists that ended without an error (apt exits 0 even when it could not fetch, e.g. in a fast DNS failure: its
-    "Failed to fetch" warnings are in the log); and whether the cache had a copy. Without
+    "Failed to fetch" warnings are in the log); and whether the cache had a copy for the release. Without
     lavapipe Chrome has no Vulkan driver and no WebGL2. Each part's time is in the step's log.
 - **The image:** the browser jobs run on `ubuntu-26.04`, by name, not `ubuntu-latest`. The layout gate compares the
   renderer's name with its baseline's (26.04's lavapipe: `ANGLE (Mesa, Vulkan 1.4.335 (llvmpipe (LLVM 21.1.8 256 bits) …`),
@@ -372,8 +384,9 @@ adds to `src/`, `ci/`, `test/` and `tools/` (generated files excluded) and repor
 let a script see: history words and version, wave or changelog labels in a comment (`history`), plan labels such as an
 item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whose diff removes more assertions than it adds
 (`asserts`; assertions moved into a test file the diff creates, a split, are not counted as dropped). The words `was`, `now` and
-`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines, and never fails the job; with
-`--block` it exits 1 when it finds anything. An added line opts out with `standards-ok: <reason>` in its comment (a
+`no longer` count only beside a verb of change, so a comment that describes the code as it is stays clean. It reports in the job summary and as warning annotations on the lines; with
+`--block`, as the Plan job runs it, it exits 1 when it finds anything, so a finding fails the Gate. A version inside a path or a file name
+(`notes/constructions-v16/`) is a name, not a label. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
@@ -446,7 +459,7 @@ node ci/perf_shards.js matrix                      # the shards; check: every pe
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
-node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (report only)
+node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (add --block to fail on a finding, as the Gate does)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)
 node ci/gpu_probe.js                               # the renderer headless Chrome gets here
@@ -458,14 +471,14 @@ The sandbox has no `google-chrome` and no route to the CDNs, and its GL is softw
 
 ```sh
 export CHROME_BIN=$(ls -d /opt/pw-browsers/chromium-*/chrome-linux64/chrome | head -1)   # Playwright's Chromium; the browser suites look for google-chrome
-export CMW_ANGLE=swiftshader CMW_CHROME_ARGS="--no-sandbox"                              # CPU rendering; no Vulkan flags
+export CMW_CHROME_ARGS="--no-sandbox"                                                 # the renderer is chosen by default: lavapipe where installed, else SwiftShader (below)
 node ci/browser.js --only '^key_popup_cmd' --port 9950                                   # a suite; --no-build skips build.py
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'                                # the same with MathJax and the faces from vendor/ (no CDN here; see "No network" below)
 node ci/snapshots.js && node ci/unit.js                                                  # unit tests (see the clone note below)
 npm run -s typecheck                                                                     # runs tools/join_src.js, then tsc
 ```
 
-- **Do not use CI's Vulkan flags** (`--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`, `CMW_ANGLE=vulkan`) here: Chrome then has no WebGL, the colour keys are hidden and every picture is blank. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
+- **The browser suites pick their renderer themselves** (`test/cdp_kit/renderer.js`): lavapipe through ANGLE's Vulkan back end, as the browser jobs, when the machine has it (the Vulkan ICD `lvp_icd.json` and its library: the package `mesa-vulkan-drivers`), with `GALLIUM_OVERRIDE_CPU_CAPS=avx` and CI's Vulkan flags; else SwiftShader, with a warning line. The first line of `ci/browser.js`'s output says which one drew (`renderer: …; drawn by: …`). The Vulkan loader is pointed at the lavapipe ICD found (`VK_ICD_FILENAMES`, unless you set it), because the package also ships the GPU drivers' ICDs and a machine with a GPU would draw on that. If Chrome has no WebGL2 through lavapipe here (the colour keys hidden and every picture blank), the run goes on with SwiftShader and says so. `CMW_ANGLE=swiftshader`, as above, opts out. A red on SwiftShader that CI does not show (`steps_chain`, `steps_strip_layout`: #2025) is checked with lavapipe first. The GLSL, Quality and Perf runs keep SwiftShader on Linux, as their CI jobs do. A bare `npx tsc` needs `node tools/join_src.js` first; `npm run typecheck` does both.
 - **A shallow clone** lacks the old commits that `ci/snapshots.js` restores. It fetches them, and the six tests that read the snapshots fail with a line saying what is missing (never skip).
 - **Keep your own scripts' output out of the repository:** screenshots and measurements go to a scratch folder (a script run from the repository's root once left a `shots/` folder in it).
 - **The lint ratchet** is the same as in CI: `npx eslint -f json . > es.json; npm run -s typecheck > tsc.txt; node ci/lint_ratchet.js check es.json tsc.txt`.
@@ -481,7 +494,7 @@ output fail. `CMW_VENDOR=1` makes the browser daemon (test/cdp_kit/cdpd.js) answ
 `vendor/` (test/cdp_kit/vendor.js; the fonts as @font-face rules over the vendored faces, as the offline page has them)
 and lets every other request through. It is opt-in and never set in CI, which keeps testing the CDN path;
 test/t_vendor_serve.js checks that every CDN URL in src/ and build.py is answered. What it does not fix: in a sandbox
-with SwiftShader (no Vulkan/lavapipe, the CI's GL), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
+on SwiftShader (`CMW_ANGLE=swiftshader`, or a sandbox without lavapipe; the browser jobs draw with lavapipe), `tour_cmd` passes 89 of 95 with it (81–84 without: the strip's
 holes, the welcome, the palette's Try line are typeset checks) and `custom_show_cmd` passes, but `tour_auto`,
 `ux165_learn`, `v15_desktop`, `v15_phone`, `sound` and `land_release` still fail there on timing and software-GL
 checks that pass in CI (30 Oct, f4e601a).
@@ -511,7 +524,7 @@ Settings (environment variables):
 
 | variable | meaning |
 |---|---|
-| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `swiftshader` (default elsewhere; CPU rendering); the browser jobs use `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) |
+| `CMW_ANGLE` | Chrome's ANGLE back end: `metal` (macOS default), `d3d11` (Windows default), `vulkan` with Mesa's lavapipe (`mesa-vulkan-drivers`) for the browser suites on Linux when it is installed, else `swiftshader` (CPU rendering, with a warning); the browser jobs use `vulkan` with lavapipe. `CMW_ANGLE=swiftshader` opts out of lavapipe (`test/cdp_kit/renderer.js`) |
 | `CMW_CHROME_ARGS` | extra Chrome flags, space-separated (CI on Linux: `--no-sandbox`; the browser jobs add `--enable-features=Vulkan --use-vulkan=native --disable-vulkan-surface`) |
 | `CMW_DPR` | the device pixel ratio the browser daemon's `view()` emulates (default 1; `steps_glide_look_cmd.js` runs at 1 and at 2, ci/browser_suites.js) |
 | `CHROME_BIN` / `CHROME` | Chrome's path for the perf / quality runners, when it is not in the usual place |

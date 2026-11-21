@@ -178,15 +178,16 @@
   // items: {label, icon?, swatch?, key?, danger?, run} | 'sep' ; a 'kids' array opens a submenu beside its item.
   // run() may return the element that should take the focus; otherwise it goes back to the menu's opener.
   // sub (internal): {opener, okey, parent, label} for a submenu, so Esc and ← lead back to a live element.
+  // items.opener: the control that holds the menu when the anchor leaves the page as the menu opens (a link in a popover
+  // that closes first): it says aria-expanded while the menu is open, and Esc and a choice return the focus to it.
   function openMenu(anchor, items, cls, sub) {
-    const opener = sub ? sub.opener : anchor;
+    const opener = sub ? sub.opener : items.opener || anchor;
     // re-clicking the button that opened a menu closes it
-    if (!sub && popEl && popEl.classList.contains('menu') && popEl._opener === anchor) { closePalette(); return null; }
-    const okey = sub ? sub.okey : focusKey(anchor);
+    if (!sub && popOpenedFrom(anchor)) { closePalette(); return null; }
+    const okey = sub ? sub.okey : focusKey(opener);
     const ar = anchor.getBoundingClientRect(); // before closePalette detaches a submenu's parent item
     closePalette();
     const pop = h('div', { class: 'pop menu' + (cls ? ' ' + cls : ''), role: 'menu', 'aria-label': sub ? sub.label : items.menuLabel || null });
-    pop._opener = opener;
     // a menu opened from a dialog (Export figure's Size and More formats) is drawn over the dialog: the
     // popovers' layer (30) is under the modal's (50), so it opened behind the dialog and its scrim, out of sight
     if (opener && opener.closest && opener.closest('.modal-bg')) pop.classList.add('over-modal');
@@ -210,8 +211,7 @@
     add(pop, items);
     $('popHost').append(pop);
     popEl = pop;
-    // (the button that opened a menu says so while it is open, ARIA's menu button; closePalette puts it back)
-    if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
+    markOpener(pop, opener);
     if (sub) {
       // in the parent's place, its top at the item that opened it: the submenu takes the parent's place
       // where the pointer already is, rather than jumping beside it (and onto whatever lies there, a divider's tooltip)
@@ -360,10 +360,10 @@
     return true;
   }
   function nudgeShape(s, dx, dy, big) {
-    const pane = isTarget(s) ? paneR : paneL;
-    if (!pane || s.def) return false;
-    // (the step of the grid as drawn, halves included, Constr.gridStep, as snapping uses)
-    const sc = pane.view.s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
+    if (s.def) return false;
+    // (the step of the grid of the plane on screen, halves included, Constr.gridStep, as snapping uses: the steps view
+    // has one camera for every plane, S.srcView; else a target is in Y's view and a shape in X's)
+    const sc = (SV.on ? S.srcView : isTarget(s) ? V.right : leftView()).s, d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
     const step = (Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100) * (big ? 10 : 1);
     try { Region.translate(s, C(dx * step, dy * step)); } catch (e) { return false; }
     if (isTarget(s)) targetsChanged(true); else shapesChanged(true);
@@ -372,11 +372,15 @@
     if (nudgeRun && nudgeRun.id === s.id && nudgeRun.hi === hi && now - nudgeRun.t < 1500 && hi > 0) { hist.pop(); hi = hist.length - 1; }
     commit();
     nudgeRun = { id: s.id, hi, t: now };
+    // (the same event the end of a drag emits, so a Try that asks to drag a shape is done from the keyboard too)
+    tourShapeMoved(s.id, isTarget(s));
     // (and once the run stops, the shape's place is said once: the toast host is a live region)
     clearTimeout(nudgeSayT);
     nudgeSayT = setTimeout(() => {
-      const b = Region.bboxOf(s), name = shapeNames(isTarget(s) ? S.targets : S.shapes).get(s.id);
+      const name = (isTarget(s) ? targetRowNames() : shapeNames(S.shapes)).get(s.id);
       if (!selected || selected !== s.id || !name) return;
+      // (a point's place is its own value; another shape's the middle of its box)
+      const b = s.kind === 'point' ? { x0: s.p[0], x1: s.p[0], y0: s.p[1], y1: s.p[1] } : Region.bboxOf(s);
       toast(b ? $t('Moved {name} to {x}, {y}.', { name, x: fmtR((b.x0 + b.x1) / 2, 3), y: fmtR((b.y0 + b.y1) / 2, 3) }) : $t('Moved {name}.', { name }));
     }, 700);
     return true;
@@ -441,19 +445,23 @@
       const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
       host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
       if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
-      const tc = {};
-      S.targets.forEach((s, i) => {
-        const nk = nameKind(s), fx = fixedNm(s);
-        if (!fx) tc[nk] = (tc[nk] || 0) + 1;
-        // targets are named apart from the domain's shapes: point targets by letter (p, q, …), the rest "Target disc 1"
-        // (the unit circle or an axis of Y: by that name)
-        const label = s.name && s.kind !== 'point' ? s.name : fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, S.targets.filter((x) => x.kind === 'point').indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] });
-        host.append(shapeRow(s, label, true));
-      });
+      const tl = targetRowNames();
+      S.targets.forEach((s) => host.append(shapeRow(s, tl.get(s.id), true)));
     }
     updateShapeList();
     ctxChanged();
     Construct.orderRows(); Construct.markLinks(touchUI() ? selected : null); requestRender('P');   // (helpers under their owner; the Construction view)
+  }
+  // the targets' names as their rows show them, by id: targets are named apart from the domain's shapes (point targets by
+  // letter, "Point p", the rest "Target disc 1"; the unit circle or an axis of Y by that name)
+  function targetRowNames() {
+    const tc = {}, names = new Map(), points = S.targets.filter((x) => x.kind === 'point');
+    for (const s of S.targets) {
+      const nk = nameKind(s), fx = fixedNm(s);
+      if (!fx) tc[nk] = (tc[nk] || 0) + 1;
+      names.set(s.id, s.name && s.kind !== 'point' ? s.name : fx ? capFirst(fx) : s.kind === 'point' ? $t('Point {s}', { s: targetLabel(s, points.indexOf(s)) }) : $t('Target {x} {x2}', { x: kindLabel(nk).toLowerCase(), x2: tc[nk] }));
+    }
+    return names;
   }
   // the phone's context bar follows the selection, the polygon being drawn and the listening (Phone.ctx re-renders only on a change)
   function ctxChanged() { if (Phone.isOn && Phone.isOn()) Phone.ctx(); }
@@ -494,6 +502,8 @@
     const name = h('span', { class: 'k' }, label);
     // the name is the row's button; the eye and ⋯ buttons sit beside it, not inside it
     const nameBtn = h('div', { class: 'shape-name', role: 'button', tabindex: 0, 'aria-pressed': String(selected === s.id),
+      // (the keys that move a selected shape, said where its row is read)
+      'aria-description': selected === s.id && !s.def ? $t('Arrow keys move it; Shift for ten steps') : null,
       onkeydown: (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); row.click(); } } }, name, d);
     const row = h('div', { class: 'shape-row',
       onclick: (e) => {
@@ -674,7 +684,7 @@
       });
       inp.addEventListener('change', () => {
         if (inp.classList.contains('bad')) { inp.value = ptText(); showErr(f, inp, ''); return; }
-        if (now() !== start) commit();
+        if (now() !== start) { commit(); tourShapeMoved(s.id, target); }
       });
       return f;
     };

@@ -4,6 +4,15 @@
 // Structure (step types, on/off, errors, coefficient counts, custom formulas) is baked into the source and
 // summarised by `key`; every numeric parameter lives in `uniform vec4 uChain[]`, written by fill(), so
 // dragging a parameter or a branch cut never forces a recompile.
+// glsl`…`: a template of GLSL source (#2037). At run time it is the template as written, its strings joined with the
+// values between them as an untagged template joins them; the tag marks its text as GLSL for the published build, whose
+// strip (tools/strip_js.js) drops each line's `//` comment from it (GLSL has no strings: every `//` there starts a
+// comment), keeping each line, so a shader's compile errors keep their line numbers. src/gl/ takes it from here
+const glsl = (s, ...v) => {
+  let t = s[0];
+  for (let i = 0; i < v.length; i++) t += `${v[i]}${s[i + 1]}`;
+  return t;
+};
 const GLChain = (() => {
   const C = CX.C;
   const DEG = Math.PI / 180; // same expression as funcs.js, so cut*DEG is bit-identical
@@ -46,7 +55,7 @@ float cx_cos(float x) { return abs(x) <= 1e5 ? cx_sincos(x).y : abs(x) <= 3.4e38
     trigAccurate = TRIG_SOFT.test(String(r || ''));
     return trigAccurate;
   }
-  const LIB = `
+  const LIB = glsl`
 const float CX_PI = 3.141592653589793;
 // [issue #72] a uniform nothing sets, so it is 0: max(N, uNoUnroll) is N, but no compiler can know that, so it keeps the
 // loop a loop. ANGLE's Direct3D 11 back end hands the code to FXC, which unrolls a loop of constant trip count (its
@@ -405,8 +414,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // CPU goes on to its SER_FINITE. Every pixel of a frame takes that many terms in one draw, and a term n^{-z} is about
   // 150 flops (3.3 ns per term per pixel on four cores of lavapipe): 2048 terms over a pane of 2 M pixels (dpr 2) is
   // about 1.5 s on an integrated GPU of 0.4 TFLOP, under the 2 s after which Windows resets a GPU that has not answered
-  // (TDR), which is worse for the user than a blank pane. That bound is one sum's: a sum inside another takes up to the
-  // product of their caps a pixel (2048 x 2048, about 4.2 M terms), which it does not cover (#1845)
+  // (TDR), which is worse for the user than a blank pane. Finite sums inside one another share it: a pixel takes the
+  // product of their terms, which keeps to SER_GPU_FINITE (loopGL). An infinite sum around them counts 1 there,
+  // its terms bounded by SER_GPU_LOOP
   const SER_GPU_FINITE = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
@@ -554,7 +564,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       const nc = uBound(DIR_TMAX + 10);
       shape.push('D');
       const S = `${id}_S`, M = `${id}_M`, w = `${id}_w`;
-      out.push(`  vec2 ${S} = vec2(0.0); float ${M} = 0.0; vec4 ${id}_g = ${g1.v}, ${id}_h = ${g2.v};
+      out.push(glsl`  vec2 ${S} = vec2(0.0); float ${M} = 0.0; vec4 ${id}_g = ${g1.v}, ${id}_h = ${g2.v};
   if (${id}_g.y > 1.5) ${S} = ${NAN};
   else if (${id}_g.y > 0.5) {
     vec2 ${w} = z - vec2(${id}_h.x, 0.0), wm = ${w} - vec2(1.0, 0.0);
@@ -634,28 +644,39 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       shape.push(prod ? 'Lp' : 'L');
       const lo = g(n.lo), hi = g(n.hi), cap = uBound(SER_GPU_LOOP), fcap = uBound(SER_GPU_FINITE);
       const S = `${id}_S`, M = `${id}_M`, OK = `${id}_ok`;
-      out.push(`  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
-  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x;`);
+      const head = `  vec2 ${S} = vec2(${prod ? '1.0' : '0.0'}, 0.0); float ${M} = 0.0; bool ${OK} = true;
+  float ${id}_lo = ${lo}.x, ${id}_hi = ${hi}.x`, at = out.length;
+      out.push(`${head};`);
       // one loop body for every case (a constant-bound loop written out per case would be four copies of the term code, which
       // D3D's FXC unrolls): nsd sides, each from its first index in its direction: n ∈ ℤ is 0, 1, 2, … then −1, −2, …
       // (both bounds infinite), an upper bound only runs down from it, else up from the lower one. Its bounds are
       // values, not constants, so the loops stay loops
       const k = `${id}_k`, saved = out, inner = [];
+      // the enclosing loops' term counts, for a finite sum inside them: a pixel takes the product of the nested
+      // finite sums' terms, and that product, not each sum's own count, keeps to SER_GPU_FINITE (an infinite loop counts
+      // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
+      // only when a sum inside it reads it, so a sum with no finite sum inside declares none
+      const outerFn = idxVar.filter((e) => e.fn);
+      const me = { v: n.v, k, fn: `${id}_fn`, used: false };
       out = inner;
-      idxVar.push({ v: n.v, k });
+      idxVar.push(me);
       let t;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
+      for (const e of outerFn) e.used = true;
       const LO = `${id}_lo`, HI = `${id}_hi`;
+      // (a finite side's terms: within the cap alone, or with the enclosing finite sums' counts, their product)
+      const fits = outerFn.length ? `(${HI} - ${LO} + 1.0) * ${outerFn.map((e) => e.fn).join(' * ')} <= float(${fcap})` : `${HI} - ${LO} < float(${fcap})`;
       // (at the cap: terms falling as k^{-p}, p > 1.5 from the largest of six terms at N/4, N/2 and N, as the CPU's window,
       // and the same over both halves, leave the rest t (k + ½) (k/(k + ½))^p/(p − 1), added when it is under a tenth of
       // the sum, as the CPU does: Expr's tailOf)
-      out.push(`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
+      out.push(glsl`  int ${id}_nsd = ${LO} < -1e30 && ${HI} > 1e30 ? 2 : 1;
   for (int sd = 0; sd < ${id}_nsd; sd++) {
     float from = ${id}_nsd == 2 ? (sd == 0 ? 0.0 : -1.0) : ${LO} < -1e30 ? ${HI} : ${LO};
     float dir = ${id}_nsd == 2 ? (sd == 0 ? 1.0 : -1.0) : ${LO} < -1e30 ? -1.0 : 1.0;
     bool inf = dir > 0.0 ? ${HI} > 1e30 : ${LO} < -1e30;
     int run = 0; bool done = false; float mq = 0.0, kq = 0.0, mh = 0.0, kh = 0.0, dl = 0.0, kl = 0.0, dz = 0.0; vec2 tl = vec2(0.0);
-    int nj = inf ? ${cap} : ${HI} - ${LO} < float(${fcap}) ? ${fcap} + 1 : 0;
+    int nj = inf ? ${cap} : ${fits} ? ${fcap} + 1 : 0;
     for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
@@ -829,7 +850,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
 
   // ---- [issue #4] Γ, ψ, ζ and ζ′ in float32, after CX.lgamma, CX.digamma, CX.zeta, CX.zetaDeriv: put in front of a
   // chain's (or a region formula's) source only when it calls them, so no other program compiles them (specialLib)
-  const GAMMA_LIB = `
+  const GAMMA_LIB = glsl`
 // sin(πz) and sin(πs/2) with the real part reduced by the period first (float32 keeps the phase)
 vec2 cx_pimod(vec2 z) { return vec2(CX_PI * (z.x - 2.0 * floor(0.5 * z.x)), CX_PI * z.y); }
 vec2 cx_halfpimod(vec2 s) { return vec2(CX_HALF_PI * (s.x - 4.0 * floor(0.25 * s.x)), CX_HALF_PI * s.y); }
@@ -886,7 +907,7 @@ vec2 cx_digamma(vec2 z) {
   // The entries of ZETA_LIB's table of ln k (k < ZETA_LN_K_COUNT, four to a uniform row; the host fills it, logK in src/gl/04-programs-resources.js)
   const ZETA_LN_K_COUNT = 132;
   // ζ, ζ′ (they need Γ's part: log sin, Lanczos, ψ)
-  const ZETA_LIB = `
+  const ZETA_LIB = glsl`
 // ζ on the GPU up to |Im s| = CX_ZETA_TMAX (beyond: NaN, a blank, never a wrong value; the CPU goes further)
 const float CX_ZETA_TMAX = 120.0;
 // ln k for k < ${ZETA_LN_K_COUNT}, four to a row: the host fills it once with the GPU's own log (logK, src/gl/04-programs-resources.js), so a term
@@ -986,7 +1007,7 @@ vec2 cx_ipowi(vec2 w, float e) {
 }
 `;
   // n! and the binomial coefficient (they need Γ's part)
-  const FACT_LIB = `
+  const FACT_LIB = glsl`
 vec2 cx_fact(vec2 z) { return cx_gamma(z + vec2(1.0, 0.0)); }
 // (issue #72: the three log Γ through one call site)
 vec2 cx_binom(vec2 a, vec2 b) {
@@ -1239,7 +1260,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const q = A.slot(), path = pathSlots(A);
         const m = `highp uint mh = uint(${q.v}.z), ml = uint(${q.v}.w);\n  highp int m = int((mh << 16u) | ml);`;
         // (one call each of cpowr, cx_ipow32 and the path, so FXC, which inlines every call, writes each once)
-        const ph = (cut) => `float n = ${q.v}.x;
+        const ph = (cut) => glsl`float n = ${q.v}.x;
   if (n >= 0.0 || t < 0.5) return cpowr(z, n >= 0.0 ? 1.0 + (n - 1.0) * t : 1.0 + (-n - 1.0) * (2.0 * t), ${cut}, 0.0);
   ${m}
   // inversion path applied to z^|n|; for |z| > 1 via u = (1/z)^|n|, since z^|n| itself may overflow float32
@@ -1502,8 +1523,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
     const h = `if (t <= 0.0) return z;\n  if (t >= 1.0) return ${P}_f(z);\n  float s = t * (1.0 + ${nc.x} * ${len}.0);\n  if (s < 1.0) return ${last}_h(z, s);\n  z = ${last}_f(z); s -= 1.0;\n`
       + `  for (int k = 0; k < ${passes}; k++) {\n${subs.map(({ Q }) => `    if (s < 1.0) return ${Q}_h(z, s);\n    z = ${Q}_f(z); s -= 1.0;`).join('\n')}\n  }\n  return z;`;
     const ck = subs.map(({ Q, pl }) => cutKindOf(Q, pl));
+    // (own1: the path answers t >= 1 with the map itself, so it takes no t = 1 shortcut and chainAt no copy of it
+    // without one: the loop on a uniform trip count is written twice, in the map and the path; a third copy made
+    // Metal's compiler run it wrong, #1911)
     return {
-      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h,
+      sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: true,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
     };
@@ -1879,11 +1903,14 @@ vec2 cx_binom(vec2 a, vec2 b) {
         dks.forEach((d, i) => {
           const p = i ? dks[i - 1] : 0;
           const inner = (t) => (p ? `cxs0_sg${p}(zc, ${t}, combo)` : `vec4(zc, ${t})`);
+          // (the 8 points round zc, then the 8 round z, through one call of cxs0_sraw and of the inner cxs0_sg: SwiftShader and FXC
+          // inline every call, so each call site is another copy of the callee, and two sites per nesting level would double the
+          // program, to a first draw of minutes on SwiftShader. Each sum adds its points in the order of two calls)
           src += `vec4 cxs0_sg${d}(vec2 zc, vec2 z, int combo) {\n`
             + `  float R = ${flt(GPU_REL(i + 1))};\n  float rc = R * (1.0 + cx_abs(zc)), rz = R * (1.0 + cx_abs(z));\n  vec2 ac = vec2(0.0), az = vec2(0.0);\n`
-            + '  for (int j = 0; j < 8; j++) {\n    vec2 u = cxs0_u8(j), uc = vec2(u.x, -u.y);\n'
-            + `    ac += cmul(cxs0_sraw(${inner('zc + rc * u')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
-            + `    az += cmul(cxs0_sraw(${inner('z + rz * u')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
+            + '  for (int j = 0; j < 16; j++) {\n    vec2 u = cxs0_u8(j & 7), uc = vec2(u.x, -u.y);\n'
+            + `    vec2 v = cmul(cxs0_sraw(${inner('(j < 8 ? zc + rc * u : z + rz * u)')}, ${p}, ${d - 1}, combo, 0).zw, uc);\n`
+            + '    if (j < 8) ac += v; else az += v;\n'
             + '  }\n  return vec4(ac / (8.0 * rc), az / (8.0 * rz));\n}\n';
         });
       }
@@ -2098,7 +2125,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
   // The CPU twin of every function here is src/inverse.js (op table 3.2, enumerate 3.5); test/glsl_inverse_test.js
   // compares them leaf by leaf.
   // =================================================================================================================
-  const INV_LIB = `
+  const INV_LIB = glsl`
 struct Lf { vec2 u; vec4 J; float lvl; vec2 lg; vec2 lam; vec4 JL; bool hasLam; };
 float ixPix;
 const float IX_RAMP = 1.0;
@@ -2365,21 +2392,22 @@ bool ${P}_one_b(inout Lf L, int b) {
   }
   // GLSL of a polynomial NEWT op of degree D (InvOps.opNewt with deg): uInv[c] = (t, de), H_t's degree at t; then its
   // coefficients a_0 ... a_D, two to a cell from uInv[c + 1] (a_k: .xy for even k, .zw for odd). _a, a_k with w taken off
-  // a_0; _ev, a(u) - w and its derivative (Horner); _start, de points on the circle of Fujiwara's bound; _aberth, Aberth's
-  // sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's iteration in float32,
-  // whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton on H_t itself
-  // (newtCoreFns, chainHom) and kept when it differs from every earlier one, once per w. With the NEWT roots pass
+  // a_0; _ev, a(u) - w and its derivative (Horner); _poly, H_t(u) = a(u); _start, de points on the circle of Fujiwara's
+  // bound; _aberth, Aberth's sweeps over z, at most its, until every step is within 1e-5 (1 + |z_i|) (InvOps.newtAberth's
+  // iteration in float32, whose rounding the tolerance allows); _roots, every root for w, polished and checked by Newton
+  // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
+  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
+  // from every earlier one, once per w. With the NEWT roots pass
   // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
   // own w, and finds them itself elsewhere and where a root read misses w
-  function newtPolyFns(o, j, c, D, H, rd) {
+  function newtPolyFns(o, j, c, D, rd) {
     const P = `ix${j}`, NOR = `false, ${NEWT_NO_LEVEL}, IX_NOLG, false, vec2(0.0), vec2(0.0)`, T = Math.ceil(D / 2);
     const fetch = (tex) => Array.from({ length: T }, (_, k) => `#if IX_NR_N > ${k}
     { vec4 q = texelFetch(${tex}${k}, ixNrTexel, 0); z[${2 * k}] = q.xy;${2 * k + 1 < D ? ` z[${2 * k + 1}] = q.zw;` : ''} }
 #endif`).join('\n');
-    return `vec2 chainHom(int i, vec2 z, float t);
-${newtCoreFns(P, H, false)}vec2 ${P}_a(int k, vec2 w) {
+    return `vec2 ${P}_a(int k, vec2 w) {
   vec4 v = uInv[${c + 1} + k / 2];
   vec2 a = (k & 1) == 0 ? v.xy : v.zw;
   return k == 0 ? a - w : a;
@@ -2392,7 +2420,8 @@ void ${P}_ev(vec2 u, vec2 w, int de, out vec2 q, out vec2 dq) {
     q = cmul(q, u) + ${P}_a(k, w);
   }
 }
-void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
+vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}void ${P}_start(vec2 w, int de, out vec2 z[${D}]) {
   vec2 ad = ${P}_a(de, w);
   float R = 0.0;
   for (int k = 1; k <= ${D}; k++) {
@@ -2548,13 +2577,17 @@ ${seeded ? '' : pole ? `  vec2 v1;
       // H' by a forward difference (_fd) that reuses H_t(u), two evaluations of H, and is InvOps.opNewt's full step; the
       // members' derivative is a central one. _root keeps member 0's walk for its w, so member 1 does not walk again)
       case 'NEWT': {
-        const H = (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        // (a NEWT op of a recognised formula's sub-step j walks that sub-step's own homotopy, recPlan's cxs<step>r<j>_h,
+        // at the op's t; a polynomial NEWT op its own polynomial, newtPolyFns)
         const D = newtDeg(o);
-        if (D) return newtPolyFns(o, j, c, D, H, rd);
+        if (D) return newtPolyFns(o, j, c, D, rd);
+        const sub = o.op && o.op.sub != null ? `cxs${o.step}r${o.op.sub}_h` : null;
+        const H = sub ? (u, t) => `${sub}(${u}, ${t})` : (u, t) => `chainHom(${o.step}, ${u}, ${t})`;
+        const decl = sub ? `vec2 ${sub}(vec2 z, float t);\n` : '';
         const bk = newtBack(o);
-        if (bk) return newtSeededFns(o, j, c, bk, H, rd);
+        if (bk) return decl + newtSeededFns(o, j, c, bk, H, rd);
         const NL = Inverse.NEWT_LADDER.length, NB = 2 + NL, pole = newtPole(o);
-        return `vec2 chainHom(int i, vec2 z, float t);
+        return glsl`${decl}vec2 chainHom(int i, vec2 z, float t);
 ${newtCoreFns(P, H, rd)}bool ${P}_has = false, ${P}_has0 = false, ${P}_ok0 = false;
 vec2 ${P}_w = vec2(0.0), ${P}_w0 = vec2(0.0), ${P}_u0 = vec2(0.0);
 bool ${P}_root(vec2 w, float t, out vec2 u) {
@@ -2575,7 +2608,7 @@ bool ${P}_defl(vec2 w, float t, vec2 u, out vec2 v) {
   }
   return ${P}_hit(v, w, t) && cx_abs(v - u) > ${NEWT_DEDUPE} * (1.0 + cx_abs(u));
 }
-${pole ? `// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
+${pole ? glsl`// member 1 of a step with a simple pole (InvOps.opNewt's pole): Newton from the root the pole puts over w; kept when it
 // hits w and, when member 0 exists (k0), differs from it
 bool ${P}_pole2(vec2 w, float t, bool k0, vec2 u, out vec2 v) {
   vec4 pa = uInv[${c + IX_SLOTS.NEWT}], pb = uInv[${c + IX_SLOTS.NEWT + 1}];
@@ -2640,7 +2673,7 @@ bool ${P}_one_b(inout Lf L, int b) {
 ${rng('u', '(vec2(1.0, 0.0) - cinv(cmul(w, w))) * 0.5', 's * (r - 1.0)', 'w * (s / (r > 0.0 ? r : 1.0))')}`);
       case 'CONJ': return one('  return ixApply(L, vec2(w.x, -w.y), vec2(0.0), true, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0));');
       // ---- finite families: ixJ_nb(L) members, ixJ_one_b(L, b) applies member b ----
-      case 'IPOW': return `int ${P}_nb(Lf L) {
+      case 'IPOW': return glsl`int ${P}_nb(Lf L) {
   if (!ixFin(L.u)) return 0;
   vec4 P = ${U(0)};
   if (L.u.x == 0.0 && L.u.y == 0.0) return P.x > 0.0 ? 1 : 0;
@@ -2907,7 +2940,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
     // IX_ANC: an ATANH / ATAN op can be the saturation anchor of a plan (SPEC 13.12; Inverse.prepare decides, uAncJ
     // names the op): its member records the stable offset from +-1 (+-i) for the leaf (gl.js ixAnchorPx)
     const anc = ops.some((o) => o.kind === 'ATANH' || o.kind === 'ATAN');
-    const head = `#define IX_LAM ${lam ? 1 : 0}
+    const head = glsl`#define IX_LAM ${lam ? 1 : 0}
 #define IX_MOB ${mob ? 1 : 0}
 #define IX_ANC ${anc ? 1 : 0}
 ${anc ? INV_ANC : ''}
@@ -2959,4 +2992,4 @@ import { CX } from './cx.js';
 import { Expr } from './parse.js';
 import { Funcs } from './funcs.js';
 import { Inverse } from './inverse.js';
-export { GLChain, GLChain as 'module.exports' };
+export { GLChain, glsl, GLChain as 'module.exports' };
