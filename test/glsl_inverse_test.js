@@ -526,6 +526,67 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     }
     if (AN.failCount) R.failCount += AN.failCount;
   }
+  // ---- multiple roots (#2098): RAT3 and RAT4 at a critical value list a k-fold root once, as the CPU's ops do
+  // (InvOps.rootMembers): (z - 1)^2 (z + 2) and (z - 1)^2 (z + 2)(z - 3) at w = 0 (the double root 1), and at points
+  // off it, where every root is simple: down to w = 1e-6, whose pair about 1 (8e-4 apart for the quartic, 1e-3 for the
+  // cubic) float32 still resolves. The GPU's leaves (visited count, and each leaf's z) against Inverse.enumerate's, a disc
+  // of radius 4 about 0 holding every root. Closer in (the band rows, w = 1e-8 for the cubic and 1e-7 for the quartic)
+  // the pair lies within float32's rounding of the double root: whether the GPU's arithmetic tells it apart depends on
+  // the GPU (lavapipe and SwiftShader list it once), so there the GPU lists it once or twice: its leaves matched one to
+  // one with CPU leaves (each CPU leaf used once), and a CPU leaf left over only where it merges with a GPU leaf (within
+  // the tolerance of one). The match is checked first on GPU 1, 1, 1 and on GPU 1, 1 against CPU 1 - d, 1 + d, -2, both
+  // of which must fail. A
+  // failure is listed in the walk's fails and byChain too ----
+  {
+    const MR = R.multi = { compared: 0, failCount: 0, fails: [] };
+    // the GPU leaves gl ([x, y] each) matched one to one with CPU leaves cl ({re, im} each), each to the nearest CPU
+    // leaf not yet used within 1e-3 (1 + |z|) -> what does not hold: a GPU leaf left without one, a CPU leaf left over
+    // that is within that tolerance of no GPU leaf (a root the GPU missed, not one merged with another)
+    const near = (q, c) => Math.hypot(q[0] - c.re, q[1] - c.im) <= 1e-3 * (1 + cabs(c));
+    const unmatched = (gl, cl) => {
+      const used = new Set(), bad = [];
+      gl.forEach((q, r) => {
+        let best = -1, bd = Infinity;
+        cl.forEach((c, i) => { const d = Math.hypot(q[0] - c.re, q[1] - c.im); if (!used.has(i) && near(q, c) && d < bd) { best = i; bd = d; } });
+        if (best < 0) bad.push(`band leaf ${r} gpu ${q[0]}, ${q[1]} matches no CPU leaf left`); else used.add(best);
+      });
+      cl.forEach((c, i) => { if (!used.has(i) && !gl.some((q) => near(q, c))) bad.push(`cpu leaf ${c.re}, ${c.im} is left over, and near no GPU leaf`); });
+      return bad;
+    };
+    const dd = [C(1 - 1e-4, 0), C(1 + 1e-4, 0), C(-2, 0)];
+    for (const gl of [[[1, 0], [1, 0], [1, 0]], [[1, 0], [1, 0]]]) {
+      MR.compared++;
+      if (!unmatched(gl, dd).length) { MR.failCount++; MR.fails.push({ chain: 'the band match', bad: [`GPU ${gl.map((q) => q[0]).join(', ')} passed against CPU 1 - 1e-4, 1 + 1e-4, -2, which misses -2`] }); }
+    }
+    const shape = { id: 'mr', kind: 'disc', c: [0, 0], r: 4, ci: 0, visible: true }, win = { x0: -5, x1: 5, y0: -5, y1: 5 }, pix = 0.01;
+    for (const [name, co, kind, band] of [['(z-1)^2 (z+2)', '1, 0, -3, 2', 'RAT3', 1e-8], ['(z-1)^2 (z+2)(z-3)', '1, -3, -3, 11, -6', 'RAT4', 1e-7]]) {
+      const steps = [St('poly', { co })], built = steps.map(Funcs.build), plan = Inverse.planChain(steps, built);
+      if (!plan.ok || plan.ops.map((o) => o.kind).join() !== kind) { MR.failCount++; MR.fails.push({ chain: name, bad: ['plan ' + (plan.ok ? plan.ops.map((o) => o.kind).join() : plan.reason)] }); continue; }
+      GLR.setChain(GLChain.build(steps, built));
+      const prep = Inverse.prepare(plan, { win, shape });
+      GLR.packShapes([shape], { debounce: false });
+      const pts = [C(0, 0), C(1e-6, 0), C(3e-6, 0), C(0, 1e-6), C(0.01, 0), C(-0.02, 0.01), C(0.5, 0.25), C(band, 0)];
+      const data = new Float32Array(1024 * 2 * 4);
+      pts.forEach((w, i) => { data[4 * i] = w.re; data[4 * i + 1] = w.im; data[4 * i + 2] = Math.fround(pix); });
+      const st = { map: { mode: 0, a: 0, b: steps.length }, plan, prep, shape, look: { alpha: 1, alphaOwn: 1, pattern: 'checker', cell: 0.5 }, extra: EXTRA_WALK };
+      const g = await gpuRun(st, data, NP, ROWS);
+      if (g.error) { R.errors.push(`multiple roots ${name}: gpu ${g.error}`); continue; }
+      pts.forEach((w, i) => {
+        const cpu = Inverse.enumerate(plan, prep, w, Math.fround(pix), { K: 1, B: 3, paths: true }), o = g.out;
+        const at = (row) => [o[4 * (row * NP + i)], o[4 * (row * NP + i) + 1]], bad = [];
+        const inBand = w.re === band, gv = at(8)[0];
+        if (inBand ? gv !== cpu.visited && gv !== cpu.visited - 1 : gv !== cpu.visited) bad.push(`visited gpu ${gv} cpu ${cpu.visited}${inBand ? ' (band: the same or one fewer)' : ''}`);
+        else if (inBand) {
+          const gl = [...Array(Math.min(gv, 8)).keys()].map(at);
+          bad.push(...unmatched(gl, cpu.leaves.map((c) => c.z)));
+        } else cpu.leaves.slice(0, 8).forEach((c, r) => { const q = at(r); if (Math.hypot(q[0] - c.z.re, q[1] - c.z.im) > 1e-3 * (1 + cabs(c.z))) bad.push(`leaf ${r} gpu ${q[0]}, ${q[1]} cpu ${c.z.re}, ${c.z.im}`); });
+        MR.compared++;
+        if (bad.length) { MR.failCount++; MR.fails.push({ chain: name, w: [w.re, w.im], bad }); }
+      });
+    }
+    if (MR.failCount) R.failCount += MR.failCount;
+    for (const f of MR.fails) { const k = 'multiple roots ' + f.chain; R.byChain[k] = (R.byChain[k] || 0) + 1; R.fails.unshift(Object.assign({ multi: true }, f)); }
+  }
   // ---- shapeClip vs Region.shapeClip ----
   {
     const steps = [St('mul', { c: '1' })], built = steps.map(Funcs.build);
