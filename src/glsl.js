@@ -2848,8 +2848,8 @@ bool ${P}_one_b(inout Lf L, int b) {
       // |A| < |D| (InvOps.closedRoots), polished by up to two Newton steps on the cubic itself (float32: the shift and the
       // cube root lose digits that the steps win back). A step is taken only when it lowers |p(u)|: near a multiple root
       // p'(u) is small and p(u) is float32's rounding of its terms, so a step there is that rounding over p' and can throw
-      // an exact root far off (on Metal, (z - 1)^2 (z + 2)'s root 1 came out 0.16 away). Cells: (P3, P2), (P1, P0),
-      // (Q3, Q2), (Q1, Q0)
+      // an exact root far off, where that rounding is not 0 (a GPU that fuses or reorders the products). Cells: (P3, P2),
+      // (P1, P0), (Q3, Q2), (Q1, Q0)
       case 'RAT3': return `void ${P}_co(vec2 w, out vec2 A, out vec2 B, out vec2 Cc, out vec2 D) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)}, S3 = ${U(3)};
   A = S0.xy - cmul(w, S2.xy); B = S0.zw - cmul(w, S2.zw); Cc = S1.xy - cmul(w, S3.xy); D = S1.zw - cmul(w, S3.zw);
