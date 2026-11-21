@@ -315,6 +315,7 @@
  "From value": "От значения",
  "To value": "До значения",
  "Frames": "Кадры",
+ "landscape, carried from {p}": "рельеф, перенесённый из %{p}",
  "Preparing the page": "Подготовка страницы",
  "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",

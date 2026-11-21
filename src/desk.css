@@ -471,6 +471,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head.sv-re .sv-title .sv-role.sv-cut::after { content: '…'; }
 .sv-head.sv-rs .sv-title .sv-role[data-short] { font-size: 0; }
 .sv-head.sv-rs .sv-title .sv-role[data-short]::before { content: attr(data-short); font-size: 13px; }
+.sv-head.sv-rs .sv-title .sv-role[data-short-p]::after { content: attr(data-short-p); font: italic 13px var(--f-math, serif); }   /* (the plane's name that ends the short form, set as the role's other names are) */
 .sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
 /* (the head's 6 px and 10 px side padding stay raw: 8 and 12 px take 4 px of the room at 1024 px, and the Height key's chip then drops its words, steps_land_head) */
 :root.sv:not(.ph) #paneL .pane-head { gap: var(--s-4); flex-wrap: wrap; min-height: 40px; padding: var(--s-2) 6px var(--s-2) 10px; }

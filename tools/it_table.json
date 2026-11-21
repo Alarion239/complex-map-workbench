@@ -3020,6 +3020,7 @@
  "From value": "Dal valore",
  "To value": "Al valore",
  "Frames": "Fotogrammi",
+ "landscape, carried from {p}": "paesaggio, trasportato da {p}",
  "Preparing the page": "Preparazione della pagina",
  "Preparing {done} of {total} shaders, first time only": "Shader preparati: {done} di {total} (solo la prima volta)",
  "Repeat × N cannot hold a d/dz step": "Ripeti × N non può contenere un passo d/dz",
