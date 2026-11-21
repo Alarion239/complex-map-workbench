@@ -1068,7 +1068,13 @@
     t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
     // (a phone's message picks its rows on the next frame: its caller may still add a button, as undoToast's Show alone)
-    if (rt.contains('ph')) requestAnimationFrame(() => fitToastRows(t));
+    if (rt.contains('ph')) {
+      requestAnimationFrame(() => fitToastRows(t));
+      // (the rows follow the message's width as it changes through a turn of the phone or a sheet opening: measured again, once per width, the one toastFitW holds; the observer goes with the message's element, which nothing else holds)
+      try {
+        new ResizeObserver(() => { if (t.clientWidth && t.clientWidth !== toastFitW.get(t)) requestAnimationFrame(() => fitToastRows(t)); }).observe(t);
+      } catch (e) { /* no ResizeObserver */ }
+    }
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
