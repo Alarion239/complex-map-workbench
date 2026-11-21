@@ -1369,11 +1369,11 @@
     if (!Ls) hs = null;
     // (while the sheets' programs compile, the principal branch stands in only with programs that have run before, an
     // earlier version of the chain's: a formula's first All-sheets Landscape drawing its principal branch with programs of
-    // its own first would stall the GPU process once for them and once more for the sheets')
+    // its own first would stall the GPU process once for them and once more for the sheets'; with none, the CPU stand-in's)
     const warm = (name) => { const P = readyProg(name, st.map); return !!(P && P.used1); };
     let hd = st.carry && !hs ? carryHeights(st, N, mode, H, mu, aspect) : hs || (sp && !Ls && !(warm('land') && warm('landTF')) ? null : landHeights(st, N, mode, H, mu, aspect, rf));
     // (nothing to draw from yet, the principal surface's programs still linking: the stand-in's relief)
-    if (!hd && !st.carry && !sp) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
+    if (!hd && !st.carry) hd = landStandSurface(st, mode, H, mu, aspect, heightOf);
     else if (hd && !hd.standIn) landStandRelease();
     // (the carry's pole patches, made before the draw: each a TF pass of its own)
     const pp = [];
