@@ -37,12 +37,18 @@ const placed = () => ev(`__cmwLabelsPlaced()`);
 // second render can differ in its last digit, which moves a place by a few tenths of a pixel at most
 const PLACE_TOLERANCE_PX = 0.6;
 const same = (a, b) => a.length === b.length && a.every((q, i) => q.text === b[i].text && Math.abs(q.x - b[i].x) < PLACE_TOLERANCE_PX && Math.abs(q.y - b[i].y) < PLACE_TOLERANCE_PX);
-// a glide from plane 0 to plane 1 and back, the label passes counted while it is under way
+// a glide from plane 0 to plane 1, the label passes counted while it is under way. The glide runs on the test clock (the steps view's
+// SV.clock: its time advances CLOCK_MS a frame, whatever a frame costs), so it draws the same number of frames on any machine: a loaded
+// one that draws few frames in a wall-clock glide would leave fewer moving passes than the row asks, which says nothing of the passes.
+// A glide of the normal speed is as many passes as it is long over CLOCK_MS (about ten on the move, then the landing's pass at rest, in a
+// run here), on any machine. The step is not smaller: more frames would each cost seconds on a loaded software renderer, past quiet()'s 20 s
+const CLOCK_MS = 200;
 const glideCost = async () => {
   await ctl({ go: 0, now: true }); await quiet();
   await zero();
-  await ctl({ go: 1 });
+  await ctl({ go: 1, clock: CLOCK_MS });
   await quiet();
+  await ctl({ clock: 0 });
   const s = await stats();
   return { n: s.n, per: s.n ? s.ms / s.n : 0, list: s.list };
 };
