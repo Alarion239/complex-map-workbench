@@ -1112,8 +1112,14 @@ async function svGlideUnit(scene, o = {}) {
 // heights, the pole patches' and far rings' textures, whatever the sheets add. The glide is held at the middle of the plane
 // run [a, b] on a page opened fresh, then __perf.mem() (the live and peak bytes of every buffer, texture and renderbuffer the
 // page allocated: the allocator's count, so a software renderer reads the same as a GPU) is read, with how many patches the
-// frame draws, and the live bytes the Landscape added to those the plane surface held. One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), and the default page's Möbius step, whose
-// poles are in the carried box. Info rows: the phones' limit is read off them, nothing gates (#1205).
+// frame draws. The baseline is the same glide held at the same place on the plane surface, All sheets, read first: the
+// added row is what the Landscape holds beyond the page's own drawing. The peak row counts the whole page's life, the
+// plane surface's glide to the baseline included (the Möbius step's: 35.0 MB, where its Landscape alone peaked at 28.5).
+// One group of rows per case: K sheets (√z, ⁴√z and ⁶√z then z + 2), and the default page's Möbius step, whose poles
+// are in the carried box. Info rows: the phones' limit is read off them, nothing gates (#1205). The one check,
+// baseline_ok: the baseline was read on the plane surface, All sheets, and holds at least SV_LAND_BASE_MIN bytes. A page
+// at rest with nothing drawn holds about 0.2 MB, and a baseline read there makes the added row the live row.
+const SV_LAND_BASE_MIN = 2e6;
 async function svLandBytesUnit() {
   const cases = [
     { tag: 'k2', state: SV_SHEETS_STATE },
@@ -1125,8 +1131,16 @@ async function svLandBytesUnit() {
     const pre = `sv.land_bytes.${c.tag}`;
     await openSteps(c.state);
     await settle(await pageNow());
-    const flat = await B.ev('__perf.mem()');   // (the page's own bytes on the plane surface: what the Landscape adds is the rest)
-    await B.ev(`__cmwSteps({ scope: 'all', surf: 'land', go: 1, now: true }), 1`);
+    // the baseline: the page's own drawing, the same glide parked on the plane surface, All sheets
+    await B.ev(`__cmwSteps({ scope: 'all', go: 1, now: true }), 1`);
+    await settle(await pageNow());
+    await B.ev(`__cmwSteps({ x: 1.5, now: true }), 1`);
+    await settle(await pageNow());
+    const flat = await B.ev('__perf.mem()'), at = await B.ev('(() => { const s = __cmwSteps(); return { surf: s.surf, scope: s.scope }; })()');
+    // back to the start, then the Landscape's own glide to the same place
+    await B.ev(`__cmwSteps({ go: 0, now: true }), 1`);
+    await settle(await pageNow());
+    await B.ev(`__cmwSteps({ surf: 'land', go: 1, now: true }), 1`);
     await settle(await pageNow());
     await B.ev(`__cmwSteps({ x: 1.5, now: true }), 1`);
     await settle(await pageNow());
@@ -1134,6 +1148,7 @@ async function svLandBytesUnit() {
     put(`${pre}.gpu_live_bytes`, 'info', 'B', [mem.live]);
     put(`${pre}.gpu_peak_bytes`, 'info', 'B', [mem.peak]);
     put(`${pre}.gpu_land_added_bytes`, 'info', 'B', [mem.live - flat.live]);
+    put(`${pre}.baseline_ok`, 'check', '', [at.surf === 'plane' && at.scope === 'all' && flat.live >= SV_LAND_BASE_MIN]);
     put(`${pre}.patches`, 'info', '', [carry ? carry.patches : 0]);
     detail(`${pre}.carry`, JSON.stringify(carry));
   }
@@ -1830,7 +1845,7 @@ unit('sv.glide.land_sheets', 'the steps view\'s Landscape with All sheets (Surfa
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
 // (K sheets: ⁿ√z then z + 2, all sheets of the root drawn)
 function svRootState(n) { return Object.assign({}, SV_SHEETS_STATE, { steps: [{ type: 'root', params: { n, cut: 180 }, on: true }, SV_SHEETS_STATE.steps[1]] }); }
-unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows (#1205)', svLandBytesUnit);
+unit('sv.land_bytes', 'the steps view\'s Landscape, GL bytes (live and peak) held while a glide is carried: All sheets at K = 2, 4 and 6 (n-th root then z + 2) and the default page\'s Möbius step (its pole patches); info rows, and a check that the baseline holds the page\'s own drawing (#1205)', svLandBytesUnit);
 unit('hover.default', 'hover the last plane past the colour plane z: the probe\'s preimage search, default example', () => hoverUnit('default'));
 unit('hover.cubic', 'hover the last plane past the colour plane z: the probe\'s preimage search, z^3 - 1', () => hoverUnit('cubic'));
 // SPEC 12.5 (P0): exact images through infinity (the new units are NEW in the comparison until the baseline is
