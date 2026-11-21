@@ -63,7 +63,7 @@
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
   const LEADER_ROWS = 3, LEADER_COST = 3;
-  // (a point whose marker lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control. The marker's disc is the ring and its halo, 5.25 px out from the centre; it is sampled at its centre and at eight points on the circle of MARKER_R px, 5 rounded down so that every sample is on the disc. test/label_controls_cmd.js reads the same radius and samples from the page)
+  // (a point whose marker lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control. A plain dot's marker reaches 5 px from the point: its 3.5 px ring, the ring's stroke and halo; it is sampled at its centre and at eight points on the circle of MARKER_R px, on the disc's edge. test/label_controls_cmd.js samples the same nine points, its MARK_R matched to this by hand)
   const MARKER_R = 5;
   // (a label's halo, and the leader's ink line, in px)
   const HALO_W = 3, LEADER_W = 1;
