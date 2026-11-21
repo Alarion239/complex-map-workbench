@@ -47,6 +47,8 @@
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
   function svPlanes() { const k = svAloneOk(); return k ? [svPrev(k), k] : [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
+  // the plane the thread is nearest to (a glide's second half is nearer the plane it is going to than the one it left)
+  const svNear = () => svStage(Math.round(SV.g.x));
   function svT() { const P = svPlanes(); return SV.alone && P.length === 2 && P[1] === SV.alone ? SV.alone : P.includes(SV.T) ? SV.T : P[P.length - 1]; }
   // a glide's u at or under this is its plane's rest frame (the thread sits on a plane, to the precision of a float); it stays above
   // SV_REST_U_MIN, two ulps of float32 below 1, where 1 - t is exact (Sterbenz) so a frame at t = 1 - u is not the plane itself
@@ -143,24 +145,33 @@
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
   // then past T that the points carry it and their colour from T. Parked between two planes, the place is no plane: the
-  // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it)
+  // title names the two, as the live label does (svLabel), "z → w₁ · coloured from w₁" (past T, carried from it).
+  // short: the role's short form for a narrow head, plain text, and shortP the plane's name that ends it, set as maths after
+  // it (a carried Landscape's, where the language puts the name last); shortFirst: the head shows it in place of the role cut
+  // to its first words, which would lose what the short form keeps (a carried Landscape's "carried from w₁": its height stays
+  // in the title's tip and the Height key)
   function svTitleParts() {
-    const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
-    let role, short = '';
+    // (the plane the thread is nearest to, not the one it last arrived at: a glide's header turns over at the half, as the picture does)
+    const k = svNear(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
+    let role, short = '', shortP = '', shortFirst = false;
     const park = svParkedPair();
     if (park && !(SV.surf === 'land' && svMain(k) === 'land')) {
       role = park[1] <= T ? $t('coloured from {p}', { p: wHtml(T) }) : $t('colour carried from {p}', { p: wHtml(T) });
-      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short };
+      return { name: `${svNameHtml(park[0])} → ${svNameHtml(park[1])}`, role, short, shortP, shortFirst };
     }
     if (SV.surf === 'land' && svMain(k) === 'land') {
       const o = { h: heightHtml(svHeightName('html', k)), sheets: landSheetsHtml(), p: wHtml(T) };
       role = k > T ? $t('landscape of {h}{sheets}, carried from {p}', o) : $t('landscape of {h}{sheets}', o);
-      short = $t('landscape');
+      if (k > T) {
+        const [head, tail] = $t('landscape, carried from {p}', { p: '\u0001' }).split('\u0001');
+        if (tail === '') { short = head; shortP = svName(T); } else short = $t('landscape, carried from {p}', { p: svName(T) });
+      } else short = $t('landscape');
+      shortFirst = k > T;
     } else if (!svColoured(k)) role = k > T ? $t('colour carried from {p}', { p: wHtml(T) }) : $t('shapes only');
     else if (k === 0 && S.dc === 'cauchy' && cauchyPlot()) { role = $t('Cauchy integral over {name}', { name: cauchyPlot().name }); short = $t('Cauchy integral'); }
     else if (k === T) role = $t('colour plane');
     else role = $t('phase of {ofV}', { ofV: map });
-    return { name: svNameHtml(k), role, short };
+    return { name: svNameHtml(k), role, short, shortP, shortFirst };
   }
   const svReduced = () => matchMedia('(prefers-reduced-motion: reduce)').matches;
   // (one camera for every plane, S.srcView: a glide moves the picture, never the view, so its scale is the user's own)
@@ -2659,17 +2670,18 @@
 
   // ---- the controls: the plane's head and the chain strip ----
   function svLabel() {
-    if (svParked()) return svPlaceText();
-    const k = svStage(), T = svT(), n = svPlanes().length;
+    const pr = svParkedPair();
+    if (pr) return $t('Between {a} and {b}', { a: svName(pr[0]), b: svName(pr[1]) });
+    const k = svNear(), T = svT(), P = svPlanes();
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
-    return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(SV.i + 1), n: I18N.num(n), where });
+    return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(P.indexOf(k) + 1), n: I18N.num(P.length), where });
   }
   // the role's words, each in a span that takes the space before it: the head's fit drops the last ones (sv-wx) when the role is
   // short of room. A space inside a tag ("<i class=…>") does not split
   const svRoleWords = (role) => role.split(/ (?![^<]*>)/).map((w, i) => `<span class="sv-w">${i ? ' ' : ''}${w}</span>`).join('');
   function svFormulaHtml() {
-    const { name, role, short } = svTitleParts();
-    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}>${svRoleWords(role)}</span>`;
+    const { name, role, short, shortP, shortFirst } = svTitleParts();
+    return `${name}<span class="sv-sep"> · </span><span class="sv-role"${short ? ` data-short="${short}"` : ''}${shortP ? ` data-short-p="${shortP}"` : ''}${shortFirst ? ' data-short-first=""' : ''}>${svRoleWords(role)}</span>`;
   }
   // a choice of several as a button that names the current one and opens svChoiceMenu; `.value` reads and sets the choice (its
   // word and its accessible name, "Speed: Normal", follow); svDisableWhy greys it with its reason
@@ -2757,7 +2769,7 @@
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
-    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: (e) => { if (!svOff(e.currentTarget)) svSetT(svStage()); } });
+    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: (e) => { if (!svOff(e.currentTarget)) svSetT(svNear()); } });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
@@ -2977,12 +2989,12 @@
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
-      const cpText = k === T && !parked ? $t('Colour plane') : $t('Colour from here');
+      // (the plane the thread is nearest to, as the title's; pressed on the colour plane only: a place parked between two planes is no plane)
+      const cpOn = svStage(at) === T && !parked, cpText = cpOn ? $t('Colour plane') : $t('Colour from here');
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
       E.cp.setAttribute('aria-label', cpText);
-      // (pressed on the colour plane only: a place parked between two planes is no plane)
-      E.cp.setAttribute('aria-pressed', String(k === T && !parked));
-      E.cp.classList.toggle('on', k === T && !parked);
+      E.cp.setAttribute('aria-pressed', String(cpOn));
+      E.cp.classList.toggle('on', cpOn);
       // (a step shown alone: disabled, it is coloured from its own plane; else parked between two planes: off, with the
       // reason, since a place between planes is no plane to colour from)
       E.cp.disabled = !!svAloneOk();
@@ -3319,10 +3331,8 @@
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
-    // (not while the view moves: the title changes half-way through a glide, and a fit then is a forced layout in a frame;
-    // a view parked between two planes is at rest and is fitted; svSync's head key holds svMoving(), so the head is fitted
-    // once when the glide settles; rework on #473)
-    if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
+    // (while the view moves the head is fitted only when its words change, once at the half of a glide, where the title names the
+    // next plane: a fit is a forced layout, so not every frame; a view parked between two planes is at rest and is fitted)
     const ph = document.documentElement.classList.contains('ph');
     const mc = $('modeChips'), lg = $('leftLegend'), lgSum = lg && lg.querySelector('.lg-sum');
     const key = [
@@ -3337,7 +3347,8 @@
     // (the levels, in the order the head gives way: the scope's switch is a menu button (sv-sm), the colour-plane button is its
     // wheel alone (sv-c1), the surface button is its icon and ▾ (sv-si), the title's role is cut to the whole words that the room
     // that is left allows, then an ellipsis (sv-re), while that shows clearly more than its first word, else it is its first word
-    // (sv-rs), then the title loses its role (sv-c2) last; a word is never cut)
+    // (sv-rs), then the title loses its role (sv-c2) last; a word is never cut. A role whose short form keeps what a cut would
+    // lose (data-short-first, svTitleParts: a carried Landscape's "landscape, carried from w₁") goes from whole to that form)
     const role = /** @type {HTMLElement | null} */ (E.title.querySelector('.sv-role'));
     const rwords = role ? /** @type {HTMLElement[]} */ ([...role.children]) : [];
     let roleN = 0;
@@ -3408,7 +3419,7 @@
         // (level 4 starts its search afresh: the search below leaves roleN as it is when no word fits)
         if (l === 3) roleN = 0;
         set(++l);
-        if (l === 4) {
+        if (l === 4 && role && role.dataset.shortFirst != null) { roleN = 0; set(++l); } else if (l === 4) {
           // (the role keeps the whole words that the room allows, and an ellipsis for the rest: not fewer than the first word's
           // width and SV_ROLE_MORE px more, else the role is its first word. One layout reads every word's end)
           const room4 = room - keep - (E.bar.scrollWidth - (role ? role.getBoundingClientRect().width : 0)), r0 = role ? role.getBoundingClientRect().left : 0;
@@ -3508,10 +3519,6 @@
     if (Math.abs(x - r) <= SV_REST_U) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: I18N.num(r + 1), n: I18N.num(P.length) });
     const a = Math.floor(x), k = P[a + 1];
     return $t('Step {k} of {m} · {f} · {p} %', { k: I18N.num(a + 1), m: I18N.num(P.length - 1), f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: I18N.num(Math.round(100 * (x - a))) });
-  }
-  function svPlaceText() {
-    const pr = svParkedPair();
-    return pr ? $t('Between {a} and {b}', { a: svName(pr[0]), b: svName(pr[1]) }) : svName(svStage());
   }
   // parked between two planes: their stages [a, b], either side of the thread; else null
   function svParkedPair() {
@@ -3737,7 +3744,7 @@
         e.preventDefault(); e.stopImmediatePropagation();
         // (parked between two planes, the key says why it does nothing, as the colour button's reason does)
         if (!SV.alone && svParked()) svSay($t('Stop on a plane to colour from it'));
-        else svSetT(svStage());
+        else svSetT(svNear());
       }
     }, true);
   }
@@ -4099,6 +4106,11 @@
   // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
   let svGateOff = false;
   const svGateOffSet = (off) => { svGateOff = !!off; };
+  // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
+  // when the chain is discarded (opening an example or a new scene discards it)
+  function svDiscardCaches() {
+    svPoleMemo.clear(); svPoleLast.clear(); svRingSizes.clear(); svRingMemo = null; svPolarRes.clear();
+  }
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
   // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
@@ -4207,7 +4219,7 @@
     svSync();
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
-    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(P[end]) });
     sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
   }
   // a slide's time on each plane (ms)
