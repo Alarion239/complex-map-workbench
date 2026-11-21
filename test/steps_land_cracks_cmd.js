@@ -13,7 +13,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const rAF2 = 'new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))';
 const LOAD_MAX_MS = 60000;
 const CRACK_NEAR = 3, FULL = 250, SPAN = 2;   // (a pixel counts when 3 of its 4 neighbours SPAN pixels away are covered at over FULL of 255)
-const CRACK_MAX = 30;                        // (the bound: the parked planes' floor, #1342's measure)
+const CRACK_MAX = 30;                        // (the bound #1448 allows; the parked planes read up to about 15)
 const CTL_HOLES = 40, CTL_STEP = 5;
 const TOP_CAM = { yaw: -Math.PI / 2, pitch: 88 * Math.PI / 180 };   // the Top view
 // the cases: an example by name, or a chain; at each view, the glide's u of the issue's frames
