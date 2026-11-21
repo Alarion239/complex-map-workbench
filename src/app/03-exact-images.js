@@ -588,26 +588,23 @@
     return lines;
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
-  // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre, and
-  // narrower beside the view buttons its band meets (a phone's stand over the plane), keeping CAPTION_PAD from them
-  // (noteBoxes: where it was last drawn, in the pane's CSS px)
-  const noteBoxes = new Map();
+  // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
+  const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-    const mid = pane.w / 2, btns = paneButtons(pane);
-    const height = (n) => n * 18 + 14, top = (bh) => Math.min(pane.h - bh - 56, pane.h / 2 + 28);   // (below the centre, clear of a point at the view's middle)
-    // (n lines: the text's width in the chip that the band of n lines leaves beside the buttons)
-    const room = (n) => { const t = top(height(n)); return Math.max(80, Math.min(360, pane.w - 48, 2 * (roomBeside(btns, mid, t - CAPTION_PAD, t + height(n) + CAPTION_PAD) - 12))); };
-    let lines = wrapWords(ctx, text, room(1));
-    for (let i = 0; i < CAPTION_REWRAPS; i++) { const next = wrapWords(ctx, text, room(lines.length)); if (next.length === lines.length) break; lines = next; }
-    const tw = Math.min(pane.w - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
-    const bw = Math.round(tw + 24), bh = height(lines.length);
-    const x0 = Math.round(mid - bw / 2) + 0.5, y0 = Math.round(top(bh)) + 0.5;
-    noteBoxes.set(pane, { x: x0, y: y0, w: bw, h: bh });
+    // (a phone's note is centred in the room left of the key column and wraps to that width)
+    const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
+    const maxW = Math.max(80, Math.min(360, free - 48));
+    const lines = wrapWords(ctx, text, maxW);
+    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
+    const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
+    const x0 = Math.round(free / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
+    const tx = free / 2;   // (the words' centre: the room's, as the box is)
+    pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
     ctx.shadowColor = TH.dark ? '#00000066' : '#121A201A'; ctx.shadowBlur = 2; ctx.shadowOffsetY = 1;
@@ -615,7 +612,7 @@
     ctx.shadowColor = 'transparent';
     ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1; ctx.stroke();
     ctx.fillStyle = TH.ink2;
-    lines.forEach((t, i) => ctx.fillText(t, pane.w / 2, y0 + 7 + 9 + i * 18));
+    lines.forEach((t, i) => ctx.fillText(t, tx, y0 + 7 + 9 + i * 18));
     ctx.restore();
   }
   // after a GPU frame: say why shapes are missing when the chain's shader failed (spec 8.6); that the picture is not

@@ -3,7 +3,8 @@
 // had its text covered. A point of z near the right edge of the plane, where the buttons are, at 360 × 640 (en and ru) and 1280 × 800:
 // its label is drawn (not dropped), and no label's box overlaps the box of a control over the plane.
 // On a phone the plane's key column and view stack ride up above the context bar (a selected shape) and above a message with a
-// transition: once they have stopped, the label of a point that was clear of them at rest is still clear of them.
+// transition: once they have stopped, the label of a point that was clear of them at rest is still clear of them, and a point that they cover has its
+// label in the free part of the plane with a leader to the point.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -44,6 +45,7 @@ for (const [W, H, mobile, lang, near] of [[360, 640, true, 'en', [1.4, -1.45]], 
 }
 // the keys' lift: a point clear of the column at rest, the shape selected (the context bar) or a message shown (the toast), at 360 × 640
 const LIFT_PT = [1.45, -0.645];
+const GLIDE_CLOCK_MS = 100, GLIDE_FRAMES = 120;   // the glide time a frame advances (ms), and the most frames the wait for a frame on the move lasts
 // no transition of the plane's keys is still running (the lift has stopped)
 const LIFT_STOPPED = `!document.getAnimations().some((a) => a.transitionProperty === 'bottom')`;
 for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru', 'selected', "__cmwSelect('pt')"], ['en', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"], ['ru', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"]]) {
@@ -63,7 +65,20 @@ for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru',
   const lifted = await ev('__cmwLabelsPlaced()');
   const hit = lifted.length === 1 ? await under(lifted[0]) : [];
   info[tag] = { rest, lifted, hit };
-  // (the lifted column covers the point itself, so its label may be dropped: it is never left under a control)
-  ok(`${tag}: once the keys have stopped rising the label lies under no control (a point under them may have none)`, lifted.length <= 1 && hit.length === 0, { lifted, hit });
+  // (the lifted column covers the point itself: its label stands in the free part of the plane, off the controls, never under one)
+  ok(`${tag}: once the keys have stopped rising the point has a label`, lifted.length === 1, { lifted, hit });
+  ok(`${tag}: once the keys have stopped rising the label lies under no control`, lifted.length <= 1 && hit.length === 0, { lifted, hit });
+  // (the leader joins a label to a point that a control covers: not at rest, where the point is clear of the keys)
+  ok(`${tag}: the label has a leader to the covered point, and at rest it has none`, lifted.length === 1 && lifted[0].leader === true && rest.length === 1 && rest[0].leader === false, { rest, lifted });
+  // (the frames of a glide are on the move: they draw the label where the last full placement put it, leader and all)
+  if (what === 'selected') {
+    // (a press waits behind the Play gate until the chain is prepared)
+    await settled({ max: SETTLE_MS, only: true, until: '__cmwSteps().ready.ready' });
+    await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS}, go: 1 }); 1`);
+    const moving = await ev(`new Promise((resolve) => { let n = 0; const tick = () => { const s = __cmwSteps(), l = __cmwLabelsPlaced() || []; if ((s.anim && l.length) || ++n > ${GLIDE_FRAMES}) resolve({ anim: !!s.anim, labels: l }); else requestAnimationFrame(tick); }; tick(); })`);
+    info[`${tag} moving`] = moving;
+    ok(`${tag}: a frame of a glide keeps the label and its leader`, moving.anim && moving.labels.length === 1 && moving.labels[0].leader === true, moving);
+    await ev(`__cmwSteps({ clock: 0 }); 1`);
+  }
 }
 return { pass: fails.length === 0, fails, info };
