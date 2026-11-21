@@ -4142,9 +4142,14 @@
     requestRender('L');
     svWaitRestore(g);
   }
+  // the Play gate's gauge: the share of what svReady counts that is done, SV_GATE_UNKNOWN_FILL while it has no total
+  function svGateFill() {
+    const r = svReady();
+    return r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL;
+  }
   // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its icon a
-  // cross in a ring that fills by the programs ready, named Cancel and described "Preparing the glide…". w: {btn, keep, fill,
-  // hung?}, kept so svWaitRestore gives the control back as it was
+  // cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the glide…".
+  // w: {btn, keep, fill, gauge?, hung?}, kept so svWaitRestore gives the control back as it was
   function svWaitLook(w) {
     const B = w.btn;
     if (!w.keep) {
@@ -4152,10 +4157,9 @@
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
-    const r = svReady();
     B.toggleAttribute('aria-busy', true);
     B.dataset.wait = w.hung ? 'hung' : 'busy';
-    w.fill = Math.max(w.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
+    w.fill = Math.max(w.fill || 0, w.gauge ? w.gauge() : svGateFill());
     B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
@@ -4186,7 +4190,11 @@
   // Esc pauses the play, as for any play
   function svHoldWaitBegin(A) {
     if (SV.hold) return;
-    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0 };
+    // (the ring is this hold's own: the share of the programs pending when it began that have linked since, full when the hold
+    // ends; svReady's gauge counts what was done before the play, so it would start high and never fill; with none pending,
+    // as when the hold is for pole tracks, the ring stands at the unknown fill)
+    const pend0 = GLR.pendingLinks || 0;
+    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, gauge: () => (pend0 > 0 ? 1 - Math.min(pend0, GLR.pendingLinks || 0) / pend0 : SV_GATE_UNKNOWN_FILL) };
     w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
   }
   function svHoldWaitTick() {
@@ -4207,6 +4215,8 @@
     clearTimeout(w.timer);
     SV.hold = null;
     if (!w.shown) return;
+    // (the ring is full as the hold ends: what it waited for has linked)
+    if (say) { w.gauge = () => 1; svWaitLook(w); }
     svWaitRestore(w);
     if (say && SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
   }
