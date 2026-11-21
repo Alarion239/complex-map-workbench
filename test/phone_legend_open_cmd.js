@@ -12,14 +12,15 @@ const VIEWPORTS = [[568, 320], [667, 375], [740, 360], [360, 640]], STILL_MS = 1
 const measure = () => ev(`(() => {
   const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
   const lg = document.getElementById('leftLegend'), bar = document.querySelector('.ph-ctx.in');
-  return { legend: rect(lg), open: !!lg && !lg.classList.contains('collapsed'), bar: rect(bar), plot: rect(document.getElementById('plotL')), readout: rect(document.querySelector('#plotL > .chip.readout')), drop: lg ? lg.style.getPropertyValue('--lg-drop') : null };
+  return { legend: rect(lg), open: !!lg && !lg.classList.contains('collapsed'), bar: rect(bar), plot: rect(document.getElementById('plotL')), readout: rect(document.querySelector('#plotL > .chip.readout')), roHidden: !!document.querySelector('#plotL > .chip.readout') && getComputedStyle(document.querySelector('#plotL > .chip.readout')).visibility === 'hidden', drop: lg ? lg.style.getPropertyValue('--lg-drop') : null };
 })()`);
 const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const still = () => kit.still(measure, STILL_MS, SETTLE_MAX);
 const inter = (a, b) => !!a && !!b && Math.min(a.r, b.r) - Math.max(a.l, b.l) > EPS && Math.min(a.b, b.b) - Math.max(a.t, b.t) > EPS;
-// (clear of the readout: not on it, and, under it in its column, at least READOUT_GAP below its foot)
+// (clear of the readout: not on it, and, under it in its column, at least READOUT_GAP below its foot; a readout that gives way to the key (hidden,
+// .over-readout: the key takes the plane's top to show all its lines) is no readout on screen)
 const READOUT_GAP = 4;
-const clearOf = (k, ro) => !inter(k, ro) && !(k && ro && Math.min(k.r, ro.r) - Math.max(k.l, ro.l) > EPS && k.t >= ro.t && k.t - ro.b < READOUT_GAP - EPS);
+const clearOf = (k, ro, hidden) => !!hidden || !inter(k, ro) && !(k && ro && Math.min(k.r, ro.r) - Math.max(k.l, ro.l) > EPS && k.t >= ro.t && k.t - ro.b < READOUT_GAP - EPS);
 for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode of ['tall', 'edit']) {
   const tag = `${lang} ${w}×${h} ${mode === 'tall' ? 'tall bar' : 'Edit row'}`;
   await view(w, h, false, true);
@@ -39,15 +40,16 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   if (!m.bar || !m.legend) continue;
   ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar, drop: m.drop });
   ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
-  ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout), { legend: m.legend, readout: m.readout });
+  ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout, m.roHidden), { legend: m.legend, readout: m.readout, hidden: m.roHidden });
   await ev(mode === 'tall' ? `document.querySelector('[data-tool="select"]').click(), 1` : `__cmwSelect(null), 1`);
   await settled({ max: SETTLE_MAX, panes: false, until: `!document.querySelector('.ph-ctx.in')` });
   const back = await still();
   ok(`${tag}: with the bar gone the key is back where it was`, !!back.legend && Math.abs(back.legend.t - home.legend.t) <= 1 && Math.abs(back.legend.l - home.legend.l) <= 1, { back: back.legend, home: home.legend });
 }
-// the classic view at 568 × 320, a construction tool in hand: Y's open Regions key (#rightLegend) lies below Y's two-line
-// readout, with less room above the bar than the key is tall. The key ends above the bar, inside the plane and clear of
-// the readout, and what does not fit scrolls (its whole height is in reach); with the bar gone it is whole again
+// the classic view at 568 × 320, a construction tool in hand: Y's open Regions key (#rightLegend) has less room above the bar than the key
+// is tall below Y's two-line readout. The key takes the plane's top over the readout, which gives way (hidden), so all its lines show: it
+// ends above the bar, inside the plane and clear of the readout that shows, and what would not fit scrolls (its whole height is in
+// reach); with the bar gone it is whole again
 {
   const tag = 'classic 568×320 tall bar, Y\'s key';
   await view(568, 320, false, true);
@@ -57,7 +59,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   const measureY = () => ev(`(() => {
     const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
     const lg = document.getElementById('rightLegend'), cs = getComputedStyle(lg);
-    return { legend: rect(lg), open: !lg.classList.contains('collapsed'), bar: rect(document.querySelector('.ph-ctx.in')), plot: rect(document.getElementById('plotR')), readout: rect(document.querySelector('#plotR > .chip.readout')),
+    return { legend: rect(lg), open: !lg.classList.contains('collapsed'), bar: rect(document.querySelector('.ph-ctx.in')), plot: rect(document.getElementById('plotR')), readout: rect(document.querySelector('#plotR > .chip.readout')), roHidden: !!document.querySelector('#plotR > .chip.readout') && getComputedStyle(document.querySelector('#plotR > .chip.readout')).visibility === 'hidden',
       scrollH: lg.scrollHeight, clientH: lg.clientHeight, overflowY: cs.overflowY };
   })()`);
   const stillY = () => kit.still(measureY, STILL_MS, SETTLE_MAX);
@@ -74,7 +76,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
     ok(`${tag}: the room above the bar is less than the key's height (control)`, !!m.readout && m.bar.t - m.readout.b < home.legend.b - home.legend.t, { home: home.legend, readout: m.readout, bar: m.bar });
     ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar });
     ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
-    ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout), { legend: m.legend, readout: m.readout });
+    ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout, m.roHidden), { legend: m.legend, readout: m.readout, hidden: m.roHidden });
     ok(`${tag}: what does not fit scrolls, so the whole key is in reach`, m.scrollH <= m.clientH + EPS || m.overflowY === 'auto', { scrollH: m.scrollH, clientH: m.clientH, overflowY: m.overflowY });
   }
   await ev(`document.querySelector('[data-tool="select"]').click(), 1`);
@@ -116,14 +118,14 @@ for (const w of [568, 600]) {
   const upY = await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden && !!document.querySelector('[data-tool="perp"]')` });
   await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
   const barY = await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
-  // (the key unfolded: a tap on it, and the wait for it)
+  // (the key unfolded: a tap on it, and the wait for it. The keys it lies over that can take the focus: a readout that gives way to the key, hidden, takes none)
   const open = async () => {
     await ev(`(() => { const lg = document.getElementById('rightLegend'); if (lg.classList.contains('collapsed')) lg.click(); return 1; })()`);
     return settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
   };
   const opened = await open();
   const covered = await ev(`(() => { const lg = document.getElementById('rightLegend'), a = lg.getBoundingClientRect();
-    return [...lg.parentNode.querySelectorAll('button, [tabindex]')].filter((e) => e !== lg && !lg.contains(e) && e.getClientRects().length).map((e, i) => { const b = e.getBoundingClientRect(); e.setAttribute('data-kk', i);
+    return [...lg.parentNode.querySelectorAll('button, [tabindex]')].filter((e) => e !== lg && !lg.contains(e) && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e, i) => { const b = e.getBoundingClientRect(); e.setAttribute('data-kk', i);
       return { i, name: e.id || String(e.className), meets: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top }; }).filter((q) => q.meets); })()`);
   info[tag] = covered;
   ok(`${tag}: the open key lies over at least one of Y's keys (control)`, upY.ok && barY.ok && opened.ok && covered.length > 0, { upY, barY, opened, covered });

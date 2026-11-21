@@ -122,6 +122,8 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land:not(.view-land) .plot:has(> .ph-col) > .legend-chip { top: max(12px, calc(100% - 149px - var(--ph-lift))); }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
    folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
+/* (an open key that takes the plane's top over the readout, to show all its lines under the tall bar: the readout gives way until the key folds, by a tap, Escape or the bar going away) */
+:root.ph .plot:has(> .legend-chip.over-readout:not(.collapsed)) > .chip.readout { visibility: hidden; }
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
 /* the key is a button for a keyboard: its focus ring stands outside the glyph, clear of the 44 px hit area's edge */
@@ -480,12 +482,12 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
-  /* (an unfolded key is the one the person opened to read: it stands over the keys it meets, Fit view and Sphere, so its words are not hidden,
-     and opaque, so the keys under it do not show through; a tap on it folds it, and the keys are under it only while it is open. A key
-     that takes keyboard focus rises over it: the focus is never hidden under the card) */
-  :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip:not(.collapsed) { z-index: 14; background: var(--surface); }
-  :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(:is(.ph-col, .viewstack) :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
 }
+/* (an unfolded key is the one the person opened to read: it stands over the keys it meets (Fit view, the zoom group, Sphere), at any height
+   where it meets them, so its words are not hidden, and opaque, so the keys under it do not show through; a tap on it folds it, and the keys
+   are under it only while it is open. A key that takes keyboard focus rises over it: the focus is never hidden under the card) */
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip:not(.collapsed) { z-index: 14; background: var(--surface); }
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(:is(.ph-col, .viewstack) :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
