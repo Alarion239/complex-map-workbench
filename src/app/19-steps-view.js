@@ -610,12 +610,12 @@
     }
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
   }
-  // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole patch's
-  // reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES: the height
-  // there is a log spike that the far patches' coarse cells facet, so each gets a pole patch of its own like the glide
-  // map's poles (svLandPatches). With sing, as svLandPatches searches: a point where hF is unbounded without being a pole
-  // (a root step after a Möbius step's pole, |hF| ~ |z - p|^-a with a < 1) is found too. hF does not move with the glide, so they are searched once per plane s and box (hKey
-  // names hF)
+  // The poles of the height map hF (plane s to the height plane) in the far patches' inner ring, and within a pole
+  // patch's reach (reach) of it, outside the carried box src, nearest the box's centre first, at most LAND_HEIGHT_POLES:
+  // the height there is a log spike that the far patches' coarse cells facet, so each gets a pole patch of its own like
+  // the glide map's poles (svLandPatches). With sing, as svLandPatches searches: a point where hF is unbounded without
+  // being a pole (a root step after a Möbius step's pole, |hF| ~ |z - p|^-a with a < 1) is found too. hF does not move
+  // with the glide, so they are searched once per plane s and box (hKey names hF)
   const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 64, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
