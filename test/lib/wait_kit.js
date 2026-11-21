@@ -8,6 +8,9 @@
 // (an expression in the page, none by default) holds. When it has not come by max ms (PREPARED_MS by default) it answers as settled
 // does (ok false) and records a failure that names the parts of the chain not done (jobs 1/3), that the chain is not up (no steps view,
 // no step or no GL: ready.total 0), or the extra condition when the chain is prepared.
+// viewsQuiet(max, { panes }): the views have stopped moving (the test hook __cmwViewsBusy: X's meshing window still to
+// re-centre, or a plane's or a globe camera's tween running) and the panes are drawn (panes false: the views alone); a
+// failure that says so when that has not come by max ms.
 // still(read, step, limit): read() (an async reading of the page, JSON-comparable) again every step ms until two readings
 // in a row agree, and that reading; the last one if none has by limit ms (the default max).
 ({ settled, ev, sleep, fails, max = 8000, only = false }) => {
@@ -53,5 +56,12 @@
     }
     return r;
   };
-  return { until, reachable, sheetSettled, still, prepared };
+  // the views have stopped moving (__cmwViewsBusy false: X's meshing window re-centred after a pan or zoom, no plane or
+  // globe camera tween running) and, with panes (the default), the panes are drawn; records a failure on timeout
+  const viewsQuiet = async (ms = max, o = {}) => {
+    const r = await settled({ until: '!__cmwViewsBusy()', max: ms, panes: o.panes !== false });
+    if (!r.ok) fails.push({ name: 'the views did not settle in time (__cmwViewsBusy)', got: r.busy });
+    return r;
+  };
+  return { until, reachable, sheetSettled, still, prepared, viewsQuiet };
 };

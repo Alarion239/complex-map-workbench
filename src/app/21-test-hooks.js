@@ -27,6 +27,10 @@
     if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
     S[k] = v; if (k === 'meshN') { dropAllGPU(); } requestRender('L', 'R');
   };
+  // whether the views are still moving to where an action leaves them: X's meshing window still to re-centre (a pan or
+  // zoom's sourceViewChanged, 200 ms after the last change, or at pointer-up), or a plane's or a globe camera's tween
+  // running; a suite waits for it to be false instead of sleeping (test/lib/wait_kit.js viewsQuiet)
+  window.__cmwViewsBusy = () => !!(sourceViewChanged.pending || tweens.length || camTweens.length);
   // the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
   // (X's surface 'land' is the Landscape view; Plane or Sphere on X from the Landscape opens X → Y)
