@@ -278,8 +278,54 @@
     const src = svPathsSeg(P, i - 1, i, i);
     return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
+  // a filmstrip over a Number (the figure's Number source): the shared numbers it can run over, those with a value of their
+  // own rather than a formula
+  const figNumbers = () => Params.list().filter((p) => !p.expr && Number.isFinite(p.value))
+    .map((p) => ({ name: p.name, label: Params.display(p.name), tex: Params.tex(p.name), value: { re: p.value, im: p.im || 0 }, min: p.min, max: p.max }));
+  // a Number held at a filmstrip's values: its value and range as they were, put back when the last build that runs over it
+  // ends (a preview's build superseded by the next one shares the hold, so neither takes the other's value for the original).
+  // -> release(), or null when there is no such Number
+  const numHolds = new Map();
+  function figNumberHold(name) {
+    let hd = numHolds.get(name);
+    if (!hd) {
+      const p = Params.list().find((q) => q.name === name);
+      if (!p || p.expr) return null;
+      hd = { users: 0, value: p.im ? { re: p.value, im: p.im } : p.value, min: p.min, max: p.max, step: p.step };
+      numHolds.set(name, hd);
+    }
+    hd.users++;
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      if (--hd.users > 0) return;
+      numHolds.delete(name);
+      Params.setRange(name, hd.min, hd.max, hd.step);
+      Params.set(name, hd.value);
+    };
+  }
+  // the Number at the value v ({re, im}), set as a change at rest (the steps and shapes that use it follow), then the app's
+  // work on it settled: two frames drawn and no fill, line or smoothing job left, at most FIG_SETTLE_MS. -> false when the
+  // build was cancelled (alive() false)
+  const FIG_SETTLE_MS = 20000;
+  async function figNumberAt(name, v, alive) {
+    Params.set(name, v.im ? { re: v.re, im: v.im } : v.re);
+    const t0 = performance.now();
+    for (;;) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (alive && !alive()) return false;
+      if (!(fixJob.running || lineJob.running || sm.running) || performance.now() - t0 > FIG_SETTLE_MS) return true;
+    }
+  }
+  // a value typed for a Number (a real or complex number, as its field takes): {re, im}, or null
+  function figNumberParse(text) {
+    try { const v = Params.evalVal(String(text)); return v && Number.isFinite(v.re) && Number.isFinite(v.im) ? { re: v.re, im: v.im } : null; } catch (e) { return null; }
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
+    numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
+    svIndex: () => SV.i,
     // Video in the export dialog turns the deformation on, where there is one
     canDeform: () => morphRange().steps.length > 0,
     deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
