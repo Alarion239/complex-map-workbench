@@ -306,7 +306,12 @@ const Export = (() => {
       switch (s.kind) {
         case 'point': {
           // (a point of an earlier plane in a later plane's list: its image there, by the figure's label, w₁(z₀) = …)
-          if (s._imageTex) return sp('the point %{m}', { m: M(`${s._imageTex}=${P(s.p)}`) });
+          if (s._imageTex) {
+            // (≈ where the value is rounded to its three decimals; the point it is the image of, with its own value)
+            const r3 = (x) => Math.abs(x * 1000 - Math.round(x * 1000)) < 1e-9 * Math.max(1, Math.abs(x * 1000));
+            const rel = r3(s.p[0]) && r3(s.p[1]) ? '=' : '\\approx ';
+            return sp('the point %{m}', { m: M(`${s._imageTex}${rel}${P(s.p)}\\ (${s._ofTex}=${P(s._of)})`) });
+          }
           // (a label that is a word, "trailing edge", is set as text, not as a product of italic letters)
           // a name that is a word: "the trailing edge $z=1$", not a symbol "$\\text{trailing edge}=1$"
           if (s.label && (I18N.lang === 'en' ? /[A-Za-z]{2}|\s/ : /\p{L}{2}|\s/u).test(exLabel(s.label))) return sp('the %{label} %{m}', { label: String(exLabel(s.label)).trim(), m: M(`z=${P(s.p)}`) });
@@ -842,7 +847,10 @@ const Export = (() => {
       if (!w || !CX.isFin(w)) return s;
       const keep = A.figMode;
       A.figMode = true;
-      try { const t = Construct.nameTex(pointLabel(s, k, lk0 - j)); return t ? Object.assign({}, s, { p: [w.re, w.im], _imageTex: t }) : s; } finally { A.figMode = keep; }
+      try {
+        const t = Construct.nameTex(pointLabel(s, k, lk0 - j)), t0 = Construct.nameTex(pointLabel(s, k, 0));
+        return t && t0 ? Object.assign({}, s, { p: [w.re, w.im], _imageTex: t, _ofTex: t0, _of: s.p }) : s;
+      } finally { A.figMode = keep; }
     };
     // (on: the shapes the list keeps, all without it; a point keeps its place among all the points, which names it)
     const listOf = (gen, on = null) => {
@@ -875,9 +883,9 @@ const Export = (() => {
       if (chain && chain.some((q) => !q.tex)) chain = null;
     }
     // (a focused step's figure: the right panel names the image of a point of z on the last plane F(z₀), so the caption defines F, the
-    // whole map, as the chain of the steps)
+    // whole map, by its formula in z, or as the chain of the steps where that formula is too long)
     const n = nSteps(), defF = A.S.focus > 0 && rk === n && n > 1 && vis.some((s) => s.kind === 'point' && s.p && !s.label && !shapeStage(s))
-      ? Array.from({ length: n }, (_, i) => `f_{${n - i}}`).join('\\circ ') : null;
+      ? (compositeTexShort(-1) ? `F(z)=${compositeTexShort(-1)}` : `F=${Array.from({ length: n }, (_, i) => `f_{${n - i}}`).join('\\circ ')}`) : null;
     return { shapeList, shapeListGen, later, defF, nShapes: vis.filter(own).length, nPoints: vis.filter((s) => kindType(s) === 'point').length, Fname, lvar: lv, formula, raw: Ftex && Ftex.length < 240 ? Ftex : null, mapTex: formula ? `${Fname}(${lv})=${formula}` : null,
       pattern: rImage() && vis.some((s) => kindType(s) === 'area') ? patternSegs() : [], height: A.S.height, phase: lPhase(), dc: A.S.dc, cauchy: A.S.dc === 'cauchy' ? cauchyKind() : null, sectors: A.S.sectors || 12, hm, hom, chain, sheets: sheetsShown() };
   }

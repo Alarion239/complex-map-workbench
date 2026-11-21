@@ -249,7 +249,7 @@
     const cmFig = shapes.some((x) => x.def || x.at);
     const markOf = (s) => (cmFig && Construct.pointMark ? Construct.pointMark(s) : null);
     // (a point is carried from its own plane: one of a plane after the panel's is not drawn, as on the page; every point the
-    // panel draws is named as the page's figure frames name it, a label of its own as before)
+    // panel draws is named as the page's figure frames name it)
     shapes.forEach((s) => {
       if (kindType(s) !== 'point' || !s.p) return;
       const Fp = shapeMapF(s, side, F);
@@ -261,8 +261,13 @@
       if (mk === 'helper') { points.push({ z: [w.re, w.im], r: 1.1, kind: 'ring', label: null, at: 'auto', sw: 0.5 }); return; }
       let label = null;
       if (P.named) label = String.fromCharCode(65 + (k % 26)) + (primeName ? "'" : '');
-      else if (s.label || !A.pointName) { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null); label = l ? (primeName ? `${primeName}(${l})` : l) : null; }
-      else { const n = A.pointName(s, k, side); label = Construct.nameTex(n) || texLabel({ label: n }, k); }   // (a name in words as a label's)
+      else {
+        // (every point by the plane it is shown on, a label of its own too: A, w₁(A), F(A); a label in words, which has no name in
+        // symbols, set as text after the panel's map, as before)
+        const n = A.pointName ? A.pointName(s, k, side) : null, t = n && Construct.nameTex(n);
+        if (t) label = t;
+        else { const l = texLabel(s, k) || (cmFig ? `z_{${k}}` : null) || (n ? texLabel({ label: n }, k) : null); label = l ? (primeName && s.label ? `${primeName}(${l})` : l) : null; }
+      }
       if (P.named || o.ink === 'bw') points.push({ z: [w.re, w.im], r: P.named ? 2.0 : 1.6, kind: P.named ? PTS[k % 4][0] : mk === 'ring' ? 'ring' : 'dot', fill: o.ink === 'bw' ? '#000000' : P.named ? PTS[k % 4][1] : '#000000', label, at: 'auto' });
       else points.push({ z: [w.re, w.im], r: mk === 'ring' ? 1.7 : 1.5, kind: mk === 'ring' ? 'ring' : 'dot', fill: '#000000', label, at: 'auto', sw: mk === 'ring' ? 0.6 : undefined });
     });
