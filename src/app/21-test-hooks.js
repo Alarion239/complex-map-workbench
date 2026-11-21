@@ -57,6 +57,7 @@
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
+  window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
   window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
   // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn): the cell of its finest
