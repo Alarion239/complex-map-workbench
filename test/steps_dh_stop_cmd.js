@@ -16,9 +16,10 @@ const { grab, keep, compareKept } = eval(fs.readFileSync(path.join(DIR, '..', 'l
 const SAME_FRAC = 0.001;
 const XS = [0.5, 0.9, 1];   // (1: plane w₁ parked)
 const READY_MS = 60000, FRAME_MS = 300000, WARM_MS = 120000;   // waits (ms): a page, a frame, the prestart
-// (a frame is read once the left pane is drawn, nothing pending or compiling, at the place asked: x = 1, plane w₁
-// parked, or a glide frame at u = x drawn by the inverse pass)
-const drawn = (x) => `(() => { const s = __cmwPaneStatus('L'), g = __cmwSteps().glide; return !!s && !s.pending && !s.compiling && ${x === 1 ? '__cmwSteps().x === 1' : `!!g && Math.abs(g.u - ${x}) < 1e-9 && g.path === 'inverse'`}; })()`;
+// (a frame is read once the left pane is drawn after the request (window.__dsT, the request's performance.now(); the
+// pane's status time is its draw's), nothing pending or compiling, at the place asked: x = 1, plane w₁ parked, or a
+// glide frame at u = x drawn by the inverse pass)
+const drawn = (x) => `(() => { const s = __cmwPaneStatus('L'), g = __cmwSteps().glide; return !!s && s.t > window.__dsT && !s.pending && !s.compiling && ${x === 1 ? '__cmwSteps().x === 1' : `!!g && Math.abs(g.u - ${x}) < 1e-9 && g.path === 'inverse'`}; })()`;
 const SRC = { cx: 0, cy: 0, s: 60 };
 const CHAINS = [{ tag: 'dh', type: 'dh', params: {} }, { tag: 'bottcher', type: 'bottcher', params: { c: '0.3+0.6i' } }];
 const ready = () => settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector("#svStrip")' });
@@ -35,7 +36,7 @@ async function frames(ch, stop) {
   await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready' });
   const out = {};
   for (const x of XS) {
-    await ev(x === 1 ? '__cmwSteps({ park: 1 }), 1' : `__cmwSteps({ x: ${x} }), 1`);
+    await ev(`window.__dsT = performance.now(), ${x === 1 ? '__cmwSteps({ park: 1 })' : `__cmwSteps({ x: ${x} })`}, 1`);
     await settled({ max: FRAME_MS, panes: false, until: drawn(x) });
     const tag = `${ch.tag}${stop ? 'S' : 'F'}${x}`;
     await grab(tag);
