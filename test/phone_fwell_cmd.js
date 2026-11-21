@@ -16,10 +16,10 @@ const STEPS = [{ type: 'custom', params: { expr: '((z-0.1)/(1-0.1*z))^2', cut: 1
 const well = () => ev(`(() => { const p = document.getElementById('propsPanel'); const t = p && (p.querySelector('.iform .ftex:not(.long)') || p.querySelector('.iform .ftex')); if (!t) return null; const f = t.closest('.iform'); const cs = getComputedStyle(f); const avail = f.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight); return { tex: (t.dataset.tex || '').slice(0, 40), use: t.dataset.use, fs: t.style.fontSize, sw: t.scrollWidth, avail: Math.round(avail), svg: t.querySelectorAll('svg').length }; })()`);
 const open = async (w, h, lang, mobile, ns) => {
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}-pre` }); await sleep(2500);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}-pre`); await sleep(2500);
   const o = { v3: true, v4: true, shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1 }], steps: STEPS, nextId: 50, focus: 0, rightMode: 'image' };
   await ev(`localStorage.clear(); localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}`);
   for (let i = 0; i < 40 && !(await ev(`typeof MathJax !== 'undefined' && !!MathJax.tex2svg`)); i++) await sleep(500);
   await settle(1500);
 };

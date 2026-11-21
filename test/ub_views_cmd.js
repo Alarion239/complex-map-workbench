@@ -78,7 +78,7 @@ ok('__cmwSet rightMode image', same(await vw(), V('plane', false, 'plane')), awa
 ok('__cmwState().mode', (await ev('__cmwState().mode')) === 'image', await ev('__cmwState().mode'));
 const pane = await ev(`['image', 'color', '3d', 'sphere'].map((m) => __cmwPaneOf(m)).join('')`);
 ok('__cmwPaneOf', pane === 'RLLR', pane);
-// 6. every example opens in the view it was made for (the old rightMode, migrated)
+// 6. every example opens in the view made for it (the old rightMode, migrated)
 const want = { 'A formula in LaTeX': V('plane', true, 'plane'), 'A residue by integration': V('plane', true, 'plane'), 'The derivative in the chain': V('plane', true, 'plane'), 'Sheets of the logarithm': V('land', true, 'plane') };
 const exs = [];
 for (let i = 0; i < 14; i++) {

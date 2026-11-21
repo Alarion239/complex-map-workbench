@@ -6,12 +6,31 @@
 // again as MathML and read for those. Where: shapes (a curve, a polygon, a disc, a point) and gallery examples with
 // formulas, keys, sheets and long captions, in en, ru and it (Russian set by MathJax in STIX2 as the rest, with its own
 // notation). The video draws no TeX: its text is numbers, t and the globe's labels, written by the code (06-video.js).
+// [#1758] And the caption's displayed formula (F's definition) has as much air under it as over it, as TeX's display
+// skips do.
 // Needs MathJax: test-mj.html (MathJax 4 and its STIX2 font from vendor/, ci/browser_suites.js PAGES). A command file for a CDP daemon.
-const fails = [], info = { figures: 0, texts: 0 };
+const fails = [], info = { figures: 0, texts: 0, displays: 0 };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const BASE = `http://localhost:${PORT}`;
 // (a figure that set fewer texts than this, or no caption, would pass whatever it holds)
 const MIN_TEXTS = 20;
+// (#1758) pt by which the air under a caption's displayed formula may differ from the air over it, glyph box to glyph box
+// (the lines' own heights and depths differ a little: the default example's display has 6.7 pt over it and 6.2 under it)
+const DISPLAY_AIR_TOL = 1;
+// (the gallery's figures with a display under F's name, over the three languages: fewer would pass whatever the check holds)
+const MIN_DISPLAYS = 6;
+// the air over and under each displayed formula in a caption's boxes that has text on both sides and was not shrunk to
+// fit: [tex, over, under]
+function displayAir(boxes, W) {
+  const cap = boxes.filter((b) => b.kind === 'caption'), out = [];
+  for (const d of cap) {
+    if (!/^\\displaystyle/.test(d.tex || '') || d.x1 - d.x0 > W) continue;
+    const over = cap.filter((b) => b !== d && b.y1 <= d.y0 + 0.01), under = cap.filter((b) => b !== d && b.y0 >= d.y1 - 0.01);
+    if (!over.length || !under.length) continue;
+    out.push([d.tex, d.y0 - Math.max(...over.map((b) => b.y1)), Math.min(...under.map((b) => b.y0)) - d.y1]);
+  }
+  return out;
+}
 // TeX the figure shows raw, read from MathJax's MathML (its SVG has glyphs, not text)
 function rawTex(texs) {
   const out = [];
@@ -52,13 +71,17 @@ const figure = async (lang, ctx) => {
   const r = await send('Runtime.evaluate', { awaitPromise: true, returnByValue: true, expression: `(async () => {
     const f = await __cmwFig.build({ for: 'homework', capInImage: true, lang: '${lang}' }); if (!f) return null;
     const texs = [...new Set(f.boxes.map((b) => b.tex).filter(Boolean))];
-    return { n: texs.length, caption: f.boxes.some((b) => b.kind === 'caption'), bad: (${rawTex.toString()})(texs) }; })()` });
+    return { n: texs.length, caption: f.boxes.some((b) => b.kind === 'caption'), bad: (${rawTex.toString()})(texs), air: (${displayAir.toString()})(f.boxes, f.W) }; })()` });
   const v = r && r.result && r.result.value;
   info.figures++;
   if (!v) { fails.push(`${lang} ${ctx}: no figure`); return; }
   info.texts += v.n;
   if (v.n < MIN_TEXTS) fails.push(`${lang} ${ctx}: the figure set only ${v.n} texts (at least ${MIN_TEXTS} expected)`);
   if (!v.caption) fails.push(`${lang} ${ctx}: no caption in the image`);
+  for (const [t, over, under] of v.air || []) {
+    info.displays++;
+    if (Math.abs(over - under) > DISPLAY_AIR_TOL) fails.push(`${lang} ${ctx}: the caption's display ${t.slice(0, 60)} has ${over.toFixed(2)} pt over it and ${under.toFixed(2)} pt under it (more than ${DISPLAY_AIR_TOL} pt apart)`);
+  }
   for (const b of v.bad) fails.push(`${lang} ${ctx}: raw TeX (${b.why}) in "${b.t.slice(0, 140)}"`);
 };
 await view(1440, 900, false, false);
@@ -81,4 +104,5 @@ for (const lang of ['en', 'ru', 'it']) {
   }
 }
 if (info.texts < MIN_TOTAL) fails.push(`the run read only ${info.texts} texts (at least ${MIN_TOTAL} expected)`);
+if (info.displays < MIN_DISPLAYS) fails.push(`the run met only ${info.displays} displayed formulas in captions (at least ${MIN_DISPLAYS} expected)`);
 return { pass: fails.length === 0, fails: fails.slice(0, 60), info };
