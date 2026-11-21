@@ -32,7 +32,8 @@
 //   DIFF_TOL, so two blank canvases are not the same picture); null when either is missing or their sizes differ;
 // - GI_REF: a page script that defines the exact picture of a glide frame at its own u (steps_glide_inverse_cmd.js
 //   uses it too): __giRef(P, F, tol = 6, step = 10) samples the frame F every step px; at each pixel w it solves H_u(z) = w by
-//   Newton's method from seeds over P's window, an 8 x 6 grid or window.__giSeeds ([columns, rows]) (H_u, the frame's
+//   Newton's method from seeds over P's window, an 8 x 6 grid or window.__giSeeds ([columns, rows]), and with
+//   window.__giRecip from each seed on 1/H_u(z) = 1/w as well (for a map with a pole in the window) (H_u, the frame's
 //   camera, the sheet key and the opacity alpha from the glide's record: F.g, or __cmwSteps().glide), keeps
 //   the roots in the regions (where P is not the paper: a map many-to-one onto
 //   w under Inside regions; every root when none is, or with window.__giAllRoots), and colours w as the inverse pass
@@ -58,7 +59,8 @@
 //   most the share o.maxOver (default JUDGE_OVER) of them are more than the tolerance apart; pass is false when the
 //   glide's record has no sheet key (a frame the carried mesh draws; refOf answers null), with n 0; o.seeds: [columns,
 //   rows] of the reference's Newton seeds (window.__giSeeds), for a frame whose roots the default 8 x 6 grid misses;
-//   o.as: refOf's as;
+//   o.recip: the reference solves 1/H_u(z) = 1/w from each seed too (window.__giRecip), for a frame whose map has a pole
+//   in the window, next to which Newton's method on H_u finds the roots from next to them only; o.as: refOf's as;
 // - globeJudge(base, tag, o): the steps view's globe held between plane z and a later plane, the kept frame tag, graded
 //   against the exact picture from plane z's parked globe base (both kept by grab, the camera unmoved): for each point w
 //   of a lattice of the sphere's front side every GLOBE_STEP degrees, its pixel on tag against the
@@ -105,11 +107,16 @@
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5), roots = [];
-    for (const s0 of seeds) {
+    // (solve(s0, inv): Newton's method from s0 on H(z) = w, or with inv on 1/H(z) = 1/w, nearly linear next to a pole of
+    // H, where Newton's method on H converges from next to the root only)
+    const ww = w.re * w.re + w.im * w.im, wi = C(w.re / ww, -w.im / ww);
+    const inverse = (f) => { const ff = f.re * f.re + f.im * f.im; return C(f.re / ff, -f.im / ff); };
+    const solve = (s0, inv) => {
+      const G = inv ? (z) => inverse(H(z)) : H, t = inv ? wi : w;
       let z = s0;
       for (let it = 0; it < 40 && z; it++) {
-        const f = H(z), h = 1e-7 * (1 + Math.hypot(z.re, z.im)), f2 = H(C(z.re + h, z.im));
-        const d = C((f2.re - f.re) / h, (f2.im - f.im) / h), dd = d.re * d.re + d.im * d.im, r = C(f.re - w.re, f.im - w.im);
+        const f = G(z), h = 1e-7 * (1 + Math.hypot(z.re, z.im)), f2 = G(C(z.re + h, z.im));
+        const d = C((f2.re - f.re) / h, (f2.im - f.im) / h), dd = d.re * d.re + d.im * d.im, r = C(f.re - t.re, f.im - t.im);
         if (!(dd > 0) || !isFinite(dd)) { z = null; break; }
         let st = C((r.re * d.re + r.im * d.im) / dd, (r.im * d.re - r.re * d.im) / dd);
         const sl = Math.hypot(st.re, st.im), mx = 2 + 0.5 * Math.hypot(z.re, z.im);
@@ -118,6 +125,9 @@
         if (!isFinite(z.re) || !isFinite(z.im)) z = null;
         else if (sl < 1e-12 * (1 + Math.hypot(z.re, z.im))) break;
       }
+      return z;
+    };
+    for (const z of seeds.flatMap((s0) => window.__giRecip && ww > 0 ? [solve(s0, false), solve(s0, true)] : [solve(s0, false)])) {
       if (!z) continue;
       const f = H(z);
       if (!(Math.hypot(f.re - w.re, f.im - w.im) <= 1e-9 * (1 + Math.hypot(w.re, w.im)))) continue;
@@ -347,8 +357,10 @@ ${REF}`;
     const tol = o.tol == null ? JUDGE_TOL : o.tol, minN = o.minN == null ? JUDGE_MIN_N : o.minN, maxOver = o.maxOver == null ? JUDGE_OVER : o.maxOver;
     // (o.seeds: [columns, rows] of the Newton seeds of the reference, for a frame whose roots the default grid misses)
     if (o.seeds) await ev(`window.__giSeeds = ${JSON.stringify(o.seeds)}, 1`);
-    const r = await refOf(base, tag, tol, o.step || 10, o.seeds ? JUDGE_SEEDS_MS : 20000, o.as);
+    if (o.recip) await ev('window.__giRecip = true, 1');
+    const r = await refOf(base, tag, tol, o.step || 10, o.seeds || o.recip ? JUDGE_SEEDS_MS : 20000, o.as);
     if (o.seeds) await ev('delete window.__giSeeds, 1');
+    if (o.recip) await ev('delete window.__giRecip, 1');
     if (!r || !r.ref) return { path: r && r.path, u: r && r.u, n: 0, over: null, max: null, none: null, far: null, pass: false };
     const q = r.ref;
     return { path: r.path, u: r.u, n: q.n, over: q.over, max: q.max, none: q.none, far: q.far, pass: q.n >= minN && q.over <= maxOver };
