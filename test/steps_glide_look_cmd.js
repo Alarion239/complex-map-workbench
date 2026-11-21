@@ -2,9 +2,11 @@
 // (a scrub not let go: the moving frames) and read from the left pane's canvas, against the frames at rest on those
 // planes. The cases: the default example (Strip to disk) Inside regions and Everywhere, the Joukowski airfoil (Inside
 // regions, and Everywhere: a homotopy inverted by Newton, every point over w), the Mountain King Everywhere (the
-// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions, and the logarithm Everywhere, of an annulus and its sheets (a glide with no inverse,
-// drawn by the carried mesh); and the zeros of the zeta function Inside regions, for the parked camera alone. Paths are
-// off: the glide's paths are drawn over the colour, which is what is read.
+// whole plane carried forward), two polynomials: Roots as preimages (a cubic) Everywhere and the partial sum of the exponential Inside regions, and the logarithm Everywhere, of an annulus and its sheets (its glide's inverse a
+// branch of a power and an affine map); the zeros of the zeta function Inside regions, for the parked camera alone; and,
+// Everywhere over a disc, the steps whose glide is inverted by a closed form (an n-th root, a complex power, cos, cosh,
+// arccos, arcosh, a rational formula of degree 5: their ops have no NEWT op) and a polynomial of degree 5 (every root by
+// Aberth's iteration). Paths are off: the glide's paths are drawn over the colour, which is what is read.
 // Each case checks these things, each in checks of their own:
 // - the same look: the moving frame at u (LOOK_U, or a case's lookU) is the exact picture at the same u, test/lib/held_frames.js's
 //   __giRef: plane z's parked frame pulled through H_u's inverse (Newton's method, the front sheet by the glide's sheet
@@ -18,7 +20,7 @@
 // - the logarithm's colour has no speck: the colour layer of the frames at u (LOOK_U) inside H_u's image has no run of
 //   pixel more than SPECK_TOL off each of its 8 neighbours, which agree (a cell dropped or misplaced, as where two
 //   meshes meet);
-// - the logarithm's coverage (the moving frame has no sheet key, so no reference by Newton's method either): the
+// - the logarithm's coverage: the
 //   colour layer alone (__cmwSteps({ bare })) of the frames at u (LOOK_U and COVER_U) sampled every 3 device px, the
 //   pixels more than 3 CSS px from the edge of H_u's image (the log step's homotopy H_t(z) = (z^s - 1)/s + s, s = 1 - t,
 //   sends the plane cut along (-inf, 0] onto the sector s - 1/s + rho e^(i phi), |phi| < s pi): inside it, none is the
@@ -119,6 +121,21 @@ const CASES = [
   { tag: 'Partial sum of the exponential', example: 'Partial sums of the exponential', scope: 'in', lookU: [0.002, 0.25, 0.5, 0.75, 0.998], end: 1e-4 },
   { tag: 'Logarithm, Everywhere', example: 'Logarithm of an annulus', scope: 'all', cover: true },
   { tag: 'Sheets of the logarithm, Everywhere', example: 'Sheets of the logarithm', scope: 'all', cover: true },
+  // (the steps whose glide the inverse pass draws by a closed form, Everywhere, over a disc: an n-th root and a complex power
+  // (ROOTPOW), cos, cosh, arccos and arcosh (their zoom paths: an affine map, the inverse function, an affine map), and a
+  // rational formula of degree 5 (RAT5); and a polynomial of degree 5, every root by Aberth's iteration (NEWT^5). noNewt:
+  // the glide's ops have no NEWT op)
+  ...[
+    ['n-th root, Everywhere', { type: 'root', params: { n: 3 } }, 90, true],
+    ['complex power, Everywhere', { type: 'powa', params: { alpha: '0.5+0.3i' } }, 90, true],
+    ['cos, Everywhere', { type: 'cos', params: {} }, 60, true],
+    ['cosh, Everywhere', { type: 'cosh', params: {} }, 60, true],
+    ['arccos, Everywhere', { type: 'arccos', params: {} }, 90, true],
+    ['arcosh, Everywhere', { type: 'arcosh', params: {} }, 90, true],
+    ['rational formula of degree 5, Everywhere', { type: 'custom', params: { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 } }, 90, true],
+    ['polynomial of degree 5, Everywhere', { type: 'poly', params: { co: '1, 0, -1, 0.5i, 0, 1' } }, 90, false],
+  ].map(([tag, step, s, noNewt]) => ({ tag, scope: 'all', noNewt, state: { v3: true, v4: true, v5: true, v6: true, nextId: 10, focus: 0, srcView: { cx: 0, cy: 0, s },
+    shapes: [{ id: 's1', kind: 'disc', c: [0.5, 0.3], r: 0.6, ci: 0, visible: true }], steps: [Object.assign({ on: true }, step)] } })),
   // (zeta Inside regions: the parked camera alone. The regions' image is a thin strip, where the exact picture finds
   // fewer than MIN_COMPARED pixels to compare)
   { tag: 'Zeros of the zeta function', example: 'Zeros of the zeta function', scope: 'in', parked: [0.3, 0.5, 0.7], only: 'parked' },
@@ -183,7 +200,10 @@ const specks = (tag) => ev(`(() => {
 })()`);
 // one case: its frames read and its checks made, its findings in r
 async function look(c, r) {
-  await go(`http://localhost:${PORT}/test.html?ns=look${Date.now()}`);
+  // (a case with a state: its figure stored in a fresh namespace and the page opened on it)
+  const ns = `look${Date.now()}`;
+  if (c.state) await load(ns, c.state);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}`);
   await ready();
   if (c.example) {
     const ex = names.indexOf(c.example);
@@ -223,7 +243,7 @@ async function look(c, r) {
     const held = (await hold(u)).ok, still = await grab('M' + u);
     ok(`${c.tag}: the moving frame at u = ${u} settles`, still, null);
     if (c.seeds) await ev(`window.__giSeeds = ${JSON.stringify(c.seeds)}, 1`);
-    look[u] = Object.assign({ held, still }, await refOf('R0', 'M' + u, LOOK_TOL, c.step));
+    look[u] = Object.assign({ held, still, ops: await ev('(() => { const g = __cmwSteps().glide; return g && g.ops ? g.ops : null; })()') }, await refOf('R0', 'M' + u, LOOK_TOL, c.step));
     if (c.seeds) await ev('delete window.__giSeeds, 1');
     // (the lines over the colour, read while the glide's record has this frame's camera)
     lines[u] = { grid: await gridOver('M' + u), outlines: await outlines('M' + u) };
@@ -239,10 +259,12 @@ async function look(c, r) {
     if (look[u].specks) ok(`${c.tag}: the moving frame at u = ${u} has no speck in its colour (a pixel more than ${SPECK_TOL}/255 off each of its 8 neighbours, which agree, inside H_u's image)`, look[u].specks.n > 1000 && look[u].specks.specks === 0, look[u].specks);
     ok(`${c.tag}: the frame at u = ${u} covers H_u's image, and past it shows plane 1's colour as at rest (its colour layer: at most ${COVER_TOL * 100} % of the pixels inside on the paper, and of those outside more than ${LOOK_TOL}/255 from plane 1's parked colour layer)`, look[u].held && V.still && V.ins > 1000 && V.outs > 0 && V.holes >= 0 && V.holes <= COVER_TOL * V.ins && V.strays <= COVER_TOL * V.outs, look[u]);
   }
-  for (const u of c.cover ? [] : US) {
+  for (const u of US) {
     const L = look[u], R = L.ref;
     ok(`${c.tag}: the moving frame at u = ${u} is the exact picture at u (plane z's parked frame through H_u's inverse: at most ${SAME_FRAC * 100} % of the compared pixels > ${LOOK_TOL}/255 apart; no reference without the glide's sheet key)`, L.held && L.still && !!R && R.n >= MIN_COMPARED && R.over <= SAME_FRAC, L);
   }
+  // (a closed form: the glide's ops have no NEWT op)
+  if (c.noNewt) ok(`${c.tag}: the glide at u = ${US.join(', ')} is drawn by the inverse pass by a closed form (its ops have no NEWT op)`, US.every((u) => Array.isArray(look[u].ops) && look[u].ops.length > 0 && !look[u].ops.includes('NEWT')), US.map((u) => look[u].ops));
   // ---- the lines over the colour, as the rest renderer draws them ----
   // (the rest frame of plane z read the same way is the model's own fit: its share off is the floor)
   const g0 = lines.rest.grid, gridOk = (q) => !!q && !!g0 && q.n >= MIN_LINE_PX && q.over - g0.over <= SAME_FRAC;
