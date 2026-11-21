@@ -2450,7 +2450,7 @@
       const map = svShapeMap(s, map0), r = map && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
-      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
+      GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
     }
     if (!frame) GLR.blit(pane.ctx);
   }
@@ -3833,7 +3833,11 @@
           // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
           if (!globe && st.every((x) => x === 'ready') && !h.paths.some((q) => q.inv && q.inv.nr)) {
             let drawn = false;
-            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, { open: false }, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            const warmFrame = { open: false };
+            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            // (and the outlines over it, into the same frame, which no pane shows: the first glide frame would build
+            // their pass's scratch and pipeline otherwise)
+            if (drawn && !SV.bare) { try { svOutlines(paneL, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
             if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
           }
         }
@@ -3931,10 +3935,12 @@
   const SV_IDLE_CB_MS = 1000, SV_IDLE_FALLBACK_MS = 250;
   const svIdle = (f) => (window.requestIdleCallback ? window.requestIdleCallback(f, { timeout: SV_IDLE_CB_MS }) : setTimeout(f, SV_IDLE_FALLBACK_MS));
   let svWarmSig = null, svWarmAt = 0;
+  // (the chain whose warm draw waits for its fence: a second call meanwhile draws it no second time)
+  let svWarmFlushing = null;
   // (t0: when the chain changed, as svPrestart saw it)
   function svWarmCarry(n, t0 = performance.now()) {
     const sig = chainSig[nSteps()];
-    if (svWarmSig === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
+    if (svWarmSig === sig || svWarmFlushing === sig || n > 40 || !GLR.ok || !GLR.drawRegion || nSteps() < 1 || derivIn(0, 1)) return;
     const wait = Math.max(t0, lastInputT) + SV_WARM_IDLE_MS - performance.now();
     if (wait > 0 || interacting()) { setTimeout(() => { if (chainSig[nSteps()] === sig) svWarmCarry(n, t0); }, Math.max(wait, 250)); return; }
     svIdle(() => {
@@ -3950,7 +3956,13 @@
       } catch (e) { done = false; }
       // the speck is no shape of the scene: its cache entry goes, or the line job's "every shape refined" never holds
       dropShapeGPU(SV_WARM.id);
-      if (done) { svWarmSig = sig; svWarmAt = performance.now(); } else setTimeout(() => svWarmCarry(n + 1, t0), 500);
+      if (!done) { setTimeout(() => svWarmCarry(n + 1, t0), 500); return; }
+      // (made once the GPU has run the draw's commands (GLR.gpuDone's fence, polled, never waited on): left in the
+      // queue of the GL canvas, which no pane shows, they would run in the next copy of that canvas to a pane, the
+      // first glide frame's, and that frame would wait for the carried colour's machine code after all)
+      const made = () => { svWarmFlushing = null; if (chainSig[nSteps()] === sig) { svWarmSig = sig; svWarmAt = performance.now(); } };
+      svWarmFlushing = sig;
+      if (GLR.gpuDone) GLR.gpuDone().then(made); else made();
     });
   }
   // ---- play along the thread (#438): ▶, Loop, the range ----
@@ -4086,162 +4098,10 @@
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
   function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
-  // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
-  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; svCheck
-  // ends it when another chain is loaded under it (an edit on the thread, a Split or an undo, keeps it); it polls
-  // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
-  // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
-  // again or Cancel cancels; nothing starts afterwards
-  const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
-  // the ring's fill while the gauge has no total yet
-  const SV_GATE_UNKNOWN_FILL = 0.25;
-  // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
-  // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
-  // layer: nothing to prepare
-  function svGateNeeded() {
-    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
-  }
-  // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
-  let svGateOff = false;
-  const svGateOffSet = (off) => { svGateOff = !!off; };
   // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
   // when the chain is discarded (opening an example or a new scene discards it)
   function svDiscardCaches() {
     svPoleMemo.clear(); svPoleLast.clear(); svRingSizes.clear(); svRingMemo = null; svPolarRes.clear();
-  }
-  // a press waits for the prestart (the test hook counts it as under way)
-  const svGateWaiting = () => !!SV.gate;
-  // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
-  const svGateDraws = () => !!SV.gate && SV.surf === 'plane' && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
-  // start() now, or once the chain is prepared; btn is the control the wait shows on
-  function svGated(btn, start) {
-    if (SV.gate) return;
-    if (!svGateNeeded()) { start(); return; }
-    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
-    svPrestartSoon(0);
-    if (svGateDraws()) requestRender('L');
-    svGateTick();
-  }
-  // (restart: Retry keeps the ring shown, with no pause before it)
-  function svGateRetry() {
-    const g = SV.gate;
-    if (!g) return;
-    const { btn, start } = g;
-    svGateEnd();
-    svGated(btn, start);
-    if (SV.gate) { SV.gate.shown = true; svGateSync(); }
-  }
-  function svGateEnd() {
-    const g = SV.gate;
-    if (!g) return;
-    clearTimeout(g.timer);
-    // (the keyboard user who acted in the message goes back to the control the wait is on, not to the page)
-    if (g.toast && g.toast.contains(document.activeElement)) g.btn.focus();
-    if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
-    SV.gate = null;
-    requestRender('L');
-    svWaitRestore(g);
-  }
-  // the Play gate's gauge: the share of what svReady counts that is done, SV_GATE_UNKNOWN_FILL while it has no total
-  function svGateFill() {
-    const r = svReady();
-    return r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL;
-  }
-  // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its icon a
-  // cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the glide…".
-  // w: {btn, keep, fill, gauge?, hung?}, kept so svWaitRestore gives the control back as it was
-  function svWaitLook(w) {
-    const B = w.btn;
-    if (!w.keep) {
-      w.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
-      B.replaceChildren();
-      B.insertAdjacentHTML('beforeend', ICONS.close);
-    }
-    B.toggleAttribute('aria-busy', true);
-    B.dataset.wait = w.hung ? 'hung' : 'busy';
-    w.fill = Math.max(w.fill || 0, w.gauge ? w.gauge() : svGateFill());
-    B.style.setProperty('--wait', String(w.fill));
-    B.removeAttribute('aria-pressed');
-    B.setAttribute('aria-label', $t('Cancel'));
-    B.setAttribute('aria-description', $t('Preparing the glide…'));
-    B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
-  }
-  function svWaitRestore(w) {
-    const B = w.btn;
-    if (w.keep) {
-      B.replaceChildren(...w.keep.kids);
-      for (const [k, v] of w.keep.attrs) { if (v == null) B.removeAttribute(k); else B.setAttribute(k, v); }
-    }
-    B.toggleAttribute('aria-busy', false);
-    delete B.dataset.wait;
-    B.style.removeProperty('--wait');
-    if (B === (SV.els && SV.els.play)) { delete B.dataset.on; svPlaySync(); }
-  }
-  // whether button B shows the wait look: the Play gate's (once shown) or a hold's
-  const svWaitOn = (B) => !!((SV.gate && SV.gate.shown && SV.gate.btn === B) || (SV.hold && SV.hold.shown && SV.hold.btn === B));
-  function svGateSync() {
-    const g = SV.gate;
-    if (!g || !g.shown) return;
-    svWaitLook(g);
-  }
-  // A hold in the middle of a play (svLinkHold: the programs of a later glide still link, so the play's clock stands still):
-  // past SV_GATE_SHOW_MS ▶ takes the gate's look and the live region says "Preparing the glide…" once, and when the hold ends
-  // ▶ goes back to Pause and the live region says the play's words once. A shorter hold shows nothing. Pressing ▶ (Cancel) or
-  // Esc pauses the play, as for any play
-  function svHoldWaitBegin(A) {
-    if (SV.hold) return;
-    // (the ring is this hold's own: the share of the programs pending when it began that have linked since, full when the hold
-    // ends; svReady's gauge counts what was done before the play, so it would start high and never fill; with none pending,
-    // as when the hold is for pole tracks, the ring stands at the unknown fill)
-    const pend0 = GLR.pendingLinks || 0;
-    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, gauge: () => (pend0 > 0 ? 1 - Math.min(pend0, GLR.pendingLinks || 0) / pend0 : SV_GATE_UNKNOWN_FILL) };
-    w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
-  }
-  function svHoldWaitTick() {
-    const w = SV.hold;
-    if (!w) return;
-    if (SV.play !== w.A || !w.A.held) { svHoldWaitEnd(SV.play === w.A); return; }
-    if (!w.shown) {
-      w.shown = true;
-      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
-    }
-    svWaitLook(w);
-    w.timer = setTimeout(svHoldWaitTick, SV_GATE_POLL_MS);
-  }
-  // the hold is over (say: the play goes on, so its words are said again)
-  function svHoldWaitEnd(say) {
-    const w = SV.hold;
-    if (!w) return;
-    clearTimeout(w.timer);
-    SV.hold = null;
-    if (!w.shown) return;
-    // (the ring is full as the hold ends: what it waited for has linked)
-    if (say) { w.gauge = () => 1; svWaitLook(w); }
-    svWaitRestore(w);
-    if (say && SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
-  }
-  function svGateTick() {
-    const g = SV.gate;
-    if (!g) return;
-    if (svPlanes().length < 2) { svGateEnd(); return; }
-    if (!svGateNeeded()) { svGateEnd(); g.start(); return; }
-    const t = performance.now() - g.t0;
-    if (!g.shown && t >= SV_GATE_SHOW_MS) {
-      g.shown = true;
-      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
-    }
-    if (!g.hung && t > SV_GATE_HANG_MS) {
-      g.hung = true;
-      g.toast = toast($t('Still preparing the glide.'), $t('Retry'), () => { g.toast = null; svGateRetry(); }, false, { sticky: true });
-      if (g.toast) {
-        g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
-        // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
-        const msg = g.toast, btn = g.btn;
-        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
-      }
-    }
-    svGateSync();
-    g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }
   function svPlay() {
     if (SV.play || svPlanes().length < 2) return;
