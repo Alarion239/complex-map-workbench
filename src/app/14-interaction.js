@@ -156,7 +156,8 @@
           // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step (SPEC 2.6, the rail:
           // a point's or a shape's move goes back to its press state, no step)
           if (drag && (drag.mode === 'move' || drag.mode === 'handle') && Construct.cancelDrag && Construct.cancelDrag()) { /* cancelled */ }
-          else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
+          else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp' || drag.mode === 'pickMove') && drag.moved))) onUp(pane, side, e);
+          if (drag && drag.mode === 'pickOut') pickCancel(drag);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
           drag = null; draft = draft && draft.kind === 'polygon' ? draft : null; return;
         }

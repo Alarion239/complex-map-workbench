@@ -93,12 +93,19 @@
     if (E.off.textContent !== ot) E.off.textContent = ot;
     E.off.hidden = !ot;
   }
-  // TEST-HOOK (dropped from the published page by build.py): the card as shown, or null
+  // the selected disc's card refreshed where it shows: the Inspector, or its row in Shapes (a phone, or the panel hidden)
+  function readoutRefresh() {
+    requestRender('P');
+    const s = findShape(selected), r = s && shapeRows.get(s.id);
+    if (r && r.ro) readoutFill(r.ro, s);
+  }
+  // TEST-HOOK (dropped from the published page by build.py): the card as shown, or null; where is 'insp' (the Inspector)
+  // or 'row' (the disc's row in Shapes)
   window.__cmwReadout = () => {
-    const el = /** @type {HTMLElement} */ (document.querySelector('#propsPanel .ro-card'));
+    const el = /** @type {HTMLElement} */ (document.querySelector('#propsPanel .ro-card') || document.querySelector('.ro-card'));
     if (!el) return null;
     const r = /** @type {HTMLInputElement} */ (el.querySelector('.ro-r')), off = /** @type {HTMLElement} */ (el.querySelector('.ro-off'));
-    return { id: el.dataset.id, counts: el.querySelector('.ro-counts').textContent, joins: el.querySelector('.ro-joins').textContent, off: off.hidden ? '' : off.textContent,
+    return { id: el.dataset.id, where: el.closest('#propsPanel') ? 'insp' : 'row', counts: el.querySelector('.ro-counts').textContent, joins: el.querySelector('.ro-joins').textContent, off: off.hidden ? '' : off.textContent,
       r: +r.value, max: +r.max, ticks: [.../** @type {NodeListOf<HTMLElement>} */ (el.querySelectorAll('.ro-tick'))].map((t) => { const a = t.getBoundingClientRect(), b = r.getBoundingClientRect(); return { r: +t.dataset.r, x: a.left + a.width / 2 - b.left, w: b.width }; }) };
   };
   // TEST-HOOK

@@ -127,6 +127,21 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the key is a button for a keyboard: its focus ring stands outside the glyph, clear of the 44 px hit area's edge */
 :root.ph .legend-chip:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 
+/* Look down's key (19-lookdown.js): at the plane's bottom left, above the context bar (it rides up with the plane's other
+   keys), clear of the button column's 60 px lane; folded to its title, a 44 px button, until that is pressed. Open, it
+   stands over what it meets, on the surface */
+:root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: calc(100% - var(--ruler) - 72px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
+:root.ph .ld-key.folded { padding-bottom: 0; }
+:root.ph .ld-key.folded > .ld-it { display: none; }
+:root.ph .ld-key > .ld-ttl { flex: 1 0 100%; display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0; border: 0; background: none; font: var(--t-label); font-weight: 600; color: var(--ink); text-align: left; cursor: pointer; }
+:root.ph .ld-key.folded > .ld-ttl { flex-basis: auto; }
+:root.ph .ld-key > .ld-ttl::after { content: ""; width: 0; height: 0; border: 4px solid transparent; border-bottom-color: currentColor; translate: 0 -2px; }
+:root.ph .ld-key:not(.folded) > .ld-ttl::after { border-bottom-color: transparent; border-top-color: currentColor; translate: 0 2px; }
+:root.ph .ld-key > .ld-ttl:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
+:root.ph .ld-key:not(.folded) { background: var(--surface); }
+/* (with a sheet open on a portrait phone the plane keeps its title chip only, as its other keys: design-11) */
+:root.ph.ph-split:not(.ph-land) .ld-key { display: none !important; }
+
 /* ---------- the chain bar: ‹ the step ›, the chain's sheet, then Deformation ---------- */
 :root.ph .pipe-wrap {
   position: relative; z-index: 26; display: flex; align-items: center; gap: 6px; flex: 0 0 var(--ph-chain); height: var(--ph-chain); min-width: 0;
@@ -265,6 +280,20 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ph-sheet :is(button, select, summary, [role="radio"], [role="button"], [role="switch"]):not(.ph-grab) { min-height: 44px; min-width: 44px; }
 :root.ph .ph-sheet input:not([type="checkbox"], [type="radio"], [type="range"]), :root.ph .ph-sheet textarea { min-height: 44px; font-size: 16px; }   /* (16 px, off the type scale on purpose: iOS Safari zooms the page into a field set smaller than 16 px; ci/unit.js lists it) */
 :root.ph .ph-sheet input[type="range"] { height: 44px; min-height: 44px; }
+:root.ph .ro-track { --ro-th: 44px; }
+/* the readout card's r slider: its thumb 44 × 44 to the touch (iOS takes a range's drag only from its thumb), drawn as the
+   laptop's 10 × 16 inside a transparent border */
+:root.ph .ro-r::-webkit-slider-thumb {
+  width: 44px; height: 44px; margin-top: -14px; border: solid transparent; border-width: 14px 17px; border-radius: 0;
+  background: linear-gradient(var(--ink-2), var(--ink-2)) 50% 50% / 1px 8px no-repeat, var(--surface); background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--ink-2);
+}
+:root.ph .ro-r:active::-webkit-slider-thumb { box-shadow: inset 0 0 0 1px var(--accent); background: linear-gradient(var(--accent), var(--accent)) 50% 50% / 1px 8px no-repeat, var(--surface); background-clip: padding-box; }
+:root.ph .ro-r::-moz-range-thumb {
+  width: 44px; height: 44px; border: solid transparent; border-width: 14px 17px; border-radius: 0;
+  background: linear-gradient(var(--ink-2), var(--ink-2)) 50% 50% / 1px 8px no-repeat, var(--surface); background-clip: padding-box;
+  box-shadow: inset 0 0 0 1px var(--ink-2);
+}
 :root.ph .ph-sheet :is(label.check, label.fader-row) { min-height: 44px; }
 :root.ph .ph-sheet label.check { display: flex; align-items: center; }
 :root.ph .ph-sheet .seg { height: auto; min-height: 44px; }

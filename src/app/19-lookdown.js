@@ -77,8 +77,9 @@
       || d.lines.some(([x0, y0, x1, y1]) => { const L = Math.hypot(x1 - x0, y1 - y0), t = L ? Math.max(0, Math.min(1, ((x - x0) * (x1 - x0) + (y - y0) * (y1 - y0)) / (L * L))) : 0; return Math.hypot(x - x0 - t * (x1 - x0), y - y0 - t * (y1 - y0)) <= LD_HIT / 2; });
     return near ? findShape(d.id) : null;
   }
-  // the key chip over the left plane, shown with the marks
-  let lookKey = null;
+  // the key chip over the left plane, shown with the marks. On a phone it starts folded to its title, a button that
+  // unfolds it (the open key covers a fifth of a 360 px plane)
+  let lookKey = null, lookKeyOpen = false;
   const LD_KEY = [
     { kind: 'ring', text: () => $t('target') }, { kind: 'line', text: () => $t('to the target') }, { kind: 'cross', text: () => $t('critical point') },
     { kind: 'dot', text: () => $t('critical value') }, { kind: 'dash', text: () => $t('join radius') },
@@ -88,11 +89,16 @@
     const host = $('plotL');
     if (!host) return;
     if (!lookKey) { lookKey = h('div', { class: 'ld-key', role: 'note' }); host.append(lookKey); }
-    const sig = on ? I18N.lang : '';
+    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}` : '';
     if (lookKey.dataset.sig === sig) return;
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
-    if (on) lookKey.replaceChildren(h('span', { class: 'ld-ttl' }, $t('Look down')), ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it' }, ldSwatch(kind), text())));
+    if (!on) return;
+    const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); };
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
+    lookKey.replaceChildren(ttl, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it' }, ldSwatch(kind), text())));
+    lookKey.classList.toggle('folded', ph && !lookKeyOpen);
+    if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
   }
   // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, and the key's words
   window.__cmwLookDown = () => (lookDrawn ? Object.assign({ key: lookKey && !lookKey.hidden ? lookKey.textContent : '' }, JSON.parse(JSON.stringify(lookDrawn))) : null);
