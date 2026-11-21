@@ -213,7 +213,7 @@
             const r = it.run();
             if (r instanceof Element && r.isConnected) /** @type {HTMLElement} */ (r).focus({ preventScroll: true }); else focusBack(opener, okey);
           } },
-          h('span', { class: 'mi-ic', html: ic }), it.labelEl || h('span', { class: 'mi-label' }, it.label), it.keyHtml ? h('span', { class: 'mi-key mi-math', html: it.keyHtml }) : h('span', { class: 'mi-key' }, it.key || ''));
+          h('span', { class: 'mi-ic', html: ic, 'aria-hidden': 'true' }), it.labelEl || h('span', { class: 'mi-label' }, it.label), it.keyHtml ? h('span', { class: 'mi-key mi-math', html: it.keyHtml }) : h('span', { class: 'mi-key' }, it.key || ''));
         if (it.lang) b.lang = it.lang;
         host.append(b);
       }

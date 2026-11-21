@@ -540,6 +540,7 @@
     ctx.restore();
   }
   function renderColor(pane) {
+    pane.noteBox = null;   // (no note drawn yet in this frame: noGL, glStatusNote and the Cauchy notes each set it)
     pane.setView(leftView());
     if (!GLR.ok) { pane.begin(TH.plane); noGL(pane); return; }
     pane.begin(TH.plane);
@@ -1042,7 +1043,7 @@
       const a = P(p), b = P([p[0] + out[0] * 0.06, p[1] + out[1] * 0.06, z0]);
       if (a && b) for (const gap of [24, 34, 46]) { const r = label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true); if (r) { names.push(r); break; } }
     };
-    const vz = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
+    const vz = svName(leftStage());
     if (reOn) title([0, sy * ay, z0], [0, sy], [['Re ', false], [vz, true]]);
     if (imOn) title([sx * ax, 0, z0], [sx, 0], [['Im ', false], [vz, true]]);
     // height ruler: of the two corners on the block's silhouette, the one farther from the camera
@@ -1286,8 +1287,10 @@
         if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
       }
     }
+    const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && !o.carryRegions;
     const info = GLR.drawSphere({
-      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode || o.carryRegions ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      map: colorMap, mode: colorGlobe ? 'color' : 'image', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      standIn: colorGlobe ? globeStandIn(pane, colorMap) : null,
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
       regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
