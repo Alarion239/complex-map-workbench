@@ -566,6 +566,10 @@ html:not(.ph) .ph-only { display: none !important; }
    plane's keys. A sheet that does not split it (More, the chain) leaves the tool column and the planes as they are, and the message keeps its row) */
 :root.ph.ph-land.ph-split.ph-sheet-on #toastHost { left: auto; right: 0; width: var(--ph-sheet-w); }
 :root.ph.ph-land.ph-split.ph-sheet-on #toastHost .toast { padding-right: calc(8px + env(safe-area-inset-right, 0px)); }
+/* (a sheet that lies over the planes (More, the chain) leaves the planes and their keys where they are: the message keeps its row across the foot, and stops
+   left of the plane's key column, 8 + 44 + 8 px in from the plane's right edge, as the plot placement does, so a message of two rows, which reaches above
+   the keys' foot on the shorter landscape phones, covers no key) */
+:root.ph.ph-land.ph-sheet-on:not(.ph-split) #toastHost { right: calc(var(--ph-col) + 8px + 44px + 8px + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { box-sizing: border-box; height: 56px; min-height: 56px; border: 0; border-top: 2px solid var(--accent); border-radius: 0; box-shadow: none; background: var(--panel); padding: 0 8px 0 12px; }
 :root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }
 /* a message whose words do not fit beside its buttons (toast() sets data-rows="two" by measuring) takes two rows: the words full width,
