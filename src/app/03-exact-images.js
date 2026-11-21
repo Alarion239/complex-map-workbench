@@ -335,7 +335,8 @@
   // live panes that drew a forward stand-in while the inverse program compiled: any draw that finds the program
   // ready (a thumbnail can finish its link first, without GLR.onReady) redraws them
   const invWaiting = new Set();
-  // a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, exact (shapes it drew
+  // a screen pane's last GPU frame, as glStatusNote saw it: {pending, compiling, error, note (why its plot has no value:
+  // a finite sum past the GPU's budget), exact (shapes it drew
   // with a stand-in while their inverse program compiled), t}. frameStatus() is the last begin's or viewport's, which
   // may be the other pane's; the quality harness reads this pane's own (a test hook)
   const paneGl = { L: null, R: null };
@@ -651,6 +652,7 @@
   // waited for its programs over 1.5 s says instead that the GPU is still preparing them (a cold link on Direct3D 11
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
+  const overNote = (n) => $t('This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.', { n, cap: GLChain.FINITE_CAP });
   // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
   const compileShown = { L: false, R: false };
   function setCompileShown(role, on) {
@@ -663,10 +665,14 @@
   function glStatusNote(pane, quiet) {
     const st = GLR.frameStatus ? GLR.frameStatus() : null;
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
+    // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
+    // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
+    const note = st && !st.error && st.over ? overNote(st.over) : '';
+    if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
     const now = performance.now(), role = pane === paneL ? 'L' : 'R';
-    paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', exact: invPendN, t: now };
+    paneGl[role] = { pending: !!(st && st.pending), refining: !!(st && st.refining), compiling: !!(st && st.compiling), error: (st && st.error) || '', note, exact: invPendN, t: now };
     invPendN = 0;
     if (quiet) return;
     if (st && st.pending) warmKick();   // (the start-up bar counts the same programs)

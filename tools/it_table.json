@@ -3012,6 +3012,7 @@
  "Drag to turn, tap a shape to select it; two fingers turn too; ∞ is at the north pole": "Trascina per ruotare, tocca una figura per selezionarla; anche due dita ruotano; ∞ è al polo nord",
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Tocca la retta $\\operatorname{Im} z=0{,}8$, poi trascinala verso l'alto o verso il basso.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Preparazione della GPU… (solo la prima volta; shader rimanenti: {n})",
+ "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "Questa somma ha più termini di quelli che la GPU disegna ({n} su un massimo di {cap}), quindi il riquadro resta vuoto. Abbassa il suo estremo superiore per disegnarla.",
  "The plane $%{p}$ at $%{c}=%{list}$.": "Il piano $%{p}$ per $%{c}=%{list}$.",
  "The planes": "I piani",
  "A Number": "Un numero",
