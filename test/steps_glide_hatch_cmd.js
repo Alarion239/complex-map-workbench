@@ -8,7 +8,11 @@
 // least SHRINK_MIN fewer hatch-grey pixels than at DEPART_U in the same region, the whole inset cardioid and bulb, counted
 // as one (the glide's points cover the part of the period-2 bulb outside the unit disc, the map being onto the outside of
 // the unit disc; inside the unit disc no point arrives, and the hatch stays: what the plane past the glide shows there
-// is #1443's). The glide is drawn by the carried meshes (path 'mesh'), the one path this suite covers.
+// is #1443's). The glide is drawn by the inverse pass (path 'inverse', #1339's exact mapping).
+// The carried meshes' path: A natural boundary (its default scene, Everywhere), whose glide stays on the carried meshes
+// (#1321: its Newton op has neither seeds nor every root). Parked plane 0 hatches outside the unit disc, where the series
+// has no value; the same rows, counted outside |z| = 1 / INSET (away from the boundary), with path 'mesh' as their premise,
+// so the rule stays covered on that path.
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -36,7 +40,7 @@ ok(`the glide frame at u = ${DEPART_U} settles`, await park(DEPART_U), null);
 const rec = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u, view: g.view, w: g.w, h: g.h }; })()');
 info.glide = rec && { path: rec.path, u: rec.u };
 ok(`the frame at u = ${DEPART_U} is a glide frame`, !!rec && Math.abs(rec.u - DEPART_U) < 1e-9, rec);
-ok('the glide is drawn by the carried meshes (path \'mesh\', the path this suite covers)', !!rec && rec.path === 'mesh', rec && rec.path);
+ok('the glide is drawn by the inverse pass (path \'inverse\', the Douady–Hubbard glide\'s)', !!rec && rec.path === 'inverse', rec && rec.path);
 ok(`the glide frame at u = ${ARRIVE_U} settles`, await park(ARRIVE_U), null);
 // the hatch-grey pixels of frame tag inside M's main cardioid (|1 - sqrt(1 - 4c)| < INSET) and its period-2 bulb
 // (|c + 1| < INSET / 4), the frames sharing the glide's camera
@@ -60,4 +64,40 @@ const p0 = info.plane0 = await hatch('X0'), d = info.depart = await hatch('X' + 
 ok(`plane 0 hatches the inside of M (at least ${MIN_HATCH} hatch-grey pixels)`, p0.grey >= MIN_HATCH, p0);
 ok(`at u = ${DEPART_U} the glide hatches what plane 0 hatches (at least ${HATCH_MIN * 100} % of plane 0's hatch-grey pixels)`, d.grey >= HATCH_MIN * p0.grey, { depart: d, plane0: p0 });
 ok(`at u = ${ARRIVE_U} the hatch has shrunk where the glide's points arrive (at least ${SHRINK_MIN * 100} % fewer hatch-grey pixels than at u = ${DEPART_U})`, a.grey <= (1 - SHRINK_MIN) * d.grey, { arrive: a, depart: d });
+
+// ---- the carried meshes' path: A natural boundary ----
+const EXAMPLE_MESH = names.indexOf('A natural boundary');
+ok('the example A natural boundary is in the guide', EXAMPLE_MESH >= 0, names.length);
+if (EXAMPLE_MESH >= 0) {
+  await go(`http://localhost:${PORT}/test.html?ns=svhatchm${Date.now()}&view=steps`);
+  await settled({ max: SETTLE_MS, until: 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwExample(${EXAMPLE_MESH}); 1`);
+  await settled({ max: SETTLE_MS, until: '__cmwSteps().ready.ready' });
+  await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane' }), 1`);
+  ok('mesh: plane 0 settles', await park(0), null);
+  ok(`mesh: the glide frame at u = ${DEPART_U} settles`, await park(DEPART_U), null);
+  const m = await ev('(() => { const g = __cmwSteps().glide; return g && { path: g.path, u: g.u, view: g.view, w: g.w, h: g.h }; })()');
+  info.meshGlide = m && { path: m.path, u: m.u };
+  ok(`mesh: the frame at u = ${DEPART_U} is a glide frame`, !!m && Math.abs(m.u - DEPART_U) < 1e-9, m);
+  ok('mesh: the glide is drawn by the carried meshes (path \'mesh\', the path this section covers)', !!m && m.path === 'mesh', m && m.path);
+  ok(`mesh: the glide frame at u = ${ARRIVE_U} settles`, await park(ARRIVE_U), null);
+  // the hatch-grey pixels of frame tag outside |z| = 1 / INSET
+  const outside = (tag) => ev(`(() => {
+    const v = ${JSON.stringify(m && m.view)}, cw = ${m ? m.w : 0}, ch = ${m ? m.h : 0};
+    const D = window.__heldPx[${JSON.stringify(tag)}], c = document.getElementById('canvasL'), W = c.width, H = c.height, dpr = W / cw;
+    let out = 0, grey = 0;
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const re = v.cx + ((x + 0.5) / dpr - cw / 2) / v.s, im = v.cy - ((y + 0.5) / dpr - ch / 2) / v.s;
+      if (Math.hypot(re, im) * ${INSET} <= 1) continue;
+      out++;
+      const i = 4 * (y * W + x), r = D[i], g = D[i + 1], b = D[i + 2];
+      if (Math.max(r, g, b) - Math.min(r, g, b) <= ${GREY_SPREAD} && r >= ${GREY_LO} && r <= ${GREY_HI}) grey++;
+    }
+    return { out, grey };
+  })()`);
+  const q0 = info.meshPlane0 = await outside('X0'), qd = info.meshDepart = await outside('X' + DEPART_U), qa = info.meshArrive = await outside('X' + ARRIVE_U);
+  ok(`mesh: plane 0 hatches outside the unit disc (at least ${MIN_HATCH} hatch-grey pixels)`, q0.grey >= MIN_HATCH, q0);
+  ok(`mesh: at u = ${DEPART_U} the glide hatches what plane 0 hatches (at least ${HATCH_MIN * 100} % of plane 0's hatch-grey pixels)`, qd.grey >= HATCH_MIN * q0.grey, { depart: qd, plane0: q0 });
+  ok(`mesh: at u = ${ARRIVE_U} the hatch has shrunk where the glide's points arrive (at least ${SHRINK_MIN * 100} % fewer hatch-grey pixels than at u = ${DEPART_U})`, qa.grey <= (1 - SHRINK_MIN) * qd.grey, { arrive: qa, depart: qd });
+}
 return { pass: fails.length === 0, fails, info };

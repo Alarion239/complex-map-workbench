@@ -22,7 +22,8 @@ const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got 
 const until = (expr, max = SETTLE_MS) => settled({ until: expr, max });
 const quiet = () => settled({});
 // (a glide waits behind the prestart until the chain is prepared: each is asked for once the chain is ready)
-const prepared = () => until('__cmwSteps().ready.ready', END_MS);
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const prepared = () => kit.prepared('true', END_MS);
 const F1 = (expr) => ({ type: 'custom', params: { expr, cut: 180 }, on: true });
 const CHAIN = [{ type: 'exp', params: {}, on: true }, F1('\\sin(z^2+1)'), { type: 'mul', params: { c: '2' }, on: true }];
 // (two formulas a Split makes into steps: sin(z²+1) into 3, 2 sin z into 2)
