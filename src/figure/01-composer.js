@@ -177,6 +177,10 @@
     for (let d = 0; d <= DEC_MAX; d++) { const v = Math.abs(step) * 10 ** d, r = Math.round(v); if (r >= 1 && Math.abs(v - r) <= DEC_TOL * r) return d; }
     return 6;
   };
+  // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike, up to
+  // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
+  const TICK_DEC_MAX = 15;
+  XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own
@@ -428,8 +432,8 @@
     // axes
     const step = o.step || niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), 4);
     const [stX, stY] = XD.axisSteps(box, step);
-    const decX = XD.decimals(stX), decY = XD.decimals(stY);
     const xt = XD.ticks(box.x0, box.x1, stX), yt = XD.ticks(box.y0, box.y1, stY);
+    const decX = XD.tickDec(xt, stX), decY = XD.tickDec(yt, stY);
     const lines = [];
     let out = '';
     if (o.axes === 'box') {
@@ -540,7 +544,7 @@
       out += XD.at(it, .../** @type {[number, number, string, string]} */ (best.q), 'point-label', halo);
     }
     if (o.over) out += o.over(X, Y, { hits, under, overlaps });
-    return { markup: body + out, defs, X, Y, step, xt, yt, lines, hits, under };
+    return { markup: body + out, defs, X, Y, step, xt, yt, labels: { x: xt.map((t) => XD.tickTex(t, decX)), y: yt.map((t) => XD.tickTex(t, decY)) }, lines, hits, under };
   };
 
   XD.bp = (texpt) => texpt * 72 / 72.27;

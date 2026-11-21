@@ -1,4 +1,4 @@
-// The figure's tick precision (#2146): XD.decimals (src/figure/01-composer.js, as Figure.geom.decimals) is the fewest decimals that
+// The figure's tick precision (#2146): XD.decimals (src/figure/01-composer.js) is the fewest decimals that
 // represent a tick step, the same for every step the figures use (1, 0.5, 0.25, 0.1, 0.01, 1000, ...) and right below 1e-6 and 1e-9, where
 // an absolute tolerance read a step as a whole number (5e-11 gave 0) and the count stopped at 6. Run: node test/t_figure_decimals.js
 const vm = require('vm'), path = require('path');
