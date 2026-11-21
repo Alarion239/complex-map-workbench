@@ -4,7 +4,8 @@
 //    messages are not cut (`scrollHeight - clientHeight` of the words ≤ 1) and are at most three lines; the message is inside the window;
 //  - (#1685) with no sheet open at 390 × 844 and 360 × 740, en and ru: a long message over the plot has its words whole and `data-rows` is what is drawn;
 //  - a message of two rows at 360 × 640 that stays up while the phone turns to 740 × 360 has one row beside its buttons, and the other way
-//    round: `data-rows` is what is drawn (the buttons beside the words, or under them).
+//    round; with the Menu sheet open it has one row after the turn too, and with the Display sheet open, whose column's foot it takes in landscape
+//    (360 px), two: `data-rows` is what is drawn (the buttons beside the words, or under them).
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -67,10 +68,13 @@ for (const lang of ['en', 'ru']) for (const [w, h] of [[390, 844], [360, 740]]) 
   ok(`${tag}: the message is inside the window`, m.win, m.toast);
 }
 // ---- a message through a rotation
-for (const [from, to, want0, want1, sheet] of [[[360, 640], [740, 360], 'two', 'one', false], [[740, 360], [360, 640], 'one', 'two', false], [[360, 640], [740, 360], 'two', 'one', true]]) {
-  const tag = `en ${from.join('×')} → ${to.join('×')}${sheet ? ' with the Display sheet open' : ''}, a message up through the turn`;
+// (in landscape the Display sheet is a column that splits the layout, and the message takes that column's foot, the sheet's 360 px (#2092): two rows,
+// as at 360 × 640; the Menu sheet lies over the planes, and the message keeps its row across the foot: one row)
+const TURN_SHEET = { display: 'the Display sheet', more: 'the Menu sheet' };
+for (const [from, to, want0, want1, sheet] of [[[360, 640], [740, 360], 'two', 'one', null], [[740, 360], [360, 640], 'one', 'two', null], [[360, 640], [740, 360], 'two', 'two', 'display'], [[360, 640], [740, 360], 'two', 'one', 'more']]) {
+  const tag = `en ${from.join('×')} → ${to.join('×')}${sheet ? ` with ${TURN_SHEET[sheet]} open` : ''}, a message up through the turn`;
   await open(from[0], from[1], 'en');
-  if (sheet) { await ev(`Phone.open('display'), 1`); await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="display"].open')` }); }
+  if (sheet) { await ev(`Phone.open('${sheet}'), 1`); await settled({ panes: false, until: `!!document.querySelector('.ph-sheet[data-k="${sheet}"].open')` }); }
   await show(SHORTISH, 'Undo');
   await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('#toastHost .toast[data-rows]')` });
   const a = await still();

@@ -870,8 +870,8 @@
   const activeSteps = () => S.steps.map((_, i) => i + 1).filter((k) => stepActive(k));
   // a focused d/dz step differentiates a function of z: its input plane is the z-plane
   const focusDeriv = () => S.focus > 0 && isDeriv(S.focus);
-  // (the steps view shows one plane of the chain: its stage, 19)
-  const leftStage = () => (SV.on ? svStage(Math.round(SV.g.x)) : S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
+  // (the steps view shows one plane of the chain: its stage, 19; a glide that waits on a plane drawn as at rest, that plane's)
+  const leftStage = () => (SV.on ? svStage(SV.restHeld >= 0 ? SV.restHeld : Math.round(SV.g.x)) : S.focus === 0 || focusDeriv() ? 0 : S.focus - 1);
   // (while ‹ › have Y on the plane after a step, that step's stage, which every reader of Y's stage then follows: its
   // exports, its variable's name, its overlays; trans.at is -1 except then, 08)
   const rightStage = () => (trans.at >= 0 ? trans.at : S.focus === 0 ? nSteps() : S.focus);
