@@ -202,7 +202,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .pane-head.noled > .led { display: none; }
 .pane-head > .legend-chip > canvas, .pane-head > .legend-chip.collapsed > canvas { display: none; position: absolute; z-index: 20; top: calc(100% + 5px + var(--lg-drop, 0px)); right: calc(-1px - var(--lg-shift, 0px)); box-sizing: content-box;
   background: var(--overlay); border: 1px solid var(--line-strong); border-radius: var(--r-2); box-shadow: var(--shadow-2, var(--shadow-1)); }
-.pane-head > .legend-chip:is(:hover, :focus-visible, .open) > canvas { display: block; }
+.pane-head > .legend-chip:is(:hover, :focus-visible, .open):not(.shut) > canvas { display: block; }
 .pane-head > .legend-chip > .key-sw { display: none; }
 .pane-head > .options { position: static; display: inline-flex; flex: 0 0 auto; min-height: 0; max-width: none; padding: 0; margin-left: 2px; background: none; border: 0; box-shadow: none; }
 /* the head's own controls, compact and on one row: the style's glyphs alone (option 1: each style's name is its
@@ -471,6 +471,7 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 .sv-head.sv-re .sv-title .sv-role.sv-cut::after { content: '…'; }
 .sv-head.sv-rs .sv-title .sv-role[data-short] { font-size: 0; }
 .sv-head.sv-rs .sv-title .sv-role[data-short]::before { content: attr(data-short); font-size: 13px; }
+.sv-head.sv-rs .sv-title .sv-role[data-short-p]::after { content: attr(data-short-p); font: italic 13px var(--f-math, serif); }   /* (the plane's name that ends the short form, set as the role's other names are) */
 .sv-head.sv-c2 .sv-title .sv-sep, .sv-head.sv-c2 .sv-title .sv-role { display: none; }
 /* (the head's 6 px and 10 px side padding stay raw: 8 and 12 px take 4 px of the room at 1024 px, and the Height key's chip then drops its words, steps_land_head) */
 :root.sv:not(.ph) #paneL .pane-head { gap: var(--s-4); flex-wrap: wrap; min-height: 40px; padding: var(--s-2) 6px var(--s-2) 10px; }

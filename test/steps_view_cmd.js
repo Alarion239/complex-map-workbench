@@ -12,6 +12,7 @@ const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/local
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 // (a picture's FNV-1a hash: the suite has no require)
 const fnv = (b) => { let h = 0x811c9dc5; for (let i = 0; i < b.length; i++) { h ^= b[i]; h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16); };
 const ns = 'sv' + Date.now();
@@ -64,7 +65,7 @@ await ev(`__cmwSteps({ scope: 'all' }); 1`);
 await ev(`document.fonts.ready.then(() => { const c = document.getElementById('legendCanvasL'); if (c) c.width = 0; __cmwSteps({ surf: 'plane' }); return new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(1)))); })`);
 const hZ = await hash('sv_z');
 // (an arrow waits for the prestart and its idle jobs: the first press comes once the chain is prepared)
-for (let i = 0; i < 1200; i++) { if ((await S()).ready.ready) break; await sleep(100); }
+await kit.prepared('true', 120000, { only: true });
 await press('ArrowRight');
 const m1 = await S();
 ok('→ starts a glide', m1.moving === true && !!m1.anim && m1.anim.to === 1, m1);

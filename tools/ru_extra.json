@@ -315,6 +315,7 @@
  "From value": "От значения",
  "To value": "До значения",
  "Frames": "Кадры",
+ "landscape, carried from {p}": "рельеф, перенесённый из %{p}",
  "Preparing the page": "Подготовка страницы",
  "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
@@ -763,7 +764,7 @@
  "{x} move a probe": "{x} перемещают указатель",
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
- "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}",
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза «%{name}» за краем вида: %{n} из %{all}",
  "Pick": "Выбор точек",
  "Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.": "Нажмите на точку, чтобы подсветить её двойников — точки с тем же образом; потяните, чтобы нарисовать круг в целевой плоскости; перетащите подсвеченный участок, чтобы сдвинуть его. Двумя пальцами или правой кнопкой — сдвиг вида. На выбранной плоскости Enter подсвечивает двойников выделенной точки, повторный Enter добавляет круг.",
  "{n} preimage on {plane}\u0004{n} preimages on {plane}": {
