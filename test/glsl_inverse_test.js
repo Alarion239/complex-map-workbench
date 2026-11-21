@@ -129,6 +129,13 @@ window.__invTestRun = async (opts = {}) => {
   chains.push({ name: 'cubic z^3-2z+1 > exp', steps: [St('poly', { co: '1, 0, -2, 1' }), St('exp')] });
   // (its value at infinity, 1, inside the views: about w = 1 the cubic's leading coefficient vanishes and one root runs off)
   chains.push({ name: 'cubic rational (z^3+1)/(z^3-2z+0.5)', steps: [St('custom', { expr: '\\frac{z^3+1}{z^3-2z+0.5}', cut: 180 })] });
+  // degree 4 in closed form (RAT4, Ferrari's roots through the cubic, polished): a quartic polynomial, rational maps of
+  // degree 4 (one with its value at infinity, 1, inside the views), zeros and poles, and a quartic inside a chain
+  chains.push({ name: 'quartic poly z^4+z^3-2z+1', steps: [St('poly', { co: '1, 1, 0, -2, 1' })] });
+  chains.push({ name: 'quartic rational z^3+1/z', steps: [St('custom', { expr: 'z^3+\\frac{1}{z}', cut: 180 })] });
+  chains.push({ name: 'quartic rational (z^4+1)/(z^4-z^2+2z)', steps: [St('custom', { expr: '\\frac{z^4+1}{z^4-z^2+2z}', cut: 180 })] });
+  chains.push({ name: 'quartic zp zeros 1, 2, i poles 0, 3, 4, -i', steps: [St('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' })] });
+  chains.push({ name: 'quartic mobius > (1-i)z^4+2z^3+0.5iz-1', steps: [St('mobius'), St('poly', { co: '1-i, 2, 0, 0.5i, -1' })] });
   // ---- shapes ----
   const SH = [];
   const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)

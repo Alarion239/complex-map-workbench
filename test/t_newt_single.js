@@ -48,7 +48,7 @@ for (const type of ['dh', 'bottcher']) {
 }
 // controls: a step that declares degreeOne but has two roots over a w (z + a / z, a above the tangency test's reach: two
 // preimages of every w) fails the numeric check and keeps the full path; a polynomial step keeps its members (degree 5:
-// the closed forms take degrees 3 and 4 off the NEWT op, InvOps.opRat3)
+// the closed forms take degrees 3 and 4 off the NEWT op, InvOps.opRatN)
 {
   const A = 40;   // |f(z) / z - 1| = A / |z|^2 = 0.04 at |z| = NEWT_RAY.R: the identity test passes, the map is two-to-one
   const s = { type: 'dh', params: Funcs.defaults('dh'), on: true }, b = Funcs.build(s);

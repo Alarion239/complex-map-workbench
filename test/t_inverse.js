@@ -58,9 +58,11 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   add('ijouk', { branch: 'exterior' }); add('ijouk', { branch: 'interior' });
   add('poly', { co: '2, 1-i, 3' }); add('poly', { co: '1+i, 0, 0, -2' }); add('poly', { co: '0.5, -1' }); add('poly', { co: '1, 0, 4' }); add('poly', { co: '2, 0, 0, 0, 0, 1-i' });
   add('rational', { p: '1, -i', q: '1, i' }); add('rational', { p: '1, 0, 1', q: '1, 0' }); add('rational', { p: '1, 2, 0', q: '1, 0, -3' }); add('rational', { p: '2, 1', q: '3' });
-  // degree 3 in closed form (RAT3): cubic polynomials, rational maps, zeros and poles, a formula
+  // degree 3 and 4 in closed form (RAT3, RAT4): polynomials, rational maps, zeros and poles, formulas
   add('poly', { co: '1, 0, -2, 1' }); add('poly', { co: '1-i, 2, 0.5i, -1' }); add('rational', { p: '1, 0, 0, 1', q: '1, 0' }); add('rational', { p: '1, 0', q: '1, 0, 0, -2' });
   add('zp', { a: '1', zeros: '1, 2', poles: '0, 3, 4' }); add('zp', { a: '2', zeros: '1, 2i, -1', poles: '' });
+  add('poly', { co: '1, 1, 0, -2, 1' }); add('poly', { co: '2i, 0.5, -1, 0, 3' }); add('rational', { p: '1, 0, 0, 0, 1', q: '1, 0, 2' }); add('rational', { p: '1, 1', q: '1, 0, 0, 0, -2' });
+  add('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' }); add('zp', { a: '0.5', zeros: '1, 2i, -1, 0.5', poles: '' });
   // zeros and poles (degree <= 2 exact: MOB, AFF, QUAD, RAT2)
   add('zp', {}); add('zp', { a: '2i', zeros: '1+i', poles: '-0.5' }); add('zp', { a: '1', zeros: '', poles: '0.3-i' }); add('zp', { a: '-1', zeros: '1, i', poles: '' });
   add('zp', { a: '0.5', zeros: '1+i, -2', poles: '0.25i, 3' }); add('zp', { a: '1', zeros: '0, 0', poles: '' }); add('zp', { a: '3', zeros: '0.5', poles: '' });
@@ -71,7 +73,7 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
     ['\\exp(z)-1', 180], ['\\sinh(z)', 180], ['\\sqrt[2.5]{z}', 180], ['z', 180], ['(2-z)^{-1}', 180],
     // rational parts in which z occurs more than once (SPEC 3.3 rev 3; test/t_inverse_rational.js has the full table)
     ['\\frac{z^2-1}{z^2+1}', 180], ['(z+1/z)/2', 180], ['z^2+2z', 180], ['\\frac{(z-1)(z-2i)}{z-0.5}', 180], ['\\log\\frac{z-1}{z+1}', 90], ['\\sqrt{z^2-1}', 180],
-    ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180], ['z^2+\\frac{1}{z}', 180], ['\\frac{z^3-1}{z^2+1}', 180]];
+    ['z^3+\\frac{1}{z^3}', 180], ['\\frac{z^4-1}{z^4+1}', 180], ['\\sin(z+1/z)', 180], ['z^2+\\frac{1}{z}', 180], ['\\frac{z^3-1}{z^2+1}', 180], ['z^3+\\frac{1}{z}', 180], ['z^4+z^3+1', 180]];
   for (const [e, cut] of CUSTOM) add('custom', { expr: e, cut });
   // (the page rewrites the formulas it recognises first, 2^z as e^{z log 2}: the formula's own decomposition, EXPC for
   // c^z, is the fallback when Recognize declines a formula, as here)
@@ -111,7 +113,7 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   console.log(`${total} eligible step cases, ${fails} failing; op kinds covered: ${[...kinds].sort().join(' ')}`);
   console.log(`ineligible: ${inel.length ? inel.join('; ') : 'none'}`);
   check('round trips: no ineligible case among the eligible list', inel.length === 0, inel.join('; '));
-  const ALL_KINDS = ['AFF', 'MOB', 'IPOW', 'ROOTPOW', 'EXP', 'EXPC', 'LOG', 'SIN', 'COS', 'TAN', 'SINH', 'COSH', 'TANH', 'ASIN', 'ACOS', 'ATAN', 'ASINH', 'ACOSH', 'ATANH', 'JOUK', 'IJOUK', 'CONJ', 'QUAD', 'RAT2', 'RAT3'];
+  const ALL_KINDS = ['AFF', 'MOB', 'IPOW', 'ROOTPOW', 'EXP', 'EXPC', 'LOG', 'SIN', 'COS', 'TAN', 'SINH', 'COSH', 'TANH', 'ASIN', 'ACOS', 'ATAN', 'ASINH', 'ACOSH', 'ATANH', 'JOUK', 'IJOUK', 'CONJ', 'QUAD', 'RAT2', 'RAT3', 'RAT4'];
   check('every op kind is exercised', ALL_KINDS.every((k) => kinds.has(k)), ALL_KINDS.filter((k) => !kinds.has(k)).join(' '));
   // every catalog type is decomposed (or ineligible by rule)
   const covered = new Set(cases.map((c) => c.type));
@@ -1344,15 +1346,18 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   }
 }
 
-// Inverse.homOps for a cubic step in closed form (InvOps.opRat3, Cardano's roots polished): its glide's ops have no NEWT,
-// and walking them back from each w of a 20 x 20 grid over [-6, 6]^2 finds 3 distinct points (2 for 1/(z^3 - 2z) at
-// w = 0, whose degree drops there: none of the grid's w), each where H_t is w, at t = .002 to .998 and at t = 1. The
-// cubic z^3 - z, z^3 - 2z + 1 as a formula, and the rational maps 1/(z^3 - 2z) and (z^3 + 1)/(z^2 - 4)
+// Inverse.homOps for a step of degree 3 or 4 in closed form (InvOps.opRatN: Cardano's or Ferrari's roots, polished): its
+// glide's ops have no NEWT, and walking them back from each w of a 20 x 20 grid over [-6, 6]^2 finds n distinct points
+// (fewer where the degree drops: none of the grid's w), each where H_t is w, at t = .002 to .998 and at t = 1. The cubic
+// z^3 - z, z^3 - 2z + 1 as a formula, the rational maps 1/(z^3 - 2z) and (z^3 + 1)/(z^2 - 4); the quartic
+// z^4 + z^3 - 2z + 1, z^3 + 1/z and (z^4 + 1)/(z^2 - 2z)
 {
   const DISTINCT = 1e-6, ON_W = 1e-9;
-  const cubics = [['z^3 - z', St('poly', { co: '1, 0, -1, 0' })], ['z^3 - 2z + 1', St('custom', { expr: 'z^3-2z+1', cut: 180 })],
-    ['1/(z^3 - 2z)', St('custom', { expr: '1/(z^3-2z)', cut: 180 })], ['(z^3 + 1)/(z^2 - 4)', St('custom', { expr: '(z^3+1)/(z^2-4)', cut: 180 })]];
-  for (const [name, st] of cubics) {
+  const steps = [['z^3 - z', St('poly', { co: '1, 0, -1, 0' }), 3], ['z^3 - 2z + 1', St('custom', { expr: 'z^3-2z+1', cut: 180 }), 3],
+    ['1/(z^3 - 2z)', St('custom', { expr: '1/(z^3-2z)', cut: 180 }), 3], ['(z^3 + 1)/(z^2 - 4)', St('custom', { expr: '(z^3+1)/(z^2-4)', cut: 180 }), 3],
+    ['z^4 + z^3 - 2z + 1', St('poly', { co: '1, 1, 0, -2, 1' }), 4], ['z^3 + 1/z', St('custom', { expr: 'z^3+1/z', cut: 180 }), 4],
+    ['(z^4 + 1)/(z^2 - 2z)', St('custom', { expr: '(z^4+1)/(z^2-2z)', cut: 180 }), 4]];
+  for (const [name, st, deg] of steps) {
     const b = Funcs.build(st);
     for (const t of [0.002, 0.25, 0.5, 0.75, 0.998, 1]) {
       const h = Inverse.homOps(b, t), H = t >= 1 ? b.f : b.hom(t), kinds = h.ok ? h.ops.map((o) => o.kind).join() : h.reason;
@@ -1362,50 +1367,84 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
           const w = C(-6 + (i + 0.5) * 0.6, -6 + (j + 0.5) * 0.6);
           let G = [w];
           for (let k = h.ops.length - 1; k >= 0; k--) G = G.flatMap((x) => h.ops[k].pre(x).map((m) => m.u));
-          if (G.length !== 3 || G.some((g, k) => G.some((q, m) => m < k && CX.abs(CX.sub(g, q)) <= DISTINCT * (1 + CX.abs(g))))) short++;
+          if (G.length !== deg || G.some((g, k) => G.some((q, m) => m < k && CX.abs(CX.sub(g, q)) <= DISTINCT * (1 + CX.abs(g))))) short++;
           if (G.some((g) => CX.abs(CX.sub(H(g), w)) > ON_W * (1 + CX.abs(w)))) off++;
         }
       }
-      check(`homOps ${name} at t = ${t}: closed-form ops (RAT3, no NEWT) find every point over w`, h.ok && /RAT3/.test(kinds) && !/NEWT/.test(kinds) && short === 0 && off === 0, { kinds, short, off });
+      check(`homOps ${name} at t = ${t}: closed-form ops (RAT${deg}, no NEWT) find every point over w`, h.ok && kinds.includes(`RAT${deg}`) && !/NEWT/.test(kinds) && short === 0 && off === 0, { kinds, short, off });
     }
   }
 }
+// InvOps.cubicRoots and quarticRoots on p - w q (InvOps.ratPoly's, as the ops give it) for random p and q (coefficients
+// of modulus 0.1 to 10) and w far out, near the value at infinity (the leading coefficient vanishes, one root runs off) or
+// near p(0)/q(0) (a root near 0): every root within 1e3 of 0 has a residual within 1e-12 of the polynomial's size there
+{
+  const { cubicRoots, quarticRoots, ratPoly } = InvOps;
+  let fz = 9;
+  const fr = () => { fz = (fz * 16807) % 2147483647; return fz / 2147483647; };
+  const rcm = () => { const m = 10 ** (fr() * 2 - 1), a = fr() * 2 * PI; return C(m * Math.cos(a), m * Math.sin(a)); };
+  for (const [n, roots] of [[3, cubicRoots], [4, quarticRoots]]) {
+    let worst = 0, bad = 0, tried = 0;
+    for (let k = 0; k < 6000; k++) {
+      const p = Array.from({ length: n + 1 }, rcm), q = k % 2 ? [C(1, 0)] : Array.from({ length: n + 1 - (k % 3 === 0 ? 1 : 0) }, rcm);
+      const Q = [...Array(n + 1 - q.length).fill(C(0, 0)), ...q], dir = C(Math.cos(fr() * 2 * PI), Math.sin(fr() * 2 * PI)), near = 10 ** (-1 - fr() * 7);
+      const wInf = CX.isZero(Q[0]) ? C(0, 0) : CX.div(p[0], Q[0]), w0 = CX.div(p[n], Q[n]);
+      const w = k % 3 === 0 ? CX.scale(dir, 10 ** (fr() * 6 - 3)) : CX.add(k % 3 === 1 ? wInf : w0, CX.scale(dir, near));
+      const co = p.map((pk, i) => CX.sub(pk, CX.mul(w, Q[i])));
+      for (const { u } of roots(ratPoly(p, Q, w))) {
+        if (CX.abs(u) > 1e3) continue;
+        const e = CX.abs(CX.polyEval(co, u)) / co.reduce((s0, c, i) => s0 + CX.abs(c) * CX.abs(u) ** (n - i), 0);
+        tried++; worst = Math.max(worst, e); if (!(e <= 1e-12)) bad++;
+      }
+    }
+    check(`${n === 3 ? 'cubicRoots' : 'quarticRoots'} on p - w q: every root within 1e3 has a relative residual within 1e-12`, bad === 0 && tried > 1000, { bad, tried, worst });
+  }
+}
 
-// RAT3 far out and at its value at infinity (InvOps.ratPoly: a leading coefficient of p - w q is dropped only when it
-// cancels against its own terms, p_k and w q_k): z^3 - 2z + 1 at |w| = 3e7 to 1e18, whose roots all have modulus
-// |w|^(1/3) (to 1e6), and (z^3 + 1)/(z^2 - 4) at |w| = 1e6 to 1e15 (one root near w, two near the poles +-2) each give
-// 3 distinct members u, each a root of p - w q to 1e-13 of its terms' sizes (|p|(|u|) + |w| |q|(|u|): near a pole H
-// itself is too steep to say it); (z^3 + 1)/(z^3 + z^2 - 2z + 1/2) gives 2 at its value at infinity w = 1, where the
-// degree drops, and 3 at w = 1 + 1e-6, one of them far out
+// RAT3 and RAT4 far out and at the value at infinity (InvOps.ratPoly: a leading coefficient of p - w q is dropped only
+// when it cancels against its own terms, p_k and w q_k; Ferrari's resolvent keeps its exact leading 8): z^3 - 2z + 1 at
+// |w| = 3e7 to 1e18, whose roots all have modulus |w|^(1/3) (to 1e6), (z^3 + 1)/(z^2 - 4) at |w| = 1e6 to 1e15 (one
+// root near w, two near the poles +-2), z^3 + 1/z at |w| = 1e3 to 1e9 (roots of modulus |w|^(1/3), and one near 1/w),
+// and the quartic whose roots are 1e4, 1.1e4 i, -0.9e4 and -1e4 i at w = 0 each give 3 or 4 distinct members u, each a
+// root of p - w q to 1e-13 of its terms' sizes (|p|(|u|) + |w| |q|(|u|): near a pole H itself is too steep to say it);
+// (z^3 + 1)/(z^3 + z^2 - 2z + 1/2) gives 2 at its value at infinity w = 1, where the degree drops, and 3 at w = 1 + 1e-6,
+// one of them far out
 {
   const R = (a) => a.map((x) => C(x, 0)), DISTINCT = 1e-9, ON_W = 1e-13;
+  const fromRoots = (rs) => rs.reduce((co, r) => [...co, C(0, 0)].map((x, i) => (i ? CX.sub(x, CX.mul(r, co[i - 1])) : x)), [C(1, 0)]);
   const rows = [['z^3 - 2z + 1', R([1, 0, -2, 1]), R([1]), [C(3e7, 9e6), C(1e12, 0), C(1e15, 3e14), C(-1e18, 1e17)], 3],
     ['(z^3 + 1)/(z^2 - 4)', R([1, 0, 0, 1]), R([1, 0, -4]), [C(1e6, 0), C(3e9, -1e9), C(1e15, 0)], 3],
     ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1, 0)], 2],
-    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1 + 1e-6, 0)], 3]];
+    ['(z^3 + 1)/(z^3 + z^2 - 2z + 1/2)', R([1, 0, 0, 1]), R([1, 1, -2, 0.5]), [C(1 + 1e-6, 0)], 3],
+    ['z^3 + 1/z', R([1, 0, 0, 0, 1]), R([1, 0]), [C(1e3, 0), C(1e6, -2e5), C(3e7, 9e6), C(1e9, 0)], 4],
+    ['the quartic with roots near 1e4', fromRoots([C(1e4, 0), C(0, 1.1e4), C(-0.9e4, 0), C(0, -1e4)]), R([1]), [C(0, 0)], 4]];
   const absEval = (co, r) => co.reduce((s, x) => s * r + CX.abs(x), 0);
   for (const [name, p, q, ws, want] of rows) {
-    const o = InvOps.opRat3(p, q);
+    const o = InvOps.opRatN(p, q);
     for (const w of ws) {
       const G = o.pre(w).map((m) => m.u);
       const distinct = G.every((g, k) => G.every((h, m) => m >= k || CX.abs(CX.sub(g, h)) > DISTINCT * (1 + CX.abs(g))));
       const res = Math.max(0, ...G.map((g) => CX.abs(CX.sub(CX.polyEval(p, g), CX.mul(w, CX.polyEval(q, g)))) / (absEval(p, CX.abs(g)) + CX.abs(w) * absEval(q, CX.abs(g)))));
-      check(`RAT3 ${name} at w = ${w.re} ${w.im >= 0 ? '+' : '-'} ${Math.abs(w.im)}i: ${want} distinct members, each over w`, G.length === want && distinct && res <= ON_W, { n: G.length, res, mods: G.map((g) => CX.abs(g)) });
+      check(`${o.kind} ${name} at w = ${w.re} ${w.im >= 0 ? '+' : '-'} ${Math.abs(w.im)}i: ${want} distinct members, each over w`, G.length === want && distinct && res <= ON_W, { n: G.length, res, mods: G.map((g) => CX.abs(g)) });
     }
   }
 }
 
-// RAT3 at a critical value (InvOps.rootMembers): the double root of z^3 - 3z + 2 at w = 0 (1 twice, -2) and of
-// z^3 - 1.2z + 0.3 at its critical value f(sqrt 0.4) is one member of multiplicity 2, the simple root another, as a
-// polynomial NEWT op lists them; 1e-6 off the critical value the two roots stay two
+// RAT3 and RAT4 at a critical value (InvOps.rootMembers): a multiple root is one member of its multiplicity, the
+// simple roots others, as a polynomial NEWT op lists them: z^3 - 3z + 2 at 0 (1 twice, -2), z^3 - 1.2z + 0.3 at its
+// critical value f(sqrt 0.4), (z - 1)^2 (z + 2)(z - 3) and (z - 1)^3 (z + 2) at 0; 1e-6 off the critical value every
+// root is simple
 {
   const R = (a) => a.map((x) => C(x, 0)), s4 = Math.sqrt(0.4), f3 = (x) => x * x * x - 1.2 * x + 0.3;
-  for (const [name, p, w, dbl, other] of [['z^3 - 3z + 2 at 0', R([1, 0, -3, 2]), C(0, 0), C(1, 0), C(-2, 0)],
-    ['z^3 - 1.2z + 0.3 at f(sqrt 0.4)', R([1, 0, -1.2, 0.3]), C(f3(s4), 0), C(s4, 0), C(-2 * s4, 0)]]) {
-    const o = InvOps.opRat3(p, R([1])), G = o.pre(w), at = G.findIndex((m) => CX.abs(CX.sub(m.u, dbl)) <= 1e-7);
-    check(`RAT3 ${name}: two members, the double root once with multiplicity 2`, G.length === 2 && at >= 0 && G[at].mult === 2 && CX.abs(CX.sub(G[1 - at].u, other)) <= 1e-9, G.map((m) => [m.u, m.mult]));
+  for (const [name, p, w, mr, k, others] of [['z^3 - 3z + 2 at 0', R([1, 0, -3, 2]), C(0, 0), C(1, 0), 2, [C(-2, 0)]],
+    ['z^3 - 1.2z + 0.3 at f(sqrt 0.4)', R([1, 0, -1.2, 0.3]), C(f3(s4), 0), C(s4, 0), 2, [C(-2 * s4, 0)]],
+    ['(z - 1)^2 (z + 2)(z - 3) at 0', R([1, -3, -3, 11, -6]), C(0, 0), C(1, 0), 2, [C(-2, 0), C(3, 0)]],
+    ['(z - 1)^3 (z + 2) at 0', R([1, -1, -3, 5, -2]), C(0, 0), C(1, 0), 3, [C(-2, 0)]]]) {
+    const o = InvOps.opRatN(p, R([1])), G = o.pre(w), at = G.findIndex((m) => CX.abs(CX.sub(m.u, mr)) <= 1e-6);
+    const rest = G.filter((m, i) => i !== at);
+    check(`${o.kind} ${name}: ${others.length + 1} members, the ${k}-fold root once with multiplicity ${k}`, G.length === others.length + 1 && at >= 0 && G[at].mult === k && others.every((z) => rest.some((m) => !m.mult && CX.abs(CX.sub(m.u, z)) <= 1e-9)), G.map((m) => [m.u, m.mult]));
     const G2 = o.pre(CX.add(w, C(1e-6, 0)));
-    check(`RAT3 ${name}, 1e-6 off: three simple members`, G2.length === 3 && G2.every((m) => !m.mult), G2.map((m) => [m.u, m.mult]));
+    check(`${o.kind} ${name}, 1e-6 off: ${p.length - 1} simple members`, G2.length === p.length - 1 && G2.every((m) => !m.mult), G2.map((m) => [m.u, m.mult]));
   }
 }
 

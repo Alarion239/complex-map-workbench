@@ -90,7 +90,7 @@ const TABLE_ROWS = [
   ['z^5-z', 'X:polynomial formula of degree 5'],
   ['z^4+\\frac{1}{z}', 'X:rational formula of degree 5'],
   ['(z^2+z)^2', 'QUAD>IPOW'],
-  ['z^4+z^3+1', 'X:polynomial formula of degree 4'], ['(z^2+z^3)^2', 'RAT3>IPOW'], ['(z^2+z^5)^2', 'X:polynomial formula of degree 5'],
+  ['z^4+z^3+1', 'RAT4>AFF'], ['z^3+\\frac{1}{z}', 'RAT4'], ['\\frac{z^4+1}{z^2-2z}', 'RAT4'], ['(z^2+z^3)^2', 'RAT3>IPOW'], ['(z^2+z^5)^2', 'X:polynomial formula of degree 5'],
   ['\\frac{z^{17}+1}{z^{17}-1}', 'X:rational formula of degree 17'],
   ['(z+1)^{40}-z^{40}', 'X:degree above 32'],
   ['\\frac{z}{z}', 'X:constant map'],
