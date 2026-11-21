@@ -311,6 +311,15 @@
  "Part of this plane is blank: an infinite sum does not converge there within {terms} terms.": "Часть этой плоскости пуста: бесконечная сумма там не сходится за %{terms} слагаемых.",
  "Part of this plane is blank: an infinite sum does not converge there within {terms} terms, or a pixel's sums there take more than the GPU's {budget} terms.": "Часть этой плоскости пуста: бесконечная сумма там не сходится за %{terms} слагаемых или суммы в пикселе там требуют больше %{budget} слагаемых (предел видеокарты).",
  "Part of this plane is blank: a pixel's sums there take more than the GPU's {budget} terms.": "Часть этой плоскости пуста: суммы в пикселе там требуют больше %{budget} слагаемых (предел видеокарты).",
+ "The plane $%{p}$ at $%{c}=%{list}$.": "Плоскость $%{p}$ при $%{c}=%{list}$.",
+ "The planes": "Плоскостям цепочки",
+ "A Number": "Числу",
+ "Filmstrip of": "Раскадровка по",
+ "Add a Number to the formula first": "Сначала добавьте в формулу число",
+ "From value": "От значения",
+ "To value": "До значения",
+ "Frames": "Кадры",
+ "landscape, carried from {p}": "рельеф, перенесённый из %{p}",
  "Preparing the page": "Подготовка страницы",
  "Preparing {done} of {total} shaders, first time only": "Подготовлено шейдеров: %{done} из %{total} (только в первый раз)",
  "Repeat × N cannot hold a d/dz step": "Повтор × N не может содержать шаг d/dz",
@@ -733,6 +742,14 @@
  "split f{x} into f{x}–f{x2}: {chain}": "разложение f%{x} на шаги f%{x}–f%{x2}: %{chain}",
  "Drawing a quick preview; the exact plot is still being built": "Рисуется быстрый черновик; точный график ещё строится",
  "Target preimages show on the Plane and the Sphere": "Прообразы целей видны на «Плоскости» и на «Сфере»",
+ "Probe at the centre, {v} = {z}. Steps of {st}; Shift for {x}.": "Указатель в центре, %{v} = %{z}. Шаг %{st}; с Shift — %{x}.",
+ "{v} {z}. F is infinite here.": "%{v} %{z}. Здесь функция F обращается в бесконечность.",
+ "{v} {z}. Modulus {modulus}, argument {n} degrees.\u0004{v} {z}. Modulus {modulus}, argument {n} degrees.": {
+  "one": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градус.",
+  "few": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса.",
+  "many": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градусов.",
+  "other": "%{v} %{z}. Модуль %{modulus}, аргумент %{n} градуса."
+ },
  "Marked preimages of {name}: {k} of {n}": "Отмеченные прообразы %{name}: %{k} из %{n}",
  "Marked preimages of {name}: {k}, and there may be more": "Отмеченные прообразы %{name}: %{k}, возможно, есть и другие",
  "This curve is in {plane}, a later plane: listen along it there.": "Эта кривая лежит в плоскости %{plane}, дальше по цепочке: слушайте вдоль неё там.",
@@ -751,5 +768,48 @@
  "{x} move a probe": "{x} перемещают указатель",
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
- "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза %{name} за краем вида: %{n} из %{all}"
+ "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза «%{name}» за краем вида: %{n} из %{all}",
+ "Pick": "Выбор точек",
+ "Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.": "Нажмите на точку, чтобы подсветить её двойников — точки с тем же образом; потяните, чтобы нарисовать круг в целевой плоскости; перетащите подсвеченный участок, чтобы сдвинуть его. Двумя пальцами или правой кнопкой — сдвиг вида. На выбранной плоскости Enter подсвечивает двойников выделенной точки, повторный Enter добавляет круг.",
+ "{n} preimage on {plane}\u0004{n} preimages on {plane}": {
+  "one": "%{n} прообраз в плоскости %{plane}",
+  "few": "%{n} прообраза в плоскости %{plane}",
+  "many": "%{n} прообразов в плоскости %{plane}",
+  "other": "%{n} прообраза в плоскости %{plane}"
+ },
+ "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
+ "phone tile\u0004Pick": "Точки",
+ "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки",
+ "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "%{n} прообраз",
+  "few": "%{n} прообраза",
+  "many": "%{n} прообразов",
+  "other": "%{n} прообраза"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "%{n} часть",
+  "few": "%{n} части",
+  "many": "%{n} частей",
+  "other": "%{n} части"
+ },
+ "one covers the disc twice": "одна накрывает круг дважды",
+ "one covers the disc {k} times": "одна накрывает круг %{k}-кратно",
+ "{n} cover the disc more than once": "%{n} из них накрывают круг больше одного раза",
+ "{n} hole\u0004{n} holes": {
+  "one": "%{n} дыра",
+  "few": "%{n} дыры",
+  "many": "%{n} дыр",
+  "other": "%{n} дыры"
+ },
+ "Preimage on {w}": "Прообраз в плоскости %{w}",
+ "Pieces join at r = {list}": "Части сливаются при r = %{list}",
+ "No pieces join as r grows": "С ростом r части не сливаются",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "%{n} часть за краем",
+  "few": "%{n} части за краем",
+  "many": "%{n} частей за краем",
+  "other": "%{n} части за краем"
+ },
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
 }

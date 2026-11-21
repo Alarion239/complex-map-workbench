@@ -1378,27 +1378,77 @@ vec2 cx_binom(vec2 a, vec2 b) {
       case 'dh': case 'bottcher': {
         const nn = A.cell(), jc = type === 'bottcher' ? A.cell() : null;
         const NM = Funcs.DH_NMAX;
-        return {
-          sig: [type],
-          f: `vec2 orb[${NM + 1}];
-  vec2 c = ${jc ? jc.v : 'z'}, w = z;
+        // The certified early stop of the orbit. The bound is on H's relative error: the walk back from w_n takes
+        // φ(w_n) = w_n √(1 + c/w_n²), and after the n square roots H's relative error is at most 2^{1-n} |c| / |w_n|²,
+        // which bounds the truncation 2^{-n} |c| / (4 |w_{n+1}|²) with room to spare. So the orbit ends at the first n
+        // with 2^{1-n} |c| / |w_n|² <= DH_STOP_TOL. The bound holds, and w_n escapes, where |w_n| >= max(2, |c|) and
+        // |w_n|² >= 8 |c| (then |w_{n+1}| >= 7/8 |w_n|², past 10⁴ within DH_STOP_STEPS more steps), and the stop needs
+        // k + DH_STOP_STEPS <= N, so the escape test of N steps (the blank band) is the same. Squared, with no square
+        // root taken
+        const DH_STOP_STEPS = 6;
+        const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
+        // H and H' in one walk (the dual derivative): forward dw_{k+1} = 2 w_k dw_k + dc (dc = dc/dz: 1 for Φ_M, where
+        // c = z, 0 for φ_c), dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j
+        // divides dp by 2 p_{j+1}: the product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The
+        // value is computed as H alone is
+        const dc = jc ? 'vec2(0.0)' : 'vec2(1.0, 0.0)';
+        // The orbit w_0 .. w_n is kept in variables, not in an array indexed by n - j (that would be local memory on
+        // most GPUs): the first DH_REG points, and every DH_CK-th point after them (the checkpoints). A point past the
+        // registers is the orbit run on from the nearest checkpoint at or before it by the same steps as the walk, at
+        // most DH_CK - 1 of them, so every value is bit for bit the one the walk had
+        // (n <= N <= NM and j >= 1, so q = n - j <= NM - 1: the checkpoints read are
+        // k_1 .. k_{floor((NM - 1) / DH_CK)}, and w_NM is not kept)
+        const DH_REG = 8, DH_CK = 8, NCK = Math.ceil(NM / DH_CK) - 1;
+        if (Math.floor((NM - 1) / DH_CK) > NCK) throw new Error('DH orbit: a checkpoint read past the ones kept');
+        const reg = Array.from({ length: DH_REG }, (_, i) => `o${i}`), ck = Array.from({ length: NCK }, (_, i) => `k${i + 1}`);
+        const pick = (idx, names) => names.map((nm, i) => (i < names.length - 1 ? `${idx} == ${i} ? ${nm} : ` : nm)).join('');
+        const pre = `vec2 ${P}_fd(vec2 z, out vec2 d, out float tail) {
+  d = vec2(cx_nan());
+  tail = 0.0;
+  vec2 ${[...reg, ...ck].join(', ')};
+  vec2 c = ${jc ? jc.v : 'z'}, w = z, dw = vec2(1.0, 0.0);
   int n = -1;
   for (int k = 0; k < max(${NM + 1}, uNoUnroll); k++) {
-    orb[k] = w;
-    if (dot(w, w) > 1e8) { n = k; break; }
+    ${reg.map((o, i) => `if (k == ${i}) ${o} = w;`).join(' else ')} else if (k % ${DH_CK} == 0) { int m = k / ${DH_CK}; ${ck.map((o, i) => `if (m == ${i + 1}) ${o} = w;`).join(' else ')} }
+    float w2 = dot(w, w), c2 = dot(c, c);
+    if (w2 > 1e8) { n = k; break; }
+    if (${DH_STOP}) { n = k; tail = sqrt(c2 * exp2(2.0 - 2.0 * float(k))) / w2; break; }
     if (float(k) >= ${nn.x}) break;
+    dw = 2.0 * cmul(w, dw) + ${dc};
     w = cmul(w, w) + c;
   }
   if (n < 0) return vec2(cx_nan());
   vec2 p = cmul(w, csqrtp(vec2(1.0, 0.0) + cdiv(cdiv(c, w), w)));
+  vec2 dp = 2.0 * cmul(w, dw) + ${dc}, pr = 2.0 * p;
   for (int j = 1; j < max(${NM + 1}, uNoUnroll); j++) {
     if (j > n) break;
     float m = length(p), t = sqrt(0.5 * (m + abs(p.x)));
-    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o = orb[n - j];
+    vec2 r = p.x >= 0.0 ? vec2(t, p.y / (2.0 * t)) : vec2(abs(p.y) / (2.0 * t), p.y >= 0.0 ? t : -t), o;
+    int q = n - j;
+    if (q < ${DH_REG}) o = ${pick('q', reg)};
+    else { int m = q / ${DH_CK}; o = ${pick('m - 1', ck)}; for (int i = m * ${DH_CK}; i < q; i++) o = cmul(o, o) + c; }
     p = dot(r, o) >= 0.0 ? r : -r;
+    pr = cmul(pr, 2.0 * p);
   }
-  ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}return p;`,
+  ${jc ? `if (!(cx_abs(p) > ${nn.y})) return vec2(cx_nan());\n  ` : ''}d = cdiv(dp, pr);
+  tail *= cx_abs(p);
+  return p;
+}
+`;
+        return {
+          sig: [type],
+          pre,
+          f: `vec2 d;\n  float tail;\n  return ${P}_fd(z, d, tail);`,
           h: LIN(P),
+          // H_t = (1 - t) z + t f at t = 0 and 1 as LIN and withOne write it, with H_t' = (1 - t) + t f'
+          hd: `d = vec2(1.0, 0.0);
+  tail = 0.0;
+  if (t == 0.0) return z;
+  vec2 df, w = ${P}_fd(z, df, tail);
+  if (t == 1.0) { d = df; return w; }
+  d = vec2(1.0 - t, 0.0) + t * df;
+  tail *= t;
+  return z * (1.0 - t) + w * t;`,
           write(put) { put(nn.c, v.N, jc ? b.dh.rho : 0); if (jc) putC(put, jc, v.c); },
         };
       }
@@ -1845,6 +1895,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       src += `vec2 ${P}_h(vec2 z, float t) {\n  ${h}\n}\n`;
       // (the path without its t = 1 shortcut, for chainAt)
       if (h !== plan.h) src += `vec2 ${P}_hr(vec2 z, float t) {\n  ${plan.h}\n}\n`;
+      if (plan.hd) src += `vec2 ${P}_hd(vec2 z, float t, out vec2 d, out float tail) {\n  ${plan.hd}\n}\n`;
     }
     // a d/dz step is not a map of w: chainStep and chainHom give NaN there (callers mix chainStage(k - 1) and
     // chainStage(k) instead)
@@ -1856,6 +1907,13 @@ vec2 cx_binom(vec2 a, vec2 b) {
     for (const { P, k } of maps) src += `  if (i == ${k}) return ${P}_h(z, t);\n`;
     for (const k of dks) src += `  if (i == ${k}) return vec2(cx_nan());\n`;
     src += '  return z;\n}\n';
+    // chainHomD(i, z, t, d): H_t(z) and its derivative d for the steps that write both (plan.hd: the Newton kit's dual
+    // derivative), NaN for the others
+    if (maps.some(({ plan }) => plan.hd)) {
+      src += 'vec2 chainHomD(int i, vec2 z, float t, out vec2 d, out float tail) {\n  d = vec2(cx_nan());\n  tail = 0.0;\n';
+      for (const { P, k, plan } of maps) if (plan.hd) src += `  if (i == ${k}) return ${P}_hd(z, t, d, tail);\n`;
+      src += '  return vec2(cx_nan());\n}\n';
+    }
     // chainAt(k, z, t, how): step k skipped (how 0), in full (1) or along its path at t (2), every step's
     // map and path written once. The map modes 1-3 (gl.js MAP) walk the chain in one loop through it: ANGLE's
     // Direct3D 11 back end hands the code to FXC, which inlines every call, so chainRange, chainHom and postOf each
@@ -2279,11 +2337,14 @@ void ixAncTan(vec2 w) {
   const IX_SLOTS = { AFF: 1, MOB: 3, NEWT: 1, IPOW: 1, ROOTPOW: 2, EXPC: 1, LOG: 1, IJOUK: 1, QUAD: 2, RAT2: 3 };
   // a NEWT op's member hits w within NEWT_HIT_F (1 + |w|)
   const NEWT_HIT_F = '1e-3';
+  // the bound the DH / Böttcher orbit's early stop certifies on H, relative to 1 + |H|; a NEWT op whose step stops
+  // early charges it in its hit test
+  const DH_STOP_TOL = +NEWT_HIT_F / 16;
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2 };
   // a NEWT op's seeding ops (its step's own exact ops, InvOps.opNewt's back) and their member counts, or null
   const newtBack = (o) => {
     const back = o.op && o.op.p && o.op.p.back, n = back && Inverse.newtSeedCounts(back);
-    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1) } : null;
+    return n ? { ops: back, n, seeds: n.reduce((a, k) => a * k, 1), ray: back.some((q) => q.ray), single: back.some((q) => q.single), dual: back.some((q) => q.dual) } : null;
   };
   // a polynomial NEWT op's degree (InvOps.opNewt with deg: its members are every root of H_t(u) = w), or 0
   const newtDeg = (o) => (o.kind === 'NEWT' && o.op && o.op.p && o.op.p.deg) || 0;
@@ -2322,13 +2383,17 @@ void ixAncTan(vec2 w) {
   // the walk failed by then), then one step at t, polished, kept when it hits w; _walk0, member 0 from w; _m0, member
   // 0 where the NEWT roots pass (IX_NR_N, uNrTex0: (ug, u) for the pixel's own w) has it: a stored member that misses w
   // is walked again (the pass's member is the full walk's, so a read is the walk's result; the check guards a target
-  // that does not hold this frame's)
-  const newtCoreFns = (P, H, rd) => `vec2 ${P}_d(vec2 u, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h); }
-bool ${P}_hit(vec2 u, vec2 w, float t) { return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w)); }
-vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
-bool ${P}_step(inout vec2 u, vec2 w, float t) {
-  vec2 hu = ${H('u', 't')};
-  vec2 d = ${P}_fd(u, hu, t);
+  // that does not hold this frame's).
+  // HD (a step that writes H' with H, Inverse's dual op: HD(u, t, d, tl), GLSL of H_t(u) setting d = H_t'(u) and tl,
+  // the bound on the error its orbit's early stop left in H, 0 for a full orbit): _d is that d, _step takes it instead
+  // of _fd (one evaluation of H a step), and _hit adds tl to the distance, so a hit certifies
+  // |H - w| <= NEWT_HIT_F (1 + |w|) for the full orbit
+  const newtCoreFns = (P, H, rd, HD) => `vec2 ${P}_d(vec2 u, float t) { ${HD ? `vec2 d; float tl; ${HD('u', 't', 'd', 'tl')}; return d;` : `float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - ${H('u - vec2(h, 0.0)', 't')}) / (2.0 * h);`} }
+bool ${P}_hit(vec2 u, vec2 w, float t) { ${HD ? `vec2 d, h; float tl; h = ${HD('u', 't', 'd', 'tl')}; return ixFin(u) && cx_abs(h - w) + tl <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));` : `return ixFin(u) && cx_abs(${H('u', 't')} - w) <= ${NEWT_HIT_F} * (1.0 + cx_abs(w));`} }
+${HD ? '' : `vec2 ${P}_fd(vec2 u, vec2 hu, float t) { float h = 1e-3 * (1.0 + cx_abs(u)); return (${H('u + vec2(h, 0.0)', 't')} - hu) / h; }
+`}bool ${P}_step(inout vec2 u, vec2 w, float t) {
+${HD ? `  vec2 d, hu; float tl; hu = ${HD('u', 't', 'd', 'tl')};` : `  vec2 hu = ${H('u', 't')};
+  vec2 d = ${P}_fd(u, hu, t);`}
   if (!(dot(d, d) > 0.0)) return false;
   u -= cdiv(hu - w, d);
   return ixFin(u);
@@ -2381,9 +2446,19 @@ ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
   // GLSL of a NEWT op whose step's own exact ops bk.ops seed walks back from t = 1 (InvOps.opNewt with back): member 0
   // continued in t from w, member 1 + i continued from 1 down to t from f's i-th point over w (bk.ops' members, mixed
   // radix with the last op's member least significant). _roots walks every member once per w and keeps the roots;
-  // a member equal to an earlier one is dropped (newtCoreFns: the Newton steps and the members' derivative)
+  // a member equal to an earlier one is dropped (newtCoreFns: the Newton steps and the members' derivative).
+  // bk.dual: the step writes H' with H (chainHomD), the kit's HD. bk.ray (InvOps.opNewt's ray: a seed that is only near
+  // a root): a seed whose walk back misses w is landed on a root of H_1 = w by the external ray (_rayLand) and walked
+  // back again, the seed loop's body run a second time from there, so _rayLand's _step is the program's only new place
+  // that evaluates H. _rayLand: newtRayStages' stages, from |w| = R (where the seed is the identity's) the target w_s
+  // keeping w's argument and its potential log|w_s| falling from log R to log|w| (the last stage exactly log|w|),
+  // NEWT_RAY.NEWT steps at t = 1 each, a stage failing when its last step moves v by more than NEWT_RAY.TOL (1 + |v|);
+  // one flat loop, its bound the most stages (HALVINGS SUB + 1) times NEWT, the stage its counter over NEWT. bk.single
+  // (at most one root over any w, Inverse.singleRoot): no seed runs once a member, member 0 included, is kept; its slot
+  // is written empty, so no slot keeps an earlier w's root
   function newtSeededFns(o, j, c, bk, H, rd) {
-    const P = `ix${j}`, NB = 1 + bk.seeds, K = Inverse.NEWT_K;
+    const P = `ix${j}`, NB = 1 + bk.seeds, K = Inverse.NEWT_K, RAY = Inverse.NEWT_RAY;
+    const HD = bk.dual ? (u, t, d, tl) => `chainHomD(${o.step}, ${u}, ${t}, ${d}, ${tl})` : null;
     const NOR = 'false, 1e38, IX_NOLG, false, vec2(0.0), vec2(0.0)';
     let cell = c + IX_SLOTS.NEWT;
     const fns = bk.ops.map((q, n) => { const t = invOpFns({ kind: q.kind, step: o.step }, `${j}s${n}`, cell); cell += IX_SLOTS[q.kind] || 0; return t; }).join('');
@@ -2393,8 +2468,28 @@ ${rd ? `#if defined(IX_NR_N) && !defined(IX_NR_PASS)
       if (bk.n[n] === 1 && !IX_FIN[bk.ops[n].kind]) seedSteps.push(`  if (!${Q}_one(S)) return false;`);
       else seedSteps.push(`  if (!${Q}_one_b(S, i % ${bk.n[n]})) return false;`, `  i /= ${bk.n[n]};`);
     }
+    const rayLand = bk.ray ? `bool ${P}_rayLand(inout vec2 v, vec2 w) {
+  float g0 = ${Math.log(RAY.R)}, gw = log(cx_abs(w));
+  if (!(gw > 0.0)) return false;
+  int n = 0;
+  if (gw < g0 && ${RAY.SUB} > 0) {
+    n = int(ceil(${RAY.SUB}.0 * log2(g0 / gw)));
+    if (n > ${RAY.SUB * RAY.HALVINGS}) return false;
+    v = w * (${RAY.R}.0 / cx_abs(w));
+  }
+  for (int it = 0; it < ${(RAY.SUB * RAY.HALVINGS + 1) * RAY.NEWT}; it++) {
+    int s = it / ${RAY.NEWT};
+    if (s > n) break;
+    float g = s >= n ? gw : max(g0 * exp2(-float(s) / ${Math.max(1, RAY.SUB)}.0), gw);
+    vec2 p = v;
+    if (!${P}_step(v, w * (exp(g) / cx_abs(w)), 1.0)) return false;
+    if (it % ${RAY.NEWT} == ${RAY.NEWT - 1} && !(cx_abs(v - p) <= ${RAY.TOL} * (1.0 + cx_abs(v)))) return false;
+  }
+  return ixFin(v);
+}
+` : '';
     return `vec2 chainHom(int i, vec2 z, float t);
-${fns}${newtCoreFns(P, H, rd)}bool ${P}_seed(vec2 w, int i, out vec2 u) {
+${HD ? 'vec2 chainHomD(int i, vec2 z, float t, out vec2 d, out float tail);\n' : ''}${fns}${newtCoreFns(P, H, rd, HD)}${rayLand}bool ${P}_seed(vec2 w, int i, out vec2 u) {
   Lf S = ixStart(w);
 ${seedSteps.join('\n')}
   u = S.u;
@@ -2411,13 +2506,23 @@ void ${P}_roots(vec2 w, float t) {
   ${P}_k[0] = ${P}_m0(w, t, u);
   ${P}_r[0] = u;
   int kb = max(1, int(ceil(${K}.0 * (1.0 - t))));
-  for (int i = 0; i < ${bk.seeds}; i++) {
+${bk.single ? `  bool got = ${P}_k[0];
+` : ''}  for (int i = 0; i < ${bk.seeds}; i++) {
     vec2 v;
-    bool okv = ${P}_seed(w, i, v);
+${bk.single ? `    if (got) { ${P}_r[i + 1] = vec2(${IX_NR_NONE}); ${P}_k[i + 1] = false; continue; }
+` : ''}${bk.ray ? `    bool sk = ${P}_seed(w, i, v), okv = sk;
+    vec2 v0 = v;
+    for (int pass = 0; pass < 2; pass++) {
+      if (pass == 1) { if (okv || !sk) break; v = v0; okv = ${P}_rayLand(v, w); }
+      for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
+      okv = okv && ${P}_settle(v, w, t);
+    }
+` : `    bool okv = ${P}_seed(w, i, v);
     for (int k = 1; k <= ${K}; k++) { if (k > kb) break; if (okv) okv = ${P}_step(v, w, 1.0 - (1.0 - t) * float(k) / float(kb)); }
     okv = okv && ${P}_settle(v, w, t);
-    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
-    ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;
+`}    for (int m = 0; m < ${NB}; m++) { if (m > i) break; if (okv && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) okv = false; }
+    ${P}_r[i + 1] = v; ${P}_k[i + 1] = okv;${bk.single ? `
+    got = got || okv;` : ''}
   }
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${NB} : 0; }
