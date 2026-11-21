@@ -18,6 +18,8 @@
 // - a Repeat × N whose block step has no exact ops (inverse Joukowski three times; [exp, inverse Joukowski] twice): the
 //   inverse pass, its NEWT op
 //   walking the block step's own homotopy.
+// - a formula typed in the place of another with the same inverse ops (z exp(z), then sin(z)/z) glides with its own
+//   inverse program: its frame is the one a fresh page draws.
 // The thread is set directly (__cmwSteps({ x })): a park near a plane snaps onto it.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
@@ -347,5 +349,33 @@ for (const [steps, b, us] of [[[{ type: 'ijouk', repeat: { n: 3, len: 1 } }], 1,
     info[`Cayley, z^3 x ${x}`] = { g, j };
     ok(`Cayley, z^3, w1 → w2 at x = ${x}: drawn by the inverse pass, its sheets composited, and the exact picture (held_frames' judge)`, !!g && g.path === 'inverse' && g.b === 2 && j.pass, { g, j });
   }
+}
+// ---- a typed formula's glide draws with its own inverse program ----
+// (the carried variants of the inverse program compile the chain in. z exp(z), then sin(z)/z typed in its place, both
+// inverted by a NEWT op with no seeds, the same inverse ops: sin(z)/z's glide frame at u = 0.5, Inside regions, against the
+// same frame on a fresh page, the left pane's pixels on a grid of its plane (test/lib/carry_kit.js): no point may be wrong
+// against the best of the fresh frame's 3 x 3 pixels about it, and not every point may be bare paper)
+{
+  const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
+  const FIRST = 'z*exp(z)', SECOND = 'sin(z)/z';
+  const held = "(() => { const q = __cmwSteps(), g = q.glide; return q.ready.ready && !!g && g.path === 'inverse' && Math.abs(g.u - 0.5) < 1e-9; })()";
+  let pts = null;
+  const frameOf = async (first) => {
+    await go(`${BASE}/test.html?ns=gf${Date.now()}&lang=en&view=steps`);
+    await ready();
+    await ev(`__cmwAddStep('custom', { expr: ${JSON.stringify(first)} }, 0), 1`);
+    await ev("__cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), __cmwSteps({ x: 0.5 }), 1");
+    let wait = await settled({ max: 60000, until: held });
+    if (first !== SECOND) {
+      await ev(`window.__gfG = __cmwSteps().glide, __cmwStepParam(0, 'expr', ${JSON.stringify(SECOND)}), 1`);
+      wait = await settled({ max: 60000, until: `__cmwSteps().glide !== window.__gfG && ${held}` });
+    }
+    if (!pts) pts = K.grid(await K.paneOf(), 24, 16);
+    return { wait, px: (await K.lpx(pts)).px };
+  };
+  const typed = await frameOf(FIRST), fresh = await frameOf(SECOND);
+  const t = K.tally(typed.px, fresh.px);
+  info['typed formula'] = { n: t.n, wrong: t.wrong, worst: t.worst };
+  ok(`${SECOND} typed in the place of ${FIRST} (the same inverse ops): its glide frame is its own, as on a fresh page`, typed.wait.ok && fresh.wait.ok && t.n > 300 && t.paper < t.n && t.wrong === 0, Object.assign({ wait: [typed.wait, fresh.wait] }, t));
 }
 return { pass: fails.length === 0, fails, info };
