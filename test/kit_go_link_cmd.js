@@ -7,7 +7,8 @@
 //     later, with the Google Fonts sheet held so the first document's load event does not come before the reload): after go and after
 //     nav the page shows the opened figure's toast, not the ask;
 //   - control: a plain url, held the same way, is still opened again by go (the stall rule stays for a document that is not a link);
-//   - control: a link whose documents never arrive is not opened again either: go answers false within its limit and says so.
+//   - a link whose FIRST document stalls before the app has run (the hash still on the page) is opened again: the app has not read it;
+//   - control: a link whose documents never arrive is opened again at most LOAD_RELOADS times: go then answers false within its limit and says so.
 // It runs in the steps view. A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -54,7 +55,18 @@ try {
     info.plain = { loaded, tests: plain.tests, ms: Date.now() - t0 };
     ok('go: control: a plain url whose document stalls is opened again, and go answers true', loaded === true && plain.tests === 2, info.plain);
   } finally { close(plain); }
-  // control: a link whose documents never arrive is not opened again; go gives up within its limit and says so
+  // a link whose FIRST document stalls before the app has run (the page is the link's own url, the hash still on it, the body never
+  // finishing): the app has not read the link, so go opens it again, and the page then shows the opened figure's toast
+  const firstStalls = await serveDist((n) => n === 1, true);
+  try {
+    logs();
+    const t0 = Date.now();
+    const loaded = await go(`${firstStalls.origin}/test.html?ns=kitgofirst${t0}&view=steps#cmw=${payload}`, GO_LIMIT_MS);
+    const seen = await toasts(10000);
+    info.firstStalls = { loaded, tests: firstStalls.tests, ms: Date.now() - t0, toasts: seen, requests: firstStalls.log };
+    ok('go: a link whose first document never finishes arriving (the hash still on the page) is opened again, go answers true, and the page shows the opened figure\'s toast', loaded === true && firstStalls.tests >= 2 && seen.some((t) => /^Opened the figure from the link\./.test(t)) && !seen.some((t) => /^This link holds a figure\./.test(t)), info.firstStalls);
+  } finally { close(firstStalls); }
+  // control: a link whose documents never arrive is opened again at most LOAD_RELOADS times; go then gives up within its limit and says so
   const never = await serveDist(() => true, true);
   try {
     logs();
@@ -62,7 +74,7 @@ try {
     const loaded = await go(`${never.origin}/test.html?ns=kitgonever${t0}&view=steps#cmw=${payload}`, NEVER_LIMIT_MS);
     const warn = logs().filter((l) => l.t === 'warn').map((l) => l.m).join(' | ');
     info.never = { loaded, tests: never.tests, ms: Date.now() - t0, warn };
-    ok('go: control: a link whose document never arrives is not opened again (reloads 0), and go answers false within its limit, naming the stall', loaded === false && never.tests === 1 && info.never.ms < NEVER_LIMIT_MS + 3000 && /reloads 0;/.test(warn) && /link/.test(warn) && /stall/i.test(warn), info.never);
+    ok('go: control: a link whose document never arrives is opened again, but not past the kit\'s reload count, and go answers false within its limit, naming the stall', loaded === false && never.tests >= 2 && never.tests <= 1 + LOAD_RELOADS && info.never.ms < NEVER_LIMIT_MS + 3000 && /reloads [12];/.test(warn) && /link/.test(warn) && /stall/i.test(warn), info.never);
   } finally { close(never); }
 } finally { await holdSheet(0); }
 return { pass: fails.length === 0, fails, info };

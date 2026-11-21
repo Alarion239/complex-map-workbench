@@ -176,10 +176,12 @@ H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
 // It answers whether the load came in time; a page that did not load says so in the suite's log. A document whose body has stopped
-// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit, except a link
-// (#cmw=): it opens in a second document (the app decodes it, drops the hash, saves its figure and reloads), so a navigation of the
-// same url again lands on the page that holds that figure and asks whether to open the link instead of opening it. A link's wait
-// stays on the document its navigation brings, for the whole limit, and a document that never arrives says so.
+// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit. A link (#cmw=)
+// opens in a second document (the app decodes it, drops the hash, saves its figure and reloads), so a navigation of the same url
+// again lands, once the app has run, on the page that holds that figure and asks whether to open the link instead of opening it:
+// a link's document is opened again only while the page still has the hash, which the app drops first, so the app has not read the
+// link: it is reloaded (the same url again would be a navigation within the stalled document: no new request). A stalled second
+// document (no hash) is waited on for the whole limit, and a document that never arrives says so.
 const GO_STALL_MS = 5000;
 H.GO_STALL_MS = GO_STALL_MS;   // (for a suite that holds a document back past it)
 H.go = async (url, ms = 15000) => {
@@ -187,13 +189,13 @@ H.go = async (url, ms = 15000) => {
   await send('Page.navigate', { url }, S);
   let ok = false, reloads = 0;
   while (!ok && Date.now() - t0 < ms) {
-    const left = ms - (Date.now() - t0), step = !link && reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
+    const left = ms - (Date.now() - t0), step = reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
     let t;
     ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
     clearTimeout(t);
-    if (!ok && !link && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
+    if (!ok && reloads < LOAD_RELOADS && await docStalled() && (!link || await linkUnread())) { reloads++; await (link ? send('Page.reload', { ignoreCache: true }, S) : send('Page.navigate', { url }, S)); }
   }
-  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; the link\'s document stalled, and a link is not opened again: its figure is already saved and a second navigation would ask' : ''})` });
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; a link\'s stalled document is opened again only while the page still has its hash: after that the app has saved the figure and a second navigation would ask' : ''})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
   return ok;
 };
@@ -371,12 +373,15 @@ H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 // default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
 const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2, CHAIN_PLANES = 2;
 H.CHAIN_PLANES = CHAIN_PLANES;   // (for a suite that checks what load() waits for)
+H.LOAD_RELOADS = LOAD_RELOADS;   // (for a suite that checks how often a stalled document is opened again)
 // pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
 // since its start; 0 where an event has not come), how many scripts and sheets it has, and how many planes its chain has built
 // (null before the hook answers)
 const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
 // docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
 const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
+// linkUnread(): the page still has the #cmw= hash (the app drops it before it saves the figure and reloads), so it has not read the link
+const linkUnread = async () => { try { return (await H.ev(`/[#&]cmw=/.test(location.hash)`)) === true; } catch (e) { return false; } };
 H.load = async (ns, st, extra, viewName, opts = {}) => {
   const origin = opts.origin || 'http://localhost:8793';
   await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);
