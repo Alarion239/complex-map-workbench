@@ -30,10 +30,10 @@ const RAIL_SETTLED = `(() => {
 const open = async (w, lang, state) => {
   const ns = 'railfit' + Date.now();
   await view(w, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` });
+  await go(`http://localhost:${PORT}/gl-helpers.html`);
   if (!await ready('document.readyState === "complete"')) return false;
   if (state) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(state))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   return await ready('!!window.__cmwSteps && __cmwSteps().on && document.querySelectorAll("#svStrip .sv-step").length > 1 && !document.querySelector("#svStrip.sv-measure")')
     && await ready(RAIL_SETTLED);
 };

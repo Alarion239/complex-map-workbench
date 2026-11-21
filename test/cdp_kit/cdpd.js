@@ -10,18 +10,19 @@ const Q = path.join(DIR, 'q');
 // it and renamed into place, so it appears whole (a rename within one file system is atomic), never empty or part written
 const writeWhole = (f, data) => { fs.writeFileSync(f + '.tmp', data); fs.renameSync(f + '.tmp', f); };
 fs.mkdirSync(Q, { recursive: true });
-// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome
-// and SwiftShader, CPU WebGL2. CHROME_BIN, CMW_ANGLE and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
+// (Windows: Chrome's own install path and ANGLE's Direct3D 11 back end, what Chrome uses there; Linux: google-chrome and, as CI,
+// lavapipe through ANGLE's Vulkan back end where the machine has it, else SwiftShader, CPU WebGL2: renderer.js. CHROME_BIN, CMW_ANGLE
+// and CMW_CHROME_ARGS override them, as in the CI scripts: ci/README.md)
 const WIN = process.platform === 'win32', MAC = process.platform === 'darwin';
 const CHROME = process.env.CHROME_BIN || (WIN ? path.join(process.env.PROGRAMFILES || 'C:\\Program Files', 'Google', 'Chrome', 'Application', 'chrome.exe')
   : MAC ? '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome' : ['/usr/bin/google-chrome', '/usr/bin/chromium'].find((p) => fs.existsSync(p)) || 'google-chrome');
-const ANGLE = process.env.CMW_ANGLE || (WIN ? 'd3d11' : MAC ? 'metal' : 'swiftshader');
+const RENDERER = require('./renderer.js').resolveRenderer(), ANGLE = RENDERER.angle;
 const prof = fs.mkdtempSync(path.join(DIR, 'chprof-'));
 // (the disk cache in the profile, not the system's cache folder: deleting the profile deletes it)
 const ch = spawn(CHROME, ['--headless=new', `--use-angle=${ANGLE}`, `--user-data-dir=${prof}`, `--disk-cache-dir=${path.join(prof, 'cache')}`, '--remote-debugging-pipe',
   '--no-first-run', '--no-default-browser-check', '--ignore-gpu-blocklist', '--enable-gpu', '--hide-scrollbars=false',
-  ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []), ...(process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean), 'about:blank'],
-  { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'] });
+  ...(ANGLE === 'swiftshader' ? ['--enable-unsafe-swiftshader'] : []), ...RENDERER.args, ...(process.env.CMW_CHROME_ARGS || '').split(/\s+/).filter(Boolean), 'about:blank'],
+  { stdio: ['ignore', 'ignore', 'ignore', 'pipe', 'pipe'], env: Object.assign({}, process.env, RENDERER.env) });
 const wr = ch.stdio[3], rd = ch.stdio[4];
 let id = 0, buf = '';
 const pend = new Map();
@@ -107,6 +108,7 @@ H.sleep = sleep;
 // Each is recorded as a fault of the suite, and counts as handled once the suite reads what says so (`__exc`; `ok` or `at`),
 // so a suite that checks the answer is as it was and one that reads on as if the page had answered fails at its end,
 // with the expression or the wait and the text (kitFaults in its result; ci/browser.js failures()).
+const TIMEOUT_NEAR = 0.9;   // (a bare -32603 after this share of ev's timeout or more is the timeout's: the clock of the call and Chrome's own differ by a little)
 const FAULTS = [];
 const faultAnswer = (ans, key, what) => {
   const f = { what, handled: false };
@@ -140,7 +142,7 @@ const evRaw = async (expr, timeout = 20000) => {
   } catch (e) {
     // (Chrome ends a page call that outruns the timeout with a bare -32603 "Internal error": named here, as a page exception is, with the limit)
     const ms = Date.now() - t0;
-    if (/-32603/.test(String(e && e.message)) && ms >= timeout * 0.9) return { __exc: `ev: the page call outran its timeout of ${timeout} ms (Chrome answered -32603 Internal error after ${ms} ms)` };
+    if (/-32603/.test(String(e && e.message)) && ms >= timeout * TIMEOUT_NEAR) return { __exc: `ev: the page call outran its timeout of ${timeout} ms (Chrome answered -32603 Internal error after ${ms} ms)` };
     throw e;
   }
   if (r.exceptionDetails) return fail(r.exceptionDetails);
@@ -174,10 +176,12 @@ H.seeded = null;
 H.reseed = async () => { const p = H.seeded && H.seeded.pattern; if (!p) return; for (let i = 0; i < 600; i++) { let r = null; try { r = await H.ev(`typeof __cmwSet === 'function' ? (__cmwSet('pattern', ${JSON.stringify(p)}), true) : false`); } catch (e) { r = null; } if (r === true) break; await sleep(100); } };
 // [#504] H.go(url): navigate and wait for the new page's load event (at most `ms`), instead of a fixed sleep after it.
 // It answers whether the load came in time; a page that did not load says so in the suite's log. A document whose body has stopped
-// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit, except a link
-// (#cmw=): it opens in a second document (the app decodes it, drops the hash, saves its figure and reloads), so a navigation of the
-// same url again lands on the page that holds that figure and asks whether to open the link instead of opening it. A link's wait
-// stays on the document its navigation brings, for the whole limit, and a document that never arrives says so.
+// arriving (docStalled) after GO_STALL_MS is opened again, at most LOAD_RELOADS times in all, inside the same limit. A link (#cmw=)
+// opens in a second document (the app decodes it, drops the hash, saves its figure and reloads), so a navigation of the same url
+// again lands, once the app has run, on the page that holds that figure and asks whether to open the link instead of opening it:
+// a link's document is opened again only while the page still has the hash, which the app drops first, so the app has not read the
+// link: it is reloaded (the same url again would be a navigation within the stalled document: no new request). A stalled second
+// document (no hash) is waited on for the whole limit, and a document that never arrives says so.
 const GO_STALL_MS = 5000;
 H.GO_STALL_MS = GO_STALL_MS;   // (for a suite that holds a document back past it)
 H.go = async (url, ms = 15000) => {
@@ -185,13 +189,16 @@ H.go = async (url, ms = 15000) => {
   await send('Page.navigate', { url }, S);
   let ok = false, reloads = 0;
   while (!ok && Date.now() - t0 < ms) {
-    const left = ms - (Date.now() - t0), step = !link && reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
+    const left = ms - (Date.now() - t0), step = reloads < LOAD_RELOADS ? Math.min(left, GO_STALL_MS) : left;
     let t;
     ok = await Promise.race([new Promise((r) => { if (LOADS > n) r(true); else loadWait.push(() => r(true)); }), new Promise((r) => { t = setTimeout(() => r(false), step); })]);
     clearTimeout(t);
-    if (!ok && !link && reloads < LOAD_RELOADS && await docStalled()) { reloads++; await send('Page.navigate', { url }, S); }
+    if (!ok && reloads < LOAD_RELOADS && await docStalled()) {
+      if (!link) { reloads++; await send('Page.navigate', { url }, S); }
+      else if (await H.reloadIfUnread()) reloads++;
+    }
   }
-  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; the link\'s document stalled, and a link is not opened again: its figure is already saved and a second navigation would ask' : ''})` });
+  if (!ok) LOG.push({ t: 'warn', m: `H.go: no load event within ${ms} ms (${url}; reloads ${reloads}${link ? '; a link\'s stalled document is opened again only while the page still has its hash: after that the app has saved the figure and a second navigation would ask' : ''})` });
   if (H.seeded && new RegExp('[?&]ns=' + H.seeded.ns + '(&|$)').test(url)) await H.reseed();   // (#363: a pattern load() seeded is set again on the new page)
   return ok;
 };
@@ -369,12 +376,21 @@ H.isSteps = () => H.ev(`!!(window.__cmwSteps && __cmwSteps().on)`);
 // default) is opened again, at most LOAD_RELOADS times in all, inside the same limit. origin: the server the pages come from
 const LOAD_LIMIT_MS = 60000, LOAD_WAIT_MS = 20000, LOAD_STALL_MS = 15000, LOAD_RELOADS = 2, CHAIN_PLANES = 2;
 H.CHAIN_PLANES = CHAIN_PLANES;   // (for a suite that checks what load() waits for)
+H.LOAD_RELOADS = LOAD_RELOADS;   // (for a suite that checks how often a stalled document is opened again)
 // pageNow(): what the page says of itself, so a stall names where it is: the document's state, the navigation's own timings (ms
 // since its start; 0 where an event has not come), how many scripts and sheets it has, and how many planes its chain has built
 // (null before the hook answers)
 const pageNow = () => H.ev(`(() => { const n = performance.getEntriesByType('navigation')[0], t = n ? Object.fromEntries(['startTime', 'responseStart', 'responseEnd', 'domInteractive', 'domContentLoadedEventEnd', 'loadEventEnd'].map((k) => [k, Math.round(n[k])])) : null; return { readyState: document.readyState, href: location.href, nav: t, scripts: document.scripts.length, sheets: document.styleSheets.length, planes: (() => { try { return __cmwSteps().planes.length; } catch (e) { return null; } })() }; })()`).catch((e) => ({ __exc: String(e && e.message || e) }));
 // docStalled(): the page is still "loading" with its response not finished (its body stopped arriving)
 const docStalled = async () => { const pg = await pageNow(); return pg.readyState === 'loading' && !!pg.nav && pg.nav.responseEnd === 0; };
+// H.reloadIfUnread(): reloads the page if it still has the #cmw= hash, and answers whether it did. The app drops the hash before it saves the
+// figure and reloads, so a page that has it has not read the link; the check and the reload are one call in the page, so the app cannot
+// read the link between them and have the reload load the url without its hash (the page that asks whether to open the link). A call the
+// reload itself cuts off counts as reloaded. The reload is the page's own (location.reload): the same url again, hash included, is a
+// navigation within the document and makes no request; the server's answers are no-store, so the cache is not in it.
+H.reloadIfUnread = async () => {
+  try { return (await H.ev(`/[#&]cmw=/.test(location.hash) ? (location.reload(), true) : false`)) === true; } catch (e) { return NAV_GONE.test(String((e && e.message) || e)); }
+};
 H.load = async (ns, st, extra, viewName, opts = {}) => {
   const origin = opts.origin || 'http://localhost:8793';
   await send('Page.navigate', { url: origin + '/gl-helpers.html' }, S); await sleep(400);

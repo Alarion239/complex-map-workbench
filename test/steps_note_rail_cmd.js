@@ -12,7 +12,8 @@ const STATE = { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, vis
   steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^4+z', cut: 180 }, on: true }],
   srcView: { cx: 0, cy: 0, s: 110 }, nextId: 50, pattern: 'checker', dc: 'cauchy' };
 const measure = (src = '__cmwSteps().note') => ev(`(() => {
-  const pane = document.getElementById('paneL').getBoundingClientRect(), n = ${src};
+  // (the note's box is in the pane canvas's own px: the canvas starts after the ruler, so its rect, not #paneL's, is the origin)
+  const pane = document.getElementById('canvasL').getBoundingClientRect(), n = ${src};
   if (!n) return { note: null };
   const box = [pane.left + n.x, pane.top + n.y, pane.left + n.x + n.w, pane.top + n.y + n.h];
   const btns = [...document.querySelectorAll('#paneL button, #plotL button, #toastHost .toast')].filter((b) => b.getClientRects().length).map((b) => { const r = b.getBoundingClientRect(); return { name: b.id || b.className, r: [r.left, r.top, r.right, r.bottom] }; })

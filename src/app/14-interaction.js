@@ -28,13 +28,23 @@
   const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
+  // the reach of a zero or pole and of the cut handle for a pointer that is a finger (touch, or a pen: ptrTouch) or not: 22 px (a 44 px
+  // target) for a finger, 11 and 12 px for a mouse
+  const zpReach = (finger) => (finger ? 22 : 11), cutReach = (finger) => (finger ? 22 : 12);
+  // the left pane's cut handle at (x, y): the nearest within the handle's reach (a hover is a mouse's, or a pen's near the glass: finger false)
+  const cutHandleNear = (x, y, finger) => {
+    const r = cutReach(finger);
+    let best = null, bd = r;
+    for (const hd of cutHandlesL) { const d = Math.hypot(hd.x - x, hd.y - y); if (d < bd) { best = hd; bd = d; } }
+    return best;
+  };
   // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
   // (constructions bind to the z-plane's shapes and the targets: in a plane of the chain the tools draw plain shapes)
   const cmHere = (side) => side === 'R' || leftStage() === 0;
   function emptyAt(pane, side, x, y) {
     if (side === 'L' ? !lFlat() : !rImage()) return false;
     pane.setView(side === 'L' ? leftView() : V.right);
-    if (side === 'L' && (cutHandlesL.some((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || (zpStep() && zpHit(x, y, 11)))) return false;
+    if (side === 'L' && (cutHandleNear(x, y, ptrTouch) || (zpStep() && zpHit(x, y, zpReach(ptrTouch))))) return false;
     const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : planeShapes();
     const z = pane.s2w(x, y), tol = 7 / pane.view.s;
     for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, target ? targetWin() : winOf(s))) return false; } catch (e) { /* */ } }
@@ -404,7 +414,10 @@
       // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
       const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
       const onSel = !!selSh && (ptrTouch ? !!handleAt(pane, selSh, x, y) : Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; }));
-      const zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (other tools pick a zero)
+      let zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, zpReach(ptrTouch));   // (other tools pick a zero)
+      // (a cut handle nearer than the zero or pole takes the press: both reach 22 px for a finger)
+      const ch = zh && cutHandleNear(x, y, ptrTouch);
+      if (ch && Math.hypot(ch.x - x, ch.y - y) < Math.hypot(zh.x - x, zh.y - y)) zh = null;
       if (zh) {
         zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
         if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
@@ -432,9 +445,11 @@
       }
     }
     // cut handles have priority
-    for (const hnd of cutHandlesL) {
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
-    }
+    // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
+    // drag runs the continuation alone, cutPull)
+    const hnd = cutHandleNear(x, y, ptrTouch);
+    if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
+    if (pickDown(pane, z, x, y)) return;
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
@@ -1087,6 +1102,7 @@
         return;
       }
       if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
+      if (drag.mode === 'pickMove' || drag.mode === 'pickOut') { pickMove(drag, pane, x, y); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1184,9 +1200,9 @@
     }
     // hover
     if (side === 'L') probeHover = { pane, e };
-    // (while the steps view's thread moves, the probe and its readout idle; Hear the function follows the pointer on the
-    // nearer plane's map, the point picked as a still pointer's re-pick is)
-    if (side === 'L' && SV.on && svMoving()) { probeMoving(); if (sndP.on && sndP.sonify) sndMove(x, y, sndPickAt('pointer', x, y), 'pointer'); return; }
+    // (while the steps view's thread moves, the probe and its readout idle; a parked plane's cut handle still lights under the
+    // pointer, and Hear the function follows the pointer on the nearer plane's map, the point picked as a still pointer's re-pick is)
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); cutHover(pane, side, x, y); if (sndP.on && sndP.sonify) sndMove(x, y, sndPickAt('pointer', x, y), 'pointer'); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
@@ -1224,8 +1240,7 @@
       return;
     }
     if (side === 'L') {
-      const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
-      if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); }
+      cutHover(pane, side, x, y);
       const zh = zpHit(x, y);
       if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
@@ -1271,11 +1286,14 @@
   // fixed-width readout; a component that is rounding noise next to the other (9×10⁻¹⁷ + 1.5i) reads 0
   // (atol: below it a component is 0 too; the left readout passes a billionth of X's pixel, so a probe that lands a
   // rounding error off an axis reads 0.0000, not 7.11×10⁻¹⁵)
-  function fmtCxHtml(w, dp = 4, atol = 0) {
+  function fmtCxHtml(w, dp = 4, atol = 0) { return fmtCxWith(w, dp, atol, '<i>i</i>'); }
+  // the same reading as plain text, for a message: 0.500 − 1.250i
+  function fmtCxText(w, dp = 4, atol = 0) { return fmtCxWith(w, dp, atol, 'i'); }
+  function fmtCxWith(w, dp, atol, unit) {
     if (!CX.isFin(w)) return '∞';
     const tol = Math.max(atol, 1e-12 * Math.max(Math.abs(w.re), Math.abs(w.im)));
     const re = Math.abs(w.re) < tol ? 0 : w.re, im = Math.abs(w.im) < tol ? 0 : w.im;
-    return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}<i>i</i>`;
+    return `${fmtR(re, dp)} ${im < 0 ? '−' : '+'} ${fmtR(Math.abs(im), dp)}${unit}`;
   }
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
   let rHover = null; // a point hovered in the right (image) plane
@@ -1284,6 +1302,12 @@
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
   // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
   let probeHover = null, probeHeld = false;
+  // the left pane's cut handle under the pointer (x, y) is the lit one (hoverCut, none: 0); a change sets the cursor and
+  // draws the overlay again, where the handle is drawn lit or not
+  function cutHover(pane, side, x, y) {
+    const hc = (cutHandleNear(x, y, false) || {}).step || 0;
+    if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); requestRender('OL'); }
+  }
   function probeMoving() {
     if (probe) { probe = null; setReadouts(null); }
     probeHeld = !!probeHover;
@@ -1506,6 +1530,7 @@
     if (d.mode === 'cut') { commit(); return; }
     if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'pre') { if (d.moved) { if (d.bn) Params.rest(d.bn); shapesChanged(true); commit(); } return; }
+    if (d.mode === 'pickMove' || d.mode === 'pickOut') { pickUp(d); return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;
@@ -1573,6 +1598,7 @@
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
+      if (e.key === 'Enter' && !mod && !e.altKey && t.id === 'overlayL' && pickKey()) { e.preventDefault(); return; }
       // ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
       if (mod && !e.altKey && selected && (key === 'd' || kk === ']' || kk === '[')) {
         const s = findShape(selected);

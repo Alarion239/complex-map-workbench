@@ -61,9 +61,11 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-1', cut: 180 } }],
     },
     {
-      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose Integrate: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      name: $t('A residue by integration'), tryDone: [[{ on: 'integral-opened' }]], try: touchUI() ? $t('Try: hold a finger on the circle, then choose ∮.') : $t('Try: open a curve\'s menu on the circle and choose ∮.'), tour: 'analysis', tex: '\\oint_{|z-i|=1}\\frac{dz}{z^2+1}=\\pi', blurb: touchUI() ? $t('Hold a finger on the circle, then choose ∮: around the pole at i the running integral misses its start by 2πi · Res = π.') : $t('Right-click the circle: around the pole at i the running integral misses its start by 2πi · Res = π.'), view: { cx: 0, cy: 0.5, s: 80 },
+      // (the circle and the pole at i inside it: a landscape phone's plane is under 200 px tall)
+      fit: { x0: -1.25, x1: 1.25, y0: -0.25, y1: 2.25 },
       shapes: [{ kind: 'circle', c: [0, 1], r: 1 }],
-      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color', integrate: 0,
+      steps: [{ type: 'custom', params: { expr: '\\frac{1}{z^2+1}', cut: 180 } }], rightMode: 'color',
     },
     {
       name: $t('Cauchy: a simple pole'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }]], try: $t('Try: drag the circle until the pole at 0 is outside it: the inside becomes F, the outside 0.'), tour: 'analysis', tex: 'F(z)=\\frac{1}{z}', blurb: $t('F = 1/z has one pole, at 0, inside the circle. Inside, the Cauchy integral is F minus its principal part, here 0; outside it is the principal part, 1/z.'), view: { cx: 0, cy: 0, s: 90 },
@@ -712,9 +714,10 @@
     document.addEventListener('focusout', (e) => { if (kbdTip && (e.target === kbdTip || kbdTip.contains(e.target))) { kbdTip = null; hide(); } });
     // touch: tooltips are skipped above, so a 450 ms long-press on a tool, a pattern swatch or a view button
     // shows the same tip; moving the finger cancels it, and the release after a tip does not also press the button
-    // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips)
+    // (also the pane heads' icon toggles, style glyphs, Regions and ⋯ buttons, named only by their tips, and the steps
+    // view's colour button, whose tip says why it does nothing while the thread is parked between two planes)
     const LP_SEL = '.tool[data-tip], #leftTabs [data-tip], #rightTabs [data-tip], .phbtn[data-tip], '
-      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip]';
+      + '.pane-head .ic-tg[data-tip], .pane-head .sty-seg > button[data-tip], .pane-head .opts-btn[data-tip], .shortmark[data-tip], .sv-add[data-tip], .sv-wholemap[data-tip], .sv-cp[data-tip]';
     // (lpDown, the press by its event's own time. The timer measures 450 ms on the page's clock, which a busy
     // page (one still settling) runs late: a quick tap whose release waited behind a long task looked like a long-press,
     // and its click was swallowed. The release decides by the events' times instead)
@@ -813,7 +816,8 @@
   const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
-  const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
+  // (a tool hidden where it does not apply keeps its place, tool-na: it is no stop and no arrow's aim)
+  const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && !el.classList.contains('tool-na');
   function roveGroups() {
     for (const [gs, isel] of ROVE) {
       const g = document.querySelector(gs);
@@ -936,12 +940,17 @@
     const H0 = () => window.innerHeight;
     // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip (and above the context bar's row when one is open), as wide as the plot
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
-    // the tool row, which the planes and the sheet give up)
+    // the tool row, which the planes and the sheet give up; in landscape, with a sheet open that splits the layout, that row is the foot of the sheet's
+    // column (CSS), so the planes, the thread's strip and the plane's keys stay in view)
     if (phone) {
+      // (the message picks its rows at the width it has when it is made; where its place gave it another width, it picks them again)
+      const mt = /** @type {HTMLElement} */ (host.firstElementChild);
+      const refit = () => toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth && (fitToastRows(mt), true);
       if (document.documentElement.classList.contains('ph-sheet-on')) {
         clear();
+        if (refit()) return;
         // (a sheet ends above the message's own row, whatever its height, and the portrait More sheet's list takes the height as its bottom inset)
-        toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        toastLift(Math.round(mt.getBoundingClientRect().height));
         return;
       }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
@@ -957,13 +966,11 @@
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
       const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
-      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      const tb = keys.length ? mt.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
-      // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
-      const mt = /** @type {HTMLElement} */ (host.firstElementChild);
-      if (toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth) { fitToastRows(mt); return; }
-      toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
+      if (refit()) return;
+      toastLift(Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,
@@ -1065,7 +1072,13 @@
     t.addEventListener('click', (e) => { if (!(/** @type {Element} */ (e.target)).closest('button')) closeToast(t); });
     host.append(t);
     // (a phone's message picks its rows on the next frame: its caller may still add a button, as undoToast's Show alone)
-    if (rt.contains('ph')) requestAnimationFrame(() => fitToastRows(t));
+    if (rt.contains('ph')) {
+      requestAnimationFrame(() => fitToastRows(t));
+      // (the rows follow the message's width as it changes through a turn of the phone or a sheet opening: measured again, once per width, the one toastFitW holds; the observer goes with the message's element, which nothing else holds)
+      try {
+        new ResizeObserver(() => { if (t.clientWidth && t.clientWidth !== toastFitW.get(t)) requestAnimationFrame(() => fitToastRows(t)); }).observe(t);
+      } catch (e) { /* no ResizeObserver */ }
+    }
     if (o && o.sticky) return t;
     let left = (o && o.ms) || (actionLabel ? 6000 : 4000), t0 = performance.now(), timer = 0, held = 0;
     const run = (ms) => { t0 = performance.now(); timer = setTimeout(() => closeToast(t), ms); };
@@ -1101,7 +1114,7 @@
     return {
       EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
       commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
-      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, popOpenedFrom, rebuild,
+      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,
@@ -1127,7 +1140,13 @@
   function exFitTo(...args) { return EXM.exFitTo(...args); }
   function exOk(...args) { return EXM.exOk(...args); }
   function firstExample(...args) { return EXM.firstExample(...args); }
-  function loadExample(...args) { return EXM.loadExample(...args); }
+  // (opening an example discards the chain of the scene on the page: its programs, cached evaluations and caches are freed)
+  function loadExample(...args) {
+    redoChains.clear();
+    if (GLR.ok) GLR.discardChains();
+    svDiscardCaches();
+    return EXM.loadExample(...args);
+  }
   function retryExampleThumbs(...args) { return EXM.retryExampleThumbs(...args); }
   function openGallery(...args) { return EXM.openGallery(...args); }
   function openGuide(...args) { return EXM.openGuide(...args); }

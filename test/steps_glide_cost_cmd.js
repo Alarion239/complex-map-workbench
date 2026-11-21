@@ -14,11 +14,15 @@
 //   once, without strokes, by the idle job, each with at least half a slice's time left;
 // - the zeta example held mid-scrub by plane 1, its meshes rebuilt: the tiling's fix-up it asks for (the left pane's
 //   region under zeta) runs no slice until the thread is let go, then runs;
-// - the Mountain King after a glide there and back: two scrubs of the rail, plane 0 to the last and back, each after a
+// - the Mountain King after a glide there and back, each pressed with the Play gate on (the page's default: a press
+//   waits until the chain is prepared): two scrubs of the rail, plane 0 to the last and back, each after a
 //   rest longer than the scratch sweep's second, once the idle job has ended (checked: a starved idle job is reported
-//   as such); the carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
-//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs), and
-//   its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
+//   as such), the carried entries' keep time long for the block (on a slow machine the rests outlast 30 s); the
+//   carried colour creates no texture, buffer or vertex array in their frames (the outer ring's meshes,
+//   their vertex arrays and the carry's scratch textures are made in idle moments and kept between scrubs; a scratch
+//   texture freed and made again is named as such, its free's stack beside the allocation's; each texture made names
+//   its mesh, that mesh's scratch entry before the draw and at its last draw before, and whether the idle job reserved
+//   it), and its frames return to the default framebuffer once (every mesh's off-screen passes before the draws); a third
 //   scrub's frames decompose no step of the chain (each glide's plans share its t-free part: invHomPath);
 //   a chain edit (a step bypassed) frees those scratch textures, as does the scratch sweep once the map cache is over
 //   its budget.
@@ -197,10 +201,41 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await ev(`__cmwExample(${ex}); 1`);
   await adopted();
   await settled({ max: 30000 });
-  // (the Play gate off: this block counts what a scrub's frames allocate once the glides were warmed up by glides that start
-  // at once, as the frames of an idle chain meet it; the gate's waits have their own suites, svplay_gate_cmd.js and the gate
-  // leg of steps_late_links_cmd.js)
-  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true, gate: false })}); 1`);
+  // (each carried draw on this page, by the mesh it is for (GLR.carryPrep), from before the glides: once the watch
+  // below begins, each one that creates a texture is kept, with that mesh's scratch entry in its slot before the draw
+  // and at its last draw before ([W, H], or null: none), whether it was drawn before, whether the idle job reserved it
+  // (GLR.carryReserve), when, and idle: how long since the last carried draw or reservation (past the keep time, the
+  // sweep has freed every carried entry). tmpEntry makes a texture for a mesh with no entry (a mesh not drawn before,
+  // or whose entry was freed) or remakes one whose size no longer fits it; meshes numbered in the order first seen)
+  // (the carried scratch entries' keep time, CARRY_TMP_MS, long for this block: the idle job reserves the entries
+  // (GLR.carryReserve) of glides no frame has drawn yet, and the sweep frees every carried entry once none has been
+  // drawn or reserved for the keep time; on a slow machine the idle job's tail, the rests and the Play gate's wait
+  // before a scrub's first carried frame outlast 30 s, and the scrub would make them again, the keep time's doing,
+  // not a frame's. The rows of the keep time itself shorten it on their own below; set back at the block's end)
+  const keepDefault = await ev('GLR.carryKeepMs(600000)');
+  await ev(`(() => {
+    const C = window.__svCarryMade = [], P = WebGL2RenderingContext.prototype, mk = P.createTexture;
+    let made = 0;
+    P.createTexture = function () { if ((new Error().stack || '').includes('svCarryRegions')) made++; return mk.apply(this, arguments); };
+    const ids = new WeakMap(), reserved = new WeakSet(), last = new WeakMap();
+    let meshes = 0;
+    const id = (r) => { if (!ids.has(r)) ids.set(r, ++meshes); return ids.get(r); };
+    const wh = (e) => (e ? [e.W, e.H] : null);
+    let lastT = performance.now();
+    const rsv = GLR.carryReserve;
+    GLR.carryReserve = function (res) { if (res) reserved.add(res); lastT = performance.now(); return rsv.apply(this, arguments); };
+    const prep = GLR.carryPrep;
+    GLR.carryPrep = function (res, st) {
+      const slot = 'm' + ((st && st.L) || 4), e = res && res.tmp && res.tmp.get(slot), n0 = made;
+      const r = prep.apply(this, arguments);
+      if (made > n0 && window.__svCarryT0 != null) C.push({ t: Math.round(performance.now() - window.__svCarryT0), idle: Math.round(performance.now() - lastT), mesh: res ? id(res) : null, n: res && res.n, entry: wh(e), drawnBefore: !!res && last.has(res), entryBefore: res && last.has(res) ? last.get(res) : null, reserved: !!res && reserved.has(res) });
+      if (res) { id(res); last.set(res, wh(res.tmp && res.tmp.get(slot))); }
+      lastT = performance.now();
+      return r;
+    };
+    return 1;
+  })()`);
+  await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true })}); 1`);
   await settled({ max: 30000 });
   for (const to of [1, 0]) {
     await ev(`__cmwSteps({ go: ${to} }), 1`);
@@ -214,6 +249,10 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   ok('before the scrubs: the outer ring\'s sizes of every glide are made, not only those next to the thread', made.glides > 1 && made.left === 0, made);
   // (each texture, buffer or vertex array created from the carried colour's draws: its stack passes through svCarryRegions)
   await watchCalls('WebGL2RenderingContext.prototype', GL_CREATES, ['svCarryRegions'], '__svAlloc');
+  // (each scratch texture freed (freeTmp: a chain edit, the keep time or the budget's sweep): an allocation after one
+  // is the same texture made again, one with none a texture the page had not made before)
+  await watchCalls('WebGL2RenderingContext.prototype', ['deleteTexture'], ['freeTmp'], '__svFreed');
+  await ev('window.__svCarryT0 = performance.now(), 1');
   // (each frame's returns to the default framebuffer in the carried colour's draws: a draw there after one into a
   // framebuffer of its own, the map cache's or a point pass's; frames counted by a rAF loop)
   await ev(`(() => {
@@ -260,7 +299,9 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   await scrub(-1, 0);
   await rest();
   const alloc = await ev('window.__svAlloc');
-  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc };
+  const freed = await ev('window.__svFreed');
+  const carried = await ev('window.__svCarryMade');
+  info['a scrub\'s allocations'] = { n: Array.isArray(alloc) ? alloc.length : null, carried, first: Array.isArray(alloc) ? alloc.slice(0, 4) : alloc, freed: Array.isArray(freed) ? { n: freed.length, first: freed.slice(0, 4) } : freed };
   ok('two scrubs of the Mountain King: the carried colour creates no texture, buffer or vertex array in their frames', Array.isArray(alloc) && alloc.length === 0, info['a scrub\'s allocations']);
   // (Everywhere: the whole plane's mesh and the outer ring's, each with its map cache's pass)
   const returns = Object.values(await ev('window.__svReturns'));
@@ -320,6 +361,7 @@ const ready = async () => { await settled({ max: 30000, until: 'typeof __cmwExam
   })()`);
   info['the kept scratch entries'] = { king: kept, after };
   ok('a step bypassed: the carried colour\'s kept scratch entries are freed', kept && kept.n > 0 && after && after.changed && after.held.n === 0, info['the kept scratch entries']);
+  await ev(`GLR.carryKeepMs(${keepDefault}), 1`);
 }
 // ---- a long-lived page: the far glide's ring meshes once the polar meshes kept are SV_POLAR_KEEP ----
 {
