@@ -2,7 +2,9 @@
 // selected on plane z of the steps view.
 //  - At 360 × 640 (en), 412 × 915 (it), 740 × 360 (en) and 568 × 320 (ru), Look down draws, and its key stands at the
 //    plane's bottom left, folded to its title, a button at least 44 × 44, above the context bar and clear of the
-//    plane's other keys; a tap unfolds it, its five marks inside it and the plane, still above the bar. Beside an
+//    plane's other keys; a tap unfolds it, its five marks inside it and the plane, still above the bar, at most 320 px
+//    wide, none of its words cut, and clear of the plane's other keys shown; on a landscape phone where the room under
+//    the readout would cut it, it takes the plane's top and the readout gives way. Beside an
 //    open sheet on a landscape phone (568 × 320) too, its words wrapping in the plane's narrow room.
 //  - The card is in the disc's row in Shapes, under its editor: the counts; the r slider's thumb 44 × 44, with the
 //    ticks at the join radii placed for that thumb; a touch drag on the slider sets the disc's radius; the card's Look
@@ -56,10 +58,12 @@ for (const [w, h, lang] of [[360, 640, 'en'], [412, 915, 'it'], [740, 360, 'en']
   ok(`${at}: the folded key meets none of the plane's other keys`, !!key && !oth.some((o) => meets(o.b, key)), { key, oth });
   if (btn) await tap([(btn[0] + btn[2]) / 2, (btn[1] + btn[3]) / 2]);
   await frames();
-  // (the marks counted where their words lie inside the key's box)
-  const k2 = await box('#plotL .ld-key'), n = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), kb = k.getBoundingClientRect(); if (k.querySelector('button.ld-ttl').getAttribute('aria-expanded') !== 'true') return -1; return [...k.querySelectorAll('.ld-it')].filter((e) => { if (!e.getClientRects().length) return false; const g = document.createRange(); g.selectNodeContents(e); const b = g.getBoundingClientRect(); return b.left >= kb.left - 0.5 && b.right <= kb.right + 0.5 && b.top >= kb.top - 0.5 && b.bottom <= kb.bottom + 0.5; }).length; })()`);
-  info[at].open = [k2, n];
+  // (the marks counted where their words lie inside the key's box, none cut: the key does not scroll here)
+  const k2 = await box('#plotL .ld-key'), n = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'), kb = k.getBoundingClientRect(); if (k.querySelector('button.ld-ttl').getAttribute('aria-expanded') !== 'true' || k.scrollHeight > k.clientHeight + 1) return -1; return [...k.querySelectorAll('.ld-it')].filter((e) => { if (!e.getClientRects().length) return false; const g = document.createRange(); g.selectNodeContents(e); const b = g.getBoundingClientRect(); return b.left >= kb.left - 0.5 && b.right <= kb.right + 0.5 && b.top >= kb.top - 0.5 && b.bottom <= kb.bottom + 0.5; }).length; })()`), oth2 = await others();
+  info[at].open = [k2, n, oth2];
   ok(`${at}: a tap unfolds the key, its five marks inside it, in the plane, above the context bar`, n === 5 && !!k2 && inside(k2, pane) && k2[3] <= bar + 0.5, { k2, n, pane, bar });
+  ok(`${at}: the open key meets none of the plane's other keys shown (the readout, unless it gave way; the colour key; the buttons)`, !!k2 && !oth2.some((o) => meets(o.b, k2)), { k2, oth2 });
+  ok(`${at}: the open key is at most 320 px wide, in rows`, !!k2 && k2[2] - k2[0] <= 320.5, k2);
 }
 
 // ---- a landscape phone with the Shapes sheet open beside the plane (568 × 320, ru): the key, folded and open, in the

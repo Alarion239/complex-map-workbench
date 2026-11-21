@@ -25,6 +25,7 @@
     lookDrawn = null;
     const s = findShape(selected);
     syncLookKey(lookDownOn(s));
+    fitLookKey();
     if (!lookDownOn(s)) return;
     const k = leftStage(), T = shapeStage(s), c = C(s.c[0], s.c[1]), b = pane.box(), ctx = pane.octx;
     const [cx, cy] = pane.w2s(c), px = (r) => Math.hypot(...pane.w2s(C(c.re + r, c.im)).map((v, i) => v - [cx, cy][i]));
@@ -82,12 +83,21 @@
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
     if (!on) return;
-    const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); };
+    const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
     const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
     // (the marks are a list, so a screen reader says them one by one)
     lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     lookKey.classList.toggle('folded', ph && !lookKeyOpen);
     if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
+  }
+  // an open key on a landscape phone that the room under the plane's readout would cut: it takes the plane's top, over the
+  // readout, which gives way (phone.css)
+  function fitLookKey() {
+    if (!lookKey) return;
+    lookKey.classList.remove('over-readout');
+    const rc = document.documentElement.classList;
+    if (lookKey.hidden || !lookKeyOpen || !rc.contains('ph') || !rc.contains('ph-land')) return;
+    if (lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
   }
   // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, and the key's words, its marks after
   // its title, "; " between them

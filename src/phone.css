@@ -128,9 +128,17 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .legend-chip:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 
 /* Look down's key (19-lookdown.js): at the plane's bottom left, above the context bar (it rides up with the plane's other
-   keys), clear of the button column's 60 px lane; folded to its title, a 44 px button, until that is pressed. Open, it
-   stands over what it meets, on the surface */
-:root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: calc(100% - var(--ruler) - 72px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
+   keys), clear of the button column's 60 px lane, at most 320 px wide (in rows, not one band across a landscape plane);
+   folded to its title, a 44 px button, until that is pressed. Open, it stands on the surface, its top --ld-top under the
+   plane's top, below the chips there: the readout (8 px down, 28 px tall) and, on a portrait phone, where the key reaches
+   under it, the folded colour key (44 px down, 30 px tall); it scrolls when it is taller than that room. On a landscape
+   phone an open key that the room under the readout would cut takes the plane's top instead, and the readout gives way
+   (over-readout: fitLookKey) */
+:root.ph { --ld-top: 80px; }
+:root.ph.ph-land { --ld-top: 40px; }
+:root.ph.ph-land .ld-key.over-readout { --ld-top: 4px; }
+:root.ph.ph-land .plot:has(> .ld-key.over-readout:not(.folded):not([hidden])) > .chip.readout { visibility: hidden; }
+:root.ph .ld-key { left: calc(var(--ruler) + 6px); bottom: calc(var(--ruler) + 6px + var(--ph-lift)); max-width: min(calc(100% - var(--ruler) - 72px), 320px); padding: 0 10px 6px; z-index: 14; transition: bottom 220ms var(--ease-out); }
 :root.ph .ld-key.folded { padding-bottom: 0; }
 :root.ph .ld-key.folded > .ld-list { display: none; }
 /* (a mark's words wrap under its swatch's line where the plane is narrow: a landscape phone's plane beside a sheet is about 200 px) */
@@ -140,7 +148,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph .ld-key > .ld-ttl::after { content: ""; width: 0; height: 0; border: 4px solid transparent; border-bottom-color: currentColor; translate: 0 -2px; }
 :root.ph .ld-key:not(.folded) > .ld-ttl::after { border-bottom-color: transparent; border-top-color: currentColor; translate: 0 2px; }
 :root.ph .ld-key > .ld-ttl:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
-:root.ph .ld-key:not(.folded) { background: var(--surface); max-height: calc(100% - 2 * var(--ruler) - 12px - var(--ph-lift)); overflow-y: auto; overscroll-behavior: contain; }
+:root.ph .ld-key:not(.folded) { background: var(--surface); max-height: calc(100% - var(--ruler) - 6px - var(--ph-lift) - var(--ld-top)); overflow-y: auto; overscroll-behavior: contain; }
 /* (with a sheet open on a portrait phone the plane keeps its title chip only, as its other keys: design-11) */
 :root.ph.ph-split:not(.ph-land) .ld-key { display: none !important; }
 
