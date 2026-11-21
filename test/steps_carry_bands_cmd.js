@@ -1,9 +1,9 @@
 // #845: the carried colour of the whole plane has no sawtooth bands below full opacity. exp(sin z) typed, colour plane z,
 // plane w1 at rest. The exact pass refuses the whole plane there ('unbounded range outside the innermost family'), so the
-// carried meshes draw it. Below full opacity they drew every covering layer, and a layer behind the front one ended where
-// the meshes end (they cover clipWin and the ring, not every point behind), along their triangles' edges. Through the
-// front layer at the slider's 85 %, those ends showed as sawtooth bands of whole triangles (#845, part 2 of the diagnosis).
-// The whole plane's meshes now draw the front layer alone (svCarryRegions); a region's own meshes keep their layers.
+// carried meshes draw it. They cover clipWin and the ring, not every point behind the front one, so a layer behind would
+// end where they end, along their triangles' edges, and show through the front layer at the slider's 85 % as sawtooth
+// bands of whole triangles. So the whole plane's meshes draw the front layer alone (svCarryRegions), and a region's own
+// meshes, which cover all of the region, draw every layer.
 // - Everywhere at 85 %, dpr 2, the colour layer alone (bare): no straight step run of 10 px or more (ux's line on #845:
 //   no straight run of 10 px or more along which the colour steps by 6 levels or more);
 // - control: that frame is the carried meshes' (the rest record's path is 'mesh'), drawn from the whole plane's SphereMesh

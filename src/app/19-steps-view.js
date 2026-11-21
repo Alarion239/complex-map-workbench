@@ -1884,10 +1884,10 @@
     // (#845) The whole plane, SV_ALL, draws the front layer alone, as at opacity 1. That covers Everywhere, and Inside
     // regions with a region of a later plane, which these meshes take as the whole plane (svCarryShapes). They cover
     // clipWin and the ring, not every point behind the front one, so a layer behind ends where they end, along their
-    // triangles' edges. Through the front layer at the slider's opacity, those ends showed as sawtooth bands of whole
+    // triangles' edges. Through the front layer at the slider's opacity, those ends would show as sawtooth bands of whole
     // triangles (exp(sin z) on w1 at 85 %). So in the frames these meshes draw (a plane at rest the exact pass refuses,
     // a glide the meshes draw, the stand-in while the exact pass links), Opacity shows no layer behind and All sheets
-    // shows the front sheet alone. A region's own meshes cover all of the region, so its layers are whole and stay.
+    // shows the front sheet alone. A region's own meshes cover all of the region, so its layers are whole and are drawn.
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers && !list.includes(SV_ALL);
     for (let pass = 0; pass < 2; pass++) {
