@@ -44,6 +44,8 @@
   // shown alone the list starts at its input plane. Code that needs z asks for stage 0, not svPlanes()[0])
   function svPlanes() { const k = svAloneOk(); return k ? [svPrev(k), k] : [0].concat(activeSteps()); }
   function svStage(i = SV.i) { const P = svPlanes(); return P[Math.max(0, Math.min(P.length - 1, i))]; }
+  // the plane the thread is nearest to (a glide's second half is nearer the plane it is going to than the one it left)
+  const svNear = () => svStage(Math.round(SV.g.x));
   function svT() { const P = svPlanes(); return SV.alone && P.length === 2 && P[1] === SV.alone ? SV.alone : P.includes(SV.T) ? SV.T : P[P.length - 1]; }
   // a glide's u at or under this is its plane's rest frame (the thread sits on a plane, to the precision of a float); it stays above
   // SV_REST_U_MIN, two ulps of float32 below 1, where 1 - t is exact (Sterbenz) so a frame at t = 1 - u is not the plane itself
@@ -140,9 +142,10 @@
   // the plane's title, name · role: "w₁ · phase of f₂" (the shown plane, then the map into the colour plane); past the
   // colour plane the colour is carried by the points, which the role says. A Landscape names its height (svHeightName),
   // then past T that the points carry it and their colour from T. Parked between two planes, the place is no plane: the
-  // title names the two, as the live label does (svPlaceText), "z → w₁ · coloured from w₁" (past T, carried from it)
+  // title names the two, as the live label does (svLabel), "z → w₁ · coloured from w₁" (past T, carried from it)
   function svTitleParts() {
-    const k = svStage(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
+    // (the plane the thread is nearest to, not the one it last arrived at: a glide's header turns over at the half, as the picture does)
+    const k = svNear(), T = svT(), map = svMapName('html', k, T) || wHtml(k);
     let role, short = '';
     const park = svParkedPair();
     if (park && !(SV.surf === 'land' && svMain(k) === 'land')) {
@@ -2487,10 +2490,11 @@
 
   // ---- the controls: the plane's head and the chain strip ----
   function svLabel() {
-    if (svParked()) return svPlaceText();
-    const k = svStage(), T = svT(), n = svPlanes().length;
+    const pr = svParkedPair();
+    if (pr) return $t('Between {a} and {b}', { a: svName(pr[0]), b: svName(pr[1]) });
+    const k = svNear(), T = svT(), P = svPlanes();
     const where = svColoured(k) ? (k === T ? $t('the colour plane') : $t('coloured from {p}', { p: svName(T) })) : $t('after the colour plane {p}', { p: svName(T) });
-    return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(SV.i + 1), n: I18N.num(n), where });
+    return $t('Plane {p}, {i} of {n}, {where}', { p: svName(k), i: I18N.num(P.indexOf(k) + 1), n: I18N.num(P.length), where });
   }
   // the role's words, each in a span that takes the space before it: the head's fit drops the last ones (sv-wx) when the role is
   // short of room. A space inside a tag ("<i class=…>") does not split
@@ -2585,7 +2589,7 @@
     const head = document.querySelector('#paneL .pane-head');
     const bar = h('div', { class: 'sv-head', id: 'svHead' });
     const title = h('div', { class: 'sv-title', 'aria-hidden': 'true' });
-    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: (e) => { if (!svOff(e.currentTarget)) svSetT(svStage()); } });
+    const cp = h('button', { type: 'button', class: 'btn small sv-cp', 'aria-pressed': 'false', 'data-tip': $t('Colour every plane from this one  C'), onclick: (e) => { if (!svOff(e.currentTarget)) svSetT(svNear()); } });
     const SCOPES = [['all', $t('Everywhere')], ['in', $t('Inside regions'), $t('Colour only inside the regions you draw, in every plane')]];
     const scope = seg(null, SV.scope, SCOPES, svSetScope, $t('Where colour shows'), { cls: 'sv-seg sv-scope', loop: true });
     // (a phone's header says "Inside" for "Inside regions": with the segmented control's own padding the long name does not fit
@@ -2805,12 +2809,12 @@
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
       // (on a phone the button is its wheel alone, its words in its label)
-      const cpText = k === T && !parked ? $t('Colour plane') : $t('Colour from here');
+      // (the plane the thread is nearest to, as the title's; pressed on the colour plane only: a place parked between two planes is no plane)
+      const cpOn = svStage(at) === T && !parked, cpText = cpOn ? $t('Colour plane') : $t('Colour from here');
       E.cp.innerHTML = `<span class="sv-dot"></span><span class="sv-cp-t">${cpText}</span>`;
       E.cp.setAttribute('aria-label', cpText);
-      // (pressed on the colour plane only: a place parked between two planes is no plane)
-      E.cp.setAttribute('aria-pressed', String(k === T && !parked));
-      E.cp.classList.toggle('on', k === T && !parked);
+      E.cp.setAttribute('aria-pressed', String(cpOn));
+      E.cp.classList.toggle('on', cpOn);
       // (a step shown alone: disabled, it is coloured from its own plane; else parked between two planes: off, with the
       // reason, since a place between planes is no plane to colour from)
       E.cp.disabled = !!svAloneOk();
@@ -3147,10 +3151,8 @@
   function svFitHead() {
     const E = SV.els;
     if (!E || !E.head) return;
-    // (not while the view moves: the title changes half-way through a glide, and a fit then is a forced layout in a frame;
-    // a view parked between two planes is at rest and is fitted; svSync's head key holds svMoving(), so the head is fitted
-    // once when the glide settles; rework on #473)
-    if (SV.anim || SV.g.moving() || (SV.drag && SV.drag.moved)) return;
+    // (while the view moves the head is fitted only when its words change, once at the half of a glide, where the title names the
+    // next plane: a fit is a forced layout, so not every frame; a view parked between two planes is at rest and is fitted)
     const ph = document.documentElement.classList.contains('ph');
     const mc = $('modeChips'), lg = $('leftLegend'), lgSum = lg && lg.querySelector('.lg-sum');
     const key = [
@@ -3336,10 +3338,6 @@
     if (Math.abs(x - r) <= SV_REST_U) return $t('Plane {p}, {i} of {n}', { p: svName(P[r]), i: I18N.num(r + 1), n: I18N.num(P.length) });
     const a = Math.floor(x), k = P[a + 1];
     return $t('Step {k} of {m} · {f} · {p} %', { k: I18N.num(a + 1), m: I18N.num(P.length - 1), f: isDeriv(k) ? 'd/dz' : 'f' + sub(k), p: I18N.num(Math.round(100 * (x - a))) });
-  }
-  function svPlaceText() {
-    const pr = svParkedPair();
-    return pr ? $t('Between {a} and {b}', { a: svName(pr[0]), b: svName(pr[1]) }) : svName(svStage());
   }
   // parked between two planes: their stages [a, b], either side of the thread; else null
   function svParkedPair() {
@@ -3565,7 +3563,7 @@
         e.preventDefault(); e.stopImmediatePropagation();
         // (parked between two planes, the key says why it does nothing, as the colour button's reason does)
         if (!SV.alone && svParked()) svSay($t('Stop on a plane to colour from it'));
-        else svSetT(svStage());
+        else svSetT(svNear());
       }
     }, true);
   }
@@ -4035,7 +4033,7 @@
     svSync();
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
-    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svStage(Math.round(SV.g.x))), b: svName(P[end]) });
+    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(P[end]) });
     sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
   }
   // a slide's time on each plane (ms)
