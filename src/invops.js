@@ -290,8 +290,8 @@ const InvOps = (() => {
   // rounding radius, and members whose discs meet are one where H_t - w winds round their mean as many times as their
   // multiplicities sum to (out.exact, with out.spread its largest radius); the members stay as they are. glsl.js's NEWT
   // runs the same iteration in float32 from the same start, keeping the first of roots closer than its NEWT_DEDUPE.
-  // The members come in increasing ROOT_ORDER, each m its place, the order GLSL's NEWT keeps its roots in
-  // (GLSLRoots.orderFns).
+  // The members come in increasing ROOT_ORDER, in the order GLSL's NEWT keeps its roots (GLSLRoots.orderFns); their indices
+  // can differ where the GPU's dedupe leaves a slot open, which nothing compares.
   // That list is exact to NEWT_POLY_RES: every root lies within NEWT_POLY_RES (1 + |z|) of a member, whose multiplicity
   // is the sum over the roots it stands for (roots nearer each other than that may come as one, as a multiple root
   // does). Where rounding cannot promise it, there is no list (out.exact null, with out.reason): the multiplicities fall
