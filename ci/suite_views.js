@@ -180,6 +180,7 @@ const VIEWS = {
   'toast_keys_cmd.js': steps(),
   'phone_toast_bar_cmd.js': steps(),
   'phone_toast_lines_cmd.js': steps(),
+  'phone_toast_sheet_cmd.js': steps(),
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
   'phone_legend_said_cmd.js': steps(),
