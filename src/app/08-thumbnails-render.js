@@ -389,7 +389,8 @@
     if (rightAuto && autoFit() && !(!structural && drag && /^(move|handle|zp)$/.test(drag.mode))) fitRight();
     scheduleFix();
     refreshIntPop();
-    requestRender('L', 'R');
+    // (a selected disc's readout card, 19-readout.js, follows its edits)
+    if (readoutOn(findShape(selected))) requestRender('L', 'R', 'P'); else requestRender('L', 'R');
   }
   // the right plane mode that keeps its own view, fitted to what it shows
   const autoFit = () => rImage();
