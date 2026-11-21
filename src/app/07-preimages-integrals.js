@@ -633,8 +633,10 @@
     return [x0, y0];
   }
   // the count for each region of a later plane that has pieces off the window, drawn in the region's ink: next to its
-  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view
+  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view. The
+  // selected region's count is also on its readout card (19-readout.js)
   function drawPullOff(pane, j) {
+    const offOf = (id) => { const e = pullOffDrawn.find((q) => q.id === id); return e ? e.n : 0; }, was = offOf(selected);
     pullOffDrawn = [];
     if (artMode) return;
     const b = pane.box(), labels = [];
@@ -664,6 +666,8 @@
     }
     if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
+    // (the readout card follows the count as the window moves)
+    if (selected != null && offOf(selected) !== was) requestRender('P');
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {

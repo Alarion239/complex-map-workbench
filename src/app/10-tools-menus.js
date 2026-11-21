@@ -851,7 +851,7 @@
     const s = findShape(selected);
     return s && !s.def && !s.at ? s : null;
   }
-  const shapeInspSig = () => { const s = shapeInspSel(); return s ? `SH#${s.id}#${rowKind(s)}#${isTarget(s) ? 'y' : 'x'}#${I18N.lang}#${selOf()}#${s.kind === 'polygon' ? s.pts.length : ''}` : null; };
+  const shapeInspSig = () => { const s = shapeInspSel(); return s ? `SH#${s.id}#${rowKind(s)}#${isTarget(s) ? 'y' : 'x'}#${I18N.lang}#${selOf()}#${s.kind === 'polygon' ? s.pts.length : ''}#${readoutOn(s) ? leftStage() : ''}` : null; };
   function shapeInspBuild() {
     const s = shapeInspSel();
     const label = Construct.shapeLabel(s);
@@ -862,18 +862,19 @@
     const crumbs = h('div', { class: 'sh-crumbs' }, h('span', { class: 'sh-path' }, isTarget(s) ? $t('Targets') : $t('Shapes'), ' › ', label), backBtn);
     const head = h('div', { class: 'ihead sh-ihead' }, h('span', { class: 'swatch', 'data-kind': kindType(s), style: swatchStyle(s) }), h('span', { class: 'ttl' }, label),
       h('span', { class: 'sh-in' }, SV.on ? $t('in {w}', { w: isTarget(s) ? svName(svPlanes()[svPlanes().length - 1]) : svName(shapeStage(s)) }) : isTarget(s) ? $t('in Y') : $t('in X')));
-    const ed = shapeEditor(s);
+    const ed = shapeEditor(s), ro = readoutBuild(s);
     const used = h('div', { class: 'cm-ichips sh-used' });
     const acts = h('div', { class: 'sh-acts' },
       h('button', { type: 'button', class: 'btn', onclick: () => duplicateShape(s) }, $t('Duplicate')),
       h('button', { type: 'button', class: 'btn', onclick: () => deleteShape(s.id) }, $t('Delete')));
-    const root = h('div', { class: 'sh-insp', 'data-id': s.id }, crumbs, head, ed, h('div', { class: 'cm-ilabel' }, $t('Used by')), used, acts);
-    return { kind: 'shape', id: s.id, root, ed, used, head };
+    const root = h('div', { class: 'sh-insp', 'data-id': s.id }, crumbs, head, ed, ro && ro.root, h('div', { class: 'cm-ilabel' }, $t('Used by')), used, acts);
+    return { kind: 'shape', id: s.id, root, ed, used, head, ro };
   }
   function shapeInspFill(E) {
     const s = findShape(E.id);
     if (!s) return;
     if (E.ed._sync) E.ed._sync();
+    if (E.ro) readoutFill(E.ro, s);
     const sw = E.head.querySelector('.swatch'), st = swatchStyle(s);
     if (sw.style.cssText !== st) sw.style.cssText = st;
     const us = Construct.usedBy(s.id);

@@ -774,5 +774,37 @@
  },
  "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
  "phone tile\u0004Pick": "Точки",
- "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки"
+ "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки",
+ "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
+ "{n} preimage\u0004{n} preimages": {
+  "one": "%{n} прообраз",
+  "few": "%{n} прообраза",
+  "many": "%{n} прообразов",
+  "other": "%{n} прообраза"
+ },
+ "{n} piece\u0004{n} pieces": {
+  "one": "%{n} часть",
+  "few": "%{n} части",
+  "many": "%{n} частей",
+  "other": "%{n} части"
+ },
+ "one covers the disc twice": "одна накрывает круг дважды",
+ "one covers the disc {k} times": "одна накрывает круг %{k}-кратно",
+ "{n} cover the disc more than once": "%{n} из них накрывают круг больше одного раза",
+ "{n} hole\u0004{n} holes": {
+  "one": "%{n} дыра",
+  "few": "%{n} дыры",
+  "many": "%{n} дыр",
+  "other": "%{n} дыры"
+ },
+ "Preimage on {w}": "Прообраз в плоскости %{w}",
+ "Pieces join at r = {list}": "Части сливаются при r = %{list}",
+ "No pieces join as r grows": "С ростом r части не сливаются",
+ "{n} piece off view\u0004{n} pieces off view": {
+  "one": "%{n} часть за краем",
+  "few": "%{n} части за краем",
+  "many": "%{n} частей за краем",
+  "other": "%{n} части за краем"
+ },
+ "Radius r, against the join radii": "Радиус r на шкале радиусов слияния"
 }
