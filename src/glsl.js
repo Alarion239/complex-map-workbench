@@ -2304,8 +2304,10 @@ void ixAncTan(vec2 w) {
   // degree n the op gives (its _deg, InvOps.ratPoly's drop), root b of the linear polynomial, of the stable quadratic,
   // of Cardano's formula or of Ferrari's (its resolvent's root of largest modulus by Cardano's), each closed formula on
   // the reversed polynomial (roots 1/u) when its leading coefficient is the smaller end (InvOps.closedRoots), and every
-  // root polished by two Newton steps on the polynomial itself (float32: the shifts and the cube root lose digits that
-  // the steps win back)
+  // root polished by up to two Newton steps on the polynomial itself (float32: the shifts and the cube root lose digits
+  // that the steps win back). A step is taken only when it lowers |p(u)|: near a multiple root p'(u) is small and p(u)
+  // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off
+  // (on Metal, (z - 1)^2 (z + 2)'s root 1 came out 0.16 away)
   const RAT_N = new Set(['RAT3', 'RAT4']), RAT_NEAR = '1e-2', F32_EPS = '5.96e-8';
   const IX_ROOTS = `
 // root k of y^2 + beta y + gamma (stable)
@@ -2333,11 +2335,15 @@ vec2 ixCardanoRoot(vec2 S, vec2 T, vec2 b3, int k) {
   return cmul(om, S) + cmul(vec2(om.x, -om.y), T) - b3;
 }
 vec2 ixPolish3(vec2 a, vec2 b, vec2 c, vec2 d, vec2 u) {
+  vec2 f = cmul(cmul(cmul(a, u) + b, u) + c, u) + d;
   for (int it = 0; it < 2; it++) {
-    vec2 f = cmul(cmul(cmul(a, u) + b, u) + c, u) + d, g = cmul(3.0 * cmul(a, u) + 2.0 * b, u) + c;
+    vec2 g = cmul(3.0 * cmul(a, u) + 2.0 * b, u) + c;
     if (g.x == 0.0 && g.y == 0.0) break;
     vec2 v = u - cdiv(f, g);
-    if (ixFin(v)) u = v;
+    vec2 fv = cmul(cmul(cmul(a, v) + b, v) + c, v) + d;
+    if (!ixFin(v) || !(cx_abs(fv) < cx_abs(f))) break;
+    u = v;
+    f = fv;
   }
   return u;
 }
@@ -2365,11 +2371,15 @@ vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int n, int k) {
   if (n < 4) return ixCubic(b, c, d, e, n, k);
   bool rev = cx_abs(a) < cx_abs(e);
   vec2 u = rev ? cinv(ixFerrari(e, d, c, b, a, k)) : ixFerrari(a, b, c, d, e, k);
+  vec2 f = cmul(cmul(cmul(cmul(a, u) + b, u) + c, u) + d, u) + e;
   for (int it = 0; it < 2; it++) {
-    vec2 f = cmul(cmul(cmul(cmul(a, u) + b, u) + c, u) + d, u) + e, g = cmul(cmul(4.0 * cmul(a, u) + 3.0 * b, u) + 2.0 * c, u) + d;
+    vec2 g = cmul(cmul(4.0 * cmul(a, u) + 3.0 * b, u) + 2.0 * c, u) + d;
     if (g.x == 0.0 && g.y == 0.0) break;
     vec2 v = u - cdiv(f, g);
-    if (ixFin(v)) u = v;
+    vec2 fv = cmul(cmul(cmul(cmul(a, v) + b, v) + c, v) + d, v) + e;
+    if (!ixFin(v) || !(cx_abs(fv) < cx_abs(f))) break;
+    u = v;
+    f = fv;
   }
   return u;
 }
