@@ -373,5 +373,44 @@ for (const t of TYPES) {
   }
   check('every program\'s vertex outputs and fragment inputs agree on centroid', pairs > 20 && bad0.length === 0, JSON.stringify({ pairs, bad: bad0 }));
 }
+// ---- RAT3's and RAT4's root polish near a double root ----
+// The polish is up to two Newton steps on p - w q, each taken only when it lowers |p(u)|. At a double root p'(u) is
+// small and p(u) is float32's rounding of its terms, so an unguarded step is that rounding over p' and throws the root
+// off (on Metal, (z - 1)^2 (z + 2)'s root 1 came out 0.16 away). The rule on (z - 1)^2 (z + 2) at w = 0 from a root
+// 1e-5 off, p(u) carrying float32 rounding of its terms (2^-24 T, T = 6 the terms' size at u = 1, at a fixed phase):
+// with the guard the root stays within 1e-4 of 1, without it the first step throws it past 1e-3 (the control). And
+// the RAT3 op's source carries the guard
+{
+  const C = (re, im = 0) => ({ re, im }), add = (a, b) => C(a.re + b.re, a.im + b.im), sub = (a, b) => C(a.re - b.re, a.im - b.im);
+  const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re), cabs = (a) => Math.hypot(a.re, a.im);
+  const div = (a, b) => { const d = b.re * b.re + b.im * b.im; return C((a.re * b.re + a.im * b.im) / d, (a.im * b.re - a.re * b.im) / d); };
+  const ev = (co, u) => co.reduce((acc, c) => add(mul(acc, u), C(c)), C(0));
+  // (P, DP: the polynomial and its derivative, highest first; T: its terms' size at u = 1)
+  const polish = (P, DP, T, u, guard) => {
+    const f = (x) => add(ev(P, x), C(T * 2 ** -24 * Math.cos(1), T * 2 ** -24 * Math.sin(1)));
+    let fu = f(u);
+    for (let it = 0; it < 2; it++) {
+      const g = ev(DP, u);
+      if (g.re === 0 && g.im === 0) break;
+      const v = sub(u, div(fu, g)), fv = f(v);
+      if (!Number.isFinite(v.re + v.im) || (guard && !(cabs(fv) < cabs(fu)))) break;
+      u = v; fu = fv;
+    }
+    return u;
+  };
+  const u0 = C(1 + 1e-5);
+  for (const [name, P, DP, T] of [['RAT3, (z - 1)^2 (z + 2)', [1, 0, -3, 2], [3, 0, -3], 6], ['RAT4, (z - 1)^2 (z + 2)(z - 3)', [1, -3, -3, 11, -6], [4, -9, -6, 11], 24]]) {
+    const on = polish(P, DP, T, u0, true), off = polish(P, DP, T, u0, false);
+    check(`${name}: polished near the double root with the guard, the root stays within 1e-4 of 1`, cabs(sub(on, C(1))) < 1e-4, JSON.stringify(on));
+    check(`${name} (control): an unguarded step throws it past 1e-3`, cabs(sub(off, C(1))) > 1e-3, JSON.stringify(off));
+  }
+  const steps = [St('custom', { expr: 'z^3-3z+2', cut: 180 })], inv = GLChain.build(steps, steps.map(Funcs.build)).inverse;
+  const src = inv && inv.ok ? inv.lib + inv.walker : '';
+  check('the RAT3 op\'s source carries the polish guard', src.includes('!(cx_abs(fv) < cx_abs(f))'), src.length);
+  // (RAT4: ixQuartic's own polish carries it too)
+  const q4 = [St('custom', { expr: 'z^4-3z^3-3z^2+11z-6', cut: 180 })], inv4 = GLChain.build(q4, q4.map(Funcs.build)).inverse;
+  const src4 = inv4 && inv4.ok ? inv4.lib : '', at4 = src4.indexOf('vec2 ixQuartic('), body4 = at4 >= 0 ? src4.slice(at4, src4.indexOf('\n}\n', at4)) : '';
+  check('the RAT4 op\'s ixQuartic polish carries the guard', body4.includes('!(cx_abs(fv) < cx_abs(f))'), src4.length);
+}
 console.log(`${n - bad}/${n} passed`);
 process.exit(bad ? 1 : 0);
