@@ -83,15 +83,17 @@ for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru',
 }
 
 // a point wholly under a control stays hidden (it is reached by panning the plane), so its label has no leader, which would run into that
-// control (#2106): at 320 × 568 the point lies under Display options. The marker is the ring of a point (MARK_R px, its halo and the selection ring beyond it): its visible share is
-// read from the page, the fraction of a grid over the marker's square whose top element is not a control of the plane
-const MARK_R = 4, MARK_GRID = 3;
+// control (#2106): at 320 × 568 the point lies under Display options. The marker is the ring of a point and its halo (5.25 px out from its centre): its visible share is read from the page, the
+// fraction of nine samples on it (its centre and eight points on a MARK_R circle) whose top element is not a control of the plane, which mirrors the app's own test
+const MARK_R = 5;   // (the app's predicate, markerHidden in src/app/04-labels-zeros-poles.js: its MARKER_R and its nine samples, the centre and eight points on the circle of that radius, read here from the page)
 const markerShare = () => ev(`(() => {
   const plane = document.getElementById('overlayL').getBoundingClientRect(), plot = document.getElementById('plotL'), [cx, cy, s] = __cmwSteps().win;
   const x = plane.left + (plane.right - plane.left) / 2 + (${LIFT_PT[0]} - cx) * s, y = plane.top + (plane.bottom - plane.top) / 2 - (${LIFT_PT[1]} - cy) * s;
   let seen = 0, n = 0, by = {};
-  for (let i = 0; i < ${MARK_GRID}; i++) for (let j = 0; j < ${MARK_GRID}; j++) {
-    const e = document.elementFromPoint(x + (i / (${MARK_GRID} - 1) * 2 - 1) * ${MARK_R}, y + (j / (${MARK_GRID} - 1) * 2 - 1) * ${MARK_R});
+  const samples = [[0, 0]];
+  for (let k = 0; k < 8; k++) samples.push([${MARK_R} * Math.cos(k * Math.PI / 4), ${MARK_R} * Math.sin(k * Math.PI / 4)]);
+  for (const [dx, dy] of samples) {
+    const e = document.elementFromPoint(x + dx, y + dy);
     n++;
     if (!e || e === plot || e.tagName === 'CANVAS' || e.classList.contains('ph-col') || !plot.contains(e)) seen++; else by[(e.id || e.getAttribute('class') || e.tagName).split(' ')[0]] = 1;
   }

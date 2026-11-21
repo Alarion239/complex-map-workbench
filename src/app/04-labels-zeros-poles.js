@@ -63,7 +63,7 @@
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
   const LEADER_ROWS = 3, LEADER_COST = 3;
-  // (a point whose marker, its ring and halo MARKER_R px out from its centre, lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control)
+  // (a point whose marker lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control. The marker's disc is the ring and its halo, 5.25 px out from the centre; it is sampled at its centre and at eight points on the circle of MARKER_R px, 5 rounded down so that every sample is on the disc. test/label_controls_cmd.js reads the same radius and samples from the page)
   const MARKER_R = 5;
   // (a label's halo, and the leader's ink line, in px)
   const HALO_W = 3, LEADER_W = 1;
@@ -95,12 +95,14 @@
     }
     return out;
   }
-  // whether a control of the plane is on top at every one of the marker's sample points (its centre and corners): the marker is not seen
+  // whether a control of the plane is on top at every one of the marker's nine sample points: the marker is not seen. Nine hit tests, only for a point that a control covers and that has no free spot, once per labels pass
   function markerHidden(pane, x, y) {
     const plot = pane.ocanvas && pane.ocanvas.parentElement;
     if (!plot) return false;
     const pr = plot.getBoundingClientRect();
-    return [[0, 0], [-MARKER_R, -MARKER_R], [MARKER_R, -MARKER_R], [-MARKER_R, MARKER_R], [MARKER_R, MARKER_R]].every(([dx, dy]) => {
+    const samples = [[0, 0]];
+    for (let k = 0; k < 8; k++) samples.push([MARKER_R * Math.cos(k * Math.PI / 4), MARKER_R * Math.sin(k * Math.PI / 4)]);
+    return samples.every(([dx, dy]) => {
       const e = document.elementFromPoint(pr.left + x + dx, pr.top + y + dy);
       return !!e && e !== plot && e.tagName !== 'CANVAS' && !e.classList.contains('ph-col') && plot.contains(e);   // (the column's own box spans the gaps between its keys)
     });
