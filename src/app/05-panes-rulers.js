@@ -216,15 +216,18 @@
     syncGlobeTools();
   }
   // Annulus, Sector and Polar grid are dimmed while X shows its globe (panels.md 9.2: tooltip 'Draw in Plane')
-  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden
+  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden. The Pick tool
+  // (19-floor-pick.js) is hidden where it does not pick (pickAvail), its button keeping its place (tool-na: the phone's
+  // Tools sheet leaves it out), and put down there
   let globeToolsOff = null;
   function syncGlobeTools() {
-    const merged = S.view.main === 'xy' && morphOn(), off = lGlobe();
-    const k = `${merged}|${off}`;
+    const merged = S.view.main === 'xy' && morphOn(), off = lGlobe(), pick = pickAvail();
+    const k = `${merged}|${off}|${pick}`;
     if (k === globeToolsOff) return;
     globeToolsOff = k;
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) {
       if (b.dataset.tool === 'select') continue;
+      if (b.dataset.tool === 'pick') { b.classList.toggle('tool-na', !pick); b.setAttribute('aria-hidden', String(!pick)); }
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
       // (dimmed, it says so: a press still explains, so it stays focusable)
@@ -232,6 +235,9 @@
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
       b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
     }
+    // (the tool grid's one Tab stop, roveGroups, skips a hidden tool)
+    roveGroups();
+    if (!pick && tool === 'pick') setTool('select');
   }
   function renderOverlays() {
     const showL = solo() !== 'R', showR = solo() !== 'L';
@@ -256,6 +262,7 @@
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
+      if (SV.on) drawFloorPick(paneL);
     }
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
     if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);

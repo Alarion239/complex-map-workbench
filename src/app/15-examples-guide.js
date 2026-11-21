@@ -816,7 +816,8 @@
   const ROVE = [['#tools', '.tool'], ['#constructTools', '.tool']];
   const roveLast = new Map();   // group selector -> the item that last had the focus
   const onLaptop = () => !document.documentElement.classList.contains('ph');
-  const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0;
+  // (a tool hidden where it does not apply keeps its place, tool-na: it is no stop and no arrow's aim)
+  const shown = (el) => !!el && el.isConnected && el.getClientRects().length > 0 && !el.classList.contains('tool-na');
   function roveGroups() {
     for (const [gs, isel] of ROVE) {
       const g = document.querySelector(gs);

@@ -22,6 +22,8 @@
     formula: tsvg('<text x="3" y="15" font-family="STIX Two Text, serif" font-style="italic" font-size="14" fill="currentColor" stroke="none">f</text><path d="M12 7h5M12 11h5"/>'),
     cgrid: tsvg('<path stroke-width="1" d="M4 4v12M8 4v12M12 4v12M16 4v12M4 4h12M4 8h12M4 12h12M4 16h12"/>'),
     pgrid: tsvg('<g stroke-width="1"><circle cx="10" cy="10" r="3"/><circle cx="10" cy="10" r="6.5"/><path d="M10 3.5v13M3.5 10h13M5.4 5.4l9.2 9.2M14.6 5.4l-9.2 9.2"/></g>'),
+    // (a pressed point and its two twins, lit)
+    pick: tsvg('<circle cx="5" cy="13" r="2.25" fill="currentColor"/><circle cx="14" cy="6" r="2.5"/><circle cx="15" cy="14.5" r="2.5"/>'),
   };
   const TOOLS = [
     ['select', $t('Select'), 'V', $t('Drag a shape to move it and its handles to reshape. Drag empty space to pan (on a sphere, to turn it).')],
@@ -43,6 +45,8 @@
     // (one name per role: the tool 'Line grid', the pattern 'Square grid', the Phase style 'Pulled-back grid')
     ['cgrid', $t('Line grid'), '', $t('Drag a rectangle to fill with grid lines.')],
     ['pgrid', $t('Polar grid'), '', $t('Drag from the centre to set the radius.')],
+    // (the steps view's floor picker, 19-floor-pick.js: shown where a later plane holds the target)
+    ['pick', $t('Pick'), 'X', $t('Press a point to light its twins, the points with the same image; drag out to draw a disc on the target plane; drag a lit patch to move it. Two fingers or the right button pan. With the plane focused, Enter lights the twins of the selected point, Enter again adds the disc.')],
   ].concat(Construct.toolRows());   // (the Construct group, construct.js)
   Object.assign(ICON, Construct.ICON);
   function buildTools() {
@@ -56,23 +60,28 @@
       // the description is the tooltip's second line (item 3: no hint line under the tools)
       ((group === 'construct' && cmGrid) || host).append(h('button', { class: 'tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, 'aria-pressed': String(tool === id), onclick: () => setTool(id), html: `${ICON[id]}<span>${tile || label}</span>` }));
       if (rail && group === 'construct' && id === 'circle3') rail.append(h('span', { class: 'rail-sep', 'aria-hidden': 'true' }));
-      if (rail) rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
+      // (the tablet rail keeps to the drawing tools: Pick, which shows only on some planes of the steps view, is in the
+      // drawer and on its key; the rail fits its height on a resize of the panel, not when a tool appears)
+      if (rail && id !== 'pick') rail.append(h('button', { class: 'tool rail-tool' + (tool === id ? ' on' : ''), 'data-tool': id, 'data-tip': tip, 'data-desc': desc, 'aria-label': label, 'aria-description': desc, onclick: () => setTool(id), html: ICON[id] }));
     }
     // a phone's tool tile (58 px) shows the name on one line: in Russian a short form where the full name,
     // which the desktop grid hyphenates, is wider than the tile (phone.js reads data-phl)
     if (I18N.lang !== 'en') {
       const PHL = { circle: $tx('phone tile', 'Circle'), rect: $tx('phone tile', 'Rectangle'), polygon: $tx('phone tile', 'Polygon'), halfplane: $tx('phone tile', 'Half-plane'),
         meet: $tx('phone tile', 'Intersect'), bisector: $tx('phone tile', 'Bisector'), perp: $tx('phone tile', 'Perpendicular'),
-        hyper: $tx('phone tile', 'Hyperbolic') };   // (the seventh Construct tool)
+        hyper: $tx('phone tile', 'Hyperbolic'), pick: $tx('phone tile', 'Pick') };   // (the seventh Construct tool)
       for (const b of [...host.querySelectorAll('.tool[data-tool]'), ...(cmGrid ? cmGrid.querySelectorAll('.tool[data-tool]') : [])]) { const v = PHL[b.dataset.tool]; if (v) { b.dataset.phl = v; const sp = b.querySelector(':scope > span'); if (sp) sp.dataset.phl = v; } }
     }
     // Snap: the last button of the collapsed rail, so it stays reachable with the drawer collapsed
     if (rail) rail.append(h('button', { class: 'icon-btn rail-snap', id: 'railSnap', 'aria-pressed': String(!!(S && S.snap)), 'data-tip': $t('Snap to the grid and to figures (both panes). Hold Alt to place freely.'), 'aria-label': $t('Snap to grid and figures'), html: ICONS.snap, onclick: () => { setOpt('snap', !S.snap); syncSnapUnit(); save(); sndToggleCue(S.snap); } }));
     updateToolHint();
     syncModeChips();
+    globeToolsOff = null;
+    syncGlobeTools();
   }
   function setTool(id) {
     if (id === 'formula') { setPanels(false, S.hideRight); const f = $('formulaInput'); f.focus(); f.select(); return; }
+    if (id === 'pick' && !pickAvail()) return;
     tool = id;
     draft = null;
     Construct.toolChanged();

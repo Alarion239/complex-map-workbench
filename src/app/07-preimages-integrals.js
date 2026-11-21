@@ -466,8 +466,9 @@
   const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
   // the solutions follow their points' moves (an entry keeps the p it was solved for)
   // (option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
-  // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
-  // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
+  // rational, recognized rational formulas, a polynomial of degree 3 to 12 by its roots: Inverse.pointPlan): every
+  // preimage by those branches composed, Inverse.pointPre, a few microseconds (z^8: 5 µs, degree 64: 17 µs; a cubic's
+  // roots about 50 µs), so it is listed whole, off the window too, and again in every frame of
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
@@ -476,7 +477,7 @@
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
     let plan = prePlans.get(key);
     if (!plan) {
-      try { plan = Inverse.planChain(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
+      try { plan = Inverse.pointPlan(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
       prePlans.set(key, plan);
       while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
     }
