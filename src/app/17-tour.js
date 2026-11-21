@@ -9,8 +9,8 @@
   let tourPhGeo = null;   // (r3) the phone sheet geometry on the root before the tour: [--ph-hp, --ph-ride]
   // saved work existed at this opening (read before init can save anything): the suggestion greets a returning user
   const tourHadWork = (() => { try { return localStorage.getItem(LS_KEY) != null; } catch (e) { return false; } })();
-  // a shape or target moved (a drag's end, a nudge by the arrow keys): a target, or a shape drawn on a later plane of the
-  // steps view, is on a w plane
+  // a shape or target moved (a drag's end, a nudge by the arrow keys, a committed edit of a position field in the Inspector): a
+  // target, or a shape drawn on a later plane of the steps view, is on a w plane
   function tourShapeMoved(id, target, shape) {
     const sh = shape || S.shapes.find((x) => x.id === id);
     tourEmit('shape-moved', { id, plane: target || shapeStage(sh) > 0 ? 'w' : 'z' });
