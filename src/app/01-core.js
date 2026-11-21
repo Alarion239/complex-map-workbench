@@ -288,6 +288,8 @@
   // SHEET_W_MIN to SHEET_W_MAX, SHEET_W_DEFAULT when unset; sheetWOf(w): w within them
   const SHEET_W_MIN = 1, SHEET_W_MAX = 4, SHEET_W_DEFAULT = 2;
   const sheetWOf = (w) => Math.max(SHEET_W_MIN, Math.min(SHEET_W_MAX, Math.round(w) || SHEET_W_DEFAULT));
+  // whether the regions are being drawn as a mask (inside withSolidRegions)
+  const regionsAsMask = () => solidKeep !== null;
   function blankState() {
     return {
       shapes: [], steps: [], focus: 0, pattern: 'phase', lines: true, unit: true, snap: true,
@@ -462,6 +464,11 @@
       const more = sb.length > sa.length, L = more ? sb : sa, Sh = more ? sa : sb, n = L.length - Sh.length;
       let i = 0;
       while (i < Sh.length && js(Sh[i]) === js(L[i])) i++;
+      // (a Split: one step of the shorter chain is n + 1 steps of the longer, the steps around them unchanged; named as the
+      // Split's own message names it, "Split f{k} into f{k}–f{k2}: {chain}.", not as steps added)
+      let tail = 0;
+      while (tail < Sh.length - i && js(Sh[Sh.length - 1 - tail]) === js(L[L.length - 1 - tail])) tail++;
+      if (more && i + tail === Sh.length - 1) return $t('split f{x} into f{x}–f{x2}: {chain}', { x: sub(i + 1), x2: sub(i + n + 1), chain: L.slice(i, i + n + 1).map((st) => Funcs.splitLabel(st)).join(' → ') });
       if (n === 1) return more ? $t('add f{x} {name}', { x: sub(i + 1), name: nm(L[i]) }) : $t('remove f{x} {name}', { x: sub(i + 1), name: nm(L[i]) });
       return more ? $t('add f{x}–f{x2}', { x: sub(i + 1), x2: sub(i + n) }) : $tn('remove {n} step', 'remove {n} steps', n, { n });
     }

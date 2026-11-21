@@ -335,7 +335,7 @@
   // The deformation transport, for the renderer: null when closed. map/F: H_t as a map of the left plane (the plot
   // of Phase, Landscape and the phase sphere; map.base names that plane's stage when it is not the z-plane);
   // imageMap/imageF: H_t of the shapes' z-plane (Image, the regions sphere).
-  // (the arithmetic is src/homrange.js; these keep their names)
+  // (the arithmetic is src/homrange.ts; these keep their names)
   const HR = HomRange.make({ n: () => S.steps.length, stepFn, isDeriv, stepActive, stageF, rangeF, built: () => built, C, sig: () => chainSig[nSteps()] + '|' + S.steps.map((st) => st.uid || '').join(',') });
   // the bracket a…b (S.homRange) in its normal form, or null (absent, focus k, or no step outside it)
   const homRangeOk = () => HR.resolve(S);
@@ -377,7 +377,7 @@
     const m = R.steps.length, j = allAtOnce() ? (morph.T > 0 ? m : 0) : Math.min(m, Math.ceil(morph.T));
     return j >= m ? R.p1 : j > 0 ? R.steps[j - 1] : R.lo;
   };
-  // (exact ends, as homrange.js lerpE and gl.js MAP_STAGE)
+  // (exact ends, as homrange.ts lerpE and gl.js MAP_STAGE)
   const lerpF = (F0, F1, t) => (t <= 0 ? F0 : t >= 1 ? F1 : (z) => { const a = F0(z), b = F1(z); return C((1 - t) * a.re + t * b.re, (1 - t) * a.im + t * b.im); });
   // the natural homotopy of step k at t, a map of its input plane (a straight line when the step has none: a constant
   // or a formula that is not recognisably a catalog map, funcs.js); the identity at t <= 0 and f at t >= 1 (D3)
@@ -762,7 +762,7 @@
     const plan = invPlan(m.a || 0, m.b || 0);
     if (!plan || !plan.ok) return null;
     const R = Math.hypot(clipWin.x1 - clipWin.x0, clipWin.y1 - clipWin.y0) / 2;
-    return { win: clipWin, R, rs: R / 8, sing: invSing(plan) };
+    return { win: clipWin, R, rs: R / 8, sing: invSing(plan), per: Inverse.keyPeriod(plan) };
   }
   // SPEC 8.8: what to draw for forward shape s in a view -> null (the direct GPU path) | {e} (a published mesh valid for
   // the view: drawn alone) | {old} (the old mesh of the same content while its rebuild runs: inside its guard box, the
@@ -1182,7 +1182,7 @@
   const mapKeyOf = (map) => `${map.mode}|${map.a || 0}|${map.b || 0}|${map.hi || 0}|${map.t || 0}|${map.base || 0}|${chainSig[Math.max(map.b || 0, map.hi || 0, map.post || 0)] || ''}|${map.post || 0}`;
   // the CPU twin of a GPU map spec (dash phases of mapped strokes follow its arc length); map.base: the stage of the
   // source plane of a homotopy (0, the z-plane, by default)
-  function cpuMap(map) { return HR.cpuMap(map); }   // (with map.post, src/homrange.js)
+  function cpuMap(map) { return HR.cpuMap(map); }   // (with map.post, src/homrange.ts)
   // Per segment of r.lineRes (createLines order): the arc length of the curve under F at the segment start and the
   // segment's length, so dashes keep their rhythm along the mapped curve (cached per map key)
   function arcOf(r, F, key) {
@@ -1201,6 +1201,70 @@
   // caller has one), as GLR.drawLines takes it; null for a closed set
   const OPEN_DASH = [5, 3.5];
   function openDash(r, map, F) { return r.open ? { dash: OPEN_DASH, arc: arcOf(r, F || cpuMap(map), mapKeyOf(map)) } : null; }
+  // The polylines the inverse pass strokes a traced curve of a later plane by (GLR.packShapes' opts.trace: a freehand
+  // curve, a formula curve, an external ray, an equipotential): its own samples at rest (shapeGPU's r.polys), each
+  // simplified to within TRACE_TOL of its sampling window's diagonal (Calc.simplifyOpen, ends kept). When they don't
+  // fit in the pass's GLR.INV_CURVE_MAX vertices, the tolerance doubles, at most TRACE_DOUBLINGS times; a shape still
+  // over the limit after that is refused by GLR.packShapes, and the glide leaves it out as before. traces keeps, for
+  // each r.polys array, {lines (arrays of [x, y]), tol (the tolerance used), base (TRACE_TOL's)}
+  const TRACE_TOL = 1 / 8000, TRACE_DOUBLINGS = 24, traces = new WeakMap();
+  function invTrace(s) {
+    const r = shapeGPU(s), polys = r && r.polys;
+    if (!polys || !polys.length) return null;
+    let rec = traces.get(polys);
+    if (!rec) {
+      const w = winOf(s), base = TRACE_TOL * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
+      let tol = base, lines = [];
+      for (let k = 0; ; k++, tol *= 2) {
+        lines = polys.map((p) => Calc.simplifyOpen(p, tol).map((z) => [z.re, z.im]));
+        if (lines.reduce((n, p) => n + p.length, 0) <= GLR.INV_CURVE_MAX || k === TRACE_DOUBLINGS) break;
+      }
+      rec = { lines, tol, base };
+      traces.set(polys, rec);
+    }
+    return rec.lines;
+  }
+  // The outline of an open region of a later plane as the inverse pass strokes it dashed (GLR.packShapes' opts.dash):
+  // the polylines its plane draws it by at rest (r.lpolys), simplified as invTrace's are, each kept vertex [x, y, arc]
+  // with its arc length under the map that plane draws it by at rest (arcOf's data, the rest dash's own: the identity
+  // of plane k), so the pass dashes it by OPEN_DASH in step with the rest frame. dashTraces keeps, for each r.lpolys
+  // array, {key (the arcs' key), lines}. Null: not an open region of a later plane, or no polylines
+  const dashTraces = new WeakMap();
+  function invDashTrace(s) {
+    const k = shapeStage(s), r = k > 0 ? shapeGPU(s) : null, polys = r && r.open ? r.lpolys || r.polys : null;
+    if (!polys || !polys.length) return null;
+    const map = { mode: 0, a: k, b: k }, arc = arcOf(r, cpuMap(map), mapKeyOf(map));
+    let rec = dashTraces.get(polys);
+    if (!rec || rec.key !== arc.key) {
+      // each polyline's vertex arcs from the segments' (arc at its start, length), in Region.Lines.arcs' order: the
+      // polylines of two or more vertices, one entry per segment
+      const full = [];
+      let o = 0;
+      for (const p of polys) {
+        const m = p.length / 2;
+        if (m < 2) continue;
+        const v = [];
+        for (let i = 0; i < m; i++) v.push([p[2 * i], p[2 * i + 1], i < m - 1 ? arc.data[2 * (o + i)] : arc.data[2 * (o + m - 2)] + arc.data[2 * (o + m - 2) + 1]]);
+        o += m - 1;
+        full.push(v);
+      }
+      const w = winOf(s), base = TRACE_TOL * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
+      let lines = [];
+      for (let t = 0, tol = base; ; t++, tol *= 2) {
+        // (simplifyOpen keeps a subset of the vertices in order: each kept one takes its own arc)
+        lines = full.map((v) => {
+          const kept = Calc.simplifyOpen(v.map((q) => C(q[0], q[1])), tol), out = [];
+          let j = 0;
+          for (const z of kept) { while (j < v.length - 1 && (v[j][0] !== z.re || v[j][1] !== z.im)) j++; out.push(v[j]); j++; }
+          return out;
+        });
+        if (lines.reduce((n, l) => n + l.length, 0) <= GLR.INV_CURVE_MAX || t === TRACE_DOUBLINGS) break;
+      }
+      rec = { key: arc.key, lines };
+      dashTraces.set(polys, rec);
+    }
+    return rec.lines;
+  }
   // whether a plane draws shape s's outline: a visible curve or region, every one with Outlines on, else the selected
   // one alone; all: every one whatever Outlines says
   const outlineShown = (s, all) => s.visible !== false && kindType(s) !== 'point' && (all || S.outline || s.id === selected);
