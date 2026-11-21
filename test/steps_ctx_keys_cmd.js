@@ -183,6 +183,10 @@ for (const [w, lang] of [[568, 'en'], [568, 'ru'], [568, 'it'], [600, 'en'], [60
   const whole = await ev(`(() => { const c = document.getElementById('rightLegend'); return { ch: c.clientHeight, sh: c.scrollHeight }; })()`);
   info[`${name} key whole`] = whole;
   ok(`${name}: the unfolded Regions key shows all its lines (clientHeight = scrollHeight)`, whole.ch >= whole.sh - SLACK, whole);
+  // (the key takes the plane's top over the readout when that shows it whole; the readout it covers gives way, hidden, so no readout that shows is under it)
+  const ro = await ev(`(() => { const k = document.getElementById('rightLegend').getBoundingClientRect(), e = document.querySelector('#plotR > .chip.readout'); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { meets: r.left < k.right && k.left < r.right && r.top < k.bottom && k.top < r.bottom, hidden: getComputedStyle(e).visibility === 'hidden' }; })()`);
+  info[`${name} readout`] = ro;
+  ok(`${name}: no readout that shows lies under the unfolded Regions key`, !ro || !ro.meets || ro.hidden, ro);
   const under = await underPoints('rightLegend');
   info[`${name} key unfolded`] = under;
   ok(`${name}: the unfolded Regions key is read whole: no point of it lies under a key or a chip`, under.length === 0, under.slice(0, 6));

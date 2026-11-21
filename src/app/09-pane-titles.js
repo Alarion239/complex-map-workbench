@@ -1105,12 +1105,17 @@
     if (!c.width) return;
     const over = Math.ceil(c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX));
     if (over <= 0) return;
-    let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    const planeTop = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    let top = planeTop;
     for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
       if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom + LEGEND_BAR_GAP_PX);
     }
-    const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
+    // (under the readouts it would meet when it then stands whole above the bar; else it takes the plane's top, over them, and the readouts it
+    // then covers give way, .over-readout: the key's words are the greater loss)
+    const below = Math.max(0, Math.min(over, Math.floor(c.top - top))), up = below >= over ? below : Math.max(0, Math.min(over, Math.floor(c.top - planeTop)));
+    const cTop = c.top - up, cBottom = c.bottom - up;
+    box.classList.toggle('over-readout', up > below && [...plot.querySelectorAll(':scope > .chip.readout')].some((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left < c.right && c.left < r.right && r.top < cBottom && cTop < r.bottom; }));
     if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
     if (over > up) {
       const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
@@ -1124,7 +1129,7 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y'); box.classList.remove('over-readout');
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
