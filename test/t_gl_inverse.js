@@ -376,10 +376,10 @@ for (const t of TYPES) {
 // ---- RAT3's and RAT4's root polish near a double root ----
 // The polish is up to two Newton steps on p - w q, each taken only when it lowers |p(u)|. At a double root p'(u) is
 // small and p(u) is float32's rounding of its terms, so an unguarded step is that rounding over p' and throws the root
-// off (on Metal, (z - 1)^2 (z + 2)'s root 1 came out 0.16 away). The rule on (z - 1)^2 (z + 2) at w = 0 from a root
-// 1e-5 off, p(u) carrying float32 rounding of its terms (2^-24 T, T = 6 the terms' size at u = 1, at a fixed phase):
-// with the guard the root stays within 1e-4 of 1, without it the first step throws it past 1e-3 (the control). And
-// the RAT3 op's source carries the guard
+// off wherever that rounding is not 0. The rule on (z - 1)^2 (z + 2) and (z - 1)^2 (z + 2)(z - 3) at w = 0 from a root
+// 1e-5 off, p(u) carrying float32 rounding of its terms (2^-24 T, T the terms' size at u = 1, 6 and 24, at a fixed
+// phase): with the guard the root stays within 1e-4 of 1, without it the first step throws it past 1e-3 (the control).
+// And the RAT3 op's source and the RAT4 op's ixQuartic carry the guard
 {
   const C = (re, im = 0) => ({ re, im }), add = (a, b) => C(a.re + b.re, a.im + b.im), sub = (a, b) => C(a.re - b.re, a.im - b.im);
   const mul = (a, b) => C(a.re * b.re - a.im * b.im, a.re * b.im + a.im * b.re), cabs = (a) => Math.hypot(a.re, a.im);
