@@ -12,8 +12,8 @@ const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const base = process.env.CMW_BASE || 'http://localhost:8793/';
 const shots = process.env.SPHERE_LIGHT_SHOTS || '';
-// the mean OKLab L of the upper and the lower half of the globe's disc in #canvasL (device px), and the disc itself
 const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
+// the mean OKLab L of the upper and the lower half of the globe's disc in #canvasL (device px), and the disc itself
 const MEASURE = `(() => {
   const cv = document.getElementById('canvasL'), W = cv.width, H = cv.height;
   const c = __cmwCam('L'), d = __cmwGlobeDisk('L');

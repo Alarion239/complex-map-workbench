@@ -103,9 +103,9 @@ await closeMenu();
 // the shape's place said after a run of nudges, in other settings: at dpr 2, in the dark theme and at 1024 and 768 px wide. On each the
 // toast names the shape and its centre as the state has them, lies whole inside the window, above the chain, covers no control, and
 // reads at 4.5:1 (WCAG AA) against its own background
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 // what the toast's checks read of an element, as a function for the page: whether it lies inside the window and above the chain, the
 // controls it covers, and the contrast of its text against its own background (the toast's is opaque, so its alpha is not read)
-const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 const MEASURE = `(t) => {
   const r = t.getBoundingClientRect(), cs = getComputedStyle(t), strip = document.getElementById('svStrip').getBoundingClientRect();
   ${LUM_JS}
