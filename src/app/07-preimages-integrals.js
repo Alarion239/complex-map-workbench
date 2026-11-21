@@ -64,11 +64,11 @@
   // the fills of pullTargets in the steps view's layer over the colour, at pullLayerFill's share
   const layerFills = (ts) => fillsAt(ts, pullLayerFill());
   // an area of a later plane in the steps view's layer over the colour, as the inverse pass draws it in a glide's frame
-  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band over the fill of pullTargets at pullLayerFill's
-  // share
+  // (GLR.drawInverse's edge, with its tint): drawPreimage's boundary band, over its casing (TH.halo at TH.haloA, a css
+  // pixel wider each side, as PRE_FS draws it), over the fill of pullTargets at pullLayerFill's share
   function pullLayerEdge(s, dpr) {
-    const ink = shapeInk(s);
-    return { width: pullBandW(s, dpr), alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
+    const ink = shapeInk(s), width = pullBandW(s, dpr);
+    return { width, alpha: PULL_EDGE_A, color: GLR.hexRGB(ink.edge), casing: { width: width + 2 * dpr, alpha: TH.haloA, color: GLR.hexRGB(TH.halo) }, tint: [...GLR.hexRGB(ink.c0), pullLayerFill() * PULL_ALPHA * dimK(s)] };
   }
   // a second GL pass over the plane: where the map lands in each target
   function drawPullback(pane, map, targets) {
@@ -110,8 +110,9 @@
     if (!inFrame) pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     return pending;
   }
-  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s
-  function stagePreList(j) {
+  // the same for a globe of plane j: drawSphere's pre passes, one per later plane s; drawn into the regions' mask (inside
+  // withSolidRegions) their fills are opaque, as stagePullbacks'; over: the steps view's layer over the colour (layerFills)
+  function stagePreList(j, over = false) {
     const by = new Map();
     for (const s of S.shapes) {
       const st = shapeStage(s);
@@ -119,7 +120,7 @@
       if (!by.has(st)) by.set(st, []);
       by.get(st).push(s);
     }
-    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: pullTargets(list), halo: GLR.hexRGB(TH.halo) }));
+    return [...by].map(([st, list]) => ({ map: { mode: 0, a: j, b: st }, targets: over ? layerFills(pullTargets(list)) : pullTargets(list, regionsAsMask()), halo: GLR.hexRGB(TH.halo) }));
   }
   // target outlines in the w-plane (formula targets have no closed form: their fill is their outline)
   function strokeTargets(pane) {
@@ -465,8 +466,9 @@
   const preSig = (j) => JSON.stringify([j, chainSig[nSteps()], prePoints(j).map((s) => [s.id, shapeStage(s)])]);
   // the solutions follow their points' moves (an entry keeps the p it was solved for)
   // (option 3) a chain whose steps j + 1 … s each have finitely many inverse branches (Möbius, z^n, degree-2
-  // rational, recognized rational formulas): every preimage by those branches composed, Inverse.pointPre, a few
-  // microseconds (z^8: 5 µs, degree 64: 17 µs), so it is listed whole, off the window too, and again in every frame of
+  // rational, recognized rational formulas, a polynomial of degree 3 to 12 by its roots: Inverse.pointPlan): every
+  // preimage by those branches composed, Inverse.pointPre, a few microseconds (z^8: 5 µs, degree 64: 17 µs; a cubic's
+  // roots about 50 µs), so it is listed whole, off the window too, and again in every frame of
   // a drag, where it cannot jump a branch as Newton can at a critical value. Other chains, and more than
   // Inverse.LEAF_CAP preimages, keep the search and the tracking. The plans are kept per chain
   const prePlans = new Map();
@@ -475,7 +477,7 @@
     const key = `${j}|${st}|${chainSig[nSteps()]}`;
     let plan = prePlans.get(key);
     if (!plan) {
-      try { plan = Inverse.planChain(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
+      try { plan = Inverse.pointPlan(S.steps, built, j, st); } catch (e) { plan = { ok: false }; }
       prePlans.set(key, plan);
       while (prePlans.size > 16) prePlans.delete(prePlans.keys().next().value);
     }
@@ -631,27 +633,41 @@
     return [x0, y0];
   }
   // the count for each region of a later plane that has pieces off the window, drawn in the region's ink: next to its
-  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view
+  // piece in view nearest the pieces off it, or at the window's edge toward the nearest piece when none is in view. The
+  // selected region's count is also on its readout card (19-readout.js)
   function drawPullOff(pane, j) {
+    const offOf = (id) => { const e = pullOffDrawn.find((q) => q.id === id); return e ? e.n : 0; }, was = offOf(selected);
     pullOffDrawn = [];
     if (artMode) return;
     const b = pane.box(), labels = [];
     // (the axes, which the words keep off where they can)
     const [ax, ay] = pane.w2s(C(0, 0)), axes = [{ x0: ax - 1.5, x1: ax + 1.5, y0: 0, y1: pane.h }, { x0: 0, x1: pane.w, y0: ay - 1.5, y1: ay + 1.5 }];
+    const found = [];
     for (const s of S.shapes) {
       if (s.visible === false || shapeStage(s) <= j || kindType(s) !== 'area') continue;
       const e = pullOffPre(j, s);
       if (!e || !e.zs.length) continue;
       const seen = pullSeen(j, s, e, b, pane.w, pane.h), vis = e.zs.filter((z, k) => seen.has(k) && inBoxZ(z, b, 0)), offs = e.zs.filter((z, k) => !seen.has(k));
-      const n = offs.length;
-      if (!(n > 0)) continue;
-      const text = $t('+{n} off view', { n });
+      if (offs.length > 0) found.push({ s, e, vis, offs });
+    }
+    // (with more than one region counted, each count names its region as its row does, "Disc 1: +1 off view": the counts'
+    // inks alone, which are the regions' swatches and not the pieces' phase colours, would be the only cue to which is
+    // which; ux on #1726, #1892)
+    const names = found.length > 1 ? shapeNames() : null, said = [];
+    for (const { s, e, vis, offs } of found) {
+      const n = offs.length, name = names && names.get(s.id);
+      const text = name ? $t('{name}: +{n} off view', { name, n }) : $t('+{n} off view', { n });
       const dOff = (z) => Math.min(...offs.map((q) => CX.abs(CX.sub(z, q))));
       const [x, y] = vis.length ? pane.w2s(vis.slice().sort((p, q) => dOff(p) - dOff(q))[0]) : pullEdgeAt(pane, offs.slice().sort(byCentre(b))[0], text);
       labels.push({ x, y, text, word: true, chrome: true, avoid: axes, ink: shapeInk(s).edge });
       pullOffDrawn.push({ id: s.id, n, all: e.zs.length, text, x, y });
+      // (the same count in words, in the plane's description: paneSay)
+      said.push($t('Pieces of {name} pulled back off the view: {n} of {all}', { name: (names || shapeNames()).get(s.id), n, all: e.zs.length }));
     }
+    if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
+    // (the readout card follows the count as the window moves)
+    if (selected != null && offOf(selected) !== was) requestRender('P');
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {
@@ -811,7 +827,7 @@
         // (the fields are the Inspector's: Edit opens step k there, the temporary Inspector when the panel is hidden)
         edit(k, kind, i) { inspectStep(k); const el = /** @type {HTMLInputElement | null} */ (this.field(k, kind, i)); if (el) { el.scrollIntoView({ block: 'nearest' }); el.focus(); el.select(); } return el; },
       },
-      cutAt: (x, y) => (lFlat() ? (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0 : 0),
+      cutAt: (x, y, finger) => (lFlat() ? (cutHandleNear(x, y, !!finger) || {}).step || 0 : 0),
       // step k in the Inspector (a click on its card does the same)
       inspect: (k) => inspectStep(k),
       resetCut(k) { const st = S.steps[k - 1]; if (!st) return; const d = Number(Funcs.defaults(st.type).cut); setCut(k, Number.isFinite(d) ? d : 180, false); scheduleFix(); commit(); requestRender('L', 'R', 'OL'); },

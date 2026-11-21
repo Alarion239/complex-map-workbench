@@ -119,15 +119,21 @@ const np = S6.shapes.find((s) => s.kind === 'point');
 ok('F "New complex number here" is offered in w₁ and makes a number and its point there', made === true && !!np && np.stage === 1 && S6.params.length === 1, { made, menu: info.menu, shapes: S6.shapes, params: S6.params });
 ok('F … whose value is the place in w₁', !!np && Math.abs(S6.params[0].value - np.p[0]) < 1e-9 && Math.abs((S6.params[0].im || 0) - np.p[1]) < 1e-9, S6.params);
 
-// ---- G (#291, option 3): a rational chain lists its preimages exactly, all of them; another chain searches
+// ---- G (#291, option 3): a rational chain lists its preimages exactly, all of them (a polynomial of degree 3 to 12 by
+// its roots, Inverse.pointPlan); another chain searches
 await openApp({ steps: [{ type: 'pown', params: { n: 8 }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
 await preDrawn('pa');
 let G = (await pre()).list.find((e) => e.id === 'pa');
 ok('G z⁸ is listed exactly: 8 preimages, every one maps to a', !!G && G.exact && G.sols.length === 8 && G.sols.every((z) => { const r = Math.hypot(...z), t = Math.atan2(z[1], z[0]); return Math.abs(r ** 8 - 1) < 1e-9 && Math.abs(Math.sin(8 * t)) < 1e-9; }), G);
 await openApp({ steps: [{ type: 'custom', params: { expr: 'z^8+0.001z^3' }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
 await preDrawn('pa');
+const Gp = (await pre()).list.find((e) => e.id === 'pa');
+const p8 = ([x, y]) => { let re = 1, im = 0; for (let k = 0; k < 8; k++) [re, im] = [re * x - im * y, re * y + im * x]; const c3 = [x * x * x - 3 * x * y * y, 3 * x * x * y - y * y * y]; return [re + 0.001 * c3[0], im + 0.001 * c3[1]]; };
+ok('G a degree-8 polynomial with no exact ops is listed exactly by its roots: 8 preimages, every one maps to a', !!Gp && Gp.exact && Gp.sols.length === 8 && Gp.sols.every((z) => Math.hypot(p8(z)[0] - 1, p8(z)[1]) < 1e-9), Gp);
+await openApp({ steps: [{ type: 'custom', params: { expr: 'z^8+0.001\\sin z' }, on: true }], params: numA(1, 0), shapes: [pointA(1)] });
+await preDrawn('pa');
 const Gs = (await pre()).list.find((e) => e.id === 'pa');
-ok('G a degree-8 polynomial the catalog does not invert keeps the search (not exact)', !!Gs && !Gs.exact && Gs.sols.length >= 1, Gs);
+ok('G a map with infinitely many inverse branches keeps the search (not exact)', !!Gs && !Gs.exact && Gs.sols.length >= 1, Gs);
 // the cost of a frame of motion: the exact list against the tracker, 8 preimages each (the largest of 12 live steps)
 const frameCost = async () => { let mx = 0; for (let i = 1; i <= 12; i++) { const re = 1 + 0.02 * i, im = 0.01 * i; await ev(`Params.set('a', { re: ${re}, im: ${im} }, { live: true }); 1`); await preAt('pa', re, im); mx = Math.max(mx, (await pre()).trackMs || 0); } return +mx.toFixed(3); };
 info.trackerMs = await frameCost();
