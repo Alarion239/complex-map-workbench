@@ -3018,7 +3018,8 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
       }
     }
   }
-  // generated text by inverse key (it depends on the op structure only): parameter edits rebuild no GLSL
+  // generated text by source key (srcKey: the inverse key, which the op structure gives, and the external ray's
+  // constants, Inverse.NEWT_RAY, which a NEWT op's ray stages bake in): parameter edits rebuild no GLSL
   const invTextCache = new Map();
   function buildInverse(steps, built) {
     // the ops of every live step and the key (the same string as Inverse.inverseKey, from one stepOps per step)
@@ -3058,7 +3059,8 @@ uniform vec4 uIxBox[${N}];   // box: (e, lo, hi), +-1e30 unbounded
 uniform int uIxStopOp; uniform vec4 uIxStopMob; uniform vec4 uIxStopT[2];
 uniform bool uIxStopMobOn; uniform float uIxPAccInP;
 `;
-    let txt = invTextCache.get(key);
+    const srcKey = key + '|' + JSON.stringify(Inverse.NEWT_RAY);
+    let txt = invTextCache.get(srcKey);
     if (!txt) {
       // (the NEWT roots pass of the last NEWT op, 07-inverse-api.js draws it: a polynomial one's roots, ceil(D / 2)
       // targets; another's member 0 on the grid and member 1, two)
@@ -3066,13 +3068,13 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       txt = { lib: head + INV_LIB + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
-      invTextCache.set(key, txt);
+      invTextCache.set(srcKey, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
     const { lib, walker, nr } = txt;
     let vals = null;
     return {
-      ok: true, key, lib, walker, nr, nOps: ops.length, slots: S,
+      ok: true, key, srcKey, lib, walker, nr, nOps: ops.length, slots: S,
       ops: ops.map((o) => ({ kind: o.kind, step: o.step, node: o.node, j: o.j, cell: o.cell })),
       fill(out) {
         if (!vals) {

@@ -163,14 +163,15 @@
   }
   const formsSrc = (srcs) => (srcs.length ? srcs.join('') + 'float formulaLevel(int f, vec2 z) {\n' + srcs.map((_, i) => `  if (f == ${i}) return ilev${i}(z);\n`).join('') + '  return -1.0;\n}\n' : '');
 
-  // ---- inverse programs (4.4): keyed inv|<inverse key>|<formula bundle>|B<n> (invS on the globe), in progs (so
+  // ---- inverse programs (4.4): keyed inv|<source key>|<formula bundle>|B<n> (invS on the globe), in progs (so
   // context loss clears them) with their own LRU of 8 that never evicts a program drawn in this or the last frame.
   // Never a history stand-in. A failed compile is silent (one console line, no frameErr / lastError) and marks the
   // chain structure ineligible for the session.
   const INV_KEEP = 8;
   let invFrame = 0;                     // begin() / viewport() count: "this or the previous frame" = the last 4
   const invFailed = new Set();          // inverse keys whose program failed (session)
-  function invProgKey(inv, B, globe, formsKey) { return `${globe ? 'invS' : 'inv'}|${inv.key}|${formsKey}|B${B}`; }
+  // (inv.srcKey: what the program's text is built from, GLChain's inverse key and the constants it bakes in)
+  function invProgKey(inv, B, globe, formsKey) { return `${globe ? 'invS' : 'inv'}|${inv.srcKey || inv.key}|${formsKey}|B${B}`; }
   // coldNonce (tests: the perf suite's cold-compile units, SPEC 13.12): every new inverse program gets a uniform the
   // compilers cannot fold, so its text is new to the machine (macOS caches compiled Metal libraries system-wide, and
   // ANGLE strips comments): its compile and first draw are cold, as on a user's first visit
