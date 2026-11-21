@@ -47,7 +47,8 @@ for (const type of ['dh', 'bottcher']) {
   }
 }
 // controls: a step that declares degreeOne but has two roots over a w (z + a / z, a above the tangency test's reach: two
-// preimages of every w) fails the numeric check and keeps the full path; a polynomial step keeps its two members
+// preimages of every w) fails the numeric check and keeps the full path; a polynomial step keeps its members (degree 5:
+// the closed forms take degrees 3 and 4 off the NEWT op, InvOps.opRat3)
 {
   const A = 40;   // |f(z) / z - 1| = A / |z|^2 = 0.04 at |z| = NEWT_RAY.R: the identity test passes, the map is two-to-one
   const s = { type: 'dh', params: Funcs.defaults('dh'), on: true }, b = Funcs.build(s);
@@ -55,7 +56,7 @@ for (const type of ['dh', 'bottcher']) {
   b.f = f; b.hom = (t) => (z) => { const w = f(z); return { re: (1 - t) * z.re + t * w.re, im: (1 - t) * z.im + t * w.im }; };
   const op = Inverse.homOps(b, 0.5).ops.find((o) => o.kind === 'NEWT');
   check('a two-to-one step declaring degreeOne is not accepted as single-root (its ops carry no skip)', !!op && !(op.p.back || []).some((q) => q.single) && (op.p.back || []).some((q) => q.ray), JSON.stringify(op && op.p.back && op.p.back.map((q) => [q.ray, q.single])));
-  const q = Inverse.homOps(Funcs.build({ type: 'poly', params: Funcs.defaults('poly'), on: true }), 0.5).ops.find((o) => o.kind === 'NEWT');
+  const q = Inverse.homOps(Funcs.build({ type: 'poly', params: Object.assign({}, Funcs.defaults('poly'), { co: '1, 0, 0, 0, -1, 1' }), on: true }), 0.5).ops.find((o) => o.kind === 'NEWT');
   check('a polynomial step keeps its roots as members (no skip)', !!q && !(q.p.back || []).some((x) => x.single));
 }
 {
