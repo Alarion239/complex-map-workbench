@@ -647,6 +647,14 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .int-cap { font: var(--t-label); color: var(--muted); }
 .int-cap i { font: var(--t-math-s); color: var(--ink-2); }
 .int-pop .icon-btn.copied { color: var(--good); }
+/* touch: the popover's Copy and Close keep their 32 px look and have a 44 px hit area (as the phone's alone chip, phone.css), and the
+   rows and the title are 44 px tall, so the buttons are 44 px apart centre to centre (WCAG 2.2's 2.5.8 spacing, and the project's 44 px
+   rule on touch, test/lib/layout.js targetSizes); a mouse keeps 24 px (#2191) */
+@media (pointer: coarse) {
+  .int-pop .icon-btn.small::after { content: ""; position: absolute; inset: -6px; }
+  .int-pop .pop-title { height: 44px; }
+  .int-row { min-height: 44px; }
+}
 /* the shape panel lists the w-plane targets of the Preimage view under their own heading */
 .shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .shapes .shapes-sub i { font: italic 500 12px/14px var(--f-math); color: var(--ink-2); }
