@@ -22,6 +22,9 @@ await pick('s1');
 const z0 = [await ink([0.8, -0.6]), await ink([1.3, -0.6])];
 ok('a selected z disc keeps its centre and radius handles on plane z', z0[0] > 0 && z0[1] > 0, z0);
 await pick('s2');
+// (Look down draws the selected disc's target ring on z by design, 19-lookdown.js: its switch off, only handles would ink)
+await ev(`(() => { const c = document.querySelector('#propsPanel .ro-card input[type=checkbox]'); if (c && c.checked) c.click(); return 1; })()`);
+await settled({ panes: false });
 const w0 = [await ink([-1.2, 1.4]), await ink([-0.7, 1.4])];
 ok('a selected disc of w₁ draws no centre or radius handle on plane z', w0[0] === 0 && w0[1] === 0, w0);
 return { pass: fails.length === 0, fails, info };
