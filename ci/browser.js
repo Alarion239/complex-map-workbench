@@ -112,7 +112,7 @@ async function runOne(file, run, port) {
   }, run.env || {});
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
-  if (HELD) HELD.daemon(child.pid);
+  if (HELD) HELD.daemon(child.pid, daemon);
   let log = '';
   child.stdout.on('data', (d) => { log += d; });
   child.stderr.on('data', (d) => { log += d; });
