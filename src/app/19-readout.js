@@ -11,6 +11,29 @@
   const RO_SPAN = 2;          // the slider's top: RO_SPAN times the larger of r and the largest join radius
   const RO_STEPS = 400;       // about the slider's steps from 0 to its top (a whole number of them up to r, so r is one)
   const roCache = new Map();
+  // the critical data of the steps from plane k to T (Critical.ofChain), kept per plane, stage and chain, for the card and
+  // for Look down. Where the critical points are infinitely many, those in the window win are listed: they are pulled back
+  // over the window grown by CRIT_PAD of its size on each side, at most CRIT_CAP of them, again only when win leaves that
+  // box or is under a quarter of its width, so a pan within it costs nothing
+  const CRIT_PAD = 0.5, CRIT_CAP = 96;
+  const critCache = new Map();
+  function stageCritical(k, T, win = null) {
+    const key = JSON.stringify([k, T, chainSig[nSteps()]]);
+    let d = critCache.get(key);
+    if (!d) {
+      try { d = { cr: Critical.ofChain(S.steps, built, k, T) }; } catch (e) { d = { cr: null }; }
+      critCache.set(key, d);
+      while (critCache.size > 16) critCache.delete(critCache.keys().next().value);
+    }
+    const cr = d.cr;
+    if (!win || !cr || cr.points.complete || !cr.values.known) return cr;
+    const w = d.win, wx = win.x1 - win.x0, wy = win.y1 - win.y0;
+    if (!w || win.x0 < w.x0 || win.x1 > w.x1 || win.y0 < w.y0 || win.y1 > w.y1 || wx < (w.x1 - w.x0) / 4) {
+      d.win = { x0: win.x0 - CRIT_PAD * wx, x1: win.x1 + CRIT_PAD * wx, y0: win.y0 - CRIT_PAD * wy, y1: win.y1 + CRIT_PAD * wy };
+      try { d.inWin = Critical.ofChain(S.steps, built, k, T, d.win, CRIT_CAP); } catch (e) { d.inWin = cr; }
+    }
+    return d.inWin;
+  }
   // whether the selected shape s gets the card: a disc of a later plane than the one shown
   const readoutOn = (s) => !!(s && SV.on && s.kind === 'disc' && !s.complement && shapeStage(s) > leftStage());
   // {pc: Pieces.count's answer, joins: the join radii about the disc's centre}, kept per plane, stage, chain and disc
@@ -21,8 +44,8 @@
       let pc = { counted: false }, joins = [];
       try { pc = Pieces.count(S.steps, built, k, T, c, s.r); } catch (e) { pc = { counted: false }; }
       try {
-        const cr = Critical.ofChain(S.steps, built, k, T);
-        if (cr.values.known) joins = Critical.joinRadii(cr.values.list, c).map((e) => e.r).filter((r) => r > 0);
+        const cr = stageCritical(k, T);
+        if (cr && cr.values.known) joins = Critical.joinRadii(cr.values.list, c).map((e) => e.r).filter((r) => r > 0);
       } catch (e) { joins = []; }
       d = { pc, joins };
       roCache.set(key, d);
