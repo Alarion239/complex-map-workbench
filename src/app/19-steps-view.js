@@ -3741,11 +3741,11 @@
           // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
           if (!globe && st.every((x) => x === 'ready') && !h.paths.some((q) => q.inv && q.inv.nr)) {
             let drawn = false;
-            const frame = { open: false };
-            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, frame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            const warmFrame = { open: false };
+            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
             // (and the outlines over it, into the same frame, which no pane shows: the first glide frame would build
             // their pass's scratch and pipeline otherwise)
-            if (drawn && !SV.bare) { try { svOutlines(paneL, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, frame, false); } catch (e) { /* the glide frame draws them */ } }
+            if (drawn && !SV.bare) { try { svOutlines(paneL, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
             if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
           }
         }
