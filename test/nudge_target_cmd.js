@@ -44,4 +44,20 @@ const leg = async (view) => {
 await view(1280, 800, false, false);
 await leg('steps');
 await leg('classic');
+// in ru the toast says «Объект «<the row's name>» перемещён …»: the shape's name in «», and a participle that agrees with
+// «Объект», not with the shape (a «Точка», a «Круг» or an «Отрезок» alike)
+{
+  await seed('ntgru', STATE);
+  await nav(`http://localhost:${PORT}/test.html?ns=ntgru&view=classic&lang=ru`);
+  await settled({ max: WARM_MS, only: true, until: `typeof __cmwShapes === 'function' && __cmwShapes().targets.length === 1` });
+  const name = await ev(`(() => { const r = ${ROW}, k = r && r.querySelector('.k'); return k ? k.textContent.trim() : null; })()`);
+  await ev(`${ROW}.focus(); 1`);
+  await key('Enter'); await settled({ only: true, max: WARM_MS, until: `${ROW}.getAttribute('aria-pressed') === 'true'` });
+  await key('ArrowRight');
+  // (the toast of the run's end, the first that says the shape moved, within SAID_MS)
+  const w = await ev(`new Promise((res) => { const t0 = performance.now(); const f = () => { for (const x of document.querySelectorAll('#toastHost .toast')) if (/перемещ/.test(x.textContent)) return res(x.textContent); if (performance.now() - t0 > ${SAID_MS}) res(null); else setTimeout(f, 50); }; f(); })`);
+  info.ru = { name, said: w };
+  const m = /^Объект «([^«»]+)» перемещён в -?[\d.,]+, -?[\d.,]+\.$/.exec(w || '');
+  ok('ru: the toast is «Объект «<the row\'s name>» перемещён в x, y.»', !!m && m[1] === name, info.ru);
+}
 return { pass: fails.length === 0, fails, info };
