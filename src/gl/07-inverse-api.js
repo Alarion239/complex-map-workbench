@@ -1180,6 +1180,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.deleteBuffer(vbo); gl.deleteBuffer(out); gl.deleteVertexArray(vao);
       return res;
     },
+    // (tests) the lines' CPU stand-ins made or refused last (cpuEntry): {n, m, ms} each
+    lineStandIns: () => cpuLines.slice(),
     // (tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
     // (walls tests) the landscape's grid and refinement read back

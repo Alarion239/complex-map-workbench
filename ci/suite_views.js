@@ -105,6 +105,7 @@ const VIEWS = {
   'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
   'steps_pullback_speck_cmd.js': steps({ pin: true }),
+  'steps_line_standin_cmd.js': steps(),
   'steps_glide_mask_carry_cmd.js': steps(),
   'steps_glide_mask_later_cmd.js': steps({ pin: true }),
   'steps_paused_cut_cmd.js': steps({ pin: true }),
