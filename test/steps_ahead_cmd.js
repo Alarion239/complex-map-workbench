@@ -32,6 +32,9 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const { holdIdle, releaseIdle } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'idle_queue.js'), 'utf8'))({ ev });
 const goOk = async (url) => { if (!(await go(url))) throw new Error('no load event for ' + url); };
 const FRAME_MS = 14, WAIT_MS = 120000, LIVE_MAX = 2, STILL_MS = 250, STILL_TRIES = 40, PRIME_CLOCK_MS = 200;
+// the hold section's cap on the frames' wait (ahead.waitMs): past any count of the zeta chain's frames at any cost, so its plan
+// draws them ahead however slow a frame is (the section tests the hold, not the cap; WAIT_MS bounds each of its waits)
+const HOLD_WAIT_CAP_MS = 1e9;
 const MEMORY = 'The glide draws as it goes: its frames would not fit in memory.', TIME = 'The glide draws as it goes: its frames would take too long to prepare.';
 // every text the steps view's live region says, from now on, in window.__live
 const WATCH = `(() => { window.__live = []; const el = document.querySelector('#stage > .sr-only[aria-live]'); new MutationObserver(() => __live.push(el.textContent)).observe(el, { childList: true, characterData: true, subtree: true }); return 1; })()`;
@@ -225,7 +228,8 @@ await rest(0);
 // Inside regions; once a frame is made, every pole track dropped and a frame's own pole search all but nothing, with the
 // page's idle moments held (lib/idle_queue.js) so the idle job does not make the tracks again. The chain's cost is measured
 // first, by one live glide and the probe after it (its log, __cmwSteps().aheadProbe, says how it went: drawn, or given up
-// and why). A wait that runs out ends the section at once (need), with the probe's log ----
+// and why). Its frames are drawn ahead whatever they cost (HOLD_WAIT_CAP_MS), and a glide that plays live ends the section at
+// once, with the cost. A wait that runs out ends the section at once (need), with the probe's log ----
 {
   let held = false;
   try {
@@ -236,7 +240,7 @@ await rest(0);
     await ev(`__cmwExample(${ex}), 1`);
     // (the example's chain adopted before the scope is set: a load that lands later sets the example's own scope)
     await adopted();
-    await ev(`__cmwSteps({ scope: 'in', ahead: { ms: 0, waitMs: ${WAIT_MS} } }), 1`);
+    await ev(`__cmwSteps({ scope: 'in', ahead: { ms: 0, waitMs: ${HOLD_WAIT_CAP_MS} } }), 1`);
     await ev(`__cmwSteps({ go: 0, now: true }), 1`);
     await need(await settled({ only: true, max: WAIT_MS, until: '!__cmwSteps().moving && __cmwSteps().x === 0 && __cmwSteps().ready.ready && __cmwSteps().scope === "in"' }), 'plane z at rest, ready, Inside regions');
     // (the chain's cost: a live glide, then the probe in the idle moments after it)
@@ -253,7 +257,10 @@ await rest(0);
     await holdIdle();
     held = true;
     await ev('__cmwSteps({ clock: 1e-6 }), __cmwSteps({ go: 1 }), 1');
-    await need(await settled({ only: true, max: WAIT_MS, until: '(() => { const a = __cmwSteps().ahead; return !!a && a.n >= 2; })()' }), 'two frames made');
+    // (the plan's decision first: the glide waits while its frames are made, or it plays live, said at once with the chain's cost)
+    await need(await settled({ only: true, max: WAIT_MS, until: '(() => { const s = __cmwSteps(), a = s.ahead; return (!!a && (a.n >= 2 || a.state === "live")) || (!a && !!s.anim); })()' }), 'two frames made, or the glide played live');
+    const plan = (await S()).ahead;
+    if (!ok('hold: the glide waits while its frames are made (not played live for their time or memory)', !!plan && !(plan.state === 'live' && (plan.why === 'time' || plan.why === 'memory')), { ahead: plan, cost: probe.cost })) throw new Error('the glide played live');
     await ev('__cmwSteps({ poleFrameMs: 0.001, dropTracks: true }), 1');
     await need(await settled({ only: true, max: WAIT_MS, until: '(() => { const a = __cmwSteps().ahead; return !a || a.rejects > 0 || a.state !== "fill"; })()' }), 'the hold met, or the frames made');
     const R = (await S()).ahead;
