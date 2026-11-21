@@ -62,6 +62,10 @@
   // offset it records is not carried into the next full placement: the stop may move a label that the moving frames held
   const labelSlots = new Map();
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
+  // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
+  const LEADER_ROWS = 3, LEADER_COST = 3;
+  // (a label's halo, and the leader's ink line, in px)
+  const HALO_W = 3, LEADER_W = 1;
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
   const CURVE_COST_CAP = 3, CURVE_COST_PER = 0.5, AMBIGUOUS_COST = 4, AVOID_COST = 1;
   // (the points that are gone, deleted or replaced with the chain, lose their offsets)
@@ -104,7 +108,8 @@
     if (pane === paneL && lFlat()) for (const hd of cutHandlesL.concat(cutMarksL)) hard.push({ x0: hd.x - 8, x1: hd.x + 84, y0: hd.y - 11, y1: hd.y + 11 });
     // (the plane's own controls, over its canvas: the legend chips, the view buttons, the phone's button column. Read at a full
     // placement only: a pass on the move keeps the offsets of the last one)
-    if (!lite) hard.push(...controlBoxes(pane));
+    const ctrl = lite ? [] : controlBoxes(pane);
+    hard.push(...ctrl);
     // soft obstacles: the curves, as a 4px occupancy grid
     const G = 4, gw = Math.ceil(W / G) + 2, gh = Math.ceil(H / G) + 2;
     let grid = null;
@@ -167,7 +172,7 @@
     ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
     ctx.globalAlpha = 1;
     ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-    ctx.lineJoin = 'round'; ctx.lineWidth = 3;
+    ctx.lineJoin = 'round'; ctx.lineWidth = HALO_W;
     for (const g of groups) {
       const text = g.texts.join(' = ');
       ctx.font = g.word ? wordFont() : `italic 500 13px ${TH.math}`;
@@ -198,10 +203,11 @@
         return { x: x0, y: y1, cost: Math.min(CURVE_COST_CAP, CURVE_COST_PER * cc) + pen + (amb ? AMBIGUOUS_COST : 0) + AVOID_COST * av };
       };
       const slot = g.id !== undefined ? labelSlots.get(g.id) : undefined;
-      let x, y;
+      let x, y, leader = false;
       if (lite && g.id !== undefined) {
         // on the move: the last full placement's offset, drawn as it is
         [x, y] = [g.x + (slot || LABEL_DEFAULT)[0], g.y + (slot || LABEL_DEFAULT)[1]];
+        leader = !!(slot && slot[2]);
       } else {
         // at rest: the best candidate for the view alone, so a resting picture does not depend on the path taken to it
         let best = null, bestCost = Infinity;
@@ -209,11 +215,26 @@
           const e = evalCand(dx, dy, pen);
           if (e && e.cost < bestCost) { best = e; bestCost = e.cost; if (e.cost === 0) break; }
         }
+        // a point under a control (the phone's key column rises over it): its label stands left of that control, joined to the point by a leader
+        const cover = best ? null : ctrl.find((b) => g.x > b.x0 && g.x < b.x1 && g.y > b.y0 && g.y < b.y1);
+        if (cover) {
+          for (let k = 0; k <= LEADER_ROWS * 2 && !best; k++) {
+            const row = k % 2 ? (k + 1) / 2 : -k / 2;
+            best = evalCand(cover.x0 - tw - g.x, row * (th + 2), LEADER_COST);
+          }
+          leader = !!best;
+        }
         if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
         ({ x, y } = best);
-        if (g.id !== undefined) labelSlots.set(g.id, [x - g.x, y - g.y]);
+        if (g.id !== undefined) labelSlots.set(g.id, leader ? [x - g.x, y - g.y, true] : [x - g.x, y - g.y]);
       }
-      placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text });
+      placed.push({ x0: x - 1, x1: x + tw + 1, y0: y - th - 1, y1: y + 2, text, leader });
+      if (leader) {
+        ctx.beginPath(); ctx.moveTo(x + tw + 1, y - th / 2 + 1); ctx.lineTo(g.x, g.y);
+        ctx.strokeStyle = TH.halo; ctx.lineWidth = HALO_W; ctx.stroke();
+        ctx.strokeStyle = g.ink || TH.ink; ctx.lineWidth = LEADER_W; ctx.stroke();
+        ctx.lineWidth = HALO_W;
+      }
       ctx.strokeStyle = TH.halo; ctx.strokeText(text, x, y);
       ctx.fillStyle = g.ink || TH.ink; ctx.fillText(text, x, y);
     }

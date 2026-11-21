@@ -33,7 +33,8 @@ const press = (k) => ev(`document.body.dispatchEvent(new KeyboardEvent('keydown'
 
 
 // (a press of ▶ or an arrow waits for the prestart and its idle jobs: the suite presses once the chain is prepared)
-const calm = () => settled({ max: 120000, only: true, until: '__cmwSteps().ready.ready' });
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
+const calm = () => kit.prepared('true', 120000, { only: true });
 const ctl = async (o) => { if (o && o.play === true) await calm(); return ev(`__cmwSteps(${JSON.stringify(o)})`); };
 const kdown = (k, mods = {}) => ev(`(document.activeElement || document.body).dispatchEvent(new KeyboardEvent('keydown', Object.assign({ key: '${k}', bubbles: true, cancelable: true }, ${JSON.stringify(mods)}))); 1`);
 const until = async (expr, max = 15000) => { const r = await settled({ until: expr, max, only: true, poll: 25 }); return { s: await S(), ms: r.ms, timeout: !r.ok }; };
