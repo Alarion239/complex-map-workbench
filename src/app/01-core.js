@@ -896,7 +896,7 @@
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
   // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
   // pane of the split view (S.solo) or null
-  const solo = () => (SV.on ? 'L' : Views.merged(S.view, morphOn()) || (S.view.main === 'xy' ? S.solo : null));
+  const solo = () => (SV.on ? 'L' : Views.merged(S.view) || (S.view.main === 'xy' ? S.solo : null));
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)

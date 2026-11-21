@@ -392,7 +392,7 @@
     return false;
   }
   function setSolo(which) {
-    if (Views.merged(S.view, morphOn())) return; // a merged view is one panel: nothing to expand
+    if (Views.merged(S.view)) return; // a merged view is one panel: nothing to expand
     setOpt('solo', S.solo === which ? null : which);
     applyLayout();
     save();
@@ -411,7 +411,7 @@
     const panes = document.querySelector('.panes');
     // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
     // so it reads as a view of its own, not an expanded pane
-    const one = solo(), mg = Views.merged(S.view, morphOn());
+    const one = solo(), mg = Views.merged(S.view);
     panes.classList.toggle('solo-L', one === 'L');
     panes.classList.toggle('solo-R', one === 'R');
     panes.classList.toggle('merged-L', mg === 'L');

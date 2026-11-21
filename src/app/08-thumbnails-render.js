@@ -123,52 +123,6 @@
     // request)
     frameLag = Math.max(0, performance.now() - rafReqT);
     prepMs = 0;
-    if (morph.playing && morph.open) {
-      const dt = morph.last ? Math.min(0.1, (ts - morph.last) / 1000) : 0;
-      morph.last = ts;
-      const m = morphLen();
-      // per step: eased motion, a short hold at each step boundary, a longer one at the end
-      if (!m) { morph.playing = false; }
-      else if (morph.hold > 0) morph.hold -= dt;
-      else {
-        // the current step is tracked explicitly; deriving it from floor(T) skipped a step when easing rounded T up to an integer
-        if (morph.seg == null) { morph.seg = Math.max(0, Math.min(m - 1, Math.floor(morph.T))); morph.u = Math.max(0, Math.min(0.999, morph.T - morph.seg)); }
-        const before = morph.seg;
-        morph.u = (morph.u || 0) + dt / (S.morphSecs || 1.6);
-        if (morph.u >= 1) { morph.u = 0; morph.T = Math.min(m, before + 1); morph.seg = morph.T >= m ? null : before + 1; morph.hold = morph.T >= m ? 1.0 : 0.5; if (morph.T >= m) sndMorphArrive(); }
-        else { const u = morph.u; morph.T = Math.min(before + 0.9999, before + (u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2)); }
-      }
-      if (m && morph.hold <= 0 && morph.T >= m) {
-        if (S.loop === false || matchMedia('(prefers-reduced-motion: reduce)').matches) { morph.playing = false; morph.seg = null; scheduleFix(); } else { morph.T = 0; morph.u = 0; morph.seg = 0; }
-      }
-      dirty.R = true;
-      // X's portrait, landscape or phase globe paint H_t too
-      if (lPaintsF()) dirty.L = true;
-      // (the readout and the scrubber follow T here, every frame and when Play stops at the
-      // end; renderRight's call does not run while Y's pane is hidden, as in Phase alone)
-      syncTransport();
-      again = morph.playing;
-      soundFunctionChanged('t');
-      sndMotion();   // (sound: the motion bed on a play's first pass)
-    }
-    // the step glide moves T while it owns it: T is still what it wrote last. Play, the scrubber, a tick, a new
-    // range or focus that moved T take it back, and the glide rests where T is
-    if (glide.moving() && !trans.glide) {
-      if (!morph.open || morph.playing || morph.T !== glide.x) glide.set(morph.T);
-      else {
-        // (a step removed or turned off while it glides: the target stays inside the chain as it is)
-        if (glide.target > morphLen()) glide.to(morphLen(), morphLen());
-        const dt = glide.last ? (ts - glide.last) / 1000 : 1 / 60;
-        glide.last = ts;
-        const still = !glide.step(dt);
-        morph.T = glide.x;
-        dirty.R = true;
-        if (lPaintsF()) dirty.L = true;
-        syncTransport();
-        soundFunctionChanged('t');
-        if (still) { glide.last = 0; scheduleFix(); } else again = true;
-      }
-    }
     // camera tweens and inertia in 3D views
     for (let i = camTweens.length - 1; i >= 0; i--) {
       const tw = camTweens[i];
@@ -243,7 +197,7 @@
   }
   // one frame of the glide; true while it moves
   function stepPeek(ts) {
-    const L = !morph.open && S.view.main === 'xy' && rImage() && peekSteps();
+    const L = S.view.main === 'xy' && rImage() && peekSteps();
     if (!L) { endPeek(); return false; }
     if (glide.target > L.length) glide.to(L.length, L.length);
     if (glide.moving()) {
@@ -259,7 +213,7 @@
     return false;
   }
   function startTransition(k) {
-    if (matchMedia('(prefers-reduced-motion: reduce)').matches || !rImage() || morphOn() || rightStage() !== k || !stepActive(k)) return;
+    if (matchMedia('(prefers-reduced-motion: reduce)').matches || !rImage() || rightStage() !== k || !stepActive(k)) return;
     trans.k = k; trans.t0 = performance.now();
     // frame both the start and the end of the deformation, then settle on the result
     paneR.setView(V.right);
@@ -338,7 +292,7 @@
     cmChain();   // (step uids, zero ids, constructions on f1's zeros and F(z0))
     soundFunctionChanged();
     if (structural) chainRebuilt();
-    const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !morphOn() && !hasTargets(), tf = performance.now();
+    const fit = !(o && o.live && fitMs > FIT_LIVE_MS), sliced = fitMs > FIT_LIVE_MS && !hasTargets(), tf = performance.now();
     if (fit && rightAuto && autoFit()) { if (sliced) fitRightSliced(); else fitRight(); }
     const ls = leftStage() + ':' + chainSig[leftStage()];
     if (fit && leftStage() > 0 && leftAuto && ls !== lastLeftSig) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
@@ -346,7 +300,6 @@
     if (fit && !sliced) { fitMs = performance.now() - tf; fitLate = 0; }
     endPeek();
     svChainChanged();
-    if (morph.open && !morphRange().steps.length) closeTransport();
     scheduleFix();
     updateLeds();
     refreshIntPop();
@@ -379,36 +332,6 @@
     pane.setView(saved);
     return tmp;
   }
-  // the deformation's own frame at pane's size (fitRight; the globe's path selection frame)
-  function defFitView(pane, withT) {
-    let target;
-      // the deformation: its start and its end. A start much larger than its end (an unbounded source, the
-      // half-plane e^X of a strip at a focused Möbius step) is clipped to 1.5 times the end's box, so H_t(X) does not
-      // shrink to a blob in a frame of the source; the Fit button also takes the current H_t
-      // (withT)
-      const base = S.focus > 0 ? S.focus - 1 : 0;
-      const end = S.focus > 0 ? S.focus : nSteps();
-      const m = morphLen();
-      const xs = [], ys = [], bx = [], by = [];
-      stageSamples(stageF(end), xs, ys, end);
-      if (withT && morph.T > 0 && morph.T < m) stageSamples(morphAt(morph.T), xs, ys);
-      stageSamples(homRangeOk() ? morphState(false).H0F : stageF(base), bx, by, homRangeOk() ? undefined : base);   // (the bracket's start)
-      const U = robustBox(xs, ys), B = robustBox(bx, by);
-      const area = (b) => (b.x1 - b.x0) * (b.y1 - b.y0);
-      if (U && B && area(B) > 9 * Math.max(area(U), 1e-12)) {
-        const cx = (U.x0 + U.x1) / 2, cy = (U.y0 + U.y1) / 2, hw = 0.75 * (U.x1 - U.x0), hh = 0.75 * (U.y1 - U.y0);
-        for (let i = 0; i < bx.length; i++) if (Math.abs(bx[i] - cx) <= hw && Math.abs(by[i] - cy) <= hh) { xs.push(bx[i]); ys.push(by[i]); }
-        const b = robustBox(xs, ys) || U;
-        const v = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, keep = pane.view;
-        pane.setView(v); pane.fitBox(b, 0.07); pane.setView(keep);
-        target = v;
-      } else {
-        for (let i = 0; i < bx.length; i++) { xs.push(bx[i]); ys.push(by[i]); }
-        const b = robustBox(xs, ys);
-        target = b ? (() => { const v = { cx: V.right.cx, cy: V.right.cy, s: V.right.s }, keep = pane.view; pane.setView(v); pane.fitBox(b, 0.07); pane.setView(keep); return v; })() : fittedView(pane, end, [base]);
-      }
-    return target;
-  }
   // (a costly fit of Y (the last took over FIT_LIVE_MS: a series sampled on the CPU) after a chain change: its
   // samples are taken in slices of FIT_SLICE ms between which the page draws and takes input; Y keeps its view until
   // the fit is ready; a newer change or fit drops it)
@@ -427,17 +350,16 @@
       t0 = performance.now();
     }
     fitMs = fitLate = ms + performance.now() - t0;
-    if (rightStage() !== k || chainSig[k] !== sig || !(rightAuto && autoFit()) || morphOn() || hasTargets()) return;
+    if (rightStage() !== k || chainSig[k] !== sig || !(rightAuto && autoFit()) || hasTargets()) return;
     paneR.setView(V.right);
     Object.assign(V.right, boxView(paneR, robustBox(xs, ys) || { x0: -2, x1: 2, y0: -2, y1: 2 }));
     requestRender('R');
   }
-  function fitRight(animate, withT) {
+  function fitRight(animate) {
     fitJob.token++;
     paneR.setView(V.right);
     let target;
-    if (morphOn()) target = defFitView(paneR, withT);
-    else if (hasTargets()) {
+    if (hasTargets()) {
       // the image of the domain and the w-plane targets
       const xs = [], ys = [];
       stageSamples(stageF(rightStage()), xs, ys, rightStage());
@@ -470,12 +392,9 @@
     setFocusStep(k);
     if (k > 0) setSel(k);   // (showing a step alone selects it)
     leftAuto = true; rightAuto = true;
-    // (Y's split view, put aside by the deformation, is fitted again for the new focus when the deformation closes)
-    if (defMem.y) defMem.y.auto = true;
     if (leftStage() > 0) { paneL.setView(V.left); fitPane(paneL, leftStage()); lastLeftSig = leftStage() + ':' + chainSig[leftStage()]; }
-    // the deformation starts over for the new focus (or closes when it has nothing to deform)
-    morph.T = 0; morph.seg = null;
-    if (morph.open && !morphRange().steps.length) closeTransport();
+    // T starts over for the new focus
+    morph.T = 0;
     updateFocusUI();
     // the target group's heading and formulas name Y's variable (wₖ with step k focused, P13)
     if (S.targets && S.targets.length) buildShapeList();

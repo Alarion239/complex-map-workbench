@@ -60,7 +60,7 @@
   // chip of the mode Esc closes next also shows Esc.
   const modeNext = () => {
     if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
+    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view)) return 'solo';
     return morphOn() ? 'morph' : null;
   };
   function modeClose(m) {
@@ -71,7 +71,7 @@
     else if (m === 'morph') closeTransport();
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
+    const mg = Views.merged(S.view), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
     const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
