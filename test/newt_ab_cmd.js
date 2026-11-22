@@ -1,7 +1,8 @@
 // Raw readback of the NEWT ops' GPU output, for comparing two builds bit for bit (ci/newt_ab.js runs it on a base build
 // and on a branch build and compares what it records). Scenes: the glide of the zeta step (a pole member), a plain NEWT
-// step (the series), a seeded one (the inverse Joukowski map), a polynomial one, and the Douady-Hubbard map's under
-// Everywhere (seeded, landed down the external ray, with the dual derivative), each at several places of its thread (and
+// step (the series), a seeded one (the inverse Joukowski map), a polynomial one (of degree 5: degrees 3 and 4 are the
+// closed forms' RAT3 and RAT4 ops, with no NEWT op), and the Douady-Hubbard map's under Everywhere (seeded, landed down
+// the external ray, with the dual derivative), each at several places of its thread (and
 // parked on plane 1), once per fresh page load. Every draw into a framebuffer is read back as it is drawn (the float target
 // as float32; a one-row target, a table upload, is left out) and hashed over its raw bits.
 // The roots pass seeds each pass from the last one of the same size and view, at whatever t that was, and each pass moves
@@ -32,7 +33,7 @@ const SCENES = [
   { name: 'zeta', step: { type: 'zeta', params: {}, on: true }, shapes: [{ id: 's1', kind: 'rect', a: [1.5, -6], b: [5, 6] }], view: { cx: 3, cy: 0, s: 60 }, xs: [...U, 1] },
   { name: 'plain', step: { type: 'series', params: {}, on: true }, shapes: [RECT], view: { cx: 0, cy: 0, s: 60 }, xs: U },
   { name: 'seeded', step: { type: 'ijouk', params: {}, on: true }, shapes: [RECT], view: { cx: 0, cy: 0, s: 60 }, xs: U },
-  { name: 'polynomial', step: { type: 'poly', params: { co: '1, 0, -1, 0' }, on: true }, shapes: [RECT], view: { cx: 0, cy: 0, s: 60 }, xs: U },
+  { name: 'polynomial', step: { type: 'poly', params: { co: '1, 0, 0, 0, -2, 1' }, on: true }, shapes: [RECT], view: { cx: 0, cy: 0, s: 60 }, xs: U },
   { name: 'dh', step: { type: 'dh', params: {}, on: true }, shapes: [], scope: 'all', view: { cx: 0, cy: 0, s: 60 }, xs: U },
 ];
 // (the record's sizes; the waits below say how they are used)
