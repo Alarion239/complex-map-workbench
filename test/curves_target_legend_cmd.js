@@ -18,9 +18,9 @@ const AREA = { id: 't2', kind: 'disc', c: [0, 0], r: 1, ci: 1, visible: true, st
 const state = (shapes) => ({ v3: true, v4: true, v5: true, v6: true, shapes, steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } });
 const open = async (w, h, touch, lang, shapes) => {
   await view(w, h, false, touch);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await settled({ panes: false });
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await settled({ panes: false });
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(state(shapes)))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps` });
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
 };
 const goTo = async (k) => { await ev(`__cmwSteps({ go: ${k}, now: true }); 1`); await settled({ floor: 600 }); };

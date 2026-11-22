@@ -191,7 +191,9 @@
   const carryExtra = (st, staged) => (carryCauchyOn(st.carry) ? (staged ? INV_CARRY_STAGED_CZ : INV_CARRY_CZ) : staged ? INV_CARRY_STAGED : INV_CARRY);
   // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
   const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
-  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + (extra.cz ? 'cz' : '') : '');
+  // (the carried variants compile the current chain in, invCarrySrc: their key names it, as a forward program's does,
+  // so a chain with the same inverse ops never draws with another chain's code)
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + (extra.cz ? 'cz' : '') + ':' + cur.key : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
@@ -775,6 +777,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+      // (the carried variant ignores uPattern: it holds no pattern code, so a pattern there needs another variant)
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
@@ -1056,7 +1059,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState,
+    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryResolve, carryResolveFrames: () => resFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
