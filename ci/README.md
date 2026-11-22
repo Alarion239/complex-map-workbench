@@ -90,7 +90,8 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
   request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
   takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed, this PR gets tier `none`
-  like a ready-for-review mirror: nothing runs, and its Gate check carries that run's verdict. A run of the top still
+  like a ready-for-review mirror: nothing runs, and its Gate check carries the verdict of the attempt that passed (it
+  reads that attempt, so a later re-run of the top's run does not change it). A run of the top still
   queued or running is not carried: a push to the top cancels it, and the PR carrying it would end red with
   nothing run. A run still going, failed, cancelled or missing means this PR runs its own tier. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
   summary says which run would have gated this head, and every PR still runs its tier.
@@ -160,9 +161,12 @@ sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inne
 (`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
 pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
 compared on Linux too.
-`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
-no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
-error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe on LLVM 20 or older (Mesa's llvmpipe on Vulkan, a Linux machine's software
+renderer when it has no GPU; Mesa 25): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made
+every later chain of a long run error; `GLSLTiers.keep` leaves it out there. The Gate's browser job (Ubuntu 26.04, Mesa 26, LLVM
+21) runs that chain once, in its `smoke` shard (`node ci/glsl.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172`), so a Mesa that crashes
+on it again shows there. `--expect-compared N` fails a page that compared fewer than N values: on a lavapipe that leaves the chain
+out (LLVM 20 or older, which the Mesa cache could fall back to) the page passes with none; #1835 lifts the entry when no Mesa in use crashes. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
 the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
