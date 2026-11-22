@@ -44,8 +44,8 @@
 //   the frame's window are graded too; the frame's by default). At alpha 1 that is the front root alone. A pixel where
 //   a root off P's canvas (whose cover and colour P cannot show) would weigh more than tol / 2 counts as none. Pixels next
 //   to a colour line (__giRange: a 4 x 4 neighbourhood spanning more than 12 levels, in P about a layer's z, when that
-//   range times the layer's weight passes tol / 2, or in F about w) are
-//   not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), far (of n,
+//   range times the layer's weight passes tol / 2, or in F about w), and those with a layer's z under a dot P marks a
+//   point with (within 5 CSS px of a point of window.__giMarks, such as a cut's branch point), are not compared. Frames are { W, H, d } (d: the RGBA bytes). Answers { n compared, none (no z on the canvas), far (of n,
 //   the pixels whose front z lies past the frame's window), max, over: the share of n more than tol apart in a channel };
 // - refOf(base, tag, tol, step = 10): __giRef of two kept frames (base: plane z's parked frame, in the camera grab kept for
 //   it, which may be wider than tag's) sampled every step px, by the glide's record grab kept for tag, or null when that
@@ -104,6 +104,11 @@
   // g.alpha (1 when the record has none) and the farthest opaque, until less than 1/255 shows through; at opacity 1 that is
   // the front point alone)
   const A = g.alpha == null ? 1 : g.alpha;
+  // (the points P marks with a dot, window.__giMarks (plane points; none by default), as P's device pixels: a layer's point
+  // within MARK_PX CSS px of one lies under the dot, whose inside is too wide for a colour line's test yet is not P's
+  // colour, and is left out as by a colour line. A cut's branch point dot is a disc of radius 3.5 CSS px, stroked 1.5 px
+  // wide)
+  const MARK_PX = 5, marks = (window.__giMarks || []).map((z) => [((z.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5, (g.h / 2 - (z.im - pv.cy) * pv.s) * dpr - 0.5]);
   let n = 0, over = 0, none = 0, max = 0, far = 0;
   for (let py = 4; py < Ht - 4; py += step) for (let px = 4; px < W - 4; px += step) {
     const w = s2w(px + 0.5, py + 0.5), roots = [];
@@ -156,6 +161,7 @@
     for (const { q, wt } of layers) {
       const fx = ((q.z.re - pv.cx) * pv.s + g.w / 2) * dpr - 0.5, fy = (g.h / 2 - (q.z.im - pv.cy) * pv.s) * dpr - 0.5, qx = Math.floor(fx), qy = Math.floor(fy), ax = fx - qx, ay = fy - qy;
       if (qx < 2 || qy < 2 || qx >= W - 3 || qy >= Ht - 3) { edge = true; break; }
+      if (marks.some((m) => Math.hypot(fx - m[0], fy - m[1]) <= MARK_PX * dpr)) { line = true; break; }
       const rg = __giRange(P.d, W, qx, qy);
       if (rg > 12 && wt * rg > tol / 2) { line = true; break; }
       const at = (x, y, c) => P.d[4 * (y * W + x) + c];
