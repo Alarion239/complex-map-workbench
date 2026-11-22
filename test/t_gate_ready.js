@@ -95,21 +95,27 @@ const stack = (prs, runsBySha, env = {}) => {
 };
 const prs = [[7, 'low', 'identical', 0], [8, 'mid', 'ahead', 2], [9, 'top', 'ahead', 5], [10, 'side', 'diverged', 0]];
 const run2 = (id, status, conclusion, t = 1) => run(id, status, conclusion, t, [9]);
-let c = stack(prs, { top: [run2(50, 'in_progress', null)] });
-ok('cover: the top of the stack gates it; mirror, its PR and head', c.status === 0 && c.out.mirror === '50' && c.out.mirror_pr === '9' && c.out.mirror_sha === 'top', c);
-c = stack(prs, { top: [run2(50, 'completed', 'success')] });
-ok('cover: a passing run of the top is carried', c.out.mirror === '50', c);
+let c = stack(prs, { top: [run2(50, 'completed', 'success')] });
+ok('cover: a passing run of the top gates it; mirror, its PR and head', c.status === 0 && c.out.mirror === '50' && c.out.mirror_pr === '9' && c.out.mirror_sha === 'top', c);
+// (a run of the top that is still going is not carried: a push to the top cancels it, and this run's tier would then be
+// skipped with no verdict to carry)
+c = stack(prs, { top: [run2(50, 'in_progress', null)] });
+ok('cover: a run of the top still in progress: the usual run, and the summary says why', c.status === 0 && !c.out.mirror && /run 50 .*still going/.test(c.sum), c);
+c = stack(prs, { top: [run2(50, 'queued', null)] });
+ok('cover: a queued run of the top: the usual run', c.status === 0 && !c.out.mirror, c);
+c = stack(prs, { top: [run2(50, 'completed', 'success', 1), run2(51, 'in_progress', null, 2)] });
+ok('cover: the newest run of the top still going, an older one passed: the usual run (the newest decides)', !c.out.mirror, c);
 c = stack(prs, { top: [run2(50, 'completed', 'failure')] });
 ok('cover: a failed run of the top: the usual run', c.status === 0 && !c.out.mirror, c);
 c = stack(prs, { top: [run2(50, 'completed', 'cancelled')] });
 ok('cover: a cancelled run of the top: the usual run', !c.out.mirror, c);
 c = stack(prs, {});
-ok('cover: no run of the top yet: the usual run', !c.out.mirror && /no passing or running Gate run/.test(c.sum), c);
-c = stack(prs, { top: [run(50, 'in_progress', null, 1, [4])] });
+ok('cover: no run of the top yet: the usual run', !c.out.mirror && /no passing Gate run/.test(c.sum), c);
+c = stack(prs, { top: [run(50, 'completed', 'success', 1, [4])] });
 ok('cover: a run of another PR on that commit does not count', !c.out.mirror, c);
 c = stack([[7, 'low', 'identical', 0], [10, 'side', 'diverged', 0], [11, 'behind', 'behind', 0]], { side: [run2(50, 'completed', 'success')] });
 ok('cover: no open PR contains this head: the usual run', !c.out.mirror && /No open pull request/.test(c.sum), c);
-c = stack(prs, { top: [run2(50, 'in_progress', null)] }, { SWITCH: '' });
+c = stack(prs, { top: [run2(50, 'completed', 'success')] }, { SWITCH: '' });
 ok('cover: the switch off only reports', c.status === 0 && !c.out.mirror && /Report only .*#9 contains this head and run 50/.test(c.sum), c);
 c = stack(prs, { top: [run2(50, 'in_progress', null)] }, { PR: 'x' });
 ok('cover: a bad PR number does nothing', c.status === 0 && !c.out.mirror, c);
