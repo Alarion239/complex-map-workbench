@@ -72,6 +72,10 @@
   // nodes, its evaluations, CPU ms, slices, the first slice and the longest after it (ms) and why it stopped (null while
   // it runs); null when none
   /** @type {any} */ (window).__cmwStandIn = () => { const j = standInJob, g = j && j.grid; return j ? { cell: g ? g.cell : null, globe: !!j.globe, land: !!j.land, nodes: g ? g.nx * g.ny : 0, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, firstSlice: +j.firstSlice.toFixed(1), maxSlice: +j.maxSlice.toFixed(1), end: j.end } : null; };
+  // the carried colour's stand-in past T > 0 (carriedW): its latest mesh's job, the corners done of all, its evaluations,
+  // CPU ms, slices, rests, the work as last costed (ms), why it stopped (null while it runs) and whether it is dead (what
+  // it was for is gone); null when none
+  /** @type {any} */ (window).__cmwCarried = () => { const j = carriedJob; return j ? { k: j.k, of: j.w.length / 3, n: j.n, ms: +j.ms.toFixed(1), slices: j.slices, rests: j.rests, need: +j.need.toFixed(1), end: j.end, dead: j.dead } : null; };
   window.__cmwPaths = () => {
     const views = [], out = [];
     if (SV.on) views.push(['L', SV.surf === 'sphere' ? 'globe' : 'flat', stageMap(leftStage())]);   // (the steps view has one plane, the shown one: role L, a globe on the Sphere surface)

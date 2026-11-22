@@ -1917,7 +1917,7 @@
       // (the polar ring's cells are already the map's own: no fix-up, no pre-mapped mesh)
       if (x.polar) { draws.push({ res: r.meshRes, L: SV_CARRY_L, skip: svPolarOwnSkip(r, x), stand: null, behind: SV_POLAR_BEHIND }); continue; }
       const smd = still ? smFor(x, r, 'SV', 'flat', map, pane, 0, true) : null, pre = smd && smd.e ? smRes(smd.e) : null;
-      if (pre) { draws.push({ res: pre, pre: true }); continue; }
+      if (pre) { draws.push({ res: pre, pre: true, e: smd.e }); continue; }
       // (while its rebuild runs, the old mesh of the same content stands in inside its guard box: stand)
       const oldRes = smd && smd.old ? smRes(smd.old) : null, stand = oldRes ? { box: smd.old.guardBox, res: oldRes } : null;
       fixed.push(x);
@@ -1955,16 +1955,23 @@
     // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
     // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
     // layers cannot be drawn, the front layer alone is drawn)
-    // (while the carried colour's programs link: a still frame of plane z's colour (T = 0) whose shapes are all drawn from
+    // (while the carried colour's programs link past a colour plane T > 0: a still frame whose shapes are all drawn from
     // their SphereMeshes (the tiling's stand-in while a chain's first program links, smNeed's 'linking') shows those
-    // meshes in the phase of their source points, which is that colour, with programs that carry no chain)
-    const standIn = () => T === 0 && n > 0 && lay.every((d) => d.pre)
-      && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })));
-    const a = svOpacity();
-    let layers = a < 0.999 && !!GLR.carryLayers;
+    // meshes, with a program that carries no chain, in their points of the colour plane, mapped on the CPU, carriedW;
+    // through the resolve of ties when the frame's sheets can tie, as the meshes' own programs are drawn. At T = 0 the
+    // meshes' own program carries no chain: drawPreMapped draws the colour itself)
+    const standInDraw = () => lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) })));
     // (a frame whose sheets can tie draws its meshes through the resolve of ties, with the layers' programs: at full
     // opacity the front layer, below it every layer in the order it resolves)
     let ties = !!GLR.carryResolve && svTies(map, b, key);
+    const tiesAtStart = ties;
+    const standIn = () => {
+      if (!(n > 0 && T > 0 && lay.every((d) => d.pre) && lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ, map)))) return false;
+      const r = tiesAtStart ? GLR.carryResolve(svTieBand(), standInDraw) : null;
+      return r === null ? standInDraw() : r;
+    };
+    const a = svOpacity();
+    let layers = a < 0.999 && !!GLR.carryLayers;
     for (let pass = 0; pass < 2; pass++) {
       let ready = true;
       for (let i = 0; i < n; i++) {
@@ -3917,7 +3924,7 @@
       if (GLR.prestartModes) GLR.prestartModes([1]);
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
-      if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
+      if (GLR.prestart) GLR.prestart(['regionP', 'keepA', 'regionPKid']);
       // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
       // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
       if (SV.surf === 'land') {
