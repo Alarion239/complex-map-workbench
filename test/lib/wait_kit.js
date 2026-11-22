@@ -11,6 +11,7 @@
 // viewsQuiet(max, { panes }): the views have stopped moving (the test hook __cmwViewsBusy: X's meshing window still to
 // re-centre, or a plane's or a globe camera's tween running) and the panes are drawn (panes false: the views alone); a
 // failure that says so when that has not come by max ms.
+// PREPARED_MS: that default, 60 s, returned for a suite whose waits need the same bound (an arrow glide on a loaded runner).
 // still(read, step, limit, flag): read() (an async reading of the page, JSON-comparable) again every step ms until two
 // readings in a row agree, and that reading; the last one if none has by limit ms (the default max). With flag, the
 // answer is { reading, agreed }: agreed false when it is the last one.
@@ -65,5 +66,5 @@
     if (!r.ok) fails.push({ name: 'the views did not settle in time (__cmwViewsBusy)', got: r.busy });
     return r;
   };
-  return { until, reachable, sheetSettled, still, prepared, viewsQuiet };
+  return { until, reachable, sheetSettled, still, prepared, viewsQuiet, PREPARED_MS };
 };
