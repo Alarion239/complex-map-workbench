@@ -1374,7 +1374,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
         // k + DH_STOP_STEPS <= N, so the escape test of N steps (the blank band) is the same. Squared, with no square
         // root taken
         const DH_STOP_STEPS = 6;
-        const DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
+        let DH_STOP = `float(k) + ${DH_STOP_STEPS}.0 <= ${nn.x} && w2 > 8.0 && c2 <= w2 && 64.0 * c2 <= w2 * w2 && c2 * exp2(2.0 - 2.0 * float(k)) <= ${(DH_STOP_TOL * DH_STOP_TOL).toExponential(6)} * w2 * w2`;
+        // TEST-HOOK (dropped from the published page by build.py)
+        // (tests: ?dhnostop runs every orbit to |w| > 10⁴, the stop off: steps_dh_stop_cmd's frames against the stop's)
+        try { if (new URLSearchParams(location.search).has('dhnostop')) DH_STOP = 'false'; } catch (err) { /* no page: node */ }
+        // TEST-HOOK
         // H and H' in one walk (the dual derivative): forward dw_{k+1} = 2 w_k dw_k + dc (dc = dc/dz: 1 for Φ_M, where
         // c = z, 0 for φ_c), dp_0 = dw_{n+1} / (2 p_0) from p_0² = w_n² + c = w_{n+1}, and each root p_{j+1}² = p_j
         // divides dp by 2 p_{j+1}: the product of the 2 p_j is carried and divided into dp_0 once (CX.bottcherD). The
@@ -2341,7 +2345,7 @@ void ixAncTan(vec2 w) {
   // that the steps win back). A step is taken only when it lowers |p(u)|: near a multiple root p'(u) is small and p(u)
   // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off,
   // where that rounding is not 0 (a GPU that fuses or reorders the products)
-  const RAT_N = new Set(['RAT3', 'RAT4']);
+  const RAT_N = new Set(['RAT3', 'RAT4']), RAT_NEAR = '1e-2', F32_EPS = '5.96e-8';
   const ixRoots = () => `
 // root k of y^2 + beta y + gamma (stable)
 vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
@@ -2356,8 +2360,12 @@ void ixCardano(vec2 a, vec2 b, vec2 c, vec2 d, out vec2 S, out vec2 T, out vec2 
   b3 = b1 / 3.0;
   vec2 p3 = (c1 - cmul(b1, b3)) / 3.0, hq = -0.5 * (2.0 * cmul(cmul(b3, b3), b3) - cmul(b3, c1) + cdiv(d, a));
   vec2 sq = csqrtp(cmul(hq, hq) + cmul(cmul(p3, p3), p3)), s1 = hq + sq, s2 = hq - sq, s = dot(s1, s1) >= dot(s2, s2) ? s1 : s2;
-  S = vec2(0.0); T = vec2(0.0);
-  if (s.x != 0.0 || s.y != 0.0) { S = cexp(clog(s, CX_PI, 0.0) / 3.0); T = cdiv(-p3, S); }
+  S = vec2(0.0);
+  T = vec2(0.0);
+  if (s.x != 0.0 || s.y != 0.0) {
+    S = cexp(clog(s, CX_PI, 0.0) / 3.0);
+    T = cdiv(-p3, S);
+  }
 }
 vec2 ixCardanoRoot(vec2 S, vec2 T, vec2 b3, int k) {
   vec2 om = k == 0 ? vec2(1.0, 0.0) : vec2(-0.5, k == 1 ? 0.8660254037844386 : -0.8660254037844386);
@@ -2911,24 +2919,49 @@ bool ${P}_one_b(inout Lf L, int b) {
   return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
 }
 `;
-      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg, a leading
-      // coefficient dropped when it cancels, at most RAT_DROP of |p_k| + |w| |q_k|; its root b by ixRoots. Cells: P's
-      // coefficients, highest first, two to a cell, then Q's from the next cell
+      // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg (a leading
+      // coefficient dropped when it cancels, at most RAT_DROP of |p_k| + |w| |q_k|), its root b by ixRoots. A root b > 0 near a
+      // multiple root (|p'q - pq'| (1 + |u|) below RAT_NEAR of |q(u)| times the terms' size T of p - w q) is dropped when an
+      // earlier root lies within _split's radius of it: the distance float32 rounding of the terms (F32_EPS T) can open
+      // between the copies of a k-fold root, the least (F32_EPS T / |t_k|)^(1/k) over the Taylor coefficients t_k of p - w q
+      // at u, k >= 2. So a multiple root is one member, as InvOps.rootMembers lists it, and roots further apart than float32
+      // can resolve stay apart. Cells: P's coefficients, two to a cell, then Q's from the next
       case 'RAT3': case 'RAT4': {
         const n = o.kind === 'RAT3' ? 3 : 4, half = Math.ceil((n + 1) / 2), co = (k, from) => `${U(from + (k >> 1))}.${k & 1 ? 'zw' : 'xy'}`;
         const cf = (k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`, A = [...Array(n + 1).keys()].map(cf).join(', ');
+        const l1 = (v) => `dot(abs(${v}), vec2(1.0))`;
+        const ab = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `(${acc}) * au + ${l1(co(k, from))}` : l1(co(0, from))), '');
         const ev = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${co(k, from)}` : co(0, from)), '');
         const dv = (from) => [...Array(n).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${n - k}.0 * ${co(k, from)}` : `${n}.0 * ${co(0, from)}`), '');
-        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > ${Inverse.RAT_DROP} * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
+        const binom = (m, k) => [...Array(k).keys()].reduce((acc, i) => (acc * (m - i)) / (i + 1), 1);
+        const taylor = (k) => [...Array(n - k + 1).keys()].reduce((acc, j) => (j ? `cmul(${acc}, u) + ${binom(n - j, k)}.0 * a${j}` : `${binom(n, k)}.0 * a0`), '');
+        const split = [...Array(n - 1).keys()].map((i) => `  r = min(r, pow(e / max(cx_abs(${taylor(i + 2)}), 1e-30), 1.0 / ${i + 2}.0));\n`).join('');
+        const F = n === 3 ? 'ixCubic' : 'ixQuartic', deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > ${Inverse.RAT_DROP} * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
         return `int ${P}_deg(vec2 w) {
   float aw = cx_abs(w);
 ${deg}  return 0;
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${P}_deg(L.u) : 0; }
+float ${P}_split(vec2 w, vec2 u, float T) {
+  vec2 ${[...Array(n + 1).keys()].map((k) => `a${k} = ${cf(k)}`).join(', ')};
+  float e = ${F32_EPS} * T, r = 1e30;
+${split}  return r;
+}
 bool ${P}_one_b(inout Lf L, int b) {
-  vec2 w = L.u, u = ${n === 3 ? 'ixCubic' : 'ixQuartic'}(${A}, ${P}_deg(w), b);
-  vec2 pu = ${ev(0)}, qu = ${ev(half)}, dp = ${dv(0)}, dq = ${dv(half)};
-  return ixApply(L, u, cinv(cdiv(cmul(dp, qu) - cmul(pu, dq), cmul(qu, qu))), ${NOR});
+  vec2 w = L.u;
+  int n = ${P}_deg(w);
+  vec2 u = ${F}(${A}, n, b);
+  vec2 pu = ${ev(0)}, qu = ${ev(half)};
+  vec2 dp = ${dv(0)}, dq = ${dv(half)};
+  vec2 g = cmul(dp, qu) - cmul(pu, dq);
+  if (b > 0) {
+    float au = ${l1('u')}, T = ${ab(0)} + ${l1('w')} * (${ab(half)});
+    if (${l1('g')} * (1.0 + au) <= ${RAT_NEAR} * T * ${l1('qu')}) {
+      float r = ${P}_split(w, u, T);
+      for (int c = 0; c < ${n - 1}; c++) if (c < b && cx_abs(u - ${F}(${A}, n, c)) <= r) return false;
+    }
+  }
+  return ixApply(L, u, cinv(cdiv(g, cmul(qu, qu))), ${NOR});
 }
 `;
       }
