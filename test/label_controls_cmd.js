@@ -81,4 +81,41 @@ for (const [lang, what, act] of [['en', 'selected', "__cmwSelect('pt')"], ['ru',
     await ev(`__cmwSteps({ clock: 0 }); 1`);
   }
 }
+
+// a point wholly under a control stays hidden (it is reached by panning the plane), so its label has no leader, which would run into that
+// control (#2106): at 320 × 568 the point lies under Display options. The marker is a plain dot's ring and its halo (5 px out from its centre): its visible share is read from the page, the
+// fraction of nine samples on it (its centre and eight points on a MARK_R circle) whose top element is not a control of the plane, which mirrors the app's own test
+const MARK_R = 5;   // (the app's predicate, markerHidden in src/app/04-labels-zeros-poles.js: MARK_R is its MARKER_R matched by hand, and the nine samples are its, the centre and eight points on the circle of that radius)
+const markerShare = () => ev(`(() => {
+  const plane = document.getElementById('overlayL').getBoundingClientRect(), plot = document.getElementById('plotL'), [cx, cy, s] = __cmwSteps().win;
+  const x = plane.left + (plane.right - plane.left) / 2 + (${LIFT_PT[0]} - cx) * s, y = plane.top + (plane.bottom - plane.top) / 2 - (${LIFT_PT[1]} - cy) * s;
+  let seen = 0, n = 0, by = {};
+  const samples = [[0, 0]];
+  for (let k = 0; k < 8; k++) samples.push([${MARK_R} * Math.cos(k * Math.PI / 4), ${MARK_R} * Math.sin(k * Math.PI / 4)]);
+  for (const [dx, dy] of samples) {
+    const e = document.elementFromPoint(x + dx, y + dy);
+    n++;
+    if (!e || e === plot || e.tagName === 'CANVAS' || e.classList.contains('ph-col') || !plot.contains(e)) seen++; else by[(e.id || e.getAttribute('class') || e.tagName).split(' ')[0]] = 1;
+  }
+  return { at: [Math.round(x), Math.round(y)], share: seen / n, under: Object.keys(by), plane: [plane.left, plane.top, plane.right, plane.bottom].map(Math.round) };
+})()`);
+for (const [lang, what, act] of [['en', 'at rest', null], ['ru', 'at rest', null], ['en', 'selected', "__cmwSelect('pt')"], ['ru', 'selected', "__cmwSelect('pt')"], ['en', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"], ['ru', 'a message shown', "__cmwToast('Added.', null, { sticky: true })"]]) {
+  const tag = `320x568 ${lang}, ${what}`;
+  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'pt', kind: 'point', p: LIFT_PT, ci: 0, visible: true }],
+    steps: [{ type: 'exp', params: {}, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
+  await view(320, 568, false, true);
+  await loadView('steps', `lblcov${lang}${what.length}`, st, { lang });
+  await settled({ max: SETTLE_MS, until: 'typeof __cmwSteps === "function" && __cmwSteps().on && typeof __cmwLabelsPlaced === "function" && document.fonts.status === "loaded"' });
+  await ev(`__cmwSteps({ go: 0, now: true }); 1`);
+  if (act) {
+    await ev(`${act}; 1`);
+    await settled({ max: SETTLE_MS, until: `${LIFT_STOPPED} && /ph-(ctx|toast)-on/.test(document.documentElement.className)` });
+  }
+  await settled({ max: SETTLE_MS });
+  const share = await markerShare(), labels = await ev('__cmwLabelsPlaced()');
+  info[tag] = { share, labels };
+  ok(`${tag}: the marker lies wholly under a control (the case; its visible share ${share.share})`, share.share === 0, share);
+  ok(`${tag}: the point's label is drawn and lies under no control`, labels.length === 1 && (await under(labels[0])).length === 0, labels);
+  ok(`${tag}: the label has no leader (it would point at the control that hides the point)`, labels.length === 1 && labels[0].leader === false, { share, labels });
+}
 return { pass: fails.length === 0, fails, info };
