@@ -2,8 +2,9 @@
 // the external ray's stage, the dual derivative and the one-member exit change the program only for an op that carries
 // them. For each chain of CHAINS at each t of TS, the inverse program of the glide's frame (the steps' homotopies at t,
 // Inverse.homBuilt of Inverse.homOps, as the steps view builds it) is hashed: its library, its walker and its NEWT roots
-// pass's main. The hashes were recorded from the integration branch at 2d13da8c (test/fixtures/newt_kit_src.json, written by
-// this file with --write). The chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth), a seeded one
+// pass's main. The hashes were recorded from the integration branch at 6fb1c6bc (test/fixtures/newt_kit_src.json, written by
+// this file with --write). The chains cover every kind of NEWT op the kit builds: a polynomial one (Aberth; of degree 5
+// and 6, since degrees 3 and 4 are the closed forms' RAT3 and RAT4 ops), a seeded one
 // (back ops: the inverse Joukowski map), one with a pole member (zeta) and a generic one; the run fails if a kind is missing.
 // The Douady-Hubbard map and the Böttcher coordinate are left out: their NEWT ops are the ones that carry the ray.
 // Run: node test/t_newt_kit_src.js [--write]
@@ -24,8 +25,8 @@ const St = (type, params = {}) => ({ type, params: Object.assign(Funcs.defaults(
 const custom = (expr) => St('custom', { expr, cut: 180 });
 // [name, steps]
 const CHAINS = [
-  ['cubic', [custom('z^3-2z+1')]],
-  ['quartic', [custom('z^4+z')]],
+  ['quintic', [custom('z^5-2z+1')]],
+  ['sextic', [custom('z^6+z')]],
   ['gamma+1', [custom('gamma(z)+1')]],
   ['sinz/z', [custom('sin(z)/z')]],
   ['cos^2', [custom('cos(z)^2')]],

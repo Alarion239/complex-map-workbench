@@ -229,7 +229,9 @@
     landB: { chain: false, vs: () => LAND_B_VS(false), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
     // (its all-triangles draw: the stand-in surface while landTF and land link)
     landS: { chain: false, vs: () => LAND_B_VS(true), fs: () => UTIL + DCOLOR + SHADE + LAND_COMMON + HEIGHT + LAND_FS(false, true) },
-    floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS },
+    floor: { chain: true, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS('map') },
+    // the plate with F's print from the stand-in's grid (no chain: the Landscape's stand-in draws it while the map's programs link)
+    floorS: { chain: false, vs: () => FLOOR_VS, fs: () => UTIL + DCOLOR + LAND_COMMON + TIERS + FLOOR_FS('grid') },
     ulevel: { chain: false, vs: () => ULEVEL_VS, fs: () => ULEVEL_FS },
     probe: { chain: true, vs: () => UTIL_V + HEIGHT + PROBE_VS(false), fs: () => MARK_FS },
     // All sheets (only for chains whose source has chainSheetRange: see sheetPlan)
@@ -557,7 +559,7 @@ float wabs(vec2 w) {
   // the lists of the app's background warm-up (the globes' static programs, the Landscape's static ones and its chain
   // programs in mode 0): what prestart and prestartLand start, and what warmStatus counts
   const GLOBE_PROGS = ['sphere', 'sphereStandIn', 'regionSC', 'lineSC', 'disc', 'mark'];
-  const LAND_STATIC = ['landNrm', 'landS'];
+  const LAND_STATIC = ['landNrm', 'landS', 'floorS'];
   const LAND_CHAIN = ['landTF', 'land'];
   // The ids of the programs of one warm-up group ('2d', 'modes' for these map modes, 'globe', 'land'), whether or not
   // they have started: the lists above and the current chain's, so the total is known before the work is
