@@ -940,12 +940,17 @@
     const H0 = () => window.innerHeight;
     // (a phone's message in the steps view lies over the plot's bottom edge, 8 px above the thread's strip (and above the context bar's row when one is open), as wide as the plot
     // less 16 px a side (CSS), so the strip and the tool row stay in view; with a sheet open, and in the classic phone, it takes its own row over
-    // the tool row, which the planes and the sheet give up)
+    // the tool row, which the planes and the sheet give up; in landscape, with a sheet open that splits the layout, that row is the foot of the sheet's
+    // column (CSS), so the planes, the thread's strip and the plane's keys stay in view)
     if (phone) {
+      // (the message picks its rows at the width it has when it is made; where its place gave it another width, it picks them again)
+      const mt = /** @type {HTMLElement} */ (host.firstElementChild);
+      const refit = () => toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth && (fitToastRows(mt), true);
       if (document.documentElement.classList.contains('ph-sheet-on')) {
         clear();
+        if (refit()) return;
         // (a sheet ends above the message's own row, whatever its height, and the portrait More sheet's list takes the height as its bottom inset)
-        toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));
+        toastLift(Math.round(mt.getBoundingClientRect().height));
         return;
       }
       const sb = document.documentElement.classList.contains('sv') ? box($('svStrip')) : null, pl = box($('plotL'));
@@ -961,13 +966,11 @@
       // the one it has once its eased move ends: its foot at bottom, its height as it stands)
       st.removeProperty('right');
       const keys = land ? [$('leftLegend'), ...document.querySelectorAll('.pane:not(.ph-inset) .viewstack, .pane:not(.ph-inset) .ph-col')].map(box) : [];
-      const tb = keys.length ? host.firstElementChild.getBoundingClientRect() : null, foot = sb.top - barH - 8;
+      const tb = keys.length ? mt.getBoundingClientRect() : null, foot = sb.top - barH - 8;
       const reached = keys.filter((k) => k && tb && tb.right > k.left && tb.left < k.right && foot > k.top && foot - tb.height < k.bottom);
       if (reached.length) st.right = Math.round(window.innerWidth - Math.min(...reached.map((k) => k.left)) + 8) + 'px';
-      // (the message picks its rows at the width it has when it is made; where the placement gave it another width, it picks them again)
-      const mt = /** @type {HTMLElement} */ (host.firstElementChild);
-      if (toastFitW.has(mt) && toastFitW.get(mt) !== mt.clientWidth) { fitToastRows(mt); return; }
-      toastLift(Math.round(host.firstElementChild.getBoundingClientRect().height));   // (the plane's keys ride up above it)
+      if (refit()) return;
+      toastLift(Math.round(mt.getBoundingClientRect().height));   // (the plane's keys ride up above it)
       return;
     }
     // (the steps view: over the left plot's bottom edge, 12 px above it or above the thread's strip when that lies in the plot,

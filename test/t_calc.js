@@ -1,5 +1,5 @@
 // Calc (line integrals, argument principle, Cauchy, residues, zeros and poles), Expr.diff / Expr.invert,
-// Funcs inverses and derivativeStep, GLChain.levelGLSL. Run: node test/t_calc.js
+// Funcs inverses, derivativeStep and chainDerivativeStep, GLChain.levelGLSL. Run: node test/t_calc.js
 global.CX = require('../src/cx.js');
 global.Expr = require('../src/parse.js');
 global.Funcs = require('../src/funcs.js');
@@ -308,6 +308,61 @@ const fmt = (z) => CX.fmt(z, 8);
     check(`derivative of ${nm} = ${r.step.params.expr}`, ok, info);
     if (!r.note) check(`derivative note for ${nm}`, false);
   }
+}
+// ---------- Funcs.chainDerivativeStep ----------
+// (the derivative of a composition of steps as one formula: checked against central differences of the steps' own maps,
+// composed; each step of DEFS with its defaults, and a few on other sheets and cuts, in pairs, and some longer chains,
+// which must compose)
+{
+  const pts = [C(0.31, 0.72), C(-0.45, 0.23), C(0.83, -0.51), C(1.37, 0.41), C(-0.9, -0.6)];
+  const skip = new Set(['conj', 'deriv', 'dh', 'bottcher']);
+  const one = Object.keys(Funcs.DEFS).filter((id) => !skip.has(id)).map((id) => ({ type: id, params: Funcs.defaults(id) }));
+  one.push({ type: 'root', params: { n: 2, cut: 180, k: 1 } }, { type: 'log', params: { cut: 90, k: 0 } }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } });
+  // (the derivative of x -> f_m(… f_1(x)) at z by central differences, or null next to a cut)
+  const numD = (bs, z) => {
+    const F = (x) => bs.reduce((g, b) => b.f(g), x), h = 1e-5;
+    const d = CX.scale(CX.sub(F(CX.add(z, C(h, 0))), F(CX.sub(z, C(h, 0)))), 0.5 / h);
+    const dI = CX.scale(CX.sub(F(CX.add(z, C(0, h))), F(CX.sub(z, C(0, h)))), 0.5 / h);
+    return CX.isFin(d) && near(d, C(dI.im, -dI.re), 1e-4) ? d : null;
+  };
+  const verify = (steps) => {
+    const r = Funcs.chainDerivativeStep(steps);
+    if (r.error) return { error: r.error };
+    const db = Funcs.build(r.step);
+    if (db.error) return { bad: `its step does not build: ${db.error}` };
+    const bs = steps.map((st) => Funcs.build(st));
+    let k = 0;
+    for (const z of pts) {
+      const want = numD(bs, z);
+      if (!want || CX.abs(want) > 1e6) continue;
+      const v = db.f(z);
+      if (!near(v, want, 1e-5)) return { bad: `at ${fmt(z)}: ${fmt(v)} vs ${fmt(want)} [${r.step.params.expr}, cut ${r.step.params.cut}]` };
+      k++;
+    }
+    return { expr: r.step.params.expr, k };
+  };
+  let composed = 0, pairs = 0;
+  for (const a of one) for (const b of one) {
+    pairs++;
+    const v = verify([a, b]), nm = `${a.type} ${JSON.stringify(a.params)} then ${b.type} ${JSON.stringify(b.params)}`;
+    if (v.bad) check(`d/dz of ${nm}`, false, v.bad);
+    else if (!v.error) composed++;
+  }
+  check(`most pairs of steps compose (${composed} of ${pairs})`, composed >= 0.9 * pairs, `${composed} of ${pairs}`);
+  for (const steps of [
+    [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '1' } }],
+    [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'exp', params: {} }],
+    [{ type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }, { type: 'pown', params: { n: 3 } }],
+    [{ type: 'root', params: { n: 2, cut: 180, k: 1 } }, { type: 'pown', params: { n: 3 } }],
+    [{ type: 'sin', params: {} }, { type: 'custom', params: { expr: 'z^2+1', cut: 180 } }, { type: 'pown', params: { n: 2 } }],
+    [{ type: 'pown', params: { n: 2 } }, { type: 'add', params: { c: '1' } }, { type: 'pown', params: { n: 2 } }, { type: 'mul', params: { c: '2i' } }],
+  ]) {
+    const v = verify(steps), nm = steps.map((st) => `${st.type} ${JSON.stringify(st.params)}`).join(' then ');
+    check(`d/dz of ${nm} = ${v.expr}`, !v.error && !v.bad && v.k >= 3, v.error || v.bad || `${v.k} points`);
+  }
+  // (one step: derivativeStep's; no step: an error)
+  check('d/dz of one step is derivativeStep\'s', JSON.stringify(Funcs.chainDerivativeStep([{ type: 'exp', params: {} }])) === JSON.stringify(Funcs.derivativeStep({ type: 'exp', params: {} })));
+  check('d/dz of no step is refused', !!Funcs.chainDerivativeStep([]).error);
 }
 // ---------- GLChain.levelGLSL ----------
 {
