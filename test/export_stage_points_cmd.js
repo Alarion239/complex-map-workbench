@@ -151,4 +151,13 @@ for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['contr
   info['chevrons ' + tag] = { chevrons: f.chevrons, err: f.err };
   ok(`Homework, ${tag}: the disc${stage ? ' of w₁' : ''} has its orientation chevrons`, !f.err && f.chevrons === true, info['chevrons ' + tag]);
 }
+// ---- a point of w₁ whose label is a word: its value is given in its plane's variable, "the trailing edge $w_{1}=1+0.5i$" ("The" when it opens the sentence), at
+// step 2 focused (in (a)'s list, its own plane) and at focus 0 (the "Panel (b) also shows" sentence); (control: on z, "$z=…$")
+for (const [tag, focus, stage] of [['focus 2', 2, 1], ['focus 0', 0, 1], ['control, on z', 0, 0]]) {
+  const st = Object.assign(scene(focus), { shapes: [Object.assign({ id: 'pw', kind: 'point', p: W11, label: 'trailing edge', visible: true }, stage ? { stage } : {})] });
+  const f = await build('xspwd' + focus + stage + Date.now(), st);
+  info['word label ' + tag] = f.cap;
+  const want = stage ? 'trailing edge $w_{1}=1+0.5i$' : 'trailing edge $z=1+0.5i$';
+  ok(`a point named by a word, ${tag}: its value in its plane's variable, ${want}`, (f.cap || '').includes(want), f.cap);
+}
 return { pass: fails.length === 0, fails, info };

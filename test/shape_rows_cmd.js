@@ -12,7 +12,8 @@ await view(1440, 900, false, false);
 await load('shaperows' + Date.now(), {
   shapes: [{ id: 'a', kind: 'disc', c: [0, 0], r: 1 }, { id: 'b', kind: 'halfplane', a: [0, 0], b: [2, 1] }, { id: 'c', kind: 'circle', c: [0, 0], r: 2 }, { id: 'p', kind: 'point', p: [1, 1] },
     { id: 'an', kind: 'annulus', c: [0, 0], r1: 1, r2: 2 }, { id: 'rc', kind: 'rect', a: [0, 0], b: [1, 2] }, { id: 'sc', kind: 'sector', c: [0, 0], r: 1, t1: 0, t2: 90 },
-    { id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0] }, { id: 'cp', kind: 'disc', c: [0, 0], r: 0.5, complement: true }, { id: 'fm', kind: 'formula', expr: '|z|<1' }],
+    { id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0] }, { id: 'cp', kind: 'disc', c: [0, 0], r: 0.5, complement: true }, { id: 'fm', kind: 'formula', expr: '|z|<1' },
+    { id: 'wd', kind: 'disc', c: [1, 0], r: 0.3, stage: 1 }],
   steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' },
 });
 await settle(1500);
@@ -26,6 +27,9 @@ for (const [id, what] of [['a', 'the disc'], ['an', 'the annulus'], ['rc', 'the 
 ok('the half-plane with a unit normal writes ≥, not >: a closed set', /\\ge\b/.test(tex('h1')) && !/>/.test(tex('h1')), tex('h1'));
 ok('the complement says not the closed disc', /\\text\{not\s*\}/.test(tex('cp')) && /\\le\b/.test(tex('cp')), tex('cp'));
 ok('the typed formula keeps its strict <', /</.test(tex('fm')) && !/\\le\b/.test(tex('fm')), tex('fm'));
+// a shape drawn on a later plane is written in that plane's variable (shapeTexOwn), as the figure's caption writes it: |w₁ − 1|
+const wd = rows.find((r) => r.id === 'wd') || {};
+ok('a disc drawn on w₁ is written in w₁, not z', /\|w_\{1\}-1\|/.test(wd.tex || '') && !/(^|[^\\a-zA-Z])z(?![a-zA-Z])/.test(wd.tex || ''), wd);
 // two lines: the set sits under the name
 const geo = await ev(`(() => { const b = document.querySelector('#shapeList .shape[data-id="a"]'), k = b.querySelector('.shape-name .k').getBoundingClientRect(), d = b.querySelector('.shape-name .d').getBoundingClientRect(); return { kBottom: k.bottom, dTop: d.top, kLeft: k.left, dLeft: d.left }; })()`);
 ok('the row has two lines: the set under the name', geo.dTop >= geo.kBottom - 1 && Math.abs(geo.dLeft - geo.kLeft) < 2, geo);

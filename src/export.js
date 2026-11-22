@@ -315,7 +315,7 @@ const Export = (() => {
           }
           // (a label that is a word, "trailing edge", is set as text, not as a product of italic letters)
           // a name that is a word: "the trailing edge $z=1$", not a symbol "$\\text{trailing edge}=1$"
-          if (s.label && (I18N.lang === 'en' ? /[A-Za-z]{2}|\s/ : /\p{L}{2}|\s/u).test(exLabel(s.label))) return sp('the %{label} %{m}', { label: String(exLabel(s.label)).trim(), m: M(`${shapeStage(s) ? `w_{${shapeStage(s)}}` : 'z'}=${P(s.p)}`) });
+          if (s.label && (I18N.lang === 'en' ? /[A-Za-z]{2}|\s/ : /\p{L}{2}|\s/u).test(exLabel(s.label))) return sp('the %{label} %{m}', { label: String(exLabel(s.label)).trim(), m: M(`${wvar(shapeStage(s))}=${P(s.p)}`) });
           // (a point drawn on a later plane by its plane's name, w₁,₁, as the page and the figure's labels name it)
           const lab = s.label ? s.label.replace(/₀/g, '_0').replace(/₁/g, '_1').replace(/₂/g, '_2') : (shapeStage(s) > 0 && Construct.nameTex(pointLabel(s, idx, 0))) || `z_{${idx}}`;
           return sp('the point %{m}', { m: M(`${lab}=${P(s.p)}`) });
