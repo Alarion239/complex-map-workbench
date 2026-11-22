@@ -21,7 +21,7 @@ for (const v of ['steps', 'classic']) for (const [lang, label] of Object.entries
   await view(VIEW_W, VIEW_H, false, true);
   const ns = 'psb' + v + lang + (Date.now() % 1000000);
   await load(ns, {});
-  await send('Page.navigate', { url: `${U}?ns=${ns}&lang=${lang}&view=${v}` });
+  await go(`${U}?ns=${ns}&lang=${lang}&view=${v}`);
   await settled({ max: WAIT_MS, until: `typeof Sound === 'object' && !!window.Phone && Phone.isOn() && !!document.getElementById('soundPh')` });
   ok(`${tag}: it is a landscape phone`, await ev(`document.documentElement.classList.contains('ph-land')`), null);
   // ---- sound off: no Sound button in the bar (control); the sheet's switch is the control
