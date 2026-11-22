@@ -49,9 +49,9 @@
 //   pass's by the glide's ops at its end (its last picture), never the carried meshes', then plane 1's own, and those two
 //   are one picture within 3 levels; with a region of plane 2 as well, Inside regions (plane 1's own frame is the whole
 //   plane's colour kept inside the regions' mask), no frame at rest on plane 1 is the glide's end form;
-// - z + 1/z in the Cauchy style, colour plane 0, › pressed: every carried colour's program that links from the press
-//   until plane 1's own frame is drawn is a Cauchy variant (the glide waits on the programs its frames draw with, and
-//   plane 1 at rest asks for its own);
+// - z + 1/z in the Cauchy style, colour plane 0, › pressed: every carried colour's program that links from the example's
+//   load until plane 1's own frame is drawn is a Cauchy variant (the glides' warm-up at rest and the glide's wait ask
+//   for the programs its frames draw with, and plane 1 at rest asks for its own);
 // - on a fresh page, the Landscape shown and the warm-up run to its end: no landTF, land or floor of the chain in
 //   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
 //   linked before ▶;
@@ -557,13 +557,11 @@ try {
   }
   // z + 1/z with the circle about its pole in the Cauchy style (its carried colour is the Cauchy integral's, drawn by the
   // inverse programs' Cauchy variants), colour plane 0, on a fresh page whose links land late (the suite's), › pressed:
-  // in the page at every animation frame, the carried colour's inverse programs linking, from the press until plane 1's
-  // own frame is drawn. The glide's frames and the plane at rest draw with the Cauchy variants, so what the glide waits on
-  // and what the plane at rest looks up are those too
+  // in the page at every animation frame, the carried colour's inverse programs linking, from the example's load until
+  // plane 1's own frame is drawn. The glide's frames and the plane at rest draw with the Cauchy variants, so what the
+  // glides' warm-up at rest asks for, what the glide waits on and what the plane at rest looks up are those too
   {
     await example('llcz', POLE_EX, 'all');
-    await ev('__cmwSteps({ T: 0 }), 1');
-    const c0 = await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && GLR.pendingLinks === 0 && __cmwSteps().x === 0' });
     await ev(`(() => {
       const s = window.__llCz = { ids: [], done: false };
       const tick = () => {
@@ -571,12 +569,14 @@ try {
         if (!s.done) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
-      __cmwSteps({ go: 1 });
       return 1; })()`);
+    await ev('__cmwSteps({ T: 0 }), 1');
+    const c0 = await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && GLR.pendingLinks === 0 && __cmwSteps().x === 0' });
+    await ev('__cmwSteps({ go: 1 }), 1');
     const c1 = await settled({ only: true, max: PLAY_MS, until: "(() => { const q = __cmwSteps(), r = q.rest; return q.x === 1 && !q.anim && GLR.pendingLinks === 0 && !!r && r.a === 1 && r.path === 'inverse' && !r.end; })()" });
     const ids = await ev('(() => { const s = window.__llCz; s.done = true; return s.ids; })()');
     const plain = ids.filter((id) => !/\|carry(staged)?cz\|/.test(id));
-    ok(`${POLE_EX} in the Cauchy style, colour plane 0, › pressed: the carried colour's programs the glide waits on and plane 1 at rest asks for are its Cauchy variants`, c0.ok && c1.ok && ids.length > 0 && plain.length === 0, { ids, plain, waits: { c0, c1 } });
+    ok(`${POLE_EX} in the Cauchy style, colour plane 0, › pressed: the carried colour's programs the glides' warm-up at rest asks for, the glide waits on and plane 1 at rest asks for are its Cauchy variants`, c0.ok && c1.ok && ids.length > 0 && plain.length === 0, { ids, plain, waits: { c0, c1 } });
     info.cauchyCarry = { ids: ids.length, plain };
   }
   // the partial sums with the Landscape shown in the steps view, the warm-up run to its end: the steps view draws
