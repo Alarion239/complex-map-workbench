@@ -1,8 +1,8 @@
 // The plane's note (the sentence a plane draws on paper, here the Cauchy style's "drawn on z, where its curve lies: colour from z"
 // with the colour plane T past z) stands clear of the plane's buttons on a phone: its box, as drawn, meets none of the
 // visible buttons of the pane (the rail of Sphere, Display options, Fit view and the globe key) and lies inside the pane, and its words
-// are centred in that box (the box is centred in the room left of the rail). At 360 x 640,
-// 320 x 568 and 640 x 360, in English, Russian and Italian, light and dark, touch.
+// are centred in that box (the box is centred in the room left of the rail, or, where a pane too short for note and message has it meet the plane's readout, in the room right of the readout). At 360 x 640,
+// 320 x 568, 568 x 320 and 640 x 360, in English, Russian and Italian, light and dark, touch.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -21,8 +21,7 @@ const measure = (src = '__cmwSteps().note') => ev(`(() => {
   const hit = btns.filter(({ r }) => box[0] < r[2] + ${GAP} && box[2] > r[0] - ${GAP} && box[1] < r[3] + ${GAP} && box[3] > r[1] - ${GAP}).map(({ name, r }) => name + ' ' + r.map(Math.round).join(','));
   return { note: box.map(Math.round), centred: typeof n.tx === 'number' && Math.abs(n.tx - (n.x + n.w / 2)) <= 1, tx: n.tx, pane: [pane.left, pane.top, pane.right, pane.bottom].map(Math.round), hit, inPane: box[0] >= pane.left && box[2] <= pane.right && box[1] >= pane.top && box[3] <= pane.bottom, n: btns.length };
 })()`);
-// (568 x 320 is left out: its plane has no room for a two-line note between the readout and a message over the plane, TODO(#2204))
-for (const [w, h] of [[360, 640], [320, 568], [640, 360]]) {
+for (const [w, h] of [[360, 640], [320, 568], [568, 320], [640, 360]]) {
   for (const lang of ['en', 'ru', 'it']) {
     for (const dark of [false, true]) {
       const tag = `${w} x ${h} ${lang}${dark ? ' dark' : ''}`;

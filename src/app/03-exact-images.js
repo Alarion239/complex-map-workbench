@@ -628,6 +628,13 @@
     const mr = msg.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
     return mr.right > pr.left && mr.left < pr.right && mr.bottom > pr.top ? mr.top - pr.top - NOTE_GAP : Infinity;
   }
+  // the plane's readout chip as a box in the pane's CSS px (null: not laid out)
+  function readoutBox(pane) {
+    const el = document.getElementById(pane === paneL ? 'leftReadout' : 'rightReadout');
+    if (!el || !el.getClientRects().length) return null;
+    const r = el.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
+    return { left: r.left - pr.left, right: r.right - pr.left, top: r.top - pr.top, bottom: r.bottom - pr.top };
+  }
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
@@ -636,15 +643,21 @@
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     // (a phone's note is centred in the room left of the key column and wraps to that width)
     const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
-    const maxW = Math.max(80, Math.min(360, free - 48));
-    const lines = wrapWords(ctx, text, maxW);
-    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
-    const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    // below the centre, clear of a point at the view's middle, and clear of a message standing over the plane (the note moves up only when it has to, and stays inside the pane)
-    // (the 1 px below: the box is drawn on the half pixel and its stroke is a pixel wide)
-    const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
-    const x0 = Math.round(free / 2 - bw / 2) + 0.5;
-    const tx = free / 2;   // (the words' centre: the room's, as the box is)
+    // the note's box centred in the room from left to right: below the centre, clear of a point at the view's middle, and clear of a message
+    // standing over the plane (the note moves up only when it has to, and stays inside the pane); the 1 px below: the box is drawn on the
+    // half pixel and its stroke is a pixel wide
+    const lay = (left, right) => {
+      const room = right - left, lines = wrapWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
+      const bw = Math.round(Math.min(room - 16, Math.max(...lines.map((t) => ctx.measureText(t).width))) + 24), bh = lines.length * 18 + 14;
+      const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
+      return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
+    };
+    let n = lay(0, free);
+    // (a pane too short for note and message has the box meet the plane's readout: it stands in the room right of the readout then, wrapped to it)
+    const ro = readoutBox(pane);
+    const meets = ro && n.x0 - NOTE_GAP < ro.right && n.x0 + n.bw + NOTE_GAP > ro.left && n.y0 - NOTE_GAP < ro.bottom && n.y0 + n.bh + NOTE_GAP > ro.top;
+    if (meets && free - ro.right - NOTE_GAP >= 160) n = lay(ro.right + NOTE_GAP, free);
+    const { lines, bw, bh, y0, x0, tx } = n;
     pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
