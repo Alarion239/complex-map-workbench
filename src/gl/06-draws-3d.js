@@ -1403,7 +1403,8 @@
     // from below the plate (the camera under it) it is drawn last, as a light veil, so the underside stays visible.
     const below = eye[2] < floorZ;
     const floorPass = (alpha) => {
-      const Fp = program('floor', st.map);
+      // (the stand-in's frame draws the plate with F's print from the stand-in's grid (floorS) until floor, which prints the chain's map, has linked)
+      const Fp = program('floor', st.map) || (hd && hd.standIn ? program('floorS') : null);
       if (!Fp) return;
       use(Fp, st.map);
       common(Fp);
