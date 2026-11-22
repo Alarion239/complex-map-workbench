@@ -584,10 +584,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
   // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
   // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
+  // the roots program newtRoots draws the state st with (start: begin its compile when it is missing, as newtRoots does), or
+  // null when st has no roots pass (its plan's first inverted op is no NEWT op, the globe, no float targets)
+  function nrProgram(st, start) {
+    const inv = st && st.inv, nr = inv && inv.nr;
+    if (!ok || !nrCount(nr) || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return null;
+    return invProgram(INV_B_MAX, false, start, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
+  }
   function newtRoots(st) {
-    const inv = st && st.inv, nr = inv && inv.nr, n = ok ? nrCount(nr) : 0;
-    if (!n || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return { state: 'none' };
-    const pr = invProgram(INV_B_MAX, false, true, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
+    const inv = st && st.inv, nr = inv && inv.nr, pr = nrProgram(st, true), n = pr ? nrCount(nr) : 0;
+    if (!pr) return { state: 'none' };
     if (pr.state !== 'ready') return { state: pr.state };
     const W = Math.max(1, Math.round(st.pw)), H = Math.max(1, Math.round(st.ph));
     const v = st.view || { cx: 0, cy: 0, s: 1 }, dpr = st.dpr || 1, map = st.map || {};
@@ -648,19 +654,22 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     return pr.state;
   }
   // How far the inverse programs of the states sts (drawInverse's arguments, as inverseState takes them) have come:
-  // {done, total}. A state is done when its program has linked (a cold one too: its first draw is the caller's, or the
-  // frame's), or when nothing will come of it (no inverse for it, a failed compile, a side draw). start: begin the
+  // {done, total}. A state counts its program and, when its plan's first inverted op is a NEWT op, the roots program its
+  // frame draws first (newtRoots). A program is done when it has linked (a cold one too: its first draw is the caller's,
+  // or the frame's), or when nothing will come of it (no inverse for it, a failed compile, a side draw). start: begin the
   // compile of a program not started (it waits while the chain's forward programs link, and is asked again by the next
   // call)
   function inverseWarmup(sts, opt = {}) {
-    let done = 0;
-    if (!ok || lost) return { done, total: sts.length };
+    let done = 0, total = sts.length;
+    if (!ok || lost) return { done, total };
+    const over = (pr) => pr.state === 'ready' || pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED);
     for (const st of sts) {
       const { B, globe, extra } = invArgs(st, null);
-      const pr = /** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv));
-      if (pr.state === 'ready' || pr.state === 'error' || (pr.state === 'none' && pr.reason !== INV_NOT_STARTED)) done++;
+      if (over(/** @type {any} */ (invProgram(B, globe, !!opt.start, extra, st.inv)))) done++;
+      const nr = /** @type {any} */ (nrProgram(st, !!opt.start));
+      if (nr) { total++; if (over(nr)) done++; }
     }
-    return { done, total: sts.length };
+    return { done, total };
   }
   function drawInverse(st) {
     if (!ok || !st || !st.plan || !st.prep || !st.prep.ok) return 'error';

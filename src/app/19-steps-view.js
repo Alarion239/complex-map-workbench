@@ -3832,16 +3832,20 @@
   // no inverse program and builds no pipeline inside its first frame: on a renderer that links in the main thread and
   // makes a draw's machine code at its first use (SwiftShader, llvmpipe) those hold a first frame 0.5-2.7 s. Each job
   // is one part of a glide (svGlideParts) and takes an idle moment of its own: it asks for the inverse programs of its
-  // frame (svInvPaths: the programs svCarryExactHom and svGlobeCarryInv draw with; with KHR_parallel_shader_compile they
-  // link in the background, and a later moment looks again), then, on the plane, draws that frame once into the GL
-  // canvas, which no pane shows until a frame copies it (svWarmCarry's way). A frame whose first op is a NEWT op is not
-  // drawn: its roots pass would keep a float texture of the pane's size a root, which the rest never needs. The jobs start
+  // frame (svInvPaths: the programs svCarryExactHom and svGlobeCarryInv draw with, and the NEWT roots pass of a frame whose
+  // first op is a NEWT op; with KHR_parallel_shader_compile they link in the background, and a later moment looks again),
+  // then, on the plane, draws that frame once into the GL canvas, which no pane shows until a frame copies it (svWarmCarry's
+  // way). A NEWT frame is drawn SV_WARM_NR_PX square (svWarmPane): its roots pass writes float targets of the frame's size,
+  // and the machine code of both its programs is the same at any size. The jobs start
   // once the rest's own work is done (svReady) and SV_WARM_IDLE_MS have passed since that, since the jobs were queued and
   // since the last input, so a loaded example, an edit or a plane's first frame gets its programs first. The glide on
   // comes first, then the glide back; at most SV_INV_WARM_MAX jobs a rest, so a long chain links nothing more there. Any
   // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
   // change, queues them again
   const SV_INV_WARM_MAX = 4;
+  // (the left pane's stand-in for a NEWT frame's warm draw: its view, SV_WARM_NR_PX device px square)
+  const SV_WARM_NR_PX = 16;
+  const svWarmPane = () => Object.assign({}, paneL, { pw: SV_WARM_NR_PX, ph: SV_WARM_NR_PX });
   // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
   // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
   // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
@@ -3922,19 +3926,19 @@
       if (!f) svInvJobs.shift();
       else if (!job.asked) { GLR.inverseWarmup(f.sts, { start: true }); job.asked = true; }
       else {
-        const st = f.sts.map((x) => GLR.inverseState(x));
-        if (st.includes('pending')) next = SV_INV_WARM_AGAIN_MS;
+        const st = f.sts.map((x) => GLR.inverseState(x)), w = GLR.inverseWarmup(f.sts);
+        if (st.includes('pending') || w.done < w.total) next = SV_INV_WARM_AGAIN_MS;
         else {
           svInvJobs.shift();
           // (the frame's commands flushed, and the next job only once the GPU has run them (GLR.gpuDone's fence, polled,
           // never waited on): left in the queue they would run in the first glide frame's copy to its pane)
-          if (!globe && st.every((x) => x === 'ready') && !h.paths.some((q) => q.inv && q.inv.nr)) {
+          if (!globe && st.every((x) => x === 'ready')) {
             let drawn = false;
-            const warmFrame = { open: false };
-            try { drawn = svDrawInverse(paneL, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
+            const warmFrame = { open: false }, pane = h.paths.some((q) => q.inv && q.inv.nr) ? svWarmPane() : paneL;
+            try { drawn = svDrawInverse(pane, h.list, h.paths, T, warmFrame, job.u, null, null, job.b) === 'drawn'; } catch (e) { drawn = false; }
             // (and the outlines over it, into the same frame, which no pane shows: the first glide frame would build
             // their pass's scratch and pipeline otherwise)
-            if (drawn && !SV.bare) { try { svOutlines(paneL, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
+            if (drawn && !SV.bare) { try { svOutlines(pane, svBetween(svPlanes().indexOf(job.b) - 1 + job.u).map, warmFrame, false); } catch (e) { /* the glide frame draws them */ } }
             if (drawn && GLR.gpuDone) { svInvFlushing = true; GLR.gpuDone().then(() => { svInvFlushing = false; svInvWarmNext(); }); return; }
           }
         }
