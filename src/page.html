@@ -531,7 +531,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot > canvas.overlay { touch-action: none; }
 
 /* level 2: anything floating over a canvas */
-.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip {
+.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip, .ld-key {
   background: var(--overlay); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1); border-radius: var(--r-2);
 }
 .chip.readout {
@@ -726,6 +726,22 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 #warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
 #warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
+/* Look down's key (19-lookdown.js): what each mark over the plane is, at its bottom left, clear of the rulers and of the
+   view buttons at the bottom right */
+.ld-key {
+  position: absolute; z-index: 10; left: 28px; bottom: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  max-width: calc(100% - 96px); padding: 4px 10px; font: var(--t-label); color: var(--ink-2);
+}
+.ld-key[hidden] { display: none; }
+.ld-key .ld-ttl { color: var(--ink); }
+.ld-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
+.ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ld-sw { display: inline-block; flex: none; box-sizing: border-box; width: 14px; }
+.ld-ring { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; }
+.ld-line { height: 0; border-top: 1.5px solid var(--ink); }
+.ld-dash { height: 0; border-top: 2px dashed var(--cut); }
+.ld-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cut); }
+.ld-cross { width: 11px; height: 11px; background: linear-gradient(45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%); }
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
   display: flex; align-items: center; gap: 10px; height: 32px; max-width: calc(100% - 16px); padding: 0 4px 0 10px;
@@ -855,6 +871,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .tool > span { position: absolute; left: -3px; right: -3px; bottom: 4px; font: var(--t-label); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); text-align: center; white-space: nowrap; overflow: hidden; text-overflow: clip; }
 .tool:hover { background: var(--surface); border-color: var(--line); color: var(--ink); }
 .tool.on, .tool.on:hover, .tool[aria-pressed="true"] { background: var(--inverse); border-color: var(--inverse); color: var(--inverse-ink); }
+/* a tool that does not apply here (Pick, outside the steps view's floor) keeps its slot, hidden */
+.tool.tool-na { visibility: hidden; }
 /* Annulus, Sector and Polar grid while X shows its globe (P3b: they draw in Plane only) */
 .tool.globe-off:not(.on) { opacity: 0.45; }
 .tool.rail-tool { width: 28px; height: 28px; display: grid; place-items: center; }

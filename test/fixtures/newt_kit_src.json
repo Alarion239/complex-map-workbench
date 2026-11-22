@@ -1,0 +1,98 @@
+{
+ "quintic @ 0.3": {
+  "newt": 1,
+  "src": "83524daebf005911845deecfa84e6f917dd7f1b14c3aeb2086f7a52dea32d58f"
+ },
+ "quintic @ 0.7": {
+  "newt": 1,
+  "src": "0201ee92c0e52344abebc11e747a13f7c7842554225237aead02a227a721a50a"
+ },
+ "sextic @ 0.3": {
+  "newt": 1,
+  "src": "b77f9c86e3dc787d85b314619d1f3b3277d6fd33a6eb20aeedeebf2e1a7d5877"
+ },
+ "sextic @ 0.7": {
+  "newt": 1,
+  "src": "b77f9c86e3dc787d85b314619d1f3b3277d6fd33a6eb20aeedeebf2e1a7d5877"
+ },
+ "gamma+1 @ 0.3": {
+  "newt": 1,
+  "src": "80e341b22275ba8fa4fba08a84821688d08d78f3ed8686dc6de820913c90b147"
+ },
+ "gamma+1 @ 0.7": {
+  "newt": 0,
+  "src": "330ea2f0656967890c15b35033187d7b78813641fbb1c4afbc23c410b2779718"
+ },
+ "sinz/z @ 0.3": {
+  "newt": 1,
+  "src": "add281a0ad20060177dbb8d8c77991a5435526aef2ad203eb7398b0b6bbda44e"
+ },
+ "sinz/z @ 0.7": {
+  "newt": 1,
+  "src": "add281a0ad20060177dbb8d8c77991a5435526aef2ad203eb7398b0b6bbda44e"
+ },
+ "cos^2 @ 0.3": {
+  "newt": 0,
+  "src": "2fc3b75df82a6615c2fe25381a6d6fbdcf7f98f13e4a4552bd1c366ba4c8c920"
+ },
+ "cos^2 @ 0.7": {
+  "newt": 0,
+  "src": "fabcd2439270ba7200d1c0a7f60cafd1a40e62179c3f01d636bef6f25d29bd1a"
+ },
+ "2cos+1 @ 0.3": {
+  "newt": 0,
+  "src": "2fc3b75df82a6615c2fe25381a6d6fbdcf7f98f13e4a4552bd1c366ba4c8c920"
+ },
+ "2cos+1 @ 0.7": {
+  "newt": 0,
+  "src": "89d743cf89a143b0bca6017398d99a1b271d68747f21f0f741a82dbcef835e9f"
+ },
+ "z+1/(z-0.5) @ 0.3": {
+  "newt": 0,
+  "src": "2911c592f8a9a3c32ff46a9322811c2e97a95402b675286a5f77de125486a4bc"
+ },
+ "z+1/(z-0.5) @ 0.7": {
+  "newt": 0,
+  "src": "fe30a8197e01e7501e259591e2fca410c932154a80254f200b31a79f75b737e1"
+ },
+ "exp(sinz) @ 0.3": {
+  "newt": 0,
+  "src": "2fc3b75df82a6615c2fe25381a6d6fbdcf7f98f13e4a4552bd1c366ba4c8c920"
+ },
+ "exp(sinz) @ 0.7": {
+  "newt": 0,
+  "src": "4381fdbd92f1d179acb48f99ceb3e725c45be273dce48b04ddea93062ce28c31"
+ },
+ "cos @ 0.3": {
+  "newt": 0,
+  "src": "2fc3b75df82a6615c2fe25381a6d6fbdcf7f98f13e4a4552bd1c366ba4c8c920"
+ },
+ "cos @ 0.7": {
+  "newt": 0,
+  "src": "2fc3b75df82a6615c2fe25381a6d6fbdcf7f98f13e4a4552bd1c366ba4c8c920"
+ },
+ "exp,cos @ 0.3": {
+  "newt": 0,
+  "src": "fab6255928d0c2f22af554ba521314a7f21ad58d852cdb1db9bfca5f47090509"
+ },
+ "exp,cos @ 0.7": {
+  "newt": 0,
+  "src": "fab6255928d0c2f22af554ba521314a7f21ad58d852cdb1db9bfca5f47090509"
+ },
+ "ijouk @ 0.3": {
+  "newt": 1,
+  "src": "7013c84606db476931e6599423cb69707d0dee305a68d2311cb9aff123695706"
+ },
+ "ijouk @ 0.7": {
+  "newt": 1,
+  "src": "7013c84606db476931e6599423cb69707d0dee305a68d2311cb9aff123695706"
+ },
+ "zeta @ 0.3": {
+  "newt": 1,
+  "src": "2289a5c5912d173b12485b9cc5beda41f5bb044d29f8a32d2a1275791174167d"
+ },
+ "zeta @ 0.7": {
+  "newt": 1,
+  "src": "2289a5c5912d173b12485b9cc5beda41f5bb044d29f8a32d2a1275791174167d"
+ }
+}

@@ -2,7 +2,7 @@
 // shows nothing, so the plane says how many pieces are off it ("+1 off view"). Cayley, then cube, with a small disc on w₂
 // whose three preimages on z are near -4.8 + 5.1i (off the window at the default camera), -0.447 + 0.124i and
 // 0.706 + 0.155i:
-//  - on z the disc's count is 1 of 3, in English and Russian, and the words are placed in the pane (__cmwPullOff, and
+//  - on z the disc's count is 1 of 3, in English, Russian and Italian, and the words are placed in the pane (__cmwPullOff, and
 //    the label placer's own list, __cmwLabelsPlaced);
 //  - zoomed out so that every piece is in the window, nothing is counted (the control: the count follows the window);
 //  - with the camera far from every piece, all 3 are counted and the words are drawn at the window's edge, clear of the
@@ -12,9 +12,10 @@
 //  - the same disc made large (r 0.25): its third piece reaches into the window's top-left, so nothing is off view;
 //  - smaller (r 0.18, at 1280 x 800): its third piece shows only as a sliver at the window's top-left corner (the
 //    control counts the pane's pixels in it, from w₂ = ((z − i)/(z + i))³), so nothing is off view either;
-//  - the words keep off the axes, in English and Russian (at the default camera they sit beside the piece at -0.447 +
+//  - the words keep off the axes, in English, Russian and Italian (at the default camera they sit beside the piece at -0.447 +
 //    0.124i, by the imaginary axis);
-//  - the plane's description says the count in words (#1770);
+//  - the plane's description says the count in words (#1770), in en, ru and it; in ru the region's name is set in «», as Russian
+//    quotes a name;
 //  - zoomed out in place, a frame that places no label leaves none in the placer's list (#1893);
 //  - with two regions counted, each count names its region (#1892);
 //  - on w₂, the disc's own plane, nothing is counted (the count is for pullbacks only).
@@ -37,7 +38,7 @@ const BIG_DISC = { id: 'd5', kind: 'disc', c: [0.4465, 0.3], r: 0.25, stage: 2 }
 const TWIN_DISC = { id: 'd7', kind: 'disc', c: [-0.4465, 0.3], r: 0.03, stage: 2 };
 // (the disc a little smaller: its far piece shows only at the window's top-left corner, at 1280 x 800)
 const SLIVER_DISC = { id: 'd6', kind: 'disc', c: [0.4465, 0.3], r: 0.18, stage: 2 }, SLIVER_VIEW = [1280, 800];
-const WORDS = { en: '+1 off view', ru: 'ещё 1 за краем' };
+const WORDS = { en: '+1 off view', ru: 'ещё 1 за краем', it: 'altri 1 fuori vista' };
 // (a camera with every piece of the disc off the window, up and to the left of it: the words then go near the window's
 // top-left corner, where they must clear the scale chip)
 const FAR = [4.8, -5.1];
@@ -58,7 +59,7 @@ const placed = () => ev('__cmwLabelsPlaced()');
 const paneSize = () => ev("(() => { const r = document.getElementById('plotL').getBoundingClientRect(); return [r.width, r.height]; })()");
 // the boxes of the controls over the left plane, in its css px
 const chrome = () => ev(`(() => { const o = document.getElementById('canvasL').getBoundingClientRect(); return [...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .options, #plotL > .viewstack, #plotL > .empty-chip')].filter((e) => !e.hidden && e.offsetParent !== null).map((e) => { const r = e.getBoundingClientRect(); return { x0: r.left - o.left, x1: r.right - o.left, y0: r.top - o.top, y1: r.bottom - o.top, id: e.id || e.className }; }).filter((r) => r.x1 > r.x0 && r.y1 > r.y0); })()`);
-for (const lang of ['en', 'ru']) {
+for (const lang of ['en', 'ru', 'it']) {
   await open(lang, 90);
   const o = await off(), d = o && o.find((e) => e.id === 'd2');
   info[`${lang} z`] = o;
@@ -140,6 +141,20 @@ await open('en', 90);
   info['en z, zoomed out in place'] = { o2, now };
   ok('zoomed out in place: the count was placed before (the control)', before, before);
   ok('zoomed out in place: nothing is counted, and the placer\'s list does not keep the last frame\'s count', Array.isArray(o2) && !o2.some((e) => e.id === 'd2') && !now.some((q) => /off view/.test(q.text)), { o2, now });
+}
+// the same in ru: the region's name in «», as Russian sets a name in running text
+await open('ru', 90);
+{
+  const said = await ev(`(() => { const c = document.getElementById('overlayL'), id = c.getAttribute('aria-describedby'), d = id && document.getElementById(id); return d ? d.textContent : null; })()`);
+  info['ru z, said'] = said;
+  ok('ru: the description quotes the region\'s name: "Части прообраза «<the disc>» за краем вида: 1 из 3"', /Части прообраза «[^«»]+» за краем вида: 1 из 3/.test(said || ''), said);
+}
+// and in it: the count in Italian words, a name between them (the region's name in Italian is not read here)
+await open('it', 90);
+{
+  const said = await ev(`(() => { const c = document.getElementById('overlayL'), id = c.getAttribute('aria-describedby'), d = id && document.getElementById(id); return d ? d.textContent : null; })()`);
+  info['it z, said'] = said;
+  ok('it: the description says the count: "Parti della controimmagine di <the disc> fuori vista: 1 su 3"', /Parti della controimmagine di \S.* fuori vista: 1 su 3/.test(said || ''), said);
 }
 // two regions counted on z (the camera far from every piece): each count names its region as its row does, so the two are
 // told apart by more than their inks (#1892); one region counted keeps the bare count (the far scene above)

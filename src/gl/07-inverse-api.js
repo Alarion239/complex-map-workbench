@@ -191,7 +191,9 @@
   const carryExtra = (st, staged) => (carryCauchyOn(st.carry) ? (staged ? INV_CARRY_STAGED_CZ : INV_CARRY_CZ) : staged ? INV_CARRY_STAGED : INV_CARRY);
   // whether st's carried program is the staged variant: the shape's own plane when its record is known, else st.staged
   const stagedOf = (st, rec) => rec ? rec.stage > 0 : !!st.staged;
-  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + (extra.cz ? 'cz' : '') : '');
+  // (the carried variants compile the current chain in, invCarrySrc: their key names it, as a forward program's does,
+  // so a chain with the same inverse ops never draws with another chain's code)
+  const carryKey = (extra) => (extra && extra.carry ? (extra.staged ? 'carrystaged' : 'carry') + (extra.cz ? 'cz' : '') + ':' + cur.key : '');
   // (two parts: the chain and the declaration before INV_HEAD, which calls it; dcolor after it, which declares uDpr)
   function invCarrySrc(info) {
     return '#define IX_CARRY 1\n' + info.source + 'vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY);\n';
@@ -205,7 +207,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   vec2 w = z, wx = dX, wy = dY;
   if (uGs < uGt) {
     bool an = uGan && dot(dX, dX) > 0.0;
-    ixChain3(z, dX, dY, uGs, uGt, an, w, wx, wy);
+    vec2 wbx, wby;
+    ixChain3(z, dX, dY, uGs, uGt, an, false, w, wx, wy, wbx, wby);
     if (an) wy = cmul(cdiv(wx, dX), dY);
   }
   return dcolorD(w, wx, wy);
@@ -476,7 +479,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     halfOpen = null;
     fw = pw; fh = ph; vpX = 0; vpY = 0;
-    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; invFrame++;
     preActive = true;
     resetState();
     return true;
@@ -1055,7 +1058,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   }
 
   const api = {
-    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage,
+    init, begin, viewport, blit, cauchyUsable, gpuDone, prestart, prestartModes, prestartNames, prestartCarry, carryNames, carryCauchyLinking, progStatus, discardChains, freeChain, chainStats, fillPointsStats, carryProbes, carryReserve, prestartLand, setStepsView, warmStatus, warmBarStep, GLOBE_PROGS, profile, setChain, drawGrid, drawRegion, carryPrep, carryLayers, carryLayersReserve, carryLayerFrames: () => layerFrames, carryDepthEnd, drawLines, drawColorPlot, drawLandscape, drawSphere, drawPreimage, carryState,
     // exact images (SPEC 4.5): see packShapes, drawInverse, inverseStatus, timer, CostGuard above
     packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
@@ -1090,7 +1093,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     get inverseGlobeScissors() { return { n: invGlobeSc, px: invGlobeScPx }; },
     // internals for tests: shader sources (REGION_FS byte identity, the parity page's recording program, every program's uniforms against
     // the texture units finishLink sets, SAMPLER_UNITS)
-    _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
+    _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, IX_TIE_ORDER, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
     createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, CARRY_DISC_IN,
@@ -1099,7 +1102,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // is still compiling (an earlier chain version, or nothing, was drawn instead; onReady follows); compiling: such a
     // stand-in was drawn for a program of the current chain still compiling; waiting: a draw of any pane has drawn one
     // and that program has not landed yet; refining: the Landscape's refinement follows (the frame is drawn without it)
-    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow() }; },
+    frameStatus() { return { error: frameErr, pending: framePending, refining: frameRefining, alt: invAltUsed, compiling: frameCompiling, waiting: waitingNow(), over: frameOver }; },
     // any chain program compiling in the background
     get compiling() { for (const e of progs.values()) if (e.state === 'pending') return true; return false; },
     // false without KHR_parallel_shader_compile (SwiftShader, lavapipe): every link is synchronous, at
@@ -1179,6 +1182,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       gl.deleteBuffer(vbo); gl.deleteBuffer(out); gl.deleteVertexArray(vao);
       return res;
     },
+    // (tests) the lines' CPU stand-ins made or refused last (cpuEntry): {n, m, ms} each
+    lineStandIns: () => cpuLines.slice(),
     // (tests) the map-spec helpers: the cache key, the identity test and an earlier chain version's stand-in
     _map: { mapKeyOf: (m) => mapKeyOf(m), isIdent: (m) => isIdent(m), mapFor: (m, sigs) => mapFor(m, { sigs }) },
     // (walls tests) the landscape's grid and refinement read back

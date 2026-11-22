@@ -796,8 +796,9 @@ void main() {
 `;
   // the steep base triangles while something moves (STEEP): a program without the chain, F from the corners (vW), as
   // landR's sub-cells, so facetW draws their contours on the facet; compiled once per page, warmed with the
-  // refinement's programs (rfWarmed)
-  const LAND_B_VS = REFINE + `
+  // refinement's programs (rfWarmed). All the base triangles, steep or not (all): the surface's stand-in while landTF and
+  // land link, over the heights and the values of F the app computed (drawLandscape's st.standIn)
+  const LAND_B_VS = (all) => REFINE + `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP;
 uniform int uRefOn;
@@ -814,7 +815,7 @@ void main() {
   ivec2 c = ivec2(cell % M, cell / M);
   ivec2 V0 = c, V1 = tri == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = tri == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   // (the partition with land's draw, LAND_VS: a triangle without a jump on its edges, sloped over 1 at a corner)
-  if (!steepTri(V0, V1, V2) || (uRefOn == 1 && lvDrawnR(c))) return;
+  if (${all ? '' : '!steepTri(V0, V1, V2) || '}(uRefOn == 1 && lvDrawnR(c))) return;
   if (edgeOf(V0, V1).w > 0.5 || edgeOf(V1, V2).w > 0.5 || edgeOf(V2, V0).w > 0.5) return;
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
@@ -1326,7 +1327,9 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
   return col;
 }
 `;
-  const FLOOR_FS = glsl`
+  // (the phase portrait printed on the plate: of the chain's map ('map'), or, in the stand-in's plate (floorS), of F's values at the
+  // nodes of the stand-in's grid (uT1, uN), bilinear over the box and held at its edge)
+  const FLOOR_FS = (print) => glsl`
 in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
 uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
@@ -1335,10 +1338,16 @@ out vec4 o;
 void main() {
   vec2 uv = vPos.xy / (2.0 * uAspect) + 0.5;
   vec2 z = uBox.xy + uv * uBox.zw;
-  vec2 w = mapF(z);
-  vec3 alb = albedo(w);
+${print === 'map' ? '  vec2 w = mapF(z);\n' : `  vec2 ub = clamp((z - uBox.xy) / uBox.zw, 0.0, 1.0) * float(uN - 1);
+  ivec2 i0 = clamp(ivec2(floor(ub)), ivec2(0), ivec2(uN - 2));
+  vec2 fb = ub - vec2(i0);
+  vec2 w = mix(mix(texelFetch(uT1, i0, 0).xy, texelFetch(uT1, i0 + ivec2(1, 0), 0).xy, fb.x), mix(texelFetch(uT1, i0 + ivec2(0, 1), 0).xy, texelFetch(uT1, i0 + ivec2(1, 1), 0).xy, fb.x), fb.y);
+  // (a node where F has no value, as a pole's: its cells carry no print, the paper alone)
+  bool nanw = isnan(w.x) || isnan(w.y) || !(w.x < 0.0 || w.x >= 0.0) || !(w.y < 0.0 || w.y >= 0.0);
+  if (nanw) w = vec2(0.0);
+`}  vec3 alb = albedo(w);
   vec3 col = tiersOver(z, vec4(uFloorCol, 1.0), 1.0).rgb;
-  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint); // phase portrait printed at 10%
+  vec3 lin = mix(toLin(col), toLin(alb), ${print === 'map' ? '0.10 * uPrint' : '(nanw ? 0.0 : 0.10 * uPrint)'}); // phase portrait printed at 10%
   // contact shading under the surface: where the sheet comes close to the plate (no walls, nothing outside);
   // All sheets (uSheetK > 0): the lowest sheet over the point, from the per-cell height tiles
   float contact = 0.0;
@@ -1460,6 +1469,25 @@ ${phase ? glsl`
   vec3 col = mix(uPlaneCol, uGridMaj, net);
   col = mix(col, uAxisCol, 0.7 * re);
   col = mix(col, uAxisCol, eq);`}
+  vec3 v = normalize(uEye - vP);
+  o = vec4(toSrgb(shade(toLin(col), n, v, 1.0)), 1.0);
+}
+`;
+  // The phase globe's stand-in while its program (sphereP) links (drawSphere's st.standIn): w = F(z) at the nodes of a
+  // longitude-latitude grid, texel (i, j) the node at longitude -pi + 2 pi i / (nx - 1) and latitude -pi / 2 + pi j / (ny - 1),
+  // z the stereographic projection of the node (SPHERE_FS's). w is interpolated at the pixel (standInW) and lined and
+  // lit as the globe is. Needs STANDIN_W
+  const SPHERE_STANDIN_FS = `
+in vec3 vP;
+uniform vec3 uEye; uniform sampler2D uWNodes;
+out vec4 o;
+void main() {
+  vec3 n = normalize(vP);
+  float net, re, eq;
+  sphereLines(n, net, re, eq);
+  vec2 nodes = vec2(textureSize(uWNodes, 0) - 1);
+  vec2 q = vec2(atan(n.y, n.x) / (2.0 * PI) + 0.5, asin(clamp(n.z, -1.0, 1.0)) / PI + 0.5) * nodes;
+  vec3 col = phaseLines(dcolor(standInW(uWNodes, q)), net, re, eq);
   vec3 v = normalize(uEye - vP);
   o = vec4(toSrgb(shade(toLin(col), n, v, 1.0)), 1.0);
 }

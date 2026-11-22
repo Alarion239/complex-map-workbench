@@ -66,7 +66,7 @@ await key('ArrowDown', 8); await key('ArrowDown');
 const rowName = await ev(`(() => { const r = ${ROW}; const k = r && r.querySelector('.k'); return k ? k.textContent.trim() : null; })()`);
 const said = await ev(`new Promise((res) => { const t0 = performance.now(), want = ${JSON.stringify(p1)}; let last = null; const f = () => { for (const x of document.querySelectorAll('#toastHost .toast')) { const t = x.textContent, m = /^Moved (.+) to (-?[\\d.]+), (-?[\\d.]+)[.]$/.exec(t); if (/^Moved /.test(t)) last = t; if (m && Math.abs(+m[2] - want[0]) < 1e-3 && Math.abs(+m[3] - want[1]) < 1e-3) return res(t); } if (performance.now() - t0 > 6000) res(last); else setTimeout(f, 50); }; f(); })`);
 info.said = { rowName, said };
-ok('the toast names the point as its row does, with its place', !!said && !!rowName && (() => { const m = /^Moved (.+) to (-?[\d.]+), (-?[\d.]+)[.]$/.exec(said || ''); const q = [p1[0], p1[1]]; return !!m && m[1] === rowName && Math.abs(+m[2] - q[0]) < 1e-3 && Math.abs(+m[3] - q[1]) < 1e-3; })(), info.said);
+ok('the toast names the point as its row does, with its place', !!said && !!rowName && (() => { const m = /^Moved (.+) to (−?[\d.]+) ([+−]) ([\d.]+)i[.]$/.exec(said || ''); const q = [p1[0], p1[1]]; return !!m && m[1] === rowName && Math.abs(+m[2].replace('−', '-') - q[0]) < 1e-3 && Math.abs((m[3] === '−' ? -1 : 1) * +m[4] - q[1]) < 1e-3; })(), info.said);
 ok('the arrow key nudges the selected point (its place changes)', info.nudged && w0 && info.nudged.at !== w0.at, { w0, nudged: info.nudged });
 ok('the line stays open until ‹ (the line has two halves)', !!(await lane()), await lane());
 await pressPrev();
