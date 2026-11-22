@@ -690,14 +690,15 @@
   // map's poles (svLandPatches). With sing, as svLandPatches searches: a point where hF is unbounded without being a
   // pole (a root step after a Möbius step's pole, |hF| ~ |z - p|^-a with a < 1) is found too. hF does not move with the
   // glide, so they are searched once per plane s and box (hKey names hF)
-  // (LAND_ZERO_GRID: the grid a side the search for poles in the ring runs on (svPolesIn); LAND_ZERO_TOL: two points found
-  // closer than it times the ring's size are one)
-  const LAND_HEIGHT_POLES = 8, LAND_ZERO_GRID = 64, LAND_ZERO_TOL = 1e-9, svLandHeightMemo = { key: '', poles: [] };
+  // (LAND_HEIGHT_GRID and LAND_ZERO_GRID: the grid a side the searches for the height map's poles and for the branch
+  // points (svLandBranches) run on in the ring (svPolesIn); LAND_ZERO_TOL: two branch points found closer than it times the
+  // ring's size are one)
+  const LAND_HEIGHT_POLES = 8, LAND_HEIGHT_GRID = 64, LAND_ZERO_GRID = 64, LAND_ZERO_TOL = 1e-9, svLandHeightMemo = { key: '', poles: [] };
   function svLandHeightPoles(hF, hKey, src, reach) {
     const key = JSON.stringify([hKey, src.x0, src.x1, src.y0, src.y1, reach]);
     if (svLandHeightMemo.key === key) return svLandHeightMemo.poles;
     const x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, ring = svLandRing(src, reach);
-    const out = svDrain(svPolesIn(hF, ring, LAND_ZERO_GRID, ring, { n: 0, at: 0 }, true))
+    const out = svDrain(svPolesIn(hF, ring, LAND_HEIGHT_GRID, ring, { n: 0, at: 0 }, true))
       .filter((p) => p.re < src.x0 || p.re > src.x1 || p.im < src.y0 || p.im > src.y1)
       .sort((p, q) => Math.hypot(p.re - x, p.im - y) - Math.hypot(q.re - x, q.im - y)).slice(0, LAND_HEIGHT_POLES);
     Object.assign(svLandHeightMemo, { key, poles: out });
