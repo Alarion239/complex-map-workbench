@@ -109,7 +109,7 @@
     const free = (bb) => !XD.boxes.some((q) => q.x0 < bb.x1 + 1 && q.x1 > bb.x0 - 1 && q.y0 < bb.y1 + 1 && q.y1 > bb.y0 - 1) && bb.x0 > fr.x + 1 && bb.x1 < fr.x + fr.iw - 1 && bb.y0 > fr.top + 1 && bb.y1 < fr.top + fr.ih - 1;
     let tk = '', out = '';
     const edge = (vals, at, dir, name) => {
-      const dec = XD.decimals(vals.step);
+      const dec = XD.axisDec(name, vals.list, vals.step);
       let mid = null, dirm = null;
       const e0 = proj(at(vals.lo)), e1 = proj(at(vals.hi));
       if (e0 && e1) tk += `M${f2(e0[0])} ${f2(e0[1])}L${f2(e1[0])} ${f2(e1[1])}`;

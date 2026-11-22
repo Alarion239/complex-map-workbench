@@ -205,7 +205,7 @@
 /* a finger: words in the segments, every control taps 44 px */
 .cm-chip.cm-tch .cm-sb { min-width: 44px; }
 .cm-chip.cm-tch :is(.cm-x, .cm-tokx, .cm-q)::after { content: ''; position: absolute; left: 50%; top: 50%; width: 44px; height: 44px; transform: translate(-50%, -50%); }
-.cm-chip.cm-tch .cm-x { position: relative; width: 32px; height: 32px; }
+.cm-chip.cm-tch .cm-x { position: relative; width: 32px; height: 32px; padding: 0; display: inline-grid; place-items: center; }
 /* (a finger: the × beside the words on the first line, the choices on the second) */
 .cm-chip.cm-tch > .cm-t { flex: 1 1 calc(100% - 48px); }
 .cm-chip.cm-tch > .cm-x { order: 1; margin-left: auto; }

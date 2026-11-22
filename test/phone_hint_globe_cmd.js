@@ -87,4 +87,33 @@ for (const [w, h] of CHIP_CASES) for (const lang of ['en', 'ru', 'it']) {
   const back = info[`${w}x${h} ${lang}, tool cancelled`] = await cardChip();
   ok(`${w}x${h} ${lang}: the hint card is back when the tool is cancelled`, back.cardVisible && back.cardShown, back);
 }
+// The classic view on a landscape phone 320 px tall, a construction tool in hand: X's plane is 240 px wide, between its readout and its keys the
+// chip has no room for words (it was 68 px wide, its words a letter wide), and the context bar says the whole sentence in one line. The chip's
+// words are then folded away, leaving its × and ?: a chip shows its words whole or not at all, never a stub, and the bar's sentence ends in the
+// tool's name (#2086). At 568 x 320 and 600 x 320, in en, ru and it, for a tool whose chip has the tall bar (Perpendicular) and one whose keys stand
+// in a column (Intersect).
+const END_SHOWN = `(e) => { if (!e || !e.getClientRects().length) return null;
+  const box = e.getBoundingClientRect(), w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT); let last = null, n;
+  while ((n = w.nextNode())) if (n.textContent.trim()) last = n;
+  if (!last) return false;
+  const r = document.createRange(); r.setStart(last, Math.max(0, last.textContent.length - 3)); r.setEnd(last, last.textContent.length);
+  const q = r.getBoundingClientRect();
+  return q.height > 0 && q.bottom <= box.bottom + 0.5 && q.right <= box.right + 0.5; }`;
+for (const [w, h] of [[568, 320], [600, 320]]) for (const lang of ['en', 'ru', 'it']) for (const tool of ['perp', 'meet']) {
+  const name = `${w}x${h} ${lang} classic ${tool}`;
+  await view(w, h, false, true);
+  await go(`http://localhost:${PORT}/test.html?view=classic&lang=${lang}&ns=hw${w}${tool}${Date.now() % 100000}`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!document.documentElement.classList.contains("ph") && !!document.querySelector("#constructTools .tool[data-tool=perp]")' });
+  await ev(`document.querySelector('#constructTools .tool[data-tool="${tool}"]').click(); 1`);
+  await settled({ max: 20000, until: '!!document.querySelector(".ph-ctx.in") && !document.getElementById("draftChipL").hidden && !!document.querySelector("#draftChipL .cm-t")' });
+  const m = info[name] = await ev(`new Promise((resolve) => { const e = document.querySelector('#draftChipL .cm-chip'); let last = '', same = 0, n = 0;
+    const tick = () => { const q = e.getBoundingClientRect(), k = [q.left, q.top, q.width, q.height].join(); same = k === last ? same + 1 : 0; last = k;
+      if (same >= 3 || ++n > 120) resolve((() => { const f = ${END_SHOWN}, t = e.querySelector('.cm-t'), x = e.querySelector('.cm-x'), c = e.getBoundingClientRect();
+        const top = (b) => { if (!b) return false; const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!at && (at === b || b.contains(at)); };
+        return { chipW: Math.round(c.width), words: t && t.getClientRects().length ? f(t) : 'folded', bar: f(document.querySelector('.ph-ctx.in .ph-ctn')), xOnTop: top(x), qOnTop: top(e.querySelector('.cm-q')) }; })()); else requestAnimationFrame(tick); };
+    requestAnimationFrame(tick); })`);
+  ok(`${name}: the chip's words are whole or folded away, never a stub`, m.words === true || m.words === 'folded', m);
+  ok(`${name}: the context bar's sentence ends in the tool's name, on screen`, m.bar === true, m);
+  ok(`${name}: the chip's × and ? are on top at their centres`, m.xOnTop && m.qOnTop, m);
+}
 return { pass: fails.length === 0, fails, info };
