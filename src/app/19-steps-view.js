@@ -4113,7 +4113,13 @@
     svOrderSync();
     if (E.sheet) { E.sheetLoop.setAttribute('aria-pressed', String(SV.loop)); E.sheetLoop.classList.toggle('on', SV.loop); E.sheetSpeed.value = SV.speed; }
   }
-  function svTogglePlay() { if (SV.play) svPause(true); else if (SV.gate) svGateEnd(); else svPlay(); }
+  // ▶, K and M: a play pauses; a wait on ▶ is cancelled; a wait on another control (an arrow's) ends and the play waits
+  // instead, as svGo does for an arrow pressed while ▶ waits
+  function svTogglePlay() {
+    if (SV.play) { svPause(true); return; }
+    if (SV.gate) { const same = SV.gate.btn === SV.els.play; svGateEnd(); if (same) return; }
+    svPlay();
+  }
   // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
   // when the chain is discarded (opening an example or a new scene discards it)
   function svDiscardCaches() {
