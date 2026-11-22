@@ -628,12 +628,13 @@
     const mr = msg.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
     return mr.right > pr.left && mr.left < pr.right && mr.bottom > pr.top ? mr.top - pr.top - NOTE_GAP : Infinity;
   }
-  // the plane's readout chip as a box in the pane's CSS px (null: not laid out)
-  function readoutBox(pane) {
-    const el = document.getElementById(pane === paneL ? 'leftReadout' : 'rightReadout');
-    if (!el || !el.getClientRects().length) return null;
-    const r = el.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
-    return { left: r.left - pr.left, right: r.right - pr.left, top: r.top - pr.top, bottom: r.bottom - pr.top };
+  // the chips that stand over the plane's plot (its readout, its colour key) as boxes in the pane's CSS px, those that are laid out
+  function chipBoxes(pane) {
+    const side = pane === paneL ? 'left' : 'right', pr = pane.canvas.getBoundingClientRect();
+    return [side + 'Readout', side + 'Legend'].map((id) => document.getElementById(id)).filter((el) => el && el.getClientRects().length).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left - pr.left, right: r.right - pr.left, top: r.top - pr.top, bottom: r.bottom - pr.top };
+    });
   }
   function paneNote(pane, text) {
     const ctx = pane.ctx;
@@ -653,10 +654,17 @@
       return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
     };
     let n = lay(0, free);
-    // (a pane too short for note and message has the box meet the plane's readout: it stands in the room right of the readout then, wrapped to it)
-    const ro = readoutBox(pane);
-    const meets = ro && n.x0 - NOTE_GAP < ro.right && n.x0 + n.bw + NOTE_GAP > ro.left && n.y0 - NOTE_GAP < ro.bottom && n.y0 + n.bh + NOTE_GAP > ro.top;
-    if (meets && free - ro.right - NOTE_GAP >= 160) n = lay(ro.right + NOTE_GAP, free);
+    // (a pane too short for note and message has the box meet the chips over the plane: it stands in the room between those it meets, wrapped to it)
+    const meets = (o) => n.x0 - NOTE_GAP < o.right && n.x0 + n.bw + NOTE_GAP > o.left && n.y0 - NOTE_GAP < o.bottom && n.y0 + n.bh + NOTE_GAP > o.top;
+    const chips = chipBoxes(pane);
+    let left = 0, right = free;
+    for (let pass = 0; pass < chips.length; pass++) {
+      const hit = chips.filter(meets);
+      if (!hit.length) break;
+      for (const o of hit) { if (o.left + o.right < free) left = Math.max(left, o.right + NOTE_GAP); else right = Math.min(right, o.left - NOTE_GAP); }
+      if (right - left < 160) break;
+      n = lay(left, right);
+    }
     const { lines, bw, bh, y0, x0, tx } = n;
     pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
