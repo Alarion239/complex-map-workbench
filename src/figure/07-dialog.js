@@ -198,7 +198,7 @@
     // the steps view without a glide to record: Video is not offered until the thread has a step
     const noGlide = A.svOn() && !glide ? $t('Add a step to make a video') : null;
     // the classic view without the deformation: no motion to record, so Video is disabled with the reason in its title
-    const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, in the steps view: open the page without ?view=classic') : null;
+    const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, which only the steps view has') : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
     if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);

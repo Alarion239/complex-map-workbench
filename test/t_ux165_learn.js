@@ -50,7 +50,8 @@ ok('UX20: the step\'s task text keeps the strip\'s length', plain(key.try.text).
 // ---- Russian (UX78, UX93 and every string of this piece)
 const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-learn.json'), 'utf8'));
 const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
-ok('the table has the piece\'s strings', ents.length >= 70, ents.length);
+// (64: the piece's 70 less the six the classic Deformation's chip and Video offer had, gone with the transport, #994)
+ok('the table has the piece\'s strings', ents.length >= 64, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (V165_HERE is one set holding every piece's table, this one among them)

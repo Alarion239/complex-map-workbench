@@ -816,5 +816,5 @@
  "critical value": "критическое значение",
  "join radius": "радиус слияния",
  "Look down": "Взгляд сверху",
- "A video records a glide along the chain, in the steps view: open the page without ?view=classic": "Видео записывает переход по цепочке в виде шагов: откройте страницу без ?view=classic"
+ "A video records a glide along the chain, which only the steps view has": "Видео записывает переход по цепочке, а он есть только в виде шагов"
 }

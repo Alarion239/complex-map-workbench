@@ -425,7 +425,7 @@ const cls = await ev(`await (async () => { const until = async (f) => { for (let
   return { fmts, disabled: b.disabled, title: b.title, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
 info['video in the classic view'] = cls;
 ok('classic: Video is listed in the Format row', cls && cls.fmts && cls.fmts.includes('video'), cls);
-ok('classic: Video is disabled, its title says a video records a glide in the steps view, a click does not choose it', cls && cls.disabled === true && /records a glide along the chain, in the steps view: open the page without \?view=classic/.test(cls.title) && cls.checked !== 'true' && cls.still && !cls.vsum, cls);
+ok('classic: Video is disabled, its title says only the steps view has a glide to record, a click does not choose it', cls && cls.disabled === true && /^A video records a glide along the chain, which only the steps view has$/.test(cls.title) && cls.checked !== 'true' && cls.still && !cls.vsum, cls);
 await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 // the glide is recorded on the sphere and the Landscape, and the plane-only gate is gone
 for (const surf of ['sphere', 'land']) {
