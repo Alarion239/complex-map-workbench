@@ -5,6 +5,7 @@
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 const BAD = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], srcView: { cx: 0, cy: 0, s: 90 },
   steps: [{ type: 'custom', params: { expr: '\\frac{', cut: 180 }, on: true }] };
 const open = async (viewName, w, h, mobile, st, lang) => {
@@ -111,14 +112,13 @@ const pulse = await ev(`(() => {
   const lows = kf ? [...kf.cssRules].map((r) => parseFloat(r.style.opacity)).filter((v) => !isNaN(v)) : [];
   const low = lows.length ? Math.min(...lows) : null, root = document.documentElement, e = document.getElementById('leftLed');
   const rgb = (css) => { const p = document.createElement('i'); p.style.color = css; document.body.append(p); const m = /rgba?\\(([^)]*)\\)/.exec(getComputedStyle(p).color)[1].split(',').map(Number); p.remove(); return m; };
-  const lum = (c) => { const f = (v) => { v /= 255; return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4); }; return 0.2126 * f(c[0]) + 0.7152 * f(c[1]) + 0.0722 * f(c[2]); };
-  const cr = (a, b) => { const x = lum(a), y = lum(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  ${LUM_JS}
   const barBg = () => { for (let n = e.parentElement; n; n = n.parentElement) { const m = /rgba?\\(([^)]*)\\)/.exec(getComputedStyle(n).backgroundColor); if (m) { const v = m[1].split(',').map(Number); if (v[3] === undefined || v[3] > 0.5) return v; } } return [255, 255, 255]; };
   const out = { low };
   for (const th of ['light', 'dark']) {
     root.setAttribute('data-theme', th);
     const bg = barBg(), fg = rgb('var(--warn)'), a = low === null ? 1 : low;
-    out[th] = +cr([0, 1, 2].map((i) => Math.round(a * fg[i] + (1 - a) * bg[i])), bg).toFixed(2);
+    out[th] = +ratio([0, 1, 2].map((i) => Math.round(a * fg[i] + (1 - a) * bg[i])), bg).toFixed(2);
   }
   root.removeAttribute('data-theme');
   return out;
