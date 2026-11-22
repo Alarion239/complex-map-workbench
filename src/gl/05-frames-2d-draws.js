@@ -888,7 +888,8 @@
   // st.standIn: the plot's stand-in while its program links, {x0, y0, h, nx, ny, w}: w = F(z) at the nx x ny nodes, node
   // (i, j) the point (x0 + i h, y0 + j h) with its value at w[2 (j nx + i)] (re, im; a Float32Array). Drawn in the
   // plot's style (the Cauchy style colours F's values as 'enhanced' does), only when the plot's program gives nothing to
-  // draw: the frame in which its link completes draws the plot. st.noValue: only where F has no finite value, its
+  // draw: first the color program, where it is linked (the Cauchy plot's program compiling: F's values in the same style, no
+  // compile started for it), else the stand-in, else nothing; the frame in which the plot's link completes draws the plot. st.noValue: only where F has no finite value, its
   // no-value colour (the NaN hatch, infinity's white), nothing elsewhere, and no stand-in. -> true when the plot or its
   // stand-in was drawn
   function drawColorPlot(st) {
@@ -897,8 +898,9 @@
     const dpr = st.dpr || 1;
     // (st.exact: the current chain's own program or nothing drawn, never an earlier chain version's picture)
     let P = program(pname, st.map, st.exact);
-    // (the Cauchy plot's program is still linking: the plot in the phase of its points, the style the plane had, until it lands)
-    if (!P && pname !== 'color') { cp = cz = null; pname = 'color'; P = program(pname, st.map, st.exact); }
+    // (the Cauchy plot's program is still linking: F's values drawn by the color program in the stand-in's style (enhanced), with no compile of
+    // its own started, until the plot's lands; a failed compile is not this: frameErr says so)
+    if (!P && pname !== 'color' && programPending(pname, st.map) && (P = programLinked('color', st.map, st.exact))) { cp = cz = null; pname = 'color'; }
     if (!P) {
       if (!st.standIn || st.noValue || !(P = program('colorStandIn'))) return false;
       use(P);
