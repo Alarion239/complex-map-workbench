@@ -350,6 +350,7 @@ try {
       const second = Object.assign(q1.got, await ev('({ links: GLR.pendingLinks })'));
       const q2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
       const said = await ev('({ btn: window.__playLog, live: window.__liveLog, fills: window.__fillLog })');
+      ok(`${POLE_EX}, then z⁴ + z: a hold in the middle of the play for ${HOLD_SHOWN_MS / 1000} s: ▶ is the gate's Cancel (busy, named Cancel, described "Preparing the glide…") while the play is still on`, busyW.ok && busy.busy && busy.label === 'Cancel' && busy.desc === 'Preparing the glide…' && busy.play, { busyW, busy });
       // (each hold's ring is its own: it starts below half, never goes back, and is full as the hold ends, not at the programs' share
       // before the play: a hold's values run from the first one set to the 1 it holds when ▶ goes back)
       const preps = said.live.flatMap((t, i) => (t === 'Preparing the glide…' ? [i] : []));
