@@ -1961,17 +1961,17 @@
     // through the resolve of ties when the frame's sheets can tie, as the meshes' own programs are drawn. At T = 0 the
     // meshes' own program carries no chain: drawPreMapped draws the colour itself)
     const standInDraw = () => lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: Object.assign({}, carry, { w: true }) })));
+    // (a frame whose sheets can tie draws its meshes through the resolve of ties, with the layers' programs: at full
+    // opacity the front layer, below it every layer in the order it resolves)
+    let ties = !!GLR.carryResolve && svTies(map, b, key);
+    const tiesAtStart = ties;
     const standIn = () => {
       if (!(n > 0 && T > 0 && lay.every((d) => d.pre) && lay.every((d, i) => d.e && carriedW(d.e, T, sts[i].preZ, map)))) return false;
-      const r = tie0 ? GLR.carryResolve(svTieBand(), standInDraw) : null;
+      const r = tiesAtStart ? GLR.carryResolve(svTieBand(), standInDraw) : null;
       return r === null ? standInDraw() : r;
     };
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
-    // (a frame whose sheets can tie draws its meshes through the resolve of ties, with the layers' programs: at full
-    // opacity the front layer, below it every layer in the order it resolves)
-    let ties = !!GLR.carryResolve && svTies(map, b, key);
-    const tie0 = ties;
     for (let pass = 0; pass < 2; pass++) {
       let ready = true;
       for (let i = 0; i < n; i++) {
