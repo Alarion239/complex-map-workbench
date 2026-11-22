@@ -396,8 +396,9 @@
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
   // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
   // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
-  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
-  // planChain sets the same step, node and j on them (they have the same a and k)
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the homotopy's ops at every t, where one
+  // op can sit at another node (a recognised formula's sub-step comes after its predecessors' ops once the glide has
+  // passed them); each plan made from it copies them (planChain), so it keeps its own step, node and j
   const invHomSkels = new Map();
   function invHomOnce(b) {
     if (!b || b.error || !b.def) return b;
