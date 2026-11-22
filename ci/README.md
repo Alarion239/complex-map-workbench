@@ -90,7 +90,8 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
   request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
   takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed, this PR gets tier `none`
-  like a ready-for-review mirror: nothing runs, and its Gate check carries that run's verdict. A run of the top still
+  like a ready-for-review mirror: nothing runs, and its Gate check carries the verdict of the attempt that passed (it
+  reads that attempt, so a later re-run of the top's run does not change it). A run of the top still
   queued or running is not carried: a push to the top cancels it, and the PR carrying it would end red with
   nothing run. A run still going, failed, cancelled or missing means this PR runs its own tier. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
   summary says which run would have gated this head, and every PR still runs its tier.
@@ -341,7 +342,7 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets; and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  sheets; the Line integral popover on an open and on a closed curve (phone, #2191); and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
   `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
@@ -390,6 +391,10 @@ item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whos
 `--block`, as the Plan job runs it, it exits 1 when it finds anything, so a finding fails the Gate. A version inside a path or a file name
 (`notes/constructions-v16/`) is a name, not a label. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
+A deleted suite carries no added line, so it is retired instead (`retired`): the change names it in the ledger
+`ci/retired_suites.js`, one line with the reason it goes and what covers it, and drops it from what runs (from
+`ci/suite_views.js` and `ci/browser_shards.js`, or from `ci/browser_suites.js`' EXCLUDED); its assertions then do not count
+as dropped. A ledger line for a file the change does not delete is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
 ### Perf on a loaded machine
@@ -545,6 +550,7 @@ Settings (environment variables):
 | `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
+| `ci/retired_suites.js` | the ledger of test files deleted on purpose, each with its reason (Standards check) |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |

@@ -87,7 +87,7 @@ const rules = {
 const SIZE_BUDGET = {
   'src/tour.js': 2582,
   'src/glsl.js': 2150,
-  'src/app/19-steps-view.js': 3431,
+  'src/app/19-steps-view.js': 3263,
 };
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and
