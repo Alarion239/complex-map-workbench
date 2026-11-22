@@ -127,6 +127,29 @@
     }
     return out;
   };
+  // the left pane's Landscape frame redrawn once as the relief alone on a transparent frame (the figure's coverage render, artRelief: no
+  // floor, plate, marks or labels), the same carry, view and camera: the alpha plane of the pane's canvas kept as window.__cmwLandRelief.cov
+  // (one byte a pixel, w x h; 255 where the relief covers the pixel), and the frame then drawn again as before. -> { w, h, n: covered pixels },
+  // or null with no canvas
+  window.__cmwLandRelief = () => {
+    const cv = /** @type {any} */ (document.getElementById('canvasL'));
+    if (!cv) return null;
+    const keep = { artMode, artRelief };
+    try {
+      artMode = true; artRelief = true;
+      // (the frame starts from a clear canvas: a transparent fill leaves what is drawn there)
+      paneL.ctx.setTransform(1, 0, 0, 1, 0, 0); paneL.ctx.clearRect(0, 0, cv.width, cv.height);
+      renderLeft();
+      const q = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, cov = new Uint8Array(cv.width * cv.height);
+      let n = 0;
+      for (let i = 0; i < cov.length; i++) { cov[i] = q[4 * i + 3]; if (cov[i] > 0) n++; }
+      Object.assign(window.__cmwLandRelief, { cov, w: cv.width, h: cv.height });
+      return { w: cv.width, h: cv.height, n };
+    } finally {
+      artMode = keep.artMode; artRelief = keep.artRelief;
+      renderLeft();
+    }
+  };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
   window.__cmwGlobeDisk = (side) => { const g = globeCam(side); return g ? { R: g.R, w: g.pane.w, h: g.pane.h } : null; };   // (a globe pane's silhouette radius R, and the pane's size, in CSS px: the app's own globeCam)
   // what the live panes last drew each shape with: {'R|s1': 'inverse' | 'pending' | 'forward', ...}
