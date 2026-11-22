@@ -370,8 +370,8 @@ try {
       // (the play meets more than one hold in this scene: the live region says "Preparing the glide…" once for each, counted among the raw
       // texts the region gets, and the next text after each is the play's words)
       ok(`${POLE_EX}, then z⁴ + z: the live region says "Preparing the glide…" once for each hold (${holds.length}), and the play's words ("Playing from …") the next time it is written`, holds.length > 0 && preps.length === holds.length && preps.every((i) => /^Playing from /.test(said.live[i + 1] || '')), said.live);
-      // (the play's words are written when it starts and once when each shown hold ends: a hold's start puts the region back to the
-      // held place's words, which are not the play's words written again, and a hold shorter than the gate's threshold writes nothing)
+      // (the play's words are written when it starts and once when each shown hold ends: a hold's start leaves the region on the
+      // held place's words, so it writes nothing, and a hold shorter than the gate's threshold writes nothing at all)
       const words = said.live.filter((t) => /^Playing from /.test(t));
       ok(`${POLE_EX}, then z⁴ + z: the play's words are written once at its start and once for each hold (${preps.length}), never again at a hold's start`, preps.length > 0 && words.length === preps.length + 1, said.live);
       await ev('window.__llHeld.done = true, 1');

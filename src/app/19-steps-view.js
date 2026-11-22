@@ -1399,7 +1399,7 @@
     if (A) {
       A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) };
       // (the crossing's words, once its frame is drawn: svPlayFrame)
-      if (A.label != null && SV.els.live && SV.play === A) SV.els.live.textContent = A.label;
+      if (A.label != null && SV.els && SV.els.live && SV.play === A) SV.els.live.textContent = A.label;
       A.label = null;
     }
     svHoldWaitEnd(true);
