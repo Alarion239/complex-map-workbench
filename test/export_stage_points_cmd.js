@@ -111,8 +111,14 @@ const CURVE_TOL = 2e-3;
 const stray = (curves, id, r, pre) => { const c = (curves || []).find((q) => q.id === id); if (!c || !c.pts.length) return null; return Math.max(...c.pts.map((w) => { const z = pre(w); return Math.abs(Math.hypot(z[0] - 1, z[1]) - r); })); };
 const curveScene = (focus, stage) => Object.assign(scene(focus), { shapes: [Object.assign({ id: 'c1', kind: 'circle', c: [1, 0], r: 0.5, visible: true }, stage ? { stage } : {}), Object.assign({ id: 'd1', kind: 'disc', c: [1, 0], r: 0.3, visible: true }, stage ? { stage } : {})] });
 const id = (w) => w;
+// (the caption writes each shape in its own plane's variable, as its row does: |w₁ − 1| = 0.5 for the circle of w₁, |z − 1| = 0.5
+// for the control's (#2243))
+const W1_CIRCLE = '|w_{1}-1|=0.5', W1_DISC = '|w_{1}-1|\\le 0.3', Z_CIRCLE = '|z-1|=0.5', Z_DISC = '|z-1|\\le 0.3';
 for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['control, on z, focus 0', 0, 0]]) {
   const f = await build('xspcv' + focus + stage + Date.now(), curveScene(focus, stage)), L = f.curves && f.curves.L, R = f.curves && f.curves.R;
+  info['caption ' + tag] = f.cap;
+  if (stage) ok(`caption, ${tag}: the circle and the disc of w₁ are written in w₁, $${W1_CIRCLE}$ and $${W1_DISC}$, not in z`, (f.cap || '').includes(W1_CIRCLE) && (f.cap || '').includes(W1_DISC) && !/\|z-1\|/.test(f.cap || ''), f.cap);
+  else ok(`caption, ${tag}: the circle and the disc of z keep z, $${Z_CIRCLE}$ and $${Z_DISC}$`, (f.cap || '').includes(Z_CIRCLE) && (f.cap || '').includes(Z_DISC) && !/w_\{1\}-1/.test(f.cap || ''), f.cap);
   info['curves ' + tag] = { L: (L || []).map((c) => ({ id: c.id, n: c.pts.length, first: c.pts[0] })), R: (R || []).map((c) => ({ id: c.id, n: c.pts.length, first: c.pts[0] })), err: f.err };
   ok(`curves, ${tag}: the figure has two panels (control)`, !f.err && !f.none && JSON.stringify(f.panels) === JSON.stringify(['L', 'R']), f.err || f.panels);
   for (const [sid, r, what] of [['c1', 0.5, 'circle'], ['d1', 0.3, 'disc']]) {
@@ -130,5 +136,11 @@ for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['contr
       ok(`curves, control: panel (b) draws its image under F = (e^z)², Log(w)/2 on its edge (off by ${eR})`, eR != null && eR < CURVE_TOL, info['curves ' + tag].R);
     }
   }
+}
+// (in Russian too, with the decimal comma: |w₁ − 1| = 0{,}5)
+for (const focus of [0, 2]) {
+  const f = await build('xspcvru' + focus + Date.now(), curveScene(focus, 1), 'ru');
+  info['caption ru, focus ' + focus] = f.cap;
+  ok(`caption ru, focus ${focus}: the circle and the disc of w₁ are written in w₁, |w_{1}-1|=0{,}5 and |w_{1}-1|\\le 0{,}3`, (f.cap || '').includes('|w_{1}-1|=0{,}5') && (f.cap || '').includes('|w_{1}-1|\\le 0{,}3') && !/\|z-1\|/.test(f.cap || ''), f.cap);
 }
 return { pass: fails.length === 0, fails, info };
