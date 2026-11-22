@@ -90,7 +90,8 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
   push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
   request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
   takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed, this PR gets tier `none`
-  like a ready-for-review mirror: nothing runs, and its Gate check carries that run's verdict. A run of the top still
+  like a ready-for-review mirror: nothing runs, and its Gate check carries the verdict of the attempt that passed (it
+  reads that attempt, so a later re-run of the top's run does not change it). A run of the top still
   queued or running is not carried: a push to the top cancels it, and the PR carrying it would end red with
   nothing run. A run still going, failed, cancelled or missing means this PR runs its own tier. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
   summary says which run would have gated this head, and every PR still runs its tier.
