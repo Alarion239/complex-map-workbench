@@ -1,7 +1,8 @@
 // While a play or a glide waits for its programs (svLinkHold), the picture stays at the held place, and what describes the
 // thread stays with it: the scrubber's spoken value (aria-valuetext) says the held place, its thumb stands there, and in a
 // play the head and the live region name the plane the picture shows. None of them changes for the whole wait, and once
-// the links land none goes back. z + 1/z, then z⁴ + z, on pages whose links land SECOND_LINK_MS late (test/lib/late_links.js),
+// the links land none goes back; the one exception is the gate's words in the live region (a play's hold that lasts
+// SV_GATE_SHOW_MS says "Preparing the glide…", once, and the play's words as it ends: test/steps_late_links_cmd.js). z + 1/z, then z⁴ + z, on pages whose links land SECOND_LINK_MS late (test/lib/late_links.js),
 // the motion's time PLAY_STEP_MS a frame (__cmwSteps({ clock })): ▶ from plane z, held for the programs of each glide, and a
 // glide from plane 2 to plane z, held the same way. After every animation frame the page records the thread's place and
 // the four readouts; the spoken value is checked against the place by the scrubber's own wording (svReadout).
@@ -19,6 +20,7 @@ const SECOND_LINK_MS = 15000, PLAY_STEP_MS = 47, READY_MS = 60000, PLAY_MS = 180
 // the place within which the scrubber calls the thread a plane, svReadout's (read from the app's source)
 const SV_REST_U = +(/const SV_REST_U = ([0-9.e-]+)/.exec(fs.readFileSync(path.join(DIR, '..', '..', 'src', 'app', '19-steps-view.js'), 'utf8')) || [])[1];
 const SUB = '₀₁₂₃₄₅₆₇₈₉';
+const PREPARING = 'Preparing the glide…';
 const svName = (k) => (k === 0 ? 'z' : 'w' + String(k).split('').map((d) => SUB[+d]).join(''));
 // the scrubber's spoken value at place x of a chain of n planes 0, 1, …, n − 1 (svReadout, in English, no range, no d/dz)
 const said = (x, n) => {
@@ -98,13 +100,14 @@ try {
   const end = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2 && !__cmwSteps().play' });
   const r = await rows();
   const h = holds(r), bad = wrong(r, true), heldBad = bad.filter((b) => h.some(([i0, i1]) => b.i >= i0 && b.i <= i1));
+  const gates = (c) => c.k === 'live' && (c.from === PREPARING || c.to === PREPARING);
   const moved = h.map(([i0, i1]) => ({ x: r[i0].x, frames: i1 - i0 + 1, changes: r.slice(i0, i1 + 1).map((e, j, a) => (j ? ['vt', 'tx', 'head', 'live'].filter((k) => e[k] !== a[j - 1][k]).map((k) => ({ j, k, from: a[j - 1][k], to: e[k] })) : [])).flat() }));
   const back = h.length ? backs(r, 1, h[0][0]) : [];
   info.play = { end, frames: r.length, holds: moved, bad: bad.slice(0, 6), back: back.slice(0, 4), liveOk };
   ok('play: the live region is found (control)', liveOk, liveOk);
   ok('play: it is held at least once while its links land late, and reaches plane 2 (control)', end.ok && h.length > 0 && h.some(([i0]) => r[i0].x > 0.3), { end, holds: moved });
   ok('play: while held, the spoken value, the head and the live region describe the place the picture is held at', heldBad.length === 0, heldBad.slice(0, 6));
-  ok('play: while held, none of the readouts changes', moved.every((m) => m.changes.length === 0), moved);
+  ok('play: while held, none of the readouts changes, but the live region says the gate\'s words once and the play\'s as it ends', moved.every((m) => m.changes.filter((c) => !gates(c)).length === 0 && m.changes.filter(gates).length <= 2), moved);
   ok('play: on every frame, the spoken value, the head and the live region describe the place drawn', bad.length === 0, bad.slice(0, 6));
   ok('play: after a hold the thumb never goes back', back.length === 0, back.slice(0, 4));
   // ---- a glide from plane 2 to plane z: held for each glide's programs
