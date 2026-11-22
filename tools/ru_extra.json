@@ -765,6 +765,7 @@
  "the arrows move a probe": "стрелки перемещают указатель",
  "{x} move a probe": "{x} перемещают указатель",
  "Stop on a plane to colour from it": "Чтобы взять из плоскости цвет, остановитесь на ней",
+ "Copy the reading": "Скопировать показание",
  "{name}: +{n} off view": "%{name}: ещё %{n} за краем",
  "Pieces of {name} pulled back off the view: {n} of {all}": "Части прообраза «%{name}» за краем вида: %{n} из %{all}",
  "Pick": "Выбор точек",
