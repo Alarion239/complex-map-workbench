@@ -355,7 +355,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // The uniform vectors the programs that embed uChain take besides it: the most over every chain program's vertex and
   // fragment source, one vector per scalar or vecN, mat3 three, mat4 four, an array its length times that, samplers none
   // (glchain_slot_cap_cmd.js counts them from the sources and asserts this value).
-  const OTHER_UNIFORM_VECS = 84;
+  const OTHER_UNIFORM_VECS = 86;
   // WebGL2's guaranteed minimum of the fragment and the vertex uniform vectors (224, 256): the limit when the page has no GL
   const SPEC_UNIFORM_VECS = 224;
   // The most vec4 slots a chain's uChain may take when the smaller of the GPU's fragment and vertex uniform-vector limits
