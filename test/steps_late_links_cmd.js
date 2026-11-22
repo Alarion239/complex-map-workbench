@@ -350,15 +350,15 @@ try {
       const second = Object.assign(q1.got, await ev('({ links: GLR.pendingLinks })'));
       const q2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
       const said = await ev('({ btn: window.__playLog, live: window.__liveLog, fills: window.__fillLog })');
-      // (the play meets more than one hold in this scene: each is said once, and each is followed by the play's words, with nothing between)
-      const seq = said.live.filter((t, i, a) => t !== a[i - 1]), preps = seq.flatMap((t, i) => (t === 'Preparing the glide…' ? [i] : []));
-      ok(`${POLE_EX}, then z⁴ + z: a hold in the middle of the play for ${HOLD_SHOWN_MS / 1000} s: ▶ is the gate's Cancel (busy, named Cancel, described "Preparing the glide…") while the play is still on`, busyW.ok && busy.busy && busy.label === 'Cancel' && busy.desc === 'Preparing the glide…' && busy.play, { busyW, busy });
       // (each hold's ring is its own: it starts below half, never goes back, and is full as the hold ends, not at the programs' share
       // before the play: a hold's values run from the first one set to the 1 it holds when ▶ goes back)
+      const preps = said.live.flatMap((t, i) => (t === 'Preparing the glide…' ? [i] : []));
       const runs = said.fills.reduce((rs, v) => { rs.open.push(v); if (v === 1) { rs.all.push(rs.open); rs.open = []; } return rs; }, { all: [], open: [] }).all;
       ok(`${POLE_EX}, then z⁴ + z: in each hold ▶'s ring starts below half, never goes back and is full as the hold ends`, runs.length > 0 && runs.every((r) => r.length > 1 && r[1] < RING_START_MAX && r.every((v, i) => i === 0 || v >= r[i - 1])), runs);
       ok(`${POLE_EX}, then z⁴ + z: the hold ends: ▶ is Pause again while the play goes on`, said.btn.some((e, i) => e.busy && said.btn.slice(i + 1).some((f) => !f.busy && f.label === 'Pause')), said.btn);
-      ok(`${POLE_EX}, then z⁴ + z: the live region says "Preparing the glide…" once for each hold, and the play's words ("Playing from …") the next time it is written`, preps.length > 0 && preps.every((i) => /^Playing from /.test(seq[i + 1] || '')), seq);
+      // (the play meets more than one hold in this scene: the live region says "Preparing the glide…" once for each, counted among the raw
+      // texts the region gets, and the next text after each is the play's words)
+      ok(`${POLE_EX}, then z⁴ + z: the live region says "Preparing the glide…" once for each hold (${runs.length}), and the play's words ("Playing from …") the next time it is written`, runs.length > 0 && preps.length === runs.length && preps.every((i) => /^Playing from /.test(said.live[i + 1] || '')), said.live);
       await ev('window.__llHeld.done = true, 1');
       const got = { second, waits: { q0, q1: q1.wait, q2 } }, still = q0.ok && q1.wait.ok && second.xs.length === 1;
       ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, for the programs of the glide into plane 2: the play waits where it is`, still, got);
