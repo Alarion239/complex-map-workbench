@@ -326,6 +326,9 @@
     return { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left) };
   };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
+  // the seams svPatchSeam has measured (svLandPoleMemo.runs: a seam is measured again only for a new map or box, or a pole that moved); with
+  // redraw, a frame of both panes is asked for first
+  window.__cmwLandSeams = (redraw) => { if (redraw) requestRender('L', 'R'); return { runs: svLandPoleMemo.runs }; };
   // TEST-HOOK
 
   // TEST-HOOK (dropped from the published page by build.py)
@@ -374,7 +377,7 @@
         if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
       }
     };
-    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, 4).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
     grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
     for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
       const n = p[4] || c.patchN || 96;
