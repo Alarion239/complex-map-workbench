@@ -14,7 +14,7 @@
     const cv = pane.canvas, host = cv && cv.parentElement;
     if (!host) return [];
     const o = cv.getBoundingClientRect(), out = [];
-    for (const el of host.querySelectorAll(':scope > .chip, :scope > .legend-chip, :scope > .options, :scope > .viewstack, :scope > .empty-chip')) {
+    for (const el of host.querySelectorAll(':scope > .chip, :scope > .legend-chip, :scope > .options, :scope > .viewstack, :scope > .empty-chip, :scope > .ld-key')) {
       if (el.hidden || el.offsetParent === null) continue;
       const r = el.getBoundingClientRect();
       if (r.width > 0 && r.height > 0) out.push({ x0: r.left - o.left, x1: r.right - o.left, y0: r.top - o.top, y1: r.bottom - o.top });
@@ -63,6 +63,8 @@
   const LABEL_DEFAULT = [7, -7];   // north-east of the point
   // (a point under a control has its label in the free part of the plane, level with the point or LEADER_ROWS rows above and below it, with a LEADER_COST penalty: a leader joins it to the point)
   const LEADER_ROWS = 3, LEADER_COST = 3;
+  // (a point whose marker lies wholly under controls is not seen: its label stands where it would, with no leader, which would only point at the control. A plain dot's marker reaches 5 px from the point: its 3.5 px ring, the ring's stroke and halo; it is sampled at its centre and at eight points on the circle of MARKER_R px, on the disc's edge. test/label_controls_cmd.js samples the same nine points, its MARK_R matched to this by hand)
+  const MARKER_R = 5;
   // (a label's halo, and the leader's ink line, in px)
   const HALO_W = 3, LEADER_W = 1;
   // (a spot's cost: the curves it touches count CURVE_COST_PER each, up to CURVE_COST_CAP; a label nearer another marker, AMBIGUOUS_COST)
@@ -92,6 +94,18 @@
       out.push({ x0: r.left - pr.left - CTRL_PAD, x1: r.right - pr.left + CTRL_PAD, y0: r.top - pr.top - CTRL_PAD, y1: r.bottom - pr.top + CTRL_PAD });
     }
     return out;
+  }
+  // whether a control of the plane is on top at every one of the marker's nine sample points: the marker is not seen. Nine hit tests, only for a point that a control covers and that has no free spot, once per labels pass
+  function markerHidden(pane, x, y) {
+    const plot = pane.ocanvas && pane.ocanvas.parentElement;
+    if (!plot) return false;
+    const pr = plot.getBoundingClientRect();
+    const samples = [[0, 0]];
+    for (let k = 0; k < 8; k++) samples.push([MARKER_R * Math.cos(k * Math.PI / 4), MARKER_R * Math.sin(k * Math.PI / 4)]);
+    return samples.every(([dx, dy]) => {
+      const e = document.elementFromPoint(pr.left + x + dx, pr.top + y + dy);
+      return !!e && e !== plot && e.tagName !== 'CANVAS' && !e.classList.contains('ph-col') && plot.contains(e);   // (the column's own box spans the gaps between its keys)
+    });
   }
   function flushLabelsIn(pane, r) {
     const ctx = pane.ctx, W = pane.w, H = pane.h;
@@ -221,7 +235,7 @@
             const row = k % 2 ? (k + 1) / 2 : -k / 2;
             best = evalCand(cover.x0 - tw - g.x, row * (th + 2), LEADER_COST);
           }
-          leader = !!best;
+          leader = !!best && !markerHidden(pane, g.x, g.y);
         }
         if (!best) continue;   // no free spot: dropped, never printed over another label or a handle
         ({ x, y } = best);

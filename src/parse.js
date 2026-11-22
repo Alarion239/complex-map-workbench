@@ -694,6 +694,14 @@ const Expr = (() => {
     }
   }
   const kids = (n) => ['a', 'b', 'n', 'lo', 'hi'].map((k) => n[k]).filter((x) => x && typeof x === 'object' && x.t);
+  // the tree ast with each z replaced by the tree by (the composition ast ∘ by), the nodes kept as they are otherwise
+  function substZ(ast, by) {
+    if (!ast || typeof ast !== 'object') return ast;
+    if (ast.t === 'var' && ast.n === 'z') return by;
+    const o = Object.assign({}, ast);
+    for (const k of ['a', 'b', 'n', 'lo', 'hi']) if (o[k] && typeof o[k] === 'object' && o[k].t) o[k] = substZ(o[k], by);
+    return o;
+  }
   const hasT = (n, t) => n.t === t || kids(n).some((x) => hasT(x, t));
   function usesVars(n, set = new Set()) {
     if (n.t === 'var') set.add(n.n);
@@ -1693,7 +1701,7 @@ const Expr = (() => {
   const hasIter = (n) => hasT(n, 'iter');
   // the recurrence u_0, u_{k+1} = g(u_k, z), its value u_N (the trees of u_0, of g in its letter v, and of N)
   const iterate = (u0, g, N, v = 'u') => ({ t: 'iter', v, lo: u0, hi: N, a: g });
-  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK };
+  return { parse, typed, compile, hasIter, iterate, ITER_CAP, compileLevel, checkRealSides, seriesInfo, planOf, unroll, hasSeries, SER_CAP, classifyRelation, REL_MSG, realOf, sameAst, constValue, classify, depends, usesVars, hasBool, toTex, ParseError, paren, polyExpand, polyDegree, compoundTex, diff, invert, simplify, N, setNames, nameValue, nameTex, nameSpans, GREEK, substZ };
 })();
 import { CX } from './cx.js';
 import { Symbolic } from './symbolic.js';
