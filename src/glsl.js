@@ -465,7 +465,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   }));
   // baked: when given (a custom step, whose key holds it), constant exponents are specialized and their kinds pushed
   // here; without it (d/dz, whose key holds its own source) they stay uniforms through cx_powk
-  function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = []) {
+  // (budget: when given, a function (θ) -> terms for each finite sum, the terms a pixel would take past SER_GPU_FINITE,
+  // 0 within it: loopGL)
+  function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = [], budget = null) {
     let tmp = 0, out = lines;
     const dep = Expr.depends;
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
@@ -657,7 +659,25 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
       // only when a sum inside it reads it, so a sum with no finite sum inside declares none
       const outerFn = idxVar.filter((e) => e.fn);
-      const me = { v: n.v, k, fn: `${id}_fn`, used: false };
+      // (the CPU's count of the same terms, from the bounds' values: (θ) -> the loop's fn, or null when a bound depends
+      // on z or on an enclosing sum's index, so it is a value only the GPU knows)
+      const loC = dep(n.lo) ? null : n.lo, hiC = dep(n.hi) ? null : n.hi;
+      const bounds = (th) => (loC && hiC ? [constOf(loC, th).re, constOf(hiC, th).re] : null);
+      const cnt = (th) => { const b = bounds(th); return !b || !(b[0] === b[0] && b[1] === b[1]) ? null : b[0] < -1e30 || b[1] > 1e30 ? 1 : b[1] - b[0] + 1; };
+      const me = { v: n.v, k, fn: `${id}_fn`, used: false, cnt };
+      // the terms past the budget, as the GPU's test below finds them (fits): a finite sum whose bounds and enclosing
+      // finite sums' counts the CPU knows, else 0, as within the budget. The page says why such a plot has no value
+      if (budget) {
+        budget.push((th) => {
+          const b = bounds(th);
+          if (!b || !(b[0] === b[0] && b[1] === b[1]) || b[0] < -1e30 || b[1] > 1e30) return 0;
+          const outs = outerFn.map((e) => e.cnt(th));
+          if (outs.some((x) => x === null)) return 0;
+          const all = outs.reduce((p, x) => p * x, b[1] - b[0] + 1);
+          const fits = outs.length ? all <= SER_GPU_FINITE : b[1] - b[0] < SER_GPU_FINITE;
+          return fits ? 0 : Math.round(all);
+        });
+      }
       out = inner;
       idxVar.push(me);
       let t;
@@ -1466,13 +1486,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const ast = b.ast || Expr.parse(v.expr);
         const cut = A.cell();
         const TH = cut.x;
-        const writers = [], lines = [], shape = [];
+        const writers = [], lines = [], shape = [], budget = [];
         const baked = [];
-        const res = genCustom(ast, P, A, TH, writers, lines, baked, shape);
+        const res = genCustom(ast, P, A, TH, writers, lines, baked, shape, budget);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
           sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc, dom: np && np.dom,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
+          // (the most terms a finite sum of the step takes past SER_GPU_FINITE, at these values; 0 when none does)
+          terms() { const th = v.cut * DEG; return budget.reduce((m, f) => Math.max(m, f(th)), 0); },
         };
       }
     }
@@ -1546,8 +1568,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
       sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: subs.every(({ pl }) => exactAt1(pl)),
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { for (const { pl } of subs) pl.write(put); },
+      terms: () => subTerms(subs),
     };
   }
+  // (a formula's or a Repeat's sub-steps: the most terms one of their finite sums takes past SER_GPU_FINITE)
+  const subTerms = (subs) => subs.reduce((m, { pl }) => Math.max(m, pl.terms ? pl.terms() : 0), 0);
   // [issue #6] Repeat × N (Funcs.repeatBuilt: b.rec runs the block's last step, then the block N − 1 times): the block's
   // steps once each, as functions of their own (P r j), and a loop whose trip count N − 1 is a uniform, so a new N (a
   // typed N, a shared number's slider) is the same program. The path runs the 1 + (N − 1) len steps in turn, each on
@@ -1580,6 +1605,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: true,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
+      terms: () => subTerms(subs),
     };
   }
   // A step's cuts that the sheets cannot continue (inverse trig functions, the Joukowski branches, arg in a formula):
@@ -2071,9 +2097,12 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken as they are at the call (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
-    let inverse;
+    let inverse, terms;
     return {
       key: JSON.stringify(['glc1', sigs]),
+      // step k's finite sums: the most terms one takes past SER_GPU_FINITE, at [k − 1] (0 within it, or no such sum),
+      // counted at these values once, as values() writes them: a draw through such a step has no value there
+      get stepTerms() { return terms || (terms = plans.map((p) => (p && p.plan.terms ? p.plan.terms() : 0))); },
       source: src,
       // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md; standards-ok: a spec path in notes/): GLSL to put after
       // source in the programs that call it
@@ -3160,7 +3189,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
   return {
     get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
     useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
-    INV_LIB, seriesTrust,
+    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE,
   };
 })();
 import { CX } from './cx.js';
