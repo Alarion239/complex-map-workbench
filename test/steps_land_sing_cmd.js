@@ -18,8 +18,8 @@
 // - no point of the sector |arg w| < p pi - EDGE with |w| at least NEAR_W is bare (the patch's rings reach the cut's
 //   sides, not short of them in steps), at least MIN_N points read. (Within NEAR_W of 0, the image of the cut's
 //   other end 0.1i, a branch point of the power, a few points the patch's cells there reach only to their size are bare.)
-// A patch's seam is measured once for its map and box (#2197): frames drawn again at a held u measure none, a new u measures
-// it again.
+// A patch's seam is measured once for its map and box: frames drawn again at a held u measure none, a new u measures it
+// again.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js lists it in.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -70,15 +70,15 @@ for (let k = 1; k <= 24; k++) {
   await hold(1 + u);
   branchRows(tag, info[tag] = await branch());
 }
-// (#2197: a patch's seam is measured once for its map and box. Held at u = 0.5, frames drawn again (each a new carried frame:
-// the last one's mark gone) measure no seam; held at another u, the map is new and its seam is measured again)
-const REDRAWS = 3;
+// (a patch's seam is measured once for its map and box. Held at u = 0.5, frames drawn again (each a new carried frame:
+// the last one's mark gone, waited for up to REDRAW_MAX ms) measure no seam; held at another u, the map is new and its seam is
+// measured again)
+const REDRAWS = 3, REDRAW_MAX = 10000;
 await hold(1.5);
 const seams0 = (await ev('__cmwLandSeams()')).runs, drawn = [];
 for (let k = 0; k < REDRAWS; k++) {
   await ev('(__cmwLandCarry().__mark = 1, __cmwLandSeams(true), 1)');
-  await ev(rAF2);
-  drawn.push(await ev('!!__cmwLandCarry() && __cmwLandCarry().__mark !== 1'));
+  drawn.push((await settled({ max: REDRAW_MAX, panes: false, until: '!!__cmwLandCarry() && __cmwLandCarry().__mark !== 1' })).ok);
 }
 const seams1 = (await ev('__cmwLandSeams()')).runs;
 await hold(1.52);
