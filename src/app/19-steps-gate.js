@@ -62,6 +62,14 @@
     g.btn.style.removeProperty('--wait');
     if (g.btn === (SV.els && SV.els.play)) { delete g.btn.dataset.on; svPlaySync(); }
   }
+  // a press on a control while the wait runs: the wait ends, and the result is whether it was on btn, where the press only
+  // cancels it; on another control the press goes on and waits instead
+  function svGateSwitch(btn) {
+    if (!SV.gate) return false;
+    const same = SV.gate.btn === btn;
+    svGateEnd();
+    return same;
+  }
   function svGateSync() {
     const g = SV.gate;
     if (!g || !g.shown) return;

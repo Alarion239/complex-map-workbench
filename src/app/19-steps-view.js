@@ -330,7 +330,7 @@
     const per = SV_SPEEDS[SV.speed] || 900;
     // (a press while the wait runs cancels it: on the button that shows it, that is all; elsewhere the new glide waits instead)
     const btn = i > from ? SV.els.next : SV.els.prev;
-    if (SV.gate) { const same = SV.gate.btn === btn; svGateEnd(); if (same) return; }
+    if (svGateSwitch(btn)) return;
     // (the Landscape steps a plane at a time, with no frames between planes: an arrow or a plane of the strip there waits
     // for nothing, and no wait holds back its at-rest refinement)
     if (SV.surf !== 'land' && svGateNeeded()) { svGated(btn, () => svGo(i)); return; }
@@ -4098,7 +4098,7 @@
   // instead, as svGo does for an arrow pressed while ▶ waits
   function svTogglePlay() {
     if (SV.play) { svPause(true); return; }
-    if (SV.gate) { const same = SV.gate.btn === SV.els.play; svGateEnd(); if (same) return; }
+    if (svGateSwitch(SV.els.play)) return;
     svPlay();
   }
   // The steps view's CPU caches of the chains (pole tracks, ring sizes and ring, the polar mesh results) are dropped
