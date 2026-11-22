@@ -21,7 +21,8 @@
 //   (reported, not gated, cos and the cubic): within its timing times. The cubic's cost is a timing row only: on lavapipe
 //   its frame costs 1.23-1.60 times z^2's by its closed form and 1.49-1.79 by Newton's method (six rounds each, one
 //   session), and the hosted runner's Gates read 1.38-1.45, so no bound tells the two apart and a gated one fails runs
-//   with the closed form; a cubic that falls back to Newton fails the rows above (none of its ops is NEWT).
+//   with the closed form; a cubic that falls back to Newton fails the rows above (none of its ops is NEWT). Its
+//   reported level, 1.65, is above the closed form's spread on both machines.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -60,7 +61,7 @@ const CASES = {
   cosh: { step: { type: 'cosh' }, us: [0.5] },
   arccos: { step: { type: 'arccos' }, us: [0.5] },
   arcosh: { step: { type: 'arcosh' }, us: [0.5] },
-  cubic: { step: { type: 'poly', params: { co: '1, 0, -2, 1' } }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, timing: 1.5 },
+  cubic: { step: { type: 'poly', params: { co: '1, 0, -2, 1' } }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, timing: 1.65 },
   quartic: { step: { type: 'custom', params: { expr: 'z^3+\\frac{1}{z}', cut: 180 } }, us: [0.25, 0.5, 0.75], judge: 0.25 },
 };
 const SAME_FRAC = 1e-4, ARRIVAL_FRAC = 0.002, ARRIVAL_U = 1 - 1e-4;
