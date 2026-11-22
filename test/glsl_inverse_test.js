@@ -11,7 +11,8 @@
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
 //         2e-4 (1 + |w|) of it (a cut, a window or a range boundary: float32 decides those differently) or when a
 //         member's range level lies within 0.02 px of the -1 px ramp.
-//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included)
+//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included; a line float32
+//         cannot place, one whose crossings its inputs' float32 rounding moves past the tolerance, left out)
 //  fs     REGION_FS(false / true) byte-identical to the fixtures (SPEC 6.1; patterns 0-8 since P3)
 //  flip   12.1 (l): poly 1,0,0,0,-1,0 <-> 1,0,0,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
 //         forward key: the inverse key changes, the program drawn is the one of the current inverse key (its source
@@ -341,14 +342,14 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- walk parity ----
   const SPC = opts.shapesPerChain ?? 2;
-  let seedRat = null;   // the rational chains (last in the list) hand the random stream back as they found it: the clip test keeps its sample
   // the first gChains eligible chains take one exact-form disc after their other shapes, on a
   // random stream of its own (the other cases stay the same cases); the GPU packs it at the window's centre, as the app does
   let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
   R.gWalk = { cases: 0 };
   // (test/glsl_tiers.js: the whole page, tier all, walks every chain on one random stream, as it always did; a tier or a
   // part walks the chains it keeps, each on a stream seeded by its name, so a chain's cases do not depend on which
-  // other chains run; the clip test after the walk then starts from the page's seed)
+  // other chains run; the clip test after the walk starts from the page's seed either way, so its sample does not depend
+  // on the chains or on which of them are eligible)
   const legacy = GLSLTiers.LEGACY || (GLSLTiers.TIER === 'all' && GLSLTiers.PARTS === 1), seed0 = opts.seed || 20261019;
   let prevCh = null, prevT = 0;
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -363,7 +364,6 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
-    if (RA && seedRat === null) seedRat = seed;
     const plan = Inverse.planChain(steps, built);
     if (!plan.ok) { R.skipped.ineligible++; continue; }
     if (RA) { RA.chains++; const k = plan.ops.map((o) => o.kind).join('>'); RA.kinds[k] = (RA.kinds[k] || 0) + 1; }
@@ -466,9 +466,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     }
   }
   if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
-  if (seedRat !== null) seed = seedRat;
-  if (!legacy) seed = seed0;
-  if (gSaved !== null) { seed = gSaved; gSaved = null; }
+  seed = seed0; gSaved = null;
   if (GLR.setFormAnchor) GLR.setFormAnchor(null);
   // ---- saturation anchors (SPEC 13.12, P2 review): artanh / arctan of shapes through +-1 / +-i, far out in the strip
   // (|Re w| up to 40: float32 tanh w is +-1 there): GPU leaf coverage = CPU (anchored, float64), and the coverage of
@@ -539,7 +537,9 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     GLR.setChain(GLChain.build(steps, built));
     const plan = Inverse.planChain(steps, built);
     const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
-    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0 };
+    // (ULP32: float32's rounding, relative; illCond: of skipped, the lines float32 cannot place)
+    const ULP32 = 2 ** -24;
+    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0, illCond: 0 };
     const N = 1024;
     // after the nV15 shapes (their random stream unchanged), the exact-form discs: near
     // collinear, a far anchor (1e4 away; the GPU packs at the view's centre, as the app does), complements
@@ -572,6 +572,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
         const emptyC = !(c.lo <= c.hi), emptyG = !(o[0] <= o[1]);
         // near-tangent lines (interval shorter than the tolerance) decide emptiness by rounding
         if (emptyC !== emptyG) { if ((!emptyC && (c.hi - c.lo) <= 4 * tol(c.lo)) || emptyC) { CL.skipped++; continue; } }
+        // lines float32 cannot place: their inputs moved by float32's rounding (q turned by ULP32 either way, z0 moved by
+        // ULP32 (1 + |z0|) across q) move the CPU's own crossings by more than the tolerance (a line nearly parallel to a
+        // boundary, whose crossing is that rounding over the sine of their angle), so the GPU's are rounding too
+        if (!emptyC) {
+          const n = C(-q.im / qa, q.re / qa), dz = ULP32 * (1 + cabs(z0));
+          const moved = [C(q.re - ULP32 * q.im, q.im + ULP32 * q.re), C(q.re + ULP32 * q.im, q.im - ULP32 * q.re)].map((q2) => Region.shapeClip(prim, z0, q2, m))
+            .concat([1, -1].map((sg) => Region.shapeClip(prim, C(z0.re + sg * dz * n.re, z0.im + sg * dz * n.im), q, m)));
+          if (moved.some((c2) => !(c2.lo <= c2.hi) || !same(c.lo, c2.lo) || !same(c.hi, c2.hi))) { CL.skipped++; CL.illCond++; continue; }
+        }
         CL.compared++;
         const bad = [];
         if (emptyC !== emptyG) bad.push(`empty cpu ${emptyC} gpu ${emptyG}`);

@@ -465,7 +465,9 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   }));
   // baked: when given (a custom step, whose key holds it), constant exponents are specialized and their kinds pushed
   // here; without it (d/dz, whose key holds its own source) they stay uniforms through cx_powk
-  function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = []) {
+  // (budget: when given, a function (θ) -> terms for each finite sum, the terms a pixel would take past SER_GPU_FINITE,
+  // 0 within it: loopGL)
+  function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = [], budget = null) {
     let tmp = 0, out = lines;
     const dep = Expr.depends;
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
@@ -657,7 +659,25 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       // 1: its terms are bounded by SER_GPU_LOOP and its own stop, not by this budget). A loop's count, fn, is declared
       // only when a sum inside it reads it, so a sum with no finite sum inside declares none
       const outerFn = idxVar.filter((e) => e.fn);
-      const me = { v: n.v, k, fn: `${id}_fn`, used: false };
+      // (the CPU's count of the same terms, from the bounds' values: (θ) -> the loop's fn, or null when a bound depends
+      // on z or on an enclosing sum's index, so it is a value only the GPU knows)
+      const loC = dep(n.lo) ? null : n.lo, hiC = dep(n.hi) ? null : n.hi;
+      const bounds = (th) => (loC && hiC ? [constOf(loC, th).re, constOf(hiC, th).re] : null);
+      const cnt = (th) => { const b = bounds(th); return !b || !(b[0] === b[0] && b[1] === b[1]) ? null : b[0] < -1e30 || b[1] > 1e30 ? 1 : b[1] - b[0] + 1; };
+      const me = { v: n.v, k, fn: `${id}_fn`, used: false, cnt };
+      // the terms past the budget, as the GPU's test below finds them (fits): a finite sum whose bounds and enclosing
+      // finite sums' counts the CPU knows, else 0, as within the budget. The page says why such a plot has no value
+      if (budget) {
+        budget.push((th) => {
+          const b = bounds(th);
+          if (!b || !(b[0] === b[0] && b[1] === b[1]) || b[0] < -1e30 || b[1] > 1e30) return 0;
+          const outs = outerFn.map((e) => e.cnt(th));
+          if (outs.some((x) => x === null)) return 0;
+          const all = outs.reduce((p, x) => p * x, b[1] - b[0] + 1);
+          const fits = outs.length ? all <= SER_GPU_FINITE : b[1] - b[0] < SER_GPU_FINITE;
+          return fits ? 0 : Math.round(all);
+        });
+      }
       out = inner;
       idxVar.push(me);
       let t;
@@ -1466,13 +1486,15 @@ vec2 cx_binom(vec2 a, vec2 b) {
         const ast = b.ast || Expr.parse(v.expr);
         const cut = A.cell();
         const TH = cut.x;
-        const writers = [], lines = [], shape = [];
+        const writers = [], lines = [], shape = [], budget = [];
         const baked = [];
-        const res = genCustom(ast, P, A, TH, writers, lines, baked, shape);
+        const res = genCustom(ast, P, A, TH, writers, lines, baked, shape, budget);
         const np = natPlan(P, b.nat, A, { cut: TH });
         return {
           sig: [type, astSig(ast), b.nat ? JSON.stringify(b.nat) : 'lin', baked, pairBaked(ast), ...(shape.length ? [shape.join()] : [])], f: `${lines.join('\n').trimStart()}\n  return ${res};`, h: np ? np.h : LIN(P), own1: !!(np && np.own1), hc: np && np.hc, dom: np && np.dom,
           write(put) { const th = v.cut * DEG; put(cut.c, th, 0); for (const w of writers) w(put, th); if (np) np.write(put, b); },
+          // (the most terms a finite sum of the step takes past SER_GPU_FINITE, at these values; 0 when none does)
+          terms() { const th = v.cut * DEG; return budget.reduce((m, f) => Math.max(m, f(th)), 0); },
         };
       }
     }
@@ -1546,8 +1568,11 @@ vec2 cx_binom(vec2 a, vec2 b) {
       sig: ['custom', 'rec', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: subs.every(({ pl }) => exactAt1(pl)),
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { for (const { pl } of subs) pl.write(put); },
+      terms: () => subTerms(subs),
     };
   }
+  // (a formula's or a Repeat's sub-steps: the most terms one of their finite sums takes past SER_GPU_FINITE)
+  const subTerms = (subs) => subs.reduce((m, { pl }) => Math.max(m, pl.terms ? pl.terms() : 0), 0);
   // [issue #6] Repeat × N (Funcs.repeatBuilt: b.rec runs the block's last step, then the block N − 1 times): the block's
   // steps once each, as functions of their own (P r j), and a loop whose trip count N − 1 is a uniform, so a new N (a
   // typed N, a shared number's slider) is the same program. The path runs the 1 + (N − 1) len steps in turn, each on
@@ -1580,6 +1605,7 @@ vec2 cx_binom(vec2 a, vec2 b) {
       sig: ['custom', 'repeat', subs.map(({ pl }) => pl.sig)], pre, f, h, own1: true,
       cutF: ck.some((c) => c.fo), cutH: ck.some((c) => c.ho) || subs.some(({ pl }) => !!pl.hc),
       write(put) { put(nc.c, rp.n - 1, 0); for (const { pl } of subs) pl.write(put); },
+      terms: () => subTerms(subs),
     };
   }
   // A step's cuts that the sheets cannot continue (inverse trig functions, the Joukowski branches, arg in a formula):
@@ -2071,9 +2097,12 @@ vec2 cx_binom(vec2 a, vec2 b) {
     // the inverse program's parts (SPEC 4.1), built on first use: a forward-only draw never pays for them. The steps'
     // on / off flags are taken as they are at the call (stepOps reads only the built steps).
     const onOff = steps.map((st) => (st ? { on: st.on !== false } : null));
-    let inverse;
+    let inverse, terms;
     return {
       key: JSON.stringify(['glc1', sigs]),
+      // step k's finite sums: the most terms one takes past SER_GPU_FINITE, at [k − 1] (0 within it, or no such sum),
+      // counted at these values once, as values() writes them: a draw through such a step has no value there
+      get stepTerms() { return terms || (terms = plans.map((p) => (p && p.plan.terms ? p.plan.terms() : 0))); },
       source: src,
       // chainSheetHom and its helpers (the deformation's sheets, notes/v16-user5/SHEETS-DESIGN.md; standards-ok: a spec path in notes/): GLSL to put after
       // source in the programs that call it
@@ -2302,7 +2331,7 @@ void ixAncTan(vec2 w) {
   const IX_FIN = { IPOW: 16, JOUK: 2, NEWT: 2, QUAD: 2, RAT2: 2, RAT3: 3, RAT4: 4 };
   // RAT5 ... RAT<NEWT_POLY_MAX> (rational maps by Aberth's roots, ratAberthFns): n roots; P's and Q's n + 1 coefficients,
   // two to a cell. Added by buildInverse (ixRatTables), once Inverse is loaded
-  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
+  const ratDeg = (kind) => Inverse.ratDeg(kind);
   const ixRatTables = () => { for (let n = 5; n <= Inverse.NEWT_POLY_MAX; n++) { IX_SLOTS[`RAT${n}`] = 2 * Math.ceil((n + 1) / 2); IX_FIN[`RAT${n}`] = n; } };
   // the roots of the RAT3 and RAT4 ops' polynomials (InvOps.cubicRoots, quarticRoots), in a program that has one: of the
   // degree n the op gives (its _deg, InvOps.ratPoly's drop), root b of the linear polynomial, of the stable quadratic,
@@ -2313,7 +2342,7 @@ void ixAncTan(vec2 w) {
   // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off,
   // where that rounding is not 0 (a GPU that fuses or reorders the products)
   const RAT_N = new Set(['RAT3', 'RAT4']);
-  const IX_ROOTS = `
+  const ixRoots = () => `
 // root k of y^2 + beta y + gamma (stable)
 vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
   vec2 disc = csqrtp(cmul(beta, beta) - 4.0 * gamma);
@@ -2336,7 +2365,7 @@ vec2 ixCardanoRoot(vec2 S, vec2 T, vec2 b3, int k) {
 }
 vec2 ixPolish3(vec2 a, vec2 b, vec2 c, vec2 d, vec2 u) {
   vec2 f = cmul(cmul(cmul(a, u) + b, u) + c, u) + d;
-  for (int it = 0; it < 2; it++) {
+  for (int it = 0; it < ${Inverse.ROOT_POLISH}; it++) {
     vec2 g = cmul(3.0 * cmul(a, u) + 2.0 * b, u) + c;
     if (g.x == 0.0 && g.y == 0.0) break;
     vec2 v = u - cdiv(f, g);
@@ -2372,7 +2401,7 @@ vec2 ixQuartic(vec2 a, vec2 b, vec2 c, vec2 d, vec2 e, int n, int k) {
   bool rev = cx_abs(a) < cx_abs(e);
   vec2 u = rev ? cinv(ixFerrari(e, d, c, b, a, k)) : ixFerrari(a, b, c, d, e, k);
   vec2 f = cmul(cmul(cmul(cmul(a, u) + b, u) + c, u) + d, u) + e;
-  for (int it = 0; it < 2; it++) {
+  for (int it = 0; it < ${Inverse.ROOT_POLISH}; it++) {
     vec2 g = cmul(cmul(4.0 * cmul(a, u) + 3.0 * b, u) + 2.0 * c, u) + d;
     if (g.x == 0.0 && g.y == 0.0) break;
     vec2 v = u - cdiv(f, g);
@@ -2863,7 +2892,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec4 S0 = ${U(0)}, S1 = ${U(1)}, S2 = ${U(2)};
   vec2 A = S0.xy - cmul(w, S1.zw), B = S0.zw - cmul(w, S2.xy), Cc = S1.xy - cmul(w, S2.zw);
   r0 = vec2(0.0); r1 = vec2(0.0);
-  if (cx_abs(A) <= 1e-14 * (cx_abs(B) + cx_abs(Cc))) { if (cx_abs(B) > 0.0) { r0 = -cdiv(Cc, B); return 1; } return 0; }
+  if (cx_abs(A) <= ${Inverse.RAT_DROP} * (cx_abs(B) + cx_abs(Cc))) { if (cx_abs(B) > 0.0) { r0 = -cdiv(Cc, B); return 1; } return 0; }
   vec2 disc = csqrtp(cmul(B, B) - 4.0 * cmul(A, Cc));
   if (dot(B, disc) < 0.0) disc = -disc;
   vec2 qq = -0.5 * (B + disc);
@@ -2883,14 +2912,14 @@ bool ${P}_one_b(inout Lf L, int b) {
 }
 `;
       // p(u) - w q(u) = 0 of degree n = 3 or 4 (InvOps.ratPoly, cubicRoots, quarticRoots): its degree _deg, a leading
-      // coefficient dropped when it cancels, at most 1e-14 of |p_k| + |w| |q_k|; its root b by IX_ROOTS. Cells: P's
+      // coefficient dropped when it cancels, at most RAT_DROP of |p_k| + |w| |q_k|; its root b by ixRoots. Cells: P's
       // coefficients, highest first, two to a cell, then Q's from the next cell
       case 'RAT3': case 'RAT4': {
         const n = o.kind === 'RAT3' ? 3 : 4, half = Math.ceil((n + 1) / 2), co = (k, from) => `${U(from + (k >> 1))}.${k & 1 ? 'zw' : 'xy'}`;
         const cf = (k) => `${co(k, 0)} - cmul(w, ${co(k, half)})`, A = [...Array(n + 1).keys()].map(cf).join(', ');
         const ev = (from) => [...Array(n + 1).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${co(k, from)}` : co(0, from)), '');
         const dv = (from) => [...Array(n).keys()].reduce((acc, k) => (k ? `cmul(${acc}, u) + ${n - k}.0 * ${co(k, from)}` : `${n}.0 * ${co(0, from)}`), '');
-        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > 1e-14 * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
+        const deg = [...Array(n).keys()].map((k) => `  if (cx_abs(${cf(k)}) > ${Inverse.RAT_DROP} * (cx_abs(${co(k, 0)}) + aw * cx_abs(${co(k, half)}))) return ${n - k};\n`).join('');
         return `int ${P}_deg(vec2 w) {
   float aw = cx_abs(w);
 ${deg}  return 0;
@@ -3133,7 +3162,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
       const roots = ops.some((o) => RAT_N.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => RAT_N.has(q.kind))));
-      txt = { lib: head + INV_LIB + (roots ? IX_ROOTS : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
+      txt = { lib: head + INV_LIB + (roots ? ixRoots() : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
@@ -3158,7 +3187,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
   return {
     get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
     useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
-    INV_LIB, seriesTrust,
+    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE,
   };
 })();
 import { CX } from './cx.js';
