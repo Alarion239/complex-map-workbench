@@ -114,7 +114,7 @@ ok('w₂ is past the colour plane, and still coloured (the carried colour)', s2.
 const h2 = await hash('sv_w2');
 ok('w₂\'s picture is not w₁\'s', h2 !== h1, null);
 // back to z, coloured from the last plane: Inside regions keeps the colour to the half-plane
-await ev(`__cmwSteps({ go: 0, now: true, T: 2 }); 1`); await settle(800);
+await ev(`__cmwSteps({ go: 0, now: true, T: 2 }); 1`); await kit.viewsQuiet();
 const hAll = await hash('sv_all');
 ok('back on z, coloured from w₂ everywhere: z\'s first picture', hAll === hZ, [hAll, hZ]);
 await ev(`__cmwSteps({ scope: 'in' }); 1`);

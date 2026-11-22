@@ -3453,6 +3453,7 @@
  "the arrows move a probe": "le frecce muovono una sonda",
  "{x} move a probe": "{x} muovono una sonda",
  "Stop on a plane to colour from it": "Fermati su un piano per prendere il colore da lì",
+ "Copy the reading": "Copia la lettura",
  "{name}: +{n} off view": "{name}: altri {n} fuori vista",
  "Pieces of {name} pulled back off the view: {n} of {all}": "Parti della controimmagine di {name} fuori vista: {n} su {all}",
  "Pick": "Scegli punti",
