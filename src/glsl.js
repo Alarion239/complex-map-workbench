@@ -3066,7 +3066,7 @@ bool ${P}_at(Lf L, float m, vec2 u0, vec2 st, vec2 d0, inout Lf R) {
   // and (the escape bound, -1 for none; 1 when E_r has no box). x0 > x1 with no escape bound and a box: the whole plane
   const reptGlobals = () => {
     const RS = Inverse.REPEAT_COPIES_MAX;
-    return `#define IX_REPT 1
+    return glsl`#define IX_REPT 1
 const float IX_REP_U = ${glf(Inverse.REPT_U)};
 const float IX_REP_AA_TOL = ${glf(Inverse.REPT_AA_TOL)};
 // a value is finite when its magnitude is below IX_REP_FIN (InvOps.REPT_FIN): a NaN fails every comparison and an
@@ -3104,7 +3104,7 @@ uniform int uIxRepHatch;
   function reptFns(P, c) {
     const U = (i) => `uInv[${c + i}]`, R = (x) => glf(x);
     const co = `vec2 P0 = ${U(1)}.xy, P1 = ${U(1)}.zw, P2 = ${U(2)}.xy, P3 = ${U(2)}.zw, Q0 = ${U(3)}.xy, Q1 = ${U(3)}.zw, Q2 = ${U(4)}.xy, Q3 = ${U(4)}.zw;`;
-    return `void ${P}_eval(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z, out vec2 p, out vec2 d) {
+    return glsl`void ${P}_eval(vec2 a0, vec2 a1, vec2 a2, vec2 a3, vec2 z, out vec2 p, out vec2 d) {
   p = a0; d = vec2(0.0);
   d = cmul(d, z) + p; p = cmul(p, z) + a1;
   d = cmul(d, z) + p; p = cmul(p, z) + a2;
