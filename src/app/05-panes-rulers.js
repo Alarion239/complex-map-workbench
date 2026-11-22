@@ -272,10 +272,7 @@
       drawHandles(paneR, S.targets);
       if (draft && draft.target) drawDraft(paneR);
       Construct.drawOverlay(paneR, 'R');
-      if (tool !== 'select' && rHover) drawCrosshair(paneR, rHover);
     }
-    if (showR && rHover && !drag && rImage()) { paneR.setView(V.right); drawProbe(paneR, rHover, TH.probe); }
-    if (showR && rHover && !drag && rGlobe()) drawSphereMark(paneR, rHover);
     if (showR) sndOverlay();
     if (probe && showR) {
       if (rImage() && !trans.k) {
@@ -1025,21 +1022,7 @@
     for (const [a, d, gap] of tries) { const r = label(tl, a, d, gap, math12, null, TH.ink2, below); if (r) { names.push(r); break; } }
     ctx.restore();
   }
-  // Y Sphere: the images on the w-globe (the phase globe is X Sphere + Phase, renderSphereLeft)
-  function renderSphere(pane) {
-    // the w-plane targets on the globe (P3b): fills and outlines exactly per pixel (the preimage pass through the identity
-    // map, as in Y Plane), points as marks; a target draft over them
-    const edit = globeEdit('R');
-    const post = [];
-    if (edit && hasTargets()) post.push({ map: IDENT, targets: preimageTargets(false), halo: GLR.hexRGB(TH.halo) });
-    const dp = edit ? globeDraftPass('R') : null;
-    if (dp) post.push(dp);
-    sphereView(pane, camS, CAMS, {
-      imageMode: true, stage: rightStage(), plane: !!S.view.R.eq, role: 'R',
-      probeW: probe ? focusF()(probe) : null,
-      post, net: edit ? globeNet() : 'plain', targetPts: edit,
-    });
-  }
+
   // the conjugate lift of z = x + iy onto the Riemann sphere (panels.md 9.0; the GLSL lift in gl.js): 0 at the south
   // pole, infinity at the north pole, and seen from outside the globe keeps the plane's orientation
   function liftC(x, y) {

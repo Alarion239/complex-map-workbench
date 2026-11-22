@@ -248,8 +248,9 @@
   // a video frame's relief window rounding (a function of the screen's window) and the aspect (width / height) the 3D camera is
   // fitted at: the still's, so a frame is the still's camera widened (null: the screen's window, the frame's own aspect)
   let artLandRound = null, artCamAsp = null;
-  // the steps view: the figure is the shown plane alone; past the colour plane that is the left panel of X → Y
-  const svFigView = () => (SV.on && S.view.main === 'xy' ? 'xyL' : figViewKind());
+  // X → Y's figure is X's plane alone, the left panel (Y is not drawn); in the steps view, the shown plane, past the colour
+  // plane too
+  const svFigView = () => (S.view.main === 'xy' ? 'xyL' : figViewKind());
   // and its caption names the plane's own map: the one that colours it, or past the colour plane the one that carries
   // the shapes to it from z (carried: the caption says "the images of ... under it")
   function svCapParts(o) {
@@ -434,7 +435,7 @@
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
       lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-      pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
+      pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
       smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
       get S() { return S; },
@@ -461,7 +462,6 @@
       get paneR() { return paneR; }, set paneR(v) { paneR = v; },
       get printInk() { return printInk; }, set printInk(v) { printInk = v; },
       get probe() { return probe; }, set probe(v) { probe = v; },
-      get rHover() { return rHover; }, set rHover(v) { rHover = v; },
       get selected() { return selected; }, set selected(v) { selected = v; },
     };
   }

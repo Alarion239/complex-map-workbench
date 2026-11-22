@@ -526,7 +526,7 @@
     const refit = !m && exFitKey && exFitKey === JSON.stringify(S.srcView) && EX[currentExample] && EX[currentExample].fit;
     // a shape draft and the probe end with the view they were made in; targets are edited in Y (X → Y only)
     draft = null; probe = null; hoverCut = 0; setReadouts(null);
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     applyLayout();
     if (refit) { exFitTo(EX[currentExample]); paneL.setView(S.srcView); }
     sndRelayout();
@@ -546,7 +546,7 @@
       // stays open)
       // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
       if (draft && draft.target) draft = null;
-      rHover = null; setHoverW(null);
+      setHoverW(null);
       if (autoFit()) { rightAuto = true; fitRight(); }
       buildShapeList();
     } else {

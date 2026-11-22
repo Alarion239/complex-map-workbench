@@ -11,7 +11,7 @@ const Export = (() => {
     focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
     lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
     morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-    pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, fNameTex, parkedAt,
+    pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, fNameTex, parkedAt,
     runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
     smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
@@ -185,6 +185,7 @@ const Export = (() => {
   // a plane drawn off-screen at print size: views scaled so the same window shows; selection, hover and probe off
   // warm: a draw only to start the programs it needs, in the background (prepareExport); nothing waits for them
   function renderOff(side, w, h, dpr, warm = false) {
+    if (side !== 'L') throw new Error('renderOff: only X (side L) is drawn');
     const cv = document.createElement('canvas'), ov = document.createElement('canvas');
     const off = new Pane(cv, ov);
     off.w = w; off.h = h; off.dpr = dpr;
@@ -194,8 +195,8 @@ const Export = (() => {
     for (const v of [A.S.srcView, V.left, V.right]) if (v && !scaled.has(v)) { scaled.set(v, v.s); v.s *= k; }
     // (the outline of the left view in the image is a screen aid, not part of a figure; so is the colour key under the
     // Y plane (the Key switch): a figure's Y panel would carry colours its caption and key do not explain)
-    const keep = { L: A.paneL, R: A.paneR, probe: A.probe, rHover: A.rHover, selected: A.selected, hoverShape: A.hoverShape, draft: A.draft, hw: hov.w, hl: hov.list, fov: A.S.fov, wKey: A.S.wKey };
-    A.probe = null; A.rHover = null; A.selected = null; A.hoverShape = null; A.draft = null; hov.w = null; hov.list = null; setOpt('fov', false); setOpt('wKey', false); A.figMode = true;
+    const keep = { L: A.paneL, R: A.paneR, probe: A.probe, selected: A.selected, hoverShape: A.hoverShape, draft: A.draft, hw: hov.w, hl: hov.list, fov: A.S.fov, wKey: A.S.wKey };
+    A.probe = null; A.selected = null; A.hoverShape = null; A.draft = null; hov.w = null; hov.list = null; setOpt('fov', false); setOpt('wKey', false); A.figMode = true;
     // numbers drawn inside the plot (landscape axes, labels) in the serif of the figure, not the app's monospace
     const mono = A.TH.mono; A.TH.mono = A.TH.math;
     // exact images (SPEC 10.6): prepareExport has waited for the inverse programs; one still compiling (normally
@@ -208,7 +209,7 @@ const Export = (() => {
     if (wait) GLR.syncCompile = true;
     if (waitFwd) GLR.syncPrograms = true;
     try {
-      if (side === 'L') { A.paneL = off; renderLeft(); } else { A.paneR = off; renderRight(); }
+      A.paneL = off; renderLeft();
       // labels are placed in a microtask on screen; here they are needed before the pixels are read
       if (off.labels) flushLabels(off, off.labels);
     } finally {
@@ -217,7 +218,7 @@ const Export = (() => {
       A.offRender = false;
       A.paneL = keep.L; A.paneR = keep.R;
       for (const [v, s] of scaled) v.s = s;
-      A.probe = keep.probe; A.rHover = keep.rHover; A.selected = keep.selected; A.hoverShape = keep.hoverShape; A.draft = keep.draft; hov.w = keep.hw; hov.list = keep.hl; setOpt('fov', keep.fov); setOpt('wKey', keep.wKey); A.figMode = false; A.TH.mono = mono;
+      A.probe = keep.probe; A.selected = keep.selected; A.hoverShape = keep.hoverShape; A.draft = keep.draft; hov.w = keep.hw; hov.list = keep.hl; setOpt('fov', keep.fov); setOpt('wKey', keep.wKey); A.figMode = false; A.TH.mono = mono;
     }
     return cv;
   }
@@ -961,7 +962,7 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
+    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, requestRender, rightStage, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
   }
   return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();

@@ -127,7 +127,7 @@
     if (!st) return false;
     cancelTweens(); closePad(); closePalette();
     draft = null; drag = null; probe = null; zpSel = null; zpHover = null; selected = null; hoverShape = null;
-    rHover = null; setHoverW(null);
+    setHoverW(null);
     morph.open = false; morph.playing = false; morph.seg = null; morph.T = 0;
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     setState(st);

@@ -734,8 +734,8 @@
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
   function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }
-  // X's paint changed (style, sectors, grid step): X redraws, and Y too while it shows the colour key
-  const paintChanged = () => requestRender('L', wKeyOn() ? 'R' : null, 'T');
+  // X's paint changed (style, sectors, grid step): X redraws
+  const paintChanged = () => requestRender('L', 'T');
   function buildFoot(side) {
     const f = $(side === 'L' ? 'leftFoot' : 'rightFoot');
     if (!f) return;
@@ -747,18 +747,7 @@
     // (a strip in the pane head shows even with no options of its own: its Display ▾ holds the regions')
     const headed = () => !!(f.parentElement && f.parentElement.classList.contains('pane-head'));
     if (side === 'L') { buildFootL(f); f.hidden = !f.children.length && !headed(); ft.kids = [...f.children]; layoutFootSide('L', true); drawLegend(); return; }
-    const resetCam = (c, d) => h('button', { class: 'icon-btn small', title: $t('Reset camera'), 'aria-label': $t('Reset camera'), html: ICONS.orbit, onclick: () => tweenCam(c, d) });
-    if (rImage()) {
-      if (lFlat()) f.append(checkEl('fovChk', S.fov !== false, $t('View outline'), (v) => { setOpt('fov', v); requestRender('R'); drawLegend(); save(); }, ICONS.fov));
-      // the phase colour key under the images: X's portrait colours of the identity, so a colour in Phase reads off
-      // as a value in Y (its one switch)
-      if (wKeyAvail()) { const kl = checkEl('wKeyChkR', !!S.wKey, $t('Phase key'), (v) => { setOpt('wKey', v); buildRightFoot(); drawLegend(); requestRender('R'); save(); tourEmit('phase-key', { on: !!v }); }, '<span class="pcol-ic"></span>'); kl.dataset.tip = $t('Phase key') + ': ' + $t('The phase colours of the {x}-plane under the images', { x: yHtml() }); f.append(kl); }
-    } else if (rGlobe()) {
-      f.append(
-        checkEl('eqChkR', S.view.R.eq, $t('Equator'), (v) => { setViewOpt('R', 'eq', v); requestRender('R'); save(); }),
-        resetCam(camS, CAMS));
-      tipEq(f);
-    }
+    // (Y's strip: the right pane draws nothing, so its strip has no options)
     f.hidden = !f.children.length && !headed();
     ft.kids = [...f.children]; layoutFootSide('R', true);
     drawLegend();
