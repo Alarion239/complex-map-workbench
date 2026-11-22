@@ -286,7 +286,7 @@
   // without view changes. The meshes rebuilt for the new window keep their old (mesh, fix-up) pair on screen until
   // their own fix-ups land (shapeGPU's hold), so no unfixed intermediate is ever drawn.
   function sourceViewChanged() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if (leftStage() !== 0) return;
     clearTimeout(sourceViewChanged.t);
     sourceViewChanged.pending = true;
     sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200);
@@ -306,7 +306,7 @@
   // clipWin to the left pane's box, as a pan or zoom leaves it (sourceViewChanged.apply, and __cmwSet('srcView', …)):
   // replaced only when the box moved or resized enough, so a small pan keeps the meshes
   function recentreClip() {
-    if (leftStage() !== 0 || solo() === 'R') return;
+    if (leftStage() !== 0) return;
     // (while X is a phone's inset, its window at its large size)
     const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
     // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
@@ -556,7 +556,7 @@
   // build caps (stored as disc, complement of a disc or half-plane; circle or line); Annulus, Sector and Polar grid
   // are off on the globes (the user's decision, panels.md 9.2).
   const GL3 = Region.Globe;
-  const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && solo() !== 'L');
+  const globeEdit = (side) => side === 'L' && lGlobe();
   const GLOBE_OFF = new Set(['annulus', 'sector', 'pgrid']);
   // the snap net of a tool (panels.md 9.5): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
   // the globe's graticule draws the net of the active tool (the polar net with Select)

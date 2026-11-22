@@ -766,8 +766,8 @@
     return {
       paneOf,
       sideOf: (el) => (!el || !paneL ? null : el === paneL.ocanvas ? 'L' : el === paneR.ocanvas ? 'R' : null),
-      // the pane is on screen (a merged view shows one pane alone)
-      shown: (side) => !!paneOf(side) && solo() !== (side === 'L' ? 'R' : 'L') && paneOf(side).ocanvas.getClientRects().length > 0,
+      // the pane is on screen (X's; Y's pane is not drawn)
+      shown: (side) => side === 'L' && !!paneOf(side) && paneOf(side).ocanvas.getClientRects().length > 0,
       // what pane pixel (x, y) shows: {z, surface ('flat', 'globe', 'land'), plane ('X', 'Y', or 'D' for the
       // deformation), stage, s (px per unit on a flat pane)}; null off a globe or the relief
       at(side, x, y) {

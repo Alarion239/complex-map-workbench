@@ -409,11 +409,10 @@
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
     const panes = document.querySelector('.panes');
-    // merged views (merged-views.md): one wide panel, the other pane hidden (on a phone too) and no expand button,
-    // so it reads as a view of its own, not an expanded pane
-    const one = solo(), mg = Views.merged(S.view);
-    panes.classList.toggle('solo-L', one === 'L');
-    panes.classList.toggle('solo-R', one === 'R');
+    // X's pane alone, one wide panel (on a phone too); a merged view (merged-views.md) has no expand button, so it
+    // reads as a view of its own, not an expanded pane
+    const mg = Views.merged(S.view);
+    panes.classList.add('solo-L');
     panes.classList.toggle('merged-L', mg === 'L');
     panes.classList.toggle('merged-R', mg === 'R');
     for (const [id, w] of [['leftSolo', 'L'], ['rightSolo', 'R']]) {
@@ -424,9 +423,9 @@
       b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
     }
     syncModeChips();
-    if (mg !== layoutMg || one !== layoutOne) { layoutMg = mg; layoutOne = one; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
+    if (mg !== layoutMg) { layoutMg = mg; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }
-  let layoutMg = null, layoutOne = null;
+  let layoutMg = null;
   // the panes' canvases follow their boxes (the ResizeObserver, and a layout change at once: a merge or a split
   // must not leave a frame, a fit or a mesh to be made at the old width)
   function onPaneResize() {
@@ -435,12 +434,11 @@
     $('paneL').classList.toggle('narrow', $('paneL').getBoundingClientRect().width < 520);
     syncViewControls();
     fitRightTitle();
-    if (a && leftStage() > 0 && leftAuto && solo() !== 'R') { paneL.setView(V.left); fitPane(paneL, leftStage()); }
+    if (a && leftStage() > 0 && leftAuto) { paneL.setView(V.left); fitPane(paneL, leftStage()); }
     if (a || b) {
-      // (a merged view widens one pane: its options strip re-flows at the new width; a hidden pane is not fitted)
+      // (the options strip re-flows at the pane's new width)
       layoutFoot();
       sourceViewChanged();
-      if (rightAuto && rImage() && solo() !== 'L') fitRight();
       requestRender('L', 'R');
       sndRelayout();   // (sound: the plane under a still pointer moved)
     }
