@@ -1,3 +1,4 @@
+// raw-navigate-file: a benchmark with no verdict, not run in CI (ci/browser_suites.js EXCLUDED)
 // Frames while the Deformation plays with the pointer still on X's Phase plane, Hear F off and on (BUDGET60: ≥ 55 fps,
 // work ≤ 14 ms a frame, jank ≤ 20 ms), for z⁵ and for the heavy chain of sound_cmd.js (erf, tan, log, a d/dz), and at
 // a 6× CPU throttle. Also the sound's own time a frame: Sound.pathStep, Calc.argStep and Calc.orderAt, timed while it

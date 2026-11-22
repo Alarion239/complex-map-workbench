@@ -33,10 +33,12 @@ window.GLSLTiers = (() => {
   // builds a reference without this set with this file, so that both sides leave the same chains out
   const SWIFTSHADER_HANG = new Map([]);
   // the chains whose program crashes lavapipe (Mesa's llvmpipe on Vulkan, the software renderer of a Linux machine without
-  // a GPU; Mesa 25, LLVM 20.1.2 here): the GPU process exits with SIGSEGV in the draw, 0.7 s after the link, the chain's
-  // values read back as zero, and every later chain of the page errors with an empty log. Each is named: only the chains
-  // listed are left out, and only on lavapipe (keep, NOT_ON); SwiftShader, Windows, macOS and the GPUs run them. Lifting an
-  // entry, once a Mesa runs the chain: #1835 (the evidence and the draft report are in notes/upstream/mesa-lavapipe-sqrt-dd)
+  // a GPU) built on LLVM 20 or older (Mesa 25, LLVM 20.1.2 here): the GPU process exits with SIGSEGV in the draw, 0.7 s after
+  // the link, the chain's values read back as zero, and every later chain of the page errors with an empty log. Each is
+  // named: only the chains listed are left out, and only on that lavapipe (keep, NOT_ON); SwiftShader, Windows, macOS, the
+  // GPUs and a lavapipe on LLVM 21 or newer (Mesa 26, the Gate's browser job, which runs the chain: .github/workflows/gate.yml)
+  // run them. Lifting an entry, once no Mesa in use crashes on the chain: #1835 (the evidence and the draft report are in
+  // notes/upstream/mesa-lavapipe-sqrt-dd)
   const LAVAPIPE_CRASH = new Map([
     ['sheets sqrt d d', 'the GPU process exits with SIGSEGV in the draw (Mesa 25 llvmpipe, LLVM 20.1.2); its 7172 values read back as zero; #1835'],
   ]);
@@ -44,7 +46,7 @@ window.GLSLTiers = (() => {
   // the name the job summary gives the renderer, a pattern for the context's renderer string, the issue, the set
   const NOT_ON = [
     { name: 'SwiftShader', pattern: /SwiftShader/i, issue: '#1809', set: 'SWIFTSHADER_HANG', chains: SWIFTSHADER_HANG },
-    { name: 'lavapipe', pattern: /Vulkan.*llvmpipe/i, issue: '#1815', set: 'LAVAPIPE_CRASH', chains: LAVAPIPE_CRASH },
+    { name: 'lavapipe', pattern: /Vulkan.*llvmpipe \(LLVM (?:\d|1\d|20)\./i, issue: '#1815', set: 'LAVAPIPE_CRASH', chains: LAVAPIPE_CRASH },
   ];
   function tierOf(page, name) {
     if (SLOW.has(name)) return 'deep';

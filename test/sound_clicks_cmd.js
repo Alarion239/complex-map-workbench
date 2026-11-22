@@ -1,3 +1,4 @@
+// raw-navigate-file: a recorder of real-time audio, not run in CI (ci/browser_suites.js EXCLUDED)
 // Sound: the click regression, recorded from the APP (notes/sound/DESIGN.md §7.5 and §7.6). Headless Chrome drives
 // pointer events over the app's planes (synthetic, at 60 and 240 Hz, ±25 % timing jitter, 2 % main-thread stalls) with
 // "Hear the function" on and every cue off (the voice alone; on the phase plane the voice is the harp, whose
