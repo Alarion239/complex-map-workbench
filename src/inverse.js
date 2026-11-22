@@ -67,7 +67,10 @@ const Inverse = (() => {
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back), at = o.kind === 'NEWT' && o.sub != null ? `@${o.sub}` : '';
     return (n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind) + at;
   }
-  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
+  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity. The plan's
+  // ops are its own records (a copy of each op of stepOps with its step, node and j), so plans whose steps share their op
+  // objects (a glide's skeleton shares each step's decomposition at every t, where one op can sit at another node) keep
+  // their own places
   function planChain(steps, built, a = 0, b = steps.length) {
     const key = inverseKey(steps, built);
     const ops = [];
@@ -76,7 +79,7 @@ const Inverse = (() => {
       if (!isLive(st, bb)) continue;
       const r = stepOps(bb);
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
-      r.ops.forEach((o, i) => { o.step = k; o.node = i; ops.push(o); });
+      r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
     if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
     ops.forEach((o, j) => { o.j = j; });

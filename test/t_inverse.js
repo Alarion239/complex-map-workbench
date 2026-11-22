@@ -1143,6 +1143,18 @@ section('singularAfter (ζ after an injective plan)');
     }
   }
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
+  // A plan's ops are its own: two plans of one glide whose ops share the step's decomposition (as the app's glide
+  // skeleton shares it, each step's ops made once and the same op objects in the homotopy's ops at every t) each keep
+  // their own step, node and j. z^3 - 2z + 1 is recognised as two sub-steps: at t = 0.25 its ops are AFF, RAT3, AFF (RAT3
+  // node 1), at t = 0.75 the same RAT3 comes first (node 0); the plan at 0.25, made first, still has RAT3 at node 1
+  {
+    const once = (b) => { const r = Inverse.stepOps(b), o = Object.assign({}, b, { __homOps: () => r }); if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(once) }); return o; };
+    const st = St('custom', { expr: 'z^3-2z+1', cut: 180 }), sk = once(Funcs.build(st));
+    const plan = (t) => { const h = Inverse.homOps(sk, t); return { h, p: Inverse.planChain([st], [Inverse.homBuilt(sk, h)], 0, 1) }; };
+    const at = (q) => q.p.ops.map((o) => `${o.kind}${o.node}`).join();
+    const a = plan(0.25), b = plan(0.75), shared = a.h.ops.some((o) => b.h.ops.includes(o));
+    check('planChain: a plan keeps its own nodes when a later plan of the same glide puts a shared op at another node', shared && at(a) === 'AFF0,RAT31,AFF2' && /^RAT30/.test(at(b)), { shared, a: at(a), b: at(b) });
+  }
 }
 
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
