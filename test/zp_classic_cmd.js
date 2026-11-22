@@ -1,10 +1,9 @@
-// Zeros and poles, classic view only. The steps view shows one plane and has neither the right pane's area renderer nor
-// the deformation transport, so these cases stay in the classic view:
+// Zeros and poles, classic view only. The steps view shows one plane and has no right pane's area renderer, so these
+// cases stay in the classic view:
 //   - while a zero is held still mid-drag the motion frame of Y is the rest frame (per pixel against the exact image);
-//   - a degree-2 map is drawn by the inverse renderer, a degree-3 one forward with its reason (the right pane's paths);
-//   - the deformation of a polynomial and of a rational map (natural path, figure caption, 60 fps).
+//   - a degree-2 map is drawn by the inverse renderer, a degree-3 one forward with its reason (the right pane's paths).
 // A command file for a CDP daemon (test/cdp_kit README).
-const fails = [], info = {}, shots = [];
+const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const settle = async (ms = 500) => { await settled({ floor: ms }); };
 const exc = (l) => l.filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
@@ -46,33 +45,6 @@ info.exactHeld = exHeld;
 await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: h.x - 36, y: h.y + 48, button: 'left', clickCount: 1 });
 await settle(400);
 
-// 7. the deformation: the natural path of a polynomial (zeros fly in), and a figure with its caption
-await load('zpacc3' + Date.now(), { shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 1.5 }, { id: 's2', kind: 'pgrid', c: [0, 0], r: 1.5, nc: 5, nr: 16 }],
-  steps: [{ type: 'zp', params: { a: '1', zeros: '1, -0.5+0.8i, -0.5-0.8i', poles: '' }, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 110 } });
-await settle(1200); await grab();
-await ev('__cmwMorph({ open: true, playing: false })'); await settle(600);
-await ev('__cmwMorph({ T: 0.5 })'); await settle(900);
-const st = await ev('__cmwState()');
-ok('deformation: a natural path (mode 1)', st.homView && st.homView.map.mode === 1, st.homView && st.homView.map);
-await shot('zp-deform-light'); shots.push('zp-deform-light');
-const fig = await ev(`await (async () => { const f = await __cmwBuildFigure({ panels: ['R'], morph: true, caption: true, widthIn: 3.4 }); return f ? { n: f.morph ? f.morph.kept.length : -1, cap: f.captionTex } : null; })()`, 60000);
-ok('figure: arrows and the zoom path about zeta_1 in the caption (only true claims)', fig && fig.n > 0 && /zoom homotopy/.test(fig.cap) && /about \$c=1\$, a zero of/.test(fig.cap) && !/never meet/.test(fig.cap) && !/zeros fly/.test(fig.cap), fig && { n: fig.n, cap: fig.cap.slice(0, 500) });
-info.figCaption = fig && fig.cap.slice(0, 600);
-await ev('__cmwMorph({ T: 0, playing: true })'); await sleep(300);
-const pf = await ev('await (async () => await __qa.frames(2000))()', 30000);
-info.playFrames = pf;
-ok('deformation plays at 60 fps', pf.fps >= 55, pf);
-await ev('__cmwMorph({ playing: false, open: false })'); await settle(400);
-// with a pole: the rational zoom path
-await load('zpacc4' + Date.now(), { shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0.3i' }, on: true }], pattern: 'checker', srcView: { cx: 0, cy: 0, s: 110 } });
-await settle(1000);
-await ev('__cmwMorph({ open: true, playing: false })'); await settle(500);
-await ev('__cmwMorph({ T: 0.6 })'); await settle(900);
-const st2 = await ev('__cmwState()');
-ok('with a pole: a natural path too', st2.homView && st2.homView.map.mode === 1, st2.homView && st2.homView.map);
-await shot('zp-deform-pole-light'); shots.push('zp-deform-pole-light');
-await ev('__cmwMorph({ open: false })'); await settle(300);
-
 await grab();
 ok('no exceptions', errs.length === 0, errs.slice(0, 5));
-return { pass: fails.length === 0, fails, info, shots };
+return { pass: fails.length === 0, fails, info };
