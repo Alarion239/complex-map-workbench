@@ -130,6 +130,21 @@
     const comp = q.length === 2 ? `${f(q[0])}${o}${f(q[1])}` : `${f(q[0])}${o}${dots}${o}${f(q[q.length - 1])}`;
     return `(${comp})(${x})`;
   }
+  // a plane's accessible name is its head's own words: its title and its role in plain text ("w₁ · phase of f₂"), so it follows the
+  // plane shown as the head does
+  function titleName(html) {
+    const d = h('div', { html });
+    // (the subscript's digits and the deformation's t as Unicode subscripts: Hₜ, as the page writes it elsewhere)
+    for (const s of d.querySelectorAll('sub')) s.textContent = sub(s.textContent).replace(/t/g, '\u209C');
+    const words = (e) => (e ? e.textContent.replace(/\s+/g, ' ').trim() : '');
+    return [words(d.querySelector('.ptitle')), words(d.querySelector('.rf') || d.querySelector('.prole'))].filter(Boolean).join(', ');
+  }
+  function nameCanvases(t) {
+    for (const [id, html] of [['overlayL', t.left], ['overlayR', t.right]]) {
+      const el = $(id), name = titleName(html);
+      if (el && name && el.getAttribute('aria-label') !== name) el.setAttribute('aria-label', name);
+    }
+  }
   function updateFocusUI() {
     const t = paneTitles();
     // (v16: the phone's title chip of the merged plane reads data-mtitle, SPEC 5.1)
@@ -137,6 +152,7 @@
     if (document.documentElement.dataset.mtitle !== mt) { document.documentElement.dataset.mtitle = mt; for (const id of ['leftReadout', 'rightReadout']) { const el = $(id); if (el) el.dataset.mtitle = mt; } }
     if ($('leftTitle').innerHTML !== t.left) $('leftTitle').innerHTML = t.left;
     if ($('rightTitle').innerHTML !== t.right) $('rightTitle').innerHTML = t.right;
+    nameCanvases(t);
     syncAloneChip();
     syncModeChips();
     $('paneL').classList.toggle('no-rulers', !lFlat());
@@ -603,18 +619,22 @@
   // The distinct sheets among the K combos of map m (window W): the first combo of each class of combos whose values
   // agree at every probe point (all of 0..K-1 when none repeats an earlier one).
   // The sheets of √ then log coincide in pairs, so the surfaces drawn are these combos only. Cached per chain, map, focus, window.
+  // SHEET_PTS: the generic points two maps are compared at; sheetValsSame(a, b): two lists of values there are one map's
+  // (each pair within 1e-9 relative; a missing value, null, equals only another, and a value not finite only another)
+  const SHEET_PTS = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)];
+  const sheetFin = (u) => Number.isFinite(u.re) && Number.isFinite(u.im);
+  const sheetSame = (u, v) => (!u || !v ? u === v : !sheetFin(u) || !sheetFin(v) ? !sheetFin(u) && !sheetFin(v) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
+  const sheetValsSame = (a, b) => a.every((w, i) => sheetSame(w, b[i]));
   const sheetUniqCache = new Map();
   function sheetUniq(m, W, K) {
     const key = `${chainSig[nSteps()]}|${mapKeyOf(m)}|${S.focus}|${W}|${K}`;
     let r = sheetUniqCache.get(key);
     if (r) return r.list;
-    const pts = [C(0.731, 0.412), C(-1.287, 0.903), C(-0.618, -1.733), C(1.911, -0.794), C(0.307, 2.268)], reps = [], list = [];
-    const fin = (u) => Number.isFinite(u.re) && Number.isFinite(u.im);
-    const same = (u, v) => (!u || !v ? u === v : !fin(u) || !fin(v) ? !fin(u) && !fin(v) : CX.abs(CX.sub(u, v)) <= 1e-9 * (1 + CX.abs(u)));
+    const reps = [], list = [];
     for (let c = 0; c < K; c++) {
       // a point where the sheet cannot be evaluated (a throw) counts as a missing value, which only equals another
-      const v = pts.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
-      if (!reps.some((x) => x.every((w, i) => same(w, v[i])))) { reps.push(v); list.push(c); }
+      const v = SHEET_PTS.map((z) => { try { return Funcs.sheetEval(S.steps, built, m.b, z, z, c, W, { a: m.a || 0 }); } catch (e) { return null; } });
+      if (!reps.some((x) => sheetValsSame(x, v))) { reps.push(v); list.push(c); }
     }
     r = { list };
     if (sheetUniqCache.size > 32) sheetUniqCache.delete(sheetUniqCache.keys().next().value);
@@ -1013,6 +1033,8 @@
   // one legend chip per pane (U-b): X's colour key while Phase is on (wheel and modulus strip; the landscape's
   // height), Y Plane's pattern key. legendKind(side): 'color' | 'sphere' | '3d' (X) | 'image' (Y) | null
   const legendState = { L: { key: '', drawn: '', cv: null, strip: false }, R: { key: '', drawn: '', cv: null, strip: false } };
+  // the steps view on a plane other than the colour plane: the colour wheel, with the plane its colour is carried from
+  const svCarriedKey = () => SV.on && !!svCarriedFrom();
   // the Landscape's key under Plaster: the height and the contours, with no hue
   const plasterKey = (kind) => kind === '3d' && !lPhase();
   function legendKind(side) {
@@ -1020,8 +1042,8 @@
     if (side === 'R') return rImage() ? 'image' : null;
     // (the Landscape's key is its height, whichever Colouring it has: Plaster draws no phase colours, and no carried wheel)
     if (lLand()) return '3d';
-    // (the steps view past the colour plane: the colour wheel, with the plane it is carried from)
-    if (!lPhase()) return SV.on && svCarriedFrom() ? 'color' : null;
+    if (svCarriedKey()) return 'color';
+    if (!lPhase()) return null;
     return lGlobe() ? 'sphere' : 'color';
   }
   // (v16.5 UX20, restores "nothing covers the work uninvited") On a desktop each plane's key and its display options
@@ -1039,6 +1061,7 @@
       // (#365: Phase's colour key is always on the plot, top right: no hover, no toggle. The Landscape's height key and
       // Y's pattern key stay chips in the head)
       const onPlot = side === 'L' && !ph && keyOnPlot();
+      if (!ph) delete leg.dataset.phKey;
       if (onPlot) {
         if (leg.parentNode !== plot) {
           leg.classList.remove('open', 'collapsed'); plot.insertBefore(leg, plot.querySelector(':scope > .viewstack'));
@@ -1054,7 +1077,9 @@
         if (er && er.parentNode !== head) head.insertBefore(er, leg);
       } else {
         const ro = $(side === 'L' ? 'leftReadout' : 'rightReadout'), vs = plot.querySelector(':scope > .viewstack');
-        if (leg.parentNode !== plot) {
+        // (data-ph-key marks a legend this branch has placed: one the desktop's branch left on the plot is placed again, folded)
+        if (leg.parentNode !== plot || !leg.dataset.phKey) {
+          leg.dataset.phKey = '1';
           // (the head's words and tooltip go: on the plane the key is the folded glyph, a tap unfolds it)
           leg.classList.remove('open'); plot.insertBefore(leg, ro ? ro.nextSibling : vs);
           const sm = leg.querySelector(':scope > .lg-sum'); if (sm) sm.remove();
@@ -1081,17 +1106,18 @@
     if (L && pl && !document.documentElement.classList.contains('ph') && (L.parentNode === pl) !== keyOnPlot()) placeKeys();
     drawLegendSide('L'); drawLegendSide('R');
   }
+  const KEY_GUTTER = 4;   // px between an unfolded key and its plane's edge
   // ([#337] the key unfolds over the top of the plot, where the probe's readout (which also carries the idle hint) and the
   // empty or dim notes lie. In a pane head its pop-up opens below the ones it would cover; on a phone, where the chip
   // lies in the plot, the chip, folded or unfolded, drops below the readout it would touch (a folded one by its 44 px
   // hit area, 8 px out from the glyph), unless that puts it under the context bar. The drop, --lg-drop, is the
-  // distance to the lowest of them; it is recomputed each time the key is shown, and, on a phone, whenever a readout
-  // changes size or the context bar opens or closes)
+  // distance to the lowest of them, less what an unfolded card on a phone needs to end KEY_GUTTER above the plane's foot; it is
+  // recomputed each time the key is shown, and, on a phone, whenever a readout changes size or the context bar opens or closes)
   const LEGEND_HIT_PX = 8, LEGEND_BAR_GAP_PX = 4;
   // (a phone's unfolded chip stays above the context bar, which overlays the foot of the plane: it moves up by what
-  // it runs under the bar, as far as 4 px under the plane's top or the foot of a readout above it in its column. What
-  // still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key stays in reach;
-  // placeKeyPopReadout gives the chip its whole height back)
+  // it runs under the bar, as far as 4 px under the plane's top or under the foot of a readout above it in its
+  // column. What still runs under the bar then is cut off the chip's height, and the chip scrolls, so all of the key
+  // stays in reach; placeKeyPopReadout gives the chip its whole height back)
   function clearContextBar(box) {
     const bar = document.querySelector('.ph-ctx.in'), plot = /** @type {HTMLElement} */ (box.parentNode);
     if (!bar || !plot || box.classList.contains('collapsed') || plot.classList.contains('pane-head')) return;
@@ -1099,12 +1125,17 @@
     if (!c.width) return;
     const over = Math.ceil(c.bottom - (bar.getBoundingClientRect().top - LEGEND_BAR_GAP_PX));
     if (over <= 0) return;
-    let top = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    const planeTop = plot.getBoundingClientRect().top + LEGEND_BAR_GAP_PX;
+    let top = planeTop;
     for (const e of plot.querySelectorAll(':scope > .chip.readout')) {
       const r = e.getBoundingClientRect();
-      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom);
+      if (r.width && r.left < c.right && c.left < r.right && r.top < c.top) top = Math.max(top, r.bottom + LEGEND_BAR_GAP_PX);
     }
-    const up = Math.max(0, Math.min(over, Math.floor(c.top - top)));
+    // (under the readouts it would meet when it then stands whole above the bar; else it takes the plane's top, over them, and the readouts it
+    // then covers give way, .over-readout: the key's words are the greater loss)
+    const below = Math.max(0, Math.min(over, Math.floor(c.top - top))), up = below >= over ? below : Math.max(0, Math.min(over, Math.floor(c.top - planeTop)));
+    const cTop = c.top - up, cBottom = c.bottom - up;
+    box.classList.toggle('over-readout', up > below && [...plot.querySelectorAll(':scope > .chip.readout')].some((e) => { const r = e.getBoundingClientRect(); return r.width > 0 && r.left < c.right && c.left < r.right && r.top < cBottom && cTop < r.bottom; }));
     if (up) box.style.setProperty('--lg-drop', `${(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) - up}px`);
     if (over > up) {
       const cs = getComputedStyle(box), edges = ['borderTopWidth', 'borderBottomWidth', 'paddingTop', 'paddingBottom'].reduce((s, k) => s + (parseFloat(cs[k]) || 0), 0);
@@ -1118,14 +1149,14 @@
     if (!box || !plot || !box.parentNode) return;
     const head = box.parentNode.classList.contains('pane-head');
     const el = head ? box.querySelector(':scope > canvas') : box;
-    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y');
+    box.style.removeProperty('--lg-drop'); box.style.removeProperty('--lg-shift'); box.style.removeProperty('max-height'); box.style.removeProperty('overflow-y'); box.classList.remove('over-readout');
     if (!el) return;
     const reach = !head && box.classList.contains('collapsed') ? LEGEND_HIT_PX : 0;   // (a folded chip is pressed 8 px out from its glyph)
     // (a head's pop-up is anchored by its right edge: a chip near the pane's left edge would push it past that edge, so
-    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a 4 px gutter)
+    // it shifts right, and past the right edge it shifts left, to lie inside the pane with a gutter, KEY_GUTTER)
     const c0 = el.getBoundingClientRect(), pr = pane.getBoundingClientRect();
     if (head && c0.width) {
-      const lo = pr.left + 4 - c0.left, hi = pr.right - 4 - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
+      const lo = pr.left + KEY_GUTTER - c0.left, hi = pr.right - KEY_GUTTER - c0.right, sh = lo > 0 ? Math.ceil(lo) : hi < 0 ? Math.floor(hi) : 0;
       if (sh) box.style.setProperty('--lg-shift', `${sh}px`);
     }
     const sel = head ? ':scope > .chip.readout, :scope > .empty-chip, :scope > .dim-chip' : ':scope > .chip.readout';
@@ -1137,15 +1168,44 @@
         const r = e.getBoundingClientRect();
         if (r.width && r.left < c.right + reach && c.left - reach < r.right && r.top < c.bottom + reach && c.top - reach < r.bottom) drop = Math.max(drop, r.bottom + 6 + reach - c.top);
       }
-      if (drop <= 0) return;
+      if (drop <= 0) break;
       // (a folded chip does not go under the context bar: the readout it would touch is the lesser harm)
       const bar = reach ? document.querySelector('.ph-ctx.in') : null;
-      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) return;
+      if (bar && c.bottom + drop + reach > bar.getBoundingClientRect().top) break;
       box.style.setProperty('--lg-drop', `${Math.ceil(parseFloat(box.style.getPropertyValue('--lg-drop')) || 0) + Math.ceil(drop)}px`);
+    }
+    // (on a phone the card stays inside the plane: a readout that wraps to more lines would drop it past the plane's foot, so the
+    // drop gives up what the card needs, down to none, and the card then overlaps the readout's last lines, which take no press
+    // there. A head's pop-up has no such room: the readout there takes presses, and it stays under the pop-up's drop)
+    if (!head) {
+      const over = el.getBoundingClientRect().bottom - (plot.getBoundingClientRect().bottom - KEY_GUTTER), dropNow = parseFloat(box.style.getPropertyValue('--lg-drop')) || 0;
+      if (over > 0 && dropNow > 0) box.style.setProperty('--lg-drop', `${Math.max(0, dropNow - Math.ceil(over))}px`);
     }
   }
   // the globe shows under 3 paths because X is mostly on its far side (the globe's hint says so: the globe has no legend)
   const mfGlobeAway = () => !!(rGlobe() && morphOn() && S.morphPaths !== false && mfCache.sel && mfCache.sel.globe && mfCache.sel.kept.length < 3 && mfCache.sel.away > 0.5);
+  // (a key is a button on a phone and in a pane's head: a name, a place in the focus order, aria-expanded (the fold's on a
+  // phone, the panel's in a head, which Enter, Space and Escape open and shut: setupPaneButtons). A key lying open on the plane
+  // off the phone takes role img and leaves the focus order)
+  function legendKeyButton(box, name) {
+    const par = box.parentNode, head = !!par && (/** @type {HTMLElement} */ (par)).classList.contains('pane-head');
+    const btn = !!par && (head || document.documentElement.classList.contains('ph'));
+    if (btn) {
+      // (a head's key shows its panel while kept open, or focused and not shut: pointing at it shows it too, which a button's state does not follow)
+      const shown = head ? box.classList.contains('open') || (!box.classList.contains('shut') && box.matches(':focus-visible')) : !box.classList.contains('collapsed');
+      const open = shown ? 'true' : 'false';
+      if (box.getAttribute('role') !== 'button') box.setAttribute('role', 'button');
+      if (box.tabIndex !== 0) box.tabIndex = 0;
+      if (box.getAttribute('aria-expanded') !== open) box.setAttribute('aria-expanded', open);
+      if (name && box.getAttribute('aria-label') !== name) box.setAttribute('aria-label', name);
+    } else if (box.getAttribute('role') === 'button') {
+      box.setAttribute('role', 'img'); box.removeAttribute('tabindex'); box.removeAttribute('aria-expanded');
+    }
+  }
+  // the key's canvas has no words a screen reader reaches: what it draws (paintLegend's st.say) is the key box's
+  // description (srSay), in a hidden span inside the box (#leftLegendSay, #rightLegendSay; inside, so it moves with the
+  // box and is never an item of a pane head's row)
+  function legendSaid(box, text) { srSay(box, text, (sp) => box.append(sp)); }
   function drawLegendSide(side) {
     const box = $(side === 'L' ? 'leftLegend' : 'rightLegend');
     const cv = $(side === 'L' ? 'legendCanvasL' : 'legendCanvas');
@@ -1161,12 +1221,10 @@
       if (!sm) { sm = h('span', { class: 'lg-sum' }); box.prepend(sm); }
       const tx = legendSum(kind);
       if (sm.textContent !== tx) sm.textContent = tx;
-      // (its name leads with what it shows, "cell 1", so a chip folded to its glyph still says it; the height key's
-      // own words already name it)
-      const tip = kind === '3d' ? $t('Height key: point at it to unfold, click to keep it open') : tx + '. ' + (kind === 'image' ? $t('Regions key: point at it to unfold, click to keep it open') : $t('Colour key: point at it to unfold, click to keep it open'));
-      // (no tooltip: pointing at the chip unfolds the key under it, which a tooltip would cover)
-      if (box.getAttribute('aria-label') !== tip) box.setAttribute('aria-label', tip);
     }
+    // (the phone's key button is named for its kind, "Regions key" as "Height key" and "Colour key": what the key
+    // shows, its fill among it, is its description's (legendSaid), so a screen reader says it once)
+    legendKeyButton(box, !kind ? '' : kind === 'image' ? $t('Regions key') : legendSum(kind));
     // (#365: Phase's key lies on the plot with no words of its own: its name is the label)
     if (kind && box.parentElement && box.parentElement.id === 'plotL' && !document.documentElement.classList.contains('ph')) {
       const nm = $t('Colour key');
@@ -1210,6 +1268,9 @@
       paintLegend(octx, anyCut, kind, st);
       st.key = key; st.drawn = '';
     }
+    // (a head's key opens by pointing and by keys, which its name does not say: the instruction ends its description)
+    const inHead = !!box.parentNode && /** @type {HTMLElement} */ (box.parentNode).classList.contains('pane-head');
+    legendSaid(box, [(st.say || []).join('; '), inHead ? $t('Point at it to unfold; click it or press Enter to keep it open') : ''].filter(Boolean).join('. '));
     const dyn = img ? '' : `${legendNeedle == null ? '' : legendNeedle.toFixed(3)}|${legendMod == null ? '' : legendMod.toPrecision(4)}`;
     if (st.drawn === key + dyn) return;
     st.drawn = key + dyn;
@@ -1241,6 +1302,8 @@
     ctx.clearRect(0, 0, W, Hh);
     ctx.textBaseline = 'middle';
     st.strip = false;
+    // (what the key draws, in words, in its order with the caption first: the key box's description, legendSaid)
+    const say = st.say = [];
     if (kind === 'image') {
       // the regions' key: their fill, the phase of z, and the grid's cell in z while its lines are drawn, plus
       // markers present in the plane
@@ -1259,10 +1322,11 @@
       if (k < 1) { ctx.save(); ctx.translate(8, 0); ctx.scale(k, 1); x = 0; }
       for (const [t, f, c] of parts) run(t, f, c);
       if (k < 1) ctx.restore();
+      say.push($t('Regions') + ': ' + parts.map((q) => q[0]).join(''));
       // only marks that this plane actually draws
       let y = 52;
       ctx.font = `11px ${TH.ui}`; ctx.lineWidth = 1;
-      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; }
+      if (anyCut) { ctx.strokeStyle = TH.cut; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('image of a cut'), 30, y); y += 15; say.push($t('dashed: {x}', { x: $t('image of a cut') })); }
       // the merged deformation plane: what grey is (X, the start) and what the lines are (the paths t -> H_t(z)), in
       // the rows the view outline uses in X → Y (the chip's lower half would be blank without them)
       if (morphOn()) {
@@ -1272,8 +1336,8 @@
         let px0 = 8;
         if (y < 68) {
           // (at a focused step after the first, the start is the dashed outline of the step's source, renderMorph)
-          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); px0 = run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y) + 10; }
-          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); px0 = run('start', `11px ${TH.ui}`, TH.muted, 30, y) + 10; }
+          if (S.focus <= 1) { ctx.fillStyle = TH.ink; ctx.globalAlpha = 0.16; ctx.fillRect(8, y - 5, 16, 10); ctx.globalAlpha = 1; ctx.strokeStyle = TH.faint; ctx.strokeRect(8.5, y - 4.5, 15, 9); px0 = run('X', `italic 500 12px ${TH.math}`, TH.muted, 30, y) + 10; say.push($t('grey: {x}', { x: 'X' })); }
+          else { ctx.strokeStyle = TH.faint; ctx.setLineDash([4, 3]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); px0 = run('start', `11px ${TH.ui}`, TH.muted, 30, y) + 10; say.push($t('dashed: {x}', { x: $t('the start') })); }
           if (share) px0 = Math.min(px0, W - 80); else { y += 15; px0 = 8; }
         }
         if (y < 72 && paths) {
@@ -1290,10 +1354,11 @@
           x = run('(', `12px ${TH.math}`, TH.muted, x, y);
           x = run('z', `italic 500 12px ${TH.math}`, TH.muted, x, y);
           run(')', `12px ${TH.math}`, TH.muted, x, y);
+          say.push('t ↦ Hₜ(z)');
         }
         return;
       }
-      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); }
+      if (S.fov !== false && lFlat() && y < 68) { ctx.strokeStyle = TH.fov; ctx.setLineDash([5, 4]); ctx.beginPath(); ctx.moveTo(8, y); ctx.lineTo(24, y); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = TH.muted; ctx.fillText($t('edge of X\'s view'), 30, y); say.push($t('dashed: {x}', { x: $t('edge of X\'s view') })); }
       return;
     }
     // (the steps view's Cauchy style off plane z draws no picture: the key is its reason alone, with no ring to run over)
@@ -1309,6 +1374,7 @@
       ctx.beginPath(); ctx.arc(cx, cy, R, -a0, -a1, true); ctx.arc(cx, cy, r0, -a1, -a0, false); ctx.fill();
     }
     if (!noRing) {
+      say.push($t('hue: the argument, red at 1, counterclockwise'));
       ctx.strokeStyle = TH.lineStrong; ctx.lineWidth = 1;
       ctx.beginPath(); ctx.arc(cx, cy, R, 0, TAU); ctx.stroke(); ctx.beginPath(); ctx.arc(cx, cy, r0, 0, TAU); ctx.stroke();
       // labels outside the ring, "−1" right-aligned so it ends 3px from the ring and starts inside the chip
@@ -1322,7 +1388,7 @@
     // (H with a subscript t, the deformation's map: H in STIX italic, t a smaller italic below the baseline)
     // (the caption drawn is kept in st.caption: tests)
     const caption = (t) => {
-      st.caption = t;
+      st.caption = t; say.unshift(t);
       const parts = t.split(/(Hₜ|F′|F|(?<![A-Za-z])[wf](?![A-Za-z]))/).filter(Boolean).flatMap((p) => (p === 'Hₜ' ? [['H', `italic 500 12px ${TH.math}`, 0], ['t', `italic 500 9px ${TH.math}`, 3]] : [[p, /^(F′?|w|f)$/.test(p) ? `italic 500 12px ${TH.math}` : `600 10.5px ${TH.ui}`, 0]]));
       // (right-aligned under the wheel; the one-line key, with no wheel, is centred)
       let x = cauchyOff ? LEG.W / 2 : LEG.W - 8;
@@ -1330,8 +1396,8 @@
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       for (const [p, f, dy] of parts) { ctx.font = f; ctx.fillText(p, x, (cauchyOff ? Hh / 2 : 62) + dy); x += ctx.measureText(p).width; }
     };
-    // (the steps view past the colour plane: the wheel is the colour plane's, carried by the points)
-    if (kind === 'color' && SV.on && svCarriedFrom() && !lPhase()) {
+    // (the steps view on every plane but the colour plane's own: the wheel is the colour plane's, carried by the points)
+    if (kind === 'color' && svCarriedKey()) {
       // (longer than the room under the wheel, so it stands in lines to the right of it, the plane's variable in STIX italic)
       const KEY_X = 78;      // left edge of the lines: just right of the wheel and its −i label
       const KEY_PAD = 8;     // room kept at the legend's right edge
@@ -1342,7 +1408,7 @@
       let cur = '';
       for (const w of words) { const nx = cur ? `${cur} ${w}` : w; ctx.font = ui; if (cur && ctx.measureText(nx).width > maxW) { lines.push(cur); cur = w; } else cur = nx; }
       if (cur) lines.push(cur);
-      st.caption = words.join(' ');
+      st.caption = words.join(' '); say.unshift(st.caption);
       ctx.fillStyle = TH.ink2; ctx.textAlign = 'left';
       lines.forEach((ln, i) => {
         let x = KEY_X;
@@ -1367,6 +1433,7 @@
       ctx.fillStyle = g; ctx.fillRect(sx, sy, sw, sh);
       ctx.fillStyle = TH.muted; ctx.font = `10px ${TH.mono}`; ctx.textAlign = 'left';
       ctx.fillText('0', sx, sy + 18); ctx.textAlign = 'right'; ctx.fillText('∞', sx + sw, sy + 18);
+      say.push($t('brightness: black at 0, white at ∞'));
       ctx.strokeStyle = TH.ink; ctx.beginPath(); ctx.moveTo(sx + sw / 2, sy - 2); ctx.lineTo(sx + sw / 2, sy + sh + 2); ctx.stroke();
     } else {
       for (let b = 0; b < 3; b++) {
@@ -1380,8 +1447,8 @@
       // a Russian word («линии уровня», «на полосу») is narrowed to the chip's edge; English draws unchanged
       const word = (t, y) => { ctx.font = `11px ${TH.ui}`; if (I18N.lang === 'en') ctx.fillText(t, sx, y); else ctx.fillText(t, sx, y, LEG.W - sx - 4); };
       const num = (t, y) => { ctx.font = `10px ${TH.mono}`; ctx.fillText(t, sx, y); };
-      if (kind === '3d') { word($t('contours'), sy - 9); num(I18N.num('×1.69'), sy + 19); }
-      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); }
+      if (kind === '3d') { const f = I18N.num('×1.69'); word($t('contours'), sy - 9); num(f, sy + 19); say.push($t('contours') + ' ' + f); }
+      else { num(keyFactor(n), sy - 9); word($t('per band'), sy + 19); say.push(keyFactor(n) + ' ' + $t('per band')); }
     }
     // (the steps view's Height key names what the height reads on the shown plane, svHeightName)
     const Fn = homL ? 'Hₜ' : SV.on ? (kind === '3d' ? svHeightName('text') : svKeyName()) : S.focus === 0 ? 'F' : focusDeriv() ? 'w' : 'f';

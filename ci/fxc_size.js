@@ -5,8 +5,8 @@
 // Chrome, takes each program's stages at linkProgram (GLR.profile(), ?glprof, names them: program, chain key, map mode)
 // and sizes each stage with every call expanded (ci/glsl_inline.js), so a program that grows is seen at merge time.
 //   node ci/fxc_size.js [--no-build] [--ref REF] [--json FILE] [--pages N]
-// The scenes: the default example as the page opens, its first glide on the plane and on the globe, and its
-// Landscape; every example's first frame; and the typed formulas of TYPED, each with the same four.
+// The scenes: the default example as the page opens, its first glide on the plane and on the globe, its Landscape and
+// its All-at-once glide; every example's first frame; and the typed formulas of TYPED, each with the first four.
 // The GL compiles nothing: each stage it is handed is a stub with the same transform-feedback output. What is measured
 // is the source the app writes, and a software renderer takes minutes to compile and draw these programs.
 // test/lib/late_links.js's KHR_parallel_shader_compile makes the app take a GPU's background-link paths.
@@ -82,13 +82,16 @@ const paste = (f) => `(() => { const i = document.querySelector('input[data-pkey
 const PARK = '__cmwSteps({ park: 0.5 })', PLANE_1 = '(__cmwSteps({ go: 1, now: true }), true)';
 const fourScenes = (tag) => [[`${tag}: glide`, PARK], [`${tag}: plane 1`, PLANE_1], [`${tag}: globe`, `(${SC.glideBack()}, ${SC.surface('sphere')})`],
   [`${tag}: globe glide`, PARK], [`${tag}: Landscape`, `(${SC.glideBack()}, ${SC.surface('plane')}, ${SC.main('land')})`], [`${tag}: back`, SC.main('xy')]];
+// the default example's All-at-once glide (its two steps, map mode 3) parked halfway on the plane: the span's programs
+// (the inverse pass of each step's homotopy at its own time, #1742)
+const ALL_AT_ONCE = (tag) => [`${tag}: All at once`, `(${SC.surface('plane')}, ${SC.main('xy')}, __cmwSet('homAll', true), __cmwSteps({ go: 0, now: true, T: 0 }), __cmwSteps({ span: [0, 2] }), __cmwSteps({ x: 1 }), true)`];
 // the pages, each walked in a browser of its own (some at a time: walk): { formula (the step the page opens with;
 // none: the default example), steps: [label, statement] (the first: the page as it opens) }
 function pages(names) {
   const half = Math.ceil(names.length / 2), open = ['the default example', null];
   const examples = (from, to) => names.slice(from, to).map((n, i) => [`example ${from + i} (${n})`, `__cmwExample(${from + i})`]);
   const typed = (list) => list.flatMap((f, i) => [[`typed ${f}`, i ? paste(f) : null], ...fourScenes(`typed ${f}`)]);
-  return [{ steps: [open, ...fourScenes(open[0])] }, { steps: [open, ...examples(0, half)] }, { steps: [open, ...examples(half)] },
+  return [{ steps: [open, ...fourScenes(open[0]), ALL_AT_ONCE(open[0])] }, { steps: [open, ...examples(0, half)] }, { steps: [open, ...examples(half)] },
     ...TYPED.map((list) => ({ formula: list[0], steps: typed(list) }))];
 }
 

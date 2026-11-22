@@ -33,8 +33,8 @@ const AREAS = {
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
   i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
-  views: ['views-1', 'views-2', 'views-3', 'formulas'],
-  desktop: ['views-1', 'views-2', 'views-3', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
+  views: ['views-1', 'views-2', 'views-2b', 'views-3', 'formulas'],
+  desktop: ['views-1', 'views-2', 'views-2b', 'views-3', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
   // the layout gate (#470): a change that can move layout runs every language (#611: Russian and Italian have the longest
   // words, where text spills first); the languages' tables alone run Russian and Italian
@@ -67,7 +67,11 @@ const MAP = [
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone', 'layout')],                                       // the header, its menus, the panels and drawers (#385)
+  ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
+  ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
+  ['src/app/19-readout.js', ui('views', 'desktop', 'phone')],                                      // a stage disc's readout card in the Inspector (#1983)
+  ['src/app/19-lookdown.js', ui('views', 'desktop', 'phone')],                                     // Look down: the target ring, lines, critical marks and key (#1984)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],
@@ -114,7 +118,7 @@ const MAP = [
   ['src/page.html', Object.assign(ui('desktop', 'phone', 'layout'), { lines: [[EXPORT_DIALOG, 'export']] })],
   ['src/desk.css', ui('desktop', 'phone', 'layout')],                         // the desktop styles, and the Inspector's in the phone's sheet (#385)
   // the maths and the renderer: T2, and the shards that draw or compute exactly
-  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,invops,invpatterns,inverse,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
+  ['src/{cx,symbolic,parse,funcs,natpaths,sheets,formulasteps,derivs,invops,invpatterns,inverse,critical,pieces,recognize,calc,regionlines,region,curves,sphere,glsl}.js', { core: true }],
   ['src/{palette,homrange}.ts', { core: true }],
   // the generators of the tables in src/ and their inputs
   ['tools/{it_table,ru_extra}.json', ui('i18n')],
@@ -184,6 +188,7 @@ const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },
   { os: 'ubuntu-latest', page: 'inverse', part: '1/1', tier: 'core' },
+  { os: 'ubuntu-latest', page: 'dh', part: '1/1', tier: 'core' },
 ];
 const GLSL_JOBS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/8`, tier: 'all' })),

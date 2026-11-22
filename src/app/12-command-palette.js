@@ -7,6 +7,14 @@
     try { localStorage.setItem(RECENT_KEY, JSON.stringify([t, ...recentTypes().filter((x) => x !== t)].slice(0, 4))); } catch (e) { /* ignore */ }
   }
   let popEl = null;
+  // the menu or popover standing now was opened from this button: pressing the button again closes it
+  function popOpenedFrom(anchor) { return !!popEl && popEl.classList.contains('menu') && popEl._opener === anchor; }
+  // the button that opened a menu or popover says so while it is open, ARIA's menu button (a button with aria-expanded);
+  // closePalette puts it back
+  function markOpener(pop, opener) {
+    pop._opener = opener;
+    if (opener && opener.hasAttribute && opener.hasAttribute('aria-expanded')) opener.setAttribute('aria-expanded', 'true');
+  }
   function closePalette() {
     closePad(); // the Argand pad never outlives the popover or menu around it
     if (!popEl) return;
@@ -32,7 +40,7 @@
   function intLabel(s, names) {
     let closed = false;
     try { const pieces = curvePieces(s, false); closed = pieces.length > 0 && pieces.every((c) => c.closed); } catch (e) { closed = false; }
-    const name = names.get(s.id) || Region.KINDS[s.kind].label, dv = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
+    const name = names.get(s.id) || Region.KINDS[s.kind].label, dv = svName(leftStage());
     return closed ? $t('∮ {x} d{dv} around {name}', { x: fnText(), dv, name }) : $t('Integrate {x} along {name}', { x: fnText(), name });
   }
   // the result opens beside its curve in X, never over Y, where the curve's image is

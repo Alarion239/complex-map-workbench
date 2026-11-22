@@ -5,9 +5,7 @@
 // after another part. The steps view also honours the query flags ?ns= (a page's own storage) and ?i18n-debug (the recorded lookup
 // misses). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info, errs }.
 // (the classic view's own picture is not tested here: this suite proves that the steps view shows the same thing)
-const zlib = process.mainModule.require('zlib');
-const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const BASE = `http://localhost:${PORT}`;
+const { BASE, linkOf, reloadedFigure } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'link_kit.js'), 'utf8'));
 const fails = [], info = {}, errs = [];
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -38,15 +36,9 @@ const openAt = async (url, parked) => {
   await go(url);
   await untilReady(`the steps view opened: ${url.replace(/^.*test\.html/, '').slice(0, 60)}`, old, parked);
 };
-// A link or a scene opens in a second load: openFigure writes the state and reloads the page, after the first load has
-// settled. So the reads wait for that load's own toast ("Opened the figure from the link." or "Opened the scene.", shown
-// 400 ms after it) and the steps view on it, and the navigation the reload itself causes is waited through, not read: the kit's reloaded(old, ...), where old is the
-// page's document before the link was opened. Any other error still fails the suite; the deadline is 30 s.
-const reloadedFigure = (old, toastText) => reloaded(old, `(() => { const t = document.body && document.body.innerText || ''; return t.includes(${JSON.stringify(toastText)}) && typeof __cmwSteps === 'function' && __cmwSteps().on && !__cmwSteps().moving; })()`, { limitMs: 30000 });
+// (reloadedFigure(old, toastText), from test/lib/link_kit.js: the page a link or a scene opens in, waited for through the kit's
+// reloaded(old, ...))
 const grab = async (name) => { const e = exc(await logs()); if (e.length) errs.push({ name, e: e.slice(0, 3) }); };
-// a link's payload, as the app makes it: #cmw=0.<base64url JSON> or #cmw=1.<base64url of deflate-raw JSON>
-const b64u = (b) => b.toString('base64').replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-const linkOf = (s, zip) => { const raw = Buffer.from(JSON.stringify({ v: 1, s })); return zip ? '1.' + b64u(zlib.deflateRawSync(raw)) : '0.' + b64u(raw); };
 const STEPS = [{ type: 'pown', params: { n: 2 } }, { type: 'exp', params: {} }, { type: 'pown', params: { n: 3 } }];
 // a formula inequality is an area: the classic X → Y opens with its colour inside the areas
 const AREA = [{ id: 's1', kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}' }];
@@ -155,8 +147,9 @@ const near = (a, b, tol) => !!a && !!b && ['yaw', 'pitch', 'd', 'tx', 'ty'].ever
 const OPEN_TOAST = 'Opened the figure from the link.';
 const openCams = async (state, tag, atRest = true) => {
   const old = await ev('performance.timeOrigin');
-  // (a raw navigation and the kit's reloaded, not go: go opens the url again when the document it is waiting for is slow to arrive, and
-  // a link opened again finds the state its own first open saved, and asks before opening it)
+  // (go opens the url again when the document it is waiting for is slow to arrive, and a link opened again finds the state its own
+  // first open saved, and asks before opening it)
+  // raw-navigate: a link is opened by a raw navigation and the kit's reloaded, which waits for the link's reload
   await send('Page.navigate', { url: `${BASE}/test.html?ns=lmig${n}${tag}${Date.now()}${Math.floor(Math.random() * 1e6)}&view=steps#cmw=${linkOf(state, true)}` });
   try {
     if (atRest) await reloadedFigure(old, OPEN_TOAST);
@@ -337,6 +330,21 @@ n++;
   info['?i18n-debug: with the flag'] = on;
   ok('?i18n-debug: a lookup miss is recorded in the steps view', on.debug && on.ru && on.recorded, on);
   await grab('?i18n-debug');
+}
+
+// a link copied before the save carries the steps view's place as it is on screen: the place is moved and the figure a
+// link carries (__cmwFigureState) read in the same task, before the save that follows a change (300 ms later); the page
+// opens from a link with no place of its own, so the figure's place can only come from the view on screen
+n++;
+{
+  const ns = 'lmigP' + n + Date.now();
+  const old = await ev('performance.timeOrigin');
+  await go(`${BASE}/test.html?ns=${ns}&view=steps#cmw=${linkOf(LINK_STATE, true)}`);
+  await reloadedFigure(old, 'Opened the figure from the link.');
+  const got = await ev(`(() => { __cmwSteps({ go: 2, now: true, scope: 'in' }); const s = __cmwSteps(); return { fig: __cmwFigureState().sv || null, x: s.x, scope: s.scope }; })()`);
+  info['a link copied before the save: its place'] = got;
+  ok('a link copied before the save carries the place on screen (at, scope)', !!got.fig && got.fig.at === got.x && got.x === 2 && got.fig.scope === 'in' && got.scope === 'in', got);
+  await grab('link before the save');
 }
 
 for (const e of errs) ok('no errors: ' + e.name, false, e.e);

@@ -105,6 +105,9 @@ const Phone = (() => {
     // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
     if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
+    // the plane's key column and view stack ride up above the context bar and a message, with a transition on `bottom`: the
+    // labels keep off them where they stop, so one full placement follows the lift (liftSettled asks where there is no transition)
+    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack')) A.relabel(); }, true);
     document.addEventListener('pointerdown', () => { fingers++; }, true);
     for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)
@@ -385,7 +388,12 @@ const Phone = (() => {
     const wantOn = on && !!els.ctx && !els.ctx.hidden, wantTall = wantOn && els.ctx.classList.contains('tall'), wantToast = on && !!th && !!th.firstElementChild;
     if (c.contains('ph-ctx-on') === wantOn && c.contains('ph-ctx-tall') === wantTall && c.contains('ph-toast-on') === wantToast) return;
     c.toggle('ph-ctx-on', wantOn); c.toggle('ph-ctx-tall', wantTall); c.toggle('ph-toast-on', wantToast);
-    syncPanes(); A.resize();
+    syncPanes(); A.resize(); liftSettled();
+  }
+  // the lift of the plane's keys has stopped when no transition of `bottom` runs two frames after the change that asked for it (the
+  // context bar's slide in starts a frame later): one full placement of the labels, which is where a transition's end asks too
+  function liftSettled() {
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (!document.getAnimations().some((a) => /** @type {CSSTransition} */ (a).transitionProperty === 'bottom')) A.relabel(); }));
   }
   function ctx(force) {
     if (!on || !els.ctx) return;
@@ -474,7 +482,8 @@ const Phone = (() => {
       });
       return t;
     };
-    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]')].map(tile);
+    // (a tool hidden where it does not apply, the Pick tool's tool-na, has no tile)
+    const tiles = [...document.querySelectorAll('#tools .tool[data-tool]:not(.tool-na)')].map(tile);
     // (the Construct tiles on their own tab; a tile closes the sheet as the others do)
     const ct = [...document.querySelectorAll('#constructTools .tool[data-tool]')].map(tile);
     // the long press, taught where people look (never on the plane)

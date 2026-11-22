@@ -12,7 +12,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 await view(1200, 800, false, false);
-await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?view=steps&ns=carry${Date.now()}` }); await sleep(2300);
+await go(`http://localhost:${PORT}/test.html?view=steps&ns=carry${Date.now()}`); await sleep(2300);
 for (let i = 0; i < 120 && !(await ev('typeof __cmwExample === "function" && typeof GLR === "object"').catch(() => false)); i++) await sleep(250);
 // [example index, its steps]
 const CASES = typeof SC_CASES !== 'undefined' ? SC_CASES : [[1, 2], [5, 1], [8, 2], [26, 2]];

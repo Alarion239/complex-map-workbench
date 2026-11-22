@@ -110,8 +110,11 @@ jobs:
       # (#787) a pull request into another branch than main whose head another open pull request into the same branch
       # contains (a stack: each head holds the lower ones): the top of the stack gates all of them, so this one carries
       # that run's verdict instead of running its own tier. The compare API says which open PRs contain this head; the
-      # one furthest ahead is the top. Switched on by the repository variable GATE_STACK_SKIP = on; otherwise the summary
-      # only says what would have happened and the run is the usual one
+      # one furthest ahead is the top. Only a run of the top that passed is carried: one still queued or running is not
+      # (unlike look's run of this PR's own push), since a push to the top cancels it, and this run, its tier skipped, would
+      # then end red with nothing run; under a top still running, this run runs its own tier. Switched on by the
+      # repository variable GATE_STACK_SKIP = on; otherwise the summary only says what would have happened and the run is
+      # the usual one
       - id: cover
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main' && steps.look.outputs.mirror == ''
         shell: bash
@@ -135,8 +138,12 @@ jobs:
           other=$(ci/gate_run_of.sh "$ts" "$tn") && found=1 || found=0
           echo "#$tn ($ts) contains this head; its newest Gate run on it: $other"
           if [ "$found" != 1 ]; then
-            echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+            echo "#$tn contains this head, but has no passing Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
           fi
+          case "$other" in
+            *" completed success") ;;
+            *) echo "#$tn contains this head, but its run ${other%% *} is still going ($other) and a push to #$tn would cancel it: this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+          esac
           run=${other%% *}
           if [ "$SWITCH" != on ]; then
             echo "Report only (GATE_STACK_SKIP is not on): #$tn contains this head and run $run gates it ($other); with the switch on, this run would carry that verdict and run nothing. It runs its own tier." >> "$GITHUB_STEP_SUMMARY"; exit 0
@@ -203,9 +210,10 @@ jobs:
       - name: Browser shards (every suite in exactly one)
         run: node ci/browser_shards.js check
       # the standards check (ci/README.md, Standards check): history words, plan labels and dropped assertions on the
-      # lines this change adds; it reports in the job summary and as warnings, and never fails the job
-      - name: Standards check (report only)
-        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github
+      # lines this change adds; it reports in the job summary and as warnings, and a finding fails the job (--block); an
+      # added line opts out with `standards-ok: <reason>` in its comment
+      - name: Standards check
+        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github --block
       # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
       # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
       # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
@@ -495,6 +503,12 @@ jobs:
       # (ci/browser.js asks the job's first Chrome for its renderer before the first suite, and fails the job when it has
       # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
+      # (the glsl page's one chain that crashed Mesa 25's lavapipe, GLSLTiers.LAVAPIPE_CRASH: this image's Mesa 26, on LLVM 21,
+      # runs it, and the job fails if the GPU process is lost again or a value is off, or fewer than its 7172 values are compared (a lavapipe
+      # on LLVM 20 or older, which the cache could fall back to, runs none of it and would pass empty); #1835)
+      - name: GLSL page, the chain that crashed Mesa 25's lavapipe
+        if: matrix.shard == 'smoke'
+        run: node ci/glsl.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172
       - if: always()
         uses: actions/upload-artifact@v6
         with:

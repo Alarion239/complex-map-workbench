@@ -95,6 +95,10 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph #rightReadout::before { content: "Y"; margin-right: 8px; font: italic 600 15px/1 var(--f-math); color: var(--ink); }
 :root.ph:not(.ph-land) .plot > .chip.readout:has(> .rglobe:not([hidden])) { top: 6px; padding-top: 2px; padding-bottom: 2px; }   /* (a portrait pane has 86 px above the globe: the 6 px top and 2 px padding keep the hint's longest wrap, four lines, above it) */
 :root.ph.ph-land .plot > .chip.readout:has(> .rglobe:not([hidden])) { --hint-col-min: 120px; --globe-half: 160px; max-width: max(var(--hint-col-min), calc(50% - var(--globe-half))); }   /* (a landscape pane has no room above the globe: the hint sits in the column left of it, as wide as the pane's half less the globe's half-width, --globe-half, and at least --hint-col-min) */
+/* (a construction tool picked on the globe: the construction chip says what to do, over the hint's corner, and the globe's hint would say "Drag to draw a perpendicular" where the tool picks by taps; a landscape plane is 106 px tall at 320 px, with no room for the two, and a portrait hint's wrap (two to four lines) reaches down into the chip's rows, so the hint gives way while the chip stands) */
+:root.ph .plot:has(> .draft-chip.cm-on:not([hidden])) > .chip.readout:has(> .rglobe:not([hidden])) { visibility: hidden; }
+/* (a portrait plane's chip then takes the card's place, 8 px under the plane's top, not 40 px under it with the card's empty band above) */
+:root.ph:not(.ph-land) .plot:has(> .chip.readout > .rglobe:not([hidden])) > .draft-chip.cm-on:not([hidden]) { top: 8px; }
 :root.ph .chip.readout:has(> .rhint:only-child) { height: auto; min-height: 28px; line-height: 18px; padding-top: 4px; padding-bottom: 4px; }   /* (a hint wraps) */
 :root.ph .chip.readout:has(> .rln) { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; }
 :root.ph .chip.readout:has(> .rln)::before { grid-row: 1 / span 2; }
@@ -114,10 +118,16 @@ html:not(.ph) .ph-only { display: none !important; }
 /* this view's options live in the Display sheet; the legend keeps its chip */
 :root.ph .plot > .options { display: none !important; }
 :root.ph .legend-chip { top: 44px; right: 60px; }
+/* (a landscape phone's key stands level with the globe key: its 30 px glyph is centred on the 44 px key at the top of the column, which stands 60 px above the plane's foot and rises with --ph-lift: the column is the globe key and the options key, 96 px; 7 px is half the 14 px the glyph is short of 44. Where the column runs up past the plane's top, 12 px under it, the 4 px gap and the 8 px hit area that must stay inside the plane; the Landscape has no globe key, and keeps the key's place) */
+:root.ph.ph-land:not(.view-land) .plot:has(> .ph-col) > .legend-chip { top: max(12px, calc(100% - 149px - var(--ph-lift))); }
 /* the key stands left of the button column's 44 px lane (right: 8 + 44 + 8), folded or open, so it never meets a button; the
    folded glyph is 30 px with a 44 px hit area (an invisible ::before, 8 px out from the padding box = 7 px past the 30 px glyph on each side, which test/steps_phone_key_cmd.js reads back as its PAD, so the chip stops clipping) */
+/* (an open key that takes the plane's top over the readout, to show all its lines under the tall bar: the readout gives way until the key folds, by a tap, Escape or the bar going away) */
+:root.ph .plot:has(> .legend-chip.over-readout:not(.collapsed)) > .chip.readout { visibility: hidden; }
 :root.ph .legend-chip.collapsed { overflow: visible; }
 :root.ph .legend-chip.collapsed::before { content: ""; position: absolute; inset: -8px; }
+/* the key is a button for a keyboard: its focus ring stands outside the glyph, clear of the 44 px hit area's edge */
+:root.ph .legend-chip:focus-visible { outline: 2px solid var(--focus, var(--accent)); outline-offset: 2px; }
 
 /* ---------- the chain bar: ‹ the step ›, the chain's sheet, then Deformation ---------- */
 :root.ph .pipe-wrap {
@@ -370,11 +380,13 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.ph-land #secDraw > .tools > .tool:is([data-tool="select"], [data-tool="point"], [data-tool="disc"], [data-tool="polygon"]) { flex: 0 0 auto; width: 100%; height: 46px; }
 :root.ph.ph-land #secDraw > .ph-undo, :root.ph.ph-land #secDraw > .tool-more { flex: 0 0 auto; width: 100%; height: 46px; }
 :root.ph.ph-land #secDraw > .tool-more > summary { height: 46px; }
-:root.ph.ph-land .ph-sheet { left: auto; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px)); width: 360px; transform: translateX(100%); border-top: 0; border-left: 1px solid var(--line-strong); }
+/* (a landscape sheet is a column at the right, --ph-sheet-w wide: the layout gives it up where the sheet splits it, and a message under it then takes its foot) */
+:root.ph.ph-land { --ph-sheet-w: 360px; --ph-key-lane: 60px; }   /* (--ph-key-lane: the plane's key column, 44 px, and 8 px each side of it: what a message at the planes' foot stops short of) */
+:root.ph.ph-land .ph-sheet { left: auto; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head) + var(--ph-tour, 0px)); width: var(--ph-sheet-w); transform: translateX(100%); border-top: 0; border-left: 1px solid var(--line-strong); }
 :root.ph.ph-land .ph-sheet.open { transform: none; }
 :root.ph.ph-land .ph-sheet.opening { transform: translateX(100%); }
 :root.ph.ph-land .ph-sheet[data-k="more"] { max-height: none; border-radius: 0; }
-:root.ph.ph-land.ph-split .layout { margin-right: 360px; }
+:root.ph.ph-land.ph-split .layout { margin-right: var(--ph-sheet-w); }
 :root.ph.ph-land.ph-split #secDraw { display: none; }
 
 :root.ph.ph-land .ph-grab { display: none; }
@@ -472,7 +484,16 @@ html:not(.ph) .ph-only { display: none !important; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .ph-col { flex-direction: row; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .pane:not(.ph-inset) .viewstack { right: 112px; }
   :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .draft-chip.cm-on { max-width: calc(100% - 172px); }
+  /* (the classic view's planes are half the screen, and the keys' row takes 172 px of the plane's width: the chip is 52 px wide at 568 px (68 at 600) with the tall bar and
+     156 px (172) without it, too narrow for its words, which showed a few letters of each line. They are folded away, the chip keeps its × and ?, and the bar says the whole
+     sentence in one line; the steps view's plane is wide and keeps them) */
+  :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip > .cm-t { display: none; }
 }
+/* (an unfolded key is the one the person opened to read: it stands over the keys it meets (Fit view, the zoom group, Sphere), at any height
+   where it meets them, so its words are not hidden, and opaque, so the keys under it do not show through; a tap on it folds it, and the keys
+   are under it only while it is open. A key that takes keyboard focus rises over it: the focus is never hidden under the card) */
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot > .legend-chip:not(.collapsed) { z-index: 14; background: var(--surface); }
+:root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(:is(.ph-col, .viewstack) :focus-visible) > .legend-chip:not(.collapsed) { z-index: auto; }
 :root.ph.ph-land:has(.ph-ctx.in.tall:not(.under)) .plot:has(> .legend-chip:not([hidden])) > .chip.readout:not(:has(> .rglobe:not([hidden]))) { max-width: calc(100% - 124px); }
 /* while the on-screen keyboard is up (phone.js measures it, --ph-kb), the sheet's body has that much room at its
    end, so its last field can scroll above the keyboard */
@@ -495,17 +516,24 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the context bar overlays the bottom of the planes, above the chain bar (or the steps strip) and slides out from behind it:
    nothing else on the screen moves for it. A toast still takes its row (the planes give it room) */
 /* (the controls floating at the planes' foot (Fit view, the Sphere and Display keys, the inset) ride up with the bar while it is open) */
-:root.ph { --ph-cbelow: var(--ph-chain); --ph-lift: 0px; }
-:root.ph:has(.ph-ctx.in:not(.under)) { --ph-lift: 56px; }
-:root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-lift: 104px; }
+:root.ph { --ph-cbelow: var(--ph-chain); --ph-bar: 0px; --ph-lift: var(--ph-bar); }
+:root.ph:has(.ph-ctx.in:not(.under)) { --ph-bar: 56px; }
+:root.ph:has(.ph-ctx.in.tall:not(.under)) { --ph-bar: 104px; }
 :root.ph .viewstack, :root.ph .ph-col, :root.ph .panes > .pane.ph-inset { transition: bottom 220ms var(--ease-out); }
 :root.ph.sv { --ph-cbelow: 62px; }
 :root.ph.ph-toast-on { --ph-ctx: 56px; }
-/* (the steps view's message floats over the plot: no row is given up for it unless a sheet is open, and the controls at the plane's foot ride up above it) */
-:root.ph.sv.ph-toast-on:not(.ph-sheet-on) { --ph-ctx: 0px; --ph-lift: calc(var(--ph-toast-h, 56px) + 8px); }
+/* (the steps view's message floats over the plot, above the context bar when one is open (placeToasts): no row is given up for it unless a sheet is open, and the controls at the plane's foot ride up above the bar and the message) */
+:root.ph.sv.ph-toast-on:not(.ph-sheet-on) { --ph-ctx: 0px; --ph-lift: calc(var(--ph-bar) + var(--ph-toast-h, 56px) + 8px); }
+/* (a landscape phone's plane is 236 to 266 px tall: the keys, lifted by the message too, left it at the top. There the message does not move them, and stands left of their column
+   (the 44 px key and its 8 px gap, below) and, with a construction chip up, right of it (placeToasts); the keys rise for the bar alone) */
+:root.ph.ph-land.sv.ph-toast-on:not(.ph-sheet-on) { --ph-lift: var(--ph-bar); }
+/* (a landscape phone's tall bar leaves a message little room beside the construction chip, so the chip steps aside while a message shows: the bar's title says its prompt too) */
+:root.ph.ph-land.ph-ctx-tall.ph-toast-on .plot > .draft-chip.cm-on { visibility: hidden; }
 /* (the plane's keys ride up above a message with its 150 ms ease, and at once under reduced motion) */
 :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: bottom 150ms var(--ease-out); }
-@media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv .ph-col { transition: none; } }
+/* (the message eases with the keys it stands over in portrait, so the two move in step) */
+:root.ph.sv #toastHost[data-placed="phone-plot"] { transition: bottom 150ms var(--ease-out); }
+@media (prefers-reduced-motion: reduce) { :root.ph.sv .viewstack, :root.ph.sv .ph-col, :root.ph.sv #toastHost[data-placed="phone-plot"] { transition: none; } }
 /* A sheet gives up the message's row as the planes do: it ends above the message (placeToasts sets --ph-toast-h to the message's height, a
    second row of buttons making it 76 to 94 px instead of 56), so a message covers no row of it (a message such as "Added f₃ …  Show alone  Undo" would lie across the chain sheet's list, hiding f₂); the safe area is under the message then */
 :root.ph.ph-toast-on .ph-sheet { bottom: calc(var(--ph-row) + var(--ph-safe-b) + var(--ph-toast-h, 56px)); padding-bottom: 0; }
@@ -541,35 +569,47 @@ html:not(.ph) .ph-only { display: none !important; }
 /* the bar has Whole | Inside | Outside in words: the plane's own chip drops its copy (the tangent key stays) */
 :root.ph.ph-ctx-tall .cm-chip .cm-seg:not(.cm-tan) { display: none; }
 /* the construction chip stands at the plane's left and ends short of the folded legend's hit area (the key's 30 px glyph, 60 px from the plane's right edge,
-   pressed 8 px out from it), so the × that cancels it is never under the key; its words take a third line before they are cut */
+   pressed 8 px out from it), so the × that cancels it is never under the key; its words take a third line before they are cut, and in portrait a
+   fourth: at 320 px wide Russian and Italian words need four lines, and a clamp that cuts the last line cuts the tool's name, which ends them */
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on { left: 8px; translate: none; max-width: calc(100% - 110px); }
 :root.ph .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on .cm-chip > .cm-t { -webkit-line-clamp: 3; }
+:root.ph:not(.ph-land) .plot:has(> .legend-chip:not([hidden])) > .draft-chip.cm-on .cm-chip > .cm-t { -webkit-line-clamp: 4; }
 /* the phone's messages (a toast with its Undo) take the context bar's row over the tool row, which the planes give up
    while one shows: a message covers no part of a plane */
 :root.ph #toastHost { left: 0; right: 0; translate: none; width: auto; max-width: none; align-items: stretch; gap: 0; bottom: calc(var(--ph-row) + var(--ph-safe-b)); }
 :root.ph.ph-land #toastHost { right: calc(var(--ph-col) + env(safe-area-inset-right, 0px)); }
+/* (in landscape a sheet that splits the layout (Edit, Tools, Display: .ph-split) is a column at the right that the planes give up and that ends above the
+   message: with one open, the message takes the foot of that column, as wide as the sheet, so it covers none of the planes, the thread's strip or the
+   plane's keys. A sheet that does not split it (More, the chain) leaves the tool column and the planes as they are, and the message keeps its row) */
+:root.ph.ph-land.ph-split.ph-sheet-on #toastHost { left: auto; right: 0; width: var(--ph-sheet-w); }
+:root.ph.ph-land.ph-split.ph-sheet-on #toastHost .toast { padding-right: calc(8px + env(safe-area-inset-right, 0px)); }
+/* (a sheet that lies over the planes (More, the chain) leaves the planes and their keys where they are: the message keeps its row across the foot, and stops
+   left of the plane's key column, --ph-key-lane in from the plane's right edge, as the plot placement does, so a message of two rows, which reaches above
+   the keys' foot on the shorter landscape phones, covers no key) */
+:root.ph.ph-land.ph-sheet-on:not(.ph-split) #toastHost { right: calc(var(--ph-col) + var(--ph-key-lane) + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost .toast, :root.ph #toastHost[data-placed] .toast { box-sizing: border-box; height: 56px; min-height: 56px; border: 0; border-top: 2px solid var(--accent); border-radius: 0; box-shadow: none; background: var(--panel); padding: 0 8px 0 12px; }
 :root.ph #toastHost .toast > span { flex: 1 1 0; min-width: 0; white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; line-height: 18px; }
 /* a message whose words do not fit beside its buttons (toast() sets data-rows="two" by measuring) takes two rows: the words full width,
-   at most two lines, and the buttons below them, right-aligned, at 44 px */
+   at most three lines (the longest it and ru messages need the third at 360 px; the row's height is the message's, and the sheets and the plane's keys follow it),
+   and the buttons below them, right-aligned, at 44 px */
 :root.ph #toastHost .toast[data-rows="two"] { height: auto; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
-:root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; }
+:root.ph #toastHost .toast[data-rows="two"] > span { flex: 1 1 100%; overflow-wrap: normal; -webkit-line-clamp: 3; }
 :root.ph #toastHost .toast[data-rows="two"] > span + :is(.toast-act, .toast-x) { margin-left: auto; }
-/* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, two lines at most;
+/* the steps view's message: over the plot's bottom edge above the strip (placeToasts sets its bottom), the plot's width less 16 px a side, its words three lines at most (the two-row clamp above);
    a vertical drag on it is its own (a swipe down dismisses it) */
 :root.ph #toastHost[data-placed="phone-plot"] { left: 16px; right: 16px; }
-:root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(16px + var(--ph-col) + env(safe-area-inset-right, 0px)); }
+:root.ph.ph-land #toastHost[data-placed="phone-plot"] { right: calc(var(--ph-col) + var(--ph-key-lane) + env(safe-area-inset-right, 0px)); }
 :root.ph #toastHost[data-placed="phone-plot"] .toast { touch-action: none; border: 1px solid var(--line-strong); border-radius: var(--r-4); box-shadow: var(--shadow-3); height: auto; min-height: 56px; flex-wrap: wrap; row-gap: 0; padding-top: 6px; padding-bottom: 6px; }
 /* (its words keep 140 px at least: where its buttons would leave them less, as in Russian at 360 px, the buttons take a row of their own, at the right;
-   and a message whose words do not fit on one line beside its buttons (data-rows="two") has them full width, at most two lines, so they are not clamped beside the buttons) */
+   and a message whose words do not fit on one line beside its buttons (data-rows="two") has them full width, at most three lines, so they are not clamped beside the buttons) */
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span { flex: 1 1 140px; }
-:root.ph #toastHost[data-placed="phone-plot"] .toast[data-rows="two"] > span { flex: 1 1 100%; }
+:root.ph #toastHost[data-placed="phone-plot"] .toast[data-rows="two"] > span { flex: 1 1 100%; -webkit-line-clamp: 3; }
 :root.ph #toastHost[data-placed="phone-plot"] .toast > span + :is(.toast-act, .toast-x) { margin-left: auto; }
 
 .ph-ctx.under { visibility: hidden; }
 
 /* ---------- the steps view on a phone: the plane, a row of its controls over it, the strip above the tools ---------- */
-:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: 6px; padding: 2px; }
+:root.ph.sv #top > #svHead { display: flex !important; flex: 1 1 auto; min-width: 0; flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; gap: var(--s-4); padding: 2px; }
 :root.ph.sv .sv-head > * { flex: 0 0 auto; }
 :root.ph.sv .sv-head .seg { height: 40px; }
 :root.ph.sv .sv-head .seg > button, :root.ph.sv .sv-cp, :root.ph.sv .sv-surf1, :root.ph.sv .sv-scope-menu { min-height: 44px; }
@@ -578,7 +618,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv #paneL > .pane-body { grid-row: 1; }
 :root.ph.sv #paneL > .sv-strip { grid-row: 3; margin: 0; height: 62px; padding-top: var(--s-4); padding-inline: var(--s-3); border-radius: 0; border-width: 1px 0 0; position: relative; z-index: 26; }
 /* the header holds the title, the colour plane, the scope and one surface button: no sideways scroll (ux review) */
-:root.ph.sv .sv-head .seg > button { padding: 0 6px; }
+:root.ph.sv .sv-head .seg > button { padding: 0 var(--s-2); }
 /* the scope's switch keeps the segmented control's padding (0 10px, the design spec), at every level of the head's fold but the last
    (sv-c4's `.seg > button` below has fewer classes in its selector than this one, so this wins): its second segment is the short
    word, so it fits at 360 px in Russian and Italian (#1596) */
@@ -591,7 +631,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-5); border-radius: 22px; }
 :root.ph.sv .sv-fchip .sv-fn { display: none; }
 :root.ph.sv .sv-fwrap { height: 46px; min-width: 46px; border-radius: 23px; }
-:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 10px; border-radius: 22px; }
+:root.ph.sv .sv-fwrap .sv-fchip { height: 44px; min-width: 44px; justify-content: center; padding: 0 var(--s-4); border-radius: 22px; }
 /* every step has its ⋯ on a phone too: a 44 px slot after the 44 px chip, the 16 px dot centred in it, both inside the pill's border */
 :root.ph.sv .sv-more { width: 44px; height: 44px; margin: 0; border-radius: 22px; }
 :root.ph.sv .sv-more::after { inset: 0; }
@@ -608,7 +648,7 @@ html:not(.ph) .ph-only { display: none !important; }
 :root.ph.sv .sv-add { width: 44px; min-width: 44px; height: 44px; padding: 0; justify-content: center; margin: 0; border-radius: 22px; }
 :root.ph.sv .sv-add-t { display: none; }
 :root.ph.sv .sv-whole { height: 44px; border-radius: 22px; margin-bottom: 0; }
-:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 6px; }
+:root.ph.sv .sv-whole-pin { flex: 0 0 44px; align-self: center; width: 44px; padding: 0; justify-content: center; margin: 0 var(--s-2) 0 var(--s-2); }
 :root.ph.sv .sv-step { min-width: 48px; padding-bottom: 0; }
 :root.ph.sv #svStrip .sv-speed, :root.ph.sv #svStrip .sv-playmore, :root.ph.sv #svStrip .sv-playpop, :root.ph.sv #svStrip .sv-loop { display: none; }
 /* (the box is 44 px, its lowest 8 px are no hit area: they lay over the chip and the node below the rail's top edge, where a tap on the chip's top edge clears the range) */
@@ -622,7 +662,7 @@ html:not(.ph) .ph-only { display: none !important; }
 .sv-surf1 .sv-surf-i svg { width: 16px; height: 16px; display: block; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-i { display: inline-flex; }
 :root.ph.sv .sv-head.sv-c3 .sv-surf1 .sv-surf-t { display: none; }
-:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 6px; }
+:root.ph.sv .sv-head.sv-c3 .sv-surf1 { min-width: 44px; justify-content: center; padding: 0 var(--s-2); }
 /* still short (w₁'s name is wider than z's at 360 px): tighter gaps and segmented buttons, the targets still 40 px tall (the scope's
    keep their padding, above) */
 :root.ph.sv #top > #svHead.sv-c4 { gap: 3px; }
