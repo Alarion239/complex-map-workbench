@@ -530,7 +530,9 @@
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
-  const svLandPoleMemo = { key: '', poles: [] };
+  // Each patch's seam (svPatchSeam) is kept with them, by the patch: it is measured again only for a new key or a pole that
+  // moved, so a frame drawn again at rest (the camera turned, a readout) measures none. runs: the seams measured
+  const svLandPoleMemo = { key: '', poles: [], seams: new Map(), runs: 0 };
   function svLandPatches(map, src, N, hF, hKey) {
     const F = cpuMap(map);
     if (!F) return [];
@@ -540,23 +542,30 @@
     else poles = svDrain(svPolesIn(F, src, 16, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
-    Object.assign(svLandPoleMemo, { key, poles: near });
+    const was = svLandPoleMemo.key === key ? svLandPoleMemo.seams : null, seams = new Map();
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
     // (the glide map's own points: each patch's rings start at the map's cut out of the point, if it has one)
-    return near.map((p) => Object.assign(patch(p), { seam: svPatchSeam(F, patch(p)) }))
-      .concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    const out = near.map((p) => {
+      const q = patch(p), id = q.join(',');
+      const seam = was && was.has(id) ? was.get(id) : (svLandPoleMemo.runs++, svPatchSeam(F, q));
+      seams.set(id, seam);
+      return Object.assign(q, { seam });
+    });
+    Object.assign(svLandPoleMemo, { key, poles: near, seams });
+    return out.concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
   }
   // The cut of the glide map F out of the point of a pole's patch p ([x, y, r0, r1]), if it has one: the branch of a power
-  // or a log that ends there (the √ of a Möbius step ends at the step's pole). Its angle on SEAM_K rings of the patch,
-  // ring k at k / (SEAM_K - 1) of the way out (radii geometric from r0 to r1, as CARRY_Z's), unwrapped from ring to ring;
+  // or a log that ends there (the √ of a Möbius step ends at the step's pole). Its angle on SEAM_K (GLR.SEAM_RINGS, the
+  // uSeam CARRY_ZIN takes) rings of the patch, ring k at k / (SEAM_K - 1) of the way out (radii geometric from r0 to r1, as CARRY_Z's), unwrapped from ring to ring;
   // the patch's rings start at it (CARRY_ZIN, uSeam), so no cell straddles the cut, and the patch ends along the cut
   // on both sides, where the branch ends. null when no ring has one. A ring's cut: of SEAM_M steps round it, the one whose
   // midpoint's image lies farthest from the midpoint of its ends' images, more than SEAM_JUMP of their distance (across a
   // cut the midpoint goes to one side, half the chord away, however near the branch's sides; a smooth step's sagitta is
   // a small part of it), bisected to its angle; a ring without one (too near the point for the map to take it whole, or
   // past the cut's end) takes the nearest ring's
-  const SEAM_K = 9, SEAM_M = 96, SEAM_JUMP = 0.1, SEAM_BISECT = 32;
+  const SEAM_M = 96, SEAM_JUMP = 0.1, SEAM_BISECT = 32;
   function svPatchSeam(F, p) {
+    const SEAM_K = GLR.SEAM_RINGS;
     const [x, y, r0, r1] = p, at = (r, th) => F(C(x + r * Math.cos(th), y + r * Math.sin(th)));
     const d = (a, b) => (a && b && CX.isFin(a) && CX.isFin(b) ? CX.abs(CX.sub(a, b)) : NaN);
     const seam = new Array(SEAM_K).fill(null);
@@ -605,7 +614,7 @@
     const f = 1 / (n - 1), r = p[2] * Math.pow(p[3] / p[2], j * f);
     let th = -2 * Math.PI * i * f;
     if (p.seam) {
-      const t = Math.min(Math.max(j * f, 0), 1) * (SEAM_K - 1), k = Math.min(Math.floor(t), SEAM_K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
+      const K = GLR.SEAM_RINGS, t = Math.min(Math.max(j * f, 0), 1) * (K - 1), k = Math.min(Math.floor(t), K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
       th = p.seam[k] + (p.seam[k + 1] - p.seam[k]) * (t - k) - E - (2 * Math.PI - 2 * E) * i * f;
     }
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
