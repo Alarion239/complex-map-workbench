@@ -382,7 +382,8 @@
   // pathOf's: {path: 'inverse' | 'forward', reason, m, plan, prep, inv}. singAt(): the key's points for a plan whose
   // ops' poles are not the homotopy's, a NEWT op (none for keySing to pull back) or an op marked glideKey (Joukowski's
   // exact chain, whose poles are its Cayley map's): the glide's, as the carried mesh keys its sheets (svSheetKeyAt), so
-  // both draw the same point in front
+  // both draw the same point in front. end (t = 1): step k at the end of its homotopy's own form (Inverse.homOps' end),
+  // the ops of the glide's frames, so their program
   // (its plans, preparations and keySing in invHoms, apart from invPrep's: a glide makes a plan for each u, which in
   // invPreps would push out the parked planes' preparations and run under invPrep's per-frame budget)
   const invHoms = new Map(), invHomNewt = new Map();
@@ -457,17 +458,17 @@
     invHomPers.set(ck, per);
     return per;
   }
-  function invHomPath(s, a, k, t, singAt) {
+  function invHomPath(s, a, k, t, singAt, end) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
     // (a NEWT op's seeds sit about the shape's anchor: its plan is the shape's, the other plans are shared; whether the
     // step has a NEWT op at t is remembered, as finding out decomposes the step)
     const base = invHomBase(a, k), skel = invHomSkeleton(a, k);
     if (!base.steps || !skel) return F(base.reason || 'no chain to plan');
-    const bk = `${a}|${k}|${t}|${chainSig[nSteps()]}`;
+    const bk = `${a}|${k}|${t}${end ? '|end' : ''}|${chainSig[nSteps()]}`;
     let hk = null, byShape = invHomNewt.get(bk);
     if (byShape === undefined) {
-      try { hk = Inverse.homOps(skel[k - 1], t); } catch (e) { hk = null; }
+      try { hk = Inverse.homOps(skel[k - 1], t, end); } catch (e) { hk = null; }
       byShape = !!(hk && hk.ok && hk.ops.some((o) => o.kind === 'NEWT'));
       if (invHomNewt.size >= 4096) invHomNewt.clear();
       invHomNewt.set(bk, byShape);
@@ -477,7 +478,7 @@
     if (!h) {
       const bs = skel, bh = bs.slice();
       // (ops of its own for each plan: the anchor is set on them)
-      if (!hk) try { hk = Inverse.homOps(bs[k - 1], t); } catch (e) { hk = null; }
+      if (!hk) try { hk = Inverse.homOps(bs[k - 1], t, end); } catch (e) { hk = null; }
       let anchor = null;
       if (byShape && hk) try { anchor = Inverse.shapeAnchor(Inverse.planChain(base.steps, bs, a, k - 1), s, clipWin); } catch (e) { anchor = null; }
       if (anchor) for (const o of hk.ops) if (o.kind === 'NEWT') o.p.anchor = anchor;

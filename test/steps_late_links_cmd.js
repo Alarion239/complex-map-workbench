@@ -42,6 +42,14 @@
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
 //   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
 //   (its thread still never goes back), and it ends within seconds of the link landing;
+// - the default example, colour plane 0, the glide's program linked, then › pressed with the links from then on landing
+//   seconds late: from the landing until plane 1's own programs land, every frame at rest on plane 1 is the inverse
+//   pass's by the glide's ops at its end (its last picture), never the carried meshes', then plane 1's own, and those two
+//   are one picture within 3 levels; with a region of plane 2 as well, Inside regions (plane 1's own frame is the whole
+//   plane's colour kept inside the regions' mask), no frame at rest on plane 1 is the glide's end form;
+// - z + 1/z in the Cauchy style, colour plane 0, › pressed: every carried colour's program that links from the example's
+//   load until plane 1's own frame is drawn is a Cauchy variant (the glides' warm-up at rest and the glide's wait ask
+//   for the programs its frames draw with, and plane 1 at rest asks for its own);
 // - on a fresh page, the Landscape shown and the warm-up run to its end: no landTF, land or floor of the chain in
 //   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
 //   linked before ▶;
@@ -82,6 +90,10 @@ const GATE_LINK_MS = 20000, STALL_MS = 2000, GATE_STEP_MS = 300;
 // the animation frames in a row the thread of a held motion stays put, and the most ms from a held glide's last link
 // landing to its end
 const STILL_FRAMES = 3, ENDS_MS = 5000;
+// the default example; ms a link reads not complete where the plane a glide lands on waits past the landing for its own
+// programs (Direct3D's compiler takes tens of seconds for them, #845); two pictures are one when every channel is within
+// LAND_LEVELS levels at all but LAND_SHARE of the pixels (ux's line on #845)
+const DEF_EX = 'Strip to disk', LAND_LINK_MS = 10000, LAND_LEVELS = 3, LAND_SHARE = 0.005;
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 // (a page whose frames leave no idle moment: each idle callback runs for its timeout, at once when it has none, with no
 // time left; the browser's own requestIdleCallback is kept as window.__browserIdle)
@@ -431,6 +443,89 @@ try {
     ok(`exp(sin z), the glide waiting half way, › pressed: the glide is replaced by one from where it is, and its thread still never goes back`, still && k1.replaced && k1.x >= s1.got.x && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: it ends within ${ENDS_MS} ms of the link landing`, s2.ok && s3.ok && got.endMs <= ENDS_MS, got);
     info.half = got;
+  }
+  // the default example (exp, then a Möbius map; a strip, Inside regions), colour plane 0, on a fresh page whose links land
+  // late (the suite's), the glide's program linked first (parked half way to plane 1 until the inverse pass draws there,
+  // then back at once); then the links started from › on land LAND_LINK_MS late, as Direct3D's compiler makes them, and
+  // › pressed. In the page, at every animation frame, each new record of a frame at rest on plane 1 (__cmwSteps().rest),
+  // and the pane read at the last one drawn by the glide's ops at its end (rest.end) and at the first one drawn by plane
+  // 1's own. Then the same with a region of plane 2 as well
+  {
+    // (open(): the page and its chain; until: what the wait after › waits for, in the page; -> { land: { recs, n, cmp },
+    // waits })
+    const landing = async (open, until = '!!window.__llLand.own && GLR.pendingLinks === 0') => {
+      await open();
+      await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), 1");
+      await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && __cmwSteps().x === 0' });
+      await ev(`__cmwSteps({ park: ${GLIDE_U} }), 1`);
+      const e0 = await settled({ only: true, max: FRAME_MS, until: `(() => { const g = __cmwSteps().glide; return !!g && g.u === ${GLIDE_U} && g.path === 'inverse'; })()` });
+      await ev('__cmwSteps({ go: 0, now: true }), 1');
+      const e1 = await settled({ max: READY_MS, until: '__cmwSteps().x === 0 && __cmwSteps().ready.ready && GLR.pendingLinks === 0' });
+      await ev(`(() => {
+        const s = window.__llLand = { recs: [], seen: null, end: null, own: null, done: false };
+        const grab = () => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); return k.getContext('2d').getImageData(0, 0, k.width, k.height).data; };
+        const tick = () => {
+          const q = __cmwSteps(), r = q.rest;
+          if (r && r !== s.seen && q.x === 1 && !q.anim) {
+            s.seen = r; s.recs.push({ path: r.path, end: !!r.end });
+            if (r.path === 'inverse' && r.end) s.end = grab();
+            if (r.path === 'inverse' && !r.end && !s.own) s.own = grab();
+          }
+          if (!s.done) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        window.__lateLinkMs = ${LAND_LINK_MS};
+        __cmwSteps({ go: 1 });
+        return 1; })()`);
+      const e2 = await settled({ only: true, max: READY_MS, until });
+      const land = await ev(`(() => { const s = window.__llLand; s.done = true;
+        let cmp = null;
+        if (s.end && s.own && s.end.length === s.own.length) {
+          let off = 0, max = 0;
+          for (let i = 0; i < s.end.length; i += 4) { const d = Math.max(Math.abs(s.end[i] - s.own[i]), Math.abs(s.end[i + 1] - s.own[i + 1]), Math.abs(s.end[i + 2] - s.own[i + 2])); if (d > ${LAND_LEVELS}) off++; max = Math.max(max, d); }
+          cmp = { px: s.end.length / 4, off, max };
+        }
+        return { recs: s.recs.slice(0, 12), n: s.recs.length, cmp }; })()`);
+      return { land, waits: { e0, e1, e2 } };
+    };
+    const got = await landing(() => example('lle', DEF_EX, 'in')), R = got.land.recs, own = R.findIndex((r) => !r.end);
+    ok(`${DEF_EX}, plane 1's own programs linking ${LAND_LINK_MS} ms, › pressed: until they land, every frame at rest on plane 1 is the inverse pass's by the glide's ops at its end, never the carried meshes'; then plane 1's own`, names.indexOf(DEF_EX) >= 0 && got.waits.e2.ok && got.land.n > 0 && R.every((r) => r.path === 'inverse') && R[0].end && own > 0 && R.slice(own).every((r) => !r.end), got);
+    ok(`${DEF_EX}: plane 1 drawn by the glide's ops at its end and by its own is one picture (within ${LAND_LEVELS} levels at ${100 * (1 - LAND_SHARE)} % of the pixels)`, !!got.land.cmp && got.land.cmp.off <= LAND_SHARE * got.land.cmp.px, got);
+    info.land = got;
+    // (the default example's chain and strip, and a disc of plane 2)
+    const staged = await landing(async () => {
+      await loadView('steps', 'lls2' + Date.now(), { v3: true, v4: true, nextId: 50, focus: 0,
+        shapes: [{ id: 's1', kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}', ci: 0, visible: true }, { id: 'd2', kind: 'disc', c: [0, 0], r: 0.4, ci: 2, visible: true, stage: 2 }],
+        steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] });
+      await settled({ max: READY_MS, until: `${loaded} && __cmwSteps().planes.length === 3` });
+      await adopted();
+    }, 'window.__llLand.recs.length > 0 && GLR.pendingLinks === 0');
+    ok(`${DEF_EX} with a region of plane 2, Inside regions, plane 1's own programs linking: no frame at rest on plane 1 is the glide's end form (it has no mask)`, staged.waits.e2.ok && staged.land.n > 0 && staged.land.recs.every((r) => !r.end), staged);
+    info.landStaged = staged;
+  }
+  // z + 1/z with the circle about its pole in the Cauchy style (its carried colour is the Cauchy integral's, drawn by the
+  // inverse programs' Cauchy variants), colour plane 0, on a fresh page whose links land late (the suite's), › pressed:
+  // in the page at every animation frame, the carried colour's inverse programs linking, from the example's load until
+  // plane 1's own frame is drawn. The glide's frames and the plane at rest draw with the Cauchy variants, so what the
+  // glides' warm-up at rest asks for, what the glide waits on and what the plane at rest looks up are those too
+  {
+    await example('llcz', POLE_EX, 'all');
+    await ev(`(() => {
+      const s = window.__llCz = { ids: [], done: false };
+      const tick = () => {
+        for (const p of GLR.pending()) if (/^inv\\|.*\\|carry(staged)?(cz)?[|:]/.test(p.id) && !s.ids.includes(p.id)) s.ids.push(p.id);
+        if (!s.done) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return 1; })()`);
+    await ev('__cmwSteps({ T: 0 }), 1');
+    const c0 = await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && GLR.pendingLinks === 0 && __cmwSteps().x === 0' });
+    await ev('__cmwSteps({ go: 1 }), 1');
+    const c1 = await settled({ only: true, max: PLAY_MS, until: "(() => { const q = __cmwSteps(), r = q.rest; return q.x === 1 && !q.anim && GLR.pendingLinks === 0 && !!r && r.a === 1 && r.path === 'inverse' && !r.end; })()" });
+    const ids = await ev('(() => { const s = window.__llCz; s.done = true; return s.ids; })()');
+    const plain = ids.filter((id) => !/\|carry(staged)?cz[|:]/.test(id));
+    ok(`${POLE_EX} in the Cauchy style, colour plane 0, › pressed: the carried colour's programs the glides' warm-up at rest asks for, the glide waits on and plane 1 at rest asks for are its Cauchy variants`, c0.ok && c1.ok && ids.length > 0 && plain.length === 0, { ids, plain, waits: { c0, c1 } });
+    info.cauchyCarry = { ids: ids.length, plain };
   }
   // the partial sums with the Landscape shown in the steps view, the warm-up run to its end: the steps view draws
   // the Landscape's heights in map mode 0 only (at rest, and under a glide's carry), so the warm-up links no landTF, land

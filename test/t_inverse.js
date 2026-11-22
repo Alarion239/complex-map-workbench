@@ -1143,6 +1143,23 @@ section('singularAfter (ζ after an injective plan)');
     }
   }
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
+  // end: at t = 1 the ops of the homotopy's own form, the kinds its last glide frames have (so their inverse program),
+  // which compose to the step itself
+  const kinds = (h) => (h.ok ? h.ops.map((o) => o.kind).join() : h.reason);
+  for (const [type, params] of cases) {
+    const b = Funcs.build(St(type, params)), h = Inverse.homOps(b, 1, true), last = kinds(Inverse.homOps(b, 0.99));
+    let e = Infinity;
+    if (h.ok) {
+      e = 0;
+      for (const z of [C(0.3, 0.2), C(-0.7, 0.5), C(1.1, -0.4)]) {
+        let w = z;
+        for (const o of h.ops) w = o.fwd(w);
+        const v = b.f(z);
+        e = Math.max(e, CX.abs(CX.sub(w, v)) / (1 + CX.abs(v)));
+      }
+    }
+    check(`homOps ${type} ${params.expr || ''} at its end: the ops of its last glide frames (${last}), which compose to the step`, h.ok && kinds(h) === last && e < 1e-12, `${kinds(h)}; err ${e}`);
+  }
 }
 
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a
