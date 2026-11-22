@@ -871,7 +871,7 @@
     // that draws them: its words follow this. An export's frame (offRender) never draws the stand-in and is not the screen's, so it
     // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
-    if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) updateFocusUI(); }
+    if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) { updateFocusUI(); svSync(); } }
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, hmap: carry.hmap, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)

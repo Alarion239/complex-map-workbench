@@ -28,11 +28,11 @@ await settled({ only: true, max: JOB_WAIT, panes: false, until: '__cmwLandStandI
 const si = await ev('__cmwStandIn()');
 const held = await K.look();
 const drawn = await ev('(() => { const d = __cmwLandSheets().drawn; return d ? d.K : null; })()');
-const heldTitle = await ev("document.getElementById('leftTitle').textContent");
+const heldTitle = await ev("document.querySelector('#svHead .sv-role').textContent");
 info.held = { wait: w, standIn: si, drawn: await ev('__cmwLandStandIn()'), sheets: drawn, unlike: +held.unlike.toFixed(3), hue: +held.hue.toFixed(3), pending: await ev('GLR.frameStatus().pending') };
 ok('the sheets wait: the stand-in is the principal branch\'s grid (its finest level done, the job ended)', w.ok && !!si && si.land && si.nodes >= 33 * 33 && (si.end === 'done' || si.end === 'budget'), info.held);
 ok('no sheet is drawn while their programs link', drawn === null, info.held);
-ok('the title on the page (#leftTitle) does not say both sheets while one is drawn', !/both sheets/.test(heldTitle), heldTitle);
+ok('the steps head (#svHead .sv-role, the title on the page) does not say both sheets while one is drawn', !/both sheets/.test(heldTitle), heldTitle);
 ok(`the frame draws the stand-in's relief (more of the pane unlike the plate than ${PLATE_UNLIKE}), still pending`, info.held.drawn && held.unlike > PLATE_UNLIKE && info.held.pending === true, info.held);
 const rel = await K.release();
 info.release = { wait: rel.wait, frames: rel.frames, worstUnlike: rel.worstUnlike === null ? null : +rel.worstUnlike.toFixed(3) };
@@ -40,8 +40,8 @@ ok(`from the release to the GPU picture no frame shows the plate alone (every fr
 const fin = await settled({ max: LOAD_WAIT, until: '__cmwLandSheets().drawn !== null' });
 const after = await K.look(), apart = K.apart(held, after);
 info.final = { wait: fin, sheets: await ev('(() => { const d = __cmwLandSheets().drawn; return d ? d.K : null; })()'), unlike: +after.unlike.toFixed(3), apart: +apart.toFixed(3) };
-const finalTitle = await ev("document.getElementById('leftTitle').textContent");
-ok('once the sheets are drawn the title on the page says both sheets (it is refreshed when they arrive)', /both sheets/.test(finalTitle), finalTitle);
+const finalTitle = await ev("document.querySelector('#svHead .sv-role').textContent");
+ok('once the sheets are drawn the head says both sheets (it is rebuilt when they arrive)', /both sheets/.test(finalTitle), finalTitle);
 ok(`the GPU picture draws both sheets (${SHEETS})`, fin.ok && info.final.sheets === SHEETS, info.final);
 ok(`the stand-in is the GPU picture's principal branch: at most ${DIFF_FRAC * 100} % of the ${K.BLOCK} px blocks differ by more than ${K.LEVELS} levels`, apart <= DIFF_FRAC, info.final);
 return { pass: fails.length === 0, fails, info };
