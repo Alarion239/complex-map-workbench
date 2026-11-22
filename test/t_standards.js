@@ -52,6 +52,36 @@ ok('asserts: a deleted test file', (() => {
   return check(f).map((x) => x.why).join() === '2 assertions removed, 0 added (file deleted)';
 })());
 
+// a deleted suite is retired by a ledger line with a reason and its lines dropped from what runs (ci/retired_suites.js)
+{
+  const del = (f, n = 2) => [`diff --git a/test/${f} b/test/${f}`, `--- a/test/${f}`, '+++ /dev/null', `@@ -1,${n} +0,0 @@`, ...Array.from({ length: n }, (_, i) => `-ok(${i});`)];
+  const edit = (file, removed, added) => [`diff --git a/${file} b/${file}`, `--- a/${file}`, `+++ b/${file}`, `@@ -1,${removed.length} +1,${added.length} @@`,
+    ...removed.map((l) => '-' + l), ...added.map((l) => '+' + l)];
+  const ledger = (lines) => edit('ci/retired_suites.js', [], lines);
+  const views = edit('ci/suite_views.js', ["  'x_cmd.js': classic('why'),"], []);
+  const shards = edit('ci/browser_shards.js', ["  { id: 'a', suites: ['y_cmd.js', 'x_cmd.js#part', 'z_cmd.js'] },"], ["  { id: 'a', suites: ['y_cmd.js', 'z_cmd.js'] },"]);
+  const excluded = edit('ci/browser_suites.js', ["  'x_cmd.js': 'a benchmark, no verdict',"], []);
+  const timing = edit('ci/browser_suites.js', ["  'x_cmd.js': [t(/fast/)],"], []);
+  const why = (lines) => check(parseDiff(lines.join('\n'))).map((x) => x.rule + ':' + x.why);
+  const REASON = "  'x_cmd.js': 'the classic transport it drove is gone (#994); the steps view has y_cmd',";
+  ok('retired: a deleted suite with no ledger line is a finding', why([...del('x_cmd.js'), ...views, ...shards]).join() === 'asserts:2 assertions removed, 0 added (file deleted)');
+  ok('retired: a ledger line and the suite dropped from views and shards: no finding', why([...del('x_cmd.js'), ...ledger([REASON]), ...views, ...shards]).length === 0, why([...del('x_cmd.js'), ...ledger([REASON]), ...views, ...shards]));
+  ok('retired: a ledger line and the suite dropped from EXCLUDED: no finding', why([...del('x_cmd.js'), ...ledger([REASON]), ...excluded]).length === 0);
+  ok('retired: still in a shard list, it is a finding', why([...del('x_cmd.js'), ...ledger([REASON]), ...views]).join() === 'asserts:2 assertions removed, 0 added (file deleted)');
+  ok('retired: a dropped TIMING entry is not a drop from what runs', why([...del('x_cmd.js'), ...ledger([REASON]), ...timing]).length === 1);
+  ok('retired: a ledger line with no reason does not retire it', why([...del('x_cmd.js'), ...ledger(["  'x_cmd.js': '',"]), ...views, ...shards]).length === 1);
+  ok('retired: a ledger line for a file the change keeps is a finding', why([...ledger([REASON])]).join() === 'retired:names test/x_cmd.js, which this change does not delete');
+  ok('retired: another deleted suite is still counted', why([...del('x_cmd.js'), ...del('w_cmd.js', 1), ...ledger([REASON]), ...views, ...shards]).join() === 'asserts:1 assertions removed, 0 added (file deleted)');
+}
+// the ledger names no file that is still in test/
+{
+  const fs = require('fs'), path = require('path');
+  const { RETIRED } = require('../ci/retired_suites.js');
+  const kept = Object.keys(RETIRED).filter((f) => fs.existsSync(path.join(__dirname, f)));
+  ok('ci/retired_suites.js names no file still in test/', kept.length === 0, kept);
+  ok('ci/retired_suites.js: every entry has a reason', Object.values(RETIRED).every((r) => typeof r === 'string' && r.trim().length > 10));
+}
+
 ok('asserts: a split moves assertions to a new file', (() => {
   const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ b/test/t_a.js', '@@ -1,2 +1,0 @@', '-ok(1);', '-ok(2);',
     'diff --git a/test/t_b.js b/test/t_b.js', '--- /dev/null', '+++ b/test/t_b.js', '@@ -0,0 +1,2 @@', '+ok(1);', '+ok(2);'].join('\n'));
