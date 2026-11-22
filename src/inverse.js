@@ -17,6 +17,7 @@
 const Inverse = (() => {
   const { C } = CX;
   const { add, sub, mul, div, neg, conj, abs, exp, log, scale, isFin, isZero } = CX;
+  const { taylorAt } = Derivs;
   const PI = Math.PI, HPI = PI / 2, TAU = 2 * PI, DEG = PI / 180, LN2 = Math.LN2;
   const ONE = C(1, 0), ZERO = C(0, 0);
   // the centres of cosh's zoom (arsinh 1, where cosh' = 1 and cosh = √2) and arcosh's (√2), as NatPaths.ZOOM takes them
@@ -37,7 +38,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm
   } = InvOps;
   const { PATTERNS, sqAA, hexRGB, patternColor } = InvPatterns;
@@ -635,7 +636,7 @@ const Inverse = (() => {
     return cur;
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
-  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2,
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2, RAT3, RAT4,
   // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
@@ -908,6 +909,14 @@ const Inverse = (() => {
         const N1 = abs(sub(mul(dp, qc), mul(pc, dq))), N2 = abs(sub(mul(p2, qc), mul(pc, q2)));
         const aq = abs(qc), ql = aq - abs(dq) * rho - abs(q2) * rho * rho;
         if (ql > 0) r = rho * (N1 + N2 * rho) / (ql * aq);
+        break;
+      }
+      case 'RAT3': case 'RAT4': {
+        // as RAT2's, with N(u) = sum_k (p_k q(c) - p(c) q_k)(u - c)^k, p_k and q_k the Taylor coefficients about c
+        const pt = taylorAt(o.p.P, c).t, qt = taylorAt(o.p.Q, c).t, aq = abs(qt[0]);
+        let nb = 0, ql = aq;
+        for (let k = pt.length - 1; k >= 1; k--) { nb = nb * rho + abs(sub(mul(pt[k], qt[0]), mul(pt[0], qt[k]))); ql -= abs(qt[k]) * rho ** k; }
+        if (ql > 0) r = rho * nb / (ql * aq);
         break;
       }
       default: {
@@ -1945,11 +1954,12 @@ const Inverse = (() => {
     // the checker filter of the analytic patterns (the GPU's ixSq)
     _sqAA: (p, w) => sqAA(p, w),
     _encl: { opDisc, chainDisc },
-    _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2 },
+    _ops: { opAff, opMob, opIpow, opRootPow, opExp, opLog, opSin, opCos, opTan, opSinh, opCosh, opTanh, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh, opJouk, opIjouk, opConj, opQuad, opRat2, opRatN },
   };
 })();
 import { CX } from './cx.js';
 import { Region } from './region.js';
 import { InvOps } from './invops.js';
+import { Derivs } from './derivs.js';
 import { InvPatterns } from './invpatterns.js';
 export { Inverse, Inverse as 'module.exports' };

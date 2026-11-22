@@ -6,7 +6,7 @@
 //  - zoomed in on one of them (2000 px a unit), one is in the window: "+4 more" drawn, the description says 1 of 5
 //    (the count follows the window, as the label does);
 //  - with the camera far from them, none is in the window: no label, and the description says nothing of p;
-//  - in English, Russian and Italian, each in the words of its own table;
+//  - in English, Russian and Italian, each in the words of its own table (the Russian sets the point's name in «»);
 //  - the classic view's left plane says it too (en).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -19,7 +19,7 @@ const STEPS = [{ type: 'pown', params: { n: 5 }, on: true }];
 const POINT = { id: 'p1', kind: 'point', p: P, stage: 1, label: 'p', ci: 2 };
 const SAID = {
   en: (k, n) => `Marked preimages of p: ${k} of ${n}.`,
-  ru: (k, n) => `Отмеченные прообразы p: ${k} из ${n}.`,
+  ru: (k, n) => `Отмеченные прообразы «p»: ${k} из ${n}.`,
   it: (k, n) => `Controimmagini segnate di p: ${k} su ${n}.`,
 };
 const MORE = { en: (n) => `+${n} more`, ru: (n) => `ещё ${n}`, it: (n) => `altri ${n}` };
