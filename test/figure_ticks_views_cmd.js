@@ -26,7 +26,7 @@ const open = async (ns, lang, srcView, classic) => {
   await view(1440, 900, false);
   await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, steps: STEPS, srcView, rightView: srcView,
     shapes: [{ id: 's1', kind: 'rect', a: [srcView.cx - RECT_PX / srcView.s, srcView.cy - RECT_PX / srcView.s], b: [srcView.cx + RECT_PX / srcView.s, srcView.cy + RECT_PX / srcView.s], visible: true }] });
-  await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=${classic ? 'classic' : 'steps'}`);
+  await go(`${base}/test.html?ns=${ns}&lang=${lang}${classic ? '&view=classic' : '&view=steps'}`);
   await settled({ until: `window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && ${classic ? 'typeof __cmwSetMain === "function"' : 'typeof __cmwSteps === "function" && __cmwSteps().on'}`, max: 30000 });
   if (!classic) { await ev('__cmwSteps({ park: 0.5 }); 1'); await settled({ max: 15000 }); }
 };
