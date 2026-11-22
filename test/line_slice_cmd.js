@@ -17,6 +17,7 @@ const settle = async (ms = 400) => { await sleep(ms); await ev('new Promise((r) 
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''))); };
+const { viewsQuiet } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const SLOW_US = 20, SLICE_MAX = 15;
 const SCENE = {
   shapes: [
@@ -30,10 +31,10 @@ const SCENE = {
 async function openApp() {
   const ns = 'ls' + Date.now();
   await view(1440, 900, false, false);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(350);
   const o = Object.assign({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', sel: 1, srcView: { cx: 0, cy: 0, s: 120 } }, SCENE);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}`); await sleep(2300);
   await settle(1500);
   await settled({ only: true, max: 10000, until: 'typeof __cmwP === "function" && !!document.querySelector("#svStrip .sv-add")' });
 }
@@ -112,7 +113,9 @@ ok('the same picture at rest (the right plane\'s pixels)', pxS.equals(pxR), [pxS
   // (four wheel steps at the left plane's centre: about 4.6 x, a new clip window)
   const cl = await ev(`(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
   for (let i = 0; i < 4; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: cl[0], y: cl[1], deltaX: 0, deltaY: -240 }); await sleep(120); }
-  await sleep(1500);
+  // (the lines are read once X's clip window has re-centred, 200 ms after the last tick: before it, they are the old
+  // window's, refined and current)
+  await viewsQuiet(10000, { panes: false });
   const L = await linesDone();
   const spanEv = await ev('window.__spanEv'), lt = ((await ev('window.__lt')) || []).filter(([s0]) => s0 >= t0);
   info.zoom = { done: !!L, evals: await ev('window.__ev'), spans: spanEv.length, evMax: Math.max(0, ...spanEv), ltMax: Math.round(Math.max(0, ...lt.map(([, d]) => d))) };

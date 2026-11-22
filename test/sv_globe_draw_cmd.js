@@ -22,13 +22,13 @@ await view(1200, 800, false, false);
 for (const k of [0, 1]) {
   const where = `plane ${k}`;
   const ns = 'svgd' + Date.now();
-  await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
+  await go(`${BASE}/gl-helpers.html`); await sleep(350);
   const o = {
     v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [],
     steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }],
   };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
+  await go(`${BASE}/test.html?ns=${ns}&view=steps`);
   const ready = `typeof __cmwSteps === 'function' && typeof __cmwGlobeXY === 'function'`;
   for (let i = 0; i < 40 && !(await ev(ready)); i++) await sleep(250);
   await ev(`__cmwSteps({ go: ${k}, now: true, surf: 'sphere' }); 1`); await quiet();

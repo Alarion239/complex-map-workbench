@@ -18,10 +18,10 @@ const chip = async () => ev(`(() => { const e = [...document.querySelectorAll('.
 const at = async (re, im) => ev(`__cmwPlaneMenu().w2s('L', ${re}, ${im})`);
 await view(1200, 800, false, false);
 const ns = 'svcp' + Date.now();
-await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
+await go(`${BASE}/gl-helpers.html`); await sleep(350);
 const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [{ id: 'z0', kind: 'point', p: [0.5, 0.5], ci: 0, visible: true, num: 0 }], steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }] };
 await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
+await go(`${BASE}/test.html?ns=${ns}&view=steps`);
 // the app is driven once the page has loaded and the chain is in (a glide to plane 1 needs two planes), and a pick is
 // read once it has landed: the stage is plane 1, and the chip counts the picks made
 await settled({ max: LOAD_MAX, until: "typeof __cmwSteps === 'function' && typeof __cmwPlaneMenu === 'function' && __cmwSteps().on && __cmwSteps().planes.length > 1" });
