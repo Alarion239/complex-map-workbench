@@ -620,6 +620,7 @@
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
+  const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
   const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
   // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
   function messageTop(pane) {
@@ -662,7 +663,7 @@
       const hit = chips.filter(meets);
       if (!hit.length) break;
       for (const o of hit) { if (o.left + o.right < free) left = Math.max(left, o.right + NOTE_GAP); else right = Math.min(right, o.left - NOTE_GAP); }
-      if (right - left < 160) break;
+      if (right - left < NOTE_ROOM_MIN) break;
       n = lay(left, right);
     }
     const { lines, bw, bh, y0, x0, tx } = n;

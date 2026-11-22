@@ -61,8 +61,11 @@ for (const [w, h] of [[360, 640], [320, 568], [568, 320], [640, 360]]) {
       ok(`${tag}: the readout shows the teaching hint`, taught, taught);
       const hint = await measure(`__cmwPaneNote('Preparing the GPU… (first time only; shaders left: {n})', { n: 19 })`);
       info[tag + ' hint'] = hint;
-      // (568 x 320 has no room left between the wide readout, the colour key and the message, TODO(#2244))
-      if (w !== 568) ok(`${tag}: with the teaching hint in the readout, the GPU note is clear of the pane's buttons, the readout, the colour key and the message`, !!hint.note && hint.hit.length === 0 && hint.inPane, hint);
+      // (568 x 320 can have no room left between the wide readout, the colour key and the message, TODO(#2244): there the note stands in the pane and
+      // meets at most those three, which depends on the width the hint takes in the language and the fonts)
+      if (w === 568) {
+        ok(`${tag}: with the teaching hint in the readout, the GPU note stands in the pane and meets only the readout, the colour key and the message`, !!hint.note && hint.inPane && hint.hit.every((x) => /^(leftReadout|leftLegend|toast) /.test(x)), hint);
+      } else ok(`${tag}: with the teaching hint in the readout, the GPU note is clear of the pane's buttons, the readout, the colour key and the message`, !!hint.note && hint.hit.length === 0 && hint.inPane, hint);
     }
   }
 }
