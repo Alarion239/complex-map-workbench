@@ -46,7 +46,7 @@ ok('control: 1° of yaw changes the floor and the marks', !!tiltY && tiltY.main 
 
 // the Stack surface
 await ev(`__cmwSteps({ surf: 'stack' }); 1`);
-await until(`__cmwSteps().surf === 'stack' && !!__cmwStack().drawn`, 20000);
+if (hooked) await until(`__cmwSteps().surf === 'stack' && !!__cmwStack().drawn`, 20000);
 const s0 = hooked ? await ev('__cmwStack()') : null;
 const rulers = await ev(`getComputedStyle(document.querySelector('#paneL .ruler')).visibility`);
 info.surface = { s0, rulers };
@@ -55,7 +55,7 @@ ok('the Stack opens tilted, with the marks', !!s0 && s0.camera.pitch < 89 * DEG 
 // a turn round the box, and up to straight down
 const CAMS = [[-30, 35], [60, 20], [150, 60], [-120, 88], [-170, 10], [0, 90]];
 const seen = [];
-for (const [yaw, pitch] of CAMS) {
+for (const [yaw, pitch] of hooked ? CAMS : []) {
   await ev(`__cmwCam('L', { yaw: ${yaw * DEG}, pitch: ${pitch * DEG} }); 1`);
   await until(`(() => { const d = __cmwStack().drawn; return !!d && Math.abs(d.camera.yaw - ${yaw * DEG}) < 1e-9 && Math.abs(d.camera.pitch - ${pitch * DEG}) < 1e-9; })()`, 10000);
   const d = (await ev('__cmwStack()')).drawn;
@@ -71,7 +71,7 @@ for (const [yaw, pitch] of CAMS) {
   seen.push({ yaw, pitch, order: d.order, marks: d.marks, ink });
 }
 info.turn = seen;
-ok('the levels are drawn in one order at every camera', seen.every((s) => JSON.stringify(s.order) === JSON.stringify(ORDER)), seen.map((s) => s.order));
+ok('the levels are drawn in one order at every camera', seen.length === CAMS.length && seen.every((s) => JSON.stringify(s.order) === JSON.stringify(ORDER)), seen.map((s) => s.order));
 ok('the marks are drawn at every camera', seen.every((s) => s.marks), seen);
 ok('the target\'s ring on the glass holds ink at every camera', seen.every((s) => s.ink.ring > 0), seen.map((s) => s.ink));
 ok('tilted, the glass\'s rim holds ink at its near edge', seen.filter((s) => s.pitch < 90).every((s) => s.ink.rim > 0), seen.map((s) => s.ink));
@@ -82,7 +82,7 @@ await frames();
 const ob = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; })()`);
 await drag(ob[0], ob[1], ob[0] + 80, ob[1] - 200, 12, 16);
 await frames();
-const turned = await ev('__cmwStack().camera');
+const turned = hooked ? await ev('__cmwStack().camera') : { yaw: -30 * DEG, pitch: 35 * DEG };
 info.turned = turned;
 ok('a drag on the plane turns the Stack\'s camera', Math.abs(turned.yaw + 30 * DEG) > 5 * DEG, turned);
 ok('a drag down to the floor stops at a pitch of 10°', Math.abs(turned.pitch - 10 * DEG) < 1e-9, turned);
