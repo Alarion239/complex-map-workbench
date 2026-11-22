@@ -14,7 +14,8 @@
     return { id: s.id, role, held, mismatch: held && pm.skey !== r.skey && L === r };
   }));
   window.__cmwFigureState = () => figureState();   // what a link or a scene file carries
-  window.__cmwSet = (k, v) => {
+  // o.keepClip (srcView): leave clipWin where it was; otherwise it follows the new view as after a pan or zoom
+  window.__cmwSet = (k, v, o) => {
     // the saved view fields (the suites set rightMode in many scenes): applied through the migration table,
     // on top of the old fields that name the current view (panels.md 10)
     if (Views.LEGACY.includes(k)) {
@@ -26,6 +27,7 @@
     }
     if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
     S[k] = v; if (k === 'meshN') { dropAllGPU(); } requestRender('L', 'R');
+    if (k === 'srcView' && !(o && o.keepClip)) { clearTimeout(sourceViewChanged.t); sourceViewChanged.pending = false; paneL.setView(leftView()); recentreClip(); }
   };
   // the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);

@@ -1390,7 +1390,9 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
   return col;
 }
 `;
-  const FLOOR_FS = glsl`
+  // (the phase portrait printed on the plate: of the chain's map ('map'), or, in the stand-in's plate (floorS), of F's values at the
+  // nodes of the stand-in's grid (uT1, uN), bilinear over the box and held at its edge)
+  const FLOOR_FS = (print) => glsl`
 in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
 uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
@@ -1399,10 +1401,16 @@ out vec4 o;
 void main() {
   vec2 uv = vPos.xy / (2.0 * uAspect) + 0.5;
   vec2 z = uBox.xy + uv * uBox.zw;
-  vec2 w = mapF(z);
-  vec3 alb = albedo(w);
+${print === 'map' ? '  vec2 w = mapF(z);\n' : `  vec2 ub = clamp((z - uBox.xy) / uBox.zw, 0.0, 1.0) * float(uN - 1);
+  ivec2 i0 = clamp(ivec2(floor(ub)), ivec2(0), ivec2(uN - 2));
+  vec2 fb = ub - vec2(i0);
+  vec2 w = mix(mix(texelFetch(uT1, i0, 0).xy, texelFetch(uT1, i0 + ivec2(1, 0), 0).xy, fb.x), mix(texelFetch(uT1, i0 + ivec2(0, 1), 0).xy, texelFetch(uT1, i0 + ivec2(1, 1), 0).xy, fb.x), fb.y);
+  // (a node where F has no value, as a pole's: its cells carry no print, the paper alone)
+  bool nanw = isnan(w.x) || isnan(w.y) || !(w.x < 0.0 || w.x >= 0.0) || !(w.y < 0.0 || w.y >= 0.0);
+  if (nanw) w = vec2(0.0);
+`}  vec3 alb = albedo(w);
   vec3 col = tiersOver(z, vec4(uFloorCol, 1.0), 1.0).rgb;
-  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint); // phase portrait printed at 10%
+  vec3 lin = mix(toLin(col), toLin(alb), ${print === 'map' ? '0.10 * uPrint' : '(nanw ? 0.0 : 0.10 * uPrint)'}); // phase portrait printed at 10%
   // contact shading under the surface: where the sheet comes close to the plate (no walls, nothing outside);
   // All sheets (uSheetK > 0): the lowest sheet over the point, from the per-cell height tiles
   float contact = 0.0;
