@@ -301,26 +301,31 @@
       // the press is still held: onUp flushes it (checked again later in case the press ends without an onUp)
       if (drag) { sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200); return; }
       sourceViewChanged.pending = false;
-      if (leftStage() !== 0 || solo() === 'R') return;
-      // (while X is a phone's inset, its window at its large size)
-      const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
-      // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
-      // collapsed deep views far from 0 to zero width)
-      const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
-      if (!(q > 0) || !Number.isFinite(q)) return;
-      const nb = { x0: Math.floor(b.x0 / q) * q, x1: Math.ceil(b.x1 / q) * q, y0: Math.floor(b.y0 / q) * q, y1: Math.ceil(b.y1 / q) * q };
-      if (!goodWin(nb)) return;
-      const ow = clipWin.x1 - clipWin.x0, nw = nb.x1 - nb.x0;
-      const shift = Math.max(Math.abs((nb.x0 + nb.x1 - clipWin.x0 - clipWin.x1) / 2), Math.abs((nb.y0 + nb.y1 - clipWin.y0 - clipWin.y1) / 2));
-      const aspect = Math.abs((nb.y1 - nb.y0) / nw - (clipWin.y1 - clipWin.y0) / ow);
-      if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
-        clipWin = nb;
-        setOpt('clipWin', clipWin);
-        if (rightAuto && rImage()) fitRight(true);
-        requestRender('L', 'R');
-      }
-      save();
+      recentreClip();
   };
+  // clipWin to the left pane's box, as a pan or zoom leaves it (sourceViewChanged.apply, and __cmwSet('srcView', …)):
+  // replaced only when the box moved or resized enough, so a small pan keeps the meshes
+  function recentreClip() {
+    if (leftStage() !== 0 || solo() === 'R') return;
+    // (while X is a phone's inset, its window at its large size)
+    const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
+    // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
+    // collapsed deep views far from 0 to zero width)
+    const q = Math.max(b.x1 - b.x0, b.y1 - b.y0) * 1e-4;
+    if (!(q > 0) || !Number.isFinite(q)) return;
+    const nb = { x0: Math.floor(b.x0 / q) * q, x1: Math.ceil(b.x1 / q) * q, y0: Math.floor(b.y0 / q) * q, y1: Math.ceil(b.y1 / q) * q };
+    if (!goodWin(nb)) return;
+    const ow = clipWin.x1 - clipWin.x0, nw = nb.x1 - nb.x0;
+    const shift = Math.max(Math.abs((nb.x0 + nb.x1 - clipWin.x0 - clipWin.x1) / 2), Math.abs((nb.y0 + nb.y1 - clipWin.y0 - clipWin.y1) / 2));
+    const aspect = Math.abs((nb.y1 - nb.y0) / nw - (clipWin.y1 - clipWin.y0) / ow);
+    if (!goodWin(clipWin) || nw / ow > 1.35 || ow / nw > 1.35 || shift > 0.3 * Math.min(ow, nw) || aspect > 0.15) {
+      clipWin = nb;
+      setOpt('clipWin', clipWin);
+      if (rightAuto && rImage()) fitRight(true);
+      requestRender('L', 'R');
+    }
+    save();
+  }
   function setCut(k, deg, snap15) {
     const st = S.steps[k - 1], b = built[k - 1];
     // unwrap against the current cut, so the seam turns continuously (to 190°, not to −170° on the same sheet)

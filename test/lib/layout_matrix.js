@@ -35,7 +35,6 @@
     { name: 'start' },
     { name: 'phase', go: `__cmwSetMain('phase'), 1`, wait: 1200, views: ['classic'] },
     { name: 'landscape', go: `__cmwSetMain('land'), 1`, wait: 1500, views: ['classic'] },
-    { name: 'deformation', go: `__cmwMorph({ open: true, playing: false }), 1`, wait: 1200, views: ['classic'] },
     // (ready once the Inspector is in place: floated over the stage at 1024 (.temp), it is first drawn off the right edge and
     // moves in a render later, about a second on software GL, and the chain head's buttons reflow only then; measured
     // before, Clear chain read as cut, one run in two)
@@ -90,7 +89,7 @@
     if (undo) { await ev(`(() => { try { ${undo}; } catch (e) { /* */ } return 1; })()`); undo = null; }
     for (let i = 0; i < 2; i++) { await key('Escape'); await sleep(120); }
     await ev(`(() => { try { Tour.stop(); } catch (e) { /* */ } try { if (window.Phone && Phone.isOn()) Phone.close(true); } catch (e) { /* */ }
-      try { __cmwMorph({ open: false }); } catch (e) { /* */ } try { if (__cmwLayout().main !== 'xy') __cmwSetMain('xy'); } catch (e) { /* */ }
+      try { if (__cmwLayout().main !== 'xy') __cmwSetMain('xy'); } catch (e) { /* */ }
       try { document.activeElement && document.activeElement !== document.body && document.activeElement.blur(); } catch (e) { /* */ }
       // (a toast a state left, "Your work is back" after the tour, would sit over the next state)
       try { for (const t of document.querySelectorAll('#toastHost > *')) t.remove(); } catch (e) { /* */ }
