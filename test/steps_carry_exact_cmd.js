@@ -81,7 +81,7 @@
 //   1.1 x + 0.9 i y.
 // - A d/dz between plane z and the colour plane (z², d/dz, exp; coloured from w₃: exp(2z) at z), Everywhere, parked at
 //   x = 5/2, past the d/dz (plane w₂'s points 2z on exp's zoom path at t = 1/2: 2(e^z − 1) + 1/2); the colour evaluates
-//   the chain through the d/dz.
+//   the chain through the d/dz, and the inverse pass draws the frame (the glide's path 'inverse').
 // A command file for a CDP daemon (test/cdp_kit README); CI runs its parts in the views and formulas shards
 // (ci/browser_shards.js). Prints {pass, fails, info}.
 const ONLY = process.env.CMW_ONLY || '';
@@ -652,7 +652,8 @@ async function planesPart() {
     return { W, Z };
   };
   // at: the frame's state (park: the thread's place); T: the colour plane; path: the
-  // glide record's path the frame must have (the carried meshes': 'mesh'), null for a frame that writes no record
+  // glide record's path the frame must have (the carried meshes': 'mesh'; the inverse pass's: 'inverse'), null for a
+  // frame that writes no record
   async function check(tag, at, T, W, Z, min, path) {
     await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true, T })}); 1`);
     await wait();
@@ -665,7 +666,7 @@ async function planesPart() {
     ok(`${tag}: parked at x = ${at.park}, coloured from w${T}`, Math.abs(state.x - at.park) < 1e-9 && state.T === T, info[tag].state);
     ok(`${tag}: the colour plane's colour of each point, at most 1 % wrong`, info[tag].n >= min && info[tag].wrong <= 0.01 * info[tag].n, info[tag]);
     ok(`${tag}: no point on the bare paper`, info[tag].paper === 0, info[tag]);
-    if (path) ok(`${tag}: drawn by the carried meshes (the glide's path '${path}')`, !!state.glide && state.glide.path === path, info[tag].state);
+    if (path) ok(`${tag}: drawn by ${path === 'mesh' ? 'the carried meshes' : 'the inverse pass'} (the glide's path '${path}')`, !!state.glide && state.glide.path === path, info[tag].state);
   }
 
   // ---- beside a region of a later plane (a disc on w₁), a region of plane z, under a step with no inverse ----
@@ -696,7 +697,7 @@ async function planesPart() {
     const offGrid = (v) => Math.abs(v - Math.round(v)) * P.v.s > 2.5;
     const place = (z) => { const e = Math.exp(z[0]), w = [2 * (e * Math.cos(z[1]) - 1) + 0.5, 2 * e * Math.sin(z[1])]; return w.every(offGrid) ? w : null; };
     const past = pairs(P, 60, (z) => clear(z) && Math.abs(z[1]) < 2.5 && z[0] > -1.2, place);
-    await check('a d/dz before the colour plane, glided past it', { scope: 'all', park: 2.5 }, 3, past.W, past.Z, 200, 'mesh');
+    await check('a d/dz before the colour plane, glided past it', { scope: 'all', park: 2.5 }, 3, past.W, past.Z, 200, 'inverse');
   }
 }
 

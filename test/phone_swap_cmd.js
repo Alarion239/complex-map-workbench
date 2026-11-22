@@ -39,6 +39,7 @@ const sendInput = (method, params) => {
   return send(method, params);
 };
 const settle = async (ms = 350) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
+const { until, sheetSettled, still } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails, max: 15000 });
 const TOL = 0.005;
 const SHAPES = [
   { id: 's1', kind: 'formula', ci: 0, visible: true, expr: '|\\Im z|<1' },
@@ -67,6 +68,19 @@ const W = () => ev(`(() => {
 })()`);
 const same = (a, b, tol = TOL) => !!a && !!b && Math.abs(a.u / b.u - 1) <= tol && Math.abs(a.cx - b.cx) <= tol * b.u && Math.abs(a.cy - b.cy) <= tol * b.u;
 const fmt = (p) => p && `${p.cx.toFixed(3)},${p.cy.toFixed(3)} u=${p.u.toPrecision(5)} w=${p.w}`;
+// the planes' windows hold still: W() (both windows and the layout) read again every FIT_STEP_MS until two reads agree. The wait
+// relies on W() changing until the fit is done, not on the step being longer than every gap: the sheet's wait leaves Y's window moving
+// for up to 700 ms more (X's 200 ms re-centre, then the first frame of Y's fit tween), and a read on its own can fall between two stages.
+// A row if the reads never agree by FIT_MS, and another if two agreed and the next one moved.
+const FIT_STEP_MS = 300, FIT_MS = 15000;
+const fitted = async (what) => {
+  const t0 = Date.now(), a = await still(W, FIT_STEP_MS, FIT_MS), ran = Date.now() - t0, b = await W();
+  if (JSON.stringify(a) !== JSON.stringify(b)) {
+    const never = ran >= FIT_MS;
+    fails.push({ name: never ? `${what}: the planes' windows still move after ${FIT_MS} ms` : `${what}: the planes' windows held still for ${FIT_STEP_MS} ms, then moved`, got: `L ${fmt(b.L)} | R ${fmt(b.R)}`, want: `L ${fmt(a.L)} | R ${fmt(a.R)}` });
+  }
+  return b;
+};
 const ratio = (a, b) => +(a.u / b.u).toFixed(4);
 // the inset's tap target, by touch
 // (each touch carries its own time, ms apart, as a phone's do: unstamped, the touchEnd took the time it was sent, after
@@ -202,8 +216,11 @@ for (const mk of mapsFor) {
   } else if (part === 'sheet') {
     // (the planes resize at the end of the sheet's 220 ms; X's new window re-centres the meshing window 200 ms later
     // and Y's auto fit follows in a 260 ms tween: a read waits for all of it)
-    const sheet = async () => { await ev(`Phone.open('display')`); await settle(1000); };
-    const shut = async () => { await ev(`Phone.close()`); await settle(800); };
+    const sheet = async () => { await ev(`Phone.open('display')`); await until(sheetSettled('display', true)); await fitted('sheet open'); };
+    const shut = async () => { await ev(`Phone.close()`); await until(`Phone._state().kind == null && !Phone._state().split`); await fitted('sheet closed'); };
+    // (the wait follows the fit: the windows read when it ends are the ones read a while later, with the fit's last stage done)
+    await sheet(); const atOpen = await W(); await sleep(2 * FIT_STEP_MS); const laterOpen = await W(); await shut();
+    for (const s of ['L', 'R']) if (!same(atOpen[s], laterOpen[s], 1e-9)) fails.push({ name: `${mk} sheet: ${s} moved after the wait for the fit ended`, got: fmt(laterOpen[s]), want: fmt(atOpen[s]) });
     await rounds(mk + ' sheet (X large)', 20, [sheet, shut]);
     await swapTap();
     await rounds(mk + ' sheet (Y large)', 20, [sheet, shut]);

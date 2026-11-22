@@ -14,7 +14,8 @@
     return { id: s.id, role, held, mismatch: held && pm.skey !== r.skey && L === r };
   }));
   window.__cmwFigureState = () => figureState();   // what a link or a scene file carries
-  window.__cmwSet = (k, v) => {
+  // o.keepClip (srcView): leave clipWin where it was; otherwise it follows the new view as after a pan or zoom
+  window.__cmwSet = (k, v, o) => {
     // the saved view fields (the suites set rightMode in many scenes): applied through the migration table,
     // on top of the old fields that name the current view (panels.md 10)
     if (Views.LEGACY.includes(k)) {
@@ -26,6 +27,7 @@
     }
     if (k === 'view') { setOpt('view', Views.clean(v)); applyLayout(); viewChanged('L'); viewChanged('R'); return; }
     S[k] = v; if (k === 'meshN') { dropAllGPU(); } requestRender('L', 'R');
+    if (k === 'srcView' && !(o && o.keepClip)) { clearTimeout(sourceViewChanged.t); sourceViewChanged.pending = false; paneL.setView(leftView()); recentreClip(); }
   };
   // the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
@@ -57,6 +59,7 @@
   window.__cmwSmReset = () => { for (const e of [...sm.entries.values()]) smDrop(e); for (const j of [...sm.jobs.values()]) smCancel(j); sm.want.clear(); Object.assign(sm.stats, { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 }); requestRender('L', 'R'); return true; };
   // (issue #72) a screen pane's own last GPU frame (glStatusNote): {pending, compiling, error, exact, t}, null before one
   window.__cmwPaneStatus = (role = 'R') => (paneGl[role] ? Object.assign({}, paneGl[role]) : null);
+  window.__cmwNoteBox = (role = 'L') => { const b = (role === 'R' ? paneR : paneL).noteBox; return b ? Object.assign({}, b) : null; };   // (the pane's note's box in its last frame, paneNote's, in the pane's CSS px)
   window.__cmwPointName = (id, primes) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const keep = figMode; figMode = true; try { return pointLabel(s, 0, primes); } finally { figMode = keep; } };   // (a point's name as a figure writes it, shown primes maps further than the plane it lies on)
   window.__cmwCompileBox = () => (compileBox ? Object.assign({}, compileBox) : null);   // (the compiling note's box, in the pane's CSS px, where it was last drawn)
   // the colour plot's, the phase globe's or the Landscape's stand-in (colourStandIn, globeStandIn, landStandIn): the cell of its finest

@@ -103,18 +103,19 @@ await closeMenu();
 // the shape's place said after a run of nudges, in other settings: at dpr 2, in the dark theme and at 1024 and 768 px wide. On each the
 // toast names the shape and its centre as the state has them, lies whole inside the window, above the chain, covers no control, and
 // reads at 4.5:1 (WCAG AA) against its own background
+const { LUM_JS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'contrast.js'), 'utf8'))();
 // what the toast's checks read of an element, as a function for the page: whether it lies inside the window and above the chain, the
 // controls it covers, and the contrast of its text against its own background (the toast's is opaque, so its alpha is not read)
 const MEASURE = `(t) => {
   const r = t.getBoundingClientRect(), cs = getComputedStyle(t), strip = document.getElementById('svStrip').getBoundingClientRect();
-  const lum = (rgb) => { const v = rgb.match(/[0-9.]+/g).slice(0, 3).map((x) => { const u = x / 255; return u <= 0.03928 ? u / 12.92 : ((u + 0.055) / 1.055) ** 2.4; }); return 0.2126 * v[0] + 0.7152 * v[1] + 0.0722 * v[2]; };
-  const a = lum(cs.color), b = lum(cs.backgroundColor), covered = [];
+  ${LUM_JS}
+  const rgb = (s) => s.match(/[0-9.]+/g).slice(0, 3).map(Number), covered = [];
   for (const e of document.querySelectorAll('button, input, select, [role=slider]')) {
     if (!e.getClientRects().length || t.contains(e) || e.closest('#toastHost') || getComputedStyle(e).visibility === 'hidden') continue;
     const q = e.getBoundingClientRect();
     if (q.width && q.height && q.left < r.right && q.right > r.left && q.top < r.bottom && q.bottom > r.top) covered.push((e.id || e.className || e.tagName).toString().slice(0, 30));
   }
-  return { inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, aboveChain: r.bottom <= strip.top, covered, contrast: (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05) };
+  return { inside: r.left >= 0 && r.right <= innerWidth && r.top >= 0 && r.bottom <= innerHeight, aboveChain: r.bottom <= strip.top, covered, contrast: ratio(rgb(cs.color), rgb(cs.backgroundColor)) };
 }`;
 const SETTINGS = [['dpr 2', 1440, 900, 2, false], ['dark theme', 1440, 900, 1, true], ['1024 px', 1024, 768, 1, false], ['768 px', 768, 1024, 1, false]];
 const AA = 4.5;
@@ -131,10 +132,10 @@ for (const [name, w, h, dpr, dark] of SETTINGS) {
   await onPlane();
   await press('ArrowRight'); await press('ArrowRight');
   // (the toast of the settled run: a slow press can let the one for the first nudge show before the second, so the wait is for the toast that matches the state now, in place)
-  const toastUp = `(() => { const t = document.querySelector('#toastHost .toast'), c = __cmwShapes().shapes.find((x) => x.id === 'd1').c; return !!t && t.textContent.startsWith('Moved Disc 1 to ' + c[0].toFixed(3) + ', ' + c[1].toFixed(3) + '.') && getComputedStyle(t).opacity === '1' && getComputedStyle(t).translate === 'none'; })()`;
+  const toastUp = `(() => { const t = document.querySelector('#toastHost .toast'), c = __cmwShapes().shapes.find((x) => x.id === 'd1').c; return !!t && t.textContent.startsWith('Moved Disc 1 to ' + (c[0] < 0 ? '−' : '') + Math.abs(c[0]).toFixed(3) + ' ' + (c[1] < 0 ? '−' : '+') + ' ' + Math.abs(c[1]).toFixed(3) + 'i.') && getComputedStyle(t).opacity === '1' && getComputedStyle(t).translate === 'none'; })()`;
   await until(toastUp, 8000);
   const m = await ev(`(() => { const t = document.querySelector('#toastHost .toast'), c = __cmwShapes().shapes.find((x) => x.id === 'd1').c;
-    return Object.assign({ text: t.textContent, want: 'Moved Disc 1 to ' + c[0].toFixed(3) + ', ' + c[1].toFixed(3) + '.', dpr: devicePixelRatio, dark: matchMedia('(prefers-color-scheme: dark)').matches }, (${MEASURE})(t)); })()`);
+    return Object.assign({ text: t.textContent, want: 'Moved Disc 1 to ' + (c[0] < 0 ? '−' : '') + Math.abs(c[0]).toFixed(3) + ' ' + (c[1] < 0 ? '−' : '+') + ' ' + Math.abs(c[1]).toFixed(3) + 'i.', dpr: devicePixelRatio, dark: matchMedia('(prefers-color-scheme: dark)').matches }, (${MEASURE})(t)); })()`);
   check(`${name}: the toast says the shape and its centre, as the state has them`, m.text.replace(/\s*×?$/, '') === m.want && m.dpr === dpr && m.dark === dark, m);
   check(`${name}: the toast lies whole inside the window, above the chain, covering no control`, m.inside && m.aboveChain && m.covered.length === 0, m);
   check(`${name}: the toast's words reach ${AA}:1 against its background`, m.contrast >= AA, m);

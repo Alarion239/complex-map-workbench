@@ -3,13 +3,14 @@
 //   node test/t_impact.js
 const { select, rowOf, globRe, MAP, AREAS, GLSL_JOBS, GLSL_CORE_JOBS } = require('../ci/impact.js');
 const { SHARDS, suitesOf } = require('../ci/browser_shards.js');
+const { PAGES } = require('../ci/glsl.js');
 let n = 0, fails = 0;
 const ok = (name, c, info) => { n++; if (!c) { fails++; console.log('FAIL', name, info === undefined ? '' : JSON.stringify(info)); } };
 const ALL = SHARDS.filter((s) => suitesOf(s.id).length).map((s) => s.id);
 const same = (a, b) => JSON.stringify([...a].sort()) === JSON.stringify([...b].sort());
 const nothing = (p) => !p.browser.length && !p.glsl.length && !p.quality.length && !p.perf;
-// (the Linux GLSL jobs: the glsl page in LINUX_GLSL_PARTS, adv and inverse whole)
-const LINUX_GLSL_PARTS = '1/2,2/2', LINUX_N = 4;
+// (the Linux GLSL jobs: the glsl page in LINUX_GLSL_PARTS, adv, inverse and dh whole)
+const LINUX_GLSL_PARTS = '1/2,2/2', LINUX_N = 5;
 
 // the globs
 ok('glob: * stays in a directory', globRe('src/*.js').test('src/a.js') && !globRe('src/*.js').test('src/a/b.js'));
@@ -19,7 +20,7 @@ ok('glob: a dot is a dot', !globRe('build.py').test('buildxpy'));
 // every area names real shards, every row's effect is known
 const ids = new Set(SHARDS.map((s) => s.id));
 ok('every area names shards of ci/browser_shards.js', Object.values(AREAS).flat().every((id) => ids.has(id)), Object.values(AREAS).flat().filter((id) => !ids.has(id)));
-ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.concat(GLSL_CORE_JOBS).every((j) => ['glsl', 'adv', 'inverse'].includes(j.page)) && GLSL_JOBS.length === 14 + LINUX_N && GLSL_CORE_JOBS.length === 9 + LINUX_N);
+ok('every GLSL job is a page of ci/glsl.js', GLSL_JOBS.concat(GLSL_CORE_JOBS).every((j) => PAGES.some((p) => p.id === j.page)) && GLSL_JOBS.length === 14 + LINUX_N && GLSL_CORE_JOBS.length === 9 + LINUX_N);
 // (GLSL tiers: Windows runs the core tier unless --glsl-deep, macOS every chain always, Linux (SwiftShader) the core
 // tier always)
 const linux = (jobs) => jobs.filter((j) => j.os === 'ubuntu-latest');
@@ -29,7 +30,7 @@ ok('the deep jobs: every chain on Windows and macOS', GLSL_JOBS.every((j) => j.t
 for (const [name, jobs] of [['core', GLSL_CORE_JOBS], ['deep', GLSL_JOBS]]) {
   const L = linux(jobs);
   ok(`the ${name} jobs: Linux (SwiftShader) runs every page's core tier`, L.length === LINUX_N && L.every((j) => j.tier === 'core' && !j.sections)
-    && L.filter((j) => j.page === 'glsl').map((j) => j.part).join() === LINUX_GLSL_PARTS && same(L.filter((j) => j.page !== 'glsl').map((j) => j.page + ' ' + j.part), ['adv 1/1', 'inverse 1/1']), L);
+    && L.filter((j) => j.page === 'glsl').map((j) => j.part).join() === LINUX_GLSL_PARTS && same(L.filter((j) => j.page !== 'glsl').map((j) => j.page + ' ' + j.part), ['adv 1/1', 'inverse 1/1', 'dh 1/1']), L);
 }
 {
   // (the Gate's GLSL job: Chrome on Linux needs --no-sandbox there, and no CMW_ANGLE, so that Chrome picks SwiftShader)
@@ -107,7 +108,7 @@ for (const f of ['src/i18n.js', 'src/i18n_ru.js']) ok(`T1: ${f} -> i18n and layo
 // (notes/ is read by unit tests at most: a notes-only diff, #516's deletions included, runs no browser shard)
 for (const f of ['notes/i18n/DESIGN.md', 'notes/i18n/ru/phase2b-fixes.json', 'notes/i18n/inventory_tools/build.js', 'notes/i18n/latex/xe.out', 'notes/sound/review-deformation/a.md']) ok(`T0: ${f} -> the unit tests only`, select([f]).tier === 'T0' && !select([f]).browser.length, select([f]));
 ok('T0: a notes-only diff (#516) selects no browser shard', (() => { const p = select(['notes/i18n/inventory_tools/extract.js', 'notes/i18n/latex/pdf.out', 'notes/proto/incremental/x.js', 'notes/v16-user5/review-regress-evidence/cmds/a_cmd.js']); return p.tier === 'T0' && !p.browser.length && !p.glsl.length; })());
-ok('T1: inspector, planemenu, params -> the three views parts and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views-1', 'views-2', 'views-3', 'formulas', 'smoke']));
+ok('T1: inspector, planemenu, params -> the four views parts and formulas', same(select(['src/inspector.js', 'src/planemenu.js', 'src/params.js']).browser, ['views-1', 'views-2', 'views-2b', 'views-3', 'formulas', 'smoke']));
 // (desk.css styles the Inspector, which the phone shows in its edit sheet, and has :root.ph rules of its own)
 ok('T1: desk.css -> the desktop, phone and every layout shard', same(select(['src/desk.css']).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']), select(['src/desk.css']).browser);
 ok('T1: page.html -> desktop, phone and every layout shard', same(select(['src/page.html'], { linesOf: () => ['.top-bar { gap: 8px; }'] }).browser, [...new Set([...AREAS.desktop, ...AREAS.phone, ...AREAS.layout]), 'smoke']));
