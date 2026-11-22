@@ -1,3 +1,4 @@
+// raw-navigate-file: a screenshot writer, not run in CI (ci/browser_suites.js EXCLUDED)
 // The "plane" piece: before/after screenshots of every visible fix (notes/ux-build/w1-plane-AS-BUILT.md).
 // Before = dist/base-test.html (a build of work/xv164-merged-snap), after = dist/test.html; light and dark; Russian last.
 // Saved as <cdp folder>/shots/w1p/<finding>-<before|after>-<light|dark>.png (copy to notes/ux-build/shots/w1-plane/).
