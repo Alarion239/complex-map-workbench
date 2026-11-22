@@ -122,7 +122,8 @@ ok('the published page names the offline page\'s size', named && Number(named[1]
 // svg2pdf.js, 0.47 MB, #393), about 2.78 MB more. The pages as built are 4.53 and 7.30 MB: the app's script without its
 // comments and indentation and its GLSL templates without their comments (tools/strip_js.js), and the stylesheet
 // without its comments and spare whitespace (tools/strip_css.js). The budgets leave about 0.17 and 0.2 MB above them, all
-// of it for the app's own code, none of it test code or a second copy. Of the published page's app code, 0.12 MB is
+// of it for the app's own code (about 0.04 MB of it for the certified Repeat-chain coverage renderer, #1478), none of it
+// test code or a second copy. Of the published page's app code, 0.12 MB is
 // what a 4.6 MB budget, set over a 4.48 MB page, had no room for: the steps view, its Play gate, readout, floor pick and
 // look-down (app.js), the GL renderer's programs, frames and inverse pass with their shaders (gl.js, glsl.js, invops.js,
 // inverse.js) and the Stack's piece counter and critical points (pieces.js, critical.js). What still ships that the page
