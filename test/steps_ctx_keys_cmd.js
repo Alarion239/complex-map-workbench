@@ -100,6 +100,8 @@ const foldedBy = async (legendId, readoutSel) => {
     await settled({ max: 10000, until: `!document.getElementById(${JSON.stringify(legendId)}).classList.contains('collapsed')` });
     await placed(legendId);
   };
+  // (each fold starts from the key unfolded: Escape on a folded key would reach the app, and cancel the tool in hand, not fold it)
+  await unfold();
   const esc = await state('escape');
   await unfold();
   const tap = await state('tap');
