@@ -1440,8 +1440,11 @@
       // (the other sheets' copies first (st.carry.copies: {draw, band}, draw running its function with the GPU's chain
       // on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
       // coloured on its sheet, with no patches; with band (an angle, degrees), over seamBand's box about that ray from
-      // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, so it is the one shown
-      // where a copy meets it)
+      // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, and every pass of a copy
+      // a little behind its depth (further than the pole patches' offset), so the principal surface is the one shown
+      // where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's height,
+      // and early in a glide its copy lies in the principal surface's place on triangles of its own, which a tie in
+      // depth would show pixel by pixel)
       // A copy's alpha: one draws it opaque before the principal surface. Under one it is drawn after the
       // principal surface and its patches: first every such copy's depth alone, then each one's colour blended over
       // what is drawn, with LEQUAL and a stencil that takes one blend a pixel, so a pixel shows the nearest translucent
@@ -1464,16 +1467,18 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, m.o.tex2);
         u1i(Pc, 'uN', m.o.N);
         const cells = 6 * (m.o.N - 1) * (m.o.N - 1);
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32);
         if (pass === 'depth') {
           gl.colorMask(false, false, false, false);
           gl.drawArrays(gl.TRIANGLES, 0, cells);
           gl.colorMask(true, true, true, true);
-          return;
+        } else {
+          if (pass === 'colour') u1f(Pc, 'uFade', 1 - alphaOf(cp));
+          gl.drawArrays(gl.TRIANGLES, 0, cells);
+          if (pass === 'colour') u1f(Pc, 'uFade', 0);
+          info.copies++;
         }
-        if (pass === 'colour') u1f(Pc, 'uFade', 1 - alphaOf(cp));
-        gl.drawArrays(gl.TRIANGLES, 0, cells);
-        if (pass === 'colour') u1f(Pc, 'uFade', 0);
-        info.copies++;
+        gl.disable(gl.POLYGON_OFFSET_FILL);
       });
       copies.forEach((cp, i) => { if (alphaOf(cp) >= 1) drawCopy(cp, i, 'opaque'); });
       setUp(sb);
