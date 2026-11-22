@@ -1,7 +1,8 @@
 // The Sound control on a landscape phone 768 to 1023 px wide: 900 × 400 with touch (:root.ph.ph-land), in the steps view and the classic one,
 // in English, Russian and Italian. While sound is on the bar's own button stands in for the menu's (hidden) #soundBtn:
 //  - sound on: #soundPh is in the bar, a button in Chrome's accessibility tree named «Sound» («Звук», «Suono») with pressed true, a 44 px target
-//    inside the bar and under no other element; a touch on it turns the sound off (aria-pressed false, the button goes);
+//    inside the bar and under no other element, ⋯ where it was with the sound off; a touch on it turns the sound off
+//    (aria-pressed false, the button goes), and so does Enter on it focused, which leaves the focus on ⋯;
 //  - sound off: the bar has no Sound button (control), and ⋯ opens the sheet whose Sound switch is in the tree with the same name, checked false;
 //    (then the sound is turned on with Sound.set).
 // Below 768 px (controls: 360 × 640 portrait and 740 × 360 landscape, both views): with the sound on the bar has no Sound
@@ -38,9 +39,12 @@ for (const v of ['steps', 'classic']) for (const [lang, label] of Object.entries
   // (the sheet closes, and the sound goes on)
   await ev(`Phone.close(), 1`);
   await settled({ max: SET_MS, panes: false, until: `!document.querySelector('.ph-sheet.open')` });
+  const m0 = await boxOf('#hdrMoreBtn');
   await snd(true);
   await settled({ max: SET_MS, panes: false, until: `document.getElementById('soundPh').hidden === false` });
   // ---- sound on: the bar's button
+  const m1 = await boxOf('#hdrMoreBtn');
+  ok(`${tag}: sound on: ⋯ stays where it was (the Sound button comes in beside it)`, !!m0 && !!m1 && Math.abs(m1.l - m0.l) < 0.5 && Math.abs(m1.t - m0.t) < 0.5, { off: m0, on: m1 });
   const b = await boxOf('#soundPh');
   info[`${tag} on`] = b;
   ok(`${tag}: sound on: the bar shows #soundPh`, !!b && b.display !== 'none', b);
@@ -51,6 +55,14 @@ for (const v of ['steps', 'classic']) for (const [lang, label] of Object.entries
     await tapSel('#soundPh');
     await settled({ max: SET_MS, panes: false, until: `document.getElementById('soundPh').hidden === true` });
     ok(`${tag}: a touch on #soundPh turns the sound off`, await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed') === 'false'`), null);
+    // (from the keyboard: Enter on the focused button turns the sound off, and the focus goes to ⋯, not to the page)
+    await snd(true);
+    await settled({ max: SET_MS, panes: false, until: `document.getElementById('soundPh').hidden === false` });
+    await ev(`document.getElementById('soundPh').focus(), 1`);
+    await key('Enter');
+    await settled({ max: SET_MS, panes: false, until: `document.getElementById('soundPh').hidden === true` });
+    const fk = await ev(`({ off: document.getElementById('soundBtn').getAttribute('aria-pressed') === 'false', focus: document.activeElement ? document.activeElement.id || document.activeElement.tagName : null })`);
+    ok(`${tag}: Enter on the focused #soundPh turns the sound off and leaves the focus on ⋯`, fk.off && fk.focus === 'hdrMoreBtn', fk);
   }
 }
 // ---- below 768 px (controls): the bar is ⋯ alone, with the sound on too, in portrait and in landscape

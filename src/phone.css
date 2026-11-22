@@ -37,6 +37,9 @@ html:not(.ph) .ph-only { display: none !important; }
    like ⋯: src/page.html's rules for that width show it and fold the menu's own; below 768 px the bar is ⋯ alone */
 @media (min-width: 768px) and (max-width: 1023px) {
   :root.ph .top > #soundPh:not([hidden]) { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
+  /* (the classic view's bar starts at the left: Sound after ⋯, so ⋯ stays where it is when the sound goes on; the steps
+     view's ends at the right, where Sound before ⋯ keeps it still) */
+  :root.ph:not(.sv) .top > #soundPh:not([hidden]) { order: 15; }
 }
 
 /* ---------- the stage: the plane (and the inset), the chain bar ---------- */
