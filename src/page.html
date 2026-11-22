@@ -623,12 +623,12 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   .pane .plot:has(> .legend-chip:not([hidden]):not(.calc-chip)) > .legend-chip.calc-chip { top: 120px; }
 }
 /* the integral popover (a right click on a curve): values in the mono face, math in STIX, words in the UI face */
-.pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; }
-.int-pop .pop-title { padding: 0 4px 0 10px; }
+.pop.int-pop { width: min(296px, calc(100vw - 24px)); padding: 0; overflow: hidden; display: flex; flex-direction: column; max-height: calc(100svh - 24px); }
+.int-pop .pop-title { flex: none; padding: 0 4px 0 10px; }
 .int-pop .pop-title .grow { flex: 1 1 auto; }
 .int-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; font: var(--t-heading); }
 .int-title .int-part { font: var(--t-label); color: var(--muted); }
-.int-body { display: grid; gap: 4px; padding: 8px 10px 10px; }
+.int-body { display: grid; gap: 4px; padding: 8px 10px 10px; min-height: 0; overflow-y: auto; }   /* (taller than the screen, the body scrolls and the title stays) */
 .int-row { display: grid; grid-template-columns: minmax(0, 1fr) auto 24px; align-items: center; gap: 6px; min-height: 24px; }
 .int-row.sub { grid-template-columns: minmax(0, 1fr) auto; min-height: 20px; padding-left: 4px; }
 .int-k { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: var(--t-label); color: var(--ink-2); }
@@ -648,6 +648,16 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .int-cap { font: var(--t-label); color: var(--muted); }
 .int-cap i { font: var(--t-math-s); color: var(--ink-2); }
 .int-pop .icon-btn.copied { color: var(--good); }
+/* touch: the popover's Copy and Close keep their 32 px look and have a 44 px hit area (as the phone's alone chip, phone.css), and the
+   rows and the title are 44 px tall (the title's 1 px rule besides), so the buttons are 44 px apart centre to centre (WCAG 2.2's 2.5.8
+   spacing, and the project's 44 px rule on touch, test/lib/layout.js targetSizes). The buttons sit 10 px from the popover's edge, which
+   clips (overflow), so the hit area, 6 px beyond a button, is whole. A mouse keeps 24 px (#2191) */
+@media (pointer: coarse) {
+  .int-pop .icon-btn.small::after { content: ""; position: absolute; inset: -6px; }
+  .int-pop .pop-title { height: 45px; padding: 0 10px 0 8px; gap: 4px; }   /* (44 px and the 1 px rule under it; the text keeps its width) */
+  .int-row { grid-template-columns: minmax(0, 1fr) auto 32px; column-gap: 3px; min-height: 44px; }   /* (the label keeps its width: 24 px column + 6 px gaps before) */
+  .int-pad { width: 32px; }
+}
 /* the shape panel lists the w-plane targets of the Preimage view under their own heading */
 .shapes .shapes-sub { display: flex; align-items: center; gap: 8px; margin: 10px 0 2px; font: var(--t-caption); font-stretch: var(--ui-narrow-stretch); font-variation-settings: var(--ui-narrow-var); color: var(--muted); }
 .shapes .shapes-sub i { font: italic 500 12px/14px var(--f-math); color: var(--ink-2); }

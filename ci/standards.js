@@ -5,7 +5,11 @@
 //             of HISTORY below
 //   plan      a plan label in a comment: the labels of PLAN below
 //   asserts   a test file (test/t_*.js, test/*_cmd.js) whose diff removes more assertions (check/ok/assert calls) than it
-//             adds, unless the diff creates a test file that takes them over (a split)
+//             adds, unless the diff creates a test file that takes them over (a split), or retires the file (below)
+//   retired   a suite the diff deletes is retired, its assertions not counted as dropped, when the same diff names it in
+//             the ledger ci/retired_suites.js with a reason and drops it from what runs: from ci/suite_views.js and
+//             ci/browser_shards.js, or from ci/browser_suites.js (EXCLUDED). A ledger entry the diff adds for a file it
+//             does not delete is a finding
 // Only comments on added lines of src/, ci/, test/ and tools/ are read, and not the generated files. An added line
 // opts out with `standards-ok: <reason>` in its own comment; a test file opts out of the assertion count with the
 // same marker on any line it adds. A marker with no reason is itself a finding.
@@ -107,9 +111,34 @@ function parseDiff(text) {
   return out;
 }
 
+const LEDGER = 'ci/retired_suites.js';
+// the suites a parsed diff retires (a Set of test/ paths), and the findings of ledger entries for files it does not delete
+function retiredBy(files) {
+  const byFile = (name) => files.find((f) => f.file === name) || { added: [], removed: [] };
+  const entry = (b) => new RegExp(`^\\s*'${b.replace(/[.]/g, '\\.')}':`);
+  const named = (b) => new RegExp(`'${b.replace(/[.]/g, '\\.')}[#']`);
+  // dropped from a list: a removed line names it and no added line does
+  const dropped = (name, re) => { const f = byFile(name); return f.removed.some((l) => re.test(l)) && !f.added.some((a) => re.test(a.text)); };
+  const deleted = new Set(files.filter((f) => f.deleted && TEST_FILE.test(f.file)).map((f) => f.file));
+  const retired = new Set(), found = [];
+  for (const a of byFile(LEDGER).added) {
+    const m = /^\s*'([^']+_cmd\.js|t_[^']+\.js)':\s*(['`"])(.*)$/.exec(a.text);
+    if (!m) continue;
+    const file = 'test/' + m[1], b = m[1];
+    if (!deleted.has(file)) { found.push({ file: LEDGER, line: a.n, rule: 'retired', text: a.text.trim(), why: `names ${file}, which this change does not delete` }); continue; }
+    if (!m[3].replace(/['`",\s]/g, '')) continue;   // (no reason: not retired)
+    // (in ci/browser_suites.js only an EXCLUDED line, whose value is its reason string, counts: a SUITES or TIMING entry
+    // dropped alone leaves the suite running)
+    const excluded = new RegExp(entry(b).source + `\\s*'`);
+    const gone = (dropped('ci/suite_views.js', entry(b)) && dropped('ci/browser_shards.js', named(b))) || dropped('ci/browser_suites.js', excluded);
+    if (gone) retired.add(file);
+  }
+  return { retired, found };
+}
+
 // the findings of a parsed diff: [{ file, line, rule, text, why }]
 function check(files) {
-  const found = [], counted = [];
+  const { retired, found } = retiredBy(files), counted = [];
   for (const f of files) {
     if (!SCOPE.test(f.file) || GENERATED.test(f.file)) continue;
     const marked = f.added.some((a) => (MARKER.exec(commentOf(a.text, f.file)) || [])[1]?.trim());
@@ -127,7 +156,7 @@ function check(files) {
         }
       }
     }
-    if (TEST_FILE.test(f.file) && !marked) {
+    if (TEST_FILE.test(f.file) && !marked && !retired.has(f.file)) {
       const count = (lines) => lines.reduce((s, l) => s + assertionsOf(l, f.file), 0);
       counted.push({ f, before: count(f.removed), after: count(f.added.map((a) => a.text)) });
     }
@@ -145,7 +174,7 @@ function check(files) {
 }
 
 function report(found) {
-  const rules = { history: 'history words in a comment', plan: 'plan label in a comment', asserts: 'dropped test assertions', marker: 'opt-out without a reason' };
+  const rules = { history: 'history words in a comment', plan: 'plan label in a comment', asserts: 'dropped test assertions', retired: 'ledger entry for a file kept', marker: 'opt-out without a reason' };
   if (!found.length) return '### Standards check: nothing found\n\nA finding fails the Gate, which runs this check with --block. Opt a line out with `standards-ok: <reason>` in its comment.\n';
   const rows = found.map((x) => `| ${x.rule} | \`${x.file}:${x.line}\` | ${esc(x.why)} | ${x.text ? '`' + esc(x.text.slice(0, SHOWN_CHARS)) + '`' : ''} |`);
   const by = Object.entries(rules).map(([k, v]) => [v, found.filter((x) => x.rule === k).length]).filter(([, c]) => c).map(([v, c]) => `${c} ${v}`);
@@ -167,4 +196,4 @@ if (require.main === module) {
   summary(report(found));
   process.exit(a.includes('--block') && found.length ? 1 : 0);
 }
-module.exports = { commentOf, assertionsOf, parseDiff, check, report };
+module.exports = { commentOf, assertionsOf, parseDiff, check, retiredBy, report };
