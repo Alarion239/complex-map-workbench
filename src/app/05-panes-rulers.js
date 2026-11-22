@@ -868,9 +868,10 @@
     if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     // (a frame of the CPU stand-in's relief draws the principal branch alone, so the title does not say the sheets until the frame
-    // that draws them: its words follow this)
+    // that draws them: its words follow this. An export's frame (offRender) never draws the stand-in and is not the screen's, so it
+    // leaves it as the screen's last frame set it)
     const standing = !!(info && info.standIn);
-    if (standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets && !offRender) updateFocusUI(); }
+    if (!offRender && standing !== !!render3D.standIn) { render3D.standIn = standing; if (S.sheets) updateFocusUI(); }
     render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, hmap: carry.hmap, mu, box, sheets: !!info.sheets, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
