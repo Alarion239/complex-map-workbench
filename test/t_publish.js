@@ -123,11 +123,9 @@ ok('the published page names the offline page\'s size', named && Number(named[1]
 // comments and indentation and its GLSL templates without their comments (tools/strip_js.js), and the stylesheet
 // without its comments and spare whitespace (tools/strip_css.js). The budgets leave about 0.17 and 0.2 MB above them, all
 // of it for the app's own code (about 0.04 MB of it for the certified Repeat-chain coverage renderer, #1478), none of it
-// test code or a second copy. Of the published page's app code, 0.12 MB is
-// what a 4.6 MB budget, set over a 4.48 MB page, had no room for: the steps view, its Play gate, readout, floor pick and
-// look-down (app.js), the GL renderer's programs, frames and inverse pass with their shaders (gl.js, glsl.js, invops.js,
-// inverse.js) and the Stack's piece counter and critical points (pieces.js, critical.js). What still ships that the page
-// does not run: the language tables' repeated English keys
+// test code or a second copy: the app code that grows the page most is the steps view (app.js) and the GL renderer
+// with its shaders and inverse pass (gl.js, glsl.js, invops.js, inverse.js). What still ships that the page does not
+// run: the language tables' repeated English keys
 const BUDGET = { 'complex-map-workbench.html': 4.7e6, 'complex-map-workbench-offline.html': 7.5e6, offlineExtra: 3.1e6 };
 const bytes = { 'complex-map-workbench.html': Buffer.byteLength(pub), 'complex-map-workbench-offline.html': Buffer.byteLength(off) };
 for (const f of Object.keys(bytes)) ok(`dist/${f}: ${(bytes[f] / 1e6).toFixed(2)} MB, within its budget of ${BUDGET[f] / 1e6} MB`, bytes[f] <= BUDGET[f], bytes[f]);
