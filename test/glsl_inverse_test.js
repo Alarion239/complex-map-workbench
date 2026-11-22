@@ -598,8 +598,9 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     GLR.setChain(GLChain.build(steps, built));
     const plan = Inverse.planChain(steps, built);
     const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
-    // (ULP32: float32's rounding, relative; illCond: of skipped, the lines float32 cannot place)
-    const ULP32 = 2 ** -24;
+    // (ULP32: float32's rounding, relative; illCond: of skipped, the lines float32 cannot place, at most ILL_MAX of the lines:
+    // 14 of the core tier's 102,400 on lavapipe, near-parallel half-plane and sector lines)
+    const ULP32 = 2 ** -24, ILL_MAX = 1e-3;
     const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0, illCond: 0 };
     const N = 1024;
     // after the nV15 shapes (their random stream unchanged), the exact-form discs: near
@@ -653,6 +654,9 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       }
       kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] = (kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] || 0) + 1;
     }
+    // (a mass skip cannot hide behind clip 0 failed: past ILL_MAX of the lines, the lines left out as float32 cannot place
+    // them are a fail of their own)
+    if (CL.illCond > ILL_MAX * CL.lines) { CL.failCount++; CL.fails.push({ illCond: CL.illCond, lines: CL.lines, bad: [`${CL.illCond} of ${CL.lines} lines left out as float32 cannot place them, more than ${ILL_MAX} of them`] }); }
     CL.kinds = kinds;
   }
   // ---- REGION_FS byte identity (SPEC 6.1) ----
