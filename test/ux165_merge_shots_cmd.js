@@ -1,10 +1,10 @@
-// v16.5 wave 1 merge: before / after pictures of the merge's own visible fixes (notes/ux-build/W1-MERGE.md), light and
+// Merge: before / after pictures of the merge's own visible fixes (notes/ux-build/W1-MERGE.md), light and
 // dark, Russian where words changed. "before" is dist/before-test.html: the merged tree with the pieces' conflicts
 // resolved but without the merge's own fixes (built by the merge for these pictures only, then deleted); "after" is
 // dist/test.html. Pictures: <daemon>/shots/w1-merge/<fix>-before|after-<light|dark>[-ru].png
-//   title  Y's head with the chain empty at 1366 × 768: the tagged title no longer vanishes ("Y · " gives way first)
-//   tile   the Russian phone's More tools: the Hyperbolic tile «Гиперб.» on one line (was «Гипербо-лическая»)
-//   tap    a refused pick on the phone says Tap (was Click)
+//   title  Y's head with the chain empty at 1366 × 768: the tagged title does not vanish ("Y · " gives way first)
+//   tile   the Russian phone's More tools: the Hyperbolic tile «Гиперб.» on one line (not «Гипербо-лическая»)
+//   tap    a refused pick on the phone says Tap (not Click)
 //   keys   a card's ⋯ on the laptop shows Alt ← / Alt →
 // A command file for the CDP daemon (test/cdp_kit README).
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];

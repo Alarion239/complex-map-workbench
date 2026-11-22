@@ -26,7 +26,7 @@
   // formulas go through TeX.set, which skips unchanged nodes and, during a scrub or drag, waits for input to
   // pause (TeX.hush). A hidden panel costs nothing: only the rail lamps update, and the panel catches up when shown.
   const PROPS = { sig: null, stale: false, texF: '', rail: '', ro: null, el: null };
-  // ---- v15: the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
+  // ---- the selection and the Inspector (notes/ui-redesign-2/desktop/DESIGN.md 2.4) ----
   // S.sel: the selected object, a step k (0: the region) or 'F'; null follows the step shown alone, else the last step.
   // Selecting is not focusing: the planes keep what they show; Show alone (S.focus) is its own action.
   function selOf() {
@@ -35,7 +35,7 @@
     if (Number.isInteger(S.sel) && S.sel >= 0 && S.sel <= n) return S.sel;
     return S.focus > 0 && S.focus <= n ? S.focus : n;
   }
-  // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4, design-23): "f₃ alone ×"
+  // a step shown alone says so in X's head, with a way back (DESIGN.md 2.4): "f₃ alone ×"
   function syncAloneChip() {
     const head = document.querySelector('#paneL .pane-head');
     if (!head) return;
@@ -121,10 +121,10 @@
   let tempInsp = false;
   function selectStep(k) {
     setSel(k);
-    // ([v17 D4] the Inspector edits what was selected last: a step chosen in the chain replaces the shape it showed)
+    // (the Inspector edits what was selected last: a step chosen in the chain takes the place of the shape it showed)
     if (shapeInspSel()) { selected = null; buildShapeList(); requestRender('L', 'R'); }
     svFSync();
-    if (Params.syncUnused) Params.syncUnused();   // ([v16.5 fix user-1] Use in names the selected step)
+    if (Params.syncUnused) Params.syncUnused();   // (Use in names the selected step)
     if (S.hideRight) {
       if (underChain()) setPanels(S.hideLeft, false);
       else if (window.innerWidth >= 1024) openTemp();
@@ -152,7 +152,7 @@
     tempInsp = true;
     host.classList.add('temp');
     host.setAttribute('role', 'dialog'); host.setAttribute('aria-label', $t('Inspector'));
-    // (review design-5: with X and Y side by side, an overlay would cover Y's centre; the stage gives the Inspector
+    // (with X and Y side by side, an overlay would cover Y's centre; the stage gives the Inspector
     // its width for the time it is open instead. A merged view is wide enough to keep its centre clear.)
     const L = $('paneL').getBoundingClientRect(), R = $('paneR').getBoundingClientRect();
     const lay = document.querySelector('.layout');
@@ -198,7 +198,7 @@
       h, $t, $tx, $tn, ICONS, TeX, sub, fsub, wvar, Funcs, Expr, CX, BADGES, CHIP_DEFS,
       host: () => $('propsPanel'), S: () => S, built: () => built, sel: selOf,
       defOf, isDerivStep, isDeriv, activeSteps, stepMenu, inverseAction, replacePalette: (el, k) => openPalette(el, null, { fnOnly: true, replace: k }), toggleAlone, toggleBypass, closeTemp: () => { closeTemp(); requestRender('P'); },
-      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),   // (v16.5 UX81, UX65)
+      moveStep: (k, d) => moveStep(k, d), numbersOf: (k) => stepNumbers(k),
       repeatOf, setRepeat, repeatField, repeatStep, Params, stepsView: () => SV.on, focusStep: focusStepChip,   // (the steps view's Repeat row)
       paramField, dhAdd: dhAddShape, zpFields, zpCounts: (st) => ZP_KINDS.map((kind) => zpItems(st, kind).length).join(','), branchTag, exactTexF, copyText, hiStep, tourEmit,
       regionSummary, swatchStyle, kindType, requestRender, shapeInspSig, shapeInspBuild, shapeInspFill, splitStep, lsk, splitInfo: (k) => Funcs.splitSteps(S.steps[k - 1], built[k - 1]), splitHidden: () => tourHold && !tourSplit, splitTour: () => tourHold && tourSplit, fmt: (v) => ((t) => (I18N.lang === 'en' ? t : t.replace(/(\d)\.(\d)/g, '$1,$2')))(CX.fmt(v, 4)),
@@ -278,9 +278,55 @@
     const src = svPathsSeg(P, i - 1, i, i);
     return { i, m: 1, surf: SV.surf, src, Fat: src.Fat, z: wvar(P[i - 1]), end: wvar(P[i]) };
   }
+  // a filmstrip over a Number (the figure's Number source): the shared numbers it can run over, those with a value of their
+  // own rather than a formula
+  const figNumbers = () => Params.list().filter((p) => !p.expr && Number.isFinite(p.value))
+    .map((p) => ({ name: p.name, label: Params.display(p.name), tex: Params.tex(p.name), value: { re: p.value, im: p.im || 0 }, min: p.min, max: p.max }));
+  // a Number held at a filmstrip's values: its value and range as they were, put back when the last build that runs over it
+  // ends (a preview's build superseded by the next one shares the hold, so neither takes the other's value for the original).
+  // -> release(), or null when there is no such Number
+  const numHolds = new Map();
+  function figNumberHold(name) {
+    let hd = numHolds.get(name);
+    if (!hd) {
+      const p = Params.list().find((q) => q.name === name);
+      if (!p || p.expr) return null;
+      hd = { users: 0, value: p.im ? { re: p.value, im: p.im } : p.value, min: p.min, max: p.max, step: p.step };
+      numHolds.set(name, hd);
+    }
+    hd.users++;
+    let done = false;
+    return () => {
+      if (done) return;
+      done = true;
+      if (--hd.users > 0) return;
+      numHolds.delete(name);
+      Params.setRange(name, hd.min, hd.max, hd.step);
+      Params.set(name, hd.value);
+    };
+  }
+  // the Number at the value v ({re, im}), set as a change at rest (the steps and shapes that use it follow), then the app's
+  // work on it settled: two frames drawn and no fill, line or smoothing job left, at most FIG_SETTLE_MS. -> false when the
+  // build was cancelled (alive() false)
+  const FIG_SETTLE_MS = 20000;
+  async function figNumberAt(name, v, alive) {
+    Params.set(name, v.im ? { re: v.re, im: v.im } : v.re);
+    const t0 = performance.now();
+    for (;;) {
+      await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+      if (alive && !alive()) return false;
+      if (!(fixJob.running || lineJob.running || sm.running) || performance.now() - t0 > FIG_SETTLE_MS) return true;
+    }
+  }
+  // a value typed for a Number (a real or complex number, as its field takes): {re, im}, or null
+  function figNumberParse(text) {
+    try { const v = Params.evalVal(String(text)); return v && Number.isFinite(v.re) && Number.isFinite(v.im) ? { re: v.re, im: v.im } : null; } catch (e) { return null; }
+  }
   Figure.attach({
     h, openMenu, toast, copyText, saveFile, lsk,
-    // (v16.5 UX60) Video in the export dialog turns the deformation on, where there is one
+    numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
+    svIndex: () => SV.i,
+    // Video in the export dialog turns the deformation on, where there is one
     canDeform: () => morphRange().steps.length > 0,
     deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
     soundDone: () => sndExportDone(), soundError: () => sndError(),
@@ -327,8 +373,8 @@
     svSurf: () => SV.surf,
     svMaskOn,
     // the pane's key at thread position x (default: where it is), from the pane's own facts: its style's strip (none in the
-    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or past the colour
-    // plane the line saying where the colour is carried from; and the plane's name for the axis title
+    // plain Phase style) with its band ends, factor and words, the caption around the plane's variable, or on every plane but the colour
+    // plane's own the line saying where the colour is carried from; and the plane's name for the axis title
     svKey: (x) => {
       if (!SV.on) return null;
       // (the plane the key and the title name is the thread's nearest one: they change at the midpoint between two)
@@ -358,23 +404,23 @@
     paneAspect: (side) => { const real = side === 'L' ? paneL : paneR, other = side === 'L' ? paneR : paneL; return (real.h > 20 ? real.h : other.h) / effW(side); },
     panelVar,
     fname: () => (morphOn() ? 'H_t' : SV.on ? svCapParts().Fname : fNameTex()),
-    // ([#383] the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
+    // (the map Y shows while ‹ › rest it on a step's plane: F_j, the composite of the first j steps; -1 otherwise)
     fTex: () => fNameTex(), parkedAt: () => parkedAt(),
     formulaTex: () => svCapParts().formula,
     formulaRaw: () => svCapParts().raw,
     capParts: svCapParts,
-    sheetsClause,   // (v16.1 user-5: the caption's clause on what All sheets draws, from capParts().sheets)
+    sheetsClause,   // (the caption's clause on what All sheets draws, from capParts().sheets)
     segsTex: (segs) => captionLatex(segs, true),
     sceneName: figSceneName,
-    sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (review regress-1: step ids only when a shape refers to them)
+    sceneMeta: () => { const used = Constr.referencedSteps ? Constr.referencedSteps(S) : new Set(); return JSON.parse(JSON.stringify({ shapes: S.shapes.filter((s) => s.visible !== false), steps: S.steps.map((st) => Object.assign({ type: st.type, params: st.params, on: st.on !== false }, st.uid && used.has(st.uid) ? { uid: st.uid } : {}, st.zpIds && used.has(st.uid) ? { zpIds: st.zpIds } : {})), focus: S.focus, pattern: S.pattern, view: S.view, dc: S.dc, height: S.height }, noRuntime)); },   // (step ids only when a shape refers to them)
     chipHTML: (view) => { const name = { xy: 'X → Y', xyL: S.view.main === 'phase' ? $t('Phase') : 'X', xyR: $t('Deformation'), phase: $t('Phase'), land: $t('Landscape'), morph: $t('Deformation') }[view] || $t('Figure'); const c = figCapParts(); return `${name}${c.mapTex ? ` · <i>${c.Fname.replace(/_\{(\d+)\}/, '<sub>$1</sub>')}(${c.lvar.replace(/_\{(\d+)\}/, '<sub>$1</sub>')})</i>` : ''}`; },
     hue: hueBytes,
-    // (export round 3) the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
+    // the deformation in every view: on, t, its end, a d/dz step; the plot of X (Phase, Landscape) at
     // time T; the lift of the plane to the Riemann sphere (the globe's vector marks)
     defo: () => { const rt = morphOn() ? rangeTex() : null; return { on: morphOn(), T: morph.T, m: morphLen(), deriv: morphHasDeriv(), rGlobe: rGlobe(), main: S.view.main, paths: S.morphPaths !== false, range: rt ? rt.range : null, pre: rt ? rt.pre : null, post: rt ? rt.post : null, qp: rt ? rt.qp : null, qpz: rt ? rt.qpz : null, wdef: rt ? rt.wdef : null }; },
     plotFAt: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.F : focusF(); } finally { morph.T = keep; } },
     lift: liftC,
-    // (export review r3) the screen's deformation paths (their points z), for the video's Paths
+    // the screen's deformation paths (their points z), for the video's Paths
     screenPaths: () => (S.view.main === 'xy' && S.morphPaths !== false && mfCache.sel && mfCache.sel.kept ? mfCache.sel.kept.map((k) => [k.sp.z.re, k.sp.z.im]) : null),
     // the deformation's paths as print vectors (figure.js: the paths figure, plane and globe), and the live globe's
     // chosen points (the globe's paths figure draws the same ones)
@@ -424,7 +470,7 @@
       get selected() { return selected; }, set selected(v) { selected = v; },
     };
   }
-  // the app calls the module by the old names (as untyped calls: their types stay the module's own)
+  // the app calls the module by plain function names (as untyped calls: their types stay the module's own)
   const EXP = /** @type {any} */ (Export);
   function getDownloads(...args) { return EXP.getDownloads(...args); }
   function saveFile(...args) { return EXP.saveFile(...args); }

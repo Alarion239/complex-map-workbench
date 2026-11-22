@@ -1,14 +1,14 @@
   // ---------------- interaction ----------------
   function snapZ(pane, z, force, touch) {
     if (!S.snap && !force) return z;
-    if (!force && (altHeld || (Construct.altNow && Construct.altNow()))) return z;   // ([v16.5 rail] Alt: raw)
-    // the finest graph-paper tier that is clearly drawn: [v16.5 rail SPEC 1.3] gl.js's tiers, halves included (0.5, 1, 5,
+    if (!force && (altHeld || (Construct.altNow && Construct.altNow()))) return z;   // (Alt: raw)
+    // the finest graph-paper tier that is clearly drawn: gl.js's tiers, halves included (0.5, 1, 5,
     // 10, 50, 100 times a power of ten), at least 14 px apart; within 9 px of a lattice point (12 px for a finger)
     const sc = pane.view.s;
     const step = Constr.gridStep ? Constr.gridStep(sc) : (() => { const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc))); return [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100; })();
     const gx = Math.round(z.re / step) * step, gy = Math.round(z.im / step) * step;
     const [x, y] = pane.w2sxy(gx, gy), [x0, y0] = pane.w2s(z);
-    // (wave 1 merge: the press's own pointer, UX09's ptrTouch, where there was one; else Construct's last pointer)
+    // (the press's own pointer, ptrTouch, where there was one; else Construct's last pointer)
     const fing = touch != null ? touch : ptrTouch != null ? ptrTouch : Construct.touchNow ? Construct.touchNow() : false;
     if (Math.hypot(x - x0, y - y0) < (fing ? 12 : 9)) return C(+gx.toPrecision(12), +gy.toPrecision(12));
     return z;
@@ -16,8 +16,8 @@
   const evXY = (pane, e) => { const r = pane.ocanvas.getBoundingClientRect(); return [e.clientX - r.left, e.clientY - r.top]; };
   let drag = null;
   const touches = new Map(); // pointerId -> [x, y] for pinch zoom
-  let pinched = null;         // (v16.4) a pinch in progress zoomed ('zoom') or turned a globe ('orbit')
-  // a pane that orbits a camera (U-b): X Landscape (cam), X Sphere (camL), Y Sphere (camS)
+  let pinched = null;         // a pinch in progress zoomed ('zoom') or turned a globe ('orbit')
+  // a pane that orbits a camera: X Landscape (cam), X Sphere (camL), Y Sphere (camS)
   const is3DSide = (side) => (side === 'L' ? lLand() || lGlobe() : rGlobe());
   const is3D = () => rGlobe();
   const cam3 = () => camS;
@@ -28,13 +28,23 @@
   const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
   const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
+  // the reach of a zero or pole and of the cut handle for a pointer that is a finger (touch, or a pen: ptrTouch) or not: 22 px (a 44 px
+  // target) for a finger, 11 and 12 px for a mouse
+  const zpReach = (finger) => (finger ? 22 : 11), cutReach = (finger) => (finger ? 22 : 12);
+  // the left pane's cut handle at (x, y): the nearest within the handle's reach (a hover is a mouse's, or a pen's near the glass: finger false)
+  const cutHandleNear = (x, y, finger) => {
+    const r = cutReach(finger);
+    let best = null, bd = r;
+    for (const hd of cutHandlesL) { const d = Math.hypot(hd.x - x, hd.y - y); if (d < bd) { best = hd; bd = d; } }
+    return best;
+  };
   // nothing to press at (x, y) of a flat plane: no shape or target, no zero or pole, no cut handle
-  // ([#253] constructions bind to the z-plane's shapes and the targets: in a plane of the chain the tools draw plain shapes)
+  // (constructions bind to the z-plane's shapes and the targets: in a plane of the chain the tools draw plain shapes)
   const cmHere = (side) => side === 'R' || leftStage() === 0;
   function emptyAt(pane, side, x, y) {
     if (side === 'L' ? !lFlat() : !rImage()) return false;
     pane.setView(side === 'L' ? leftView() : V.right);
-    if (side === 'L' && (cutHandlesL.some((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || (zpStep() && zpHit(x, y, 11)))) return false;
+    if (side === 'L' && (cutHandleNear(x, y, ptrTouch) || (zpStep() && zpHit(x, y, zpReach(ptrTouch))))) return false;
     const target = side === 'R', list = target ? (targetsEditable() ? S.targets : []) : planeShapes();
     const z = pane.s2w(x, y), tol = 7 / pane.view.s;
     for (const s of list) { if (s.visible === false) continue; try { if (Region.hitTest(s, z, tol, target ? targetWin() : winOf(s))) return false; } catch (e) { /* */ } }
@@ -112,7 +122,7 @@
   function setupPane(pane, side) {
     const cv = pane.ocanvas;
     // a right click: the plane menu of the object there (a right-button pan that moved opens nothing; a touch opens it
-    // with a long press, below). While drawing, it cancels the drawing instead (issue #13)
+    // with a long press, below). While drawing, it cancels the drawing instead
     cv.addEventListener('contextmenu', (e) => {
       e.preventDefault();
       if (touches.size || performance.now() - holdMenuT < 900) return;
@@ -132,14 +142,14 @@
       const [x, y] = evXY(pane, e);
       const k = e.ctrlKey ? 0.012 : 0.0016;
       zoomPane(pane, side, x, y, Math.exp(-e.deltaY * (e.deltaMode === 1 ? 0.05 : k)));
-      // (v16.4) a wheel zoom ends 250 ms after its last tick
+      // a wheel zoom ends 250 ms after its last tick
       clearTimeout(pane.tourWheelT); pane.tourWheelT = setTimeout(() => tourViewMoved(side, 'zoom'), 250);
     }, { passive: false });
-    // touch has no hover: the long press (INTERFACE.md "Long-press", v15). A still finger (8 px slop) fills a ring for
+    // touch has no hover: the long press (INTERFACE.md "Long-press"). A still finger (8 px slop) fills a ring for
     // 450 ms; then its gesture is undone and becomes a probe (readouts, gauge). Sliding on probes; a release without
     // sliding opens the plane menu at the ring's point. A second finger, or a move before the ring is full, cancels it.
     let hold = null, ring = null;
-    // (#362 a tap on Y while ‹ › have it on a step's plane (select, draw, a menu) ends the glide: Y is F again; a pan or a zoom does not)
+    // (a tap on Y while ‹ › have it on a step's plane (select, draw, a menu) ends the glide: Y is F again; a pan or a zoom does not)
     if (side === 'R') {
       let tap = null;
       cv.addEventListener('pointerdown', (e) => { tap = trans.glide ? { x: e.clientX, y: e.clientY, t: performance.now() } : null; }, true);
@@ -153,8 +163,8 @@
         if (touches.size === 2) {
           ring = null;
           endHold();
-          // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step ([v16.5 rail
-          // SPEC 2.6] a point's or a shape's move goes back to its press state, no step)
+          // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step (SPEC 2.6, the rail:
+          // a point's or a shape's move goes back to its press state, no step)
           if (drag && (drag.mode === 'move' || drag.mode === 'handle') && Construct.cancelDrag && Construct.cancelDrag()) { /* cancelled */ }
           else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
@@ -166,7 +176,7 @@
       // (the landscape too with the plane menu: its hold probes the relief like a mouse hover; a still finger on a zero
       // or a pole of X gets the menu of that mark)
       const probeable = side === 'L' ? !lLand() || !!PM() : true;
-      // (v16.5 UX49: with a construction tool, a finger on something it picks (a point, a line, a circle) picks it when
+      // (with a construction tool, a finger on something it picks (a point, a line, a circle) picks it when
       // it lifts, however long it was held: a slow, careful tap opened the plane's menu and lost the pick. Over empty
       // space the long press still opens the menu)
       const cPick = e.pointerType === 'touch' && Construct.isTool(tool) && (() => { const [px, py] = evXY(pane, e); return !!Construct.snapAt(side, px, py, { points: true, cross: true, curves: true }); })();
@@ -181,7 +191,7 @@
           if (drag !== d0 || d0.moved || touches.size !== 1) { if (PM()) PM().ringStop(); return; }
           // undo what the touch began (a draft, a small pan), then probe under the finger, or open the integral
           // menu of a curve there. A drawing in progress (this touch's, a polygon's, a construction's picks) is
-          // cancelled, and the release opens no menu (issue #13)
+          // cancelled, and the release opens no menu
           const cancelled = cancelDrawing();
           if (d0.mode === 'panL') { const v = leftView(); v.cx = d0.cx; v.cy = d0.cy; requestRender('L', 'R'); }
           if (d0.mode === 'panR') { V.right.cx = d0.cx; V.right.cy = d0.cy; requestRender('R'); }
@@ -216,7 +226,7 @@
           if (d0 > 0 && d1 > 0) { zoomPane(pane, side, (now[0][0] + now[1][0]) / 2, (now[0][1] + now[1][1]) / 2, d1 / d0); if (d1 !== d0) pinched = pinched || 'zoom'; }
           // (two fingers pan as well as pinch: the midpoint's own move)
           { const pmx = (now[0][0] + now[1][0] - prev[0][0] - prev[1][0]) / 2, pmy = (now[0][1] + now[1][1] - prev[0][1] - prev[1][1]) / 2; if (pmx || pmy) { panPane(pane, side, pmx, pmy); pinched = pinched || 'pan'; } }
-          // a two-finger drag turns a globe (P3b, P6: one finger draws there)
+          // a two-finger drag turns a globe (one finger draws there)
           if (side === 'L' ? lGlobe() : rGlobe()) {
             const c = camOf(side);
             const mx = (now[0][0] + now[1][0] - prev[0][0] - prev[1][0]) / 2, my = (now[0][1] + now[1][1] - prev[0][1] - prev[1][1]) / 2;
@@ -233,7 +243,7 @@
       if (rg) { ring = null; if (PM()) PM().ringStop(); }
       const dm = drag && drag.menuAt && e.type === 'pointerup' ? drag : null;
       touches.delete(e.pointerId); onUp(pane, side, e);
-      // (v16.4) a pinch (or a two-finger turn of a globe) ends when its fingers lift
+      // a pinch (or a two-finger turn of a globe) ends when its fingers lift
       if (pinched && touches.size < 2) { const how = pinched; pinched = null; tourViewMoved(side, how); }
       // a right press that did not move (macOS): its menu now
       if (dm && !dm.far && !dm.moved && rightClickAt(pane, side, dm.menuAt.x, dm.menuAt.y)) setCursor(pane, side);
@@ -257,9 +267,9 @@
       // a double-click that turned the globe (or the landscape) brings the camera home; one that drew, picked or moved a
       // shape on an editable globe keeps the user's view
       if (is3DSide(side)) { const c = camOf(side); if (c && (!globeEdit(side) || gTurnPress[side])) tweenCam(c, camBaseOf(c)); return; }
-      // a flat plane: centre the view at the point (issue #13), when the press pressed empty plane (a left pan that
+      // a flat plane: centre the view at the point, when the press pressed empty plane (a left pan that
       // did not move); one that drew, picked, or moved a shape, a mark or a cut handle leaves the view where it is (this
-      // replaces v16.5's double-click zoom, UX66; the branch cut still moves by its red handle only)
+      // is the plane's double-click zoom; the branch cut still moves by its red handle only)
       const lp = lastPress;
       if (!lp || lp.side !== side || (lp.mode !== 'panL' && lp.mode !== 'panR') || lp.far || lp.pb) return;
       if (Construct.isTool(tool)) return;
@@ -292,7 +302,7 @@
       if (drag) { sourceViewChanged.t = setTimeout(sourceViewChanged.apply, 200); return; }
       sourceViewChanged.pending = false;
       if (leftStage() !== 0 || solo() === 'R') return;
-      // (v15.1: while X is a phone's inset, its window at its large size: review-phone-swap swap-7)
+      // (while X is a phone's inset, its window at its large size)
       const b = (Phone.largeBox && Phone.largeBox()) || paneL.box();
       // rounded outward to 1e-4 of the window's own size (rounding to significant digits of the coordinates
       // collapsed deep views far from 0 to zero width)
@@ -331,7 +341,7 @@
       }
     }
     st.params.cut = d;
-    // (v16.5 UX33: every θ field of step k follows the seam, the Inspector's too, not only the cards')
+    // (every θ field of step k follows the seam, the Inspector's too, not only the cards')
     syncParam(k, 'cut', '');
     chainChanged(false);
   }
@@ -350,7 +360,7 @@
     // the landscape takes no drawing (panels.md 9.1)
     else if (lLand() && tool !== 'select' && tool !== 'formula' && !drag) c = 'not-allowed';
     else if (!lFlat()) c = drag ? 'grabbing' : 'grab';
-    // ([#253] shapes are drawn in any flat plane X shows; constructions in the z-plane only: P4, nothing jumps)
+    // (shapes are drawn in any flat plane X shows; constructions in the z-plane only: nothing jumps)
     else if (leftStage() > 0 && Construct.isTool(tool) && !drag) c = 'not-allowed';
     else if (drag && (drag.mode === 'panL' || drag.mode === 'zp')) c = 'grabbing';
     else if (hoverCut || zpHover) c = 'pointer';
@@ -364,7 +374,7 @@
     const [x, y] = evXY(pane, e);
     ptrTouch = e.pointerType === 'touch' || e.pointerType === 'pen';
     altHeld = !!e.altKey;
-    Construct.pointer(e);   // (v16: touch radii, Alt)
+    Construct.pointer(e);   // (touch radii, Alt)
     pane.ocanvas.setPointerCapture(e.pointerId);
     const panBtn = e.button === 1 || e.button === 2 || (e.shiftKey && e.altKey) || edgeTouch(pane, x, y);
     if (side === 'R') {
@@ -404,7 +414,10 @@
       // (a handle of the selected shape on the same spot wins: a disc about 0 of radius 1 under the default zeros)
       const selSh = leftStage() === 0 && tool === 'select' && selected ? S.shapes.find((s) => s.id === selected) : null;
       const onSel = !!selSh && (ptrTouch ? !!handleAt(pane, selSh, x, y) : Region.handlesOf(selSh).some(([hk, hz]) => { if (selSh.at && selSh.at[hk]) return false; const [hx, hy] = pane.w2s(hz); return Math.abs(hx - x) < 8 && Math.abs(hy - y) < 8; }));
-      const zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, e.pointerType === 'touch' ? 22 : 11);   // (v16 [C1]: other tools pick a zero)
+      let zh = onSel || (tool !== 'select' && tool !== 'point') ? null : zpHit(x, y, zpReach(ptrTouch));   // (other tools pick a zero)
+      // (a cut handle nearer than the zero or pole takes the press: both reach 22 px for a finger)
+      const ch = zh && cutHandleNear(x, y, ptrTouch);
+      if (ch && Math.hypot(ch.x - x, ch.y - y) < Math.hypot(zh.x - x, zh.y - y)) zh = null;
       if (zh) {
         zpSel = { k: zh.k, kind: zh.kind, i: zh.i };
         if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
@@ -420,7 +433,7 @@
       }
       if (zpSel) { zpSel = null; requestRender('OL'); }
     }
-    // ([#252] a preimage dot of a point of a later plane: Select or Point drags it, so the point (its number) follows)
+    // (a preimage dot of a point of a later plane: Select or Point drags it, so the point (its number) follows)
     if (tool === 'select' || tool === 'point') {
       const ph = preHit('L', x, y, ptrTouch ? 22 : 10);
       const s = ph && S.shapes.find((q) => q.id === ph.id), bn = s && boundNumber(s, 'p'), pr = bn && Params.list().find((q) => q.name === bn);
@@ -432,9 +445,11 @@
       }
     }
     // cut handles have priority
-    for (const hnd of cutHandlesL) {
-      if (Math.hypot(hnd.x - x, hnd.y - y) < 12) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
-    }
+    // (a handle on a frame parked between two planes has no `to`, no plane to take exact preimages in, so no Fc: its
+    // drag runs the continuation alone, cutPull)
+    const hnd = cutHandleNear(x, y, ptrTouch);
+    if (hnd) { drag = { mode: 'cut', step: hnd.step, p: hnd.p, F: hnd.F, fwd: hnd.fwd, q: hnd.q, from: hnd.from, to: hnd.to, Fc: hnd.F && hnd.to != null ? cutFree(hnd.step, hnd.q, hnd.p, hnd.from, hnd.to) : null }; return; }
+    if (pickDown(pane, z, x, y)) return;
     if (editDown(pane, 'L', z, x, y)) return;
     drag = { mode: 'panL', x, y, cx: leftView().cx, cy: leftView().cy, pane };
     setCursor(pane, side);
@@ -444,7 +459,7 @@
   function editDown(pane, side, z, x, y) {
     const target = side === 'R';
     const list = target ? S.targets : planeShapes(), win = target ? targetWin() : leftStage() > 0 ? stageWin(leftStage()) : clipWin, ov = target ? 'OR' : 'OL';
-    if (Construct.isTool(tool)) return Construct.toolDown(pane, side, x, y);   // (v16: picks are clicks, onUp)
+    if (Construct.isTool(tool)) return Construct.toolDown(pane, side, x, y);   // (picks are clicks, onUp)
     // polygon drafting
     if (tool === 'polygon') {
       if (!draft || !!draft.target !== target) draft = { kind: 'polygon', pts: [], target };
@@ -452,7 +467,7 @@
         const [fx, fy] = pane.w2sxy(draft.pts[0][0], draft.pts[0][1]);
         if (Math.hypot(fx - x, fy - y) < (ptrTouch ? 24 : 12)) { finishPolygon(); return true; }
       }
-      const cmT = cmHere(side) ? Construct.vertexPick(draft, side, x, y) : null;   // (v16: a vertex binds to a point)
+      const cmT = cmHere(side) ? Construct.vertexPick(draft, side, x, y) : null;   // (a vertex binds to a point)
       const zz = cmT || snapZ(pane, z);
       draft.pts.push([zz.re, zz.im]);
       requestRender(ov);
@@ -472,13 +487,13 @@
     }
     if (tool !== 'select') {
       if (tool === 'point') {
-        const pd = cmHere(side) ? Construct.pointDown(pane, side, x, y) : null;   // (v16: a crossing, a curve, a point)
-        // ([v16.5 rail SPEC 6] a press on an existing point selects it, and a drag from there moves it as the Select tool
+        const pd = cmHere(side) ? Construct.pointDown(pane, side, x, y) : null;   // (a crossing, a curve, a point)
+        // (a press on an existing point selects it, and a drag from there moves it as the Select tool
         // would: along its curve, off it by a pull, or a free point with snapping. A click alone changes nothing)
-        if (pd === 'existing') { const ps = list.find((s) => s.id === selected && s.kind === 'point'); if (ps) drag = { mode: 'move', shape: ps, z0: z, moved: false, target, cmTell: Construct.touchNow() }; }   // ([v16.5 fix rail-6] cmTell: a finger's tap that does not move says how to place another, at the release)
+        if (pd === 'existing') { const ps = list.find((s) => s.id === selected && s.kind === 'point'); if (ps) drag = { mode: 'move', shape: ps, z0: z, moved: false, target, cmTell: Construct.touchNow() }; }   // (cmTell: a finger's tap that does not move says how to place another, at the release)
         if (pd) return true;
       }
-      // [UX47] the second click (or tap) of a two-click shape: its end, here; a drag from it still moves the end
+      // the second click (or tap) of a two-click shape: its end, here; a drag from it still moves the end
       if (draft && draft.pending && !draft.globe && draft.kind === tool && !!draft.target === target) {
         const zp = (cmHere(side) && Construct.drawMove(pane, side, tool, x, y)) || snapZ(pane, z);
         Object.assign(draft.shape, Region.defaultsFor(tool, draft.z0, zp));
@@ -488,7 +503,7 @@
         return true;
       }
       if (draft && draft.pending) dropPending();
-      const cmZ = tool !== 'point' && cmHere(side) ? Construct.drawStart(pane, side, tool, x, y) : null;   // (v16: the press binds the start [C19])
+      const cmZ = tool !== 'point' && cmHere(side) ? Construct.drawStart(pane, side, tool, x, y) : null;   // (the press binds the start)
       const zz = cmZ || snapZ(pane, z);
       if (tool === 'point') { addShape(newShape('point', { p: [zz.re, zz.im] }, target), target); return true; }
       const shape = newShape(tool === 'lasso' ? 'polygon' : tool, tool === 'curve' || tool === 'lasso' ? { pts: [[zz.re, zz.im]] } : Region.defaultsFor(tool, zz, zz), target);
@@ -499,15 +514,15 @@
     }
     // handles of the selected shape
     const sel = list.find((s) => s.id === selected);
-    const cmU = sel && cmHere(side) ? Construct.boundUnder(sel, pane, x, y) : null;   // (v16: a bound handle's press goes to what is beneath)
+    const cmU = sel && cmHere(side) ? Construct.boundUnder(sel, pane, x, y) : null;   // (a bound handle's press goes to what is beneath)
     if (cmU) { if (cmU.key) { drag = { mode: 'handle', shape: cmU.shape, key: cmU.key, target }; return true; } selected = cmU.shape.id; zpSel = null; buildShapeList(); drag = { mode: 'move', shape: cmU.shape, z0: z, moved: false, target }; requestRender(ov); return true; }
     if (sel) {
       const hk = handleAt(pane, sel, x, y);
       if (hk) { drag = { mode: 'handle', shape: sel, key: hk, target }; return true; }
     }
-    // [v16.5 UX09] a finger picks a line or a curve within 18 px (a mouse within 7)
+    // a finger picks a line or a curve within 18 px (a mouse within 7)
     const tol = (ptrTouch ? 18 : 7) / pane.view.s;
-    // topmost first, points before curves (a 3-point circle passes through its points: v16 verify-1), filled areas last
+    // topmost first, points before curves (a 3-point circle passes through its points), filled areas last
     const hitRank = (s) => (kindType(s) === 'point' ? 0 : kindType(s) === 'area' ? 2 : 1);
     const cands = list.filter((s) => s.visible !== false).reverse()
       .sort((a, b) => hitRank(a) - hitRank(b));
@@ -516,7 +531,7 @@
     for (const s of cands) {
       try { if (Region.hitTest(s, z, tol, target ? win : winOf(s))) { under.push(s); if (!altHeld) break; } } catch (e) { /* a damaged formula never hits */ }
     }
-    // (UX42: Alt-click on shapes that cover each other goes to the next one under the pointer, round again at the last)
+    // (Alt-click on shapes that cover each other goes to the next one under the pointer, round again at the last)
     hit = altHeld && under.length > 1 && under.some((s) => s.id === selected) ? under[(under.findIndex((s) => s.id === selected) + 1) % under.length] : under[0] || null;
     if (hit) {
       // (touch: the first press on a shape with area or curves only selects it, and a drag from it pans; the next one moves it. A point is a small, deliberate target: a drag moves it)
@@ -538,7 +553,7 @@
   const GL3 = Region.Globe;
   const globeEdit = (side) => (side === 'L' ? lGlobe() && solo() !== 'R' : rGlobe() && !morphOn() && solo() !== 'L');
   const GLOBE_OFF = new Set(['annulus', 'sector', 'pgrid']);
-  // the snap net of a tool (panels.md 9.5, P8): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
+  // the snap net of a tool (panels.md 9.5): round kinds snap to the polar net, Cartesian kinds to the lifted lattice;
   // the globe's graticule draws the net of the active tool (the polar net with Select)
   const ROUND_TOOLS = new Set(['select', 'point', 'circle', 'disc', 'formula', 'annulus', 'sector', 'pgrid']);
   const globeNet = () => (ROUND_TOOLS.has(tool) ? 'polar' : 'cart');
@@ -643,7 +658,7 @@
       const eps = 1e-4 * Math.max(1, CX.abs(z));
       const sx = dist(GL3.lift(z.re + eps, z.im)) / eps, sy = dist(GL3.lift(z.re, z.im + eps)) / eps, sc = Math.min(sx, sy);
       if (!(sc > 0) || !Number.isFinite(sc)) return g;
-      // ([v16.5 rail SPEC 1.3] the drawn tiers, halves included, as the lifted lattice draws them: Constr.gridStep)
+      // (the drawn tiers, halves included, as the lifted lattice draws them: Constr.gridStep)
       const d0 = Math.pow(10, Math.ceil(Math.log10(8 / sc)));
       const step = Constr.gridStep ? Constr.gridStep(sc) : [1, 5, 10, 50, 100].map((m) => d0 * m).find((st) => st * sc >= 14) || d0 * 100;
       const gx = +(Math.round(z.re / step) * step).toPrecision(12), gy = +(Math.round(z.im / step) * step).toPrecision(12);
@@ -761,7 +776,7 @@
       if (!gs.z) return;
       // the second press of a double-click places no second point on the first
       const last = list[list.length - 1], now = performance.now();
-      // ([v16.5 rail SPEC 1.2 (c)] on a drawn curve (no point or mark took the press): a point on that curve)
+      // (on a drawn curve (no point or mark took the press): a point on that curve)
       if (!gs.pt && Construct.globePoint && Construct.globePoint(side, g, x, y, gc, (s, tol) => globeCurveHit(gc, s, x, y, tol))) {
         // (the plane's shapes read again: the point was just added, and `list` is a copy taken before it)
         const cur = target ? S.targets : planeShapes(), pl = cur[cur.length - 1];
@@ -790,7 +805,7 @@
         if (globeCurveHit(gc, js, x, y, 10) || GL3.globeInside(js, g.P)) { drag = { mode: 'gmove', shape: js, P0: g.P, z0: g.z, s0: JSON.parse(JSON.stringify(js)), moved: false, target, side, x, y }; requestRender('O' + side); return; }
       }
     }
-    // [UX47] the second click of a two-click shape on this globe: its end (the rim of a circle) at the press
+    // the second click of a two-click shape on this globe: its end (the rim of a circle) at the press
     if (draft && draft.pending && draft.globe === side && draft.kind === tool) {
       draft.pending = false;
       drag = { mode: 'gdraw', target, side, x, y, second: true };
@@ -828,7 +843,7 @@
     }
     const vis = list.filter((s) => s.visible !== false).reverse();
     let hit = null;
-    // (points first, then curves: a curve through a point never takes its press, v16 verify-1)
+    // (points first, then curves: a curve through a point never takes its press)
     for (const s of vis) {
       if (kindType(s) !== 'point') continue;
       const q = gScreen(gc, GL3.lift(s.p[0], s.p[1])); if (q && Math.hypot(q[0] - x, q[1] - y) <= 7) { hit = s; break; }
@@ -917,7 +932,7 @@
           rimPhi.set(s.id, GL3.rimAngle(cap.C, gs.P));
         }
       } else {
-        // ([v16.5 rail SPEC 1.2 (b)] a selected point on a curve dragged by its handle: the same slide and pull as by its
+        // (a selected point on a curve dragged by its handle: the same slide and pull as by its
         // body; once pulled off it drags as a free point's handle)
         if (s.kind === 'point' && s.def && s.def.op === 'glider' && Construct.globeSlide) {
           if (Construct.globeSlide(d, side, g, x, y, gc)) { d.moved = true; changed(s); return; }
@@ -937,7 +952,7 @@
     if (d.mode === 'gmove') {
       const s = d.shape;
       if (!d.moved && Math.hypot(x - d.x, y - d.y) < 3) return;
-      // ([v16.5 rail SPEC 1.2 (b)] a point on a curve slides on its rail on the globe too; a pull frees it, and the drag
+      // (a point on a curve slides on its rail on the globe too; a pull frees it, and the drag
       // goes on as a free point's from where it came off)
       if (s.kind === 'point' && s.def && s.def.op === 'glider' && Construct.globeSlide) {
         const r = Construct.globeSlide(d, side, g, x, y, gc);
@@ -978,7 +993,7 @@
   }
   // the end of a globe gesture: a draft becomes a shape (or a target) when it has a size on screen; an edit is one undo step
   function globeUp(pane, side, d) {
-    if ((d.mode === 'gmove' || d.mode === 'ghandle') && d.cmGlobe && Construct.moveUp) Construct.moveUp(d);   // ([v16.5 rail] a slide's last frame)
+    if ((d.mode === 'gmove' || d.mode === 'ghandle') && d.cmGlobe && Construct.moveUp) Construct.moveUp(d);   // (a slide's last frame)
     gSnapMark = null; gInf[side] = false;
     setReadouts(null);
     if (d.mode === 'gdraw' && draft) {
@@ -1006,7 +1021,7 @@
     }
     requestRender(side, 'O' + side);
   }
-  // the overlay of an editable globe: the selected shape's handles (lifted, facing hemisphere only, today's style),
+  // the overlay of an editable globe: the selected shape's handles (lifted, facing hemisphere only, in the usual style),
   // a polygon draft's vertices, and the snap ring
   function drawGlobeEdit(side) {
     const gc = globeCam(side);
@@ -1058,7 +1073,7 @@
     const t = Object.assign({}, s, { color: GLR.hexRGB(area ? ink.c0 : ink.edge), edge: GLR.hexRGB(ink.edge), alpha: area ? 0.35 : 1, width: 1.5 * (side === 'L' ? paneL : paneR).dpr });
     return { map: IDENT, targets: [t], halo: GLR.hexRGB(TH.halo) };
   }
-  // ([v16.5 check app-7] while a point of X is dragged, the readout reads the point, not the place it was pressed at; in
+  // (while a point of X is dragged, the readout reads the point, not the place it was pressed at; in
   // the frame, after a point on a curve has been put where the drag leaves it)
   let dragProbeRaf = 0;
   function dragProbe() {
@@ -1087,6 +1102,7 @@
         return;
       }
       if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
+      if (drag.mode === 'pickMove' || drag.mode === 'pickOut') { pickMove(drag, pane, x, y); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1142,14 +1158,14 @@
       // a point bound to a free number, pressed selected (a handle) or not (its body): the number moves
       if ((drag.mode === 'handle' || drag.mode === 'move') && !drag.target && numberPointDrag(drag, pane, z)) return;
       if (drag.mode === 'handle') {
-        const cmZ = Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y);   // (v16: onto a point, binds at the release)
+        const cmZ = Construct.handleMove(drag, drag.target ? 'R' : 'L', x, y);   // (onto a point, binds at the release)
         pane.setView(drag.target ? V.right : leftView());
         Region.setHandle(drag.shape, drag.key, cmZ || snapZ(pane, z));
         drag.moved = true;
         if (drag.target) targetsChanged(false); else shapesChanged(false);
         return;
       }
-      if (drag.mode === 'move') {   // (v16 [C18]: built shapes)
+      if (drag.mode === 'move') {   // (built shapes)
         const r = Construct.moveDrag(drag, pane, drag.target ? 'R' : 'L', x, y);
         if (r === 'pan') { const v = drag.target ? V.right : leftView(); Object.assign(drag, { mode: drag.target ? 'panR' : 'panL', x, y, cx: v.cx, cy: v.cy, pane }); setCursor(pane, side); return; }
         if (r) { dragProbe(); return; }
@@ -1184,7 +1200,9 @@
     }
     // hover
     if (side === 'L') probeHover = { pane, e };
-    if (side === 'L' && SV.on && svMoving()) { probeMoving(); return; }
+    // (while the steps view's thread moves, the probe and its readout idle; a parked plane's cut handle still lights under the
+    // pointer, and Hear the function follows the pointer on the nearer plane's map, the point picked as a still pointer's re-pick is)
+    if (side === 'L' && SV.on && svMoving()) { probeMoving(); cutHover(pane, side, x, y); if (sndP.on && sndP.sonify) sndMove(x, y, sndPickAt('pointer', x, y), 'pointer'); return; }
     if (side === 'L' && lLand()) {
       // the landscape probes the point of X under the pointer on the relief (or its floor): the needle, the readout
       // and the image in Y follow it
@@ -1201,7 +1219,7 @@
       const gc = globeCam(side);
       setGInf(pane, side, !!gc && (tool === 'point' || tool === 'polygon') && globeEdit(side) && nearInf(gc, x, y));
     }
-    // [UX47] a two-click shape waiting for its second point follows the pointer (snapped as a drag's end is)
+    // a two-click shape waiting for its second point follows the pointer (snapped as a drag's end is)
     if (draft && draft.pending && !drag) pendingHover(pane, side, e, x, y);
     // a polygon draft on a globe follows the pointer (snapped as its vertices are)
     if (draft && draft.kind === 'polygon' && draft.globe === side && is3DSide(side)) {
@@ -1222,14 +1240,13 @@
       return;
     }
     if (side === 'L') {
-      const hc = (cutHandlesL.find((hd) => Math.hypot(hd.x - x, hd.y - y) < 12) || {}).step || 0;
-      if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); }
+      cutHover(pane, side, x, y);
       const zh = zpHit(x, y);
       if (!zpSame(zpHover, zh && zh.k, zh && zh.kind, zh && zh.i)) { zpHover = zh ? { k: zh.k, kind: zh.kind, i: zh.i } : null; setCursor(pane, side); }
       if (draft && draft.kind === 'polygon' && !draft.target) { pane.setView(leftView()); draft.hover = snapZ(pane, pane.s2w(x, y)); }
     }
     if (side === 'R' && draft && draft.kind === 'polygon' && draft.target) { pane.setView(V.right); draft.hover = snapZ(pane, pane.s2w(x, y)); }
-    if (cmHere(side)) Construct.hover(pane, side, x, y, e);   // (v16: the snap ring before the press)
+    if (cmHere(side)) Construct.hover(pane, side, x, y, e);   // (the snap ring before the press)
     if (side === 'L') {
       pane.setView(leftView());
       probe = pane.s2w(x, y);
@@ -1268,7 +1285,7 @@
   }
   // fixed-width readout; a component that is rounding noise next to the other (9×10⁻¹⁷ + 1.5i) reads 0
   // (atol: below it a component is 0 too; the left readout passes a billionth of X's pixel, so a probe that lands a
-  // rounding error off an axis reads 0.0000, not 7.11×10⁻¹⁵, review regress-5)
+  // rounding error off an axis reads 0.0000, not 7.11×10⁻¹⁵)
   function fmtCxHtml(w, dp = 4, atol = 0) {
     if (!CX.isFin(w)) return '∞';
     const tol = Math.max(atol, 1e-12 * Math.max(Math.abs(w.re), Math.abs(w.im)));
@@ -1278,10 +1295,16 @@
   const rk = (k, v) => `<span class="rp">${k ? `<span class="rk">${k}</span> ` : ''}<span class="rv">${v}</span></span>`;
   let rHover = null; // a point hovered in the right (image) plane
   const copyValue = { L: '', R: '' };
-  // (#955) While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
+  // While the steps view's thread moves (a glide, a scrub, a play, held between two planes), the left probe shows
   // nothing: it is cleared, its readout idles with its box kept, and its markers hide. The pointer's last hover on the
   // left pane is kept, so the probe reads again at once in the first parked frame (idleReadouts), without a pointer move.
   let probeHover = null, probeHeld = false;
+  // the left pane's cut handle under the pointer (x, y) is the lit one (hoverCut, none: 0); a change sets the cursor and
+  // draws the overlay again, where the handle is drawn lit or not
+  function cutHover(pane, side, x, y) {
+    const hc = (cutHandleNear(x, y, false) || {}).step || 0;
+    if (hc !== hoverCut) { hoverCut = hc; setCursor(pane, side); requestRender('OL'); }
+  }
   function probeMoving() {
     if (probe) { probe = null; setReadouts(null); }
     probeHeld = !!probeHover;
@@ -1407,7 +1430,7 @@
   // idle readouts show the scale; refreshed after every render when nothing is probed (the left readout keeps the
   // preimage count while the right plane is hovered)
   function idleReadouts() {
-    // (#955) the thread came to rest: the probe reads the pointer's point of this frame
+    // the thread came to rest: the probe reads the pointer's point of this frame
     if (probeHeld && SV.on && !svMoving()) {
       probeHeld = false;
       if (probeHover && !drag) { onMove(probeHover.pane, 'L', probeHover.e); return; }
@@ -1426,7 +1449,7 @@
     const done = () => { el.classList.add('copied'); el.innerHTML = rk('', $t('Copied')); setTimeout(() => { el.classList.remove('copied'); setReadouts(probe); }, 900); };
     try { navigator.clipboard.writeText(v).then(done, done); } catch (e) { done(); }
   }
-  // [UX47] Line, Segment, Ray and Circle by two clicks (or taps) as well as by a drag: a press that does not move keeps
+  // Line, Segment, Ray and Circle by two clicks (or taps) as well as by a drag: a press that does not move keeps
   // its start (draft.pending) and says so; the dashed preview follows the pointer; the next press in the same plane is
   // the end. Another tool, Esc, a right-click or a press elsewhere drops it
   const TWO_CLICK = new Set(['line', 'segment', 'ray', 'circle']);
@@ -1466,9 +1489,9 @@
     setCursor(pane, side);
     // a pan or an orbit that moved: the contextmenu that may follow its right-button release opens nothing
     if (/^(pan|orbit)/.test(d.mode)) lastPan = { t: performance.now(), moved: !!d.far };
-    // (v16.4) the user's pan or orbit, once it moved: the tour's view tasks (notes/tour/INTEGRATION.md 9)
+    // the user's pan or orbit, once it moved: the tour's view tasks (notes/tour/INTEGRATION.md 9)
     if (/^(pan|orbit)/.test(d.mode) && d.far) tourViewMoved(d.side || side, d.mode === 'orbit' ? 'orbit' : 'pan');
-    if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // ([v16.5 rail] a free point's drop too)
+    if (sndP.on && sndP.snap && S.snap && !altHeld && ((d.mode === 'draw' && draft && draft.kind !== 'curve' && draft.kind !== 'lasso') || ((d.mode === 'handle' || d.mode === 'zp') && d.moved) || (d.mode === 'move' && d.fd && d.moved))) soundCue('snap');   // (a free point's drop too)
     if (d.mode === 'gdraw' || d.mode === 'ghandle' || d.mode === 'gmove') {
       // a release at a place the last move did not reach (moves can be merged or dropped while a frame is busy) is the gesture's end
       const [x, y] = evXY(pane, e), lx = d.gx != null ? d.gx : d.x, ly = d.gx != null ? d.gy : d.y;
@@ -1480,7 +1503,7 @@
     // Hear the function: a click on a still point (a press and release with no drag, the Select tool, an empty spot of
     // the plane; not the pan button's press) plays that point (spec 3.9); a finger's is the long press (the hold, in the pointerdown handler)
     if (e && e.pointerType !== 'touch' && e.type === 'pointerup' && (e.button | 0) === 0 && !(e.shiftKey && e.altKey) && tool === 'select' && !d.far && !d.menuAt && !d.pb && (d.mode === 'panL' || d.mode === 'panR' || (d.mode === 'orbit' && d.side === 'L'))) { const [qx, qy] = evXY(pane, e); sndQueryClick(pane, side, qx, qy); }
-    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (v16: bind a dropped handle; a click picks)
+    if (d.mode === 'handle' && !d.boundNum) Construct.handleUp(d); if (d.mode === 'move' && Construct.moveUp) Construct.moveUp(d); if ((d.mode === 'panL' || d.mode === 'panR') && (!d.far || d.cdrag) && !d.pb && Construct.isTool(tool)) { const [ux, uy] = evXY(pane, e); Construct.click(pane, side, ux, uy); } if (d.cmPick && !d.far) { const [ux, uy] = evXY(pane, e); Construct.globeClick(d.side || side, ux, uy); }   // (bind a dropped handle; a click picks)
     // a target: no meshes to refine and no refit (the right plane is where it was drawn)
     if (d.target && (d.mode === 'handle' || d.mode === 'move')) { if (d.moved) { targetsChanged(true); commit(); } return; }
     if (d.mode === 'orbit' && d.side === 'L') { requestRender('L'); return; }
@@ -1504,6 +1527,7 @@
     if (d.mode === 'cut') { commit(); return; }
     if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'pre') { if (d.moved) { if (d.bn) Params.rest(d.bn); shapesChanged(true); commit(); } return; }
+    if (d.mode === 'pickMove' || d.mode === 'pickOut') { pickUp(d); return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;
@@ -1519,7 +1543,7 @@
       if (!ok && !d.second && TWO_CLICK.has(kind)) { holdPending(); return; }
       draft = null;
       if (kind === 'lasso' && !d.target) { if (ok) sndLoopDone(s.pts); else snd.loop = null; }
-      Construct.drawEnd(ok ? s : null, !!d.target);   // (v16: the snapped ends bind)
+      Construct.drawEnd(ok ? s : null, !!d.target);   // (the snapped ends bind)
       if (ok) { shapeVia = 'draw'; try { addShape(s, !!d.target); justDrawn = s.id; } finally { shapeVia = null; } } else requestRender('OL', 'OR');
     }
   }
@@ -1531,7 +1555,7 @@
     else requestRender('OL', 'OR');
   }
 
-  // (#385) the keys (init: after setupEscSound, whose capture-phase Esc runs first)
+  // the keys (init: after setupEscSound, whose capture-phase Esc runs first)
   function setupKeys() {
     document.addEventListener('keydown', (e) => {
       // nothing reaches the app behind a modal dialog; a handled key, or one in a popover or menu, stays there
@@ -1571,13 +1595,14 @@
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
-      // (v16.5 UX97) ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
+      if (e.key === 'Enter' && !mod && !e.altKey && t.id === 'overlayL' && pickKey()) { e.preventDefault(); return; }
+      // ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
       if (mod && !e.altKey && selected && (key === 'd' || kk === ']' || kk === '[')) {
         const s = findShape(selected);
         if (s) { e.preventDefault(); if (key === 'd') duplicateShape(s); else moveShape(s.id, kk === ']' ? 1 : -1); return; }
       }
       if (e.ctrlKey || e.metaKey || e.altKey) return;
-      // (v16.5 UX97) the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
+      // the arrows move the selected shape (Shift: ten steps); not in a list, a slider or a menu of its own
       if (selected && /^Arrow(Left|Right|Up|Down)$/.test(e.key) && !t.closest('[role="listbox"], [role="option"], [role="radiogroup"], [role="slider"], [role="menu"], input, select, #propsPanel, .ph-sheet')) {
         const s = findShape(selected), d = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, 1], ArrowDown: [0, -1] }[e.key];
         if (s && nudgeShape(s, d[0], d[1], e.shiftKey)) { e.preventDefault(); return; }

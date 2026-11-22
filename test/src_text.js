@@ -31,7 +31,9 @@ function stripEsm(text) {
   return text.replace(IMPORT_RE, '').replace(EXPORT_RE, '');
 }
 
-// the text of src/<file>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line.
+// the text of src/<file>: the file, or a split file's wrap.js with its parts joined in place of the // @parts line. A
+// TypeScript file comes without its types (tools/ts_strip.js: the same lines and columns), and src/<x>.js names
+// src/<x>.ts where only that exists, as the bundler resolves the modules' './<x>.js' imports.
 //   source(file)                      the app's own src/
 //   source(file, dir)                 another copy of src/ (a snapshot)
 //   source(file, { esm: 'strip' })    without the import lines and export { } lines of a module file (a script's text, for
@@ -44,7 +46,11 @@ function source(file, a, b) {
 }
 function joined(file, dir) {
   const p = parts(file, dir);
-  if (!p) return fs.readFileSync(path.join(dir, file), 'utf8');
+  if (!p) {
+    const ts = /\.js$/.test(file) && !fs.existsSync(path.join(dir, file)) && fs.existsSync(path.join(dir, file.replace(/\.js$/, '.ts'))) ? file.replace(/\.js$/, '.ts') : file;
+    const text = fs.readFileSync(path.join(dir, ts), 'utf8');
+    return /\.ts$/.test(ts) ? require('../tools/ts_strip').strip(text, ts) : text;
+  }
   const wrap = fs.readFileSync(path.join(dir, file.replace(/\.js$/, ''), 'wrap.js'), 'utf8');
   const m = PARTS_RE.exec(wrap);
   if (!m) throw new Error(`${file}: wrap.js has no // @parts line`);

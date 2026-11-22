@@ -104,6 +104,14 @@ window.__invTestRun = async (opts = {}) => {
     chains.push({ name: 'mobius > zp', steps: [St('mobius'), St('zp', ZPS[4])] });
     chains.push({ name: 'zp > zp', steps: [St('zp', ZPS[0]), St('zp', ZPS[3])] });
   }
+  // a plane past a d/dz step, as the steps view plans it: the step before the d/dz off and its derivative formula
+  // (Funcs.derivativeStep) in the d/dz's place; gallery example 15, [z³ - 3z, d/dz], at plane w₂ (no derivative step
+  // throws: the chain is never left out, nor planned as the identity)
+  {
+    const f = St('custom', { expr: 'z^3-3z', cut: 180 }), d = Funcs.derivativeStep(f);
+    if (!d || !d.step) throw new Error('d/dz chain: ' + ((d && d.error) || 'no derivative'));
+    chains.push({ name: 'd/dz of z^3-3z (the step off, its derivative after it)', steps: [Object.assign({}, f, { on: false }), Object.assign({ on: true }, d.step)] });
+  }
   // ---- shapes ----
   const SH = [];
   const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)
@@ -173,6 +181,7 @@ void main() {
   ixDwX = vec2(t.z, 0.0); ixDwY = vec2(0.0, t.z); ixPix = t.z;
   nb = 0; nCov = 0; U = 0.0; ixTailInf = false; ixTr = 1.0; ixLastOk = false; ixLastFin = false; ixLastD = 0.0; ixLastZ = vec2(0.0);
   invWalk(t.xy);
+  ixTieOrder();
   if (c.y == 8) o = vec4(float(ixRecN), float(nCov), U, float(nb));
   else if (c.y == 9) o = vec4(nb > 0 ? bD[0] : -1.0, nb > 1 ? bD[1] : -1.0, nb > 2 ? bD[2] : -1.0, ixTailInf ? 1.0 : 0.0);
   else o = ixRecOut;
