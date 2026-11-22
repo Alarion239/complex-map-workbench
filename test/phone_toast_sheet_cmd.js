@@ -2,8 +2,8 @@
 //  - landscape, 740 × 360 and 667 × 375, in en, ru and it: the message lies at the foot of the sheet's column and covers no control of the thread's
 //    strip, Fit view, the plane's keys or the sheet (none of the points sampled on them is under it: elementFromPoint), and its words are whole;
 //  - a message of one row over the plot that is up when the sheet opens takes the rows of the sheet's width (data-rows is what is drawn, the words whole);
-//  - landscape, 740 × 360, with the More sheet open (it does not split the layout): the message keeps its row and covers no point of Fit view, the plane's
-//    keys or the tool column;
+//  - landscape, 740 × 360, 667 × 375 and 568 × 320, with the Menu or Function chain sheet open (they do not split the layout): the message keeps its row and
+//    covers no point of Fit view, the plane's keys or the tool column, its words whole and its buttons 44 px;
 //  - portrait, 360 × 640, en, ru and it: the message lies below the sheet's foot, clear of the sheet's switch (Everywhere | Inside regions).
 // In the steps view (ci/suite_views.js). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -22,6 +22,7 @@ const SHORTISH = 'Added f₃: Exponential, and a longer second part';   // (one 
 // sheet that holds it); fewer than MIN_* of them seen is a failure, so the rows
 // cannot pass with nothing sampled
 // (a control's visible box narrower or shorter than MIN_BOX px is not sampled; portrait shows MIN_SHEET_PORTRAIT of the sheet's controls above the message)
+const BTN_MIN = 44;   // the message's action and × are this many px each way
 const K = 3, MIN_BOX = 4, MIN_STRIP = 4, MIN_SHEET = 4, MIN_SHEET_PORTRAIT = 2, MIN_KEYS = 2, MIN_RAIL = 4, CUT_MAX = 1, STILL_MS = 150, SETTLE_MAX = 5000;
 const SAMPLE = `(() => {
   const host = document.getElementById('toastHost'), t = host.querySelector('.toast'); if (!t) return null;
@@ -52,7 +53,7 @@ const SAMPLE = `(() => {
   const sw = sheet && sheet.querySelector('.seg'), swb = sw && sw.getBoundingClientRect();
   return { out, rows: t.dataset.rows || null, cut: Math.max(sp.scrollHeight - sp.clientHeight, sp.scrollWidth - sp.clientWidth), toast: [tb.left, tb.top, tb.right, tb.bottom].map(Math.round),
     sheet: sb && [sb.left, sb.top, sb.right, sb.bottom].map(Math.round), sw: swb && [swb.left, swb.top, swb.right, swb.bottom].map(Math.round),
-    wordsBottom: wb.bottom, btnTop: btns.length ? Math.min(...btns.map((r) => r.top)) : null };
+    wordsBottom: wb.bottom, btnTop: btns.length ? Math.min(...btns.map((r) => r.top)) : null, btnMin: btns.length ? Math.round(Math.min(...btns.map((r) => Math.min(r.width, r.height)))) : 0 };
 })()`;
 // (the layout is still: the sheet's and the keys' eased moves are over)
 const still = async () => { let a = JSON.stringify(await ev(SAMPLE)); for (let i = 0; i < SETTLE_MAX / STILL_MS; i++) { await sleep(STILL_MS); const b = JSON.stringify(await ev(SAMPLE)); if (a === b) return JSON.parse(b); a = b; } return JSON.parse(a); };
@@ -95,16 +96,19 @@ for (const [w, h] of [[740, 360], [667, 375]]) for (const lang of ['en', 'ru', '
   ok(`${tag}: its words are whole`, !!m && m.cut <= CUT_MAX, m && m.cut);
   ok(`${tag}: no point of the thread's strip or Fit view is under it`, !!m && m.out.strip.controls >= MIN_STRIP && m.out.strip.under === 0 && m.out.fit.under === 0, m && m.out);
 }
-// ---- landscape: the More sheet does not split the layout, and the message keeps its row: Fit view, the plane's keys and the tool column stay clear
-{
-  const tag = 'en 740×360 with the More sheet open';
-  await open(740, 360, 'en');
-  await sheetOpen('more');
-  await show(MSG.en[0], MSG.en[1]);
+// ---- landscape: the Menu (More) and Function chain sheets lie over the planes and do not split the layout; the message keeps its row across the foot,
+// and covers no point of Fit view, the plane's keys or the tool column, its words whole and its buttons 44 px (#2124: on the shorter phones too)
+const OVERLAY = { more: 'the Menu sheet', chain: 'the Function chain sheet' };
+for (const [w, h, langs] of [[740, 360, ['en']], [667, 375, ['en', 'ru', 'it']], [568, 320, ['en', 'ru', 'it']]]) for (const lang of langs) for (const [k, what] of Object.entries(OVERLAY)) {
+  const tag = `${lang} ${w}×${h} with ${what} open`;
+  await open(w, h, lang);
+  await sheetOpen(k);
+  await show(MSG[lang][0], MSG[lang][1]);
   const m = await still();
   info[tag] = m;
   ok(`${tag}: Fit view, the plane's keys and the tool column are sampled`, !!m && m.out.fit.controls === 1 && m.out.keys.controls >= MIN_KEYS && m.out.rail.controls >= MIN_RAIL, m && m.out);
-  for (const k of ['fit', 'keys', 'rail']) ok(`${tag}: no point of ${{ fit: 'Fit view', keys: "the plane's keys", rail: 'the tool column' }[k]} is under the message`, !!m && m.out[k].under === 0, m && m.out[k]);
+  for (const g of ['fit', 'keys', 'rail']) ok(`${tag}: no point of ${{ fit: 'Fit view', keys: "the plane's keys", rail: 'the tool column' }[g]} is under the message`, !!m && m.out[g].under === 0, m && m.out[g]);
+  ok(`${tag}: its words are whole and its buttons ${BTN_MIN} px`, !!m && m.cut <= CUT_MAX && m.btnMin >= BTN_MIN, m && { cut: m.cut, btnMin: m.btnMin });
 }
 // ---- portrait: the message lies below the sheet's foot, clear of its switch
 for (const lang of ['en', 'ru', 'it']) {

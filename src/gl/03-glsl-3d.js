@@ -542,20 +542,21 @@ void main() {
   // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
   // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
   // are left out. uSeamOn 1: the glide's map has a cut out of the pole (the branch of a power or a log that ends there,
-  // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / 8 of the way out (linear between them), SEAM_EPS
+  // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / (SEAM_RINGS - 1) of the way out (linear between them), SEAM_EPS
   // inside it on each side out to the cut's end (uSeamEnd, a fraction of the way out), so the ring's first and last cells
   // end at the cut and no cell straddles it; past its end the ring closes round
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
   const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
+  const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
   const CARRY_ZIN = `
-uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[9]; uniform float uSeamEnd;
+uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
   float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
   if (uSeamOn == 1) {
-    float t = clamp(ij.y * f, 0.0, 1.0) * 8.0;
-    int k = min(int(t), 7);
+    float t = clamp(ij.y * f, 0.0, 1.0) * ${SEAM_RINGS - 1}.0;
+    int k = min(int(t), ${SEAM_RINGS - 2});
     float e = ij.y * f <= uSeamEnd ? ${SEAM_EPS} : 0.0;
     th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
   }
@@ -1327,7 +1328,9 @@ vec4 tiersOver(vec2 p, vec4 col, float amul) {
   return col;
 }
 `;
-  const FLOOR_FS = glsl`
+  // (the phase portrait printed on the plate: of the chain's map ('map'), or, in the stand-in's plate (floorS), of F's values at the
+  // nodes of the stand-in's grid (uT1, uN), bilinear over the box and held at its edge)
+  const FLOOR_FS = (print) => glsl`
 in vec3 vPos;
 uniform vec2 uExt; uniform vec2 uAspect; uniform vec4 uBox; uniform float uFloorZ; uniform float uH;
 uniform vec3 uFloorCol; uniform vec3 uShadow; uniform float uShadowA; uniform float uPrint; uniform float uPlateA;
@@ -1336,10 +1339,16 @@ out vec4 o;
 void main() {
   vec2 uv = vPos.xy / (2.0 * uAspect) + 0.5;
   vec2 z = uBox.xy + uv * uBox.zw;
-  vec2 w = mapF(z);
-  vec3 alb = albedo(w);
+${print === 'map' ? '  vec2 w = mapF(z);\n' : `  vec2 ub = clamp((z - uBox.xy) / uBox.zw, 0.0, 1.0) * float(uN - 1);
+  ivec2 i0 = clamp(ivec2(floor(ub)), ivec2(0), ivec2(uN - 2));
+  vec2 fb = ub - vec2(i0);
+  vec2 w = mix(mix(texelFetch(uT1, i0, 0).xy, texelFetch(uT1, i0 + ivec2(1, 0), 0).xy, fb.x), mix(texelFetch(uT1, i0 + ivec2(0, 1), 0).xy, texelFetch(uT1, i0 + ivec2(1, 1), 0).xy, fb.x), fb.y);
+  // (a node where F has no value, as a pole's: its cells carry no print, the paper alone)
+  bool nanw = isnan(w.x) || isnan(w.y) || !(w.x < 0.0 || w.x >= 0.0) || !(w.y < 0.0 || w.y >= 0.0);
+  if (nanw) w = vec2(0.0);
+`}  vec3 alb = albedo(w);
   vec3 col = tiersOver(z, vec4(uFloorCol, 1.0), 1.0).rgb;
-  vec3 lin = mix(toLin(col), toLin(alb), 0.10 * uPrint); // phase portrait printed at 10%
+  vec3 lin = mix(toLin(col), toLin(alb), ${print === 'map' ? '0.10 * uPrint' : '(nanw ? 0.0 : 0.10 * uPrint)'}); // phase portrait printed at 10%
   // contact shading under the surface: where the sheet comes close to the plate (no walls, nothing outside);
   // All sheets (uSheetK > 0): the lowest sheet over the point, from the per-cell height tiles
   float contact = 0.0;
