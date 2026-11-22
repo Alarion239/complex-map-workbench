@@ -149,18 +149,18 @@ await settle(1500);
   ok('a right click on the Cassini oval integrates around it', /∮ around Curve formula 1/.test(rtxt || '') && /6\.2832\s*i/.test(rtxt || ''), rtxt);
   await key('Escape'); await sleep(200);
   // the figure: its caption names the curves by their equations
-  const cap = await ev(`await (async () => { const f = await __cmwBuildFigure({ panels: ['L', 'R'], widthIn: 7, caption: true }); return f ? f.captionTex : null; })()`, 60000);
+  const cap = await ev(`await (async () => { const f = await __cmwBuildFigure({ widthIn: 7, caption: true }); return f ? f.captionTex : null; })()`, 60000);
   R.caption = cap;
   ok('the figure caption names the traced curves', typeof cap === 'string' && /the curve/.test(cap) && /operatorname\{Re\}/.test(cap), cap);
-  // globes, export: no errors, strokes on both globes
-  await ev(`__cmwSetView('L', 'sphere'); __cmwSetView('R', 'sphere'); 1`);
+  // the globe and the export: no errors, strokes on the globe
+  await ev(`__cmwSetView('L', 'sphere'); 1`);
   await settle(1500);
   await shot('curves-globes');
   const lines = await ev('__cmwLines()');
   ok('both curves have strokes (globes)', lines.filter((l) => l.segs > 100).length === 2, lines);
-  await ev(`__cmwSetView('L', 'plane'); __cmwSetView('R', 'plane'); 1`);
+  await ev(`__cmwSetView('L', 'plane'); 1`);
   await settle(800);
-  const png = await ev(`(() => { try { return __cmwRenderOff('R', 600, 400, 1).length; } catch (e) { return 'EXC ' + e.message; } })()`);
+  const png = await ev(`(() => { try { return __cmwRenderOff('L', 600, 400, 1).length; } catch (e) { return 'EXC ' + e.message; } })()`);
   ok('the figure export renders the curves', typeof png === 'number' && png > 1000, png);
   R.logs2 = (await logs()).filter((l) => /EXC|error/i.test(l.t));
   ok('no page errors (integrals, globes, morph, export)', !R.logs2.length, R.logs2);

@@ -248,7 +248,6 @@ const VIEWS = {
   'figure_ticks_cmd.js': classic('the classic Image figure\'s two panels of points only, and the composer\'s tick labels'),
   'figure_ticks_views_cmd.js': steps(),   // (the video's axes on the steps view's glide; the classic Landscape figure's by ?view=classic)
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
-  'pane_heads_1024_cmd.js': classic('the two pane heads and the chain head at 1024 px; steps_head_cmd covers the steps view\'s one head'),
   'phone_plane_cmd.js': steps({ pin: true }),
   'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
@@ -282,7 +281,6 @@ const VIEWS = {
   'steps_pullback_mask_cmd.js': steps({ pin: true }),
   'top_bar_focus_cmd.js': steps({ pin: true }),
   'ux165_fix_cmd.js': steps({ pin: true }),
-  'ux165_merge_classic_cmd.js': classic('Y\'s head with its "Y · " tag: the classic right pane; the steps view has one plane and no such head'),
   'ux165_merge_cmd.js': steps({ pin: true }),
   'ux165_plane_classic_cmd.js': classic('the classic readout (two lines on a laptop and a phone, F(z) read in X, the chip below it, the key\'s three marks), a finger drag from a disc panning the plane, and the names of X and Y (titles, canvas names, Shapes headings, Plane | Sphere in the two heads, the phone chip\'s X tag, in English and Russian): a finger drag on a steps-view plane scrubs the thread, and it has one plane and no X or Y'),
   'ux165_plane_cmd.js': steps({ pin: true }),

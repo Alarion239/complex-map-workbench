@@ -55,46 +55,28 @@
     if (pv) pv.disabled = !(k > 1);
     if (nx) nx.disabled = !(k > 0 && k < S.steps.length);
   }
-  // The modes Esc steps out of, innermost first: a step shown alone, an expanded plane, the deformation. Each one is a
-  // chip at the right end of the head of the plane that stays in view, with the key that leaves it and a ×; the
-  // chip of the mode Esc closes next also shows Esc.
-  const modeNext = () => {
-    if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view)) return 'solo';
-    return null;
-  };
+  // The modes shown as chips at the right end of X's pane head (a Construct tool in use, Listening along, a step shown
+  // alone), each with the key that leaves it and a ×; the chip of the mode Esc closes next also shows Esc.
+  const modeNext = () => (S.focus > 0 ? 'alone' : null);
   function modeClose(m) {
     if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
-    else if (m === 'solo') setSolo(S.solo);
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
-    const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
+    const head = document.querySelector('#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
     if (!box) box = h('span', { class: 'mode-chips', id: 'modeChips' });
     const next = modeNext();
     const want = [];
-    if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
     if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
     // Listening along: the plane's own chip says it and has the Stop
     const lp = snd.play;
     if (lp) { const nm = lp.shape ? shapeNames().get(lp.shape.id) : ''; want.push(['listen', nm ? $t('Listening along {name}', { name: nm }) : $t('Listening along'), $t('Stop listening'), '']); }
-    // an expanded plane leaves the other one as a labelled strip at the edge, a way back
-    const strip = $('hiddenStrip') || h('button', { type: 'button', class: 'hidden-strip', id: 'hiddenStrip', hidden: true, onclick: () => setSolo(S.solo) });
-    const hid = S.view.main === 'xy' && S.solo && !mg ? (S.solo === 'L' ? 'R' : 'L') : null;
-    if (strip.parentNode !== $('panes')) $('panes').append(strip);
-    strip.hidden = !hid;
-    if (hid) {
-      const t = hid === 'R' ? $t('Y hidden') : $t('X hidden');
-      strip.dataset.side = hid;
-      if (strip.textContent !== t) { strip.textContent = t; strip.setAttribute('aria-label', $t('Show both planes')); strip.setAttribute('data-tip', $t('Show both planes')); }
-    }
-    const sig = want.map((w) => w.join('|')).join('/') + '|' + next + '|' + side;
+    const sig = want.map((w) => w.join('|')).join('/') + '|' + next;
     if (box.dataset.sig !== sig) {
       box.dataset.sig = sig;
       box.replaceChildren(...want.map(([m, label, tip, key, count]) => h('span', { class: 'mode-chip', 'data-mode': m },
@@ -104,7 +86,7 @@
         m === 'listen' ? h('button', { class: 'mc-stop', type: 'button', 'aria-label': tip, 'data-tip': tip, onclick: () => { sndStopPlay(true); updateDraftChips(); } }, $t('Stop'))
           : h('button', { class: 'icon-btn', type: 'button', 'aria-label': tip, 'data-tip': tip, html: ICONS.close, onclick: () => modeClose(m) }))));
     }
-    if (box.parentNode !== head) head.insertBefore(box, side === 'R' ? $('rightLed') : $('leftLed'));
+    if (box.parentNode !== head) head.insertBefore(box, $('leftLed'));
     box.hidden = !want.length;
     if (SV.on) svFitHead();   // (the chips take room in the plane's head: its bar is fitted to what is left)
     const ac = $('aloneChip');

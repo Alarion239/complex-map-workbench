@@ -427,14 +427,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .panes > * { min-width: 0; min-height: 0; }
 .panes.solo-L, .panes.solo-R { grid-template-columns: minmax(0, 1fr); }
 .panes.solo-L > #gutterCol, .panes.solo-L > #paneR, .panes.solo-R > #gutterCol, .panes.solo-R > #paneL { display: none; }
-/* the plane an expanded one leaves out: a strip at its edge, named, that brings it back */
 .panes { position: relative; }
-.hidden-strip { position: absolute; top: 50%; translate: 0 -50%; z-index: 4; writing-mode: vertical-rl; padding: 12px 4px; border: 1px solid var(--line); background: var(--surface); color: var(--accent); font: var(--t-label); cursor: pointer; }
-.hidden-strip[hidden] { display: none; }
-.hidden-strip[data-side="R"] { right: 0; border-right: 0; border-radius: var(--r-2) 0 0 var(--r-2); }
-.hidden-strip[data-side="L"] { left: 0; border-left: 0; border-radius: 0 var(--r-2) var(--r-2) 0; }
-:root.ph .hidden-strip { display: none; }
-.gutter { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
+:root.ph .gutter { position: relative; touch-action: none; user-select: none; -webkit-user-select: none; }
 .gutter-col { cursor: col-resize; }
 .gutter-row { cursor: row-resize; }
 .gutter::after { content: ""; position: absolute; background: var(--line-strong); opacity: 0; transition: opacity var(--t-fast) var(--ease-out); }
@@ -2077,7 +2071,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
                 <div class="vgroup"><button class="vbtn" id="leftZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="leftZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="leftFitWhy"></button><button class="vbtn" id="leftSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the left plane"></button><button class="vbtn" id="leftSph" aria-pressed="false" aria-label="Sphere" aria-describedby="leftSphWhy"></button></div><span class="sr-only" id="leftSphWhy"></span><span class="sr-only" id="leftFitWhy"></span>
+                <div class="vgroup"><button class="vbtn" id="leftFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="leftFitWhy"></button><button class="vbtn" id="leftSph" aria-pressed="false" aria-label="Sphere" aria-describedby="leftSphWhy"></button></div><span class="sr-only" id="leftSphWhy"></span><span class="sr-only" id="leftFitWhy"></span>
               </div>
               <div class="empty-chip draft-chip" id="draftChipL" hidden><span>Click the first vertex or press Enter to close</span></div>
               <div class="empty-chip draft-chip note-chip" id="sphereChipL" hidden><span></span></div>
@@ -2107,7 +2101,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
               <div class="options" id="rightFoot"></div>
               <div class="viewstack" role="toolbar" aria-label="Right plane view">
                 <div class="vgroup"><button class="vbtn" id="rightZoomIn" title="Zoom in" aria-label="Zoom in"></button><button class="vbtn" id="rightZoomOut" title="Zoom out" aria-label="Zoom out"></button></div>
-                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="rightFitWhy"></button><button class="vbtn" id="rightSolo" title="Expand plane" aria-pressed="false" aria-label="Expand the right plane"></button><button class="vbtn" id="rightSph" aria-pressed="false" aria-label="Sphere" aria-describedby="rightSphWhy"></button></div><span class="sr-only" id="rightSphWhy"></span><span class="sr-only" id="rightFitWhy"></span>
+                <div class="vgroup"><button class="vbtn" id="rightFit" title="Fit view  Z" aria-label="Fit view" aria-describedby="rightFitWhy"></button><button class="vbtn" id="rightSph" aria-pressed="false" aria-label="Sphere" aria-describedby="rightSphWhy"></button></div><span class="sr-only" id="rightSphWhy"></span><span class="sr-only" id="rightFitWhy"></span>
               </div>
               <div class="empty-chip" id="emptyRight" hidden></div>
               <div class="empty-chip draft-chip" id="draftChipR" hidden><span>Click the first vertex or press Enter to close</span></div>

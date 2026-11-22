@@ -87,8 +87,6 @@
   window.__cmwHideStrokes = (on) => { hideStrokes = !!on; requestRender('L', 'R'); return hideStrokes; };
   window.__cmwHideStrokesGet = () => hideStrokes;   // the state __cmwHideStrokes set, read back
   window.__cmwForceForward = (ids) => { forceFwd.clear(); for (const id of ids || []) forceFwd.add(id); scheduleFix(); requestRender('L', 'R'); return [...forceFwd]; };
-  // the plane point w under a Sphere-view pixel (CSS px of the right pane), null off the globe
-  window.__cmwSphereW = (x, y) => { const w = pickSphere(paneR, camS, x, y); return w ? [w.re, w.im] : null; };
   // the level predictLevel would give the right pane's passes (13.14's estimate; not a floor) and its estimate
   window.__cmwPredict = () => { const list = S.shapes.filter((x) => x.visible !== false); return predictLevel(list, stageMap(rightStage()), 'R', paneR, lastRecs); };
   // per shape: the line key, whether the settle-time refinement is in (SPEC 9.1), segments and pieces drawn
@@ -99,12 +97,12 @@
   window.__cmwGuard = () => ({ R: guard ? guard.state('R') : null, L: guard ? guard.state('L') : null, timer: !!(GLR.timer && GLR.timer.available), inverseDraws: GLR.inverseDraws, log: guardLog.slice() });
   // a fresh cost guard with policy options (GLR.CostGuard opts, e.g. {budget: 1e9}: measure only), for measurements
   window.__cmwGuardOpts = (o) => { if (!GLR.CostGuard) return null; guard = GLR.CostGuard(Object.assign({}, GUARD_OPTS, o || {})); for (const g of Object.values(paneG)) { g.key = ''; g.reads = []; g.demoted = false; } guardLog.length = 0; requestRender('L', 'R'); return guard.state('R'); };
-  // the look drawScene gives shape id (colours as hex), the pattern cell, the right view, clipWin and the plane colour
+  // the look drawScene gives shape id (colours as hex), the pattern cell, X's view, clipWin and the plane colour
   // a traced curve of a later plane as the inverse pass strokes it (invTrace): {tol (used), base (TRACE_TOL's), n (its
   // vertices), samples (shapeGPU's r.polys, flat), lines (the simplified polylines)}, or null
   window.__cmwTrace = (id) => { const s = S.shapes.find((x) => x.id === id), lines = s && invTrace(s), rec = lines && traces.get(shapeGPU(s).polys); return rec ? { tol: rec.tol, base: rec.base, n: lines.reduce((k, p) => k + p.length, 0), samples: shapeGPU(s).polys.map((p) => Array.from(p)), lines } : null; };
-  window.__cmwLook = (id, side = 'R') => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); const L = side === 'L'; return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, halo: TH.halo, haloA: TH.haloA, view: Object.assign({}, L ? leftView() : V.right), win: Object.assign({}, clipWin), dpr: (L ? paneL : paneR).dpr, W: (L ? paneL : paneR).pw, H: (L ? paneL : paneR).ph, stage: L ? leftStage() : rightStage() }; };
-  // P3: the z-globe's point under a pane pixel (as __cmwSphereW for the w-globe), and a globe's camera set directly
+  window.__cmwLook = (id) => { const s = S.shapes.find((x) => x.id === id); if (!s) return null; const k = shapeInk(s); return { color: k.c0, color2: k.alt, edge: k.edge, ink: TH.ink, alpha: S.alpha, pattern: S.pattern, cell: patternCell(), lines: S.lines, sphN: sphN(), plane: TH.plane, halo: TH.halo, haloA: TH.haloA, view: Object.assign({}, leftView()), win: Object.assign({}, clipWin), dpr: paneL.dpr, W: paneL.pw, H: paneL.ph, stage: leftStage() }; };
+  // P3: the globe's point under a pixel of X's pane (null off the globe), and a globe's camera set directly
   // P3b: the shapes and targets as stored; the CSS pixel of the plane point (x, y) on a side's globe (null behind it)
   window.__cmwShapes = () => JSON.parse(JSON.stringify({ shapes: S.shapes, targets: S.targets, selected }, noRuntime)); window.__cmwStroke = (id, opt) => { const s = S.shapes.concat(S.targets).find((q) => q.id === id); const k = s && shapeStroke(s, 1, opt || {}); return k && { width: k.width, alpha: k.alpha, casing: k.casing && k.casing.width, casingAlpha: k.casing && k.casing.alpha }; };
   window.__cmwGlobeXY = (side, x, y) => { const gc = globeCam(side); if (!gc) return null; const P = Number.isFinite(x) ? Region.Globe.lift(x, y) : [0, 0, 1]; return gScreen(gc, P); };
@@ -179,7 +177,7 @@
   /** @type {any} */ (window).__cmwCauchyOpt = (show, plus) => { setOpt('cauchyShow', show); setOpt('cauchyPlus', !!plus); requestRender('L'); save(); };
   // (SPEC 10.6, 12.4 (h)) the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
   // panel drawn off-screen at print size (a PNG data URL)
-  window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L', 'R'], widthIn: 7, caption: false }, opt || {}));
+  window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L'], widthIn: 7, caption: false }, opt || {}));
   // the deformation's range (__cmwMorph) and the screen's path selection
   // kind 'H' (the image side at T), 'H0', 'F' (the chain), 'cpuMap' (a map spec's
   // CPU twin): pts [[x, y]] -> [[re, im]] (null for a non-finite value)

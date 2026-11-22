@@ -391,12 +391,6 @@
     if (l || r) { setPanels(S.hideLeft || l, S.hideRight || r); return true; }
     return false;
   }
-  function setSolo(which) {
-    if (Views.merged(S.view)) return; // a merged view is one panel: nothing to expand
-    setOpt('solo', S.solo === which ? null : which);
-    applyLayout();
-    save();
-  }
   function applyLayout() {
     const lay = document.querySelector('.layout');
     placeKeys();
@@ -409,19 +403,11 @@
     $('toggleLeft').setAttribute('aria-pressed', String(!S.hideLeft));
     $('toggleRight').setAttribute('aria-pressed', String(!S.hideRight));
     const panes = document.querySelector('.panes');
-    // X's pane alone, one wide panel (on a phone too); a merged view (merged-views.md) has no expand button, so it
-    // reads as a view of its own, not an expanded pane
+    // X's pane alone, one wide panel (on a phone too)
     const mg = Views.merged(S.view);
     panes.classList.add('solo-L');
     panes.classList.toggle('merged-L', mg === 'L');
     panes.classList.toggle('merged-R', mg === 'R');
-    for (const [id, w] of [['leftSolo', 'L'], ['rightSolo', 'R']]) {
-      const b = $(id);
-      b.hidden = !!mg;
-      b.setAttribute('aria-pressed', String(S.solo === w));
-      b.setAttribute('data-tip', S.solo === w ? $t('Show both planes') : $t('Expand plane')); b.removeAttribute('title');
-      b.innerHTML = S.solo === w ? ICONS.restore : ICONS.expand;
-    }
     syncModeChips();
     if (mg !== layoutMg) { layoutMg = mg; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }

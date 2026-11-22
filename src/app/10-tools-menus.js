@@ -436,8 +436,8 @@
       cb.setAttribute('aria-disabled', String(none));
       cb.title = none ? $t('Nothing to clear') : $t('Remove all shapes and targets');
     }
-    // two groups, always both shown: the shapes of the z-plane and the targets of the w-plane (wₖ with step k
-    // focused), each with its rows (no shapes: no rows; no targets: a note on drawing one)
+    // the shapes of the z-plane, with their rows (no shapes: no rows), and the targets of the w-plane (wₖ with step k
+    // focused) when there are any (a saved scene's: Y's pane, where targets are drawn, is not drawn)
     // (the planes by their one name: "In X (z-plane)", "Targets in Y (w-plane)")
     // (the steps view has no X or Y: the shapes are grouped by the plane they are in, "In z", "In w₁", …)
     host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>In {w}</span>', { w: wHtml(0) }) : $t('<span>In <i>X</i> (<i>z</i>-plane)</span>') }));
@@ -450,11 +450,10 @@
       for (const [s, row] of rows) if (shapeStage(s) === k) host.append(row);
     }
     // the targets drawn in the w-plane, listed (and edited) like shapes; their preimages show in every view
-    // (the steps view: targets are listed under the last plane, and with none there is no group, nothing to draw "in Y")
-    if (!SV.on || S.targets.length) {
+    // (the steps view lists them under the last plane)
+    if (S.targets.length) {
       const out = SV.on ? svNameHtml(svPlanes()[svPlanes().length - 1]) : yAtF() ? '<i>w</i>' : wHtml(rightStage());
       host.append(h('div', { class: 'shapes-sub', role: 'heading', 'aria-level': '3', html: SV.on ? $t('<span>Targets in {out}</span>', { out }) : $t('<span>Targets in <i>Y</i> ({out}-plane)</span>', { out }) }));
-      if (!S.targets.length) host.append(h('div', { class: 'empty-note' }, h('div', null, h('span', { html: $t('No targets yet. Draw one in <i>Y</i> (the {out}-plane).', { out }) }))));
       const tl = targetRowNames();
       S.targets.forEach((s) => host.append(shapeRow(s, tl.get(s.id), true)));
     }

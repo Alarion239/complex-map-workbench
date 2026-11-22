@@ -1486,7 +1486,6 @@
       $(side + 'ZoomIn').innerHTML = ICONS.plus;
       $(side + 'ZoomOut').innerHTML = ICONS.minus;
       $(side + 'Fit').innerHTML = ICONS.fit;
-      $(side + 'Solo').innerHTML = ICONS.expand;
       $(side + 'Sph').addEventListener('click', () => stackSphere(side === 'left' ? 'L' : 'R'));
       const zb = (f) => () => {
         const sd = side === 'left' ? 'L' : 'R';
