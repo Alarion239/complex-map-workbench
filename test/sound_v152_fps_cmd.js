@@ -1,3 +1,4 @@
+// raw-navigate-file: a benchmark with no verdict, not run in CI (ci/browser_suites.js EXCLUDED)
 // As test/sound_deform_fps_cmd.js (notes/sound/AS-BUILT-v152.md), with hearing the function as built: the
 // harp under the still pointer AND the last loop singing (a circle |z| = 0.8, sampled at 256 points under H_t every
 // frame). Calc.argStep is timed too (the loop's tracking). Limits checked here: ≥ 55 fps and work p95 ≤ 14 ms at 1×.

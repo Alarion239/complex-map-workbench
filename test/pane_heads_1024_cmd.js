@@ -20,7 +20,7 @@ const probe = () => ev(`(() => {
 for (const lang of ['en', 'ru', 'it']) {
   for (const w of [1024, 1100, 1280]) {
     await view(w, 768, false, false);
-    await send('Page.navigate', { url: `${U}?ns=ph${w}${lang}${Date.now() % 1000000}&lang=${lang}` }); await sleep(2500);
+    await go(`${U}?ns=ph${w}${lang}${Date.now() % 1000000}&lang=${lang}`); await sleep(2500);
     for (let i = 0; i < 40 && !(await ev(`typeof __cmwExample === 'function' && !!document.querySelector('#examplesBtn')`)); i++) await sleep(250);
     if (lang !== 'en' && (await ev('I18N.lang')) !== lang) { await ev(`I18N.setPref('${lang}'), 1`); await settle(1200); }
     const found = await ev(`(() => { for (let i = 0; i < 120; i++) { try { __cmwExample(i); } catch (e) { return -1; } const l = document.querySelector('#examplesBtn .exlabel'); if (l && ${NAME}.test(l.textContent)) return i; } return -2; })()`);
