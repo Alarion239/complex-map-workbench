@@ -21,11 +21,11 @@ const NEXT_EDGE = 8;   // (px of the next plane a rail shows under its fade)
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const still = (o = {}) => settled(Object.assign({ until: 'window.__cmwSteps && !__cmwSteps().moving' }, o));
-// The arrow's glide runs a frame at a time, and a loaded runner draws the frames slowly: the first one on a fresh page took 12 to 15 s at 14x CPU
-// throttle (the kit's 8 s cap ended the wait with `moving` still true; the six 80 ms colour transitions of the play button that its end starts are
-// what a wait at that moment finds running). Its end is waited for as a state, `moving` false and those transitions run out, with a bound that fits
-// a loaded hosted runner (the kit's PREPARED_MS, 60 s) instead of the default cap
-const GLIDE_MAX_MS = 60000;
+// The arrow's glide runs a frame at a time, and a loaded runner draws the frames slowly: the first one on a fresh page takes 12 to
+// 15 s at 14x CPU throttle, longer than the kit's default 8 s cap (the play button's six 80 ms colour transitions, which its end
+// starts, are what a wait at that moment finds running). Its end is waited for as a state, `moving` false and those transitions run
+// out, with a bound that fits a loaded hosted runner (the wait kit's PREPARED_MS, 60 s)
+const { PREPARED_MS: GLIDE_MAX_MS } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 const glided = (o = {}) => still(Object.assign({ max: GLIDE_MAX_MS }, o));
 const ns = 'svs' + Date.now();
 const LOG = { type: 'log', params: {}, on: true }, ROOT = { type: 'root', params: { n: 3 }, on: true }, EXP = { type: 'exp', params: {}, on: true }, SIN = { type: 'sin', params: {}, on: true };
@@ -141,18 +141,20 @@ for (const chain of ['two', 'three', 'four']) {
   ok(`${chain}: in the band, scrolled to the end F is whole and the blank before it is under ${BLANK_MAX} px`, badEnd.length === 0, badEnd);
   if (inBand !== null) {
     // parked on each plane in turn, at every width of the band: the plane and its pill are whole, and F is whole or fully out of view
-    const badPark = [];
+    const badPark = [], stuck = [];
     for (const w of bandWidths) {
+      if (stuck.length) break;   // (a glide that does not end would run every press out to its bound: the first one is the finding)
       await view(w, 360, false, true);
       await still({ floor: SETTLE_FLOOR });
       await ev("document.querySelector('#svStrip .sv-rail').scrollLeft = 0; 1");
       for (let i = 0; i < CHAINS[chain].length; i++) {
         await ev("document.querySelector('.sv-next').click(); 1");
-        await glided({ floor: SETTLE_FLOOR });
+        if (!(await glided({ floor: SETTLE_FLOOR })).ok) { stuck.push({ w, plane: i + 1 }); break; }
         const m = await measure();
         if (!(m.fShown && m.planeIn && m.pillIn && (m.fIn !== false || m.fOut === true))) badPark.push({ w, plane: i + 1, planeIn: m.planeIn, pillIn: m.pillIn, fIn: m.fIn, fOut: m.fOut, scrollX: m.scrollX });
       }
     }
+    ok(`${chain}: in the band, every arrow glide of the park ends within ${GLIDE_MAX_MS} ms`, stuck.length === 0, stuck);
     // a jump to each plane (no glide) parks the same way
     for (const w of bandWidths) {
       await view(w, 360, false, true);
@@ -181,8 +183,9 @@ for (const chain of ['two', 'three', 'four']) {
     const m0 = (await lead()).margin, seen = [];
     await ev("document.querySelector('.sv-next').click(); 1");
     for (let i = 0; i < GLIDE_SAMPLES; i++) { seen.push((await lead()).margin); await new Promise((r) => setTimeout(r, GLIDE_SAMPLE_MS)); }
-    await glided();
+    const ended = (await glided()).ok;
     seen.push((await lead()).margin);
+    ok(`${chain}: the glide to the next plane ends within ${GLIDE_MAX_MS} ms`, ended, seen);
     ok(`${chain}: the margin does not change during or after a glide`, seen.every((v) => v === m0), { m0, seen });
   }
 }

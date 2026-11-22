@@ -55,5 +55,5 @@
     }
     return r;
   };
-  return { until, reachable, sheetSettled, still, prepared };
+  return { until, reachable, sheetSettled, still, prepared, PREPARED_MS };
 };
