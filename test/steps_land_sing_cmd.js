@@ -43,9 +43,10 @@ const cover = async (patches = true) => await evJson(`JSON.stringify(__cmwLandCo
 // (SEAM_TOL: the patch's centre is the refined point, a few 1e-12 off -0.1i, an angle of about 1e-6 on its innermost ring)
 const EDGE = 0.02, NEAR_W = 0.3, MIN_N = 200, SEAM_TOL = 1e-5, BAND_PX = 15, BAND_COL = 16;
 // (the Landscape canvas kept as tag; the pixels of two kept frames over 16/255 apart in a channel, outside the column
-// BAND_COL px either side of w = 0's floor point, where the patch stands over the hole it fills)
+// BAND_COL px either side of w = 0's floor point, where the patch stands over the hole it fills: in CSS px, the
+// canvas's device pixels scaled by its backing ratio k, so a count is the same at any device pixel ratio)
 const keep = (tag) => ev(`window.__lsKeep = window.__lsKeep || {}; window.__lsKeep[${JSON.stringify(tag)}] = (() => { const cv = document.getElementById('canvasL'); return cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data; })(); 1`);
-const apart = (a, b) => ev(`(() => { const A = window.__lsKeep[${JSON.stringify(a)}], B = window.__lsKeep[${JSON.stringify(b)}], W = document.getElementById('canvasL').width, c = __cmwLandFloorPx(0, 0) || [-1e9, -1e9]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 16 && Math.abs((i / 4) % W - c[0]) > ${BAND_COL}) n++; return n; })()`);
+const apart = (a, b) => ev(`(() => { const A = window.__lsKeep[${JSON.stringify(a)}], B = window.__lsKeep[${JSON.stringify(b)}], cv = document.getElementById('canvasL'), W = cv.width, k = W / cv.getBoundingClientRect().width, c = __cmwLandFloorPx(0, 0) || [-1e9, -1e9]; let n = 0; for (let i = 0; i < A.length; i += 4) if (Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > 16 && Math.abs(((i / 4) % W) / k - c[0]) > ${BAND_COL}) n++; return Math.round(n / (k * k)); })()`);
 // the branch's sector and the wedge past it, read with the patches: p from the map at 0.05i (on the cut, where the Möbius
 // step is negative, so its image is at arg p pi), the points of each
 const branch = async () => evJson(`JSON.stringify((() => {
