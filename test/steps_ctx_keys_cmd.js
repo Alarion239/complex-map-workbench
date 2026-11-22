@@ -206,12 +206,7 @@ for (const [w, h, lang, surf] of CASES) {
       ok(`${name}: Tab from the unfolded colour key reaches a plane key (control)`, tabbed.length > 0, tabbed);
       ok(`${name}: every plane key Tab reaches stands over the unfolded colour key: it is the topmost element at its centre`, tabbed.every((k) => k.top), tabbed);
     }
-    // (Escape folds the unfolded key: the readout it hid is as it is after a tap)
-    if (open) {
-      const fold = await foldedBy('leftLegend', '#leftReadout');
-      info[`${name} fold`] = fold;
-      ok(`${name}: Escape folds the unfolded colour key and the readout is as it is after a tap`, fold.folded && fold.escHidden === fold.tapHidden, fold);
-    }
+    // (the chip's controls before Escape: at 320 px tall the Tab rows have folded the key, and Escape on a folded key cancels the tool, the chip with it)
     if (open && cc) {
       // (each control with the key unfolded again, focus moved off the key first: whether the card met the control, and whether, given focus as the
       // keyboard gives it (focus({ focusVisible: true }), which :focus-visible matches), the control
@@ -228,6 +223,12 @@ for (const [w, h, lang, surf] of CASES) {
       info[`${name} chip focus`] = focused;
       chipMet.push(...focused.filter((f) => f.met).map((f) => `${name}: ${f.name}`));
       ok(`${name}: with the colour key unfolded, each of the chip's controls, given keyboard-style focus (focus with focusVisible), is the topmost element at its centre`, focused.length === CHIP_CONTROLS && focused.every((f) => f.top && f.visible), focused);
+    }
+    // (Escape folds the unfolded key: the readout it hid is as it is after a tap)
+    if (open) {
+      const fold = await foldedBy('leftLegend', '#leftReadout');
+      info[`${name} fold`] = fold;
+      ok(`${name}: Escape folds the unfolded colour key and the readout is as it is after a tap`, fold.folded && fold.escHidden === fold.tapHidden, fold);
     }
     // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
     // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one
