@@ -1,6 +1,6 @@
 # The gate on GitHub's machines (ci/README.md): unit tests (Linux), the functional browser suites (Linux), GLSL
-# conformance (Windows, macOS; only the pages whose shader code or tests changed), image quality (Linux, Windows,
-# macOS), each change measured against its
+# conformance (Windows, macOS, Linux on SwiftShader; only the pages whose shader code or tests changed), image quality
+# (Linux, Windows, macOS), each change measured against its
 # reference (the PR's base, or the previous main) on the same machine. Speed is gated on our own machines with real
 # GPUs (.github/workflows/gpu-gate.yml); until they are registered (the variable GPU_RUNNERS), the paired perf suite
 # runs here on Windows (desktop units and an emulated phone), and by hand (Run workflow, perf) on Windows and macOS.
@@ -110,8 +110,11 @@ jobs:
       # (#787) a pull request into another branch than main whose head another open pull request into the same branch
       # contains (a stack: each head holds the lower ones): the top of the stack gates all of them, so this one carries
       # that run's verdict instead of running its own tier. The compare API says which open PRs contain this head; the
-      # one furthest ahead is the top. Switched on by the repository variable GATE_STACK_SKIP = on; otherwise the summary
-      # only says what would have happened and the run is the usual one
+      # one furthest ahead is the top. Only a run of the top that passed is carried: one still queued or running is not
+      # (unlike look's run of this PR's own push), since a push to the top cancels it, and this run, its tier skipped, would
+      # then end red with nothing run; under a top still running, this run runs its own tier. Switched on by the
+      # repository variable GATE_STACK_SKIP = on; otherwise the summary only says what would have happened and the run is
+      # the usual one
       - id: cover
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main' && steps.look.outputs.mirror == ''
         shell: bash
@@ -135,8 +138,12 @@ jobs:
           other=$(ci/gate_run_of.sh "$ts" "$tn") && found=1 || found=0
           echo "#$tn ($ts) contains this head; its newest Gate run on it: $other"
           if [ "$found" != 1 ]; then
-            echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+            echo "#$tn contains this head, but has no passing Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
           fi
+          case "$other" in
+            *" completed success") ;;
+            *) echo "#$tn contains this head, but its run ${other%% *} is still going ($other) and a push to #$tn would cancel it: this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+          esac
           run=${other%% *}
           if [ "$SWITCH" != on ]; then
             echo "Report only (GATE_STACK_SKIP is not on): #$tn contains this head and run $run gates it ($other); with the switch on, this run would carry that verdict and run nothing. It runs its own tier." >> "$GITHUB_STEP_SUMMARY"; exit 0
@@ -203,9 +210,10 @@ jobs:
       - name: Browser shards (every suite in exactly one)
         run: node ci/browser_shards.js check
       # the standards check (ci/README.md, Standards check): history words, plan labels and dropped assertions on the
-      # lines this change adds; it reports in the job summary and as warnings, and never fails the job
-      - name: Standards check (report only)
-        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github
+      # lines this change adds; it reports in the job summary and as warnings, and a finding fails the job (--block); an
+      # added line opts out with `standards-ok: <reason>` in its comment
+      - name: Standards check
+        run: node ci/standards.js --ref "${{ steps.ref.outputs.reference }}" --github --block
       # the tier and the jobs this change can affect (ci/impact.js; ci/README.md, CI tiers): a push to main, the
       # nightly run, a run by hand, the label full-gate and a pull request into main that is not a draft (a wave PR
       # marked ready for review) run everything; a draft into main, like any pull request into another branch, runs its
@@ -283,13 +291,17 @@ jobs:
 
   glsl:
     name: GLSL (${{ matrix.os }}, ${{ matrix.page }}${{ matrix.tier == 'core' && ' core' || '' }}${{ matrix.sections && format(' {0}', matrix.sections) || '' }} ${{ matrix.part }})
-    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS), paired: the reference's pages run
-    # on the same machine, and this change fails only where it is worse (GPUs differ near removable singularities).
+    # each platform's own shader compiler (Direct3D 11's on Windows, Metal's on macOS, Chrome's own SwiftShader on
+    # Linux), paired: the reference's pages run on the same machine, and this change fails only where it is worse (GPUs
+    # differ near removable singularities).
     # Windows renders in software (WARP: glsl 1/8 8-24 min, inverse whole 34-35 min, adv's direct/keys/compile 34 min,
     # its chains 2 min a quarter), so glsl runs in eighths and adv in two jobs (its sections; its chains, which alone
     # split by part, are cheap);
-    # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole. A page whose
-    # shader code and tests are the same as the reference's is not run (ci/glsl.js).
+    # macOS has a virtual GPU (a minute a page) and few machines (5 at a time), so its pages run whole.
+    # Linux runs the core tier on SwiftShader (CPU WebGL2: Chrome's fallback without a GPU, and the figure exports'
+    # renderer), on every run, in four jobs: glsl in halves (4-8 min each, both sides), adv (3 min), inverse (2-3 min); no
+    # CMW_ANGLE, so Chrome picks SwiftShader, and --no-sandbox, which Chrome needs on GitHub's Linux machines.
+    # A page whose shader code and tests are the same as the reference's is not run (ci/glsl.js).
     needs: plan
     if: needs.plan.outputs.glsl != '[]'
     strategy:
@@ -299,6 +311,8 @@ jobs:
         include: ${{ fromJSON(needs.plan.outputs.glsl) }}
     runs-on: ${{ matrix.os }}
     timeout-minutes: 240
+    env:
+      CMW_CHROME_ARGS: ${{ startsWith(matrix.os, 'ubuntu') && '--no-sandbox' || '' }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -462,10 +476,11 @@ jobs:
           python-version: '3.12'
       # Mesa's Vulkan drivers (ci/lavapipe.sh): from Ubuntu's mirrors, or, when they cannot be reached, from an Actions
       # cache of the package's files, or from a fallback mirror on another domain. The cache is keyed by the runner's
-      # image and the package's version in the image's lists, restored by that exact key only (files from another image
-      # are never installed), and saved after an install from a mirror, Ubuntu's or the fallback, of that version only
-      # (after a Mesa update, a download with refreshed lists installs a newer one; a pull request's run reads its own
-      # saves and main's)
+      # Ubuntu release (ImageOS) and the package's version in the image's lists, so a new image of the same release finds
+      # the files; restored by that key, else by its release prefix (an older version's files, which ci/lavapipe.sh
+      # installs only after every mirror failed); and saved after an install from a mirror, Ubuntu's or the fallback, of
+      # the key's version only (after a Mesa update, a download with refreshed lists installs a newer one; a pull
+      # request's run reads its own saves and main's)
       - name: Mesa cache key
         id: mesa-key
         run: ci/lavapipe.sh --key >> "$GITHUB_OUTPUT"
@@ -475,6 +490,7 @@ jobs:
         with:
           path: ${{ runner.temp }}/cmw-lavapipe-debs
           key: ${{ steps.mesa-key.outputs.key }}
+          restore-keys: ${{ steps.mesa-key.outputs.prefix }}
       - name: Mesa's Vulkan drivers (lavapipe)
         id: mesa
         run: ci/lavapipe.sh "$RUNNER_TEMP/cmw-lavapipe-debs"

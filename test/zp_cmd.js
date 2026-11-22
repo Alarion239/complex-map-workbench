@@ -3,7 +3,7 @@
 // its input plane. Checks: handles drawn where the values are; a drag updates the step live at 60 fps without a
 // recompile (uniforms only) and is one undo step; the image is exact at rest and while the pointer holds still mid-drag
 // (degree <= 2: the inverse renderer, per pixel against the exact truth); Shift-click adds a zero, Shift-Cmd-click a
-// pole; dragging off the plane or Delete removes; the card's + / x buttons; degree 3 goes forward with its reason;
+// pole; dragging off the plane or Delete removes; the card's + / x buttons; the degree lamp;
 // the conversions from and to coefficients; the focused step in a chain; the deformation (natural path, figure);
 // light and dark screenshots. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/zp_cmd.js
@@ -22,7 +22,7 @@ const PLAIN = { pattern: 'solid', alpha: 1, lines: false, unit: false, fov: fals
 const EXACT_SRC = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'zp_kit.js'), 'utf8'))(DISC);
 
 // ---------------------------------------------------------------------------------------------------------------
-// (v15 review regress-3: the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
+// (the test runs at the shipped geometry; its truth leaves out the ruler bands at the plane's
 // edges, 16 px, where axis ink is neither fill nor plane)
 // (a step's ⋯ menu and its name, on the thread)
 const stepMore = (k) => `#svStrip .sv-step[data-k="${k}"] .sv-more`;
@@ -105,7 +105,7 @@ ok('undo again: the first drag', (await zp()).params.zeros === '1, -1', (await z
 await key('z', 12); await settle(400);
 ok('redo', (await zp()).params.zeros === z.params.zeros, (await zp()).params);
 
-// 3. Shift-click adds a zero (degree 3: forward, with its reason); Shift-Cmd-click a pole
+// 3. Shift-click adds a zero (degree 3); Shift-Cmd-click a pole
 const pane = (await zp()).pane;
 const ax = pane.left + pane.w * 0.78, ay = pane.top + pane.h * 0.2;
 await click(ax, ay, { mods: 8 }); await settle(700);
@@ -140,7 +140,7 @@ z = await zp();
 ok('+ pole adds a pole in view', Funcs_split(z.params.poles).length === 2 && z.handles.some((q) => q.kind === 'poles' && q.i === 1 && q.x > pane.left && q.x < pane.left + pane.w), z);
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="poles:1"] ~ .zp-del'); await settle(600);
 ok('x removes it', Funcs_split((await zp()).params.poles).length === 1, (await zp()).params);
-// [UX54] x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
+// x on zero 1: zero 2 keeps its name, ζ₂; Undo brings ζ₁ back
 const zSyms = () => ev(`[...document.querySelectorAll('#propsPanel .insp-step[data-k="1"] .zp-sym.zeros')].map((e) => e.textContent)`);
 info.zSyms0 = await zSyms();
 await clickSel('#propsPanel .insp-step[data-k="1"] input[data-zp="zeros:0"] ~ .zp-del'); await settle(600);

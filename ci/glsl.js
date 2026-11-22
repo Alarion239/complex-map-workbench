@@ -4,7 +4,8 @@
 //   dist/glsl-test.html          test/glsl_test.js      (window.__glslTest)
 //   dist/glsl-test-adv.html      test/glsl_test_adv.js  (window.__glslTest)
 //   dist/glsl-inverse-test.html  test/glsl_inverse_test.js, run by __invTestRun() (window.__invTest)
-//   node ci/glsl.js [--only glsl|adv|inverse] [--part i/n] [--tier core|deep|all] [--sections LIST] [--filter TEXT]
+//   dist/glsl-dh-test.html       test/glsl_dh_orbit_test.js and glsl_dh_stop_test.js (window.__dhOrbit, window.__dhStop)
+//   node ci/glsl.js [--only glsl|adv|inverse|dh] [--part i/n] [--tier core|deep|all] [--sections LIST] [--filter TEXT]
 //                   [--ref <commit> [--absolute [PAGES]] [--force]]
 // With --ref, a page whose inputs (its builder, its test file and the sources the builder reads) are the same as the
 // reference's is not run (nothing to compare) unless --force.
@@ -17,9 +18,14 @@
 // self-hosted Mac: adv fails 304 values there, in 10 chains near removable singularities, as the reference
 // does). --part i/n: every n-th chain of the glsl and adv pages (?parts=n&part=i-1); the inverse page
 // runs whole (its chains come from one seeded sequence). --filter TEXT: only the glsl page's chains whose name holds
-// TEXT (?filter=; to time a few chains' shaders on one platform). Exit 0 pass, 1 a failure, 2 setup problem.
+// TEXT (?filter=; to time a few chains' shaders on one platform). The dh page (outright) compares the Douady-Hubbard /
+// Böttcher orbit's shader with another form of itself on the same GPU, bit for bit or within its certificate, so it
+// holds on any renderer: when it runs, it passes outright, and no reference is built or run for it. With --ref it is
+// skipped, as the others are, when its inputs are the same as the reference's (unless --force). Exit 0 pass, 1 a
+// failure, 2 setup problem.
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { buildReference, sameApp } = require('./reference');
 const { launch, sleep } = require('../test/regress/perf/cdp');
@@ -29,6 +35,7 @@ const PAGES = [
   { id: 'glsl', make: 'test/make_glsl_test.py', page: 'glsl-test.html' },
   { id: 'adv', make: 'test/make_glsl_test_adv.py', page: 'glsl-test-adv.html' },
   { id: 'inverse', make: 'test/make_glsl_inverse_test.py', page: 'glsl-inverse-test.html' },
+  { id: 'dh', make: 'test/make_glsl_dh_test.py', page: 'glsl-dh-test.html', outright: true },
 ];
 const argv = process.argv.slice(2);
 const arg = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : null);
@@ -37,7 +44,7 @@ const ref = arg('--ref');
 const absArg = arg('--absolute');
 const absPages = absArg && !absArg.startsWith('--') ? absArg.split(',') : null;   // (null: every page)
 if (absPages && absPages.some((id) => !PAGES.some((p) => p.id === id))) { console.error(`--absolute: pages are ${PAGES.map((p) => p.id).join(', ')}`); process.exit(2); }
-const absolute = (p) => !ref || (argv.includes('--absolute') && (!absPages || absPages.includes(p.id)));
+const absolute = (p) => !ref || p.outright || (argv.includes('--absolute') && (!absPages || absPages.includes(p.id)));
 const [pi, pn] = (arg('--part') || '1/1').split('/').map(Number);
 // --sections: the adv page's sections to run (?only=: direct, keys, compile, main). --part splits only main, the
 // chains; the others run whole, so in parts they would run once per part (on Windows' software renderer a part of
@@ -141,13 +148,27 @@ async function runPage(base, p, side) {
       r = JSON.parse(await waitFor(B, 'window.__ci', TIMEOUT));
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
       note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
+    } else if (p.id === 'dh') {
+      // (two checks, each in a WebGL2 context of its own: done once both are, or at a page exception, which fails it below)
+      await B.nav(base + p.page);
+      for (const since = Date.now(); !(await B.ev('!!(window.__dhOrbit && window.__dhOrbit.done && window.__dhStop && window.__dhStop.done)')) && !B.logs(false).some((l) => l.t === 'EXC');) {
+        if (Date.now() - since > TIMEOUT) throw new Error(`timeout after ${Math.round(TIMEOUT / 1000)} s`);
+        await sleep(500);
+      }
+      r = JSON.parse(await B.ev('JSON.stringify({ orbit: window.__dhOrbit || null, stop: window.__dhStop || null })'));
+      const o = r.orbit || {}, st = r.stop || {};
+      r.errors = [...(o.errors || []).map((e) => `orbit: ${e}`), ...(st.errors || []).map((e) => `stop: ${e}`)];
+      ok = !!o.ok && !!st.ok && !r.errors.length;
+      const odiff = (o.rows || []).reduce((n, x) => n + x.arrayVsRegistersDiffer, 0), opts = (o.rows || []).reduce((n, x) => n + x.points, 0);
+      const sover = (st.rows || []).reduce((n, x) => n + x.early.over + x.early.nanDiff, 0), spts = (st.rows || []).reduce((n, x) => n + x.points, 0);
+      note = `orbit ${o.ok ? 'ok' : 'FAIL'}: ${odiff} of ${opts} values differ (registers against the array); stop ${st.ok ? 'ok' : 'FAIL'}: ${sover} of ${spts} values off the certificate or the NaN pattern`;
     } else {
       const q = [...(pn > 1 ? [`parts=${pn}`, `part=${pi - 1}`] : []), ...(legacy ? ['legacy=1'] : tier !== 'all' ? [`tier=${tier}`] : []), ...(sections && p.id === 'adv' ? [`only=${sections}`] : []), ...(filter && p.id === 'glsl' ? [`filter=${encodeURIComponent(filter)}`] : [])];
       await B.nav(base + p.page + (q.length ? '?' + q.join('&') : ''));
       await waitFor(B, 'window.__glslTest && window.__glslTest.done', TIMEOUT);
-      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, ms: R.ms }; })()');
+      r = await B.ev('(() => { const R = window.__glslTest; return { chains: R.chains, chainsTotal: R.chainsTotal, programs: R.programs, compared: R.compared, failCount: R.failCount, errors: R.errors, failures: (R.failures || []).slice(0, 10), failByChain: R.failByChain, singular: R.singular && { checked: R.singular.checked, badCount: R.singular.badCount }, notOn: R.notOn, ms: R.ms }; })()');
       ok = r.failCount === 0 && !(r.errors || []).length && !(r.singular && r.singular.badCount);
-      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.singular ? `, ${r.singular.badCount} bad singular` : ''}`;
+      note = `${r.chains}/${r.chainsTotal} chains, ${r.programs} programs, ${r.compared} values compared, ${r.failCount} failed${r.singular ? `, ${r.singular.badCount} bad singular` : ''}${r.notOn && r.notOn.chains.length ? `; not run on ${r.notOn.renderer} (${r.notOn.issue}): ${r.notOn.chains.join('; ')}` : ''}`;
     }
     r.renderer = await B.ev(`(() => { const gl = document.createElement('canvas').getContext('webgl2'); if (!gl) return null; const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })()`);
     const exc = B.logs().filter((l) => l.t === 'EXC');
@@ -204,10 +225,29 @@ async function main() {
     }
   }
   buildPages(ROOT, pages);
-  const R = ref ? buildReference(ref) : null;
-  if (R) buildPages(R.dir, pages);
+  // (an outright page has no reference side: the reference is built only for the others)
+  const refPages = pages.filter((p) => !p.outright);
+  const R = ref && refPages.length ? buildReference(ref) : null;
   legacy = !!R && !fs.existsSync(path.join(R.dir, 'test', 'glsl_tiers.js'));
   if (legacy) console.log(`the reference predates test/glsl_tiers.js: both sides run its way (parts by index, every chain${tier !== 'all' ? `; --tier ${tier} not applied` : ''})`);
+  // (#1809, #1815) a reference whose test/glsl_tiers.js lacks one of the sets of chains a renderer does not survive
+  // (SWIFTSHADER_HANG, LAVAPIPE_CRASH), or has other chains in it, would run on that renderer chains this side leaves out:
+  // its pages are built with this change's test/glsl_tiers.js, so both sides run the same chains; the reference's file is
+  // put back after the build
+  const notes = [];
+  const refTiers = R && !legacy ? path.join(R.dir, 'test', 'glsl_tiers.js') : null;
+  const setOf = (text, name) => (new RegExp(`const ${name} = new Map\\(\\[(.*?)\\]\\);`, 's').exec(text) || [])[1];
+  const sets = ['SWIFTSHADER_HANG', 'LAVAPIPE_CRASH'];
+  const overlay = !!refTiers && (() => {
+    const mine = fs.readFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), 'utf8'), theirs = fs.readFileSync(refTiers, 'utf8');
+    return sets.some((n) => setOf(theirs, n) === undefined || setOf(theirs, n) !== setOf(mine, n));
+  })();
+  if (overlay) {
+    notes.push(`The reference's pages are built with this change's \`test/glsl_tiers.js\` (its own lacks ${sets.join(' or ')}, or lists other chains, #1809 #1815): both sides run the same chains.`);
+    console.log(notes[0].replace(/`/g, ''));
+    fs.copyFileSync(path.join(ROOT, 'test', 'glsl_tiers.js'), refTiers);
+  }
+  try { if (R) buildPages(R.dir, refPages); } finally { if (overlay) execFileSync('git', ['checkout', '--', 'test/glsl_tiers.js'], { cwd: R.dir }); }
   const srv = await serve(path.join(ROOT, 'dist'));
   const rsrv = R ? await serve(path.join(R.dir, 'dist')) : null;
   const rows = [], details = [];
@@ -215,7 +255,7 @@ async function main() {
   try {
     for (const p of pages) {
       const cur = await runPage(srv.base, p, 'this change');
-      const rf = R ? await runPage(rsrv.base, p, 'reference') : null;
+      const rf = R && !p.outright ? await runPage(rsrv.base, p, 'reference') : null;
       const why = rf ? worse(p, cur, rf) : [];
       const pass = (!absolute(p) || cur.ok) && !why.length && !(cur.r && cur.r.setup);
       if (!pass) failed++;
@@ -233,7 +273,7 @@ async function main() {
     }
   } finally { srv.server.close(); if (rsrv) rsrv.server.close(); }
   summary([`### GLSL conformance (${process.platform}${renderer ? `: ${esc(renderer)}` : ''}${R ? `; against \`${R.sha.slice(0, 12)}\`` : ''}): ${failed ? '❌' : '✅'}`, '',
-    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...details, ''].join('\n'));
+    `| | page | time | this change | ${R ? 'reference' : ''} |`, '|---|---|---|---|---|', ...rows, '', ...notes, ...details, ''].join('\n'));
   return failed ? 1 : 0;
 }
 // (ci/impact.js reads the pages and their inputs)

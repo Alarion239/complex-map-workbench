@@ -3,9 +3,9 @@
   // =====================================================================================================
   const aspect = (b) => (b.x1 - b.x0) / (b.y1 - b.y0);
   const maxW = (texs, pt) => Math.max(0, ...texs.map((t) => XD.tex(t, pt).w));
-  const tickW = (b, step, tp) => { const sy = XD.axisSteps(b, step)[1], d = XD.decimals(sy); return maxW(XD.ticks(b.y0, b.y1, sy).map((v) => XD.tickTex(v, d)), tp); };
+  const tickW = (b, step, tp) => { const sy = XD.axisSteps(b, step)[1], ts = XD.ticks(b.y0, b.y1, sy), d = XD.tickDec(ts, sy); return maxW(ts.map((v) => XD.tickTex(v, d)), tp); };
   // the room the last x tick label needs right of the frame (when the frame ends on that tick)
-  const overR = (b, step, tp) => { const sx = XD.axisSteps(b, step)[0], t = XD.ticks(b.x0, b.x1, sx).pop(); return t != null && Math.abs(b.x1 - t) < 1e-9 * Math.max(1, Math.abs(t)) ? XD.tex(XD.tickTex(t, XD.decimals(sx)), tp).w / 2 + 1 : 0; };
+  const overR = (b, step, tp) => { const sx = XD.axisSteps(b, step)[0], ts = XD.ticks(b.x0, b.x1, sx), t = ts[ts.length - 1]; return t != null && Math.abs(b.x1 - t) < 1e-9 * Math.max(1, Math.abs(t)) ? XD.tex(XD.tickTex(t, XD.tickDec(ts, sx)), tp).w / 2 + 1 : 0; };
   const head = (x0, x1, y, letter, tag, pt) => (letter ? XD.at(XD.tex(XD.lang === 'ru' ? `\\textit{${letter}}` : `\\text{${letter}}`, pt), x0, y, 'start', 'base', 'panel-letter') : '') + (tag ? XD.at(XD.tex(tag, pt), x1, y, 'end', 'base', 'panel-letter') : '');
   // the i-th panel letter in the figure's language: (a) (b) ... ; а б ... (set in italic by head)
   const panelLetter = (i) => (XD.lang === 'ru' ? RU_LETTERS[i] : `(${String.fromCharCode(97 + i)})`);
@@ -145,11 +145,15 @@
   };
   // Fit: the content plus 8 %, snapped outward to half a tick step; a side the content runs off (an unbounded set)
   // keeps the screen window's edge there. Equal aspect is kept by the panel (one unit, one length).
+  // a content box narrower than LONE_SPAN of the window's long side is a lone point; it is framed by LONE_FRAME of it
+  const LONE_SPAN = 1e-6, LONE_FRAME = 0.25;
   function fitBox(content, screen, wpt) {
     if (!content) return screen;
     const sw = screen.x1 - screen.x0, sh = screen.y1 - screen.y0;
     let b = { x0: content.x0, x1: content.x1, y0: content.y0, y1: content.y1 };
-    const span0 = Math.max(b.x1 - b.x0, b.y1 - b.y0, 1e-9 * Math.max(sw, sh));
+    // (a lone point, or points that coincide to the window's precision: framed by LONE_FRAME of the window, not a sliver)
+    if (Math.max(b.x1 - b.x0, b.y1 - b.y0) < LONE_SPAN * Math.max(sw, sh)) { const cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, r = LONE_FRAME * Math.max(sw, sh) / 2; b = { x0: cx - r, x1: cx + r, y0: cy - r, y1: cy + r }; }
+    const span0 = Math.max(b.x1 - b.x0, b.y1 - b.y0);
     // 8 % of each side's own span (at least 2 % of the long side), so a wide strip is not framed as a square
     const px = 0.08 * Math.max(b.x1 - b.x0, 0.25 * span0), py = 0.08 * Math.max(b.y1 - b.y0, 0.25 * span0);
     const t = content.touch || {};
@@ -521,6 +525,7 @@
       };
       const p = XD.panel({ x, y, w: wpt, h, box: bx, step: steps[side], art: [art], curves: lay.curves, points: lay.points, axes, minimal: P.minimal, ylab: side === 'R' && mirror ? 'right' : 'left', tickPt: tp, labelPt: lp, ink: '#000000', lw: P.lw, axisTitles: titles(side), over });
       items.push(p.markup); defs += p.defs; lines.push(...p.lines);
+      panelOut[side].ticks = { box: bx, step: steps[side], x: p.xt, y: p.yt, labels: p.labels };
       if (axes === 'box') items.push(head(x, x + wpt, y - 3, two ? panelLetter(i) : '', vars[side], lp));
       else if (axes === 'none') items.push(head(x, x + wpt, y - 3, '', vars[side], lp));
     }
@@ -541,7 +546,7 @@
     const H = Math.max(y + h + bottom, keyBottom);
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
     const open = Object.values(panelOut).some((q) => q.lay.dashed > 0);
-    return { items, defs, lines, H, info: { boxes, open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
+    return { items, defs, lines, H, info: { boxes, ticks: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.ticks])), open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
   }
 
   // ---------- (2) Phase: colour (hue wheel, level lines, a ring key) and black and white (a contour portrait) ----------
@@ -651,13 +656,18 @@
   async function carriedKey(carried, kx, y, keyW, tp, lw = 0.5) {
     const R = keyW / 2 - KEY_RING_ROOM, ky = y + tp * KEY_LINE + R, lh = tp * KEY_LINE;
     const items = [ringKeyMarkup(kx, ky, R, `${XD.ns}-key`, lw), ...ringMarks(kx, ky, R, tp)];
-    const lns = [];
-    let cur = '';
-    for (const wd of carried.text.split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && XD.tex(keyWithName(nx, carried.from), tp).w > keyW - 2) { lns.push(cur); cur = wd; } else cur = nx; }
-    if (cur) lns.push(cur);
+    const lns = keyWrap(carried.text, keyW - 2, (t) => XD.tex(keyWithName(t, carried.from), tp));
     const y0 = ky + R + 1.5 + lh + 2;
     lns.forEach((ln, j) => items.push(XD.at(XD.tex(keyWithName(ln, carried.from), tp), kx, y0 + j * lh, 'middle', 'top', 'key')));
     return { items, bottom: y0 + lns.length * lh + 2 };
+  }
+  // a key's words in lines no wider than w pt, each as set by tex(line) (a word wider than w is a line of its own)
+  function keyWrap(text, w, tex) {
+    const lns = [];
+    let cur = '';
+    for (const wd of String(text).split(' ')) { const nx = cur ? `${cur} ${wd}` : wd; if (cur && tex(nx).w > w) { lns.push(cur); cur = wd; } else cur = nx; }
+    if (cur) lns.push(cur);
+    return lns;
   }
   // the marks 1, i, -1, -i round a ring (offsets in pt, tp the tick text's size)
   const ringMarks = (kx, ky, R, tp) => [
@@ -727,11 +737,16 @@
       // (the key's reach above and below the ring's centre, from its parts' heights as they are set below: its top mark
       // and title, and its last line. The ring is centred on the picture; a key taller than a wide picture moves up as far
       // as the figure's top allows and the figure grows to hold the rest, so every line of it is inside the figure)
-      const ht = (it) => it.a + it.d, sh = 6;
+      const ht = (it) => it.a + it.d, sh = 6, lh = tp * KEY_LINE;
+      // (the pane's key's words under the strip, "per band" and the caption, each wrapped to the column: a language's words
+      // may be wider than it, as Russian "на полосу яркости"; a wrapped one takes a line of lh more for each line it adds)
+      const perTex = (t) => XD.tex(keyTxt(t), tp), capTex = (t) => XD.tex(keyWithName(t, sv.name), tp);
+      const per = sv && !sv.plain ? keyWrap(sv.perBand, keyW - 2, perTex) : [], cap = sv ? keyWrap(sv.caption, keyW - 2, capTex) : [];
+      const linesH = (lns, tex) => (lns.length - 1) * lh + ht(tex(lns[lns.length - 1]));
       const above = sv ? R + 1.5 + ht(XD.tex('i', tp)) : R + 12 + ht(XD.tex(`\\arg ${A.fname()}`, tp));
       const below = !sv ? R + 1.5 + ht(XD.tex('-\\pi/2', tp))
-        : sv.plain ? R + 1.5 + tp * 1.3 + 2 + ht(XD.tex(keyWithName(sv.caption, sv.name), tp))
-          : Math.max(R + 1.5 + tp * 2.5 + sh + 1.5 + ht(XD.tex(keyTxt(sv.perBand), tp)), R + 1.5 + tp * 2.5 + sh + 1.5 + tp * 1.3 + 2 + ht(XD.tex(keyWithName(sv.caption, sv.name), tp)));
+        : sv.plain ? R + 1.5 + tp * 1.3 + 2 + linesH(cap, capTex)
+          : Math.max(R + 1.5 + tp * 2.5 + sh + 1.5 + linesH(per, perTex), R + 1.5 + tp * 2.5 + sh + 1.5 + per.length * lh + 2 + linesH(cap, capTex));
       let ky = top + h / 2;
       if (ky + below > top + h + bottom) ky = Math.max(above + 1, top + h + bottom - below);
       keyBottom = ky + below + 2;
@@ -749,10 +764,10 @@
           for (let j = 0; j < 3; j++) items.push(`<rect x="${f2(sx + j * sw / 3)}" y="${f2(sy)}" width="${f2(sw / 3)}" height="${sh}" fill="url(#${kid}-g)"/>`);
           items.push(`<rect x="${f2(sx)}" y="${f2(sy)}" width="${f2(sw)}" height="${sh}" fill="none" stroke="#000000" stroke-width="${P.lw.frame}"/>`);
           items.push(XD.at(XD.tex(keyTxt(sv.factor), tp), kx, sy - 1.5, 'middle', 'bottom', 'key'));
-          items.push(XD.at(XD.tex(keyTxt(sv.perBand), tp), kx, sy + sh + 1.5, 'middle', 'top', 'key'));
-          yy = sy + sh + 1.5 + tp * 1.3;
+          per.forEach((ln, j) => items.push(XD.at(perTex(ln), kx, sy + sh + 1.5 + j * lh, 'middle', 'top', 'key')));
+          yy = sy + sh + 1.5 + per.length * lh;
         }
-        items.push(XD.at(XD.tex(keyWithName(sv.caption, sv.name), tp), kx, yy + 2, 'middle', 'top', 'key'));
+        cap.forEach((ln, j) => items.push(XD.at(capTex(ln), kx, yy + 2 + j * lh, 'middle', 'top', 'key')));
       } else {
         items.push(XD.at(XD.tex('0', tp), kx + R + 1.5, ky, 'start', 'mid', 'ring-mark'));
         items.push(XD.at(XD.tex('\\pi/2', tp), kx, ky - R - 1.5, 'middle', 'bottom', 'ring-mark'));
@@ -915,7 +930,7 @@
     }
     const box = o.crop === 'screen' || !cb ? snapScreen(scr, roughW) : fitBox(cb, scr, roughW);
     const step = stepFor(box, roughW);
-    const mL = tickW(box, step, tp) + 3, gap = 8, mR = Math.max(2, XD.tex(XD.tickTex(XD.ticks(box.x0, box.x1, step).pop() || 0, XD.decimals(step)), tp).w / 2 + 1);
+    const mL = tickW(box, step, tp) + 3, gap = 8, xts = XD.ticks(box.x0, box.x1, step), mR = Math.max(2, XD.tex(XD.tickTex(xts[xts.length - 1] || 0, XD.tickDec(xts, step)), tp).w / 2 + 1);
     let pw = (W - mL - gap * (cols - 1) - mR) / cols, ph = pw / aspect(box);
     const hmax = Math.min((W * 0.5) / rows, (P.maxH - rows * (lp * 1.4 + tp * 1.05 + 9)) / rows);
     if (ph > hmax) { ph = hmax; pw = ph * aspect(box); }
