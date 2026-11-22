@@ -25,8 +25,10 @@
 //   without those surfaces (the control, __cmwSteps({ glideSeams: 0 })): the seams leave at most SEAM_GAP pixels bare
 //   that the control covers, and the control leaves at least SLIT_MIN bare where the frame with them has surface
 //   (the slit);
-//   at 1 − NEAR, against plane b parked, the frame is bare at most GAP_SHARE as often as the control (the rest: the
-//   surface's outer edge, a pixel apart);
+//   at 1 − NEAR, against plane b parked, the frame is bare no more often than the control, and at most ARRIVE_BARE
+//   pixels: the surface's outer edge, a pixel apart, and the arg line along the cut's image, a little paler where the
+//   two sheets' branch point patches meet (saturation SAT or less, though drawn). (Each sheet's copy draws that patch
+//   on its side of the cut, so the control's slit lies out on the box's cells alone)
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
 // - the page's own heights (log |F|) and window, square root alone: leaving plane z the other sheet has the principal's
@@ -46,7 +48,7 @@ const MISS = 0.03;                    // how much further from it the control is
 const SAME_SURF = 0.08;               // departure: the share by which the surface may differ from All sheets' plane
 const MISS_SURF = 0.15;               // departure: the share by which the control's surface is smaller than the frame's, at least
 const SEAM_GAP = 20;                  // the pixels the seams' surfaces may leave bare that the frame without them covers (edges)
-const GAP_SHARE = 0.25;               // arrival: the share of the control's bare pixels (against the parked plane) the seams may leave
+const ARRIVE_BARE = 300;              // arrival: the pixels the frame with the seams may leave bare against the parked plane
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
 const WIDE = 60;                      // px per unit: the page's default window
@@ -115,7 +117,7 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const g = r[`seam ${u}`] = { seams: await gap(`s${u}`, 'pb'), none: await gap(`ns${u}`, 'pb'), slit: await gap(`ns${u}`, `s${u}`) };
     ok(`${name}, u = ${u}: the seams' surfaces only add surface (at most ${SEAM_GAP} px bare that the frame without them covers)`, g.slit.reverse <= SEAM_GAP, g);
     ok(`${name}, u = ${u}: the control, without them: the slit along the seam, at least ${SLIT_MIN} px bare where the frame with them has surface`, g.slit.n >= SLIT_MIN, g);
-    if (u !== 0.5) ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare at most ${GAP_SHARE} as often as without them`, g.seams.n <= GAP_SHARE * g.none.n, g);
+    if (u !== 0.5) ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare no more often than without them, and at most ${ARRIVE_BARE} px`, g.seams.n <= g.none.n && g.seams.n <= ARRIVE_BARE, g);
   }
   await ev('__cmwSteps({ glideSeams: 1 }); 1');
   await ev('__cmwSteps({ glideSheets: 0 }); 1');

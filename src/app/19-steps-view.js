@@ -523,9 +523,9 @@
     // where plane b shows the principal sheet's image of the regions)
     const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.a, g.b, carry.s) : [];
     // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
-    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
+    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null; seam: a seam, its cuts turned)
     const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.a, g.b, carry.s) : [];
-    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band, seam: true })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null, seam: false }))];
     render3D(pane, carry);
     return true;
   }
@@ -545,15 +545,14 @@
   // the pole patches leave a hole (GLR.drawLandscape): its coarse outer cells would otherwise lie over finer ones that
   // draw the surface well. All sheets' carry draws it as it draws a pole's patch.
   // The glide map's poles and branch points take the map's seam (svPatchSeam): a patch's rings start at the cut out of
-  // its point, so no cell straddles the cut. branchSeams false (the carry draws the other sheets' copies, which draw no
-  // patches of their own) leaves a branch point's patch without it, so it covers the point on both sides of the cut,
-  // where a seamed patch would leave the far side bare
+  // its point, so no cell straddles the cut. Each of the other sheets' copies of a glide draws the same patches on its
+  // own combo (GLR.drawLandscape), so the sheets' branch point patches meet along the cut's images
   // The poles are searched for (svPolesIn) once per carry: its map but for t, and src. Then each frame follows the last
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
   const svLandPoleMemo = { key: '', poles: [] };
-  function svLandPatches(map, src, N, hF, hKey, branchSeams = true) {
+  function svLandPatches(map, src, N, hF, hKey) {
     const F = cpuMap(map);
     if (!F) return [];
     const key = JSON.stringify([map.mode, map.base, map.hi, map.a, map.b, map.post, map.t, src.x0, src.x1, src.y0, src.y1]), E = { n: 0, at: 0 };
@@ -565,9 +564,9 @@
     Object.assign(svLandPoleMemo, { key, poles: near });
     const patch = (p, r1 = cell * 8) => [p.re, p.im, cell * 1e-4, r1];
     const branches = SV.landBranches === 0 ? [] : svLandBranches(map, src, cell * 8).filter((b) => near.every((p) => Math.hypot(p.re - b.re, p.im - b.im) > cell));
-    // (each patch's rings start at the map's cut out of its point, if it has one; a branch point's only with branchSeams)
+    // (each patch's rings start at the map's cut out of its point, if it has one)
     const seamed = (q) => Object.assign(q, { seam: svPatchSeam(F, q) });
-    const branch = (b) => { const q = patch(b, svLandBranchReach(b, src, cell)); return Object.assign(branchSeams ? seamed(q) : q, { hole: true }); };
+    const branch = (b) => { const q = patch(b, svLandBranchReach(b, src, cell)); return Object.assign(seamed(q), { hole: true }); };
     return near.map((p) => seamed(patch(p))).concat(branches.map(branch), hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map((p) => patch(p)) : []);
   }
   // The reach of a branch point b's patch (svLandPatches) over plane s's carried box src of cells cell wide: eight cells,

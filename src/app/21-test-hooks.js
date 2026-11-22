@@ -335,7 +335,7 @@
   // most lim long), of the box grid (cells x cells vertices over src), of a pole patch or of the far patch (patchN x patchN vertices,
   // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
   // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
-  // default). copies: the other sheets' copies of a glide (carried.sheetCopies, those over the whole box) count too, each
+  // default). copies: the other sheets' copies of a glide (carried.sheetCopies, its seams left out) count too, each
   // with the map on its own sheet combo: its box grid and, as the last frame drew them (carried.copyPatches), its own
   // patches. {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
@@ -388,7 +388,7 @@
       }
     };
     surf(pats(patches, c.patches || 0).concat(more));
-    if (copies) for (const cp of c.sheetCopies || []) if (cp.band == null) cp.draw(() => { F = cpuMap(c.map); surf(pats(patches && c.copyPatches > 0, c.copyPatches)); });
+    if (copies) for (const cp of c.sheetCopies || []) if (!cp.seam) cp.draw(() => { F = cpuMap(c.map); surf(pats(patches && c.copyPatches > 0, c.copyPatches)); });
     let bare = 0, counted = 0;
     const at = [];
     for (let k = 0; k < nx * ny; k++) {
