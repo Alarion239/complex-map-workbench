@@ -376,13 +376,28 @@
   }
 
   // where the map arrow between two side-by-side panels goes: its height, at the first of seven heights across the
-  // panels that keeps its label clear of o.oys (the panels' axis lines); its ends, in a box-axes figure 5 pt right of
-  // the left panel (xr) and o.span long, else o.off right of it up to 8 pt before the right panel (xn)
+  // panels that keeps its label clear of o.oys (the panels' axis lines) and of the text already placed (XD.boxes: the
+  // panels' tick labels, which stand in the gap when the right panel's imaginary axis is at its left edge); its ends, in a
+  // box-axes figure 5 pt right of the left panel (xr) and o.span long, else o.off right of it up to 8 pt before the right
+  // panel (xn), and in either case ARROW_CLEAR short of a text box on its line. A height where the arrow would be shorter
+  // than its label (or ARROW_MIN) is passed over; when every height is, the first of them is kept
+  const ARROW_CLEAR = 2, ARROW_MIN = 12;
   function arrowPlace(o) {
-    const lab = o.label ? o.label.a + o.label.d + 3 : 0;
-    const ay = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => o.y + f * o.h).find((v) => o.oys.every((oy) => v - oy > lab + 6 || oy - v > 6)) || o.y + o.h / 2;
+    const lab = o.label ? o.label.a + o.label.d + 3 : 0, lw = o.label ? o.label.w : 0;
+    const hs = [0.5, 0.36, 0.64, 0.24, 0.76, 0.14, 0.86].map((f) => o.y + f * o.h).filter((v) => o.oys.every((oy) => v - oy > lab + 6 || oy - v > 6));
     const a0 = o.box ? o.xr + 5 : o.xr + o.off;
-    return { a0, a1: o.box ? a0 + o.span : o.xn - 8, ay };
+    const obst = (XD.boxes || []).filter((b) => b.kind !== 'arrow');
+    const at = (ay) => {
+      let a1 = o.box ? a0 + o.span : o.xn - 8;
+      // (the shaft and the head, 4.2 pt long and 3 pt across, end before a box their line meets)
+      for (const b of obst) if (b.y0 < ay + 1.5 + ARROW_CLEAR && b.y1 > ay - 1.5 - ARROW_CLEAR && b.x1 > a0 && b.x0 < a1 + ARROW_CLEAR) a1 = Math.min(a1, b.x0 - ARROW_CLEAR);
+      // (the label: centred over the arrow, its foot 2.6 pt above it, as XD.mapArrow sets it)
+      const lx = (a0 + a1) / 2, ly1 = ay - 2.6, ly0 = ly1 - (o.label ? o.label.a + o.label.d : 0);
+      const clear = !o.label || !obst.some((b) => b.x0 < lx + lw / 2 + ARROW_CLEAR && b.x1 > lx - lw / 2 - ARROW_CLEAR && b.y0 < ly1 + ARROW_CLEAR && b.y1 > ly0 - ARROW_CLEAR);
+      return { a0, a1, ay, ok: clear && a1 - a0 >= Math.max(ARROW_MIN, lw) };
+    };
+    for (const ay of hs) { const r = at(ay); if (r.ok) return r; }
+    return at(hs[0] != null ? hs[0] : o.y + o.h / 2);
   }
 
   // ---------- (1) X -> Y: two plane panels and the F arrow (or one of them) ----------
