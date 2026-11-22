@@ -30,13 +30,14 @@ const NEWT_H_SITES_POLY = 6, NEWT_H_SITES_POLY_PASS = 4;
 const TS = [0.3, 0.7];
 const St = (type, params = {}) => ({ type, params: Object.assign(Funcs.defaults(type), params), on: true });
 // [name, step, kind of its NEWT op, bound, roots pass's bound]
+// (the polynomial op of degree 5: degrees 3 and 4 are the closed forms' RAT3 and RAT4 ops, with no NEWT op)
 const CASES = [
   ['plain', St('series'), 'plain', NEWT_H_SITES, NEWT_H_SITES_PASS],
   ['pole', St('zeta'), 'pole', NEWT_H_SITES, NEWT_H_SITES_PASS],
   ['seeded', St('ijouk'), 'seeded', NEWT_H_SITES, NEWT_H_SITES_PASS],
   ['dh', St('dh'), 'seeded ray dual', NEWT_H_SITES_DUAL, NEWT_H_SITES_DUAL_PASS],
   ['bottcher', St('bottcher'), 'seeded ray dual', NEWT_H_SITES_DUAL, NEWT_H_SITES_DUAL_PASS],
-  ['polynomial', St('poly', { co: '1, 0, -1, 0' }), 'polynomial', NEWT_H_SITES_POLY, NEWT_H_SITES_POLY_PASS],
+  ['polynomial', St('poly', { co: '1, 0, 0, 0, -2, 1' }), 'polynomial', NEWT_H_SITES_POLY, NEWT_H_SITES_POLY_PASS],
 ];
 const H_CALL = /\b(?:chainHomD?|cxs\d+r\d+_h|ix\d+_poly)\(/g;
 
