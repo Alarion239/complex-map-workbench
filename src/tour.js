@@ -1564,7 +1564,14 @@ const Tour = (() => {
     sizeDesk(r);
     wire(r);
     if (!prev) call('onTour', true);
-    return show(r.ci, r.si, 1).then(() => true);
+    // (a start from the Help menu or a suggestion has its control gone with the menu or the toast, so the focus fell to the page: it goes to the strip's
+    // first action, where Tab goes on through the strip's controls before the page's)
+    const fromControl = !!opt.opener;
+    return show(r.ci, r.si, 1).then(() => {
+      const at = document.activeElement;
+      if (fromControl && run === r && (!at || at === document.body || !at.isConnected || at.closest('[role=menu]'))) { try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } }
+      return true;
+    });
   }
   // the user's work back; true when it is (or nothing was borrowed). A failed restore keeps the autosave paused and the
   // backup stash, so the saved copy stays the user's and a reload brings it back

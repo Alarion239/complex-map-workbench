@@ -249,6 +249,21 @@ for (const cfg of runs) {
     check(`${tag} focus: every strip control the focus reaches shows a ring`, seenF.every((x) => !x || !x.inStrip || x.ring), seenF);
     check(`${tag} focus: the palette from the strip, Esc: the tour stays and the focus is back in the strip`, back.tour && back.inStrip, back);
     await ev('Tour.isActive() && Tour.stop()'); await calm();
+    // the tour started from the Help menu by keyboard: the focus is in the strip (the menu's item is gone with the menu), at a desk, where Help is in the header
+    if (!phoneSize(w, h)) {
+      await ev(`document.getElementById('helpBtn').focus()`);
+      await key('Enter');
+      const menu = await settled({ only: true, max: SHOWN_MS, until: `!!(document.activeElement && document.activeElement.closest('[role=menu]'))` });
+      check(`${tag} focus: Enter on Help opens the menu with the focus in it`, menu.ok, menu);
+      if (menu.ok) {
+        await key('Enter');
+        const on = await settled({ only: true, max: SHOWN_MS, until: `Tour.isActive() && !!document.querySelector('.tour-strip')` });
+        await settle();
+        const landed = await ev(`({ tour: Tour.isActive(), inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), on: document.activeElement ? document.activeElement.tagName + '.' + document.activeElement.className : null })`);
+        check(`${tag} focus: the tour started from the Help menu by keyboard has the focus in the strip`, on.ok && landed.tour && landed.inStrip, landed);
+      }
+      await ev('Tour.isActive() && Tour.stop()'); await calm();
+    }
   }
   // ---- follow: the spotlight keeps up with a scroll, a resize and a layout change, in the next frame
   if (CFG.follow && theme === 'light') {
