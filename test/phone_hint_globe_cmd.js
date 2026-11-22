@@ -92,8 +92,9 @@ for (const [w, h] of CHIP_CASES) for (const lang of ['en', 'ru', 'it']) {
 // words are then folded away, leaving its × and ?: a chip shows its words whole or not at all, never a stub, and the bar's sentence ends in the
 // tool's name (#2086). At 568 x 320 and 600 x 320, in en, ru and it, for a tool whose chip has the tall bar (Perpendicular) and one whose keys stand
 // in a column (Intersect). The same at 667 x 375 and 740 x 360 for each tool with a long name (Perpendicular and Hyperbolic with the tall bar,
-// Touching without it), and at 640 x 360 for the longest (Hyperbolic), where X's plane is 276 to 326 px wide and the chip's words, clamped at two
-// lines, lost the tool's name (#2165); at 844 x 390 (the plane 378 px wide) the chip keeps its words, whole.
+// Touching without it), at 640 x 360 for the longest (Hyperbolic), and Intersect at 640 x 360 and 667 x 375, where X's plane is 276 to 326 px wide and
+// the chip's words, clamped at two lines, lost the tool's name (#2165); at 780 x 389, the tallest under 390 px, too; at 844 x 390 (the plane 378 px wide)
+// the chip keeps its words, whole.
 const END_SHOWN = `(e) => { if (!e || !e.getClientRects().length) return null;
   const box = e.getBoundingClientRect(), w = document.createTreeWalker(e, NodeFilter.SHOW_TEXT); let last = null, n;
   while ((n = w.nextNode())) if (n.textContent.trim()) last = n;
@@ -101,7 +102,7 @@ const END_SHOWN = `(e) => { if (!e || !e.getClientRects().length) return null;
   const r = document.createRange(); r.setStart(last, Math.max(0, last.textContent.length - 3)); r.setEnd(last, last.textContent.length);
   const q = r.getBoundingClientRect();
   return q.height > 0 && q.bottom <= box.bottom + 0.5 && q.right <= box.right + 0.5; }`;
-const FOLD_CASES = [[568, 320, ['perp', 'meet']], [600, 320, ['perp', 'meet']], [640, 360, ['hyper']], [667, 375, ['perp', 'hyper', 'touch']], [740, 360, ['perp', 'hyper', 'touch']], [844, 390, ['hyper']]];
+const FOLD_CASES = [[568, 320, ['perp', 'meet']], [600, 320, ['perp', 'meet']], [640, 360, ['hyper', 'meet']], [667, 375, ['perp', 'hyper', 'touch', 'meet']], [740, 360, ['perp', 'hyper', 'touch']], [780, 389, ['perp', 'hyper', 'meet']], [844, 390, ['hyper']]];
 const KEEPS_WORDS = 390;   // a landscape phone this tall or taller: the classic plane's chip has room for its words, px
 for (const [w, h, tools] of FOLD_CASES) for (const lang of ['en', 'ru', 'it']) for (const tool of tools) {
   const name = `${w}x${h} ${lang} classic ${tool}`;

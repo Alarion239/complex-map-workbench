@@ -488,7 +488,7 @@ html:not(.ph) .ph-only { display: none !important; }
 /* (a landscape phone under 390 px tall: the classic view's plane is half the screen, and the chip's words lack room: 52 to 172 px wide beside the keys'
    row at 320 px tall, a letter or two a line; at 360 and 375 px, planes 276 to 326 px wide, two lines that lose the tool's name, their end. The context bar
    says the same sentence whole, so the words fold away and the chip keeps its × and ?. From 390 px tall, and in the steps view's wide plane, they fit) */
-@media (max-height: 380px) {
+@media (max-height: 389.98px) {
   :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip > .cm-t { display: none; }
 }
 /* (an unfolded key is the one the person opened to read: it stands over the keys it meets (Fit view, the zoom group, Sphere), at any height
