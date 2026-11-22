@@ -26,7 +26,7 @@
 //   surface's outer edge, a pixel apart);
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
-// - the page's own heights (|F|) and window, square root alone: leaving plane z the other sheet has the principal's
+// - the page's own heights (log |F|) and window, square root alone: leaving plane z the other sheet has the principal's
 //   modulus, so its copy lies in the principal surface's place on triangles of its own. Held at u = NEAR, 0.02, 0.05
 //   and 0.15, the frame and the control (the principal combo alone) differ in at most SPECKLE isolated pixels (over
 //   SPECKLE_TOL in a channel, with at most two of their eight neighbours so): the principal surface is the one shown
@@ -46,7 +46,7 @@ const SEAM_GAP = 20;                  // the pixels the seams' surfaces may leav
 const GAP_SHARE = 0.25;               // arrival: the share of the control's bare pixels (against the parked plane) the seams may leave
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
-const SPECKLE = 40, SPECKLE_TOL = 24; // |F| heights: the isolated pixels the frame and the control may differ in, and by how much
+const SPECKLE = 40, SPECKLE_TOL = 24; // log |F| heights: the isolated pixels the frame and the control may differ in, and by how much
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const step = (type, params) => ({ type, params: params || {}, on: true });
@@ -129,7 +129,7 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     ok(`Inside regions, u = ${u}: a carried frame of the principal sheet's image of the region alone (no copy)`, c.s === 0 && c.copies === 0, c);
   }
 }
-// ---- the page's own heights (|F|) and window: no speckle where the copy lies in the principal surface's place ----
+// ---- the page's own heights (log |F|) and window: no speckle where the copy lies in the principal surface's place ----
 {
   const r = info.modulus = {};
   // (the pixels over SPECKLE_TOL apart between the kept frames a and b with at most two of their eight neighbours so)
@@ -147,7 +147,7 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const all = await at(u, 0, `m${u}`);
     const one = await at(u, 1, `mk${u}`);
     const sp = r[`u ${u}`] = Object.assign({ copies: all.copies }, await speckle(`m${u}`, `mk${u}`));
-    ok(`|F| heights, u = ${u}: the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
+    ok(`log |F| heights, u = ${u}: the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
   }
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
 }
