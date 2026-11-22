@@ -565,7 +565,7 @@ try {
     await ev(`(() => {
       const s = window.__llCz = { ids: [], done: false };
       const tick = () => {
-        for (const p of GLR.pending()) if (/^inv\\|.*\\|carry(staged)?(cz)?\\|/.test(p.id) && !s.ids.includes(p.id)) s.ids.push(p.id);
+        for (const p of GLR.pending()) if (/^inv\\|.*\\|carry(staged)?(cz)?[|:]/.test(p.id) && !s.ids.includes(p.id)) s.ids.push(p.id);
         if (!s.done) requestAnimationFrame(tick);
       };
       requestAnimationFrame(tick);
@@ -575,7 +575,7 @@ try {
     await ev('__cmwSteps({ go: 1 }), 1');
     const c1 = await settled({ only: true, max: PLAY_MS, until: "(() => { const q = __cmwSteps(), r = q.rest; return q.x === 1 && !q.anim && GLR.pendingLinks === 0 && !!r && r.a === 1 && r.path === 'inverse' && !r.end; })()" });
     const ids = await ev('(() => { const s = window.__llCz; s.done = true; return s.ids; })()');
-    const plain = ids.filter((id) => !/\|carry(staged)?cz\|/.test(id));
+    const plain = ids.filter((id) => !/\|carry(staged)?cz[|:]/.test(id));
     ok(`${POLE_EX} in the Cauchy style, colour plane 0, › pressed: the carried colour's programs the glides' warm-up at rest asks for, the glide waits on and plane 1 at rest asks for are its Cauchy variants`, c0.ok && c1.ok && ids.length > 0 && plain.length === 0, { ids, plain, waits: { c0, c1 } });
     info.cauchyCarry = { ids: ids.length, plain };
   }
