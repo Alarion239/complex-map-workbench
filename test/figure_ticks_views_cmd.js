@@ -1,5 +1,5 @@
-// Figure export, the axes the figures label themselves: the video's axes (a frame drawn by the video's code), the classic
-// Landscape figure's floor and the deformation filmstrip's reliefs. Each axis is read from XD.axes ({ name, ticks, step,
+// Figure export, the axes the figures label themselves: the video's axes (a frame drawn by the video's code, of the steps
+// view's glide parked halfway) and the classic Landscape figure's floor. Each axis is read from XD.axes ({ name, ticks, step,
 // d, labels }, recorded by XD.axisDec while the figure is made). Over a window zoomed in to a span of about 2.4·10⁻⁶ (a
 // step below 10⁻⁶), on every axis the labels are pairwise different and each reads back to its tick, in en and ru (the
 // decimal comma). Over windows of a span of about 14 and of about 0.01, every axis keeps its step's own decimals
@@ -9,7 +9,8 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const base = `http://localhost:${PORT}`;
-const { morphKey, mainView } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'morph_keys.js'), 'utf8'))({ ev, settled });
+// (the classic view's main view, through its hook)
+const mainView = async (m) => { await ev(`__cmwSetMain(${JSON.stringify(m)}); 1`); await settled(); };
 // a label reads back to its tick: |value − tick| at most half a unit in its last printed place (a TeX or a plain decimal
 // comma, a minus sign)
 const readsBack = (lab, t) => { const s = lab.replace('{,}', '.').replace(',', '.').replace('−', '-'), d = (s.split('.')[1] || '').length; return Math.abs(parseFloat(s) - t) <= 0.5 * 10 ** -d + 1e-12; };
@@ -18,17 +19,18 @@ const axisOk = (a) => !!a && a.labels.length > 1 && new Set(a.labels).size === a
 const ZOOM = { cx: 1.83681819, cy: 1.25663493, s: 3.5e8 }, WIDE = { cx: 0, cy: 0, s: 60 }, NARROW = { cx: 1.837, cy: 1.257, s: 8.5e4 };
 // the shape, a square RECT_PX px a side from the window's centre: the video fits its window to the shapes
 const RECT_PX = 300;
-// (the identity: both panes and the deformation between them show the same window, the video's included)
+// (the identity: every plane and the glide between them show the same window, the video's included)
 const STEPS = [{ type: 'custom', params: { expr: 'z' }, on: true }];
-const open = async (ns, lang, srcView) => {
+// (classic: the classic view; else the steps view, its glide parked halfway from z to w₁, the video's frame)
+const open = async (ns, lang, srcView, classic) => {
   await view(1440, 900, false);
   await seed(ns, { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, steps: STEPS, srcView, rightView: srcView,
     shapes: [{ id: 's1', kind: 'rect', a: [srcView.cx - RECT_PX / srcView.s, srcView.cy - RECT_PX / srcView.s], b: [srcView.cx + RECT_PX / srcView.s, srcView.cy + RECT_PX / srcView.s], visible: true }] });
-  await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=classic`);
-  await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && typeof __cmwMorph === "function"', max: 30000 });
+  await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=${classic ? 'classic' : 'steps'}`);
+  await settled({ until: `window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && ${classic ? 'typeof __cmwSetMain === "function"' : 'typeof __cmwSteps === "function" && __cmwSteps().on'}`, max: 30000 });
+  if (!classic) { await ev('__cmwSteps({ park: 0.5 }); 1'); await settled({ max: 15000 }); }
 };
-// the axes a figure records while it is made: kind 'video' (one frame by the video's code), 'land' (the Landscape figure),
-// 'film' (the deformation's filmstrip of reliefs)
+// the axes a figure records while it is made: kind 'video' (one frame by the video's code), 'land' (the Landscape figure)
 const axesOf = (kind) => ev(`await (async () => { const XD = __cmwFig.XD; XD.axes = []; try {
   if (${JSON.stringify(kind)} === 'video') await __cmwFig.videoScreenCheck({ video: { size: '1280x720', look: 'print', win: 'screen', paths: false, tlabel: false } });
   else await __cmwFig.build({ for: 'article', cols: 1 });
@@ -36,16 +38,15 @@ const axesOf = (kind) => ev(`await (async () => { const XD = __cmwFig.XD; XD.axe
 } catch (e) { return { err: String(e).slice(0, 300) }; } finally { XD.axes = null; } })()`, 180000);
 for (const [win, srcView] of [['zoomed', ZOOM], ['wide', WIDE], ['0.01-wide', NARROW]]) {
   for (const lang of win === 'zoomed' ? ['en', 'ru'] : ['en']) {
-    await open(`ftv${win}${lang}${Date.now()}`, lang, srcView);
-    // the video: a frame of the classic deformation on the plane; the filmstrip: the deformation in the Landscape; the
-    // Landscape figure: the Landscape with the deformation closed
-    await mainView('xy'); await morphKey();
+    // the video: a frame of the steps view's glide on the plane; the Landscape figure: the classic Landscape
+    // (standards-ok: the classic deformation's filmstrip rows went with the classic transport, #994; the video's rows run
+    // on the steps view's glide)
+    await open(`ftvs${win}${lang}${Date.now()}`, lang, srcView, false);
     const video = await axesOf('video');
+    await open(`ftv${win}${lang}${Date.now()}`, lang, srcView, true);
     await mainView('land');
-    const film = await axesOf('film');
-    await morphKey();
     const land = await axesOf('land');
-    for (const [tag, r] of [['the video', video], ['the deformation filmstrip', film], ['the Landscape figure', land]]) {
+    for (const [tag, r] of [['the video', video], ['the Landscape figure', land]]) {
       const n = `${tag}, ${win} window, ${lang}`;
       info[n] = r;
       ok(`${n}: its axes are recorded (control)`, !!r && !r.err && r.axes.length >= 2, r);
