@@ -113,11 +113,12 @@
         g.toast.querySelector('.toast-act').after(h('button', { class: 'toast-act', onclick: () => svGateEnd() }, $t('Cancel')));
         // (Retry and the message's close button end the message, not the wait: the focus moves to the button before the message goes)
         const msg = g.toast, btn = g.btn;
-        // (a press on the message may close it: the plane's note is drawn again once it has gone)
-        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); setTimeout(() => requestRender('L'), TOAST_OUT_MS * 2); }, true);
+        msg.addEventListener('click', () => { if (msg.contains(document.activeElement)) btn.focus(); }, true);
       }
       requestRender('L');   // (the plane's "Compiling…" note goes while the message names the programs)
     }
+    // (the message is gone without the wait ending, closed or replaced by another: the plane's note is drawn again)
+    if (g.toast && !g.toast.isConnected) { g.toast = null; requestRender('L'); }
     svGateSync();
     g.timer = setTimeout(svGateTick, SV_GATE_POLL_MS);
   }

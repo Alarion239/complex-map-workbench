@@ -11,7 +11,8 @@
 // - at 360 px, for each language, the longest sentence keeps the message two rows tall (the words, then Retry, Cancel and the
 //   close button), inside the viewport;
 // - at 1280, 1024 and 560 px, for each language, with the links held (the left plane draws its "Compiling…" note): Retry, Cancel and the
-//   close button are on one row (none alone on a row of its own), and the note is not drawn while the message is up;
+//   close button are on one row (none alone on a row of its own), and the note is not drawn while the message is up (and is drawn
+//   again once the message has gone with the wait still on: closed by its ×, or replaced by another message);
 // - on a phone in portrait (360 and 412 px), with the links held: the message covers no key of the left plane.
 // A command file for a CDP daemon:  <runner> test/svplay_gate_parts_cmd.js
 const fails = [], info = {};
@@ -161,6 +162,26 @@ for (const [w, h] of PHONES) {
     ok(`phone ${w} px ${lang}: the message covers none of the left plane's keys`, !g.keys.some((k) => overlap(g, k)), g);
     ok(`phone ${w} px ${lang}: the "Compiling…" note is not drawn while the message is up`, !g.pill, g);
   }
+}
+
+// 6. the note comes back when the message goes while the wait goes on: closed with its × (the wait is still on), or replaced by another
+// message with no press (rvB's nits)
+const NOTE = 'typeof __cmwCompileBox === "function" && !!__cmwCompileBox()';
+for (const how of ['closed', 'replaced']) {
+  await open(1280, 800, 'en', true);
+  await ev('(__cmwSteps({ play: true }), 1)');
+  await settled({ max: HANG_WAIT_MS, only: true, until: `!!document.querySelector("${MSG}")` });
+  let hidden = false;
+  for (let i = 0; i < 20 && !hidden; i++) { await sleep(100); hidden = !(await ev(NOTE)); }
+  ok(`${how}: the note is not drawn while the message is up (control)`, hidden, how);
+  if (how === 'closed') await ev(`(document.querySelector('${MSG} .toast-x').click(), 1)`);
+  else await ev(`(__cmwToast('Another message', null, { sticky: true }), 1)`);
+  let back = false;
+  for (let i = 0; i < 30 && !back; i++) { await sleep(100); back = await ev(NOTE); }
+  const waiting = await ev('!!__cmwSteps().moving');
+  ok(`${how}: the wait goes on (control)`, waiting === true, waiting);
+  ok(`${how}: the "Compiling…" note is drawn again once the message has gone`, back === true, back);
+  await ev('(__cmwSteps({ play: false }), 1)');
 }
 
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
