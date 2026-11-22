@@ -168,11 +168,28 @@
   const niceStep = (span, n) => { const raw = span / n, e = Math.floor(Math.log10(raw)), b = raw / 10 ** e; return (b < 1.5 ? 1 : b < 3.5 ? 2 : b < 7.5 ? 5 : 10) * 10 ** e; };
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
-  XD.decimals = (step) => { for (let d = 0; d < 7; d++) if (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) < 1e-9) return d; return 6; };
+  // (the tolerance is relative to the scaled step, which must reach at least 1: an absolute one read a step below 1e-9 as a whole number.
+  // It is 1e-14 of it, a few ulps of a double's error and below 10^-DEC_MAX, so that a step no count of decimals represents (1/3, pi)
+  // is not taken for one; DEC_MAX decimals are the digits a double keeps for a tick of magnitude one or more; such a step keeps 6)
+  const DEC_MAX = 12, DEC_TOL = 1e-14;
+  XD.decimals = (step) => {
+    if (step === 0) return 0;
+    for (let d = 0; d <= DEC_MAX; d++) { const v = Math.abs(step) * 10 ** d, r = Math.round(v); if (r >= 1 && Math.abs(v - r) <= DEC_TOL * r) return d; }
+    return 6;
+  };
   // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike, up to
   // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
   const TICK_DEC_MAX = 15;
   XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
+  // the decimals of an axis that a figure labels itself (the video's axes, the Landscape figure's floor, a filmstrip's reliefs):
+  // XD.tickDec's, for its ticks ts at step; fmt(v, d) is the label the figure prints. While XD.axes is a list (the tests set
+  // it), each axis is recorded there, { name, ticks, step, d, labels }; the video's y axis adds left, the leftmost edge of
+  // the labels it draws (px from the frame's left edge)
+  XD.axisDec = (name, ts, step, fmt = XD.tickTex) => {
+    const d = XD.tickDec(ts, step);
+    if (XD.axes) XD.axes.push({ name, ticks: ts.slice(), step, d, labels: ts.map((v) => fmt(v, d)) });
+    return d;
+  };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own

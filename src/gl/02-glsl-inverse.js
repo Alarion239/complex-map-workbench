@@ -104,6 +104,10 @@ uniform vec4 uTint;
 // uStageGrow: device px a later plane's shape is grown by where it is drawn (its colour reaches as far as its band does)
 uniform float uStageGrow;
 float ixEdge, ixEdgeC, ixFill;
+// (ixShapePx: the band pass's candidate is where the chain to the shape's plane is not linear over the footprints, its
+// forward and backward differences more than IX_BEND of the larger apart)
+bool ixNonLin;
+const float IX_BEND = 0.25;
 #endif
 uniform vec4 uClipH; uniform vec4 uClipP[16]; uniform vec4 uShBox; uniform int uIxOne;   // the clip primitive: (nIn, nHole), 2 texels per piece (the first 8 here)
 ${PAT_UNIFORMS}layout(location = 0) out vec4 o;
@@ -293,6 +297,10 @@ vec3 ixKindLevel(vec2 z) {
 }
 // a formula shape's level with its complement (formulas only: their gradient is taken by central differences)
 float ixFormLevel(vec2 z) { float L = formulaLevel(uFormSlot, z); return uShape.y == 1 ? -L : L; }
+#ifdef IX_STAGED
+// (the shape's level at w on its plane, whose sign is the side of the boundary; a curve's is minus its distance)
+float ixLevelAt(vec2 w) { return uShape.x == 7 ? ixFormLevel(w) : ixKindLevel(w).x; }
+#endif
 void ixFromGrad(float L, float gx, float gy, out float s, out vec2 n) {
   vec2 g = vec2(gx, gy);
   float m = max(abs(gx), abs(gy));
@@ -325,20 +333,24 @@ void ixDirHalf(vec2 d, float th, vec2 dLX, vec2 dLY, float sg, out float s, out 
 }
 #ifdef IX_CARRY
 // the chain's stages (a, b], G = chainRange(., a, b), at z, z + dX and, unless an, z + dY: g0 = G(z), gx = G(z + dX) - g0,
-// gy = G(z + dY) - g0 (0 with an). One chainRange call site, in a loop whose trip count is a uniform: a shader compiler
-// inlines every call, so three calls would hold three copies of the chain (the carried colour's and a later plane's
-// shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources): three calls, as SwiftShader's
-// compiler (Subzero) links the loop some 20 times slower than the three copies
-void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, out vec2 g0, out vec2 gx, out vec2 gy) {
+// gy = G(z + dY) - g0 (0 with an); with bk also at z - dX and z - dY, the backward differences gbx = g0 - G(z - dX)
+// and gby = g0 - G(z - dY) (gx and gy without: no bend). One chainRange call site, in a loop whose trip count is a
+// uniform: a shader compiler inlines every call, so five calls would hold five copies of the chain (the carried
+// colour's and a later plane's shape's points, ixCarryCol and ixShapePx). IX_CHAIN3_CALLS (SwiftShader, invSources):
+// three calls, as SwiftShader's compiler (Subzero) links the loop some 20 times slower than the three copies; there
+// bk is not taken (no backward differences: two more copies of the chain would add their link time)
+void ixChain3(vec2 z, vec2 dX, vec2 dY, int a, int b, bool an, bool bk, out vec2 g0, out vec2 gx, out vec2 gy, out vec2 gbx, out vec2 gby) {
 #ifdef IX_CHAIN3_CALLS
   g0 = chainRange(z, a, b); gx = chainRange(z + dX, a, b) - g0; gy = an ? vec2(0.0) : chainRange(z + dY, a, b) - g0;
+  gbx = gx; gby = gy;
 #else
-  g0 = vec2(0.0); gx = g0; gy = g0;
-  for (int k = 0; k < 3 * uIxOne; k++) {
-    if (k == 2 && an) break;
-    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : z + dY, a, b);
-    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else gy = g - g0;
+  g0 = vec2(0.0); gx = g0; gy = g0; gbx = g0; gby = g0;
+  for (int k = 0; k < 5 * uIxOne; k++) {
+    if ((k == 2 && an) || (k >= 3 && !bk)) continue;
+    vec2 g = chainRange(k == 0 ? z : k == 1 ? z + dX : k == 2 ? z + dY : k == 3 ? z - dX : z - dY, a, b);
+    if (k == 0) g0 = g; else if (k == 1) gx = g - g0; else if (k == 2) gy = g - g0; else if (k == 3) gbx = g0 - g; else gby = g0 - g;
   }
+  if (!bk) { gbx = gx; gby = gy; }
 #endif
 }
 #endif
@@ -349,12 +361,36 @@ void ixShapePx(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 dLX, vec2 dLY, out 
   float cs = uShape.y == 1 ? -1.0 : 1.0;
   s = -1e38; n = vec2(0.0);
 #ifdef IX_STAGED
+  ixNonLin = false;
   if (uShStage > 0) {
     // (the shape's level at the point's image on its plane, along the image of the footprints)
     if (!zf) return;
-    vec2 g0, gx, gy;
-    ixChain3(z, dX, dY, 0, uShStage, false, g0, gx, gy);
+    vec2 g0, gx, gy, gbx, gby;
+    bool bk = uEdgeOnly == 1;
+    ixChain3(z, dX, dY, 0, uShStage, false, bk, g0, gx, gy, gbx, gby);
     if (!ixFin(g0) || !ixFin(gx) || !ixFin(gy)) return;
+    // (the band's distance is linear in the footprints' images: where a footprint's forward and backward images differ
+    // by more than IX_BEND of the larger, as about a critical value of the frame's map, whose inverse's footprint
+    // grows without bound, that distance is not the pixel's: the region's sign alone, and no band, invLeaf)
+    ixNonLin = bk && (!ixFin(gbx) || !ixFin(gby) || length(gx - gbx) > IX_BEND * max(length(gx), length(gbx)) || length(gy - gby) > IX_BEND * max(length(gy), length(gby)));
+    if (ixNonLin) {
+      // (unless a boundary crosses the footprint, as where a region's preimages meet at the critical value: its band
+      // stays. The level at the footprint's five images changes sign among them, or for a curve one of them is within
+      // the footprint's reach of it; a level that is not finite keeps the band too). One ixLevelAt call site, in a loop
+      // whose trip count is a uniform, as ixChain3's: each call would hold its own copy of the shape's level code
+      float aq = ixArcQ;   // (a curve's level sets the dash's arc: kept as it was)
+      float lo = 1e38, hi = -1e38;
+      bool fin = true;
+      for (int k = 0; k < 5 * uIxOne; k++) {
+        float l = ixLevelAt(k == 0 ? g0 : k == 1 ? g0 + gx : k == 2 ? g0 - gbx : k == 3 ? g0 + gy : g0 - gby);
+        if (!(abs(l) < 1e37)) fin = false;
+        lo = min(lo, l); hi = max(hi, l);
+      }
+      ixArcQ = aq;
+      float reach = max(max(length(gx), length(gbx)), max(length(gy), length(gby)));
+      bool curve = (uShape.x >= 11 && uShape.x <= 18) || uShape.x == 20;
+      if (!fin || (curve ? hi >= -reach : lo <= 0.0 && hi >= 0.0)) ixNonLin = false;
+    }
     z = g0; dX = gx; dY = gy;
   }
   bool ixOwn = uShStage == 0;
@@ -654,9 +690,11 @@ float ixChecker(vec2 p, vec2 w) { return 0.5 - 0.5 * ixSq(p.x, w.x) * ixSq(p.y, 
 // vSrc: the source point relative to vQ (0, or near a saturation anchor its pattern-aligned origin: SPEC 13.12)
 // gpA: near a saturation anchor (p != 0), the log-polar cell coordinates relative to the corner nearest to log p (xy)
 // and that corner's integer shift mod 2 (zw); gpA.z = -1 otherwise
+#ifndef IX_CARRY
 vec3 ixPattern(vec2 vSrc, vec2 vQ, vec2 gK, vec4 gpA, vec2 dX, vec2 dY, bool hasLam, vec2 lam, vec2 dLX, vec2 dLY, float vJac) {
 ${PATTERN_SRC('analytic')}  return col;
 }
+#endif
 #if IX_ANC
 // ---- saturation anchors (SPEC 13.12; Inverse.anchorModel / anchorPx): z = p + delta near p = (+-1 - B) / A (tan: +-i).
 // Per anchor a, uAnc[4a..4a+3] = model (type 0 none / 1 sure / 2 cone / 3 circle, its radius m, flag, sgn), geometry
@@ -697,9 +735,10 @@ float ixLog2Det(vec4 J) {
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 #ifdef IX_CARRY
-  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
-  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
-#endif
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant). Every draw of
+  // the variant sets uPattern 9 (drawInverse), so the variant holds no pattern code
+  return ixPack(ixCarryCol(z, zf, dX, dY));
+#else
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average
@@ -708,6 +747,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   vec2 dXs = fin ? dX : vec2(1e30), dYs = fin ? dY : vec2(1e30);
   if (!zf) pv = 1e30 * vec2(cos(L.lam.y), sin(L.lam.y));
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
+#endif
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
   float q = ixStep(D);
@@ -814,6 +854,9 @@ float invLeaf(Lf L, out bool cov) {
 #ifdef IX_STAGED
   // (|s| >= 1e37 is the in / out answer ixFromGrad gives at +-1e38: those stay as they are, only a finite level is grown)
   if (uShStage > 0 && s > -1e37 && s < 1e37) s += uStageGrow;
+  // (a footprint over which the chain bends, ixShapePx: in or out by its sign, no band; an anchor's answer, done, is
+  // its own)
+  if (!done && ixNonLin && s > -1e37 && s < 1e37) s = s > 0.0 ? 1e38 : -1e38;
   if (uEdgeOnly == 1 && s == s) {
     float on = 1.0;
     if (uEdgeDash.x > 0.0) {

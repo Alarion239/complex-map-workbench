@@ -4,7 +4,7 @@
 // plane a glide arrives at is coloured by its own variable over the whole plane), no lines, paths or strokes, and
 // the arrival plane's picture under a glide's carried colour left out (__cmwSteps({ restPaint: 0 }); that picture is
 // steps_glide_rest_paint_cmd.js's), so that a frame's paper is where no copy is drawn:
-// - square root alone (the inverse path) and z³ − 3z then square root (the mesh path: the cubic has no inverse plan),
+// - square root alone (the inverse path) and z⁵ − 5z then square root (the mesh path: a quintic has no inverse plan),
 //   the glide onto the square root's plane at u = SHORT, 1/2 and 1 − SHORT, and at u = TINY and 1 − TINY:
 //   - no frame leaves paper where the copies' images cover the plane: its paper share is at most PAPER_MAX (one sheet
 //     leaves the left half paper, about 0.5);
@@ -44,7 +44,7 @@ const LOG_SCALE = 12, SYM_TOL = 0.03; // the logarithm's zoomed-out view (px per
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const step = (type, params) => ({ type, params: params || {}, on: true });
-const ROOT = step('root', { n: 2, cut: 180 }), CUBIC = step('custom', { expr: 'z^3-3z', cut: 180 });
+const ROOT = step('root', { n: 2, cut: 180 }), QUINTIC = step('custom', { expr: 'z^5-5z', cut: 180 });
 await view(1440, 900, false, false);
 // PAPER: the page's white, a channel over it is paper
 const PAPER = 250;
@@ -59,7 +59,7 @@ const at = async (x, tag) => {
   ok(`${tag}: the frame is still`, await grab(tag), null);
   return { paper: await paper(tag), coloured: await coloured(tag), glide: JSON.parse(await ev('JSON.stringify((({ path, u, sheets, sheetKs }) => ({ path, u, sheets, sheetKs }))(__cmwSteps().glide || {}))')) };
 };
-for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z³ − 3z then square root', [CUBIC, ROOT], 'mesh']]) {
+for (const [name, steps, path] of [['square root', [ROOT], 'inverse'], ['z⁵ − 5z then square root', [QUINTIC, ROOT], 'mesh']]) {
   const r = info[name] = {};
   await loadView('steps', 'glidesheets' + Date.now(), { shapes: [], steps, srcView: { cx: 0, cy: 0, s: 90 } });
   await settled({ max: 30000, until: READY });

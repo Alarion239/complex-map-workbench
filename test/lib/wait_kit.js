@@ -1,4 +1,4 @@
-// The waits the phone suites share, written once. In a suite:
+// The waits the suites share (the phone suites first), written once. In a suite:
 //   const { until, reachable, sheetSettled } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 // until(expr, max) waits for one condition (an expression in the page) and records a failure that names it when it has not
 // come true by max ms; the options of the factory set the suite's default max and, with only, wait for the condition alone
@@ -8,8 +8,12 @@
 // (an expression in the page, none by default) holds. When it has not come by max ms (PREPARED_MS by default) it answers as settled
 // does (ok false) and records a failure that names the parts of the chain not done (jobs 1/3), that the chain is not up (no steps view,
 // no step or no GL: ready.total 0), or the extra condition when the chain is prepared.
-// still(read, step, limit): read() (an async reading of the page, JSON-comparable) again every step ms until two readings
-// in a row agree, and that reading; the last one if none has by limit ms (the default max).
+// viewsQuiet(max, { panes }): the views have stopped moving (the test hook __cmwViewsBusy: X's meshing window still to
+// re-centre, or a plane's or a globe camera's tween running) and the panes are drawn (panes false: the views alone); a
+// failure that says so when that has not come by max ms.
+// still(read, step, limit, flag): read() (an async reading of the page, JSON-comparable) again every step ms until two
+// readings in a row agree, and that reading; the last one if none has by limit ms (the default max). With flag, the
+// answer is { reading, agreed }: agreed false when it is the last one.
 ({ settled, ev, sleep, fails, max = 8000, only = false }) => {
   const PREPARED_MS = 60000;
   const until = async (expr, ms = max) => { const r = await settled({ until: expr, max: ms, only }); if (!r.ok) fails.push({ name: 'wait timed out', got: expr }); return r; };
@@ -38,10 +42,11 @@
   };
   // the sheet of this kind is open and has finished sliding; `split`: the planes have been resized above it
   const sheetSettled = (kind, split) => `(() => { const sh = document.querySelector('.ph-sheet'); const r = document.documentElement; return Phone._state().kind === '${kind}' && Phone._state().split === ${!!split} && !!sh && !sh.hidden && sh.classList.contains('open') && !r.classList.contains('ph-ride') && sh.getAnimations().length === 0; })()`;
-  const still = async (read, step, limit = max) => {
+  const still = async (read, step, limit = max, flag = false) => {
+    const answer = (s, agreed) => (flag ? { reading: JSON.parse(s), agreed } : JSON.parse(s));
     let a = JSON.stringify(await read());
-    for (let i = 0; i < limit / step; i++) { await sleep(step); const b = JSON.stringify(await read()); if (a === b) return JSON.parse(b); a = b; }
-    return JSON.parse(a);
+    for (let i = 0; i < limit / step; i++) { await sleep(step); const b = JSON.stringify(await read()); if (a === b) return answer(b, true); a = b; }
+    return answer(a, false);
   };
   const prepared = async (also = 'true', ms = PREPARED_MS, o = {}) => {
     const r = await settled({ until: `__cmwSteps().ready.ready && (${also})`, max: ms, only: o.only === undefined ? only : o.only });
@@ -53,5 +58,12 @@
     }
     return r;
   };
-  return { until, reachable, sheetSettled, still, prepared };
+  // the views have stopped moving (__cmwViewsBusy false: X's meshing window re-centred after a pan or zoom, no plane or
+  // globe camera tween running) and, with panes (the default), the panes are drawn; records a failure on timeout
+  const viewsQuiet = async (ms = max, o = {}) => {
+    const r = await settled({ until: '!__cmwViewsBusy()', max: ms, panes: o.panes !== false });
+    if (!r.ok) fails.push({ name: 'the views did not settle in time (__cmwViewsBusy)', got: r.busy });
+    return r;
+  };
+  return { until, reachable, sheetSettled, still, prepared, viewsQuiet };
 };

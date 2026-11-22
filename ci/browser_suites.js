@@ -74,10 +74,12 @@ const SUITES = {
     logLine: (o) => 'SEAM-ROWS ' + JSON.stringify({ teeth: o.info.teeth, afterSettled: o.info.afterSettled, rows: o.info.teethRows }),
   },
   // (the default example Inside regions, the Joukowski airfoil, the Mountain King and the two polynomials at the device pixel ratio 1, and the
-  // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR)
+  // default example Inside regions and Everywhere at the Mac screen's 2: the kit's CMW_DPR; the steps inverted by a closed form and a
+  // polynomial of degree 5, Everywhere, in a run of their own)
   'steps_glide_look_cmd.js': { runs: [
     { label: 'dpr1', preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Joukowski airfoil', 'Joukowski airfoil, Everywhere', 'Mountain King, Everywhere', 'Roots as preimages, Everywhere', 'Partial sum of the exponential', 'Logarithm, Everywhere', 'Sheets of the logarithm, Everywhere', 'Zeros of the zeta function'];" },
     { label: 'dpr2', env: { CMW_DPR: '2' }, preamble: "globalThis.LOOK_CASES = ['Strip to disk', 'Strip to disk, Everywhere'];" },
+    { label: 'exact', preamble: "globalThis.LOOK_CASES = ['n-th root, Everywhere', 'complex power, Everywhere', 'cos, Everywhere', 'cosh, Everywhere', 'arccos, Everywhere', 'arcosh, Everywhere', 'polynomial of degree 5, Everywhere'];" },
   ] },
   'perp_cmd.js': { pages: ['v162-test.html', 'v163-test.html'] },
   'touch_cmd.js': { pages: ['v162-test.html'], runs: [{ label: 'steps' }, { label: 'classic', env: { CMW_VIEW: 'classic' } }] },
@@ -138,6 +140,7 @@ const TIMING = {
   'perp_cmd.js': [t(/^I8 rAF work no worse than the whole-circle run/)],
   'series_edit_cmd.js': [t(/^timing: /)],
   'link_standin_cmd.js': [t(/^timing: /)],
+  'steps_line_standin_cmd.js': [t(/^timing: /)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],

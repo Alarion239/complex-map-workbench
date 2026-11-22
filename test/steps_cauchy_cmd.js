@@ -4,7 +4,9 @@
 //   and outside for Both, only inside for Inside and only outside for Outside, whichever plane the thread was parked at before;
 //   with T at another plane the Cauchy tile is disabled with its reason, and a plane z that keeps the style is paper with the same
 //   sentence as its note, the key naming no bands;
-//   with no closed curve at all plane z is paper and the key says so.
+//   with no closed curve at all plane z is paper and the key says so;
+//   in ru the title and the style row's note set the curve's name in «» («интеграл Коши по контуру «Окружность 1»»), for a
+//   feminine name (the circle, «Окружность 1») and a masculine one (the disc's boundary, «Круг 1»).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PNG = process.mainModule.require(path.join(DIR, 'png.js'));
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -16,11 +18,11 @@ const REASON = 'The Cauchy integral is drawn on z, where its curve lies: colour 
 // paper and the neutral grey have their channels within GREY_SPREAD of each other (of 255); a hue differs by far more
 const GREY_SPREAD = 14;
 const isGrey = (c) => Math.abs(c[0] - c[1]) < GREY_SPREAD && Math.abs(c[1] - c[2]) < GREY_SPREAD;
-const open = async (shapes) => {
+const open = async (shapes, lang = 'en') => {
   await view(1440, 900, false, false);
   const ns = 'czs' + Date.now();
   await load(ns, stateOf(shapes));
-  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}`);
+  await go(`http://localhost:${PORT}/test.html?view=steps&ns=${ns}&lang=${lang}`);
   await settled({ until: 'window.MathJax && !!window.__cmwSteps && __cmwSteps().planes.length > 0', max: 30000 });
   if (shapes.length) await ev(`__cmwSelect('s1'); 1`);
   await settled({ until: '!__cmwSteps().moving', max: 15000 });
@@ -87,4 +89,18 @@ info.none = px2;
 ok('no closed curve: plane z is paper', isGrey(px2.inside) && isGrey(px2.outside), px2);
 const lg2 = await legend();
 ok('no closed curve: the key says so, no bands', lg2.caption === 'No curve selected', lg2);
+// ru: the curve's name in «» in the title and in the style row's note (read with the ⋯ pop-up open, then closed)
+for (const [tag, shape] of [['a circle', CIRCLE[0]], ['a disc', { id: 's1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }]]) {
+  await open([shape], 'ru');
+  await park(0);
+  const role = (await evJson('JSON.stringify(__cmwSteps().names.title)')).role;
+  await ev(`document.querySelector('#leftFoot .opts-btn').click(); 1`);
+  await settled({ until: '!!document.querySelector(".opts-pop")', max: 15000 });
+  const note = await ev(`(() => { const n = document.querySelector('.opts-pop .foot-note'); return n ? n.textContent : null; })()`);
+  await ev(`document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true })); 1`);
+  const name = await ev(`(() => { const k = document.querySelector('#shapeList .shape[data-id="s1"] .k'); return k ? k.textContent.trim() : null; })()`);
+  info[`ru ${tag}`] = { role, note, name };
+  ok(`ru, ${tag}: the title is «интеграл Коши по контуру «<its name>»»`, !!name && role === `интеграл Коши по контуру «${name}»`, info[`ru ${tag}`]);
+  ok(`ru, ${tag}: the style row's note names the curve in «»`, !!name && !!note && note.includes(`по контуру «${name}»`), info[`ru ${tag}`]);
+}
 return { pass: !fails.length, fails, info };

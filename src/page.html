@@ -531,7 +531,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .plot > canvas.overlay { touch-action: none; }
 
 /* level 2: anything floating over a canvas */
-.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip {
+.chip.readout, .legend-chip, .options, .vgroup, .empty-chip, .dim-chip, .ld-key {
   background: var(--overlay); border: 1px solid var(--line-strong); box-shadow: var(--shadow-1); border-radius: var(--r-2);
 }
 .chip.readout {
@@ -543,6 +543,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   cursor: copy; transition: color var(--t-fast) var(--ease-out), border-color var(--t-fast) var(--ease-out);
 }
 .chip.readout:empty { display: none; }
+@media (pointer: coarse) { .chip.readout { pointer-events: none; } }   /* (the readout copies on a press, which a touch has no use for: where the primary pointer is coarse, phones and tablets whose main input is touch, the chip is a reading, not a target, as on the phone layout; a laptop or tablet with a trackpad usually reports a fine pointer and keeps copy-on-tap) */
 /* the probe's one readout: z on the first line, w = F(z) on the second */
 .chip.readout:has(> .rln) { height: auto; line-height: 18px; padding-top: 2px; padding-bottom: 2px; }
 :root.ph .chip.readout:has(> .rln) { height: auto; line-height: 20px; padding-top: 3px; padding-bottom: 3px; }
@@ -726,6 +727,22 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 #warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
 #warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
+/* Look down's key (19-lookdown.js): what each mark over the plane is, at its bottom left, clear of the rulers and of the
+   view buttons at the bottom right */
+.ld-key {
+  position: absolute; z-index: 10; left: 28px; bottom: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
+  max-width: calc(100% - 96px); padding: 4px 10px; font: var(--t-label); color: var(--ink-2);
+}
+.ld-key[hidden] { display: none; }
+.ld-key .ld-ttl { color: var(--ink); }
+.ld-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
+.ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.ld-sw { display: inline-block; flex: none; box-sizing: border-box; width: 14px; }
+.ld-ring { width: 12px; height: 12px; border: 2px solid var(--ink); border-radius: 50%; }
+.ld-line { height: 0; border-top: 1.5px solid var(--ink); }
+.ld-dash { height: 0; border-top: 2px dashed var(--cut); }
+.ld-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cut); }
+.ld-cross { width: 11px; height: 11px; background: linear-gradient(45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%); }
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
   display: flex; align-items: center; gap: 10px; height: 32px; max-width: calc(100% - 16px); padding: 0 4px 0 10px;
@@ -2045,7 +2062,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="plot" id="plotL">
               <canvas id="canvasL"></canvas><canvas id="overlayL" class="overlay" aria-label="X, the z-plane: domain of F" role="img"></canvas>
               <div class="hairline" id="hairL" hidden></div>
-              <button class="chip readout" id="leftReadout" title="Click to copy">Hover to probe a point</button>
+              <button class="chip readout" id="leftReadout" title="Click to copy" aria-description="Copy the reading">Hover to probe a point</button>
               <div class="legend-chip" id="leftLegend" hidden><canvas id="legendCanvasL" width="272" height="144"></canvas><label class="check key-sw" id="wKeyRow" data-tip="Paint these colours in the w-plane on the right"><input type="checkbox" id="wKeyChk"><span data-i18n="html">Key in the <i>w</i>-plane</span></label></div>
               <div class="options" id="leftFoot" hidden></div>
               <div class="viewstack" role="toolbar" aria-label="Left plane view">
@@ -2074,7 +2091,7 @@ table.keys th { font: var(--t-label); color: var(--muted); }
             <div class="plot" id="plotR">
               <canvas id="canvasR"></canvas><canvas id="overlayR" class="overlay" aria-label="Y, the w-plane: image of F" role="img"></canvas>
               <div class="hairline" id="hairR" hidden></div>
-              <button class="chip readout" id="rightReadout" title="Click to copy"></button>
+              <button class="chip readout" id="rightReadout" title="Click to copy" aria-description="Copy the reading"></button>
               <div class="legend-chip" id="rightLegend" hidden><canvas id="legendCanvas" width="272" height="144"></canvas></div>
               <div class="legend-chip calc-chip" id="calcChip" role="group" aria-label="Readings" hidden></div>
               <div class="options" id="rightFoot"></div>

@@ -78,6 +78,10 @@ jobs:
       mirror: ${{ steps.look.outputs.mirror || steps.cover.outputs.mirror }}
       mirror_pr: ${{ steps.look.outputs.mirror && github.event.pull_request.number || steps.cover.outputs.mirror_pr }}
       mirror_sha: ${{ steps.look.outputs.mirror && github.event.pull_request.head.sha || steps.cover.outputs.mirror_sha }}
+      # (the attempt of a carried run that had passed: the Gate job checks that attempt, so a re-run of the run after the
+      # carry neither holds this PR's check nor turns it red; a run carried while still going pins none, and a re-run of
+      # its failed jobs is what this PR's check then follows)
+      mirror_attempt: ${{ steps.look.outputs.mirror_attempt || steps.cover.outputs.mirror_attempt }}
     steps:
       # (ci/gate_run_of.sh)
       - uses: actions/checkout@v5
@@ -99,6 +103,7 @@ jobs:
           if [ "$found" = 1 ]; then
             case "$other" in
               *" completed success") echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
+                                     a=${other#* }; echo "mirror_attempt=${a%% *}" >> "$GITHUB_OUTPUT"
                                      echo "Gated by run ${other%% *} of this PR on this commit (it passed): nothing runs again." >> "$GITHUB_STEP_SUMMARY" ;;
               *) echo "mirror=${other%% *}" >> "$GITHUB_OUTPUT"
                  echo "Run ${other%% *} of this PR is gating this commit ($other): nothing runs again; the Gate job waits for it and carries its verdict." >> "$GITHUB_STEP_SUMMARY" ;;
@@ -110,8 +115,11 @@ jobs:
       # (#787) a pull request into another branch than main whose head another open pull request into the same branch
       # contains (a stack: each head holds the lower ones): the top of the stack gates all of them, so this one carries
       # that run's verdict instead of running its own tier. The compare API says which open PRs contain this head; the
-      # one furthest ahead is the top. Switched on by the repository variable GATE_STACK_SKIP = on; otherwise the summary
-      # only says what would have happened and the run is the usual one
+      # one furthest ahead is the top. Only a run of the top that passed is carried: one still queued or running is not
+      # (unlike look's run of this PR's own push), since a push to the top cancels it, and this run, its tier skipped, would
+      # then end red with nothing run; under a top still running, this run runs its own tier. Switched on by the
+      # repository variable GATE_STACK_SKIP = on; otherwise the summary only says what would have happened and the run is
+      # the usual one
       - id: cover
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main' && steps.look.outputs.mirror == ''
         shell: bash
@@ -135,13 +143,18 @@ jobs:
           other=$(ci/gate_run_of.sh "$ts" "$tn") && found=1 || found=0
           echo "#$tn ($ts) contains this head; its newest Gate run on it: $other"
           if [ "$found" != 1 ]; then
-            echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+            echo "#$tn contains this head, but has no passing Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
           fi
+          case "$other" in
+            *" completed success") ;;
+            *) echo "#$tn contains this head, but its run ${other%% *} is still going ($other) and a push to #$tn would cancel it: this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+          esac
           run=${other%% *}
           if [ "$SWITCH" != on ]; then
             echo "Report only (GATE_STACK_SKIP is not on): #$tn contains this head and run $run gates it ($other); with the switch on, this run would carry that verdict and run nothing. It runs its own tier." >> "$GITHUB_STEP_SUMMARY"; exit 0
           fi
-          echo "mirror=$run" >> "$GITHUB_OUTPUT"; echo "mirror_pr=$tn" >> "$GITHUB_OUTPUT"; echo "mirror_sha=$ts" >> "$GITHUB_OUTPUT"
+          a=${other#* }
+          echo "mirror=$run" >> "$GITHUB_OUTPUT"; echo "mirror_pr=$tn" >> "$GITHUB_OUTPUT"; echo "mirror_sha=$ts" >> "$GITHUB_OUTPUT"; echo "mirror_attempt=${a%% *}" >> "$GITHUB_OUTPUT"
           echo "Stacked under #$tn: run $run of #$tn on $ts contains this head and gates it ($other); nothing runs here and the Gate job carries its verdict." >> "$GITHUB_STEP_SUMMARY"
 
   plan:
@@ -163,6 +176,7 @@ jobs:
       mirror: ${{ needs.ready.outputs.mirror }}
       mirror_pr: ${{ needs.ready.outputs.mirror_pr }}
       mirror_sha: ${{ needs.ready.outputs.mirror_sha }}
+      mirror_attempt: ${{ needs.ready.outputs.mirror_attempt }}
     steps:
       - uses: actions/checkout@v5
         with:
@@ -496,6 +510,12 @@ jobs:
       # (ci/browser.js asks the job's first Chrome for its renderer before the first suite, and fails the job when it has
       # no WebGL2: no fallback, so the suites never run on another renderer; #504 item 4, no separate gpu_probe.js start)
       - run: node ci/browser.js --shard ${{ matrix.shard }}
+      # (the glsl page's one chain that crashed Mesa 25's lavapipe, GLSLTiers.LAVAPIPE_CRASH: this image's Mesa 26, on LLVM 21,
+      # runs it, and the job fails if the GPU process is lost again or a value is off, or fewer than its 7172 values are compared (a lavapipe
+      # on LLVM 20 or older, which the cache could fall back to, runs none of it and would pass empty); #1835)
+      - name: GLSL page, the chain that crashed Mesa 25's lavapipe
+        if: matrix.shard == 'smoke'
+        run: node ci/glsl.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172
       - if: always()
         uses: actions/upload-artifact@v6
         with:
@@ -529,6 +549,7 @@ jobs:
           HEAD_SHA: ${{ needs.plan.outputs.mirror_sha }}
           PR: ${{ needs.plan.outputs.mirror_pr }}
           MIRROR: ${{ needs.plan.outputs.mirror }}
+          MIRROR_ATTEMPT: ${{ needs.plan.outputs.mirror_attempt }}
           GH_TOKEN: ${{ github.token }}
         run: |
           set -u
@@ -541,9 +562,12 @@ jobs:
           # check is never green before that run passed)
           if [ "${TIER:-}" = none ]; then
             [[ "$MIRROR" =~ ^[0-9]+$ ]] && [[ "$PR" =~ ^[0-9]+$ ]] || { echo "::error::tier none without a mirrored run ($MIRROR)"; exit 1; }
+            # (the carried attempt when the job ready pinned one, else the run's newest)
+            url="repos/$GITHUB_REPOSITORY/actions/runs/$MIRROR"
+            [[ "${MIRROR_ATTEMPT:-}" =~ ^[0-9]+$ ]] && url="$url/attempts/$MIRROR_ATTEMPT"
             fails=0
             while :; do
-              got=$(gh api "repos/$GITHUB_REPOSITORY/actions/runs/$MIRROR" --jq "\"\\(.status) \\(.conclusion // \"\") \\(.head_sha) \\((.pull_requests // []) | any(.number == $PR))\"") || got="error (the look-up failed)"
+              got=$(gh api "$url" --jq "\"\\(.status) \\(.conclusion // \"\") \\(.head_sha) \\((.pull_requests // []) | any(.number == $PR))\"") || got="error (the look-up failed)"
               echo "run $MIRROR: $got"
               case "$got" in completed*) break ;; error*) fails=$((fails + 1)); [ "$fails" -lt 5 ] || break ;; esac
               sleep 60
