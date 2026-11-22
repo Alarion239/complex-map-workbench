@@ -1874,9 +1874,67 @@ unit('sv.glide.globe', 'the steps view on the globe (Surface: Sphere, on a GPU),
 unit('sv.glide.globe_in', 'the steps view on the globe (Surface: Sphere, on a GPU), the default page: the same glide in Inside regions (the carried colour per region on the globe)', () => svGlideUnit('default', { id: 'sv.glide.globe_in', surf: 'sphere', scope: 'in' }));
 // (a chain with a ray cut: √z (cut 180°) then z + 2, the glide between w₁ and w₂ carrying the cut's two banks and, on the
 // globe, lifting them)
+// A drag of the branch cut's handle on √z (#1159): the chain SV_CUT_STATE at rest on w₁, the plane the cut is drawn in
+// after √z, and on w₂, where z + 2 carries it (the propagated cut). Per plane and rep: once the chain is prepared
+// (svWaitReady) and idle, the handle (__cmwCutHandles' first) dragged SV_CUT_DRAG_PX away and back, SV_CUT_DRAG_N moves a
+// leg 16 ms apart, each leg followed by its settle. Info rows per plane: the frames, the input-to-frame latency, the
+// settle's jank, and the programs linked during the legs (a warm drag links none). The rows are info: their Mac
+// numbers say whether a lag is left to fix
+const SV_CUT_DRAG_PX = [40, 30], SV_CUT_DRAG_N = 24;
+async function svCutDragUnit() {
+  const id = 'sv.cut_drag';
+  const soft = /swiftshader|llvmpipe|software|basic render|warp/i.test(String(await B.ev(`(() => { const g = document.createElement('canvas').getContext('webgl2'); const e = g && g.getExtension('WEBGL_debug_renderer_info'); return g ? (e ? g.getParameter(e.UNMASKED_RENDERER_WEBGL) : g.getParameter(g.RENDERER)) : ''; })()`)));
+  if (soft && process.env.CMW_SV_SOFT !== '1') { detail(id, 'skipped: a software renderer (its frame times say nothing of a GPU\'s; CMW_SV_SOFT=1 runs it)'); return; }
+  const PLANES = [['w1', 1], ['w2', 2]], R = { w1: [], w2: [] }, links = { w1: [], w2: [] }, carried = { w1: [], w2: [] };
+  const budget = 0.75 * unitLimitS(UNITS.find((u) => u.id === id)) * 1000, t0 = Date.now();
+  for (let i = 0; i < REPS; i++) {
+    // (the reps stop early, said in the details, when the next would pass 75% of the unit's time limit)
+    if (i > 0 && (Date.now() - t0) / i * (i + 1) > budget) { detail(`${id}.reps`, `${i} of ${REPS} (the next rep would pass 75% of the unit's time limit)`); break; }
+    await openSteps(SV_CUT_STATE);
+    await settle(await pageNow());
+    if (OPENED) OPENED.push(Object.assign({ exc: [], settled: true }, await sceneHealth()));
+    for (const [k, plane] of PLANES) {
+      await B.ev(`__cmwSteps({ go: ${plane}, now: true }), 1`);
+      const w = await svWaitReady();
+      if (!w.ready) { detail(`${id}.${k}.ready`, `not prepared: ${w.why} after ${w.ms} ms; parts ${JSON.stringify(w.parts)}`); continue; }
+      await settle(await pageNow());
+      await sleep(SV_IDLE_MS);
+      const legs = [];
+      for (const dir of [1, -1]) {
+        // (read again before each leg: the first leg moves the handle)
+        const h = (await B.ev('__cmwCutHandles()'))[0];
+        if (!h) throw new Error(`${id}: no cut handle on w${plane}`);
+        if (dir === 1) carried[k].push(h.carried);
+        const c0 = await B.ev('__perf.counters().links'), a = await pageNow();
+        await B.drag(h.x, h.y, h.x + dir * SV_CUT_DRAG_PX[0], h.y + dir * SV_CUT_DRAG_PX[1], { n: SV_CUT_DRAG_N, dt: 16 });
+        const b = await pageNow(), c1 = await B.ev('__perf.counters().links');
+        if (c1 > c0) console.error(`[perf] ${id}: ${c1 - c0} program(s) linked in a drag on w${plane}: ` + JSON.stringify(await B.ev(`__perf.linkNames(${a})`)));
+        const win = await windowStats(a, b), st = await settle(b);
+        legs.push(Object.assign(win, { links: c1 - c0, settle: st.timeout ? null : Math.max(0, st.t - b), settleTimeout: st.timeout, jank: await jankIn(b + 1, st.now) }));
+      }
+      // (a drag that drew nothing, one that missed the handle, measures nothing: the unit fails, not passes at 0)
+      if (legs.some((l) => !l.drawn.length)) throw new Error(`${id}: a drag on w${plane} drew no frames (${legs.map((l) => l.drawn.length).join(' + ')})`);
+      R[k].push(legSummary(legs, 'pointermove'));
+      links[k].push(legs.reduce((n, l) => n + l.links, 0));
+    }
+  }
+  for (const [k] of PLANES) {
+    const reps = R[k], pre = `${id}.${k}`;
+    if (!reps.length) continue;
+    putPooled(`${pre}.frame_p50_ms`, 'info', 'ms', reps, 'frame', 0.5, 'frame_p50');
+    putPooled(`${pre}.frame_p95_ms`, 'info', 'ms', reps, 'frame', 0.95, 'frame_p95');
+    putPooled(`${pre}.cpu_p95_ms`, 'info', 'ms', reps, 'cpu', 0.95, 'cpu_p95');
+    putPooled(`${pre}.latency_p95_ms`, 'info', 'ms', reps, 'lat', 0.95, 'lat_p95');
+    put(`${pre}.fps`, 'info', 'frames/s', reps.map((r) => r.fps));
+    put(`${pre}.settle_jank_ms`, 'info', 'ms', reps.map((r) => r.jank));
+    put(`${pre}.links`, 'info', 'programs', links[k]);
+    detail(`${pre}.handle_carried`, carried[k]);
+  }
+}
 const SV_CUT_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 0.5, ci: 0, visible: true }], steps: [{ type: 'root', params: { n: 2, cut: 180 }, on: true }, { type: 'add', params: { c: '2' }, on: true }] };
 unit('sv.glide.cut', 'the steps view (on a GPU), a chain with a ray cut (√z, cut 180°, then z + 2): a warm glide there and back between w₁ and w₂ on the plane, the cut\'s image curve carried by the homotopy (#912): frame p95, fps, jank, GL copies and programs linked per glide', () => svGlideUnit('cut', { id: 'sv.glide.cut', state: SV_CUT_STATE, planes: [1, 2] }));
 unit('sv.glide.cut_globe', 'the steps view on the globe (Surface: Sphere, on a GPU), the same chain with a ray cut: the glide between w₁ and w₂ with the cut\'s image curve lifted to the globe (#912)', () => svGlideUnit('cut', { id: 'sv.glide.cut_globe', surf: 'sphere', state: SV_CUT_STATE, planes: [1, 2] }));
+unit('sv.cut_drag', 'the steps view (on a GPU), √z (cut 180°) then z + 2: the cut\'s handle dragged 40 x 30 px and back on w₁ and on w₂, where the cut is carried (#1159): frame p95, latency, fps and the settle\'s jank per plane (info)', svCutDragUnit);
 unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton seeded from the step\'s own ops (#870); info rows only (its cost is measured, the look decides)', () => svGlideUnit('jouk', { info: true }));
 // (z³ then cos about 0: z³'s three sheets tie over every w, so the carried meshes resolve the ties per pixel, two draws a
 // frame, GLR.carryResolve, #1054)
