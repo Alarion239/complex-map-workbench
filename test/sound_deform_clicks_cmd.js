@@ -1,3 +1,4 @@
+// raw-navigate-file: a recorder of real-time audio, not run in CI (ci/browser_suites.js EXCLUDED)
 // Sound: the click regression for a still probe whose function changes (notes/sound/DEFORMATION.md), recorded from the
 // APP. Hear F on, every cue off (the voice alone). Cases, each with the pointer still unless said: the Deformation of
 // z⁵ on X's Phase plane; the same across a loop repeat (t back to 0: a new start); the pointer moving while it plays;
