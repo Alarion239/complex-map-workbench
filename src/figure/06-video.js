@@ -286,12 +286,19 @@
     if (plan.box) {
       // (the readout at the bottom left keeps its place: an axis number that would run through it is left out)
       const labW = kind === 'glide' && v.tlabel ? vWidth(ctx, [[A.svGlideText(plan.gl.lo + t), false]], Math.round(0.04 * H)) + 0.035 * H : 0;
-      const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), dec = XD.decimals(step);
+      const b = plan.box, step = niceStep(Math.max(b.x1 - b.x0, b.y1 - b.y0), 8), xs = XD.ticks(b.x0, b.x1, step), ys = XD.ticks(b.y0, b.y1, step);
       const ox = Math.min(Math.max(P(C(0, 0))[0], 0), W), oy = Math.min(Math.max(P(C(0, 0))[1], 0), H);
       if (look === 'print') { line([[0, oy], [W, oy]], '#555555', 1.2 * lw); line([[ox, 0], [ox, H]], '#555555', 1.2 * lw); }
-      const num = (x) => { const s2 = (Math.abs(x) < 1e-12 ? 0 : x).toFixed(dec); return (I18 ? I18.num(s2) : s2).replace(/^-/, '−'); };
-      for (const x of XD.ticks(b.x0, b.x1, step)) { if (Math.abs(x) < 1e-12) continue; const px = P(C(x, 0))[0]; if (px < 0.04 * W || px > 0.96 * W) continue; line([[px, oy - 4 * lw], [px, oy + 4 * lw]], '#333333', 1.2 * lw); if (!(oy + fs * 1.15 > H - 0.1 * H && px < labW + fs)) vText(ctx, [[num(x), false]], px, Math.min(H - 0.02 * H, oy + fs * 1.15), fs, 'center'); }
-      for (const y of XD.ticks(b.y0, b.y1, step)) { if (Math.abs(y) < 1e-12) continue; const py = P(C(0, y))[1]; if (py < 0.06 * H || py > 0.9 * H) continue; line([[ox - 4 * lw, py], [ox + 4 * lw, py]], '#333333', 1.2 * lw); vText(ctx, [[num(y), false]], Math.max(fs * 2.2, ox - 0.4 * fs), py + 0.35 * fs, fs, 'right'); }
+      const num = (x, d) => { const s2 = (Math.abs(x) < 1e-12 ? 0 : x).toFixed(d); return (I18 ? I18.num(s2) : s2).replace(/^-/, '−'); };
+      const decX = XD.axisDec('x', xs, step, num), decY = XD.axisDec('y', ys, step, num), recY = XD.axes ? XD.axes[XD.axes.length - 1] : null;
+      for (const x of xs) { if (Math.abs(x) < 1e-12) continue; const px = P(C(x, 0))[0]; if (px < 0.04 * W || px > 0.96 * W) continue; line([[px, oy - 4 * lw], [px, oy + 4 * lw]], '#333333', 1.2 * lw); if (!(oy + fs * 1.15 > H - 0.1 * H && px < labW + fs)) vText(ctx, [[num(x, decX), false]], px, Math.min(H - 0.02 * H, oy + fs * 1.15), fs, 'center'); }
+      for (const y of ys) { if (Math.abs(y) < 1e-12) continue; const py = P(C(0, y))[1]; if (py < 0.06 * H || py > 0.9 * H) continue; line([[ox - 4 * lw, py], [ox + 4 * lw, py]], '#333333', 1.2 * lw);
+        // (right-aligned left of the axis; an axis at the frame's left edge, or a label wider than the room left of it,
+        // moves the label right so that it starts inside the frame)
+        const lab = num(y, decY), w = vWidth(ctx, [[lab, false]], fs), lx = Math.max(fs * 2.2, w + 0.3 * fs, ox - 0.4 * fs);
+        if (recY) recY.left = Math.min(recY.left ?? Infinity, lx - w);
+        vText(ctx, [[lab, false]], lx, py + 0.35 * fs, fs, 'right');
+      }
     }
     // print look on a plane: the boundaries as vectors (the art layer draws fills only); X's boundary as a thin gray
     // line for t > 0; an open set's boundary dashed (a dash means "not included", editor-9)
