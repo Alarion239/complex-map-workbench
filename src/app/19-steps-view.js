@@ -3903,8 +3903,7 @@
   // meshes); redraw, only while svRedrawDue, the left pane's frame that draws with the program that landed. The
   // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
   // is not up; ready is true only when done = total > 0
-  // (test hook: the parts named in svJobsHold count as unfinished: true for the three idle jobs)
-  let svJobsHold = null;
+  let svJobsHold = null;   // (test hook: the parts it names count as unfinished; true: the three idle jobs)
   const svJobsHoldSet = (on) => { svJobsHold = Array.isArray(on) ? on : on ? true : null; };
   function svReady() {
     const parts = {};

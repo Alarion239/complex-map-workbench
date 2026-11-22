@@ -48,7 +48,7 @@ const TEXT = {
   },
 };
 // (the toast's most at 360 px, as test/svplay_gate_cmd.js measures it: its padding and 1 px border either side, the words on two lines of 18 px, one row of 44 px buttons)
-const GATE_TOAST_PAD = 12, GATE_TOAST_BORDER = 2, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44, HANG_WAIT_MS = 14000, ROW_EDGE_PX = 1, ROW_SPREAD_PX = 4, ROWS_MS = 500;
+const GATE_TOAST_PAD = 12, GATE_TOAST_BORDER = 2, GATE_TOAST_WORDS_MAX = 2 * 18, GATE_TOAST_BUTTON_ROW = 44, HANG_WAIT_MS = 14000, ROW_EDGE_PX = 1, ROW_SPREAD_PX = 4, STILL_MS = 100, STILL_TRIES = 40;
 const MSG = '#toastHost .toast';
 const esc = () => ev('(document.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true })), 1)');
 
@@ -73,8 +73,9 @@ async function hung(holdJobs) {
   for (let i = 0; holdJobs === true && !pillBefore && i < 40; i++) { await sleep(200); pillBefore = await ev(PILL); }
   await ev('(__cmwSteps({ play: true }), 1)');
   await settled({ max: HANG_WAIT_MS, only: true, until: `!!document.querySelector("${MSG}")` });
-  // (the message picks its rows on the frame after it is made)
-  await sleep(ROWS_MS);
+  // (the message picks its rows on the frame after it is made, and may be placed again after: read once its box has held still for two reads)
+  const BOX = `(() => { const r = document.querySelector('${MSG}').getBoundingClientRect(); return [r.left, r.top, r.width, r.height].map(Math.round).join(); })()`;
+  for (let i = 0, last = ''; i < STILL_TRIES; i++) { const b = await ev(BOX); if (b === last) break; last = b; await sleep(STILL_MS); }
   const g = await ev(`(() => { const t = document.querySelector('${MSG}'), r = t.getBoundingClientRect(), w = t.querySelector('span').getBoundingClientRect(); const tops = [...t.querySelectorAll('button')].map((b) => Math.round(b.getBoundingClientRect().top)); return { text: t.querySelector('span').textContent, top: Math.round(r.top), bottom: Math.round(r.bottom), left: Math.round(r.left), right: Math.round(r.right), wordsBottom: Math.round(w.bottom), tops: [...new Set(tops)], vw: innerWidth, vh: innerHeight, pill: (() => { const b = typeof __cmwCompileBox === 'function' ? __cmwCompileBox() : null, c = document.getElementById('canvasL').getBoundingClientRect(); return b && { left: Math.round(c.left + b.x), right: Math.round(c.left + b.x + b.w), top: Math.round(c.top + b.y), bottom: Math.round(c.top + b.y + b.h) }; })() }; })()`);
   // (the left plane's key column: Fit view and the view stack around it, where a message must not stand)
   g.keys = await ev(`[...document.querySelectorAll('#leftFit, .pane:not(.ph-inset) .viewstack')].filter((e) => e.getClientRects().length).map((e) => { const b = e.getBoundingClientRect(); return { id: e.id || e.className, left: Math.round(b.left), right: Math.round(b.right), top: Math.round(b.top), bottom: Math.round(b.bottom) }; })`);
