@@ -1,3 +1,4 @@
+// raw-navigate-file: a release smoke: it opens the published page of an earlier release, and is not run in CI (ci/browser_suites.js EXCLUDED)
 // Release smoke: test/rel163_smoke_cmd.js (sections 1 to 11) plus these items: 10/11 the chip at
 // 1440 (chip-wrap-1440), 12 a perpendicular circle on the 3-point circle through 0, 1, i with a decimal mirror pair
 // 13 the loader toast, saved and by link (loader-toast), 14 (phone) the tour's shapes step in landscape

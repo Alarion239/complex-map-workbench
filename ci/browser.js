@@ -3,7 +3,7 @@
 // sound, ...), one after another, each in its own headless Chrome: a fresh copy of the test/cdp_kit daemon whose port
 // is this runner's server of dist/. Exit 1 when one fails. Each suite's result goes to the log in a collapsible group;
 // the job summary gets one row per suite.
-//   node ci/browser.js [--shard ID] [--only REGEX] [--no-build] [--port N] [--list]
+//   node ci/browser.js [--shard ID] [--only REGEX] [--no-build] [--port N] [--wait] [--list]
 // Suites are found by the glob, so a new one runs with no edit here (ci/browser_shards.js puts it in its catch-all
 // shard); EXCLUDED (ci/browser_suites.js) lists the files that are not pass/fail suites and those that need the GPU
 // machines. Speed is gated only by the perf suite on our GPU machines (gpu-gate.yml), and GitHub's machines render
@@ -12,6 +12,9 @@
 // because those machines draw in software (each with its reason, and the evidence from the check's own detail), and
 // KNOWN the failures that are understood and open (each with its reason): the summary prints both, the job does not
 // fail on them.
+// A run takes a lock for its worktree (.ci/browser.lock, ci/run_lock.js): it rewrites test/ci_cdp, .ci/browser and dist/, so a second
+// run there would break the first. The second refuses and names the holder; --wait waits for it. A lock left by a run that was killed
+// is removed, and so is the daemon it left behind.
 const fs = require('fs');
 const path = require('path');
 const { spawn } = require('child_process');
@@ -19,6 +22,7 @@ const { ROOT, PY, serve, summary, run, esc } = require('./lib');
 const { SUITES, EXCLUDED, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS } = require('./browser_suites');
 const { suitesOf } = require('./browser_shards');
 const { VIEWS } = require('./suite_views');
+const runLock = require('./run_lock');
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
@@ -31,6 +35,7 @@ const KIT = path.join(ROOT, 'test', 'cdp_kit');
 const COPY = path.join(ROOT, 'test', 'ci_cdp');
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const secs = (ms) => `${(ms / 1000).toFixed(0)} s`;
+let HELD = null;   // the lock this run holds (ci/run_lock.js), once main has it
 
 // every test/*_cmd.js; -> the runs to make here, [{ file, run }] (a suite may run more than once: SUITES[f].runs; a
 // shard may take some of them, 'file#label')
@@ -107,6 +112,7 @@ async function runOne(file, run, port) {
   }, run.env || {});
   const t0 = Date.now();
   const child = spawn(process.execPath, [daemon], { cwd: ROOT, env, stdio: ['ignore', 'pipe', 'pipe'], detached: process.platform !== 'win32' });
+  if (HELD) HELD.daemon(child.pid, daemon);
   let log = '';
   child.stdout.on('data', (d) => { log += d; });
   child.stderr.on('data', (d) => { log += d; });
@@ -139,6 +145,7 @@ async function runOne(file, run, port) {
     try { fs.writeFileSync(path.join(Q, 'QUIT'), ''); } catch (e) { /* no queue: the daemon never got that far */ }
     await waitFor([], child, 5000);
     killTree(child);
+    if (HELD) HELD.daemon(null);
     keepShots(file, run);
     fs.rmSync(COPY, { recursive: true, force: true, maxRetries: 5, retryDelay: 500 });
   }
@@ -187,6 +194,7 @@ async function main() {
   const { all, runs } = selected();
   if (argv.includes('--list')) { for (const x of runs) console.log(x.file + (x.run.label ? '#' + x.run.label : '')); return 0; }
   if (!runs.length) { summary(`### Browser suites${shard ? ' (' + shard + ')' : ''}: none selected\n`); return 0; }
+  HELD = await runLock.acquire(path.join(ROOT, '.ci', 'browser.lock'), { wait: argv.includes('--wait') });
   if (!argv.includes('--no-build') && run(PY, ['build.py']) !== 0) throw new Error('build failed');
   // the extra pages some suites open (old versions of the app, built from their commits; the published page as served)
   const dist = path.join(ROOT, 'dist');

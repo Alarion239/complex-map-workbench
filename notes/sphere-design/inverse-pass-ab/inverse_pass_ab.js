@@ -4,7 +4,10 @@
 // ci/newt_ab.js and test/newt_ab_cmd.js (their tree builds, draw hook and hashes) with scenes of the leaf and one more
 // readback; if those land first, these scenes and the control belong in that tool.
 //   node notes/sphere-design/inverse-pass-ab/inverse_pass_ab.js [--base REF] [--only TEXT] [--no-control] [--keep] [--work DIR]
-// REF defaults to origin/claude/funny-darwin-l5uis3; --only keeps the places whose name (scene@x) contains TEXT. Needs
+//                                                               [--key-skip REGEX]
+// REF defaults to origin/claude/funny-darwin-l5uis3; --only keeps the places whose name (scene@x) contains TEXT;
+// --key-skip leaves the uniforms whose name matches REGEX out of an inverse draw's key (a change that drops uniforms
+// from a program, so that one build has them active and the other not, would otherwise key every draw apart). Needs
 // CHROME_BIN and CMW_CHROME_ARGS (ci/README.md); CMW_ANGLE picks the renderer (swiftshader; vulkan with lavapipe's
 // flags). Exit 1 on any differing record.
 // Each scene is loaded in a fresh page, moved to its place (a glide's x, the globe, a classic pane) and recorded once its
@@ -83,6 +86,7 @@ function tree(name, ref, edits) {
 // The page's hook, installed before the app's scripts: programs whose fragment stage holds the inverse walk, and every
 // draw read back while recording is on (window.__ab.on).
 const HOOK = `(() => {
+  const KEY_SKIP = ${JSON.stringify(opt('--key-skip', ''))};
   const P = WebGL2RenderingContext.prototype, src = new WeakMap(), invFs = new WeakMap(), uniformsOf = new WeakMap();
   const ss = P.shaderSource, at = P.attachShader;
   P.shaderSource = function (s, t) { src.set(s, t); return ss.call(this, s, t); };
@@ -118,6 +122,7 @@ const HOOK = `(() => {
       const n = gl.getProgramParameter(p, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < n; i++) {
         const u = gl.getActiveUniform(p, i), base = u.name.replace(/\\[0\\]$/, '');
+        if (KEY_SKIP && new RegExp(KEY_SKIP).test(base)) continue;
         for (let k = 0; k < u.size; k++) list.push([u.size > 1 ? base + '[' + k + ']' : u.name, gl.getUniformLocation(p, u.size > 1 ? base + '[' + k + ']' : u.name)]);
       }
       list.sort((x, y) => (x[0] < y[0] ? -1 : 1));
@@ -219,6 +224,18 @@ const SCENES = [
   { name: 'globe', view: 'steps', state: STRIP, pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5] },
   // (want: the carried program, which a software renderer may still be linking when the panes are quiet, has drawn)
   { name: 'globe-terms', view: 'steps', state: typed('sin(z)+cos(2z)+exp(z/3)+log(z+2)+z^5+1/(z-1)+sqrt(z)+tan(z/2)+sinh(z)+z^2*exp(-z)'), pre: ["__cmwSteps({ surf: 'sphere' })"], xs: [0.5], want: 'inv|B5cg' },
+  // the colour plot's other styles (dcolorAt's branches; the scenes above colour 'enhanced', the tiles), in the panes
+  // and in a glide's carried colour, and two Arb palettes for the classic style (its wheel colour from pwheel, or the
+  // palette's own colour)
+  { name: 'dc-phase', view: 'steps', state: Object.assign({}, STRIP, { dc: 'phase' }), xs: [0.75] },
+  { name: 'dc-classic', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), xs: [0.75] },
+  { name: 'dc-grid', view: 'steps', state: Object.assign({}, STRIP, { dc: 'grid' }), xs: [0.75] },
+  { name: 'dc-modulus', view: 'steps', state: Object.assign({}, STRIP, { dc: 'modulus' }), xs: [0.75] },
+  { name: 'dc-classic-arbphase', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), pre: ["GLR.setPalette('arbPhase')"], xs: [0.75] },
+  { name: 'dc-classic-arb', view: 'steps', state: Object.assign({}, STRIP, { dc: 'classic' }), pre: ["GLR.setPalette('arb')"], xs: [0.75] },
+  { name: 'dc-grid-arb', view: 'steps', state: Object.assign({}, STRIP, { dc: 'grid' }), pre: ["GLR.setPalette('arb')"], xs: [0.75] },
+  // the Cauchy style's carried variant (CARRY_CAUCHY): the integral over the unit circle, the selected shape, under z + 1/z
+  { name: 'cauchy', view: 'steps', state: { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z+\\frac{1}{z}', cut: 180 }, on: true }], srcView: { cx: 0, cy: 0, s: 110 }, dc: 'cauchy', alpha: 1 }, pre: ["__cmwSelect('s1')"], xs: [0.5] },
 ];
 const savedState = (st) => Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st);
 

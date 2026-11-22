@@ -71,10 +71,10 @@ await view(1200, 800, false, false);
 for (const [name, shape, runs] of SCENES) for (const [surf, k, linking] of runs) {
   const at = `${name}, ${surf}, plane ${k}${linking ? ', the mask\'s program linking' : ''}`;
   const ns = 'svgm' + Date.now();
-  await send('Page.navigate', { url: `${BASE}/gl-helpers.html` }); await sleep(350);
+  await go(`${BASE}/gl-helpers.html`); await sleep(350);
   const o = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', shapes: [shape], steps: [{ type: 'pown', params: { n: 2 }, on: true }] };
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `${BASE}/test.html?ns=${ns}&view=steps` });
+  await go(`${BASE}/test.html?ns=${ns}&view=steps`);
   for (let i = 0; i < 40 && !(await ev(`typeof __cmwSteps === 'function' && typeof __cmwLeftZ === 'function'`)); i++) await sleep(250);
   // (the regions' outlines left out: they are drawn in the region's colour over the rim, on both pictures, and the
   // suite measures the mask under them)
