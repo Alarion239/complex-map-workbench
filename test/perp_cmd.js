@@ -550,7 +550,7 @@ await section('C', async () => {
   await shot('perp-d1440-ru-made');
   // the caption (the pencil circle removed first: an undefined shape has no phrase)
   await key('z', 4); await settle(250);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     return f ? f.captionTex : null;
     })()`);
   info.capRuC = capRu;
@@ -661,7 +661,7 @@ await section('E', async () => {
     ],
     steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 120 }, nextId: 50,
   };
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     return f ? f.captionTex : null;
     })()`);
   await load(NS + 'e1', SE); await settle(900);
@@ -1014,7 +1014,7 @@ await section('I', async () => {
   info.yOpen = { n: ypts.length, drawn: yDiff, kind: kY.kind, ink };
   ok('I4 Y under 1/z: the image is the open arc only (nothing on the image of K outside the disc)', kY.kind === 'arc' && ypts.length > 20 && yDiff === 0, info.yOpen);
   // ---- I5 export captions, EN and RU (through z₀ and z₁; and on K when z₁ is outside the disc)
-  const capF = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  const capF = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     return f ? f.captionTex : null;
     })()`);
   info.segCap = await capF();
@@ -1033,7 +1033,7 @@ await section('I', async () => {
   ok('I5 RU caption, z₁ outside: «… лежащая на окружности, проходящей через …»', /гиперболическая прямая в[ ~]области \$\|z\|<1\$, лежащая на[ ~]окружности, проходящей через/.test(info.segCapOnRu || ''), info.segCapOnRu);
   // the SVG: K's path from e_start to e_end, butt caps
   await nav(`${U}?ns=${NS}i4`);
-  info.segSvg = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  info.segSvg = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     const svg = f && (f.svg || (f.panels && f.panels[0] && f.panels[0].svg)) || '';
     const caps = (svg.match(/stroke-linecap="[a-z]+"/g) || []).slice(0, 8);
     return { has: !!svg, len: svg.length, caps, keys: f ? Object.keys(f).slice(0, 20) : null };
@@ -1134,7 +1134,7 @@ await section('J', async () => {
   // outside's domain on the sphere (math-3), through only for points of the domain (math-7), the row off the arc
   // (user-6), the ⋯ item's words (math-6), the chip's words by its free width (user-4), the phone's hit area (user-5)
   const capF = (o) => ev(`await (async () => {
-    const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xy' }, o || { for: 'article', cols: 1 }))});
+    const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xyL' }, o || { for: 'article', cols: 1 }))});
     return f ? f.captionTex : null;
     })()`);
   const Kd = (id, a, b, seg, c = 'c') => ({ id, kind: 'arc', a: [1, 0], m: [0, 1], b: [-1, 0], visible: true, def: Object.assign({ op: 'perp', args: [{ s: c, part: 0 }, { s: a }, { s: b }], fill: 'none', nk: 'arc' }, seg ? { seg } : {}) });

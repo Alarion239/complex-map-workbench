@@ -654,7 +654,7 @@ await section('G', async () => {
   ok('G: undo brings ζ₁ and the circle back', st.zeros === '1.5-1i' && !byId(st, cz.id).cundef, [st.zeros, byId(st, cz.id).cundef]);
   // the export caption names the circle through its points (the plain picture: a phase figure names no shapes; the
   // steps view opens coloured)
-  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     return f ? f.captionTex : null;
     })()`);
   info.capEn = cap;
@@ -677,7 +677,7 @@ await section('G', async () => {
   await shot('cm-d1440-y');
   // Russian caption
   await nav(`${U}?ns=${NS}g&lang=ru`);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xy' });
+  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
     return f ? f.captionTex : null;
     })()`);
   info.capRu = capRu;
