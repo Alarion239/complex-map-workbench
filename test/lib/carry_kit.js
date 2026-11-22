@@ -33,10 +33,6 @@
 // - rough(o): the roughness of the frame on the pane now: over an o.nx x o.ny grid (20 x 14) o.step (0.09) apart in plane
 //   units about the view's centre, shifted by o.skew ([0.003, 0.002]) off the centre and the quadrant seams, the points whose
 //   3 x 3 pixels spread over o.spread (30 of 255) in some channel: { of: the grid's points, n: those read, rough, share }.
-// - edgeTooth(a, b, o): how jagged an edge of the frame on the pane is that runs near the segment from plane point a to b:
-//   in each device column between them, the row of the largest colour step (over o.jump, 20 of 255) within o.band (0.4)
-//   plane units of the segment; each row's distance from a straight line fitted to the rows within o.win (15) css px of
-//   it, in css px: { cols: the columns that found the edge, of: the columns, max, rms }.
 (() => {
   // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
   // H/2 - (y - cy) s dpr); a read that throws answers { __exc }, which fails the suite here rather than reading as no
@@ -273,37 +269,5 @@
     const n = sp.filter((x) => x > spread).length;
     return { of: nx * ny, n: sp.length, rough: n, share: n / sp.length };
   };
-  const edgeTooth = async (a, b, o = {}) => {
-    const r = await ev(`(() => {
-      const c = document.getElementById('canvasL'), m = __cmwCards().main, v = m.view, d = m.dpr, W = c.width, H = c.height;
-      const img = c.getContext('2d').getImageData(0, 0, W, H).data;
-      const X = (x) => W / 2 + (x - v.cx) * v.s * d, Y = (y) => H / 2 - (y - v.cy) * v.s * d;
-      const A = [${a[0]}, ${a[1]}], B = [${b[0]}, ${b[1]}], band = ${o.band || 0.4} * v.s * d, jump = ${o.jump || 20};
-      const i0 = Math.max(1, Math.ceil(Math.min(X(A[0]), X(B[0])))), i1 = Math.min(W - 2, Math.floor(Math.max(X(A[0]), X(B[0]))));
-      const rows = [];
-      for (let i = i0; i <= i1; i++) {
-        const t = (i - X(A[0])) / (X(B[0]) - X(A[0])), yc = Y(A[1]) + t * (Y(B[1]) - Y(A[1]));
-        let best = 0, at = -1;
-        for (let j = Math.max(1, Math.floor(yc - band)); j < Math.min(H - 2, Math.ceil(yc + band)); j++) {
-          const p = 4 * (j * W + i), q = 4 * ((j + 1) * W + i);
-          const dj = Math.max(Math.abs(img[p] - img[q]), Math.abs(img[p + 1] - img[q + 1]), Math.abs(img[p + 2] - img[q + 2]));
-          if (dj > best) { best = dj; at = j + 0.5; }
-        }
-        if (best > jump) rows.push([i / d, at / d]);
-      }
-      const win = ${o.win || 15}, dev = [];
-      for (const [x, y] of rows) {
-        const nb = rows.filter((r) => Math.abs(r[0] - x) <= win);
-        if (nb.length < 8) continue;
-        const n = nb.length, mx = nb.reduce((s, r) => s + r[0], 0) / n, my = nb.reduce((s, r) => s + r[1], 0) / n;
-        const sxx = nb.reduce((s, r) => s + (r[0] - mx) ** 2, 0), sxy = nb.reduce((s, r) => s + (r[0] - mx) * (r[1] - my), 0);
-        dev.push(y - (my + (sxx > 0 ? sxy / sxx : 0) * (x - mx)));
-      }
-      const max = dev.length ? Math.max(...dev.map(Math.abs)) : null, rms = dev.length ? Math.sqrt(dev.reduce((s, e) => s + e * e, 0) / dev.length) : null;
-      return { cols: rows.length, of: i1 - i0 + 1, max, rms };
-    })()`);
-    if (r && r.__exc !== undefined) throw new Error('edgeTooth failed: ' + r.__exc);
-    return r;
-  };
-  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead, DRAWN, openSteps, toPlane, rough, edgeTooth };
+  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead, DRAWN, openSteps, toPlane, rough };
 })()
