@@ -3884,11 +3884,15 @@
     const carry = svCarryStyle(svT());
     return { h, sts: h.paths.map((p, i) => (globe ? Object.assign({ viewKind: 'globe' }, svInvArg(paneL, p, h.list[i], carry)) : svInvStateArg(h, i, b, u))) };
   }
-  // Those of the jobs' glides (svInvGlides), the states svReady's inverse part counts: built once for what svInvKey names
-  // (svPrestartSoon drops them after an edit)
+  // Those of the jobs' glides (svInvGlides), the states svReady's inverse part counts: built once for what svInvListKey
+  // names (svPrestartSoon drops them after an edit). Besides what svInvKey names, a state's program depends on the
+  // opacity and the sheets (its B class, svCarryAlpha) and on the shapes (which, their kinds, formulas and stages, and
+  // whether they show): a list kept past a change of those would count programs no job asks for, and ready would never
+  // read true
   let svInvStates = null, svInvStatesKey = null;
+  const svInvListKey = () => `${svInvKey()}|${svOpacity()}|${S.sheets ? 1 : 0}|${S.shapes.map((x) => `${x.id}:${x.kind}:${x.expr || ''}:${x.visible === false ? 0 : 1}:${shapeStage(x)}`).join(',')}`;
   function svInvList() {
-    const key = svInvKey();
+    const key = svInvListKey();
     if (svInvStates && svInvStatesKey === key) return svInvStates;
     const globe = SV.surf === 'sphere', sts = [];
     for (const g of svInvGlides()) { const f = svInvFrame(g.b, g.u, globe); if (f) sts.push(...f.sts); }

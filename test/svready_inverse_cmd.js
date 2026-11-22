@@ -5,6 +5,8 @@
 //   reads true once they have linked;
 // - the Landscape draws no frames between planes: it has no inverse programs to wait for; back on the plane they are
 //   counted again, and ready reads true;
+// - a new opacity, which picks the programs' B class: the gauge counts the programs of the new look (not those of the look
+//   it counted before, which no job asks for any more), and ready reads true once they have linked;
 // - on a fresh page whose links land LATE_MS late (test/lib/late_links.js): ▶ pressed on plane 0 as soon as the page is
 //   up waits while the chain's programs link, and then the glide's inverse programs, which together take longer than a
 //   warm-up's tries would last if each try spent on a pending link counted; ready never reads false for READY_AFTER_MS
@@ -36,6 +38,21 @@ await ev('(__cmwSteps({ surf: "plane" }), 1)');
 await settled({ max: READY_MS, only: true, until: '__cmwSteps().ready.ready === true' });
 const back = await ev('__cmwSteps().ready.parts.inverse');
 ok('back on the plane: the inverse programs are counted, and linked', back && back.total > 0 && back.done === back.total, back);
+// a new opacity in another B class (GLR's invB): on the Joukowski airfoil (its airfoil Inside regions, whose glide frames
+// draw at the slider's opacity), from its own opacity to 1 as soon as the example's page settles: the gauge counts the
+// programs of the new look, and ready reads true once they link
+const names = [...fs.readFileSync(DIR + '/../../src/app/15-examples-guide.js', 'utf8').matchAll(/\bname: \$t\('((?:[^'\\]|\\.)*)'\)/g)].map((m) => m[1].replace(/\\'/g, "'"));
+await nav(`${base}/test.html?ns=${ns}x&view=steps`);
+await settled({ max: LOAD_MS, until: up });
+await ev(`(__cmwExample(${names.indexOf('Joukowski airfoil')}), 1)`);
+// (the opacity set as the example's page settles, as a suite or a hand sets it straight after a load: the gauge has
+// counted the example's programs by then)
+await settled({ max: LOAD_MS });
+const a0 = await ev('__cmwKeys().alpha'), counted = await ev('__cmwSteps().ready.parts.inverse');
+await ev("(__cmwSet('alpha', 1), 1)");
+const relook = await settled({ max: READY_MS, only: true, until: '__cmwSteps().ready.ready === true' });
+const look = await ev('__cmwSteps().ready.parts.inverse');
+ok('a new opacity: ready reads true once the programs of the new look have linked', a0 < 0.999 && relook.ok && look && look.total > 0 && look.done === look.total, { a0, counted, look, ready: await ev('__cmwSteps().ready') });
 let exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
 // links that land late: ▶ waits for the chain's programs and the glide's inverse programs, and starts once they have landed
 const inj = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${LATE_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
