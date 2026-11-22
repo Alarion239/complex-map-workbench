@@ -1,3 +1,4 @@
+// raw-navigate-file: it needs a GPU and is not run in the hosted Gate (ci/browser_suites.js EXCLUDED)
 // Landscape walls (notes/landscape-walls/AS-BUILT.md, r2/AS-BUILT.md), a command file for a CDP daemon (test/cdp_kit,
 // ANGLE Metal): test/<you>_cdp/q.sh test/landscape_walls_cmd.js   (the page at http://127.0.0.1:9811/test.html, PORT
 // below; round 1's build at r1/test.html and the base's at base/test.html next to it, for the speckle and cold-open
