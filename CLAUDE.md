@@ -70,7 +70,9 @@ Each team has the same hierarchy.
   - `python3 tools/make_ru_table.py --strict`
   - `python3 tools/make_it_table.py`
 
-  On a conflict, merge the two JSON files key by key and regenerate. Never hand-merge `src/i18n_*.js`.
+  On a conflict, merge the two JSON files key by key and regenerate. Never hand-merge `src/i18n_*.js`. The tables of
+  `notes/i18n/ru/` are history: to change a string one of them holds, put its key in `tools/ru_extra.json` and delete the
+  table's entry. A key held by both fails the generator (`IN BOTH`).
 - New browser suites go into `ci/browser_shards.js`. Any not listed there run in its catch-all shard. New GLSL test
   chains go at the end of their list, so no other chain changes part.
 
