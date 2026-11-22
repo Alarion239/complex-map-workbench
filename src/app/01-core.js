@@ -62,6 +62,8 @@
     color: msvg('<circle cx="8" cy="8" r="5.5"/><path d="M8 8h5.5M8 8l-2.75 4.76M8 8l-2.75-4.76"/>'),
     '3d': msvg('<path d="M1.5 12.5c2.5 0 3.5-6 6.5-6s4 6 6.5 6"/><path d="M1.5 14h13"/>'),
     sphere: msvg('<circle cx="8" cy="8" r="6"/><path d="M2 8a6 2.2 0 0 0 12 0"/><ellipse cx="8" cy="8" rx="2.4" ry="6"/>'),
+    // the Stack: the floor, the glass above it and a strand between them
+    stack: msvg('<path d="M1 14.5l4-4h10l-4 4z"/><path d="M1 6l4-4h10l-4 4z" fill="currentColor" fill-opacity=".3"/><path d="M7.5 12.5v-8.5"/>'),
     // the deformation (the Deformation toggle in the top bar)
     // X → Y (the top bar's split view): two planes and the map between them
     xy: msvg('<rect x="1.5" y="4" width="5" height="8" rx=".8"/><rect x="9.5" y="4" width="5" height="8" rx=".8"/><path d="M6.5 8h2.6M8 6.7l1.3 1.3L8 9.3"/>'),

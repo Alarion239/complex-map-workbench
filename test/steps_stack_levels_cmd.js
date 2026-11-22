@@ -6,7 +6,8 @@
 //  - on the Stack surface the left plane is not flat (no rulers, no flat overlays), and the levels are drawn in the one
 //    order floor, floor marks, lines, glass, glass marks at every camera of a turn round the box and up to straight down;
 //  - tilted, the overlay holds the glass's ink where the target's ring and the glass's rim project, wherever the camera;
-//  - the head's Surface button reads Stack and is named so, and the Surface menu checks it;
+//  - the head's Surface button reads Stack and is named so, and the Surface menu checks it; at 320 × 568, where the head
+//    shows the button as its icon and ▾, the Stack has an icon;
 //  - a hover on the tilted floor reads no point (the flat plane's values there would be another point's);
 //  - a drag on the plane turns the Stack's camera, and its pitch stays at or above 10°.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -20,14 +21,17 @@ const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestA
 const DEG = Math.PI / 180;
 const M3 = [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }];
 const ORDER = ['floor', 'floor marks', 'lines', 'glass', 'glass marks'];
-const ns = `stack-${Date.now()}`;
 const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: M3, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } };
-await view(1440, 900, false, false);
-await nav(`http://localhost:${PORT}/gl-helpers.html`);
-await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
-await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')", LOAD_MS);
-await until('__cmwSteps().ready.ready && __cmwSteps().i === 0');
+const open = async (w, h, phone) => {
+  const ns = `stack-${Date.now()}`;
+  await view(w, h, false, phone);
+  await nav(`http://localhost:${PORT}/gl-helpers.html`);
+  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')", LOAD_MS);
+  await until('__cmwSteps().ready.ready && __cmwSteps().i === 0');
+};
+await open(1440, 900, false);
 await ev(`__cmwSelect('d'); 1`);
 await until(`__cmwShapes().selected === 'd' && typeof __cmwLookDown === 'function' && !!__cmwLookDown()`);
 await frames(); await frames();
@@ -118,5 +122,14 @@ const turned = hooked ? await ev('__cmwStack().camera') : { yaw: -30 * DEG, pitc
 info.turned = turned;
 ok('a drag on the plane turns the Stack\'s camera', Math.abs(turned.yaw + 30 * DEG) > 5 * DEG, turned);
 ok('a drag down to the floor stops at a pitch of 10°', Math.abs(turned.pitch - 10 * DEG) < 1e-9, turned);
+
+// at 320 × 568 the head shows the Surface button as its icon and ▾: on the Stack the icon is the Stack's own
+await open(320, 568, true);
+await ev(`__cmwSteps({ surf: 'stack' }); 1`);
+await until(`__cmwSteps().surf === 'stack' && document.querySelector('.sv-surf1').getAttribute('aria-label') === 'Surface: Stack'`, 20000);
+await frames();
+const small = await ev(`(() => { const b = document.querySelector('.sv-surf1'), i = b.querySelector('.sv-surf-i svg'), r = i && i.getBoundingClientRect(), t = b.querySelector('.sv-surf-t'); return { icon: r ? [Math.round(r.width), Math.round(r.height)] : null, word: t && t.getClientRects().length ? t.textContent : '', label: b.getAttribute('aria-label') }; })()`);
+info.small = small;
+ok('at 320 × 568 the Surface button shows an icon on the Stack', !!small.icon && small.icon[0] > 0 && small.icon[1] > 0, small);
 
 return { pass: fails.length === 0, passed: pass, fails, info };
