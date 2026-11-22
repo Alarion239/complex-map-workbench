@@ -216,15 +216,18 @@
     syncGlobeTools();
   }
   // Annulus, Sector and Polar grid are dimmed while X shows its globe (panels.md 9.2: tooltip 'Draw in Plane')
-  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden
+  // and every draw tool while X → Y shows the merged deformation, where X's pane is hidden. The Pick tool
+  // (19-floor-pick.js) is hidden where it does not pick (pickAvail), its button keeping its place (tool-na: the phone's
+  // Tools sheet leaves it out), and put down there
   let globeToolsOff = null;
   function syncGlobeTools() {
-    const merged = S.view.main === 'xy' && morphOn(), off = lGlobe();
-    const k = `${merged}|${off}`;
+    const merged = S.view.main === 'xy' && morphOn(), off = lGlobe(), pick = pickAvail();
+    const k = `${merged}|${off}|${pick}`;
     if (k === globeToolsOff) return;
     globeToolsOff = k;
     for (const b of /** @type {NodeListOf<HTMLElement>} */ (document.querySelectorAll('.tool[data-tool]'))) {
       if (b.dataset.tool === 'select') continue;
+      if (b.dataset.tool === 'pick') { b.classList.toggle('tool-na', !pick); b.setAttribute('aria-hidden', String(!pick)); }
       const g = merged || (off && GLOBE_OFF.has(b.dataset.tool));
       b.classList.toggle('globe-off', g);
       // (dimmed, it says so: a press still explains, so it stays focusable)
@@ -232,6 +235,9 @@
       const base = b.dataset.tipBase || (b.dataset.tipBase = b.dataset.tip || '');
       b.dataset.tip = merged ? $t('{base} · Turn off Deformation (M) to draw', { base }) : g ? $t('{base} · Draw in Plane', { base }) : base;
     }
+    // (the tool grid's one Tab stop, roveGroups, skips a hidden tool)
+    roveGroups();
+    if (!pick && tool === 'pick') setTool('select');
   }
   function renderOverlays() {
     const showL = solo() !== 'R', showR = solo() !== 'L';
@@ -247,6 +253,8 @@
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
     if (showL && !sphL) {
+      // (Look down's marks under the handles and the probe)
+      drawLookDown(paneL);
       drawCutHandles(paneL, cutHandlesL);
       drawCutHandles(paneL, cutMarksL, true);
       drawZpHandles(paneL);
@@ -256,7 +264,8 @@
       // (over the phase portrait the probe is white on a dark casing, as the portrait's own lines)
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
-    }
+      if (SV.on) drawFloorPick(paneL);
+    } else syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
     if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
     if (intPop && showR && rImage() && !morphOn() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
@@ -462,8 +471,8 @@
     ledSay(side, state, el.getAttribute('data-tip'));
   }
   // the LEDs' changes are said in the polite region #ledLive, together, once no LED's state has changed for LED_SAY_MS: each
-  // with its pane's title before it when the pane has one. A page that starts up to date says nothing, and a state that
-  // comes and goes within the wait is not said
+  // with its pane's title before it when the pane has one; a pane that is not shown says nothing. A page that starts up
+  // to date says nothing, and a state that comes and goes within the wait is not said
   const LED_SAY_MS = 500, ledSaid = {}, ledNow = {};
   let ledSayT = 0;
   function ledSay(side, state, tip) {
@@ -477,8 +486,9 @@
   }
   function ledFlush() {
     const parts = [];
-    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'); return !!el && el.getClientRects().length > 0; };
-    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two LEDs are shown:
+    // (a pane that is shown: its LED may not be, on a phone, whose pane heads show none, and its words are heard all the same)
+    const shown = (side) => { const el = $(side === 'L' ? 'leftLed' : 'rightLed'), pane = el && el.closest('.pane'); return !!pane && pane.getClientRects().length > 0; };
+    // (a pane whose title is hidden at this width, the right one in Russian at 1280 px, is named by its letter while two panes are shown:
     // the words alone would not say which pane they are about)
     const two = shown('L') && shown('R');
     for (const side of ['L', 'R']) {
@@ -509,8 +519,13 @@
     const errTip = errStep >= 0 ? `f${sub(errStep + 1)}: ${built[errStep].error}` : '';
     // without WebGL2 neither plane can show its regions: both LEDs report the failure (spec 5.14)
     if (!GLR.ok) { setLed('L', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); setLed('R', 'err', $t('WebGL2 is unavailable, so regions cannot be drawn')); return; }
-    setLed('L', busy || colourPending() ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : undefined);
-    setLed('R', errStep >= 0 ? 'err' : busy ? 'busy' : 'ok', errTip || undefined);
+    // (a pane whose last frame said why its plot has no value, glStatusNote's note, keeps saying it, as an error; one whose
+    // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
+    const note = (side) => (paneGl[side] && paneGl[side].note) || '';
+    const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
+    if (note('L')) setLed('L', 'err', note('L'));
+    else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
+    setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }
   // the colour plot's grid: the major grid and the axes in white over the colours, in 2D over the pane's frame (the
   // steps view's frames between planes draw it too, so a glide's frames look like the plane's)
@@ -529,6 +544,7 @@
     ctx.restore();
   }
   function renderColor(pane) {
+    pane.noteBox = null;   // (no note drawn yet in this frame: noGL, glStatusNote and the Cauchy notes each set it)
     pane.setView(leftView());
     if (!GLR.ok) { pane.begin(TH.plane); noGL(pane); return; }
     pane.begin(TH.plane);
@@ -562,14 +578,15 @@
         const r = shapeGPU(s);
         if (!r.lineRes) continue;
         const dash = openDash(r, map);
-        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8 }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
+        GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, SV.on ? shapeStroke(s, pane.dpr, { domain: leftStage() === 0, plane: leftStage() }) : { width: 1.3 * pane.dpr, color: GLR.hexRGB(TH.dcCasing), alpha: 0.9, casing: { color: [1, 1, 1], alpha: 0.95, width: 3 * pane.dpr } }, { cacheKey: `${r.lineKey}|${mapKeyOf(map)}` }, dash));
       }
     }
     GLR.blit(pane.ctx);
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
+    // (the grid under the pane's notes, which glStatusNote draws)
+    if (!artMode) colourGrid(pane);   // (the figure's art layer: no screen grid, axes, targets, cuts or points)
     glStatusNote(pane);
-    if (artMode) return []; // the figure's art layer: no screen grid, axes, targets, cuts or points
-    colourGrid(pane);
+    if (artMode) return [];
     // as in X Plane (panels.md 1, target preimages in every X view): the w-plane targets pulled back by the focused
     // map (area fills at half strength, so the portrait reads through them; their edges as drawn), the points, and
     // the cuts with their handles
@@ -664,7 +681,7 @@
     // (while deforming, F's digits, given F's last step; a single-valued F, as √ then z²,
     // draws its principal branch, multiSheet null)
     // (uniq: the combos that are distinct sheets of the map drawn, so coinciding surfaces are drawn once)
-    const sheetW = Math.max(1, Math.min(4, Math.round(S.sheetW) || 2));
+    const sheetW = sheetWOf(S.sheetW);
     const sheetMap = landSheetsMap(carry ? carry.s : null);
     const sheets = S.sheets && (!hv || deformSheetsOk()) && multiSheet(sheetMap) ? { W: sheetW, end: hv ? endMap().b : 0, uniq: sheetUniqOf(sheetMap, sheetW) } : null;
     let mu = S.height === 'log' ? 1 : medianAbs(box);
@@ -829,8 +846,9 @@
       outlines.push(footprint && footprint.has(s) ? { res: r.lineRes, color: GLR.hexRGB(TH.landFootprint), map: omap, cacheKey, width: 1 }
         : { res: r.lineRes, color: GLR.hexRGB(shapeInk(s).edge), map: omap, cacheKey });
     }
+    const landMap = carry ? carry.hmap : hv ? hv.map : focusMap();
     const info = GLR.drawLandscape({
-      map: carry ? carry.hmap : hv ? hv.map : focusMap(), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
+      map: landMap, standIn: carry || hv ? null : landStandIn(pane, landMap, box, !!si), carry: carry ? { map: carry.map, s: carry.s, T: carry.T, hT: carry.hT, u: carry.u, key: carry.key, lim: carry.lim, src, polar, far } : null, box, cam: view, heightMode: render3D.linear ? `${S.height}${hv ? 'Knee' : 'Lin'}` : S.height, scale: lscale, mu, material: landMaterial(), unitLevel: !!S.unitLevel && !artMode, sectors: S.sectors || 12, floorPrint: !artMode, seaLine: !artMode,
       cells, sheets, mask, outlines: artMode ? [] : outlines, probe: probe ? { x: probe.re, y: probe.im, flat: landOffRegion(mask, probe) } : null, bg: GLR.hexRGB(TH.landBottom),
       // (the refinement of steep walls: capped while something moves, in full at rest and in every figure or film)
       motion: !offRender && interacting(), full: offRender || figMode, reliefOnly: artMode && artRelief,
@@ -1031,7 +1049,7 @@
       const a = P(p), b = P([p[0] + out[0] * 0.06, p[1] + out[1] * 0.06, z0]);
       if (a && b) for (const gap of [24, 34, 46]) { const r = label(runs, a, unit(a, b), gap, math12, TH.landFloor, TH.ink2, true); if (r) { names.push(r); break; } }
     };
-    const vz = leftStage() === 0 ? 'z' : `w${sub(leftStage())}`;
+    const vz = svName(leftStage());
     if (reOn) title([0, sy * ay, z0], [0, sy], [['Re ', false], [vz, true]]);
     if (imOn) title([sx * ax, 0, z0], [sx, 0], [['Im ', false], [vz, true]]);
     // height ruler: of the two corners on the block's silhouette, the one farther from the camera
@@ -1275,11 +1293,13 @@
         if (rl.lineRes) lines.unshift({ res: rl.lineRes, st: { map: bm, dpr: pane.dpr, M: 8, width: 1 * pane.dpr, color: GLR.hexRGB(TH.faint), alpha: 0.9, cacheKey: `${rl.lineKey}|${bk}` } });
       }
     }
+    const colorMap = o.colorMap || (hom ? hom.map : focusMap()), colorGlobe = !imageMode && !o.carryRegions;
     const info = GLR.drawSphere({
-      map: o.colorMap || (hom ? hom.map : focusMap()), mode: imageMode || o.carryRegions ? 'image' : 'color', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      map: colorMap, mode: colorGlobe ? 'color' : 'image', cam: c, style: S.dc, sectors: S.sectors || 12, grid: dcGridStep(),
+      standIn: colorGlobe ? globeStandIn(pane, colorMap) : null,
       colors: { plane: TH.planeRGB, gridMajor: GLR.hexRGB(TH.gridMajor), axis: TH.axisRGB, ink: TH.inkRGB },
       shell: TH.planeRGB, ink: TH.dark ? [0.75, 0.8, 0.88] : [0.25, 0.3, 0.38],
-      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
+      regions: imageMode ? regions : o.carryRegions || [], maskRegions: o.maskRegions ? regions : null, maskPre: o.maskRegions ? stagePreList(o.stage) : null, maskOver: o.maskRegions && !hideStrokes ? stagePreList(o.stage, true) : null, lines, plane: !!o.plane, probe: o.plane && o.probeW ? { w: o.probeW } : null, pre: o.pre || null,
       post: (o.post || []).filter(Boolean), net: o.net || 'plain', carried: o.carried || null,
     });
     // a program that waits for its first draw is warmed at a quiet moment (as drawScene); a deferred preparation draws
@@ -1388,10 +1408,11 @@
   const CAML = { yaw: -60 * DEG, pitch: -24 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const camL = Object.assign({ vyaw: 0, vpitch: 0 }, CAML);
   // the globe's pre passes: the targets' (pre) and those of the shapes of later planes (fills at half strength
-  // over a phase portrait, as the targets')
+  // over a phase portrait, as the targets'; none with the strokes left out, hideStrokes)
   function preAll(pre, half) {
     const out = pre && pre.targets.length ? [pre] : [];
-    for (const p of stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
+    // (the later planes' passes are the steps view's layer, left out with the strokes, hideStrokes)
+    for (const p of hideStrokes ? [] : stagePreList(leftStage())) out.push(half ? Object.assign(p, { targets: halfFills(p.targets) }) : p);
     return out.length ? out : null;
   }
   // the globe's net: the snap net of the tool while the globe takes drawing, else the plain graticule. Every paint
@@ -1425,9 +1446,10 @@
   // (paneSay, by part, while the pane draws), and paneSaid writes it, once the frame is drawn, to a hidden span beside the
   // canvas that the canvas's aria-describedby names (none while the frame says nothing). Only a frame that began a new
   // picture (Pane.begin) says anew: one that left the canvas as it was leaves the description too. A description is read
-  // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'land' (the Landscape's
-  // caption), 'pre' (the marked preimages of the later planes' points)
-  const PANE_SAY_ORDER = ['land', 'pre'];
+  // with the plane, not announced, so a count that follows the view does not interrupt. Parts: 'note' (why the plane has
+  // no colours, glStatusNote's), 'land' (the Landscape's caption), 'pre' (the marked preimages of the later planes' points),
+  // 'off' (the pieces of the later planes' regions' pullbacks that lie off the view)
+  const PANE_SAY_ORDER = ['note', 'land', 'pre', 'off'];
   const paneSayAt = new Map();   // pane → { parts, begun, text }
   function paneSayOf(pane) {
     let q = paneSayAt.get(pane);
@@ -1455,13 +1477,20 @@
   }
   const CAPTION_PAD = 8, CAPTION_LINE = 15;   // CSS px: a caption's least gap to the pane's sides and its view buttons; its line height
   const CAPTION_REWRAPS = 3;   // the most times a caption is wrapped again for the taller band its lines take
-  // the boxes of the view buttons (zoom, Fit, …) over a pane, in the pane's CSS px
+  // the boxes of the view buttons over a pane (zoom, Fit, …, and a phone's keys: the globe, …), in the pane's CSS px
   function paneButtons(pane) {
     const cv = pane.ocanvas, host = cv && cv.parentElement;
     if (!host) return [];
     const c = cv.getBoundingClientRect(), out = [];
-    for (const e of host.querySelectorAll('.vbtn')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
+    for (const e of host.querySelectorAll('.vbtn, .ph-key')) { const r = e.getBoundingClientRect(); if (r.width && r.height) out.push({ l: r.left - c.left, r: r.right - c.left, t: r.top - c.top, b: r.bottom - c.top }); }
     return out;
+  }
+  // the half-width a line centred at mid may take in the band top … bottom of a pane (CSS px) beside the view buttons
+  // (btns, paneButtons') the band meets, keeping CAPTION_PAD from them and from the pane's sides
+  function roomBeside(btns, mid, top, bottom) {
+    let half = mid - CAPTION_PAD;
+    for (const b of btns) if (b.t < bottom && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
+    return half;
   }
   // a note at the foot of a pane, centred on a halo (what the view leaves out): its words wrap to the widest centred
   // lines that keep CAPTION_PAD from the pane's sides and from the view buttons beside the lines (a phone's buttons stand
@@ -1472,12 +1501,7 @@
     ctx.font = `12px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     const foot = pane.h - 14, mid = pane.w / 2, btns = paneButtons(pane);
     // (n lines: the width a centred line may take beside the buttons the band of n lines meets)
-    const room = (n) => {
-      const top = foot - n * CAPTION_LINE - CAPTION_PAD, bot = foot + CAPTION_PAD;
-      let half = mid - CAPTION_PAD;
-      for (const b of btns) if (b.t < bot && b.b > top) half = Math.min(half, b.r <= mid ? mid - b.r - CAPTION_PAD : b.l >= mid ? b.l - mid - CAPTION_PAD : 0);
-      return 2 * half;
-    };
+    const room = (n) => 2 * roomBeside(btns, mid, foot - n * CAPTION_LINE - CAPTION_PAD, foot + CAPTION_PAD);
     let lines = wrapWords(ctx, text, room(1));
     // (more lines take a taller band, which can meet more buttons: wrapped again for the band, at most CAPTION_REWRAPS times)
     for (let i = 0; i < CAPTION_REWRAPS; i++) { const next = wrapWords(ctx, text, room(lines.length)); if (next.length === lines.length) break; lines = next; }
@@ -1566,7 +1590,33 @@
       } catch (e) { /* no MutationObserver */ }
       // (the key is a button on a phone: its aria-expanded follows the fold, whoever folds it; Enter and Space press it as a tap does)
       try { new MutationObserver(() => legendKeyButton(el, '')).observe(el, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
-      el.addEventListener('keydown', (e) => { if (e.target === el && (e.key === 'Enter' || e.key === ' ') && el.getAttribute('role') === 'button') { e.preventDefault(); el.click(); } });
+      // (a key in a pane's head: its panel shows while the key is hovered, has the keyboard focus, or is kept open, and not while it is
+      // shut, which Escape or a second Enter does until the focus leaves or the pointer comes back; see legendKeyButton)
+      const inHead = () => !!el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head');
+      el.addEventListener('keydown', (e) => {
+        if (el.getAttribute('role') !== 'button') return;
+        const press = e.target === el && (e.key === 'Enter' || e.key === ' ');
+        if (inHead()) {
+          // (Enter or Space keeps the panel open, and again closes it; Escape closes it; the focus stays on the key)
+          const shown = el.classList.contains('open') || !el.classList.contains('shut');
+          if (press || (e.key === 'Escape' && shown)) {
+            e.preventDefault(); e.stopPropagation();
+            const keep = press && !el.classList.contains('open');
+            el.classList.toggle('open', keep); el.classList.toggle('shut', !keep);
+          }
+        } else if (press) { e.preventDefault(); el.click(); }
+        // (Escape folds the open key, the focus on it or on its switch, and stays on the key: the folded key is the same element)
+        else if (e.key === 'Escape' && !el.classList.contains('collapsed')) { e.preventDefault(); e.stopPropagation(); el.classList.add('collapsed'); el.focus(); }
+      });
+      // (a shut head key opens again at the next focus or hover; aria-expanded follows what is shown)
+      for (const ev of ['focusin', 'focusout', 'pointerenter']) el.addEventListener(ev, () => { if (ev !== 'focusin' || !el.matches(':focus-visible')) el.classList.remove('shut'); legendKeyButton(el, ''); });
+      // (a key the open key lies over takes no focus under it: it folds as the key takes focus. A plane key stands in the same plot)
+      document.addEventListener('focusin', (e) => {
+        const t = /** @type {HTMLElement} */ (e.target);
+        if (el.getAttribute('role') !== 'button' || inHead() || el.classList.contains('collapsed') || el === t || el.contains(t) || !t.getBoundingClientRect || !el.parentNode || !el.parentNode.contains(t)) return;
+        const a = el.getBoundingClientRect(), b = t.getBoundingClientRect();
+        if (b.width > 0 && a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top) el.classList.add('collapsed');
+      });
       el.addEventListener('click', (e) => { const tg = /** @type {HTMLElement} */ (e.target); if (tg.closest && tg.closest('.key-sw')) return; if (el.parentNode && /** @type {HTMLElement} */ (el.parentNode).classList.contains('pane-head')) el.classList.toggle('open'); else if (document.documentElement.classList.contains('ph')) el.classList.toggle('collapsed'); });   // (on a laptop Phase's key lies open on the plot)
     }
     for (const [side, pane] of [['left', paneL], ['right', paneR]]) {

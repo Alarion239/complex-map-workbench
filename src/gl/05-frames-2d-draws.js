@@ -65,7 +65,7 @@
       if (preActive) gl.bindFramebuffer(gl.FRAMEBUFFER, null);
       preActive = false;
       if (halfOpen && halfOpen.pre) halfOpen = null;
-      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; }
+      if (!keep) { frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; }
       invFrame++;
     }
     fw = pw; fh = ph; vpX = 0; vpY = 0;
@@ -85,7 +85,7 @@
     if (preActive) { preActive = false; gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
     if (halfOpen && halfOpen.pre) halfOpen = null;
     fw = w; fh = h; vpX = x; vpY = y;
-    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; invFrame++;
+    frameErr = ''; framePending = false; frameRefining = false; frameCompiling = false; invAltUsed = false; frameOver = 0; invFrame++;
     gl.viewport(x, y, w, h);
     gl.enable(gl.SCISSOR_TEST);
     gl.scissor(x, y, w, h);
@@ -156,6 +156,7 @@
       cur = j >= 0 ? hist.splice(j, 1)[0] : { key: info.key, info: null, data: null, hash: '', sigs: sigsOf(info.key) };
       if (hist.length > PROG_KEEP) hist.length = PROG_KEEP;
     }
+    if (discardPending && !sideMode) dropOtherChains();
     cur.info = info;
     const n = Math.max(4, info.slots * 4);
     if (!cur.data || cur.data.length !== n) cur.data = new Float32Array(n); else cur.data.fill(0);
@@ -301,8 +302,9 @@
   }
   // nothing ready for a direct draw while the current chain compiles: an earlier version's cached evaluation of
   // the (translated) map stands in, so the pane keeps showing the previous image instead of going blank (or, for a
-  // deformation whose mode compiles, this chain's evaluation of its start)
-  function stand(res, isMesh, L, map, name) {
+  // deformation whose mode compiles, this chain's evaluation of its start); with none, lines whose caller gave the
+  // map's CPU twin (cpuOf) are evaluated by it (cpuEntry)
+  function stand(res, isMesh, L, map, name, cpuOf) {
     const d = progs.get(progId(name, cur, map));
     if (!d || d.state !== 'pending' || sideMode) return null;   // a failed compile is reported, never covered up
     for (const h of hist) {
@@ -310,7 +312,8 @@
       if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
     }
     const T = modeOf(map) ? getProg(isMesh ? 'tfRegion' : 'tfLine', cur, false, startOf(map)) : null;
-    return T ? tfEntry(res, isMesh, L, map, 'stand-in', T) : null;
+    if (T) return tfEntry(res, isMesh, L, map, 'stand-in', T);
+    return !isMesh && cpuOf ? cpuEntry(res, L, map, cpuOf) : null;
   }
   function freeTmp(e) {
     if (!tmpAll.delete(e)) return;
@@ -484,6 +487,35 @@
     return cz ? named.map((n) => (n === 'fillPts' || /m$/.test(n) ? n : n + 'Z')) : named;
   }
   function prestartCarry(peel) { return prestartNames(carryNames(peel), [1]); }
+  // the programs a frame of map draws its carried colour with at full quality (carryPrep's for a glide's meshes, under
+  // the sheet key): with the map cache (rtOK), its places' program (tfRegion), the cached program and, for a chain with
+  // a cut, the fill's (carryNames); without it, the plain program or, with a cut, the sheet program and its mask. On the
+  // globe (globe: {id}, plane s the colour plane), drawCarriedGlobe's
+  function carryProgs(map, globe) {
+    if (globe) return [globe.id ? 'carryGId' : 'carryG'];
+    const m = map || {}, kinds = m.mode === 1 || m.mode === 3 ? carryKinds() : [];
+    const clip = kinds.some((c) => c && c.clip), cuts = clip || kinds.some((c) => c && c.h === 'sheet');
+    if (rtOK && !isIdent(m)) return carryNames(false).concat(['tfRegion']);
+    return !cuts ? [noCutProg('regionK', false)] : clip ? ['regionKSclip'] : ['regionKS', 'regionKSm'];
+  }
+  // the state of the carried colour a frame of map would draw, nothing drawn: 'ready' when every program it draws with
+  // (carryProgs) is linked for this chain and map mode, not an earlier version's or the start's that program() stands
+  // in with; 'error' when one cannot link; else 'pending'. Asking starts the programs not yet started, as a draw does,
+  // and a frame that waits on them is drawn again when they land (as program() has it); a renderer that links at once
+  // has them linked here
+  function carryState(map, globe) {
+    if (!ok || lost || !cur.info) return 'error';
+    let state = 'ready';
+    for (const name of carryProgs(map, globe)) {
+      if (!DEFS[name] || getProg(name, cur, true, map)) continue;
+      const e = progs.get(progId(name, cur, map));
+      if (e && e.state === 'error') return 'error';
+      framePending = true;
+      standIn(e && e.id);
+      state = 'pending';
+    }
+    return state;
+  }
   // whether a carried program of the Cauchy style (CARRY_CAUCHY: the meshes' and the pre-mapped mesh's, both map modes, started
   // as the style is chosen) is still linking for the current chain: a glide waits on its first plane for them (svLinkHold),
   // as for its inverse program, since no other program draws the Cauchy integral past z
@@ -680,7 +712,8 @@
     } finally { if (st.sync) syncDepth--; }
   }
   // st: {map, view, dpr, M, width (device px), color, alpha, casing:{color, alpha, width}, fade, cacheKey, sphere,
-  //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}}
+  //      floor, sync, dash:[on, off] (CSS px, 2D only; the casing stays solid), arc:{key, data}, cpu}
+  // cpu (2D only): () => the map's CPU twin, which evaluates the stand-in while the chain's first version links (stand)
   // arc.data: per segment (in createLines order) the arc length of the mapped curve at the segment start and the
   // segment's length, in plane units (the dash phase follows the curve across pieces and segments).
   function drawLines(res, st) {
@@ -694,7 +727,7 @@
       if (pend) e = null;
       const nameOf = () => (flo ? (ident ? 'lineF' : e ? 'lineFC' : 'lineFM') : sph ? (e ? 'lineSC' : 'lineS') : (ident ? 'line0' : e ? 'lineC' : 'line'));
       let P = pend ? readyProg(nameOf(), st.map, 'tfLine') : program(nameOf(), st.map);
-      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf()))) P = program(nameOf(), st.map);
+      if (!P && !ident && !e && (e = stand(res, false, M, st.map, pend ? 'tfLine' : nameOf(), sph || flo ? null : st.cpu))) P = program(nameOf(), st.map);
       if (!P) return;
       use(P, st.map);
       if (e) bindCache(P, e);
@@ -711,7 +744,9 @@
         }
       } else view2D(P, st.view, dpr, res.org);
       fadeUniforms(P, st.fade);
-      gl.bindVertexArray(lineVAO(res, M));
+      // (a CPU stand-in's own template size, which may be coarser than M)
+      const Me = e && e.cpu ? e.L : M;
+      gl.bindVertexArray(lineVAO(res, Me));
       const dash = !sph && !flo && st.dash && st.arc && st.arc.data && res.arcs && st.arc.data.length >= 2 * res.n ? st.dash : null;
       if (dash) {
         let b = res.arcs.get(st.arc.key);
@@ -725,7 +760,7 @@
         attrib(12, 2, 8, 0, 1);
         u1f(P, 'uArcPx', st.view.s * dpr);
       } else { gl.disableVertexAttribArray(12); gl.vertexAttrib2f(12, 0, 0); }
-      const count = lineTemplate(M).count;
+      const count = lineTemplate(Me).count;
       const pass = (width, color, alpha, d) => {
         u1f(P, 'uWidth', width);
         u3(P, 'uColor', col3(color, [0, 0, 0]));
@@ -827,10 +862,11 @@
     cauchyPlan(P, cp, CARRY_EDGE_UNIT);
     u2f(P, 'uEdgeO', edgeO[0], edgeO[1]);
   }
-  // the colour plot's stand-in (st.standIn): its texture (unit 4) and the w array last uploaded into it
+  // the stand-ins' node texture (unit 4: the colour plot's and the phase globe's) and the w array last uploaded into it
   let standInTex = null, standInKey = null;
-  function standInUniforms(P, st, dpr) {
-    const g = st.standIn, k = st.view.s * dpr;
+  // binds the stand-in grid g ({nx, ny, w}: w = F(z) at the nx x ny nodes, node (i, j) at w[2 (j nx + i)], re and im; a
+  // Float32Array) to unit 4, uploading it when it is not the one there
+  function standInTexture(g) {
     gl.activeTexture(gl.TEXTURE4);
     if (!standInTex) standInTex = floatTex(); else gl.bindTexture(gl.TEXTURE_2D, standInTex);
     if (standInKey !== g.w) {
@@ -838,6 +874,11 @@
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.RG32F, g.nx, g.ny, 0, gl.RG, gl.FLOAT, g.w);
       standInKey = g.w;
     }
+  }
+  const standInRelease = () => { if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; } };
+  function standInUniforms(P, st, dpr) {
+    const g = st.standIn, k = st.view.s * dpr;
+    standInTexture(g);
     u2f(P, 'uGO', (g.x0 - st.view.cx) * k + fw / 2, (g.y0 - st.view.cy) * k + fh / 2);
     u1f(P, 'uGC', g.h * k);
   }
@@ -867,7 +908,7 @@
       standInUniforms(P, st, dpr);
       return colorPass(P, st, dpr);
     }
-    if (standInTex) { gl.deleteTexture(standInTex); standInTex = standInKey = null; }
+    standInRelease();
     use(P, st.map);
     if (cp) {
       cauchyPlan(P, cp);

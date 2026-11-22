@@ -18,13 +18,17 @@ const open = async (state, nsx) => {
   await ev(`localStorage.setItem('complex-map-workbench-v1:${nsx}', ${JSON.stringify(JSON.stringify(state))}); 1`);
   await reopen(nsx);
 };
+// (a page that is not up within LOAD_MS ends the suite with that reason: the rows after it would read a page that is not there)
+const LOAD_MS = 30000;
 const reopen = async (nsx) => {
   await go(`http://localhost:${PORT}/test.html?ns=${nsx}&lang=en&view=steps`);
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
+  const up = await settled({ max: LOAD_MS, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-order')` });
+  if (!up.ok) throw new Error(`the page did not load in ${LOAD_MS / 1000} s (${nsx}): ${JSON.stringify(up.busy)}`);
 };
 const GLIDE_CLOCK_MS = 100, UNDERWAY_MAX_MS = 30000;   // the glide time a frame advances (ms), and the longest wait for a glide to be under way
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);
+const kit = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'wait_kit.js'), 'utf8'))({ settled, ev, sleep, fails });
 // (the glide's clock is armed for the reads of a glide under way, and let go of here, so that the glide ends in its own time, not frame by frame:
 // frames cost seconds on a software renderer)
 let clocked = false;
@@ -32,7 +36,7 @@ const arm = async () => { clocked = true; await ctl({ clock: GLIDE_CLOCK_MS }); 
 const arrived = async () => {
   if (clocked) await ctl({ clock: 0 });
   // (ready: a press waits for the prestart, so the next one is made once it is done)
-  const r = await settled({ max: 60000, until: `(() => { const s = __cmwSteps(); return !s.anim && !s.play && s.ready.ready; })()` });
+  const r = await kit.prepared('(() => { const s = __cmwSteps(); return !s.anim && !s.play; })()', 60000);
   if (clocked) await ctl({ clock: GLIDE_CLOCK_MS });
   return r;
 };
@@ -162,7 +166,13 @@ for (const lang of ['en', 'ru', 'it']) {
 await view(1024, 768, false, false);
 await open(base([step('exp'), step('pown', { n: 2 }), step('sin')]), ns + 'scrub');
 await ctl({ scope: 'all', go: 0, now: true }); await settled({});
-const stripAt = () => ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { n: ps.length, x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2, scroll: document.querySelector('.sv-rail').scrollLeft }; })()`);
+// (the thread's first and last planes, where the drags start and end; an answer without them, the page's exception or no
+// planes, ends the suite with what the page answered, not with a drag to nowhere)
+const stripAt = async () => {
+  const r = await ev(`(() => { const ps = document.querySelectorAll('.sv-plane'), a = ps[0].getBoundingClientRect(), z = ps[ps.length - 1].getBoundingClientRect(); return { n: ps.length, x0: a.left + a.width / 2, x1: z.left + z.width / 2, y: a.top + a.height / 2, scroll: document.querySelector('.sv-rail').scrollLeft }; })()`);
+  if (!r || ![r.x0, r.x1, r.y].every(Number.isFinite)) throw new Error(`the thread's planes are not on the page for the scrub: ${JSON.stringify(r)}`);
+  return r;
+};
 const d0 = await stripAt();
 await drag(d0.x0, d0.y, d0.x1, d0.y, 30, 16); await settled({});
 const there = await S(), d1 = await stripAt();

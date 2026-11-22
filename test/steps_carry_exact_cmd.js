@@ -13,8 +13,8 @@
 //    of them more than JUDGE_TOL apart in a channel (the colour lines are left out);
 //  - negative control: the cross-fade of plane z's and plane w1's parked frames at the same u (the picture a glide that
 //    blended the two planes would show) does not pass the same judge;
-//  - the inverse pass's sheet key has the period of the steps view's key at u (__cmwSvKey(1, u)): the steps before the
-//    glide's step, none here, not exp's path's own 2 pi i / u.
+//  - the inverse pass's sheet key has the period of the steps view's key at u (__cmwSvKey(1, u)): the glide map's at u,
+//    exp's path's 2 pi i / u here (invHomPer).
 //
 // ---- part inregion ----
 // The steps view's carried colour, against the exact colour pulled back pixel by pixel. Each case is a plane w1
@@ -42,7 +42,8 @@
 // Paths are off in every page: the glide's paths t -> H_t(z) are drawn over the colour, which is what is read.
 // - The Joukowski airfoil w = (z + 1/z) / 2, Everywhere parked and held at x = 1/2 (drawn by the inverse pass; the front
 //   point under the key with the path's pole), and the front point along t from 0.3 to 0.7.
-// - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered.
+// - w = tan z, Everywhere parked halfway: a family of poles; the key and the ring stay bounded, the pane covered; and the
+//   glide's key at t = 0.999 puts the copy of a point in front that plane w1's key does at rest.
 //
 // ---- part chains ----
 // The steps view's colour at rest on the planes past the colour plane of long chains, coloured from z ("colour of z,
@@ -80,7 +81,7 @@
 //   1.1 x + 0.9 i y.
 // - A d/dz between plane z and the colour plane (z², d/dz, exp; coloured from w₃: exp(2z) at z), Everywhere, parked at
 //   x = 5/2, past the d/dz (plane w₂'s points 2z on exp's zoom path at t = 1/2: 2(e^z − 1) + 1/2); the colour evaluates
-//   the chain through the d/dz.
+//   the chain through the d/dz, and the inverse pass draws the frame (the glide's path 'inverse').
 // A command file for a CDP daemon (test/cdp_kit README); CI runs its parts in the views and formulas shards
 // (ci/browser_shards.js). Prints {pass, fails, info}.
 const ONLY = process.env.CMW_ONLY || '';
@@ -487,6 +488,14 @@ async function farPart() {
     // (at once: under 5 ms, where making the tracks again is a whole grid search per seed step, tens of ms or more)
     ok("tan all parked 0.5: the glide's pole tracks are kept for it (a second key at once)", k.again < 5, k);
     ok('tan all parked 0.5: no point of the inner 90 % on the bare paper', paper === 0 && info['tan all parked 0.5'].n > 1000, info['tan all parked 0.5']);
+    // The glide's key as t -> 1 meets plane w1's: of the 13 copies atan w + k pi (k = -6 .. 6) landing at w, the front
+    // point under the key at t = 0.999 is the one at rest (the glide's key has the period of tan's path at t, pi / t)
+    const atan = ([x, y]) => [(Math.atan2(2 * x, 1 - x * x - y * y)) / 2, Math.log((x * x + (y + 1) * (y + 1)) / (x * x + (y - 1) * (y - 1))) / 4];
+    const ws = [[5, 0], [8, 1], [-6, 0.5], [3, 3]], lists = ws.map((w) => { const a = atan(w); return Array.from({ length: 13 }, (_, i) => [a[0] + (i - 6) * Math.PI, a[1]]); });
+    const near1 = await fronts(lists, 1, null, 0.999), rest = await fronts(lists, 1, null);
+    const jumps = ws.map((w, j) => ({ w, glide: lists[j][near1[j]], rest: lists[j][rest[j]] })).filter((e, j) => near1[j] !== rest[j]);
+    info['tan key at t = 0.999'] = { per: (await ev('__cmwSvKey(1, 0.999)')).per, rest: (await ev('__cmwSvKey(1)')).per, jumps };
+    ok("tan: the glide's front point at t = 0.999 is plane w1's at rest", rest.every((i) => i >= 0) && jumps.length === 0, info['tan key at t = 0.999']);
   }
   // The warm draw of the glide's carried colour (svWarmCarry) waits until the chain and the input have been still for 2 s:
   // on a renderer that makes a program's machine code at its first draw it takes the main thread for a second or more,
@@ -643,7 +652,8 @@ async function planesPart() {
     return { W, Z };
   };
   // at: the frame's state (park: the thread's place); T: the colour plane; path: the
-  // glide record's path the frame must have (the carried meshes': 'mesh'), null for a frame that writes no record
+  // glide record's path the frame must have (the carried meshes': 'mesh'; the inverse pass's: 'inverse'), null for a
+  // frame that writes no record
   async function check(tag, at, T, W, Z, min, path) {
     await ev(`__cmwSteps(${JSON.stringify({ scope: 'all', surf: 'plane', go: 0, now: true, T })}); 1`);
     await wait();
@@ -656,7 +666,7 @@ async function planesPart() {
     ok(`${tag}: parked at x = ${at.park}, coloured from w${T}`, Math.abs(state.x - at.park) < 1e-9 && state.T === T, info[tag].state);
     ok(`${tag}: the colour plane's colour of each point, at most 1 % wrong`, info[tag].n >= min && info[tag].wrong <= 0.01 * info[tag].n, info[tag]);
     ok(`${tag}: no point on the bare paper`, info[tag].paper === 0, info[tag]);
-    if (path) ok(`${tag}: drawn by the carried meshes (the glide's path '${path}')`, !!state.glide && state.glide.path === path, info[tag].state);
+    if (path) ok(`${tag}: drawn by ${path === 'mesh' ? 'the carried meshes' : 'the inverse pass'} (the glide's path '${path}')`, !!state.glide && state.glide.path === path, info[tag].state);
   }
 
   // ---- beside a region of a later plane (a disc on w₁), a region of plane z, under a step with no inverse ----
@@ -687,7 +697,7 @@ async function planesPart() {
     const offGrid = (v) => Math.abs(v - Math.round(v)) * P.v.s > 2.5;
     const place = (z) => { const e = Math.exp(z[0]), w = [2 * (e * Math.cos(z[1]) - 1) + 0.5, 2 * e * Math.sin(z[1])]; return w.every(offGrid) ? w : null; };
     const past = pairs(P, 60, (z) => clear(z) && Math.abs(z[1]) < 2.5 && z[0] > -1.2, place);
-    await check('a d/dz before the colour plane, glided past it', { scope: 'all', park: 2.5 }, 3, past.W, past.Z, 200, 'mesh');
+    await check('a d/dz before the colour plane, glided past it', { scope: 'all', park: 2.5 }, 3, past.W, past.Z, 200, 'inverse');
   }
 }
 

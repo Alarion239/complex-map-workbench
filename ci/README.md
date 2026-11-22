@@ -19,9 +19,9 @@ show results sooner and can be re-run alone).
 | Quality, each of the 9 shards | 3–6 min |
 | GLSL on macOS, each page | 2–5 min |
 | GLSL on Windows (software rendering) | `glsl` 1/8: 8–24 min; `inverse`, whole: 34–35 min; `adv`: `direct,keys,compile` 34 min, its chains 2 min a quarter (see below) |
-| GLSL on Linux (SwiftShader, core tier, both sides) | `glsl` 1/2: 7–8 min, 2/2: 4–6 min; `adv` 3 min; `inverse` 2.5–3 min |
+| GLSL on Linux (SwiftShader, core tier, both sides) | `glsl` 1/2: 7–8 min, 2/2: 4–6 min; `adv` 3 min; `inverse` 2.5–3 min; `dh` (outright, one side) under a minute |
 | Perf on Windows, each shard | 5–21 min; up to 36 when a unit is re-run |
-| Browser, each of the 24 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
+| Browser, each of the 35 shards (Linux, lavapipe) | 7–16 min: a minute of setup and 6–15 min of suites (each suite's time is in `ci/browser_shards.js`) |
 
 The `adv` page splits only its chains (`main`) into parts; its other sections (`direct`, `keys`, `compile`: 12-step
 chains and the largest shaders) run whole, so in parts they ran once per part (a quarter of the page took 33–48 min,
@@ -42,7 +42,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
-| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
+| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
 | **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
@@ -89,11 +89,10 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 - **A stack** (#787): PRs into the integration branch are often stacked, each head holding the lower PRs, so every
   push to a lower one re-runs the whole stack's tier on every PR above it. The job *ready* also asks, on every pull
   request into a branch other than `main`, which open PRs into the same branch contain this head (the compare API) and
-  takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed or is still going, this
-  PR gets tier `none` like a ready-for-review mirror: nothing runs, and its Gate check waits for the top's run and carries
-  its verdict (so it is never green before that run passed). A failed, cancelled or missing run of the top means this PR
-  runs its own tier. A push to the top cancels its run, so the Gate checks that carried it fail: re-run them (or push)
-  once the top's new run is going. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
+  takes the one furthest ahead, the top (`ci/gate_run_of.sh` looks up its run, as for a ready-for-review mirror). When the newest Gate run of that PR on its head passed, this PR gets tier `none`
+  like a ready-for-review mirror: nothing runs, and its Gate check carries that run's verdict. A run of the top still
+  queued or running is not carried: a push to the top cancels it, and the PR carrying it would end red with
+  nothing run. A run still going, failed, cancelled or missing means this PR runs its own tier. **Report only until the repository variable `GATE_STACK_SKIP` is `on`:** the plan's
   summary says which run would have gated this head, and every PR still runs its tier.
 - **The plan's outputs** `tier`, `why` (one line: the reason of the whole gate, or what each path selected) and
   `browser` (the shards) are also in the **Gate** job's summary.
@@ -115,7 +114,7 @@ node ci/impact.js --base origin/main --run         # the unit tests and the sele
 |---|---|
 | **Unit tests** (Linux) | every `test/t_*.js`, and the gates' own tests (`test/regress/test_compare.py`) |
 | **Browser** (Linux, in shards) | the functional browser suites (`test/*_cmd.js`: the tour, constructions, touch, phone layouts, the i18n walks, export, sound, ...), each in its own headless Chrome against this build, at most 8 shards of a run at a time (`max-parallel`: the runners are shared by every open pull request); their correctness checks gate, their timing checks are reported (see [Browser suites](#browser-suites)) |
-| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages; Linux: the core tier in 4 jobs) | the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`) on each platform's shader compiler (Direct3D 11's, Metal's, SwiftShader's), paired: this change fails only where it is worse than the reference on the same machine. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
+| **GLSL** (Windows: the core tier in 6 jobs, every chain in 11; macOS 3 pages; Linux: the core tier in 5 jobs) | the GLSL pages on each platform's shader compiler (Direct3D 11's, Metal's, SwiftShader's): the GPU-vs-CPU conformance pages (`test/glsl_test.js`, `glsl_test_adv.js`, `glsl_inverse_test.js`), paired: this change fails only where it is worse than the reference on the same machine; and on Linux the `dh` page (`test/glsl_dh_orbit_test.js`, `glsl_dh_stop_test.js`), the Douady–Hubbard / Böttcher orbit's shader against other forms of itself on the same GPU (its orbit in an array, the full orbit without the early stop), which holds on any renderer, so it passes outright and has no reference side. A page whose shader code and tests did not change (the files its builder reads) is not run. Which chains: [GLSL tiers](#glsl-tiers) |
 | **Quality** (3 shards × 3 systems) | the image-quality suite, paired |
 | **Perf** (10 shards, Windows) | the perf suite, paired: desktop units and the **emulated phone**; its checks gate, its timings are reported (see below); only while the GPU machines are not registered (`GPU_RUNNERS`), or by hand (then macOS too) |
 | **Gate** | passes only when every job the plan chose passed (perf: when it ran): make it the required check |
@@ -151,7 +150,7 @@ The Gate (`gate.yml`, GitHub's machines):
 | a push to `main`, the nightly run, a run by hand | all (by hand: the *glsl* input, `all` or `core`) | all | core |
 | a pull request with the label `glsl-deep` | all | all | core |
 
-On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv` and `inverse` whole: four jobs, about 20 minutes
+On Linux the `glsl` page runs in halves (`--part 1/2`, `2/2`), `adv`, `inverse` and `dh` whole: five jobs, about 20 minutes
 of machine time together. `GLSLTiers.SWIFTSHADER_HANG` (`test/glsl_tiers.js`) names chains whose program SwiftShader does not
 finish (minutes of one core, then the GPU process is lost and every later chain errors): `GLSLTiers.keep` leaves them out when
 the page's renderer is SwiftShader, and the job summary names each with its reason ("not run on SwiftShader"); Windows and
@@ -459,6 +458,7 @@ node ci/perf_shards.js matrix                      # the shards; check: every pe
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
 CMW_VENDOR=1 node ci/browser.js --only '^custom_show_cmd'   # ... on a machine with no route to the CDNs (#444, below)
 CMW_VIEW=steps node ci/browser.js --only '^warm_bar_cmd'   # ... with every page in the steps view (#620; CI sets it for a suite tagged steps({ pin: true }) in ci/suite_views.js)
+node ci/browser.js --wait --only '^smoke_cmd'     # one run per worktree (a lock, .ci/browser.lock: a run rewrites test/ci_cdp, .ci/browser and dist/): a second refuses and names the holder, --wait waits; a killed run's lock and daemon are swept by the next (ci/run_lock.js, #2163)
 node ci/standards.js --ref origin/main            # the standards check on this branch's added lines (add --block to fail on a finding, as the Gate does)
 node ci/browser_shards.js check                    # every browser suite in exactly one shard, with its view (ci/suite_views.js, #620)
 node ci/impact.js --base origin/main --print       # the tier of this branch (CI tiers)

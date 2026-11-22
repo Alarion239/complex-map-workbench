@@ -117,6 +117,54 @@ const Derivs = (() => {
       return { error: e.message };
     }
   }
+  // the derivative of the composition f_m ∘ … ∘ f_1 of steps (live, in chain order) as one custom step, by the chain
+  // rule: D = f_1′(z) f_2′(G_1) … f_m′(G_{m−1}), G_j = f_j(G_{j−1}), G_0 = z. Each f_j′ is derivAst's (its sheet and
+  // cut); G_j puts G_{j−1} for z in step j's own formula (its tree, or the formula it shows read back). D is kept only where
+  // it agrees at CHAIN_PROBES with the same product made of each step's own map and its derivative at its own cut, on
+  // one cut for the whole formula (a step's, else 180°): {step, note} or {error}; one step is derivativeStep's
+  const CHAIN_PROBES = [C(0.31, 0.72), C(-0.45, 0.23), C(0.83, -0.51), C(1.37, 0.41), C(-0.9, -0.6), C(0.12, -1.3)];
+  const CHAIN_TOL = 1e-9;
+  // (f and g agree at CHAIN_PROBES: within CHAIN_TOL, relatively, at each probe where g is finite, at least 3 of them)
+  function agrees(f, g) {
+    let n = 0;
+    for (const z of CHAIN_PROBES) {
+      const want = g(z);
+      if (!CX.isFin(want)) continue;
+      const got = f(z);
+      if (!CX.isFin(got) || CX.abs(CX.sub(got, want)) > CHAIN_TOL * (1 + CX.abs(want))) return false;
+      n++;
+    }
+    return n >= 3;
+  }
+  function chainDerivativeStep(steps) {
+    if (steps.length === 1) return derivativeStep(steps[0]);
+    if (!steps.length) return { error: 'no step before the d/dz' };
+    const bs = steps.map((st) => build(st)), bad = bs.find((b) => b.error);
+    if (bad) return { error: bad.error };
+    const ds = bs.map((b) => derivAst(b, { stable: true })), dbad = ds.find((d) => d.error);
+    if (dbad) return { error: dbad.error };
+    const ms = bs.map((b) => {
+      if (b.ast) return b.ast;
+      try { return Expr.parse(b.tex({ s: 'z', p: 4 }).s); } catch (e) { return null; }
+    });
+    if (ms.some((m) => !m)) return { error: 'a step before the d/dz has no formula to compose' };
+    let G = XN.z(), D = null;
+    bs.forEach((b, j) => { const t = Expr.substZ(ds[j].ast, G); D = D ? XN.mul(D, t) : t; G = Expr.substZ(ms[j], G); });
+    const dfs = ds.map((d) => Expr.compile(d.ast, { theta: d.cut * DEG }));
+    const ref = (z) => {
+      let g = z, p = C(1, 0);
+      for (let j = 0; j < bs.length; j++) { p = CX.mul(p, dfs[j](g)); g = bs[j].f(g); }
+      return p;
+    };
+    const cuts = [...new Set(steps.map((st) => st.params && Number(st.params.cut)).filter(Number.isFinite).concat([180]))];
+    for (const cut of cuts) {
+      try {
+        const expr = texOf(D), step = { type: 'custom', params: { expr, cut } }, nb = build(step);
+        if (!nb.error && agrees(nb.f, ref)) return { step, note: '' };
+      } catch (e) { /* (the next cut) */ }
+    }
+    return { error: 'the steps before the d/dz do not compose into one formula on one cut' };
+  }
   // f′ of one built step as an expression tree in z (the step's input) with the cut angle (degrees) that its branch
   // nodes use: {ast, cut, extra} or {error}. The tree keeps exact numbers (no TeX round trip). opts.stable: a form
   // that evaluates without cancellation where the readable one cancels (for evaluation, not for display).
@@ -243,7 +291,7 @@ const Derivs = (() => {
       return { error: e.message };
     }
   }
-  return { init, XN, texOf, taylorAt, polyMul, polySub, polyDer, ratOf, derivAst, derivativeStep };
+  return { init, XN, texOf, taylorAt, polyDer, polyMul, polySub, ratOf, derivAst, derivativeStep, chainDerivativeStep };
 })();
 import { CX } from './cx.js';
 import { Expr } from './parse.js';
