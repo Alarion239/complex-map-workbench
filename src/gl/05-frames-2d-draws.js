@@ -371,26 +371,31 @@
   }
   // the end of draws sharing one depth (drawRegionCarry's st.depth 'first' .. 'last', or one that failed before its last)
   // (a layer of carryLayers keeps its depth: the next layer reads it)
-  function carryDepthEnd() { if (!ok) return; if (!peelOn) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
+  // (pass 1 of carryResolve keeps its depth too: pass 2 reads it)
+  function carryDepthEnd() { if (!ok) return; if (!peelOn && resOn !== 1) gl.clear(gl.DEPTH_BUFFER_BIT); gl.depthFunc(gl.LESS); gl.disable(gl.DEPTH_TEST); }
   // ---- the carried colour's layers (opacity below 1) ----
   // The carried colour shows the front sheet alone (one depth for all meshes). With opacity a < 1 it shows the layers as the
   // exact pass does: carryLayers calls draw once per layer, front to back, into a target of the canvas's size (the layers
   // share the frame's viewport and scissor); layer j keeps the fragments behind layer j-1's key (PRE_KEY's uPeelOn: the
   // previous layer's depth, two 32-bit float depth textures alternating), and one pass composites them into the frame,
   // each layer at a, the farthest opaque
-  const PEEL_MAX = 8, PEEL_UNIT = 7;
+  const PEEL_MAX = 8, PEEL_UNIT = 7, KMIN_UNIT = 6;
   let peel = null, peelBad = false;
   // the layers that drew something in the last frame whose occlusion queries have answered (0: none known): the next
   // frame draws one layer more, which shows a layer that has appeared, and no more
   let peelSeen = 0, peelQ = null;
   let peelOn = 0;   // the 1-based layer being drawn, 0 outside carryLayers
   let layerFrames = 0;   // the frames carryLayers composited (the tests read it: carryLayerFrames)
+  let resOn = 0, resBand = 0;   // carryResolve's pass (1, 2; 0 outside it) and its band, in units of the key's s
+  let resFrames = 0;   // the frames carryResolve drew (the tests read it: carryResolveFrames)
   function peelFree() {
     if (!peel) return;
     gl.deleteFramebuffer(peel.fbo); gl.deleteTexture(peel.col); peel.dep.forEach((t) => gl.deleteTexture(t));
+    if (peel.kmin) gl.deleteTexture(peel.kmin);
     peel = null;
   }
-  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep}, or null when the target is not complete
+  // -> {W, H, n, fbo, col (RGBA8 array of n layers), dep, kmin (resMin's, made on its first use)}, or null when the target
+  // is not complete
   function peelTarget(n) {
     const W = gl.drawingBufferWidth, H = gl.drawingBufferHeight;
     if (peel && peel.W === W && peel.H === H && peel.n >= n) return peel;
@@ -418,6 +423,54 @@
     peelBad = true; peelFree();
     return null;
   }
+  // ---- the carried colour's ties ----
+  // Where two sheets' keys are equal (a map symmetric about the key's centre: z³'s three sheets over every w), the key a
+  // mesh draws differs between them by the mesh's own error (the source point interpolated across a triangle, far more
+  // than a step of the key), so a single depth puts the sheet in front that the error favours, a triangle at a time.
+  // carryResolve draws the frame's carried draws twice, with the variants that write the key per fragment (st.peel), as
+  // the inverse pass orders keys: pass 1 into a 32-bit float depth target of the canvas's size, its colour masked, each
+  // pixel left with its smallest key; pass 2 into the frame, the fragments within the band of that key in front by their
+  // tie order alone (PRE_KEY_RES: KEY_ERR_K times the key's error across the fragment's triangle, at least band, in units
+  // of s). Below full opacity carryLayers does pass 1 the same way and peels its layers in that order. -> null: no target
+  // (nothing was drawn, the caller draws as without it); else draw()'s last result (false: a pass failed, nothing reached
+  // the frame)
+  function carryResolve(band, draw) {
+    if (!ok || peelBad || peelOn || resOn) return null;
+    const T = peelTarget(1);
+    if (!T) return null;
+    let done = resMin(T, band, draw);
+    if (!done) return false;
+    try {
+      gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
+      resOn = 2;
+      done = draw();
+    } finally { resOn = 0; }
+    if (done) resFrames++;
+    return done;
+  }
+  // pass 1 of the resolve into target T: draw() with the key alone, its colour masked, into T.kmin (made here, a 32-bit float
+  // depth of T's size), which each pixel's smallest key is left in; -> draw()'s result
+  function resMin(T, band, draw) {
+    if (!T.kmin) {
+      T.kmin = gl.createTexture();
+      gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin);
+      gl.texStorage2D(gl.TEXTURE_2D, 1, gl.DEPTH_COMPONENT32F, T.W, T.H);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    }
+    resBand = band;
+    try {
+      gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
+      gl.framebufferTextureLayer(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, T.col, 0, 0);
+      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.TEXTURE_2D, T.kmin, 0);
+      // (the units the programs sample hold other textures than the one they draw into)
+      gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[0]);
+      gl.activeTexture(gl.TEXTURE0 + PEEL_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.dep[1]);
+      gl.colorMask(false, false, false, false);
+      resOn = 1;
+      return draw();
+    } finally { resOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); gl.bindFramebuffer(gl.FRAMEBUFFER, null); }
+  }
   // the program and targets of carryLayers at opacity alpha made ahead (the idle job), so the first layered frame of a glide
   // creates nothing
   function carryLayersReserve(alpha) {
@@ -429,8 +482,12 @@
   // -> null: layers cannot be drawn here (opacity >= 1, one layer, no target or program yet): nothing was drawn, the
   // caller draws the front layer as it does at opacity 1; else draw()'s last result (false: a layer's draw failed, nothing
   // reached the frame)
-  function carryLayers(alpha, draw) {
-    if (!ok || peelBad || peelOn) return null;
+  // (band: the frame's sheets can tie, carryResolve's band: each pixel's smallest key is drawn first, and the layers peel in
+  // the order it resolves, the tied sheets by their tie order, so each layer is one sheet where they tie too. The band is
+  // about the front group's key alone: a second group of tied sheets behind it (z³ + z⁶'s outer ring of three) peels by
+  // the key's own order)
+  function carryLayers(alpha, draw, band = null) {
+    if (!ok || peelBad || peelOn || resOn) return null;
     let n = Math.min(PEEL_MAX, invK(alpha));
     if (n < 2) return null;
     if (peelQ && peelQ.every((q) => gl.getQueryParameter(q, gl.QUERY_RESULT_AVAILABLE))) {
@@ -441,6 +498,10 @@
     const Q = program('carryLayers'), T = Q ? peelTarget(n) : null;
     if (!T) return null;
     let done = true, nq = null;
+    if (band != null) {
+      done = resMin(T, band, draw);
+      if (done) { resOn = 2; gl.activeTexture(gl.TEXTURE0 + KMIN_UNIT); gl.bindTexture(gl.TEXTURE_2D, T.kmin); }
+    }
     // (the layers hold alpha: the frame's write mask does not apply to them)
     gl.colorMask(true, true, true, true);
     gl.bindFramebuffer(gl.FRAMEBUFFER, T.fbo);
@@ -456,7 +517,7 @@
         done = draw();
         if (q) { gl.endQuery(gl.ANY_SAMPLES_PASSED_CONSERVATIVE); (nq || (nq = [])).push(q); }
       }
-    } finally { peelOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); }
+    } finally { peelOn = 0; resOn = 0; gl.colorMask(maskRGB, maskRGB, maskRGB, maskA); }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     if (nq && !peelQ) peelQ = nq; else if (nq) nq.forEach((q) => gl.deleteQuery(q));
     if (!done) return false;
@@ -595,7 +656,7 @@
     if (typeof prep === 'boolean') return prep;
     const { L, e, P, fill, fp, full, clip, mask } = prep;
     // (the sheet key, st.key {win, R, rs, sing}: the default framebuffer has a depth buffer)
-    const k = st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
+    const k = st.key && st.key.win && (peelOn || resOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     const sheet = fill || full;
     const set = (Q) => {
       use(Q, st.map);
@@ -653,6 +714,7 @@
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
+    u1i(Q, 'uKRes', k ? resOn : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
     sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });

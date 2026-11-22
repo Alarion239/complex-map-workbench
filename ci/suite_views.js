@@ -56,6 +56,7 @@ const VIEWS = {
   'steps_ddz_glide_cut_cmd.js': steps(),
   'steps_globe_key_cmd.js': steps(),
   'srcview_clip_cmd.js': steps({ pin: true }),
+  'views_busy_cmd.js': steps({ pin: true }),
   'steps_carry_exact_cmd.js': steps(),
   'steps_rim_inverse_cmd.js': steps(),
   'steps_fill_points_cmd.js': steps(),
@@ -74,6 +75,7 @@ const VIEWS = {
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'steps_land_cracks_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
@@ -128,6 +130,8 @@ const VIEWS = {
   'steps_split_remap_cmd.js': steps({ pin: true }),
   'steps_split_all_cmd.js': steps({ pin: true }),
   'steps_all_exact_cmd.js': steps(),
+  'steps_all_regions_cmd.js': steps(),
+  'steps_all_globe_cmd.js': steps(),
   'steps_all_key_cmd.js': steps(),
   'steps_split_history_cmd.js': steps(),
   'steps_curves_cmd.js': steps(),
@@ -161,6 +165,7 @@ const VIEWS = {
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
+  'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
   'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),

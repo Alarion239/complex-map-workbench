@@ -23,6 +23,8 @@
 // - no point of the sector |arg w| < p pi - EDGE with |w| at least NEAR_W is bare (the patch's rings reach the cut's
 //   sides, not short of them in steps), at least MIN_N points read. (Within NEAR_W of 0, the image of the cut's
 //   other end 0.1i, a branch point of the power, a few points the patch's cells there reach only to their size are bare.)
+// The height map's points of the same kind outside the carried box get far patches too (svLandHeightPoles): √ and ∛ of
+// the Möbius (z - 8i)/(z + 8i), colour and height from w₂, have a patch about -8i, as the Möbius step's own pole does.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js lists it in.
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -85,5 +87,25 @@ for (let k = 1; k <= 24; k++) {
   const u = +(0.04 * k).toFixed(2), tag = `held at u = ${u}`;
   await hold(1 + u);
   branchRows(tag, info[tag] = await branch());
+}
+
+// The height map's singular points outside the carried box (svLandHeightPoles, a far patch each): colour and height from
+// plane w₂ (T = 2), carried from plane z, so the height map is √ (or ∛) of the Möbius (z - 8i)/(z + 8i), unbounded like
+// |z + 8i|^-1/2 (or ^-1/3) at -8i, outside the box (±7.2 × ±6.15) and inside the far patches' inner ring. Held at u = 0.5
+// of the glide z → w₁. The control, the Möbius step alone up to w₂ (a pole at -8i), has its patch there too.
+const HEIGHT_POLE = [0, -8];
+for (const [tag, second] of [['√', { type: 'root', params: { n: 2 }, on: true }], ['∛', { type: 'root', params: { n: 3 }, on: true }], ['the Möbius step alone (a pole)', { type: 'custom', params: { expr: 'z' }, on: true }]]) {
+  const hs = 'landsinghp' + Date.now();
+  await loadView('steps', hs, { shapes: [], steps: [{ type: 'mobius', params: { a: '1', b: '-8i', c: '1', d: '8i' }, on: true }, second], sheets: false, height: 'abs' });
+  await go(`http://localhost:${PORT}/test.html?ns=${hs}&view=steps`);
+  await settled({ max: 30000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
+  await ev(`__cmwSteps({ scope: 'all', surf: 'land', T: 2, go: 0, now: true }); 1`);
+  await settled({ max: 60000 });
+  await hold(0.5);
+  const c = info[`height poles, ${tag}`] = await evJson('JSON.stringify((({ u, s, hmap, src, polar }) => ({ u, s, hmap, src, polar: (polar || []).map((p) => [p[0], p[1]]) }))(__cmwLandCarry() || {}))');
+  const out = !!c.src && (HEIGHT_POLE[1] < c.src.y0 || HEIGHT_POLE[1] > c.src.y1);
+  ok(`height poles, ${tag}: the height map is plane z's to w₂, and -8i lies outside the carried box`, c.s === 0 && !!c.hmap && c.hmap.b === 2 && out, c);
+  // (within 1e-6 of the point's size: the search settles a few 1e-7 off -8i)
+  ok(`height poles, ${tag}: a far patch about -8i`, (c.polar || []).some((p) => Math.hypot(p[0] - HEIGHT_POLE[0], p[1] - HEIGHT_POLE[1]) < 1e-6 * (1 + Math.hypot(...HEIGHT_POLE))), c);
 }
 return { pass: !fails.length, fails, info };

@@ -1,3 +1,4 @@
+// raw-navigate-file: a release smoke: it opens the published page of an earlier release, and is not run in CI (ci/browser_suites.js EXCLUDED)
 // Release smoke, sections 1 to 11 plus these pieces:
 // 0b the tour started from the first-run card in the docked strip; 6 the Draw step ticks and moves on by itself about
 // 3 s later; 6c the Sound chapter's Grieg step plays; 8 sin √z with All sheets in Landscape while the deformation plays;
