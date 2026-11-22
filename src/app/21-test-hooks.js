@@ -29,6 +29,10 @@
     S[k] = v; if (k === 'meshN') { dropAllGPU(); } requestRender('L', 'R');
     if (k === 'srcView' && !(o && o.keepClip)) { clearTimeout(sourceViewChanged.t); sourceViewChanged.pending = false; paneL.setView(leftView()); recentreClip(); }
   };
+  // whether the views are still moving to where an action leaves them: X's meshing window still to re-centre (a pan or
+  // zoom's sourceViewChanged, 200 ms after the last change, or at pointer-up), or a plane's or a globe camera's tween
+  // running; a suite waits for it to be false instead of sleeping (test/lib/wait_kit.js viewsQuiet)
+  window.__cmwViewsBusy = () => !!(sourceViewChanged.pending || tweens.length || camTweens.length);
   // the panes' views; setView(side, surf) and setPhase(on) as the controls and keys call them
   window.__cmwView = () => Views.clean(S.view);
   // (X's surface 'land' is the Landscape view; Plane or Sphere on X from the Landscape opens X → Y)
@@ -130,6 +134,29 @@
       if (z && CX.isFin(z)) out.push(z.re, z.im); else out.push(NaN, NaN);
     }
     return out;
+  };
+  // the left pane's Landscape frame redrawn once as the relief alone on a transparent frame (the figure's coverage render, artRelief: no
+  // floor, plate, marks or labels), the same carry, view and camera: the alpha plane of the pane's canvas kept as window.__cmwLandRelief.cov
+  // (one byte a pixel, w x h; 255 where the relief covers the pixel), and the frame then drawn again as before. -> { w, h, n: covered pixels },
+  // or null with no canvas
+  window.__cmwLandRelief = () => {
+    const cv = /** @type {any} */ (document.getElementById('canvasL'));
+    if (!cv) return null;
+    const keep = { artMode, artRelief };
+    try {
+      artMode = true; artRelief = true;
+      // (the frame starts from a clear canvas: a transparent fill leaves what is drawn there)
+      paneL.ctx.setTransform(1, 0, 0, 1, 0, 0); paneL.ctx.clearRect(0, 0, cv.width, cv.height);
+      renderLeft();
+      const q = cv.getContext('2d').getImageData(0, 0, cv.width, cv.height).data, cov = new Uint8Array(cv.width * cv.height);
+      let n = 0;
+      for (let i = 0; i < cov.length; i++) { cov[i] = q[4 * i + 3]; if (cov[i] > 0) n++; }
+      Object.assign(window.__cmwLandRelief, { cov, w: cv.width, h: cv.height });
+      return { w: cv.width, h: cv.height, n };
+    } finally {
+      artMode = keep.artMode; artRelief = keep.artRelief;
+      renderLeft();
+    }
   };
   window.__cmwCam = (side, o) => { const c = camOf(side); if (o) { Object.assign(c, o, { vyaw: 0, vpitch: 0 }); requestRender(side); } return { yaw: c.yaw, pitch: c.pitch, dist: c.dist, tx: c.tx || 0, ty: c.ty || 0, tz: c.tz || 0, fov: c.fov }; };
   window.__cmwGlobeDisk = (side) => { const g = globeCam(side); return g ? { R: g.R, w: g.pane.w, h: g.pane.h } : null; };   // (a globe pane's silhouette radius R, and the pane's size, in CSS px: the app's own globeCam)
@@ -498,7 +525,7 @@
   // slide; rebased: the schedule the last new speed set (svPlayRebase), with rebaseMinSpan, the least span it is timed over;
   // invWarm: the glides of the plane shown made ready at rest (svPrestartInv's jobs for it done); fits: the head's fits so
   // far that ran past their key (SV.fits)
-  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'glideSheets' in o) { SV.glideSheets = o.glideSheets; requestRender('L'); } if (o && 'restPaint' in o) { SV.restPaint = o.restPaint; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, note: paneL.noteBox || null, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
+  /** @type {any} */ (window).__cmwSteps = (o) => { if (o && o.go != null) svGo(o.go, !!o.now); if (o && 'poleFrameMs' in o) SV.poleFrameMs = o.poleFrameMs; if (o && o.dropTracks) svDropTracks(); if (o && o.x != null) { SV.g.set(o.x); requestRender('L'); } if (o && 'bare' in o) { SV.bare = !!o.bare; requestRender('L'); } if (o && 'glideSheets' in o) { SV.glideSheets = o.glideSheets; requestRender('L'); } if (o && 'restPaint' in o) { SV.restPaint = o.restPaint; requestRender('L'); } if (o && 'tieBand' in o) { svTieBandSet = o.tieBand; requestRender('L'); } if (o && 'clock' in o) SV.clock = o.clock > 0 ? +o.clock : null; if (o && o.park != null) { SV.g.set(o.park); svLetGo(); } if (o && o.T != null) svSetT(o.T); if (o && o.scope) { SV.scope = o.scope; svPrestartSoon(300); svSync(); requestRender('L'); } if (o && o.surf) { SV.surf = o.surf; svPrestartSoon(300); svApply(); } if (o && 'holdJobs' in o) svJobsHoldSet(o.holdJobs); if (o && 'warmInv' in o) svInvWarmOffSet(!o.warmInv); if (o && 'gate' in o) svGateOffSet(!o.gate); if (o && o.play != null) { if (o.play) svPlay(); else { svGateEnd(); svPause(true); } } if (o && 'loop' in o) svSetLoop(!!o.loop); if (o && o.order) svSetOrder(o.order); if (o && 'span' in o) SV.span = o.span && svAllOk(o.span[0], o.span[1]) ? { x0: o.span[0], x1: o.span[1] } : null; if (o && 'range' in o) { if (o.range) svSetRange(o.range[0], o.range[1], false); else svClearRange(); } return { ready: svReady(), on: SV.on, svSpeed: S.sv ? S.sv.speed : null, homRange: S.homRange ? [S.homRange.a, S.homRange.b] : null, play: !SV.play ? null : SV.play.slide ? 'slide' : 'glide', playRec: SV.play && !SV.play.slide ? { from: SV.play.from, to: SV.play.to, ms: SV.play.ms, t0: SV.play.t0, el: svElapsed(SV.play) } : null, rebased: SV.rebased || null, rebaseMinSpan: SV_REBASE_MIN_SPAN, loop: SV.loop, range: svRange(), i: SV.i, x: SV.g.x, sel: S.sel, all: svBetween().all, between: svBetween().map, span: SV.span ? { x0: SV.span.x0, x1: SV.span.x1, stepT: SV.span.stepT || null } : null, restored: SV.restored || null, fits: SV.fits, homAll: !!S.homAll, moving: svMoving() || svGateWaiting(), speed: SV.speed, anim: SV.anim, T: svT(), scope: SV.scope, surf: SV.surf, adopted: !SV.on || SV.sig === svSigNow(), planes: svPlanes(), stage: leftStage(), main: S.view.main, paint: SV.on ? svPaint() : null, core: SV.core, lColor: lColor(), solo: solo(), focus: S.focus, map: focusMap(), label: svLabel(), names: { title: svTitleParts(), call: svMapCall('text'), key: svKeyName() }, note: paneL.noteBox || null, paths: svPathsHook(), glide: svGlideRec, hold: svHoldB, rest: svRestRec, tieBand: svTieBand(), resolved: GLR.carryResolveFrames ? GLR.carryResolveFrames() : 0, invWarm: svInvWarmKey === svInvKey() && !svInvJobs.length && !svInvFlushing, restU: SV_REST_U, restUMin: SV_REST_U_MIN, win: (() => { const v = leftView(); return [v.cx, v.cy, v.s]; })() }; };
   // (#363) the regions' display: their fill (always the phase for the user), grid lines, their step, chevrons, opacity
   // the loaded settings and ids, read back plain (a getter: the suites that load a saved state with a key left out or set oddly read what the load made of it)
   /** @type {any} */ (window).__cmwKeys = () => ({ alpha: S.alpha, meshN: S.meshN, nextId: S.nextId, shapeIds: S.shapes.map((s) => s.id), targetIds: S.targets.map((t) => t.id), shapeCi: S.shapes.map((s) => s.ci), shapeColor: S.shapes.map((s) => s.color || null), v3: !!S.v3, v4: !!S.v4, v5: !!S.v5, v6: !!S.v6, focus: S.focus });
