@@ -394,7 +394,9 @@ test file opts out of the assertion count with the marker on any line it adds); 
 A deleted suite carries no added line, so it is retired instead (`retired`): the change names it in the ledger
 `ci/retired_suites.js`, one line with the reason it goes and what covers it, and drops it from what runs (from
 `ci/suite_views.js` and `ci/browser_shards.js`, or from `ci/browser_suites.js`' EXCLUDED); its assertions then do not count
-as dropped. A ledger line for a file the change does not delete is a finding.
+as dropped. A suite that no shard line named at the base ran in the catch-all shard, so it has no shard line to drop; a unit
+test (`test/t_*.js`) runs because it exists, so its ledger line alone retires it. A ledger line for a file the change does
+not delete is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
 ### Perf on a loaded machine

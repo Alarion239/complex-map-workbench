@@ -71,6 +71,17 @@ ok('asserts: a deleted test file', (() => {
   ok('retired: a dropped TIMING entry is not a drop from what runs', why([...del('x_cmd.js'), ...ledger([REASON]), ...timing]).length === 1);
   ok('retired: a ledger line with no reason does not retire it', why([...del('x_cmd.js'), ...ledger(["  'x_cmd.js': '',"]), ...views, ...shards]).length === 1);
   ok('retired: a ledger line for a file the change keeps is a finding', why([...ledger([REASON])]).join() === 'retired:names test/x_cmd.js, which this change does not delete');
+  // (a unit test runs because it exists: its ledger line alone retires it)
+  const UNIT = "  't_x.js': 'it tested the classic transport, gone in #994',";
+  ok('retired: a deleted unit test with a ledger line: no finding', why([...del('t_x.js'), ...ledger([UNIT])]).length === 0, why([...del('t_x.js'), ...ledger([UNIT])]));
+  ok('retired: a deleted unit test with no ledger line is a finding', why([...del('t_x.js')]).join() === 'asserts:2 assertions removed, 0 added (file deleted)');
+  // (a suite the base's shard lists never named ran in the catch-all shard: dropped from the views, it is gone)
+  const base = (text) => (f) => (f === 'ci/browser_shards.js' ? text : null);
+  const whyB = (lines, text) => check(parseDiff(lines.join('\n')), base(text)).map((x) => x.rule + ':' + x.why);
+  const SHARDS_BASE = "const SHARDS = [{ id: 'a', suites: ['y_cmd.js', 'z_cmd.js'] }, { id: 'new', rest: true, suites: [] }];";
+  ok('retired: a catch-all suite dropped from the views, with a ledger line: no finding', whyB([...del('x_cmd.js'), ...ledger([REASON]), ...views], SHARDS_BASE).length === 0, whyB([...del('x_cmd.js'), ...ledger([REASON]), ...views], SHARDS_BASE));
+  ok('retired: a suite a base shard line names must leave it', whyB([...del('x_cmd.js'), ...ledger([REASON]), ...views], "const SHARDS = [{ id: 'a', suites: ['x_cmd.js'] }];").length === 1);
+  ok('retired: with no base to read, a catch-all suite still needs a shard line dropped', why([...del('x_cmd.js'), ...ledger([REASON]), ...views]).length === 1);
   ok('retired: another deleted suite is still counted', why([...del('x_cmd.js'), ...del('w_cmd.js', 1), ...ledger([REASON]), ...views, ...shards]).join() === 'asserts:1 assertions removed, 0 added (file deleted)');
 }
 // the ledger names no file that is still in test/
