@@ -24,8 +24,7 @@ html:not(.ph) .ph-only { display: none !important; }
 
 /* ---------- header: the view switch and More ---------- */
 :root.ph .top { position: static; height: var(--ph-head); margin: 0; padding: 4px 4px 4px 8px; gap: 4px; background: var(--bg); border-bottom: 1px solid var(--line); }
-/* (and the Sound button of a landscape phone 768 to 1023 px wide while the sound is on: src/page.html's rules for that width show it, and fold the menu's own) */
-:root.ph .top > :not(#hdrMoreBtn, #hdrMenu, #tourHeadSlot, .snd-ph:not([hidden])) { display: none !important; }
+:root.ph .top > :not(#hdrMoreBtn, #hdrMenu, #tourHeadSlot) { display: none !important; }
 /* the guided tour's strip in a landscape phone's header, right of ⋯ (src/tour.js) */
 :root.ph .top > #tourHeadSlot:not([hidden]) { order: 20; flex: 1 1 260px; min-width: 0; align-self: stretch; display: flex; }
 /* (and under the header in portrait, or in a 48 px row when the header has no room: the stage's first child) */
@@ -34,7 +33,11 @@ html:not(.ph) .ph-only { display: none !important; }
    layout under it; its slot still reserves the row) */
 :root.ph.ph-land .stage > #tourSlot > .tour-strip[data-mode="row"] { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + var(--ph-head)); width: auto; height: var(--ph-tour, 48px); }
 :root.ph .top > #hdrMoreBtn { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
-:root.ph.ph-land .top > .snd-ph:not([hidden]) { place-items: center; width: 44px; height: 44px; min-width: 44px; }
+/* a phone 768 to 1023 px wide (a landscape phone) shows the bar's Sound button while the sound is on, a 44 px target
+   like ⋯: src/page.html's rules for that width show it and fold the menu's own; below 768 px the bar is ⋯ alone */
+@media (min-width: 768px) and (max-width: 1023px) {
+  :root.ph .top > #soundPh:not([hidden]) { display: inline-grid !important; place-items: center; width: 44px; height: 44px; min-width: 44px; }
+}
 
 /* ---------- the stage: the plane (and the inset), the chain bar ---------- */
 :root.ph .layout { display: block; position: relative; height: 100%; min-height: 0; overflow: hidden; gap: 0; }

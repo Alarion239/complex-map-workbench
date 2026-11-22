@@ -4,12 +4,15 @@
 //    inside the bar and under no other element; a touch on it turns the sound off (aria-pressed false, the button goes);
 //  - sound off: the bar has no Sound button (control), and ⋯ opens the sheet whose Sound switch is in the tree with the same name, checked false;
 //    (then the sound is turned on with Sound.set).
+// Below 768 px (controls: 360 × 640 portrait and 740 × 360 landscape, both views): with the sound on the bar has no Sound
+// button; its control there is the ⋯ sheet's switch.
 // (The steps view is the page's default (?view=steps); ?view=classic is the other. Sound.set turns the sound over with no audio.) A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const NAMES = { en: 'Sound', ru: 'Звук', it: 'Suono' };
+const SMALL = [[360, 640], [740, 360]];   // (a phone below 768 px: portrait, and landscape)
 const VIEW_W = 900, VIEW_H = 400, WAIT_MS = 20000, SET_MS = 10000, TARGET_PX = 44, TAP_MS = 60;
 const { axOf } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'ax_kit.js'), 'utf8'))({ send });
 const boxOf = (sel) => ev(`(() => { const e = document.querySelector(${JSON.stringify(sel)}); if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2), bar = document.getElementById('top') || document.querySelector('.top'), b = bar.getBoundingClientRect(); return { l: r.left, t: r.top, w: r.width, h: r.height, hit: !!at && (at === e || e.contains(at)), inBar: r.left >= b.left - 0.5 && r.right <= b.right + 0.5 && r.top >= b.top - 0.5 && r.bottom <= b.bottom + 0.5, display: getComputedStyle(e).display }; })()`);
@@ -49,6 +52,19 @@ for (const v of ['steps', 'classic']) for (const [lang, label] of Object.entries
     await settled({ max: SET_MS, panes: false, until: `document.getElementById('soundPh').hidden === true` });
     ok(`${tag}: a touch on #soundPh turns the sound off`, await ev(`document.getElementById('soundBtn').getAttribute('aria-pressed') === 'false'`), null);
   }
+}
+// ---- below 768 px (controls): the bar is ⋯ alone, with the sound on too, in portrait and in landscape
+for (const [w, h] of SMALL) for (const v of ['steps', 'classic']) {
+  const tag = `${w}×${h} ${v}`;
+  await view(w, h, false, true);
+  const ns = 'psbs' + v + w + (Date.now() % 1000000);
+  await load(ns, {});
+  await go(`${U}?ns=${ns}&lang=en&view=${v}`);
+  await settled({ max: WAIT_MS, until: `typeof Sound === 'object' && !!window.Phone && Phone.isOn() && !!document.getElementById('soundPh')` });
+  await snd(true);
+  await settled({ max: SET_MS, panes: false, until: `document.getElementById('soundPh').hidden === false` });
+  const b = info[`${tag} on`] = await boxOf('#soundPh');
+  ok(`${tag}: sound on: the bar has no Sound button (below 768 px the bar is ⋯ alone)`, b === null, b);
 }
 const errs = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || '')).map((x) => x.m).slice(0, 5);
 ok('no errors', !errs.length, errs);
