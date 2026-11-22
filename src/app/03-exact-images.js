@@ -641,7 +641,9 @@
     const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
     const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
     // below the centre, clear of a point at the view's middle, and clear of a message standing over the plane (the note moves up only when it has to, and stays inside the pane)
-    const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5, x0 = Math.round(free / 2 - bw / 2) + 0.5;   // (the 1 px: the box is drawn on the half pixel and its stroke is a pixel wide)
+    // (the 1 px below: the box is drawn on the half pixel and its stroke is a pixel wide)
+    const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
+    const x0 = Math.round(free / 2 - bw / 2) + 0.5;
     const tx = free / 2;   // (the words' centre: the room's, as the box is)
     pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
