@@ -41,7 +41,7 @@
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
-  SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill}
+  SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill, gauge (the ring's fill: the share of svHoldLeft gone), left0, ending (the full ring stands a frame)}
   SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -1073,6 +1073,9 @@
   // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
   // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
   let svHoldB = 0;
+  // how many things the last frame svHolds tested waits for: its inverse paths still linking, the carried meshes, the Cauchy style's
+  // carried programs, and the pole tracks (one); 0 when the frame need not wait. A hold's ring is the share of it that has gone
+  let svHoldLeft = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
   // (the glide held by svLinkHold for its missing tracks comes first)
@@ -1396,9 +1399,11 @@
     // (an All-at-once frame: its span's paths alone, no shapes of later planes, no pole tracks of its own)
     const span = inv ? svSpanPaths(g) : null, h = inv ? svHomPaths(g.b, g.u, span).h : null;
     // (the Cauchy style's carried programs too, its own variants: while they link, nothing past z draws its colour)
-    const linking = (h ? [h].concat(span ? [] : [svStagedOf(false, g), svStagedCurves(g)]).some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending')) : svMeshLinking(g.map, null))
-      || (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry());
+    const waits = (h ? [h].concat(span ? [] : [svStagedOf(false, g), svStagedCurves(g)]).reduce((n, q) => n + (q ? q.paths.filter((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending').length : 0), 0) : (svMeshLinking(g.map, null) ? 1 : 0))
+      + (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry() ? 1 : 0);
+    const linking = waits > 0;
     const P = inv && !linking && !span ? svTracksMissing(g.b, h) : null;
+    svHoldLeft = waits + (P ? 1 : 0);
     if (P) {
       svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
       // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)

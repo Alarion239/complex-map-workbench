@@ -97,17 +97,18 @@
   // ▶ goes back to Pause and the live region says the play's words once. A shorter hold shows nothing. Pressing ▶ (Cancel) or
   // Esc pauses the play, as for any play
   function svHoldWaitBegin(A) {
+    if (SV.hold && SV.hold.ending) svHoldWaitLeave(SV.hold);
     if (SV.hold) return;
-    // (the ring is this hold's own: the share of the programs pending when it began that have linked since, full when the hold
-    // ends; svReady's gauge counts what was done before the play, so it would start high and never fill; with none pending,
-    // as when the hold is for pole tracks, the ring stands at the unknown fill)
-    const pend0 = GLR.pendingLinks || 0;
-    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, gauge: () => (pend0 > 0 ? 1 - Math.min(pend0, GLR.pendingLinks || 0) / pend0 : SV_GATE_UNKNOWN_FILL) };
+    // (the ring is this hold's own, and of what the held glide waits for (svHoldLeft): the share that has gone since the hold began,
+    // so it is full when the glide can go; svReady's gauge counts what was done before the play, so it started high and never
+    // filled. With nothing counted, the ring stands at the unknown fill)
+    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, left0: svHoldLeft, ending: false,
+      gauge: () => { w.left0 = Math.max(w.left0, svHoldLeft); return w.left0 > 0 ? 1 - Math.min(svHoldLeft, w.left0) / w.left0 : SV_GATE_UNKNOWN_FILL; } };
     w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
   }
   function svHoldWaitTick() {
     const w = SV.hold;
-    if (!w) return;
+    if (!w || w.ending) return;
     if (SV.play !== w.A || !w.A.held) { svHoldWaitEnd(SV.play === w.A); return; }
     if (!w.shown) {
       w.shown = true;
@@ -116,17 +117,25 @@
     svWaitLook(w);
     w.timer = setTimeout(svHoldWaitTick, SV_GATE_POLL_MS);
   }
-  // the hold is over (say: the play goes on, so its words are said again)
+  // the hold's look given back, and the hold gone
+  function svHoldWaitLeave(w) {
+    if (SV.hold === w) SV.hold = null;
+    svWaitRestore(w);
+  }
+  // the hold is over (say: the play goes on, so the ring is full, painted for a frame, and its words are said again; else, as
+  // when ▶ pauses the play, ▶ is given back at once)
   function svHoldWaitEnd(say) {
     const w = SV.hold;
     if (!w) return;
+    if (w.ending) { if (!say) svHoldWaitLeave(w); return; }
     clearTimeout(w.timer);
-    SV.hold = null;
-    if (!w.shown) return;
-    // (the ring is full as the hold ends: what it waited for has linked)
-    if (say) { w.gauge = () => 1; svWaitLook(w); }
-    svWaitRestore(w);
-    if (say && SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
+    if (!w.shown) { SV.hold = null; return; }
+    if (!say) { svHoldWaitLeave(w); return; }
+    w.ending = true;
+    w.gauge = () => 1;
+    svWaitLook(w);
+    if (SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (SV.hold === w) svHoldWaitLeave(w); }));
   }
   function svGateTick() {
     const g = SV.gate;
