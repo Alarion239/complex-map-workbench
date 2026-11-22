@@ -47,7 +47,7 @@ ok('the plan and the unit job wait for it', /needs: ready/.test(job('plan')) && 
 const look = script(ready, 'look');
 ok('the look-up script is found', /gate_run_of/.test(look), look.slice(0, 80));
 const hist = (runs) => { const f = path.join(dir, 'h' + ++n + '.json'); fs.writeFileSync(f, JSON.stringify({ workflow_runs: runs })); return f; };
-const run = (id, status, conclusion, t, prs = [7]) => ({ id, status, conclusion, created_at: `2026-10-30T0${t}:00:00Z`, pull_requests: prs.map((number) => ({ number })) });
+const run = (id, status, conclusion, t, prs = [7], attempt = 1) => ({ id, run_attempt: attempt, status, conclusion, created_at: `2026-10-30T0${t}:00:00Z`, pull_requests: prs.map((number) => ({ number })) });
 const mirror = (runs) => bash(look, { STUBS: stubs('jq', GH_JQ), H: hist(runs), GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r', HEAD_SHA: 'abc', PR: '7' });
 const cases = [
   ['the push run passed: mirrored', [run(5, 'completed', 'success', 1)], '5'],
@@ -63,6 +63,14 @@ const cases = [
   ['a newer failure over an older pass: no mirror', [run(5, 'completed', 'success', 1), run(6, 'completed', 'failure', 2)], ''],
 ];
 for (const [name, runs, want] of cases) { const r = mirror(runs); ok(`ready: ${name}`, r.status === 0 && r.out.mirror === want, r); }
+// (the carried attempt: a run that passed is pinned to the attempt that passed, so a re-run of it after the carry cannot
+// change this PR's verdict; one still going is not, so a re-run of its failed jobs can still carry it)
+const pinned = mirror([run(5, 'completed', 'success', 1, [7], 2)]);
+ok('ready: a passed run pins its attempt (mirror_attempt)', pinned.out.mirror === '5' && pinned.out.mirror_attempt === '2', pinned);
+const going = mirror([run(6, 'in_progress', null, 2, [7], 1)]);
+ok('ready: a run still going pins no attempt', going.out.mirror === '6' && !going.out.mirror_attempt, going);
+const line = bash('ci/gate_run_of.sh abc 7', { STUBS: stubs('jq', GH_JQ), H: hist([run(5, 'completed', 'success', 1, [7], 3)]), GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r' });
+ok('gate_run_of.sh prints the run, its attempt, status and conclusion', line.status === 0 && line.stdout.trim() === '5 3 completed success', line);
 const broken = bash(look, { STUBS: stubs('fail', 'exit 1'), GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r', HEAD_SHA: 'abc', PR: '7' });
 ok('ready: a failed look-up gives no mirror (the usual run)', broken.status === 0 && broken.out.mirror === '', broken);
 
@@ -96,7 +104,7 @@ const stack = (prs, runsBySha, env = {}) => {
 const prs = [[7, 'low', 'identical', 0], [8, 'mid', 'ahead', 2], [9, 'top', 'ahead', 5], [10, 'side', 'diverged', 0]];
 const run2 = (id, status, conclusion, t = 1) => run(id, status, conclusion, t, [9]);
 let c = stack(prs, { top: [run2(50, 'completed', 'success')] });
-ok('cover: a passing run of the top gates it; mirror, its PR and head', c.status === 0 && c.out.mirror === '50' && c.out.mirror_pr === '9' && c.out.mirror_sha === 'top', c);
+ok('cover: a passing run of the top gates it; mirror, its PR, head and attempt', c.status === 0 && c.out.mirror === '50' && c.out.mirror_pr === '9' && c.out.mirror_sha === 'top' && c.out.mirror_attempt === '1', c);
 // (a run of the top that is still going is not carried: a push to the top cancels it, and this run's tier would then be
 // skipped with no verdict to carry)
 c = stack(prs, { top: [run2(50, 'in_progress', null)] });
@@ -121,6 +129,7 @@ c = stack(prs, { top: [run2(50, 'in_progress', null)] }, { PR: 'x' });
 ok('cover: a bad PR number does nothing', c.status === 0 && !c.out.mirror, c);
 const brokenCover = bash(cover, { STUBS: stubs('fail', 'exit 1'), GITHUB_RUN_ID: '99', GITHUB_REPOSITORY: 'o/r', HEAD_SHA: 'low', PR: '7', BASE: 'integ', SWITCH: 'on' });
 ok('cover: failed look-ups give the usual run', brokenCover.status === 0 && !brokenCover.out.mirror, brokenCover);
+ok('the ready job and the plan pass the carried attempt on', /mirror_attempt: \$\{\{ steps\.look\.outputs\.mirror_attempt \|\| steps\.cover\.outputs\.mirror_attempt \}\}/.test(ready) && /mirror_attempt: \$\{\{ needs\.ready\.outputs\.mirror_attempt \}\}/.test(job('plan')));
 ok('the ready job passes the mirrored PR and head on', /mirror_pr:/.test(ready) && /mirror_sha:/.test(ready) && /mirror_pr: \$\{\{ needs\.ready\.outputs\.mirror_pr \}\}/.test(job('plan')));
 
 // the Gate job: tier none checks the mirrored run again
@@ -129,9 +138,19 @@ ok('the Gate job may read the runs (actions: read)', /permissions:\n\s+contents:
 const g = /run: \|\n([\s\S]*)$/.exec(gate);
 const gscript = g ? g[1].split('\n').map((l) => l.slice(10)).join('\n').replace(/\$\{\{ needs\.\w+\.result \}\}/g, 'skipped').replace('[ "skipped" = success ] || { echo "::error::plan', '[ "success" = success ] || { echo "::error::plan') : '';
 // (replies: the look-ups in turn, the last one repeated; sleep stubbed; a reply 'ERR' is a failed look-up)
-const check = (...replies) => { const f = path.join(dir, 'r' + ++n); fs.writeFileSync(f, replies.join('\n') + '\n');
-  return bash(`sleep() { :; }; gh() { local r; r=$(head -n 1 "$R"); [ "$(wc -l < "$R")" -gt 1 ] && sed -i 1d "$R"; [ "$r" = ERR ] && return 1; echo "$r"; }; ${gscript}`,
-    { R: f, TIER: 'none', MIRROR: '5', PR: '7', HEAD_SHA: 'abc', GITHUB_REPOSITORY: 'o/r', SEL_GLSL: 'false', SEL_QUALITY: 'false', SEL_BROWSER: 'false' }); };
+const check = (...replies) => checkAt('', ...replies);
+// (attempt: the carried attempt, MIRROR_ATTEMPT; the URLs gh was asked for are kept in $U)
+const checkAt = (attempt, ...replies) => { const f = path.join(dir, 'r' + ++n), u = f + '.urls'; fs.writeFileSync(f, replies.join('\n') + '\n'); fs.writeFileSync(u, '');
+  const r = bash(`sleep() { :; }; gh() { echo "$2" >> "$U"; local r; r=$(head -n 1 "$R"); [ "$(wc -l < "$R")" -gt 1 ] && sed -i 1d "$R"; [ "$r" = ERR ] && return 1; echo "$r"; }; ${gscript}`,
+    { R: f, U: u, TIER: 'none', MIRROR: '5', MIRROR_ATTEMPT: attempt, PR: '7', HEAD_SHA: 'abc', GITHUB_REPOSITORY: 'o/r', SEL_GLSL: 'false', SEL_QUALITY: 'false', SEL_BROWSER: 'false' });
+  return Object.assign(r, { urls: fs.readFileSync(u, 'utf8').trim().split('\n').filter(Boolean) }); };
+{
+  // a carried attempt: the Gate job reads that attempt, so the run's newest attempt (a re-run after the carry) is not it
+  const p = checkAt('2', 'completed success abc true');
+  ok('Gate: a pinned attempt is read by its attempts URL', p.status === 0 && p.urls.length === 1 && p.urls[0] === 'repos/o/r/actions/runs/5/attempts/2', p);
+  const u = check('completed success abc true');
+  ok('Gate: with no pinned attempt the run itself is read', u.urls[0] === 'repos/o/r/actions/runs/5', u);
+}
 ok('Gate: a passing mirrored run of this PR on this commit passes', check('completed success abc true').status === 0, check('completed success abc true'));
 ok('Gate: a mirrored run that did not pass fails', check('completed failure abc true').status === 1);
 ok('Gate: a mirrored run on another commit fails', check('completed success def true').status === 1);

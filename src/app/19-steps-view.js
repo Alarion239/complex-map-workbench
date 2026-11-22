@@ -530,7 +530,9 @@
   // frame's poles by Newton's method (svPoleAt; one that does not settle stays where it was): a glide's poles move little
   // from frame to frame, and a step's own poles (a Möbius step's) not at all. (The glide's pole tracks, svPoleTracks, are
   // of the map from plane 0 over the camera's window; the carry's map is from plane s over its box)
-  const svLandPoleMemo = { key: '', poles: [] };
+  // Each patch's seam (svPatchSeam) is kept with them, by the patch: it is measured again only for a new key or a pole that
+  // moved, so a frame drawn again at rest (the camera turned, a readout) measures none. runs: the seams measured
+  const svLandPoleMemo = { key: '', poles: [], seams: new Map(), runs: 0 };
   function svLandPatches(map, src, N, hF, hKey) {
     const F = cpuMap(map);
     if (!F) return [];
@@ -540,23 +542,30 @@
     else poles = svDrain(svPolesIn(F, src, 16, src, E, true));
     const cell = Math.max(src.x1 - src.x0, src.y1 - src.y0) / (N - 1), cx = (src.x0 + src.x1) / 2, cy = (src.y0 + src.y1) / 2;
     const near = poles.sort((p, q) => Math.hypot(p.re - cx, p.im - cy) - Math.hypot(q.re - cx, q.im - cy)).slice(0, 4);
-    Object.assign(svLandPoleMemo, { key, poles: near });
+    const was = svLandPoleMemo.key === key ? svLandPoleMemo.seams : null, seams = new Map();
     const patch = (p) => [p.re, p.im, cell * 1e-4, cell * 8];
     // (the glide map's own points: each patch's rings start at the map's cut out of the point, if it has one)
-    return near.map((p) => Object.assign(patch(p), { seam: svPatchSeam(F, patch(p)) }))
-      .concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
+    const out = near.map((p) => {
+      const q = patch(p), id = q.join(',');
+      const seam = was && was.has(id) ? was.get(id) : (svLandPoleMemo.runs++, svPatchSeam(F, q));
+      seams.set(id, seam);
+      return Object.assign(q, { seam });
+    });
+    Object.assign(svLandPoleMemo, { key, poles: near, seams });
+    return out.concat(hF ? svLandHeightPoles(hF, hKey, src, cell * 8).map(patch) : []);
   }
   // The cut of the glide map F out of the point of a pole's patch p ([x, y, r0, r1]), if it has one: the branch of a power
-  // or a log that ends there (the √ of a Möbius step ends at the step's pole). Its angle on SEAM_K rings of the patch,
-  // ring k at k / (SEAM_K - 1) of the way out (radii geometric from r0 to r1, as CARRY_Z's), unwrapped from ring to ring;
+  // or a log that ends there (the √ of a Möbius step ends at the step's pole). Its angle on SEAM_K (GLR.SEAM_RINGS, the
+  // uSeam CARRY_ZIN takes) rings of the patch, ring k at k / (SEAM_K - 1) of the way out (radii geometric from r0 to r1, as CARRY_Z's), unwrapped from ring to ring;
   // the patch's rings start at it (CARRY_ZIN, uSeam), so no cell straddles the cut, and the patch ends along the cut
   // on both sides, where the branch ends. null when no ring has one. A ring's cut: of SEAM_M steps round it, the one whose
   // midpoint's image lies farthest from the midpoint of its ends' images, more than SEAM_JUMP of their distance (across a
   // cut the midpoint goes to one side, half the chord away, however near the branch's sides; a smooth step's sagitta is
   // a small part of it), bisected to its angle; a ring without one (too near the point for the map to take it whole, or
   // past the cut's end) takes the nearest ring's
-  const SEAM_K = 9, SEAM_M = 96, SEAM_JUMP = 0.1, SEAM_BISECT = 32;
+  const SEAM_M = 96, SEAM_JUMP = 0.1, SEAM_BISECT = 32;
   function svPatchSeam(F, p) {
+    const SEAM_K = GLR.SEAM_RINGS;
     const [x, y, r0, r1] = p, at = (r, th) => F(C(x + r * Math.cos(th), y + r * Math.sin(th)));
     const d = (a, b) => (a && b && CX.isFin(a) && CX.isFin(b) ? CX.abs(CX.sub(a, b)) : NaN);
     const seam = new Array(SEAM_K).fill(null);
@@ -605,7 +614,7 @@
     const f = 1 / (n - 1), r = p[2] * Math.pow(p[3] / p[2], j * f);
     let th = -2 * Math.PI * i * f;
     if (p.seam) {
-      const t = Math.min(Math.max(j * f, 0), 1) * (SEAM_K - 1), k = Math.min(Math.floor(t), SEAM_K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
+      const K = GLR.SEAM_RINGS, t = Math.min(Math.max(j * f, 0), 1) * (K - 1), k = Math.min(Math.floor(t), K - 2), E = j * f <= p.seam.end ? GLR.SEAM_EPS : 0;
       th = p.seam[k] + (p.seam[k + 1] - p.seam[k]) * (t - k) - E - (2 * Math.PI - 2 * E) * i * f;
     }
     return [p[0] + r * Math.cos(th), p[1] + r * Math.sin(th)];
@@ -2207,7 +2216,7 @@
     if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane, hold); if (hold == null) svMotionDrawn(svMotion()); return; }
     if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
-    // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
+    // (parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
     pane.setView(S.srcView);
@@ -2235,7 +2244,7 @@
       svStagedLayer(pane, f);
       if (f.open && !inFrame) GLR.blit(pane.ctx);
     };
-    // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
+    // (the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false };
     // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
@@ -2247,9 +2256,9 @@
     const colour = () => {
       // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
       // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
-      // (#1443's rule b: no blank, and at the arrival plane b's parked picture), and over it the departure plane's
+      // (no blank, and at the arrival plane b's parked picture), and over it the departure plane's
       // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
-      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
+      // arrive. Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
       // 0 (a test hook's) leaves plane b's picture out, so that a pixel no point reaches shows the paper)
       if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); }
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
@@ -2436,7 +2445,7 @@
     if (!list.length) return null;
     return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), own: (x) => (shapeStage(x) <= g.a ? 1 : shapeStage(x) === g.b ? g.u : 0) };
   }
-  // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
+  // Inside regions: the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
   // - on the GPU, in one frame and one copy to the page: the regions' fills (drawScene's fills) write the
   //   frame's alpha alone; o.paint() draws the colour over it, its colour alone (into the open frame); the colour is
@@ -3028,7 +3037,7 @@
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
     // (the folded key on a phone, a button (legendKeyButton), is named for its kind, set again when the surface changes
-    // it; ux on #448. In a pane head the key's own words name it)
+    // it. In a pane head the key's own words name it)
     const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key'), legRole = leg && leg.getAttribute('role');
     if (leg && ph && (legRole === 'button' || legRole === 'img') && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
@@ -3045,7 +3054,7 @@
     if (said !== E.said) { E.said = said; E.slider.setAttribute('aria-valuetext', said); }
     if (sig !== E.headSig) {
       E.headSig = sig;
-      // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
+      // (the plane's controls: in its head on a desktop, in the header on a phone)
       const home = ph ? $('top') : E.head;
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
@@ -3590,7 +3599,7 @@
   // says text in the steps view's live region (the colour plane set or refused, the place on the chain)
   const svSay = (text) => { if (SV.els && SV.els.live) SV.els.live.textContent = text; };
   function svSetT(k) {
-    // (#437: a step shown alone is coloured from its own plane; the button says so, and so does the key)
+    // (a step shown alone is coloured from its own plane; the button says so, and so does the key)
     if (SV.alone) { svSay($t('The step shown alone is coloured from its own plane')); return; }
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
