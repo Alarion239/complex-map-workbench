@@ -110,8 +110,11 @@ jobs:
       # (#787) a pull request into another branch than main whose head another open pull request into the same branch
       # contains (a stack: each head holds the lower ones): the top of the stack gates all of them, so this one carries
       # that run's verdict instead of running its own tier. The compare API says which open PRs contain this head; the
-      # one furthest ahead is the top. Switched on by the repository variable GATE_STACK_SKIP = on; otherwise the summary
-      # only says what would have happened and the run is the usual one
+      # one furthest ahead is the top. Only a run of the top that passed is carried: one still queued or running is not
+      # (unlike look's run of this PR's own push), since a push to the top cancels it, and this run, its tier skipped, would
+      # then end red with nothing run; under a top still running, this run runs its own tier. Switched on by the
+      # repository variable GATE_STACK_SKIP = on; otherwise the summary only says what would have happened and the run is
+      # the usual one
       - id: cover
         if: github.event_name == 'pull_request' && github.event.pull_request.base.ref != 'main' && steps.look.outputs.mirror == ''
         shell: bash
@@ -135,8 +138,12 @@ jobs:
           other=$(ci/gate_run_of.sh "$ts" "$tn") && found=1 || found=0
           echo "#$tn ($ts) contains this head; its newest Gate run on it: $other"
           if [ "$found" != 1 ]; then
-            echo "#$tn contains this head, but has no passing or running Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
+            echo "#$tn contains this head, but has no passing Gate run on it yet ($other): this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0
           fi
+          case "$other" in
+            *" completed success") ;;
+            *) echo "#$tn contains this head, but its run ${other%% *} is still going ($other) and a push to #$tn would cancel it: this run gates it." >> "$GITHUB_STEP_SUMMARY"; exit 0 ;;
+          esac
           run=${other%% *}
           if [ "$SWITCH" != on ]; then
             echo "Report only (GATE_STACK_SKIP is not on): #$tn contains this head and run $run gates it ($other); with the switch on, this run would carry that verdict and run nothing. It runs its own tier." >> "$GITHUB_STEP_SUMMARY"; exit 0

@@ -33,8 +33,8 @@ const AREAS = {
   deform: ['deform', 'images', 'phone-swap-1'],
   constructions: ['perp', 'constructions', 'ux165-1'],
   i18n: ['i18n', 'i18n-desktop', 'i18n-phone', 'raw-tex'],   // (raw-tex: #465, a string's TeX never on screen)
-  views: ['views-1', 'views-2', 'views-3', 'formulas'],
-  desktop: ['views-1', 'views-2', 'views-3', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
+  views: ['views-1', 'views-2', 'views-2b', 'views-3', 'formulas'],
+  desktop: ['views-1', 'views-2', 'views-2b', 'views-3', 'formulas', 'ux165-1', 'ux165-2', 'tour-audit-desktop', 'i18n-desktop'],
   core: ['images', 'exact', 'deform', 'formulas'],
   // the layout gate (#470): a change that can move layout runs every language (#611: Russian and Italian have the longest
   // words, where text spills first); the languages' tables alone run Russian and Italian
@@ -188,6 +188,7 @@ const LINUX_JOBS = [
   ...[1, 2].map((i) => ({ os: 'ubuntu-latest', page: 'glsl', part: `${i}/2`, tier: 'core' })),
   { os: 'ubuntu-latest', page: 'adv', part: '1/1', tier: 'core' },
   { os: 'ubuntu-latest', page: 'inverse', part: '1/1', tier: 'core' },
+  { os: 'ubuntu-latest', page: 'dh', part: '1/1', tier: 'core' },
 ];
 const GLSL_JOBS = [
   ...[1, 2, 3, 4, 5, 6, 7, 8].map((i) => ({ os: 'windows-latest', page: 'glsl', part: `${i}/8`, tier: 'all' })),
