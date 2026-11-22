@@ -16,10 +16,10 @@ let nsN = 0;
 async function openApp(st, w = 1366, h = 768, mobile = false, q = '') {
   const ns = 'd1r' + Date.now() + '_' + (nsN++);
   await view(w, h, false, mobile);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(350);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(350);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=${ns}${q}` }); await sleep(2300);
+  await go(`http://localhost:${PORT}/test.html?ns=${ns}${q}`); await sleep(2300);
   await settle(600);
   return ns;
 }

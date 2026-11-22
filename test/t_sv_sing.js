@@ -4,7 +4,8 @@
 // svSingNewton keeps a point only where Newton's method on h/h' settled and |F| near it is past SV_SING_BIG and grows
 // towards it:
 // - found: a root of a Möbius step at its pole (the dipole (z - i)/(z + i) to the powers 1/2 and 1/4: |F| ~ |z + i|^-a), the
-//   logarithm at 0, 1/sqrt(z - 1 - 2i) at 1 + 2i;
+//   logarithm at 0, 1/sqrt(z - 1 - 2i) at 1 + 2i; (z - 8i)/(z + 8i) to the powers 1/2, 1/3 and 1/4 over the height poles'
+//   ring and grid, where the grid's start by -8i lies on the root's cut and Newton's iterates come within a step of it;
 // - not found: exp(sqrt z) and 30 exp(sqrt z), where Newton on h/h' reflects (h/h' = -2 sqrt z sends z to -z) and never
 //   settles; 20 + sqrt z at 0, a branch point where |F| stays near 20.
 // Each of the two clauses alone rejects all three (their |F| does not grow towards the points either, and Newton on h/h'
@@ -28,11 +29,23 @@ const found = (F, bx) => { const E = { n: 0, at: 0 }; return svDrain(svPolesIn(F
 const near = (list, p, tol = 1e-4) => list.some((z) => Math.hypot(z.re - p.re, z.im - p.im) <= tol * (1 + Math.hypot(p.re, p.im)));
 const pw = (z, a) => { const r = Math.hypot(z.re, z.im), t = Math.atan2(z.im, z.re); return C(r ** a * Math.cos(a * t), r ** a * Math.sin(a * t)); };
 const dipole = (z) => CX.div(CX.sub(z, C(0, 1)), CX.add(z, C(0, 1)));
+const dipole8 = (z) => CX.div(CX.sub(z, C(0, 8)), CX.add(z, C(0, 8)));
 const fmt = (list) => list.map((z) => `${z.re.toFixed(4)}${z.im >= 0 ? '+' : ''}${z.im.toFixed(4)}i`).join(' ');
 
 for (const a of [0.5, 0.25]) for (const h of [1.7, 5.8]) {
   const out = found((z) => pw(dipole(z), a), box(h));
   check(`the dipole to the power ${a} on ±${h}: its point -i is found`, near(out, C(0, -1)), fmt(out));
+}
+// (the height poles' search, svLandHeightPoles: a LAND_HEIGHT_GRID grid over the far patches' inner ring, made as it
+// makes it for steps_land_sing's carried box, ±7.22 x ±6.15 on its 1440 x 900 page, and a pole patch's reach, 8 cells
+// of the 256-point carried grid. Its column through 0 runs along the root's cut from -8i to 8i, and its one start by
+// -8i is on it)
+const num = (name) => { const m = new RegExp(`\\b${name} = ([0-9.e+-]+)`).exec(APP); if (!m) throw new Error(`src/app: no ${name}`); return +m[1]; };
+const SRC = { w: 2 * 7.2166667, h: 2 * 6.15 }, reach = 8 * Math.max(SRC.w, SRC.h) / 255;
+const ringR = num('LAND_FAR_NEAR') * num('LAND_FAR_LAP') * Math.min(SRC.w, SRC.h) / 2 + reach, ring = box(ringR), grid = num('LAND_HEIGHT_GRID');
+for (const a of [0.5, 1 / 3, 0.25]) {
+  const E = { n: 0, at: 0 }, out = svDrain(svPolesIn((z) => pw(dipole8(z), a), ring, grid, ring, E, true));
+  check(`(z - 8i)/(z + 8i) to the power ${a.toFixed(3)} on the height poles' ring (±${ringR.toFixed(1)}, grid ${grid}): its point -8i is found`, near(out, C(0, -8)), fmt(out));
 }
 {
   const out = found((z) => CX.log(z), box(2));

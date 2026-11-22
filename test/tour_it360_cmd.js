@@ -26,7 +26,7 @@ await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-m
 for (const [w, h, lang] of [[360, 780, 'it'], [360, 780, 'ru'], [390, 844, 'it']]) {
   const tag = `${w}x${h}-${lang}`;
   await view(w, h, false, true);
-  await send('Page.navigate', { url: `http://localhost:${PORT}/test.html?ns=it360-${w}${lang}&lang=${lang}` }); await sleep(2500);
+  await go(`http://localhost:${PORT}/test.html?ns=it360-${w}${lang}&lang=${lang}`); await sleep(2500);
   await ev('Tour.dismissSuggestion()'); await ev('Tour.auto(false)');
   await ev(`Tour.start({ chapter: 'basics' })`); await settle(1500);
   let n = 0, longest = 0;
