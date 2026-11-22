@@ -3935,11 +3935,11 @@
   // svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The programs of a view
   // no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain is not up; ready
   // is true only when done = total > 0; rest: the same without the inverse part. Programs counted that no job asks for
-  // any more (the jobs were dropped when what svInvKey names changed, or a program was evicted after its job) are queued again
-  // (test hook: the idle jobs count as unfinished while set)
+  // any more (the jobs were dropped when what svInvKey names changed, or a program was evicted after its job) are queued again,
+  // unless peek (a read that starts no work: the test hook's) (test hook: the idle jobs count as unfinished while set)
   let svJobsHold = false;
   const svJobsHoldSet = (on) => { svJobsHold = !!on; };
-  function svReady() {
+  function svReady(peek = false) {
     const parts = {};
     if (!GLR.ok || !GLR.progStatus || !SV.on || nSteps() < 1) return { done: 0, total: 0, parts, ready: false };
     parts.programs = GLR.progStatus(S.homAll ? [3] : [1]);
@@ -3955,7 +3955,7 @@
     let inv = { done: 0, total: 0 };
     try { inv = GLR.inverseWarmup ? GLR.inverseWarmup(svInvList()) : inv; } catch (e) { svInvStates = []; }
     parts.inverse = inv;
-    if (inv.done < inv.total && !svInvFlushing && (!svInvJobs.length || svInvWarmKey !== svInvKey())) svPrestartInv();
+    if (!peek && inv.done < inv.total && !svInvFlushing && (!svInvJobs.length || svInvWarmKey !== svInvKey())) svPrestartInv();
     done += inv.done;
     total += inv.total;
     return { done, total, parts, ready: total > 0 && done === total, rest };
