@@ -423,8 +423,9 @@
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return CP_PRINCIPAL;
   }
-  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
-  // the slot after them): their textures, kept between frames
+  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z; hole: a branch point's, drawn
+  // only where the others leave a hole) and its far patches (st.carry.far, the slot after them): their textures, kept
+  // between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
   // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each
   const landCopies = [];
@@ -1635,8 +1636,9 @@
         gl.disable(gl.POLYGON_OFFSET_FILL);
         setUp(sb);
         u1i(Pc, 'uN', hd.N);
-        // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
-        // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
+        // (the stencil marks the pixels the box's cells and the pole patches drew (bit 0), so a branch point's patch
+        // (polar.hole, svLandPatches) draws only where they left a hole, marking its own (bit 1), and the far patch only
+        // where none of them drew: its coarse cells carry copies of what they cover too, for a periodic map)
         gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
         gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
         marked(Pc, () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)));
@@ -1649,8 +1651,11 @@
           gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
         };
         gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2 * po, 8 * po);
-        for (const p of pp) marked(Pc, () => drawPatch(p));
-        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+        for (const p of pp) if (!p.polar.hole) marked(Pc, () => drawPatch(p));
+        // (bit 0 clear passes; REPLACE writes the reference's bit 1 alone, through the mask)
+        gl.stencilMask(0x02); gl.stencilFunc(gl.EQUAL, 2, 0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+        for (const p of pp) if (p.polar.hole) marked(Pc, () => drawPatch(p));
+        gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
         for (const p of farPatches) drawPatch(p);
         gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
         info.refine = null;
