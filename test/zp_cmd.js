@@ -3,7 +3,7 @@
 // its input plane. Checks: handles drawn where the values are; a drag updates the step live at 60 fps without a
 // recompile (uniforms only) and is one undo step; the image is exact at rest and while the pointer holds still mid-drag
 // (degree <= 2: the inverse renderer, per pixel against the exact truth); Shift-click adds a zero, Shift-Cmd-click a
-// pole; dragging off the plane or Delete removes; the card's + / x buttons; degree 3 goes forward with its reason;
+// pole; dragging off the plane or Delete removes; the card's + / x buttons; the degree lamp;
 // the conversions from and to coefficients; the focused step in a chain; the deformation (natural path, figure);
 // light and dark screenshots. A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/zp_cmd.js
@@ -105,7 +105,7 @@ ok('undo again: the first drag', (await zp()).params.zeros === '1, -1', (await z
 await key('z', 12); await settle(400);
 ok('redo', (await zp()).params.zeros === z.params.zeros, (await zp()).params);
 
-// 3. Shift-click adds a zero (degree 3: forward, with its reason); Shift-Cmd-click a pole
+// 3. Shift-click adds a zero (degree 3); Shift-Cmd-click a pole
 const pane = (await zp()).pane;
 const ax = pane.left + pane.w * 0.78, ay = pane.top + pane.h * 0.2;
 await click(ax, ay, { mods: 8 }); await settle(700);
