@@ -38,6 +38,9 @@ for (const lang of ['en', 'ru', 'it']) {
     const bad = [];
     for (const s of data.press) for (const m of s.matchAll(/\b[Pp]ress (\S+)/g)) if (!KEY_AFTER_PRESS.test(m[1])) bad.push(m[0]);
     ok('en: "press" is for keys: a button is clicked (and tapped on a touch screen)', bad.length === 0, bad);
+    // ("Press {C}, or Colour from here.": after a key, the other way is a verb of its own: click, choose)
+    const bare = data.press.filter((s) => /\b[Pp]ress \{[^}]+\},? or [A-Z]/.test(s));
+    ok('en: "press {key}, or" is followed by its own verb, not by a bare button name', bare.length === 0, bare);
   }
   await ev('Tour.stop && Tour.stop(); 1');
 

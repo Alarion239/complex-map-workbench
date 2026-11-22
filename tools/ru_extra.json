@@ -563,7 +563,7 @@
  "Drag the ring and let go between two dots: the view stays there and shows the step part way. Shift+← → moves a quarter step.": "Перетащите кольцо и отпустите между двумя точками: вид останется там и покажет шаг наполовину. Shift+← → сдвигает на четверть шага.",
  "Drag the ring halfway to the next dot.": "Перетащите кольцо на полпути к следующей точке.",
  "The colour plane holds the colour wheel. Every plane before it shows the wheel pulled back through the steps. Colour from here, or {C}, makes the shown plane the colour plane.": "На плоскости цвета лежит круг цветов. Каждая плоскость перед ней показывает этот круг, перенесённый назад через шаги. «Цвет отсюда» или {C} делают показанную плоскость плоскостью цвета.",
- "Press {C}, or Colour from here.": "Нажмите {C} или «Цвет отсюда».",
+ "Press {C}, or click Colour from here.": "Нажмите {C} или щёлкните «Цвет отсюда».",
  "Tap the wheel button.": "Нажмите кнопку с кругом цветов.",
  "Past the colour plane": "После цвета",
  "Planes after it keep its colours: each point carries the colour it had there. The readout names where a point came from.": "Плоскости после неё сохраняют её цвета: каждая точка несёт цвет, который у неё там был. Показания называют, откуда пришла точка.",

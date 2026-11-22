@@ -3225,7 +3225,7 @@
  "Drag the ring and let go between two dots: the view stays there and shows the step part way. Shift+← → moves a quarter step.": "Trascina l'anello e rilascialo tra due punti: la vista resta lì e mostra il passo a metà. Shift+← → sposta di un quarto di passo.",
  "Drag the ring halfway to the next dot.": "Trascina l'anello a metà strada verso il punto successivo.",
  "The colour plane holds the colour wheel. Every plane before it shows the wheel pulled back through the steps. Colour from here, or {C}, makes the shown plane the colour plane.": "Il piano del colore contiene la ruota dei colori. Ogni piano prima di esso mostra la ruota riportata indietro attraverso i passi. «Colore da qui», oppure {C}, fa del piano mostrato il piano del colore.",
- "Press {C}, or Colour from here.": "Premi {C}, oppure «Colore da qui».",
+ "Press {C}, or click Colour from here.": "Premi {C}, oppure fai clic su «Colore da qui».",
  "Tap the wheel button.": "Tocca il pulsante con la ruota dei colori.",
  "Past the colour plane": "Dopo il piano del colore",
  "Planes after it keep its colours: each point carries the colour it had there. The readout names where a point came from.": "I piani dopo di esso conservano i suoi colori: ogni punto porta con sé il colore che aveva lì. La lettura indica da dove viene un punto.",

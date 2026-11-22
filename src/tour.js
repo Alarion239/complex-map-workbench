@@ -422,7 +422,7 @@ const Tour = (() => {
         try: { text: 'Drag the ring halfway to the next dot.', touch: 'Drag the ring halfway to the next dot.', on: 'thread-parked', ctl: ['svRing'] } },
       { id: 'colour', anchor: 'svCp', also: ['svStrip'], title: 'The colour plane', before: [['svPlace', { i: 1, T: -1 }]],
         body: 'The colour plane holds the colour wheel. Every plane before it shows the wheel pulled back through the steps. Colour from here, or {C}, makes the shown plane the colour plane.',
-        try: { text: 'Press {C}, or Colour from here.', touch: 'Tap the wheel button.', on: 'colour-plane-set', ctl: ['svCp'] } },
+        try: { text: 'Press {C}, or click Colour from here.', touch: 'Tap the wheel button.', on: 'colour-plane-set', ctl: ['svCp'] } },
       { id: 'carried', anchor: 'paneL', also: ['svStrip'], title: 'Past the colour plane', before: [['svPlace', { i: 1, T: 1 }]],
         body: 'Planes after it keep its colours: each point carries the colour it had there. The readout names where a point came from.',
         try: { text: 'Click ›, then hover a point.', touch: 'Tap ›, then hold a point and slide.', on: 'probe', test: (e) => !e || !!e.past, ctl: ['svNext'] } },
