@@ -419,10 +419,22 @@ for (const w of [360, 390]) {
 await view(1440, 900, false, false);
 await ev(`Sound.set({ on: false }); 1`);
 
-// 16. defaults (notes/sound/README.md, the user's decision of 2026-10-23), on a page without ?ns= (the published
+// 16. the function under a still probe changes (notes/sound/DEFORMATION.md): a zero dragged while the pointer rests
+// elsewhere, sound off, and the layout changed under a still pointer. The cases are test/sound_still_probe_cmd.js (also
+// run alone). (the section reads the console log itself: what came before is kept for the check of exceptions below)
+const logsBefore = logs();
+{
+  const AF = Object.getPrototypeOf(async function () {}).constructor;
+  const H = { ev, go, nav, view, shot, key, type, click, move, drag, clickSel, load, logs, send, sleep, settled, img, fs, path, DIR };
+  const D = await new AF(...Object.keys(H), fs.readFileSync(path.join(DIR, '..', 'sound_still_probe_cmd.js'), 'utf8'))(...Object.values(H));
+  R.stillProbe = D.R;
+  for (const f of D.fails || [{ name: 'did not run', got: D }]) fails.push(Object.assign({}, f, { name: 'still probe: ' + f.name }));
+  await ev(`Sound.set({ on: false }); 1`);
+}
+// 17. defaults (notes/sound/README.md, the user's decision of 2026-10-23), on a page without ?ns= (the published
 // page's storage keys; removed again below): sound on, Interface and Mathematical events on, Snap ticks and Hear the
 // function off; no AudioContext and no cue before the first click or key; the first click starts it; a stored choice
-// wins. (Sections 1 to 15 run under ?ns=, where sound starts off.)
+// wins. (Sections 1 to 16 run under ?ns=, where sound starts off.)
 {
   const clean = `localStorage.removeItem('cmw-sound'); localStorage.removeItem('complex-map-workbench-v1'); 1`;
   await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
@@ -451,6 +463,6 @@ await ev(`Sound.set({ on: false }); 1`);
   await ev(clean);
 }
 await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: inj.identifier });
-const exc = logs().filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
+const exc = logsBefore.concat(logs()).filter((l) => l.t === 'EXC' || /Uncaught|TypeError|ReferenceError/.test(l.m || ''));
 ok('no exceptions', !exc.length, exc.slice(0, 5));
 return { pass: !fails.length, nfail: fails.length, fails, R };

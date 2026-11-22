@@ -10,7 +10,7 @@ const RETIRED = {
   'sound_v152_deform_classic_cmd.js': 'the loop singing while the classic Deformation plays, and Esc during it: that transport is gone (#994); the steps view\'s sound suites (sound_steps_cmd, steps_sound_name_cmd) are unaffected',
   'rel162_sheets_cmd.js': 'All sheets on a Landscape while the classic Deformation is at t, gone with the transport (#994); the steps view\'s sheets during a glide are export_cmd#user5-deform-steps, steps_sheet_dedupe and sv_all_sheets (row by row on #994\'s PR)',
   'sheets_deform_cmd.js': 'All sheets while the classic Deformation plays, gone with the transport (#994); the steps view\'s are sv_all_sheets, steps_glide_sheets, steps_sheet_dedupe, steps_land_sheets_h and export_cmd#user5-deform-steps (row by row on #994\'s PR; the Landscape and sphere glides: #1413)',
-  'sound_deform_cmd.js': 'the probe\'s cues while the classic Deformation plays (run inside sound_cmd), gone with the transport (#994)',
+  'sound_deform_cmd.js': 'the probe\'s cues while the classic Deformation plays (sections A to E, and H\'s Deformation steps), gone with the transport (#994); its other rows, a zero dragged by a still probe, sound off and the layout changed under it (F, G, H), are sound_still_probe_cmd, which sound_cmd runs',
   'sound_deform_fps_cmd.js': 'a benchmark of frames while the classic Deformation plays, gone with the transport (#994)',
   'sound_v152_fps_cmd.js': 'a benchmark of frames while the classic Deformation plays with Hear the function, gone with the transport (#994)',
   'sound_deform_clicks_cmd.js': 'a recorder of audio while the classic Deformation plays, gone with the transport (#994)',

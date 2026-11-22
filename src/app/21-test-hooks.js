@@ -185,7 +185,7 @@
   // (SPEC 10.6, 12.4 (h)) the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
   // panel drawn off-screen at print size (a PNG data URL)
   window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L', 'R'], widthIn: 7, caption: false }, opt || {}));
-  // item 2 (the deformation picture): open/close and scrub the transport; the screen's path selection
+  // the deformation's range (__cmwMorph) and the screen's path selection
   // kind 'H' (the image side at T), 'H0', 'F' (the chain), 'cpuMap' (a map spec's
   // CPU twin): pts [[x, y]] -> [[re, im]] (null for a non-finite value)
   window.__cmwEval = (kind, specOrT, pts) => {

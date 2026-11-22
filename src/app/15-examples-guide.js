@@ -89,7 +89,7 @@
       steps: [{ type: 'custom', params: { expr: 'z^3-3z', cut: 180 } }, { type: 'deriv', params: {} }], rightMode: 'color',
     },
     {
-      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'order-changed' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: click the chip f₁, then Show all sheets in the Inspector.'), tryDoneSv: [[{ on: 'sheets-shown' }, { on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
+      name: $t('Sheets of the logarithm'), tryDone: [[{ on: 'sheets-shown' }]], try: $t('Try: turn All sheets on and off in the Landscape.'), trySv: $t('Try: click the chip f₁, then Show all sheets in the Inspector.'), tryDoneSv: [[{ on: 'sheets-shown' }, { on: 'surface-changed', test: (e) => e.s === 'land' }]], tourSv: 'planes', tour: 'branches', tex: 'w=\\log z', blurb: $t('Landscape with All sheets: Im log z climbs a helicoid around 0 instead of jumping at the cut.'), view: { cx: 0, cy: 0, s: 60 },
       shapes: [{ kind: 'annulus', c: [0, 0], r1: 0.5, r2: 2 }],
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], rightMode: '3d', sheets: true, height: 'im',
     },
@@ -542,8 +542,7 @@
   }
   function viewChanged(side) {
     if (side === 'R') {
-      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it (the transport
-      // stays open)
+      // targets are drawn and edited in Y Plane; a target draft and a target selection end with it
       // targets are drawn in Y Plane and on the w-globe: a target draft ends with the view it was drawn in
       if (draft && draft.target) draft = null;
       rHover = null; setHoverW(null);
@@ -918,7 +917,7 @@
     if (host) for (const t of host.querySelectorAll('.toast[data-undo]')) t.remove();
   }
   // (a message never lands on a control) A desktop's messages sit
-  // above the chain, centred between X's and Y's button columns (and above the deformation's transport), as wide as
+  // above the chain, centred between X's and Y's button columns, as wide as
   // the room between them, wrapping to a second line; a phone's sit above the chain bar, right of the inset and left of
   // the plane's key column, or above the inset where that room is too narrow. Placed whenever one shows (an observer
   // on the host) and when the layout changes.

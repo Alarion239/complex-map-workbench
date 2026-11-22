@@ -210,17 +210,20 @@ const Commands = (() => {
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
         ...(svSurface() ? ['plane', 'sphere', 'land'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
-        [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), '', $t('paths trajectories arrows homotopy deformation lines')],
-        [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
-        // (the bracket for the selected step, else the last; SPEC 6.5)
-        ...(activeSteps().length >= 2 ? (() => {
-          const k = Number.isInteger(A.S.sel) && A.S.sel >= 1 && A.S.sel <= nSteps() ? A.S.sel : nSteps(), n = nSteps();
-          const al = $t('part range bracket pullback pull-back precompose push-forward inside under outer inner') + ', ' + 'part range bracket pullback pull-back precompose push-forward inside under outer inner';
-          return [[$t('Deformation: only {f}, inside F', { f: fUni(k) }), () => chooseRange(HR.normal(k, k)), '', al],
-            [$t('Deformation: steps {f1}–{f2}', { f1: fUni(k), f2: fUni(n) }), () => chooseRange(HR.normal(k, n)), '', al],
-            [$t('Deformation: steps {f1}–{f2}', { f1: fUni(1), f2: fUni(k) }), () => chooseRange(HR.normal(1, k)), '', al],
-            [$t('Deformation: every step'), () => chooseRange(null), '', al]];
-        })() : []),
+        // (the deformation's paths, order and range: the steps view's glide; the classic view has no deformation)
+        ...(svSurface() ? [
+          [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), '', $t('paths trajectories arrows homotopy deformation lines')],
+          [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
+          // (the bracket for the selected step, else the last; SPEC 6.5)
+          ...(activeSteps().length >= 2 ? (() => {
+            const k = Number.isInteger(A.S.sel) && A.S.sel >= 1 && A.S.sel <= nSteps() ? A.S.sel : nSteps(), n = nSteps();
+            const al = $t('part range bracket pullback pull-back precompose push-forward inside under outer inner') + ', ' + 'part range bracket pullback pull-back precompose push-forward inside under outer inner';
+            return [[$t('Deformation: only {f}, inside F', { f: fUni(k) }), () => chooseRange(HR.normal(k, k)), '', al],
+              [$t('Deformation: steps {f1}–{f2}', { f1: fUni(k), f2: fUni(n) }), () => chooseRange(HR.normal(k, n)), '', al],
+              [$t('Deformation: steps {f1}–{f2}', { f1: fUni(1), f2: fUni(k) }), () => chooseRange(HR.normal(1, k)), '', al],
+              [$t('Deformation: every step'), () => chooseRange(null), '', al]];
+          })() : []),
+        ] : []),
         ...integrateRows(),
         [$t('Show the roots: a target at 0'), () => { if (A.S.targets.some((t) => t.visible !== false && t.kind === 'point' && t.p[0] === 0 && t.p[1] === 0)) return; addShape(newShape('point', { p: [0, 0] }, true), true); }, '', $t('roots zeros poles solve solutions equation preimages target')],
         ...(Funcs.DEFS.deriv ? [[$t('Derivative of the chain: add d/dz'), () => addStep('deriv', null, A.S.focus > 0 ? A.S.focus : A.S.steps.length), '', $t('derivative prime differentiate d/dz')]] : []),
@@ -299,7 +302,8 @@ const Commands = (() => {
     [$t('Shapes'), $t('region, regions, shape, shapes, draw, set')], [$t('Function chain'), $t('chain, step, steps, card, cards, add function, insert, move, reorder, alone')],
     [$t('Numbers'), $t('number, numbers, parameter, parameters, slider, letter')], [$t('Branch cuts'), $t('cut, cuts, branch, sheet, sheets, seam')],
     [$t('The planes\' menu'), $t('right-click, menu, long-press, zero, zeros, pole, poles, add zero')], [$t('Views'), $t('view, views, phase, landscape, sphere, plane')],
-    [$t('Deformation'), $t('deformation, homotopy, morph, animate, play')], [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
+    // (the Deformation section is the steps view's only: the classic view's guide has none)
+    ...(svSurface() ? [[$t('Deformation'), $t('deformation, homotopy, morph, animate, play')]] : []), [$t('Preimages and roots'), $t('preimage, preimages, root, roots, solve, target')],
     [$t('Inverses and derivatives'), $t('inverse, derivative, replace')], [$t('Integrals'), $t('integral, integrate, residue, contour, winding')],
     [$t('Sound'), $t('sound, audio, listen, hear, music')], [$t('Guarantees'), $t('guarantee, guarantees, property, conformal, injective, analytic')],
     [$t('Keys'), $t('keys, shortcuts, keyboard, hotkeys, help')],

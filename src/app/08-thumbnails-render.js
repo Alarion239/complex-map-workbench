@@ -177,7 +177,7 @@
   }
   // a newly added step plays its own homotopy once, so the change is seen as a deformation
   // (glide: ‹ › on a phone's chain glide Y's picture from one step's plane to the next with the transition's map program,
-  // in Y alone and with no transport: the panes, the deformation and its bar stay as they are. glide, the spring, is the
+  // in Y alone: the panes stay as they are. glide, the spring, is the
   // position x in steps; trans.k is the step it is inside while it moves, trans.at the stage Y rests on between two steps,
   // -1 when it rests on F as ever)
   const trans = { k: 0, t0: 0, dur: 480, glide: false, at: -1 };

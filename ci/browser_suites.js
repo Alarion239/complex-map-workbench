@@ -29,6 +29,7 @@ const EXCLUDED = {
   'ux165_merge_shots_cmd.js': 'a screenshot writer: v16.5 wave 1 merge, before and after (its "before" page was built for the pictures and deleted), no verdict',
   'ux165_plane_shots_cmd.js': 'a screenshot writer: v16.5 wave 1 plane, before (a build of a local snapshot) and after, no verdict',
   // run elsewhere
+  'sound_still_probe_cmd.js': 'runs inside sound_cmd.js (its failures prefixed "still probe: ")',
   'glsl_inverse_cmd.js': 'the GLSL jobs run this page (ci/glsl.js --only inverse), paired against the reference on each platform',
   // superseded
   'ub_views_cmd.js': 'superseded by the merged-views suite; it says it fails on the current app by design (#phaseBtn is gone)',

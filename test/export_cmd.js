@@ -32,7 +32,7 @@ const open = async (ns, w = 1440, h = 900, dark = false, view0 = null) => {
 const b64of = (expr) => `await (async () => { const b = await (${expr}); const u8 = new Uint8Array(await b.arrayBuffer()); let s = ''; for (let i = 0; i < u8.length; i += 0x8000) s += String.fromCharCode.apply(null, u8.subarray(i, i + 0x8000)); return btoa(s); })()`;
 
 const USER5_CLASSIC = process.env.CMW_ONLY === 'user5-classic', USER5_PLAY = process.env.CMW_ONLY === 'user5-deform-steps';
-if (!/^user5/.test(process.env.CMW_ONLY || '')) { // (CMW_ONLY=user5, user5-classic, user5-deform: section 6 only)
+if (!/^user5/.test(process.env.CMW_ONLY || '')) { // (CMW_ONLY=user5, user5-classic, user5-deform-steps: section 6 only)
 // 1. every view x preset x ink, in every format
 const PRESETS = {
   article1: { for: 'article', cols: 1 },
@@ -242,7 +242,7 @@ ok('the dialog opens with storage blocked', await dlgReady(), null);
 await key('Escape'); await settle(300);
 await ev(`(() => { const p = Storage.prototype; [p.getItem, p.setItem] = window.__ls; return 1; })()`);
 
-} // (CMW_ONLY=user5, user5-classic and user5-deform skip sections 1 to 3)
+} // (CMW_ONLY=user5, user5-classic and user5-deform-steps skip sections 1 to 3)
 // 6. (the user's requests 4 and 5, notes/v16-user5/AS-BUILT-export.md; CMW_ONLY=user5 runs it alone)
 // (a) the Landscape with All sheets says exactly which sheets it draws, in the LaTeX caption (English and Russian),
 // the figure's own caption and the pane title: both / all n sheets for a finite covering, the window of infinitely

@@ -197,7 +197,7 @@
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
     // the steps view without a glide to record: Video is not offered until the thread has a step
     const noGlide = A.svOn() && !glide ? $t('Add a step to make a video') : null;
-    // the classic view without the deformation: no motion to record, so Video is disabled with the reason in its title
+    // the classic view without the deformation: no motion to record, so Video is unavailable, with the reason as its tip
     const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, which only the steps view has') : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
@@ -281,7 +281,7 @@
     const canVideo = typeof VideoEncoder !== 'undefined';
     const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
-    // (Video is always listed: disabled with its reason where there is nothing to record, noGlide and noMotion)
+    // (Video is always listed: aria-disabled with its reason as the tip where there is nothing to record, noGlide and noMotion)
     fOpts.push(['video', $t('Video')]);
     // (PNG: 600 dpi for an article, where journals ask for it; 300 dpi for homework and slides; remembered per For)
     const dpiOf = () => { const v = set.dpiFor && set.dpiFor[set.for]; return v === 300 || v === 600 ? v : set.for === 'article' ? 600 : 300; };
@@ -294,7 +294,7 @@
     { const vb = fmtSeg.querySelector('[data-v="video"]');
       if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
       else if (vb && noGlide) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noGlide; vb.setAttribute('aria-description', noGlide); }
-      else if (vb && noMotion) { vb.disabled = true; vb.title = noMotion; } }
+      else if (vb && noMotion) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noMotion; vb.setAttribute('aria-description', noMotion); } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
@@ -690,7 +690,7 @@
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || !!noMotion));
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && !canVideo);
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);
