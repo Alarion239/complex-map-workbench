@@ -324,21 +324,7 @@
   // the point of the Riemann sphere under pane pixel (x, y) of a sphere view orbited by camera c (null off the globe
   // or at ∞): the ray from the eye meets the globe, and the stereographic projection takes the hit to the plane
   function pickSphere(pane, c, x, y) { const g = pickGlobe(pane, c, x, y); return g ? g.z : null; }
-  // a ring at w on the right plane's globe (the hovered point of the regions sphere)
-  function drawSphereMark(pane, w) {
-    if (!GLR.ok || !GLR.camera) return;
-    const pc = GLR.camera(camS, pane.w, pane.h);
-    const p = liftC(w.re, w.im);
-    const tv = [pc.eye[0] - p[0], pc.eye[1] - p[1], pc.eye[2] - p[2]];
-    if (tv[0] * p[0] + tv[1] * p[1] + tv[2] * p[2] <= 0) return;
-    const q = project(pane, pc.MVP, p.map((v) => v * 1.01));
-    if (!q) return;
-    const ctx = pane.octx;
-    ctx.save();
-    ctx.lineWidth = 3.5; ctx.strokeStyle = TH.halo; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.stroke();
-    ctx.lineWidth = 1.5; ctx.strokeStyle = TH.probe; ctx.beginPath(); ctx.arc(q[0], q[1], 6, 0, TAU); ctx.stroke();
-    ctx.restore();
-  }
+
   // without GLR.drawPreimage: bounded area targets filled from their outlines
   function fillTargets2D(pane, areas) {
     const ctx = pane.ctx, win = targetWin();
