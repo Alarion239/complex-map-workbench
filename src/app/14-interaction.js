@@ -21,13 +21,13 @@
   const is3DSide = (side) => (side === 'L' ? lLand() || lGlobe() : rGlobe());
   const is3D = () => rGlobe();
   const cam3 = () => camS;
-  const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : leftCam());
-  const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : leftCamBase());
+  const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : stackOn() ? stackCam : leftCam());
+  const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : c === stackCam ? STACK_CAM : leftCamBase());
   // the orbit camera of the left plane's sphere view (renderSphereLeft keeps it fitted, like camS)
   const leftCam = () => camL;
   const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
-  const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
+  const pitchMin = (c) => (c === cam ? -60 * DEG : c === stackCam ? STACK_PITCH_MIN : -88 * DEG);
   // the reach of a zero or pole and of the cut handle for a pointer that is a finger (touch, or a pen: ptrTouch) or not: 22 px (a 44 px
   // target) for a finger, 11 and 12 px for a mouse
   const zpReach = (finger) => (finger ? 22 : 11), cutReach = (finger) => (finger ? 22 : 12);

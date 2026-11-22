@@ -879,13 +879,14 @@
   // ---- the panes' views (panels.md 2): X on the left, Y on the right ----
   // lPlain: X Plane with the shapes; lColor: X Plane + Phase (the phase
   // portrait); lGlobe: X Sphere (lPhase: with the portrait); lLand: X Landscape;
-  // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays). rImage: Y Plane (the images,
+  // lFlat: X shows a plane in leftView() coordinates (drawing, rulers, flat overlays); the Stack's floor is a plane seen
+  // by its camera, not flat. rImage: Y Plane (the images,
   // the targets); rGlobe: Y Sphere.
   // (merged views, merged-views.md: X's picture follows the top bar's view: X → Y shows the shapes on X's Plane or
   // Sphere; Phase the portrait on its own Plane or Sphere (view.P); Landscape the relief, phase-coloured or plaster)
   const xSurf = () => { const v = S.view; return v.main === 'phase' ? v.P.surf : v.main === 'land' ? 'land' : v.L.surf; };
   const lPhase = () => S.view.main === 'phase' || (S.view.main === 'land' && !!S.view.D.phase);
-  const lFlat = () => xSurf() === 'plane';
+  const lFlat = () => xSurf() === 'plane' && !stackOn();
   const lPlain = () => S.view.main === 'xy' && S.view.L.surf === 'plane';
   const lColor = () => S.view.main === 'phase' && S.view.P.surf === 'plane';
   const lGlobe = () => xSurf() === 'sphere';
