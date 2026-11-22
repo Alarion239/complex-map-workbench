@@ -975,7 +975,7 @@
   const Z_VAR = /(^|[^\\a-zA-Z])z(?![a-zA-Z])/g;
   function shapeTexOwn(s) {
     const tex = shapeTexOf(s), k = shapeStage(s);
-    return k ? tex.replace(Z_VAR, `$1w_{${k}}`) : tex;
+    return k ? tex.replace(Z_VAR, `$1${wvar(k)}`) : tex;
   }
   function setupFormula() {
     const inp = $('formulaInput'), prev = $('formulaPrev'), tag = $('formulaPlane'), note = $('formulaNote');
