@@ -1,3 +1,4 @@
+// raw-navigate-file: a release smoke: it opens the published page of an earlier release, and is not run in CI (ci/browser_suites.js EXCLUDED)
 // Release smoke: test/rel164_smoke_cmd.js (sections 0b to 12) plus these items
 // from test/rel1631_smoke_cmd.js: 10 (desktop) the Orthogonal tool's first chip on one line (chip-wrap-1440), with
 // Whole | Inside; 11 (desktop) the touching circle's rings chip; 13 a perpendicular circle on the 3-point
