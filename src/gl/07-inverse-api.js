@@ -777,6 +777,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (extra && extra.carry) {
       // (the forward chain's data for chainRange, the plot's style, the stages (s, T] of the colour)
       if (P.loc.uChain) gl.uniform4fv(P.loc.uChain, cur.data);
+      // (the carried variant ignores uPattern: it holds no pattern code, so a pattern there needs another variant)
       u1i(P, 'uPattern', 9);
       u1i(P, 'uGs', st.carry.s); u1i(P, 'uGt', st.carry.T); u1i(P, 'uGan', st.carry.an ? 1 : 0);
       dcUniforms(P, st.carry, st.dpr || 1);
