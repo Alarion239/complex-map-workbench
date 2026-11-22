@@ -1052,6 +1052,8 @@
       integrateShape, kindType, lColor, lFlat, leftStage, leftView, liftC, morphOn, nSteps, openMenu, project,
       rImage, requestRender, rightStage, shapeF, shapeGPU, shapeInk, shapeKey, shapeNames, snd, sndListenAsk, sndListenOf,
       sndStopPlay, stageF, sub, toast, touchUI, tourEmit, trans, zerosPolesTimed,
+      // (the w-plane targets' fills, outlines and calculator chip: kept for the preimage view to come, #1723)
+      fillTargets2D, strokeTargets, updateCalcChip,
       get S() { return S; },
       get TH() { return TH; },
       get chainSig() { return chainSig; },

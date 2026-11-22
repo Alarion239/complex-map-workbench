@@ -881,7 +881,7 @@
   // the zeros-and-poles step that acts on the plane X shows (its input plane): step 1 at the whole chain, step k when
   // k is focused. {k, st, items: {zeros, poles}} (values; null where a field does not parse) or null
   function zpStep() {
-    if (!S || !paneL || solo() === 'R' || !lFlat()) return null;
+    if (!S || !paneL || !lFlat()) return null;
     const j = leftStage(), st = S.steps[j];
     if (!st || st.type !== 'zp' || st.on === false) return null;
     const items = {};
@@ -1255,45 +1255,7 @@
     ctx.lineWidth = 1.25; ctx.strokeStyle = color; arms();
     ctx.restore();
   }
-  // derivative gauge: a small circle and tick around the probe, and their images under the map
-  function drawGauge(paneDom, paneImg, z, F) {
-    const rho = 10 / paneDom.view.s;
-    const ctxD = paneDom.octx, ctxI = paneImg.octx;
-    const [x, y] = paneDom.w2s(z);
-    ctxD.save();
-    ctxD.strokeStyle = TH.probe; ctxD.globalAlpha = 0.6; ctxD.lineWidth = 1;
-    ctxD.beginPath(); ctxD.arc(x, y, 10, 0, TAU); ctxD.stroke();
-    ctxD.globalAlpha = 1; ctxD.strokeStyle = TH.accent; ctxD.lineWidth = 1.5;
-    ctxD.beginPath(); ctxD.moveTo(x + 10, y); ctxD.lineTo(x + 16, y); ctxD.stroke();
-    ctxD.restore();
-    const w0 = F(z);
-    if (!CX.isFin(w0)) return null;
-    const h = rho * 1e-3;
-    const d = CX.scale(CX.sub(F(C(z.re + h, z.im)), F(C(z.re - h, z.im))), 1 / (2 * h));
-    if (!CX.isFin(d)) return null;
-    let r = rho, factor = 1;
-    const rimg = CX.abs(d) * rho * paneImg.view.s;
-    if (rimg > 120) { factor = 120 / rimg; } else if (rimg < 3 && rimg > 0) { factor = 3 / rimg; }
-    r = rho * factor;
-    ctxI.save();
-    ctxI.strokeStyle = TH.probe; ctxI.globalAlpha = 0.6; ctxI.lineWidth = 1;
-    ctxI.beginPath();
-    let pen = false;
-    for (let i = 0; i <= 48; i++) {
-      const a = TAU * i / 48;
-      const w = F(C(z.re + r * Math.cos(a), z.im + r * Math.sin(a)));
-      if (!CX.isFin(w)) { pen = false; continue; }
-      const [px, py] = paneImg.w2s(w);
-      if (pen) ctxI.lineTo(px, py); else ctxI.moveTo(px, py);
-      pen = true;
-    }
-    ctxI.stroke();
-    ctxI.globalAlpha = 1; ctxI.strokeStyle = TH.accent; ctxI.lineWidth = 1.5;
-    const t0 = F(C(z.re + r, z.im)), t1 = F(C(z.re + r * 1.6, z.im));
-    if (CX.isFin(t0) && CX.isFin(t1)) { ctxI.beginPath(); ctxI.moveTo(...paneImg.w2s(t0)); ctxI.lineTo(...paneImg.w2s(t1)); ctxI.stroke(); }
-    ctxI.restore();
-    return { d, factor };
-  }
+
   function drawDraft(pane) {
     if (!draft) return;
     const ctx = pane.octx;

@@ -894,9 +894,9 @@
   const rGlobe = () => S.view.R.surf === 'sphere';
   // the Sphere's equatorial plane of X's globe (X → Y's z-sphere or the phase sphere)
   const xView = () => (S.view.main === 'phase' ? S.view.P : S.view.L);
-  // the pane a merged view shows alone ('L': Phase, Landscape; 'R': X → Y with the deformation), else the expanded
-  // pane of the split view (S.solo) or null
-  const solo = () => (SV.on ? 'L' : Views.merged(S.view) || (S.view.main === 'xy' ? S.solo : null));
+  // the one pane shown: X ('L'), in the steps view and the classic view alike; Y's pane is not drawn, and its DOM is laid
+  // out hidden
+  const solo = () => 'L';
   // X paints F (the portrait, the landscape or the phase globe): it follows the homotopy while the transport is open
   const lPaintsF = () => lPhase() || lLand();
   // the landscape's material: Phase off is plaster; on, it paints Plain or Tiles (the styles the relief can paint, P10)

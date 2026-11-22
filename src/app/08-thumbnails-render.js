@@ -220,16 +220,7 @@
     if (rightAuto) Object.assign(V.right, fittedView(paneR, k, [k - 1]));
     requestRender('R');
   }
-  function transState() {
-    // (the glide's t is the spring's own, already eased)
-    const u = trans.glide ? glide.x - Math.floor(glide.x - 1e-6) : Math.min(1, (performance.now() - trans.t0) / trans.dur);
-    const t = trans.glide ? u : u < 0.5 ? 4 * u * u * u : 1 - Math.pow(-2 * u + 2, 3) / 2;
-    const k = trans.k, Fprev = stageF(k - 1);
-    // a new d/dz step slides from G_{k−1} to G_k along the straight line
-    if (isDeriv(k)) return { map: { mode: 1, hi: k, t }, F: lerpF(Fprev, stageF(k), t), u };
-    const Ht = homF(k, t);
-    return { map: { mode: 1, hi: k, t }, F: (z) => Ht(Fprev(z)), u };
-  }
+
   // smooth view transitions
   const tweens = [];
   function tweenView(view, target, ms = 260, onDone) {
