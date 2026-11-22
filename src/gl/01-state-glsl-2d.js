@@ -15,6 +15,9 @@
   let sideMode = false, side = null;
   const sideChs = new Map();
   let frameErr = '', framePending = false;
+  // the most terms past the GPU's budget that a finite sum takes in a step the frame's chain draws apply (GLChain
+  // stepTerms; 0: none), since the last begin or viewport: what they draw has no value there, frameStatus().over
+  let frameOver = 0;
   // the Landscape's refinement is still to come: the frame was drawn without it and a redraw follows (rfPoll, rfLater,
   // settled, sheetRF)
   let frameRefining = false;
