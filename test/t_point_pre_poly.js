@@ -63,10 +63,13 @@ for (const w of [C(1.1), C(0.3, 0.7), C(-2, -1), C(0), C(f3(s4) + 1e-6), C(f3(s4
 multiple('M3 at its critical value f(√0.4)', M3, C(f3(s4)), C(s4), 2, 2, 3, [C(-2 * s4)]);
 // (1e-13 below it: two simple roots 4.6e-7 apart, which stay two)
 same('M3', M3, M3co, C(f3(s4) - 1e-13));
-// (the polynomial NEWT op itself, as homOps gives it at t = 1: its members carry the double root's multiplicity)
+// (the polynomial NEWT op itself, as homOps gives it at t = 1: its members carry the double root's multiplicity. A cubic
+// is inverted in closed form (RAT3), so the op is z^5 - 5z's at its critical value f(1) = -4: the double root 1 and the
+// three roots of z^3 + 2z^2 + 3z + 4)
 {
-  const op = Inverse.homOps(Funcs.build(M3), 1).ops[0], mem = op.pre(C(f3(s4))), at = mem.findIndex((q) => near(q.u, C(s4), MULT_TOL));
-  check('M3\'s NEWT op at f(√0.4): two members, √0.4 ×2 among them', op.kind === 'NEWT' && mem.length === 2 && at >= 0 && mem[at].mult === 2, mem.map((q) => [q.u, q.mult]));
+  const op = Inverse.homOps(Funcs.build(step('custom', { expr: 'z^5-5z' })), 1).ops[0], mem = op.pre(C(-4)), at = mem.findIndex((q) => near(q.u, C(1), MULT_TOL));
+  const others = dk([C(1), C(2), C(3), C(4)], C(0)), rest = mem.filter((q, i) => i !== at);
+  check('z⁵ − 5z\'s NEWT op at f(1) = −4: four members, 1 ×2 among them, the others the roots of z³ + 2z² + 3z + 4', op.kind === 'NEWT' && mem.length === 4 && at >= 0 && mem[at].mult === 2 && others.every((z) => rest.some((q) => near(q.u, z, MULT_TOL))), mem.map((q) => [q.u, q.mult]));
 }
 multiple('M3 at its critical value f(−√0.4)', M3, C(f3(-s4)), C(-s4), 2, 2, 3, [C(2 * s4)]);
 
@@ -210,9 +213,14 @@ function atRes(roots) {
 }
 
 // still not exact: a degree above 12, a step that is not a polynomial
-for (const [name, st] of [['z¹³ + z', step('custom', { expr: 'z^{13}+z' })], ['exp', step('exp')], ['z³ + 1/z', step('custom', { expr: 'z^3+\\frac{1}{z}' })]]) {
+for (const [name, st] of [['z¹³ + z', step('custom', { expr: 'z^{13}+z' })], ['exp', step('exp')]]) {
   const r = pre([st], C(0.3, 0.7));
   check(`${name}: not exact`, hasPlan && !r.exact, r);
+}
+// a rational map of degree 4 is inverted in closed form (RAT4): z³ + 1/z at w, the 4 roots of z⁴ − w z + 1, each simple
+{
+  const w = C(0.3, 0.7), r = pre([step('custom', { expr: 'z^3+\\frac{1}{z}' })], w), want = dk([C(1), C(0), C(0), CX.neg(w), C(1)], C(0));
+  check('z³ + 1/z: exact, the 4 roots of z⁴ − w z + 1', r.exact && r.zs.length === 4 && r.total === 4 && want.every((z) => r.zs.some((q) => near(q, z, ROOT_TOL))), r);
 }
 console.log(bad ? `${bad} of ${n} checks fail` : `all ${n} checks pass`);
 process.exit(bad ? 1 : 0);
