@@ -391,6 +391,10 @@ item of an issue (`plan`), and a test file (`test/t_*.js`, `test/*_cmd.js`) whos
 `--block`, as the Plan job runs it, it exits 1 when it finds anything, so a finding fails the Gate. A version inside a path or a file name
 (`notes/constructions-v16/`) is a name, not a label. An added line opts out with `standards-ok: <reason>` in its comment (a
 test file opts out of the assertion count with the marker on any line it adds); a marker with no reason is a finding.
+A deleted suite carries no added line, so it is retired instead (`retired`): the change names it in the ledger
+`ci/retired_suites.js`, one line with the reason it goes and what covers it, and drops it from what runs (from
+`ci/suite_views.js` and `ci/browser_shards.js`, or from `ci/browser_suites.js`' EXCLUDED); its assertions then do not count
+as dropped. A ledger line for a file the change does not delete is a finding.
 The word lists are `HISTORY` and `PLAN` in the script.
 
 ### Perf on a loaded machine
@@ -546,6 +550,7 @@ Settings (environment variables):
 | `ci/lavapipe.sh` | Mesa's Vulkan drivers for the browser jobs, with the Actions cache of their package files and a fallback mirror (Browser suites); `test/t_lavapipe.js` tests it |
 | `ci/gate_run_of.sh` | the newest Gate run of a PR on a commit, for the job ready's two mirrors (CI tiers); `test/t_gate_ready.js` tests it |
 | `ci/standards.js` | the standards check on a change's added lines (Standards check); `test/t_standards.js` tests it |
+| `ci/retired_suites.js` | the ledger of test files deleted on purpose, each with its reason (Standards check) |
 | `ci/impact.js` | the tier and the jobs a change can affect (CI tiers); `test/t_impact.js` tests it |
 | `ci/unit.js` | all unit tests, one summary row each |
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
