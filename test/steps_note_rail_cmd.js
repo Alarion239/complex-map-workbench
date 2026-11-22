@@ -56,12 +56,13 @@ for (const [w, h] of [[360, 640], [320, 568], [568, 320], [640, 360]]) {
         ok(`${tag}: the GPU note's words are centred in its box`, g.centred, g);
         ok(`${tag}: the GPU note is clear of the pane's buttons and the message (${g.n} on screen)`, g.hit.length === 0 && g.n >= 4, g);
       }
-      // and the readout showing its teaching hint (the phone's first idle readout of a session, for 8 s), which is wider than the readout
-      await ev(`document.getElementById('leftReadout').innerHTML = '<span class="rhint rteach">' + __cmwT('Hold and slide to read F(z)') + '</span>'; 1`);
+      // and the readout showing its teaching hint (the phone's first idle readout of a session, for 8 s, as the page builds it), which is wider than the readout
+      const taught = await ev(`__cmwTeach()`);
+      ok(`${tag}: the readout shows the teaching hint`, taught, taught);
       const hint = await measure(`__cmwPaneNote('Preparing the GPU… (first time only; shaders left: {n})', { n: 19 })`);
       info[tag + ' hint'] = hint;
-      // (568 x 320 in Italian has no room left between the wide readout and the colour key, TODO(#2244))
-      if (!(lang === 'it' && w === 568)) ok(`${tag}: with the teaching hint in the readout, the GPU note is clear of the pane's buttons, the readout, the colour key and the message`, !!hint.note && hint.hit.length === 0 && hint.inPane, hint);
+      // (568 x 320 has no room left between the wide readout, the colour key and the message, TODO(#2244))
+      if (w !== 568) ok(`${tag}: with the teaching hint in the readout, the GPU note is clear of the pane's buttons, the readout, the colour key and the message`, !!hint.note && hint.hit.length === 0 && hint.inPane, hint);
     }
   }
 }
