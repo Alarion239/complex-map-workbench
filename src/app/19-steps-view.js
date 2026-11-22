@@ -2214,7 +2214,7 @@
     if (SV.surf === 'sphere' && lGlobe()) { svHeldOn = null; svSphereMoving(pane, hold); if (hold == null) svMotionDrawn(svMotion()); return; }
     if (svHeldKept(hold == null ? null : [hold, S.srcView.cx, S.srcView.cy, S.srcView.s, pane.w, pane.h, pane.dpr, chainSig[nSteps()]].join('|'), asks)) return;
     const bt = svBetween(hold == null ? SV.g.x : hold), { a, b, u, map, F, H: Hb, near } = bt, rest = !SV.anim && !(SV.drag && SV.drag.moved);
-    // (#548: parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
+    // (parked between two planes, a pan or a zoom changes the view of the plane the thread is nearest to, V.left past the first
     // plane; the picture is drawn from the one camera every plane shares, S.srcView, so the parked view hands it its own)
     if (rest) svKeepView();
     pane.setView(S.srcView);
@@ -2242,7 +2242,7 @@
       svStagedLayer(pane, f);
       if (f.open && !inFrame) GLR.blit(pane.ctx);
     };
-    // (#439 I: the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
+    // (the colour layer is one GL frame, the plots at their opacity and the carried colour composed in it, and
     // one copy into cc at the end)
     const frame = { open: false };
     // (noValue: only where plane k's map has no value, its no-value colour: GLR.drawColorPlot's)
@@ -2254,9 +2254,9 @@
     const colour = () => {
       // (between planes, under the carried colour, which covers both wherever a point of the glide arrives, so that a
       // pixel no point reaches shows them: what plane b draws there at rest, its own colour when it is a coloured plane
-      // (#1443's rule b: no blank, and at the arrival plane b's parked picture), and over it the departure plane's
+      // (no blank, and at the arrival plane b's parked picture), and over it the departure plane's
       // no-value colour, its NaN hatch where its map has no value at the pixel's point, which shrinks as the points
-      // arrive (rule a). Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
+      // arrive. Inside regions only under the regions' mask, which keeps them inside the regions. SV.restPaint
       // 0 (a test hook's) leaves plane b's picture out, so that a pixel no point reaches shows the paper)
       if (!still && map.mode === 1 && !isDeriv(b) && (mask || !svMaskOn())) { if (SV.restPaint !== 0) plot(b, 1); plot(a, 1, true); }
       // (between two planes, per pixel through the inverse pass when step b's homotopy has an inverse plan, or, all at
@@ -2443,7 +2443,7 @@
     if (!list.length) return null;
     return { g, list, paths: list.map((x) => h.paths[whole < 0 ? h.list.indexOf(x) : whole]), own: (x) => (shapeStage(x) <= g.a ? 1 : shapeStage(x) === g.b ? g.u : 0) };
   }
-  // Inside regions (#440, #591): the colour kept inside the regions under map (and, at rest on plane k, the later planes'
+  // Inside regions: the colour kept inside the regions under map (and, at rest on plane k, the later planes'
   // regions pulled back, stagePullbacks), by what the renderer can do:
   // - on the GPU, in one frame and one copy to the page: the regions' fills (drawScene's fills) write the
   //   frame's alpha alone; o.paint() draws the colour over it, its colour alone (into the open frame); the colour is
@@ -3035,7 +3035,7 @@
       // (the relief's title names its height and the sheets drawn)
       SV.surf === 'land' ? `${S.height}${S.sheets ? '+' + S.sheetW : ''}` : ''].join('|');
     // (the folded key on a phone, a button (legendKeyButton), is named for its kind, set again when the surface changes
-    // it; ux on #448. In a pane head the key's own words name it)
+    // it. In a pane head the key's own words name it)
     const leg = $('leftLegend'), legName = SV.surf === 'land' ? $t('Height key') : $t('Colour key'), legRole = leg && leg.getAttribute('role');
     if (leg && ph && (legRole === 'button' || legRole === 'img') && leg.getAttribute('aria-label') !== legName) leg.setAttribute('aria-label', legName);
     // (the targets' note: in the head on a desktop, in the Display sheet on a phone)
@@ -3052,7 +3052,7 @@
     if (said !== E.said) { E.said = said; E.slider.setAttribute('aria-valuetext', said); }
     if (sig !== E.headSig) {
       E.headSig = sig;
-      // (the plane's controls: in its head on a desktop, in the header on a phone, where the view switch was)
+      // (the plane's controls: in its head on a desktop, in the header on a phone)
       const home = ph ? $('top') : E.head;
       if (E.bar.parentNode !== home) { if (home === E.head) home.prepend(E.bar); else home.insertBefore(E.bar, $('hdrMoreBtn')); }
       E.title.innerHTML = svFormulaHtml();
@@ -3597,7 +3597,7 @@
   // says text in the steps view's live region (the colour plane set or refused, the place on the chain)
   const svSay = (text) => { if (SV.els && SV.els.live) SV.els.live.textContent = text; };
   function svSetT(k) {
-    // (#437: a step shown alone is coloured from its own plane; the button says so, and so does the key)
+    // (a step shown alone is coloured from its own plane; the button says so, and so does the key)
     if (SV.alone) { svSay($t('The step shown alone is coloured from its own plane')); return; }
     SV.T = k === svPlanes()[svPlanes().length - 1] ? -1 : k;
     svApply();
