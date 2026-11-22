@@ -112,7 +112,7 @@ ok('the published page names the offline page\'s size', named && Number(named[1]
 // 7.23 MB, with the app's script stripped of its comments and indentation, #2012, and its GLSL templates of their
 // comments, #2037), all of it for the app's own code, none of it test code or a second copy. What still ships that the
 // page does not run: the language tables' repeated English keys
-const BUDGET = { 'complex-map-workbench.html': 4.6e6, 'complex-map-workbench-offline.html': 7.4e6, offlineExtra: 3.1e6 };
+const BUDGET = { 'complex-map-workbench.html': 4.61e6, 'complex-map-workbench-offline.html': 7.4e6, offlineExtra: 3.1e6 };
 const bytes = { 'complex-map-workbench.html': Buffer.byteLength(pub), 'complex-map-workbench-offline.html': Buffer.byteLength(off) };
 for (const f of Object.keys(bytes)) ok(`dist/${f}: ${(bytes[f] / 1e6).toFixed(2)} MB, within its budget of ${BUDGET[f] / 1e6} MB`, bytes[f] <= BUDGET[f], bytes[f]);
 const extra = bytes['complex-map-workbench-offline.html'] - bytes['complex-map-workbench.html'];

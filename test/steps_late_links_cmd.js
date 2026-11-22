@@ -41,7 +41,17 @@
 // - exp(sin z) typed over z² + 1, the glide to plane 1 waiting half way for a program its later frames ask for (landing a
 //   minute late): it waits where it is (its thread never goes back), the browser's idle callbacks are given time and the
 //   left pane draws at most a tenth of the animation frames, › pressed then starts a glide from where it is in its stead
-//   (its thread still never goes back), and it ends within seconds of the link landing;
+//   (its thread still never goes back), and it ends within seconds of the link landing; that with the glide asking for
+//   its frames' own programs alone, as they come (the latch's case); as the app glides, it asks for every program of
+//   its frames before it moves, waits for them at its start and then never stands still between the planes;
+// - the default example, colour plane 0, the glide's program linked, then › pressed with the links from then on landing
+//   seconds late: from the landing until plane 1's own programs land, every frame at rest on plane 1 is the inverse
+//   pass's by the glide's ops at its end (its last picture), never the carried meshes', then plane 1's own, and those two
+//   are one picture within 3 levels; with a region of plane 2 as well, Inside regions (plane 1's own frame is the whole
+//   plane's colour kept inside the regions' mask), no frame at rest on plane 1 is the glide's end form;
+// - z + 1/z in the Cauchy style, colour plane 0, › pressed: every carried colour's program that links from the example's
+//   load until plane 1's own frame is drawn is a Cauchy variant (the glides' warm-up at rest and the glide's wait ask
+//   for the programs its frames draw with, and plane 1 at rest asks for its own);
 // - on a fresh page, the Landscape shown and the warm-up run to its end: no landTF, land or floor of the chain in
 //   another map mode than 0 (the steps view draws them in mode 0 only), and the programs the Landscape's glide draws with
 //   linked before ▶;
@@ -82,6 +92,10 @@ const GATE_LINK_MS = 20000, STALL_MS = 2000, GATE_STEP_MS = 300;
 // the animation frames in a row the thread of a held motion stays put, and the most ms from a held glide's last link
 // landing to its end
 const STILL_FRAMES = 3, ENDS_MS = 5000;
+// the default example; ms a link reads not complete where the plane a glide lands on waits past the landing for its own
+// programs (Direct3D's compiler takes tens of seconds for them, #845); two pictures are one when every channel is within
+// LAND_LEVELS levels at all but LAND_SHARE of the pixels (ux's line on #845)
+const DEF_EX = 'Strip to disk', LAND_LINK_MS = 10000, LAND_LEVELS = 3, LAND_SHARE = 0.005;
 const loaded = 'typeof __cmwExample === "function" && typeof __cmwSteps === "function" && !!window.GLR';
 // (a page whose frames leave no idle moment: each idle callback runs for its timeout, at once when it has none, with no
 // time left; the browser's own requestIdleCallback is kept as window.__browserIdle)
@@ -318,13 +332,17 @@ try {
   //   in a row, past the first glide's middle) for the programs of the glide into plane 2, counted (record) while it
   //   does; then the links land and the play reaches plane 2;
   // - a glide from plane 2 to plane 0 (the motion the other way): it waits for each glide's programs, its thread never
-  //   going back, and reaches plane 0
+  //   going back, and reaches plane 0;
+  // those with the motion asking for its frames' own programs alone, as they come (__cmwSteps({ ahead: false }), the
+  // latch's case); as the app plays, ▶ from plane 0 asks for every program of both glides before it moves: it waits at its
+  // start, then never stands still until plane 2
   {
     const slow = await send('Page.addScriptToEvaluateOnNewDocument', { source: `window.__lateLinkMs = ${SECOND_LINK_MS};\n` + fs.readFileSync(path.join(DIR, '..', 'lib', 'late_links.js'), 'utf8') });
-    const chain = async (ns) => {
+    const chain = async (ns, ahead = false) => {
       await example(ns, POLE_EX, 'all');
       await ev("__cmwAddStep('custom', { expr: 'z^4+z', cut: 180 }, 1), 1");
       await settled({ max: READY_MS, until: '__cmwSteps().planes.length === 3' });
+      await ev(`__cmwSteps({ ahead: ${ahead} }), 1`);
     };
     try {
       await chain('llq');
@@ -362,6 +380,24 @@ try {
       const globe = await ev('(() => { const s = window.__llHeld; s.done = true; return { up: s.up, down: s.down }; })()');
       ok(`${POLE_EX}, then z⁴ + z: ▶ put on the globe and back on the plane mid-play: its thread never goes back, and it reaches plane 2`, w0.ok && w1.ok && w2.ok && globe.down === 0, { globe, waits: { w0, w1, w2 } });
       info.globe = { globe, waits: { w0, w1, w2 } };
+      // (as the app plays: in the page, at every animation frame, the longest run of frames the thread stays put at plane 0
+      // and past it)
+      await chain('llp', true);
+      await ev(`(() => {
+        const s = window.__llAhead = { at0: 0, mid: 0, run: 0, last: __cmwSvX(), done: false };
+        const tick = () => {
+          const x = __cmwSvX();
+          s.run = x === s.last ? s.run + 1 : 0; s.last = x;
+          if (x === 0) s.at0 = Math.max(s.at0, s.run); else if (x < 2) s.mid = Math.max(s.mid, s.run);
+          if (!s.done) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        return 1; })()`);
+      await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
+      const p0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
+      const play = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
+      ok(`${POLE_EX}, then z⁴ + z: ▶ asks for every program of both glides before it moves, waits for them at its start, and then never stands still until plane 2`, p0.ok && play.at0 >= STILL_FRAMES && play.mid < STILL_FRAMES, { play, wait: p0 });
+      info.aheadPlay = { play, wait: p0 };
     } finally {
       await send('Page.removeScriptToEvaluateOnNewDocument', { identifier: slow.identifier });
     }
@@ -403,17 +439,24 @@ try {
   }
   // exp(sin z) typed over z² + 1 (a disc, Inside regions), on a fresh page whose links land late (the suite's), the glide
   // to plane 1 with its time a frame PLAY_STEP_MS; from its second frame on, the links it starts land LATER_LINK_MS late
-  // (__lateLinkMs): the program its frames ask for past about two fifths of the way. While the glide waits for it
-  // (the thread still for frames in a row, between the planes), counted (record); then the link lands and the glide ends
-  {
-    await loadView('steps', 'lls' + Date.now(), { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0 });
+  // (__lateLinkMs). First with the glide asking for its frames' own programs alone, as they come (__cmwSteps({ ahead:
+  // false })): the program its frames ask for past about two fifths of the way. While the glide waits for it (the thread
+  // still for frames in a row, between the planes), counted (record); then the link lands and the glide ends
+  const expSin = async (ns) => {
+    await loadView('steps', ns + Date.now(), { v3: true, v4: true, shapes: [{ id: 's1', kind: 'disc', c: [0, 0], r: 0.9, ci: 0, visible: true }], steps: [{ type: 'custom', params: { expr: 'z^2+1', cut: 180 }, on: true }], nextId: 50, focus: 0 });
     await settled({ max: READY_MS, until: 'typeof __cmwSteps === "function" && !!window.GLR && !!document.querySelector(\'input[data-pkey="expr"]\')' });
     await ev(`(() => { const i = document.querySelector('input[data-pkey="expr"]'); i.focus(); i.value = 'exp(sin(z))'; i.dispatchEvent(new Event('input', { bubbles: true })); i.dispatchEvent(new Event('change', { bubbles: true })); i.blur(); return 1; })()`);
     await adopted();
     await ev('__cmwSteps({ gate: false }), 1');
     await settled({ only: true, max: WARM_MS, until: 'GLR.pendingLinks === 0' });
+  };
+  // (the glide to plane 1, its time a frame PLAY_STEP_MS, the links from its second frame on LATER_LINK_MS late)
+  const lateGlide = () => ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
+  {
+    await expSin('lls');
+    await ev('__cmwSteps({ ahead: false }), 1');
     await record('requestIdleCallback');
-    await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ go: 1 }), new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => { window.__lateLinkMs = ${LATER_LINK_MS}; r(1); })))`);
+    await lateGlide();
     const s0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0 && __cmwSvX() < 1 && GLR.pendingLinks > 0` });
     const s1 = await recorded();
     // (› while it waits: a glide from where it is to the next plane in its place, with no hold record of its own)
@@ -431,6 +474,110 @@ try {
     ok(`exp(sin z), the glide waiting half way, › pressed: the glide is replaced by one from where it is, and its thread still never goes back`, still && k1.replaced && k1.x >= s1.got.x && moves.down === 0, got);
     ok(`exp(sin z), the glide waiting half way: it ends within ${ENDS_MS} ms of the link landing`, s2.ok && s3.ok && got.endMs <= ENDS_MS, got);
     info.half = got;
+  }
+  // Then as the app glides: it asks for the programs of all the glide's frames at its first frame, so the late links of
+  // its later frames are not its own. In the page, at every animation frame, the longest run of frames the thread stays
+  // put at plane 0 (the start's wait) and between the planes
+  {
+    await expSin('lla');
+    await ev(`(() => {
+      const s = window.__llAhead = { at0: 0, mid: 0, run: 0, last: __cmwSvX(), done: false };
+      const tick = () => {
+        const x = __cmwSvX();
+        s.run = x === s.last ? s.run + 1 : 0; s.last = x;
+        if (x === 0) s.at0 = Math.max(s.at0, s.run); else if (x < 1) s.mid = Math.max(s.mid, s.run);
+        if (!s.done) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return 1; })()`);
+    await lateGlide();
+    const a0 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 1 && !__cmwSteps().anim' });
+    const ahead = await ev('(() => { const s = window.__llAhead; s.done = true; return { at0: s.at0, mid: s.mid }; })()');
+    ok(`exp(sin z), its later frames' links late: the glide asks for every program of its frames before it moves, waits for them at its start, and then never stands still between the planes`, a0.ok && ahead.at0 >= STILL_FRAMES && ahead.mid < STILL_FRAMES, { ahead, wait: a0 });
+    info.ahead = { ahead, wait: a0 };
+  }
+  // the default example (exp, then a Möbius map; a strip, Inside regions), colour plane 0, on a fresh page whose links land
+  // late (the suite's), the glide's program linked first (parked half way to plane 1 until the inverse pass draws there,
+  // then back at once); then the links started from › on land LAND_LINK_MS late, as Direct3D's compiler makes them, and
+  // › pressed. In the page, at every animation frame, each new record of a frame at rest on plane 1 (__cmwSteps().rest),
+  // and the pane read at the last one drawn by the glide's ops at its end (rest.end) and at the first one drawn by plane
+  // 1's own. Then the same with a region of plane 2 as well
+  {
+    // (open(): the page and its chain; until: what the wait after › waits for, in the page; -> { land: { recs, n, cmp },
+    // waits })
+    const landing = async (open, until = '!!window.__llLand.own && GLR.pendingLinks === 0') => {
+      await open();
+      await ev("__cmwSet('sheets', false), __cmwSteps({ bare: true, scope: 'in' }), __cmwSteps({ T: 0 }), 1");
+      await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && __cmwSteps().x === 0' });
+      await ev(`__cmwSteps({ park: ${GLIDE_U} }), 1`);
+      const e0 = await settled({ only: true, max: FRAME_MS, until: `(() => { const g = __cmwSteps().glide; return !!g && g.u === ${GLIDE_U} && g.path === 'inverse'; })()` });
+      await ev('__cmwSteps({ go: 0, now: true }), 1');
+      const e1 = await settled({ max: READY_MS, until: '__cmwSteps().x === 0 && __cmwSteps().ready.ready && GLR.pendingLinks === 0' });
+      await ev(`(() => {
+        const s = window.__llLand = { recs: [], seen: null, end: null, own: null, done: false };
+        const grab = () => { const c = document.querySelector('#canvasL'), k = document.createElement('canvas'); k.width = c.width; k.height = c.height; k.getContext('2d').drawImage(c, 0, 0); return k.getContext('2d').getImageData(0, 0, k.width, k.height).data; };
+        const tick = () => {
+          const q = __cmwSteps(), r = q.rest;
+          if (r && r !== s.seen && q.x === 1 && !q.anim) {
+            s.seen = r; s.recs.push({ path: r.path, end: !!r.end });
+            if (r.path === 'inverse' && r.end) s.end = grab();
+            if (r.path === 'inverse' && !r.end && !s.own) s.own = grab();
+          }
+          if (!s.done) requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+        window.__lateLinkMs = ${LAND_LINK_MS};
+        __cmwSteps({ go: 1 });
+        return 1; })()`);
+      const e2 = await settled({ only: true, max: READY_MS, until });
+      const land = await ev(`(() => { const s = window.__llLand; s.done = true;
+        let cmp = null;
+        if (s.end && s.own && s.end.length === s.own.length) {
+          let off = 0, max = 0;
+          for (let i = 0; i < s.end.length; i += 4) { const d = Math.max(Math.abs(s.end[i] - s.own[i]), Math.abs(s.end[i + 1] - s.own[i + 1]), Math.abs(s.end[i + 2] - s.own[i + 2])); if (d > ${LAND_LEVELS}) off++; max = Math.max(max, d); }
+          cmp = { px: s.end.length / 4, off, max };
+        }
+        return { recs: s.recs.slice(0, 12), n: s.recs.length, cmp }; })()`);
+      return { land, waits: { e0, e1, e2 } };
+    };
+    const got = await landing(() => example('lle', DEF_EX, 'in')), R = got.land.recs, own = R.findIndex((r) => !r.end);
+    ok(`${DEF_EX}, plane 1's own programs linking ${LAND_LINK_MS} ms, › pressed: until they land, every frame at rest on plane 1 is the inverse pass's by the glide's ops at its end, never the carried meshes'; then plane 1's own`, names.indexOf(DEF_EX) >= 0 && got.waits.e2.ok && got.land.n > 0 && R.every((r) => r.path === 'inverse') && R[0].end && own > 0 && R.slice(own).every((r) => !r.end), got);
+    ok(`${DEF_EX}: plane 1 drawn by the glide's ops at its end and by its own is one picture (within ${LAND_LEVELS} levels at ${100 * (1 - LAND_SHARE)} % of the pixels)`, !!got.land.cmp && got.land.cmp.off <= LAND_SHARE * got.land.cmp.px, got);
+    info.land = got;
+    // (the default example's chain and strip, and a disc of plane 2)
+    const staged = await landing(async () => {
+      await loadView('steps', 'lls2' + Date.now(), { v3: true, v4: true, nextId: 50, focus: 0,
+        shapes: [{ id: 's1', kind: 'formula', expr: '|\\Im z|<\\frac{\\pi}{2}', ci: 0, visible: true }, { id: 'd2', kind: 'disc', c: [0, 0], r: 0.4, ci: 2, visible: true, stage: 2 }],
+        steps: [{ type: 'exp', params: {}, on: true }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' }, on: true }] });
+      await settled({ max: READY_MS, until: `${loaded} && __cmwSteps().planes.length === 3` });
+      await adopted();
+    }, 'window.__llLand.recs.length > 0 && GLR.pendingLinks === 0');
+    ok(`${DEF_EX} with a region of plane 2, Inside regions, plane 1's own programs linking: no frame at rest on plane 1 is the glide's end form (it has no mask)`, staged.waits.e2.ok && staged.land.n > 0 && staged.land.recs.every((r) => !r.end), staged);
+    info.landStaged = staged;
+  }
+  // z + 1/z with the circle about its pole in the Cauchy style (its carried colour is the Cauchy integral's, drawn by the
+  // inverse programs' Cauchy variants), colour plane 0, on a fresh page whose links land late (the suite's), › pressed:
+  // in the page at every animation frame, the carried colour's inverse programs linking, from the example's load until
+  // plane 1's own frame is drawn. The glide's frames and the plane at rest draw with the Cauchy variants, so what the
+  // glides' warm-up at rest asks for, what the glide waits on and what the plane at rest looks up are those too
+  {
+    await example('llcz', POLE_EX, 'all');
+    await ev(`(() => {
+      const s = window.__llCz = { ids: [], done: false };
+      const tick = () => {
+        for (const p of GLR.pending()) if (/^inv\\|.*\\|carry(staged)?(cz)?[|:]/.test(p.id) && !s.ids.includes(p.id)) s.ids.push(p.id);
+        if (!s.done) requestAnimationFrame(tick);
+      };
+      requestAnimationFrame(tick);
+      return 1; })()`);
+    await ev('__cmwSteps({ T: 0 }), 1');
+    const c0 = await settled({ max: WARM_MS, until: '__cmwSteps().ready.ready && GLR.pendingLinks === 0 && __cmwSteps().x === 0' });
+    await ev('__cmwSteps({ go: 1 }), 1');
+    const c1 = await settled({ only: true, max: PLAY_MS, until: "(() => { const q = __cmwSteps(), r = q.rest; return q.x === 1 && !q.anim && GLR.pendingLinks === 0 && !!r && r.a === 1 && r.path === 'inverse' && !r.end; })()" });
+    const ids = await ev('(() => { const s = window.__llCz; s.done = true; return s.ids; })()');
+    const plain = ids.filter((id) => !/\|carry(staged)?cz[|:]/.test(id));
+    ok(`${POLE_EX} in the Cauchy style, colour plane 0, › pressed: the carried colour's programs the glides' warm-up at rest asks for, the glide waits on and plane 1 at rest asks for are its Cauchy variants`, c0.ok && c1.ok && ids.length > 0 && plain.length === 0, { ids, plain, waits: { c0, c1 } });
+    info.cauchyCarry = { ids: ids.length, plain };
   }
   // the partial sums with the Landscape shown in the steps view, the warm-up run to its end: the steps view draws
   // the Landscape's heights in map mode 0 only (at rest, and under a glide's carry), so the warm-up links no landTF, land
