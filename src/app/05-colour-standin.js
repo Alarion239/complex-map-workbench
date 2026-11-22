@@ -226,6 +226,10 @@
   // positions mapped (the test hook's)
   const CARRIED_POS_MS = 12;
   let carriedPosLast = null;
+  // the map F's value at z on the CPU, or NaN where F throws or gives no value (a corner the frame leaves out)
+  function cpuAt(F, z) {
+    try { return F(z) || C(NaN, NaN); } catch (err) { return C(NaN, NaN); }
+  }
   function carriedPos(e, map, preZ, lim, moving) {
     const key = `${mapKeyOf(map)}|${preZ ? 1 : 0}|${lim}`;
     if (!e.res) return false;
@@ -234,7 +238,7 @@
     for (let k = 0; k < n3; k++) {
       const q = preCorner(D, k, preZ);
       let w = seen.get(q.id);
-      if (!w) { try { w = F(q.z()); } catch (err) { w = C(NaN, NaN); } seen.set(q.id, w); }
+      if (!w) { w = cpuAt(F, q.z()); seen.set(q.id, w); }
       pos[2 * k] = w.re - o[0]; pos[2 * k + 1] = w.im - o[1];
       if (q.c !== 2) continue;
       const i = 2 * (k - 2), x0 = pos[i], y0 = pos[i + 1], x1 = pos[i + 2], y1 = pos[i + 3], x2 = pos[i + 4], y2 = pos[i + 5];
@@ -248,8 +252,7 @@
   // job j's G at source point z, an evaluation: [ln |G| * PRE_ARG, arg G * PRE_ARG, G's real and imaginary parts]; on a
   // pole, ln |G| at PRE_LN, arg 0 and the parts infinite
   function carriedG(j, z) {
-    let w;
-    try { w = j.F(z); } catch (err) { w = C(NaN, NaN); }
+    const w = cpuAt(j.F, z);
     j.n++;
     const r = Math.hypot(w.re, w.im);
     return Number.isNaN(r) ? [NaN, NaN, NaN, NaN] : !Number.isFinite(r) ? [GLR.PRE_LN * PRE_ARG, 0, Infinity, Infinity] : [Math.log(Math.max(r, 1e-300)) * PRE_ARG, Math.atan2(w.im, w.re) * PRE_ARG, w.re, w.im];

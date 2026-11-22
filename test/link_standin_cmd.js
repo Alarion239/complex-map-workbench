@@ -20,6 +20,8 @@
 //   colour plane z and w₁): the pane is coloured from the linking SphereMeshes, their vertices mapped by the frame's map
 //   on the CPU, the frame still pending; on release no frame is pending with nothing drawn, and the held points had the
 //   carried colour's colours;
+//   The stand-in's positions come from the map on the CPU (cpuAt): a corner where the map throws or gives no value (null)
+//   is no value, its triangle left out, not an error mid-frame;
 // - on a phone (360 x 640, the inset card over the pane's lower left corner): the compiling note is clear of the card;
 // - the carried colour from the SphereMeshes while their chain's programs link (colour plane z, T = 0): the default
 //   example's w₁, the colour layer alone (bare). Held, it is the carried colour itself: against the exact pass's frame
@@ -264,6 +266,11 @@ for (const T of [0, 1]) {
   const gi = info[tag] = { parked, wait: gWait, job: await carried(), hue: await hue(), pending: await ev('GLR.frameStatus().pending'), sv: await ev('(() => { const s = __cmwSteps(), g = s.glide; return { x: s.x, T: s.T, core: s.core, glide: g && { b: g.b, u: g.u, path: g.path, reason: g.reason } }; })()') };
   const shortG = !!gi.job && gi.job.end === 'budget';
   ok(`timing: the glide frame past colour plane ${T ? 'w₁' : 'z'}: its carried job finished, within CARRIED_MAX`, !shortG, gi.job);
+  if (T === 0) {
+    const at = { none: await ev("__cmwCpuAt('null')"), thrown: await ev("__cmwCpuAt('throw')"), id: await ev("__cmwCpuAt('id')") };
+    info.cpuAt = at;
+    ok('the stand-in\'s CPU map (cpuAt): no value where the map gives none or throws, its value otherwise', at.none.nan && at.thrown.nan && at.id.re === 0.5 && at.id.im === 0.25, at);
+  }
   ok(`the glide frame at x = 1.5, colour plane ${T ? 'w₁' : 'z'}, its programs held: the pane is in colour (the frame pending)`, shortG || (parked.ok && gWait.ok && gi.hue > 0.6 && gi.pending === true), gi);
   const gAfter = await releaseFrames('drawPreMapped', "(f) => (f.pending && !f.drew ? 'blank' : f.pending ? 'stand-in' : 'gpu')");
   info[tag + 'After'] = gAfter.list ? gAfter.runs : null;

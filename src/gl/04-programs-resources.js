@@ -1174,6 +1174,12 @@ float wabs(vec2 w) {
   const PRE_BYTES = 32 * 1024 * 1024;
   let preBytes = 0;
   const preAll = new Map();   // res -> true, least recently drawn first
+  // a pre-mapped mesh's attributes besides its position, from the buffer bound now in its layout (createPreMesh's: pc
+  // position floats, then the four attributes, the triangle and its cart flag): locations 1, 2 and 4
+  function preAttribs(pc) {
+    const stride = (pc + 6) * 4;
+    attrib(1, 4, stride, pc * 4, 0); attrib(2, 1, stride, (pc + 4) * 4, 0); attrib(4, 1, stride, (pc + 5) * 4, 0);
+  }
   // d: SphereMesh.publish() -> res {kind: 'pre', n (triangles), count (vertices), sph, org}
   function createPreMesh(d) {
     if (!ok || !d || !d.n) return null;
@@ -1191,7 +1197,7 @@ float wabs(vec2 w) {
     const vao = gl.createVertexArray();
     gl.bindVertexArray(vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, buf);
-    attrib(0, pc, stride * 4, 0, 0); attrib(1, 4, stride * 4, pc * 4, 0); attrib(2, 1, stride * 4, (pc + 4) * 4, 0); attrib(4, 1, stride * 4, (pc + 5) * 4, 0);
+    attrib(0, pc, stride * 4, 0, 0); preAttribs(pc);
     gl.bindVertexArray(null);
     const res = { kind: 'pre', buf, vao, n, count: 3 * n, sph, org: (d.origin || [0, 0]).slice(), bytes: data.byteLength, vaos: new Map(), skips: [] };
     preAll.set(res, true); preBytes += res.bytes;
@@ -1286,12 +1292,10 @@ float wabs(vec2 w) {
     if (!ok || !res || !res.vao || res.sph || !pos || pos.length < 2 * res.count) return false;
     if (!res.posBuf) {
       res.posBuf = gl.createBuffer(); res.bytes += pos.byteLength; if (preAll.has(res)) preBytes += pos.byteLength;
-      // (createPreMesh's flat layout: the position, then the attributes, the triangle and its cart flag, 8 floats)
-      const stride = 8 * 4;
       res.gvao = gl.createVertexArray();
       gl.bindVertexArray(res.gvao);
       gl.bindBuffer(gl.ARRAY_BUFFER, res.buf);
-      attrib(1, 4, stride, 2 * 4, 0); attrib(2, 1, stride, 6 * 4, 0); attrib(4, 1, stride, 7 * 4, 0);
+      preAttribs(2);
       if (res.wBuf) { gl.bindBuffer(gl.ARRAY_BUFFER, res.wBuf); attrib(3, 3, 12, 0, 0); }
       gl.bindBuffer(gl.ARRAY_BUFFER, res.posBuf);
       attrib(0, 2, 8, 0, 0);
