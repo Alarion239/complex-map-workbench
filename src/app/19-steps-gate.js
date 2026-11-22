@@ -100,8 +100,8 @@
     if (SV.hold && SV.hold.ending) svHoldWaitLeave(SV.hold);
     if (SV.hold) return;
     // (the ring is this hold's own, and of what the held glide waits for (svHoldLeft): the share that has gone since the hold began,
-    // so it is full when the glide can go; svReady's gauge counts what was done before the play, so it started high and never
-    // filled. With nothing counted, the ring stands at the unknown fill)
+    // so it is full when the glide can go; svReady's gauge counts what was done before the play, so it would start high and never
+    // fill. With nothing counted, the ring stands at the unknown fill)
     const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, left0: svHoldLeft, ending: false,
       gauge: () => { w.left0 = Math.max(w.left0, svHoldLeft); return w.left0 > 0 ? 1 - Math.min(svHoldLeft, w.left0) / w.left0 : SV_GATE_UNKNOWN_FILL; } };
     w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
@@ -122,7 +122,7 @@
     if (SV.hold === w) SV.hold = null;
     svWaitRestore(w);
   }
-  // the hold is over (say: the play goes on, so the ring is full, painted for a frame, and its words are said again; else, as
+  // the hold is over (say: the play goes on, so the ring is full, painted for two animation frames, and its words are said again; else, as
   // when ▶ pauses the play, ▶ is given back at once)
   function svHoldWaitEnd(say) {
     const w = SV.hold;

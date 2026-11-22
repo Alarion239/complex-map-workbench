@@ -1402,7 +1402,7 @@
   // pass draws it and that pass's programs still link, or, once linked, the pole tracks a step's frames are drawn from
   // are not made (svHoldB is then plane b, else 0); or the carried meshes draw it and their programs link
   function svHolds(g) {
-    svHoldB = 0;
+    svHoldB = 0; svHoldLeft = 0;
     if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b)) return false;
     const inv = (g.map.mode === 1 || g.map.mode === 3) && !!GLR.inverseState;
     // (an All-at-once frame: its span's paths and its later planes' shapes', no pole tracks of its own)
