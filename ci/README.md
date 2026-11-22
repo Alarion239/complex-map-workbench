@@ -342,7 +342,7 @@ It runs over the matrix of `test/lib/layout_matrix.js`:
 - **themes:** light and dark;
 - **views:** the classic view, and `?view=steps` where the build has it;
 - **states:** each view, the deformation, the menus, the Inspector, the tour strip, the export dialog and the phone's
-  sheets; and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
+  sheets; the Line integral popover on an open and on a closed curve (phone, #2191); and, on a phone at 360 px, each tour chapter's longest step (its lead, text and task, in the language shown;
   `tour longest <chapter>`, #565).
 
 There is one run per language (`en`, `ru` and `it`). Its result's `report` lists each violation once, keyed by its
