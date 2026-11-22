@@ -16,7 +16,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const { DRAWN, openSteps, toPlane, rough } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // (the roughness: carry_kit's rough(), its 20 x 14 grid 0.09 apart about the window centre; a point is rough over a spread of 30)
 const SMOOTH_MAX = 0.1;            // the share of rough points the exact pass's frame may have
-const ROUGH_MARGIN = 0.05;         // the share of points more than the rest frame's that the All-at-once frame may have rough
+const ROUGH_MARGIN = 0.05;         // the share of points more than the exact pass's rest frame's that the carried meshes'
+                                   // frame and the All-at-once frame may each have rough
 const DRAWN_WAIT = 60000, GLIDE_WAIT = 120000;   // ms
 const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;   // the glide's time a frame while it runs, and once frozen
 const NEAR_END_X = 1.9;            // the All-at-once glide is frozen once the thread is past this, near its end on plane 2
