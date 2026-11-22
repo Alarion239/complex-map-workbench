@@ -1324,7 +1324,7 @@ ${sheet ? glsl`  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): 
   // surface, and the carried sheets, go on past their box's edge (the patches of CARRY_Z), so their rim is where the
   // block's sides clip them
 ${carry ? `  vec2 er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : `  vec2 uv = (vZ - uBox.xy) / uBox.zw;
-  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}${sheet ? `
+  vec2 er = min(uv, 1.0 - uv) / max(fwidth(uv), vec2(1e-9));`}${sheet ? glsl`
   // (carried sheets: the block's sides, as the carried surface's; their patches' z lies outside the box)
   if (uCarry == 1) er = (uClipA - abs(vPos.xy)) / max(fwidth(vPos.xy), vec2(1e-9));` : ''}
   float rim = 1.0 - smoothstep(0.75 * uDpr - 0.5, 0.75 * uDpr + 0.5, min(er.x, er.y));
