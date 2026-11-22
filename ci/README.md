@@ -160,9 +160,12 @@ sites of the big functions, so the generated GLSL calls `cxs0_sraw` and the inne
 (`test/t_glsl_sheet_calls.js` counts them). A reference whose `test/glsl_tiers.js` has no such set (one from before it) has its
 pages built with this change's `test/glsl_tiers.js` (`ci/glsl.js`), so both sides run the same chains and the `glsl` page is
 compared on Linux too.
-`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe (Mesa's llvmpipe on Vulkan, a Linux machine's software renderer when it has
-no GPU): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made every later chain of a long run
-error; `GLSLTiers.keep` leaves it out there, and #1835 lifts the entry. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
+`GLSLTiers.LAVAPIPE_CRASH` is the same for lavapipe on LLVM 20 or older (Mesa's llvmpipe on Vulkan, a Linux machine's software
+renderer when it has no GPU; Mesa 25): `sheets sqrt d d` crashes the GPU process in its draw whatever runs before it, which made
+every later chain of a long run error; `GLSLTiers.keep` leaves it out there. The Gate's browser job (Ubuntu 26.04, Mesa 26, LLVM
+21) runs that chain once, in its `smoke` shard (`node ci/glsl.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172`), so a Mesa that crashes
+on it again shows there. `--expect-compared N` fails a page that compared fewer than N values: on a lavapipe that leaves the chain
+out (LLVM 20 or older, which the Mesa cache could fall back to) the page passes with none; #1835 lifts the entry when no Mesa in use crashes. Both sets are in `GLSLTiers.NOT_ON`, and the page's line in
 the summary names each chain left out, with its reason ("not run on lavapipe (#1815): …").
 
 The GPU gate (`gpu-gate.yml`, our machines). Its events run the Mac alone; the Windows desktop runs on request, by hand
