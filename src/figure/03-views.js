@@ -863,7 +863,7 @@
       const Xw = (v) => ((v - bx.x0) / (bx.x1 - bx.x0) - 0.5) * 2 * ax, Yw = (v) => ((v - bx.y0) / (bx.y1 - bx.y0) - 0.5) * 2 * ay;
       let tk = '';
       const edge = (vals, at, out, name) => {
-        const stp = vals.step, dec = XD.decimals(stp);
+        const dec = XD.axisDec(name, vals.list, vals.step);
         let mid = null, dirm = null;
         // the floor's front edge as an axis line (it lies in front of the relief)
         const e0 = proj(at(vals.lo)), e1 = proj(at(vals.hi));

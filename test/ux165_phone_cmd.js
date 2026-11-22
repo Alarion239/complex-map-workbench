@@ -16,6 +16,7 @@ const errs = [];
 const grab = async () => { errs.push(...(await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource|favicon/.test(x.m || ''))); };
 const fresh = async (ns, w, h, dark, mobile, extra = '') => {
   await view(w, h, !!dark, !!mobile);
+  // raw-navigate: about:blank is the page the next load starts from, a history entry for Back; it has no app and no body to stall
   await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
   await go(`${U}?ns=ux165p-${ns}-${Date.now()}${extra}`); await settle();
   ok('the steps view is on', await ev('typeof __cmwSteps === "function" && __cmwSteps().on'), null);
