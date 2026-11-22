@@ -347,6 +347,7 @@ const VIEWS = {
   'steps_canvas_stack_cmd.js': steps({ pin: true }),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
+  'tour_words_390_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': steps({ pin: true }),
