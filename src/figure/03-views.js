@@ -256,9 +256,8 @@
       const color = o.ink === 'bw' ? (grid ? '#666666' : '#000000') : (o.for === 'article' || grid ? tn.edge : t === 'area' ? tn.edge : tn.edge);
       if (dash === '3 2' && pts.some((q) => q.some((p) => p[0] >= box.x0 && p[0] <= box.x1 && p[1] >= box.y0 && p[1] <= box.y1))) dashed++;
       curves.push({ pts, w: grid ? P.lw.grid : t === 'area' ? P.lw.edge : P.lw.curve, color, dash, cap: dash && dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2' ? 'round' : 'butt', open, sid: s.id });
-      // orientation chevrons (Homework): one on each piece of an area's boundary, at a point that shows in both panels (a z-plane
-      // area's: chevronAt maps the piece by the panels' maps of the z-plane)
-      if (P.chevrons && t === 'area' && !stageOf(s)) for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
+      // orientation chevrons (Homework): one on each piece of an area's boundary, at a point that shows in both panels
+      if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
     let pi = 0;
     // with constructions the caption names points (z₀, z₃ …): every point is labelled as the
@@ -377,7 +376,7 @@
   // (FL null: no X panel, X's window is boxL in the z-plane. carry: FL and FR are the panels' maps, and each shape is carried from
   // its own plane as the panels draw it, sampled in its own plane's window; one that X's panel does not draw (a later plane's) is
   // kept whole. Without it every shape is a z-plane shape, mapped by FL and FR)
-  function imageWin(FL, FR, boxL, srcWin, shapes, pad = 0.08, carry = false) {
+  function imageWin(FL, FR, boxL, srcWin, shapes, { pad = 0.08, carry = false } = {}) {
     const xs = [], ys = [];
     const mapOf = carry ? shapeMapF : (s, side, F) => F, stg = carry ? stageOf : () => 0, winS = carry ? shapeWinOf : (s, w) => w;
     const inL = (a) => fin(a) && a.re >= boxL.x0 && a.re <= boxL.x1 && a.im >= boxL.y0 && a.im <= boxL.y1;
@@ -444,7 +443,7 @@
       if (side === 'R') {
         // (only Y shown: the image of X's reference window, in the source plane)
         const bL = boxes.L || (st.lFlat ? null : sceneWin(A.viewOf('L0')));
-        ref = imageWin(boxes.L ? Fs.L : null, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes, undefined, true);
+        ref = imageWin(boxes.L ? Fs.L : null, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes, { carry: true });
       }
       if (!ref) ref = sceneWin(A.viewOf(side));
       // the quick render looks twice as far as the window, so a bounded set is framed whole and an unbounded one is
@@ -552,10 +551,14 @@
         let m = '';
         if (P.chevrons) for (const c of lay.chev) {
           const pn = (sd) => ({ box: boxes[sd] || bx, st: XD.axisSteps(boxes[sd] || bx, steps[sd] || steps[side]) });
-          const s0 = chevronAt(c.c, two ? Fs.L : Fs[side], two ? Fs.R : null, two ? pn('L') : pn(side), pn('R'), srcWin);
+          // (the piece is carried from its shape's own plane, sampled in that plane's window; a shape that X's panel does not draw, a
+          // later plane's, gets its chevron where it shows in this panel alone)
+          const mS = shapeMapF(c.s, side, Fs[side]), mL = two ? shapeMapF(c.s, 'L', Fs.L) : null, mR = two ? shapeMapF(c.s, 'R', Fs.R) : null;
+          const both = !!(mL && mR), win = shapeWinOf(c.s, srcWin);
+          const s0 = mS ? chevronAt(c.c, both ? mL : mS, both ? mR : null, both ? pn('L') : pn(side), pn('R'), win) : null;
           let L = null;
           try { L = Region.levelOf(c.s); } catch (e) { L = null; }
-          const cm = s0 != null ? chevMark(X, Y, c.c, Fs[side], s0, c.color, 0.8, senseAt(c.c, L, s0, srcWin)) : '';
+          const cm = s0 != null ? chevMark(X, Y, c.c, mS, s0, c.color, 0.8, senseAt(c.c, L, s0, win)) : '';
           if (cm) { m += cm; chevDrawn++; }
         }
         return m;

@@ -22,13 +22,13 @@ const csq = ([x, y]) => [x * x - y * y, 2 * x * y];
 const STEPS = [{ type: 'custom', params: { expr: 'e^z', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2', cut: 180 }, on: true }];
 const scene = (focus, stage = 1) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus, rightMode: 'image', steps: STEPS,
   shapes: [{ id: 'p0', kind: 'point', p: Z0, visible: true }, Object.assign({ id: 'p1', kind: 'point', p: W11, visible: true }, stage ? { stage } : {})] });
-const build = async (ns, st, lang = 'en') => {
+const build = async (ns, st, lang = 'en', forWhat = 'article') => {
   await view(1440, 900, false);
   await seed(ns, st);
   await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=classic`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && typeof __cmwP === "function"', max: 30000 });
-  return ev(`await (async () => { try { const f = await __cmwFig.build({ for: 'article', cols: 2, capInImage: false }); if (!f) return { none: true };
-    return { view: f.view, panels: f.info && f.info.panels, points: f.info && f.info.points, curves: f.info && f.info.curves, cap: String(f.captionTex || '') }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
+  return ev(`await (async () => { try { const f = await __cmwFig.build({ for: '${forWhat}', cols: 2, capInImage: false }); if (!f) return { none: true };
+    return { view: f.view, panels: f.info && f.info.panels, points: f.info && f.info.points, curves: f.info && f.info.curves, chevrons: !!(f.info && f.info.chevrons), cap: String(f.captionTex || '') }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
 };
 // the panel's points near p, and whether a panel has a point near p
 const near = (pts, p) => (pts || []).filter((q) => Math.hypot(q.z[0] - p[0], q.z[1] - p[1]) < NEAR);
@@ -97,7 +97,7 @@ for (const lang of ['en', 'ru']) {
   ok('both points on z (control): panel (a) has both at their coordinates', has(L, Z0) && has(L, W11), L);
   ok('both points on z (control): the caption is as before, both points in the z-plane', /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$z_\{1\}=1\+0\.5i\$ in the \$z\$-plane\. \(b\) Their images under \$F\$/.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
 }
-// ---- a circle and a disc drawn on w₁ (#2201): carried from their own plane, as the page draws them, like the points above.
+// ---- a circle and a disc drawn on w₁: carried from their own plane, as the page draws them, like the points above.
 // The circle |w₁ − 1| = 0.5 and the disc |w₁ − 1| ≤ 0.3 on w₁:
 // - focus 0: panel (a), the z-plane, draws neither (a later plane's shape is not drawn there); panel (b), w₂, draws their images
 //   under z² alone, so √w lies on the circle (on the disc's edge);
@@ -130,5 +130,13 @@ for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['contr
       ok(`curves, control: panel (b) draws its image under F = (e^z)², Log(w)/2 on its edge (off by ${eR})`, eR != null && eR < CURVE_TOL, info['curves ' + tag].R);
     }
   }
+}
+// ---- the Homework figure's orientation chevrons on a disc drawn on w₁: drawn as on a disc of z, carried from w₁ (at focus 0 on
+// panel (b) alone, which alone draws it; at step 2 focused on both). (control: the disc on z)
+const discScene = (focus, stage) => Object.assign(scene(focus), { shapes: [Object.assign({ id: 'd1', kind: 'disc', c: [1, 0], r: 0.3, visible: true }, stage ? { stage } : {})] });
+for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['control, on z, focus 0', 0, 0]]) {
+  const f = await build('xsphw' + focus + stage + Date.now(), discScene(focus, stage), 'en', 'homework');
+  info['chevrons ' + tag] = { chevrons: f.chevrons, err: f.err };
+  ok(`Homework, ${tag}: the disc${stage ? ' of w₁' : ''} has its orientation chevrons`, !f.err && f.chevrons === true, info['chevrons ' + tag]);
 }
 return { pass: fails.length === 0, fails, info };

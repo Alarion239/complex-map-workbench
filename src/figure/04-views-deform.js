@@ -330,7 +330,7 @@
     const cam = A.svBox(), srcWin = expandBox(cam, 3), shapes = A.shapes();
     const span = (b) => Math.max(b.x1 - b.x0, b.y1 - b.y0);
     let boxes = idx.map((i) => {
-      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, SV_FIT_PAD);
+      const c = imageWin((z) => z, A.svFrameF(i), cam, srcWin, shapes, { pad: SV_FIT_PAD });
       return c && span(c) <= SV_FIT_MAX * span(cam) ? widenTo(c, aspect(cam)) : null;
     });
     const fellBack = boxes.some((b) => !b);
