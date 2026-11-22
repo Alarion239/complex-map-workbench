@@ -287,7 +287,7 @@ const VIEWS = {
   'v15_merge_cmd.js': steps({ pin: true }),
   'v15_params_cmd.js': steps({ pin: true }),
   'v15_planemenu_cmd.js': steps({ pin: true }),
-  'zp_classic_cmd.js': classic('the right pane\'s renderer paths by degree and the frame held mid-drag: the steps view shows one plane, with no right pane'),
+  'zp_classic_cmd.js': classic('the image plane\'s renderer paths by degree, read on X\'s pane at a focused stage of the classic view'),
   'zp_cmd.js': steps({ pin: true }),
   'zpfix_cmd.js': steps({ pin: true }),
   'deform_nat_cmd.js': steps({ pin: true }),
