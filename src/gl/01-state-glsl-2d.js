@@ -430,7 +430,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nflat out float vKErr;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nflat out float vKErr; flat out float vKDz;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -497,7 +497,7 @@ ${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
   // triangles; kept to at least a twentieth of h^2, where a triangle near equilateral in z averages the term out). Near a
   // pole or a critical point of f the estimate grows. The error in units of s: the key's gradient (by differences, so
   // the key's own poles count) times that distance)
-  vKErr = 0.0;
+  vKErr = 0.0; vKDz = 0.0;
   if (uKRes == 2) {
     vec2 z0 = srcOf(s0), z1 = srcOf(s1), z2 = srcOf(s2), zb = (z0 + z1 + z2) / 3.0;
     vec2 a1 = z1 - z0, a2 = z2 - z0, b1 = w1 - w0, b2 = w2 - w0;
@@ -507,6 +507,7 @@ ${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
     float h = longest(z0, z1, z2);
     float f2 = 2.0 * len2(wm - (w0 + w1 + w2) / 3.0) / max(len2(m2), 0.05 * h * h + 1e-30);
     float dz = 0.125 * f2 * h * h / max(len2(fp), 1e-30);
+    vKDz = dz;
     float t0, t1, t2, sb = preKeyS(zb, t0);
     vKErr = length(vec2(preKeyS(zb + vec2(dz, 0.0), t1) - sb, preKeyS(zb + vec2(0.0, dz), t2) - sb));
   }
@@ -753,10 +754,10 @@ layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
 layout(location = 2) in float aTri;
 out vec2 vG; out vec2 vP;
-flat out float vJac; flat out float vKErr;
+flat out float vJac; flat out float vKErr; flat out float vKDz;
 ${sphere ? 'out vec3 vNor; out vec3 vPos;\nuniform mat4 uMVP;' : 'uniform vec2 uRel; uniform vec2 uScale;'}
 void main() {
-  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vKErr = 0.0;
+  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vKErr = -1.0; vKDz = 0.0;
 ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPos * 1.002, 1.0);' : '  gl_Position = vec4((aPos - uRel) * uScale, 0.0, 1.0);'}
 }
 `;
@@ -808,18 +809,33 @@ float preKeyDepth(vec2 sa, bool stepped) {
   return ((stepped ? floor(d + 0.5) : d) + tie) / (KEY_SMAX + 1.0);
 }
 `;
-  // The resolve of ties (GLR.carryResolve, uKRes 1 then 2; fragment stages only): pass 1 writes s / (KEY_SMAX + 1) alone, so
-  // each pixel keeps its smallest key smin (a 32-bit float depth, uPeelD in pass 2); pass 2 puts the fragments whose key
-  // is within uKBand of smin (the band, in units of s: the mesh's own error in the key) in front, ordered by their tie
-  // order alone, as the inverse pass orders the keys within its band (Inverse.order), and the others behind them by s
-  const PRE_KEY_RES = glsl`flat in float vKErr;
-uniform highp sampler2D uKMin;
-const float KEY_ERR_K = 4.0;
+  // The resolve of ties (GLR.carryResolve, uKRes 1 then 2; fragment stages only). Pass 1 writes s / (KEY_SMAX + 1) alone as
+  // the depth, so each pixel keeps its smallest key smin (a 32-bit float depth, uKMin in pass 2), and its source point as
+  // the colour, so the pixel keeps the front fragment's (uKPos). Pass 2 puts in front, ordered by their tie order alone, as
+  // the inverse pass orders the keys within its band (Inverse.order), the fragments that tie with that one: a key within
+  // the band of smin (KEY_ERR_K times the key's error across the fragment's triangle, vKErr, at least uKBand; units of s)
+  // and, where the frame's rotation has an order uKOrd (svTies: n > 1), a source point in the front one's orbit under it
+  // (n times their angles about the key's centre equal mod 2 pi, within KEY_ERR_K times the source point's own error, vKDz,
+  // over its distance from the centre). Two sheets the rotation does not carry into each other are kept in the key's order
+  // however near their keys, as the exact pass keeps them. The others go behind them, by s. A pre-mapped mesh has no
+  // estimate of its error (vKErr < 0, PRE_VS): with the rotation's orbit to tell true ties apart, a wide band
+  // (KEY_BAND_WIDE) and a loose test of the orbit (KEY_ORBIT_TOL), since the rotation's partners have equal keys whatever
+  // the mesh's error; without it, uKBand alone
+  const PRE_KEY_RES = glsl`flat in float vKErr; flat in float vKDz;
+uniform highp sampler2D uKMin; uniform highp sampler2D uKPos; uniform int uKOrd;
+const float KEY_ERR_K = 4.0, KEY_BAND_WIDE = 1024.0, KEY_ORBIT_TOL = 0.1;
 float preKeyRes(vec2 sa) {
   float tie, s = preKeyS(sa, tie);
   if (uKRes == 1) return s / (KEY_SMAX + 1.0);
   float smin = texelFetch(uKMin, ivec2(gl_FragCoord.xy), 0).r * (KEY_SMAX + 1.0);
-  return s <= smin + max(uKBand, KEY_ERR_K * vKErr) ? 0.5 * tie : 0.5 + 0.5 * s / (KEY_SMAX + 1.0);
+  bool est = vKErr >= 0.0, orb = uKOrd > 1;
+  bool tied = s <= smin + (est ? max(uKBand, KEY_ERR_K * vKErr) : orb ? KEY_BAND_WIDE : uKBand);
+  if (tied && orb) {
+    vec2 c = 0.5 * (uKWin.xy + uKWin.zw), u = sa - c, v = texelFetch(uKPos, ivec2(gl_FragCoord.xy), 0).xy - c;
+    float ph = float(uKOrd) * (atan(u.y, u.x) - atan(v.y, v.x));
+    tied = abs(sin(0.5 * ph)) <= (est ? 0.5 * float(uKOrd) * KEY_ERR_K * vKDz / max(length(u), 1e-30) + 1e-3 : KEY_ORBIT_TOL);
+  }
+  return tied ? 0.5 * tie : 0.5 + 0.5 * s / (KEY_SMAX + 1.0);
 }
 `;
   const PRE_KEY = '  float kd = uKeyOn > 0 ? (uKRes > 0 ? preKeyRes(sa) : preKeyDepth(sa, true)) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
@@ -1322,7 +1338,7 @@ ${key ? PRE_KEY_DECL + PRE_KEY_RES : ''}${centroid ? 'centroid in' : 'in'} vec2 
 ${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
+${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(sa, 0.0, 0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
   vec2 sw = carryW(sa);
   o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }
@@ -1338,9 +1354,9 @@ ${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(0.0); return; }\n' : ''}${cz ? `
   const GLOBE_SHELL = '1.002';
   const CARRY_GLOBE_VS = LIFT + `
 uniform mat4 uMVP; uniform ivec2 uN; uniform float uLim; uniform float uPole;
-out vec2 vP; out vec3 vNor; out vec3 vPos; flat out float vKErr;
+out vec2 vP; out vec3 vNor; out vec3 vPos; flat out float vKErr; flat out float vKDz;
 void main() {
-  vKErr = 0.0;
+  vKErr = 0.0; vKDz = 0.0;
   int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % uN.x, cell / uN.x);
   vec3 q0 = vec3(0.0), q1 = q0, q2 = q0;

@@ -1851,13 +1851,14 @@
   // shows where the span ends, at plane b: an upward glide lands on that sheet, while a downward one, which ends at the
   // span's first plane, keeps plane b's key to the end (the first plane's key lacks the later planes' poles, so where the
   // map folds it would put the wrong sheet in front on the way); at rest, plane b's)
-  // Whether a frame's sheets can tie under the sheet key k: its points of plane 0 go first through a map that a rotation
-  // about the key's centre c by 2 pi j / n (n up to SV_TIE_N) does not change, as z^n's about 0 (f(c + e^(i theta) (z - c))
-  // = f(z) at SV_TIE_PTS points of the key's window). Such a rotation keeps a point's distance to c, so the sheets it
-  // carries into each other have equal keys over the whole plane, and only their tie order may decide between them: the
-  // carried meshes then resolve the ties per pixel (GLR.carryResolve: the keys within a band of a pixel's smallest key,
-  // KEY_ERR_K times the key's error across each triangle and at least SV_TIE_BAND, ordered by the tie order), which costs
-  // every mesh a second draw, so a frame whose sheets cannot tie draws them once.
+  // Whether a frame's sheets can tie under the sheet key k: the largest order n (up to SV_TIE_N) of a rotation about the key's
+  // centre c by 2 pi / n that its points of plane 0 go first through a map unchanged by, as z^n's about 0 (f(c + e^(2 pi i
+  // / n) (z - c)) = f(z) at SV_TIE_PTS points of the key's window), or 0 for none. Such a rotation keeps a point's distance
+  // to c, so the sheets it carries into each other have equal keys over the whole plane, and only their tie order may
+  // decide between them: the carried meshes then resolve the ties per pixel (GLR.carryResolve: the sheets in the rotation's
+  // orbit of a pixel's front one whose keys are within a band of its key, KEY_ERR_K times the key's error across each
+  // triangle and at least SV_TIE_BAND, ordered by the tie order), which costs every mesh a second draw, so a frame whose
+  // sheets cannot tie draws them once.
   // The map tested: at rest plane b's own; a step's glide the steps before b, which the glide's map runs first; All at
   // once, the steps up to the span's first plane (a rotation the later ones keep, as a step's glide's own, is not seen).
   // Not covered: a rotation of order past SV_TIE_N (z^12 about 0 keeps the key's own order); equal keys that no rotation
@@ -1869,10 +1870,11 @@
   const svTieMemo = new Map();
   // (the band's floor, SV_TIE_BAND unless a test hook set another: __cmwSteps({ tieBand }))
   let svTieBandSet = null;
+  let svCarryPre = 0;   // the pre-mapped meshes among the last carried frame's draws (the tests read it: __cmwSteps().carryPre)
   const svTieBand = () => (svTieBandSet == null ? SV_TIE_BAND : svTieBandSet);
   function svTies(map, b, k) {
     const s = map.mode === 1 ? b - 1 : map.mode === 3 ? map.a : b;
-    if (!(s > 0) || !k || !k.win) return false;
+    if (!(s > 0) || !k || !k.win) return 0;
     const w = k.win, c = C((w.x0 + w.x1) / 2, (w.y0 + w.y1) / 2), r = Math.hypot(w.x1 - w.x0, w.y1 - w.y0) / 4;
     const key = [s, chainSig[s], c.re, c.im, r].join('|');
     if (svTieMemo.has(key)) return svTieMemo.get(key);
@@ -1883,13 +1885,13 @@
       const z = CX.add(c, C(r * q * Math.cos(a), r * q * Math.sin(a))), v = f(z);
       if (v && CX.isFin(v)) { zs.push(z); fs.push(v); }
     }
-    let tie = false;
-    for (let n = 2; n <= SV_TIE_N && !tie && zs.length >= 3; n++) {
+    let tie = 0;
+    for (let n = SV_TIE_N; n >= 2 && !tie && zs.length >= 3; n--) {
       const e = C(Math.cos(2 * Math.PI / n), Math.sin(2 * Math.PI / n));
-      tie = zs.every((z, i) => {
+      if (zs.every((z, i) => {
         const v = f(CX.add(c, CX.mul(e, CX.sub(z, c))));
         return !!v && CX.isFin(v) && CX.abs(CX.sub(v, fs[i])) <= SV_TIE_REL * (1 + CX.abs(fs[i]));
-      });
+      })) tie = n;
     }
     if (svTieMemo.size >= SV_TIE_MEMO) svTieMemo.clear();
     svTieMemo.set(key, tie);
@@ -1937,6 +1939,7 @@
     // (an old mesh drawn inside its guard box never ends the depth: its clear would be scissored too, so the depth is
     // cleared after it; it is never first, its shape's tessellated mesh comes before it)
     const n = lay.length, tail = n > 1 && lay[n - 1].scissor;
+    svCarryPre = lay.filter((d) => d.pre).length;
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
@@ -1955,16 +1958,16 @@
     let layers = a < 0.999 && !!GLR.carryLayers;
     // (a frame whose sheets can tie draws its meshes through the resolve of ties, with the layers' programs: at full
     // opacity the front layer, below it every layer in the order it resolves)
-    let ties = !!GLR.carryResolve && svTies(map, b, key);
+    let ties = GLR.carryResolve ? svTies(map, b, key) : 0;
     for (let pass = 0; pass < 2; pass++) {
       let ready = true;
       for (let i = 0; i < n; i++) {
-        sts[i].peel = layers || ties; sts[i].prep = null;
+        sts[i].peel = layers || !!ties; sts[i].prep = null;
         if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
       }
       if (ready) break;
       if (!layers && !ties) return standIn();
-      layers = ties = false;
+      layers = false; ties = 0;
     }
     const drawAll = () => {
       for (let i = 0; i < n; i++) {
@@ -1977,7 +1980,7 @@
       if (tail) GLR.carryDepthEnd();
       return true;
     };
-    const layered = layers ? GLR.carryLayers(a, drawAll, ties ? svTieBand() : null) : ties ? GLR.carryResolve(svTieBand(), drawAll) : null;
+    const layered = layers ? GLR.carryLayers(a, drawAll, ties ? svTieBand() : null, ties || 0) : ties ? GLR.carryResolve(svTieBand(), drawAll, ties) : null;
     return (layered === null ? drawAll() : layered) || standIn();
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
