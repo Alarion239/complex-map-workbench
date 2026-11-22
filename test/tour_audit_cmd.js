@@ -294,8 +294,7 @@ for (const cfg of runs) {
     })()`));
   }
 }
-// (a step the layout leaves out is reported by the engine and counted by "every step visited", not here;
-// views/key at 844 × 390, notes/tour/POLISH.md)
+// (a step the layout leaves out is reported by the engine and counted by "every step visited", not here; notes/tour/POLISH.md)
 const LALL = logs();
 const SKIPS = LALL.filter((l) => /\[tour\] step skipped/.test(l.m)).map((l) => l.m);
 const L = LALL.filter((l) => /EXC|\[tour\]/i.test(l.t + l.m) && !/\[tour\] step skipped/.test(l.m)).slice(0, 12);

@@ -184,8 +184,7 @@
     if ('phaseStyle' in lk) { setOpt('dc', DC_STYLES.some((p) => p[0] === lk.phaseStyle) ? lk.phaseStyle : d0.dc); setOpt('landPlain', false); cauchyCache.key = ''; }
     if ('paths' in lk) { setOpt('morphPaths', lk.paths !== false); const b = $('pathsBtn'); if (b && !b.disabled) b.setAttribute('aria-pressed', String(S.morphPaths)); }
     if ('allAtOnce' in lk && !!lk.allAtOnce !== !!S.homAll) setHomAll(!!lk.allAtOnce);
-    // the Phase key of Y, and the phase sectors (Tiles' 30° lines)
-    if ('phaseKey' in lk) setOpt('wKey', !!lk.phaseKey);
+    // the phase sectors (Tiles' 30° lines)
     if ('sectors' in lk) setOpt('sectors', [8, 12, 16, 24].includes(lk.sectors) ? lk.sectors : 12);
     buildDisplay(); buildRightFoot(); updateFocusUI(); drawLegend();
     requestRender('L', 'R');

@@ -5,7 +5,7 @@
 // It runs in either view (ci/suite_views.js: the steps view here, the classic views in test/tour_cmd_classic_cmd.js) and
 // addresses steps by id, their index read from the tour's chapters: the generic task step is X's pan in the classic views and
 // Planes' first step in the steps view, the chapter after Basics Views or Planes. The strip's arrow keys (in the steps view ← →
-// glide the planes) and the Views chapter (the view switch, Phase, Sphere, Phase key) are the classic views' only; the steps
+// glide the planes) and the Views chapter (the view switch, Phase, Sphere) are the classic view's only; the steps
 // view checks its own chapter end (Edit a step) and Playing the chain's Part of the chain in their place.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -72,7 +72,7 @@ check('the strip does not take the focus', await ev(`!document.querySelector('.t
 if (!SV) {
   await ev(`document.querySelector('.ts-next').focus()`);
   await key('ArrowRight'); await waitFor(async () => (await cur()).id !== 'x');
-  check('ArrowRight: next step', (await cur()).id === 'y', await cur());
+  check('ArrowRight: next step', (await cur()).id === 'draw', await cur());
   await key('ArrowLeft'); await waitFor(async () => (await cur()).id === 'x');
   check('ArrowLeft: back', (await cur()).id === 'x', await cur());
 } else {
@@ -191,10 +191,12 @@ if (SV) {
 }
 await startAndWait({ chapter: 'analysis' });
 g = await ev(`({ cur: Tour.current(), count: document.querySelector('.ts-count').textContent })`);
-check('Analysis counts 5 steps (v15: Zeros and poles moved to Editing)', g.cur && g.cur.id === 'targets' && /1 of 5$/.test(g.count), g);
+// (the classic view's Analysis has no Targets step, which draws in Y: four steps from the Cauchy integral)
+check('Analysis counts its steps from the first', g.cur && g.cur.id === (SV ? 'targets' : 'cauchy') && (SV ? /1 of 5$/ : /1 of 4$/).test(g.count), g);
 g = await ev(`(Tour.lit() || {}).body`);
 // (the steps view's step is Shapes on a later plane: a later plane's regions pulled back to z)
-check('Targets: the copy names where the preimages show', SV ? /later plane/.test(g) && /all of their preimages/.test(g) : /X shades their preimages/.test(g) && /multiplicity/.test(g), g);
+// (standards-ok: the classic Targets step, which draws in Y, is gone with Y's pane, not drawn since #994)
+if (SV) check('Targets: the copy names where the preimages show', /later plane/.test(g) && /all of their preimages/.test(g), g);
 // the Cauchy phase style: Phase view, the style control lit whole (#247: on a desktop it is a row in X's pane head; its
 // note, a sentence, is behind the head's ⋯ button, read in its popover), the integral over the scene's unit circle
 await ev(`Tour.next()`); await settle(1800);
@@ -391,14 +393,14 @@ check('phone, two lit areas: the Disc key lit whole, the strip clear of the tool
 await snap('tour-phone-draw-dark');
 // what a phone reads: the panes by their role, touch instead of hover
 const phoneText = [];
-const PHONE_STEPS = SV ? ['planes/plane', 'planes/park', 'planes/carried', 'basics/draw', 'analysis/targets', 'analysis/integral'] : ['basics/x', 'basics/y', 'basics/preimages', 'basics/draw', 'analysis/targets', 'analysis/integral'];
+const PHONE_STEPS = SV ? ['planes/plane', 'planes/park', 'planes/carried', 'basics/draw', 'analysis/targets', 'analysis/integral'] : ['basics/x', 'basics/draw', 'basics/shapes', 'basics/formula', 'analysis/cauchy', 'analysis/integral'];
 for (const p of PHONE_STEPS) {
   await startAndWait(at(p));
   phoneText.push(await ev(`Tour.current().id + ': ' + (Tour.lit() || {}).body + ' ' + document.querySelector('#tourLead').textContent`));
 }
 check('phone: no left, right or hover in what the steps say', phoneText.length === 6 && phoneText.every((t) => !/\bhover|\b(left|right)\b(?!\s+angles?)/i.test(t)), phoneText);
-// (the probe's step: preimages, or in the steps view Past the colour plane)
-check('phone: the probe step says hold, then slide', phoneText.some((t) => (SV ? /^carried: .*hold a point and slide/ : /^preimages: Hold a point/).test(t)), phoneText[2]);
+// (the probe's step: in the steps view Past the colour plane; the classic view's, Preimages, went with Y's pane)
+if (SV) check('phone: the probe step says hold, then slide', phoneText.some((t) => /^carried: .*hold a point and slide/.test(t)), phoneText[2]);
 await key('Escape'); await ev('Tour.stop()'); await settle(300);
 await open('t8c', null, 390, 844, false, true); await ev('Tour.reset(); Tour.suggest({ delay: 0, force: true })'); await settle(900);
 await sleep(400);

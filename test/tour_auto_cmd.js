@@ -4,8 +4,8 @@
 // event; the advance 1500 ± 150 ms after the event, whatever the pointer or keys do next (doors 700 ± 100); holds and cancels; the sound
 // settings back after the chapter, after Esc and after a reload. It runs in either view (ci/suite_views.js: the steps view here,
 // the classic views in test/tour_auto_classic_cmd.js) and addresses steps by id: the pan task is X's in the classic views and
-// Planes' first in the steps view, the chapter's end with a task Phase key or Edit a step. The doors (the view switch), the chain
-// step, the preimages hint and the Deformation's Part of the chain are the classic views' only.
+// Planes' first in the steps view, the chapter's end with a task the Riemann sphere or Edit a step. The doors (the view switch)
+// and the chain step are the classic view's only.
 // Run: test/<you>_cdp/q.sh test/tour_auto_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
@@ -101,10 +101,10 @@ const tickAfter = async (t0) => { const w = await until(`document.querySelector(
 // ---------------- 1440 × 900, mouse, English
 await open('au1', 1440, 900, false, false);
 const SV = await isSteps();
-// the pan task (X's in the classic views, One plane at a time in the steps view), and the chapter's end with a task (Phase key's
-// check, or the chip f₁) with the chapter after it
+// the pan task (X's in the classic view, One plane at a time in the steps view), and the chapter's end with a task (the
+// Riemann sphere's turn, or the chip f₁) with the chapter after it
 const PAN = SV ? 'planes/plane' : 'basics/x';
-const KEYSTEP = SV ? 'planes/step' : 'views/key';
+const KEYSTEP = SV ? 'planes/step' : 'views/sphere';
 const AFTERKEY = SV ? 'playing/play' : 'edit/cards';
 // X: no advance without input; a pan of empty space ticks it at once; CD_MS after the release it moves on
 await goStep(PAN);
@@ -142,17 +142,16 @@ await sleep(150);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
-// the chapter's last task: Phase key's check, or the chip f₁; an input at +1 s does not restart the countdown
+// the chapter's last task: the sphere's turn (a drag across X's globe), or the chip f₁; an input at +1 s does not restart
+// the countdown
 await goStep(KEYSTEP);
-// (on a desktop the Phase key check is a toggle in Y's pane head; when the head has no room it is behind the
-// head's ⋯ button, which is opened first)
-const ob = SV || (await center('#wKeyChkR')) ? null : await center('#rightFoot .opts-btn:not(.pat-btn)');
-if (ob) { await click(ob[0], ob[1]); await until(`(() => { const k = document.querySelector('#wKeyChkR'); return !!(k && k.closest('label').getClientRects().length); })()`, 3000); }
-const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : '#wKeyChkR');
-check(SV ? 'key: the chip f₁ is there' : 'key: the Phase key check is there', !!kc, kc);
+const gb = SV ? null : await paneBox('#paneL');
+const kc = SV ? await center('#svStrip .sv-step[data-k="1"] .sv-fchip') : [(gb.l + gb.r) / 2, (gb.t + gb.b) / 2];
+check(SV ? 'key: the chip f₁ is there' : 'key: X\'s globe is there', !!kc, kc);
 if (kc) {
   await ltInstall();
-  await click(kc[0], kc[1]); t0 = Date.now();
+  if (SV) await click(kc[0], kc[1]); else await mdrag(kc[0] - 40, kc[1], kc[0] + 40, kc[1] + 10);
+  t0 = Date.now();
   tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
   // (the countdown runs on the page's clock: the wheel comes when that clock is 1 s into it, and the advance is measured on it
@@ -163,8 +162,6 @@ if (kc) {
   const aK = await advanceFrom(KEYSTEP, dK, 300);
   check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && wheelAt != null && wheelAt < dK.p + dK.left, [aK, dK, wheelAt]);
 }
-// (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
-await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
 try {
 // a hold: the palette left open 6 s (Palette and keys: its task is done when it opens)
 await goStep('keys/palette');
@@ -174,7 +171,7 @@ check('palette: no advance while it stays open (6 s)', await stays('keys/palette
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
 // (no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
-// #tourSay, which a chapter's end creates: Phase key is the end of Views in the classic views)
+// #tourSay, which a chapter's end creates: the Riemann sphere is the end of Views in the classic view)
 const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
@@ -271,27 +268,26 @@ check('Move on by itself off: tick and ring, no advance in 6 s', await stays(PAN
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// a chapter's end with a task (Phase key in the classic views, the chip f₁ in the steps view): tick and
+// a chapter's end with a task (the Riemann sphere's turn in the classic view, the chip f₁ in the steps view): tick and
 // result, then 3 s into the next chapter
 await goStep(KEYSTEP);
-// (the Phase key check in Y's head, or behind its ⋯ / Regions button: that pop-up opened first)
 const rectOf = (js) => ev(`(() => { const e = ${js}; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `(document.querySelector('#wKeyChkR') || {}).closest?.('label')`;
-if (!SV && !(await rectOf(keySel))) { const ob = await rectOf(`document.querySelector('#rightFoot .opts-btn:not(.pat-btn)') || document.querySelector('#rightFoot .pat-btn')`); await click(ob[0], ob[1]); await until(`(() => { const e = ${keySel}; return !!(e && e.getClientRects().length); })()`, 3000); }
+const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `document.querySelector('#paneL')`;
 const st = await rectOf(keySel);
-await click(st[0], st[1]); t0 = Date.now();
+if (SV) await click(st[0], st[1]); else await mdrag(st[0] - 40, st[1], st[0] + 40, st[1] + 10);
+t0 = Date.now();
 const dP = await doneAt(t0);
 await sleep(200);
-// (the result line: the step's then, and the chapter done: "Views done ✓" after Phase key's, "Planes done ✓" alone after Edit a step)
-check('Phase key (a chapter\'s end): tick and result', (SV ? /Planes done ✓/ : /reads as a value/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
+// (the result line: the step's then, and the chapter done: "Views done ✓" after the sphere's, "Planes done ✓" alone after Edit a step)
+check('the chapter\'s last task: tick and result', (SV ? /Planes done ✓/ : /north pole/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
 const aP = await advanceFrom(KEYSTEP, dP, 250);
-check(`Phase key: moves on CD_MS after, into ${AFTERKEY} (late only as far as the page was blocked)`, aP.ok && (await cur()) === AFTERKEY, [aP, dP, await cur()]);
+check(`the chapter's last task: moves on CD_MS after, into ${AFTERKEY} (late only as far as the page was blocked)`, aP.ok && (await cur()) === AFTERKEY, [aP, dP, await cur()]);
 // once a task is done the spotlight steps aside: the shade fades and lets presses through
 await goStep(PAN);
 a = await plane(); await mdrag(a.l + 150, a.b - 90, a.l + 200, a.b - 120); await sleep(400);
 const qq = await ev(`(() => { const L = Tour.lit(), s = document.querySelector('.tour-root .tour-dim'); const e = document.elementFromPoint(innerWidth - 40, innerHeight - 40); return { quiet: L.quiet, op: getComputedStyle(s).opacity, hit: e && !e.closest('[data-tour]') }; })()`);
 check('done: the spotlight steps aside (quiet, faded, presses reach the app)', qq.quiet && +qq.op < 0.05 && qq.hit, qq);
-} catch (e) { check("a chapter's end with a task (Phase key)" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
+} catch (e) { check("a chapter's end with a task" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // reduced motion: Next counts down "Next in 2 s", "Next in 1 s" (the seconds left of 1.5)
 await send('Emulation.setEmulatedMedia', { features: [{ name: 'prefers-reduced-motion', value: 'reduce' }] });
@@ -546,15 +542,7 @@ if (pf) {
   const aF = await advanceFrom('basics/formula', dF, 600);
   check('phone formula: Add ticks it and it moves on CD_MS after it is done (late only as far as the page was blocked)', aF.ok, [aF, dF, await lit()]);
 } else check('phone formula: the field is there', false);
-// user-9: a hold shorter than the ring pans Y: the line says why (the classic views' preimages step: the steps view's tour has none)
-if (!SV) {
-  await goStep('basics/preimages');
-  const pr = await paneBox('#paneR');
-  await tdrag(pr.l + (pr.r - pr.l) / 2, pr.t + (pr.b - pr.t) / 2, pr.l + (pr.r - pr.l) / 2 + 60, pr.t + (pr.b - pr.t) / 2 + 20, 250);
-  await until(`/ring fills/.test(document.querySelector('#tourLead').textContent)`, 3000);
-  const hl = await ev(`document.querySelector('#tourLead').textContent`);
-  check('phone preimages: a short hold that pans Y shows the hint', /ring fills/.test(hl) && /moved Y/.test(hl), hl);
-}
+// (standards-ok: the classic Preimages step, and its hint for a hold that panned Y, are gone with Y's pane, not drawn since #994)
 await ev('Tour.stop()'); await settle(400);
 // regress-7: the root has no style attribute after the tour (it had none before)
 check('phone: no style left on the root after the tour', await ev(`document.documentElement.getAttribute('style') == null`), await ev(`document.documentElement.getAttribute('style')`));
@@ -587,7 +575,7 @@ await ev('Tour.isActive() && Tour.stop()'); await settle(300);
 try {
 // ---------------- a small laptop (1366 × 657): no sheet (a laptop's strip is one row); the panes keep their size
 await open('au7', 1366, 657, false, false);
-await goStep('analysis/targets');
+await goStep('analysis/integral');
 const p0 = await paneBox('#panes');
 const wt = await center('.ts-l1');
 await click(wt[0], wt[1]); await settle(400);
@@ -600,7 +588,7 @@ await ev('Tour.stop()'); await settle(300);
 try {
 // the screen-reader line of the tour (class tour-sr, #tourSay) is out of the flow: at 1366 × 768 the page is not taller than the window
 await open('au8', 1366, 768, false, false);
-await goStep('analysis/targets'); await ev('Tour.stop()'); await until('!Tour.isActive()', 3000); // the tour's CSS is injected on first use
+await goStep('analysis/integral'); await ev('Tour.stop()'); await until('!Tour.isActive()', 3000); // the tour's CSS is injected on first use
 const sh = await ev(`(() => { const n = document.createElement('div'); n.className = 'tour-sr'; n.textContent = 'x'; document.body.append(n); const r = { sh: document.documentElement.scrollHeight, ih: innerHeight, top: Math.round(n.getBoundingClientRect().top) }; n.remove(); return r; })()`);
 check('1366 × 768: a tour-sr line at the end of the body does not make the page taller than the window', sh.sh <= sh.ih, sh);
 } catch (e) { check('1366 × 768 page height' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }

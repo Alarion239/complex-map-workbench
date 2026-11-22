@@ -156,9 +156,9 @@ const TIMING = {
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
   'p3_accept_steps_cmd.js': [t(/^\(h\) no main-thread task over 50 ms/), t(/^\(h\) the dialog: no main-thread task over 50 ms/),
     t(/^\(h\) a cancelled export returns null soon after the cancel/, (d) => d && d.cancelled === true)],
-  // (the export completed with both globes inverse; only its long tasks missed)
+  // (the export completed with X's globe inverse; only its long tasks missed)
   'p3_review_classic_cmd.js': [t(/^first switch to X Sphere at dpr 2: no main-thread task/),
-    t(/^two-globe 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Rglobe:inverse') && r.paths.includes('Lglobe:inverse')))],
+    t(/^the globe's 300 dpi export at dpr 2: completes, no main-thread task over 50 ms/, (d) => Array.isArray(d) && d.length > 0 && d.every((r) => r.ok && r.paths.includes('Lglobe:inverse')))],
   'zp_cmd.js': [t(/^drag at 60 fps/)],
   'v15_params_cmd.js': [t(/^slider drag: (rAF work|input handler) p95/)],
   'p5_accept_cmd.js': [t(/: no slice over 6 ms$/), t(/^8\.8: the slices of the rebuild stay within 6 ms/)],
@@ -181,7 +181,7 @@ const SOFTWARE = {
   'tour_auto_cmd.js': [s(/^done: the spotlight steps aside/, 'a 200-ms fade looked at 400 ms after the task, before its frames: quiet, and presses reach the app',
     (d) => d && d.quiet === true && d.hit === true)],
   'p3_accept_cmd.js': [
-    s(/^X Sphere at stage 0 draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
+    s(/^(X Sphere at stage 0|\(f\) Cayley\(H\) on the globe at stage 1) draws inverse$/, 'sampled 2.5 s after the switch, the left globe\'s inverse program is still compiling (no parallel compile here: seconds a program)',
       (d) => Array.isArray(d) && d.some((p) => p.role === 'L' && p.viewKind === 'globe' && p.path === 'pending' && p.reason === 'compiling')),
     s(/^\(h\) the dialog: the last option wins$/, 'the last option is the one checked, but the figure is still being rebuilt when the suite\'s 10 s wait ends (a figure takes 25-40 s to build here); a finished figure with other columns still fails',
       (d) => d && d.checked === '1' && (d.cols === null || d.building === true)),
