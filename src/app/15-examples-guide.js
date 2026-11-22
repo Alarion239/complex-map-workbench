@@ -11,12 +11,12 @@
       steps: [{ type: 'exp', params: {} }, { type: 'mobius', params: { a: '1', b: '-1', c: '1', d: '1' } }],
     },
     {
-      name: $t('Quarter plane squared'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation and watch the quadrant open onto the half-plane.'), trySv: $t('Try: press › and watch the quadrant open onto the half-plane.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
+      name: $t('Quarter plane squared'), trySv: $t('Try: press › and watch the quadrant open onto the half-plane.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tex: 'w=z^{2}', blurb: $t('The first quadrant opens onto the upper half-plane; angles at 0 double.'), view: { cx: 0.6, cy: 0.6, s: 70 },
       shapes: [{ kind: 'sector', c: [0, 0], r: 0, t1: 0, t2: 90 }, { kind: 'pgrid', c: [0, 0], r: 2, nc: 4, nr: 16 }],
       steps: [{ type: 'pown', params: { n: 2 } }],
     },
     {
-      name: $t('Joukowski airfoil'), tryDone: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: drag the circle through 1, then press Deformation.'), trySv: $t('Try: drag the circle through 1, then press ›.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed' }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
+      name: $t('Joukowski airfoil'), trySv: $t('Try: drag the circle through 1, then press ›.'), tryDoneSv: [[{ on: 'shape-moved', test: (e) => e.plane === 'z' }], [{ on: 'plane-changed' }]], tourSv: 'planes', tex: 'w=\\tfrac12\\left(z+\\tfrac1z\\right)', blurb: $t('A circle through 1 becomes a wing with a sharp trailing edge.'), view: { cx: 0, cy: 0, s: 70 },
       shapes: [
         { kind: 'disc', c: [-0.12, 0.1], r: 1.1244998888, complement: true },
         { kind: 'circle', c: [-0.12, 0.1], r: 1.1244998888 },
@@ -30,9 +30,9 @@
       steps: [{ type: 'log', params: { cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Disk automorphism'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the disk turns into itself.'), trySv: $t('Try: press ›: the disk turns into itself.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
+      name: $t('Disk automorphism'), trySv: $t('Try: press ›: the disk turns into itself.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 1 }]], tourSv: 'planes', tex: 'w=\\frac{z-a}{1-\\bar a z}', blurb: $t('A Möbius self-map of the disk, played as a deformation.'), view: { cx: 0, cy: 0, s: 110 },
       shapes: [{ kind: 'disc', c: [0, 0], r: 1 }, { kind: 'pgrid', c: [0, 0], r: 1, nc: 5, nr: 16 }],
-      steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }], morph: true,
+      steps: [{ type: 'blaschke', params: { a: '0.5+0.3i', phi: 0 } }],
     },
     {
       name: $t('Sine of a half-strip'), tryDone: [[{ on: 'view-changed', test: (e) => e.main === 'phase' }]], try: $t('Try: switch to Phase and look for the zeros of sin z.'), trySv: $t('Try: on z, find the points where every colour meets: the zeros of sin z.'), tryDoneSv: [[{ on: 'probe', test: (e) => e.stage === 0 && e.mod < 0.05 }]], tourSv: 'planes', tour: 'views', tex: 'w=\\sin z', blurb: $t('The half-strip |Re z| < π/2, Im z > 0 maps onto the upper half-plane.'), view: { cx: 0, cy: 1.25, s: 105 },
@@ -45,7 +45,7 @@
       steps: [{ type: 'root', params: { n: 2, cut: 180, k: 0 } }], focus: 1,
     },
     {
-      name: $t('Cayley, then cube'), tryDone: [[{ on: 'deformation-toggled', test: (e) => !!e.on }]], try: $t('Try: press Deformation: the half-plane becomes the disk, then wraps.'), trySv: $t('Try: press › twice: the half-plane becomes the disk, then wraps.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 2 }]], tourSv: 'planes', tour: 'deform', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
+      name: $t('Cayley, then cube'), trySv: $t('Try: press › twice: the half-plane becomes the disk, then wraps.'), tryDoneSv: [[{ on: 'plane-changed', test: (e) => e.i === 2 }]], tourSv: 'planes', tex: 'w=\\left(\\frac{z-i}{z+i}\\right)^{3}', blurb: $t('Half-plane to disk, then the disk wraps around itself three times.'), view: { cx: 0, cy: 1, s: 60 },
       shapes: [{ kind: 'halfplane', a: [0, 0], b: [1, 0] }, { kind: 'cgrid', a: [-2, 0], b: [2, 2.5], n: 8 }],
       steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }, { type: 'pown', params: { n: 3 } }],
     },
@@ -1113,8 +1113,8 @@
   function examplesApi() {
     return {
       EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette,
-      commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
-      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild,
+      commit, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack,
+      focusKey, markOpener, morph, nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild,
       setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI,
       undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams,
       setOpt, deleteOpt,

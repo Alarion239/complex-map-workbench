@@ -349,7 +349,16 @@
     for (let k = r.b + 1; k <= nSteps(); k++) if (stepFn(k)) post.push(k);
     return { a: r.a, b: r.b, pre, post };
   }
+  // the homotopy at the transport's time t, or null while it is closed; only the export and the figure read it, and
+  // nothing in the page opens the transport (morph.open stays false)
+  function homView() {
+    if (!morphOn()) return null;
+    const r = morphState(true), a = morphState(false);
+    const rg = homRangeOk();
+    return { map: r.map, F: r.F, key: r.key, t: morph.T, imageMap: a.map, imageF: a.F, range: rg ? { a: rg.a, b: rg.b } : null, H0F: a.H0F, H0Map: a.H0Map, start: S.focus > 1 || (S.focus === 0 && !!rg) };
+  }
   function morphRange() { return HR.range(S); }
+  const morphOn = () => morph.open && morphRange().steps.length > 0;
   // the step glide's chain position, which the frame loop copies into morph.T while it owns T (glideStep, 09)
   const glide = HomRange.glider();
   // All at once (S.homAll): H_t = h_{n,t} o ... o h_{1,t} with one t in [0, 1] for every step (map mode 3); offered
@@ -409,9 +418,7 @@
       }
     }
     if (!opt.preview) save();
-    const g = homRangeOk();
-    tourEmit('deformation-range', g ? { a: g.a, b: g.b } : { a: 1, b: nSteps() });
-    return g;
+    return homRangeOk();
   }
 
   // ---------------- fix-ups: refine triangles that straddle cuts or touch poles ----------------

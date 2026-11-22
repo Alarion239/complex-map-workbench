@@ -233,7 +233,7 @@ const Phone = (() => {
     // (the desktop gets each plane's large view back; no view is drawn small while merged or held)
     for (const side of ['L', 'R']) if (keep[side]) grow(side);
     on = false;
-    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-morph', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
+    rootEl.classList.remove('ph', 'ph-land', 'ph-split', 'ph-full', 'ph-toast-on', 'ph-ctx-on', 'ph-ctx-tall');
     $('panes').classList.remove('ph-big-L', 'ph-big-R', 'ph-one');
     unparkAll();
     A.showPanels(false);
@@ -249,7 +249,6 @@ const Phone = (() => {
     p.classList.toggle('ph-big-L', b === 'L');
     p.classList.toggle('ph-big-R', b === 'R');
     p.classList.toggle('ph-one', !!mg);
-    rootEl.classList.toggle('ph-morph', !!A.morphOn());
     const split = twoUp();
     p.classList.toggle('ph-both', both && !land && !mg);
     for (const side of ['L', 'R']) { const bb = els['both' + side]; bb.hidden = land || !!mg; bb.setAttribute('aria-pressed', String(both)); }
@@ -399,9 +398,6 @@ const Phone = (() => {
     if (!on || !els.ctx) return;
     let st = null;
     try { st = A.ctxState(); } catch (e) { st = null; }
-    // (the deformation's transport has the bottom; a sheet covers the bar but leaves its room, so that opening and closing
-    // one is no second layout change for the planes)
-    if (A.morphOn()) st = null;
     els.ctx.classList.toggle('under', !!kind);
     const key = st ? JSON.stringify(st) : '';
     if (key === ctxKey && !force) return;

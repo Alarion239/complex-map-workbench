@@ -8,8 +8,8 @@
 const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
-    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
-    nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
+    drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
+    nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
@@ -109,7 +109,6 @@ const Examples = (() => {
     // (a new scene: every view starts from its own fitted plane)
     for (const k of Object.keys(viewMem)) delete viewMem[k];
     morph.open = false; morph.T = 0; morph.seg = null; morph.playing = false;
-    defMem.y = null; defMem.d = null; defMem.dkey = '';
     // an example with a melody shows its Try line before the layout, so its plane is fitted with the
     // line's room already taken (shown after the fit, the line pushed the spiral's top out of the plane)
     const laned = !spec && (ex.song || ex.shapes.some((sh) => sh.listen)) && sndPieceHint(true);
@@ -162,7 +161,6 @@ const Examples = (() => {
     commit();
     // (what opened, with Undo, when there is work to go back to; the button names it until an edit)
     if (!spec) { A.exAt = A.hi; exLabelSync(); if (A.hi > 0) undoToast($t('Opened {name}.', { name: ex.name })); }
-    if (ex.morph || ev.deform) openTransport();
     if (piece && !spec && !laned) sndPieceHint();
     // every other example says what to try, in the tour's docked line, Show me starting the chapter about
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
@@ -447,7 +445,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();
