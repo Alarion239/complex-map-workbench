@@ -34,6 +34,18 @@
 const SphereMesh = (() => {
   const { C } = CX;
   const TAU = 2 * Math.PI;
+  // whether polar coordinates fail to stand for the points of a triangle across it: its corners (x, y) and the mean of
+  // their polar coordinates (lr, ar) = (ln r, arg) * 16 / tau, arg continuous across it. It holds 0, where ln r and arg
+  // cannot be interpolated, or their interpolation at its centroid lands over CART_TOL of its longest edge from the
+  // centroid (about 0). SphereMesh's cart and the carried colour's stand-in (carriedForm) use it
+  const CART_TOL = 0.02;
+  function polarMiss(x0, y0, x1, y1, x2, y2, lr, ar) {
+    const e0 = x0 * y1 - x1 * y0, e1 = x1 * y2 - x2 * y1, e2 = x2 * y0 - x0 * y2;
+    if ((e0 >= 0 && e1 >= 0 && e2 >= 0) || (e0 <= 0 && e1 <= 0 && e2 <= 0)) return true;
+    const r = Math.exp(lr * TAU / 16), a = ar * TAU / 16, cx = (x0 + x1 + x2) / 3, cy = (y0 + y1 + y2) / 3;
+    const edge = Math.max(Math.hypot(x1 - x0, y1 - y0), Math.hypot(x2 - x1, y2 - y1), Math.hypot(x0 - x2, y0 - y2));
+    return Math.hypot(r * Math.cos(a) - cx, r * Math.sin(a) - cy) > CART_TOL * edge;
+  }
   const FIN = 0, INF = 1, UNDEF = 2;                                 // vertex image status
   const PENDING = 0, FINAL = 1, CULLED = 2, OUTSIDE = 3, SAT = 4, DROPPED = 5;
   const STATE_NAMES = ['pending', 'final', 'culled', 'outside', 'saturated', 'dropped'];
@@ -853,6 +865,15 @@ const SphereMesh = (() => {
       else { const r = Math.hypot(ZX[i], ZY[i]); lr = r > 0 ? Math.log(r) : -1e4; ar = Math.atan2(ZY[i], ZX[i]); }
       out[0] = lr * 16 / TAU; out[1] = ar * 16 / TAU; return out;
     }
+    // whether the polar coordinates published for triangle k (vertices v; attr's P, arg unwrapped) fail to stand for z
+    // across it (polarMiss), so that it carries z itself (pub.cart): about z = 0. A triangle with a vertex stored about
+    // infinity (1/z) keeps its polar coordinates
+    function polarFails(v, attr, k) {
+      if (v.some((q) => PRI[q] === 1 || !Number.isFinite(ZX[q]) || !Number.isFinite(ZY[q]))) return false;
+      let lr = 0, ar = 0;
+      for (let j = 0; j < 3; j++) { lr += attr[k * 12 + 4 * j + 2]; ar += attr[k * 12 + 4 * j + 3]; }
+      return polarMiss(ZX[v[0]], ZY[v[0]], ZX[v[1]], ZY[v[1]], ZX[v[2]], ZY[v[2]], lr / 3, ar / 3);
+    }
     // the interpolated pattern coordinates stay within TAU_PAT px of the true ones at the edge midpoints
     function patTestOf(attr, vid, mids, S, unwrapY) {
       const g = vid.map((i) => attr(i, [0, 0])), gm = mids.map((i) => attr(i, [0, 0]));
@@ -1213,8 +1234,9 @@ const SphereMesh = (() => {
     // every FINAL leaf, clipped (and at a budget expiry the pending leaves within DEV_EXPIRY px), far to near (D
     // descending, then source y ascending: the tie rule of 5.2). Flat: pos = w - w0 (w0 = the view centre), globe:
     // pos3 = the conjugate lift; attr per vertex (g.x, g.y, P.x, P.y): g = (z - Q_t) / cell with Q_t a multiple of
-    // 10 cells per triangle, P = the polar coordinates (arg unwrapped from the first vertex) or, for graph paper, the
-    // absolute source point; tri: the area scale 0.5 log2 |dw / dz| per triangle.
+    // 10 cells per triangle, P = the polar coordinates (arg unwrapped from the first vertex) or, for graph paper and the
+    // triangles where they cannot stand for z (cart, polarFails), the absolute source point; tri: the area scale
+    // 0.5 log2 |dw / dz| per triangle; cart: 1 for a triangle whose P is its source points, not their polar coordinates.
     let pubCache = null, pub = null;
     // the publication in phases (leaves, their clipped triangles, the order, the arrays), each resumable: -> true when
     // the data is ready (deadline: a time in ms on the performance clock)
@@ -1273,7 +1295,7 @@ const SphereMesh = (() => {
         pub.n = n;
         pub.origin = flat ? [view.cx, view.cy] : [0, 0];
         pub.pos = flat ? new Float32Array(n * 6) : null; pub.pos3 = flat ? null : new Float32Array(n * 9);
-        pub.attr = new Float32Array(n * 12); pub.triA = new Float32Array(n);
+        pub.attr = new Float32Array(n * 12); pub.triA = new Float32Array(n); pub.cart = new Uint8Array(n);
         pub.box = [Infinity, -Infinity, Infinity, -Infinity];
         pub.phase = 3; pub.k = 0;
         if (now() > deadline) return false;
@@ -1311,6 +1333,11 @@ const SphereMesh = (() => {
             }
             attr[k * 12 + 4 * j] = gx; attr[k * 12 + 4 * j + 1] = gy; attr[k * 12 + 4 * j + 2] = px; attr[k * 12 + 4 * j + 3] = py;
           }
+          // (polar coordinates that cannot stand for z across the triangle: it carries z itself, pub.cart)
+          if (patId !== 4 && polarFails(v, attr, k)) {
+            for (let j = 0; j < 3; j++) { attr[k * 12 + 4 * j + 2] = ZX[v[j]]; attr[k * 12 + 4 * j + 3] = ZY[v[j]]; }
+            pub.cart[k] = 1;
+          }
           // the area scale: image area over source area (Area scale pattern)
           const i0 = v[0], i1 = v[1], i2 = v[2];
           const sa = (ZX[i1] - ZX[i0]) * (ZY[i2] - ZY[i0]) - (ZX[i2] - ZX[i0]) * (ZY[i1] - ZY[i0]);
@@ -1320,7 +1347,7 @@ const SphereMesh = (() => {
         }
         const sc = flat ? view.s : 1;
         const guardBox = flat ? { x0: view.cx - guard * VW / 2 / sc, x1: view.cx + guard * VW / 2 / sc, y0: view.cy - guard * VH / 2 / sc, y1: view.cy + guard * VH / 2 / sc } : null;
-        pubCache = { pos: pub.pos, pos3: pub.pos3, attr: pub.attr, tri: pub.triA, n: pub.n, order: 'far-to-near', origin: pub.origin, guardBox, imageBox: flat && pub.n ? { x0: bx[0], x1: bx[1], y0: bx[2], y1: bx[3] } : null, partial: budgetHit };
+        pubCache = { pos: pub.pos, pos3: pub.pos3, attr: pub.attr, tri: pub.triA, cart: pub.cart, n: pub.n, order: 'far-to-near', origin: pub.origin, guardBox, imageBox: flat && pub.n ? { x0: bx[0], x1: bx[1], y0: bx[2], y1: bx[3] } : null, partial: budgetHit };
         pub = null;
       }
       return true;
@@ -1344,7 +1371,7 @@ const SphereMesh = (() => {
     function bytes() {
       let b = 0;
       if (ZX) b += vcap * (8 * 11 + 3) + tcap * (1 + 4 * 4 + 1 + 2 + 4 + 2) + (edges.size + emid.size + eclip.size) * 48 + grids.reduce((x, g) => x + g.cov.length * 2.4, 0);
-      if (pubCache) b += (pubCache.pos ? pubCache.pos.byteLength : 0) + (pubCache.pos3 ? pubCache.pos3.byteLength : 0) + pubCache.attr.byteLength + pubCache.tri.byteLength;
+      if (pubCache) b += (pubCache.pos ? pubCache.pos.byteLength : 0) + (pubCache.pos3 ? pubCache.pos3.byteLength : 0) + pubCache.attr.byteLength + pubCache.tri.byteLength + pubCache.cart.byteLength;
       return b;
     }
     // frees the refinement structures (the published data stays)
@@ -1371,7 +1398,7 @@ const SphereMesh = (() => {
   // (alpha 0.2: K 25; a full mesh of exp(H) would take 814k nodes, e^{1/z}(D) 1.1M) refines until the node budget,
   // about 10 layers as before, rather than stopping at 5 on the work budget.
   const APP = { maxWork: 250000, maxNodes: 300000, guard: 2, workOf: (K) => Math.max(250000, 85000 * K) };
-  return { create, kOf, KCAP, APP, lift, liftConj, stagewise, atInfOf, probeStep, FIN, INF, UNDEF, FINAL, PAT_POLAR, PAT_CART };
+  return { create, kOf, KCAP, APP, lift, liftConj, stagewise, atInfOf, probeStep, polarMiss, FIN, INF, UNDEF, FINAL, PAT_POLAR, PAT_CART };
 })();
 import { CX } from './cx.js';
 import { Region } from './region.js';

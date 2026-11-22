@@ -1144,6 +1144,7 @@ SphereMesh.create({
 mesh.step(msBudget) -> {done, partial}    // runs at most msBudget ms; resumable; cancellable by the caller
 mesh.publish() -> {pos: Float32Array (x,y per vertex, relative to origin), attr: Float32Array (4 per vertex),
                    tri: Float32Array (1 per triangle: area scale), order: 'far-to-near', origin: [x, y],
+                   cart: Uint8Array (1 per triangle: its attr P is the source point itself, about z = 0),
                    pos3?: Float32Array (globe), guardBox: {x0,y0,x1,y1}}
 mesh.setView(i, view)     // P6: re-queue rules of 8.8
 mesh.stats(), mesh.bytes(), mesh.dispose()

@@ -25,7 +25,7 @@
         cacheAll.clear(); tmpAll.clear(); cacheBytes = 0;
         // the pre-mapped meshes' buffers are gone too: forget them (destroy() on one of them later is a no-op), so the
         // budget counts only the meshes re-uploaded after the restore
-        for (const [r] of preAll) { r.vao = r.buf = null; r.n = 0; r.count = 0; }
+        for (const [r] of preAll) { r.vao = r.buf = r.wBuf = r.wKey = null; r.n = 0; r.count = 0; }
         preAll.clear(); preBytes = 0;
         clearTimeout(pollT); pollT = 0;
         if (api.onLost) api.onLost();

@@ -108,6 +108,7 @@ function measureFlat(M, cs, pub) {
     const area = (P[1][0] - P[0][0]) * (P[2][1] - P[0][1]) - (P[2][0] - P[0][0]) * (P[1][1] - P[0][1]);
     if (!area) continue;
     const A = [0, 1, 2].map((j) => cs.pattern === 'polar' ? [pub.attr[t * 12 + 4 * j + 2], pub.attr[t * 12 + 4 * j + 3]] : [pub.attr[t * 12 + 4 * j], pub.attr[t * 12 + 4 * j + 1]]);
+    const cart = cs.pattern === 'polar' && !!(pub.cart && pub.cart[t]);
     for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) {
       const X = x + 0.5, Y = y + 0.5;
       const l1 = ((P[1][0] - X) * (P[2][1] - Y) - (P[2][0] - X) * (P[1][1] - Y)) / area;
@@ -117,7 +118,9 @@ function measureFlat(M, cs, pub) {
       const k = y * W + x;
       count[k]++;
       if (pat) {
-        const gx = l1 * A[0][0] + l2 * A[1][0] + l3 * A[2][0], gy = l1 * A[0][1] + l2 * A[1][1] + l3 * A[2][1];
+        let gx = l1 * A[0][0] + l2 * A[1][0] + l3 * A[2][0], gy = l1 * A[0][1] + l2 * A[1][1] + l3 * A[2][1];
+        // (a triangle that carries its source points (cart): the polar coordinates of the interpolated point, as the GPU's)
+        if (cart) { const r = Math.hypot(gx, gy), a = Math.atan2(gy, gx); gx = Math.log(Math.max(r, 1e-30)) * 16 / (2 * Math.PI); gy = a * 16 / (2 * Math.PI); }
         topPar[k] = ((Math.floor(gx) + Math.floor(gy)) % 2 + 2) % 2;
       }
     }
