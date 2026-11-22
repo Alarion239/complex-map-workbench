@@ -725,7 +725,8 @@
     return true;
   }
   // the step editor's "Show all sheets": Landscape (3) with All sheets on
-  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); tourEmit('sheets-shown', {}); }
+  // (setSheets sends sheets-shown when it turns them on; with the sheets already on, Show all sheets sends it itself)
+  function showAllSheets() { if (S.view.main !== 'land') setMain('land'); if (!S.sheets) setSheets(true); else tourEmit('sheets-shown', {}); }
   function setSheets(on) {
     setOpt('sheets', !!on);
     // the sheets of a root share |F|: they separate in Re F and Im F
