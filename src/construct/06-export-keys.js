@@ -211,7 +211,7 @@
 .cm-chip.cm-tch > .cm-seg { position: relative; z-index: 1; }
 .cm-t > .cm-nw { white-space: nowrap; }
 .shape .d .cm-def { color: var(--ink-2); font: var(--t-label); }
-/* [review user-11] a definition (or a reason) wraps to two lines in its row instead of being cut */
+/* a definition (or a reason) wraps to two lines in its row instead of being cut */
 .shape-row:has(> .shape-name .cm-def, > .shape-name .d[data-cm] > .err-msg) { height: auto; min-height: 32px; padding-top: 4px; padding-bottom: 4px; }
 .shape-name:has(.cm-def, .d[data-cm] > .err-msg) { align-items: baseline; flex-wrap: wrap; white-space: normal; -webkit-mask-image: none; mask-image: none; }
 /* too narrow beside the name: the definition takes the row's full width under it */
