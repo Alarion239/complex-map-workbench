@@ -8,10 +8,10 @@
 //   python3 build.py && CMW_PORT=<port> node test/<you>_cdp/cdpd.js &  test/<you>_cdp/q.sh test/sound_deform_cmd.js
 const PORT = +(process.env.CMW_PORT || 8832), BASE = `http://localhost:${PORT}/test.html`;
 const loadHere = async (ns, st) => {
-  await send('Page.navigate', { url: `http://localhost:${PORT}/gl-helpers.html` }); await sleep(400);
+  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(400);
   const o = Object.assign({ v3: true, v4: true, shapes: [], steps: [], nextId: 50, focus: 0, rightMode: 'image' }, st || {});
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(o))}); 1`);
-  await send('Page.navigate', { url: `${BASE}?ns=${ns}` }); await sleep(2200);
+  await go(`${BASE}?ns=${ns}`); await sleep(2200);
 };
 const fails = [], R = {};
 // the classic deformation opens and closes through its hook, and the view is chosen through its own: the M key,
