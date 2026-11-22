@@ -219,6 +219,17 @@ const SOFTWARE = {
     s(/^\(h\) the dialog: the last option wins$/, 'the last option is the one checked, but the figure is still being rebuilt when the suite\'s 10 s wait ends (a figure takes 25-40 s to build here); a finished figure with other columns still fails',
       (d) => d && d.checked === '1' && (d.cols === null || d.building === true)),
   ],
+  // (typed at 450 ms per character with links landing 400 ms late: a machine that cannot keep the pace pauses as long
+  // as the commit's wait, which commits a prefix with one prestart more; and the glide 2 s after the last keystroke is
+  // measured against the fast path's glide on the same machine, the control)
+  'typed_links_cmd.js': [
+    s(/^slow path, .* typed( at \d+ ms per character: at most \d+ links|: only the plane drawn links per keystroke)/, 'a pause in the typing reached the commit\'s wait (the machine could not keep the pace), which commits that prefix with one prestart more',
+      (d) => d && d.quiet === true && d.gap >= d.commitMs),
+    s(/^slow path: \d+ ms after the last keystroke, the glide's programs of the typed formula are all started$|^slow path: the glide \d+ ms after the last keystroke finds its programs linked/, 'the control did not hold: the fast path\'s glide did not have its programs linked 2 s after the last keystroke, or a typing could not keep the pace',
+      (d) => d && d.control && d.control.ok === false),
+    s(/^slow path: that glide runs to its plane and draws its frames$/, 'the fast path\'s glide did not reach its plane either, within the same wait',
+      (d) => d && d.fastRan === false),
+  ],
 };
 
 const KNOWN = {

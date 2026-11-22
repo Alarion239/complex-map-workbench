@@ -8,13 +8,13 @@
 //   keystroke (its colour plot's program, once per prefix that is a new formula); the glide's prestart and the warm-up
 //   wait until the edit is committed and run once, and the Landscape's warm-up waits until a Landscape has been drawn.
 //   A formula of a dozen characters costs at most MAX_LINKS. A typing whose pause reaches the commit's wait commits that
-//   prefix, and is reported in info.stretched, not judged;
+//   prefix: such a failure is a software-renderer one (ci/browser_suites.js SOFTWARE), listed and not gated on CI;
 // - on the slow path, no Landscape program is started for the typed formula while no Landscape has been drawn; once one
 //   has been drawn (the steps view's Landscape, and back to the plane), the next edit warms the Landscape again;
 // - a glide started GLIDE_AFTER_MS after the last keystroke, the field still focused (no commit: the idle wait commits
 //   it): at its start the glide's programs of the typed formula are all started and linked (but for the last links
 //   landing), as on the fast path, and the glide runs to its plane. The fast path's glide is the control: on a machine
-//   too loaded for it to be ready, the glide rows are reported in info.stretched, not judged;
+//   too loaded for it to be ready, a failure of those rows is a software-renderer one (SOFTWARE);
 // - on the fast path (?slowlinks=0) the prestart and the warm-up run in the pauses of the typing (more links than on the
 //   slow path), and the Landscape is warmed for the typed formula without being drawn.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
@@ -75,7 +75,7 @@ const typed = async (expr) => {
   const { ms, gap } = await typeIn(expr);
   await ev(setField(expr, true));
   // (and the steps view's idle job done: its meshes reserve the glide's layered programs, svMeshAhead)
-  const q = await settled({ max: QUIET_MS, only: true, until: `${QUIET} && !__cmwSvIdle().busy && !__cmwSvIdle().mesh` });
+  const q = await settled({ max: QUIET_MS, only: true, until: `${QUIET} && (() => { const i = __cmwSvIdle(); return !i.busy && !i.mesh; })()` });
   const by = await ev(UNWATCH);
   return { links: (await ev('__lateLinks.links')) - l0, by, land: await ev(LAND), ms, gap, quiet: q.ok };
 };
@@ -91,13 +91,12 @@ try {
     info.slow[f.label] = r;
     // (the plane drawn follows every keystroke: its colour plot's program (color, map mode 0) links once per prefix that is
     // a new formula, and so a long formula's count grows with its length, whatever waits for the commit; every other
-    // program begins once, for the formula committed; a pause in the typing as long as the commit's wait (a loaded
-    // machine) commits the prefix typed, and is not judged here)
-    const again = r.gap < COMMIT_MS ? Object.keys(r.by).filter((k) => k !== 'color|m0' && r.by[k] > 1) : [];
-    ok(`slow path, ${f.label} typed: only the plane drawn links per keystroke; the prestart and the warm-up run once, for the committed formula`, r.quiet && again.length === 0, Object.assign({ again }, r));
-    // (the same guard: a pause as long as the commit's wait commits the prefix with one prestart more; reported in info)
-    if (f.short && r.gap < COMMIT_MS) ok(`slow path, ${f.label} typed at ${CHAR_MS} ms per character: at most ${MAX_LINKS} links`, r.quiet && r.links <= MAX_LINKS, r);
-    if (r.gap >= COMMIT_MS) (info.stretched = info.stretched || []).push({ formula: f.label, gap: r.gap, links: r.links });
+    // program begins once, for the formula committed. A pause in the typing as long as the commit's wait (a machine too
+    // loaded to keep the pace) commits the prefix typed, with one prestart more: the detail carries the longest pause
+    // (gap) and the wait (commitMs), which ci/browser_suites.js SOFTWARE reads)
+    const again = Object.keys(r.by).filter((k) => k !== 'color|m0' && r.by[k] > 1);
+    ok(`slow path, ${f.label} typed: only the plane drawn links per keystroke; the prestart and the warm-up run once, for the committed formula`, r.quiet && again.length === 0, Object.assign({ again, commitMs: COMMIT_MS }, r));
+    if (f.short) ok(`slow path, ${f.label} typed at ${CHAR_MS} ms per character: at most ${MAX_LINKS} links`, r.quiet && r.links <= MAX_LINKS, Object.assign({ commitMs: COMMIT_MS }, r));
     ok(`slow path, ${f.label} typed: no Landscape program started while no Landscape has been drawn`, r.land.length === 0, r.land);
   }
   const late = await ev('window.__lateLinks || null');
@@ -129,17 +128,16 @@ try {
     const rec = await ev('(() => { const g = __cmwSteps().glide; return g ? { path: g.path, b: g.b, reason: g.reason || null } : null; })()');
     info.glide[slow ? 'slow' : 'fast'] = { at, glide: rec, wait: g.ok, gap };
   }
-  // (judged against today's path on the same machine: the fast path's glide is the control. A machine too loaded for it
-  // to have its programs linked 2 s after the last keystroke, or to keep the typing's pace, is too slow for the links'
-  // timing: reported in info, not judged)
+  // (measured against today's path on the same machine: the fast path's glide is the control, held to the same bound,
+  // at most two programs still landing. A machine too loaded for the control to hold, or to keep the typing's pace, is
+  // too slow for the links' timing: the detail carries control.ok, which ci/browser_suites.js SOFTWARE reads. The glide
+  // reaching its plane has nothing to do with the 2 s: its detail carries whether the fast path's glide reached it)
   {
     const s = info.glide.slow, f = info.glide.fast;
-    const control = f.gap < COMMIT_MS && s.gap < COMMIT_MS && f.at.total > 1 && f.at.done === f.at.total && f.wait && !!f.glide;
-    if (control) {
-      ok(`slow path: ${GLIDE_AFTER_MS} ms after the last keystroke, the glide's programs of the typed formula are all started`, s.at.total > 1 && s.at.left === 0, s.at);
-      ok(`slow path: the glide ${GLIDE_AFTER_MS} ms after the last keystroke finds its programs linked, as the fast path does (at most two still landing)`, s.at.done >= s.at.total - 2, info.glide);
-      ok('slow path: that glide runs to its plane and draws its frames', s.wait && !!s.glide, s);
-    } else (info.stretched = info.stretched || []).push({ glide: info.glide });
+    const control = { ok: f.gap < COMMIT_MS && s.gap < COMMIT_MS && f.at.total > 1 && f.at.left === 0 && f.at.done >= f.at.total - 2, fastGap: f.gap, slowGap: s.gap, fast: f.at };
+    ok(`slow path: ${GLIDE_AFTER_MS} ms after the last keystroke, the glide's programs of the typed formula are all started`, s.at.total > 1 && s.at.left === 0, { at: s.at, control });
+    ok(`slow path: the glide ${GLIDE_AFTER_MS} ms after the last keystroke finds its programs linked, as the fast path does (at most two still landing)`, s.at.done >= s.at.total - 2, { at: s.at, control });
+    ok('slow path: that glide runs to its plane and draws its frames', s.wait && !!s.glide, { slow: s, fastRan: f.wait && !!f.glide });
   }
   // the fast path: the prestart and the warm-up run in the typing's pauses
   {

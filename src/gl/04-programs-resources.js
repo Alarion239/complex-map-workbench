@@ -481,10 +481,10 @@ float wabs(vec2 w) {
   // inverse programs (the exact images'; an inverse program's askKey: the key of the chain whose draw or state query
   // asked for it last). A view's no pane shows (e.offView) is not counted
   function progStatus(modes) {
-    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
+    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0, pending: 0 };
     const w = wanted.get(cur.key), ids = [];
     // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
-    if (!w) return { done: 0, total: 1 };
+    if (!w) return { done: 0, total: 1, pending: 0 };
     for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
     for (const name of staticWanted) ids.push(name + '|static');
     const extra = [];

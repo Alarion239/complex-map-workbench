@@ -38,7 +38,6 @@
   window.__cmwSetMain = (m) => setMain(m);
   // a shape's own colour as its curve is drawn (its ink's edge), as a hex string
   /** @type {any} */ (window).__cmwInk = (id) => { const s = S.shapes.find((x) => x.id === id); return s ? shapeInk(s).edge : null; };
-  // (walls tests, #168 review) a step's parameter set as its field sets it (live, chainChanged(false)): a log's cut
   /** @type {any} */ (window).__cmwToast = (msg, label, o) => toast(msg, label, () => {}, false, o);   // (a message with an optional action that does nothing)
   /** @type {any} */ (window).__cmwAddStep = (type, params, at) => { addStep(type, params, at); return S.steps.length; };   // (a step added as the palette adds it (at: addStep's): its toast "Added f₃ …  Show alone  Undo" shows; answers how many steps there are)
   // TEST-HOOK
@@ -47,8 +46,9 @@
   // (the test hooks go on: a block of their own, as t_publish caps a block's length)
   // the slow-links path (GLR.slowLinks: a typed edit's prestart waits for its commit, the Landscape's warm-up for its
   // first draw) forced on (true) or off (false), or left to the renderer (null); no argument only reads it. Answers
-  // whether the path is on, and the typed edit held ({ held: ms left })
-  /** @type {any} */ (window).__cmwSlowLinks = (...a) => { if (a.length) GLR.forceSlowLinks(a[0]); return { on: GLR.slowLinks(), held: typingHold() }; };
+  // whether the path is on ({ on })
+  /** @type {any} */ (window).__cmwSlowLinks = (...a) => { if (a.length) GLR.forceSlowLinks(a[0]); return { on: GLR.slowLinks() }; };
+  // (walls tests, #168 review) a step's parameter set as its field sets it (live, chainChanged(false)): a log's cut
   /** @type {any} */ (window).__cmwStepParam = (k, key, v) => { const st = S.steps[k]; if (!st) return false; st.params[key] = v; chainChanged(false); return true; };
   // the label pass's count and time, and what the last pass of the left plane placed ({ text, x, y, x1, y1, leader }: its box in the pane's px, and whether a leader joins it to a point that a control covers)
   /** @type {any} */ (window).__cmwLabelStats = { n: 0, ms: 0 };
@@ -437,7 +437,7 @@
 
   // TEST-HOOK (dropped from the published page by build.py)
   // (the test hooks go on: a second block, as t_publish caps a block's length)
-  /** @type {any} */ (window).__cmwSvIdle = () => ({ busy: svPoleBusy, mesh: !!svMeshNext(), held: typingHold() });   // (the steps view's idle job: running, and its meshes still to make (svMeshAhead, which reserves the glide's layered programs); the typed edit held: ms left)
+  /** @type {any} */ (window).__cmwSvIdle = () => ({ busy: svPoleBusy, mesh: !!svMeshNext() });   // (the steps view's idle job: running, and its meshes still to make (svMeshAhead, which reserves the glide's layered programs))
   /** @type {any} */ (window).__cmwSvRingMade = (j) => { const P = svPlanes(); let made = 0, left = 0, unbuilt = 0; for (let k = 0; k + 1 < P.length; k++) { if (j != null && k !== j) continue; for (const { key } of svGlideRingKeys(k)) { const m = svRingSizes.get(key); if (m === undefined) left++; else { made++; if (m && m.polar && !svPolarRes.has(svPolarId(m))) unbuilt++; } } } return { made, left, unbuilt, glides: Math.max(0, P.length - 1), polar: svPolarRes.size, sizes: svRingSizes.size }; };   // (__cmwSvRingMade: the ring sizes of every glide of the chain (of glide j alone, given j), made or left, and the made polar ones whose mesh is not built, at the view the frames between planes draw in; the polar meshes kept and the sizes kept)
   /** @type {any} */ (window).__cmwSvRing = (builds) => (builds ? [...gpu].reduce((n, [id, r]) => n + (id.startsWith(SV_RING.id) ? r.builds || 0 : 0), svPolarBuilds) : svRingMemo && svRingMemo.ring ? { m: svRingMemo.ring.polar ? svRingMemo.ring.id : svRingMemo.m, c: svRingMemo.ring.c.slice(), r1: svRingMemo.ring.r1, r2: svRingMemo.ring.r2 } : null); Object.defineProperty(window, '__svCarryProbe', { configurable: true, get: () => GLR.carryProbes(), set: (f) => { GLR.carryProbes(f || null); requestRender('L'); } }); /** @type {any} */ (window).__svCarryProbeSettings = { base: {}, cacheOnly: { noFill: true, noKCDraw: true }, noCarry: { noCarry: true } };   // (__cmwSvRing: the steps view's outer ring of carried points, Everywhere (svRingFor): {m (a polar ring's: its id), c, r1, r2} or null; builds: its meshes' builds in all, the polar ones' too. the carry probes, perf's svq units: __svCarryProbe = one of the settings' flags, or null; GLR.carryProbes)
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), per: k.per ? [k.per.re, k.per.im] : null, tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey (per: its period, [re, im] or null); with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
