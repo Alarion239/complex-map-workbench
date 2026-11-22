@@ -5,7 +5,10 @@
     const out = Object.assign({}, S, { rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } });
     const o = JSON.parse(JSON.stringify(out, cmSaveReplacer(out)));
     delete o.hideLeft; delete o.hideRight;
-    // (review math-10: the recipient sees the same picture: the Landscape camera, relative to its fit, and the
+    // (the steps view's place on screen, as a save writes it: S.sv is written only by a save and an undo entry)
+    const sv = svPlace();
+    if (sv) o.sv = sv;
+    // (the recipient sees the same picture: the Landscape camera, relative to its fit, and the
     // deformation at its t; read once at load, never kept in the saved state)
     // (the camera of the surface the steps view shows: the z-globe's camL when it shows the sphere, else the Landscape's cam;
     // `of` names it, and a figCam without it is the Landscape's)
@@ -78,7 +81,7 @@
     document.addEventListener('change', (e) => {
       const el = e.target;
       if (!(el instanceof HTMLInputElement) || !el.hasAttribute('data-fx')) return;
-      // ([#240] a field's bound letters, a series' n, a recurrence's u, are its own: never new numbers)
+      // (a field's bound letters, a series' n, a recurrence's u, are its own: never new numbers)
       const bound = el.dataset.bound ? el.dataset.bound.split(',') : [];
       const u = Params.unknownIn(el.value, { bound });
       if (!u.length) return;
@@ -119,11 +122,11 @@
     fromLink(!hadSaved);
     window.addEventListener('hashchange', () => fromLink(false));
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   window.__cmwP = () => ({ params: JSON.parse(JSON.stringify(S.params)), steps: JSON.parse(JSON.stringify(S.steps)), shapes: JSON.parse(JSON.stringify(S.shapes)), targets: JSON.parse(JSON.stringify(S.targets)), errors: built.map((b) => (b && b.error) || ''), sig: chainSig[chainSig.length - 1], hi, n: hist.length, figure: figureState() });
   window.__cmwPOpen = (st, how) => openFigure(st, how || 'link');
-  // TEMP-DEBUG-HOOK
-  // (#385) init() is the start-up: the area wiring is in its area's part, as a setup…() called here at the point the
+  // TEST-HOOK
+  // init() is the start-up: the area wiring is in its area's part, as a setup…() called here at the point the
   // start-up had it (the order of the listeners and the layout's reads), so a change to one area's wiring runs that
   // area's shards (ci/impact.js); new wiring goes there too (test/t_init_wiring.js)
   function init() {
@@ -132,18 +135,18 @@
     MorphPaths.init(morphPathsApi());   // the deformation's paths (src/morphpaths.js)
     Integrals.init(integralsApi());   // the integrals (src/integrals.js)
     Examples.init(examplesApi());   // the examples and the guide (src/examples.js)
-    // TEMP-DEBUG-HOOK (removed before publishing)
-    // (the quality and perf suites keep the v14 pane geometry, a 272 px chain, from the first layout on, so no
+    // TEST-HOOK (dropped from the published page by build.py)
+    // (the quality and perf suites keep the pane geometry of a 272 px chain, from the first layout on, so no
     // canvas is ever sized for the taller planes; setupGutters applies it again after a stored height)
-    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEMP-DEBUG-HOOK
+    if (window.__cmwChainH > 0) document.documentElement.style.setProperty('--chain-h', window.__cmwChainH + 'px'); // TEST-HOOK
     // i18n (notes/i18n/DESIGN.md 2): English does nothing here
     I18N.applyPage();
     I18N.applyStatic($('app'));
     // the command field shows the short form (DESIGN.md 8.3); its aria-label keeps the whole phrase
-    // (and «Поиск» where the header is short of room: page.html, review ui-9)
+    // (and «Поиск» where the header is short of room: page.html)
     if (I18N.lang !== 'en') { const ct = document.querySelector('#cmdBtn .cmd-text'); if (ct) { ct.textContent = ''; ct.append(h('span', { class: 'ct-l' }, $tx('field', 'Add function')), h('span', { class: 'ct-s' }, $tx('field-short', 'Add function'))); } }
     I18N.reveal();
-    // the switch reloads only when the work was written and reads back (review i18n-3); while a tour holds the canvas
+    // the switch reloads only when the work was written and reads back; while a tour holds the canvas
     // the saved state is the user's own work, and the tour's scenes are never stashed as undo history
     I18N.onSwitch(() => {
       const held = tourHold;
@@ -158,6 +161,8 @@
     // canvas text (rulers, legend, plot labels) is redrawn once the Cyrillic faces have loaded (review i18n-12)
     I18N.onFonts(() => { for (const k in rulerCache) rulerCache[k] = null; drawLegend(); requestRender('L', 'R'); });
     GLR.init();
+    // (the steps view draws the Landscape's chain programs in map mode 0 only: the warm-up plans no other mode of them)
+    GLR.setStepsView(SV.on);
     GLR.onRestore = () => { gpu.clear(); for (const e of sm.entries.values()) e.res = null; rebuild(); if (guard) guard.reset(); for (const g of Object.values(paneG)) { g.qs.length = 0; g.reads.length = 0; g.t = 0; } invWaiting.clear(); svContextRestored(); requestRender('L', 'R'); };
     // a lost context shows its "restoring" note at once; a background compile that lands redraws with it
     GLR.onLost = () => requestRender('L', 'R');
@@ -165,7 +170,7 @@
     // once nothing compiles (the views' plain programs and the exact images have landed), the views' homotopy programs
     // (one per map mode, gl.js MAP) compile in the background, so a deformation started later plays at once; never
     // before, so they do not delay the first image or an inverse program (its compile waits for forward programs).
-    // (issue #72) Then, one group at a time, each once the one before has landed and the user has paused for a second,
+    // Then, one group at a time, each once the one before has landed and the user has paused for a second,
     // the globes' and the Landscape's: a cold link on Direct3D 11 takes seconds, and the browser keeps the programs for
     // later visits. Each group starts only the programs not started yet.
     let modesT = 0, warmI = 0;
@@ -211,7 +216,7 @@
     if (S.clipWin) clipWin = S.clipWin;
     paneL.resize(); paneR.resize();
     paneL.setView(S.srcView);
-    // (v16 review picture-1) a saved state without its window (older saves, hand-made states) meshes and samples in
+    // a saved state without its window (older saves, hand-made states) meshes and samples in
     // the window of its view, as a scene opened from a file does, never in a fixed -4…4 that a deep view lies inside
     if (!S.clipWin && S.srcView && Number.isFinite(S.srcView.s) && S.srcView.s > 0) { const vb = viewBox(S.srcView); if (goodWin(vb)) { clipWin = vb; setOpt('clipWin', clipWin); } }
     buildTools();
@@ -222,8 +227,8 @@
     setupPane(paneR, 'R');
     PlaneMenu.init(planeMenuApi());   // the planes' context menu
     Commands.init(commandsApi());   // the command palette (src/commands.js)
-    Construct.init({ cm: cmApi() });   // v16 constructions (the interface)
-    if (Construct.ui) Construct.ui(cmUiApi());   // v16 (INTERFACE): the app's adapter
+    Construct.init({ cm: cmApi() });   // constructions (the interface)
+    if (Construct.ui) Construct.ui(cmUiApi());   // (INTERFACE): the app's adapter
     setupHeader();
     setupViewControls();
     setupSections();
@@ -261,17 +266,17 @@
         // after a language switch, the undo history comes back too (I18N.onSwitch above)
         let swUi = null;
         try { const k = lsk('cmw-switch'), st = JSON.parse(sessionStorage.getItem(k) || 'null'); sessionStorage.removeItem(k); if (st && st.hist && st.hist[st.hi] && Date.now() - st.at < 30000) { hist = st.hist; hi = st.hi; hist[hi] = snap(); swUi = st.ui || null; } } catch (e) { /* no stash */ }
-        // a switch whose undo stash could not be written (review eng-8): say so once, after the reload
+        // a switch whose undo stash could not be written: say so once, after the reload
         try { const k = lsk('cmw-switch-lost'), at = Number(localStorage.getItem(k)); if (localStorage.getItem(k) != null) localStorage.removeItem(k); if (at && Date.now() - at < 30000) setTimeout(() => toast($t('The undo history could not be kept across the language change.')), 0); } catch (e) { /* no note */ }
         updateUndo();
         // (showing a step alone selects it; a saved selection of another step, or of F, stays: the language switch
-        // keeps the selection, review russian-6 and verify-8)
+        // keeps the selection)
         const sel0 = S.sel;
         setFocus(Math.min(S.focus || 0, S.steps.length));
         if (sel0 !== S.sel && (sel0 === 'F' || (Number.isInteger(sel0) && sel0 >= 0 && sel0 <= S.steps.length))) { setSel(sel0); requestRender('P'); save(); }
-        // an old save's Morph view opens with the deformation on (merged-views.md migration)
+        // a saved Morph view opens with the deformation on (merged-views.md migration)
         if (S.deform) { deleteOpt('deform'); openTransport(); }
-        // a link's or a scene's camera and deformation time (figureState, review math-10)
+        // a link's or a scene's camera and deformation time (figureState)
         if (S.figCam) {
           const c = S.figCam;
           if (c && [c.yaw, c.pitch, c.d].every(Number.isFinite) && c.d > 0) { const to = c.of === 'sphere' ? camL : cam, base = c.of === 'sphere' ? CAML : CAM3; to.yaw = c.yaw; to.pitch = Math.max(-89 * DEG, Math.min(89 * DEG, c.pitch)); to.dist = c.d * base.dist; to.tx = Number.isFinite(c.tx) ? c.tx : 0; to.ty = Number.isFinite(c.ty) ? c.ty : 0; }
@@ -286,9 +291,9 @@
         if (swUi) {
           if (swUi.sel && findShape(swUi.sel)) { selected = swUi.sel; buildShapeList(); }
           if (swUi.lamp) openLamp = swUi.lamp;
-          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (review russian-6: the open sheet; v15.1: the large plane)
+          if (swUi.phone && typeof swUi.phone === 'object') swPhone = swUi.phone;   // (the open sheet; the large plane)
           if (swUi.morph && !morph.open) { openTransport(); morph.T = swUi.morph.T; morph.seg = null; morph.u = 0; morph.playing = false; syncTransport(); }
-          // focus returns to the control that switched (review eng-5): Settings, or the phone's More button
+          // focus returns to the control that switched: Settings, or the phone's More button
           if (swUi.focus) setTimeout(() => { const vis = (el) => el && el.getClientRects().length > 0; const lb = $('settingsBtn'), mb = $('hdrMoreBtn'); const f = vis(lb) ? lb : vis(mb) ? mb : null; if (f && document.activeElement === document.body) f.focus({ preventScroll: true }); }, 0);
         }
         // the right plane reopens at the view the user left it at
@@ -313,18 +318,18 @@
     if (window.MathJax && MathJax.tex2svg && MathJax.startup && MathJax.startup.promise) MathJax.startup.promise.then(() => TeX.onReady());
     setupLateFonts();
     // the phone layout (src/phone.js; notes/ui-redesign-2/build/phone.md)
-    // (review russian-12: the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
+    // (the left rail's vertical label is short, so it fits the rail at 1024 in Russian)
     { const rl = document.querySelector('#leftRail .rail-label'); if (rl) rl.textContent = $tx('rail', 'Draw'); }
     Phone.init(phoneApi());
-    // (review russian-6: a language switch on a phone reopens the sheet that was open, More where the switch is)
+    // (a language switch on a phone reopens the sheet that was open, More where the switch is)
     // (and the plane that was large stays large, so each plane's saved view is drawn at the size it was saved at;
     // build/phone-swap.md)
     if (swPhone && Phone.isOn()) { const sp = swPhone; swPhone = null; if (Phone.setBig && (sp.big === 'L' || sp.big === 'R')) Phone.setBig(sp.big); if (typeof sp.k === 'string') setTimeout(() => Phone.open(sp.k, sp.nums ? { params: true } : {}), 0); }
-    setupStepsView();   // ((#366 prototype) ?view=steps)
+    setupStepsView();   // (?view=steps)
     if (svMorphT != null) { svPlaceAt(svMorphT); svMorphT = null; }
     tourWire();
   }
-  // TEMP-DEBUG-HOOK (removed before publishing)
+  // TEST-HOOK (dropped from the published page by build.py)
   // the tour's adapter, and a tap on every call the tour makes into it (test/tour_cmd.js)
   window.__tourApi = tourApi;
   window.__tourTap = (() => {

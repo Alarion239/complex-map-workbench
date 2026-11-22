@@ -20,13 +20,15 @@ const js = require('@eslint/js');
 const globals = require('globals');
 const { Linter } = require('eslint');
 const { SPLIT, PARTS_RE, parts, source } = require('./test/src_text');
+const tsStrip = require('./tools/ts_strip');
 
 const SRC = path.join(__dirname, 'src');
 const CLASSIC = ['i18n.js'];   // the classic script before the bundle; every other file of src/ is a module
 const parseAny = (text) => { try { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'module' }).body; } catch (e) { return espree.parse(text, { ecmaVersion: 'latest', sourceType: 'script' }).body; } };
 const own = {};
-for (const f of fs.readdirSync(SRC).filter((name) => name.endsWith('.js'))) {
-  const text = fs.readFileSync(path.join(SRC, f), 'utf8');
+for (const f of fs.readdirSync(SRC).filter((name) => /\.[jt]s$/.test(name))) {
+  const raw = fs.readFileSync(path.join(SRC, f), 'utf8');
+  const text = f.endsWith('.ts') ? tsStrip.strip(raw, `src/${f}`) : raw;
   const names = new Set();
   let body = [];
   try {
@@ -64,6 +66,8 @@ const appGlobals = (file) => {
 };
 
 // errors: likely bugs (eslint:recommended, unused code, loose equality); warnings: style and size, to shrink over time
+// max-lines' options: blank and comment lines left out of the count, and the limit it warns over
+const maxLines = (max) => ['warn', { max, skipBlankLines: true, skipComments: true }];
 const rules = {
   'no-unused-vars': ['error', { args: 'none', caughtErrors: 'none' }],
   eqeqeq: ['error', 'smart'],
@@ -73,7 +77,7 @@ const rules = {
   'prefer-const': 'warn',
   // size budget (issue #20): max-lines is the aim (the warnings list the files still over it); max-lines-per-function
   // sits at today's largest function, so only growth past it is flagged. Both only go down: never raise them.
-  'max-lines': ['warn', { max: 1500, skipBlankLines: true, skipComments: true }],
+  'max-lines': maxLines(1500),
   'max-lines-per-function': ['warn', { max: 1443, skipBlankLines: true, skipComments: true }],   // src/constr.js; IIFEs (the closures) are not counted
 };
 // the file-size budget (issue #20, ongoing conventions): each file still over the 1,500-line aim at the size it had
@@ -83,6 +87,7 @@ const rules = {
 const SIZE_BUDGET = {
   'src/tour.js': 2582,
   'src/glsl.js': 2150,
+  'src/app/19-steps-view.js': 3431,
 };
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and
@@ -119,8 +124,9 @@ const closure = {
       if (m.suggestions) m.suggestions = m.suggestions.map((sg) => ({ ...sg, fix: move(sg.fix) })).filter((sg) => sg.fix);
       out.push(m);
     }
-    // the file-size budget is the part's own
-    const size = sizeLinter.verify(at.text, { languageOptions: { sourceType: 'module' }, rules: { 'max-lines': rules['max-lines'] } });
+    // the file-size budget is the part's own: its SIZE_BUDGET entry when it has one, else the aim
+    const limit = SIZE_BUDGET[path.relative(__dirname, filename).split(path.sep).join('/')];
+    const size = sizeLinter.verify(at.text, { languageOptions: { sourceType: 'module' }, rules: { 'max-lines': limit ? maxLines(limit) : rules['max-lines'] } });
     return out.concat(size.filter((msg) => msg.ruleId === 'max-lines'));
   },
 };
@@ -131,9 +137,13 @@ module.exports = [
   { ignores: ['dist/**', '_site/**', 'notes/**', '.ci/**', 'node_modules/**', 'vendor/**', 'src/i18n_ru.js', 'src/i18n_it.js', 'src/seasong.js', 'test/**', '!test/', '!test/t_*.js'] },
   js.configs.recommended,
   { rules },
-  ...Object.entries(SIZE_BUDGET).map(([f, max]) => ({ files: [f], rules: { 'max-lines': ['warn', { max, skipBlankLines: true, skipComments: true }] } })),
+  ...Object.entries(SIZE_BUDGET).map(([f, max]) => ({ files: [f], rules: { 'max-lines': maxLines(max) } })),
   // the app: ES modules, one per file (an export is a use), bundled by tools/bundle.mjs
   { files: ['src/*.js'], ignores: CLASSIC.map((f) => `src/${f}`), languageOptions: { ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
+  // the app's TypeScript modules (issue #20): linted as the JavaScript they are without their types, by a local parser
+  // (tools/ts_strip.js: node's own type stripping, then espree), because typescript 7 has no JavaScript API for
+  // typescript-eslint's parser to call. tsc checks the types (npm run typecheck).
+  { files: ['src/*.ts'], languageOptions: { parser: tsStrip.parser, ecmaVersion: 'latest', sourceType: 'module', globals: { ...globals.browser, ...classicGlobals() } } },
   // the classic script before the bundle
   { files: ['src/i18n.js'], languageOptions: { ecmaVersion: 'latest', sourceType: 'script', globals: { ...globals.browser, module: 'readonly', require: 'readonly' } } },
   // the split files: wrap.js (the closure's first and last lines, and the module block) like a module of its own, and

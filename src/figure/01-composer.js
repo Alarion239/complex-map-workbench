@@ -169,6 +169,10 @@
   XD.niceStep = niceStep;
   // one precision per axis, the fewest decimals that represent every tick on it (0.90, 0.95, 1.00); a true minus
   XD.decimals = (step) => { for (let d = 0; d < 7; d++) if (Math.abs(step * 10 ** d - Math.round(step * 10 ** d)) < 1e-9) return d; return 6; };
+  // the decimals an axis's ticks ts (a step apart) print with: the step's, and more while two of them would print alike, up to
+  // TICK_DEC_MAX (toFixed's digits that still tell doubles apart)
+  const TICK_DEC_MAX = 15;
+  XD.tickDec = (ts, step) => { let d = XD.decimals(step); while (d < TICK_DEC_MAX && new Set(ts.map((t) => (Math.abs(t) < 1e-12 ? 0 : t).toFixed(d))).size < ts.length) d++; return d; };
   XD.tickTex = (v, dec) => { const t = (Math.abs(v) < 1e-12 ? 0 : v).toFixed(dec); return I18 && I18.comma(XD.lang) ? I18.texNum(t, XD.lang) : t; };
   XD.ticks = (a, b, step) => { const out = []; for (let i = Math.ceil(a / step - 1e-9); i <= Math.floor(b / step + 1e-9); i++) out.push(i * step); return out; };
   // each axis keeps at least two labelled (non-zero) ticks: a narrow panel's short axis gets a finer step of its own
@@ -420,8 +424,8 @@
     // axes
     const step = o.step || niceStep(Math.max(box.x1 - box.x0, box.y1 - box.y0), 4);
     const [stX, stY] = XD.axisSteps(box, step);
-    const decX = XD.decimals(stX), decY = XD.decimals(stY);
     const xt = XD.ticks(box.x0, box.x1, stX), yt = XD.ticks(box.y0, box.y1, stY);
+    const decX = XD.tickDec(xt, stX), decY = XD.tickDec(yt, stY);
     const lines = [];
     let out = '';
     if (o.axes === 'box') {
@@ -532,7 +536,7 @@
       out += XD.at(it, .../** @type {[number, number, string, string]} */ (best.q), 'point-label', halo);
     }
     if (o.over) out += o.over(X, Y, { hits, under, overlaps });
-    return { markup: body + out, defs, X, Y, step, xt, yt, lines, hits, under };
+    return { markup: body + out, defs, X, Y, step, xt, yt, labels: { x: xt.map((t) => XD.tickTex(t, decX)), y: yt.map((t) => XD.tickTex(t, decY)) }, lines, hits, under };
   };
 
   XD.bp = (texpt) => texpt * 72 / 72.27;
@@ -547,9 +551,11 @@
       const k = it.w > W ? W / it.w : 1;
       let dm = XD.at(it, x0 + (W - it.w * k) / 2, yb, 'start', 'base', 'caption');
       if (k < 1) dm = `<g transform="translate(${f2(x0 + (W - it.w * k) / 2)} ${f2(yb)}) scale(${k.toFixed(4)}) translate(${f2(-(x0 + (W - it.w * k) / 2))} ${f2(-yb)})">${dm}</g>`;
+      // (the space below the display equals the space above it: the text after it starts 0.55 of the type size under it,
+      // as the text before it ends 0.55 over it, as TeX's \belowdisplayskip equals its \abovedisplayskip)
       const yAfter = yb + it.d * k + pt * 0.55;
       const rest = segs.slice(di + 1);
-      const b = rest.some((s) => (s.t != null ? s.t.trim() : true)) ? XD.caption(rest, x0, yAfter - pt * 0.2, W, pt, color) : { markup: '', h: 0, lines: 0 };
+      const b = rest.some((s) => (s.t != null ? s.t.trim() : true)) ? XD.caption(rest, x0, yAfter, W, pt, color) : { markup: '', h: 0, lines: 0 };
       return { markup: a.markup + dm + b.markup, h: yAfter - y0 + (b.lines ? b.h : -pt * 0.55), lines: a.lines + 1 + b.lines };
     }
     const words = []; let cur = [];
@@ -599,7 +605,8 @@
     })().catch(() => { pdfLibs = null; return null; });
     return pdfLibs;
   };
-  // the PDF: vector, no fonts (putOnlyUsedFonts; glyphs are paths), no transparency, page = figure size in bp
+  // the PDF: vector (glyphs are paths; the one font is the invisible text layer's, embedded), no transparency, page =
+  // figure size in bp
   XD.pdf = async (fig) => {
     const lib = await pdfLib();
     if (!lib) throw new Error('The PDF library could not be loaded');
@@ -622,17 +629,19 @@
     host.style.cssText = 'position:fixed;left:-10000px;top:0;width:1px;height:1px;overflow:hidden';
     host.append(el); document.body.append(host);
     try { await lib.svg2pdf(el, doc, { x: 0, y: 0, width: fig.W, height: fig.H }); } finally { host.remove(); }
-    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order; the standard font has
-    // Latin only, so a subscript digit is written as the digit and a letter it lacks is left out
+    // the text layer: the same words in render mode 3 (invisible) over the paths, in reading order, in an embedded font of
+    // empty glyphs made for the characters they use (01-pdf-font.js): Cyrillic, Greek, subscripts and the signs included
     if (doc.setLanguage) { try { doc.setLanguage(fig.lang === 'ru' ? 'ru-RU' : fig.lang === 'it' ? 'it-IT' : 'en-US'); } catch (e) { /* the language is optional */ } }
-    doc.setFont('helvetica', 'normal');
-    for (const q of fig.texts || []) {
-      const n = q.text.normalize('NFKD').replace(/\p{M}/gu, '');
-      if (/(?![\x00-\x7f])\p{L}/u.test(n)) continue;
-      const t = n.replace(/[^\x20-\x7e]/g, '');
-      if (!t) continue;
-      doc.setFontSize(q.h);
-      doc.text(t, q.x, q.base, { renderingMode: 'invisible' });
+    const texts = fig.texts || [], layer = pdfTextLayer(texts);
+    if (layer.codes.length) {
+      doc.addFileToVFS(`${PDF_TEXT_FONT_NAME}.ttf`, pdfTextFont(layer.codes));
+      doc.addFont(`${PDF_TEXT_FONT_NAME}.ttf`, PDF_TEXT_FONT_NAME, 'normal');
+      doc.setFont(PDF_TEXT_FONT_NAME, 'normal');
+      texts.forEach((q, i) => {
+        if (!layer.strings[i]) return;
+        doc.setFontSize(q.h);
+        doc.text(layer.strings[i], q.x, q.base, { renderingMode: 'invisible' });
+      });
     }
     return doc.output('blob');
   };

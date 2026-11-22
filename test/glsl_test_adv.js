@@ -190,6 +190,8 @@
   // ---------------- WebGL ----------------
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl2');
+  // (the library's sin and cos for this renderer, as the app chooses them: GLChain.useRenderer)
+  if (gl) GLChain.useRenderer(gl);
   if (!gl) { R.errors.push('no webgl2'); R.done = true; return; }
   if (!gl.getExtension('EXT_color_buffer_float')) { R.errors.push('no EXT_color_buffer_float'); R.done = true; return; }
   R.renderer = (() => { const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })();

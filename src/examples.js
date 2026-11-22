@@ -8,8 +8,8 @@
 const Examples = (() => {
   let A = null;
   let EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit,
-    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph,
-    nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel,
+    defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph,
+    nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel,
     setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem,
     pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt;
   // the user's numbers that an example's own of the same name replaced, by name (until that example goes)
@@ -171,8 +171,6 @@ const Examples = (() => {
         acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
       exTryWatch(ex);
     }
-    // the line integral the example is about, once the planes have their size
-    if (ex.integrate != null) requestAnimationFrame(() => { const s = A.S.shapes[ex.integrate]; if (s && A.paneL) { const r = A.paneL.ocanvas.getBoundingClientRect(); openIntegralPop(s.id, r.left + r.width * 0.62, r.top + 40); } });
   }
   let exLook = '';
   function renderExampleThumb(i) {
@@ -231,6 +229,8 @@ const Examples = (() => {
     }, 30);
   }
   function openGallery(anchor) {
+    // re-pressing the button that opened the gallery closes it, as it does a menu
+    if (popOpenedFrom(anchor)) { closePalette(); return; }
     const okey = focusKey(anchor);
     const items = EX.map((ex, i) => {
       const img = h('img', { class: 'ex-thumb', alt: '', width: 48, height: 32 });
@@ -243,9 +243,7 @@ const Examples = (() => {
     const pop = h('div', { class: 'pop menu examples', role: 'menu', 'aria-label': $t('Examples') }, ...items.map((x) => x.b));
     $('popHost').append(pop);
     A.popEl = pop;
-    // (the button that opened the gallery says so while it is open; closePalette puts it back)
-    pop._opener = anchor;
-    if (anchor.hasAttribute('aria-expanded')) anchor.setAttribute('aria-expanded', 'true');
+    markOpener(pop, anchor);
     placePop(pop, anchor);
     // (ex.tip: the whole description as a tooltip, where its line is cut; the melody says how to hear it there)
     for (const { b, i } of items) { const bl = EX[i].tip && b.querySelector('.ex-blurb'); if (bl && bl.scrollWidth > bl.clientWidth + 1) b.title = EX[i].blurb; }
@@ -384,7 +382,7 @@ const Examples = (() => {
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
-      [`${k('←')} ${k('→')}`, $t('Previous or next plane; with a shape selected, nudge it')], [`${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe (steps view): move the probe')], [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
+      [`${k('←')} ${k('→')}`, $t('Previous or next plane')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('With a shape selected: nudge it by one grid step, ⇧ for ten')], [`${k('Alt')} ${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('On a plane with the sound probe (steps view): move the probe')], [k('Delete'), $t('Remove the selected shape')], [k('Esc'), $t('Cancel a drawing or close a popover')],
       [k('Enter'), $t('Close a polygon')], [`${k(mod.trim() + ' Z')} ${k('⇧ ' + mod.trim() + ' Z')}`, $t('Undo, redo')],
     ];
     m.innerHTML = `
@@ -417,7 +415,7 @@ const Examples = (() => {
       <h3>${$t(`Integrals`)}</h3>
       <p>${$t(`Right-click a curve or a region's boundary (hold it on touch) in the left plane, its image in the right plane, or its outline on the phase portrait, and choose <b>Integrate</b>: a popover gives ∫<sub><i>γ</i></sub> <i>F</i> d<i>z</i> with a plot of the running integral from 0; region boundaries go around with the region on their left. For a closed curve it adds (1/2π<i>i</i>) ∮ <i>F</i> d<i>z</i>, the winding number of <i>F</i>∘<i>γ</i> about 0 and the zeros and poles found inside: by the argument principle the winding number is zeros minus poles. The curve is highlighted with its direction while the popover is open. The phase portrait's <b>Cauchy</b> style paints the Cauchy integral over the selected closed curve: <i>F</i> inside, 0 outside.`)}</p>
       <h3>${$t(`Sound`)}</h3>
-      <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Click a still point, hold it on touch, or press {x8} on the keyboard probe, to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: the arrows move a probe, {x8} plays the point, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L'), x8: k('Q') })}</p>
+      <p>${$t(`<b>Sound</b> in the top bar ({x}) is on by default and starts with your first click or key; your choice stays on this device. Its caret sets the volume and what you hear: the interface and mathematical events (the deformation, a closed loop's winding number), both on by default, and <b>Hear the function under the pointer</b>, off until you turn it on. It is silent while you rest. In <b>Notes</b>, a marimba note sounds each time arg <i>F</i> crosses one of the picture's colour lines: red is D and each line is the next step of a circular scale, so a loop around a zero of order <i>m</i> climbs <i>m</i> times round the scale and around a pole falls. It is louder where |<i>F</i>| is larger (about −8 dB at zeros to +4 dB at poles, levelling off beyond about 10<sup>±3</sup>), and while the colour holds the note sounds again each time |<i>F</i>| crosses a band edge. A branch cut is a crack and then the colours on either side; glass pings mark a zero and felt thumps a pole, one per order. In <b>Glide</b>, one voice sings the colour itself while <i>F</i> changes. Click a still point, hold it on touch, or press {x8} on the keyboard probe, to hear it. A closed loop then sings its winding number as one note (D for 0, F♯ for 1, A for 2, the A below for −1), and while the deformation plays, the last loop's note changes the moment a zero or pole crosses it. {x2} stops anything playing. With the keyboard, Tab to the left plane: {x9}, {x8} plays the point, {x3} goes to the next zero or pole, {x4} gives the order there, {x5} describes the view, {x6} draws a loop and {x7} listens along it. With a screen reader in browse mode, use the button: {x} may not reach the page.`, { x: k('⇧ M'), x2: k('Esc'), x3: k('Z'), x4: k('O'), x5: k('D'), x6: k('Enter'), x7: k('L'), x8: k('Q'), x9: document.documentElement.classList.contains('sv') ? $t('{x} move a probe', { x: k('Alt ← → ↑ ↓') }) : $t('the arrows move a probe') })}</p>
       <p>${$t(`<b>Reading the sound.</b> Silence means nothing is changing under the probe. More notes a second means arg <i>F</i> is turning faster; a faster run is never louder, and the note repeated while the colour holds comes at most 8 times a second. The lines heard are the Phase key's sectors, which <b>Tiles</b> and <b>Contours</b> draw. Left and right are only where the probe is on the screen: they say nothing about <i>F</i>. On <i>Y</i>, two glasses gliding into one mean that two preimages of <i>w</i> meet. In Glide the voice is louder where |<i>F</i>| is larger. <b>Listen along</b> walks a curve at 250 screen pixels a second at the current zoom. Everything you hear is caused by <i>F</i> through this fixed map; the instruments, the room and a safety limiter are the only choices added.`)} ${$t(`A known limit: within a few pixels of a zero, arg <i>F</i> turns so fast that a trembling finger can cross a colour line and play a note.`)}</p>
       ${EX.some((ex) => exOk(ex) && ex.song) ? `<p>${$t(`<b>A curve as a melody.</b> <b>Listen along</b>, in a curve's menu, walks the curve at an even pace and plays what the pointer would play there: a note for each colour line arg <i>F</i> crosses, louder where |<i>F</i>| is larger, and a crack at each branch cut. A closed loop's last note is its winding number. The example “In the Hall of the Mountain King” (after Edvard Grieg) is a function: along the unit circle its arg <i>F</i> rises in steps, one for each note of the theme, so the colour lines it crosses are the melody, and nothing else is added. Each step is a pair of branch points, one just inside the circle and one just outside, so |<i>F</i>| stays constant along it. Each lap of the circle plays the theme twice, the second time faster, and the branch cut just before each downbeat is the drum.`)}</p>
       <p style="display:flex;align-items:center;gap:12px"><img class="guide-piece" alt="" width="96" height="64" style="flex:none;border-radius:6px;border:1px solid var(--line);background:var(--well)"><button class="btn" type="button" data-play="piece">${$t('Open and play “In the Hall of the Mountain King”')}</button></p>` : ''}
@@ -449,7 +447,7 @@ const Examples = (() => {
 
   function init(api) {
     A = api;
-    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, morph, nSteps, newShape, onPaneResize, openIntegralPop, openTransport, phHold, placePop, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
+    ({ EX, TeX, applyLayout, armOutside, blankState, chainRebuilt, buildShapeList, cauchyCache, closePalette, commit, defMem, drawScene, dropAllGPU, dropShapeGPU, exLabelSync, exThumbs, exWait, fitPane, focusBack, focusKey, markOpener, morph, nSteps, newShape, onPaneResize, openTransport, phHold, placePop, popOpenedFrom, rebuild, setFocus, setSel, setState, snd, sndIsSong, sndPieceHint, sndPlayPiece, sndPtsKey, sndStopPlay, stageMap, touchUI, undoToast, viewBox, viewMem, pushShape, pushStep, pushTarget, setShapes, setSteps, setTargets, setParams, setOpt, deleteOpt } = api);
   }
   return { init, exFitTo, exOk, firstExample, loadExample, retryExampleThumbs, openGallery, openGuide };
 })();

@@ -1,11 +1,11 @@
 // The cut's image curve on the Sphere and through a glide (steps view, issue #912): the plane at rest draws a cut carried to
-// a later plane with the θ handle on it; the Sphere and the glide's frames draw the same curve with no handle.
+// a later plane with the θ handle on it; the Sphere and the glide's frames draw the same curve, the Sphere's with no handle.
 // - chain A: √z (cut 180°), then z + 2. On plane w₁ the banks are the two half-lines of the imaginary axis;
 //   - at rest on the Sphere, plane w₁: both banks are drawn on the globe, the stroke's pixels at the exact image;
 //   - parked half-way between w₁ and w₂ (u = .5), on the Sphere and on the plane: the banks are the exact image at u (the
 //     rest samples moved by the homotopy z + t·2, that is +1), in the same ink at full opacity (one stroke, no fade),
 //     sampled at every fourth rest sample while the picture moves;
-//   - the θ handle is absent while the picture moves and back at rest on a plane.
+//   - the θ handle is absent on the Sphere's frame parked half-way, takes presses on the plane's, and is back at rest on a plane.
 // - chain B: z + 1 (Möbius), then the logarithm (cut 180°): the cut lives in plane w₁, past the glide z → w₁, so it is
 //   drawn as its preimage on plane z (the real half-line left of −1), and mid-glide those samples are carried by the
 //   homotopy (+ u): the frames at u = .5 are the parked samples + .5, at u = 1 they are the cut's own ray on plane w₁ (the
@@ -97,7 +97,7 @@ ok('plane glide: the solid bank is the exact image at u = .5', !!ps && movedBy(p
 const pInk = await inkShare(onScreen(ps));
 info.planeInk = pInk;
 ok('plane glide: one stroke at full opacity (the ink at the samples)', pInk.n > 5 && pInk.share > 0.9, pInk);
-ok('plane glide: the handle is hidden while the picture moves', (await handles()).length === 0, await handles());
+ok('plane glide: the frame parked half-way draws the θ handle as one that takes presses', (await handles()).length === 1, await handles());
 
 await at({ go: 1, now: true }, 1);
 ok('at rest on plane w₁: the handle is back', (await handles()).length === 1, await handles());

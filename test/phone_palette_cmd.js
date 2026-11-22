@@ -17,7 +17,7 @@ const geo = () => ev(`(() => { const sv = document.documentElement.classList.con
 for (const [w, h, kbh] of [[390, 844, 320], [360, 640, 280], [740, 360, 150], [915, 412, 150]]) {
   for (const v of ['', '&view=steps']) {
     await view(w, h, false, true); await load('pp' + w + v.length + '-' + Date.now(), ST);
-    if (v) await send('Page.navigate', { url: `${U}?ns=pps${w}-${Date.now()}${v}` });
+    if (v) await go(`${U}?ns=pps${w}-${Date.now()}${v}`);
     await waitPh();
     const tag = `${w}×${h}${v ? ' steps' : ''}`;
     const opened = await ev(`(() => { const b = document.querySelector('#svStrip .sv-add'); if (!b) return 'none'; b.click(); return 'ok'; })()`);
