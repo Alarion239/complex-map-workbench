@@ -87,4 +87,4 @@ info.turned = turned;
 ok('a drag on the plane turns the Stack\'s camera', Math.abs(turned.yaw + 30 * DEG) > 5 * DEG, turned);
 ok('a drag down to the floor stops at a pitch of 10°', Math.abs(turned.pitch - 10 * DEG) < 1e-9, turned);
 
-console.log(JSON.stringify({ pass, fails, info }));
+return { pass: fails.length === 0, passed: pass, fails, info };
