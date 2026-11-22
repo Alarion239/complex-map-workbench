@@ -141,10 +141,11 @@ ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the dev
 // keys: K plays and pauses, Esc pauses, ‹ › pause
 await ctl({ go: 0, now: true });
 await ev(`document.body.focus(); 1`);
-await press('k'); ok('K plays', (await S()).play === 'glide', await S());
+// (a play of a chain whose frames are slow waits first while they are drawn ahead, #1339: K and M play once that wait ends)
+await press('k'); const kp = await until("__cmwSteps().play === 'glide'"); ok('K plays', !kp.timeout && kp.s.play === 'glide', kp);
 await press('k'); ok('K pauses', (await S()).play === null, await S());
 await ctl({ go: 0, now: true });
-await press('m'); ok('M plays', (await S()).play === 'glide', await S());
+await press('m'); const mp = await until("__cmwSteps().play === 'glide'"); ok('M plays', !mp.timeout && mp.s.play === 'glide', mp);
 await press('Escape'); ok('Esc pauses', (await S()).play === null, await S());
 await ctl({ go: 0, now: true });
 await ctl({ play: true }); await sleep(100);
