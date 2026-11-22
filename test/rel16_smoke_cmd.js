@@ -1,3 +1,4 @@
+// raw-navigate-file: a release smoke: it opens the published page of an earlier release, and is not run in CI (ci/browser_suites.js EXCLUDED)
 // Release smoke on the PUBLISHED page (dist/complex-map-workbench.html wrapped in a UTF-8 doctype with a viewport
 // meta: smk_pub.html). CFG = { lang, w, dark } is prepended. No test hooks: DOM, input events, the saved state in
 // localStorage and the page's own globals (Sound) only.
