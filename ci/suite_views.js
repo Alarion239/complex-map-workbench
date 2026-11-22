@@ -206,6 +206,7 @@ const VIEWS = {
   'steps_menu_expanded_cmd.js': steps(),
   'steps_note_rail_cmd.js': steps({ pin: true }),
   'example_integral_phone_cmd.js': steps({ pin: true }),
+  'int_pop_touch_cmd.js': steps({ pin: true }),
   'steps_ctx_keys_cmd.js': steps({ pin: true }),
   'menu_buttons_expanded_cmd.js': steps({ pin: true }),
   'menu_item_names_cmd.js': steps({ pin: true }),
