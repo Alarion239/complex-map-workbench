@@ -3384,6 +3384,8 @@ const Tour = (() => {
   const Tour = {
     VERSION, init, start, stop: (o) => Promise.resolve(stop(o || {})), next: () => go(1), back: () => go(-1),
     suggest, dismissSuggestion: () => hideSuggest(false), openHelpMenu,
+    // (the control a start that the user asks for names as its opener: Help, or the phone's More, where the focus goes back to when the tour ends)
+    helpAnchor: () => anchorEl(['helpBtn', 'moreBtn']),
     // (for tests) the line that continues a tour cut short, at once: -> whether it is shown
     offerContinue: () => { load(); if (run || sugg) return false; return showContinue(); },
     // the learning lane: one closable line in the tour's docked slot (an example's Try line)

@@ -263,6 +263,19 @@ for (const cfg of runs) {
         check(`${tag} focus: the tour started from the Help menu by keyboard has the focus in the strip`, on.ok && landed.tour && landed.inStrip, landed);
       }
       await ev('Tour.isActive() && Tour.stop()'); await calm();
+      // and from the command palette: its first "Tour: ..." row (the palette lists them all, in the page's language), picked with the arrow keys
+      await ev(`document.activeElement && document.activeElement.blur && document.activeElement.blur(); 1`);
+      await key('k', 4); await shown('#popHost > .pop.palette');
+      const pos = await ev(`(() => { const its = [...document.querySelectorAll('#popHost > .pop.palette .pal-item')], at = its.findIndex((e) => /^(Tour|Обучение): /.test(e.textContent.trim())); return { at, sel: its.findIndex((e) => e.classList.contains('sel')), row: at < 0 ? '' : its[at].textContent.trim() }; })()`);
+      for (let i = pos.sel; i < pos.at; i++) await key('ArrowDown');
+      const row = (await ev(`((document.querySelector('#popHost > .pop.palette .pal-item.sel') || {}).textContent || '').trim()`)) || '';
+      check(`${tag} focus: the palette's first tour row is reached`, /^(Tour|Обучение): /.test(row), row);
+      await key('Enter');
+      const pOn = await settled({ only: true, max: SHOWN_MS, until: `Tour.isActive() && !!document.querySelector('.tour-strip')` });
+      await settle();
+      const pLanded = await ev(`({ tour: Tour.isActive(), inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), on: document.activeElement ? document.activeElement.tagName + '.' + document.activeElement.className : null })`);
+      check(`${tag} focus: the tour started from the command palette has the focus in the strip`, pOn.ok && pLanded.tour && pLanded.inStrip, pLanded);
+      await ev('Tour.isActive() && Tour.stop()'); await calm();
     }
   }
   // ---- follow: the spotlight keeps up with a scroll, a resize and a layout change, in the next frame
