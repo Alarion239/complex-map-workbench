@@ -1,7 +1,8 @@
 // The Landscape's stand-in while its programs (landTF and land) link, on a cold load with ?glhold, which keeps every chain
 // program's link pending (GLR.holdLinks), in the steps view: the Landscape of plane z of (z²−1)/(z²+1), Everywhere.
 // - the relief is drawn from F's values on a grid of the block's box (landStandIn): the frame is still pending, the finest level
-//   done is kept (its nodes, the job's end), and the pane shows the relief (more of it unlike the plate than the plate alone);
+//   done is kept (its nodes, the job's end), and the pane shows the relief (more of it unlike the plate than the plate alone), on the
+//   plate with its paper and F's print (floorS: the print from the stand-in's grid, bilinear), in the light and the dark theme;
 // - the stand-in is the GPU surface's: with the links released and the Landscape settled, the pane's 16 px blocks' mean colours
 //   differ from the stand-in's in at most DIFF_FRAC of them, by more than 40 levels (test/lib/standin_kit.js);
 // - from the release to the GPU picture no frame shows the plate alone.
@@ -9,7 +10,7 @@
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
-const DIFF_FRAC = 0.1, PLATE_UNLIKE = 0.3;
+const DIFF_FRAC = 0.02, PLATE_UNLIKE = 0.3;
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'standin_kit.js'), 'utf8'));
 const loaded = "typeof __cmwSteps === 'function' && !!window.GLR";
 for (const theme of ['light', 'dark']) {

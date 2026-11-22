@@ -2,8 +2,8 @@
 // and half way through the glide of a step whose path has a cut the sheets continue (Sheets of the logarithm, Square
 // root and its sheets). Inside regions, on the example's own chain, the inverse pass draws the frame (the step's
 // homotopy inverted by its exact ops), the exact picture with no mesh fill. The inverse pass draws such a glide
-// Everywhere too, so the Everywhere cases put a step it does not invert before the cut's step (z^3 + z: a polynomial
-// of degree 3) and glide through the cut's step (plane 1 to 2), where the carried mesh draws the frame:
+// Everywhere too, so the Everywhere cases put a step it does not invert before the cut's step (z^5 + z: a polynomial
+// of degree 5) and glide through the cut's step (plane 1 to 2), where the carried mesh draws the frame:
 // - once the fill's programs have linked, every frame's fill is drawn from its point pass (the fill never evaluates its
 //   places itself), none with the sheet program standing in;
 // - no frame stands in after the point pass has drawn for the same fill program, from the page's first frame on: a
@@ -46,7 +46,7 @@ for (const name of ['Sheets of the logarithm', 'Square root and its sheets']) {
   for (const scope of ['in', 'all']) for (const x of [0.25, 0.5]) {
     const tag = `${name} ${scope} ${x}`;
     // (Everywhere: the cubic put first, once; the cut's step is then step 2)
-    if (scope === 'all' && x === 0.25) { await ev(`__cmwAddStep('custom', { expr: 'z^3+z' }, 0), 1`); await settled({ max: 20000 }); }
+    if (scope === 'all' && x === 0.25) { await ev(`__cmwAddStep('custom', { expr: 'z^5+z' }, 0), 1`); await settled({ max: 20000 }); }
     const p0 = scope === 'all' ? 1 : 0;
     await steps({ scope, surf: 'plane', go: p0, now: true });
     await steps({ scope, surf: 'plane', park: p0 + x });

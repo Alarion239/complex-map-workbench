@@ -27,6 +27,13 @@
 //   steps before plane b take to w, each as { z } (every period of exp and sin within reach, kept where the forward map
 //   gives w back within 1e-7);
 // - carryRead(env): measure(), the front point's colour on a plane against plane z's (below, at its definition).
+// - DRAWN: an expression for settled's until, true once the left pane's frame is drawn (none pending or compiling);
+// - openSteps(port, steps, extra, o): a fresh page of the steps view on a saved state of the chain steps (no shapes, alpha 1,
+//   the view about 0 at scale 80; extra's fields over those), its colour plane set to plane z; o.startMs (30 s) for the strip;
+// - toPlane(i, o): plane i of the strip clicked, then until it rests there fixed (o.fixedMs, 15 s) and drawn (o.drawnMs, 60 s);
+// - rough(o): the roughness of the frame on the pane now: over an o.nx x o.ny grid (20 x 14) o.step (0.09) apart in plane
+//   units about the view's centre, shifted by o.skew ([0.003, 0.002]) off the centre and the quadrant seams, the points whose
+//   3 x 3 pixels spread over o.spread (30 of 255) in some channel: { of: the grid's points, n: those read, rough, share }.
 (() => {
   // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
   // H/2 - (y - cy) s dpr). pxIn(pts): that read as a page expression, for a suite's own page condition (settled's until);
@@ -240,5 +247,29 @@
     };
     return { measure };
   };
-  return { lpx, pxIn, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead };
+  const DRAWN = `(() => { const g = __cmwPaneStatus('L'); return !!g && !g.pending && !g.compiling; })()`;
+  const openSteps = async (port, steps, extra = {}, o = {}) => {
+    const ns = 'svk' + Date.now();
+    const st = Object.assign({ v3: true, v4: true, v5: true, v6: true, alpha: 1, shapes: [], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 80 } }, extra);
+    await go(`http://localhost:${port}/gl-helpers.html`); await settled({ panes: false });
+    await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
+    await go(`http://localhost:${port}/test.html?ns=${ns}&lang=en&view=steps`);
+    await settled({ max: o.startMs || 30000, until: `typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-wholemap')` });
+    await ev(`document.querySelector('.sv-cp').click(); 1`);
+    await settled({});
+  };
+  const toPlane = async (i, o = {}) => {
+    await ev(`document.querySelector('#svStrip .sv-plane[data-i="${i}"]').click(); 1`);
+    await settled({ max: o.fixedMs || 15000, until: `__cmwSteps().stage === ${i} && !__cmwSteps().moving && __cmwSvFixed()` });
+    await settled({ max: o.drawnMs || 60000, until: `__cmwSvFixed() && ${DRAWN}` });
+  };
+  const rough = async (o = {}) => {
+    const nx = o.nx || 20, ny = o.ny || 14, step = o.step || 0.09, skew = o.skew || [0.003, 0.002], spread = o.spread || 30;
+    const V = (await lpx([])).view, pts = [];
+    for (let i = 0; i < nx; i++) for (let j = 0; j < ny; j++) pts.push([V.cx + (i - (nx - 1) / 2) * step + skew[0], V.cy + (j - (ny - 1) / 2) * step + skew[1]]);
+    const sp = (await lpx(pts)).px.filter(Boolean).map((p) => Math.max(...[0, 1, 2].map((c) => Math.max(...p.map((x) => x[c])) - Math.min(...p.map((x) => x[c])))));
+    const n = sp.filter((x) => x > spread).length;
+    return { of: nx * ny, n: sp.length, rough: n, share: n / sp.length };
+  };
+  return { lpx, pxIn, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead, DRAWN, openSteps, toPlane, rough };
 })()
