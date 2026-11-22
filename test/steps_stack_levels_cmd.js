@@ -6,6 +6,8 @@
 //  - on the Stack surface the left plane is not flat (no rulers, no flat overlays), and the levels are drawn in the one
 //    order floor, floor marks, lines, glass, glass marks at every camera of a turn round the box and up to straight down;
 //  - tilted, the overlay holds the glass's ink where the target's ring and the glass's rim project, wherever the camera;
+//  - the head's Surface button reads Stack and is named so, and the Surface menu checks it;
+//  - a hover on the tilted floor reads no point (the flat plane's values there would be another point's);
 //  - a drag on the plane turns the Stack's camera, and its pitch stays at or above 10°.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -44,6 +46,19 @@ info.control = { pitch89: tiltP, yaw1: tiltY };
 ok('control: 1° of pitch off straight down changes the floor and the marks', !!tiltP && tiltP.main > 0 && tiltP.over > 0, tiltP);
 ok('control: 1° of yaw changes the floor and the marks', !!tiltY && tiltY.main > 0 && tiltY.over > 0, tiltY);
 
+// a hover over the plane's middle, then the left readout's text (control: on the flat plane it reads the point, |z| included)
+const hoverText = async () => {
+  const mid = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height * 0.6]; })()`);
+  for (const dx of [0, 6, 12]) await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: mid[0] + dx, y: mid[1] });
+  await frames();
+  const t = await ev(`document.getElementById('leftReadout').textContent`);
+  await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: 2, y: 2 });
+  await frames();
+  return t;
+};
+const flatHover = await hoverText();
+ok('control: a hover on the flat plane reads the point', flatHover.includes('|z|'), flatHover);
+
 // the Stack surface
 await ev(`__cmwSteps({ surf: 'stack' }); 1`);
 if (hooked) await until(`__cmwSteps().surf === 'stack' && !!__cmwStack().drawn`, 20000);
@@ -75,6 +90,23 @@ ok('the levels are drawn in one order at every camera', seen.length === CAMS.len
 ok('the marks are drawn at every camera', seen.every((s) => s.marks), seen);
 ok('the target\'s ring on the glass holds ink at every camera', seen.every((s) => s.ink.ring > 0), seen.map((s) => s.ink));
 ok('tilted, the glass\'s rim holds ink at its near edge', seen.filter((s) => s.pitch < 90).every((s) => s.ink.rim > 0), seen.map((s) => s.ink));
+
+// the head's Surface button and its menu say the Stack, to the eye and in the button's name
+const head = await ev(`(() => { const b = document.querySelector('.sv-surf1'); return b ? { text: b.querySelector('.sv-surf-t').textContent, label: b.getAttribute('aria-label') } : null; })()`);
+await ev(`document.querySelector('.sv-surf1').click(); 1`);
+await frames();
+const checked = await ev(`[...document.querySelectorAll('[role=menuitemradio][aria-checked=true]')].map((e) => e.textContent.trim())`);
+for (const type of ['keyDown', 'keyUp']) await send('Input.dispatchKeyEvent', { type, key: 'Escape', code: 'Escape', windowsVirtualKeyCode: 27 });
+await frames();
+const menuOpen = await ev(`[...document.querySelectorAll('[role=menuitemradio]')].some((e) => e.offsetParent !== null)`);
+ok('the Surface menu closes on Escape', !menuOpen, menuOpen);
+info.head = { head, checked };
+ok('the head\'s Surface button reads Stack, and is named "Surface: Stack"', !!head && head.text === 'Stack' && head.label === 'Surface: Stack', head);
+ok('the Surface menu checks Stack', checked.length === 1 && checked[0] === 'Stack', checked);
+// the pointer over the tilted floor reads no point: the flat plane's values would be another point's
+const hovered = await hoverText();
+info.hover = { flat: flatHover, stack: hovered };
+ok('a hover on the Stack reads no point in the readout', !hovered.includes('|z|'), info.hover);
 
 // a drag turns the camera
 await ev(`__cmwCam('L', { yaw: ${-30 * DEG}, pitch: ${35 * DEG} }); 1`);

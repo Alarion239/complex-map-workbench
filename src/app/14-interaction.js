@@ -1240,6 +1240,8 @@
       requestRender('L', 'OR', rGlobe() ? 'R' : null);
       return;
     }
+    // (the Stack picks no point under the pointer: its tilted levels are not the flat plane's)
+    if (side === 'L' && stackOn()) { if (probe) { probe = null; setReadouts(null); requestRender('OL'); } return; }
     if (side === 'L') {
       cutHover(pane, side, x, y);
       const zh = zpHit(x, y);

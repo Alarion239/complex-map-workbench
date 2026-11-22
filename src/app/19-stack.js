@@ -19,7 +19,12 @@
   const STACK_ORDER = ['floor', 'floor marks', 'lines', 'glass', 'glass marks'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
   let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps}
-  const stackOn = () => SV.on && SV.surf === 'stack';
+  let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
+  // the Stack is shown, and its camera draws: not while its floor is drawn flat, which the flat plane's own draw does
+  const stackOn = () => SV.on && SV.surf === 'stack' && !stackFlat;
+  // the shown plane is drawn as the flat plane: the Plane surface, or the Stack's floor while it is drawn flat. floor:
+  // the Stack's floor counts whenever the Stack is shown (the inverse jobs that warm its flat draw)
+  const svFlatSurf = (floor = false) => SV.surf === 'plane' || (SV.surf === 'stack' && (floor || stackFlat));
   // cos(pitch): how far the camera is from straight down, 0 there exactly
   const stackTilt = (camera) => (camera.pitch >= 90 * DEG ? 0 : Math.cos(camera.pitch));
   // The camera's map of a level of the box in pane, up = 0 the floor or 1 the glass: [a, b, c, d, e, f] as setTransform
@@ -60,9 +65,8 @@
   // camera. False when the Stack is not shown
   function stackDrawPlane(pane, flat) {
     if (!stackOn()) return false;
-    // (the flat plane's own draw, as it draws on the Plane surface)
-    SV.surf = 'plane';
-    try { stackFloor(pane, flat, stackCam); } finally { SV.surf = 'stack'; }
+    stackFlat = true;
+    try { stackFloor(pane, flat, stackCam); } finally { stackFlat = false; }
     return true;
   }
   // The Stack's layers after the floor on ctx (css px, pane's overlay), for the flat view of pane: the floor's marks, the
