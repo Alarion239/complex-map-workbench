@@ -67,6 +67,7 @@ const MAP = [
   ['src/app/19-constructions.js', { core: true, areas: ['constructions'] }],                // the constructions' model and adapter
   ['src/app/19-phone.js', ui('phone')],                                                     // the phone layout's adapter (#385)
   ['src/app/19-shell.js', ui('desktop', 'phone', 'layout')],                                       // the header, its menus, the panels and drawers (#385)
+  ['src/app/19-steps-fit.js', ui('views', 'desktop', 'phone', 'layout')],                           // the thread's and the head's fit, a part of the steps view
   ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
