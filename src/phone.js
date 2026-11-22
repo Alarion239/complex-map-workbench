@@ -105,9 +105,10 @@ const Phone = (() => {
     // a message (a toast, with its Undo) takes that row for as long as it shows; the planes give it up when no finger is down
     const th = $('toastHost');
     if (th) new MutationObserver(() => barLayout()).observe(th, { childList: true });
-    // the plane's key column and view stack ride up above the context bar and a message, with a transition on `bottom`: the
-    // labels keep off them where they stop, so one full placement follows the lift (liftSettled asks where there is no transition)
-    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack')) A.relabel(); }, true);
+    // the plane's key column and view stack ride up above the context bar and a message, and a message eases to its place over the plane,
+    // each with a transition on `bottom`: the labels and the plane's note keep off them where they stop, so one full placement follows
+    // the move (liftSettled asks where there is no transition)
+    document.addEventListener('transitionend', (e) => { const el = /** @type {Element} */ (e.target); if (e.propertyName === 'bottom' && el.matches && el.matches('.ph-col, .viewstack, #toastHost')) A.relabel(); }, true);
     document.addEventListener('pointerdown', () => { fingers++; }, true);
     for (const evn of ['pointerup', 'pointercancel']) document.addEventListener(evn, () => { if (fingers > 0 && --fingers === 0) barLayout(); }, true);
     // the tool row: Undo first (its long-press offers Redo)

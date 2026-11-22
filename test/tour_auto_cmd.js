@@ -574,13 +574,15 @@ while (Date.now() - t0 < 27000 && (await cur()) === 'sound/song') {
 }
 check('RU 360: four captions and the result, none cut, the title in place', seenC.length >= 5 && !cutC.length, { seenC, cutC });
 await ev('Tour.isActive() && Tour.stop()'); await settle(300);
-// user-10: landscape Russian, Part of the chain (the Deformation's in the classic views, Playing's in the steps view): the strip
-// takes the row under the header, its task not cut
+// user-10: landscape Russian, Part of the chain (Playing the chain's, the steps view's only): the strip takes the row under
+// the header, its task not cut
+if (SV) {
 await open('au6', 844, 390, true, true, 'ru');
-await goStep(SV ? 'playing/range' : 'deform/range');
+await goStep('playing/range');
 const lr = await ev(`(() => { const s = document.querySelector('.tour-strip'), l2 = s.querySelector('.ts-l2'), t = s.querySelector('.ts-text'); return { mode: s.dataset.mode, cut: l2.getBoundingClientRect().bottom > s.getBoundingClientRect().bottom + 0.5 || t.scrollHeight > t.clientHeight + 1, lead: document.querySelector('#tourLead').textContent }; })()`);
 check('RU landscape: Part of the chain\'s task not cut (the row under the header)', !lr.cut, lr);
 await ev('Tour.isActive() && Tour.stop()'); await settle(300);
+}
 } catch (e) { check('r3 review phone fixes' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
 // ---------------- a small laptop (1366 × 657): no sheet (a laptop's strip is one row); the panes keep their size

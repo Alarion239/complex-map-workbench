@@ -452,7 +452,7 @@ const Integrals = (() => {
     P.x = null;
     renderIntPop();
     clearTimeout(P.timer);
-    if (P.it.closed && !P.it.error) P.timer = setTimeout(() => { if (A.intPop !== P) return; P.x = integralExtra(P.it, F); renderIntPop(); }, 30);
+    if (P.it.closed && !P.it.error) P.timer = setTimeout(() => { if (A.intPop !== P) return; P.x = integralExtra(P.it, F); renderIntPop(); placeIntPop(); }, 30);   // (placed again: the zeros and poles make it taller)
     requestRender('OL', 'OR');
   }
   function renderIntPop() {

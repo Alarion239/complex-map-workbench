@@ -185,7 +185,7 @@
   // (SPEC 10.6, 12.4 (h)) the figure export as the dialog runs it (opt: {panels, widthIn, caption, alive}), and one
   // panel drawn off-screen at print size (a PNG data URL)
   window.__cmwBuildFigure = (opt) => buildFigure(Object.assign({ panels: ['L', 'R'], widthIn: 7, caption: false }, opt || {}));
-  // item 2 (the deformation picture): open/close and scrub the transport; the screen's path selection
+  // the deformation's range (__cmwMorph) and the screen's path selection
   // kind 'H' (the image side at T), 'H0', 'F' (the chain), 'cpuMap' (a map spec's
   // CPU twin): pts [[x, y]] -> [[re, im]] (null for a non-finite value)
   window.__cmwEval = (kind, specOrT, pts) => {
@@ -327,6 +327,9 @@
     return { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left) };
   };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
+  // the seams svPatchSeam has measured (svLandPoleMemo.runs: a seam is measured again only for a new map or box, or a pole that moved); with
+  // redraw, a frame of both panes is asked for first
+  window.__cmwLandSeams = (redraw) => { if (redraw) requestRender('L', 'R'); return { runs: svLandPoleMemo.runs }; };
   // TEST-HOOK
 
   // TEST-HOOK (dropped from the published page by build.py)
@@ -375,7 +378,7 @@
         if (u >= eps && v >= eps && w >= eps) cov[j * nx + i] = 1;
       }
     };
-    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, 4).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
+    const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, GLR.CARRY_DISCS).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
     grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
     for (const p of (patches ? (c.polar || []).slice(0, c.patches || 0).concat(c.far && patches !== 'poles' ? c.far : []) : []).concat(more)) {
       const n = p[4] || c.patchN || 96;
@@ -462,6 +465,8 @@
   /** @type {any} */ (window).__cmwSvKey = (b, t, whole) => { const P = t == null ? null : svPoleTracks(b, svSheetKey(b).win); if (P && whole) svPoleMake(P, Infinity, null); const k = t == null ? svSheetKey(b == null ? svStage() : b) : svSheetKeyAt(b, t); return { win: Object.assign({}, k.win), R: k.R, rs: k.rs, sing: (k.sing || []).map((p) => [p.re, p.im]), per: k.per ? [k.per.re, k.per.im] : null, tracks: P ? { k: P.k, of: SV_POLE_K + 1, seed: P.found ? P.found.j : null } : null, busy: svPoleBusy }; };   // (the steps view's sheet key for plane b (default: shown), as svSheetKey (per: its period, [re, im] or null); with t, the glide's (svSheetKeyAt), tracks {k, of, seed}: its pole tracks' next step of t (whole: made whole first) and the seed step a frame's search finished last; busy: the idle job runs)
   /** @type {any} */ (window).__cmwSvFixed = () => svFixDone(); /** @type {any} */ (window).__cmwSvWarm = () => ({ sig: svWarmSig, at: svWarmAt, now: chainSig[nSteps()] }); /** @type {any} */ (window).__cmwSvX = () => SV.g.x;   // (__cmwSvFixed: the carried colour has the tiling's fix-up under its parked map, true with none asked; __cmwSvWarm: svWarmCarry's chain its warm draw was last made for, and when; __cmwSvX: the thread's place alone, cheap enough for a per-frame poll)
   window.__cmwStageBox = () => paneBox(paneL, leftView());
+  // the Line integral popover of shape id, opened as the palette's item opens it (the layout matrix's state; true when it opened)
+  window.__cmwIntegrate = (id) => !!integrateShape(id);
   // the steps view's globe: whether its last frame drew the carried colour and by which path ('inverse' or 'mesh'),
   // and where the point (re, im) of the glide's plane a is at the glide's u (H_u of svBetween; the point itself at
   // rest); H: that map ({re, im} -> {re, im}, the identity at rest); eye and key: the last frame's camera position and

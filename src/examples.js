@@ -320,9 +320,10 @@ const Examples = (() => {
   // The guide's sections are the h3 blocks. Each is wrapped, so the contents row can jump to it and the search can fold
   // the others away; a section about something the tour teaches ends in Show me, which starts that chapter
   function guideNav(m, close) {
-    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views and Deformation)
+    // (the steps view's tour has Planes and Playing the chain where the classic tour has Views; the Deformation section is
+    // the steps view's only)
     const chap = (/** @type {string} */ id, /** @type {string} */ sv) => (Tour.chapters().some((/** @type {any} */ c) => c.id === id) ? id : sv);
-    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), chap('deform', 'playing')], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
+    const SHOW = [[$t('Function chain'), 'basics'], [$t('Branch cuts'), 'branches'], [$t('Views'), chap('views', 'planes')], [$t('Deformation'), 'playing'], [$t('Integrals'), 'analysis'], [$t('Sound'), 'sound'],
       [$t('Zeros and poles'), 'edit'], [$t('Export'), 'export']];
     const secs = [];
     for (const hd of [...m.querySelectorAll('h3')]) {
@@ -376,7 +377,8 @@ const Examples = (() => {
       [`${k('H')} ${k('N')} ${k('K')}`, $t('Half-plane, annulus, sector')], [k('T'), $t('Type a region formula')],
       [`${k('E')} ${k('I')} ${k('U')} ${k('Q')} ${k('W')} ${k('J')} ${k('Y')}`, $t('Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic')], [k('Tab'), $t('On a focused plane: the next shape (⇧ Tab: the previous)')],
       [`${k(mod.trim() + ' K')}`, $t('Command palette')], [`${k(mod.trim() + ' E')}`, $t('Export figure')], [k('+'), $t('Add a function')],
-      [k('M'), $t('Deformation on or off, in every view')], [k('⇧ M'), $t('Sound on or off')], [k('P'), $t('Deformation: paths on or off (in X → Y; else the Point tool)')],
+      // (the steps view: K or M plays the chain, P shows its paths; the classic view has no deformation, and P is the Point tool)
+      ...(exSv() ? [[`${k('K')} ${k('M')}`, $t('Play the chain, or pause it')], [k('P'), $t('Paths t ↦ Hₜ(z) on or off')]] : []), [k('⇧ M'), $t('Sound on or off')],
       [k('Z'), $t('Fit view')],
       [`${k('[')} ${k(']')}`, $t('Hide or show the side panels')], [k('?'), $t('This guide')],
       [`${k('F6')} ${k('⇧ F6')}`, $t('Next or previous area: top bar, tools, X, Y, chain, Inspector')], [`${k('←')} ${k('→')} ${k('↑')} ${k('↓')}`, $t('Move between the tools and the chain\'s cards')],
@@ -428,6 +430,8 @@ const Examples = (() => {
       <h3>${$t(`Keys`)}</h3>
       <table class="keys">${keys.map(([a, b]) => `<tr><td>${a}</td><td>${b}</td></tr>`).join('')}</table>${I18N.lang === 'en' ? '' : `<p>${$t('Letter keys work in any keyboard layout: what counts is the key, not the letter it types.')}</p>`}`;
     if (touchUI()) guideTouch(m);
+    // (the classic view has no deformation: its guide leaves out the Deformation section)
+    if (!exSv()) { const dh = [...m.querySelectorAll('h3')].find((x) => x.textContent.trim() === $t('Deformation')); if (dh) { for (let e = dh.nextElementSibling; e && e.tagName !== 'H3';) { const nx = e.nextElementSibling; e.remove(); e = nx; } dh.remove(); } }
     guideNav(m, close);
     for (const el of m.querySelectorAll('[data-tex]')) TeX.set(el, el.dataset.tex);
     const pb = m.querySelector('[data-play="piece"]');

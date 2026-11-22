@@ -326,7 +326,7 @@
   }
   function scaleText(pane) { return pane ? $t('{x} / div', { x: I18N.num(CX.fmtNum(Axes.niceStep(110 / pane.view.s), 4).replace('-', '−')) }) : ''; }
   // Mode options (spec 5.8): one 32px row. Controls that do not fit beside the view stack move, in order, behind
-  // a sliders button into a popover; on a phone all of them do. The deformation transport always stays inline.
+  // a sliders button into a popover; on a phone all of them do.
   const phoneMQ = matchMedia('(max-width: 767px)');
   // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
   const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null });
@@ -731,6 +731,7 @@
     // the sheets of a root share |F|: they separate in Re F and Im F
     if (on && (S.height === 'log' || S.height === 'abs')) { setOpt('height', 'im'); toast($t('All sheets: the height is now Im {x}, where the sheets come apart (a modulus height stacks them).', { x: SV.on ? svHeightName('text') : fnText() })); }
     buildRightFoot(); updateFocusUI(); requestRender('L'); save();
+    if (on) tourEmit('sheets-shown', {});
   }
   // both panes' options strips (the name is kept from when only the right pane had one)
   function buildRightFoot() { buildFoot('L'); buildFoot('R'); setReadouts(probe); if (Phone.isOn && Phone.isOn() && Phone.refreshDisplay) Phone.refreshDisplay(); }

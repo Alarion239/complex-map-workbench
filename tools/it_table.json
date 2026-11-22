@@ -570,13 +570,11 @@
  "Dashed boundaries do not belong to the sets.": "I bordi tratteggiati non appartengono agli insiemi.",
  "Deformation": "Deformazione",
  "Deformation arrives": "Deformazione completata",
- "Deformation on or off, in every view": "Attiva o disattiva la deformazione, in ogni vista",
  "Deformation plays": "Deformazione avviata",
  "Deformation: all steps at once": "Deformazione: tutti i passi insieme",
  "Deformation: every step": "Deformazione: tutti i passi",
  "Deformation: hide the paths t ↦ Hₜ(z)": "Deformazione: nascondi le traiettorie t ↦ Hₜ(z)",
  "Deformation: only {f}, inside F": "Deformazione: solo {f}, dentro F",
- "Deformation: paths on or off (in X → Y; else the Point tool)": "Deformazione: mostra o nascondi le traiettorie (in X → Y; altrimenti lo strumento «Punto»)",
  "Deformation: show the paths t ↦ Hₜ(z)": "Deformazione: mostra le traiettorie t ↦ Hₜ(z)",
  "Deformation: steps {f1}–{f2}": "Deformazione: passi {f1}–{f2}",
  "Deformation: the steps one after another": "Deformazione: i passi uno dopo l'altro",
@@ -3488,5 +3486,7 @@
  "critical value": "valore critico",
  "join radius": "raggio di unione",
  "Look down": "Vista dall’alto",
- "A video records a glide along the chain, which only the steps view has": "Un video registra un passaggio lungo la catena, che ha solo la vista a passi"
+ "A video records a glide along the chain, which only the steps view has": "Un video registra un passaggio lungo la catena, che ha solo la vista a passi",
+ "Play the chain, or pause it": "Riproduci la catena o mettila in pausa",
+ "Paths t ↦ Hₜ(z) on or off": "Mostra o nascondi le traiettorie t ↦ Hₜ(z)"
 }

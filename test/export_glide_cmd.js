@@ -413,8 +413,8 @@ info['video with no step'] = bare;
 ok('no step: the chain has one plane and Video is listed in the Format row', bare && bare.n < 2 && bare.fmts && bare.fmts.includes('video'), bare);
 ok('no step: Video is aria-disabled with "Add a step to make a video" as its tip, a click does not choose it', bare && bare.aria === 'true' && bare.tip === 'Add a step to make a video' && bare.checked === 'false' && bare.still && !bare.vsum, bare);
 await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
-// the classic view (?view=classic) has no motion to record: Video is listed, disabled, with the reason in its title, and
-// a click neither chooses it nor shows a summary line (the steps view's Video, above and below, is unchanged)
+// the classic view (?view=classic) has no motion to record: Video is listed, aria-disabled with the reason as its tip (and
+// its description), and a click neither chooses it nor shows a summary line (the steps view's Video, above and below, is unchanged)
 await loadView('classic', 'xglc' + Date.now() % 1e7, { v6: true, shapes: [{ id: 'd1', kind: 'disc', c: [0, 0], r: 1, ci: 0, visible: true }], steps: [{ type: 'pown', params: { n: 2 }, on: true }], srcView: { cx: 0, cy: 0, s: 90 } }, { lang: 'en' });
 await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwState === "function"', max: 30000 });
 const cls = await ev(`await (async () => { const until = async (f) => { for (let i = 0; i < 600 && !f(); i++) await new Promise((r) => requestAnimationFrame(r)); return f(); };
@@ -422,10 +422,10 @@ const cls = await ev(`await (async () => { const until = async (f) => { for (let
   const b = document.querySelector('#xfFmt [data-v="video"]'); if (!b) return null;
   const fmts = [...document.querySelectorAll('#xfFmt > button')].map((x) => x.dataset.v); b.click();
   await new Promise((r) => setTimeout(r, 300));
-  return { fmts, disabled: b.disabled, title: b.title, checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
+  return { fmts, aria: b.getAttribute('aria-disabled'), tip: b.dataset.tip, desc: b.getAttribute('aria-description'), checked: b.getAttribute('aria-checked'), still: !!document.querySelector('#xfFmt'), vsum: !!document.getElementById('xfVSum') }; })()`, 60000);
 info['video in the classic view'] = cls;
 ok('classic: Video is listed in the Format row', cls && cls.fmts && cls.fmts.includes('video'), cls);
-ok('classic: Video is disabled, its title says only the steps view has a glide to record, a click does not choose it', cls && cls.disabled === true && /^A video records a glide along the chain, which only the steps view has$/.test(cls.title) && cls.checked !== 'true' && cls.still && !cls.vsum, cls);
+ok('classic: Video is aria-disabled, its tip and description say only the steps view has a glide to record, a click does not choose it', cls && cls.aria === 'true' && /^A video records a glide along the chain, which only the steps view has$/.test(cls.tip) && cls.desc === cls.tip && cls.checked !== 'true' && cls.still && !cls.vsum, cls);
 await ev(`(document.querySelector('.xf-x') && document.querySelector('.xf-x').click(), 1)`);
 // the glide is recorded on the sphere and the Landscape, and the plane-only gate is gone
 for (const surf of ['sphere', 'land']) {
