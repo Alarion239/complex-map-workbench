@@ -11,6 +11,8 @@
 // CMW_ONLY=user5-classic is the part of section 6 that only the classic views have: the Landscape's pane title naming the
 // sheets; the CI runs it on the classic views (CMW_VIEW empty).
 // CMW_ONLY=user5-deform-steps is the film over the Landscape's sheets: the thread's play (K, M or the ▶).
+// (standards-ok: the classic Deformation's film on the sheets went with the classic transport, #994; user5-deform-steps is
+// the steps view's)
 const BASE = process.env.CMW_BASE || 'http://localhost:8793/'; // (a daemon of your own: CMW_BASE=http://localhost:<port>/)
 const OUT = path.join(DIR, '..', 'regress', 'export', 'out');
 fs.mkdirSync(OUT, { recursive: true });

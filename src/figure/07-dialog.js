@@ -197,6 +197,8 @@
     const glide = A.svOn() && A.svGlide ? A.svGlide() : null;
     // the steps view without a glide to record: Video is not offered until the thread has a step
     const noGlide = A.svOn() && !glide ? $t('Add a step to make a video') : null;
+    // the classic view without the deformation: no motion to record, so Video is disabled with the reason in its title
+    const noMotion = !A.svOn() && !defo ? $t('A video records a glide along the chain, in the steps view: open the page without ?view=classic') : null;
     const dOpts = [['film', $t('Filmstrip')]];
     if (defo && PATHS_OK.has(defo)) dOpts.push(['paths', $t('Paths')]);
     if (defo && defo !== 'plane') dOpts.push(['frame', $t('One frame')]);
@@ -279,28 +281,20 @@
     const canVideo = typeof VideoEncoder !== 'undefined';
     const fmtOf = () => (set.fmt === 'video' ? ((defo || glide) && canVideo && !noGlide ? 'video' : 'pdf') : ['pdf', 'png', 'svg'].includes(set.fmt) ? set.fmt : 'pdf');
     const fOpts = [['pdf', 'PDF'], ['png', 'PNG'], ['svg', 'SVG']];
-    // (Video is always listed; with the deformation off, choosing it turns the deformation on and the dialog
-    // opens again on Video: a video records the deformation)
+    // (Video is always listed: disabled with its reason where there is nothing to record, noGlide and noMotion)
     fOpts.push(['video', $t('Video')]);
     // (PNG: 600 dpi for an article, where journals ask for it; 300 dpi for homework and slides; remembered per For)
     const dpiOf = () => { const v = set.dpiFor && set.dpiFor[set.for]; return v === 300 || v === 600 ? v : set.for === 'article' ? 600 : 300; };
     const dpiSel = h('select', { class: 'xf-select', id: 'xfDpi', 'aria-label': $t('Resolution'), onchange: () => { set.dpiFor = Object.assign({}, set.dpiFor, { [set.for]: +dpiSel.value }); set.dpi = +dpiSel.value; saveSet(set); syncFmt(); } }, ...[300, 600].map((v) => h('option', { value: String(v) }, `${v} dpi`)));
     dpiSel.value = String(dpiOf());
     const fmtSeg = segB('xfFmt', fmtOf(), fOpts, (v) => {
-      if (v === 'video' && !defo && !glide) {
-        if (!(A.deformOn && A.deformOn())) { syncFmt(); return; }
-        set.fmt = 'video'; saveSet(set); close();
-        toast($t('A video records the deformation: it is on now.'));
-        setTimeout(() => open(), 0);
-        return;
-      }
       set.fmt = v; saveSet(set); syncFmt();
     }, $t('Format'));
     const fmtRow = row($t('Format'), h('div', { class: 'xf-fmtrow' }, fmtSeg, dpiSel)); fmtRow.classList.add('wide');
     { const vb = fmtSeg.querySelector('[data-v="video"]');
       if (vb && !canVideo) { vb.disabled = true; vb.title = $t('This browser cannot encode video. Try a recent Chrome, Edge or Safari.'); }
       else if (vb && noGlide) { vb.setAttribute('aria-disabled', 'true'); vb.dataset.tip = noGlide; vb.setAttribute('aria-description', noGlide); }
-      else if (vb && !defo && !glide) { const can = !(A.canDeform && !A.canDeform()); vb.disabled = !can; vb.title = can ? $t('A video records the deformation: choosing it turns the deformation on') : $t('A video records the deformation: add a function to the chain first'); } }
+      else if (vb && noMotion) { vb.disabled = true; vb.title = noMotion; } }
     // the LaTeX of the chosen format, in view and one click from the clipboard
     const texPre = h('pre', { class: 'xf-tex', id: 'xfTex', tabindex: '0', 'aria-label': $t('LaTeX snippet') });
     const texNote = h('div', { class: 'xf-texnote', id: 'xfTexNote' });
@@ -696,7 +690,7 @@
     const running = (on) => {
       nameLab.hidden = on; prog.hidden = !on;
       for (const el of vidBox.querySelectorAll('button, select, input')) el.disabled = on;
-      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || (!defo && !glide && !noGlide && A.canDeform && !A.canDeform())));
+      for (const b of fmtSeg.children) b.disabled = on || (b.dataset.v === 'video' && (!canVideo || !!noMotion));
     };
     const onVis = () => { if (vRun && document.hidden) vRun.hid = true; else if (vRun && vRun.hid) { vRun.hid = false; toast($t('Keep this tab in front while the video is made: a hidden tab can slow it down.')); } };
     document.addEventListener('visibilitychange', onVis);

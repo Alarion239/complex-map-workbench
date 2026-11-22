@@ -2,6 +2,7 @@
 // cases stay in the classic view:
 //   - while a zero is held still mid-drag the motion frame of Y is the rest frame (per pixel against the exact image);
 //   - a degree-2 map is drawn by the inverse renderer, a degree-3 one forward with its reason (the right pane's paths).
+// (standards-ok: the deformation's rows went with the classic transport, #994; the steps view's natural paths are deform_nat_cmd)
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };

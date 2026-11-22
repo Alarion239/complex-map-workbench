@@ -80,7 +80,8 @@ await settle(300);
 R.quiet = { made: await made(true), live: await ev('(() => { const h = Sound.hear.state(); return h.counts.notes + (h.stroke ? 1 : 0); })()'), argStep: await ev('__calls.argStep') };
 ok('default tiers: hovering zeros makes no cue, no voice, no tracking', !R.quiet.made.length && R.quiet.live === 0 && R.quiet.argStep === 0, R.quiet);
 
-// 4. Shift+M toggles sound (silently off)
+// 4. Shift+M toggles sound (silently off) (standards-ok: the M-key Deformation rows went with the classic transport, #994;
+// the steps view's play is sound_steps_cmd)
 await key('M', 8); await settle(250);
 R.shiftM = { on: await ev('Sound.prefs().on'), made: await made(true), active: await ev('Sound.debug().active'), audio: await ev('Sound.state().audio'), deform: (await ev('__cmwLayout()')).deform };
 ok('Shift+M: off, silent, suspended, not the Deformation', !R.shiftM.on && !R.shiftM.made.length && R.shiftM.active === 0 && R.shiftM.audio === 'suspended' && !R.shiftM.deform, R.shiftM);

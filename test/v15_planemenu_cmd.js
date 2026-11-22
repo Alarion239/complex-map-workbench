@@ -110,7 +110,7 @@ await pick('shape-delete');
 ok('Delete removes the circle', !(await H('shapes()')).some((s) => s.id === 's2'));
 await undo();
 ok('undo brings it back', (await H('shapes()')).some((s) => s.id === 's2'));
-// Y: empty: nothing
+// Y: empty: nothing (standards-ok: the deformation plane's row went with the classic transport, #994)
 let R = await paneRect('R');
 await rclick(R.l + 30, R.t + 30);
 ok('Y: a right-click on empty plane opens nothing', !(await anyMenu()), await menu());

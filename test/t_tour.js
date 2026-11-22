@@ -292,6 +292,8 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 { const m = {}; check('harp: down then up', [T.harpUpDown({ dir: -1 }, m), T.harpUpDown({ dir: 1 }, m)], [false, true]); }
 // the totals of SPEC 3: 47 steps, 34 with a task (2 doors), 13 read; less Add a zero here (issue #13: the planes' menu
 // adds no zeros)
+// (standards-ok: the Deformation chapter's rows went with the chapter, #994: the classic transport is gone; the steps
+// view's chapter is Planes, t_tour_planes.js)
 check('39 steps: 33 tasks (no door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [39, 33, 0, 6]);   // (#34: y, targets, domain, deriv and cauchy have tasks; #363: Views' Patterns step went)
 
 // ---- lit areas
