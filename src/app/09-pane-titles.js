@@ -333,12 +333,10 @@
   const foot = { L: footOf(), R: footOf() };
   phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
-  // on a desktop the unit circle's check (page.html's #unitBox) sits in one pane head: Y's in the X → Y view, else
-  // X's; a phone's Display sheet lends it itself
-  // (the steps view has one head and one colour panel on every plane: only classic's X → Y view moves the unit circle
-  // and the regions' button to Y's head)
+  // on a desktop the unit circle's check (page.html's #unitBox) sits in X's pane head; a phone's Display sheet lends it
+  // itself. The classic X → Y view puts the regions' button in the head too
+  // (the steps view has one head and one colour panel on every plane: its ⋯ pop-up holds the regions' display)
   const pushHome = () => !SV.on && S.view.main === 'xy';
-  const unitSide = () => (pushHome() ? 'R' : 'L');
   // the regions' display (page.html's #regionsBox): the X → Y view's Regions pop-up, the steps view's ⋯ pop-up
   const stepsRegions = () => SV.on;
   // (a strip rebuilt or laid out again lets go of it first: replaceChildren would leave it out of the page)
@@ -348,7 +346,7 @@
   }
   function unitKid(side) {
     const u = $('unitBox');
-    if (!u || side !== unitSide()) return null;
+    if (!u || side !== 'L') return null;
     // (its icon and toggle look, once: the word stays its name and the tooltip's)
     const l = u.querySelector('label.check');
     if (l && !l.classList.contains('ic-tg')) {

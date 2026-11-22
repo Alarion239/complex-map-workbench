@@ -18,11 +18,12 @@ const OV = `(a, b) => { const A = a.getBoundingClientRect(), B = b.getBoundingCl
 // (how far a focused element's ring lies outside the boxes that clip it, px)
 const RING = `(el) => { el.focus({ focusVisible: true }); const cs = getComputedStyle(el); if (cs.outlineStyle === 'none') return { none: true }; const off = parseFloat(cs.outlineOffset) || 0, w = parseFloat(cs.outlineWidth) || 0; const r = el.getBoundingClientRect(), g = off + w; const ring = { l: r.left - g, t: r.top - g, r: r.right + g, b: r.bottom + g }; let clip = { l: 0, t: 0, r: innerWidth, b: innerHeight }; for (let a = el.parentElement; a; a = a.parentElement) { const s = getComputedStyle(a), bx = /(hidden|auto|scroll|clip)/.test(s.overflowX), by = /(hidden|auto|scroll|clip)/.test(s.overflowY); if (!bx && !by) continue; const c = a.getBoundingClientRect(); if (bx) { clip.l = Math.max(clip.l, c.left); clip.r = Math.min(clip.r, c.right); } if (by) { clip.t = Math.max(clip.t, c.top); clip.b = Math.min(clip.b, c.bottom); } } return { off, w, cut: +Math.max(0, clip.l - ring.l, clip.t - ring.t, ring.r - clip.r, ring.b - clip.b).toFixed(1) }; }`;
 
-// 1. the panes' Plane | Sphere tabs: the buttons are inside their strip (the report: 4 px of their bottom cut) and 24 px tall at least
+// 1. X's Plane | Sphere tabs: the buttons are inside their strip (the report: 4 px of their bottom cut) and 24 px tall at least
+// (Y's pane, with its own tabs, is not drawn since #994)
 for (const w of [1024, 1440]) {
   await open(w, 800);
-  const t = await ev(`[...document.querySelectorAll('#leftTabs, #rightTabs')].map((seg) => { const s = seg.getBoundingClientRect(); return [...seg.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(); return { id: seg.id, h: r.height, cutBottom: +(r.bottom - (s.bottom - 1)).toFixed(1), cutTop: +((s.top + 1) - r.top).toFixed(1) }; }); }).flat()`);
-  ok(`${w}: the tabs' buttons lie inside their strip and are 28 px tall`, t.length === 4 && t.every((b) => b.cutBottom <= 0.5 && b.cutTop <= 0.5 && b.h >= 28), t);
+  const t = await ev(`[...document.querySelectorAll('#leftTabs')].map((seg) => { const s = seg.getBoundingClientRect(); return [...seg.querySelectorAll('button')].map((b) => { const r = b.getBoundingClientRect(); return { id: seg.id, h: r.height, cutBottom: +(r.bottom - (s.bottom - 1)).toFixed(1), cutTop: +((s.top + 1) - r.top).toFixed(1) }; }); }).flat()`);
+  ok(`${w}: the tabs' buttons lie inside their strip and are 28 px tall`, t.length === 2 && t.every((b) => b.cutBottom <= 0.5 && b.cutTop <= 0.5 && b.h >= 28), t);
   info[`tabs ${w}`] = t[0];
 }
 // 5. Settings > Mesh quality: the slider and the presets are 24 px at least (the slider's 20 px put the stops within its reach) and the presets start where the slider ends (en and ru)

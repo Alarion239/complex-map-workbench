@@ -19,5 +19,6 @@ const RETIRED = {
   'sheets_film_cmd.js': 'a screenshot writer of the sheets while the classic Deformation plays, gone with the transport (#994)',
   'pane_heads_1024_cmd.js': 'Y\'s pane head beside the Inspector at 1024 and 1100 px: Y\'s pane is not drawn in either view since #994, so it has no head; the steps view\'s one head is steps_head_cmd\'s and layout_invariants_cmd\'s',
   'ux165_merge_classic_cmd.js': 'Y\'s head with its "Y · " tag in the classic view: Y\'s pane is not drawn since #994, so it has no head; the rest of the merged look is ux165_merge_cmd\'s',
+  'curves_target_legend_classic_cmd.js': 'the target legend in Y\'s head note (#rightNote) in the classic view: Y\'s pane is not drawn since #994, so it has no head; the steps view\'s legend is curves_target_legend_cmd\'s',
 };
 module.exports = { RETIRED };
