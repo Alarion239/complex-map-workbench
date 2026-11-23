@@ -179,4 +179,24 @@ if (!ru.err) {
   const lr = pdfLayer(ru.a);
   ok('a Russian figure\'s PDF shows its key\'s words in Cyrillic, and embeds its font', ['на полосу яркости', '×1,69'].every((w) => lr.shown.join(' ').includes(w)) && lr.embedded, { shown: lr.shown, texts: ru.texts });
 }
+// every tick label stands inside the figure: with cross axes (Homework) a tick near a panel's left edge has its label centred
+// under it, which reached past the figure's 3 pt margin («−8» in example 1, on the camera's window); the steps view's Two planes
+// figure and the classic two-panel Image figure, en
+{
+  const EDGE = 0.01;
+  const ticksOf = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
+    return JSON.stringify({ W: f.W, ticks: f.boxes.filter((b) => b.kind === 'tick').map((b) => ({ tex: b.tex, x0: +b.x0.toFixed(2), x1: +b.x1.toFixed(2) })) });
+  } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
+  const outside = (f) => (f.ticks || []).filter((b) => b.x0 < -EDGE || b.x1 > f.W + EDGE);
+  await ready(1);
+  const sv = await ticksOf({ svPic: 'two', for: 'homework', crop: 'screen', capInImage: false });
+  info['ticks steps two planes'] = { err: sv.err, W: sv.W, n: (sv.ticks || []).length, outside: outside(sv) };
+  ok('steps view, example 1, Homework Two planes: every tick label is inside the figure', !sv.err && (sv.ticks || []).length > 8 && outside(sv).length === 0, info['ticks steps two planes']);
+  await go(`${base}/test.html?view=classic&ns=xtpt${Date.now() % 1e7}`);
+  await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwExample === "function"', max: 30000 });
+  await ev('(__cmwExample(1), 1)'); await settled();
+  const cl = await ticksOf({ for: 'homework', cols: 2, crop: 'screen', capInImage: false });
+  info['ticks classic image'] = { err: cl.err, W: cl.W, n: (cl.ticks || []).length, outside: outside(cl) };
+  ok('classic view, example 1, Homework two-panel figure: every tick label is inside the figure', !cl.err && (cl.ticks || []).length > 8 && outside(cl).length === 0, info['ticks classic image']);
+}
 return { pass: fails.length === 0, fails, info };
