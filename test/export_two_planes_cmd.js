@@ -110,8 +110,9 @@ ok('example 18: As on screen keeps the camera window, with no note', r18s && r18
 // the plane names and the axis names meet nothing, and stay in the figure: in the Homework figure (cross axes) a panel's
 // imaginary axis stands at its left edge when its window is right of 0, and its name "Im w" stands over it, centred, where the
 // plane's name heads the panel. The scene: z then z², the disc |z − 3| ≤ 1, Fit (each plane its own window, right of 0), the
-// figures z → w₂, w₁ → w₂ and z → w₁, in en and ru; each 'title' box (a plane's name) is clear of every 'axis-name' box, and
-// every title, axis name and tick label lies inside the figure's width (the first panel's stand left of its edge). (control: example 1 on the camera's window, where the imaginary
+// figures z → w₂, w₁ → w₂ and z → w₁ (Homework) and z → w₂, z → w₁ (Slides), in en and ru; each 'title' box (a plane's name)
+// is clear of every 'axis-name' box, every title, axis name and tick label lies inside the figure's width (the first panel's stand
+// left of its edge), and where the To plane carries the key (past the colour plane) its ring and line meet none of them. (control: example 1 on the camera's window, where the imaginary
 // axes stand mid-panel: each name keeps its place at its panel's top left corner)
 {
   // how far apart two boxes must be to count as clear, pt; how far a box may sit past the figure's edge, pt
@@ -122,7 +123,7 @@ ok('example 18: As on screen keeps the camera window, with no note', r18s && r18
     shapes: [{ id: 'd1', kind: 'disc', c: [3, 0], r: 1, visible: true }] };
   const labels = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
     const imgs = [...f.svg.matchAll(/<image x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.-]+)"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3] }));
-    return JSON.stringify({ W: f.W, ownWin: f.info && f.info.ownWin, imgs, boxes: f.boxes.filter((b) => b.kind === 'title' || b.kind === 'axis-name' || b.kind === 'tick').map((b) => ({ kind: b.kind, tex: b.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) });
+    return JSON.stringify({ W: f.W, ownWin: f.info && f.info.ownWin, keyLine: f.info && f.info.keyLine, imgs, boxes: f.boxes.filter((b) => ['title', 'axis-name', 'tick', 'key', 'ring-mark'].includes(b.kind)).map((b) => ({ kind: b.kind, tex: b.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) });
   } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
   const r1 = (b) => ({ tex: b.tex, box: [b.x0, b.y0, b.x1, b.y1].map((v) => +v.toFixed(1)) });
   for (const lang of ['en', 'ru']) {
@@ -130,9 +131,9 @@ ok('example 18: As on screen keeps the camera window, with no note', r18s && r18
     await seed(ns, RIGHT);
     await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=steps`);
     await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwSteps === "function" && __cmwSteps().planes.length > 2', max: 30000 });
-    for (const [from, to] of [[0, 2], [1, 2], [0, 1]]) {
-      const tag = `${lang}, Homework, Fit, plane ${from} → plane ${to}`;
-      const f = await labels({ svPic: 'two', for: 'homework', crop: 'fit', svFrom: from, svTo: to, capInImage: false });
+    for (const [pre, from, to] of [['homework', 0, 2], ['homework', 1, 2], ['homework', 0, 1], ['slides', 0, 2], ['slides', 0, 1]]) {
+      const tag = `${lang}, ${pre}, Fit, plane ${from} → plane ${to}`;
+      const f = await labels({ svPic: 'two', for: pre, crop: 'fit', svFrom: from, svTo: to, capInImage: false });
       const titles = (f.boxes || []).filter((b) => b.kind === 'title'), names = (f.boxes || []).filter((b) => b.kind === 'axis-name'), ticks = (f.boxes || []).filter((b) => b.kind === 'tick');
       const hits = titles.flatMap((t) => names.filter((a) => meets(t, a)).map((a) => ({ title: r1(t), axis: r1(a) })));
       const out = [...titles, ...names, ...ticks].filter((b) => b.x0 < -EDGE || b.x1 > f.W + EDGE).map(r1);
@@ -140,6 +141,11 @@ ok('example 18: As on screen keeps the camera window, with no note', r18s && r18
       ok(`${tag}: two plane names and four axis names (control)`, !f.err && titles.length === 2 && names.length === 4, info[`labels ${tag}`]);
       ok(`${tag}: each plane's name meets no axis name`, !f.err && titles.length === 2 && hits.length === 0, hits);
       ok(`${tag}: every plane name, axis name and tick label is inside the figure`, !f.err && out.length === 0, { W: f.W, out });
+      // (the key of a To plane past the colour plane: its ring, bounded by its marks 1, i, -1, -i, and its line)
+      const marks = (f.boxes || []).filter((b) => b.kind === 'ring-mark'), keyText = (f.boxes || []).filter((b) => b.kind === 'key');
+      const ring = marks.length ? { tex: 'ring', x0: Math.min(...marks.map((b) => b.x0)), y0: Math.min(...marks.map((b) => b.y0)), x1: Math.max(...marks.map((b) => b.x1)), y1: Math.max(...marks.map((b) => b.y1)) } : null;
+      const keyHits = [...titles, ...names, ...ticks].flatMap((b) => [ring, ...keyText].filter((q) => q && meets(b, q)).map((q) => ({ label: r1(b), key: r1(q) })));
+      if (f.keyLine) ok(`${tag}: the key's ring and line meet no plane name, axis name or tick label`, !f.err && !!ring && keyHits.length === 0, keyHits);
     }
   }
   // (control) example 1 on the camera's window: the imaginary axes mid-panel, each name at its panel's top left corner
