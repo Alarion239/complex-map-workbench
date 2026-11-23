@@ -65,9 +65,16 @@
   // camera. False when the Stack is not shown
   function stackDrawPlane(pane, flat) {
     if (!stackOn()) return false;
-    stackFlat = true;
-    try { stackFloor(pane, flat, stackCam); } finally { stackFlat = false; }
+    stackAsFlat(() => stackFloor(pane, flat, stackCam));
     return true;
+  }
+  // f() run as the Stack's floor is drawn flat: on the Stack, under stackFlat, so lFlat() and svFlatSurf() read the flat
+  // plane's (the floor's own draw, and whether a glide's frames can be drawn ahead, svAheadCan); elsewhere as it is.
+  // -> f's result
+  function stackAsFlat(f) {
+    if (!SV.on || SV.surf !== 'stack' || stackFlat) return f();
+    stackFlat = true;
+    try { return f(); } finally { stackFlat = false; }
   }
   // The Stack's layers after the floor on ctx (css px, pane's overlay), for the flat view of pane: the floor's marks, the
   // tubes, the box's edges and the lines, the glass, the glass's marks, the tubes' labels (STACK_ORDER). The marks are Look down's, for the selected
