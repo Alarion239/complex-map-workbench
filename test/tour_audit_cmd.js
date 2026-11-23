@@ -249,7 +249,8 @@ for (const cfg of runs) {
     const back = await ev(`({ inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), tour: Tour.isActive() })`);
     FOCUS.push({ tag, seenF, back });
     check(`${tag} focus: every strip control the focus reaches shows a ring`, seenF.every((x) => !x || !x.inStrip || x.ring), seenF);
-    check(`${tag} focus: a ring drawn over a strip control's own fill (Start's) tells from it, a contrast of 3 or more`, seenF.every((x) => !x || !x.inStrip || x.over == null || x.over >= 3), seenF);
+    // (the walk starts on Skip, the quiet outlined state of the step's button: Start's own ring is the row after the Help-menu start, which lands on it)
+    check(`${tag} focus: a ring drawn over a strip control's own fill tells from it, on every control the Tab walk reaches (a contrast of 3 or more)`, seenF.every((x) => !x || !x.inStrip || x.over == null || x.over >= 3), seenF);
     check(`${tag} focus: the palette from the strip, Esc: the tour stays and the focus is back in the strip`, back.tour && back.inStrip, back);
     await ev('Tour.isActive() && Tour.stop()'); await calm();
     // the tour started from the Help menu by keyboard: the focus is in the strip (the menu's item is gone with the menu), at a desk, where Help is in the header
