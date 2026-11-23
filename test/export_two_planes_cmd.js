@@ -112,27 +112,30 @@ ok('example 18: As on screen keeps the camera window, with no note', r18s && r18
 // plane's name heads the panel. The scene: z then z², the disc |z − 3| ≤ 1, Fit (each plane its own window, right of 0), the
 // figures z → w₂, w₁ → w₂ and z → w₁ (Homework) and z → w₂, z → w₁ (Slides), in en and ru; each 'title' box (a plane's name)
 // is clear of every 'axis-name' box, every title, axis name and tick label lies inside the figure's width (the first panel's stand
-// left of its edge), and where the To plane carries the key (past the colour plane) its ring and line meet none of them. (control: example 1 on the camera's window, where the imaginary
-// axes stand mid-panel: each name keeps its place at its panel's top left corner)
+// left of its edge), and where the To plane carries the key (past the colour plane) its ring and line meet none of them. The
+// same for the disc |z − 1| ≤ 1, where z's window straddles 0 and its imaginary axis stands a little way into the panel
+// (Homework z → w₂ and z → w₁). (control: example 1 on the camera's window, where the imaginary axes stand mid-panel: each name
+// keeps its place at its panel's top left corner)
 {
   // how far apart two boxes must be to count as clear, pt; how far a box may sit past the figure's edge, pt
   const GAP = 0.25, EDGE = 0.01;
   const meets = (a, b) => a.x0 < b.x1 + GAP && a.x1 > b.x0 - GAP && a.y0 < b.y1 + GAP && a.y1 > b.y0 - GAP;
-  const RIGHT = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
+  const scene = (c) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image',
     steps: [{ type: 'custom', params: { expr: 'z', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2', cut: 180 }, on: true }],
-    shapes: [{ id: 'd1', kind: 'disc', c: [3, 0], r: 1, visible: true }] };
+    shapes: [{ id: 'd1', kind: 'disc', c, r: 1, visible: true }] });
   const labels = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
     const imgs = [...f.svg.matchAll(/<image x="([\\d.-]+)" y="([\\d.-]+)" width="([\\d.-]+)"/g)].map((m) => ({ x: +m[1], y: +m[2], w: +m[3] }));
     return JSON.stringify({ W: f.W, ownWin: f.info && f.info.ownWin, keyLine: f.info && f.info.keyLine, imgs, boxes: f.boxes.filter((b) => ['title', 'axis-name', 'tick', 'key', 'ring-mark'].includes(b.kind)).map((b) => ({ kind: b.kind, tex: b.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 })) });
   } catch (e) { return JSON.stringify({ err: String(e && e.stack || e).slice(0, 500) }); } })()`, BUILD_TIMEOUT_MS);
   const r1 = (b) => ({ tex: b.tex, box: [b.x0, b.y0, b.x1, b.y1].map((v) => +v.toFixed(1)) });
-  for (const lang of ['en', 'ru']) {
+  // (the disc |z − 3| ≤ 1: every window right of 0; |z − 1| ≤ 1: z's window straddles 0, its imaginary axis a little way in)
+  for (const [c, figs] of [[[3, 0], [['homework', 0, 2], ['homework', 1, 2], ['homework', 0, 1], ['slides', 0, 2], ['slides', 0, 1]]], [[1, 0], [['homework', 0, 2], ['homework', 0, 1]]]]) for (const lang of ['en', 'ru']) {
     const ns = 'xtpr' + lang + Date.now();
-    await seed(ns, RIGHT);
+    await seed(ns, scene(c));
     await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=steps`);
     await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.Figure && typeof __cmwSteps === "function" && __cmwSteps().planes.length > 2', max: 30000 });
-    for (const [pre, from, to] of [['homework', 0, 2], ['homework', 1, 2], ['homework', 0, 1], ['slides', 0, 2], ['slides', 0, 1]]) {
-      const tag = `${lang}, ${pre}, Fit, plane ${from} → plane ${to}`;
+    for (const [pre, from, to] of figs) {
+      const tag = `disc at ${c[0]}, ${lang}, ${pre}, Fit, plane ${from} → plane ${to}`;
       const f = await labels({ svPic: 'two', for: pre, crop: 'fit', svFrom: from, svTo: to, capInImage: false });
       const titles = (f.boxes || []).filter((b) => b.kind === 'title'), names = (f.boxes || []).filter((b) => b.kind === 'axis-name'), ticks = (f.boxes || []).filter((b) => b.kind === 'tick');
       const hits = titles.flatMap((t) => names.filter((a) => meets(t, a)).map((a) => ({ title: r1(t), axis: r1(a) })));
