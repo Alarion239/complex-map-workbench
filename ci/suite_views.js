@@ -80,6 +80,7 @@ const VIEWS = {
   'steps_land_cracks_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
+  'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_glide_mesh_wait_cmd.js': steps(),
   'steps_glide_cut_dash_cmd.js': steps(),
   'steps_sheets_readback_cmd.js': steps(),
@@ -398,7 +399,7 @@ const VIEWS = {
   'perp_cmd.js': steps({ pin: true }),
   'poly_verts_cmd.js': steps({ pin: true }),
   'rel162_sheets_cmd.js': port('geometry', 'the release check of All sheets on a Landscape with a multivalued step, its sheets and their count, as the classic Landscape draws them: the steps view has the check in its plane options (sv_all_sheets_cmd), not this case'),
-  'sheets_deform_cmd.js': port('geometry', 'All sheets while a glide plays: the steps view has the check (sv_all_sheets_cmd) and its glide, and every sheet drawn over a 2D glide (steps_glide_sheets_cmd), but not yet over a Landscape or sphere glide (#1413)'),
+  'sheets_deform_cmd.js': port('geometry', 'All sheets while a glide plays: the steps view has the check (sv_all_sheets_cmd) and its glide, and every sheet drawn over a 2D glide (steps_glide_sheets_cmd) and a Landscape glide (steps_land_glide_copies_cmd), but not yet over a sphere glide (#1413)'),
   'touch_cmd.js': steps({ pin: true }),
   'ux165_rail_cmd.js': steps({ pin: true }),
 

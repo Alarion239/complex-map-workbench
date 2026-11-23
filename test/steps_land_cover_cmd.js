@@ -9,7 +9,9 @@
 // - the Logarithm of an annulus and a Möbius step then √ at u = 0.998: the carried points are the image of the plane's
 //   principal branch (the log's strip, √'s right half-plane), every sheet over it, so the plane at rest, one surface
 //   over the whole window, is not the bound. All sheets then have at least 90 % of the pixels the same chain has with
-//   sheets off, and the logarithm's singular point has its patch (carried.patches).
+//   sheets off on its principal sheet alone (__cmwSteps({ glideSheets: 1 }): sheets off, a glide onto a plane coloured
+//   by its own variable also draws the other sheets' copies, steps_land_glide_copies), and the logarithm's singular
+//   point has its patch (carried.patches).
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -45,7 +47,10 @@ for (const c of CASES) {
     await ev(`__cmwSteps({ x: ${x} }); 1`); await settled({ max: 60000 }); await ev(rAF2);
     const carry = await ev('__cmwLandCarry()');
     const got = await surface();
-    const r = { rest, got, coverage: +(got.n / rest.n).toFixed(3), carried: !!carry, patches: carry && carry.patches };
+    // (sheets off: the principal sheet's footprint too, the copies left out)
+    let one = null;
+    if (!c.sheets) { await ev('__cmwSteps({ glideSheets: 1 }); 1'); await settled({ max: 60000 }); await ev(rAF2); one = await surface(); await ev('__cmwSteps({ glideSheets: 0 }); 1'); await settled({ max: 60000 }); }
+    const r = { rest, got, one, coverage: +(got.n / rest.n).toFixed(3), carried: !!carry, patches: carry && carry.patches };
     info[name][tag] = r;
     ok(`${name}, ${tag}: a carried frame`, r.carried, r);
     if (k === 0 || c.rest998) {
@@ -53,7 +58,7 @@ for (const c of CASES) {
       if (c.top) ok(`${name}, ${tag}: the topmost row within 3 px of the plane's`, Math.abs(got.top - rest.top) <= 3, r);
     } else {
       if (c.patched) ok(`${name}, ${tag}: the logarithm's singular point has its patch`, r.patches >= 1, r);
-      if (c.base) { const b = info[c.base][tag]; ok(`${name}, ${tag}: >= 90 % of the pixels of ${c.base} (${b.got.n})`, got.n >= 0.9 * b.got.n, r); }
+      if (c.base) { const b = info[c.base][tag]; ok(`${name}, ${tag}: >= 90 % of the pixels of ${c.base} on its principal sheet (${b.one.n})`, got.n >= 0.9 * b.one.n, r); }
     }
   }
 }

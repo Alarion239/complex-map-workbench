@@ -17,6 +17,7 @@
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
+    glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     fits: 0,         // (for a test) the head's fits (svFitHead's) that ran past their key
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -520,7 +521,18 @@
   // at rest. False when the Landscape is not on the pane
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
-    render3D(pane, svLandCarryNow());
+    const g = svBetween();
+    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandCarryNow()); return true; }
+    const carry = svLandCarryNow();
+    // (onto a plane b coloured by its own variable: the other sheets' copies of the carried surface, svGlideSheets, as
+    // the Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions,
+    // where plane b shows the principal sheet's image of the regions)
+    const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.a, g.b, carry.s) : [];
+    // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
+    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
+    const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.a, g.b, carry.s) : [];
+    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    render3D(pane, carry);
     return true;
   }
   // the carry the Landscape draws now (render3D's), undefined for a plane's own relief at rest
@@ -2080,31 +2092,38 @@
   // A combo is the chain with each multivalued step's sheet (its k, which the GPU reads as data, so the programs are the
   // same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW, the
   // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
-  // are svGlideSheets(a, b)'s for the glide from plane a to plane b, nearest the principal sheet first (the sum of the
-  // offsets' distances from 0, a root's around its circle of sheets), made once per chain and glide. A combo whose maps
-  // to every plane from a to b are an earlier combo's is left out, as the Landscape's sheets are (sheetUniq: the same
-  // values at SHEET_PTS): a later step can undo a sheet (exp after log, z² after √), and a glide frame is placed by the
-  // map to plane a and coloured by the map to plane b, so a combo the glide's planes cannot tell apart is drawn once and
-  // the cap counts distinct ones. A chain with more distinct combos leaves the farthest ones out.
-  // SV.glideSheets 1 (a test hook's) draws the chain as it is alone.
+  // are svGlideSheets(a, b, from)'s for the glide from plane a to plane b, nearest the principal sheet first (the sum
+  // of the offsets' distances from 0, a root's around its circle of sheets), made once per chain and glide. A combo
+  // whose maps to every plane from a to b are an earlier combo's is left out, as the Landscape's sheets are (sheetUniq:
+  // the same values at SHEET_PTS): a later step can undo a sheet (exp after log, z² after √), and a glide frame is
+  // placed by the map to plane a and coloured by the map to plane b, so a combo the glide's planes cannot tell apart is
+  // drawn once and the cap counts distinct ones. A chain with more distinct combos leaves the farthest ones out.
+  // from moves the steps in (from, b] alone: a Landscape glide carries the points of plane from, which no step before
+  // it moves (0, every step up to b, on the Plane). SV.glideSheets 1 (a test hook's) draws the chain as it is alone, on
+  // the Plane and on the Landscape.
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
   // digits), so a copy of it would be a chain of its own to compile: its principal sheet alone is carried.
   // The window of an infinitely sheeted step: S.sheetW within its bounds (sheetWOf), as the Landscape's "sheets ±"
   // choice and the GPU's sheet plan draw it
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
-  // svGlideSheets' last answer, made again when its key (the chain's signature, planes a and b, the window W) changes: key,
-  // list (the copies), W, and own, the chain as it is on the GPU, which svOnSheets sets back after each copy's draw
+  // a step's cut in degrees: its own, else the default every multivalued step starts with (SV_CUT, the negative real
+  // axis); SV_HALF_TURN: a seam's cut turned from it (svGlideSeams)
+  const SV_CUT = 180, SV_HALF_TURN = 180;
+  const svCut = (st) => (st.params.cut == null ? SV_CUT : +st.params.cut);
+  // svGlideSheets' last answer, made again when its key (the chain's signature, planes a, b and from, the window W)
+  // changes: key, list (the copies), W, seamList (the seams, svGlideSeams, made when first asked for), and own, the
+  // chain as it is on the GPU, which svOnSheets sets back after each copy's draw
   let svSheetMemo = { key: '', list: [] };
-  function svGlideSheets(a, b) {
+  function svGlideSheets(a, b, from = 0) {
     const W = sheetWOf(S.sheetW);
-    const key = `${chainSig[nSteps()]}|${a}|${b}|${W}`;
+    const key = `${chainSig[nSteps()]}|${a}|${b}|${from}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
     const radix = [];
     for (const e of Funcs.sheetSteps(S.steps, built)) {
       const st = S.steps[e.k - 1];
-      if (e.k > b || !SV_SHEET_STEPS.includes(st.type)) continue;
+      if (e.k <= from || e.k > b || !SV_SHEET_STEPS.includes(st.type)) continue;
       // (the piece's sheets as the sheets module reads them, from sheet 0 on round the circle: 0, 1 … W, −W … −1)
       const all = Funcs.sheetOffsets(e, W), i0 = all.indexOf(0), offs = [...all.slice(i0), ...all.slice(0, i0)];
       radix.push({ k: e.k, offs, far: (o) => (e.n > 0 ? Math.min(o, e.n - o) : Math.abs(o)) });
@@ -2123,21 +2142,48 @@
       for (let j = a; j <= b; j++) for (const z of SHEET_PTS) { let w = null; try { w = G && G[j] ? G[j](z) : null; } catch (e) { w = null; } out.push(w); }
       return out;
     };
-    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and stagesFollow,
-    // which change the user's chain; a combo whose values match the chain's or a kept copy's is not kept)
+    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and
+    // stagesFollow, which change the user's chain; turn: each of those steps' cuts turned half a turn too,
+    // svGlideSeams)
+    const variant = (offs, tag, turn) => {
+      const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
+      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; if (turn) st.params.cut = svCut(st) + SV_HALF_TURN; });
+      const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
+      return { offs, steps, built: bs, sig: chainSig.map((g) => `${g}|${tag}`), gl: null };
+    };
+    // (a combo whose values match the chain's or a kept copy's is not kept; the GPU chain is built for the kept ones)
     const seen = [valsOf(S.steps, built)], list = [];
     for (const offs of combos) {
       if (list.length >= SV_GLIDE_SHEETS_MAX - 1) break;
-      const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
-      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; });
-      const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
-      const v = valsOf(steps, bs);
-      if (seen.some((w) => sheetValsSame(w, v))) continue;
-      seen.push(v);
-      list.push({ offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${list.length + 1}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
+      const v = variant(offs, `sheet${list.length + 1}`, false), vals = valsOf(v.steps, v.built);
+      if (seen.some((w) => sheetValsSame(w, vals))) continue;
+      seen.push(vals);
+      if (GLR.ok) v.gl = GLChain.build(v.steps, v.built);
+      list.push(v);
     }
-    svSheetMemo = { key, list, W, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    // (the seams: every surface drawn, the chain as it is first, with its cuts turned, made when first asked for)
+    let seams = null;
+    const seamList = () => seams || (seams = [radix.map(() => 0), ...list.map((v) => v.offs)].map((offs, n) => { const v = variant(offs, `seam${n}`, true); if (GLR.ok) v.gl = GLChain.build(v.steps, v.built); return v; }));
+    svSheetMemo = { key, list, W, seamList, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
     return list;
+  }
+  // The seams of a Landscape glide's copies (svGlideSheets(a, b, from)): the carried grid leaves out a cell its map
+  // tears, and every surface drawn tears along the image of its multivalued steps' cuts, where one sheet meets the next,
+  // so the copies leave a slit there. Each surface again with those cuts turned half a turn is continuous across that
+  // image; drawn before the surfaces themselves, it shows only where none of them draws (a surface and its turned
+  // twin take the same values away from both cuts). SV.glideSeams 0 (a test hook's) draws none
+  function svGlideSeams(a, b, from = 0) {
+    return svGlideSheets(a, b, from).length ? svSheetMemo.seamList() : [];
+  }
+  // where a Landscape glide's seams tear (svGlideSeams): along step b's cut, a ray from 0 in the plane of its input,
+  // when that plane is the carry's source s (from) and step b is the one multivalued step it applies. Its angle in
+  // degrees when it lies on an axis, so a seam's cells can be a box about it (GLR.drawLandscape's band), else null (the
+  // seams cover the source plane's whole box)
+  function svSeamCut(b, from) {
+    const st = S.steps[b - 1];
+    if (from !== b - 1 || !st || !SV_SHEET_STEPS.includes(st.type)) return null;
+    const c = ((svCut(st) % 360) + 360) % 360;
+    return c % 90 === 0 ? c : null;
   }
   // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'
   // caches are keyed by it) and the GPU chain's data, then the chain as it is again; draw's answer
