@@ -9,8 +9,8 @@
 // - it stays so with a long toast up, with the plane's hint chip shown (desktop), and with a phone sheet open (phone),
 //   moving to another spot or hiding;
 // - it names the planes: the second formula is w₂'s, w_{2} = …;
-// - one formula at a time, and only it takes room in the tile (rvA, rvB on #2317: overlapping glyphs, a chip as wide as
-//   the other formula): never both shown, the tile no wider than its formula and padding (TIGHT). At rest at a quarter
+// - one formula at a time, and only it takes room in the tile, so its glyphs never lie over the other's and it is never
+//   as wide as a formula it does not show: never both shown, the tile no wider than its formula and padding (TIGHT). At rest at a quarter
 //   of the way the first alone, at the half the second alone (both formulas fitting); under reduced motion the same
 //   just either side of the half; parked on a plane it is hidden.
 // Its frames go to shots/ (tile-<case>-q1.png and -q3.png, a quarter and three quarters of the way; -toast, -hint and

@@ -19,7 +19,7 @@
   // what the tile keeps clear of, besides the plane's own children (the canvases and the hairline aside) and its note
   const SV_TILE_AVOID = '#svStrip, .sv-bandx, .sv-playpop, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .ph-scrim, '
     + '.sv-sheet, .sv-scrim, #paneL .pane-head, #popHost > *, .pop, dialog[open], .tour-root, .tour-top';
-  const svTile = { el: null, a: null, b: null, key: '', texA: null, texB: null, q: 0, q2: 0, fitA: false, fitB: false, spot: null, shown: -1, pw: 0, ph: 0 };
+  const svTile = { el: null, a: null, b: null, key: '', texA: null, texB: null, q: 0, q2: 0, fitA: false, fitB: false, spot: null, shown: -1 };
   // the formula shown for plane k: z, or w_k = the steps through k composed; null when it is longer than the caption's
   // limit (SV_CAP_TEX_MAX) or a step cannot write it
   function svTileTex(k) {
@@ -90,7 +90,6 @@
     const el = svTile.el, P = plot.getBoundingClientRect(), maxW = SV_TILE_W(P.width);
     el.style.visibility = 'hidden'; el.hidden = false;
     if (full) {
-      svTile.pw = plot.clientWidth; svTile.ph = plot.clientHeight;
       el.style.maxWidth = maxW + 'px';
       svTile.a.hidden = svTile.b.hidden = false;
       const pad = el.offsetWidth - el.clientWidth + 16;
@@ -102,8 +101,8 @@
   }
   // the tile, every frame the steps view syncs: shown between two planes, one formula at a time faded by the glide's
   // position (svTileOps), at a clear spot; hidden otherwise. It is laid out again (svTileLay) only when the planes it is
-  // between change, the formula shown changes, the plane is resized, or full (an observer's call, svTileRefresh): a
-  // frame of the glide sets the formula's opacity alone
+  // between change, the formula shown changes, or full (an observer's call, svTileRefresh: the plane resized among
+  // them): a frame of the glide sets the formula's opacity alone
   function svTileSync(full = false) {
     const el = svTile.el || svTileBuild();
     if (!el) return;
@@ -115,7 +114,6 @@
       svTile.texA = svTileTex(bt.a); svTile.texB = svTileTex(bt.b);
       for (const [n, t] of [[svTile.a, svTile.texA], [svTile.b, svTile.texB]]) { if (t) TeX.set(n, t); else { n.textContent = ''; delete n.dataset.tex; } }
     }
-    full = full || plot.clientWidth !== svTile.pw || plot.clientHeight !== svTile.ph;
     // (fading while the glide moves, and synced again a frame on, so the tile is still once the thread comes to rest)
     const moving = svGliding(), [oa, ob] = svTileOps(bt.u, svReduced() || !moving);
     if (moving && !svTile.q2) svTile.q2 = requestAnimationFrame(() => { svTile.q2 = 0; if (SV.on && SV.els && !SV.offscreen) svTileSync(); });
