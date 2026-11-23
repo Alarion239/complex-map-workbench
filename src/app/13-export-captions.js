@@ -395,6 +395,10 @@
     // a shape's map from its own plane into a panel's plane (side 'L' or 'R'), F the panel's map of the z-plane's shapes:
     // null where the page does not draw it (a plane after the panel's, a d/dz step between)
     shapeF: (s, side, F) => shapeF(s, F, side === 'L' ? leftStage() : rightStage()),
+    // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in there (winOf: X's view of that plane
+    // the last time X showed it, else the shape's own box with room around it); null for a shape of the z-plane
+    shapeStage: (s) => shapeStage(s),
+    shapeWin: (s) => (shapeStage(s) ? winOf(s) : null),
     // a point's name on a panel, the one the page's figure frames give it (pointLabel in the figure's mode: F(z₀), w₂(z₁)),
     // idx its place among the points the panel draws
     pointName: (s, idx, side) => {
