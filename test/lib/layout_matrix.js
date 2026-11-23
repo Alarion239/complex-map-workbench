@@ -10,7 +10,7 @@
     { id: '568x320', w: 568, h: 320, dev: 'phone', only: true }, { id: '640x360', w: 640, h: 360, dev: 'phone', only: true }, { id: '667x375', w: 667, h: 375, dev: 'phone', only: true },
     { id: '1024', w: 1024, h: 768, dev: 'desktop' }, { id: '1280', w: 1280, h: 800, dev: 'desktop' }, { id: '1440', w: 1440, h: 900, dev: 'desktop' },
   ];
-  // the states: name, dev (phone or desktop only), views (the views it is in), page (a suffix of the page's URL: the state has its own page load), checks (the checks that count in it; all when absent), go (a page script), click (a button's id),
+  // the states: name, dev (phone or desktop only), views (the views it is in), page (a suffix of the page's URL: the state has its own page load), checks (the checks that count in it; all when absent), why (a page expression that tells what the page is at when the state does not open), go (a page script), click (a button's id),
   // key, run (an async function with the daemon's helpers), sizes (the sizes it is measured at; all when absent), after (a page script that puts the page back), wait (ms), ready (a page expression that is true once the state is drawn, polled up to 15 s). A menu's ready is
   // that a layer (test/lib/layout.js INTENT.layers) is open
   const LAYER = `__layout.openLayers().length > 0`;
@@ -82,8 +82,14 @@
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
     // (#2222: a construction tool picked on a short landscape phone: the chip folds to its × and ?, the words in the context bar)
     { name: 'folded construction chip', dev: 'phone', views: ['classic'], page: '&view=classic', checks: ['target-size'], sizes: ['568x320', '640x360', '667x375', '740x360'], wait: 900,
-      go: `(() => { const t = document.querySelector('#constructTools .tool[data-tool="hyper"]'); if (!t) return 'na'; t.click(); return 1; })()`,
+      // (the classic page is slow to start where its typesetting loads: the tool's button answers a click only once the app has started, and a second click would put the tool back)
+      run: async () => {
+        await settled({ only: true, max: 40000, until: `typeof __cmwSteps === 'function' && document.documentElement.classList.contains('ph-land') && !!document.querySelector('#constructTools .tool[data-tool="hyper"]')` });
+        await ev(`(() => { const t = document.querySelector('#constructTools .tool[data-tool="hyper"]'); if (t && !t.classList.contains('on')) t.click(); return 1; })()`);
+      },
       ready: `(() => { const c = document.getElementById('draftChipL'); return !!c && !c.hidden && !!c.querySelector('.cm-x') && !c.querySelector('.cm-t')?.getClientRects().length && !!document.querySelector('.ph-ctx.in'); })()`,
+      // (what the page is at when it does not open: told in the report's skipped list)
+      why: `(() => { const c = document.getElementById('draftChipL'), t = document.querySelector('#constructTools .tool[data-tool="hyper"]'); return { cls: document.documentElement.className.slice(0, 60), wh: innerWidth + 'x' + innerHeight, tool: !!t, on: !!t && t.classList.contains('on'), chip: !!c, hidden: !!c && c.hidden, x: !!(c && c.querySelector('.cm-x')), words: c && c.querySelector('.cm-t') ? c.querySelector('.cm-t').getClientRects().length : -1, ctx: !!document.querySelector('.ph-ctx.in') }; })()`,
       after: `document.querySelector('#draftChipL .cm-x')?.click()` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
     { name: 'chain of 4', run: grow, wait: 1500, ready: GROWN, after: SHRINK },
@@ -165,7 +171,7 @@
           await reset();
           const opened = await enter(st);
           if (opened === 'na') continue;   // (the state has nothing to open here: no such chapter in this view)
-          if (!opened) { skipped.push(`${lang} ${view} ${sz.id} ${st.name}: did not open`); continue; }
+          if (!opened) { skipped.push(`${lang} ${view} ${sz.id} ${st.name}: did not open` + (st.why ? ' ' + JSON.stringify(await ev(st.why)) : '')); continue; }
           for (const th of cfg.themes) {
             await theme(th === 'dark');
             await settle(150);
