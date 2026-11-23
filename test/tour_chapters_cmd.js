@@ -21,6 +21,17 @@ await ev(`(() => { const b = document.querySelectorAll('.tour-menu .mi')[1]; b.c
 s = await st();
 ok('a pick starts that chapter', s.cur !== 'basics', s);
 await ev(`Tour.stop()`); await settled({ until: `!document.querySelector('.ts-chap')` });
+// Esc gives the user's work back whole, the steps view's scope included (#2332): chosen Inside regions, the tour's chapters
+// move the scope to Everywhere, and Esc comes back on Inside regions with the head's switch showing it
+await loadView(null, 'tourchapesc' + Date.now(), Object.assign({}, STATE, { shapes: [{ id: 's1', kind: 'circle', c: [0, 0], r: 1, ci: 0, visible: true }] }));
+await settled({ until: `typeof Tour === 'object'` });
+const SCOPE_ON = `(() => { const r = [...document.querySelectorAll('#svHead .sv-scope [role=radio]')]; const i = r.findIndex((x) => x.getAttribute('aria-checked') === 'true'); return i; })()`;
+await ev(`document.querySelectorAll('#svHead .sv-scope [role=radio]')[1].click(), 1`);
+await settled({ until: `${SCOPE_ON} === 1` });
+await ev(`Tour.start({ chapter: 'views' })`); await settled({ until: STRIP });
+await key('Escape'); await settled({ until: `!document.querySelector('.ts-chap')` });
+const scopeBack = await ev(SCOPE_ON);
+ok('Esc gives the scope back: Inside regions, as it was before the tour', scopeBack === 1, scopeBack);
 // a phone keeps its short count in the text, no chapter button
 await view(390, 844, true, true);
 await loadView(null, 'tourchapph' + Date.now(), STATE);
