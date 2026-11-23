@@ -200,6 +200,20 @@ check('a_n with z is still refused as such', /must not depend on z/.test(db('z')
   check('the same sum outside its disc: run once, NaN, and counted out', outside.inf === 1 && outside.out === 1 && nan(outside.v), JSON.stringify(outside));
   const fin = count('\\sum_{n=1}^{40} z^n/n', C(2, 0)), pl = count('\\sum_{n=0}^{\\infty} z^n/n!', C(3, 1));
   check('a finite sum and a planned power series are not counted as infinite sums that ran out', fin.inf === 0 && fin.out === 0 && pl.out === 0, JSON.stringify({ fin, pl }));
+  // the pixel's terms in all (the GPU's SER_GPU_TERMS): armed for one value, as the page's sample does, a nested sum that takes more
+  // than SER_BUDGET terms counts over and is NaN; one that converges in few does not, and an unarmed evaluation is not limited
+  const NEST = '\\sum_{m=0}^{\\infty} \\sum_{n=1}^{100} \\frac{(z^2/4)^m}{n+z}';
+  const armed = (q, z) => { const s0 = Expr.SUM_STAT.over, o0 = Expr.SUM_STAT.out; Expr.SUM_STAT.left = Expr.SER_BUDGET; let v; try { v = at(q, z); } finally { Expr.SUM_STAT.left = Infinity; } return { v, over: Expr.SUM_STAT.over - s0, out: Expr.SUM_STAT.out - o0 }; };
+  const quick = armed(NEST, C(0.5, 0)), slow = armed(NEST, C(1.5, 0)), free = at(NEST, C(1.5, 0));
+  check('a nested sum that converges in about 1,100 terms is within the budget: a value, none over', quick.over === 0 && !nan(quick.v), JSON.stringify(quick));
+  check('the same sum at 1.5 needs about 5,000 terms: over the budget, NaN, and not counted as out of its cap', slow.over === 1 && slow.out === 0 && nan(slow.v), JSON.stringify(slow));
+  // a recurrence (iter) in the term runs no sum: the loop around it still counts its terms, as the GPU's innermost loop does (test/t_glsl_terms.js)
+  const NEST_ITER = '\\sum_{m=0}^{\\infty} \\sum_{n=1}^{100} \\frac{(z^2/4)^m}{n+z} \\cdot iter(u^2/9, u, 1, 2)';
+  const quickI = armed(NEST_ITER, C(0.5, 0)), slowI = armed(NEST_ITER, C(1.5, 0));
+  check('an iter in the term: the sum that converges in about 1,100 terms is within the budget', quickI.over === 0 && !nan(quickI.v), JSON.stringify(quickI));
+  check('an iter in the term: the sum that needs about 5,000 terms is over the budget, as without it', slowI.over === 1 && slowI.out === 0 && nan(slowI.v), JSON.stringify(slowI));
+  check('unarmed, that sum is not limited (its value is finite)', !nan(free) && Expr.SUM_STAT.left === Infinity, `${free.re}`);
+  check('the armed value of the within-budget sum is the unarmed one', CX.abs(CX.sub(quick.v, at(NEST, C(0.5, 0)))) === 0);
   check('SUM_STAT is exported with the cap it counts at (SER_CAP = 512)', Expr.SER_CAP === 512 && typeof Expr.SUM_STAT.out === 'number');
 }
 
