@@ -373,6 +373,19 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     return { mode: 1, k, alpha: CX.sub(a, CX.mul(k, c)), beta: CX.sub(b, CX.mul(k, d)) };
   }
 
+  // The uniform vectors the programs that embed uChain take besides it: the most over every chain program's vertex and
+  // fragment source, one vector per scalar or vecN, mat3 three, mat4 four, an array its length times that, samplers none
+  // (glchain_slot_cap_cmd.js counts them from the sources and asserts this value).
+  const OTHER_UNIFORM_VECS = 86;
+  // WebGL2's guaranteed minimum of the fragment and the vertex uniform vectors (224, 256): the limit when the page has no GL
+  const SPEC_UNIFORM_VECS = 224;
+  // The most vec4 slots a chain's uChain may take when the smaller of the GPU's fragment and vertex uniform-vector limits
+  // is `vecs`: the programs' other uniforms share those vectors, so a chain over this cannot link and is refused (the build
+  // throws) instead of failing to link
+  const maxChainSlots = (vecs) => (vecs > 0 ? vecs : SPEC_UNIFORM_VECS) - OTHER_UNIFORM_VECS;
+  // the limit builds use unless they are given one: set from the GPU's by the page that owns a context
+  let uniformVecs = 0;
+  const setUniformVecs = (vecs) => { uniformVecs = vecs > 0 ? vecs : 0; };
   // Uniform allocator in vec2 cells (two per vec4 slot). A writer fills cell values on demand.
   function makeAlloc() {
     let cells = 0;
@@ -1869,7 +1882,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
   const GPU_REL = (L) => 1e-2 * Math.pow(3, Math.max(0, L - 1));
   const flt = (x) => { const s = String(Math.fround(x)); return /[.eE]/.test(s) ? s.replace(/e\+?/, 'e') : s + '.0'; };
 
-  function build(steps, built) {
+  // vecs: the GPU's smaller uniform-vector limit, by default the one setUniformVecs gave
+  function build(steps, built, vecs = uniformVecs) {
     const A = makeAlloc();
     const sigs = [], plans = [];
     steps.forEach((st, k) => {
@@ -1917,6 +1931,8 @@ vec2 cx_binom(vec2 a, vec2 b) {
     }
 
     const slots = A.slots;
+    const cap = maxChainSlots(vecs);
+    if (slots > cap) throw new Error(`GLChain: ${slots} uniform slots exceed the cap of ${cap}`);
     let src = `uniform vec4 uChain[${slots}];\nuniform highp int uSheetW;\n`;
     for (const { P, plan } of maps) {
       if (plan.pre) src += plan.pre;
@@ -3085,7 +3101,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
   const LIB_ACCURATE = LIB.replace(TRIG_BUILTIN, TRIG_ACCURATE);
   return {
     get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
-    useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
+    useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, maxChainSlots, OTHER_UNIFORM_VECS, setUniformVecs, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
     INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE, LOOP_CAP: SER_GPU_LOOP, TERMS_BUDGET: SER_GPU_TERMS,
   };
 })();
