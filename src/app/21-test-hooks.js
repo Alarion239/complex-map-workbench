@@ -335,9 +335,10 @@
   // most lim long), of the box grid (cells x cells vertices over src), of a pole patch or of the far patch (patchN x patchN vertices,
   // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
   // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
-  // default). copies: the other sheets' copies of a glide (carried.sheetCopies, its seams left out) count too, each
-  // with the map on its own sheet combo: its box grid, none of it left to the discs, and, as the last frame drew them
-  // (carried.copyPatches, at carried.copyPatch of the points a side), its own patches. {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
+  // default). copies: the other sheets' copies of a glide (carried.sheetCopies) count too, each with the map on its own
+  // sheet combo: a sheet's box grid, none of it left to the discs, and, as the last frame drew them (carried.copyPatches,
+  // at carried.copyPatch of the points a side), its own patches; a seam's far patches' columns about the cut
+  // (carried.seamFar), its band of the box's grid left out. {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
   window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null, copies = false) => {
     const c = render3D.carried;
@@ -346,8 +347,9 @@
     const b = c.box, cov = new Uint8Array(nx * ny);
     const kx = (nx - 1) / (b.x1 - b.x0), ky = (ny - 1) / (b.y1 - b.y0), lim2 = c.lim * c.lim;
     // (a grid of n x n vertices at place(i, j) of plane s: its images, then its two triangles a cell; with discs, a triangle
-    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch)
-    const grid = (n, place, discs = []) => {
+    // whose corners all lie in one of them is left out, as LAND_CARRY_VS leaves the box's to a seamed patch; with cols
+    // [first, last], the cells of those columns alone, as LAND_CARRY_VS's uCol0 and uCol1)
+    const grid = (n, place, discs = [], cols = null) => {
       const P = new Float64Array(2 * n * n), Z = new Float64Array(2 * n * n);
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
         const z = place(i, j), w = F(C(z[0], z[1])), o = 2 * (j * n + i);
@@ -357,7 +359,9 @@
       const at = (i, j) => 2 * (j * n + i);
       const inDisc = (...v) => discs.some(([x, y, r]) => v.every((o) => Math.hypot(Z[o] - x, Z[o + 1] - y) < r));
       const tri2 = (a, d, e) => { if (!inDisc(a, d, e)) tri(P, a, d, e); };
+      const inCols = (i) => !cols || (cols[0] <= cols[1] ? i >= cols[0] && i <= cols[1] : i >= cols[0] || i <= cols[1]);
       for (let j = 0; j < n - 1; j++) for (let i = 0; i < n - 1; i++) {
+        if (!inCols(i)) continue;
         tri2(at(i, j), at(i + 1, j), at(i + 1, j + 1));
         tri2(at(i, j), at(i + 1, j + 1), at(i, j + 1));
       }
@@ -389,7 +393,11 @@
       }
     };
     surf(pats(patches, c.patches || 0).concat(more), discs);
-    if (copies) for (const cp of c.sheetCopies || []) if (!cp.seam) cp.draw(() => { F = cpuMap(c.map); surf(pats(patches && c.copyPatches > 0, c.copyPatches), [], c.copyPatch || 1); });
+    if (copies) for (const [k, cp] of (c.sheetCopies || []).entries()) cp.draw(() => {
+      F = cpuMap(c.map);
+      if (!cp.seam) surf(pats(patches && c.copyPatches > 0, c.copyPatches), [], c.copyPatch || 1);
+      else for (const q of (patches && patches !== 'poles' && c.seamFar && c.seamFar[k]) || []) grid(q.N, (i, j) => svPatchZ(q.polar, i, j, q.N), [], q.cols);
+    });
     let bare = 0, counted = 0;
     const at = [];
     for (let k = 0; k < nx * ny; k++) {

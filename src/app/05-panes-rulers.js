@@ -879,7 +879,7 @@
     if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.layers = info ? info.layers || 1 : null;   // (the relief's layers the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, sheetCopies: info.copies ? carry.copies || [] : [], copyPatches: info.copyPatches || 0, copyPatch: info.copyPatch || 1, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, sheetCopies: info.copies ? carry.copies || [] : [], copyPatches: info.copyPatches || 0, copyPatch: info.copyPatch || 1, seamFar: info.seamFar || [], hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)

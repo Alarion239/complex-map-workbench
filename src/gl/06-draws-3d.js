@@ -1676,7 +1676,7 @@
         // height, and early in a glide its copy lies in the principal surface's place on triangles of its own, which a
         // tie in depth would show pixel by pixel. A copy's patches lie the patches' offset behind its cells, at
         // COPY_PATCH of the principal surface's points a side)
-        info.copies = 0; info.copyPatches = 0; info.copyPatch = COPY_PATCH;
+        info.copies = 0; info.copyPatches = 0; info.copyPatch = COPY_PATCH; info.seamFar = [];
         for (const [i, cp] of (st.carry.copies || []).entries()) {
           cp.draw(() => {
             if (!carryReady(st.carry.map)) return;
@@ -1706,6 +1706,7 @@
             gl.disable(gl.POLYGON_OFFSET_FILL);
             info.copies++;
             if (!cp.seam) info.copyPatches = h.pp.length;
+            else (info.seamFar || (info.seamFar = []))[i] = h.far.map((p) => ({ polar: [...p.polar], N: p.N, cols: p.polar.cols }));
           });
         }
         setUp(sb);
