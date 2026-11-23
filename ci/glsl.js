@@ -150,7 +150,7 @@ async function runPage(base, p, side) {
       await B.ev(`(() => { window.__ci = undefined; Promise.resolve().then(() => __invTestRun({})).then((v) => { window.__ci = JSON.stringify(v); }, (e) => { window.__ci = JSON.stringify({ errors: [String(e && e.stack || e)] }); }); return 1; })()`);
       r = JSON.parse(await waitFor(B, 'window.__ci', TIMEOUT));
       ok = r.failCount === 0 && r.clip && r.clip.failCount === 0 && r.fs && r.fs.flat && r.fs.sphere && (!r.flip || r.flip.ok) && !(r.errors || []).length;
-      note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
+      note = `walk ${r.compared ?? '?'} compared, ${r.failCount ?? '?'} failed; clip ${r.clip ? r.clip.failCount : '?'} failed${r.clip && r.clip.illCond != null ? ` (${r.clip.illCond} lines float32 cannot place left out)` : ''}; fs flat ${r.fs && r.fs.flat}, sphere ${r.fs && r.fs.sphere}`;
     } else if (p.id === 'dh') {
       // (two checks, each in a WebGL2 context of its own: done once both are, or at a page exception, which fails it below)
       await B.nav(base + p.page);

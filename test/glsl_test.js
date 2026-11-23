@@ -380,6 +380,14 @@
     }
     if (!refused(rows.fewMin) || !refused(rows.fewNoGl)) R.errors.push(`slot cap: ${FEW_STEPS} Möbius steps were not refused at the spec minimum (${JSON.stringify([rows.fewMin, rows.fewNoGl])})`);
   }
+  // 14. the two-phase glide of a real negative exponent (last, so every chain above keeps its place and its --part):
+  // the rows at the times of NEGPOW_TS, the phase switch (1/2) and the one-phase path's zero (2/3, 1/3) among them
+  const NEGPOW_TS = [0.25, 0.5, 0.6, 2 / 3, 0.75, 1];
+  const addNeg = (name, steps) => chains.push({ name, steps, ts: NEGPOW_TS });
+  addNeg('negpow powa -1/2', [S('powa', { alpha: '-0.5' })]);
+  addNeg('negpow formula z^(-1/2)', [S('custom', { expr: 'z^{-1/2}' })]);
+  addNeg('negpow powa -3/2', [S('powa', { alpha: '-1.5' })]);
+  addNeg('negpow formula (z-0.5)^(-2)', [S('custom', { expr: '(z-0.5)^{-2}' })]);
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
 
@@ -874,7 +882,7 @@ void main() {
     if (n > 1) rows.push({ mode: 0, a: 1, b: n }, { mode: 0, a: 0, b: n - 1 });
     rows.push({ mode: 0, a: 2, b: 1 });
     for (let i = 1; i <= n; i++) rows.push({ mode: 1, i });
-    for (let i = 1; i <= n; i++) for (const t of TS) rows.push({ mode: 2, i, t });
+    for (let i = 1; i <= n; i++) for (const t of ch.ts || TS) rows.push({ mode: 2, i, t });
     // all steps at once (the app's map mode 3): every step's natural path at the same t
     if (n > 1) for (const t of TS) rows.push({ mode: 6, a: 0, b: n, t });
     const derivs = gc.derivs || [], sheets = gc.sheets ? gc.sheets.steps : [];
