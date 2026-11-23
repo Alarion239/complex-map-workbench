@@ -18,7 +18,7 @@
   // what the tile keeps clear of, besides the plane's own children (the canvases and the hairline aside) and its note
   const SV_TILE_AVOID = '#svStrip, .sv-bandx, .sv-playpop, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .ph-scrim, '
     + '.sv-sheet, .sv-scrim, #paneL .pane-head, #popHost > *, .pop, dialog[open], .tour-root, .tour-top';
-  const svTile = { el: null, a: null, b: null, key: '', texA: null, texB: null, q: 0, again: null };
+  const svTile = { el: null, a: null, b: null, key: '', texA: null, texB: null, q: 0, q2: 0, fitA: false, fitB: false, spot: null, pw: 0, ph: 0 };
   // the formula shown for plane k: z, or w_k = the steps through k composed; null when it is longer than the caption's
   // limit (SV_CAP_TEX_MAX) or a step cannot write it
   function svTileTex(k) {
@@ -37,7 +37,7 @@
     // (placed again, once a frame, when what it keeps clear of may have moved while the thread is held: a phone's sheet
     // or a dialog opening, a toast coming, going or placed, the plane, its key or the strip resized; and when a formula
     // is typeset, MathJax's result coming after the fallback text)
-    const again = svTile.again = () => { if (!svTile.q) svTile.q = requestAnimationFrame(() => { svTile.q = 0; svTileRefresh(); }); };
+    const again = () => { if (!svTile.q) svTile.q = requestAnimationFrame(() => { svTile.q = 0; svTileRefresh(); }); };
     new MutationObserver(again).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     new MutationObserver(again).observe(document.body, { childList: true });
     const th = $('toastHost'), pop = $('popHost');
@@ -49,7 +49,7 @@
     for (const e of [plot, $('leftLegend'), $('svStrip'), th]) if (e) ro.observe(e);
     return svTile.el;
   }
-  const svTileRefresh = () => { if (SV.on && SV.els && !SV.offscreen && svTile.el) svTileSync(); };
+  const svTileRefresh = () => { if (SV.on && SV.els && !SV.offscreen && svTile.el) svTileSync(true); };
   const svTileVis = (e) => {
     if (!e || !e.isConnected || e === svTile.el || e.hidden) return null;
     if (e.checkVisibility && !e.checkVisibility({ opacityProperty: true, visibilityProperty: true })) return null;
@@ -82,33 +82,42 @@
     }
     return null;
   }
+  // the tile's layout for the planes it is between (svTile.fitA, fitB: which formulas fit; spot: where it goes, or null),
+  // measured shown at no spot yet: a formula wider than the tile may be is left out
+  function svTileLay(plot) {
+    const el = svTile.el, P = plot.getBoundingClientRect(), maxW = SV_TILE_W(P.width);
+    svTile.pw = plot.clientWidth; svTile.ph = plot.clientHeight;
+    el.style.maxWidth = maxW + 'px';
+    el.style.visibility = 'hidden'; el.hidden = false;
+    svTile.a.hidden = svTile.b.hidden = false;
+    const pad = el.offsetWidth - el.clientWidth + 16;
+    svTile.fitA = !!svTile.texA && svTile.a.scrollWidth + pad <= maxW; svTile.fitB = !!svTile.texB && svTile.b.scrollWidth + pad <= maxW;
+    svTile.a.hidden = !svTile.fitA; svTile.b.hidden = !svTile.fitB;
+    svTile.spot = svTile.fitA || svTile.fitB ? svTileSpot(P, el.offsetWidth, el.offsetHeight, svTileObstacles(plot)) : null;
+  }
   // the tile, every frame the steps view syncs: shown between two planes, its formulas cross-faded by the glide's
-  // position (svTileFade), at a clear spot; hidden otherwise
-  function svTileSync() {
+  // position (svTileFade), at a clear spot; hidden otherwise. It is laid out again (svTileLay) only when the planes it is
+  // between change, the plane is resized, or full (an observer's call, svTileRefresh): a frame of the glide sets the
+  // formulas' opacities alone
+  function svTileSync(full = false) {
     const el = svTile.el || svTileBuild();
     if (!el) return;
     const bt = svBetween(), still = bt.b === bt.a || bt.u <= SV_REST_U || bt.u >= 1 - SV_REST_U;
     if (still) { if (!el.hidden) el.hidden = true; return; }
-    const key = bt.a + '|' + bt.b;
+    const key = bt.a + '|' + bt.b, plot = $('plotL');
     if (key !== svTile.key) {
-      svTile.key = key;
+      svTile.key = key; full = true;
       svTile.texA = svTileTex(bt.a); svTile.texB = svTileTex(bt.b);
       for (const [n, t] of [[svTile.a, svTile.texA], [svTile.b, svTile.texB]]) { if (t) TeX.set(n, t); else { n.textContent = ''; delete n.dataset.tex; } }
     }
-    // (measured shown, at no spot yet: a formula wider than the tile may be is left out, and the tile with it when both are)
-    const plot = $('plotL'), P = plot.getBoundingClientRect(), maxW = SV_TILE_W(P.width);
-    el.style.maxWidth = maxW + 'px';
-    if (el.hidden) { el.style.visibility = 'hidden'; el.hidden = false; }
-    svTile.a.hidden = svTile.b.hidden = false;
-    const pad = el.offsetWidth - el.clientWidth + 16;
-    const fitA = !!svTile.texA && svTile.a.scrollWidth + pad <= maxW, fitB = !!svTile.texB && svTile.b.scrollWidth + pad <= maxW;
-    svTile.a.hidden = !fitA; svTile.b.hidden = !fitB;
+    if (full || plot.clientWidth !== svTile.pw || plot.clientHeight !== svTile.ph) svTileLay(plot);
     // (each formula in its own part of the glide: one that does not fit leaves the tile empty there, and so hidden)
     // (fading while the glide moves, and synced again a frame on, so the tile is still once the thread comes to rest)
-    const moving = svGliding(), e = svTileFade(bt.u, svReduced() || !moving), any = (fitA && e < 1) || (fitB && e > 0);
-    if (moving) svTile.again();
-    const spot = any ? svTileSpot(P, el.offsetWidth, el.offsetHeight, svTileObstacles(plot)) : null;
+    const moving = svGliding(), e = svTileFade(bt.u, svReduced() || !moving), any = (svTile.fitA && e < 1) || (svTile.fitB && e > 0);
+    if (moving && !svTile.q2) svTile.q2 = requestAnimationFrame(() => { svTile.q2 = 0; if (SV.on && SV.els && !SV.offscreen) svTileSync(); });
+    const spot = any ? svTile.spot : null;
     if (!spot) { el.hidden = true; el.style.visibility = ''; return; }
     svTile.a.style.opacity = String(1 - e); svTile.b.style.opacity = String(e);
+    el.hidden = false;
     el.style.left = spot.left + 'px'; el.style.top = spot.top + 'px'; el.style.visibility = '';
   }

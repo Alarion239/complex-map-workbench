@@ -67,7 +67,7 @@
   // the glide tile (#1533): shown, its box and the plane's (page px), what it keeps clear of, and the spot it takes for
   // its size now (svTileSpot), or null
   window.__cmwTile = (sync) => {
-    if (sync) svTileSync();
+    if (sync) svTileSync(true);
     const el = svTile.el, P = $('plotL').getBoundingClientRect(), r = el && !el.hidden ? el.getBoundingClientRect() : null;
     const box = (o) => [Math.round(o.left), Math.round(o.top), Math.round(o.right), Math.round(o.bottom)];
     const obs = svTileObstacles($('plotL'));
