@@ -9,11 +9,10 @@
 // - it stays so with a long toast up, with the plane's hint chip shown (desktop), and with a phone sheet open (phone),
 //   moving to another spot or hiding;
 // - it names the planes: the second formula is w₂'s, w_{2} = …;
-// - the formulas fade only while the glide moves: the thread at rest between the planes, and under reduced motion,
-//   they change over at the half, so a still tile never shows both (rvB on #2317: half-faded, overlapping glyphs at
-//   3.4:1). At rest at a quarter of the way the first shows whole and the second not at all; at the half the second
-//   whole and the first not at all (both formulas fitting); under reduced motion the same just either side of the
-//   half; parked on a plane it is hidden.
+// - one formula at a time, and only it takes room in the tile (rvA, rvB on #2317: overlapping glyphs, a chip as wide as
+//   the other formula): never both shown, the tile no wider than its formula and padding (TIGHT). At rest at a quarter
+//   of the way the first alone, at the half the second alone (both formulas fitting); under reduced motion the same
+//   just either side of the half; parked on a plane it is hidden.
 // Its frames go to shots/ (tile-<case>-q1.png and -q3.png, a quarter and three quarters of the way; -toast, -hint and
 // -sheet with those up) for the screenshot review.
 // The page opens with ?view=steps (loadView('steps', …)).
@@ -23,6 +22,7 @@ const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const GAP = 4;   // px: the least room the tile leaves to what it keeps clear of (it keeps 8)
+const TIGHT = 24;   // px: the most the tile may be wider than the formula it shows (its padding and border are 18)
 const TILE_CHAIN = [{ type: 'custom', params: { expr: 'z^2+1/z' }, on: true }, { type: 'custom', params: { expr: 'sin(z)+exp(z)/(z-1)' }, on: true }];
 // (the boxes the tile must keep clear of, in the page's px; vis as test/lib/layout.js reads it)
 const OBSTACLES = `(() => {
@@ -41,7 +41,7 @@ const tileNow = () => evJson(`JSON.stringify((() => {
   const shown = !!el && !el.hidden && el.getClientRects().length > 0 && getComputedStyle(el).visibility !== 'hidden';
   const r = shown ? el.getBoundingClientRect() : null, obs = ${OBSTACLES};
   const meets = r ? obs.filter((o) => r.left - ${GAP} < o.r && r.right + ${GAP} > o.l && r.top - ${GAP} < o.b && r.bottom + ${GAP} > o.t).map((o) => o.what) : [];
-  const f = el ? [...el.querySelectorAll('.sv-tile-f')].map((s) => ({ tex: s.dataset.tex || null, shown: !s.hidden, op: +getComputedStyle(s).opacity })) : [];
+  const f = el ? [...el.querySelectorAll('.sv-tile-f')].map((s) => ({ tex: s.dataset.tex || null, shown: !s.hidden, op: +getComputedStyle(s).opacity, w: Math.round(s.getBoundingClientRect().width) })) : [];
   return { shown, box: r && [Math.round(r.left), Math.round(r.top), Math.round(r.right), Math.round(r.bottom)], plot: [Math.round(P.left), Math.round(P.top), Math.round(P.right), Math.round(P.bottom)],
     inside: !!r && r.left >= P.left - 0.5 && r.right <= P.right + 0.5 && r.top >= P.top - 0.5 && r.bottom <= P.bottom + 0.5, meets, f };
 })())`);
@@ -83,8 +83,8 @@ for (const c of CASES) {
     const b = r.before = await tileNow();
     await hold(1.55);
     const a = r.after = await tileNow();
-    ok(`${c.tag}: just before the half, the first formula whole and the second not shown`, b.shown && b.f[0].op > 0.98 && b.f[1].op < 0.02, b);
-    ok(`${c.tag}: just after the half, the second formula whole and the first not shown`, a.shown && a.f[0].op < 0.02 && a.f[1].op > 0.98, a);
+    ok(`${c.tag}: just before the half, the first formula alone, whole`, b.shown && b.f[0].shown && b.f[0].op > 0.98 && !b.f[1].shown, b);
+    ok(`${c.tag}: just after the half, the second formula alone, whole`, a.shown && a.f[1].shown && a.f[1].op > 0.98 && !a.f[0].shown, a);
     continue;
   }
   await hold(1.75);
@@ -93,13 +93,16 @@ for (const c of CASES) {
   const t = r.held = await tileNow();
   check(`${c.tag}, held at 1.5`, t, !c.phone);
   if (t.shown) ok(`${c.tag}: the second formula is w₂'s`, !!t.f[1] && /^w_\{2\} = /.test(t.f[1].tex || ''), t.f);
-  if (t.shown) ok(`${c.tag}: at rest at the half, never both formulas shown`, t.f.filter((f) => f.shown && f.op > 0.02).length === 1, t.f);
-  if (t.shown && t.f.length === 2 && t.f[0].shown && t.f[1].shown) ok(`${c.tag}: at rest at the half, the second formula whole and the first not shown`, t.f[0].op < 0.02 && t.f[1].op > 0.98, t.f);
+  if (t.shown) {
+    const on = t.f.filter((f) => f.shown);
+    ok(`${c.tag}: at rest at the half, one formula shown, whole: the second`, on.length === 1 && t.f[1].shown && t.f[1].op > 0.98, t.f);
+    ok(`${c.tag}: the tile no wider than its formula and ${TIGHT} px`, on.length === 1 && t.box[2] - t.box[0] <= on[0].w + TIGHT, { box: t.box, f: t.f });
+  }
   // (a quarter of the way: the first formula alone, where both fit)
   await hold(1.25);
   const q = r.quarter = await tileNow();
   await shot(`${name}-q1`);
-  if (q.shown && q.f.length === 2 && q.f[0].shown && q.f[1].shown) ok(`${c.tag}: at rest at a quarter, the first formula whole and the second not shown`, q.f[0].op > 0.98 && q.f[1].op < 0.02, q.f);
+  if (q.shown) ok(`${c.tag}: at rest at a quarter, one formula shown, whole: the first`, q.f[0].shown && q.f[0].op > 0.98 && !q.f[1].shown, q.f);
   await hold(1.5);
   // (a long toast up)
   await ev(`(__cmwToast('A long message to see that the tile keeps clear of the toasts, wherever they are placed', 'Undo', { ms: 60000 }), 1)`);
