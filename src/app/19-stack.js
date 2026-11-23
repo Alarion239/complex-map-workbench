@@ -118,7 +118,7 @@
   }
   // TEST-HOOK (dropped from the published page by build.py): the Stack's state, its last frame and the glass's hovered or
   // pinned point (hov: {w, zs, pinned}); o.pick: [x, y] (the pane's css px) gives the levels' points under it (stackPick:
-  // floor {p, z}, glass {p, w}, each with on) and the level a hover and a press there pick; o.same: {yaw, pitch}
+  // floor {p, z}, glass {p, w}, each with on) and the level a hover, a click and a held press there pick; o.same: {yaw, pitch}
   // draws the Stack's frame at that camera for the left pane as it is now, the floor on its main canvas and the rest on
   // a canvas of the overlay's size, and counts the device px where each differs from the pane's own frame before it
   // ({main, over, px}); the pane is drawn again after
@@ -126,7 +126,7 @@
     const cx = (q) => q && [q.re, q.im];
     if (o && o.pick) {
       const [x, y] = o.pick, hit = stackPick(paneL, x, y);
-      return { floor: hit.floor && { p: hit.floor.p, z: cx(hit.floor.z), on: hit.floor.on }, glass: hit.glass && { p: hit.glass.p, w: cx(hit.glass.w), on: hit.glass.on }, hover: stackPickLevel(paneL, hit, x, y, false), press: stackPickLevel(paneL, hit, x, y, true) };
+      return { floor: hit.floor && { p: hit.floor.p, z: cx(hit.floor.z), on: hit.floor.on }, glass: hit.glass && { p: hit.glass.p, w: cx(hit.glass.w), on: hit.glass.on }, hover: stackPickLevel(paneL, hit, x, y, 'hover'), click: stackPickLevel(paneL, hit, x, y, 'click'), hold: stackPickLevel(paneL, hit, x, y, 'hold') };
     }
     if (o && o.same) {
       const pane = paneL, grab = (cv) => cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, cv.width, cv.height).data;

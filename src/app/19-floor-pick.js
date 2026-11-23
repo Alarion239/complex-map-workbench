@@ -35,20 +35,21 @@
     const zs = (sols || []).filter((r) => r && r.z && CX.isFin(r.z) && r.kind !== 'pole').map((r) => ({ z: r.z, mult: r.mult || 1 }));
     return { w, zs, more: !sols || !!(sols.truncated || sols.incomplete) };
   }
-  // the twins of z₀ on plane k over plane T: {w, zs, more} (pickFibre's of F(z₀)), or null where F(z₀) is not finite
-  function pickTwins(k, T, z0) {
-    const t = pickFibre(k, T, rangeF(k, T)(z0));
+  // the twins of z₀ on plane k over plane T: {w, zs, more} (pickFibre's of F(z₀), its search at most ms), or null where
+  // F(z₀) is not finite
+  function pickTwins(k, T, z0, ms = PICK_SEARCH_MS) {
+    const t = pickFibre(k, T, rangeF(k, T)(z0), ms);
     if (!t) return null;
     // (the pressed point is one of them, whatever the search found)
     if (!t.zs.some((r) => CX.abs(CX.sub(r.z, z0)) <= 1e-6 * (1 + CX.abs(z0)))) t.zs.push({ z: z0, mult: 1 });
     return t;
   }
-  // lights the twins of z₀ and says how many there are in the steps view's live region
-  function pickLight(k, T, z0) {
-    const t = pickTwins(k, T, z0);
+  // lights the twins of z₀ (its search at most ms) and, with say, says how many there are in the steps view's live region
+  function pickLight(k, T, z0, ms = PICK_SEARCH_MS, say = true) {
+    const t = pickTwins(k, T, z0, ms);
     floorPick = t ? Object.assign({ sig: pickSig(), k, T, z0 }, t) : null;
     const live = SV.els && SV.els.live;
-    if (live && t) {
+    if (live && t && say) {
       const n = t.zs.length, plane = svName(k);
       live.textContent = t.more ? $t('{n} preimages found on {plane}, and there may be more', { n, plane }) : $tn('{n} preimage on {plane}', '{n} preimages on {plane}', n, { n, plane });
     }

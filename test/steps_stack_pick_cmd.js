@@ -5,11 +5,15 @@
 //    w, to 1e-9 relative;
 //  - with any tool, a hover on the floor reads its point z in the left readout (|z| and all), and one on the glass reads
 //    w with its count of preimages;
-//  - with the Pick tool, a hover on the glass drops strands to w's three preimages (each maps to w), and a click there pins
-//    them: they stay when the pointer moves on, and Esc unpins them;
-//  - a press on the floor, where the glass lies over it too, lights the pressed point's twins (the floor picker's);
-//  - a drag out on the floor adds a disc on w₁ about the pressed point's image; a drag on a lit patch moves the target by
-//    the change of the image under the pointer; a drag on the target's ring on the glass moves it with the pointer;
+//  - with the Pick tool, a hover on the glass drops strands to w's three preimages (each maps to w); where the glass lies
+//    over the floor, a click pins the very point the hover showed (rvE's ruling, at three such pixels), the strands stay
+//    when the pointer moves on, and Esc unpins them;
+//  - a press held there reads the floor: its point's three twins light, and a press dragged on reads the floor under the
+//    pointer; neither adds a shape or moves the target;
+//  - with the Disc tool a drag out on the floor adds a disc on w₁ about the pressed point's image; with Pick a drag on a lit
+//    patch moves the target by the change of the image under the pointer, and a drag on the target's ring on the glass
+//    moves it with the pointer;
+//  - from the keyboard, Shift+Enter on the focused plane pins the target's centre on the glass and says its count;
 //  - the camera turns apart from the pick: with the Pick tool a right-button drag and a Shift-drag turn it, with Select a
 //    drag does, and none of them moves the target or adds a shape;
 //  - on a phone (390 × 844, touch) one finger lights the twins and two fingers turn the camera, the target where it was.
@@ -94,10 +98,11 @@ ok('straight down, the floor\'s point under the pointer is Look down\'s: the fla
 // ---- hovers read the point: the floor's z with any tool, the glass's w with its preimages
 await cam(-30, 35);
 const floorOnly = await find((k) => k.floor && k.floor.on && !(k.glass && k.glass.on) && k.hover === 'floor');
-const glassOnly = await find((k) => k.glass && k.glass.on && !(k.floor && k.floor.on) && k.press === 'glass' && Math.hypot(k.glass.w[0] - 1.1, k.glass.w[1]) > 0.5);
-const both = await find((k) => k.floor && k.floor.on && k.glass && k.glass.on && k.hover === 'glass' && k.press === 'floor' && Math.hypot(k.glass.w[0] - 1.1, k.glass.w[1]) > 0.5);
-info.places = { floorOnly, glassOnly, both };
-ok('at Tilt the pane has places of the floor alone, the glass alone, and both', !!floorOnly && !!glassOnly && !!both, info.places);
+// (places where the glass lies over the floor, off the target's marks: a hover and a click read the glass, a hold the floor)
+const overlap = (k) => k.floor && k.floor.on && k.glass && k.glass.on && k.hover === 'glass' && k.click === 'glass' && k.hold === 'floor' && Math.hypot(k.glass.w[0] - 1.1, k.glass.w[1]) > 0.5;
+const both = await find(overlap);
+info.places = { floorOnly, both };
+ok('at Tilt the pane has places of the floor alone, and of the glass over the floor', !!floorOnly && !!both, info.places);
 if (floorOnly) {
   await hover(...floorOnly);
   const t = await readout(), k = await pickAt(...floorOnly);
@@ -118,39 +123,77 @@ if (both) {
   info.hov = s.hov;
   ok('Pick: a hover on the glass drops strands to w\'s three preimages, each of which maps to w', !!s.hov && !s.hov.pinned && s.hov.zs.length === 3 && s.hov.zs.every((q) => close(f(q), s.hov.w)) && close(s.hov.w, k.glass.w), { hov: s.hov, k });
 }
-if (glassOnly) {
-  await hover(...glassOnly);
-  await press(...glassOnly);
+// (rvE's ruling: at three pixels where the glass lies over the floor, the click pins the very point the hover showed)
+const spots = both ? [both, [both[0] + 23, both[1] + 11], [both[0] - 17, both[1] + 19]] : [];
+const same = [];
+for (const q of spots) {
+  const k = await pickAt(...q);
+  if (!k || !overlap(k)) continue;
+  await hover(...q);
+  const hv = (await S()).hov;
+  await press(...q);
+  const pn = (await S()).hov;
+  same.push({ q, hover: hv && hv.w, pin: pn && pn.w, pinned: !!pn && pn.pinned });
+  await key('Escape');
+  await frames();
+}
+info.same = same;
+ok('where the glass lies over the floor, a click pins the very point the hover showed (three pixels)', same.length === 3 && same.every((r) => r.pinned && close(r.pin, r.hover)), same);
+if (both) {
+  await press(...both);
   const pinned = (await S()).hov;
-  await hover(...(both || floorOnly));
+  await hover(...floorOnly);
   const after = (await S()).hov;
-  ok('a click on the glass pins its point: the strands stay when the pointer moves on', !!pinned && pinned.pinned && !!after && after.pinned && close(after.w, pinned.w), { pinned, after });
+  ok('a pin\'s strands stay when the pointer moves on', !!pinned && pinned.pinned && !!after && after.pinned && close(after.w, pinned.w), { pinned, after });
   await key('Escape');
   await frames();
   const esc = await S();
   ok('Esc unpins the glass\'s point', !esc.hov || !esc.hov.pinned, esc.hov);
 }
 
-// ---- a press on the floor where the glass lies over it too: the floor picker's twins
+// ---- a press held, or dragged, where the glass lies over the floor reads the floor
 const n0 = await nShapes(), d0 = await disc();
 if (both) {
   const k = await pickAt(...both);
-  await press(...both);
-  await settled({ panes: false, until: `!!__cmwPick().lit` });
-  const lit = (await ev('__cmwPick()')).lit;
-  info.lit = { lit, z: k.floor.z };
-  ok('a press on the floor (the glass over it too) lights the pressed point\'s three twins', !!lit && close(lit.z0, k.floor.z) && lit.zs.length === 3 && lit.zs.every((q) => close(f(q), f(k.floor.z))), info.lit);
-  ok('a press adds no shape and leaves the target', (await nShapes()) === n0 && dist((await disc()).c, d0.c) === 0, await disc());
-  // ---- a drag out on the floor adds a disc on w₁ about the pressed point's image
-  const end = [both[0] + 40, both[1] + 10], k1 = await pickAt(...end);
+  await mouse('mouseMoved', ...both);
+  await mouse('mousePressed', ...both, { button: 'left', buttons: 1, clickCount: 1 });
+  await sleep(700);
+  const held = (await ev('__cmwPick()')).lit, readHeld = await readout();
+  await mouse('mouseReleased', ...both, { button: 'left', buttons: 0, clickCount: 1 });
+  await frames();
+  info.held = { held, z: k.floor.z, readHeld };
+  ok('a press held where the glass lies over the floor reads the floor: the pressed point\'s three twins light, and the readout reads z', !!held && close(held.z0, k.floor.z) && held.zs.length === 3 && held.zs.every((q) => close(f(q), f(k.floor.z))) && readHeld.includes('|z|'), info.held);
+  const end = [both[0] + 30, both[1] + 12], k1 = await pickAt(...end);
+  await press(both[0], both[1], end[0], end[1]);
+  const slid = (await ev('__cmwPick()')).lit;
+  info.slid = { slid, z: k1.floor.z };
+  ok('a press dragged reads the floor under the pointer: its twins light where it lifts', !!slid && close(slid.z0, k1.floor.z) && slid.zs.length === 3, info.slid);
+  ok('a held or dragged press adds no shape and leaves the target', (await nShapes()) === n0 && dist((await disc()).c, d0.c) === 0, await disc());
+  // ---- the Disc tool: a drag out on the floor adds a disc on w₁ about the pressed point's image
+  await ev(`document.querySelector('#tools .tool[data-tool="disc"]').click(); 1`);
+  await frames();
   await press(both[0], both[1], end[0], end[1]);
   await settled({ until: `__cmwP().shapes.length === ${n0 + 1}` });
-  const nd = (await ev('__cmwP()')).shapes.filter((s) => s.id !== 'd').pop();
+  const nd = (await ev('__cmwP()')).shapes.filter((q) => q.id !== 'd').pop();
   info.out = { nd, w0: f(k.floor.z), w1: f(k1.floor.z) };
-  ok('a drag out on the floor adds a disc on w₁ about the pressed point\'s image, through the release point\'s', !!nd && nd.stage === 1 && dist(nd.c, f(k.floor.z)) <= PX_TOL && Math.abs(nd.r - dist(f(k1.floor.z), f(k.floor.z))) <= PX_TOL * (1 + nd.r), info.out);
+  ok('Disc: a drag out on the floor adds a disc on w₁ about the pressed point\'s image, through the release point\'s', !!nd && nd.stage === 1 && dist(nd.c, f(k.floor.z)) <= PX_TOL && Math.abs(nd.r - dist(f(k1.floor.z), f(k.floor.z))) <= PX_TOL * (1 + nd.r), info.out);
   await ev(`document.getElementById('undoBtn').click()`);
   await settled({ until: `__cmwP().shapes.length === ${n0}` });
   await ev(`__cmwSelect('d'); 1`);
+  await key('x');
+  await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
+  await frames();
+}
+
+// ---- the keyboard: Shift+Enter on the focused plane pins the target's centre on the glass
+for (let i = 0; i < 8 && (await ev('document.activeElement && document.activeElement.id')) !== 'overlayL'; i++) await key('F6');
+await key('Enter', 8);
+await frames();
+{
+  const s = await S(), live = (await ev('__cmwPick()')).live;
+  info.key = { hov: s.hov, live };
+  ok('Shift+Enter on the focused plane pins the target\'s centre on the glass, and says its count', !!s.hov && s.hov.pinned && close(s.hov.w, [1.1, 0]) && s.hov.zs.length === 3 && /3 preimages on z/.test(live), info.key);
+  await key('Escape');
   await frames();
 }
 
@@ -161,7 +204,7 @@ for (let i = 0; i < 30; i++) xr -= (xr ** 3 - 1.2 * xr - 0.8) / (3 * xr ** 2 - 1
 const patchZ = [xr, 0];
 const pp = await onLevel(0, patchZ), pk = await pickAt(...pp);
 info.patch = { pp, pk };
-if (pk && pk.press === 'floor') {
+if (pk && pk.click === 'floor' && pk.hold === 'floor') {
   const c0 = (await disc()).c.slice(), q1 = [pp[0] + 18, pp[1] - 10], k1 = await pickAt(...q1);
   await press(pp[0], pp[1], q1[0], q1[1]);
   await settled({ until: `(() => { const s = __cmwP().shapes.find((q) => q.id === 'd'); return !!s && (s.c[0] !== ${c0[0]} || s.c[1] !== ${c0[1]}); })()` });
@@ -176,7 +219,7 @@ if (pk && pk.press === 'floor') {
   const d = await disc(), rp = await onLevel(1, [d.c[0] + d.r, d.c[1]]), rk = await pickAt(...rp);
   const q1 = [rp[0] + 20, rp[1] + 12], k1 = await pickAt(...q1);
   info.ring = { rk, k1 };
-  if (rk && rk.press === 'glass') {
+  if (rk && rk.click === 'glass' && rk.hold === 'glass') {
     await press(rp[0], rp[1], q1[0], q1[1]);
     await settled({ until: `(() => { const s = __cmwP().shapes.find((q) => q.id === 'd'); return !!s && (s.c[0] !== ${d.c[0]} || s.c[1] !== ${d.c[1]}); })()` });
     const c1 = (await disc()).c, want = [d.c[0] + k1.glass.w[0] - rk.glass.w[0], d.c[1] + k1.glass.w[1] - rk.glass.w[1]];
@@ -208,7 +251,7 @@ await open(390, 844, true);
 await key('x');
 await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
 {
-  const spot = await find((k) => k.press === 'floor' && k.floor && k.floor.on && !(k.glass && k.glass.on));
+  const spot = await find((k) => k.click === 'floor' && k.floor && k.floor.on && !(k.glass && k.glass.on));
   info.phone = { spot };
   if (spot) {
     const t = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map(([x, y], i) => ({ x, y, id: i + 1 })) });

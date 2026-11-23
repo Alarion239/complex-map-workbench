@@ -181,7 +181,7 @@
       // it lifts, however long it was held: a slow, careful tap opened the plane's menu and lost the pick. Over empty
       // space the long press still opens the menu)
       const cPick = e.pointerType === 'touch' && Construct.isTool(tool) && (() => { const [px, py] = evXY(pane, e); return !!Construct.snapAt(side, px, py, { points: true, cross: true, curves: true }); })();
-      if (e.pointerType === 'touch' && drag && probeable && !cPick && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && (drag.mode !== 'zp' || (PM() && !drag.added))) {
+      if (e.pointerType === 'touch' && drag && probeable && !cPick && drag.mode !== 'cut' && drag.mode !== 'handle' && drag.mode !== 'ghandle' && drag.mode !== 'stackPress' && (drag.mode !== 'zp' || (PM() && !drag.added))) {
         const d0 = drag, [x0, y0] = evXY(pane, e);
         endHold();
         ring = null;
@@ -407,7 +407,7 @@
     if (lGlobe() && globeEdit('L')) { globeDown(pane, side, e, x, y); gestureProbeOff(); setCursor(pane, side); return; }
     // (the Stack: the Pick tool picks a level's point (19-stack-pick.js); the right or middle button and Shift turn the
     // camera, as any other tool's drag does: the Stack's camera has no pan)
-    if (stackOn() && !panBtn && !e.shiftKey && stackPickDown(pane, x, y)) { setCursor(pane, side); return; }
+    if (stackOn() && !panBtn && !e.shiftKey && stackPickDown(pane, x, y, ptrTouch)) { setCursor(pane, side); return; }
     if (!lFlat()) {
       const c = camOf('L');
       if (c) { c.vyaw = 0; c.vpitch = 0; drag = { mode: (panBtn || e.shiftKey) && !stackOn() ? 'pan3' : 'orbit', cam: c, side: 'L', x, y, lx: x, ly: y, yaw: c.yaw, pitch: c.pitch, tx: c.tx, ty: c.ty }; }
@@ -1112,7 +1112,7 @@
       }
       if (drag.mode === 'pre') { pane.setView(leftView()); preDrag(drag, pane.s2w(x, y)); requestRender('L', 'R'); return; }
       if (drag.mode === 'pickMove' || drag.mode === 'pickOut') { pickMove(drag, pane, x, y); return; }
-      if (drag.mode === 'stackPin') { if (Math.hypot(x - drag.x0, y - drag.y0) >= STACK_PICK_SLOP) drag.moved = true; return; }
+      if (drag.mode === 'stackPress') { stackPressMove(drag, pane, x, y); return; }
       if (drag.mode === 'pan3') {
         const c = drag.cam || cam3();
         const k = c.dist / pane.h * 1.2;
@@ -1543,7 +1543,7 @@
     if (d.mode === 'handle' || d.mode === 'move') { if (d.moved) { if (d.boundNum) Params.rest(d.boundNum); shapesChanged(true); commit(); } return; }
     if (d.mode === 'pre') { if (d.moved) { if (d.bn) Params.rest(d.bn); shapesChanged(true); commit(); } return; }
     if (d.mode === 'pickMove' || d.mode === 'pickOut') { pickUp(d); return; }
-    if (d.mode === 'stackPin') { stackPinUp(d); return; }
+    if (d.mode === 'stackPress') { stackPressUp(d); return; }
     if (d.mode === 'draw' && draft) {
       const s = draft.shape;
       const kind = draft.kind;
@@ -1611,7 +1611,7 @@
         soundStop();
       }
       if (e.key === 'Enter' && draft && draft.kind === 'polygon') finishPolygon();
-      if (e.key === 'Enter' && !mod && !e.altKey && t.id === 'overlayL' && pickKey()) { e.preventDefault(); return; }
+      if (e.key === 'Enter' && !mod && !e.altKey && t.id === 'overlayL' && (e.shiftKey ? stackPinKey() : pickKey())) { e.preventDefault(); return; }
       // ⌘D duplicates the selected shape; ⌘] and ⌘[ bring it forward and send it backward
       if (mod && !e.altKey && selected && (key === 'd' || kk === ']' || kk === '[')) {
         const s = findShape(selected);
