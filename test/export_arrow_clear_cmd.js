@@ -65,12 +65,14 @@ for (const [tag, from, to] of [['z → w₂', 0, 2], ['w₁ → w₂', 1, 2]]) {
 }
 // ---- the Two planes figure where its first height meets a tick label: z then z² with the disc |z − 3| ≤ 1, Fit, so each panel
 // has its own window right of 0 and (b)'s imaginary axis, with its tick labels, stands at (b)'s left edge, in the gap; at the
-// first height (the middle) the arrow's head would land on (b)'s tick label "2". arrowPlace ends the arrow before it.
+// first height (the middle) the arrow's head would land on (b)'s tick label "2". arrowPlace ends the arrow before it. In
+// z → w₁ the shaft at the first height is long enough, but its label meets (b)'s tick label "0.5": arrowPlace takes the next
+// height, where the label is clear.
 // (the scene above has a disc of radius 0.3, too small for Fit's window search: every panel keeps the camera's window and
 // the gap is free, so its rows pass with the arrow at any height)
 const ZSQ = [{ type: 'custom', params: { expr: 'z', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2', cut: 180 }, on: true }];
 const far = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, rightMode: 'image', steps: ZSQ, shapes: [{ id: 'd1', kind: 'disc', c: [3, 0], r: 1, visible: true }] };
-for (const [tag, from, to] of [['z → w₂', 0, 2], ['w₁ → w₂', 1, 2]]) for (const lang of ['en', 'ru']) {
+for (const [tag, from, to] of [['z → w₂', 0, 2], ['w₁ → w₂', 1, 2], ['z → w₁', 0, 1]]) for (const lang of ['en', 'ru']) {
   const ns = 'xacf' + from + lang + Date.now();
   await view(1440, 900, false);
   await seed(ns, far);
@@ -83,6 +85,6 @@ for (const [tag, from, to] of [['z → w₂', 0, 2], ['w₁ → w₂', 1, 2]]) f
   const name = `two planes, |z − 3| ≤ 1, ${tag}, ${lang}`;
   info[name] = { err: f.err, view: f.view, arrow: arrow.map((a) => ({ kind: a.kind, box: [a.x0, a.y0, a.x1, a.y1].map((v) => +v.toFixed(1)) })), hits };
   ok(`${name}: the figure has the map arrow and its head (control)`, !f.err && f.view === 'svTwo' && ['arrow-line', 'arrow-head'].every((k) => arrow.some((a) => a.kind === k)), info[name]);
-  ok(`${name}: the arrow's head ends before (b)'s tick labels`, !f.err && hits.length === 0, hits);
+  ok(`${name}: the arrow, its head and its label meet no tick label`, !f.err && hits.length === 0, hits);
 }
 return { pass: fails.length === 0, fails, info };
