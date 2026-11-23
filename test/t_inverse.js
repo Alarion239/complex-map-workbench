@@ -1511,6 +1511,15 @@ section('sheet key weights');
   const lbW = Inverse.affStopLB(prepOf([pt(0.3)]), F, sp, lf, false), lb1 = Inverse.affStopLB(prepOf([pt(1)]), F, sp, lf, false);
   check('affStopLB with a point of weight 0.3: at most the key along the segment the members still to come lie on', lbW <= minKey + 1e-12 && lbW > 0, { lbW, minKey });
   check('control: the bound with that point at weight 1 passes the weight-0.3 key', lb1 > minKey + 0.1, { lb1, minKey });
+  // the Möbius stop's bound (mobStopLB): the members still to come lie within r of the accumulation point pAcc, a key point
+  // of weight 0.3 (pInP); the bound is at most the key over that disk, and the control's (pInP 1) passes it
+  const pAcc = C(0.1, 0.05), zr = C(0.15, 0.05), rr = CX.abs(CX.sub(zr, pAcc)), accPt = Object.assign(C(pAcc.re, pAcc.im), { w: 0.3 });
+  const disk = [];
+  for (let i = 0; i <= 20; i++) for (let j = 0; j < 36; j++) disk.push(CX.add(pAcc, CX.scale(C(Math.cos(j * TAU / 36), Math.sin(j * TAU / 36)), rr * (0.02 + 0.98 * i / 20))));
+  const minDisk = Math.min(...disk.map((z) => Inverse.sheetKey(prepOf([accPt]), z)));
+  const mW = Inverse.mobStopLB(prepOf([accPt]), { pAcc, pInP: 0.3 }, zr), m1 = Inverse.mobStopLB(prepOf([accPt]), { pAcc, pInP: 1 }, zr);
+  check("mobStopLB with the accumulation point at weight 0.3: at most the key over the disk the members still to come lie in", mW <= minDisk + 1e-12 && mW > 0, { mW, minDisk });
+  check('control: the bound with pInP 1 passes the weight-0.3 key', m1 > minDisk + 0.1, { m1, minDisk });
 }
 
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);

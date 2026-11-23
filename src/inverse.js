@@ -1527,10 +1527,7 @@ const Inverse = (() => {
             } else if (isFin(lf.z)) {
               const sm = prep.stopMob, du = sub(mem.u, sm.uPole), dir = goUp ? 1 : -1;
               if ((du.re * F.p.re + du.im * F.p.im) * dir >= 0) {
-                const r = abs(sub(lf.z, sm.pAcc)), p = sm.pAcc, W = prep.win;
-                const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
-                const LB = Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + sm.pInP * Math.max(0, Math.log2(prep.rs / r));
-                stop = LB > DK() + stopBand(DK());
+                stop = mobStopLB(prep, sm, lf.z) > DK() + stopBand(DK());
               }
             }
             if (stop) { if (goUp) aU = false; else aD = false; }
@@ -1583,6 +1580,14 @@ const Inverse = (() => {
   // the same bound (gl.js, P2). (13.14) The members still to come start at the NEXT member, z_m + dir q (additive) or
   // za + (z_m - za) e^(dir Re S) (ROOTPOW), so the rays and the segment start there: a side stops as soon as the member
   // after the one just visited is provably behind the front, not after visiting it.
+  // The Möbius stop's bound (3.6): the members still to come lie within r = |z - pAcc| of the accumulation point pAcc,
+  // so their key is at least log2(1 + max(0, dist(pAcc, W) - r) / R) plus, when pAcc is one of the key's points P, its
+  // weight times max(0, log2(rs / r)) (sm.pInP). The GPU's ixStop implements the same bound
+  function mobStopLB(prep, sm, z) {
+    const r = abs(sub(z, sm.pAcc)), p = sm.pAcc, W = prep.win;
+    const dxp = Math.max(W.x0 - p.re, 0, p.re - W.x1), dyp = Math.max(W.y0 - p.im, 0, p.im - W.y1);
+    return Math.log2(1 + Math.max(0, Math.hypot(dxp, dyp) - r) / prep.R) + sm.pInP * Math.max(0, Math.log2(prep.rs / r));
+  }
   function affStopLB(prep, F, sp, lf, goUp) {
     if (!sp || sp.kind !== 'clip') return -Infinity;
     const zm = lf.z, dir = goUp ? 1 : -1, W = prep.win;
@@ -1975,7 +1980,7 @@ const Inverse = (() => {
 
   return {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
-    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
+    stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, keyW, affStopLB, mobStopLB, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
     shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
