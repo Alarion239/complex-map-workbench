@@ -32,7 +32,7 @@ const Region = (() => {
   function normalTex(s, rel) {
     const dx = s.b[0] - s.a[0], dy = s.b[1] - s.a[1], l = Math.hypot(dx, dy);
     if (!(Math.abs(l - 1) < 1e-9)) return null;
-    const n = [-dy / l, dx / l], t = n[0] * s.a[0] + n[1] * s.a[1], rev = rel === '>' ? '<' : rel;
+    const n = [-dy / l, dx / l], t = n[0] * s.a[0] + n[1] * s.a[1], rev = rel === '\\ge ' ? '\\le ' : rel;
     if (Math.abs(n[0]) < 1e-12) return `\\operatorname{Im}z${n[1] > 0 ? rel : rev}${num(t * Math.sign(n[1]))}`;
     if (Math.abs(n[1]) < 1e-12) return `\\operatorname{Re}z${n[0] > 0 ? rel : rev}${num(t * Math.sign(n[0]))}`;
     const ang = Math.atan2(n[1], n[0]) * 180 / Math.PI;
@@ -396,7 +396,7 @@ const Region = (() => {
     level: (s) => { const c = P(s.c), r = s.r; return (z) => r - Math.hypot(z.re - c.re, z.im - c.im); },
     bbox: (s) => ({ x0: s.c[0] - s.r, x1: s.c[0] + s.r, y0: s.c[1] - s.r, y1: s.c[1] + s.r }),
     boundary: (s) => [circ(P(s.c), s.r)],
-    tex: (s) => `|${zMinus(P(s.c))}|<${num(s.r)}`,
+    tex: (s) => `|${zMinus(P(s.c))}|\\le ${num(s.r)}`,
   };
   K.rect = {
     type: 'area', label: $t('Rectangle'),
@@ -414,7 +414,7 @@ const Region = (() => {
       const c = poly(pts, true);
       return c ? [c] : [];
     },
-    tex: (s) => `${num(Math.min(s.a[0], s.b[0]))}<\\operatorname{Re}z<${num(Math.max(s.a[0], s.b[0]))},\\ ${num(Math.min(s.a[1], s.b[1]))}<\\operatorname{Im}z<${num(Math.max(s.a[1], s.b[1]))}`,
+    tex: (s) => `${num(Math.min(s.a[0], s.b[0]))}\\le \\operatorname{Re}z\\le ${num(Math.max(s.a[0], s.b[0]))},\\ ${num(Math.min(s.a[1], s.b[1]))}\\le \\operatorname{Im}z\\le ${num(Math.max(s.a[1], s.b[1]))}`,
   };
   K.polygon = {
     type: 'area', label: $t('Polygon'),
@@ -438,7 +438,7 @@ const Region = (() => {
       return c ? [c] : [];
     },
     // (a half-plane with no unit normal is said in words: the side to the left of the line from a to b)
-    tex: (s) => normalTex(s, '>') || $t('\\text{left of the line from } %{a} \\text{ to } %{b}', { a: fmt(P(s.a)), b: fmt(P(s.b)) }),
+    tex: (s) => normalTex(s, '\\ge ') || $t('\\text{left of the line from } %{a} \\text{ to } %{b}', { a: fmt(P(s.a)), b: fmt(P(s.b)) }),
   };
   K.annulus = {
     type: 'area', label: $t('Annulus'),
@@ -446,7 +446,7 @@ const Region = (() => {
     level: (s) => { const c = P(s.c), r1 = Math.min(s.r1, s.r2), r2 = Math.max(s.r1, s.r2); return (z) => { const d = Math.hypot(z.re - c.re, z.im - c.im); return Math.min(d - r1, r2 - d); }; },
     bbox: (s) => { const r = Math.max(s.r1, s.r2); return { x0: s.c[0] - r, x1: s.c[0] + r, y0: s.c[1] - r, y1: s.c[1] + r }; },
     boundary: (s) => [circ(P(s.c), s.r1), circ(P(s.c), s.r2)],
-    tex: (s) => `${num(Math.min(s.r1, s.r2))}<|${zMinus(P(s.c))}|<${num(Math.max(s.r1, s.r2))}`,
+    tex: (s) => `${num(Math.min(s.r1, s.r2))}\\le |${zMinus(P(s.c))}|\\le ${num(Math.max(s.r1, s.r2))}`,
   };
   K.sector = {
     type: 'area', label: $t('Sector'),
@@ -485,8 +485,8 @@ const Region = (() => {
       const span = (((s.t2 - s.t1) % 360) + 360) % 360 || 360;
       const c = P(s.c);
       const zc = zMinus(c);
-      const ang = `${num(s.t1)}^\\circ<\\arg(${zc})<${num(s.t1 + span)}^\\circ`;
-      return s.r > 0 ? `${ang},\\ |${zc}|<${num(s.r)}` : ang;
+      const ang = `${num(s.t1)}^\\circ\\le \\arg(${zc})\\le ${num(s.t1 + span)}^\\circ`;
+      return s.r > 0 ? `${ang},\\ |${zc}|\\le ${num(s.r)}` : ang;
     },
   };
   K.formula = {

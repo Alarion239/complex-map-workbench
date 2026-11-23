@@ -42,7 +42,7 @@ pull request runs only what it can affect. The plan job's **Tier** step (`ci/imp
 |---|---|---|
 | **T0** | every change (docs, unit tests, dev tooling alone) | the plan and the unit tests (lint: `.github/workflows/lint.yml`) |
 | **T1 UI** | layout, CSS, strings, menus, the tour, the phone, a browser suite, the CI scripts | T0, the browser shards of the areas touched, and the `smoke` shard (`test/smoke_cmd.js`: English and Russian, 1440 and 390 px, the chain, the planes, the view switch; under a minute) |
-| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
+| **T2 core** | the renderer or the maths (`cx`, `parse`, `funcs`, `homrange`, `inverse`, `critical`, `pieces`, `recognize`, `calc`, `region`, `curves`, `sphere`, `glsl` and `glslroots`, `palette`, the parts of `src/gl/`, and the app's regions, exact images, preimages and render parts), a GLSL, quality or perf test | T0, the GLSL pages whose inputs changed, quality (Linux only), the perf suite's checks, the `images`, `exact`, `deform` and `formulas` shards, and `smoke` |
 | **T3** | a push to `main`, the nightly run (02:37 UTC), a run by hand, the label **`full-gate`**, a pull request into `main` that is not a draft (a wave PR marked ready for review), `src/app/wrap.js`, `src/gl/wrap.js`, the app's core and start-up parts (`src/app/01-core.js`, `18-params.js`, `20-init.js`, `22-start.js`), `build.py`, `tools/src_parts.py`, or **any path the map does not know** | everything; quality on Linux, Windows and macOS |
 
 - **The map** is one table in `ci/impact.js` (`MAP`, a comment per row; the shards of each area are `AREAS`): the
@@ -255,6 +255,10 @@ artifact.
   listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
   something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
   Every other check gates.
+- **Rows that made no check** (`noCheck` in a suite's result, `ci/browser_no_check.js`): a suite that cannot test a row when the
+  runner is late (tour_auto's 400 ms spike rows when the poll came too late for them) passes it and lists it in `noCheck`.
+  The log, the head line (`, N no check`) and the summary show those rows, and a warning names them; they do not fail the job.
+  (Not `skipped`: tour_phone and tour_audit return that for the tour's "step skipped" log lines, which a normal run has.)
 - **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
   in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
@@ -556,6 +560,7 @@ Settings (environment variables):
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
+| `ci/glsl_failures.js` | a failing GLSL page's failures as short text (a few lines per row, the counts, the rows left out) for the log and the job summary; `test/t_glsl_failures.js` tests it |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
