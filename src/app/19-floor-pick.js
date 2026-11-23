@@ -7,6 +7,8 @@
   //   lights (stagePullbacks). It is added as one edit when the pointer lifts.
   // - A press on a lit patch (F(z) inside an area of a later plane) drags that area, so that its point under the pointer
   //   stays under it (Region.translate by the change of the area's map at the pointer), and every patch follows.
+  // - A press on Look down's ring of the target (over a patch too) or on one of its lines drags the target with the
+  //   pointer: they are drawn in the target's own coordinates at the floor's places.
   // The view pans with two fingers, the right or middle button, the wheel and the edge strip, as with any tool.
   // From the keyboard, with the plane focused, Enter lights the twins of the selected point of the floor, or else of the
   // view's centre; Enter again adds the disc about their image (PICK_KEY_PX at z₀ on the floor), selected, for the
@@ -57,13 +59,15 @@
     }
     return null;
   }
-  // a press with the Pick tool at z (x, y in the pane): a lit patch is dragged, anywhere else the twins light and a
-  // drag draws a disc; true when the press is the picker's
+  // a press with the Pick tool at z (x, y in the pane): Look down's ring of the target, then a lit patch, then a line of
+  // Look down drags its disc, anywhere else the twins light and a drag draws a disc; true when the press is the picker's.
+  // The ring and the lines are drawn in the target's own coordinates at the floor's places, so they drag the target with
+  // the pointer (F the identity); a patch drags its area so that the area's point under the pointer stays under it
   function pickDown(pane, z, x, y) {
     if (tool !== 'pick' || !pickAvail()) return false;
-    const k = leftStage(), s = pickPatch(k, z) || lookHit(x, y);
+    const k = leftStage(), patch = !lookHit(x, y, false) && pickPatch(k, z), s = patch || lookHit(x, y);
     if (s) {
-      const F = rangeF(k, shapeStage(s));
+      const F = patch ? rangeF(k, shapeStage(s)) : (w) => w;
       selected = s.id; zpSel = null; buildShapeList();
       drag = { mode: 'pickMove', shape: s, F, w: F(z), x0: x, y0: y, moved: false };
     } else {
