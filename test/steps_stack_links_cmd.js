@@ -148,11 +148,13 @@ if (await hooked()) {
   await frames();
   const f2 = await focusNow(), l2 = (await drawn()).links;
   ok('a second arrow key switches back, and the focus stays on the radio checked', l2 === 'curved' && !!f2 && f2.inSwitch && f2.v === 'curved', { links: l2, focus: f2 });
-  await clickSel('#plotL .ld-key .ld-links [data-v="straight"]');
-  await until(`__cmwStack().drawn && __cmwStack().drawn.links === 'straight'`, 5000).catch(() => null);
+  // (the click is on the radio not checked, whatever the keys left, so that it changes the kind)
+  const other = l2 === 'curved' ? 'straight' : 'curved';
+  await clickSel(`#plotL .ld-key .ld-links [data-v="${other}"]`);
+  await until(`__cmwStack().drawn && __cmwStack().drawn.links === '${other}'`, 5000).catch(() => null);
   await frames();
   const f3 = await focusNow(), l3 = (await drawn()).links;
-  ok('a mouse click switches, and the focus stays on the radio clicked', l3 === 'straight' && !!f3 && f3.inSwitch && f3.v === 'straight', { links: l3, focus: f3 });
+  ok('a mouse click switches, and the focus stays on the radio clicked', l3 === other && !!f3 && f3.inSwitch && f3.v === other, { links: l3, focus: f3, other });
   const lead = await ev(`(() => { const r = document.querySelector('#plotL .ld-key .ld-links-row'); const l = r && r.querySelector('.ld-links-l'); return l ? l.textContent : null; })()`);
   ok('the switch has its visible name, Connectors', lead === 'Connectors', lead);
 }
