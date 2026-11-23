@@ -678,7 +678,14 @@ void main() {
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
-  if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(carryZ(vec2(V0)), carryZ(vec2(V1)), carryZ(vec2(V2)))) return;
+  // (the box's corners in plane s by the box's own formula, not carryZ: its patch branch costs every vertex)
+  float bf = 1.0 / float(M);
+  if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(uSrc.xy + vec2(V0) * bf * uSrc.zw, uSrc.xy + vec2(V1) * bf * uSrc.zw, uSrc.xy + vec2(V2) * bf * uSrc.zw)) return;
+  // (a triangle wholly past one of the block's sides, its half extent uAspect, is left out: LAND_FS would discard
+  // every fragment of it)
+  vec2 p0 = ((t0.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, p1 = ((t1.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect;
+  vec2 p2 = ((t2.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, lo = min(min(p0, p1), p2), hi = max(max(p0, p1), p2);
+  if (any(greaterThan(lo, uAspect)) || any(lessThan(hi, -uAspect))) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
   vZ = carryZ(vec2(V));

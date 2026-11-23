@@ -336,8 +336,8 @@
   // CARRY_Z; left out with patches false, the far patch left out with patches 'poles'), and of the patches more ([x, y, r0, r1] each, the same parametrisation, on the
   // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
   // default). copies: the other sheets' copies of a glide (carried.sheetCopies, its seams left out) count too, each
-  // with the map on its own sheet combo: its box grid and, as the last frame drew them (carried.copyPatches), its own
-  // patches. {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
+  // with the map on its own sheet combo: its box grid, none of it left to the discs, and, as the last frame drew them
+  // (carried.copyPatches), its own patches. {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
   window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null, copies = false) => {
     const c = render3D.carried;
@@ -379,16 +379,16 @@
     };
     const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, 4).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
     const pats = (on, m) => (on ? (c.polar || []).slice(0, m).concat(c.far && patches !== 'poles' ? c.far : []) : []);
-    // (one surface: the box's grid, then its patches ps)
-    const surf = (ps) => {
-      grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], discs);
+    // (one surface: the box's grid, its triangles inside the discs ds left out, then its patches ps)
+    const surf = (ps, ds) => {
+      grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], ds);
       for (const p of ps) {
         const n = p[4] || c.patchN || 96;
         grid(n, (i, j) => svPatchZ(p, i, j, n));
       }
     };
-    surf(pats(patches, c.patches || 0).concat(more));
-    if (copies) for (const cp of c.sheetCopies || []) if (!cp.seam) cp.draw(() => { F = cpuMap(c.map); surf(pats(patches && c.copyPatches > 0, c.copyPatches)); });
+    surf(pats(patches, c.patches || 0).concat(more), discs);
+    if (copies) for (const cp of c.sheetCopies || []) if (!cp.seam) cp.draw(() => { F = cpuMap(c.map); surf(pats(patches && c.copyPatches > 0, c.copyPatches), []); });
     let bare = 0, counted = 0;
     const at = [];
     for (let k = 0; k < nx * ny; k++) {
