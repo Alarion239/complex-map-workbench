@@ -278,9 +278,8 @@ const Export = (() => {
     // (a shape drawn on a later plane is written in that plane's variable, |w₁ − 1| = 0.5, as its row writes it)
     let tex = '', typed = false;
     try { tex = shapeTexOwn(s); typed = !!s.srcTex && shapeTexOf(s) === s.srcTex; } catch (e) { tex = ''; }
-    // a drawn area is a closed set (Region.isOpen, spec 6.5: only open boundaries are drawn dashed), so its caption
-    // says so: the disc |z| <= 2, and its complement |z| > 2 is the open set. Typed formulas keep their own relations
-    if (tex && kindType(s) === 'area' && s.kind !== 'formula') tex = tex.replace(/</g, '\\le ').replace(/>/g, '\\ge ');
+    // (a drawn area is a closed set, Region.isOpen, spec 6.5: its TeX says so, the disc |z| <= 2, and its complement |z| > 2 is
+    // the open set; a typed formula keeps its own relations)
     // inline maths as journals set it: plain bars and a slashed fraction, not \left|...\right| or a stacked \frac
     if (tex) tex = inlineFrac(tex.replace(/\\left\|/g, '|').replace(/\\right\|/g, '|').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')).replace(/\\tfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2');
     const P = (a) => CX.tex(C(a[0], a[1]), 3);
