@@ -3,8 +3,9 @@
 // words (#2330). In the steps view: a chain of Möbius steps one past the page's slot cap, then a square root (cut 180°); parked on the
 // root's plane (the last), which carries the root's cut, at 390 × 844 and 360 × 640 (touch), in en and ru, and at 1200 × 800 (desktop), in en.
 // The rows read what is over the card: the box of each seam piece the plane keeps (the handle and the chip: __cmwCutHandles, which
-// reads empty when none is drawn) against the card's box (__cmwNoteBox), in the same px; control: the card is there, whole, with its words.
-// A command file for a CDP daemon (test/cdp_kit README); CI runs it in the i18n shard (ci/browser_shards.js). Prints {pass, fails, results}.
+// reads empty when none is drawn) against the card's box (__cmwNoteBox), in the same px, and the cut's curves (__cmwCutCurves) none;
+// control: the card is there, whole, with its words.
+// A command file for a CDP daemon (test/cdp_kit README); CI runs it in misc-3 (ci/browser_shards.js). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -28,7 +29,7 @@ const READ = `(() => {
   const c = document.querySelector('#overlayL').getBoundingClientRect(), card = __cmwNoteBox();
   const pieces = __cmwCutHandles().map((h) => ({ step: h.step, x0: h.x - c.left - 8, x1: h.x - c.left + 84, y0: h.y - c.top - 11, y1: h.y - c.top + 11 }));
   const hit = card ? pieces.filter((p) => p.x0 < card.x + card.w && p.x1 > card.x && p.y0 < card.y + card.h && p.y1 > card.y) : [];
-  return { card, pieces, hit, error: String(GLR.frameStatus().error) };
+  return { card, pieces, hit, curves: __cmwCutCurves().length, error: String(GLR.frameStatus().error) };
 })()`;
 const park = async (lang, w, h) => {
   const plane = nSteps + 1;
@@ -42,6 +43,7 @@ const park = async (lang, w, h) => {
   R[label] = g;
   ok(`${label}: the plane is refused and its card is drawn (control)`, !!g.error && !!g.card && g.card.w > 100 && g.card.h > 20, g);
   ok(`${label}: no piece of the seam (its handle, its θ chip) lies over the card's words (over it: ${JSON.stringify(g.hit)})`, !!g.card && g.hit.length === 0, g);
+  ok(`${label}: the plane keeps no cut curve (${g.curves})`, g.curves === 0, g);
 };
 // control (the read sees a seam when the chain draws): the same square root after two Möbius steps, under the cap, has its handle and chip
 {
