@@ -140,7 +140,7 @@ await click(disc[0], disc[1]); await settle(200);
 await mdrag(a.l + 220, a.b - 140, a.l + 260, a.b - 110);
 await sleep(150);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
-check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
+check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. The next plane shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
 // the chapter's last task: Phase key's check, or the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
