@@ -748,8 +748,9 @@
   function keyUniforms(Q, k) {
     u1i(Q, 'uKeyOn', k ? 1 : 0);
     u1i(Q, 'uPeelOn', k && peelOn > 1 ? 1 : 0); u1i(Q, 'uPeelD', PEEL_UNIT);
-    u1i(Q, 'uKRes', k ? resOn : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
-    u1i(Q, 'uKOrd', k && resOn === 2 ? resOrd : 0); u1i(Q, 'uKPos', KPOS_UNIT);
+    // (uKRes: the pass, and the frame's rotation's order in pass 2; one vector, as the chain's uniform slots are counted)
+    u2i(Q, 'uKRes', k ? resOn : 0, k && resOn === 2 ? resOrd : 0); u1f(Q, 'uKBand', resBand); u1i(Q, 'uKMin', KMIN_UNIT);
+    u1i(Q, 'uKPos', KPOS_UNIT);
     if (!k) return;
     const w = k.win, sing = (k.sing || []).slice(0, 4), sv = new Float32Array(8);
     sing.forEach((p, i) => { sv[2 * i] = p.re; sv[2 * i + 1] = p.im; });
