@@ -8,6 +8,20 @@
   const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
   // the ring's fill while the gauge has no total yet
   const SV_GATE_UNKNOWN_FILL = 0.25;
+  // the ring's share for what svReady counts but the frames drawn ahead, while a wait has them to make too
+  const SV_GATE_PREP_SHARE = 0.5;
+  // The ring's fill for g's wait from r (svReady(g.M)): the share of r done. With frames drawn ahead (r.parts.ahead), which
+  // are made only once all else is ready, the rest fills the ring up to SV_GATE_PREP_SHARE, and the frames then fill
+  // what is left of it, from where it was when they started (g.aheadFrom): from 0 when all else was ready at once
+  function svGateFill(r, g) {
+    if (!r.total) return SV_GATE_UNKNOWN_FILL;
+    const a = r.parts.ahead;
+    if (!a) return r.done / r.total;
+    const restT = r.total - a.total, restD = r.done - a.done;
+    if (restD < restT) return SV_GATE_PREP_SHARE * restD / restT;
+    if (g.aheadFrom == null) g.aheadFrom = g.fill || 0;
+    return g.aheadFrom + (1 - g.aheadFrom) * a.done / a.total;
+  }
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
@@ -73,7 +87,7 @@
     const r = svReady(g.M);
     B.toggleAttribute('aria-busy', true);
     B.dataset.wait = g.hung ? 'hung' : 'busy';
-    g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
+    g.fill = Math.max(g.fill || 0, svGateFill(r, g));
     B.style.setProperty('--wait', String(g.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
