@@ -427,8 +427,9 @@
   // the other plane figures (Crop, Axes); on the sphere the frames are the stage's pictures, as in the filmstrip.
   // a TeX plane or map name as plain text: w_{2} -> w₂, f_{2}\circ f_{1} -> f₂∘f₁
   const plainName = (tex) => tex.replace(/_\{(\d+)\}/g, (m, d) => [...d].map((c) => '₀₁₂₃₄₅₆₇₈₉'[+c]).join('')).replace(/\\circ ?/g, '∘').replace(/\\cdots/g, '⋯');
-  // whether a box meets an axis name already placed (XD.boxes), within NAME_GAP pt
-  const NAME_GAP = 1;
+  // whether a box meets an axis name already placed (XD.boxes), within NAME_GAP pt; the passes that settle the left margin
+  // with the panel it leaves, and the pt it may still be short by
+  const NAME_GAP = 1, MARGIN_PASSES = 6, MARGIN_EPS = 0.01;
   const nameMeets = (b) => XD.boxes.some((q) => q.kind === 'axis-name' && q.x0 < b.x1 + NAME_GAP && q.x1 > b.x0 - NAME_GAP && q.y0 < b.y1 + NAME_GAP && q.y1 > b.y0 - NAME_GAP);
   async function figSvTwo(o, P, W, T) {
     const [tp, lp] = T, frames = A.svFrames(), n = frames.length;
@@ -473,10 +474,14 @@
     let h = heightOf();
     // (the first panel's imaginary axis stands at its left edge when its window is right of 0, and its name, centred over it,
     // and its tick labels, left of it, reach left of the panel: the left margin holds what reaches past it)
+    // (the axis stands f of the panel's width in, and the panel narrows as the margin grows: a few passes settle the two)
     if (imHalf) {
-      const b = boxes[0], f = Math.min(1, Math.max(0, -b.x0 / (b.x1 - b.x0)));
-      const over = Math.max(imHalf + 1, tickW(b, steps[0], tp) + 3) - f * h * asp[0];
-      if (over > mL) { mL = over; h = heightOf(); }
+      const b = boxes[0], f = Math.min(1, Math.max(0, -b.x0 / (b.x1 - b.x0))), reach = Math.max(imHalf + 1, tickW(b, steps[0], tp) + 3);
+      for (let pass = 0; pass < MARGIN_PASSES; pass++) {
+        const over = reach - f * h * asp[0];
+        if (over <= mL + MARGIN_EPS) break;
+        mL = over; h = heightOf();
+      }
     }
     const used = mL + gut + mR + h * (asp[0] + asp[1]), x0 = (W - used) / 2, y = top;
     const xs = [x0 + mL, x0 + mL + h * asp[0] + gut];
