@@ -17,21 +17,30 @@
 //   (held_frames.js), and the control at least MISS further from it
 //   (the other sheet's half of the relief is missing). The view is a small window about 0 (S.srcView.s = SCALE), which
 //   the square root maps onto a disc that covers it: the carried points reach the whole of plane b's window.
+// - the same arrival at the page's default window (S.srcView.s = WIDE), square root alone: there the corners of plane
+//   b's window come from outside the carried box, on both sheets, so each copy draws the far patches the principal
+//   surface draws, on its combo. The frame is plane b parked within END_FRAC, and bare where plane b has surface at
+//   most WIDE_BARE pixels: every surface's far patches tear along the cut's image too, and the seams close that tear
+//   past the box as they do on it (a slit across the relief, widening outward, left over 800 bare).
 // - the seam where the two sheets meet: every surface drawn tears along the image of the cut, so each is drawn again
 //   with the cut turned half a turn (svGlideSeams), continuous there. At u = 1/2 and 1 − NEAR, against the same frame
 //   without those surfaces (the control, __cmwSteps({ glideSeams: 0 })): the seams leave at most SEAM_GAP pixels bare
 //   that the control covers, and the control leaves at least SLIT_MIN bare where the frame with them has surface
 //   (the slit);
-//   at 1 − NEAR, against plane b parked, the frame is bare at most GAP_SHARE as often as the control (the rest: the
-//   surface's outer edge, a pixel apart);
+//   at 1 − NEAR, against plane b parked, the frame is bare no more often than the control, and at most ARRIVE_BARE
+//   pixels: the surface's outer edge, a pixel apart, and the arg line along the cut's image, a little paler where the
+//   two sheets' branch point patches meet (saturation SAT or less, though drawn). (Each sheet's copy draws that patch
+//   on its side of the cut, so the control's slit lies out on the box's cells alone)
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
 // - the page's own heights (log |F|) and window, square root alone: leaving plane z the other sheet has the principal's
 //   modulus, so its copy lies in the principal surface's place on triangles of its own. Held at u = NEAR, 0.02, 0.05
-//   and 0.15, the frame and the control (the principal combo alone) differ in at most SPECKLE isolated pixels (over
-//   SPECKLE_TOL in a channel, with at most two of their eight neighbours so): the principal surface is the one shown
-//   where they coincide, where a tie in depth speckled the whole surface with the copy's colours. (Where the copy
-//   slides out of it, near the cut, the two differ in whole wedges, which have few isolated pixels)
+//   and 0.15, the frame and the control (the principal combo alone) differ in at most SPECKLE isolated pixels where
+//   both show surface (over SPECKLE_TOL in a channel, with at most two of their eight neighbours so): the principal
+//   surface is the one shown where they coincide, where a tie in depth speckled the whole surface with the copy's
+//   colours. (Where the copy slides out of it, near the cut, the two differ in whole wedges, which have few isolated
+//   pixels; where it reaches past the principal surface's rim, turned about the branch point with its own far patches,
+//   it adds surface where the control shows paper, at a grazing angle a dotted line of single pixels)
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -43,9 +52,11 @@ const MISS = 0.03;                    // how much further from it the control is
 const SAME_SURF = 0.08;               // departure: the share by which the surface may differ from All sheets' plane
 const MISS_SURF = 0.15;               // departure: the share by which the control's surface is smaller than the frame's, at least
 const SEAM_GAP = 20;                  // the pixels the seams' surfaces may leave bare that the frame without them covers (edges)
-const GAP_SHARE = 0.25;               // arrival: the share of the control's bare pixels (against the parked plane) the seams may leave
+const ARRIVE_BARE = 300;              // arrival: the pixels the frame with the seams may leave bare against the parked plane
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
+const WIDE = 60;                      // px per unit: the page's default window
+const WIDE_BARE = 400;                // the pixels its arrival may leave bare where plane b parked has surface
 const SPECKLE = 40, SPECKLE_TOL = 24; // log |F| heights: the isolated pixels the frame and the control may differ in, and by how much
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -61,9 +72,9 @@ const surface = () => ev(`(() => { const cv = document.getElementById('canvasL')
 // surface: n; reverse: the other way round
 const gap = (tag, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], B = window.__heldPx[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT}; const W = document.getElementById('canvasL').width; let n = 0, reverse = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { const a = sat(A, i), b = sat(B, i); if (b && !a) { n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } if (a && !b) reverse++; } return { n, reverse, box: n ? [x0, x1, y0, y1] : null }; })()`);
 const carried = async () => JSON.parse(await ev('JSON.stringify((({ u, s, copies }) => ({ u, s, copies }))(__cmwLandCarry() || {}))'));
-// the chain steps on the Landscape (All sheets: sheets), Im heights, parked on plane k
-const open = async (steps, sheets, k) => {
-  await loadView('steps', 'landcopies' + Date.now(), { shapes: [], steps, sheets, srcView: { cx: 0, cy: 0, s: SCALE } });
+// the chain steps on the Landscape (All sheets: sheets), Im heights, parked on plane k, at scale px per unit
+const open = async (steps, sheets, k, scale = SCALE) => {
+  await loadView('steps', 'landcopies' + Date.now(), { shapes: [], steps, sheets, srcView: { cx: 0, cy: 0, s: scale } });
   await settled({ max: 30000, until: READY });
   await wordsOff();
   await ev(`__cmwSet('lines', false); __cmwSet('morphPaths', false); __cmwHideStrokes(true); __cmwSteps({ scope: 'all', surf: 'land', go: ${k}, now: true }); 1`);
@@ -111,9 +122,23 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const g = r[`seam ${u}`] = { seams: await gap(`s${u}`, 'pb'), none: await gap(`ns${u}`, 'pb'), slit: await gap(`ns${u}`, `s${u}`) };
     ok(`${name}, u = ${u}: the seams' surfaces only add surface (at most ${SEAM_GAP} px bare that the frame without them covers)`, g.slit.reverse <= SEAM_GAP, g);
     ok(`${name}, u = ${u}: the control, without them: the slit along the seam, at least ${SLIT_MIN} px bare where the frame with them has surface`, g.slit.n >= SLIT_MIN, g);
-    if (u !== 0.5) ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare at most ${GAP_SHARE} as often as without them`, g.seams.n <= GAP_SHARE * g.none.n, g);
+    if (u !== 0.5) ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare no more often than without them, and at most ${ARRIVE_BARE} px`, g.seams.n <= g.none.n && g.seams.n <= ARRIVE_BARE, g);
   }
   await ev('__cmwSteps({ glideSeams: 1 }); 1');
+  await ev('__cmwSteps({ glideSheets: 0 }); 1');
+}
+// ---- the arrival at the page's default window: the copy's far patches ----
+{
+  const r = info.wide = {};
+  await open([ROOT], false, 1, WIDE);
+  ok(`square root, s = ${WIDE}: plane 1 parked is still`, await grab('wpb'), null);
+  await ev('__cmwSteps({ go: 0, now: true }); 1');
+  await settled({ max: 60000 });
+  r.frame = await at(1 - NEAR, 0, 'wide');
+  r.arrival = await compare('wide', 'wpb');
+  r.bare = await gap('wide', 'wpb');
+  ok(`square root, s = ${WIDE}, u = ${1 - NEAR}: the frame is plane 1 parked (within ${END_FRAC}), the copy's far corners drawn`, !!r.arrival && r.arrival.frac <= END_FRAC, r);
+  ok(`square root, s = ${WIDE}, u = ${1 - NEAR}: bare where plane 1 parked has surface at most ${WIDE_BARE} px (no slit along the cut past the box)`, r.bare.n <= WIDE_BARE, r);
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
 }
 // ---- Inside regions: an annulus under the square root ----
@@ -132,9 +157,11 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
 // ---- the page's own heights (log |F|) and window: no speckle where the copy lies in the principal surface's place ----
 {
   const r = info.modulus = {};
-  // (the pixels over SPECKLE_TOL apart between the kept frames a and b with at most two of their eight neighbours so)
+  // (the pixels where the kept frames a and b both show surface (saturation over SAT) and are over SPECKLE_TOL apart,
+  // with at most two of their eight neighbours so)
   const speckle = (a, b) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], W = document.getElementById('canvasL').width, H = A.length / 4 / W;
-    const D = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) { const i = 4 * k; D[k] = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${SPECKLE_TOL} ? 1 : 0; }
+    const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT};
+    const D = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) { const i = 4 * k; D[k] = sat(A, i) && sat(B, i) && Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${SPECKLE_TOL} ? 1 : 0; }
     let n = 0, all = 0; for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (!D[k]) continue; all++; const m = D[k - W - 1] + D[k - W] + D[k - W + 1] + D[k - 1] + D[k + 1] + D[k + W - 1] + D[k + W] + D[k + W + 1]; if (m <= 2) n++; }
     return { isolated: n, apart: all }; })()`);
   await loadView('steps', 'landcopiesabs' + Date.now(), { shapes: [], steps: [ROOT], sheets: false });
@@ -147,7 +174,7 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const all = await at(u, 0, `m${u}`);
     const one = await at(u, 1, `mk${u}`);
     const sp = r[`u ${u}`] = Object.assign({ copies: all.copies }, await speckle(`m${u}`, `mk${u}`));
-    ok(`log |F| heights, u = ${u}: the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
+    ok(`log |F| heights, u = ${u}: where both show surface, the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
   }
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
 }

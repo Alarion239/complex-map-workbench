@@ -834,7 +834,7 @@
     // (the carried grid: over plane s's block)
     const src = carry ? landBox(carry.vs) : null;
     const cells = S.meshN >= 1920 ? 512 : S.meshN >= 480 ? 384 : 256;   // spec 6.9: 256² vertices, 384² at Fine and above, 512² at Max
-    // (the carried grid's patches about the glide map's poles: svLandPatches)
+    // (the carried grid's patches about the glide map's poles and branch points and the height map's far poles: svLandPatches)
     const polar = carry ? svLandPatches(carry.map, src, cells, cpuMap(carry.hmap), 'h' + carry.s + ':' + carry.hT) : null, far = carry ? svLandFar(src) : null;
     // (the steps view's Inside regions: the carried region set of the surface's plane, over its box; drawn before the
     // landscape's frame begins, as it takes a GL frame of its own)
@@ -879,7 +879,7 @@
     if (info && !artMode) draw3DLabels(pane, info, box, rulerMu);
     render3D.sheetsInfo = info ? info.sheets : null;   // (what the last frame drew: tests)
     render3D.layers = info ? info.layers || 1 : null;   // (the relief's layers the last frame drew: tests)
-    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
+    render3D.carried = info && info.carried ? { u: carry.u, s: carry.s, copies: info.copies || 0, sheetCopies: info.copies ? carry.copies || [] : [], copyPatches: info.copyPatches || 0, copyPatch: info.copyPatch || 1, seamFar: info.seamFar || [], hmap: carry.hmap, mu, box, sheets: !!info.sheets, sheetPlaces: !!info.sheetPlaces, plain: !!carry.plain, refined: !!(info.refine && info.refine.groups.length), polar, far: info.far, patches: info.patches, map: carry.map, lim: carry.lim, src, cells, patchN: info.patchN } : null;   // (the last frame's carry: tests)
     render3D.box = box;
     render3D.floor = info ? { info, box, w: pane.w, h: pane.h } : null;   // (the last frame's floor: tests)
     render3D.mask = info ? mask : null;   // (the last frame's Inside-regions mask: tests)

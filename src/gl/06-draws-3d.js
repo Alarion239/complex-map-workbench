@@ -388,6 +388,10 @@
     const s = seam && polar && polar.seam;
     u1i(P, 'uSeamOn', s ? 1 : 0);
     if (s) { u1fv(P, 'uSeam', s); u1f(P, 'uSeamEnd', s.end); }
+    // (polar.cols [first, last]: the patch's columns drawn, LAND_CARRY_VS's uCol0 and uCol1)
+    const cl = polar && polar.cols;
+    u1i(P, 'uColOn', cl ? 1 : 0);
+    if (cl) { u1i(P, 'uCol0', cl[0]); u1i(P, 'uCol1', cl[1]); }
   }
   // the box's draw (LAND_CARRY_VS): the discs of the seamed patches of polar (at most CARRY_DISCS), each CARRY_DISC_IN of its
   // radius, inside which the box's triangles are left to the patch; the patch reaches past them, so no crack opens
@@ -423,15 +427,39 @@
     gl.activeTexture(gl.TEXTURE11); gl.bindTexture(gl.TEXTURE_2D, landCP[slot]);
     return CP_PRINCIPAL;
   }
-  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z) and its far patches (st.carry.far,
-  // the slot after them): their textures, kept between frames
+  // the carry's pole patches (st.carry.polar [[x, y, r0, r1]], at most CARRY_POLES; CARRY_Z; hole: a branch point's, drawn
+  // only where the others leave a hole) and its far patches (st.carry.far, the slot after them): their textures, kept
+  // between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
-  // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each
-  const landCopies = [];
+  // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each: its box's grid's (box)
+  // and its patches' (pp, in landPP's order); the polygon offset the copies are drawn at, behind the principal surface;
+  // and their patches' points a side, a share of the principal surface's (a copy's patches cost about a tenth of a
+  // sheets-off glide's frame on lavapipe at the principal's points, under half that at half of them)
+  const landCopies = [], COPY_OFF = [4, 32], COPY_PATCH = 0.5;
   // a seam's band (st.carry.copies' band): the part of the carried box sb within SEAM_CELLS cells of the principal grid
   // (N points a side) of the ray from 0 at angle deg (0, 90, 180 or 270), where every surface's cells tear; on a grid
   // of SEAM_N points a side. null when the ray misses sb
   const SEAM_N = 96, SEAM_CELLS = 3;
+  // the columns of a far patch (polar [x, y, r0, r1] of N points a side, CARRY_Z: column i at the angle -2 pi i / (N - 1)
+  // about (x, y)) that the ray from 0 at angle deg (degrees) crosses in the ring r0 to r1, SEAM_COLS more on each side:
+  // [first, last] of its N - 1 cells' columns (first > last wraps round through 0); null when the ray misses the ring,
+  // all of it when the columns go round
+  const SEAM_COLS = 2;
+  function seamCols(polar, N, deg) {
+    const [x, y, r0, r1] = polar, dx = Math.cos(deg * Math.PI / 180), dy = Math.sin(deg * Math.PI / 180);
+    const b = dx * x + dy * y, disc = b * b - (x * x + y * y - r1 * r1);
+    if (!(disc > 0)) return null;
+    const t0 = Math.max(0, b - Math.sqrt(disc)), t1 = b + Math.sqrt(disc), M = N - 1, at = [];
+    for (let k = 0; k <= 64 && t1 > t0; k++) {
+      const t = t0 + (t1 - t0) * k / 64, ex = t * dx - x, ey = t * dy - y;
+      if (Math.hypot(ex, ey) >= r0) at.push((((-Math.atan2(ey, ex) / (2 * Math.PI)) % 1) + 1) % 1);
+    }
+    if (!at.length) return null;
+    const d = at.map((u) => ((u - at[0] + 1.5) % 1) - 0.5), lo = at[0] + Math.min(...d), hi = at[0] + Math.max(...d);
+    const c0 = Math.floor(lo * M) - SEAM_COLS, c1 = Math.ceil(hi * M) + SEAM_COLS;
+    if (c1 - c0 >= M - 1) return [0, M - 1];
+    return [((c0 % M) + M) % M, ((c1 % M) + M) % M];
+  }
   function seamBand(sb, deg, N) {
     const d = SEAM_CELLS * Math.max(sb.x1 - sb.x0, sb.y1 - sb.y0) / (N - 1);
     const r = { 0: [-d, sb.x1, -d, d], 90: [-d, d, -d, sb.y1], 180: [sb.x0, d, -d, d], 270: [-d, d, sb.y0, d] }[deg];
@@ -1595,8 +1623,9 @@
       };
       if (st.carry && !hs) {
         const Pc = program('landCarry', st.carry.map), sb = st.carry.src || box;
-        // (the carried surface's program and uniforms, with the chain the GPU holds when it is called; over the box sb)
-        const setUp = (sb) => {
+        // (the carried surface's program and uniforms, with the chain the GPU holds when it is called; over the box sb;
+        // discs: the box's cells inside the seamed patches' discs are left to them)
+        const setUp = (sb, discs = true) => {
           use(Pc, st.carry.map);
           common(Pc);
           landLight(Pc);
@@ -1606,53 +1635,84 @@
           keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
           u2f(Pc, 'uClipA', aspect[0], aspect[1]);
           u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
-          polarUniforms(Pc, null, false); discUniforms(Pc, st.carry.polar);
+          polarUniforms(Pc, null, false); discUniforms(Pc, discs ? st.carry.polar : null);
         };
-        // (the other sheets' copies first (st.carry.copies: {draw, band}, draw running its function with the GPU's chain
-        // on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
-        // coloured on its sheet, with no patches; with band (an angle, degrees), over seamBand's box about that ray from
-        // 0 alone, on a grid of SEAM_N points a side. The principal surface is drawn after them, and they a little behind
-        // their depth (further than the pole patches' offset), so it is the one shown where a copy meets it or nearly
-        // coincides with it: under |F| a root's other sheet has the principal's height, and early in a glide its copy
-        // lies in the principal surface's place on triangles of its own, which a tie in depth would show pixel by pixel)
-        info.copies = 0;
-        if (st.carry.copies && st.carry.copies.length) { gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32); }
-        for (const [i, cp] of (st.carry.copies || []).entries()) {
-          cp.draw(() => {
-            if (!carryReady(st.carry.map)) return;
-            const band = cp.band == null ? null : seamBand(sb, cp.band, N);
-            if (cp.band != null && !band) return;
-            const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
-            const o = copyH[i] || (copyH[i] = carryHeights(sc, n, mode, H, mu, aspect, null, landCopies[i] || (landCopies[i] = {})));
-            setUp(band || sb);
-            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, o.tex1);
-            gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, o.tex2);
-            u1i(Pc, 'uN', o.N);
-            gl.drawArrays(gl.TRIANGLES, 0, 6 * (o.N - 1) * (o.N - 1));
-            info.copies++;
-          });
-        }
-        gl.disable(gl.POLYGON_OFFSET_FILL);
-        setUp(sb);
-        u1i(Pc, 'uN', hd.N);
-        // (the stencil marks the pixels the box's cells and the pole patches drew, so the far patch draws only where they
-        // left a hole: its coarse cells carry copies of what they cover too, for a periodic map)
-        gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
-        gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
-        marked(Pc, () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)));
-        // (the patches about the glide map's poles (CARRY_Z): the far plane the box's cells are torn over; a little behind
-        // the box's cells, so a patch shows only where they leave a hole)
+        // (a patch about a pole or branch point of the glide's map (CARRY_Z), or a far patch)
         const drawPatch = (p) => {
           polarUniforms(Pc, p.polar, true); u1i(Pc, 'uN', p.N);
           gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, p.o.tex1);
           gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, p.o.tex2);
           gl.drawArrays(gl.TRIANGLES, 0, 6 * (p.N - 1) * (p.N - 1));
         };
-        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(2 * po, 8 * po);
-        for (const p of pp) marked(Pc, () => drawPatch(p));
-        gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
-        for (const p of farPatches) drawPatch(p);
-        gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+        // (one surface: its box's cells (cells, drawn by the function), then its patches ps (pole and branch point
+        // patches) and fs (far patches) at the polygon offset [f, u] behind them. The stencil marks the pixels the box's
+        // cells and the pole patches drew (bit 0), so a branch point's patch (polar.hole, svLandPatches) draws only where
+        // they left a hole, marking its own (bit 1), and a far patch only where none of them drew: its coarse cells carry
+        // copies of what they cover too, for a periodic map)
+        const patched = (cells, ps, fs, [f, u]) => {
+          gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT);
+          gl.stencilFunc(gl.ALWAYS, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+          marked(Pc, cells);
+          gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(f, u);
+          for (const p of ps) if (!p.polar.hole) marked(Pc, () => drawPatch(p));
+          // (bit 0 clear passes; REPLACE writes the reference's bit 1 alone, through the mask)
+          gl.stencilMask(0x02); gl.stencilFunc(gl.EQUAL, 2, 0x01); gl.stencilOp(gl.KEEP, gl.KEEP, gl.REPLACE);
+          for (const p of ps) if (p.polar.hole) marked(Pc, () => drawPatch(p));
+          gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 0, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+          for (const p of fs) drawPatch(p);
+          gl.disable(gl.POLYGON_OFFSET_FILL); gl.disable(gl.STENCIL_TEST);
+        };
+        // (the other sheets' copies first (st.carry.copies: {draw, band, seam}, draw running its function with the GPU's
+        // chain on that sheet's combo, then putting the chain back): each its own heights over the box's grid, placed and
+        // coloured on its sheet, with the patches the principal surface has, at the same points of plane s, each on the
+        // copy's combo; with band (an angle, degrees), over seamBand's box about that ray from 0 alone, on a grid of
+        // SEAM_N points a side. A seam (seam: its cuts turned half a turn, so it is continuous where the sheets meet) has
+        // no pole or branch point patches: each sheet's patch reaches the cut on its side, and the seam leaves its box's
+        // cells inside the seamed patches' discs to them. Past the box it draws the far patches' cells about the cut's
+        // ray (seamCols), where the sheets' far patches tear. A sheet's copy keeps those cells, so its patches draw only in the holes they
+        // leave (the stencil), not over the whole disc, which costs far more. The principal surface is drawn after
+        // them, and they a little behind their depth (COPY_OFF, further than the pole patches' offset), so it is the one
+        // shown where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's
+        // height, and early in a glide its copy lies in the principal surface's place on triangles of its own, which a
+        // tie in depth would show pixel by pixel. A copy's patches lie the patches' offset behind its cells, at
+        // COPY_PATCH of the principal surface's points a side)
+        info.copies = 0; info.copyPatches = 0; info.copyPatch = COPY_PATCH; info.seamFar = [];
+        for (const [i, cp] of (st.carry.copies || []).entries()) {
+          cp.draw(() => {
+            if (!carryReady(st.carry.map)) return;
+            const band = cp.band == null ? null : seamBand(sb, cp.band, N);
+            if (cp.band != null && !band) return;
+            const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
+            const tex = landCopies[i] || (landCopies[i] = { box: {}, pp: [] });
+            const patch = (p, k) => { const m = Math.round(p.N * COPY_PATCH); return { polar: p.polar, N: m, o: carryHeights(st, m, mode, H, mu, aspect, p.polar, tex.pp[k] || (tex.pp[k] = {})) }; };
+            // (a seam's far patches: about the cut's ray alone, where the sheets' far patches tear, with a band; whole
+            // without one)
+            const seamFar = (p, k) => {
+              const q = patch(p, CARRY_POLES + k), cols = cp.band == null ? [0, q.N - 2] : seamCols(p.polar, q.N, cp.band);
+              return cols ? Object.assign(q, { polar: Object.assign([...p.polar], { cols }) }) : null;
+            };
+            const h = copyH[i] || (copyH[i] = {
+              o: carryHeights(sc, n, mode, H, mu, aspect, null, tex.box),
+              pp: cp.seam ? [] : pp.map(patch),
+              far: cp.seam ? farPatches.map(seamFar).filter(Boolean) : farPatches.map((p, k) => patch(p, CARRY_POLES + k)),
+            });
+            setUp(band || sb, cp.seam);
+            gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, h.o.tex1);
+            gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, h.o.tex2);
+            u1i(Pc, 'uN', h.o.N);
+            gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(...COPY_OFF);
+            const cells = () => gl.drawArrays(gl.TRIANGLES, 0, 6 * (h.o.N - 1) * (h.o.N - 1));
+            if (h.pp.length || h.far.length) patched(cells, h.pp, h.far, [COPY_OFF[0] + 2 * po, COPY_OFF[1] + 8 * po]); else cells();
+            gl.disable(gl.POLYGON_OFFSET_FILL);
+            info.copies++;
+            if (!cp.seam) info.copyPatches = h.pp.length;
+            else (info.seamFar || (info.seamFar = []))[i] = { box: Object.assign({}, band || sb), n, far: h.far.map((p) => ({ polar: [...p.polar], N: p.N, cols: p.polar.cols })) };
+          });
+        }
+        setUp(sb);
+        u1i(Pc, 'uN', hd.N);
+        // (the principal surface's patches a little behind its box's cells, so a patch shows only where they leave a hole)
+        patched(() => gl.drawArrays(gl.TRIANGLES, 0, 6 * (hd.N - 1) * (hd.N - 1)), pp, farPatches, [2 * po, 8 * po]);
         info.refine = null;
         info.carried = true; info.patches = pp.length; info.patchN = CARRY_POLE_N; info.far = farPatches.map((p) => [...p.polar, p.N]);
       }
