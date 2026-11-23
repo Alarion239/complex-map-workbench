@@ -70,6 +70,7 @@ const MAP = [
   ['src/app/19-steps-fit.js', ui('views', 'desktop', 'phone', 'layout')],                           // the thread's and the head's fit, a part of the steps view
   ['src/app/19-steps-gate.js', ui('views', 'desktop', 'phone', 'layout')],                          // the Play gate, a part of the steps view
   ['src/app/19-steps-view.js', ui('views', 'desktop', 'phone', 'layout')],                         // the steps view (#366 prototype)
+  ['src/app/19-steps-ahead.js', { core: true, areas: ['views'] }],                              // the steps view's render-ahead frames (#1339; its suite is in the exact shard)
   ['src/app/19-floor-pick.js', ui('views', 'desktop', 'phone')],                                   // the steps view's floor picker, the Pick tool (#1982)
   ['src/app/19-readout.js', ui('views', 'desktop', 'phone')],                                      // a stage disc's readout card in the Inspector (#1983)
   ['src/app/19-lookdown.js', ui('views', 'desktop', 'phone')],                                     // Look down: the target ring, lines, critical marks and key (#1984)

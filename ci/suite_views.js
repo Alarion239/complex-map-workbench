@@ -72,6 +72,7 @@ const VIEWS = {
   'steps_glide_warm_cmd.js': steps(),
   'steps_judge_rational_cmd.js': steps(),
   'steps_glide_closed_cmd.js': steps(),
+  'steps_ahead_cmd.js': steps(),
   'steps_idle_forced_cmd.js': steps(),
   'steps_land_glide_cmd.js': steps(),
   'steps_negpow_glide_cmd.js': steps({ pin: true }),
