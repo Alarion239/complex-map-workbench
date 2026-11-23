@@ -107,7 +107,7 @@ try {
   ok('play: the live region is found (control)', liveOk, liveOk);
   ok('play: it is held at least once while its links land late, and reaches plane 2 (control)', end.ok && h.length > 0 && h.some(([i0]) => r[i0].x > 0.3), { end, holds: moved });
   ok('play: while held, the spoken value, the head and the live region describe the place the picture is held at', heldBad.length === 0, heldBad.slice(0, 6));
-  ok('play: while held, none of the readouts changes, but the live region says the gate\'s words once and the play\'s as it ends', moved.every((m) => m.changes.filter((c) => !gates(c)).length === 0 && m.changes.filter(gates).length <= 2), moved);
+  ok('play: while held, none of the readouts changes, but the live region says the gate\'s words once and the play\'s as it ends', moved.every((m) => m.changes.filter((c) => !gates(c)).length === 0 && m.changes.filter(gates).length <= 2 && m.changes.filter((c) => c.from === PREPARING).every((c) => /^Playing from /.test(c.to))), moved);
   ok('play: on every frame, the spoken value, the head and the live region describe the place drawn', bad.length === 0, bad.slice(0, 6));
   ok('play: after a hold the thumb never goes back', back.length === 0, back.slice(0, 4));
   // ---- a glide from plane 2 to plane z: held for each glide's programs

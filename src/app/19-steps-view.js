@@ -41,7 +41,7 @@
   SV.speed = (() => { try { const v = localStorage.getItem('cmw-sv-speed'); return v && SV_SPEEDS[v] ? v : 'normal'; } catch (e) { return 'normal'; } })();
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
-  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn, label} a glide (held, drawn: svLinkHold's; label: the words of a crossing not yet drawn, svMotionDrawn), or {slide, start, end, timer} one plane at a time
   SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill, gauge (the ring's fill: the share of svHoldLeft gone), left0, ending (the full ring stands two animation frames)}
   SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
@@ -1405,12 +1405,13 @@
     const first = !A.held;
     if (first) A.held = { x: SV.g.x, at: A.drawn ? A.drawn.at : A.from, el: A.drawn ? A.drawn.el : 0 };
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
-    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
-    // to A.said, its words before the crossing of the frame that starts the hold)
+    // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region has not been
+    // written for the crossing of the frame that starts the hold, A.label, which is dropped here and made by the crossing again once
+    // the hold ends)
     if (first && SV.play === A) svHoldWaitBegin(A);
     if (first) {
       const r = Math.round(A.held.at);
-      if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
+      if (SV.play === A && r !== SV.i) { SV.i = r; A.label = null; }
       svSync();
     }
     return A.held.at;
@@ -1423,7 +1424,12 @@
   function svSetElapsed(A, ms) { A.el = ms; A.t0 = performance.now() - ms; }
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
-    if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
+    if (A) {
+      A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) };
+      // (the crossing's words, once its frame is drawn: svPlayFrame)
+      if (A.label != null && SV.els && SV.els.live && SV.play === A) SV.els.live.textContent = SV.loop ? svAheadTail(A.label) : A.label;
+      A.label = null;
+    }
     svHoldWaitEnd(true);
   }
   // whether the glide frame g (svBetween: a step's glide, or an All-at-once span's) on the plane must wait: the inverse
@@ -3984,9 +3990,10 @@
     // (a crossing mid-play writes the head and the live region only: svApply's layout and lists wait for the stop, as a glide's
     // wait for its arrival (perf on #460: a flip through svApply was a 111–168 ms frame of forced layout))
     const r = Math.round(SV.g.x);
-    // (a play's note goes with the words of its stop, which stay; a loop has none, and says it at its first crossing. A.said:
-    // the live region's words before the crossing, which a hold that starts in this frame puts back, svLinkHold)
-    if (r !== SV.i && v < 1) { SV.i = r; if (SV.els.live) { A.said = SV.els.live.textContent; SV.els.live.textContent = SV.loop ? svAheadTail(svLabel()) : svLabel(); } }
+    // (a play's note goes with the words of its stop, which stay; a loop has none, and says it with the words of its first crossing
+    // drawn. A.label: the live region's words for the crossing, written when the frame is drawn (svMotionDrawn), not when a hold
+    // starts in this frame: the region then stays on the held place's words, svLinkHold)
+    if (r !== SV.i && v < 1) { SV.i = r; A.label = svLabel(); }
     dirty.L = true;
     svSync();
     if (v < 1) return true;
