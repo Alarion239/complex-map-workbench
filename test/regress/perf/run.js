@@ -1952,7 +1952,8 @@ unit('sv.glide.tie', 'the steps view (on a GPU), z³ then cos about 0: a warm gl
 // slices) and the GL bytes held: info rows. Then a pan within their guard box (panPlane), every frame of which draws
 // them; and, with them dropped (__cmwSmReset) and building again, pan legs (there, and back) and scrubs of the strip from w₂ to w₁, each
 // begun while their jobs run (.pan_building, .scrub_building; .building_after: the share of those legs that
-// ended with a job still running)
+// ended with a job still running); and the time from a glide's press to its first frame, pressed while they build
+// and once they are built (.glide_building.first_ms, .glide_built.first_ms)
 const SV_TIE_LONG_MS = 50;
 async function svTieMeshUnit() {
   const pre = 'sv.tie_mesh';
@@ -2010,11 +2011,27 @@ async function svTieMeshUnit() {
     const s2 = await building(async () => { const t = await strip(); await B.drag(t.x2, t.y, t.x1, t.y, { n: 40, dt: 16 }); });
     scrubs.push(legSummary([s1, s2], 'pointermove'));
   }
+  // (a glide to w₁ pressed while they build, and once they are built: the time from the press to its first frame off w₂,
+  // the Play gate's wait included; the pre-mapped meshes' jobs are idle jobs, not the gate's)
+  const first = { building: [], built: [] };
+  for (let i = 0; i < REPS; i++) {
+    for (const k of ['building', 'built']) {
+      await B.ev("__cmwSteps({ scope: 'all', go: 2, now: true }), 1");
+      await B.until(BUILT, 120000);
+      if (k === 'building') { await B.ev('__cmwSmReset(), __cmwSteps({ x: 2 }), 1'); await B.until(BUILDING, 20000); } else await settle(await pageNow());
+      const a = await pageNow();
+      await B.ev('__cmwSteps({ go: 1 }), 1');
+      await B.until('__cmwSteps().x < 1.999', 60000, 5);
+      first[k].push((await pageNow()) - a);
+      await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
+    }
+  }
+  for (const k of ['building', 'built']) put(`${pre}.glide_${k}.first_ms`, 'info', 'ms', first[k]);
   putInteraction(`${pre}.pan_building`, pans);
   putInteraction(`${pre}.scrub_building`, scrubs);
   put(`${pre}.building_after`, 'info', '', [after / Math.max(1, legs)]);
 }
-unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built and drawn, the CPU they took (each and in all), the long tasks meanwhile, their nodes and the GL bytes held (info); a pan of the plane within their guard box, which draws them every frame; and a pan and a scrub begun while they build (#2286)', svTieMeshUnit, { timeoutS: 900 });
+unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built and drawn, the CPU they took (each and in all), the long tasks meanwhile, their nodes and the GL bytes held (info); a pan of the plane within their guard box, which draws them every frame; a pan and a scrub begun while they build, and a glide\'s press to its first frame while they build and once built (#2286)', svTieMeshUnit, { timeoutS: 900 });
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
