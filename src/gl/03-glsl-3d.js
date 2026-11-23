@@ -653,11 +653,12 @@ void main() {
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
   // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. (The box's corners
   // for that test by the box's own formula, not carryZ, whose patch branch costs every vertex.) A triangle wholly past
-  // one of the block's sides (its half extent uAspect) is left out: LAND_FS would discard every fragment of it
+  // one of the block's sides (its half extent uAspect) is left out: LAND_FS would discard every fragment of it. uColOn 1:
+  // only the cells of columns uCol0 to uCol1 (of a patch: angles; uCol0 > uCol1 wraps round through column 0) are drawn
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
-uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}];
+uniform float uStep; uniform int uDiscN; uniform vec3 uDisc[${CARRY_DISCS}]; uniform int uColOn; uniform int uCol0; uniform int uCol1;
 bool inDisc(vec2 a, vec2 b, vec2 c) {
   for (int k = 0; k < ${CARRY_DISCS}; k++) {
     if (k >= uDiscN) break;
@@ -675,6 +676,7 @@ void main() {
   int M = uN - 1;
   int tri = gl_VertexID / 3, k = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % M, cell / M);
+  if (uColOn == 1 && (uCol0 <= uCol1 ? (c.x < uCol0 || c.x > uCol1) : (c.x < uCol0 && c.x > uCol1))) return;
   ivec2 V0 = c, V1 = hf == 0 ? c + ivec2(1, 0) : c + ivec2(1, 1), V2 = hf == 0 ? c + ivec2(1, 1) : c + ivec2(0, 1);
   vec4 t0 = texelFetch(uT1, V0, 0), t1 = texelFetch(uT1, V1, 0), t2 = texelFetch(uT1, V2, 0);
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;

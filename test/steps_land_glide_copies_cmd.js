@@ -19,7 +19,9 @@
 //   the square root maps onto a disc that covers it: the carried points reach the whole of plane b's window.
 // - the same arrival at the page's default window (S.srcView.s = WIDE), square root alone: there the corners of plane
 //   b's window come from outside the carried box, on both sheets, so each copy draws the far patches the principal
-//   surface draws, on its combo. The frame is plane b parked within END_FRAC.
+//   surface draws, on its combo. The frame is plane b parked within END_FRAC, and bare where plane b has surface at
+//   most WIDE_BARE pixels: every surface's far patches tear along the cut's image too, and the seams close that tear
+//   past the box as they do on it (a slit across the relief, widening outward, left over 800 bare).
 // - the seam where the two sheets meet: every surface drawn tears along the image of the cut, so each is drawn again
 //   with the cut turned half a turn (svGlideSeams), continuous there. At u = 1/2 and 1 − NEAR, against the same frame
 //   without those surfaces (the control, __cmwSteps({ glideSeams: 0 })): the seams leave at most SEAM_GAP pixels bare
@@ -54,6 +56,7 @@ const ARRIVE_BARE = 300;              // arrival: the pixels the frame with the 
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
 const WIDE = 60;                      // px per unit: the page's default window
+const WIDE_BARE = 400;                // the pixels its arrival may leave bare where plane b parked has surface
 const SPECKLE = 40, SPECKLE_TOL = 24; // log |F| heights: the isolated pixels the frame and the control may differ in, and by how much
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -133,7 +136,9 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
   await settled({ max: 60000 });
   r.frame = await at(1 - NEAR, 0, 'wide');
   r.arrival = await compare('wide', 'wpb');
+  r.bare = await gap('wide', 'wpb');
   ok(`square root, s = ${WIDE}, u = ${1 - NEAR}: the frame is plane 1 parked (within ${END_FRAC}), the copy's far corners drawn`, !!r.arrival && r.arrival.frac <= END_FRAC, r);
+  ok(`square root, s = ${WIDE}, u = ${1 - NEAR}: bare where plane 1 parked has surface at most ${WIDE_BARE} px (no slit along the cut past the box)`, r.bare.n <= WIDE_BARE, r);
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
 }
 // ---- Inside regions: an annulus under the square root ----

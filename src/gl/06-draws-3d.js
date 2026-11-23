@@ -388,6 +388,10 @@
     const s = seam && polar && polar.seam;
     u1i(P, 'uSeamOn', s ? 1 : 0);
     if (s) { u1fv(P, 'uSeam', s); u1f(P, 'uSeamEnd', s.end); }
+    // (polar.cols [first, last]: the patch's columns drawn, LAND_CARRY_VS's uCol0 and uCol1)
+    const cl = polar && polar.cols;
+    u1i(P, 'uColOn', cl ? 1 : 0);
+    if (cl) { u1i(P, 'uCol0', cl[0]); u1i(P, 'uCol1', cl[1]); }
   }
   // the box's draw (LAND_CARRY_VS): the discs of the seamed patches of polar (at most CARRY_DISCS), each CARRY_DISC_IN of its
   // radius, inside which the box's triangles are left to the patch; the patch reaches past them, so no crack opens
@@ -436,6 +440,26 @@
   // (N points a side) of the ray from 0 at angle deg (0, 90, 180 or 270), where every surface's cells tear; on a grid
   // of SEAM_N points a side. null when the ray misses sb
   const SEAM_N = 96, SEAM_CELLS = 3;
+  // the columns of a far patch (polar [x, y, r0, r1] of N points a side, CARRY_Z: column i at the angle -2 pi i / (N - 1)
+  // about (x, y)) that the ray from 0 at angle deg (degrees) crosses in the ring r0 to r1, SEAM_COLS more on each side:
+  // [first, last] of its N - 1 cells' columns (first > last wraps round through 0); null when the ray misses the ring,
+  // all of it when the columns go round
+  const SEAM_COLS = 2;
+  function seamCols(polar, N, deg) {
+    const [x, y, r0, r1] = polar, dx = Math.cos(deg * Math.PI / 180), dy = Math.sin(deg * Math.PI / 180);
+    const b = dx * x + dy * y, disc = b * b - (x * x + y * y - r1 * r1);
+    if (!(disc > 0)) return null;
+    const t0 = Math.max(0, b - Math.sqrt(disc)), t1 = b + Math.sqrt(disc), M = N - 1, at = [];
+    for (let k = 0; k <= 64 && t1 > t0; k++) {
+      const t = t0 + (t1 - t0) * k / 64, ex = t * dx - x, ey = t * dy - y;
+      if (Math.hypot(ex, ey) >= r0) at.push((((-Math.atan2(ey, ex) / (2 * Math.PI)) % 1) + 1) % 1);
+    }
+    if (!at.length) return null;
+    const d = at.map((u) => ((u - at[0] + 1.5) % 1) - 0.5), lo = at[0] + Math.min(...d), hi = at[0] + Math.max(...d);
+    const c0 = Math.floor(lo * M) - SEAM_COLS, c1 = Math.ceil(hi * M) + SEAM_COLS;
+    if (c1 - c0 >= M - 1) return [0, M - 1];
+    return [((c0 % M) + M) % M, ((c1 % M) + M) % M];
+  }
   function seamBand(sb, deg, N) {
     const d = SEAM_CELLS * Math.max(sb.x1 - sb.x0, sb.y1 - sb.y0) / (N - 1);
     const r = { 0: [-d, sb.x1, -d, d], 90: [-d, d, -d, sb.y1], 180: [sb.x0, d, -d, d], 270: [-d, d, sb.y0, d] }[deg];
@@ -1643,8 +1667,9 @@
         // coloured on its sheet, with the patches the principal surface has, at the same points of plane s, each on the
         // copy's combo; with band (an angle, degrees), over seamBand's box about that ray from 0 alone, on a grid of
         // SEAM_N points a side. A seam (seam: its cuts turned half a turn, so it is continuous where the sheets meet) has
-        // no patches: each sheet's patch reaches the cut on its side, and the seam leaves its box's cells inside the
-        // seamed patches' discs to them. A sheet's copy keeps those cells, so its patches draw only in the holes they
+        // no pole or branch point patches: each sheet's patch reaches the cut on its side, and the seam leaves its box's
+        // cells inside the seamed patches' discs to them. Past the box it draws the far patches' cells about the cut's
+        // ray (seamCols), where the sheets' far patches tear. A sheet's copy keeps those cells, so its patches draw only in the holes they
         // leave (the stencil), not over the whole disc, which costs far more. The principal surface is drawn after
         // them, and they a little behind their depth (COPY_OFF, further than the pole patches' offset), so it is the one
         // shown where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's
@@ -1660,7 +1685,17 @@
             const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
             const tex = landCopies[i] || (landCopies[i] = { box: {}, pp: [] });
             const patch = (p, k) => { const m = Math.round(p.N * COPY_PATCH); return { polar: p.polar, N: m, o: carryHeights(st, m, mode, H, mu, aspect, p.polar, tex.pp[k] || (tex.pp[k] = {})) }; };
-            const h = copyH[i] || (copyH[i] = { o: carryHeights(sc, n, mode, H, mu, aspect, null, tex.box), pp: cp.seam ? [] : pp.map(patch), far: cp.seam ? [] : farPatches.map((p, k) => patch(p, CARRY_POLES + k)) });
+            // (a seam's far patches: about the cut's ray alone, where the sheets' far patches tear, with a band; whole
+            // without one)
+            const seamFar = (p, k) => {
+              const q = patch(p, CARRY_POLES + k), cols = cp.band == null ? [0, q.N - 2] : seamCols(p.polar, q.N, cp.band);
+              return cols ? Object.assign(q, { polar: Object.assign([...p.polar], { cols }) }) : null;
+            };
+            const h = copyH[i] || (copyH[i] = {
+              o: carryHeights(sc, n, mode, H, mu, aspect, null, tex.box),
+              pp: cp.seam ? [] : pp.map(patch),
+              far: cp.seam ? farPatches.map(seamFar).filter(Boolean) : farPatches.map((p, k) => patch(p, CARRY_POLES + k)),
+            });
             setUp(band || sb, cp.seam);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, h.o.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, h.o.tex2);
