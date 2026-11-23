@@ -440,6 +440,11 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // product of their terms, which keeps to SER_GPU_FINITE (loopGL). An infinite sum around them counts 1 there,
   // its terms bounded by SER_GPU_LOOP
   const SER_GPU_FINITE = 2048;
+  // the terms one pixel takes in all, across every sum of a step: its loops' innermost iterations count down from here, and a
+  // pixel that needs more is NaN, as one past SER_GPU_LOOP or SER_GPU_FINITE is. The draw's time per pixel is bounded by it, however
+  // the sums nest (an infinite sum around a finite one, or two infinite ones, would take up to 262144 or 1048576 terms); a sum that
+  // converges early takes few terms and is not affected. The same as Expr's SER_BUDGET (the CPU's twin, armed by the page's sample)
+  const SER_GPU_TERMS = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
   const DIR_TMAX = 120, EM6 = '0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10';
@@ -492,10 +497,12 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = [], budget = null) {
     let tmp = 0, out = lines;
     const dep = Expr.depends;
+    // (the pixel's terms left, SER_GPU_TERMS: declared at the top of the function when a sum that is a loop is generated, in the line reserved here)
+    const termsAt = Expr.hasSeries(ast) ? lines.push('') - 1 : -1, TL = `${P}_tl`;
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
     // [issue #5] the loop variables of the sums being generated, innermost last
     const idxVar = [];
-    let sums = 0;
+    let sums = 0, nest = 0;   // (sums: the names of the sums' and recurrences' loops; nest: the sums only, which the innermost test counts)
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
     // a loop's trip count as a uniform (a cell its writer fills with n, or with n() at write time), never a constant:
     // D3D's FXC (ANGLE on Windows) unrolls a loop with a constant bound, so a long series body becomes hundreds of copies
@@ -703,7 +710,11 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       out = inner;
       idxVar.push(me);
       let t;
+      const nest0 = nest;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      // (a loop with no sum inside it takes the terms; the loops around it only stop once they are spent)
+      const innermost = nest === nest0;
+      lines[termsAt] = `  float ${TL} = ${SER_GPU_TERMS}.0;`;
       if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
       for (const e of outerFn) e.used = true;
       const LO = `${id}_lo`, HI = `${id}_hi`;
@@ -722,6 +733,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
+      ${innermost ? `${TL} -= 1.0; ` : ''}if (${TL} < 0.0) { ${OK} = false; done = true; break; }
 ${inner.map((x) => '    ' + x).join('\n')}
       vec2 t = ${t};
       ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
@@ -768,6 +780,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
     }
     function genSum(n) {
       const id = `${P}_s${sums++}`;
+      nest++;
       let plan = Expr.planOf(n);
       if (!plan && !idxVar.length) { try { Expr.compile(n); } catch (e) { /* summed as it is */ } plan = Expr.planOf(n); }
       // (a plan's terms never involve an outer index: inside another sum the loop is used)
@@ -2397,7 +2410,7 @@ void ixAncTan(vec2 w) {
   // result that carries none; a root within NEWT_DEDUPE (1 + |root|) of an earlier one is the same root; Aberth stops when
   // its step is within NEWT_STEP_TOL (1 + |z|))
   const NEWT_FINITE = '1e37', NEWT_NO_LEVEL = '1e38', NEWT_DEDUPE = '1e-3';
-  const { NEWT_STEP_TOL, evFns, sweepFns, ratAberthFns } = GLSLRoots;
+  const { NEWT_STEP_TOL, evFns, sweepFns, orderFns, ratAberthFns } = GLSLRoots;
   // GLSL of a NEWT op's Newton kit, prefix P, homotopy H (H(u, t): GLSL of H_t(u)): _d, H_t' by a central
   // difference; _hit, H_t(u) is w; _fd, H_t' by a forward difference that reuses hu = H_t(u); _step, one Newton step,
   // InvOps.opNewt's full step with _fd's derivative; _polish, NEWT_POL steps at t; _walkg, member 0 continued from u at
@@ -2564,8 +2577,8 @@ bool ${P}_one_b(inout Lf L, int b) {
   // a_0; _ev, _start and _aberth, Aberth's iteration (GLSLRoots' evFns and sweepFns, the walks between them); _poly,
   // H_t(u) = a(u); _roots, every root for w, polished and checked by Newton
   // on H_t itself (newtCoreFns on _poly: the op's own polynomial, which is the homotopy of the step or of a recognised
-  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map) and kept when it differs
-  // from every earlier one, once per w. With the NEWT roots pass
+  // formula's sub-step it inverts, where the formula's chainHom at the op's t is another map), in their order and kept
+  // when it differs from every earlier one (orderFns), once per w. With the NEWT roots pass
   // (IX_NR_N, 07-inverse-api.js; nr of buildInverse): that pass (IX_NR_PASS) starts Aberth's sweeps from the previous
   // frame's roots of its pixel (uNrPrev*), from the circle when they do not all settle, and writes the kept roots, two
   // to a target (IX_NR_NONE where none); the inverse program reads them (uNrTex*) where the op's input is the pixel's
@@ -2581,10 +2594,8 @@ bool ${P}_one_b(inout Lf L, int b) {
   return k == 0 ? a - w : a;
 }
 ${evFns(P, D)}vec2 ${P}_poly(vec2 u) { vec2 q, dq; ${P}_ev(u, vec2(0.0), int(uInv[${c}].y), q, dq); return q; }
-${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}${sweepFns(P, D)}bool ${P}_has = false;
+${newtCoreFns(P, (u) => `${P}_poly(${u})`, false)}${sweepFns(P, D)}${orderFns(P, D, NEWT_DEDUPE)}bool ${P}_has = false;
 vec2 ${P}_w = vec2(0.0);
-vec2 ${P}_r[${D}];
-bool ${P}_k[${D}];
 void ${P}_roots(vec2 w, float t) {
   if (${P}_has && ${P}_w == w) return;
   ${P}_has = true; ${P}_w = w;
@@ -2618,9 +2629,9 @@ ${fetch('uNrPrev')}
   for (int i = 0; i < ${D}; i++) {
     vec2 v = z[i];
     bool ok = i < de && ixFin(v) && ${P}_settle(v, w, t);
-    for (int m = 0; m < ${D}; m++) { if (m >= i) break; if (ok && ${P}_k[m] && cx_abs(v - ${P}_r[m]) <= ${NEWT_DEDUPE} * (1.0 + cx_abs(${P}_r[m]))) ok = false; }
     ${P}_r[i] = v; ${P}_k[i] = ok;
   }
+  ${P}_order();
 }
 int ${P}_nb(Lf L) { return ixFin(L.u) ? ${D} : 0; }
 bool ${P}_one_b(inout Lf L, int b) {
@@ -3073,7 +3084,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
   return {
     get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
     useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
-    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE, LOOP_CAP: SER_GPU_LOOP,
+    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE, LOOP_CAP: SER_GPU_LOOP, TERMS_BUDGET: SER_GPU_TERMS,
   };
 })();
 import { CX } from './cx.js';
