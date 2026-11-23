@@ -206,10 +206,11 @@ const Commands = (() => {
         plane: $t('plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus'),
         sphere: $t('riemann sphere, globe, infinity, sphere'),
         land: $t('landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
+        stack: $t('stack, box, glass, floor, tilt, preimages, target, 3d'),
       };
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
-        ...(svSurface() ? ['plane', 'sphere', 'land'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
+        ...(svSurface() ? ['plane', 'sphere', 'land', 'stack'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
         [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), morphOn() && A.S.view.main === 'xy' ? 'P' : '', $t('paths trajectories arrows homotopy deformation lines')],
         [A.S.homAll ? $t('Deformation: the steps one after another') : $t('Deformation: all steps at once'), () => setHomAll(!A.S.homAll), '', $t('deformation order steps simultaneous together sequence homotopy at once')],
         // (the bracket for the selected step, else the last; SPEC 6.5)
@@ -231,7 +232,7 @@ const Commands = (() => {
         ...(ql ? Palette.LIST.map(([id]) => [$t('Phase colours: {name}', { name: PAL_NAMES()[id][0] }), () => setPalette(id), '', 'palette, colours, colors, цвета, палитра, colori, arb, chrome']) : []),
         [$t('Draw panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(A.S.hideLeft, !A.S.hideRight), ']'],
-        // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
+        // (the language names carry their own lang for a screen reader, as in the menu)
         ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, lingua, russian, русский, english, английский, italian, italiano'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, lingua, english, английский, inglese', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, lingua, russian, русский, russo', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })], [$t('Language: {name}', { name: 'Italiano' }), () => pickLang('it'), '', 'language, язык, lingua, italian, итальянский, italiano', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'it' }, 'Italiano') })]] : []),
       ];
       for (const [label, run, key, alias, labelParts] of view) if (!ql || score(label) || (alias && aliasScore(alias) >= 2)) items.push(labelParts ? { kind: 'cmd', group: $t('View'), label, key, run, labelParts } : { kind: 'cmd', group: $t('View'), label, key, run });
@@ -262,7 +263,7 @@ const Commands = (() => {
         [$t('Hear the function on/off'), () => soundHear(), ''],
         ...(Sound.hear ? [[$t('Hear the function: notes'), () => soundMode(false), ''], [$t('Hear the function: glide'), () => soundMode(true), '']] : []),
         [$t('Stop sound'), () => soundStop(), 'Esc'],
-        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id }), '']),
+        ...Tour.chapters().map((c) => [$t('Tour: {title}', { title: $t(c.title) }), () => Tour.start({ chapter: c.id, opener: Tour.helpAnchor() }), '']),
         ...Construct.paletteActs(),   // (the four tools; Make free, Use complement)
         ...dhActs(),
       ];

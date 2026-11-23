@@ -39,6 +39,17 @@ for (const c of ['// K1 item 3', '// #620 item 2', '// step 2 of #620', '// [v17
   ok(`plan: ${c}`, rules('ci/x.js', [c]).some((r) => r.startsWith('plan:') || r.startsWith('history:')), rules('ci/x.js', [c]));
 }
 ok('plan: K1 item is a plan label', rules('ci/x.js', ['// K1 item 3']).join() === 'plan:a plan label');
+// (review and verify labels, bracketed or in parentheses: the labels of a review round's findings)
+for (const c of ['/* [review user-11] a definition wraps */', '/* (r3 review user-7: a chevron after the count) */', '// [verify-1] it goes first',
+  '// Russian only (verify-5): a comma', '/* (r3 verify-2: x stays in the row) */', '// ([check app-5] at the foot)', '// (UX20) the key']) {
+  ok(`plan: a review label: ${c}`, rules('src/x.js', [c]).some((r) => r === 'plan:a review label'), rules('src/x.js', [c]));
+}
+for (const c of ['// a review of the user\'s settings', '// verify that the map is entire', '// check the app state, then the user', '// the UX of the strip',
+  '// review step 2', '/* --user-1: a custom property */']) {
+  ok(`plan: prose is not a review label: ${c}`, !rules('src/x.js', [c]).some((r) => r === 'plan:a review label'), rules('src/x.js', [c]));
+}
+ok('plan: a suite under test/ may name the review finding its rows pin', rules('test/ux165_plane_cmd.js', ['// UX52: a refused pick in the chip']).length === 0
+  && rules('test/t_i18n.js', ['// verify-5: a comma between digits']).length === 0, rules('test/ux165_plane_cmd.js', ['// UX52: a refused pick in the chip']));
 ok('plan: a single cite of a decision issue is fine', rules('src/x.js', ['// see #620 for the decision', '// the chain limit (issue #234)']).length === 0);
 
 // dropped assertions
@@ -51,6 +62,36 @@ ok('asserts: a deleted test file', (() => {
   const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ /dev/null', '@@ -1,2 +0,0 @@', '-ok(1);', '-ok(2);'].join('\n'));
   return check(f).map((x) => x.why).join() === '2 assertions removed, 0 added (file deleted)';
 })());
+
+// a deleted suite is retired by a ledger line with a reason and its lines dropped from what runs (ci/retired_suites.js)
+{
+  const del = (f, n = 2) => [`diff --git a/test/${f} b/test/${f}`, `--- a/test/${f}`, '+++ /dev/null', `@@ -1,${n} +0,0 @@`, ...Array.from({ length: n }, (_, i) => `-ok(${i});`)];
+  const edit = (file, removed, added) => [`diff --git a/${file} b/${file}`, `--- a/${file}`, `+++ b/${file}`, `@@ -1,${removed.length} +1,${added.length} @@`,
+    ...removed.map((l) => '-' + l), ...added.map((l) => '+' + l)];
+  const ledger = (lines) => edit('ci/retired_suites.js', [], lines);
+  const views = edit('ci/suite_views.js', ["  'x_cmd.js': classic('why'),"], []);
+  const shards = edit('ci/browser_shards.js', ["  { id: 'a', suites: ['y_cmd.js', 'x_cmd.js#part', 'z_cmd.js'] },"], ["  { id: 'a', suites: ['y_cmd.js', 'z_cmd.js'] },"]);
+  const excluded = edit('ci/browser_suites.js', ["  'x_cmd.js': 'a benchmark, no verdict',"], []);
+  const timing = edit('ci/browser_suites.js', ["  'x_cmd.js': [t(/fast/)],"], []);
+  const why = (lines) => check(parseDiff(lines.join('\n'))).map((x) => x.rule + ':' + x.why);
+  const REASON = "  'x_cmd.js': 'the classic transport it drove is gone (#994); the steps view has y_cmd',";
+  ok('retired: a deleted suite with no ledger line is a finding', why([...del('x_cmd.js'), ...views, ...shards]).join() === 'asserts:2 assertions removed, 0 added (file deleted)');
+  ok('retired: a ledger line and the suite dropped from views and shards: no finding', why([...del('x_cmd.js'), ...ledger([REASON]), ...views, ...shards]).length === 0, why([...del('x_cmd.js'), ...ledger([REASON]), ...views, ...shards]));
+  ok('retired: a ledger line and the suite dropped from EXCLUDED: no finding', why([...del('x_cmd.js'), ...ledger([REASON]), ...excluded]).length === 0);
+  ok('retired: still in a shard list, it is a finding', why([...del('x_cmd.js'), ...ledger([REASON]), ...views]).join() === 'asserts:2 assertions removed, 0 added (file deleted)');
+  ok('retired: a dropped TIMING entry is not a drop from what runs', why([...del('x_cmd.js'), ...ledger([REASON]), ...timing]).length === 1);
+  ok('retired: a ledger line with no reason does not retire it', why([...del('x_cmd.js'), ...ledger(["  'x_cmd.js': '',"]), ...views, ...shards]).length === 1);
+  ok('retired: a ledger line for a file the change keeps is a finding', why([...ledger([REASON])]).join() === 'retired:names test/x_cmd.js, which this change does not delete');
+  ok('retired: another deleted suite is still counted', why([...del('x_cmd.js'), ...del('w_cmd.js', 1), ...ledger([REASON]), ...views, ...shards]).join() === 'asserts:1 assertions removed, 0 added (file deleted)');
+}
+// the ledger names no file that is still in test/
+{
+  const fs = require('fs'), path = require('path');
+  const { RETIRED } = require('../ci/retired_suites.js');
+  const kept = Object.keys(RETIRED).filter((f) => fs.existsSync(path.join(__dirname, f)));
+  ok('ci/retired_suites.js names no file still in test/', kept.length === 0, kept);
+  ok('ci/retired_suites.js: every entry has a reason', Object.values(RETIRED).every((r) => typeof r === 'string' && r.trim().length > 10));
+}
 
 ok('asserts: a split moves assertions to a new file', (() => {
   const f = parseDiff(['diff --git a/test/t_a.js b/test/t_a.js', '--- a/test/t_a.js', '+++ b/test/t_a.js', '@@ -1,2 +1,0 @@', '-ok(1);', '-ok(2);',

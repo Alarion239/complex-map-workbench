@@ -17,6 +17,11 @@
 #      occurrence when one name stands for two values. Entries without en_key fall back to the inventory text, with
 #      the names its context lists. The Russian always writes '%{name}', which i18n.js fills in any template.
 #      tools/ru_extra.json wins over both (templates restructured in code, Russian-only messages).
+# Where an edit goes: a string's Russian is kept in tools/ru_extra.json and nowhere else. A key that tools/ru_extra.json
+# and a table of notes/i18n/ru (the files read below, in the order they are listed: the phase-2b tables, then the later
+# rounds') both hold is reported ("IN BOTH") and fails --strict and --check; the Russian that ships is then
+# tools/ru_extra.json's, so an edit there always ships. Of two tables holding one key, the one read last gives the Russian.
+# chrome.json, math.json and guide-tour.json hold the inventory's entries, which tools/ru_extra.json overrides by design.
 # The table is written as one JSON string inside a JS call, I18N.define('ru', "..."): English never parses it.
 import json
 import pathlib
@@ -61,7 +66,8 @@ sample = json.load(open(notes / 'proto' / 'ru.json'))
 extra_doc = json.load(open(root / 'tools' / 'ru_extra.json'))
 extra = {k: v for k, v in extra_doc.items() if not k.startswith('_')}
 # phase 2b's new strings (notes/i18n/ru/phase2b*.json): id -> {en, ru, plural, en_plural, ctx, note}. Keyed like the
-# call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many), and they win like tools/ru_extra.json
+# call sites ($tx: ctx + U+0004 + en; $tn: one + U+0004 + many); they win over the inventory's entries, not over
+# tools/ru_extra.json (a key in both is reported below)
 # (the redesign's strings, the first group of notes/i18n/ru tables below, after phase 2b's; a table whose build is not
 # merged into this tree is left out, so its strings and its changes to shared ones arrive with its sources)
 # (the video preview (work/xvv), the phone tour's step toggle (work/xvp) and the formula recognizer (src/recognize.js)
@@ -98,6 +104,8 @@ V17_HERE = {'v17-planemenu.json'}
 # (Hear the function, the marimba notes and the Glide (perfwin/sound/impl/SOUND-PLAN.md 4.3): notes/i18n/ru/v165-hear.json,
 # read after the other v165 tables, so it overrides v152-sound.json and v164-tour.json; before V17_HERE's, which is read last)
 V165_HEAR_HERE = {'v165-hear.json'}
+ru_extra_keys = set(extra)               # (the keys tools/ru_extra.json holds, before any table is read)
+in_both = []                             # (key, table file, entry id) of a table entry whose key tools/ru_extra.json holds too
 phase2b_keys = set()                     # (t_i18n checks that every phase 2b fix and leftover is shipped: never dropped)
 PHASE2B_PINNED = ('phase2b-fixes.json', 'phase2b-leftovers.json')   # (the two tables t_i18n reads)
 for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == 'phase2b-fixes.json', p.name)) + sorted(p for p in (notes / 'ru').glob('v15-*.json') if p.name not in V15_NOT_HERE) + sorted(p for p in (notes / 'ru').glob('v152-*.json') if p.name not in V152_NOT_HERE) + sorted((notes / 'ru').glob('v16-*.json')) + sorted(p for p in (notes / 'ru').glob('v161-*.json') if p.name in V161_HERE) + sorted(p for p in (notes / 'ru').glob('v163-*.json') if p.name in V163_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_SEG_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HERE) + sorted(p for p in (notes / 'ru').glob('v164-*.json') if p.name in V164_HELP_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_FIX_HERE) + sorted(p for p in (notes / 'ru').glob('v165-*.json') if p.name in V165_HEAR_HERE) + sorted(p for p in (notes / 'ru').glob('v17-*.json') if p.name in V17_HERE):  # read in this order: a later table's strings win
@@ -106,9 +114,18 @@ for f in sorted((notes / 'ru').glob('phase2b*.json'), key=lambda p: (p.name == '
             continue
         pl = v.get('en_plural')
         key = pl[0] + CTX + pl[1] if v.get('plural') and isinstance(pl, list) else (v['ctx'] + CTX if v.get('ctx') else '') + v['en']
-        extra[key] = v.get('plural') or v['ru']
         if f.name in PHASE2B_PINNED:
             phase2b_keys.add(key)
+        if key in ru_extra_keys:
+            in_both.append((key, f.name, k))
+            continue
+        extra[key] = v.get('plural') or v['ru']
+
+for key, table_name, entry_id in in_both:
+    print(f'  IN BOTH {json.dumps(key, ensure_ascii=False)[:100]}: tools/ru_extra.json and notes/i18n/ru/{table_name} ({entry_id}); '
+          f'delete the table entry, tools/ru_extra.json is the one place to edit')
+if in_both and ('--strict' in sys.argv or '--check' in sys.argv):
+    sys.exit(f'{len(in_both)} key(s) held by tools/ru_extra.json and by a table of notes/i18n/ru: keep each in one place')
 
 entries = [(k, v) for k, v in C.items() if k != '_meta'] + list(M['entries'].items()) + list(G.items())
 entries += [(k, v) for k, v in M.get('missing_from_inventory', {}).items()]

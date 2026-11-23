@@ -4,21 +4,28 @@
 // - cos, cosh, arccos and arcosh play their zoom paths (NatPaths.ZOOM): cos about π/2 by sin's ops, arccos about 0 by
 //   arcsin's, cosh about arsinh 1 and arcosh about √2 by their own, each between two affine maps (Inverse.homOps);
 // - the cubic z^3 - 2z + 1 and the quartic z^3 + 1/z play their zoom paths by the closed-form cubic and quartic
-//   (InvOps.opRatN: Cardano's and Ferrari's roots) between two affine maps.
+//   (InvOps.opRatN: Cardano's and Ferrari's roots) between two affine maps;
+// - the rational map (z^5 + z)/(2z^2 - 1) plays its zoom path by every root of p - w q (InvOps.opRatN: Aberth's iteration)
+//   between two affine maps.
 // The rows:
 // - at each of a step's us the frame is drawn by the inverse pass (the glide's record, path 'inverse') and none of the
 //   ops it inverted is NEWT; for cos and the cubic at u = 0.5, and for the quartic at u = 0.25, the carried colour is
 //   the exact picture (held_frames.js's judge; the quartic's frame at u = 0.5 gives it fewer than JUDGE_MIN_N pixels to
 //   compare);
-// - the same place either way (cos and the cubic): the frame at u = 0.5 reached through 0.1, ..., 0.4 from plane z and
-//   through 0.9, ..., 0.6 from plane w1: at most SAME_FRAC of the pixels more than DIFF_TOL apart;
+// - the same place either way (cos, the cubic and the rational map of degree 5): the frame at u = 0.5 reached through
+//   0.1, ..., 0.4 from plane z and through 0.9, ..., 0.6 from plane w1: at most SAME_FRAC of the pixels more than
+//   DIFF_TOL apart;
 // - arrival: the frame at u = 1 - 10^-4 against plane w1 at rest away from the lines (held_frames.js's sameAway: the
 //   dashes of an image's edge start where its path does, which moves with u), at most ARRIVAL_FRAC of the pixels more
 //   than DIFF_TOL apart, for each step (a u close enough to 1 that a fast but continuous end of the motion does not
 //   count);
-// - cost (cos and the cubic): the frame held at u = 0.5, the left pane drawn ten times in a row and read back each time
-//   (__cmwTime), against z^2's in the same session: within the step's cost times (lavapipe: cos about 1.3-1.6, the
-//   cubic about 1.2). Timing rows (reported, not gated): within its timing times.
+// - cost (cos): the frame held at u = 0.5, the left pane drawn ten times in a row and read back each time (__cmwTime),
+//   against z^2's in the same session: within the step's cost times (lavapipe: cos about 1.3-1.6). Timing rows
+//   (reported, not gated, cos and the cubic): within its timing times. The cubic's cost is a timing row only: on lavapipe
+//   its frame costs 1.23-1.60 times z^2's by its closed form and 1.49-1.79 by Newton's method (six rounds each, one
+//   session), and the hosted runner's Gates read 1.38-1.45, so no bound tells the two apart and a gated one fails runs
+//   with the closed form; a cubic that falls back to Newton fails the rows above (none of its ops is NEWT). Its
+//   reported level, 1.65, is above the closed form's spread on both machines.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the exact shard (ci/browser_shards.js).
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -51,14 +58,15 @@ const noNewton = (g) => !!g && Array.isArray(g.ops) && g.ops.length > 0 && !g.op
 await view(1200, 800, false, false);
 
 // the steps: us, where the frame's path and ops are read; judge, the u (one of us) where its colour is judged; same, the frame at 0.5
-// from either end; cost and timing: the bounds of its held frame against z^2's (none: not timed)
+// from either end; cost and timing: the bounds of its held frame against z^2's, gated and reported (none: not timed)
 const CASES = {
   cos: { step: { type: 'cos' }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, cost: 2.5, timing: 1.6 },
   cosh: { step: { type: 'cosh' }, us: [0.5] },
   arccos: { step: { type: 'arccos' }, us: [0.5] },
   arcosh: { step: { type: 'arcosh' }, us: [0.5] },
-  cubic: { step: { type: 'poly', params: { co: '1, 0, -2, 1' } }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, cost: 1.4, timing: 1.1 },
+  cubic: { step: { type: 'poly', params: { co: '1, 0, -2, 1' } }, us: [0.25, 0.5, 0.75], judge: 0.5, same: true, timing: 1.65 },
   quartic: { step: { type: 'custom', params: { expr: 'z^3+\\frac{1}{z}', cut: 180 } }, us: [0.25, 0.5, 0.75], judge: 0.25 },
+  rational5: { step: { type: 'custom', params: { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 } }, us: [0.25, 0.5, 0.75], same: true },
 };
 const SAME_FRAC = 1e-4, ARRIVAL_FRAC = 0.002, ARRIVAL_U = 1 - 1e-4;
 
@@ -125,11 +133,11 @@ async function cost(step, tag) {
   const z2 = await cost({ type: 'pown', params: { n: 2 } }, 'closedcostz2');
   info.cost = { z2 };
   ok('cost: z^2\'s held frame is timed', z2.ms > 0 && z2.placed, z2);
-  for (const [name, c] of Object.entries(CASES).filter(([, q]) => q.cost)) {
+  for (const [name, c] of Object.entries(CASES).filter(([, q]) => q.cost || q.timing)) {
     const k = await cost(c.step, `closedcost${name}`);
     info.cost[name] = k;
     ok(`cost: ${name}'s held frame is timed`, k.ms > 0 && k.placed, k);
-    ok(`cost: ${name}'s held frame costs at most ${c.cost} times z^2's`, k.ms > 0 && k.ms <= c.cost * z2.ms, { z2, [name]: k });
+    if (c.cost) ok(`cost: ${name}'s held frame costs at most ${c.cost} times z^2's`, k.ms > 0 && k.ms <= c.cost * z2.ms, { z2, [name]: k });
     ok(`timing: ${name}'s held frame costs at most ${c.timing} times z^2's`, k.ms > 0 && k.ms <= c.timing * z2.ms, { z2, [name]: k });
   }
 }

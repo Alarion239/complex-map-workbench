@@ -61,7 +61,7 @@ ivec2 lvAt(ivec2 c) {
   if (v != 0 && uCuts > 0 && cellJump(c)) return ivec2(0);
   return ivec2(v & 7, v >> 3);
 }
-// drawn by the refined cells' draw, not a cell that now holds a jump
+// drawn by the refined cells' draw, unless the cuts put a jump in the cell
 bool lvDrawnR(ivec2 c) { return lvRaw(c) != 0 && !(uCuts > 0 && cellJump(c)); }
 ivec2 lstCell(int e) {
   int ci = int(texelFetch(uLst, ivec2(e & 1023, e >> 10), 0).x + 0.5);
@@ -544,20 +544,21 @@ void main() {
   // triangles wind as the box's do, and face the same way), the radius from r0 to r1 geometrically with j. It covers,
   // with small cells, the far plane the pole's neighbourhood is carried to, where the box's cells stretch past uLim and
   // are left out. uSeamOn 1: the glide's map has a cut out of the pole (the branch of a power or a log that ends there,
-  // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / 8 of the way out (linear between them), SEAM_EPS
+  // svPatchSeam): each ring starts at the cut, uSeam[k] on the ring k / (SEAM_RINGS - 1) of the way out (linear between them), SEAM_EPS
   // inside it on each side out to the cut's end (uSeamEnd, a fraction of the way out), so the ring's first and last cells
   // end at the cut and no cell straddles it; past its end the ring closes round
   const SEAM_EPS = 1e-4;   // (radians: a seam's columns this far inside the cut, so each is evaluated on its own side)
   const CARRY_DISCS = 4;   // (the seamed patches' discs the box's draw leaves to them, LAND_CARRY_VS)
+  const SEAM_RINGS = 9;    // (the rings a patch's seam is measured on, svPatchSeam, and given to CARRY_ZIN as uSeam)
   const CARRY_ZIN = `
-uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[9]; uniform float uSeamEnd;
+uniform vec4 uPolar; uniform int uSeamOn; uniform float uSeam[${SEAM_RINGS}]; uniform float uSeamEnd;
 vec2 carryZIn(vec4 src, vec2 ij) {
   float f = 1.0 / float(uN - 1);
   if (uPolar.w <= 0.0) return src.xy + ij * f * src.zw;
   float th = -6.283185307179586 * ij.x * f, r = uPolar.z * pow(uPolar.w / uPolar.z, ij.y * f);
   if (uSeamOn == 1) {
-    float t = clamp(ij.y * f, 0.0, 1.0) * 8.0;
-    int k = min(int(t), 7);
+    float t = clamp(ij.y * f, 0.0, 1.0) * ${SEAM_RINGS - 1}.0;
+    int k = min(int(t), ${SEAM_RINGS - 2});
     float e = ij.y * f <= uSeamEnd ? ${SEAM_EPS} : 0.0;
     th = mix(uSeam[k], uSeam[k + 1], t - float(k)) - e - (6.283185307179586 - 2.0 * e) * ij.x * f;
   }
@@ -799,7 +800,7 @@ void refined() {
   int iv = k == 0 ? iA : (k == 1 ? iB : iC);
   vec4 tv = k == 0 ? ta : (k == 1 ? tb : tc), t2 = rfAt(iv + 1);
   ivec2 c = lstCell(uRefE + e);
-  if (!lvDrawnR(c)) return;   // (a cell that now holds a jump: drawn by the base cells' draw)
+  if (!lvDrawnR(c)) return;   // (a cell the cuts put a jump in: drawn by the base cells' draw)
   vec2 uv = t2.zw / float(16 * uM);
   vZ = uBox.xy + uv * uBox.zw;
   vW = t2.xy;
