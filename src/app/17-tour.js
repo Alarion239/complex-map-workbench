@@ -141,7 +141,7 @@
     setOpt('srcView', Object.assign({}, S.srcView));
     paneL.setView(S.srcView);
     clipWin = m && m.clipWin ? Object.assign({}, m.clipWin) : S.clipWin ? Object.assign({}, S.clipWin) : viewBox(S.srcView);
-    if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (review v16 regress-6: saved from here on)
+    if (!S.clipWin && goodWin(clipWin)) setOpt('clipWin', clipWin);   // (saved from here on)
     rebuild(); buildShapeList(); chainRebuilt(); buildDisplay();
     setFocus(Math.min(S.focus || 0, S.steps.length));
     const xl = /** @type {HTMLElement | null} */ (document.querySelector('#examplesBtn .exlabel'));
@@ -245,7 +245,7 @@
     // the Sound chapter needs
     slot: (where) => {
       const e = $(where === 'head' ? 'tourHeadSlot' : 'tourSlot');
-      // (r3 review regress-7: only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
+      // (only an open sheet's geometry is shared out again; the split rows read --ph-tour in CSS,
       // and a sheet that opens later measures itself)
       if (Phone.geometry) requestAnimationFrame(() => { if (Phone.sheet && Phone.sheet()) Phone.geometry(); });
       return e || null;

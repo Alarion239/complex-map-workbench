@@ -1647,7 +1647,7 @@ const Tour = (() => {
       if (ui.whyOpen && ui.whyPanel) setWhy(r, false);
     };
     // a focused text field holds the countdown while it holds text not yet sent (the user may still be typing); the app
-    // empties a field it has taken in (a set added with Enter), which ends the hold (r3 review regress-1). Checked on
+    // empties a field it has taken in (a set added with Enter), which ends the hold. Checked on
     // focus, on input and four times a second (the app empties it without an input event)
     const isField = (a) => !!a && a.nodeType === 1 && (a.isContentEditable || a.tagName === 'TEXTAREA' || (a.tagName === 'INPUT' && !/^(checkbox|radio|range|button|submit|color|file)$/i.test(a.type || 'text')));
     const unsent = (a) => isField(a) && !inStrip(a) && String(a.isContentEditable ? a.textContent : a.value || '').trim() !== '';
@@ -1962,7 +1962,7 @@ const Tour = (() => {
     tin.append(d, ' ');
   }
   // A desktop's strip height: 52 px, plus while Why is open inline the tallest body of the steps seen so far at this
-  // width (measured off screen at each chapter's start; r3 review regress-4: it never shrinks during the tour, so the
+  // width (measured off screen at each chapter's start; it never shrinks during the tour, so the
   // panes change size at most when a taller chapter comes, not at every chapter). At most 45 % of the view, and never
   // so tall that the panes keep less than 360 px (Why scrolls inside).
   const ROW_H = 52, SLOT_GAP = 8;
@@ -2135,7 +2135,7 @@ const Tour = (() => {
       if (s.phase === 'held' && before && before.phase !== 'held' && !red) ui.next.classList.add('counting');
     }
     nextLabel(r, red && live && !s.door ? Math.ceil((s.phase === 'running' ? L : s.dur) / 1000) : null);
-    // (r3 review regress-5: the countdown is announced when it starts: at done when nothing holds it, else here, when the
+    // (the countdown is announced when it starts: at done when nothing holds it, else here, when the
     // last hold ends)
     if (r.done && !s.door && s.phase === 'running' && before && before.phase === 'held') ui.live.textContent = nextIn();
     if (L == null) return;
@@ -2617,7 +2617,7 @@ const Tour = (() => {
     const rects = litParts(step, tgt).map((q, i) => (i > 0 ? sideCut(q.el, partRect(q, pad)) : partRect(q, pad))).filter((q, i) => !q.hidden && (i === 0 || (q.r - q.l > 0.5 && q.b - q.t > 0.5)));
     return areasOf(rects, true);
   }
-  // (r3 review fix pass) a lit part beside the anchor that an open layer covers along one whole side, X under the left
+  // a lit part beside the anchor that an open layer covers along one whole side, X under the left
   // drawer the step opened at 768-1023 px, is lit only where it shows: cut back to the layer's edge, square corners
   // there. Not on a phone, whose sheets the spotlight is drawn into (hostPlan)
   function sideCut(e, q) {
@@ -3073,7 +3073,7 @@ const Tour = (() => {
     // the user's work comes back exactly as it was; the message says so only when it did
     const back = giveBack(r.lend, false);
     call('onTour', false);
-    // (r3 review regress-7: no style attribute left on the root that it did not have)
+    // (no style attribute left on the root that it did not have)
     noStyle();
     if (!opt.silent) {
       const where = helpWhere();

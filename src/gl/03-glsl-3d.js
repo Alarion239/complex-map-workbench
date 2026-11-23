@@ -273,7 +273,7 @@ void main() {
 uniform highp sampler2D uLp; uniform int uJ0;
 out vec4 tfOut;
 // uLat 2 (moving, a mesh over 256 cells): uLp holds the base heights; the second differences around the cell at one
-// cell's spacing (D at a quarter cell is a sixteenth of that), no evaluation of the chain (r2 review math-3)
+// cell's spacing (D at a quarter cell is a sixteenth of that), no evaluation of the chain
 float d2b(ivec2 p, ivec2 e, inout bool fin) {
   ivec2 a = clamp(p - e, ivec2(0), ivec2(uM)), b = clamp(p + e, ivec2(0), ivec2(uM));
   vec4 ta = texelFetch(uLp, a, 0), tp = texelFetch(uLp, p, 0), tb = texelFetch(uLp, b, 0);
@@ -1073,7 +1073,7 @@ void main() {
   // the corners of this triangle's (sub-)cell on its sheet: (h, valid, nx, ny), and (positions in 16ths of a cell; a
   // refined corner's, and its value, from the right half of its block). (Two branches, not selects between the two
   // textures: the selects fetched from both in every vertex, and the sheets' draw took about twice the base's at the
-  // Max mesh, r3 review speed-1)
+  // Max mesh)
   vec4 ta, tb, tc, pA, pB, pC;
   if (L == 0) {
     ivec2 o = ivec2(combo % uTileC, combo / uTileC) * T + 2 * c;
@@ -1093,7 +1093,7 @@ void main() {
   int sub = gl_VertexID / 3, k = gl_VertexID - 3 * sub;
   // (a triangle inside the block, every one without linear heights: its own corners, without the clip's polygon,
   // whose arrays the GPU keeps in memory; clipping every triangle took the sheets' draw at the Max mesh to twice the
-  // base's, 27 to 38 fps orbiting, r3 review speed-1)
+  // base's, 27 to 38 fps orbiting)
   if (${clip ? 'max(max(abs(ta.x), abs(tb.x)), abs(tc.x)) <= 1.25 * uH' : 'true'}) {
     if (sub > 0) return;
     vec4 tq = k == 0 ? ta : (k == 1 ? tb : tc), pq = k == 0 ? pA : (k == 1 ? pB : pC);
@@ -1261,8 +1261,8 @@ ${lite ? `  vec2 w0 = landW(vZ), w = w0;
   } else a = mix(toLin(uPlaster), a, inside);
 ${sheet ? glsl`  // the per-sheet cue (notes/landscape-walls/USER-ADDENDUM.md): every sheet, the first one too, lighter or darker
   // in OKLab lightness by uCue (two sheets: the first lighter, the second darker; more: lighter, darker, unchanged in
-  // turn, so any two consecutive sheets differ); the hue is arg F and stays. r2 review pictures-1: sheet 0, the one in
-  // front where two coincide, had no tint, and the pair could not be told apart
+  // turn, so any two consecutive sheets differ); the hue is arg F and stays. Sheet 0, the one in front
+  // where two coincide, is tinted too, so that the pair can be told apart
   if (uCue > 0.0) {
     int m3 = vCombo - 3 * (vCombo / 3);
     float sg = uCueK == 2 ? (vCombo == 0 ? 1.0 : -1.0) : (m3 == 0 ? 1.0 : (m3 == 1 ? -1.0 : 0.0));
