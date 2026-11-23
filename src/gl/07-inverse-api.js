@@ -558,8 +558,16 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   function nrSet(i, n, W, H) {
     let S = nrSets[i];
     if (S && S.n === n && S.W === W && S.H === H) return S;
-    if (S) { S.tex.forEach((t) => gl.deleteTexture(t)); gl.deleteFramebuffer(S.fbo); }
-    S = { n, W, H, tex: [], fbo: gl.createFramebuffer() };
+    if (S) nrFree(S);
+    S = nrNew(n, W, H);
+    nrSets[i] = S;
+    if (nrLast && nrLast.set === i) nrLast = null;
+    return S;
+  }
+  // (a set of n RGBA32F targets W x H with its framebuffer, made by nrNew, deleted by nrFree)
+  function nrFree(S) { S.tex.forEach((t) => gl.deleteTexture(t)); gl.deleteFramebuffer(S.fbo); }
+  function nrNew(n, W, H) {
+    const S = { n, W, H, tex: [], fbo: gl.createFramebuffer() };
     gl.bindFramebuffer(gl.FRAMEBUFFER, S.fbo);
     for (let k = 0; k < n; k++) {
       const t = gl.createTexture();
@@ -573,17 +581,11 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     S.ok = gl.checkFramebufferStatus(gl.FRAMEBUFFER) === gl.FRAMEBUFFER_COMPLETE;
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
-    nrSets[i] = S;
-    if (nrLast && nrLast.set === i) nrLast = null;
     return S;
   }
   function nrBind(S, n) {
     for (let k = 0; k < n; k++) { gl.activeTexture(gl.TEXTURE6 + k); gl.bindTexture(gl.TEXTURE_2D, S ? S.tex[k] : null); }
   }
-  // The NEWT roots pass of a flat inverse draw st (drawInverse's: map, plan, prep, inv, view, dpr; t: the NEWT op's t;
-  // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
-  // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
-  // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
   // the roots program newtRoots draws the state st with (start: begin its compile when it is missing, as newtRoots does), or
   // null when st has no roots pass (its plan's first inverted op is no NEWT op, the globe, no float targets)
   function nrProgram(st, start) {
@@ -591,6 +593,10 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (!ok || !nrCount(nr) || st.viewKind === 'globe' || !st.plan || !st.prep || !st.prep.ok) return null;
     return invProgram(INV_B_MAX, false, start, { carry: true, nrPass: true, pre: '', main: nr.main }, inv);
   }
+  // The NEWT roots pass of a flat inverse draw st (drawInverse's: map, plan, prep, inv, view, dpr; t: the NEWT op's t;
+  // pw, ph: the size of the frame the draw goes into), drawn into its own targets before or between the frame's draws
+  // (the frame's framebuffer, viewport, scissor and blending are restored). -> {state: 'drawn', token} (pass token as
+  // st.nr to drawInverse), or {state: 'none' | 'pending' | 'error'}: drawInverse walks every pixel itself
   function newtRoots(st) {
     const inv = st && st.inv, nr = inv && inv.nr, pr = nrProgram(st, true), n = pr ? nrCount(nr) : 0;
     if (!pr) return { state: 'none' };
@@ -598,9 +604,11 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const W = Math.max(1, Math.round(st.pw)), H = Math.max(1, Math.round(st.ph));
     const v = st.view || { cx: 0, cy: 0, s: 1 }, dpr = st.dpr || 1, map = st.map || {};
     const key = [W, H, v.cx, v.cy, v.s, dpr, inv.key, map.a || 0, map.b || 0, cur.key, cur.hash].join('|');
-    const prev = nrLast && nrLast.key === key ? nrLast : null;
-    const wi = nrLast ? 1 - nrLast.set : 0, S = nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
-    if (!S.ok) return { state: 'error' };
+    // (st.warm: a pass that only makes its program's first draw, at rest: into targets of its own, deleted after it, the
+    // frames' sets and their seed (nrLast) left as they were; it answers token 0, so the frame's inverse pass walks itself)
+    const warm = !!st.warm, prev = !warm && nrLast && nrLast.key === key ? nrLast : null;
+    const wi = nrLast ? 1 - nrLast.set : 0, S = warm ? nrNew(n, W, H) : nrSet(wi, n, W, H), Sp = prev ? nrSets[prev.set] : null;
+    if (!S.ok) { if (warm) nrFree(S); return { state: 'error' }; }
     flushHalf();
     const P = pr.P;
     P.warm = true;
@@ -632,6 +640,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (scOn) gl.enable(gl.SCISSOR_TEST);
     if (blOn) gl.enable(gl.BLEND);
     gl.colorMask(maskRGB, maskRGB, maskRGB, maskA);
+    if (warm) { nrFree(S); return { state: 'drawn', token: 0 }; }
     nrLast = { set: wi, key, t: st.t, token: ++nrToken, n };
     return { state: 'drawn', token: nrLast.token };
   }

@@ -47,8 +47,10 @@ const park = async (k) => {
   await settled({ max: READY_MS, until: `__cmwSteps().x === ${k}` });
   await ev(`new Promise((r) => setTimeout(r, ${SETTLE_MS})), 1`);
 };
-// the device pixels whose plane-w point has 1 < |w| < BAND_OUT (the glide's record has the view)
-const IN_BAND = `(x, y) => { const g = __cmwSteps().glide, v = g.view, d = document.getElementById('canvasL').width / g.w, r = Math.hypot(v.cx + (x / d - g.w / 2) / v.s, v.cy - (y / d - g.h / 2) / v.s); return r > 1 && r < ${BAND_OUT}; }`;
+// the device pixels whose plane-w point has 1 < |w| < BAND_OUT (the glide's record has the view: read once for the whole
+// frame, not at each pixel, as a read of the hook is the gauge's work)
+const IN_BAND = `(() => { const g = __cmwSteps().glide, v = g.view, d = document.getElementById('canvasL').width / g.w;
+  return (x, y) => { const r = Math.hypot(v.cx + (x / d - g.w / 2) / v.s, v.cy - (y / d - g.h / 2) / v.s); return r > 1 && r < ${BAND_OUT}; }; })()`;
 // a one-step scene of type id with params, Everywhere, sheets off, planes 0 and 1 parked and kept (P0, P1)
 const scene = async (id, params, tag) => {
   const ns = 'ge' + tag + Date.now();

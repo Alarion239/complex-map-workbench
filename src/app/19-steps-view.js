@@ -1280,14 +1280,15 @@
   // into the GL frame gl ({ open }, opened if need be): 'drawn', else the first draw's GLR.drawInverse answer that was
   // not ('error' when it threw). A shape drawn already stays: the next path draws over it
   // t (a glide's frame): the homotopy's t, for the NEWT roots pass (GLR.newtRoots: when the plan's first inverted op is a
-  // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's)
+  // NEWT op, its members for every pixel, drawn once for all the shapes and seeded from the previous frame's; pane.warm, the
+  // warm job's stand-in svWarmPane: a pass of its own, which the shapes' pass does not read)
   // (alphaOf, edgeOf: svInvArg's; b, a: the frame's planes, a = b - 1 unless given: svCarryAlpha's glide)
   function svDrawInverse(pane, list, paths, T, gl, t, alphaOf, edgeOf, b, a = b - 1) {
     const carry = svCarryStyle(T), p0 = paths[0];
     let nr = 0;
     if (t != null && p0 && p0.inv && p0.inv.nr && GLR.newtRoots) {
       try {
-        const r = GLR.newtRoots({ map: p0.m, plan: p0.plan, prep: p0.prep, inv: p0.inv, view: pane.view, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, t });
+        const r = GLR.newtRoots({ map: p0.m, plan: p0.plan, prep: p0.prep, inv: p0.inv, view: pane.view, dpr: pane.dpr, pw: pane.pw, ph: pane.ph, t, warm: !!pane.warm });
         if (r.state === 'drawn') nr = r.token;
       } catch (e) { console.error('steps view NEWT roots', e); }
     }
@@ -3843,9 +3844,10 @@
   // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
   // change, queues them again
   const SV_INV_WARM_MAX = 4;
-  // (the left pane's stand-in for a NEWT frame's warm draw: its view, SV_WARM_NR_PX device px square)
+  // (the left pane's stand-in for a NEWT frame's warm draw: its view, SV_WARM_NR_PX device px square; warm: its roots pass
+  // keeps to targets of its own, GLR.newtRoots' st.warm, and leaves the glide frames' roots as they were)
   const SV_WARM_NR_PX = 16;
-  const svWarmPane = () => Object.assign({}, paneL, { pw: SV_WARM_NR_PX, ph: SV_WARM_NR_PX });
+  const svWarmPane = () => Object.assign({}, paneL, { pw: SV_WARM_NR_PX, ph: SV_WARM_NR_PX, warm: true });
   // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
   // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
   // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
