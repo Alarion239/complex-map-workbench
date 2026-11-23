@@ -1,8 +1,9 @@
 // The steps view between two planes: the scale badge and the axes read the view the frame is drawn with (#2321). A glide frozen
-// between the planes with the clock hook, All at once (mode 3) and a step at a time (mode 1) at the same moment, at the source view's
+// between the planes with the clock hook, All at once (mode 3) and a step at a time (mode 1), each frozen once the thread is past u = 0.7 (the frozen frames lie a little past it, so the two are
+// not at one and the same u), at the source view's
 // scale 80 and 400: the window the pane's labels read (__cmwSteps().win, which is leftView()), the view the frame was drawn with (the
 // glide record's view) and the scale badge ("N / div"; the badge is `scaleText(pane)`, Axes.niceStep(110 / the view's scale)) are
-// the source view's in both modes, and the two modes show the same badge.
+// the source view's in both modes: the badge reads "1 / div" at scale 80 and "0.2 / div" at scale 400, the same in the two modes.
 // (A frame held between two planes by __cmwSteps({ x }) is a different state: the hook moves the thread's position and nothing else,
 // so the frame is drawn with the source view while the labels read the plane's own view, V.left; steps_all_exact compares such frames
 // with frozen glide frames and relies on that. The glide is frozen with `clock` to read labels against the picture.)
@@ -47,9 +48,10 @@ const READ = `(() => {
   return { x: +q.x.toFixed(4), mode: q.between && q.between.mode, win: q.win.map((x) => +x.toFixed(3)), drawn: q.glide && r3(q.glide.view), badge: [...document.querySelectorAll('.rv')].map((e) => e.textContent.trim()).find((t) => / \\/ div$/.test(t)) || null };
 })()`;
 const SCALES = [80, 400], U = 0.7;
+const BADGE = { 80: '1 / div', 400: '0.2 / div' };   // Axes.niceStep(110 / 80) = 1, niceStep(110 / 400) = 0.2
 const sameView = (a, b) => !!a && !!b && a.length === b.length && a.every((v, k) => Math.abs(v - b[k]) < 1e-6);
 for (const s of SCALES) {
-  // the glide frozen between the planes, both modes at u (All at once: [f, 1 z], the span's progress x / 2; a step at a time: [f])
+  // the glide frozen between the planes, both modes past u (All at once: [f, 1 z], the span's progress x / 2; a step at a time: [f])
   await open([POLY, MUL('1')], s, true, 1);
   const g = await frozenPast(2, 2 * U);
   await settled({ max: DRAWN_WAIT, until: drawn });
@@ -62,6 +64,6 @@ for (const s of SCALES) {
   ok(`s ${s}, a glide frozen between the planes: All at once is mode 3 and a step at a time mode 1`, all.mode === 3 && one.mode === 1, [all.mode, one.mode]);
   ok(`s ${s}, All at once frozen: the labels' window and the drawn view are the source view`, sameView(all.win, [0, 0, s]) && sameView(all.drawn, [0, 0, s]), all);
   ok(`s ${s}, a step at a time frozen: the labels' window and the drawn view are the source view`, sameView(one.win, [0, 0, s]) && sameView(one.drawn, [0, 0, s]), one);
-  ok(`s ${s}, the scale badge is the same in the two modes`, !!all.badge && all.badge === one.badge, [all.badge, one.badge]);
+  ok(`s ${s}, the scale badge reads "${BADGE[s]}" in All at once and in a step at a time`, all.badge === BADGE[s] && one.badge === BADGE[s], [all.badge, one.badge]);
 }
 return { pass: fails.length === 0, fails, info };
