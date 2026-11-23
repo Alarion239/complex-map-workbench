@@ -26,7 +26,8 @@
   // the join radius drawn for a disc of radius r: the least above r, else the largest
   const ldJoin = (joins, r) => { const up = joins.filter((q) => q > r); return up.length ? Math.min(...up) : joins.length ? Math.max(...joins) : null; };
   // the marks for disc s on the flat plane of pane (its view), in that plane's css px: the target's centre c and radius r,
-  // the join radius (null: none), the preimages zs of c, the critical points crit and the critical values vals
+  // the join radius (null: none), the preimages zs of c, the critical points crit and the critical values vals; and the
+  // critical points as plane points, critZ
   function lookMarks(pane, s) {
     const k = leftStage(), T = shapeStage(s), c = C(s.c[0], s.c[1]), b = pane.box();
     const [cx, cy] = pane.w2s(c), px = (r) => Math.hypot(...pane.w2s(C(c.re + r, c.im)).map((v, i) => v - [cx, cy][i]));
@@ -34,7 +35,7 @@
     const cr = stageCritical(k, T, b), crit = cr ? cr.points.list.map((p) => p.z).filter((z) => z && inBoxZ(z, b, 0)).slice(0, LD_CAP) : [];
     const vals = cr && cr.values.known ? cr.values.list.map((v) => v.w).filter((w) => w && inBoxZ(w, b, 0)) : [];
     const jr = ldJoin(readoutData(s).joins, s.r);
-    return { id: s.id, c: [cx, cy], r: px(s.r), join: jr === null ? null : px(jr), zs: zs.map((z) => pane.w2s(z)), crit: crit.map((z) => pane.w2s(z)), vals: vals.map((w) => pane.w2s(w)) };
+    return { id: s.id, c: [cx, cy], r: px(s.r), join: jr === null ? null : px(jr), zs: zs.map((z) => pane.w2s(z)), crit: crit.map((z) => pane.w2s(z)), vals: vals.map((w) => pane.w2s(w)), critZ: crit };
   }
   // The marks' layers, bottom to top: the floor's (the critical points), the lines from each preimage on the floor to the
   // target's centre on the glass, and the glass's (the target, its centre, the join ring, the critical values). Seen

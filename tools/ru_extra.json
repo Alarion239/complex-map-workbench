@@ -825,5 +825,6 @@
  "join radius": "радиус слияния",
  "Look down": "Взгляд сверху",
  "Stack": "Стопка",
- "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d"
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d",
+ "narrows here: {d}, not a join": "сужается здесь: {d}, это не слияние"
 }

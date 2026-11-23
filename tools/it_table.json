@@ -3500,5 +3500,6 @@
  "join radius": "raggio di unione",
  "Look down": "Vista dall’alto",
  "Stack": "Pila",
- "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, pila, scatola, vetro, pavimento, inclinazione, controimmagini, bersaglio, 3d"
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, pila, scatola, vetro, pavimento, inclinazione, controimmagini, bersaglio, 3d",
+ "narrows here: {d}, not a join": "si restringe qui: {d}, non è un’unione"
 }
