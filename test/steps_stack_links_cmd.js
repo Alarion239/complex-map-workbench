@@ -12,7 +12,7 @@
 //    no slice is torn (M2's inner piece is stretched far, not torn);
 //  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys
 //    (→ and ←) and the mouse, and keeps the focus on the radio checked; it shows its name, Connectors; on a phone (390 × 844) its radios are 44 px
-//    targets;
+//    targets inside the switch's box;
 //  - curved, seen straight down, the frame is Look down's (the lines to the target bend only as the tubes stand up);
 //  - timing (reported, not gated): a Tilt turn on M3 draws the tubes in about the same time a frame in both kinds (the
 //    curved connectors' samples are kept, not made again a frame).
@@ -163,6 +163,9 @@ if (await hooked()) {
   await frames();
   const hs = info.phoneTargets = await ev(`[...document.querySelectorAll('#plotL .ld-key .ld-links > button')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })`);
   ok('phone: the switch\'s radios are at least 44 px tall', hs.length === 2 && hs.every(([, hh]) => hh >= 44), hs);
+  const inBox = info.phoneBoxes = await ev(`(() => { const g = document.querySelector('#plotL .ld-key .ld-links'), G = g.getBoundingClientRect(); return { seg: [G.top, G.bottom].map(Math.round), radios: [...g.querySelectorAll(':scope > button')].map((b) => { const r = b.getBoundingClientRect(); return { box: [r.left, r.top, r.right, r.bottom].map(Math.round), inside: r.left >= G.left - 0.5 && r.right <= G.right + 0.5 && r.top >= G.top - 0.5 && r.bottom <= G.bottom + 0.5 }; }) }; })()`);
+  ok('phone: each radio lies inside the switch\'s box', inBox.radios.length === 2 && inBox.radios.every((r) => r.inside), inBox);
+  await shot('links-phone');
 }
 
 // curved, seen straight down, the Stack's frame is still Look down's (its lines to the target straight): the frame
