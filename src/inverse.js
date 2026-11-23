@@ -1754,6 +1754,15 @@ const Inverse = (() => {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
+    // a real exponent a < 0 (powaHom): z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2, then z^|a| and the
+    // Möbius arc from the identity to 1/w
+    if (one && one.kind === 'ROOTPOW' && !nat && id === 'powa' && b.twoPhase && b.twoPhase()) {
+      const { s, theta, k } = one.p, e = C(-s.re, 0), pw = (z) => CX.pow(z, e, theta, k);
+      if (t < 0.5) { const sv = C(1 + (-s.re - 1) * 2 * t, 0); return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] }; }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [opRootPow(e, theta, k, pw), mobOf(path(2 * t - 1))] };
+    }
     // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
     // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and
     // with no Newton's method
