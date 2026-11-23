@@ -158,10 +158,11 @@
   }
   // the tear's words: "torn here by the glide's cut, not a split"
   const linkTearText = () => $t('torn here by the glide’s cut, not a split');
-  // the Stack key's switch between the two kinds, saved with the steps view's place
+  // the Stack key's switch between the two kinds, saved with the steps view's place, after its visible name (the group's
+  // own name for assistive technology)
   function stackLinksSwitch() {
     const el = seg(null, linkMode(), [['curved', $t('Glide paths')], ['straight', $t('Straight')]], (v) => { SV.links = v; save(); requestRender('L'); }, $t('Connectors'), { cls: 'ld-links' });
-    return el;
+    return h('span', { class: 'ld-links-row' }, h('span', { class: 'ld-links-l', 'aria-hidden': 'true' }, $t('Connectors')), el);
   }
   // TEST-HOOK (dropped from the published page by build.py): the selected disc's connectors by the kind shown, in plane
   // coordinates ([re, im]); o.links sets the kind, o.branch (false) has every piece rise on the steps' own cuts; o.glide:

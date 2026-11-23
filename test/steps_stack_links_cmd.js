@@ -10,7 +10,9 @@
 //    median step), with no label; on the steps' own cuts (the test hook's branch: false) the cut tears it, and the tear is
 //    labelled "torn here by the glide’s cut, not a split". Straight, the narrowing keeps its label. M2 and M3, curved:
 //    no slice is torn (M2's inner piece is stretched far, not torn);
-//  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys;
+//  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys
+//    and keeps the focus on the radio checked; it shows its name, Connectors; on a phone (390 × 844) its radios are 44 px
+//    targets;
 //  - curved, seen straight down, the frame is Look down's (the lines to the target bend only as the tubes stand up);
 //  - timing (reported, not gated): a Tilt turn on M3 draws the tubes in about the same time a frame in both kinds (the
 //    curved connectors' samples are kept, not made again a frame).
@@ -31,10 +33,10 @@ const MAPS = {
   M3: { steps: [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }], c: [1.1, 0], r: 0.25 },
 };
 const hooked = () => ev('typeof __cmwStackLinks === "function"');
-const open = async (m, { ns = `links-${Date.now()}`, fresh = true, stack = true } = {}) => {
+const open = async (m, { ns = `links-${Date.now()}`, fresh = true, stack = true, phone = false } = {}) => {
   const M = MAPS[m];
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: M.c, r: M.r, stage: 1 }], steps: M.steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 110 } };
-  await view(1440, 900, false, false);
+  await view(phone ? 390 : 1440, phone ? 844 : 900, false, phone);
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   if (fresh) await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
@@ -135,7 +137,19 @@ if (await hooked()) {
   await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
   await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowRight', code: 'ArrowRight', windowsVirtualKeyCode: 39 });
   await until(`__cmwStack().drawn && __cmwStack().drawn.links === 'straight'`, 5000).catch(() => null);
-  ok('the switch takes the arrow keys', (await drawn()).links === 'straight', (await drawn()).links);
+  await frames();
+  const focus = await ev(`(() => { const a = document.activeElement; return a ? { v: a.dataset ? a.dataset.v || null : null, inSwitch: !!a.closest('.ld-links'), tag: a.tagName } : null; })()`);
+  ok('the switch takes the arrow keys, and the focus stays on the radio checked', (await drawn()).links === 'straight' && !!focus && focus.inSwitch && focus.v === 'straight', { links: (await drawn()).links, focus });
+  const lead = await ev(`(() => { const r = document.querySelector('#plotL .ld-key .ld-links-row'); const l = r && r.querySelector('.ld-links-l'); return l ? l.textContent : null; })()`);
+  ok('the switch has its visible name, Connectors', lead === 'Connectors', lead);
+}
+// a phone: the switch's radios are 44 px targets in the unfolded key
+if (await hooked()) {
+  await open('M1', { phone: true });
+  await ev(`(() => { const t = document.querySelector('#plotL .ld-key .ld-ttl'); if (t && document.querySelector('#plotL .ld-key.folded')) t.click(); return 1; })()`);
+  await frames();
+  const hs = info.phoneTargets = await ev(`[...document.querySelectorAll('#plotL .ld-key .ld-links > button')].map((b) => { const r = b.getBoundingClientRect(); return [Math.round(r.width), Math.round(r.height)]; })`);
+  ok('phone: the switch\'s radios are at least 44 px tall', hs.length === 2 && hs.every(([, hh]) => hh >= 44), hs);
 }
 
 // curved, seen straight down, the Stack's frame is still Look down's (its lines to the target straight): the frame

@@ -117,8 +117,10 @@
       try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLookKey)); ro.observe(lookKey); ro.observe(host); } catch (e) { /* no ResizeObserver */ }
       try { new MutationObserver(() => requestAnimationFrame(fitLookKey)).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
     }
-    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}|${stack && tubes ? linkMode() : ''}` : '';
-    if (lookKey.dataset.sig === sig) return;
+    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}` : '';
+    // (the same key keeps its elements: the connectors' switch shows the kind drawn, which a load or an undo may have
+    // changed, and keeps the focus a key press on it left there)
+    if (lookKey.dataset.sig === sig) { const sw = lookKey.querySelector('.ld-links'); if (sw) setSeg(sw, linkMode()); return; }
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
     if (!on) { fitLookKey(); return; }
