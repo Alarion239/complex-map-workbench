@@ -1641,13 +1641,13 @@
         // coloured on its sheet, with the patches the principal surface has, at the same points of plane s, each on the
         // copy's combo; with band (an angle, degrees), over seamBand's box about that ray from 0 alone, on a grid of
         // SEAM_N points a side. A seam (seam: its cuts turned half a turn, so it is continuous where the sheets meet) has
-        // no patches: each sheet's patch reaches the cut on its side. A copy keeps its box's cells inside the seamed
-        // patches' discs, so its patches draw only in the holes they leave (the stencil), not over the whole disc,
-        // which costs far more. The principal surface is drawn after them, and they
-        // a little behind their depth (COPY_OFF, further than the pole patches' offset), so it is the one shown where a
-        // copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's height, and early
-        // in a glide its copy lies in the principal surface's place on triangles of its own, which a tie in depth would
-        // show pixel by pixel. A copy's patches lie the patches' offset behind its cells)
+        // no patches: each sheet's patch reaches the cut on its side, and the seam leaves its box's cells inside the
+        // seamed patches' discs to them. A sheet's copy keeps those cells, so its patches draw only in the holes they
+        // leave (the stencil), not over the whole disc, which costs far more. The principal surface is drawn after
+        // them, and they a little behind their depth (COPY_OFF, further than the pole patches' offset), so it is the one
+        // shown where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's
+        // height, and early in a glide its copy lies in the principal surface's place on triangles of its own, which a
+        // tie in depth would show pixel by pixel. A copy's patches lie the patches' offset behind its cells)
         info.copies = 0; info.copyPatches = 0;
         for (const [i, cp] of (st.carry.copies || []).entries()) {
           cp.draw(() => {
@@ -1658,7 +1658,7 @@
             const tex = landCopies[i] || (landCopies[i] = { box: {}, pp: [] });
             const patch = (p, k) => ({ polar: p.polar, N: p.N, o: carryHeights(st, p.N, mode, H, mu, aspect, p.polar, tex.pp[k] || (tex.pp[k] = {})) });
             const h = copyH[i] || (copyH[i] = { o: carryHeights(sc, n, mode, H, mu, aspect, null, tex.box), pp: cp.seam ? [] : pp.map(patch), far: cp.seam ? [] : farPatches.map((p, k) => patch(p, CARRY_POLES + k)) });
-            setUp(band || sb, false);
+            setUp(band || sb, cp.seam);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, h.o.tex1);
             gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, h.o.tex2);
             u1i(Pc, 'uN', h.o.N);
