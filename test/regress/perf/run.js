@@ -1945,6 +1945,27 @@ unit('sv.glide.jouk', 'the steps view (on a GPU), the Joukowski airfoil: a warm 
 // frame, GLR.carryResolve, #1054)
 const SV_TIE_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type: 'pown', params: { n: 3 }, on: true }, { type: 'cos', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 } };
 unit('sv.glide.tie', 'the steps view (on a GPU), z³ then cos about 0: a warm glide there and back between w₁ and w₂, Everywhere on the plane, at dpr 1 and 2. Its glide is the carried mesh\'s, and z³\'s three sheets tie over every w, so each frame draws the meshes twice to resolve the ties per pixel (#1054); info rows only: the cost of a frame with ties', () => svGlideUnit('tie', { id: 'sv.glide.tie', state: SV_TIE_STATE, planes: [1, 2], info: true }));
+// The pre-mapped meshes (SphereMesh) of z³ then cos about 0 at rest on w₂, the pane's and its outer ring's, which end on
+// the work budget about the critical value's preimages (#2286): the time from the arrival until both are built and drawn,
+// their nodes and work, and the CPU they took, each and in all (__cmwSphere's stats); info rows
+async function svTieMeshUnit() {
+  const pre = 'sv.tie_mesh';
+  // (alpha 1, the colour plane first: plane w₂ at rest is drawn by its carried meshes, then by their pre-mapped ones)
+  await openSteps(Object.assign({}, SV_TIE_STATE, { alpha: 1 }));
+  await B.ev("document.querySelector('.sv-cp').click(), 1");
+  await settle(await pageNow());
+  const t0 = await pageNow(), ms0 = await B.ev('__cmwSphere().stats.ms');
+  await B.ev("__cmwSteps({ scope: 'all', go: 2, now: true }), 1");
+  await B.until('(() => { const q = __cmwSphere(); return q.entries.length >= 2 && q.jobs.length === 0 && !q.kick && __cmwSteps().carryPre > 0; })()', 120000);
+  const t1 = await pageNow(), q = await B.ev('(() => { const q = __cmwSphere(); return { ms: q.stats.ms, entries: q.entries.map((e) => ({ slot: e.slot, nodes: e.nodes, work: e.work, ms: e.ms, partial: e.partial, why: e.budgetWhy })) }; })()');
+  put(`${pre}.built_ms`, 'info', 'ms', [t1 - t0]);
+  put(`${pre}.cpu_ms`, 'info', 'ms', [q.ms - ms0]);
+  // (each mesh's own CPU: the pane's, __svAll, and its outer ring's, __svRing, whose budgets differ)
+  for (const [tag, re] of [['all', /^__svAll\|/], ['ring', /^__svRing\|/]]) { const e = q.entries.find((x) => re.test(x.slot)); if (e) put(`${pre}.${tag}_cpu_ms`, 'info', 'ms', [e.ms]); }
+  put(`${pre}.nodes`, 'info', '', [q.entries.reduce((a, e) => a + e.nodes, 0)]);
+  detail(`${pre}.meshes`, JSON.stringify(q));
+}
+unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built and drawn, the CPU they took and their nodes (#2286); info rows only', svTieMeshUnit);
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
