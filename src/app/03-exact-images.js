@@ -396,8 +396,9 @@
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
   // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
   // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
-  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
-  // planChain sets the same step, node and j on them (they have the same a and k)
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the homotopy's ops at every t, where one
+  // op can sit at another node (a recognised formula's sub-step comes after its predecessors' ops once the glide has
+  // passed them); each plan made from it copies them (planChain), so it keeps its own step, node and j
   const invHomSkels = new Map();
   function invHomOnce(b) {
     if (!b || b.error || !b.def) return b;
@@ -620,6 +621,7 @@
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
   const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
+  const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
   const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
   // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
   function messageTop(pane) {
@@ -627,6 +629,14 @@
     if (!msg || !msg.getClientRects().length) return Infinity;
     const mr = msg.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
     return mr.right > pr.left && mr.left < pr.right && mr.bottom > pr.top ? mr.top - pr.top - NOTE_GAP : Infinity;
+  }
+  // the chips that stand over the plane's plot (its readout, its colour key) as boxes in the pane's CSS px, those that are laid out
+  function chipBoxes(pane) {
+    const side = pane === paneL ? 'left' : 'right', pr = pane.canvas.getBoundingClientRect();
+    return [side + 'Readout', side + 'Legend'].map((id) => document.getElementById(id)).filter((el) => el && el.getClientRects().length).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left - pr.left, right: r.right - pr.left, top: r.top - pr.top, bottom: r.bottom - pr.top };
+    });
   }
   function paneNote(pane, text) {
     const ctx = pane.ctx;
@@ -636,15 +646,28 @@
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     // (a phone's note is centred in the room left of the key column and wraps to that width)
     const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
-    const maxW = Math.max(80, Math.min(360, free - 48));
-    const lines = wrapWords(ctx, text, maxW);
-    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
-    const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    // below the centre, clear of a point at the view's middle, and clear of a message standing over the plane (the note moves up only when it has to, and stays inside the pane)
-    // (the 1 px below: the box is drawn on the half pixel and its stroke is a pixel wide)
-    const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
-    const x0 = Math.round(free / 2 - bw / 2) + 0.5;
-    const tx = free / 2;   // (the words' centre: the room's, as the box is)
+    // the note's box centred in the room from left to right: below the centre, clear of a point at the view's middle, and clear of a message
+    // standing over the plane (the note moves up only when it has to, and stays inside the pane); the 1 px below: the box is drawn on the
+    // half pixel and its stroke is a pixel wide
+    const lay = (left, right) => {
+      const room = right - left, lines = wrapWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
+      const bw = Math.round(Math.min(room - 16, Math.max(...lines.map((t) => ctx.measureText(t).width))) + 24), bh = lines.length * 18 + 14;
+      const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
+      return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
+    };
+    let n = lay(0, free);
+    // (a pane too short for note and message has the box meet the chips over the plane: it stands in the room between those it meets, wrapped to it)
+    const meets = (o) => n.x0 - NOTE_GAP < o.right && n.x0 + n.bw + NOTE_GAP > o.left && n.y0 - NOTE_GAP < o.bottom && n.y0 + n.bh + NOTE_GAP > o.top;
+    const chips = chipBoxes(pane);
+    let left = 0, right = free;
+    for (let pass = 0; pass < chips.length; pass++) {
+      const hit = chips.filter(meets);
+      if (!hit.length) break;
+      for (const o of hit) { if (o.left + o.right < free) left = Math.max(left, o.right + NOTE_GAP); else right = Math.min(right, o.left - NOTE_GAP); }
+      if (right - left < NOTE_ROOM_MIN) break;
+      n = lay(left, right);
+    }
+    const { lines, bw, bh, y0, x0, tx } = n;
     pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
@@ -1129,6 +1152,11 @@
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
     // that plane is stage + primes; F is the whole map from z)
-    if (figMode && primes > 0) { const k = st + primes; return `${S.focus === 0 && st === 0 && k === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(k)}`}(${base})`; }
+    if (figMode && primes > 0) {
+      // (F for a point of z on the last plane; the focused step's f_k for the image of a point of the plane before it; else the plane
+      // shown, w_k, whatever step is focused)
+      const k = st + primes, f = st === 0 && k === nSteps() ? 'F' : S.focus > 0 && primes === 1 && k === S.focus ? `f${sub(k)}` : `w${sub(k)}`;
+      return `${f}(${base})`;
+    }
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');
   }

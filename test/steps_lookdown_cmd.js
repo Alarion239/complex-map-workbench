@@ -10,7 +10,7 @@
 //  - the key chip names the marks, clear of the plane's other controls; the card's Look down switch turns it all off;
 //  - with the Pick tool, a press 7 css px inside the ring (within its 16 px to the touch) drags the target;
 //  - sin z, |w − 0.5| < 0.2, infinitely many critical points: crosses at π/2 + kπ in the window, again after a pan;
-//  - on a phone, where the card is not shown, Look down is off.
+//  - on a phone the card is in the disc's row in Shapes, and Look down draws (steps_lookdown_phone_cmd.js has the rest).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LOAD_MS = 40000, READY_MS = 60000;
@@ -123,10 +123,10 @@ sx = await crossesAt();
 info.sinPan = [sx.L && sx.L.crit, sx.want];
 ok('sin z, the view panned: the crosses follow, at each π/2 + kπ in the window', panned > 1 && sx.okay, [panned, sx.L && sx.L.crit, sx.want]);
 
-// on a phone the card is not shown, nor is Look down
+// on a phone the card is in the disc's row, and Look down draws
 await open(M1, [{ id: 'd', kind: 'disc', c: [1, 0], r: 0.5, stage: 1 }], [0, 0, 80], true);
 await select('d');
 const phoneL = await look(), phoneKey = await ev(`(() => { const k = document.querySelector('#plotL .ld-key'); return !!k && !k.hidden; })()`);
 info.phone = [phoneL, phoneKey];
-ok('on a phone, with no card shown, Look down is off: no marks and no key', phoneL === null && !phoneKey, info.phone);
+ok('on a phone, the card in the disc\'s row, Look down draws, with its key', !!phoneL && phoneL.id === 'd' && phoneKey, info.phone);
 return { pass: fails.length === 0, passed: pass, fails, info };

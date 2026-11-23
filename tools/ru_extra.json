@@ -45,6 +45,7 @@
   "other": "%{n} раза"
  },
  "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (главная ветвь), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
+ "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (%{cut}), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (%{cut}), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
  "A zero and a pole cancel at {at}": "Нуль и полюс сокращаются в точке %{at}",
  "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {
   "one": "%{n} пара «нуль — полюс» сокращается (%{at})",
@@ -712,6 +713,9 @@
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
  "Preparing the glide…": "Готовим переход…",
  "Still preparing the glide.": "Переход всё ещё готовится.",
+ "The glide draws as it goes: its frames would take too long to prepare.": "Переход рисуется на ходу: кадры готовились бы слишком долго.",
+ "The glide draws as it goes: its frames would not fit in memory.": "Переход рисуется на ходу: кадры не поместились бы в памяти.",
+ "The glide draws as it goes: a frame could not be prepared exactly.": "Переход рисуется на ходу: кадр не удалось подготовить точно.",
  "Retry": "Повторить",
  "Cancel": "Отмена",
  "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
@@ -781,7 +785,7 @@
  },
  "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
  "phone tile\u0004Pick": "Точки",
- "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки",
+ "Disc added on {w}, about the image of the lit point": "В плоскости %{w} добавлен круг с центром в образе выбранной точки",
  "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
  "{n} preimage\u0004{n} preimages": {
   "one": "%{n} прообраз",
@@ -814,9 +818,14 @@
   "other": "%{n} части за краем"
  },
  "Radius r, against the join radii": "Радиус r на шкале радиусов слияния",
+ " Panel (b) also shows the image of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показан образ %{list} из~плоскости~$%{p}$.",
+ " Panel (b) also shows the images of %{list}, drawn in the $%{p}$-plane.": " На~рисунке~\\textit{б} также показаны образы %{list} из~плоскости~$%{p}$.",
+ " Here $%{F}$ is the whole map.": " Здесь $%{F}$~--- всё отображение.",
  "target": "цель",
  "to the target": "к цели",
  "critical value": "критическое значение",
  "join radius": "радиус слияния",
- "Look down": "Взгляд сверху"
+ "Look down": "Взгляд сверху",
+ "Stack": "Стопка",
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d"
 }
