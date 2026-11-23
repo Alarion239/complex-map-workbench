@@ -572,5 +572,6 @@ Settings (environment variables):
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
+| `tools/part_move.js` | is a split of a file into parts a pure move? the joined file at two commits, tokenised: one run moved, the rest the same token for token, and the lines that differ as a multiset (`node tools/part_move.js <old> <new>`; Review checklist in `CONTRIBUTING.md`); `test/t_part_move.js` tests it |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
 | `ci/RUNNERS.md` | setting up our Mac and, for runs on request, a Windows desktop (#169) as runners |

@@ -3507,5 +3507,8 @@
  "Choose Disc, then drag in the plane.": "Scegli «Disco», poi trascina sul piano.",
  "The next plane shows its image under $F$.": "Il piano successivo ne mostra l'immagine tramite $F$.",
  "Stack": "Pila",
- "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, pila, scatola, vetro, pavimento, inclinazione, controimmagini, bersaglio, 3d"
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, pila, scatola, vetro, pavimento, inclinazione, controimmagini, bersaglio, 3d",
+ "narrows here: {d}, not a join": "si restringe qui: {d}, non è un’unione",
+ "tube of a piece": "tubo di un pezzo",
+ "critical point to its value": "dal punto critico al suo valore"
 }
