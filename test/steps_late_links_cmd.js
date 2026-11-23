@@ -67,6 +67,12 @@ const names = exampleNames();
 // ms a link reads not complete; the waits (ms) for a page, for the chain's programs, for a glide's frame, for a play to
 // its end and for the parked plane
 const LINK_MS = 2500, READY_MS = 60000, WARM_MS = 120000, FRAME_MS = 120000, PLAY_MS = 120000, PARKED_MS = 60000;
+// the longest a hold in the middle of a play may take to show on ▶ (the gate's 300 ms threshold and a slow frame)
+const HOLD_SHOWN_MS = 5000;
+// where a hold's ring may start at most (a share of the full ring)
+const RING_START_MAX = 0.5;
+// the longest a hold's ring may stand full (animation frames): a frame or two (the full ring is painted before ▶ is given back)
+const RING_FULL_FRAMES = 4;
 const NEWT_EX = 'Partial sums of the exponential', POLES_EX = 'Poles of the Gamma function', GLIDE_U = 0.5;
 const { PARKED_DRAWN, GALLERY: REPT_EX, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 // (z + 1/z)
@@ -350,11 +356,41 @@ try {
     try {
       await chain('llq');
       await record('requestIdleCallback');
+      // (what ▶ and the live region say through the play: ▶'s aria-busy, name and description, and each text the polite regions get)
+      await ev(`(window.__playLog = [], window.__liveLog = [], window.__paintLog = [], (() => {
+        const b = document.querySelector('.sv-play');
+        new MutationObserver(() => window.__playLog.push({ busy: b.hasAttribute('aria-busy'), label: b.getAttribute('aria-label'), desc: b.getAttribute('aria-description') })).observe(b, { attributes: true, childList: true });
+        // (what is painted of ▶'s ring, a frame at a time: its busy state and fill each time either changes, with the frame's number)
+        window.__paintOn = true;
+        let last = '', n = 0;
+        const frame = () => {
+          const k = (b.hasAttribute('aria-busy') ? 'b' : 'n') + (+getComputedStyle(b).getPropertyValue('--wait') || 0);
+          if (k !== last) { last = k; window.__paintLog.push({ busy: k[0] === 'b', fill: +k.slice(1), n }); }
+          n++;
+          if (window.__paintOn) requestAnimationFrame(frame);
+        };
+        requestAnimationFrame(frame);
+        new MutationObserver((ms) => { for (const m of ms) { const r = m.target.nodeType === 1 ? m.target : m.target.parentElement, l = r && r.closest('[aria-live]'); if (l && l.textContent) window.__liveLog.push(l.textContent); } }).observe(document.body, { subtree: true, childList: true, characterData: true });
+      })(), 1)`);
       await ev(`__cmwSteps({ clock: ${PLAY_STEP_MS} }), __cmwSteps({ play: true }), 1`);
       const q0 = await settled({ only: true, max: PLAY_MS, until: `window.__llHeld.still >= ${STILL_FRAMES} && __cmwSvX() > 0.5 && !!__cmwSteps().play` });
+      // (the hold has gone past the gate's threshold: ▶ is the gate's Cancel, said once)
+      const busyW = await settled({ only: true, max: HOLD_SHOWN_MS, until: '!!document.querySelector(".sv-play[aria-busy]")' });
+      const busy = await ev(`(() => { const b = document.querySelector('.sv-play'); return { busy: b.hasAttribute('aria-busy'), label: b.getAttribute('aria-label'), desc: b.getAttribute('aria-description'), wait: b.dataset.wait, play: !!__cmwSteps().play }; })()`);
       const q1 = await recorded();
       const second = Object.assign(q1.got, await ev('({ links: GLR.pendingLinks })'));
       const q2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
+      const said = await ev('(window.__paintOn = false, { btn: window.__playLog, live: window.__liveLog, paint: window.__paintLog })');
+      ok(`${POLE_EX}, then z⁴ + z: a hold in the middle of the play for ${HOLD_SHOWN_MS / 1000} s: ▶ is the gate's Cancel (busy, named Cancel, described "Preparing the glide…") while the play is still on`, busyW.ok && busy.busy && busy.label === 'Cancel' && busy.desc === 'Preparing the glide…' && busy.play, { busyW, busy });
+      // (each hold's ring, as painted: it starts below half, never goes back, and is full only as the glide can go: it stands full for a frame or
+      // two (the frames' count, as software GL's take a second) before ▶ is given back, not for the rest of the hold)
+      const holds = said.paint.reduce((rs, e, i, all) => { if (e.busy) { if (!rs.open) rs.all.push((rs.open = [])); rs.open.push({ fill: e.fill, n: e.n, end: (all[i + 1] || e).n }); } else rs.open = null; return rs; }, { all: [], open: null }).all;
+      const preps = said.live.flatMap((t, i) => (t === 'Preparing the glide…' ? [i] : []));
+      ok(`${POLE_EX}, then z⁴ + z: in each hold the painted ring starts below half, never goes back and is full only for the last ${RING_FULL_FRAMES} frames`, holds.length > 0 && holds.every((r) => r[0].fill < RING_START_MAX && r.every((e, i) => i === 0 || e.fill >= r[i - 1].fill) && r[r.length - 1].fill === 1 && r.filter((e) => e.fill === 1).reduce((fr, e) => fr + e.end - e.n, 0) <= RING_FULL_FRAMES), holds);
+      ok(`${POLE_EX}, then z⁴ + z: the hold ends: ▶ is Pause again while the play goes on`, said.btn.some((e, i) => e.busy && said.btn.slice(i + 1).some((f) => !f.busy && f.label === 'Pause')), said.btn);
+      // (the play meets more than one hold in this scene: the live region says "Preparing the glide…" once for each, counted among the raw
+      // texts the region gets, and the next text after each is the play's words)
+      ok(`${POLE_EX}, then z⁴ + z: the live region says "Preparing the glide…" once for each hold (${holds.length}), and the play's words ("Playing from …") the next time it is written`, holds.length > 0 && preps.length === holds.length && preps.every((i) => /^Playing from /.test(said.live[i + 1] || '')), said.live);
       await ev('window.__llHeld.done = true, 1');
       const got = { second, waits: { q0, q1: q1.wait, q2 } }, still = q0.ok && q1.wait.ok && second.xs.length === 1;
       ok(`${POLE_EX}, then z⁴ + z: ▶ held a second time, for the programs of the glide into plane 2: the play waits where it is`, still, got);

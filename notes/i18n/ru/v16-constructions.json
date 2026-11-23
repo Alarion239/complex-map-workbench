@@ -444,7 +444,7 @@
  },
  "tour.c3_title": {
   "en": "Circle through three points",
-  "ru": "Окружность по трём точкам",
+  "ru": "Окружность по 3 точкам",
   "note": "Tour step title."
  },
  "tour.c3_body": {
@@ -464,7 +464,7 @@
  },
  "tour.follow_title": {
   "en": "It follows its points",
-  "ru": "Она следует за своими точками",
+  "ru": "Следует за точками",
   "note": "Tour step title (она: the circle)."
  },
  "tour.follow_body": {

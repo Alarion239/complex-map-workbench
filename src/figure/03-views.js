@@ -217,33 +217,45 @@
   // a shape's map from its own plane into the panel's (A.shapeF), F the panel's map of the z-plane's shapes; null where the
   // page does not draw it there
   const shapeMapF = (s, side, F) => (A.shapeF ? A.shapeF(s, side, F) : F);
+  // the plane a shape is drawn on (0 the z-plane), and the window its curves are sampled in: srcWin, the figure's z-plane window,
+  // or for a shape drawn on a later plane that plane's (A.shapeWin), as much wider
+  const stageOf = (s) => (A.shapeStage ? A.shapeStage(s) || 0 : 0);
+  const shapeWinOf = (s, srcWin) => { const w = A.shapeWin ? A.shapeWin(s) : null; return w ? expandBox(w, 3) : srcWin; };
+  const winTol = (w) => 2e-4 * Math.hypot(w.x1 - w.x0, w.y1 - w.y0);
   const cxTex = (z) => (CX.tex ? CX.tex(z, 3) : `${+z.re.toFixed(3)}${z.im >= 0 ? '+' : '-'}${Math.abs(+z.im.toFixed(3))}i`);
   // the vector layers of one plane panel: boundaries and curves (mapped by F), points (and their names)
   function planeLayers(o, P, side, F, box, wpt, shapes, srcWin, primeName) {
     const curves = [], points = [], chev = [];
     let bwI = 0, dashed = 0;
-    // the drawn curves (source plane), for the open boundaries they cover
-    let solids = null;
-    const solidPolys = () => solids || (solids = shapes.filter((s) => kindType(s) === 'curve').flatMap((s) => { try { return (Region.curvesOf(s, srcWin) || []).map((c) => srcPoly(c, 720)); } catch (e) { return []; } }).filter((q) => q.length > 1));
-    const tol = 2e-4 * Math.hypot(srcWin.x1 - srcWin.x0, srcWin.y1 - srcWin.y0);
+    // the drawn curves of each plane (in that plane, the source of its shapes), for the open boundaries of the same plane they cover
+    const solids = new Map();
+    const solidPolys = (k) => {
+      if (!solids.has(k)) solids.set(k, shapes.filter((s) => kindType(s) === 'curve' && stageOf(s) === k).flatMap((s) => { try { return (Region.curvesOf(s, shapeWinOf(s, srcWin)) || []).map((c) => srcPoly(c, 720)); } catch (e) { return []; } }).filter((q) => q.length > 1));
+      return solids.get(k);
+    };
+    // (each shape is carried from its own plane and sampled in that plane's window, as the page draws it: one of a plane after the
+    // panel's is not drawn)
     shapes.forEach((s, si) => {
       const t = kindType(s);
       if (t === 'point') return;
+      const Fs = shapeMapF(s, side, F);
+      if (!Fs) return;
+      const win = shapeWinOf(s, srcWin);
       const tn = tonesOf(s, o);
       const grid = s.kind === 'cgrid' || s.kind === 'pgrid';
       const open = t === 'area' && Region.isOpen && Region.isOpen(s);
-      const sc = shapeCurves(s, F, box, wpt, srcWin), cs = sc.cs;
+      const sc = shapeCurves(s, Fs, box, wpt, win), cs = sc.cs;
       let pts = sc.pts;
       let dash = open && P.dashOpen ? '3 2' : null;
       if (dash && cs.length) {
         // pieces of an open boundary that a drawn curve lies on are the curve's: they are left to it
-        const cov = cs.map((c) => coveredBy(c, solidPolys(), tol));
-        if (cov.some(Boolean)) pts = mapCurves(cs.filter((c, i) => !cov[i]), F, box, wpt);
+        const cov = cs.map((c) => coveredBy(c, solidPolys(stageOf(s)), winTol(win)));
+        if (cov.some(Boolean)) pts = mapCurves(cs.filter((c, i) => !cov[i]), Fs, box, wpt);
       }
       if (o.ink === 'bw' && !grid && !dash) dash = bwDash(P, bwI++);
       const color = o.ink === 'bw' ? (grid ? '#666666' : '#000000') : (o.for === 'article' || grid ? tn.edge : t === 'area' ? tn.edge : tn.edge);
       if (dash === '3 2' && pts.some((q) => q.some((p) => p[0] >= box.x0 && p[0] <= box.x1 && p[1] >= box.y0 && p[1] <= box.y1))) dashed++;
-      curves.push({ pts, w: grid ? P.lw.grid : t === 'area' ? P.lw.edge : P.lw.curve, color, dash, cap: dash && dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2' ? 'round' : 'butt', open });
+      curves.push({ pts, w: grid ? P.lw.grid : t === 'area' ? P.lw.edge : P.lw.curve, color, dash, cap: dash && dash.indexOf('0 ') === 0 || dash === '4 2.2 0 2.2' ? 'round' : 'butt', open, sid: s.id });
       // orientation chevrons (Homework): one on each piece of an area's boundary, at a point that shows in both panels
       if (P.chevrons && t === 'area') for (const c of cs.slice(0, 6)) if (c && typeof c.f === 'function') chev.push({ c, color, s });
     });
@@ -361,24 +373,33 @@
   const sceneWin = (v) => ({ x0: v.cx - REF_PANE[0] / 2 / v.s, x1: v.cx + REF_PANE[0] / 2 / v.s, y0: v.cy - REF_PANE[1] / 2 / v.s, y1: v.cy + REF_PANE[1] / 2 / v.s });
   // Y's window: the box of the image under FR of what X's panel shows (the areas, curves and points whose FL lies in
   // boxL), 0.5 % trimmed at each end (a pole), plus pad (8 %) of each side; null when nothing shows
-  function imageWin(FL, FR, boxL, srcWin, shapes, pad = 0.08) {
+  // (FL null: no X panel, X's window is boxL in the z-plane. carry: FL and FR are the panels' maps, and each shape is carried from
+  // its own plane as the panels draw it, sampled in its own plane's window; one that X's panel does not draw (a later plane's) is
+  // kept whole. Without it every shape is a z-plane shape, mapped by FL and FR)
+  function imageWin(FL, FR, boxL, srcWin, shapes, { pad = 0.08, carry = false } = {}) {
     const xs = [], ys = [];
+    const mapOf = carry ? shapeMapF : (s, side, F) => F, stg = carry ? stageOf : () => 0, winS = carry ? shapeWinOf : (s, w) => w;
     const inL = (a) => fin(a) && a.re >= boxL.x0 && a.re <= boxL.x1 && a.im >= boxL.y0 && a.im <= boxL.y1;
-    const keep = (z) => { let a, b; try { a = FL(z); if (!inL(a)) return; b = FR(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
-    const lv = [];
-    for (const s of shapes) {
-      const t = kindType(s);
-      if (t === 'area') { try { lv.push(Region.levelOf(s)); } catch (e) { /* */ } }
-      else if (t === 'point') { if (s.p) keep(C(s.p[0], s.p[1])); }
-      else { try { for (const c of Region.curvesOf(s, srcWin) || []) for (const p of srcPoly(c, 720)) keep(C(p[0], p[1])); } catch (e) { /* */ } }
-    }
-    if (lv.length) {
-      const n = 160, dx = (srcWin.x1 - srcWin.x0) / n, dy = (srcWin.y1 - srcWin.y0) / n;
+    const keepBy = (fl, fr) => (z) => { let a, b; try { if (fl) { a = fl(z); if (!inL(a)) return; } b = fr(z); } catch (e) { return; } if (fin(b)) { xs.push(b.re); ys.push(b.im); } };
+    // (an area's points: a grid over its window where its level is >= 0)
+    const fill = (lv, win, keep) => {
+      const n = 160, dx = (win.x1 - win.x0) / n, dy = (win.y1 - win.y0) / n;
       for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
-        const z = C(srcWin.x0 + (i + 0.5) * dx, srcWin.y0 + (j + 0.5) * dy);
+        const z = C(win.x0 + (i + 0.5) * dx, win.y0 + (j + 0.5) * dy);
         if (lv.some((L) => { try { return L(z) >= 0; } catch (e) { return false; } })) keep(z);
       }
+    };
+    const lv = [];
+    for (const s of shapes) {
+      const t = kindType(s), fr = mapOf(s, 'R', FR);
+      if (!fr) continue;
+      const fl = FL ? mapOf(s, 'L', FL) : stg(s) ? null : (z) => z, keep = keepBy(fl, fr);
+      if (t === 'area') { try { if (stg(s)) fill([Region.levelOf(s)], winS(s, srcWin), keep); else lv.push(Region.levelOf(s)); } catch (e) { /* */ } }
+      else if (t === 'point') { if (s.p) keep(C(s.p[0], s.p[1])); }
+      else { try { for (const c of Region.curvesOf(s, winS(s, srcWin)) || []) for (const p of srcPoly(c, 720)) keep(C(p[0], p[1])); } catch (e) { /* */ } }
     }
+    // (the z-plane's areas share one grid over srcWin)
+    if (lv.length) fill(lv, srcWin, keepBy(FL || ((z) => z), FR));
     if (xs.length < 8) return null;
     xs.sort((a, b) => a - b); ys.sort((a, b) => a - b);
     const k = Math.floor(0.005 * xs.length), b = { x0: xs[k], x1: xs[xs.length - 1 - k], y0: ys[k], y1: ys[ys.length - 1 - k] };
@@ -437,7 +458,7 @@
       if (side === 'R') {
         // (only Y shown: the image of X's reference window, in the source plane)
         const bL = boxes.L || (st.lFlat ? null : sceneWin(A.viewOf('L0')));
-        ref = imageWin(boxes.L ? Fs.L : (z) => z, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes);
+        ref = imageWin(boxes.L ? Fs.L : null, Fs.R, bL || sceneWin(A.viewOf('L0')), srcWin, shapes, { carry: true });
       }
       if (!ref) ref = sceneWin(A.viewOf(side));
       // the quick render looks twice as far as the window, so a bounded set is framed whole and an unbounded one is
@@ -449,7 +470,9 @@
       for (const s of shapes) {
         if (kindType(s) === 'area') continue;
         if (kindType(s) === 'point') { const Fp = shapeMapF(s, side, Fs[side]); if (!Fp) continue; const w = Fp(C(s.p[0], s.p[1])); if (fin(w) && w.re >= big.x0 && w.re <= big.x1 && w.im >= big.y0 && w.im <= big.y1) { cb = unionBox(cb, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); must = unionBox(must, { x0: w.re, x1: w.re, y0: w.im, y1: w.im }); } continue; }
-        const b = ptsBox(shapeCurves(s, Fs[side], big, 300, srcWin).pts, big);
+        const Fc = shapeMapF(s, side, Fs[side]);
+        if (!Fc) continue;
+        const b = ptsBox(shapeCurves(s, Fc, big, 300, shapeWinOf(s, srcWin)).pts, big);
         if (b) {
           const ex = 0.01;
           b.touch = { l: b.x0 <= big.x0 + ex * (big.x1 - big.x0), r: b.x1 >= big.x1 - ex * (big.x1 - big.x0), b: b.y0 <= big.y0 + ex * (big.y1 - big.y0), t: b.y1 >= big.y1 - ex * (big.y1 - big.y0) };
@@ -543,10 +566,14 @@
         let m = '';
         if (P.chevrons) for (const c of lay.chev) {
           const pn = (sd) => ({ box: boxes[sd] || bx, st: XD.axisSteps(boxes[sd] || bx, steps[sd] || steps[side]) });
-          const s0 = chevronAt(c.c, two ? Fs.L : Fs[side], two ? Fs.R : null, two ? pn('L') : pn(side), pn('R'), srcWin);
+          // (the piece is carried from its shape's own plane, sampled in that plane's window; a shape that X's panel does not draw, a
+          // later plane's, gets its chevron where it shows in this panel alone)
+          const mS = shapeMapF(c.s, side, Fs[side]), mL = two ? shapeMapF(c.s, 'L', Fs.L) : null, mR = two ? shapeMapF(c.s, 'R', Fs.R) : null;
+          const both = !!(mL && mR), win = shapeWinOf(c.s, srcWin);
+          const s0 = mS ? chevronAt(c.c, both ? mL : mS, both ? mR : null, both ? pn('L') : pn(side), pn('R'), win) : null;
           let L = null;
           try { L = Region.levelOf(c.s); } catch (e) { L = null; }
-          const cm = s0 != null ? chevMark(X, Y, c.c, Fs[side], s0, c.color, 0.8, senseAt(c.c, L, s0, srcWin)) : '';
+          const cm = s0 != null ? chevMark(X, Y, c.c, mS, s0, c.color, 0.8, senseAt(c.c, L, s0, win)) : '';
           if (cm) { m += cm; chevDrawn++; }
         }
         return m;
@@ -574,7 +601,7 @@
     const H = Math.max(y + h + bottom, keyBottom);
     // the caption's "Dashed" note: only when a dashed (open) boundary is actually drawn
     const open = Object.values(panelOut).some((q) => q.lay.dashed > 0);
-    return { items, defs, lines, H, info: { boxes, points: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.points.map((p) => ({ z: p.z, label: p.label }))])), ticks: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.ticks])), open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
+    return { items, defs, lines, H, info: { boxes, curves: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.curves.filter((c) => c.sid).map((c) => ({ id: c.sid, pts: c.pts.flatMap((run) => run.filter((p, n) => n % Math.max(1, Math.ceil(run.length / 24)) === 0)) }))])), points: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.lay.points.map((p) => ({ z: p.z, label: p.label }))])), ticks: Object.fromEntries(Object.entries(panelOut).map(([sd, q]) => [sd, q.ticks])), open, keyLine: keyW ? sk.carried.text : null, named: P.named && shapes.some((s) => kindType(s) === 'point'), chevrons: P.chevrons && chevDrawn > 0, panels } };
   }
 
   // ---------- (2) Phase: colour (hue wheel, level lines, a ring key) and black and white (a contour portrait) ----------
@@ -922,7 +949,9 @@
         let fp = '';
         for (const s of A.shapes()) {
           if (kindType(s) !== 'area') continue;
-          for (const run of shapeCurves(s, F, bx, wpt, srcWin).pts) {
+          const Fs = shapeMapF(s, 'L', F);
+          if (!Fs) continue;
+          for (const run of shapeCurves(s, Fs, bx, wpt, shapeWinOf(s, srcWin)).pts) {
             let cur = [];
             const flush = () => { if (cur.length > 1) fp += 'M' + cur.map((q) => `${f2(q[0])} ${f2(q[1])}`).join('L'); cur = []; };
             for (const p of run) {

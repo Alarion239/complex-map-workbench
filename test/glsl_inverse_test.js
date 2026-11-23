@@ -6,7 +6,8 @@
 //         formulas of SPEC 12.1 (a)) x random shapes x random view points: a recording program (the production
 //         lib, INV_HEAD and walker, with the IX_RECORD hook) writes the first 8 visited leaves of each test point
 //         (z, range level in px, sqrt|det dz/dw|), the visited / covering counts and the front keys; compared with
-//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl|, coverage to 0.03,
+//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl| (+ lvlTol's float32 term for a
+//         chain with a Complex power step of |alpha| < 1), coverage to 0.03,
 //         the same visited count; |J| to 5e-3 and the keys D to 2e-3 where float32 resolves them (D <= 16 and
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
 //         2e-4 (1 + |w|) of it (a cut, a window or a range boundary: float32 decides those differently) or when a
@@ -287,6 +288,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
+  // The level's tolerance in px: 0.05 + 1e-4 |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
+  // step with |alpha| < 1) the float32 resolution of the points that power amplifies: (cond - 1) ulps of |w| in the output
+  // plane, in px (pix is the px in that plane's units). cond is the product of those 1/|alpha| over the chain; 1 for every other
+  // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
+  // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
+  // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
+  const F32_ULP = 2 ** -23;
+  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + (cond - 1) * F32_ULP * cabs(w) / pix;
+  const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
   // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
   // member its residual |H_t(z) - w| / (1 + |w|)
@@ -363,6 +373,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
     prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
+    const cond = condOf(steps, built);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
     const plan = Inverse.planChain(steps, built);
     if (!plan.ok) { R.skipped.ineligible++; continue; }
@@ -436,7 +447,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
           const dz = Math.hypot(q[0] - c.z.re, q[1] - c.z.im);
           if (!(dz <= 2e-3 * (1 + cabs(c.z)))) bad.push(`leaf ${r} z gpu ${q[0]},${q[1]} cpu ${c.z.re},${c.z.im} (${c.path})`);
           const cl = Number.isFinite(c.lvl) ? c.lvl : 1e38;
-          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= 0.05 + 1e-4 * Math.abs(cl))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl}`);
+          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= lvlTol(cl, w, pix, cond))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl} (allowed ${lvlTol(cl, w, pix, cond).toFixed(3)}, cond ${cond.toFixed(1)})`);
           // |J| and D only where float32 resolves them: keys D <= 16 (deeper sheets lie 2^16 window radii away or within
           // ~1e-6 rs of an accumulation point, and are never visible) and 1e-15 < |dz/dw| < 1e15
           const cj = Math.sqrt(Math.abs(c.J[0] * c.J[3] - c.J[1] * c.J[2]));
@@ -822,6 +833,28 @@ void main() {
   }
   // ---- 12.1 (l): program identity under eligibility flips ----
   if (opts.flip !== false) R.flip = await flipTest();
+  // ---- the level tolerance and the gaps WARP produced on rand#172 (GitHub job 137195994579: powa alpha 0.008, cut 90, k 2) ----
+  // each gap is inside the rule for its chain (cond 125), the plain rule would have rejected it (control), and a chain with no
+  // Complex power step keeps the plain rule
+  {
+    const WARP = [{ cl: 810.7226543436661, gpu: 811.1634521484375, w: C(1.0038121938705444, 0.09487950801849365) },
+      { cl: 953.5565243774365, gpu: 953.9886474609375, w: C(1.0055485963821411, 0.09170592576265335) }];
+    const WPIX = 0.000023453630650284904;
+    const wst = [St('recip'), St('recip'), St('powa', { alpha: '0.008', cut: 90, k: 2 })], plainSt = [St('recip'), St('exp')];
+    const T = R.tolCheck = { cond: condOf(wst, wst.map(Funcs.build)), plainCond: condOf(plainSt, plainSt.map(Funcs.build)), rows: [], bad: [] };
+    if (!(Math.abs(T.cond - 125) < 1e-9)) T.bad.push(`cond of the powa chain ${T.cond}, not 125`);
+    if (T.plainCond !== 1) T.bad.push(`cond of a chain without a Complex power step ${T.plainCond}, not 1`);
+    const offSt = [St('recip'), Object.assign(St('powa', { alpha: '0.008', cut: 90, k: 2 }), { on: false })];
+    if (condOf(offSt, offSt.map(Funcs.build)) !== 1) T.bad.push('a Complex power step that is off counts in cond');
+    for (const x of WARP) {
+      const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, WPIX, T.cond), plain = lvlTol(x.cl, x.w, WPIX, 1);
+      T.rows.push({ gap, tol, plain });
+      if (!(gap <= tol)) T.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
+      if (!(gap > plain)) T.bad.push(`gap ${gap.toFixed(3)} px is inside the plain ${plain.toFixed(3)}: the control is not one`);
+      if (plain !== 0.05 + 1e-4 * x.cl) T.bad.push('the plain rule is not 0.05 px + 1e-4 |lvl|');
+    }
+    if (T.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance', bad: T.bad }); }
+  }
   R.programs = R.programs.size;
   R.ms = Math.round(performance.now() - t0);
   R.done = true;
