@@ -9,7 +9,8 @@
 //   the screen draws the glide's frame k, byte for byte, at k = 0, 1, N/2 and N-1; control: frame k+1 is not;
 // - (b) cost: a frame shown from them costs at most 14 ms to draw (__cmwTime, the pane read back), and it was shown
 //   from them;
-// - shown: with the clock running, the glide shows its frames, and they go at its end;
+// - shown: with the clock running, the glide shows its frames, and they go at its end; __cmwSteps().carryPre describes
+//   the frame shown (0: the inverse pass's frames have no pre-mapped draws);
 // - live frames: the visits that make the frames ask for none (they put dirty.L and renderAsks back): at most LIVE_MAX
 //   frames are drawn on the screen while the frames are made, the page's own (a program landing, a status note's
 //   timer; 2 on lavapipe), not one a frame made;
@@ -132,6 +133,9 @@ await rest(0);
   const m = await S();
   info.shown = m.ahead && { shown: m.ahead.shown, glide: m.glide };
   ok('shown: the glide shows its frames drawn ahead as it runs', !!m.ahead && m.ahead.shown > 20, m.ahead);
+  // (a frame shown from them brings its own count of the carried colour's pre-mapped draws: the inverse pass's frames have none)
+  const cp = await ev('__cmwSteps().carryPre');
+  ok('shown: __cmwSteps().carryPre describes the frame shown from them (the inverse pass\'s: no pre-mapped draws)', cp === 0, { carryPre: cp });
   await settled({ only: true, max: 60000, until: '!__cmwSteps().moving' });
   const end = await S();
   ok('shown: the glide ends on plane 1, and its frames go', end.x === 1 && !end.ahead, end);

@@ -96,12 +96,14 @@
       if (d.seg && d.fill !== 'in' && s._seg) {
         const info = segInfo(s), C = find(d.args[0].s), cpc = C && piecesOf(C)[d.args[0].part], kpc = piecesOf(s)[0];
         let r = null;
+        // (the domain is C's open side: the drawn disc's or half-plane's TeX, a closed set's (≤, ≥), made strict)
+        const open = (t) => t.replace(/\\le /g, '<').replace(/\\ge /g, '>');
         try {
           // (the outside of a circle is a disc of the sphere, infinity included)
-          if (info && cpc && cpc.kind === 'circle' && isXY(cpc.c)) { r = Region.KINDS.disc.tex({ kind: 'disc', c: cpc.c, r: cpc.r }); if (info.word === 'out') r = `\\{${r.replace(/</g, '>')}\\}\\cup\\{\\infty\\}`; }
+          if (info && cpc && cpc.kind === 'circle' && isXY(cpc.c)) { r = open(Region.KINDS.disc.tex({ kind: 'disc', c: cpc.c, r: cpc.r })); if (info.word === 'out') r = `\\{${r.replace(/</g, '>')}\\}\\cup\\{\\infty\\}`; }
           else if (info && cpc && cpc.kind === 'line' && isXY(cpc.a) && isXY(cpc.b)) {
             const L = [cpc.a[0] - (cpc.b[1] - cpc.a[1]), cpc.a[1] + (cpc.b[0] - cpc.a[0])], left = info.seg * Constr.fOf(info.Gc, L) < 0;
-            r = Region.KINDS.halfplane.tex({ kind: 'halfplane', a: left ? cpc.a : cpc.b, b: left ? cpc.b : cpc.a });
+            r = open(Region.KINDS.halfplane.tex({ kind: 'halfplane', a: left ? cpc.a : cpc.b, b: left ? cpc.b : cpc.a }));
           }
         } catch (e) { r = null; }
         if (r) {

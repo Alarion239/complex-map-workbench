@@ -596,13 +596,12 @@
       if (r.ro) readoutFill(r.ro, s);
       r.sw.style.cssText = swatchStyle(s);
       let tex;
-      try { tex = shapeTexOf(s); } catch (e) { tex = '\\text{?}'; }
+      try { tex = isTarget(s) ? shapeTexOf(s) : shapeTexOwn(s); } catch (e) { tex = '\\text{?}'; }
       if (s.complement) tex = $t('\\text{not }%{tex}', { tex });
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
-      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
-      // (a shape of a plane of the chain, in that plane's variable)
-      else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
+      // (a shape of a plane of the chain is in that plane's variable already: shapeTexOwn)
+      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(Z_VAR, `$1${yv}`); }
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
       if (Construct.row(s, r)) continue;   // (definitions, reasons)
       const er = s.undef || s._err;
@@ -975,6 +974,12 @@
   function shapeTexOf(s) {
     if (s.srcTex && s.srcKey === shapeKey(s)) return s.srcTex;
     return Region.KINDS[s.kind].tex(s);
+  }
+  // a shape's TeX in its own plane's variable: one drawn on plane k of the chain writes z as w_k (its row, the figure's caption)
+  const Z_VAR = /(^|[^\\a-zA-Z])z(?![a-zA-Z])/g;
+  function shapeTexOwn(s) {
+    const tex = shapeTexOf(s), k = shapeStage(s);
+    return k ? tex.replace(Z_VAR, `$1${wvar(k)}`) : tex;
   }
   function setupFormula() {
     const inp = $('formulaInput'), prev = $('formulaPrev'), tag = $('formulaPlane'), note = $('formulaNote');

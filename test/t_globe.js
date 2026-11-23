@@ -156,15 +156,15 @@ const inside = (s, x, y) => Region.levelOf(s)(CX.C(x, y)) > 0;
   const d = [hpS.b[0] - hpS.a[0], hpS.b[1] - hpS.a[1]];
   ok('a half-plane from a cap: |b - a| = 1, a the edge point nearest 0', hpS.kind === 'halfplane' && Math.abs(Math.hypot(...d) - 1) < 1e-15 && Math.abs(d[0] * hpS.a[0] + d[1] * hpS.a[1]) < 1e-15, hpS);
   const tx = Region.KINDS.halfplane.tex(hpS);
-  ok('its TeX is Im z > 0.183 (no meaningless denominator)', tx === '\\operatorname{Im}z>0.183', tx);
+  ok('its TeX is Im z ≥ 0.183 (no meaningless denominator)', tx === '\\operatorname{Im}z\\ge 0.183', tx);
   // membership is unchanged by the normalisation: the cap test and the planar level agree
   let bad = 0;
   for (let i = 0; i < 400; i++) { const P = unit(), z = G.unlift(P); if (!z) continue; const m = G.dot3(P, Cn) - Cn[2]; if (Math.abs(m) > 1e-9 && (m > 0) !== inside(hpS, z.re, z.im)) bad++; }
   ok('the normalised half-plane is the same set as its cap', bad === 0, bad);
-  // a rim 0.57 deg from N on the real axis side: Re z > t
+  // a rim 0.57 deg from N on the real axis side: Re z ≥ t
   const Cr = G.lift(100, 0), hr = Cr[2];
   const reS = { kind: 'disc', c: [0, 0], r: 1 }; G.applyCap(reS, Cr, hr);
-  ok('a half-plane facing +Re prints Re z > t', /^\\operatorname\{Re\}z>/.test(Region.KINDS.halfplane.tex(reS)), Region.KINDS.halfplane.tex(reS));
+  ok('a half-plane facing +Re prints Re z ≥ t', /^\\operatorname\{Re\}z\\ge /.test(Region.KINDS.halfplane.tex(reS)), Region.KINDS.halfplane.tex(reS));
   const lnS = { kind: 'circle', c: [0, 0], r: 1 }; const Cg = G.norm3(G.lift(0.3, 0.4)); G.applyCap(lnS, Cg, Cg[2]);
   const lt = Region.KINDS.line.tex(lnS);
   ok('a line from a cap prints its equation Re(e^{-i phi} z) = t', lnS.kind === 'line' && /^\\operatorname\{Re\}\\left\(e\^\{-?[0-9.]+\^\\circ i\}z\\right\)=/.test(lt), lt);
