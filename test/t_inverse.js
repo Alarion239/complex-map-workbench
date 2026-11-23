@@ -1501,6 +1501,16 @@ section('sheet key weights');
   const dev = (k) => Math.max(...zs.map((z) => Math.abs(Inverse.sheetKey(prepOf(k), z) - Inverse.sheetKey(prepOf(rest), z))));
   check(`the span's key at t = ${t}, weighted by t: plane 1's at rest (within 0.01 octave at |z| >= 0.2)`, span.ok && dev(kw) < 0.01, { dev: dev(kw), kw: ps(kw), rest: ps(rest) });
   check(`control: unweighted, it is off plane 1's by over half an octave`, dev(ku) > 0.5, { dev: dev(ku), ku: ps(ku) });
+  // the walk's inward bound (affStopLB, the GPU's ixStop): with a point of weight 0.3 beside the segment the members still
+  // to come lie on, it is at most the key at every point of the segment; the control's bound counts the point at weight 1
+  // while the key counts it at 0.3, and then passes the key, so the row tells a weighted bound from an unweighted one
+  const sp = { kind: 'clip', A: C(1, 0), B: C(0, 0) }, F = { type: 'mul', S: C(0.3, 0) }, lf = { z: C(0.5, 0.02), D: 0 };
+  const pt = (w) => Object.assign(C(0.1, 0.05), { w }), za = C(0, 0), z1 = CX.add(za, CX.scale(CX.sub(lf.z, za), Math.exp(-0.3)));
+  const seg = Array.from({ length: 200 }, (_, j) => CX.add(za, CX.scale(CX.sub(z1, za), 1 - j / 200)));
+  const minKey = Math.min(...seg.map((z) => Inverse.sheetKey(prepOf([pt(0.3)]), z)));
+  const lbW = Inverse.affStopLB(prepOf([pt(0.3)]), F, sp, lf, false), lb1 = Inverse.affStopLB(prepOf([pt(1)]), F, sp, lf, false);
+  check('affStopLB with a point of weight 0.3: at most the key along the segment the members still to come lie on', lbW <= minKey + 1e-12 && lbW > 0, { lbW, minKey });
+  check('control: the bound with that point at weight 1 passes the weight-0.3 key', lb1 > minKey + 0.1, { lb1, minKey });
 }
 
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
