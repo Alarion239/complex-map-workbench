@@ -2166,13 +2166,26 @@
       const v = variant(offs, `sheet${list.length + 1}`, false), vals = valsOf(v.steps, v.built);
       if (seen.some((w) => sheetValsSame(w, vals))) continue;
       seen.push(vals);
-      if (GLR.ok) v.gl = GLChain.build(v.steps, v.built);
       list.push(v);
+    }
+    // (the GPU chains, the chain's own first: a copy changes only a step's params.k and takes the chain's uniform slots, so
+    // a chain the build refuses (GLChain.build throws over the slot cap; rebuild() reported it) has no copies, and the
+    // memo keeps that answer: the glide draws the chain alone, which reads the refusal as the parked plane does)
+    let own = null;
+    if (GLR.ok && list.length) {
+      try {
+        own = GLChain.build(S.steps, built);
+        for (const v of list) v.gl = GLChain.build(v.steps, v.built);
+      } catch (e) {
+        // (the chain's own refusal is rebuild()'s to report; a copy's, after the chain's own built, is reported here)
+        if (own) console.error('GLChain', e);
+        own = null; list.length = 0;
+      }
     }
     // (the seams: every surface drawn, the chain as it is first, with its cuts turned, made when first asked for)
     let seams = null;
     const seamList = () => seams || (seams = [radix.map(() => 0), ...list.map((v) => v.offs)].map((offs, n) => { const v = variant(offs, `seam${n}`, true); if (GLR.ok) v.gl = GLChain.build(v.steps, v.built); return v; }));
-    svSheetMemo = { key, list, W, seamList, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    svSheetMemo = { key, list, W, seamList, own };
     return list;
   }
   // The seams of a Landscape glide's copies (svGlideSheets(a, b, from)): the carried grid leaves out a cell its map
