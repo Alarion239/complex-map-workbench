@@ -23,6 +23,7 @@ check('fractional T is -1', Views.cleanSv({ ...ok, T: 1.5 }, P).T, -1);
 check('a bypassed step is not a plane for T', Views.cleanSv({ ...ok, T: 2 }, [0, 1, 3]).T, -1);
 check('unknown scope', Views.cleanSv({ ...ok, scope: 'x' }, P).scope, 'all');
 check('unknown surface', Views.cleanSv({ ...ok, surf: 'cube' }, P).surf, 'plane');
+check('the Stack is a surface', Views.cleanSv({ ...ok, surf: 'stack' }, P).surf, 'stack');
 for (const sp of ['fast', 'normal', 'slow', 'slower']) check('speed ' + sp, Views.cleanSv({ ...ok, speed: sp }, P).speed, sp);
 check('unknown speed is dropped (the device\'s applies)', 'speed' in Views.cleanSv({ ...ok, speed: 'warp' }, P), false);
 check('a state without a speed has none', 'speed' in Views.cleanSv({ at: 1 }, P), false);

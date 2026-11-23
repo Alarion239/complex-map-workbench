@@ -823,5 +823,7 @@
  "to the target": "к цели",
  "critical value": "критическое значение",
  "join radius": "радиус слияния",
- "Look down": "Взгляд сверху"
+ "Look down": "Взгляд сверху",
+ "Stack": "Стопка",
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d"
 }

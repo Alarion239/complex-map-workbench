@@ -22,7 +22,7 @@
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
     scope: 'all',    // 'all' | 'in'
-    surf: 'plane',   // 'plane' | 'sphere' | 'land'
+    surf: 'plane',   // 'plane' | 'sphere' | 'land' | 'stack' (19-stack.js)
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
     anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
@@ -2067,7 +2067,7 @@
     }
     svCheck(); svPolesWatch();
     // (a press waits behind the gate on plane z, the colour plane: the plane is drawn as the first frame of the glide it waits to start)
-    if (svGateDraws() || (svPaint() === 'push' && SV.surf === 'plane' && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
+    if (svGateDraws() || (svPaint() === 'push' && svFlatSurf() && lFlat())) { SV.core = 'carry'; svRenderMoving(pane); return; }
     svHeldOn = null;
     SV.core = 'still'; still(pane);
   }
@@ -2196,7 +2196,7 @@
     v.main = svMain(k);
     if (v.main !== 'land') v[side].surf = surf;
     try {
-      if (svPaint() === 'push' && SV.surf === 'plane' && lFlat()) svRenderMoving(p);
+      if (svPaint() === 'push' && svFlatSurf() && lFlat()) svRenderMoving(p);
       else still(p);
     } finally { g.x = keep.x; g.target = keep.target; g.v = keep.v; SV.i = keep.i; v.main = main; v[side].surf = was; }
     return k;
@@ -2858,7 +2858,7 @@
     if (inSeg) { inSeg.setAttribute('aria-label', SCOPES[1][1]); inSeg.textContent = ''; inSeg.append(h('span', { class: 'sc-full' }, SCOPES[1][1]), h('span', { class: 'sc-short' }, $t('Inside'))); }
     // (the surface: one button that names it and opens a menu of the three, on a laptop as on a phone: the
     // three-way row took 190 px of a head that has 700 at 1024 px)
-    const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')]];
+    const SURF = [['plane', $t('Plane')], ['sphere', $t('Sphere')], ['land', $t('Landscape')], ['stack', $t('Stack')]];
     const surf1 = h('button', { type: 'button', class: 'btn small sv-surf1', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svSurfMenu() });
     // (short of room the scope's two-way switch folds to one button that names the shown scope and opens a menu of the two)
     const scopeBtn = h('button', { type: 'button', class: 'btn small sv-scope-menu', 'aria-haspopup': 'menu', 'aria-expanded': 'false', onclick: () => svScopeMenu() });
@@ -3080,7 +3080,7 @@
       E.cp.disabled = !!svAloneOk();
       svDisableWhy(E.cp, !svAloneOk() && parked ? $t('Stop on a plane to colour from it') : '', svAloneOk() ? $t('The step shown alone is coloured from its own plane') : $t('Colour every plane from this one  C'));
       const sname = (E.SURF.find((v) => v[0] === SV.surf) || E.SURF[0])[1];
-      const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'] }[SV.surf] || '';
+      const sicon = { plane: MODE_ICONS.image, sphere: MODE_ICONS.sphere, land: MODE_ICONS['3d'], stack: MODE_ICONS.stack }[SV.surf] || '';
       E.surf1.innerHTML = `<span class="sv-surf-i" aria-hidden="true">${sicon}</span><span class="sv-surf-t">${sname}</span>${ICONS.chevD || ''}`; E.surf1.setAttribute('aria-label', `${$t('Surface')}: ${sname}`); E.surf1.dataset.tip = `${$t('Surface')}: ${sname}`;
       // (the Cauchy style draws everywhere: Inside regions would cut its outside part f₋ off, so the control reads Everywhere and says why it is off)
       const sc = svScope(), cWhy = S.dc === 'cauchy' ? $t('The Cauchy integral is drawn everywhere: its outside part is not cut to regions') : '';
@@ -3188,10 +3188,10 @@
   function svChoiceMenu(btn, pairs, cur, label, pick, opener) {
     openMenu(btn, Object.assign(pairs.map(([v, t]) => ({ label: t, radio: true, checked: cur === v, run: () => pick(v) })), { menuLabel: label, focusChecked: true, opener }));
   }
-  // the shown plane's surface, 'plane' | 'sphere' | 'land' (the Surface menu's choice and the command palette's), and null outside the steps view
+  // the shown plane's surface, 'plane' | 'sphere' | 'land' | 'stack' (the Surface menu's choice and the command palette's), and null outside the steps view
   const svSurface = () => (SV.on ? SV.surf : null);
   // a surface's name as the Surface control reads it: 'Surface: Plane'
-  function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape') }[v]}`; }
+  function svSurfaceLabel(v) { return `${$t('Surface')}: ${{ plane: $t('Plane'), sphere: $t('Sphere'), land: $t('Landscape'), stack: $t('Stack') }[v]}`; }
   function svSetSurface(v) { SV.surf = v; if (v === 'sphere') prestartGlobe(); if (v !== 'plane') svPrestartSoon(300); svApply(); tourEmit('surface-changed', { s: v }); }
   function svSurfMenu() { svChoiceMenu(SV.els.surf1, SV.els.SURF, SV.surf, $t('Surface'), svSetSurface); }
   function svSetScope(v) { SV.scope = v; svPrestartSoon(300); svSync(); requestRender('L'); tourEmit('scope-changed', { s: v }); }
@@ -3508,7 +3508,7 @@
   const svInvKey = () => `${chainSig[nSteps()]}|${SV.surf}|${SV.scope}|${svT()}|${S.dc}|${Math.round(SV.g.x)}`;
   function svPrestartInv() {
     const globe = SV.surf === 'sphere', key = svInvKey();
-    if (svInvWarmOff || (!globe && SV.surf !== 'plane') || !paneL || !GLR.inverseState || nSteps() < 1) return;
+    if (svInvWarmOff || (!globe && !svFlatSurf(true)) || !paneL || !GLR.inverseState || nSteps() < 1) return;
     const P = svPlanes(), j = Math.max(0, Math.min(P.length - 1, Math.round(SV.g.x))), jobs = [];
     for (const b of new Set([P[Math.min(P.length - 1, j + 1)], P[j]])) {
       if (b && !isDeriv(b)) for (const u of svGlideParts(b)) jobs.push({ b, u, asked: false });

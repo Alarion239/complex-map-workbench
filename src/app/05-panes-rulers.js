@@ -93,10 +93,10 @@
     if (!GLR.drawGrid || !GLR.ok) Axes.draw(pane, TH, { unitCircle: S.unit, labels: false });
   }
   // the left plane: the steps view draws it through svDrawPlane, which keeps this function's classic drawing (drawLeft) for
-  // the planes it draws that way
+  // the planes it draws that way; on the Stack, svDrawPlane draws its floor (stackDrawPlane)
   function renderLeft() {
     const pane = paneL;
-    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; svDrawPlane(pane, drawLeft); return; }
+    if (SV.on) { mfDrawn = null; mfGlobeDrawn = null; if (!stackDrawPlane(pane, (p) => svDrawPlane(p, drawLeft))) svDrawPlane(pane, drawLeft); return; }
     drawLeft(pane);
   }
   // the classic drawing of the left plane: a flat coloured plane, X Phase, X Landscape and X Sphere, the steps view's
@@ -249,7 +249,7 @@
       paneR.setView(V.right);
       paneR.beginOverlay();
     }
-    const sphL = !lFlat(); // the sphere and landscape views of X have no flat overlays
+    const sphL = !lFlat(); // the sphere, landscape and Stack views of X have no flat overlays
     const projL = lGlobe() && leftSphereInfo ? sphereProj(paneL, leftSphereInfo) : null;
     zpHandlesL = [];
     if (showL && !sphL) {
@@ -265,7 +265,7 @@
       // (not over a zero or pole under the pointer, or one being dragged: the handle is what the pointer holds)
       if (probe && !zpHover && !(drag && drag.mode === 'zp')) { if (lColor()) drawProbe(paneL, probe, '#FFFFFF', TH.dcCasing); else drawProbe(paneL, probe, TH.probe); }
       if (SV.on) drawFloorPick(paneL);
-    } else syncLookKey(false);
+    } else if (!(showL && stackDrawOverlay(paneL))) syncLookKey(false);
     // the curve of an open integral popover, with its direction (X: its plane or its globe)
     if (intPop && showL && !lLand()) drawIntHighlight(paneL, projL);
     if (intPop && showR && rImage() && !morphOn() && !trans.k) { paneR.setView(V.right); drawIntHighlight(paneR, null, rangeF(leftStage(), rightStage())); }
