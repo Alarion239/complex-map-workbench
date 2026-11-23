@@ -85,7 +85,8 @@
       // (the classic page is slow to start where its typesetting loads: the tool's button answers a click only once the app has started, and a second click would put the tool back)
       run: async () => {
         await settled({ only: true, max: 40000, until: `typeof __cmwSteps === 'function' && document.documentElement.classList.contains('ph-land') && !!document.querySelector('#constructTools .tool[data-tool="hyper"]')` });
-        await ev(`(() => { const t = document.querySelector('#constructTools .tool[data-tool="hyper"]'); if (t && !t.classList.contains('on')) t.click(); return 1; })()`);
+        // (a finger chooses the tool: the page takes the chip's touch form, the ×, from the last pointer press, which a machine with a mouse attached would otherwise not have)
+        await ev(`(() => { const t = document.querySelector('#constructTools .tool[data-tool="hyper"]'); if (!t) return 0; window.dispatchEvent(new PointerEvent('pointerdown', { pointerType: 'touch', bubbles: true })); if (!t.classList.contains('on')) t.click(); return 1; })()`);
       },
       ready: `(() => { const c = document.getElementById('draftChipL'); return !!c && !c.hidden && !!c.querySelector('.cm-x') && !c.querySelector('.cm-t')?.getClientRects().length && !!document.querySelector('.ph-ctx.in'); })()`,
       // (what the page is at when it does not open: told in the report's skipped list)
