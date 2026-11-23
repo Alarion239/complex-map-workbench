@@ -169,15 +169,15 @@ const VIEWS = {
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
-  'steps_colour_pick_cmd.js': steps(),
-  'steps_colour_parity_cmd.js': steps(),
+  'steps_colour_pick_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_colour_parity_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_sheet_grid_cmd.js': steps({ pin: true }),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
-  'steps_drawplane_cmd.js': steps(),
+  'steps_drawplane_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
   'steps_readout_cmd.js': steps(),
   'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
