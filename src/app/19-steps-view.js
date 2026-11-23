@@ -42,6 +42,7 @@
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill, gauge (the ring's fill: the share of svHoldLeft gone), left0, ending (the full ring stands two animation frames)}
   SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -1109,6 +1110,9 @@
   // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
   // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
   let svHoldB = 0;
+  // how many things the last frame svHolds tested waits for: its inverse paths still linking, the carried meshes, the Cauchy style's
+  // carried programs, and the pole tracks (one); 0 when the frame need not wait. A hold's ring is the share of it that has gone
+  let svHoldLeft = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
   // (the glide held by svLinkHold for its missing tracks comes first)
@@ -1403,6 +1407,7 @@
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
     // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
     // to A.said, its words before the crossing of the frame that starts the hold)
+    if (first && SV.play === A) svHoldWaitBegin(A);
     if (first) {
       const r = Math.round(A.held.at);
       if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
@@ -1419,20 +1424,23 @@
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
     if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
+    svHoldWaitEnd(true);
   }
   // whether the glide frame g (svBetween: a step's glide, or an All-at-once span's) on the plane must wait: the inverse
   // pass draws it and that pass's programs still link, or, once linked, the pole tracks a step's frames are drawn from
   // are not made (svHoldB is then plane b, else 0); or the carried meshes draw it and their programs link
   function svHolds(g) {
-    svHoldB = 0;
+    svHoldB = 0; svHoldLeft = 0;
     if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b)) return false;
     const inv = (g.map.mode === 1 || g.map.mode === 3) && !!GLR.inverseState;
     // (an All-at-once frame: its span's paths and its later planes' shapes', no pole tracks of its own)
     const span = inv ? svSpanPaths(g) : null, h = inv ? svHomPaths(g.b, g.u, span).h : null;
     // (the Cauchy style's carried programs too, its own variants: while they link, nothing past z draws its colour)
-    const linking = (h ? [h, svStagedOf(false, g), svStagedCurves(g)].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending')) : svMeshLinking(g.map, null))
-      || (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry());
+    const waits = (h ? [h, svStagedOf(false, g), svStagedCurves(g)].reduce((n, q) => n + (q ? q.paths.filter((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending').length : 0), 0) : (svMeshLinking(g.map, null) ? 1 : 0))
+      + (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry() ? 1 : 0);
+    const linking = waits > 0;
     const P = inv && !linking && !span ? svTracksMissing(g.b, h) : null;
+    svHoldLeft = waits + (P ? 1 : 0);
     if (P) {
       svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
       // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
@@ -3846,13 +3854,13 @@
   }
   // ▶ and pause, the loop's state
   function svPlaySync() {
-    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown && SV.gate.btn === E.play ? $t('Cancel') : on ? $t('Pause') : $t('Play');
+    const E = SV.els, on = !!SV.play, waits = svWaitOn(E.play), label = waits ? $t('Cancel') : on ? $t('Pause') : $t('Play');
     // (the pause is two bars, drawn: no glyph of the bundled faces)
-    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
+    if (E.play.dataset.on !== String(on) && !waits) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
     // (a plain button, Cancel, while the press waits: a "not pressed" toggle named Cancel would be read as one)
-    if (SV.gate && SV.gate.shown && SV.gate.btn === E.play) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
+    if (waits) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
@@ -3896,6 +3904,8 @@
     if (svAhead) svAhead.paused = null;
     svGated(SV.els.play, () => svPlayNow(resume), M);
   }
+  // the live region's words for a play to plane index end, from the plane the thread is near
+  const svPlayWords = (end) => $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(svPlanes()[end]) });
   // (resume: { M, el }, a play paused on frames drawn ahead, which goes on at el ms into its schedule M)
   function svPlayNow(resume) {
     const P = svPlanes();
@@ -3920,7 +3930,7 @@
     svSync();
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
-    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(P[end]) });
+    if (SV.els.live) SV.els.live.textContent = svPlayWords(end);
     sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
     const A = SV.play;
     if (!A.slide) svAheadStart({ from: A.from, to: A.to, ms: A.ms, eased: false, span: SV.span });
@@ -3994,6 +4004,7 @@
     const A = SV.play;
     if (!A) return;
     SV.play = null;
+    svHoldWaitEnd(false);
     if (A.slide) clearTimeout(A.timer);
     // (a play on frames drawn ahead keeps them, and where it paused, for a resume: svPlay)
     const R = svAhead && svAhead.A === A ? svAhead : null;
