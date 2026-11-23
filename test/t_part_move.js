@@ -1,7 +1,9 @@
 // tools/part_move.js, the proof that a split of a source file into parts is a pure move: a block moved up or down passes
 // (also when its edges equal its neighbours' tokens), and each of these fails with the first difference: a token changed
 // in the moved block, a move in two runs, a reordered block, a code line that differs only in its layout. A comment line
-// added or removed is listed and passes (--strict fails it). The command runs on a repository of its own: a split of
+// added or removed is listed and passes (--strict fails it). A const, let, class or var moved after a top-level statement that
+// reads it while it runs fails (tools/part_move_order.js: the reads that run at once, and those inside a function or a method
+// that do not). The command runs on a repository of its own: a split of
 // src/app/ into a new part, a refusal, and a ref that does not exist. Node, no browser. Run: node test/t_part_move.js
 'use strict';
 const fs = require('fs');
@@ -66,6 +68,36 @@ ok('a comment line removed is listed as removed and passes', gone.pure && gone.d
 const dup = proveMove(text(F, F, G), text(F, F, G).replace('// tail', '// tail\n// tail'));
 ok('a line present twice more is counted', dup.diff.added.length === 1 && dup.diff.added[0][1] === 1, dup.diff);
 
+// the order the top-level statements run in: a closure of statements, as a split file is
+const closure = (...stmts) => `(() => {\n${stmts.join('\n')}\n})();\n`;
+const MSVG = 'const msvg = (s) => "<" + s;', ICONS = 'const ICONS = { a: msvg("a"), b: msvg("b") };', LAST = 'const last = 1;';
+const orderOf = (a, b) => proveMove(a, b);
+{
+  // a const moved below the statement that calls it at load: every token and code line is kept, and it throws at load
+  const p = orderOf(closure(MSVG, ICONS, LAST), closure(ICONS, MSVG, LAST));
+  ok('a const moved below the statement that reads it is a move of one run', p.tokens.kind === 'move', p.tokens);
+  ok('it is flagged: the statement, the name, its kind, and the declaration', p.order.length === 1 && p.order[0].name === 'msvg' && p.order[0].kind === 'const' && p.order[0].use.loc.start.line === 2 && p.order[0].decl.loc.start.line === 3, p.order.map((v) => [v.name, v.kind]));
+  ok('and the move is not pure (exit 1)', !p.pure);
+  ok('the same move the other way round (the reader moved up) is flagged too', orderOf(closure(MSVG, ICONS, LAST), closure(ICONS, LAST, MSVG)).order.length === 1);
+  ok('a move that keeps every reader after its declaration is pure', orderOf(closure(MSVG, LAST, ICONS), closure(LAST, MSVG, ICONS)).pure);
+  const word = (stmt, name) => orderOf(closure(`const ${name} = 1;`, stmt, LAST), closure(stmt, `const ${name} = 1;`, LAST));
+  const flagged = (stmt) => word(stmt, 'v').order.length === 1;
+  ok('a plain read, a call, a template, a spread, a new and an assignment target are flagged', ['const a = v + 1;', 'const a = f(v);', 'const a = `${v}`;', 'const a = [...v];', 'const a = new v();', 'v = 2;', 'const a = typeof v;', 'const { x = v } = o;', 'if (v) { w(); }', 'for (let i = 0; i < v; i++) w();'].every(flagged), ['const a = v + 1;', 'const a = f(v);', 'const a = `${v}`;', 'const a = [...v];', 'const a = new v();', 'v = 2;', 'const a = typeof v;', 'const { x = v } = o;', 'if (v) { w(); }', 'for (let i = 0; i < v; i++) w();'].filter((x) => !flagged(x)));
+  ok('a read inside a function, an arrow, a method or an instance field runs later and is not flagged', ['function f() { return v; }', 'const a = () => v;', 'const a = function () { return v; };', 'const a = { m() { return v; }, get g() { return v; } };', 'class C { m() { return v; } f = v; }'].every((x) => !flagged(x)), ['function f() { return v; }', 'const a = () => v;', 'const a = function () { return v; };', 'const a = { m() { return v; }, get g() { return v; } };', 'class C { m() { return v; } f = v; }'].filter(flagged));
+  ok('a class heritage, a computed key and a static member run now and are flagged', ['class C extends v {}', 'class C { [v]() {} }', 'class C { static s = v; }', 'class C { static { w(v); } }'].every(flagged), ['class C extends v {}', 'class C { [v]() {} }', 'class C { static s = v; }', 'class C { static { w(v); } }'].filter((x) => !flagged(x)));
+  ok('a function called at once runs now: its body is read, its parameters are its own', flagged('const a = (() => v)();') && flagged('const a = (function () { return v; })();') && !flagged('const a = ((v) => v)(1);'));
+  ok('a name the statement declares in a block of its own is not the later one', !flagged('{ const v = 2; w(v); }') && !flagged('try { w(); } catch (v) { w(v); }'));
+  ok('a property name, a member and a label are not reads', !flagged('const a = { v: 1 };') && !flagged('const a = o.v;') && !flagged('v: for (;;) { break v; }'));
+  ok('a function declaration is hoisted: moving it below its readers is pure', orderOf(closure('function h() { return 1; }', 'const a = h();', LAST), closure('const a = h();', 'function h() { return 1; }', LAST)).pure);
+  const cls = orderOf(closure('class A {}', 'class B extends A {}'), closure('class B extends A {}', 'class A {}'));
+  ok('a class moved below its subclass is flagged', cls.order.length === 1 && cls.order[0].kind === 'class' && cls.order[0].name === 'A', cls.order.map((v) => [v.name, v.kind]));
+  const vr = orderOf(closure('var n = 1;', 'const a = n;'), closure('const a = n;', 'var n = 1;'));
+  ok('a var read before its declaration is flagged (it reads undefined)', vr.order.length === 1 && vr.order[0].kind === 'var');
+  ok('a violation the old file had is not the move\'s', proveMove(closure(ICONS, MSVG, LAST), closure(LAST, ICONS, MSVG)).order.length === 0);
+  ok('the module\'s own statements are read too, beside a closure', orderOf(`import { x } from './x.js';\n${MSVG}\n${ICONS}\n(() => { ${LAST} })();\n`, `import { x } from './x.js';\n${ICONS}\n${MSVG}\n(() => { ${LAST} })();\n`).order.length === 1);
+  ok('the report names the statement, the name and both places', /"const ICONS = \{ a: msvg\("a"\), b: msvg\("b"\) \};" at joined line 2 \(src\/app\/x\.js line 2\) reads msvg, a const declared after it, "const msvg = \(s\) => "<" \+ s;" at joined line 3/.test(require('../tools/part_move').report(p, { a: { name: 'old', text: '' }, b: { name: 'new', text: closure(ICONS, MSVG, LAST) }, layoutA: [], layoutB: [{ name: 'src/app/x.js', from: 1, to: 5 }] }).lines.join('\n')), require('../tools/part_move').report(p, { a: { name: 'old', text: '' }, b: { name: 'new', text: closure(ICONS, MSVG, LAST) }, layoutA: [], layoutB: [{ name: 'src/app/x.js', from: 1, to: 5 }] }).lines.join('\n'));
+}
+
 // the parts of a joined file as line ranges
 {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'part-move-test-'));
@@ -113,6 +145,25 @@ const tool = (repo, ...args) => { const r = spawnSync(process.execPath, [TOOL, .
     ok('too few refs is a usage error (exit 2)', tool(repo, 'HEAD~2').code === 2);
     const wt = tool(repo, 'HEAD~1', '.');
     ok('the working tree is `.`', wt.code === 1 && /working tree/.test(wt.out), wt);
+  } finally { fs.rmSync(repo, { recursive: true, force: true }); }
+}
+
+// the command on a split that puts a const after the statement that reads it
+{
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'part-move-order-'));
+  try {
+    const put = (rel, body) => { fs.mkdirSync(path.dirname(path.join(repo, rel)), { recursive: true }); fs.writeFileSync(path.join(repo, rel), body); };
+    git(repo, 'init', '-q');
+    put('src/app/wrap.js', '(function () {\n  \'use strict\';\n  // @parts\n})();\n');
+    put('src/app/01-a.js', 'const base = 1;\n');
+    put('src/app/02-b.js', 'const twice = base * 2;\n');
+    git(repo, 'add', '-A'); git(repo, 'commit', '-q', '-m', 'one');
+    git(repo, 'mv', 'src/app/01-a.js', 'src/app/03-a.js'); git(repo, 'commit', '-q', '-m', 'the part that declares base now comes last');
+    const r = tool(repo, 'HEAD~1', 'HEAD');
+    ok('a part moved after its reader fails (exit 1) and names both statements', r.code === 1 && /1 statement runs before a const, let, class or var it reads/.test(r.out) && /"const twice = base \* 2;" at joined line 3 \(src\/app\/02-b\.js line 1\) reads base, a const declared after it, "const base = 1;" at joined line 4 \(src\/app\/03-a\.js line 1\)/.test(r.out) && /pure move: NO/.test(r.out), r);
+    git(repo, 'mv', 'src/app/03-a.js', 'src/app/01-a.js'); git(repo, 'commit', '-q', '-m', 'back');
+    const back = tool(repo, 'HEAD~2', 'HEAD');
+    ok('the same text is a pure move of nothing (exit 0)', back.code === 0 && /pure move: yes/.test(back.out), back);
   } finally { fs.rmSync(repo, { recursive: true, force: true }); }
 }
 

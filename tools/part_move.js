@@ -3,28 +3,33 @@
 // (or src/gl/, ...) and puts it in another, and the joined file (test/src_text.js: what build.py and the tests read)
 // is meant to stay the same code. This tool reads the joined file at two commits and proves that.
 //   node tools/part_move.js <old> <new> [--file app.js] [--strict] [--max-lines N] [--repo DIR]
-// <old> and <new> are git refs, or `.` for the working tree's src/ (of this checkout, or of --repo): for a PR, <old> is the
-// merge base (where it last merged the integration branch, or the integration commit it branched from) and <new> its head.
-// The proof:
+// <old> and <new> are git refs, or `.` for the working tree's src/ (of this checkout, or of --repo): for a PR, <old>
+// is the merge base (where it last merged the integration branch, or the integration commit it branched from) and
+// <new> its head. The proof:
 //   1. the tokens (acorn, `ecmaVersion: latest`; each token is its source text) of the two joined files are the same
 //      stream except for one contiguous run that moved: the run is in both, and the streams are equal once it is
 //      taken out of each (when two blocks changed places, the shorter is the run);
 //   2. the lines of the two files as a multiset: the lines only in <old> and only in <new>, each with its count. A line
 //      that holds a token (code) must not differ at all, even in its layout; a line of comments or blanks may (a new
-//      part's header comment), and is listed so that a reviewer reads it (--strict: any difference fails).
+//      part's header comment), and is listed so that a reviewer reads it (--strict: any difference fails);
+//   3. the order the top-level statements run in (tools/part_move_order.js): no top-level statement runs before a
+//      const, let, class or var it reads while it runs and that the move put after it. A function that a statement
+//      calls is not followed into: what it reads later is for the reviewer, or for loading the page.
 // Where the run was and is is printed as the line ranges of the joined files and of the parts they come from. Exit 0:
-// a pure move; 1: not (the first difference is printed); 2: the refs or the file could not be read. Not proved: the order the
-// top-level statements run in (a `const` of the run that code above its new place uses reads yes and throws at load).
+// a pure move; 1: not (the first difference, or the statement that runs too early, is printed); 2: the refs or the
+// file could not be read.
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
 const acorn = require('acorn');
 const { parts, source, PARTS_RE } = require('../test/src_text');
+const { newOrderViolations } = require('./part_move_order');
 
 const ROOT = path.join(__dirname, '..');   // (the checkout whose refs and src/ are read, unless --repo)
 
-// the tokens of a script: { keys (each token's source text), startLine, endLine (1-based, per token), codeLines (the lines that hold a token) }
+// the tokens of a script: { keys (each token's source text), startLine, endLine (1-based, per token), codeLines (the
+// lines that hold a token) }
 function tokenize(text) {
   const keys = [], startLine = [], endLine = [], codeLines = new Set();
   for (const t of acorn.tokenizer(text, { ecmaVersion: 'latest', sourceType: 'script', locations: true, allowHashBang: true })) {
@@ -53,14 +58,21 @@ function find(txt, pat) {
   return -1;
 }
 
-// two tokenizations -> { kind: 'identical' } | { kind: 'move', length, a: [from, to), b: [from, to) } (token indices of the run in
-// each) | { kind: 'changed', start, a: [from, to), b: [from, to) } (not a move: the region from the first difference to the
+// two tokenizations -> { kind: 'identical' } | { kind: 'move', length, a: [from, to), b: [from, to) } (token indices of
+// the run in
+// each) | { kind: 'changed', start, a: [from, to), b: [from, to) } (not a move: the region from the first difference to
+// the
 // common end).
-// A move is one run that is in both streams, with the streams equal once it is taken out of each. With the common start and
-// the common end taken off, what is left of one stream is the other's turned (U V against V U): the shorter of U and V is the
-// run. Tokens at the edges of the run that equal their neighbours (`) ; }` before a moved function ends the code before it
-// in both) make the common start and end reach into the run, so the turn is looked for in windows that begin up to EDGE tokens
-// before the first difference and end up to EDGE tokens after the common end, whole lines first (a run is whole lines when a
+// A move is one run that is in both streams, with the streams equal once it is taken out of each. With the common start
+// and
+// the common end taken off, what is left of one stream is the other's turned (U V against V U): the shorter of U and V
+// is the
+// run. Tokens at the edges of the run that equal their neighbours (`) ; }` before a moved function ends the code before
+// it
+// in both) make the common start and end reach into the run, so the turn is looked for in windows that begin up to EDGE
+// tokens
+// before the first difference and end up to EDGE tokens after the common end, whole lines first (a run is whole lines
+// when a
 // part is split), the smaller ones first.
 const EDGE = 32, EDGE_ANY = 8;
 function compareStreams(ta, tb) {
@@ -119,7 +131,8 @@ function lineDiff(a, b) {
   return { removed, added };
 }
 
-// the proof for two joined texts -> { pure, tokens: compareStreams' result, tA, tB (the tokenizations), diff, codeDiffers }
+// the proof for two joined texts -> { pure, tokens: compareStreams' result, tA, tB (the tokenizations), diff,
+// codeDiffers }
 function proveMove(textA, textB, { strict = false } = {}) {
   const tA = tokenize(textA), tB = tokenize(textB);
   const tokens = compareStreams(tA, tB);
@@ -129,10 +142,14 @@ function proveMove(textA, textB, { strict = false } = {}) {
   const codeA = codeLines(tA, textA), codeB = codeLines(tB, textB);
   const codeDiffers = diff.removed.filter(([l]) => codeA.has(l)).length + diff.added.filter(([l]) => codeB.has(l)).length;
   const differs = diff.removed.length + diff.added.length;
-  return { pure: tokens.kind !== 'changed' && !codeDiffers && !(strict && differs), tokens, tA, tB, diff, codeDiffers };
+  // (the order is read of a move only: the same stream has the same order, and another stream is not a move)
+  let order = [], orderError = null;
+  if (tokens.kind === 'move') try { order = newOrderViolations(textA, textB); } catch (e) { orderError = e.message; }
+  return { pure: tokens.kind !== 'changed' && !codeDiffers && !(strict && differs) && !order.length && !orderError, tokens, tA, tB, diff, codeDiffers, order, orderError };
 }
 
-// the parts of the joined file as line ranges -> [{ name, from, to }] (1-based, inclusive); the closure's own lines are wrap.js
+// the parts of the joined file as line ranges -> [{ name, from, to }] (1-based, inclusive); the closure's own lines are
+// wrap.js
 function layoutOf(file, dir) {
   const text = source(file, dir), total = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
   const ps = parts(file, dir);
@@ -152,9 +169,16 @@ function layoutOf(file, dir) {
   return out;
 }
 
-// 'src/app/19-steps-view.js lines 1203-1563' for the lines [from, to] of the joined file (each part it touches, if more than one)
+// 'line 7' or 'lines 1203-1563'
+const span = (a, z) => (a === z ? `line ${a}` : `lines ${a}-${z}`);
+
+// 'src/app/19-steps-view.js lines 1203-1563' for the lines [from, to] of the joined file (each part it touches, if more
+// than one)
 function whereIs(layout, from, to) {
-  const hit = layout.filter((x) => x.from <= to && x.to >= from).map((x) => `${x.name} lines ${Math.max(from, x.from) - x.from + 1}-${Math.min(to, x.to) - x.from + 1}`);
+  const hit = layout.filter((x) => x.from <= to && x.to >= from).map((x) => {
+    const a = Math.max(from, x.from) - x.from + 1, z = Math.min(to, x.to) - x.from + 1;
+    return `${x.name} ${span(a, z)}`;
+  });
   return hit.join(' and ') || '(outside the parts)';
 }
 
@@ -166,7 +190,7 @@ function report(p, { a, b, layoutA, layoutB, maxLines = 40 }) {
   const lines = (text) => N(text.split('\n').length - (text.endsWith('\n') ? 1 : 0));
   out.push(`joined file: ${a.name}: ${lines(a.text)} lines, ${N(tA.keys.length)} tokens; ${b.name}: ${lines(b.text)} lines, ${N(tB.keys.length)} tokens`);
   // (a run is told by the lines of its first and last token: a comment around the run is not a token)
-  const range = (tk, from, to, layout) => `joined lines ${tk.startLine[from]}-${tk.endLine[to - 1]} (${whereIs(layout, tk.startLine[from], tk.endLine[to - 1])})`;
+  const range = (tk, from, to, layout) => `joined ${span(tk.startLine[from], tk.endLine[to - 1])} (${whereIs(layout, tk.startLine[from], tk.endLine[to - 1])})`;
   if (t.kind === 'identical') out.push('tokens: the same stream, token for token (nothing moved)');
   else if (t.kind === 'move') {
     out.push(`tokens: one contiguous run of ${N(t.length)} tokens moved; the other ${N(tA.keys.length - t.length)} are identical and in the same order`);
@@ -185,6 +209,15 @@ function report(p, { a, b, layoutA, layoutB, maxLines = 40 }) {
   out.push(`lines as a multiset: ${diff.removed.length + diff.added.length ? 'differ' : 'the same'}`);
   if (diff.removed.length + diff.added.length) { show('-', diff.removed); show('+', diff.added); }
   if (p.codeDiffers) out.push(`${p.codeDiffers} differing line${p.codeDiffers === 1 ? '' : 's'} hold code (a token), even if only their layout differs`);
+  if (p.orderError) out.push(`order of the top-level statements: not read (${p.orderError})`);
+  else if (t.kind === 'move' && !p.order.length) out.push('order of the top-level statements: none runs before a const, let, class or var it reads');
+  if (p.order.length) {
+    out.push(`order of the top-level statements: ${p.order.length === 1 ? '1 statement runs' : `${p.order.length} statements run`} before a const, let, class or var it reads (a ReferenceError or an undefined at load):`);
+    const at = (n) => `joined line ${n.loc.start.line} (${whereIs(layoutB, n.loc.start.line, n.loc.start.line)})`;
+    const head = (n) => `"${b.text.slice(n.start, n.end).split('\n')[0].trim().slice(0, 60)}"`;
+    for (const v of p.order.slice(0, maxLines)) out.push(`  ${head(v.use)} at ${at(v.use)} reads ${v.name}, a ${v.kind} declared after it, ${head(v.decl)} at ${at(v.decl)}`);
+    if (p.order.length > maxLines) out.push(`  … ${p.order.length - maxLines} more`);
+  }
   out.push(p.pure ? 'pure move: yes' : 'pure move: NO');
   return { lines: out, pure: p.pure };
 }

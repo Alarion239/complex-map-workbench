@@ -128,10 +128,10 @@ taste that no rule here covers is a "Nit:" and never blocks.
     integration branch, or the integration commit it branched from, and the PR's head): it tokenises the joined file
     at both commits and says `pure move: yes` when one contiguous run of tokens moved and the rest is the same token
     for token, with the lines the run came from and went to, and the lines that differ as a multiset. A comment line
-    it lists (a new part's header) is read, a code line that differs fails it (`--strict` fails any line). It does not
-    prove the order the top-level statements run in: a `const`, `let`, `class` or statement of the run that uses
-    something declared after its new place (or that something earlier uses) reads yes and throws at load (a
-    temporal-dead-zone ReferenceError), so the reviewer checks that by eye or by loading the page;
+    it lists (a new part's header) is read, a code line that differs fails it (`--strict` fails any line). It also
+    fails a move after which a top-level statement runs before a `const`, `let`, `class` or `var` that it reads while
+    it runs (a ReferenceError at load). What a function called at load reads is not followed: the reviewer checks that
+    by eye or by loading the page;
   - one subject per PR, with no reformatting mixed into a behaviour change. A change to how the project is built,
     tested, run or released updates the docs (`README.md`, `ci/README.md`, this file), and deleted code takes its
     docs with it;
