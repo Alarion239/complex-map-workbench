@@ -287,6 +287,8 @@ check('CD_MS: 1.5 s (Alexander: 1 to 2 s)', T.CD_MS, 1500);
 // adds no zeros)
 // (standards-ok: the Deformation chapter's rows went with the chapter, #994: the classic transport is gone; the steps
 // view's chapter is Planes, t_tour_planes.js)
+// (standards-ok: the rows on the steps that need Y's pane, Basics y and preimages, Views key and the probe they shared,
+// go with those steps (#994); the rows on the steps that stay are kept, and the classic tour's absence of them is checked)
 check('35 steps: 29 tasks (no door), 6 read', [steps.length, steps.filter((x) => x.try).length, steps.filter((x) => x.try && x.try.advance).length, steps.filter((x) => !x.try).length], [35, 29, 0, 6]);   // (domain, deriv and cauchy have tasks)
 
 // ---- lit areas

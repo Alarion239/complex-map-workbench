@@ -66,7 +66,7 @@
   };
   // TEST-HOOK
   // cameras: 28° telephoto. dist is the fit distance for the bounding sphere at the pane's aspect; render3D and
-  // renderSphere refit it every frame (refitCam), so zoom limits (0.4–4 × dist) and resets stay relative to the fit.
+  // renderSphereLeft refit it every frame (refitCam), so zoom limits (0.4–4 × dist) and resets stay relative to the fit.
   const CAM3 = { yaw: -38 * DEG, pitch: 30 * DEG, dist: 1.77 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: -0.04, fov: 28 * DEG };
   const CAMS = { yaw: -60 * DEG, pitch: 18 * DEG, dist: 1.16 / Math.sin(14 * DEG) * 1.05, tx: 0, ty: 0, tz: 0, fov: 28 * DEG };
   const cam = Object.assign({ vyaw: 0, vpitch: 0 }, CAM3);

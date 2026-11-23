@@ -2,6 +2,8 @@
 // on X's pane: the exact globes at stage 0 and at a focused stage (stage 1 of [f, z^2] shows the plane of w = f(z), the
 // images the checks are made on), the left plane at a focused stage, the spherical checker on the GPU, the figure
 // export, and the globe orientation.
+// (standards-ok: the rows on Y's w-globe (z^i(H), the hole cap and annulus, log(H)), the scissor on each side and both
+// globes' orientation are read on X's globe at stage 1, the plane w = f(z), since Y's pane is not drawn (#994): fewer rows, the same truths)
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/p3_accept_cmd.js
 // Prints {pass, fails, results}; pass is true when every check holds.
