@@ -63,7 +63,7 @@ const missing = ents.filter(([, v]) => !(keyOf(v) in TABLE));
 ok('every string of the piece is in the shipped table', missing.length === 0, missing.map(([k]) => k));
 ok('no stopgap entry is left for the older Help "Deformation" paragraph, and the release\'s paragraph is in the table',
   !ents.some(([, v]) => /^Stopgap/.test(v.note || '')) && !ents.some(([k]) => /^help\.deformation\./.test(k))
-  && Object.keys(TABLE).some((k) => k.startsWith('▶ ({x} or {x2}) glides the picture along the chain') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
+  && Object.keys(TABLE).some((k) => k.startsWith('A glide shows the homotopy') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));
 ok('UX78: «Дальше автоматически»', TABLE['Move on by itself'] === 'Дальше автоматически', TABLE['Move on by itself']);
 ok('UX93: the tour is «Обучение»', TABLE['Guided tour'] === 'Обучение' && TABLE['⋯ › Guided tour'] === '⋯ › Обучение');
 const obzor = Object.entries(TABLE).filter(([k, v]) => /tour|Tour/.test(k) && (typeof v === 'string' ? [v] : Object.values(v)).some((x) => /[Оо]бзор/.test(x)));

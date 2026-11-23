@@ -58,12 +58,13 @@ await key('?', 0); await settled();
 const dr = await ev(DEFORM);
 ok('ru: each control the Deformation section names in bold is on the strip or in Playback', dr && dr.bold.length >= 3 && dr.missing.length === 0, dr && { bold: dr.bold, missing: dr.missing, names: dr.names });
 ok('ru: the Deformation section has no X → Y', dr && !/X\s*→\s*Y/.test(dr.text), dr && dr.text.slice(0, 400));
-// on a phone the strip has no speed select, Loop or ⋯: the section sends to Playback by holding ▶, as the line under its heading does
+// on a phone the strip has no speed select, Loop or ⋯, and no keys: the section sends to Playback by holding ▶, as the line under its
+// heading does, and names no key
 const origin = await ev('location.origin');
 await view(412, 860, false, true);
 await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
 await go(`${origin}/test.html?ns=guidenavph${Date.now()}`); await settled();
 await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove()`); await ev(`__tourApi.openGuide()`); await settled();
-const dp = await ev(`(() => { const sec = [...document.querySelectorAll('.guide-sec')].find((x) => x.querySelector('h3').textContent === 'Deformation'); return { ph: document.documentElement.classList.contains('ph'), text: sec ? sec.textContent.replace(/\\s+/g, ' ') : null }; })()`);
-ok('phone: the Deformation section sends to Playback by holding ▶, and names no speed select or ⋯ on the thread', dp.ph && dp.text && /Hold ▶ to open Playback/.test(dp.text) && !/speed select|its ⋯/.test(dp.text), dp);
+const dp = await ev(`(() => { const sec = [...document.querySelectorAll('.guide-sec')].find((x) => x.querySelector('h3').textContent === 'Deformation'); return { ph: document.documentElement.classList.contains('ph'), text: sec ? sec.textContent.replace(/\\s+/g, ' ') : null, keys: sec ? [...sec.querySelectorAll('.kbd')].map((x) => x.textContent) : null }; })()`);
+ok('phone: the Deformation section sends to Playback by holding ▶, and names no speed select, ⋯ on the thread or key', dp.ph && dp.text && /Hold ▶ to open Playback/.test(dp.text) && !/speed select|⋯ opens/.test(dp.text) && dp.keys && dp.keys.length === 0, dp);
 return { pass: fails.length === 0, fails };
