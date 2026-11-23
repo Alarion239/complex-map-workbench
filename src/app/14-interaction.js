@@ -53,6 +53,8 @@
   function zoomPane(pane, side, x, y, f) {
     if (is3DSide(side)) { const c = camOf(side); if (c) { const fit = camBaseOf(c).dist; c.dist = Math.min(4 * fit, Math.max(0.4 * fit, c.dist / f)); requestRender(side); } return; }
     if (side === 'L') {
+      // (on the Stack the zoom is about the floor's point under the pointer, or the floor's centre off the floor)
+      if (stackOn()) { const h = stackPick(pane, x, y).floor; [x, y] = h && h.on ? h.p : [pane.w / 2, pane.h / 2]; }
       pane.setView(leftView()); pane.zoomAt(x, y, f);
       if (leftStage() > 0) leftAuto = false;
       sourceViewChanged();
@@ -63,7 +65,8 @@
   }
   // a two-finger drag moves a flat plane by the way its midpoint went (the pinch zooms about it): every tool, on touch
   function panPane(pane, side, dx, dy) {
-    if (is3DSide(side)) return;
+    // (two fingers turn the Stack's camera, and do not pan its floor)
+    if (is3DSide(side) || (side === 'L' && stackOn())) return;
     const v = side === 'L' ? leftView() : V.right;
     v.cx -= dx / v.s; v.cy += dy / v.s;
     if (side === 'L') { if (leftStage() > 0) leftAuto = false; sourceViewChanged(); requestRender('L'); } else { rightAuto = false; requestRender('R'); }

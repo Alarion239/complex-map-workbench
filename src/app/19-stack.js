@@ -15,6 +15,9 @@
   // Tilt, the camera the Stack opens with (dist, tx and ty are fields the orbit and its reset read; the levels do not)
   const STACK_CAM = { yaw: -30 * DEG, pitch: 35 * DEG, dist: 1, tx: 0, ty: 0 };
   const stackCam = Object.assign({ vyaw: 0, vpitch: 0 }, STACK_CAM);
+  // Look down, the Stack's other camera: straight down with yaw 0, where the frame is Look down's
+  const STACK_DOWN = { yaw: 0, pitch: 90 * DEG };
+  let stackCamSet = false;                    // the Stack's camera was opened by a state or turned in this page
   const STACK_GLASS_H = 0.5;                  // the glass's height above the floor, a share of the pane's shorter side
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
@@ -65,6 +68,49 @@
     }
     if (cur) runs.push(cur);
     return { runs, ends };
+  }
+  // the Stack's camera as the state keeps it (S.sv.cam, Views.cleanSv): [yaw, pitch] in degrees, to 0.01°
+  const stackCamSaved = () => [stackCam.yaw, stackCam.pitch].map((a) => Math.round((a / DEG) * 100) / 100);
+  // opens the Stack's camera on saved ([yaw, pitch] in degrees, S.sv.cam), or with none on its own: Look down on a phone,
+  // where the Stack opens flat and exact, and Tilt elsewhere
+  function stackCamOpen(saved) {
+    const c = saved ? { yaw: saved[0] * DEG, pitch: saved[1] * DEG } : document.documentElement.classList.contains('ph') ? STACK_DOWN : STACK_CAM;
+    Object.assign(stackCam, { yaw: c.yaw, pitch: c.pitch, vyaw: 0, vpitch: 0 });
+    stackCamSet = true;
+  }
+  // the Stack's camera's preset: 'down' at Look down (straight down, yaw 0), else 'tilt'
+  const stackViewNow = () => (stackTilt(stackCam) === 0 && Math.abs(Math.sin(stackCam.yaw)) < 1e-9 && Math.cos(stackCam.yaw) > 0 ? 'down' : 'tilt');
+  // turns the Stack's camera to a preset, 'tilt' (STACK_CAM) or 'down' (Look down), in a short tween (at once when motion is
+  // reduced: tweenCam)
+  function stackView(name) {
+    stackCamSet = true;
+    tweenCam(stackCam, name === 'down' ? STACK_DOWN : { yaw: STACK_CAM.yaw, pitch: STACK_CAM.pitch });
+  }
+  // The Stack chosen (the Surface menu, the palette): its camera opens as stackCamOpen says the first time in the page,
+  // and with no target to show (a selected disc of a later plane) the first such disc is selected; with none, a starter
+  // disc is added on the next plane (one edit, said in the live region), about F(c) for c a quarter of the view off its
+  // centre (off a critical point there, as z² has at 0), of radius STACK_START_R of the view's width through F′(c), so
+  // that its patches and tubes land in view. With no later plane nothing is added
+  const STACK_START_R = 0.12;
+  function stackChosen() {
+    if (!stackCamSet) stackCamOpen(null);
+    const k = leftStage(), sel = findShape(selected);
+    if (readoutOn(sel)) return;
+    const own = S.shapes.find((q) => q.visible !== false && readoutOn(q));
+    if (own) { selected = own.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); return; }
+    const T = svPlanes().find((st) => st > k);
+    if (T == null) return;
+    const F = rangeF(k, T);
+    paneL.setView(leftView());
+    const b = paneL.box(), W = b.x1 - b.x0, H = b.y1 - b.y0, mid = C((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
+    for (const [u, v] of [[0.25, 0], [0.25, 0.15], [-0.25, 0.15], [0, 0.25]]) {
+      const c = C(mid.re + u * W, mid.im + v * H), h = 1e-4 * W, w = F(c);
+      const d = CX.abs(CX.sub(F(C(c.re + h, c.im)), F(C(c.re - h, c.im)))) / (2 * h), r = STACK_START_R * W * d;
+      if (!CX.isFin(w) || !(r > 0) || !Number.isFinite(r)) continue;
+      addShape(newShape('disc', { c: [w.re, w.im], r, stage: T }));
+      svSay($t('A starter disc added on {w}, with its preimage on {z}', { w: svName(T), z: svName(k) }));
+      return;
+    }
   }
   // a level of the marks (drawLookLayer's) from its map m
   const stackMarkLevel = (m) => ({
