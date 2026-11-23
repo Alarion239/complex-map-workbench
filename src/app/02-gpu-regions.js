@@ -648,8 +648,14 @@
   // so the drawn mesh is the same whatever the machine's load; SM_MS_CAP CPU ms is a safety stop only. (The wall-clock
   // 1.5 s of 8.4 expires on a heavy scene, so the drawn meshes would be partial and change with the load.)
   const SM_APP = /** @type {any} */ (SphereMesh.APP || { maxWork: 250000, maxNodes: 300000, guard: 2 });
-  const smWork = () => (SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork);
   const SM_GUARD = SM_APP.guard, SM_SLICE = 5, SM_CPU_BYTES = 32 * 1024 * 1024, SM_LIVE_NODES = 1500000, SM_NODES = SM_APP.maxNodes, SM_MS_CAP = 10000;
+  // the map evaluations a shape's mesh may take where SphereMesh.APP's are too few for it, by the shape's id: the steps
+  // view's whole plane (__svAll, its carried colour Everywhere), whose front layer about a fold of the map takes more.
+  // On z³ then cos about z³ = π, with APP's 250k the leaves there stay pending and undrawn, and other sheets and bare
+  // paper show through them (steps_mesh_arc); 500k ends on the node budget (SM_NODES) first, with every leaf there
+  // drawn. Its outer ring (__svRing) and every other shape keep APP's
+  const SM_WORK_OF = { __svAll: 500000 };
+  const smWork = (s) => Math.max(SM_APP.workOf ? SM_APP.workOf(SphereMesh.kOf(S.alpha)) : SM_APP.maxWork, (s && SM_WORK_OF[s.id]) || 0);
   const sm = { entries: new Map(), jobs: new Map(), want: new Map(), running: false, kickT: 0, cpuBytes: 0, exportPartial: 0, exportGen: 0, stats: { built: 0, ms: 0, slices: 0, maxSlice: 0, cancelled: 0, partial: 0 } };
   const smOn = () => GLR.ok && !!GLR.createPreMesh;
   function smStretched(s) {
@@ -817,7 +823,7 @@
         left: smLeft(),
         view: v, Kmax: kp ? 2 : SphereMesh.kOf(lk.alpha), depth: kp ? (z) => Inverse.sheetKey(kp, z, null) : undefined,
         pattern: { id: (GLR.PATTERNS || {})[lk.pattern] ?? 1, cell: patternCell(), lines: !!lk.lines },
-        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork()) : smWork(), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
+        maxWork: why === 'linking' ? Math.min(SM_LINK_WORK, smWork(s)) : smWork(s), budgetMs: SM_MS_CAP, maxNodes: SM_NODES,
       };
       sm.jobs.set(key, { key, ck, ck0: smContent(s, role, kind, m, false) + (why === 'linking' ? '|link' : ''), slot, role, kind, view: v, why, cfg, mesh: null, ms: 0, slices: 0, t0: performance.now() });
     }
@@ -917,7 +923,7 @@
           steps: smSteps(m), F: cpuMap(m), injective: smInjective(m), shape: JSON.parse(JSON.stringify(s)),
           left: smLeft(),
           view: v, Kmax: SphereMesh.kOf(S.alpha), pattern: { id: (GLR.PATTERNS || {})[S.pattern] ?? 1, cell: patternCell(), lines: !!S.lines },
-          maxWork: smWork() * 4, budgetMs: SM_MS_CAP * 3, maxNodes: SM_NODES * 2,
+          maxWork: smWork(s) * 4, budgetMs: SM_MS_CAP * 3, maxNodes: SM_NODES * 2,
         });
         const t0 = performance.now();
         let cpu = 0, slices = 0, st;
