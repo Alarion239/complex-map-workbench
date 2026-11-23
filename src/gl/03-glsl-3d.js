@@ -651,7 +651,9 @@ void main() {
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
   // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
-  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge
+  // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. (The box's corners
+  // for that test by the box's own formula, not carryZ, whose patch branch costs every vertex.) A triangle wholly past
+  // one of the block's sides (its half extent uAspect) is left out: LAND_FS would discard every fragment of it
   const LAND_CARRY_VS = `
 uniform highp sampler2D uT1; uniform highp sampler2D uT2;
 uniform int uN; uniform vec4 uBox; uniform vec4 uSrc; uniform vec2 uAspect; uniform float uH; uniform mat4 uMVP; uniform float uLim;
@@ -678,11 +680,8 @@ void main() {
   if (t0.w < 0.5 || t1.w < 0.5 || t2.w < 0.5) return;
   if (length(t0.xy - t1.xy) > uLim || length(t1.xy - t2.xy) > uLim || length(t2.xy - t0.xy) > uLim) return;
   if (max(max(t0.z, t1.z), t2.z) - min(min(t0.z, t1.z), t2.z) > uStep) return;
-  // (the box's corners in plane s by the box's own formula, not carryZ: its patch branch costs every vertex)
   float bf = 1.0 / float(M);
   if (uPolar.w <= 0.0 && uDiscN > 0 && inDisc(uSrc.xy + vec2(V0) * bf * uSrc.zw, uSrc.xy + vec2(V1) * bf * uSrc.zw, uSrc.xy + vec2(V2) * bf * uSrc.zw)) return;
-  // (a triangle wholly past one of the block's sides, its half extent uAspect, is left out: LAND_FS would discard
-  // every fragment of it)
   vec2 p0 = ((t0.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, p1 = ((t1.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect;
   vec2 p2 = ((t2.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, lo = min(min(p0, p1), p2), hi = max(max(p0, p1), p2);
   if (any(greaterThan(lo, uAspect)) || any(lessThan(hi, -uAspect))) return;

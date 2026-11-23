@@ -428,8 +428,10 @@
   // between frames
   const CARRY_POLES = 12, CARRY_POLE_N = 96, CARRY_FAR_N = [128, 96], landPP = [];
   // the carried heights of the other sheets' copies (st.carry.copies), one set of textures each: its box's grid's (box)
-  // and its patches' (pp, in landPP's order); and the polygon offset the copies are drawn at, behind the principal surface
-  const landCopies = [], COPY_OFF = [4, 32];
+  // and its patches' (pp, in landPP's order); the polygon offset the copies are drawn at, behind the principal surface;
+  // and their patches' points a side, a share of the principal surface's (a copy's patches cost about a tenth of a
+  // sheets-off glide's frame on lavapipe at the principal's points, under half that at half of them)
+  const landCopies = [], COPY_OFF = [4, 32], COPY_PATCH = 0.5;
   // a seam's band (st.carry.copies' band): the part of the carried box sb within SEAM_CELLS cells of the principal grid
   // (N points a side) of the ray from 0 at angle deg (0, 90, 180 or 270), where every surface's cells tear; on a grid
   // of SEAM_N points a side. null when the ray misses sb
@@ -1647,8 +1649,9 @@
         // them, and they a little behind their depth (COPY_OFF, further than the pole patches' offset), so it is the one
         // shown where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's
         // height, and early in a glide its copy lies in the principal surface's place on triangles of its own, which a
-        // tie in depth would show pixel by pixel. A copy's patches lie the patches' offset behind its cells)
-        info.copies = 0; info.copyPatches = 0;
+        // tie in depth would show pixel by pixel. A copy's patches lie the patches' offset behind its cells, at
+        // COPY_PATCH of the principal surface's points a side)
+        info.copies = 0; info.copyPatches = 0; info.copyPatch = COPY_PATCH;
         for (const [i, cp] of (st.carry.copies || []).entries()) {
           cp.draw(() => {
             if (!carryReady(st.carry.map)) return;
@@ -1656,7 +1659,7 @@
             if (cp.band != null && !band) return;
             const n = band ? SEAM_N : N, sc = band ? Object.assign({}, st, { carry: Object.assign({}, st.carry, { src: band }) }) : st;
             const tex = landCopies[i] || (landCopies[i] = { box: {}, pp: [] });
-            const patch = (p, k) => ({ polar: p.polar, N: p.N, o: carryHeights(st, p.N, mode, H, mu, aspect, p.polar, tex.pp[k] || (tex.pp[k] = {})) });
+            const patch = (p, k) => { const m = Math.round(p.N * COPY_PATCH); return { polar: p.polar, N: m, o: carryHeights(st, m, mode, H, mu, aspect, p.polar, tex.pp[k] || (tex.pp[k] = {})) }; };
             const h = copyH[i] || (copyH[i] = { o: carryHeights(sc, n, mode, H, mu, aspect, null, tex.box), pp: cp.seam ? [] : pp.map(patch), far: cp.seam ? [] : farPatches.map((p, k) => patch(p, CARRY_POLES + k)) });
             setUp(band || sb, cp.seam);
             gl.activeTexture(gl.TEXTURE2); gl.bindTexture(gl.TEXTURE_2D, h.o.tex1);
