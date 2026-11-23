@@ -248,6 +248,7 @@ const VIEWS = {
 
   // the classic views' own parts, pinned to the classic view
   'deform_range_cmd.js': steps({ pin: true }),
+  'export_stage_points_cmd.js': classic('the classic Image figure\'s two panels at a focused step: a point of w₁ carried from its own plane, and the caption that names its plane'),
   'figure_ticks_cmd.js': classic('the classic Image figure\'s two panels of points only, and the composer\'s tick labels'),
   'figure_ticks_views_cmd.js': classic('the axes the video, the Landscape figure and the deformation filmstrip label themselves, over a zoomed window and a wide one'),
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
