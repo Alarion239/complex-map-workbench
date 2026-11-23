@@ -33,10 +33,12 @@
 //   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
 // - the page's own heights (log |F|) and window, square root alone: leaving plane z the other sheet has the principal's
 //   modulus, so its copy lies in the principal surface's place on triangles of its own. Held at u = NEAR, 0.02, 0.05
-//   and 0.15, the frame and the control (the principal combo alone) differ in at most SPECKLE isolated pixels (over
-//   SPECKLE_TOL in a channel, with at most two of their eight neighbours so): the principal surface is the one shown
-//   where they coincide, where a tie in depth speckled the whole surface with the copy's colours. (Where the copy
-//   slides out of it, near the cut, the two differ in whole wedges, which have few isolated pixels)
+//   and 0.15, the frame and the control (the principal combo alone) differ in at most SPECKLE isolated pixels where
+//   both show surface (over SPECKLE_TOL in a channel, with at most two of their eight neighbours so): the principal
+//   surface is the one shown where they coincide, where a tie in depth speckled the whole surface with the copy's
+//   colours. (Where the copy slides out of it, near the cut, the two differ in whole wedges, which have few isolated
+//   pixels; where it reaches past the principal surface's rim, turned about the branch point with its own far patches,
+//   it adds surface where the control shows paper, at a grazing angle a dotted line of single pixels)
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the views shard (ci/browser_shards.js)
 // Prints {pass, fails, info}.
 const fails = [], info = {};
@@ -150,9 +152,11 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
 // ---- the page's own heights (log |F|) and window: no speckle where the copy lies in the principal surface's place ----
 {
   const r = info.modulus = {};
-  // (the pixels over SPECKLE_TOL apart between the kept frames a and b with at most two of their eight neighbours so)
+  // (the pixels where the kept frames a and b both show surface (saturation over SAT) and are over SPECKLE_TOL apart,
+  // with at most two of their eight neighbours so)
   const speckle = (a, b) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(a)}], B = window.__heldPx[${JSON.stringify(b)}], W = document.getElementById('canvasL').width, H = A.length / 4 / W;
-    const D = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) { const i = 4 * k; D[k] = Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${SPECKLE_TOL} ? 1 : 0; }
+    const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT};
+    const D = new Uint8Array(W * H); for (let k = 0; k < W * H; k++) { const i = 4 * k; D[k] = sat(A, i) && sat(B, i) && Math.max(Math.abs(A[i] - B[i]), Math.abs(A[i + 1] - B[i + 1]), Math.abs(A[i + 2] - B[i + 2])) > ${SPECKLE_TOL} ? 1 : 0; }
     let n = 0, all = 0; for (let y = 1; y < H - 1; y++) for (let x = 1; x < W - 1; x++) { const k = y * W + x; if (!D[k]) continue; all++; const m = D[k - W - 1] + D[k - W] + D[k - W + 1] + D[k - 1] + D[k + 1] + D[k + W - 1] + D[k + W] + D[k + W + 1]; if (m <= 2) n++; }
     return { isolated: n, apart: all }; })()`);
   await loadView('steps', 'landcopiesabs' + Date.now(), { shapes: [], steps: [ROOT], sheets: false });
@@ -165,7 +169,7 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const all = await at(u, 0, `m${u}`);
     const one = await at(u, 1, `mk${u}`);
     const sp = r[`u ${u}`] = Object.assign({ copies: all.copies }, await speckle(`m${u}`, `mk${u}`));
-    ok(`log |F| heights, u = ${u}: the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
+    ok(`log |F| heights, u = ${u}: where both show surface, the frame with the other sheet's copy and the control differ in at most ${SPECKLE} isolated pixels (no speckle)`, all.copies >= 1 && sp.isolated <= SPECKLE, sp);
   }
   await ev('__cmwSteps({ glideSheets: 0 }); 1');
 }
