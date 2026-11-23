@@ -66,6 +66,17 @@
     { name: 'menu more', click: 'hdrMoreBtn', dev: 'phone' },
     ...['edit', 'tools', 'display', 'more', 'chain'].map((k) => ({ name: 'sheet ' + k, go: `(Phone.open(${JSON.stringify(k)}), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === ${JSON.stringify(k)}` })),
     { name: 'sheet numbers', go: `(Phone.open('edit', { params: true }), 1)`, wait: 900, dev: 'phone', ready: `Phone.sheet() === 'edit'` },
+    // (#2191: the Line integral popover on an open curve (the scene's line) and on a closed one (a disc added to the scene, taken out after), its two
+    // row counts; on a phone, where its Copy and Close are touch targets)
+    { name: 'line integral open curve', dev: 'phone', wait: 900, ready: LAYER,
+      go: `(() => { const s = __cmwShapes().shapes.find((x) => x.kind === 'line'); return s && __cmwIntegrate(s.id) ? 1 : 'na'; })()` },
+    { name: 'line integral closed curve', dev: 'phone', wait: 900, ready: LAYER,
+      run: async () => {
+        await ev(`__cmwSet('shapes', __cmwShapes().shapes.concat([{ id: 'lay-disc', kind: 'disc', c: [0.2, 0.1], r: 0.5, ci: 2, visible: true }])), 1`);
+        await settle(1000);
+        await ev(`__cmwIntegrate('lay-disc'), 1`);
+      },
+      after: `__cmwSet('shapes', __cmwShapes().shapes.filter((x) => x.id !== 'lay-disc'))` },
     { name: 'sphere', go: `__cmwSetView('R', 'sphere'), 1`, wait: 1500, views: ['classic'], after: `__cmwSetView('R', 'plane')` },
     // (a longer chain than the default's two steps: the steps view's thread and the chain bar at their widest, #497)
     { name: 'chain of 4', run: grow, wait: 1500, ready: GROWN, after: SHRINK },

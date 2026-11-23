@@ -392,6 +392,16 @@
     svRangeEnds: () => { const R = svRange(); return R ? [R.lo, R.hi] : null; },
     svMapTex: (i, j) => { const P = svPlanes(); return svMapName('tex', P[i], P[j]); },
     shapes: () => S.shapes.filter((s) => s.visible !== false),
+    // a shape's map from its own plane into a panel's plane (side 'L' or 'R'), F the panel's map of the z-plane's shapes:
+    // null where the page does not draw it (a plane after the panel's, a d/dz step between)
+    shapeF: (s, side, F) => shapeF(s, F, side === 'L' ? leftStage() : rightStage()),
+    // a point's name on a panel, the one the page's figure frames give it (pointLabel in the figure's mode: F(z₀), w₂(z₁)),
+    // idx its place among the points the panel draws
+    pointName: (s, idx, side) => {
+      const keep = figMode;
+      figMode = true;
+      try { return pointLabel(s, idx, primesOf(s, side === 'L' ? leftStage() : rightStage())); } finally { figMode = keep; }
+    },
     F: (side) => stageF(side === 'L' ? leftStage() : rightStage()),
     plotF: () => { const hv = homView(); return hv ? hv.F : focusF(); },
     homF: (T) => { const keep = morph.T; morph.T = T; try { const hv = homView(); return hv ? hv.imageF : stageF(rightStage()); } finally { morph.T = keep; } },
@@ -439,7 +449,7 @@
       focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand,
       lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
       morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
-      pickScene, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage,
+      pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, shapeF, shapeStage, stageF,
       fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
       smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt,
       get S() { return S; },

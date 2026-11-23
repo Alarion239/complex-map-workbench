@@ -354,7 +354,7 @@ float wabs(vec2 w) {
     } else e.offView = false;
     e.used = ++useClock;
     if (d.chain) e.ch = ch;
-    if (!sideMode) e.side = false;   // a side chain's program that the current chain now uses (an example loaded)
+    if (!sideMode) e.side = false;   // a side chain's program that the current chain uses as well (an example loaded)
     if (e.state === 'pending') {
       // programs without the chain compile once (the 2D view's at init, PRESTART_2D); their first use does not wait
       // either: a synchronous link held the main thread 0.3-1.8 s per program on Direct3D 11 (Iris Xe), ~4 s before
@@ -1234,7 +1234,7 @@ float wabs(vec2 w) {
       gl.enable(gl.SCISSOR_TEST); gl.scissor(x0, y0, x1 - x0, y1 - y0);
     }
     // (the default framebuffer has a depth buffer; any other target draws in the leaf order)
-    const k = !sph && st.key && st.key.win && (peelOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
+    const k = !sph && st.key && st.key.win && (peelOn || resOn || gl.getParameter(gl.FRAMEBUFFER_BINDING) === null) ? st.key : null;
     keyUniforms(P, k);
     gl.bindVertexArray(res.vao);
     if (carry) carryDraw(k, st.depth, () => gl.drawArrays(gl.TRIANGLES, 0, res.count));

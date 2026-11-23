@@ -67,7 +67,10 @@ const Inverse = (() => {
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back), at = o.kind === 'NEWT' && o.sub != null ? `@${o.sub}` : '';
     return (n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind) + at;
   }
-  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
+  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity. The plan's
+  // ops are its own records (a copy of each op of stepOps with its step, node and j), so plans whose steps share their op
+  // objects (a glide's skeleton shares each step's decomposition at every t, where one op can sit at another node) keep
+  // their own places
   function planChain(steps, built, a = 0, b = steps.length) {
     const key = inverseKey(steps, built);
     const ops = [];
@@ -76,7 +79,7 @@ const Inverse = (() => {
       if (!isLive(st, bb)) continue;
       const r = stepOps(bb);
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
-      r.ops.forEach((o, i) => { o.step = k; o.node = i; ops.push(o); });
+      r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
     if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
     ops.forEach((o, j) => { o.j = j; });
@@ -1750,6 +1753,15 @@ const Inverse = (() => {
     if (one && one.kind === 'IPOW' && !nat && one.p.n > 0) {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
+    }
+    // a real exponent a < 0 (powaHom): z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2, then z^|a| and the
+    // Möbius arc from the identity to 1/w
+    if (one && one.kind === 'ROOTPOW' && !nat && id === 'powa' && b.twoPhase && b.twoPhase()) {
+      const { s, theta, k } = one.p, e = C(-s.re, 0), pw = (z) => CX.pow(z, e, theta, k);
+      if (t < 0.5) { const sv = C(1 + (-s.re - 1) * 2 * t, 0); return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] }; }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [opRootPow(e, theta, k, pw), mobOf(path(2 * t - 1))] };
     }
     // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
     // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and

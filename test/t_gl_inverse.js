@@ -348,6 +348,11 @@ for (const t of TYPES) {
     const c = copies(src);
     for (const [f, k] of Object.entries(want)) check(`${name} holds ${k} cop${k > 1 ? 'ies' : 'y'} of ${f}`, c.get(f) === k, `${c.get(f)} copies`);
   }
+  // (the carried variant holds no pattern code: every draw of it sets uPattern 9, the carried colour; on the plane, on the
+  // globe, staged, and the Cauchy style's variant)
+  const carried = [['plane', prog(5, false, CARRY)], ['globe', prog(5, true, CARRY)], ['staged', prog(5, false, STAGED)], ['Cauchy', prog(5, false, Object.assign({ cz: true }, CARRY))]];
+  check('the carried programs hold no copy of ixPattern, the plain one one', carried.every(([, src]) => !copies(src).has('ixPattern')) && copies(prog(5, false)).get('ixPattern') === 1,
+    carried.map(([k, src]) => `${k} ${copies(src).get('ixPattern') || 0}`).join(', ') + `; plain ${copies(prog(5, false)).get('ixPattern')}`);
   // (SwiftShader's programs, IX_CHAIN3_CALLS: ixChain3 is three calls, the chain three times, six with a staged shape)
   const sw = (src) => copies('#define IX_CHAIN3_CALLS 1\n' + src).get('chainRange');
   check('IX_CHAIN3_CALLS: the carried program holds 3 copies of chainRange', sw(prog(5, false, CARRY)) === 3, sw(prog(5, false, CARRY)));
