@@ -18,7 +18,7 @@
   const TUBE_FULL_TILT = 0.5;                  // cos(pitch) at 60°
   const NARROW_TOL = 1e-6;                     // F′ counts as real when |Im F′| ≤ NARROW_TOL·|F′|
   const TUBE_CRIT_DASH = [4, 3];               // css px: a critical strand's dashes
-  const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12;   // css px: a narrowing's dot, its words' gap from it, their size
+  const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin
   const tubeCache = new Map();
   // n of a closed loop's points, about evenly spaced by arc length: the loop's own points (preimages of the rim, so a
   // tube's ends lie exactly on the patch's edge and the rim), all of them when it has n or fewer
@@ -69,17 +69,21 @@
     return $t('narrows here: {d}, not a join', { d: `${f}′(${tubeNum(n.z)}) = ${tubeNum(n.d)}` });
   }
   // the narrowings' labels (drawStackTubes' labels) on ctx at strength fade, last, over every level: a dot at the
-  // narrowing and the words beside it on a halo, to its right, or to its left where the pane (w css px wide) has no room
-  // there, and kept inside the pane. Each label's box [x0, y0, x1, y1] (css px) is kept on it
+  // narrowing and the words beside it on a halo plate, to its right, or to its left where the pane (w css px wide) has no
+  // room there; kept inside the pane, and above the dot where that would cover it. Each label's box [x0, y0, x1, y1] (css
+  // px, the plate's) is kept on it
   function drawStackLabels(ctx, labels, fade, w) {
     ctx.save();
-    ctx.globalAlpha = fade; ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle'; ctx.lineJoin = 'round';
+    ctx.font = `${TUBE_FONT}px ${TH.ui}`; ctx.textBaseline = 'middle';
     for (const L of labels) {
       const [x, y] = L.at, tw = ctx.measureText(L.text).width, right = x + TUBE_LABEL_DX + tw <= w - TUBE_LABEL_DX;
       const x0 = Math.max(TUBE_LABEL_DX, Math.min(w - TUBE_LABEL_DX - tw, right ? x + TUBE_LABEL_DX : x - TUBE_LABEL_DX - tw));
-      ctx.fillStyle = TH.ink; ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
-      ctx.lineWidth = 3; ctx.strokeStyle = TH.halo; ctx.strokeText(L.text, x0, y); ctx.fillText(L.text, x0, y);
-      L.box = [x0, y - TUBE_FONT / 2, x0 + tw, y + TUBE_FONT / 2];
+      const ty = x0 - TUBE_PLATE <= x + TUBE_DOT && x0 + tw + TUBE_PLATE >= x - TUBE_DOT ? y - TUBE_FONT - TUBE_PLATE : y;
+      L.box = [x0 - TUBE_PLATE, ty - TUBE_FONT / 2 - TUBE_PLATE, x0 + tw + TUBE_PLATE, ty + TUBE_FONT / 2 + TUBE_PLATE];
+      ctx.globalAlpha = TH.haloA * fade; ctx.fillStyle = TH.halo; ctx.fillRect(L.box[0], L.box[1], L.box[2] - L.box[0], L.box[3] - L.box[1]);
+      ctx.globalAlpha = fade; ctx.fillStyle = TH.ink;
+      ctx.beginPath(); ctx.arc(x, y, TUBE_DOT, 0, TAU); ctx.fill();
+      ctx.fillText(L.text, x0, ty);
     }
     ctx.restore();
   }
