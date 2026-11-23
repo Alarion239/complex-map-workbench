@@ -11,7 +11,7 @@
 //    labelled "torn here by the glide’s cut, not a split". Straight, the narrowing keeps its label. M2 and M3, curved:
 //    no slice is torn (M2's inner piece is stretched far, not torn);
 //  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys
-//    and keeps the focus on the radio checked; it shows its name, Connectors; on a phone (390 × 844) its radios are 44 px
+//    (→ and ←) and the mouse, and keeps the focus on the radio checked; it shows its name, Connectors; on a phone (390 × 844) its radios are 44 px
 //    targets;
 //  - curved, seen straight down, the frame is Look down's (the lines to the target bend only as the tubes stand up);
 //  - timing (reported, not gated): a Tilt turn on M3 draws the tubes in about the same time a frame in both kinds (the
@@ -140,6 +140,19 @@ if (await hooked()) {
   await frames();
   const focus = await ev(`(() => { const a = document.activeElement; return a ? { v: a.dataset ? a.dataset.v || null : null, inSwitch: !!a.closest('.ld-links'), tag: a.tagName } : null; })()`);
   ok('the switch takes the arrow keys, and the focus stays on the radio checked', (await drawn()).links === 'straight' && !!focus && focus.inSwitch && focus.v === 'straight', { links: (await drawn()).links, focus });
+  // (a second key, ←, back to Glide paths; then a mouse click on Straight)
+  const focusNow = () => ev(`(() => { const a = document.activeElement; return a ? { v: a.dataset ? a.dataset.v || null : null, inSwitch: !!a.closest('.ld-links') } : null; })()`);
+  await send('Input.dispatchKeyEvent', { type: 'keyDown', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+  await send('Input.dispatchKeyEvent', { type: 'keyUp', key: 'ArrowLeft', code: 'ArrowLeft', windowsVirtualKeyCode: 37 });
+  await until(`__cmwStack().drawn && __cmwStack().drawn.links === 'curved'`, 5000).catch(() => null);
+  await frames();
+  const f2 = await focusNow(), l2 = (await drawn()).links;
+  ok('a second arrow key switches back, and the focus stays on the radio checked', l2 === 'curved' && !!f2 && f2.inSwitch && f2.v === 'curved', { links: l2, focus: f2 });
+  await clickSel('#plotL .ld-key .ld-links [data-v="straight"]');
+  await until(`__cmwStack().drawn && __cmwStack().drawn.links === 'straight'`, 5000).catch(() => null);
+  await frames();
+  const f3 = await focusNow(), l3 = (await drawn()).links;
+  ok('a mouse click switches, and the focus stays on the radio clicked', l3 === 'straight' && !!f3 && f3.inSwitch && f3.v === 'straight', { links: l3, focus: f3 });
   const lead = await ev(`(() => { const r = document.querySelector('#plotL .ld-key .ld-links-row'); const l = r && r.querySelector('.ld-links-l'); return l ? l.textContent : null; })()`);
   ok('the switch has its visible name, Connectors', lead === 'Connectors', lead);
 }
