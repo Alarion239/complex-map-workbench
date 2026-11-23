@@ -9,9 +9,11 @@
 // - it stays so with a long toast up, with the plane's hint chip shown (desktop), and with a phone sheet open (phone),
 //   moving to another spot or hiding;
 // - it names the planes: the second formula is w₂'s, w_{2} = …;
-// - the formulas change over across a fifth of the glide about its half: held at a quarter of the way the first shows
-//   whole and the second not at all, at the half each at 0.5 (both formulas fitting); under reduced motion they change
-//   over at the half (opacities 1 and 0 just before it, 0 and 1 just after); parked on a plane it is hidden.
+// - the formulas fade only while the glide moves: the thread at rest between the planes, and under reduced motion,
+//   they change over at the half, so a still tile never shows both (rvB on #2317: half-faded, overlapping glyphs at
+//   3.4:1). At rest at a quarter of the way the first shows whole and the second not at all; at the half the second
+//   whole and the first not at all (both formulas fitting); under reduced motion the same just either side of the
+//   half; parked on a plane it is hidden.
 // Its frames go to shots/ (tile-<case>-q1.png and -q3.png, a quarter and three quarters of the way; -toast, -hint and
 // -sheet with those up) for the screenshot review.
 // The page opens with ?view=steps (loadView('steps', …)).
@@ -91,12 +93,13 @@ for (const c of CASES) {
   const t = r.held = await tileNow();
   check(`${c.tag}, held at 1.5`, t, !c.phone);
   if (t.shown) ok(`${c.tag}: the second formula is w₂'s`, !!t.f[1] && /^w_\{2\} = /.test(t.f[1].tex || ''), t.f);
-  if (t.shown && t.f.length === 2 && t.f[0].shown && t.f[1].shown) ok(`${c.tag}: at the half, the formulas at opacity 0.5 each`, Math.abs(t.f[0].op - 0.5) < 0.02 && Math.abs(t.f[1].op - 0.5) < 0.02, t.f);
+  if (t.shown) ok(`${c.tag}: at rest at the half, never both formulas shown`, t.f.filter((f) => f.shown && f.op > 0.02).length === 1, t.f);
+  if (t.shown && t.f.length === 2 && t.f[0].shown && t.f[1].shown) ok(`${c.tag}: at rest at the half, the second formula whole and the first not shown`, t.f[0].op < 0.02 && t.f[1].op > 0.98, t.f);
   // (a quarter of the way: the first formula alone, where both fit)
   await hold(1.25);
   const q = r.quarter = await tileNow();
   await shot(`${name}-q1`);
-  if (q.shown && q.f.length === 2 && q.f[0].shown && q.f[1].shown) ok(`${c.tag}: at a quarter, the first formula whole and the second not shown`, q.f[0].op > 0.98 && q.f[1].op < 0.02, q.f);
+  if (q.shown && q.f.length === 2 && q.f[0].shown && q.f[1].shown) ok(`${c.tag}: at rest at a quarter, the first formula whole and the second not shown`, q.f[0].op > 0.98 && q.f[1].op < 0.02, q.f);
   await hold(1.5);
   // (a long toast up)
   await ev(`(__cmwToast('A long message to see that the tile keeps clear of the toasts, wherever they are placed', 'Undo', { ms: 60000 }), 1)`);

@@ -4,20 +4,21 @@
   // formula: the steps through it composed, compositeTexShort; z for plane z). It is of low priority: it takes the first
   // spot clear of every visible control, chip, key, toast, sheet and the plane's note (svTileSpot), and is hidden when
   // there is none, where the formula of that part of the glide does not fit it (SV_TILE_W of the plane's width, the
-  // math at its own size), and whenever the thread is on a plane. It pictures what the head already names, and an arrival is spoken by the steps
-  // view's live region, so it is hidden from assistive technology and takes no pointer and no focus. Under reduced
-  // motion the formulas change over at the glide's half instead of fading
+  // math at its own size), and whenever the thread is on a plane. It pictures what the head already names, and an
+  // arrival is spoken by the steps view's live region, so it is hidden from assistive technology and takes no pointer
+  // and no focus. The formulas fade only while the glide moves: with the thread at rest between two planes, and under
+  // reduced motion, they change over at the glide's half, so a still tile never shows the two over each other
   const SV_TILE_GAP = 8;   // (px: from the plane's edges and from what it keeps clear of)
   const SV_TILE_W = (plotW) => (plotW < 560 ? 0.62 : 0.45) * plotW;   // (px: the widest it may be)
   // how far the second formula has faded in at the glide's position u: across SV_TILE_X about the half, so the two are
-  // seldom on top of each other (the first wholly shown before it, the second after); a change-over at the half under
-  // reduced motion
+  // seldom on top of each other (the first wholly shown before it, the second after); with step, a change-over at the
+  // half
   const SV_TILE_X = 0.2;
-  const svTileFade = (u, reduced) => (reduced ? (u < 0.5 ? 0 : 1) : Math.min(1, Math.max(0, (u - 0.5) / SV_TILE_X + 0.5)));
+  const svTileFade = (u, step) => (step ? (u < 0.5 ? 0 : 1) : Math.min(1, Math.max(0, (u - 0.5) / SV_TILE_X + 0.5)));
   // what the tile keeps clear of, besides the plane's own children (the canvases and the hairline aside) and its note
   const SV_TILE_AVOID = '#svStrip, .sv-bandx, .sv-playpop, #toastHost > *, .ph-col, .ph-ctx, .ph-keys, .ph-sheet, .ph-scrim, '
     + '.sv-sheet, .sv-scrim, #paneL .pane-head, #popHost > *, .pop, dialog[open], .tour-root, .tour-top';
-  const svTile = { el: null, a: null, b: null, key: '', texA: null, texB: null, q: 0 };
+  const svTile = { el: null, a: null, b: null, key: '', texA: null, texB: null, q: 0, again: null };
   // the formula shown for plane k: z, or w_k = the steps through k composed; null when it is longer than the caption's
   // limit (SV_CAP_TEX_MAX) or a step cannot write it
   function svTileTex(k) {
@@ -36,7 +37,7 @@
     // (placed again, once a frame, when what it keeps clear of may have moved while the thread is held: a phone's sheet
     // or a dialog opening, a toast coming, going or placed, the plane, its key or the strip resized; and when a formula
     // is typeset, MathJax's result coming after the fallback text)
-    const again = () => { if (!svTile.q) svTile.q = requestAnimationFrame(() => { svTile.q = 0; svTileRefresh(); }); };
+    const again = svTile.again = () => { if (!svTile.q) svTile.q = requestAnimationFrame(() => { svTile.q = 0; svTileRefresh(); }); };
     new MutationObserver(again).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
     new MutationObserver(again).observe(document.body, { childList: true });
     const th = $('toastHost'), pop = $('popHost');
@@ -103,7 +104,9 @@
     const fitA = !!svTile.texA && svTile.a.scrollWidth + pad <= maxW, fitB = !!svTile.texB && svTile.b.scrollWidth + pad <= maxW;
     svTile.a.hidden = !fitA; svTile.b.hidden = !fitB;
     // (each formula in its own part of the glide: one that does not fit leaves the tile empty there, and so hidden)
-    const e = svTileFade(bt.u, svReduced()), any = (fitA && e < 1) || (fitB && e > 0);
+    // (fading while the glide moves, and synced again a frame on, so the tile is still once the thread comes to rest)
+    const moving = svGliding(), e = svTileFade(bt.u, svReduced() || !moving), any = (fitA && e < 1) || (fitB && e > 0);
+    if (moving) svTile.again();
     const spot = any ? svTileSpot(P, el.offsetWidth, el.offsetHeight, svTileObstacles(plot)) : null;
     if (!spot) { el.hidden = true; el.style.visibility = ''; return; }
     svTile.a.style.opacity = String(1 - e); svTile.b.style.opacity = String(e);
