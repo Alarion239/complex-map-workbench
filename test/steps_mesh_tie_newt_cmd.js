@@ -169,6 +169,10 @@ const tipCand = (win) => (w) => {
   await settled({ max: PRE_WAIT * 2, until: `__cmwSteps().stage === 2 && __mtLeftPaper() === 0 && ${DRAWN}` });
   ok(`plane 2 at rest on the pre-mapped meshes, about the arc's tip (w = -1): at most ${EXACT_WRONG_MAX * 100} % of the points show the second sheet's colour rather than the front one's`, preOk.ok && left.covered && n >= 0.25 * pts.length && wrong <= EXACT_WRONG_MAX * n, info.tip);
 }
+// (the render-ahead probe's off-screen frames of the glide just made (svAheadProbe), drawn in idle moments, resolve their
+// own place's ties, z³'s third turn about plane 1: the order is read off a frame of the pane drawn once the probe is over)
+await settled({ max: PRE_WAIT, until: "!['waiting', 'drawing'].includes((__cmwSteps().aheadProbe || {}).state)" });
+await redrawBand(null);
 const pre = { ok: preOk.ok, ord: await ev('GLR.carryResolveOrd()'), disc: await discRough(), wide: await bandShift() };
 info.pre = pre;
 ok('plane 2 at rest: the pre-mapped meshes take over, through the resolve with its map\'s rotation: a sixth turn (z³ changes sign, cos is even)', pre.ok && pre.ord === 6, pre);
