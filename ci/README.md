@@ -255,6 +255,10 @@ artifact.
   listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
   something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
   Every other check gates.
+- **Rows that made no check** (`noCheck` in a suite's result, `ci/browser_no_check.js`): a suite that cannot test a row when the
+  runner is late (tour_auto's 400 ms spike rows when the poll came too late for them) passes it and lists it in `noCheck`.
+  The log, the head line (`, N no check`) and the summary show those rows, and a warning names them; they do not fail the job.
+  (Not `skipped`: tour_phone and tour_audit return that for the tour's "step skipped" log lines, which a normal run has.)
 - **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
   in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
