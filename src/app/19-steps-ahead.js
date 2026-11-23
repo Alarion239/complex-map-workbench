@@ -140,14 +140,14 @@
     }
   }
   // frame k of R drawn off-screen (svAheadVisit) into R's scratch canvas through a proxy of the left pane, its labels
-  // placed at once, as the flat plane draws it (on the Stack, its floor's flat picture: stackAsFlat) -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it
+  // placed at once (on the Stack, the floor's flat picture: a glide frame's draw reads nothing of the Stack) -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it
   // is not the exact frame at its place (R.reject says why)
   function svAheadDraw(R, k) {
     const pane = paneL, M = R.M, x = R.xs[k];
     if (!R.cv || R.cv.width !== pane.pw || R.cv.height !== pane.ph) R.cv = new OffscreenCanvas(pane.pw, pane.ph);
     const p = svProxy(pane, /** @type {any} */ (R.cv));
     p.labels = null;
-    return svAheadVisit(M, k, x, (A) => stackAsFlat(() => {
+    return svAheadVisit(M, k, x, (A) => {
       // (a hold is read as the screen's frame reads it, svDrawPlane on the flat plane: a frame that waits is drawn at the held
       // place and marks the copy held, A.held, so it is not kept)
       const asks = renderAsks, hold = svLinkHold();
@@ -160,7 +160,7 @@
         : !svGlideRec ? 'none' : svGlideRec.path !== 'inverse' ? `${svGlideRec.path}${svGlideRec.reason ? ': ' + svGlideRec.reason : ''}`
           : svGlideRec.b !== bt.b || svGlideRec.u !== bt.u ? 'place' : null;
       return R.reject ? null : { bm: R.cv.transferToImageBitmap(), mf: mfDrawn, cm: cutMarksL, rec: svGlideRec };
-    }));
+    });
   }
   // the motion under way is R's (its schedule, unremapped) -> the frame it shows now, or null
   function svAheadNow(pane) {

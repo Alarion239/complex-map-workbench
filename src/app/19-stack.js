@@ -69,7 +69,7 @@
     return true;
   }
   // f() run as the Stack's floor is drawn flat: on the Stack, under stackFlat, so lFlat() and svFlatSurf() read the flat
-  // plane's (the floor's own draw, and a glide's frames drawn ahead off-screen, 19-steps-ahead.js); elsewhere as it is.
+  // plane's (the floor's own draw, and whether a glide's frames can be drawn ahead, svAheadCan); elsewhere as it is.
   // -> f's result
   function stackAsFlat(f) {
     if (!SV.on || SV.surf !== 'stack' || stackFlat) return f();
