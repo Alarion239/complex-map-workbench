@@ -3,7 +3,9 @@
 // (or src/gl/, ...) and puts it in another, and the joined file (test/src_text.js: what build.py and the tests read)
 // is meant to stay the same code. This tool reads the joined file at two commits and proves that.
 //   node tools/part_move.js <old> <new> [--file app.js] [--strict] [--max-lines N] [--repo DIR]
-// <old> and <new> are git refs, or `.` for the working tree's src/ (of this checkout, or of --repo). The proof:
+// <old> and <new> are git refs, or `.` for the working tree's src/ (of this checkout, or of --repo): for a PR, <old> is the
+// merge base (where it last merged the integration branch, or the integration commit it branched from) and <new> its head.
+// The proof:
 //   1. the tokens (acorn, `ecmaVersion: latest`; each token is its source text) of the two joined files are the same
 //      stream except for one contiguous run that moved: the run is in both, and the streams are equal once it is
 //      taken out of each (when two blocks changed places, the shorter is the run);
@@ -11,7 +13,8 @@
 //      that holds a token (code) must not differ at all, even in its layout; a line of comments or blanks may (a new
 //      part's header comment), and is listed so that a reviewer reads it (--strict: any difference fails).
 // Where the run was and is is printed as the line ranges of the joined files and of the parts they come from. Exit 0:
-// a pure move; 1: not (the first difference is printed); 2: the refs or the file could not be read.
+// a pure move; 1: not (the first difference is printed); 2: the refs or the file could not be read. Not proved: the order the
+// top-level statements run in (a `const` of the run that code above its new place uses reads yes and throws at load).
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -202,7 +205,7 @@ function main(argv) {
   const arg = (k) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : null);
   const strict = argv.includes('--strict'), file = arg('--file') || 'app.js', repo = path.resolve(arg('--repo') || ROOT), maxLines = arg('--max-lines') == null ? 40 : Number(arg('--max-lines'));
   const refs = argv.filter((x, i) => !x.startsWith('--') && !['--file', '--max-lines', '--repo'].includes(argv[i - 1]));
-  if (refs.length !== 2 || !(maxLines >= 0)) { console.error('usage: node tools/part_move.js <old> <new> [--file app.js] [--strict] [--max-lines N] [--repo DIR]   (refs: a git ref, or . for the working tree)'); return 2; }
+  if (refs.length !== 2 || !(maxLines >= 0)) { console.error('usage: node tools/part_move.js <old> <new> [--file app.js] [--strict] [--max-lines N] [--repo DIR]   (refs: a git ref, or . for the working tree; <old> the merge base of a PR)'); return 2; }
   let a, b;
   try { a = readAt(refs[0], file, repo); b = readAt(refs[1], file, repo); } catch (e) { console.error(`cannot read ${file} at ${refs.join(' and ')}: ${String(e.message || e).split('\n')[0]}`); return 2; }
   let p;
