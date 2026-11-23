@@ -379,6 +379,8 @@
   // share the frame's viewport and scissor); layer j keeps the fragments behind layer j-1's key (PRE_KEY's uPeelOn: the
   // previous layer's depth, two 32-bit float depth textures alternating), and one pass composites them into the frame,
   // each layer at a, the farthest opaque
+  // (KPOS_UNIT is also the inverse pass's uHalf, which binds it for its own draws: the resolve binds it again in resBind
+  // before each pass 2, and drawAll's draws inside a resolved frame are carried meshes alone)
   const PEEL_MAX = 8, PEEL_UNIT = 7, KMIN_UNIT = 6, KPOS_UNIT = 5;
   let peel = null, peelBad = false;
   // the layers that drew something in the last frame whose occlusion queries have answered (0: none known): the next
@@ -457,9 +459,10 @@
     gl.activeTexture(gl.TEXTURE0 + KPOS_UNIT); gl.bindTexture(gl.TEXTURE_2D, resOrd ? T.kpos : null);
   }
   // pass 1 of the resolve into target T: draw() with the key alone into T.kmin (made here, a 32-bit float depth of T's size),
-  // which each pixel's smallest key is left in, and with a rotation's order ord > 1 each fragment's source point into
-  // T.kpos (made here: RG32F, or RG16F with half floats alone, whose 11 bits keep the angles to well within the orbit's
-  // tolerance; carryProbe.kpos 'half' or 'none' takes the lesser path), which keeps the front one's; with no float target
+  // which each pixel's smallest key is left in, and with a rotation's order ord > 1 each fragment's source point, less the
+  // key window's centre, into T.kpos (made here: RG32F, or RG16F with half floats alone, whose 11 bits are then relative
+  // to the window wherever the centre is; carryProbe.kpos 'half' or 'none' takes the lesser path), which keeps the front
+  // one's; with no float target
   // there (kposBad), ord is dropped and the band alone ties; -> draw()'s result
   function resMin(T, band, draw, ord = 0) {
     if (!T.kmin) {

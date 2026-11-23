@@ -810,26 +810,27 @@ float preKeyDepth(vec2 sa, bool stepped) {
 }
 `;
   // The resolve of ties (GLR.carryResolve, uKRes 1 then 2; fragment stages only). Pass 1 writes s / (KEY_SMAX + 1) alone as
-  // the depth, so each pixel keeps its smallest key smin (a 32-bit float depth, uKMin in pass 2), and its source point as
-  // the colour, so the pixel keeps the front fragment's (uKPos). Pass 2 puts in front, ordered by their tie order alone, as
-  // the inverse pass orders the keys within its band (Inverse.order), the fragments that tie with that one: a key within
-  // the band of smin (KEY_ERR_K times the key's error across the fragment's triangle, vKErr, at least uKBand; units of s)
-  // and, where the frame's rotation has an order uKOrd (svTies: n > 1), a source point in the front one's orbit under it:
-  // - by a rotation other than the identity: n times their angles about the key's centre equal mod 2 pi, within KEY_ERR_K
-  //   times the source point's own error, vKDz, over its distance from the centre;
-  // - by the identity, the same point: within KEY_ERR_K vKDz of it. Two sheets whose points are near, not the same (where
-  //   sheets meet, about a critical value), keep the key's order, as the exact pass keeps them.
+  // the depth, so each pixel keeps its smallest key smin (a 32-bit float depth, uKMin in pass 2), and its source point less
+  // the key window's centre as the colour, so the pixel keeps the front fragment's (uKPos). Pass 2 puts in front, ordered
+  // by their tie order alone, as the inverse pass orders the keys within its band (Inverse.order), the fragments that tie
+  // with that one: a key within the band of smin (KEY_ERR_K times the key's error across the fragment's triangle, vKErr,
+  // at least uKBand; units of s) and, where the frame's rotation has an order uKOrd (svTies: n > 1), a source point in the
+  // front one's orbit under it, by the rotation R_k (k = 0, ..., n - 1) its angle about the key's centre is nearest:
+  // - with an estimate of the error: by a rotation other than the identity, n times their angles equal mod 2 pi within
+  //   KEY_ERR_K times the source point's own error, vKDz, over its distance from the centre; by the identity, the same
+  //   point within KEY_ERR_K vKDz (two sheets whose points are near, not the same, where sheets meet about a critical
+  //   value, keep the key's order, as the exact pass keeps them);
+  // - a pre-mapped mesh has none (vKErr < 0, PRE_VS): a wide band (KEY_BAND_WIDE), since the rotation's partners have equal
+  //   keys whatever the mesh's error, and R_k of the front point within KEY_ORBIT_TOL of its distance from the centre, the
+  //   radius as well as the angle (cos(z^3) has sheets of equal angle and radii a few % apart, z^3 = a and a + 2 pi, which
+  //   an angle alone would tie: 0.005 speckles the disc about w = 1, 0.04 starts to tie inregion's exp, Möbius, square, sin
+  //   wrong); without a rotation, uKBand alone.
   // Within one unit of s, the inverse pass's own tie step, a fragment ties whatever the symmetry, as there (exp, Möbius,
   // square, sin also has F(-z + 2 pi i) = F(z), a rotation about i pi). Past it, two sheets the rotation does not carry
-  // into each other are kept in the key's order. The others go behind them, by s. A pre-mapped mesh has no estimate of
-  // its error (vKErr < 0, PRE_VS): with the rotation's orbit to tell true ties apart, a wide band (KEY_BAND_WIDE) and a
-  // loose test of the orbit (KEY_ORBIT_TOL), since the rotation's partners have equal keys whatever the mesh's error, and
-  // a tight one for the same point (KEY_SAME_TOL of its distance from the centre: 0.005 to 0.02 read the same; 0.06 ties
-  // inregion's exp, Möbius, square, sin to wrong sheets near its critical values, and with no same-point tie the disc
-  // about w = 1 of z^3 then cos speckles); without it, uKBand alone
+  // into each other are kept in the key's order. The others go behind them, by s.
   const PRE_KEY_RES = glsl`flat in float vKErr; flat in float vKDz;
 uniform highp sampler2D uKMin; uniform highp sampler2D uKPos; uniform int uKOrd;
-const float KEY_ERR_K = 4.0, KEY_BAND_WIDE = 1024.0, KEY_ORBIT_TOL = 0.1, KEY_SAME_TOL = 0.01;
+const float KEY_ERR_K = 4.0, KEY_BAND_WIDE = 1024.0, KEY_ORBIT_TOL = 0.02;
 float preKeyRes(vec2 sa) {
   float tie, s = preKeyS(sa, tie);
   if (uKRes == 1) return s / (KEY_SMAX + 1.0);
@@ -838,11 +839,10 @@ float preKeyRes(vec2 sa) {
   float d = s - smin;
   bool tied = d <= 1.0 || d <= (est ? max(uKBand, KEY_ERR_K * vKErr) : orb ? KEY_BAND_WIDE : uKBand);
   if (tied && d > 1.0 && orb) {
-    vec2 c = 0.5 * (uKWin.xy + uKWin.zw), u = sa - c, v = texelFetch(uKPos, ivec2(gl_FragCoord.xy), 0).xy - c;
-    float ph = float(uKOrd) * (atan(u.y, u.x) - atan(v.y, v.x));
-    tied = mod(floor(ph / TAU + 0.5), float(uKOrd)) > 0.5
-      ? abs(sin(0.5 * ph)) <= (est ? 0.5 * float(uKOrd) * KEY_ERR_K * vKDz / max(length(u), 1e-30) + 1e-3 : KEY_ORBIT_TOL)
-      : length(u - v) <= (est ? KEY_ERR_K * vKDz : KEY_SAME_TOL * length(u));
+    vec2 c = 0.5 * (uKWin.xy + uKWin.zw), u = sa - c, v = texelFetch(uKPos, ivec2(gl_FragCoord.xy), 0).xy;
+    float n = float(uKOrd), ph = n * (atan(u.y, u.x) - atan(v.y, v.x)), k = mod(floor(ph / TAU + 0.5), n);
+    if (est) tied = k > 0.5 ? abs(sin(0.5 * ph)) <= 0.5 * n * KEY_ERR_K * vKDz / max(length(u), 1e-30) + 1e-3 : length(u - v) <= KEY_ERR_K * vKDz;
+    else { float a = k * TAU / n; tied = length(u - mat2(cos(a), sin(a), -sin(a), cos(a)) * v) <= KEY_ORBIT_TOL * length(u); }
   }
   return tied ? 0.5 * tie : 0.5 + 0.5 * s / (KEY_SMAX + 1.0);
 }
@@ -1347,7 +1347,7 @@ ${key ? PRE_KEY_DECL + PRE_KEY_RES : ''}${centroid ? 'centroid in' : 'in'} vec2 
 ${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(sa, 0.0, 0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
+${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(sa - 0.5 * (uKWin.xy + uKWin.zw), 0.0, 0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
   vec2 sw = carryW(sa);
   o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }

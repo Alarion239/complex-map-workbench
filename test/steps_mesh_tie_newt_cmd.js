@@ -16,8 +16,9 @@
 // At rest the pre-mapped meshes (SphereMeshes) take over once built (__cmwSteps().carryPre): their frame is as smooth inside
 // the disc about w = 1, where cos's critical value bends the mesh most (at most DISC_ROUGH_MAX of the points 0.12 to 0.38
 // from w = 1, off the real axis, are rough), and the band's floor at BAND_WIDE moves it as little; its map cos(z³) keeps a
-// sixth turn (GLR.carryResolveOrd() 6). The source points'
-// target's fallbacks: RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth; none ('none') ties by
+// sixth turn (GLR.carryResolveOrd() 6). Left of Re w = LEFT_X, once they cover it, it is no rougher than the region
+// meshes' frame before them (at most ROUGH_MARGIN more of its points): sheets of equal angle about the centre and unequal
+// radius are not the rotation's partners. The source points' target's fallbacks: RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth; none ('none') ties by
 // the band alone (GLR.carryResolveOrd() 0) and still draws.
 // Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -36,6 +37,7 @@ const BAND_WIDE = 256, BAND_DIFF_MAX = 0.01;   // the band's floor raised to, an
 const PIX_TOL = 24;                // a pixel changes over this in some channel (0..255)
 const DISC_ROUGH_MAX = 0.05;       // the share of the points inside the disc about w = 1 that may be rough
 const PRE_WAIT = 30000;            // ms for the pre-mapped meshes to take over at rest
+const LEFT_X = -0.8;               // the left part of the pane read (Re w below this): sheets of equal argument, unequal radius
 await view(1200, 800, false, false);
 const ZCUBE = { type: 'pown', params: { n: 3 }, on: true };
 const STEPS = [ZCUBE, { type: 'cos', params: {}, on: true }], CONTROL = [ZCUBE, { type: 'mul', params: { c: '1' }, on: true }];
@@ -94,6 +96,20 @@ for (const [key, frame, what] of legs) {
 }
 // plane 2 at rest once the pre-mapped meshes draw it: the points about w = 1 (rings 0.12 to 0.38 out, off the real axis)
 const DISC = []; for (let r = 0.12; r < 0.39; r += 0.065) for (let i = 0; i < 24; i++) { const a = (i + 0.5) * Math.PI / 12; if (Math.abs(Math.sin(a)) * r > 0.03) DISC.push([1 + r * Math.cos(a), r * Math.sin(a)]); }
+// the pane left of Re w = LEFT_X (a 12 x 12 grid inside the pane), rough as carry_kit's rough() counts it; __mtLeftPaper():
+// how many of its points are still bare paper (the first pre-mapped mesh covers part of the pane, the next the rest)
+const LEFT_PTS = `(() => { const m = __cmwCards().main, c = document.getElementById('canvasL'), hw = c.width / (2 * m.view.s * m.dpr), hh = c.height / (2 * m.view.s * m.dpr);
+  const x0 = m.view.cx - 0.95 * hw, x1 = Math.min(${LEFT_X}, m.view.cx + 0.95 * hw), pts = [];
+  for (let i = 0; i < 12; i++) for (let j = 0; j < 12; j++) pts.push([x0 + (i + 0.5) / 12 * (x1 - x0), m.view.cy + ((j + 0.5) / 12 - 0.5) * 1.9 * hh]);
+  return pts; })()`;
+const LEFT_PAPER = `window.__mtLeftPaper = () => { const m = __cmwCards().main, c = document.getElementById('canvasL'), g = c.getContext('2d'), v = m.view, d = m.dpr;
+  return ${LEFT_PTS}.filter(([x, y]) => { const p = g.getImageData(Math.round(c.width / 2 + (x - v.cx) * v.s * d), Math.round(c.height / 2 - (y - v.cy) * v.s * d), 1, 1).data; return p[0] > 235 && p[1] > 235 && p[2] > 235; }).length; }; 1`;
+const leftRough = async () => {
+  const pts = await ev(LEFT_PTS);
+  const px = (await lpx(pts)).px.filter(Boolean);
+  const n = px.filter((p) => Math.max(...[0, 1, 2].map((c) => Math.max(...p.map((x) => x[c])) - Math.min(...p.map((x) => x[c])))) > 30).length;
+  return { of: pts.length, n: px.length, rough: n, share: n / px.length };
+};
 const discRough = async () => {
   const px = (await lpx(DISC)).px.filter(Boolean);
   const n = px.filter((p) => Math.max(...[0, 1, 2].map((c) => Math.max(...p.map((x) => x[c])) - Math.min(...p.map((x) => x[c])))) > 30).length;
@@ -101,7 +117,13 @@ const discRough = async () => {
 };
 await open(0);
 await toPlane(2);
+const leftRef = { pre: await ev('__cmwSteps().carryPre'), r: await leftRough() };
 const preOk = await settled({ max: PRE_WAIT, until: `__cmwSteps().carryPre > 0 && ${DRAWN}` });
+await ev(LEFT_PAPER);
+const covered = await settled({ max: PRE_WAIT, until: `__mtLeftPaper() === 0 && ${DRAWN}` });
+const left = Object.assign(await leftRough(), { covered: covered.ok });
+info.left = { ref: leftRef, pre: left };
+ok(`plane 2 at rest on the pre-mapped meshes, left of Re w = ${LEFT_X} once they cover it: at most ${ROUGH_MARGIN * 100} % more of the points rough than the region meshes' frame`, leftRef.pre === 0 && left.covered && left.n >= 0.9 * left.of && left.share <= leftRef.r.share + ROUGH_MARGIN, info.left);
 const pre = { ok: preOk.ok, ord: await ev('GLR.carryResolveOrd()'), disc: await discRough(), wide: await bandShift() };
 info.pre = pre;
 ok('plane 2 at rest: the pre-mapped meshes take over, through the resolve with its map\'s rotation: a sixth turn (z³ changes sign, cos is even)', pre.ok && pre.ord === 6, pre);
