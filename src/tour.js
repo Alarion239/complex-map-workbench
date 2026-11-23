@@ -1092,7 +1092,7 @@ const Tour = (() => {
 /* (the rings fade while something they cannot follow natively moves: a fling of the page, a sliding layer) */
 .tour-rings { transition: opacity 160ms linear; }
 .tour-rings.moving { opacity: 0; transition: opacity 80ms linear; }
-/* (r3 review user-1: once a task is done the spotlight steps aside, so the result can be looked at and touched; the
+/* (once a task is done the spotlight steps aside, so the result can be looked at and touched; the
    next step brings it back) */
 .tour-dim { transition: opacity 200ms linear; }
 .tour-dim.tour-quiet, .tour-rings.tour-quiet { opacity: 0; transition: opacity 200ms linear; }
@@ -1169,12 +1169,12 @@ const Tour = (() => {
 .tour-strip[data-mode="head"] .ts-tin, .tour-strip[data-mode="row"] .ts-tin { display: inline; }
 .tour-strip[data-mode="head"] .ts-l2, .tour-strip[data-mode="row"] .ts-l2 { font: 400 13px/16px var(--f-ui); color: var(--ink); }
 .tour-strip[data-mode="head"] .ts-text, .tour-strip[data-mode="row"] .ts-text { padding: 2px 4px; }
-/* (r3 review user-7: a phone's text block shows that it opens: a chevron after the count) */
+/* (a phone's text block shows that it opens: a chevron after the count) */
 .tour-strip[data-mode="port"] .ts-chev { display: inline; }
 /* (the count and its chevron closer, so «Добро пожаловать» is whole on a 360 px phone) */
 .tour-strip[data-mode="port"] .ts-l1 { gap: 6px; }
 .tour-strip[data-mode="port"] .ts-chev { margin-left: -3px; }
-/* (r3 review user-3, user-10: a chapter whose line needs three lines here gets a taller row) */
+/* (a chapter whose line needs three lines here gets a taller row) */
 .tour-strip[data-mode="port"][data-lines="3"] .ts-row { height: 75px; }
 .tour-strip[data-mode="row"][data-lines="3"] .ts-row { height: 55px; }
 /* (#553) four lines of lead, where a long language at 360 px needs them: a line (17 px, 16 in the landscape row) more */
@@ -1192,9 +1192,9 @@ const Tour = (() => {
 /* (Skip keeps its outlined look under :hover and :active, which the shared .btn.primary rules would fill with the accent: on a touch screen :hover stays on the button just tapped, which was Next a step ago; only a mouse gets the hover shade) */
 .tour-strip .ts-next.skip, .tour-strip .ts-next.skip:not(:disabled):hover, .tour-strip .ts-next.skip:not(:disabled):active { background: var(--surface); color: var(--muted); border: 1px solid var(--line-strong); }
 @media (hover: hover) { .tour-strip .ts-next.skip:not(:disabled):hover { color: var(--ink); background: var(--well, var(--surface)); } }
-/* (r3 verify-1: while the countdown runs, the ring leaves out its bottom edge; the bar below is that edge, filling in) */
+/* (while the countdown runs, the ring leaves out its bottom edge; the bar below is that edge, filling in) */
 .tour-strip .ts-next.ready.counting { box-shadow: inset 0 2px var(--accent-ink), inset 2px 0 var(--accent-ink), inset -2px 0 var(--accent-ink); }
-/* the countdown (r3 review user-4): a bar along Next's bottom edge in Next's own label colour, so it stands off the
+/* the countdown: a bar along Next's bottom edge in Next's own label colour, so it stands off the
    button as the label does, growing from left to right over the countdown (CD_MS); restarted with the countdown, frozen while held */
 .tour-strip .ts-next::before { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 3px; z-index: -1; background: var(--accent-ink); transform-origin: 0 50%; transform: scaleX(0); }
 .tour-strip .ts-next svg { width: 18px; height: 18px; display: block; }
@@ -1213,11 +1213,11 @@ const Tour = (() => {
 .tour-strip:not([data-mode="desk"]) .ts-next::before { height: 4px; }
 .tour-strip:not([data-mode="desk"]) .ts-act { width: 44px; height: 44px; min-width: 44px; padding: 0; justify-content: center; }
 .tour-strip:not([data-mode="desk"]) .ts-act > span { display: none; }
-/* (r3 review user-7, verify-2: × stays in a phone's portrait row and in the landscape row under the header; in the
+/* (× stays in a phone's portrait row and in the landscape row under the header; in the
    header it shows when the header has 52 px more than the strip needs (.ts-xok), else it is in Why) */
 .tour-strip[data-mode="head"]:not(.ts-xok) .ts-x { display: none; }
 .tour-strip[data-mode="head"] .ts-back, .tour-strip[data-mode="row"] .ts-back { display: none; }
-/* (r3 review user-3: in a phone's portrait row the act button takes Back's place, which is in Why, so the line keeps
+/* (in a phone's portrait row the act button takes Back's place, which is in Why, so the line keeps
    its width while the Grieg captions play) */
 .tour-strip[data-mode="port"].has-act .ts-back { display: none; }
 /* Why: the step's body. Inline under the row on a tablet or a desktop (the strip grows; the panes shrink); on a phone a
@@ -1825,9 +1825,9 @@ const Tour = (() => {
     return free >= 260 ? 'head' : 'row';
   }
   // Mounts the strip in its slot (the app's api.slot, else the first child of .stage) and reserves its room: --tour-h
-  // (the stage's first row) or --ph-tour (a phone's row under the header). Again on every resize. (r3 review user-10:
-  // a landscape phone's header strip becomes the row under the header for a chapter whose line needs three lines
-  // there, r.forceRow; user-3: a phone's row grows to three lines for a chapter that needs them, ui.lines)
+  // (the stage's first row) or --ph-tour (a phone's row under the header). Again on every resize. (A landscape phone's
+  // header strip becomes the row under the header for a chapter whose line needs three lines there, r.forceRow; a
+  // phone's row grows to three lines for a chapter that needs them, ui.lines)
   function mountStrip(r) {
     const ui = r.ui;
     let mode = stripMode();
@@ -1848,7 +1848,7 @@ const Tour = (() => {
     const changed = ui.mode !== mode;
     ui.slot = slot; ui.mode = mode; ui.strip.dataset.mode = mode;
     ui.chap.hidden = mode !== 'desk' || !ui.chap.firstChild.textContent;
-    // (r3 verify-2: × End in the landscape header only with 44 + 8 px to spare beyond the strip's 260)
+    // (× End in the landscape header only with 44 + 8 px to spare beyond the strip's 260)
     ui.strip.classList.toggle('ts-xok', mode === 'head' && /** @type {any} */ (stripMode).free >= 312);
     // the sheet: a panel in the tour's top layer on a phone (the narrow row has no room for Back, × End the tour and
     // Move on by itself); a laptop's strip has them in its row, and no sheet
@@ -1889,7 +1889,7 @@ const Tour = (() => {
   }
   // a resize or a layout change: the strip's place, then its lines, measured again
   function remount(r) { r.forceRow = false; mountStrip(r); fitLines(r); }
-  // The number of lines the strip's line needs in this chapter on a phone (r3 review user-3, user-10): every lead, task,
+  // The number of lines the strip's line needs in this chapter on a phone: every lead, task,
   // result, hint and caption of its steps, at the width each step leaves it (a step with an act button has 52 px less),
   // set out of sight in a copy of the line. A landscape header that would need three takes the row under the header
   // instead; the row and a portrait strip grow to three lines. A desktop's line keeps its two lines (Next shortens).
@@ -1897,7 +1897,7 @@ const Tour = (() => {
     const ui = r.ui;
     if (ui.mode === 'desk') { ui.lines = 2; ui.strip.dataset.lines = '2'; return; }
     let n = needLines(r);
-    // (r3 verify-2: × stays in the header only while the chapter's line keeps its two lines there; else it is in Why,
+    // (× stays in the header only while the chapter's line keeps its two lines there; else it is in Why,
     // and the strip keeps the header, so X keeps its size)
     if (ui.mode === 'head' && n > 2 && ui.strip.classList.contains('ts-xok')) { ui.strip.classList.remove('ts-xok'); n = needLines(r); }
     if (ui.mode === 'head' && n > 2) { r.forceRow = true; mountStrip(r); n = needLines(r); }
@@ -2001,7 +2001,7 @@ const Tour = (() => {
     if (run) { run.ui.autoC.checked = rec.auto; if (!rec.auto) cdFeed(run, { type: 'off' }); }
     return rec.auto;
   }
-  // Next (r3 review user-7): on a wide screen "Start", "Finish", "Next: <chapter>" or "Next", shortened to "Next →" (the
+  // Next: on a wide screen "Start", "Finish", "Next: <chapter>" or "Next", shortened to "Next →" (the
   // full label its name) when it does not fit or would cut the lead line; on a phone an arrow, its label its name. With
   // reduced motion during a countdown, the seconds left ("Next in 3 s"; on a phone "3")
   function paintNext(ui) {
@@ -2049,7 +2049,7 @@ const Tour = (() => {
       show = call('soundReady') !== true;
       label = $t('Turn on sound'); icon = ICON_SOUND;
     }
-    // (r3 review user-8: the task line says when the tour turns the sound on, try.off; a phone shows the icon only)
+    // (the task line says when the tour turns the sound on, try.off; a phone shows the icon only)
     if (kind === 'listen' && step === r.step) paintLead(r, step);
     const sig = [show, label].join('|');
     if (ui.act.dataset.sig === sig) return;
@@ -2082,7 +2082,7 @@ const Tour = (() => {
   }
   // the sound a step holds (SPEC 4.3): a hear step turns Hear the function on when the sound is ready (with a note);
   // a listen step of the Sound chapter gives Hear the function back; a step with no sound of its own (Sound settings)
-  // and a step outside the chapter give everything back, so the menu shows the user's own settings (r3 review user-6)
+  // and a step outside the chapter give everything back, so the menu shows the user's own settings
   function holdSound(r, ch, step) {
     call('soundStop');
     r.sndNote = false;
@@ -2161,7 +2161,7 @@ const Tour = (() => {
   // the app's layers open (a menu, the palette, a dialog, a popover, a sheet the step did not open) hold the countdown
   function syncLayers(r) {
     if (!r || run !== r) return;
-    // (a layer the step itself opened, a phone's sheet, is part of the step: it holds nothing; r3 review user-1: so is a
+    // (a layer the step itself opened, a phone's sheet, is part of the step: it holds nothing; so is a
     // layer that holds one of the step's lit parts, the Editor sheet with the lens that the chain's task opens)
     const cand = layerEls().filter((k) => !(r.stepLayers && r.stepLayers.has(k)));
     let open = cand.length > 0;
@@ -2914,7 +2914,7 @@ const Tour = (() => {
     placeWhy(r);
     const shadeOn = holes.length > 0 || !!plan;
     if (ui.svg.style.display !== (shadeOn ? '' : 'none')) { ui.svg.style.display = shadeOn ? '' : 'none'; ui.rsvg.style.display = shadeOn ? '' : 'none'; }
-    // (r3 review user-1: once the task is done the shade and the rings fade out and let every press through)
+    // (once the task is done the shade and the rings fade out and let every press through)
     const quiet = !!(r.done && r.quiet);
     if (ui.quiet !== quiet) { ui.quiet = quiet; ui.svg.classList.toggle('tour-quiet', quiet); ui.rsvg.classList.toggle('tour-quiet', quiet); }
     if (plan) for (const x of plan.inner) if (x.h.svg.classList.contains('tour-quiet') !== quiet) x.h.svg.classList.toggle('tour-quiet', quiet);
@@ -3007,7 +3007,7 @@ const Tour = (() => {
         const counting = !t.advance && r.cd && r.cd.phase === 'running';
         r.ui.live.textContent = $t('Done.') + (res ? ' ' + (/[.!?]$/.test(res) ? res : res + '.') : '') + (counting ? ' ' + nextIn() : '');
       });
-      // (r3 review user-1: the spotlight steps aside, so the result can be seen and touched; a door moves on at once)
+      // (the spotlight steps aside, so the result can be seen and touched; a door moves on at once)
       r.quiet = !t.advance;
       layout(false); kick(4);
     };
