@@ -242,8 +242,8 @@ const Phone = (() => {
   }
 
   // ---------------- the planes ----------------
-  // (the steps view is one plane at every step of its chain, whichever view the page's layout names)
-  function merged() { const p = $('panes'); return rootEl.classList.contains('sv') ? 'L' : p.classList.contains('merged-L') ? 'L' : p.classList.contains('merged-R') ? 'R' : null; }
+  // (one plane, X's, in the steps view and the classic view alike: Y's pane is not drawn, so it has no inset and no Both key)
+  function merged() { return 'L'; }
   function syncPanes() {
     const p = $('panes'), mg = merged();
     const b = mg || big;

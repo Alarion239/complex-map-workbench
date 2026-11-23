@@ -4,7 +4,7 @@
 // event; the advance 1500 ± 150 ms after the event, whatever the pointer or keys do next (doors 700 ± 100); holds and cancels; the sound
 // settings back after the chapter, after Esc and after a reload. It runs in either view (ci/suite_views.js: the steps view here,
 // the classic views in test/tour_auto_classic_cmd.js) and addresses steps by id: the pan task is X's in the classic views and
-// Planes' first in the steps view, the chapter's end with a task the Riemann sphere or Edit a step. The doors (the view switch)
+// Planes' first in the steps view, the chapter's end with a task a shared number's slider or Edit a step. The doors (the view switch)
 // and the chain step are the classic view's only.
 // Run: test/<you>_cdp/q.sh test/tour_auto_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -102,10 +102,12 @@ const tickAfter = async (t0) => { const w = await until(`document.querySelector(
 await open('au1', 1440, 900, false, false);
 const SV = await isSteps();
 // the pan task (X's in the classic view, One plane at a time in the steps view), and the chapter's end with a task (the
-// Riemann sphere's turn, or the chip f₁) with the chapter after it
+// slider of a shared number, or the chip f₁) with the chapter after it
 const PAN = SV ? 'planes/plane' : 'basics/x';
-const KEYSTEP = SV ? 'planes/step' : 'views/sphere';
-const AFTERKEY = SV ? 'playing/play' : 'edit/cards';
+const KEYSTEP = SV ? 'planes/step' : 'edit/numbers';
+const AFTERKEY = SV ? 'playing/play' : 'construct/c3';
+// (the classic task: a drag along the slider of a)
+const SLIDER = '#propsPanel .prm-row input[type="range"]';
 // X: no advance without input; a pan of empty space ticks it at once; CD_MS after the release it moves on
 await goStep(PAN);
 check('x: nothing advances in 3.5 s without input', await stays(PAN, 3500));
@@ -142,15 +144,13 @@ await sleep(150);
 let liveT = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\. Y shows its image under F\. Next step in 1\.5 s\.$/.test(liveT), liveT);
 await advancedAt('basics/draw', Date.now());
-// the chapter's last task: the sphere's turn (a drag across X's globe), or the chip f₁; an input at +1 s does not restart
-// the countdown
+// the chapter's last task: the slider of a (a drag along it), or the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
-const gb = SV ? null : await paneBox('#paneL');
-const kc = SV ? await center('#svStrip .sv-step[data-k="1"] .sv-fchip') : [(gb.l + gb.r) / 2, (gb.t + gb.b) / 2];
-check(SV ? 'key: the chip f₁ is there' : 'key: X\'s globe is there', !!kc, kc);
+const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : SLIDER);
+check(SV ? 'key: the chip f₁ is there' : 'key: the slider of a is there', !!kc, kc);
 if (kc) {
   await ltInstall();
-  if (SV) await click(kc[0], kc[1]); else await mdrag(kc[0] - 40, kc[1], kc[0] + 40, kc[1] + 10);
+  if (SV) await click(kc[0], kc[1]); else await mdrag(kc[0] - 20, kc[1], kc[0] + 20, kc[1]);
   t0 = Date.now();
   tk = await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2000, 15);
   check('key: ticked within 300 ms', tk != null && tk <= 300, tk);
@@ -171,7 +171,7 @@ check('palette: no advance while it stays open (6 s)', await stays('keys/palette
 const hold = await lit();
 check('palette: the countdown is held by the layer', hold && hold.countdown.state === 'held' && hold.countdown.held.includes('layer'), hold && hold.countdown);
 // (no "Next step in 1.5 s" while held; said when the hold ends. The strip's own live region, not
-// #tourSay, which a chapter's end creates: the Riemann sphere is the end of Views in the classic view)
+// #tourSay, which a chapter's end creates: the shared number's slider is the end of Editing in the classic view)
 const liveH = await ev(`document.querySelector('.tour-sr[aria-live]:not(#tourSay)').textContent`);
 check('palette: while held the live region does not promise 1.5 s', !/1\.5 s/.test(liveH), liveH);
 await key('Escape'); t0 = Date.now();
@@ -268,18 +268,18 @@ check('Move on by itself off: tick and ring, no advance in 6 s', await stays(PAN
 await ev('Tour.auto(true)');
 } catch (e) { check("cancels: a press on the strip's text" + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
-// a chapter's end with a task (the Riemann sphere's turn in the classic view, the chip f₁ in the steps view): tick and
+// a chapter's end with a task (the shared number's slider in the classic view, the chip f₁ in the steps view): tick and
 // result, then 3 s into the next chapter
 await goStep(KEYSTEP);
 const rectOf = (js) => ev(`(() => { const e = ${js}; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
-const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `document.querySelector('#paneL')`;
+const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `document.querySelector(${JSON.stringify(SLIDER)})`;
 const st = await rectOf(keySel);
-if (SV) await click(st[0], st[1]); else await mdrag(st[0] - 40, st[1], st[0] + 40, st[1] + 10);
+if (SV) await click(st[0], st[1]); else await mdrag(st[0] - 20, st[1], st[0] + 20, st[1]);
 t0 = Date.now();
 const dP = await doneAt(t0);
 await sleep(200);
-// (the result line: the step's then, and the chapter done: "Views done ✓" after the sphere's, "Planes done ✓" alone after Edit a step)
-check('the chapter\'s last task: tick and result', (SV ? /Planes done ✓/ : /north pole/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
+// (the result line: the step's then, and the chapter done: "Editing the chain done ✓" after the slider's, "Planes done ✓" alone after Edit a step)
+check('the chapter\'s last task: tick and result', (SV ? /Planes done ✓/ : /moved together/).test(await ev(`document.querySelector('#tourLead').textContent`)) && (await lit()).countdown.state === 'running', [await ev(`document.querySelector('#tourLead').textContent`), await lit()]);
 const aP = await advanceFrom(KEYSTEP, dP, 250);
 check(`the chapter's last task: moves on CD_MS after, into ${AFTERKEY} (late only as far as the page was blocked)`, aP.ok && (await cur()) === AFTERKEY, [aP, dP, await cur()]);
 // once a task is done the spotlight steps aside: the shade fades and lets presses through

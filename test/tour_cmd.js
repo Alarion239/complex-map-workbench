@@ -199,7 +199,8 @@ g = await ev(`(Tour.lit() || {}).body`);
 if (SV) check('Targets: the copy names where the preimages show', /later plane/.test(g) && /all of their preimages/.test(g), g);
 // the Cauchy phase style: Phase view, the style control lit whole (#247: on a desktop it is a row in X's pane head; its
 // note, a sentence, is behind the head's ⋯ button, read in its popover), the integral over the scene's unit circle
-await ev(`Tour.next()`); await settle(1800);
+// (the steps view's Analysis opens on Targets, the classic view's on Cauchy)
+if (((await cur()) || {}).id !== 'cauchy') { await ev(`Tour.next()`); await settle(1800); }
 const litOpts = await ev(`(() => { const L = Tour.lit(), a = L && L.anchor, b = document.querySelector('#dcSeg'), r = b && b.getBoundingClientRect(); return !!(a && r && b.closest('.pane-head') && Math.abs(a.l - r.left) < 1 && Math.abs(a.r - r.right) < 1); })()`);
 await ev(`document.querySelector('#leftFoot .opts-btn:not(.pat-btn)').click()`); await settle(500);
 g = await ev(`(() => { const c = Tour.current(), L = Tour.lit(), sg = document.querySelector('#dcSeg'), a = L && L.anchor, r = sg && sg.getBoundingClientRect(), st = __cmwState(), note = document.querySelector('.opts-pop .foot-note'); return { c, scene: L && L.scene, main: st.view && st.view.main, dc: st.dc, lit: ${litOpts}, on: sg && (sg.querySelector('[aria-checked="true"]') || {}).textContent, note: note && note.textContent }; })()`);

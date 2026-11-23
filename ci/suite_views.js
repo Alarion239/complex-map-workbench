@@ -249,7 +249,6 @@ const VIEWS = {
   'figure_ticks_views_cmd.js': steps(),   // (the video's axes on the steps view's glide; the classic Landscape figure's by ?view=classic)
   'layout_483_cmd.js': classic('its fixes are the classic layout\'s: the panes\' tabs, the chain connector, the Deformation bracket and dock; layout_invariants_cmd covers the steps view'),
   'phone_plane_cmd.js': steps({ pin: true }),
-  'phone_swap_cmd.js': classic('the phone\'s two planes keeping their views: the steps view has one plane'),
   'ux165_phone_classic_cmd.js': classic('the phone\'s chain bar and its sheet, the Deformation bar and its dock, the Both key, the cards, and the Editor, keyboard and construction touches as the classic view reaches them'),
   'v15_phone_cmd.js': classic('the phone\'s X | Y layout and its chain bar; the steps view\'s phone is in the phone suites and layout_invariants_cmd'),
   'deform_range_gl_cmd.js': steps({ pin: true }),

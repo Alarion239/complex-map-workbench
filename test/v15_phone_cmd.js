@@ -1,8 +1,8 @@
 // The phone layout (src/phone.js + src/phone.css; notes/ui-redesign-2/phone/DESIGN.md, build/phone.md).
 // Checks, at 360 × 780, 390 × 844 and 430 × 932, light and dark, English and Russian: one screen without page scroll
 // or sideways overflow; no control under 44 × 44 on the main screen, in each sheet and in the long-press menu; every
-// task of DESIGN.md 5 the classic phone still reaches, with its tap count; X | Y side by side above an open sheet, the planes resized once, after the
-// sheet's animation; the inset swaps; the long-press menu (menu on release, a zero added exactly, no menu after a
+// task of DESIGN.md 5 the classic phone still reaches, with its tap count; X alone above an open sheet, resized once, after the
+// sheet's animation; the long-press menu (menu on release, a zero added exactly, no menu after a
 // slide); a landscape phone (844 × 390) and a touch tablet (820 × 1180, the desktop tablet layout, unchanged).
 // A command file for a CDP daemon (test/cdp_kit README):
 //   python3 build.py && test/<you>_cdp/q.sh test/v15_phone_cmd.js
@@ -163,7 +163,7 @@ await T('Export a figure (to the dialog)', 3, async () => { await tap('#hdrMoreB
 await ev(`(() => { const b = document.querySelector('.modal.xf .close, .modal.xf [aria-label="Close"]'); if (b) b.click(); document.querySelectorAll('.modal-bg').forEach((e) => e.remove()); })()`); await settle(300);
 await T('Turn on sound', 2, async () => { await tap('#hdrMoreBtn', 450); await tap('.ph-sheet .ph-switch', 300); const on = await ev(`document.querySelector('.ph-sheet .ph-switch').getAttribute('aria-checked')`); await ev(`document.querySelector('.ph-sheet .ph-switch').click()`); return on === 'true' || on; });
 await T('Load an example', 3, async () => { await tap('#hdrMoreBtn', 450); const rows = await ev(`[...document.querySelectorAll('.ph-sheet .ph-row')].map((b) => b.textContent)`); const i = rows.findIndex((t) => /Examples/.test(t)); await tap(`.ph-sheet .ph-row:nth-of-type(${i + 1})`, 900); const n = await ev(`document.querySelectorAll('#popHost .examples .ex-item').length`); const r = await ev(`(() => { const p = document.querySelector('#popHost .pop.menu.examples'); if (!p) return null; const b = p.getBoundingClientRect(); return { l: b.left, r: b.right, b: b.bottom, iw: innerWidth, ih: innerHeight }; })()`); if (!n) return 'no gallery'; const a = await audit('#popHost'); ok('examples gallery: every control 44 × 44', a.n === 0, a); await tap('#popHost .examples .ex-item:nth-of-type(2)', 900); const s = await st(); return (s.steps === 2 && r && r.l >= 0 && r.r <= r.iw + 1) || { s, r }; });
-await T('Swap the planes (tap the inset)', 1, async () => { const b0 = (await st()).ph.big; await tap('#paneR.ph-inset > .ph-swap', 600); const b1 = (await st()).ph.big; const p = await panes(); await tap('#paneL.ph-inset > .ph-swap', 600); taps--; return (b0 === 'L' && b1 === 'R' && p.R.w > 380 && p.L.w <= 120) || { b0, b1, p }; });
+// (standards-ok: Swap the planes went with Y's pane, not drawn since #994; the classic phone shows X alone)
 // (setPref reloads the page: the expression answers a number, as nothing of the page can be read once it has reloaded)
 // (the Russian button reloads the page: the suite waits for the page the reload brings, not for a time, and its own wait after the tap is
 // not one the reload can cut off; the switch back to Auto reloads it again)
@@ -182,7 +182,7 @@ await T('Change language', 2, async () => {
 });
 await nav(URL0 + 'T'); await settle(600);
 
-// ---------- 3. the sheet: X | Y above it, one resize after the animation; the grabber; Esc ----------
+// ---------- 3. the sheet: X above it, one resize after the animation; the grabber; Esc ----------
 await view(390, 844, false, true);
 await loadChain('v15phS', { sel: 3 });
 await ev(`window.__phRO = []; window.__phT0 = 0; const ro = new ResizeObserver((es) => { for (const e of es) window.__phRO.push([e.target.id, Math.round(performance.now() - window.__phT0), Math.round(e.contentRect.width), Math.round(e.contentRect.height)]); }); ro.observe(document.getElementById('canvasL')); ro.observe(document.getElementById('canvasR')); setTimeout(() => { window.__phRO = []; }, 100); 1`);
@@ -193,7 +193,7 @@ const ro = await ev('window.__phRO');
 const p1 = await panes();
 info.sheetResize = ro;
 ok('sheet: the planes resize only after the sheet has slid in (≥ 200 ms), once per plane', ro.length >= 1 && ro.every((r) => r[1] >= 200) && new Set(ro.map((r) => r[0])).size === ro.length, ro);
-ok('sheet: X | Y side by side above it', p1.L && p1.R && Math.abs(p1.L.w - p1.R.w) <= 2 && p1.L.t === p1.R.t && p1.R.l >= p1.L.l + p1.L.w - 1 && p1.L.b <= p1.chain.t + 1 && p1.chain.b <= p1.sheetTop + 1, p1);
+ok('sheet: X alone above it', p1.L && !p1.R && p1.L.b <= p1.chain.t + 1 && p1.chain.b <= p1.sheetTop + 1, p1);
 ok('sheet: the planes keep a useful size', p1.L.h >= 240 && p1.L.w >= 190, p1);
 await shot('v15ph-zp-390-light-en');
 // the editor: Add zero / Add pole 48 px, the step's fields
@@ -207,7 +207,7 @@ await tap('.ph-sheet .ph-grab', 600);
 ok('sheet: the grabber opens the full height, the chain bar on its top edge, nothing covered, focus kept on the grabber', full.top <= 124 && full.bar[0] <= 60 && Math.abs(full.bar[1] - full.top) <= 1 && full.cov.length === 0 && /ph-grab/.test(String(full.focus)), full);
 await key('Escape'); await settle(400);
 const p2 = await panes();
-ok('sheet: Esc closes it and the inset comes back', p2.sheetTop === null && (await ev(`!!document.querySelector('#paneR.ph-inset')`)), p2);
+ok('sheet: Esc closes it, and X has no inset beside it', p2.sheetTop === null && !(await ev(`!!document.querySelector('.ph-inset')`)), p2);
 await grab();
 
 // ---------- 4. landscape phone and a touch tablet ----------
@@ -215,12 +215,12 @@ await view(844, 390, false, true);
 await loadChain('v15phL', { sel: 2 });
 const sL = await screen(), pL = await panes(), aL = await audit('body');
 ok('landscape phone: no page scroll', sL.sh <= sL.ih + 1 && sL.sw <= sL.iw + 1, sL);
-ok('landscape phone: X | Y side by side', pL.L && pL.R && pL.L.w > 300 && pL.R.w > 300 && pL.L.t === pL.R.t, pL);
+ok('landscape phone: X alone, the width of the screen', pL.L && !pL.R && pL.L.w > 600, pL);
 ok('landscape phone: every control 44 × 44', aL.n === 0, aL);
 await shot('v15ph-land-844');
 await ev(`Phone.open('edit'), 1`); await settled({ until: "document.documentElement.classList.contains('ph-sheet-on')", max: 8000 });
 const pL2 = await panes();
-ok('landscape phone: the editor is a side sheet; both planes stay in sight', pL2.L && pL2.R && pL2.L.w > 150 && pL2.R.l + pL2.R.w <= 844 - 359, pL2);
+ok('landscape phone: the editor is a side sheet; X stays in sight', pL2.L && !pL2.R && pL2.L.w > 150 && pL2.L.l + pL2.L.w <= 844 - 359, pL2);
 await shot('v15ph-land-844-edit');
 await closeSheet();
 await view(820, 1180, false, true);
