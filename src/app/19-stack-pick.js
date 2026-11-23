@@ -9,6 +9,7 @@
   // - a click or a tap (a press that moves less than STACK_PICK_SLOP, or STACK_PICK_SLOP_TOUCH for a finger, and lifts
   //   before STACK_HOLD_MS) pins the point the hover showed: the glass's w where the glass lies under the pointer, with a
   //   strand down to each of its preimages, until Esc or the next pin; on the floor alone it lights the point's twins;
+  //   either is said in the live region, and the left readout keeps it when the pointer leaves (a finger's tap);
   // - a press held or dragged reads the floor: z₀'s strand rises to F(z₀) and dashed strands come down to its twins,
   //   following the pointer, and the readouts read z₀ (the page's "hold and slide" grammar).
   // A hover shows the level a click acts on: the glass's w with its strands where the glass lies under the pointer, the
@@ -18,14 +19,18 @@
   // the Pick tool, Shift+Enter pins the selected target's centre (or the view's centre) on the glass, and Enter lights the
   // floor's twins (pickKey).
   // The camera turns apart from the pick: a drag with any other tool, the right or middle button or Shift with the Pick
-  // tool, or two fingers (14-interaction.js).
+  // tool, or two fingers (14-interaction.js). Esc puts out the picks one at a time: the pin, then the floor's lit twins,
+  // then (the page's own Esc) the selection. A strand is drawn only inside the box, and where it leaves the box it ends
+  // in an open ring, the off-view mark.
   const STACK_PICK_RING = 64;          // the target's ring as the pick sees it: a polygon of this many sides
   const STACK_PICK_SLOP = 4, STACK_PICK_SLOP_TOUCH = 8;   // css px a press moves before it is no click (a mouse's, a finger's)
   const STACK_HOLD_MS = 450;           // a still press held this long reads the floor (the plane's long press)
   const STACK_PICK_MS = 30;            // a hover's preimage search where the steps have no exact inverse (a pin's: PICK_SEARCH_MS)
   const STACK_PICK_DOT = 3.5, STACK_PICK_DASH = [5, 4];   // css px: a strand's end on the glass, a twin's dashes
+  const STACK_PICK_OFF = 3;            // css px: the open ring where a strand leaves the box (its point is off the view)
   let stackHov = null;                 // the glass's point hovered or pinned: {sig, w, zs: [{z, mult}], more, pinned}
   let stackReadW = null;               // the glass's point the left readout reads (the idle readout leaves it, idleReadouts)
+  let stackReadZ = null;               // the floor's lit point the left readout keeps when no point is hovered (a tap's)
   let stackMarkHov = null;             // the mark the hover is over, with the Pick tool: 'ring' (the glass's), 'floor', or null
 
   // the point under (x, y) (pane css px) on the level with map m: the flat plane's css px, or null where m is singular
@@ -89,15 +94,23 @@
     if (stackHov && (stackHov.sig !== pickSig() || tool !== 'pick' || !stackOn())) stackHov = null;
     return stackHov;
   }
-  // the pointer left the Stack: an unpinned hover goes, and the readout reads no point of the glass
+  // whether the left readout keeps a reading of the Stack's picks while no point is hovered (the idle readout leaves it)
+  const stackKeeps = () => stackOn() && !!(stackReadW || stackReadZ);
+  // the pointer left the Stack: an unpinned hover goes, and the left readout reads the pin, else the floor's lit point
   function stackHoverOff() {
-    stackReadW = null;
+    stackReadW = null; stackReadZ = null;
     stackHoverW(null);
+    const hv = stackHovNow(), lit = floorPickNow();
+    if (hv && hv.pinned) { stackReadW = hv.w; stackReadoutW(hv.w); } else if (lit) { stackReadZ = lit.z0; setReadouts(lit.z0); }
   }
-  // Esc with a pinned point: unpins it; true when it did
+  // Esc on the Stack: unpins the glass's point, else puts out the floor's lit twins; true when it did either
   function stackUnpin() {
-    if (!stackHov || !stackHov.pinned) return false;
-    stackHov = null;
+    if (!stackOn()) return false;
+    if (stackHov && stackHov.pinned) stackHov = null;
+    else if (floorPickNow()) floorPick = null;
+    else return false;
+    stackReadW = null; stackReadZ = null;
+    setReadouts(null);
     requestRender('OL');
     return true;
   }
@@ -116,6 +129,7 @@
   function stackHover(pane, x, y) {
     const hit = stackPick(pane, x, y), lv = stackPickLevel(pane, hit, x, y, 'hover');
     stackReadW = lv === 'glass' ? hit.glass.w : null;
+    stackReadZ = null;
     const mark = tool !== 'pick' || !lv ? null : lv === 'glass' ? (stackRingAt(pane, x, y) ? 'ring' : null) : stackFloorMark(pane, x, y, hit.floor.z) ? 'floor' : null;
     if (mark !== stackMarkHov) { stackMarkHov = mark; requestRender('OL'); }
     if (tool === 'pick') pane.ocanvas.style.cursor = mark ? 'move' : 'crosshair';
@@ -191,7 +205,7 @@
     if (d.held || d.moved) { if (d.z) pickLight(k, T, d.z); return; }
     const lv = stackPickLevel(d.pane, d.hit, d.x0, d.y0, 'click');
     if (lv === 'glass') { stackPin(d.hit.glass.w); return; }
-    if (lv === 'floor') { stackHov = null; pickLight(k, T, d.hit.floor.z); }
+    if (lv === 'floor') { stackHov = null; stackReadW = null; stackReadZ = d.hit.floor.z; setReadouts(stackReadZ); pickLight(k, T, d.hit.floor.z); }
   }
   // the point of the level a held press picks, under (x, y): the level's map inverted, on its rectangle or off it
   function stackPickAt(pane, level, x, y) {
@@ -206,8 +220,9 @@
     stackReadoutW(w);
     const live = SV.els && SV.els.live, t = stackHov;
     if (live && t) {
-      const n = t.zs.reduce((a, r) => a + (r.mult || 1), 0), plane = svName(leftStage());
-      live.textContent = t.more ? $t('{n} preimages found on {plane}, and there may be more', { n, plane }) : $tn('{n} preimage on {plane}', '{n} preimages on {plane}', n, { n, plane });
+      // (the point is named, so that a second pin elsewhere is said too)
+      const n = t.zs.reduce((a, r) => a + (r.mult || 1), 0), plane = svName(leftStage()), wt = `${svName(svT())} = ${tubeNum(w)}`;
+      live.textContent = t.more ? $t('{n} preimages of {w} found on {plane}, and there may be more', { n, w: wt, plane }) : $tn('{n} preimage of {w} on {plane}', '{n} preimages of {w} on {plane}', n, { n, w: wt, plane });
     }
   }
   // Shift+Enter with the Pick tool on the focused Stack: pins the selected target's centre on the glass, or the view's
@@ -220,19 +235,30 @@
     stackPin(w);
     return true;
   }
+  // The part of the strand from the floor's point a to the glass's point b (the flat plane's css px, at heights 0 and 1)
+  // inside the box, whose levels are pane's rectangle: [t0, t1] in heights, or null where none of it is
+  function stackClip(pane, a, b) {
+    let t0 = 0, t1 = 1;
+    for (const [p, q, L] of [[a[0], b[0], pane.w], [a[1], b[1], pane.h]]) {
+      const d = q - p;
+      if (Math.abs(d) < 1e-12) { if (p < 0 || p > L) return null; continue; }
+      const u = (0 - p) / d, v = (L - p) / d;
+      t0 = Math.max(t0, Math.min(u, v)); t1 = Math.min(t1, Math.max(u, v));
+    }
+    return t0 <= t1 ? [t0, t1] : null;
+  }
   // The picks over the Stack's levels on ctx (css px; maps F and G of the floor and the glass): the floor's lit point,
   // its strand up to its image and dashed strands down to its twins; the glass's hovered or pinned point, with a strand
-  // down to each of its preimages
+  // down to each of its preimages. A strand is drawn inside the box only, with an open ring where it leaves it. Returns
+  // {strands, off}: how many strands were drawn, and how many open rings
   function drawStackPicks(pane, ctx, F, G) {
+    const rec = { strands: 0, off: 0 };
     const lit = floorPickNow(), hv = stackHovNow(), s = stackMarkHov === 'ring' && tool === 'pick' ? findShape(selected) : null;
     const lookRing = s && lookMarksOn(s) ? lookMarks(pane, s) : null;
-    if (!lit && !hv && !lookRing) return;
-    const at = (m, q) => { const [u, v] = pane.w2s(q); return [m[0] * u + m[2] * v + m[4], m[1] * u + m[3] * v + m[5]]; };
-    const line = (a, b, colour, w, dash) => {
-      ctx.setLineDash(dash || []);
-      ctx.lineWidth = w + 2.5; ctx.strokeStyle = TH.halo; ctx.globalAlpha = TH.haloA; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = w; ctx.strokeStyle = colour; ctx.beginPath(); ctx.moveTo(a[0], a[1]); ctx.lineTo(b[0], b[1]); ctx.stroke();
-    };
+    if (!lit && !hv && !lookRing) return rec;
+    // a point of the flat plane's css px at height t, through the levels' maps
+    const at = (p, t) => { const m = F.map((v, i) => v + t * (G[i] - v)); return [m[0] * p[0] + m[2] * p[1] + m[4], m[1] * p[0] + m[3] * p[1] + m[5]]; };
+    const flat = (q) => pane.w2s(q), inside = (p) => p[0] >= 0 && p[0] <= pane.w && p[1] >= 0 && p[1] <= pane.h;
     const ring = (p, r, colour, fill) => {
       const x = p[0], y = p[1];
       ctx.setLineDash([]);
@@ -240,22 +266,35 @@
       ctx.lineWidth = 1.75; ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
       if (fill) ctx.fill(); else ctx.stroke();
     };
+    // the strand from the floor's point a to the glass's point b (flat css px), as far as it is inside the box
+    const strand = (a, b, colour, w, dash) => {
+      const c = stackClip(pane, a, b);
+      if (!c) return;
+      const mix = (t) => at([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])], t), p = mix(c[0]), q = mix(c[1]);
+      ctx.setLineDash(dash || []);
+      ctx.lineWidth = w + 2.5; ctx.strokeStyle = TH.halo; ctx.globalAlpha = TH.haloA; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      ctx.globalAlpha = 1; ctx.lineWidth = w; ctx.strokeStyle = colour; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
+      rec.strands++;
+      if (c[0] > 0) { ring(p, STACK_PICK_OFF, colour, false); rec.off++; }
+      if (c[1] < 1) { ring(q, STACK_PICK_OFF, colour, false); rec.off++; }
+    };
     ctx.save();
     ctx.lineCap = 'round';
     // (the target's ring under the pointer, lit: a press there drags it)
     if (lookRing) { ctx.lineWidth = 3.5; ctx.strokeStyle = TH.probe; ctx.beginPath(); stackMarkLevel(G).path(ctx, () => ctx.arc(lookRing.c[0], lookRing.c[1], lookRing.r, 0, TAU)); ctx.stroke(); }
     if (lit) {
-      const z0 = lit.z0, top = at(G, lit.w), own = at(F, z0);
-      for (const { z } of lit.zs) if (CX.abs(CX.sub(z, z0)) > 1e-6 * (1 + CX.abs(z0))) line(top, at(F, z), TH.probe, 1.5, STACK_PICK_DASH);
-      line(own, top, TH.probe, 1.75);
-      for (const { z } of lit.zs) { const own0 = CX.abs(CX.sub(z, z0)) <= 1e-6 * (1 + CX.abs(z0)); ring(at(F, z), own0 ? PICK_DOT : PICK_RING, TH.probe, own0); }
-      ring(top, STACK_PICK_DOT, TH.probe, true);
+      const z0 = lit.z0, top = flat(lit.w), own = (z) => CX.abs(CX.sub(z, z0)) <= 1e-6 * (1 + CX.abs(z0));
+      for (const { z } of lit.zs) if (!own(z)) strand(flat(z), top, TH.probe, 1.5, STACK_PICK_DASH);
+      strand(flat(z0), top, TH.probe, 1.75);
+      for (const { z } of lit.zs) { const p = flat(z); if (inside(p)) ring(at(p, 0), own(z) ? PICK_DOT : PICK_RING, TH.probe, own(z)); }
+      if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.probe, true);
     }
     if (hv) {
-      const top = at(G, hv.w), w = hv.pinned ? 1.75 : 1.25;
-      for (const { z } of hv.zs) line(top, at(F, z), TH.accent, w);
-      for (const { z } of hv.zs) ring(at(F, z), PICK_RING, TH.accent, false);
-      ring(top, STACK_PICK_DOT, TH.accent, true);
+      const top = flat(hv.w), w = hv.pinned ? 1.75 : 1.25;
+      for (const { z } of hv.zs) strand(flat(z), top, TH.accent, w);
+      for (const { z } of hv.zs) { const p = flat(z); if (inside(p)) ring(at(p, 0), PICK_RING, TH.accent, false); }
+      if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.accent, true);
     }
     ctx.restore();
+    return rec;
   }

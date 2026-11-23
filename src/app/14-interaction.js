@@ -253,7 +253,7 @@
     };
     cv.addEventListener('pointerup', up);
     cv.addEventListener('pointercancel', up);
-    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; if (side === 'L' && stackOn()) stackHoverOff(); setReadouts(null); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
+    cv.addEventListener('pointerleave', () => { if (!drag) Construct.leave(side); if (side === 'R') { rHover = null; setHoverW(null); requestRender('OL', 'OR'); } if (!drag) { sndHoverOff(); probe = null; probeHover = null; probeHeld = false; hoverCut = 0; zpHover = null; setReadouts(null); if (side === 'L' && stackOn()) stackHoverOff(); requestRender('OL', 'OR', rGlobe() ? 'R' : null, lGlobe() || lLand() ? 'L' : null); } });
     cv.addEventListener('dblclick', (e) => {
       if (draft && draft.kind === 'polygon' && (side === 'R') === !!draft.target) { finishPolygon(); return; }
       // a double-click on an edge of a closed polygon adds a vertex there
@@ -1330,7 +1330,7 @@
     const lk = leftStage();
     const vin = lk === 0 ? '<i>z</i>' : `<i>w</i>${sub(lk)}`;
     if (!z) {
-      if (!lr.classList.contains('copied') && !hov.w) lr.innerHTML = idleLeft();
+      if (!lr.classList.contains('copied') && !hov.w && !stackKeeps()) lr.innerHTML = idleLeft();
       if (!ro.classList.contains('copied')) ro.innerHTML = idleRight();
       legendNeedle = null; legendMod = null; requestRender('G');
       return;
@@ -1454,7 +1454,7 @@
     if (probe || (drag && /^g(draw|handle|move)$/.test(drag.mode))) return;
     const lr = $('leftReadout'), ro = $('rightReadout');
     const a = idleLeft(), b = idleRight();
-    if (!hov.w && !(stackReadW && stackOn()) && !lr.classList.contains('copied') && lr.innerHTML !== a) lr.innerHTML = a;
+    if (!hov.w && !stackKeeps() && !lr.classList.contains('copied') && lr.innerHTML !== a) lr.innerHTML = a;
     if (!rHover && !ro.classList.contains('copied') && ro.innerHTML !== b) ro.innerHTML = b;
   }
   function copyReadout(side) {
@@ -1604,7 +1604,7 @@
       if (e.key === 'Escape') {
         const tm = $('toolMore');
         if (padEl) closePad(); else if (popEl) closePalette(); else if (tm && tm.open) tm.open = false;
-        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
+        else if (closeTemp()) { requestRender('P'); } else if (closeDrawers()) { /* closed an overlay drawer */ } else if (stackUnpin()) { /* unpinned the glass's point, or put out the floor's lit twins */ } else if (draft) { if (draft.pending) dropPending(); else draft = null; requestRender('L', 'OR', rGlobe() ? 'R' : null); } else if (selected) { selected = null; buildShapeList(); requestRender('L', 'R'); }
         else if (tool !== 'select') setTool('select');
         else if (escSound) { /* the sound was this Esc's level */ }
         else if (modeNext()) modeClose(modeNext());

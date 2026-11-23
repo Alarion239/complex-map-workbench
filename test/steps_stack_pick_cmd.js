@@ -13,10 +13,15 @@
 //  - with the Disc tool a drag out on the floor adds a disc on w₁ about the pressed point's image; with Pick a drag on a lit
 //    patch moves the target by the change of the image under the pointer, and a drag on the target's ring on the glass
 //    moves it with the pointer;
-//  - from the keyboard, Shift+Enter on the focused plane pins the target's centre on the glass and says its count;
+//  - from the keyboard, Shift+Enter on the focused plane pins the target's centre on the glass and says its count; each
+//    pin says its own point, so two pins say two things;
+//  - Esc puts the picks out one at a time: the pin, then the floor's lit twins, then the selection;
+//  - a strand is drawn inside the box only: a held press near the floor's corner, whose image is far off, draws its
+//    strands with open rings where they leave the box;
 //  - the camera turns apart from the pick: with the Pick tool a right-button drag and a Shift-drag turn it, with Select a
 //    drag does, and none of them moves the target or adds a shape;
-//  - on a phone (390 × 844, touch) one finger lights the twins and two fingers turn the camera, the target where it was.
+//  - on a phone (390 × 844, touch) one finger lights the twins, and the left readout keeps the tapped point's z; two fingers
+//    turn the camera, the target where it was.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -132,13 +137,14 @@ for (const q of spots) {
   await hover(...q);
   const hv = (await S()).hov;
   await press(...q);
-  const pn = (await S()).hov;
-  same.push({ q, hover: hv && hv.w, pin: pn && pn.w, pinned: !!pn && pn.pinned });
+  const pn = (await S()).hov, live = (await ev('__cmwPick()')).live;
+  same.push({ q, hover: hv && hv.w, pin: pn && pn.w, pinned: !!pn && pn.pinned, live });
   await key('Escape');
   await frames();
 }
 info.same = same;
 ok('where the glass lies over the floor, a click pins the very point the hover showed (three pixels)', same.length === 3 && same.every((r) => r.pinned && close(r.pin, r.hover)), same);
+ok('each pin says its own point in the live region, so three pins say three things', same.length === 3 && same.every((r) => /preimages? of w₁ = .* on z/.test(r.live)) && new Set(same.map((r) => r.live)).size === 3, same.map((r) => r.live));
 if (both) {
   await press(...both);
   const pinned = (await S()).hov;
@@ -192,9 +198,40 @@ await frames();
 {
   const s = await S(), live = (await ev('__cmwPick()')).live;
   info.key = { hov: s.hov, live };
-  ok('Shift+Enter on the focused plane pins the target\'s centre on the glass, and says its count', !!s.hov && s.hov.pinned && close(s.hov.w, [1.1, 0]) && s.hov.zs.length === 3 && /3 preimages on z/.test(live), info.key);
+  ok('Shift+Enter on the focused plane pins the target\'s centre on the glass, and says its count', !!s.hov && s.hov.pinned && close(s.hov.w, [1.1, 0]) && s.hov.zs.length === 3 && /3 preimages of w₁ = 1\.1 on z/.test(live), info.key);
   await key('Escape');
   await frames();
+}
+
+// ---- Esc puts the picks out one at a time: the pin, then the lit twins, then the selection
+if (both && floorOnly) {
+  await press(...floorOnly);
+  await press(...both);
+  const peel = [];
+  const state = async () => { const s = await S(), P = await ev('__cmwPick()'); return { pin: !!s.hov && s.hov.pinned, lit: !!P.lit, sel: (await ev('__cmwShapes()')).selected }; };
+  peel.push(await state());
+  for (let i = 0; i < 3; i++) { await key('Escape'); await frames(); peel.push(await state()); }
+  info.peel = peel;
+  const want = [{ pin: true, lit: true, sel: 'd' }, { pin: false, lit: true, sel: 'd' }, { pin: false, lit: false, sel: 'd' }, { pin: false, lit: false, sel: null }];
+  ok('Esc puts out the pin, then the floor\'s lit twins, then the selection', JSON.stringify(peel) === JSON.stringify(want), peel);
+  await ev(`__cmwSelect('d'); 1`);
+  await frames();
+}
+
+// ---- strands stop at the box: a held press near the floor's corner, its image far off
+{
+  const corner = await ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(), m = __cmwStack().drawn.floor, u = o.width * 0.04, v = o.height * 0.04; return [Math.round(o.left + m[0] * u + m[2] * v + m[4]), Math.round(o.top + m[1] * u + m[3] * v + m[5])]; })()`);
+  const ck = await pickAt(...corner);
+  await mouse('mouseMoved', ...corner);
+  await mouse('mousePressed', ...corner, { button: 'left', buttons: 1, clickCount: 1 });
+  await sleep(700);
+  await frames();
+  const rec = (await S()).drawn.picks, lit = (await ev('__cmwPick()')).lit;
+  await mouse('mouseReleased', ...corner, { button: 'left', buttons: 0, clickCount: 1 });
+  await key('Escape');
+  await frames();
+  info.off = { corner, ck: ck && ck.floor, rec, w: lit && lit.w };
+  ok('a strand is drawn inside the box only: a press held near the floor\'s corner draws its strands, with open rings where they leave the box', !!rec && rec.strands >= 1 && rec.off >= 1, info.off);
 }
 
 // ---- a drag on a lit patch moves the target
@@ -259,6 +296,9 @@ await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
     await settled({ panes: false, until: `!!__cmwPick().lit` });
     const lit = (await ev('__cmwPick()')).lit;
     ok('phone: one finger on the floor lights the twins', !!lit && lit.zs.length === 3, lit);
+    const tapRead = await readout();
+    // (a phone's readout is the short one: z and F(z))
+    ok('phone: after the tap the left readout keeps the tapped point\'s z', /^z\s/.test(tapRead) && tapRead.includes('F(z)'), tapRead);
     const mid = await ev(`(() => { const o = document.getElementById('overlayL').getBoundingClientRect(); return [Math.round(o.left + o.width / 2), Math.round(o.top + o.height / 2)]; })()`);
     const d = await disc(), n = await nShapes(), y0 = (await S()).camera.yaw, a = [mid[0] - 50, mid[1]], b = [mid[0] + 30, mid[1]];
     await t('touchStart', [a, b]);

@@ -19,7 +19,7 @@
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time)}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time), picks}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // the Stack is shown, and its camera draws: not while its floor is drawn flat, which the flat plane's own draw does
   const stackOn = () => SV.on && SV.surf === 'stack' && !stackFlat;
@@ -94,19 +94,19 @@
       ctx.globalAlpha = STACK_EDGE_A * tilt; ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.stroke();
       ctx.restore();
     };
-    let tubes = null;
+    let tubes = null, picks = null;
     const layers = {
       'floor marks': () => mk && drawLookLayer(ctx, mk, lv, 'floor'),
       tubes: () => { if (!mk) return; const t0 = performance.now(); tubes = drawStackTubes(pane, ctx, s, F, G, tilt, mk.critZ); if (tubes) tubes.ms = performance.now() - t0; },
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lv, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
-      picks: () => drawStackPicks(pane, ctx, F, G),
+      picks: () => { picks = drawStackPicks(pane, ctx, F, G); },
       labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, pane.w); },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
-    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, plane: TH.plane };
+    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, picks, plane: TH.plane };
   }
   // the Stack's overlay on the left pane (renderOverlays'), with Look down's key chip when the marks show. False when the
   // Stack is not shown
