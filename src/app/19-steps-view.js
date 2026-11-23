@@ -2176,7 +2176,11 @@
       try {
         own = GLChain.build(S.steps, built);
         for (const v of list) v.gl = GLChain.build(v.steps, v.built);
-      } catch (e) { own = null; list.length = 0; }
+      } catch (e) {
+        // (the chain's own refusal is rebuild()'s to report; a copy's, after the chain's own built, is reported here)
+        if (own) console.error('GLChain', e);
+        own = null; list.length = 0;
+      }
     }
     // (the seams: every surface drawn, the chain as it is first, with its cuts turned, made when first asked for)
     let seams = null;

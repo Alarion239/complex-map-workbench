@@ -79,8 +79,8 @@ await openSteps('npgbase', [{ type: 'pown', params: { n: 2 }, on: true }]);
   ok(`refused chain: the pane's GL status says the chain needs more shader parameters (${st})`, /more shader parameters/.test(String(st)), st);
 }
 // The glide onto the square root's plane at the end of a chain the build refuses: svGlideSheets' copies (one per sheet
-// combo) take the chain's slots, so none is built, and a glide frame throws nothing (each frame threw the build's
-// refusal again); the pane's GL status reads the refusal, as the parked plane's does
+// combo) take the chain's slots, so none is built, and a glide frame throws nothing (a frame that built the copies would
+// throw the build's refusal); the pane's GL status reads the refusal, as the parked plane's does
 {
   const nSteps = await ev(`(() => { const st = { type: 'mobius', params: Funcs.defaults('mobius'), on: true }; const per = GLChain.build([st], [Funcs.build(st)]).slots; const vecs = Math.min(GLR.gl.getParameter(GLR.gl.MAX_FRAGMENT_UNIFORM_VECTORS), GLR.gl.getParameter(GLR.gl.MAX_VERTEX_UNIFORM_VECTORS)); return Math.floor(GLChain.maxChainSlots(vecs) / per) + 1; })()`);
   const defs = await ev("Funcs.defaults('mobius')");
