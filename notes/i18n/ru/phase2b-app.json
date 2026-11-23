@@ -894,19 +894,6 @@
   "note": "shapePhrase, genitive",
   "file": "app.js:9053"
  },
- "cap.shape_the_label_m": {
-  "en": "the %{label} %{m}",
-  "ru": "%{label} %{m}",
-  "note": "shapePhrase, nominative",
-  "file": "app.js:9053"
- },
- "cap.shape_the_label_m_gen": {
-  "en": "the %{label} %{m}",
-  "ru": "%{label} %{m}",
-  "ctx": "gen",
-  "note": "shapePhrase, genitive",
-  "file": "app.js:9053"
- },
  "cap.shape_a_shape": {
   "en": "a shape",
   "ru": "фигура",

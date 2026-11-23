@@ -122,8 +122,8 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   check('every catalog type except d/dz, Γ, ζ, a series, a recurrence, Φ_M and φ_c is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
-    ['poly', { co: '1, 0, 0, 0, -1, 0' }, 'polynomial of degree 5'], ['rational', { p: '1, 0, 0, 0, 0, 1', q: '1, 0' }, 'rational map of degree 5'],
-    ['custom', { expr: 'z^4+\\frac{1}{z}' }, 'rational formula of degree 5'], ['custom', { expr: '\\Re z+1' }, 'lose'], ['custom', { expr: '\\Im(z)' }, 'lose'],
+    ['poly', { co: '1, 0, 0, 0, -1, 0' }, 'polynomial of degree 5'], ['rational', { p: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1', q: '1, 0' }, 'rational map of degree 13'],
+    ['custom', { expr: 'z^{12}+\\frac{1}{z}' }, 'rational formula of degree 13'], ['custom', { expr: '\\Re z+1' }, 'lose'], ['custom', { expr: '\\Im(z)' }, 'lose'],
     ['custom', { expr: '|z|^2' }, 'lose'], ['custom', { expr: '\\arg(z)' }, 'lose'], ['deriv', {}, 'd/dz'], ['pown', { n: 17 }, '|n| > 16'], ['custom', { expr: 'z^{20}' }, '|n| > 16'],
     ['poly', { co: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1' }, '|n| > 16'], ['custom', { expr: 'z^{z}' }, 'variable base and exponent'], ['custom', { expr: '(1+z)^{\\sin z}' }, ''], ['custom', { expr: 'z\\cdot\\overline{z}' }, 'more than once'],
     ['mul', { c: '0' }, 'constant'], ['powa', { alpha: '0' }, 'constant'], ['mobius', { a: '1', b: '2', c: '2', d: '4' }, ''],
@@ -1124,6 +1124,14 @@ section('singularAfter (ζ after an injective plan)');
     check('homOps: Γ(z + 1) at t = 0.75, its NEWT op names sub-step 1 and keys it', g75.length === 1 && g75[0][0] === 1 && /@1$/.test(g75[0][1]), g75);
     check('homOps: z^5 - 2z + 1 at t = 0.25 and 0.75, its polynomial NEWT op names sub-step 0 (its key is its degree)', p25.length === 1 && p25[0][0] === 0 && p25[0][1] === 'NEWT^5' && p75.length === 1 && p75[0][0] === 0 && p75[0][1] === 'NEWT^5', { p25, p75 });
   }
+  // a polynomial NEWT op's members in increasing Re u + 0.37 Im u (InvOps' ROOT_ORDER, as RAT<n>'s and the GLSL op's),
+  // each m its place in that order: which of Aberth's start points finds which root depends on the rounding, so the
+  // CPU and the GPU agree on the order of the roots, not on that
+  for (const [expr, t, w] of [['z^5+z', 0.5, C(3, 1)], ['z^5-2z+1', 0.25, C(-0.4, 2)], ['z^7+3z^2-1', 0.75, C(1e3, -40)], ['z^6+z', 1, C(0.2, 0.1)]]) {
+    const op = Inverse.homOps(Funcs.build(St('custom', { expr, cut: 180 })), t).ops.find((o) => o.kind === 'NEWT'), ms = op ? op.pre(w) : [];
+    const ks = ms.map((m) => m.u.re + 0.37 * m.u.im);
+    check(`homOps: ${expr} at t = ${t}, w = ${w.re} + ${w.im}i: the polynomial NEWT op's members in increasing Re + 0.37 Im, m their places`, ms.length > 0 && ks.every((k, i) => i === 0 || ks[i - 1] <= k) && ms.every((m, i) => m.m === i), ms.map((m) => `${m.m}:${(m.u.re + 0.37 * m.u.im).toFixed(4)}`).join(' '));
+  }
   // a Repeat × N's NEWT op names its sub-step by the block, as its program names the block's homotopies (GLChain's
   // repPlan, cxs<k>r<j>, j < len): the block step it names exists, and its homotopy at the op's t is the op's own map.
   // Repeated inverse Joukowski (len 1, N = 3: three times) at t = 0.5 and 0.8, and the block [exp, inverse Joukowski]
@@ -1143,6 +1151,18 @@ section('singularAfter (ζ after an injective plan)');
     }
   }
   check('homOps: the identity at t <= 0, the step itself at t >= 1', Inverse.homOps(Funcs.build(St('exp')), 0).ops.length === 0 && Inverse.homOps(Funcs.build(St('exp')), 1).ops.map((o) => o.kind).join() === 'EXP');
+  // A plan's ops are its own: two plans of one glide whose ops share the step's decomposition (as the app's glide
+  // skeleton shares it, each step's ops made once and the same op objects in the homotopy's ops at every t) each keep
+  // their own step, node and j. z^3 - 2z + 1 is recognised as two sub-steps: at t = 0.25 its ops are AFF, RAT3, AFF (RAT3
+  // node 1), at t = 0.75 the same RAT3 comes first (node 0); the plan at 0.25, made first, still has RAT3 at node 1
+  {
+    const once = (b) => { const r = Inverse.stepOps(b), o = Object.assign({}, b, { __homOps: () => r }); if (b.rec && b.rec.built) o.rec = Object.assign({}, b.rec, { built: b.rec.built.map(once) }); return o; };
+    const st = St('custom', { expr: 'z^3-2z+1', cut: 180 }), sk = once(Funcs.build(st));
+    const plan = (t) => { const h = Inverse.homOps(sk, t); return { h, p: Inverse.planChain([st], [Inverse.homBuilt(sk, h)], 0, 1) }; };
+    const at = (q) => q.p.ops.map((o) => `${o.kind}${o.node}`).join();
+    const a = plan(0.25), b = plan(0.75), shared = a.h.ops.some((o) => b.h.ops.includes(o));
+    check('planChain: a plan keeps its own nodes when a later plan of the same glide puts a shared op at another node', shared && at(a) === 'AFF0,RAT31,AFF2' && /^RAT30/.test(at(b)), { shared, a: at(a), b: at(b) });
+  }
 }
 
 // Joukowski's homotopy, inverted two ways: by Newton (InvOps.opNewt) seeded by its JOUK op, as newtOps builds it for a

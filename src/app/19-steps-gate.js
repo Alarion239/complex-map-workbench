@@ -11,8 +11,8 @@
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
-  function svGateNeeded() {
-    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady().ready;
+  function svGateNeeded(M) {
+    return !svGateOff && !!(GLR.ok && GLR.progStatus) && !svReady(M).ready;
   }
   // the test hook's switch for suites that watch what follows the wait (the link-hold) without it
   let svGateOff = false;
@@ -20,12 +20,13 @@
   // a press waits for the prestart (the test hook counts it as under way)
   const svGateWaiting = () => !!SV.gate;
   // the wait is on plane z with its colour (T = 0), on the flat plane: its frame is the glide's first, the late-link stand-in while the carried programs link
-  const svGateDraws = () => !!SV.gate && SV.surf === 'plane' && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
-  // start() now, or once the chain is prepared; btn is the control the wait shows on
-  function svGated(btn, start) {
+  const svGateDraws = () => !!SV.gate && svFlatSurf() && lFlat() && svT() === 0 && Math.round(SV.g.x) === 0 && Math.abs(SV.g.x) < SV_REST_U;
+  // start() now, or once the chain is prepared; btn is the control the wait shows on, M the motion start() starts from
+  // rest (its frames drawn ahead, svAheadPart), or none
+  function svGated(btn, start, M) {
     if (SV.gate) return;
-    if (!svGateNeeded()) { start(); return; }
-    SV.gate = { btn, start, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
+    if (!svGateNeeded(M)) { start(); return; }
+    SV.gate = { btn, start, M, t0: performance.now(), timer: 0, hung: false, shown: false, toast: null, keep: null };
     svPrestartSoon(0);
     if (svGateDraws()) requestRender('L');
     svGateTick();
@@ -34,53 +35,119 @@
   function svGateRetry() {
     const g = SV.gate;
     if (!g) return;
-    const { btn, start } = g;
-    svGateEnd();
-    svGated(btn, start);
+    const { btn, start, M } = g;
+    svGateEnd(true);
+    svGated(btn, start, M);
     if (SV.gate) { SV.gate.shown = true; svGateSync(); }
   }
-  function svGateEnd() {
+  // (keep: the wait ends to start the motion, or to wait again (Retry), and the frames drawn ahead stay; else it is cancelled,
+  // and they go)
+  function svGateEnd(keep) {
     const g = SV.gate;
     if (!g) return;
     clearTimeout(g.timer);
+    if (!keep) svAheadDrop();
     // (the keyboard user who acted in the message goes back to the control the wait is on, not to the page)
     if (g.toast && g.toast.contains(document.activeElement)) g.btn.focus();
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
-    if (g.keep) {
-      g.btn.replaceChildren(...g.keep.kids);
-      for (const [k, v] of g.keep.attrs) { if (v == null) g.btn.removeAttribute(k); else g.btn.setAttribute(k, v); }
-    }
-    g.btn.toggleAttribute('aria-busy', false);
-    delete g.btn.dataset.wait;
-    g.btn.style.removeProperty('--wait');
-    if (g.btn === (SV.els && SV.els.play)) { delete g.btn.dataset.on; svPlaySync(); }
+    svWaitRestore(g);
   }
-  function svGateSync() {
-    const g = SV.gate;
-    if (!g || !g.shown) return;
-    const B = g.btn;
-    if (!g.keep) {
-      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
+  // the Play gate's gauge: the share of what svReady counts that is done, SV_GATE_UNKNOWN_FILL while it has no total
+  function svGateFill(M) {
+    const r = svReady(M);
+    return r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL;
+  }
+  // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its icon a
+  // cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the glide…".
+  // w: {btn, keep, fill, gauge?, hung?}, kept so svWaitRestore gives the control back as it was
+  function svWaitLook(w) {
+    const B = w.btn;
+    if (!w.keep) {
+      w.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
-    const r = svReady();
     B.toggleAttribute('aria-busy', true);
-    B.dataset.wait = g.hung ? 'hung' : 'busy';
-    g.fill = Math.max(g.fill || 0, r.total ? r.done / r.total : SV_GATE_UNKNOWN_FILL);
-    B.style.setProperty('--wait', String(g.fill));
+    B.dataset.wait = w.hung ? 'hung' : 'busy';
+    w.fill = Math.max(w.fill || 0, w.gauge ? w.gauge() : svGateFill(w.M));
+    B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
+  function svWaitRestore(w) {
+    const B = w.btn;
+    if (w.keep) {
+      B.replaceChildren(...w.keep.kids);
+      for (const [k, v] of w.keep.attrs) { if (v == null) B.removeAttribute(k); else B.setAttribute(k, v); }
+    }
+    B.toggleAttribute('aria-busy', false);
+    delete B.dataset.wait;
+    B.style.removeProperty('--wait');
+    if (B === (SV.els && SV.els.play)) { delete B.dataset.on; svPlaySync(); }
+  }
+  // whether button B shows the wait look: the Play gate's (once shown) or a hold's
+  const svWaitOn = (B) => !!((SV.gate && SV.gate.shown && SV.gate.btn === B) || (SV.hold && SV.hold.shown && SV.hold.btn === B));
+  function svGateSync() {
+    const g = SV.gate;
+    if (!g || !g.shown) return;
+    svWaitLook(g);
+  }
+  // A hold in the middle of a play (svLinkHold: the programs of a later glide still link, so the play's clock stands still):
+  // past SV_GATE_SHOW_MS ▶ takes the gate's look and the live region says "Preparing the glide…" once, and when the hold ends
+  // ▶ goes back to Pause and the live region says the play's words once. A shorter hold shows nothing. Pressing ▶ (Cancel) or
+  // Esc pauses the play, as for any play
+  function svHoldWaitBegin(A) {
+    if (SV.hold && SV.hold.ending) svHoldWaitLeave(SV.hold);
+    if (SV.hold) return;
+    // (the ring is this hold's own, and of what the held glide waits for (svHoldLeft): the share that has gone since the hold began,
+    // so it is full when the glide can go; svReady's gauge counts what was done before the play, so it would start high and never
+    // fill. With nothing counted, the ring stands at the unknown fill)
+    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, left0: svHoldLeft, ending: false,
+      gauge: () => { w.left0 = Math.max(w.left0, svHoldLeft); return w.left0 > 0 ? 1 - Math.min(svHoldLeft, w.left0) / w.left0 : SV_GATE_UNKNOWN_FILL; } };
+    w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
+  }
+  function svHoldWaitTick() {
+    const w = SV.hold;
+    if (!w || w.ending) return;
+    if (SV.play !== w.A || !w.A.held) { svHoldWaitEnd(SV.play === w.A); return; }
+    if (!w.shown) {
+      w.shown = true;
+      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
+    }
+    svWaitLook(w);
+    w.timer = setTimeout(svHoldWaitTick, SV_GATE_POLL_MS);
+  }
+  // the hold's look given back, and the hold gone
+  function svHoldWaitLeave(w) {
+    if (SV.hold === w) SV.hold = null;
+    svWaitRestore(w);
+  }
+  // the hold is over (say: the play goes on, so the ring is full, painted for two animation frames, and its words are said again; else, as
+  // when ▶ pauses the play, ▶ is given back at once)
+  function svHoldWaitEnd(say) {
+    const w = SV.hold;
+    if (!w) return;
+    if (w.ending) { if (!say) svHoldWaitLeave(w); return; }
+    clearTimeout(w.timer);
+    if (!w.shown) { SV.hold = null; return; }
+    if (!say) { svHoldWaitLeave(w); return; }
+    w.ending = true;
+    w.gauge = () => 1;
+    svWaitLook(w);
+    if (SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (SV.hold === w) svHoldWaitLeave(w); }));
+  }
   function svGateTick() {
     const g = SV.gate;
     if (!g) return;
     if (svPlanes().length < 2) { svGateEnd(); return; }
-    if (!svGateNeeded()) { svGateEnd(); g.start(); return; }
+    if (!svGateNeeded(g.M)) { svGateEnd(true); g.start(); return; }
+    // (all else ready: the motion's frames are drawn ahead)
+    if (g.M && svAheadPart(g.M) && svReady().ready) svAheadRun(g.M);
     const t = performance.now() - g.t0;
     if (!g.shown && t >= SV_GATE_SHOW_MS) {
       g.shown = true;
