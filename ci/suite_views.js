@@ -78,6 +78,7 @@ const VIEWS = {
   'steps_land_glide_cmd.js': steps(),
   'steps_negpow_glide_cmd.js': steps({ pin: true }),
   'steps_land_glide_sheets_cmd.js': steps(),
+  'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
