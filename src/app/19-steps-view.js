@@ -2134,9 +2134,19 @@
       const v = valsOf(steps, bs);
       if (seen.some((w) => sheetValsSame(w, v))) continue;
       seen.push(v);
-      list.push({ offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${list.length + 1}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
+      list.push({ offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${list.length + 1}`), gl: null });
     }
-    svSheetMemo = { key, list, W, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    // (the GPU chains, the chain's own first: a copy changes only a step's params.k and takes the chain's uniform slots, so
+    // a chain the build refuses (GLChain.build throws over the slot cap; rebuild() reported it) has no copies, and the
+    // memo keeps that answer: the glide draws the chain alone, which reads the refusal as the parked plane does)
+    let own = null;
+    if (GLR.ok && list.length) {
+      try {
+        own = GLChain.build(S.steps, built);
+        for (const v of list) v.gl = GLChain.build(v.steps, v.built);
+      } catch (e) { own = null; list.length = 0; }
+    }
+    svSheetMemo = { key, list, W, own };
     return list;
   }
   // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'
