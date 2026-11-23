@@ -29,7 +29,7 @@ const InvOps = (() => {
   //      plane) | null, lam: log u | null, dlam: d(log u)/dw (with lam), m}
   // Parameters in p (read by glsl.js's uInv allocator): AFF {a, b}; MOB {m: [a, b, c, d]}; IPOW {n};
   //      ROOTPOW {s, beta, theta, k, lo, hi, mode: 'int' | 'finite' | 'inf'}; EXPC {L0}; LOG {theta, k, lo, hi};
-  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; RAT3, RAT4 {P: [p_n, ..., p0], Q: [q_n, ..., q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
+  //      IJOUK {sg}; QUAD {a, b, c}; RAT2 {P: [p2, p1, p0], Q: [q2, q1, q0]}; RAT3 ... RAT12 {P: [p_n, ..., p0], Q: [q_n, ..., q0]}; NEWT {t, back?: the step's exact ops, anchor?: {re, y0, y1}};
 //      the others {}.
   function op(kind, p, fwd, o) {
     return Object.assign({ kind, p, fwd, fam: null, undef: [], branch: [], poles: [], lattice: null, infPre: true, infAt: null, critical: () => CRIT_NONE }, o);
@@ -607,7 +607,7 @@ const InvOps = (() => {
       pre: (w) => {
         const A = sub(P[0], mul(w, Q[0])), B = sub(P[1], mul(w, Q[1])), Cc = sub(P[2], mul(w, Q[2]));
         let roots;
-        if (abs(A) <= 1e-14 * (abs(B) + abs(Cc))) roots = abs(B) > 0 ? [neg(div(Cc, B))] : [];
+        if (abs(A) <= RAT_DROP * (abs(B) + abs(Cc))) roots = abs(B) > 0 ? [neg(div(Cc, B))] : [];
         else {
           const disc = CX.sqrt(sub(mul(B, B), scale(mul(A, Cc), 4)));
           const sd = (B.re * disc.re + B.im * disc.im) < 0 ? neg(disc) : disc;
@@ -615,7 +615,7 @@ const InvOps = (() => {
           roots = (qq.re === 0 && qq.im === 0) ? [ZERO] : [div(qq, A), div(Cc, qq)];
         }
         // (B = C = 0: the double root 0, listed once with its multiplicity; the one root of a w at infinity is simple)
-        const dbl = roots.length === 1 && abs(A) > 1e-14 * (abs(B) + abs(Cc));
+        const dbl = roots.length === 1 && abs(A) > RAT_DROP * (abs(B) + abs(Cc));
         return roots.map((u, m) => {
           const pu = CX.polyEval(p, u), qu = CX.polyEval(q, u);
           const fp = div(sub(mul(dp(u), qu), mul(pu, dq(u))), mul(qu, qu));
@@ -624,11 +624,12 @@ const InvOps = (() => {
       },
     });
   }
-  // a root u of the polynomial co (highest first) polished by CUB_POLISH Newton steps on it
-  const CUB_POLISH = 2;
+  // a root u of the polynomial co (highest first) polished by ROOT_POLISH Newton steps on it (GLSL's RAT3 ... RAT<n> take
+  // at most as many, each only where it lowers |p|)
+  const ROOT_POLISH = 2;
   function polishRoot(co, u) {
     const dco = co.slice(0, -1).map((x, i) => scale(x, co.length - 1 - i));
-    for (let it = 0; it < CUB_POLISH; it++) {
+    for (let it = 0; it < ROOT_POLISH; it++) {
       const g = CX.polyEval(dco, u);
       if (isZero(g)) break;
       const v = sub(u, div(CX.polyEval(co, u), g));
@@ -677,14 +678,17 @@ const InvOps = (() => {
     const q = scale(add(b, (b.re * disc.re + b.im * disc.im) < 0 ? neg(disc) : disc), -0.5);
     return isZero(q) ? [{ u: ZERO, mult: 2 }] : [{ u: div(q, a) }, { u: div(cc, q) }];
   }
+  // a leading coefficient at most RAT_DROP of the terms it is made of is the rounding left of a zero, and is dropped (ratPoly;
+  // RAT2's, and GLSL's RAT3 ... RAT<n>, by the same rule)
+  const RAT_DROP = 1e-14;
   // the coefficients of p(u) - w q(u) (P, Q padded to one length, highest first), the leading ones that cancel dropped:
-  // p_k - w q_k at most 1e-14 of |p_k| + |w| |q_k| is the rounding left of a zero (w at the value at infinity, where the
+  // p_k - w q_k at most RAT_DROP of |p_k| + |w| |q_k| is the rounding left of a zero (w at the value at infinity, where the
   // degree drops). Judged against the terms it is made of, not against the other coefficients, whose sizes grow with the
   // roots: a cubic whose roots are all near 1e5 keeps its exact leading 1
   function ratPoly(P, Q, w) {
     const co = P.map((pk, k) => sub(pk, mul(w, Q[k]))), aw = abs(w);
     let i = 0;
-    while (i < co.length - 1 && abs(co[i]) <= 1e-14 * (abs(P[i]) + aw * abs(Q[i]))) i++;
+    while (i < co.length - 1 && abs(co[i]) <= RAT_DROP * (abs(P[i]) + aw * abs(Q[i]))) i++;
     return co.slice(i);
   }
   // the roots of a u^4 + b u^3 + c u^2 + d u + e = 0 by Ferrari's method: on the depressed quartic y^4 + p y^2 + q y + r
@@ -713,6 +717,22 @@ const InvOps = (() => {
     const i = co.findIndex((x) => !isZero(x));
     return i >= 0 && co.length - i === 5 ? closedRoots(co.slice(i), ferrari) : cubicRoots(i < 0 ? [] : co.slice(i));
   }
+  // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX, its leading coefficient exact (a zero
+  // one aside: ratPoly decides which leading coefficients are rounding), by Aberth's iteration (newtAberth from
+  // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
+  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them: which start point converges to
+  // which root differs between float64 and float32 where two roots are near, the order of the roots does not (it
+  // changes only where two keys are equal; the direction ROOT_DIR keeps conjugate roots apart)
+  const ROOT_DIR = 0.37;
+  // n of a RAT<n> op's kind, 0 for any other kind
+  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
+  const ROOT_ORDER = (u) => u.re + ROOT_DIR * u.im;
+  function aberthRoots(co) {
+    const i = co.findIndex((x) => !isZero(x)), c = i < 0 ? [] : co.slice(i), n = c.length - 1;
+    if (n < 1) return [];
+    const a = c.slice().reverse();
+    return newtAberth(a, n, newtAberthStart(a, n)).filter(isFin).map((u) => polishRoot(c, u)).sort((u, v) => ROOT_ORDER(u) - ROOT_ORDER(v)).map((u) => ({ u }));
+  }
   // the roots rs ([{u, mult?}], closedRoots') of co as members: points that rounding cannot tell from one k-fold root of
   // co (multipleRoots, NEWT's grouping: at a critical value the formulas give a double root as two points about
   // sqrt(EPS) apart) are one root of multiplicity k at their centre; roots apart stay apart, and a root that is already
@@ -721,10 +741,11 @@ const InvOps = (() => {
     if (rs.length < 2 || rs.some((r) => r.mult)) return rs;
     return multipleRoots(co, rs.map((r) => r.u), NEWT_COEF_ERR * co.length).map((g) => (g.k > 1 ? { u: g.u, mult: g.k } : { u: g.u }));
   }
-  // p(u)/q(u) of degree n = 3 or 4 (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0 (ratPoly, then cubicRoots or
-  // quarticRoots, rootMembers), the op RAT<n>
+  // p(u)/q(u) of degree n = 3 to NEWT_POLY_MAX (coprime; q = 1 for a polynomial): p(u) - w q(u) = 0 (ratPoly, then
+  // cubicRoots, quarticRoots or, from degree 5, aberthRoots, then rootMembers; from degree 5 the members again in
+  // increasing ROOT_ORDER, as GLSL's RAT<n> orders them), the op RAT<n>
   function opRatN(p, q, fwd) {
-    const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : quarticRoots;
+    const n = Math.max(p.length, q.length) - 1, roots = n === 3 ? cubicRoots : n === 4 ? quarticRoots : aberthRoots;
     const pad = (co) => [...Array(Math.max(0, n + 1 - co.length)).fill(ZERO), ...co];
     const P = pad(p), Q = pad(q), der = (co, u) => CX.polyEval(co.slice(0, -1).map((x, i) => scale(x, n - i)), u);
     // the value at infinity (p.length <= q.length): the leading coefficients' ratio at equal degrees, 0 when the
@@ -735,8 +756,9 @@ const InvOps = (() => {
       fam: { type: 'fin', count: n }, poles: q.length > 1 ? CX.polyRoots(q) : [], infPre: p.length > q.length,
       infAt: (w) => !!wInf && w.re === wInf.re && w.im === wInf.im, critical: () => ratCritical(p, q, f),
       pre: (w) => {
-        const co = ratPoly(P, Q, w);
-        return rootMembers(co, roots(co)).map(({ u, mult }, m) => {
+        const co = ratPoly(P, Q, w), ms = rootMembers(co, roots(co));
+        if (n >= 5) ms.sort((a, b) => ROOT_ORDER(a.u) - ROOT_ORDER(b.u));
+        return ms.map(({ u, mult }, m) => {
           const pu = CX.polyEval(P, u), qu = CX.polyEval(Q, u);
           return ONEM(u, CX.inv(div(sub(mul(der(P, u), qu), mul(pu, der(Q, u))), mul(qu, qu))), mult ? { m, mult } : { m });
         });
@@ -1158,7 +1180,7 @@ const InvOps = (() => {
           return OK([opMob([a, bb, c, d])]);
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
-        if (P.degExact && (P.deg === 3 || P.deg === 4)) return OK([opRatN(p, q, b.f)]);
+        if (P.degExact && P.deg >= 3 && P.deg <= NEWT_POLY_MAX) return OK([opRatN(p, q, b.f)]);
         return INEL(`rational map of degree ${P.deg}${P.degExact ? '' : ' (not known exactly)'}`);
       }
       case 'zp': {
@@ -1175,8 +1197,8 @@ const InvOps = (() => {
           return OK([opMob(m)]);
         }
         if (P.degExact && P.deg === 2) return OK([opRat2(p, q, b.f)]);
-        if (P.degExact && (P.deg === 3 || P.deg === 4)) return OK([opRatN(p, q, b.f)]);
-        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ 4)`);
+        if (P.degExact && P.deg >= 3 && P.deg <= NEWT_POLY_MAX) return OK([opRatN(p, q, b.f)]);
+        return INEL(`rational map of degree ${P.deg} (the exact renderer inverts degree ≤ ${NEWT_POLY_MAX})`);
       }
       case 'custom': {
         // a Repeat of one step of degree REPT_DEG: one REPT op for every copy
@@ -1226,7 +1248,8 @@ const InvOps = (() => {
   // pullFinite (point and singular-point pull-backs), matching the natural domain.
   // Degree 1: MOB; degree 2: RAT2 (QUAD when Q is constant), whose stable quadratic also covers the degree drop at the
   // value at infinity; P/Q = R(z^g) with g > 1: IPOW(g) then R; else degree 3 or 4: RAT3 or RAT4 (ratPoly drops the
-  // degree there, then cubicRoots or quarticRoots). Other degrees go forward with the reason.
+  // degree there, then cubicRoots or quarticRoots); a rational map (Q not constant) of degree 5 to NEWT_POLY_MAX:
+  // RAT<n> (ratPoly, then aberthRoots). Other degrees go forward with the reason.
   const RAT_EXP_MAX = 64;          // degree cap of the expansion (intermediate products)
   const RAT_DEG_MAX = 32;          // degree cap of the normal form (IPOW 16 under a degree-2 R)
   const RAT_SNAP = 1e-12;          // a coefficient below RAT_SNAP x the sum of its terms' sizes is rounding noise: 0
@@ -1680,8 +1703,9 @@ const InvOps = (() => {
       if (r.ok) return OK([opIpow(g)].concat(r.ops));
     }
     if (d === 3 || d === 4) return OK([opRatN(dq === 0 ? P.map((x) => div(x, Q[0])) : P, dq === 0 ? [ONE] : Q, f)]);
+    if (dq > 0 && d <= NEWT_POLY_MAX) return OK([opRatN(P, Q, f)]);
     const how = g > IPOW_MAX ? `; a function of z^${g}, |n| > ${IPOW_MAX}` : g > 1 ? `; degree ${d / g} in z^${g}` : '';
-    return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts degree ≤ 4, also of a power z^k${how})`);
+    return INEL(`${dq === 0 ? 'polynomial' : 'rational'} formula of degree ${d} (the exact renderer inverts polynomials of degree ≤ 4 and rational maps of degree ≤ ${NEWT_POLY_MAX}, also of a power z^k${how})`);
   }
   // a custom formula: its nodes, outermost first, become ops (returned in forward order); a node whose operands both
   // depend on z must be rational in z (its whole subtree becomes one rational op, or IPOW and one)
@@ -1757,7 +1781,7 @@ const InvOps = (() => {
   return {
     IPOW_MAX, op, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, cubicRoots, quarticRoots, ratPoly, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, cubicRoots, quarticRoots, ratPoly, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtDH, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_FD, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts, newtPolyCoeffs, newtAberthStart, newtAberth, stepOps, rationalForm, ratCritical,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     REPT_ESC_GROW, reptSolve, reptCert, reptNode, reptEnclose, reptDisc, reptEscF
   };

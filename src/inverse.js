@@ -38,7 +38,7 @@ const Inverse = (() => {
   const {
     IPOW_MAX, opAff, opMob, opIpow, opRootPow, opExp, opLog, asinS, acosS, asinhS, atanS, atanhS, opSin, opCos,
     opTan, opSinh, opCosh, opTanh, tanhAnc, tanAnc, P1, PI_, opAsin, opAcos, opAtan, opAsinh, opAcosh, opAtanh,
-    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
+    opJouk, opIjouk, opConj, opQuad, opRat2, opRatN, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, opNewt, newtStep, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT,
     newtBackK, newtGridK, newtSeedCounts, stepOps, rationalForm,
     REPT_DEG, REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     reptNode, reptEnclose, reptDisc
@@ -69,7 +69,10 @@ const Inverse = (() => {
     const back = o.kind === 'NEWT' && o.p && o.p.back, n = back && newtSeedCounts(back), at = o.kind === 'NEWT' && o.sub != null ? `@${o.sub}` : '';
     return (n ? `NEWT<${back.map((q, j) => q.kind + n[j]).join(',')}>${back.some((q) => q.dual) ? 'D' : ''}` : o.kind === 'NEWT' && o.p && o.p.pole ? 'NEWTP' : o.kind) + at;
   }
-  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity
+  // Inverse.planChain(steps, built, a, b) -> Plan for the stages (a, b]; off and failed steps are the identity. The plan's
+  // ops are its own records (a copy of each op of stepOps with its step, node and j), so plans whose steps share their op
+  // objects (a glide's skeleton shares each step's decomposition at every t, where one op can sit at another node) keep
+  // their own places
   function planChain(steps, built, a = 0, b = steps.length) {
     const key = inverseKey(steps, built);
     const ops = [];
@@ -78,7 +81,7 @@ const Inverse = (() => {
       if (!isLive(st, bb)) continue;
       const r = stepOps(bb);
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
-      r.ops.forEach((o, i) => { o.step = k; o.node = i; ops.push(o); });
+      r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
     if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
     // a Repeat chain's REPT op is exact as the plan's only op: its search starts from the pixel's own w (chain error 0)
@@ -641,7 +644,7 @@ const Inverse = (() => {
     return cur;
   }
   // Inverse.pointPre(plan, p, cap) -> {exact: true, zs, total} | {exact: false, reason}: every z with F(z) = p, by the
-  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2, RAT3, RAT4,
+  // ops' exact branches composed (no search), for a plan whose ops each have finitely many (AFF, MOB, IPOW, QUAD, RAT2 ... RAT12,
   // integer roots, recognized rational formulas; a parameter point's preimages). total: the product of the
   // branch counts, more than cap is not exact (the caller searches); zs leaves out the branches through infinity and
   // the removable holes. A critical value's coincident roots come once, with their multiplicity in mult (z² + z at
@@ -686,9 +689,9 @@ const Inverse = (() => {
   }
   // Inverse.critValues(plan) -> C[] | null: the chain's critical values in its last plane, finite only, for a plan whose
   // ops each have one branch or finitely many: each op's own (its critical(), e.g. IPOW 0 and infinity, JOUK ±1, QUAD
-  // its vertex and infinity, RAT2 at the zeros of its derivative and at infinity when that is one, a polynomial NEWT op
-  // at the zeros of its derivative), carried through the ops after it, infinity too (z^2, then a Möbius map: infinity goes
-  // to a finite value); null when an op's are not known (a NEWT op that is not a polynomial's)
+  // its vertex and infinity, RAT2 ... RAT12 at the zeros of their derivatives and at infinity when that is one, a
+  // polynomial NEWT op at the zeros of its derivative), carried through the ops after it, infinity too (z^2, then a
+  // Möbius map: infinity goes to a finite value); null when an op's are not known (a NEWT op that is not a polynomial's)
   function critValues(plan) {
     if (!plan || !plan.ok) return null;
     const ops = plan.ops, out = [];
@@ -853,7 +856,8 @@ const Inverse = (() => {
     if (!(rho > 0)) return { e: fe, r: 0, fe };
     const ac = abs(c);
     let r = Infinity, alt = null;                                        // alt: {e, r}, the other side of a cut
-    switch (o.kind) {
+    // (RAT3 ... RAT<NEWT_POLY_MAX>: one case, 'RATN')
+    switch (ratDeg(o.kind) >= 3 ? 'RATN' : o.kind) {
       case 'AFF': r = abs(o.p.a) * rho; break;
       case 'CONJ': r = rho; break;
       case 'MOB': {
@@ -922,7 +926,7 @@ const Inverse = (() => {
         if (d) r = d.r + abs(sub(d.c, fe));
         break;
       }
-      case 'RAT3': case 'RAT4': {
+      case 'RATN': {
         // as RAT2's, with N(u) = sum_k (p_k q(c) - p(c) q_k)(u - c)^k, p_k and q_k the Taylor coefficients about c
         const pt = taylorAt(o.p.P, c).t, qt = taylorAt(o.p.Q, c).t, aq = abs(qt[0]);
         let nb = 0, ql = aq;
@@ -1847,6 +1851,15 @@ const Inverse = (() => {
       const sv = C(1 + (one.p.n - 1) * t, 0);
       return { ok: true, ops: [opRootPow(sv, PI, 0, (z) => CX.pow(z, sv, PI, 0))] };
     }
+    // a real exponent a < 0 (powaHom): z^{1 + (|a| - 1) 2t} on the step's branch for t <= 1/2, then z^|a| and the
+    // Möbius arc from the identity to 1/w
+    if (one && one.kind === 'ROOTPOW' && !nat && id === 'powa' && b.twoPhase && b.twoPhase()) {
+      const { s, theta, k } = one.p, e = C(-s.re, 0), pw = (z) => CX.pow(z, e, theta, k);
+      if (t < 0.5) { const sv = C(1 + (-s.re - 1) * 2 * t, 0); return { ok: true, ops: [opRootPow(sv, theta, k, (z) => CX.pow(z, sv, theta, k))] }; }
+      const path = CX.mobPath([ZERO, ONE, ONE, ZERO]);
+      if (!path) return { ok: false, reason: 'no Möbius path' };
+      return { ok: true, ops: [opRootPow(e, theta, k, pw), mobOf(path(2 * t - 1))] };
+    }
     // z^n, n < 0 (pown's hom): z^{1+2(|n|-1)t} for t < 1/2 (powHom about 0, principal), then the elliptic Möbius
     // path from the identity to 1/w at 2t - 1, after z^|n|: closed forms, each preimage by its own branch, exact and
     // with no Newton's method
@@ -2043,7 +2056,7 @@ const Inverse = (() => {
     LEAF_CAP, WIN_MAX, MIN_WIN, IPOW_MAX, OPS_MAX, POLY_MAX, M_MAX, RAMP, LAM_CUT, PATTERNS, HOM_EXACT, IMAGEBOX_CAP,
     REPEAT_COPIES_MAX, REPEAT_NODES_MAX, REPT_TILE_SOLVES, REPT_FAST_NODES, REPT_U, REPT_GAMMA, REPT_FORM, REPT_ROUND, REPT_FIN, REPT_VIETA, REPT_POL, REPT_AA_TOL, REPT_AA_REACH,
     stepOps, planChain, pointPre, pointPlan, critValues, critForward, CRIT_INF, inverseKey, opSig, prepare, enumerate, sheetKey, front, dTie, TIE_D, tieBand, keySing, keyPeriod, keyClasses, singular, singularAfter, accumulation, polyHom, imageBox, renderCPU, rationalForm, frontByStep: byStep, order,
-    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, newtBackK, newtGridK, newtSeedCounts,
+    shapePx, patternColor, Kof, Kraw, Bof, homExact, refsOf, homOps, homBuilt, shapeAnchor, fwdOps, singleRootW, NEWT_K, NEWT_RAY, newtRayStages, NEWT_POL, NEWT_DEF, NEWT_SEEDS, NEWT_LAD, NEWT_LADDER, NEWT_SAME, NEWT_SPAN, NEWT_POLY_MAX, NEWT_ABERTH_IT, NEWT_ABERTH_ROT, RAT_DROP, ROOT_DIR, ROOT_POLISH, ratDeg, newtBackK, newtGridK, newtSeedCounts,
     // internals for the node tests (and the GLSL parity tests of P2): the cancellation-free family bases, the disc
     // enclosures of imageBox
     _trig: { asin: asinS, acos: acosS, asinh: asinhS, atan: atanS, atanh: atanhS },

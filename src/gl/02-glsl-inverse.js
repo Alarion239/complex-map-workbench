@@ -143,7 +143,7 @@ vec2 ixClipPiece(vec4 P0, vec4 P1, vec2 z0, vec2 q, float m) {
     float tt = -L0 / cq;
     return cq > 0.0 ? vec2(tt, IX_INF) : vec2(-IX_INF, tt);
   }
-  if (t == 4) {               // v16 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
+  if (t == 4) {               // 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
     vec2 u0 = z0 - P0.yz;
     float a = P0.w * qq, b = 2.0 * (P0.w * dot(u0, q) + dot(P1.xy, q));
     float c = P0.w * dot(u0, u0) + 2.0 * dot(P1.xy, u0) + P1.z - 2.0 * m;
@@ -271,7 +271,7 @@ vec3 ixKindLevel(vec2 z) {
     return dm > 0.0 ? vec3(sg * dm, sg * (z - qn) / dm) : vec3(0.0);
   }
   if (kind == 4) return vec3(uShA.z * (z.y - uShA.y) - uShA.w * (z.x - uShA.x), -uShA.w, uShA.z);
-  if (kind == 8) {            // v16 gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
+  if (kind == 8) {            // gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
     vec2 u = z - uShA.xy;
     return vec3(-0.5 * (uShA.z * dot(u, u) + 2.0 * dot(uShB.xy, u) + uShA.w), -(uShA.z * u + uShB.xy));
   }
@@ -690,9 +690,11 @@ float ixChecker(vec2 p, vec2 w) { return 0.5 - 0.5 * ixSq(p.x, w.x) * ixSq(p.y, 
 // vSrc: the source point relative to vQ (0, or near a saturation anchor its pattern-aligned origin: SPEC 13.12)
 // gpA: near a saturation anchor (p != 0), the log-polar cell coordinates relative to the corner nearest to log p (xy)
 // and that corner's integer shift mod 2 (zw); gpA.z = -1 otherwise
+#ifndef IX_CARRY
 vec3 ixPattern(vec2 vSrc, vec2 vQ, vec2 gK, vec4 gpA, vec2 dX, vec2 dY, bool hasLam, vec2 lam, vec2 dLX, vec2 dLY, float vJac) {
 ${PATTERN_SRC('analytic')}  return col;
 }
+#endif
 #if IX_ANC
 // ---- saturation anchors (SPEC 13.12; Inverse.anchorModel / anchorPx): z = p + delta near p = (+-1 - B) / A (tan: +-i).
 // Per anchor a, uAnc[4a..4a+3] = model (type 0 none / 1 sure / 2 cone / 3 circle, its radius m, flag, sgn), geometry
@@ -733,9 +735,10 @@ float ixLog2Det(vec4 J) {
 // shading on admission: the candidate's packed colour
 highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
 #ifdef IX_CARRY
-  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant)
-  if (uPattern == 9) return ixPack(ixCarryCol(z, zf, dX, dY));
-#endif
+  // the carried colour: the colour plane's colour of the sheet's point (the steps view's program variant). Every draw of
+  // the variant sets uPattern 9 (drawInverse), so the variant holds no pattern code
+  return ixPack(ixCarryCol(z, zf, dX, dY));
+#else
   // (the area-scale pattern's log2 |dw/dz| only for that pattern)
   float vJac = uPattern == 7 ? -0.5 * (IX_HASLAM(L) ? 2.0 * L.lam.x / IX_LN2 + ixLog2Det(L.JL) : ixLog2Det(L.J)) : 0.0;
   // an overflowed z (only with Lambda) shades as a far point in its direction: cells too small, the moire average
@@ -744,6 +747,7 @@ highp uint ixShadeAdm(vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq,
   vec2 dXs = fin ? dX : vec2(1e30), dYs = fin ? dY : vec2(1e30);
   if (!zf) pv = 1e30 * vec2(cos(L.lam.y), sin(L.lam.y));
   return ixPack(ixPattern(pv, pq, pk, pg, dXs, dYs, phl, plam, dLX, dLY, vJac));
+#endif
 }
 void ixAdmit(float D, vec2 tz, float cv, float ga, float fp, vec2 z, bool zf, vec2 dX, vec2 dY, Lf L, vec2 pv, vec2 pq, vec2 pk, vec4 pg, bool phl, vec2 plam, vec2 dLX, vec2 dLY) {
   float q = ixStep(D);

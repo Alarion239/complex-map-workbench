@@ -5,8 +5,8 @@
   // pane's CSS pixels, every STANDIN_CELLS px, a level at a time: each level is drawn once it is complete, and the next,
   // twice as fine, takes the nodes it shares with it. The phase globe's program (sphereP) has the same stand-in over
   // a longitude-latitude grid (globeStandIn, GLOBE_STANDIN_NODES: drawSphere's st.standIn), and the Landscape's
-  // (landTF and land) over a grid of the block's box (landStandIn, LAND_STANDIN_NODES: drawLandscape's st.standIn), in the
-  // same job. A stand-in starts once the plot's program has had nothing to draw
+  // (landTF and land; with All sheets, landSheetTF and landSheet: the principal branch stands in for the sheets) over a
+  // grid of the block's box (landStandIn, LAND_STANDIN_NODES: drawLandscape's st.standIn), in the same job. A stand-in starts once the plot's program has had nothing to draw
   // for SM_LINKING_MS, so a quick link never computes one, and it runs in idle slices, none while anything moves: each
   // ends before an evaluation as long as the last would pass STANDIN_SLICE ms (the clock read after each), short of the
   // idle drivers' 6 ms by the collector's pause that the evaluations' garbage can bring into a slice. It spends at most

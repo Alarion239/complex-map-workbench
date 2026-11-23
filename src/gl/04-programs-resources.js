@@ -378,7 +378,7 @@ float wabs(vec2 w) {
     } else e.offView = false;
     e.used = ++useClock;
     if (d.chain) e.ch = ch;
-    if (!sideMode) e.side = false;   // a side chain's program that the current chain now uses (an example loaded)
+    if (!sideMode) e.side = false;   // a side chain's program that the current chain uses as well (an example loaded)
     if (e.state === 'pending') {
       // programs without the chain compile once (the 2D view's at init, PRESTART_2D); their first use does not wait
       // either: a synchronous link held the main thread 0.3-1.8 s per program on Direct3D 11 (Iris Xe), ~4 s before
