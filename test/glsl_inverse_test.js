@@ -283,11 +283,12 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   // The level's tolerance in px: 0.05 + 1e-4 |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
   // step with |alpha| < 1) the float32 resolution of the points that power amplifies: (cond - 1) ulps of |w| in the output
   // plane, in px (pix is the px in that plane's units). cond is the product of those 1/|alpha| over the chain; 1 for every other
-  // chain, whose tolerance is the plain one. WARP (Direct3D 11's software renderer) gave gaps of 0.43 and 0.44 px at levels of
-  // 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): 70 ulps of w where the other renderers differ by 1
+  // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
+  // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
+  // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
   const F32_ULP = 2 ** -23;
   const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + (cond - 1) * F32_ULP * cabs(w) / pix;
-  const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
+  const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
   // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
   // member its residual |H_t(z) - w| / (1 + |w|)
@@ -667,6 +668,8 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     const T = R.tolCheck = { cond: condOf(wst, wst.map(Funcs.build)), plainCond: condOf(plainSt, plainSt.map(Funcs.build)), rows: [], bad: [] };
     if (!(Math.abs(T.cond - 125) < 1e-9)) T.bad.push(`cond of the powa chain ${T.cond}, not 125`);
     if (T.plainCond !== 1) T.bad.push(`cond of a chain without a Complex power step ${T.plainCond}, not 1`);
+    const offSt = [St('recip'), Object.assign(St('powa', { alpha: '0.008', cut: 90, k: 2 }), { on: false })];
+    if (condOf(offSt, offSt.map(Funcs.build)) !== 1) T.bad.push('a Complex power step that is off counts in cond');
     for (const x of WARP) {
       const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, WPIX, T.cond), plain = lvlTol(x.cl, x.w, WPIX, 1);
       T.rows.push({ gap, tol, plain });
