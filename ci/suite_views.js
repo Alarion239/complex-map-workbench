@@ -250,7 +250,7 @@ const VIEWS = {
 
   // the classic views' own parts, pinned to the classic view
   'deform_range_cmd.js': steps({ pin: true }),
-  'export_stage_points_cmd.js': classic('the classic Image figure\'s two panels at a focused step: a point of w₁ carried from its own plane, and the caption that names its plane'),
+  'export_stage_points_cmd.js': classic('the classic figure\'s panel, X\'s, at a focused step: a point of w₁ carried from its own plane, and the caption that names its plane'),
   'figure_ticks_cmd.js': classic('the classic figure\'s panel of points only, and the composer\'s tick labels'),
   'export_arrow_clear_cmd.js': steps(),
   'figure_ticks_views_cmd.js': steps(),   // (the video's axes on the steps view's glide; the classic Landscape figure's by ?view=classic)
