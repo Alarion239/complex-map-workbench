@@ -18,6 +18,8 @@
 // - no point of the sector |arg w| < p pi - EDGE with |w| at least NEAR_W is bare (the patch's rings reach the cut's
 //   sides, not short of them in steps), at least MIN_N points read. (Within NEAR_W of 0, the image of the cut's
 //   other end 0.1i, a branch point of the power, a few points the patch's cells there reach only to their size are bare.)
+// A patch's seam is measured once for its map and box: frames drawn again at a held u measure none, a new u measures it
+// again.
 // The height map's points of the same kind outside the carried box get far patches too (svLandHeightPoles): √ and ∛ of
 // the Möbius (z - 8i)/(z + 8i), colour and height from w₂, have a patch about -8i, as the Möbius step's own pole does.
 // A command file for a CDP daemon (test/cdp_kit README); CI runs it in the shard ci/browser_shards.js lists it in.
@@ -70,6 +72,23 @@ for (let k = 1; k <= 24; k++) {
   await hold(1 + u);
   branchRows(tag, info[tag] = await branch());
 }
+// (a patch's seam is measured once for its map and box. Held at u = 0.5, frames drawn again (each a new carried frame:
+// the last one's mark gone, waited for up to REDRAW_MAX ms) measure no seam; held at another u, the map is new and its seam is
+// measured again)
+const REDRAWS = 3, REDRAW_MAX = 10000;
+await hold(1.5);
+const seams0 = (await ev('__cmwLandSeams()')).runs, drawn = [];
+for (let k = 0; k < REDRAWS; k++) {
+  await ev('(__cmwLandCarry().__mark = 1, __cmwLandSeams(true), 1)');
+  drawn.push((await settled({ max: REDRAW_MAX, panes: false, until: '!!__cmwLandCarry() && __cmwLandCarry().__mark !== 1' })).ok);
+}
+const seams1 = (await ev('__cmwLandSeams()')).runs;
+await hold(1.52);
+const seams2 = (await ev('__cmwLandSeams()')).runs;
+info.seamRuns = { seams0, seams1, seams2, drawn };
+ok(`held at u = 0.5: each of ${REDRAWS} frames asked for is drawn (a new carried frame; control)`, drawn.length === REDRAWS && drawn.every(Boolean), drawn);
+ok(`held at u = 0.5: frames drawn again measure no seam (svPatchSeam kept with the poles)`, seams1 === seams0, { seams0, seams1 });
+ok('held at u = 0.52: the new map\'s seam is measured again', seams2 > seams1, { seams1, seams2 });
 
 // The height map's singular points outside the carried box (svLandHeightPoles, a far patch each): colour and height from
 // plane w₂ (T = 2), carried from plane z, so the height map is √ (or ∛) of the Möbius (z - 8i)/(z + 8i), unbounded like

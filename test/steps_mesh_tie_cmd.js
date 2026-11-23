@@ -5,8 +5,9 @@
 // - the exact pass's frame (the plane at rest) is smooth by this measure: at most SMOOTH_MAX of the points are rough;
 // - so is a frame of an All-at-once glide over [z³, 1 z] near its end (map mode 3), which the inverse pass draws, each step
 //   at its own time (invSpanPath, #1742): at most ROUGH_MARGIN more of its points are rough than the rest frame's.
-// The carried meshes' frame of the same plane (every shape forced forward, __cmwForceForward(['__svAll'])) is not yet: its leg
-// waits on #1647, and comes back with the same measure when that is fixed.
+// - so is the carried meshes' frame of the same plane, every shape forced forward (__cmwForceForward(['__svAll']),
+//   as for a step with no exact inverse), whose sheets' ties are resolved per pixel (GLR.carryResolve): at most
+//   ROUGH_MARGIN more of its points are rough than the exact pass's (#1647).
 // Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -15,7 +16,8 @@ const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }
 const { DRAWN, openSteps, toPlane, rough } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'));
 // (the roughness: carry_kit's rough(), its 20 x 14 grid 0.09 apart about the window centre; a point is rough over a spread of 30)
 const SMOOTH_MAX = 0.1;            // the share of rough points the exact pass's frame may have
-const ROUGH_MARGIN = 0.05;         // the share of points more than the rest frame's that the All-at-once frame may have rough
+const ROUGH_MARGIN = 0.05;         // the share of points more than the exact pass's rest frame's that the carried meshes'
+                                   // frame and the All-at-once frame may each have rough
 const DRAWN_WAIT = 60000, GLIDE_WAIT = 120000;   // ms
 const GLIDE_CLOCK_MS = 20, FREEZE_CLOCK_MS = 1e-9;   // the glide's time a frame while it runs, and once frozen
 const NEAR_END_X = 1.9;            // the All-at-once glide is frozen once the thread is past this, near its end on plane 2
@@ -31,6 +33,16 @@ const exactFrame = await roughShare();
 info.exact = exactFrame;
 ok('the page reads the grid', exactFrame.n >= 0.9 * exactFrame.of, info);
 ok(`the exact pass's frame of z³ is smooth: at most ${SMOOTH_MAX * 100} % of the points are rough`, exactFrame.share <= SMOOTH_MAX, exactFrame);
+// the carried meshes' frame of the same plane (every shape forced forward): where the sheets tie, the front sheet is the
+// same from one fragment to the next (carryResolve)
+await openSteps(PORT, ZCUBE);
+await ev(`__cmwForceForward(['__svAll']); 1`);
+await toPlane(1);
+const meshFrame = await rough();
+info.mesh = Object.assign(meshFrame, await ev('(() => { const q = __cmwSteps(); return { rest: q.rest, tieBand: q.tieBand, resolved: q.resolved }; })()'));
+ok('the page reads the meshes\' grid', meshFrame.n >= 0.9 * meshFrame.of, meshFrame);
+ok('the forced frame is drawn by the carried meshes', !!meshFrame.rest && meshFrame.rest.path === 'mesh', info.mesh);
+ok(`the carried meshes' frame of z³ is as smooth as the exact pass's (within ${ROUGH_MARGIN * 100} % of the points)`, meshFrame.share <= exactFrame.share + ROUGH_MARGIN, { mesh: meshFrame, exact: exactFrame });
 // an All-at-once glide over [z³, 1 z], frozen near its end: a frame of the span's map (mode 3), drawn by the inverse pass
 await openSteps(PORT, ZCUBE.concat([{ type: 'mul', params: { c: '1' }, on: true }]), { homAll: true });
 await ev(`__cmwSteps({ clock: ${GLIDE_CLOCK_MS} })`); await ev('__cmwSteps({ go: 2 })');
