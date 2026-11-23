@@ -9,13 +9,17 @@ const ROWS = `[...document.querySelectorAll('#shapeList .shape')].map((b) => ({ 
 const shapes = () => ev('JSON.stringify(__cmwP().shapes.map((s) => ({ id: s.id, kind: s.kind, name: s.name || null, label: s.label || null })))').then(JSON.parse);
 await view(1440, 900, false, false);
 await load('shaperows' + Date.now(), {
-  shapes: [{ id: 'a', kind: 'disc', c: [0, 0], r: 1 }, { id: 'b', kind: 'halfplane', a: [0, 0], b: [2, 1] }, { id: 'c', kind: 'circle', c: [0, 0], r: 2 }, { id: 'p', kind: 'point', p: [1, 1] }],
+  shapes: [{ id: 'a', kind: 'disc', c: [0, 0], r: 1 }, { id: 'b', kind: 'halfplane', a: [0, 0], b: [2, 1] }, { id: 'c', kind: 'circle', c: [0, 0], r: 2 }, { id: 'p', kind: 'point', p: [1, 1] },
+    { id: 'wd', kind: 'disc', c: [1, 0], r: 0.3, stage: 1 }],
   steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 80 }, view: { main: 'xy' },
 });
 await settle(1500);
 const rows = await ev(ROWS);
 info.rows = rows;
 ok('the list has the four rows', rows.length >= 4, rows);
+// a shape drawn on a later plane is written in that plane's variable (shapeTexOwn), as the figure's caption writes it: |w₁ − 1|
+const wd = rows.find((r) => r.id === 'wd') || {};
+ok('a disc drawn on w₁ is written in w₁, not z', /\|w_\{1\}-1\|/.test(wd.tex || '') && !/(^|[^\\a-zA-Z])z(?![a-zA-Z])/.test(wd.tex || ''), wd);
 // two lines: the set sits under the name
 const geo = await ev(`(() => { const b = document.querySelector('#shapeList .shape[data-id="a"]'), k = b.querySelector('.shape-name .k').getBoundingClientRect(), d = b.querySelector('.shape-name .d').getBoundingClientRect(); return { kBottom: k.bottom, dTop: d.top, kLeft: k.left, dLeft: d.left }; })()`);
 ok('the row has two lines: the set under the name', geo.dTop >= geo.kBottom - 1 && Math.abs(geo.dLeft - geo.kLeft) < 2, geo);
