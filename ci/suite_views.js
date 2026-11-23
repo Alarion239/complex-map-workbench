@@ -108,6 +108,7 @@ const VIEWS = {
   'steps_glstatus_cmd.js': steps(),
   'sum_budget_note_cmd.js': steps(),
   'sum_runout_cmd.js': steps(),
+  'sum_terms_cmd.js': steps(),
   'steps_glide_linkhold_cmd.js': steps(),
   'steps_linkhold_chain_cmd.js': steps(),
   'steps_sm_standin_cmd.js': steps(),
@@ -185,6 +186,7 @@ const VIEWS = {
   'steps_dh_stop_cmd.js': steps(),
   'steps_bottcher_axis_cmd.js': steps(),
   'newt_member0_cmd.js': steps({ pin: true }),
+  'newt_poly_order_cmd.js': steps({ pin: true }),
   'series_limit_cmd.js': steps({ pin: true }),
   'steps_zeta_member0_cmd.js': steps(),
   'steps_glide_label_cmd.js': steps(),
@@ -355,6 +357,7 @@ const VIEWS = {
   'steps_canvas_stack_cmd.js': steps({ pin: true }),
   'tour_titles_cmd.js': steps({ pin: true }),
   'tour_words_cmd.js': steps({ pin: true }),
+  'tour_words_390_cmd.js': steps({ pin: true }),
   'tour_words_classic_cmd.js': classic('the classic views\' tour: the Basics chapter\'s chain step, which the steps view\'s tour'
     + ' does not have; the steps view\'s own is tour_words_cmd'),
   'ux165_learn_cmd.js': steps({ pin: true }),

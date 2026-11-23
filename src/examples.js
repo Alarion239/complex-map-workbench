@@ -168,7 +168,7 @@ const Examples = (() => {
     // it; not for the one a first visit opens by itself, which the invitation to the tour keeps the line for
     if (!spec && !piece && !(opt && opt.quiet) && exTryText(ex) && Tour.lane && !laned) {
       Tour.lane({ id: 'example', title: ex.name, label: $t('Try this example'), body: exTryText(ex), drop: 'title', onClose: exTryStop,
-        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics' }); } }] });
+        acts: [{ label: $t('Show me'), primary: true, run: () => { exTryStop(); if (Tour.laneHide) Tour.laneHide('example'); Tour.start({ chapter: (exSv() && ex.tourSv) || ex.tour || 'basics', opener: Tour.helpAnchor() }); } }] });
       exTryWatch(ex);
     }
   }
@@ -332,7 +332,7 @@ const Examples = (() => {
       sec.append(hd);
       for (let e = sec.nextElementSibling; e && e.tagName !== 'H3' && !e.classList.contains('modal-foot');) { const nx = e.nextElementSibling; sec.append(e); e = nx; }
       const show = SHOW.find(([t]) => t === hd.textContent.trim());
-      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1] }); } }, $t('Show me'))));
+      if (show && Tour.start) sec.append(h('p', { class: 'guide-show' }, h('button', { type: 'button', class: 'btn', onclick: () => { close(); Tour.start({ chapter: show[1], opener: Tour.helpAnchor() }); } }, $t('Show me'))));
       secs.push(sec);
     }
     if (secs.length < 4) return;

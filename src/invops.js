@@ -307,6 +307,8 @@ const InvOps = (() => {
   // rounding radius, and members whose discs meet are one where H_t - w winds round their mean as many times as their
   // multiplicities sum to (out.exact, with out.spread its largest radius); the members stay as they are. glsl.js's NEWT
   // runs the same iteration in float32 from the same start, keeping the first of roots closer than its NEWT_DEDUPE.
+  // The members come in increasing ROOT_ORDER, in the order GLSL's NEWT keeps its roots (GLSLRoots.orderFns); their indices
+  // can differ where the GPU's dedupe leaves a slot open, which nothing compares.
   // That list is exact to NEWT_POLY_RES: every root lies within NEWT_POLY_RES (1 + |z|) of a member, whose multiplicity
   // is the sum over the roots it stands for (roots nearer each other than that may come as one, as a multiple root
   // does). Where rounding cannot promise it, there is no list (out.exact null, with out.reason): the multiplicities fall
@@ -314,6 +316,13 @@ const InvOps = (() => {
   // NEWT_POLY_RES (1 + |u|). 1e-2 is about 0.6 px at 60 px per unit.
   const NEWT_POLY_RES = 1e-2;
   const NEWT_POLY_MAX = 12, NEWT_POLY_EPS = 1e-13, NEWT_ABERTH_IT = 64, NEWT_ABERTH_ROT = 0.4, NEWT_COEF_ERR = Number.EPSILON;
+  // the order of a polynomial's roots, here and in GLSL: increasing Re u + ROOT_DIR Im u. Which of Aberth's start points
+  // converges to which root differs between float64 and float32 where two roots are near; the order of the roots does
+  // not (it changes only where two keys are equal; the direction ROOT_DIR keeps conjugate roots apart)
+  const ROOT_DIR = 0.37;
+  const ROOT_ORDER = (u) => u.re + ROOT_DIR * u.im;
+  // n of a RAT<n> op's kind, 0 for any other kind
+  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
   function newtPolyCoeffs(g, d) {
     const M = d + 1, v = [];
     for (let m = 0; m < M; m++) v.push(g(C(Math.cos(2 * Math.PI * m / M), Math.sin(2 * Math.PI * m / M))));
@@ -491,6 +500,11 @@ const InvOps = (() => {
             if (m < 1) continue;
             put(m > 1 ? ONEM(v, C(Infinity, 0), { m: pts[0].i, mult: m }) : ONEM(v, CX.inv(dH(Ht, v)), { m: pts[0].i }), centreRadius(v, m, r) ?? r);
           }
+          // (the members in increasing ROOT_ORDER, each m its place, with their radii)
+          const ord = out.map((mem, x) => x).sort((x, y) => ROOT_ORDER(out[x].u) - ROOT_ORDER(out[y].u));
+          const mems = ord.map((x) => out[x]), rads = ord.map((x) => rad[x]);
+          out.length = 0; rad.length = 0;
+          mems.forEach((mem, x) => { mem.m = x; out.push(mem); rad.push(rads[x]); });
           // (pointPre's list, out.exact: members whose rounding discs meet, a chain of them, are one, at their mean by
           // multiplicity with the sum m of their multiplicities, where H_t - w winds m times about it (centreRadius from
           // the farthest reach of their discs), until no two discs meet. The members themselves stay as they are)
@@ -720,13 +734,7 @@ const InvOps = (() => {
   // the roots of the polynomial co (highest first) of degree 5 to NEWT_POLY_MAX, its leading coefficient exact (a zero
   // one aside: ratPoly decides which leading coefficients are rounding), by Aberth's iteration (newtAberth from
   // newtAberthStart, the polynomial NEWT op's; its start scales with the roots, so it needs no reversal), each polished
-  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them: which start point converges to
-  // which root differs between float64 and float32 where two roots are near, the order of the roots does not (it
-  // changes only where two keys are equal; the direction ROOT_DIR keeps conjugate roots apart)
-  const ROOT_DIR = 0.37;
-  // n of a RAT<n> op's kind, 0 for any other kind
-  const ratDeg = (kind) => { const m = /^RAT(\d+)$/.exec(kind); return m ? +m[1] : 0; };
-  const ROOT_ORDER = (u) => u.re + ROOT_DIR * u.im;
+  // on co (polishRoot), in increasing ROOT_ORDER(u), as GLSL's RAT<n> orders them (GLSLRoots.orderFns)
   function aberthRoots(co) {
     const i = co.findIndex((x) => !isZero(x)), c = i < 0 ? [] : co.slice(i), n = c.length - 1;
     if (n < 1) return [];
