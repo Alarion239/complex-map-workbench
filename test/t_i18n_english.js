@@ -148,9 +148,11 @@ const intended = (s) => s.replace(/Custom formula/g, 'Formula');
 // (another intended difference: a half-plane reads in words, "left of the line from a to b", where the base reads
 // Im((z − a)/(b − a)) > 0)
 const inWords = (k, s) => /^tex halfplane /.test(k) && /^\\text\{left of the line from \} \S+ \\text\{ to \} \S+$/.test(s);
+// (and a drawn area is the closed set it is (Region.isOpen): its TeX writes ≤ and ≥ where the base wrote < and >)
+const closedArea = (k, base) => (/^tex (disc|annulus|rect|sector) /.test(k) ? base.replace(/</g, '\\le ').replace(/>/g, '\\ge ') : base);
 if (a.length !== b.length) { console.log('FAIL probe lengths', a.length, b.length); fails++; }
 for (let i = 0; i < Math.min(a.length, b.length); i++) {
-  if (a[i][0] !== b[i][0] || (intended(a[i][1]) !== b[i][1] && !inWords(b[i][0], b[i][1]))) {
+  if (a[i][0] !== b[i][0] || (closedArea(a[i][0], intended(a[i][1])) !== b[i][1] && !inWords(b[i][0], b[i][1]))) {
     fails++;
     if (fails <= 20) console.log('FAIL', a[i][0], '\n  base:', a[i][1].slice(0, 300), '\n  now: ', b[i][1].slice(0, 300));
   }

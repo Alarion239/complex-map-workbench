@@ -17,6 +17,7 @@
     clock: null,     // (a test hook's) ms of glide or play time a frame (svFrame), else the wall clock
     glideSheets: 0,  // (a test hook's) 1: a glide frame draws the chain as it is alone, without the other sheets' copies (svGlideSheets)
     restPaint: 1,    // (a test hook's) 0: a glide frame leaves out the arrival plane's picture under its carried colour; any other value draws it
+    glideSeams: 1,   // (a test hook's) 0: a Landscape glide's copies are drawn without their seams (svGlideSeams); any other value draws them
     fits: 0,         // (for a test) the head's fits (svFitHead's) that ran past their key
     i: 0,            // the shown plane, an index into svPlanes()
     at: 0,           // the plane last arrived at (null: parked between two), so 'plane-changed' is sent for a change only
@@ -41,6 +42,7 @@
   SV.loop = (() => { try { return localStorage.getItem('cmw-sv-loop') === '1'; } catch (e) { return false; } })();
   SV.span = null;   // the planes a glide crosses as one homotopy (All at once): {x0, x1, stepT?}, indices into svPlanes() and the steps' own times (svStepTSplit); null: plane by plane
   SV.play = null;   // play along the thread (#438): {from, to, start, t0, ms, held, drawn} a glide (held, drawn: svLinkHold's), or {slide, start, end, timer} one plane at a time
+  SV.hold = null;   // a hold in the middle of a play, shown on ▶ after SV_GATE_SHOW_MS (svHoldWait): {btn, A (the play), t0, timer, shown, keep, fill, gauge (the ring's fill: the share of svHoldLeft gone), left0, ending (the full ring stands two animation frames)}
   SV.offscreen = 0;   // > 0 while an export draws a plane or a glide frame off-screen (svAtPlane, svGlideArt): the page is not written
   // the planes: z and the stage after each active step
   // (#437: a step shown alone narrows the thread to the plane before it and its own. So index 0 is not always z: while a step is
@@ -520,7 +522,18 @@
   // at rest. False when the Landscape is not on the pane
   function svLandMoving(pane) {
     if (SV.surf !== 'land' || !lLand()) return false;
-    render3D(pane, svLandCarryNow());
+    const g = svBetween();
+    if (!g.all && (g.u <= SV_REST_U || g.a === g.b)) { render3D(pane, svLandCarryNow()); return true; }
+    const carry = svLandCarryNow();
+    // (onto a plane b coloured by its own variable: the other sheets' copies of the carried surface, svGlideSheets, as
+    // the Plane's glide draws them; not with All sheets, whose surfaces are the carry's own, nor under Inside regions,
+    // where plane b shows the principal sheet's image of the regions)
+    const sheets = !g.all && !S.sheets && !carry.plain && !isDeriv(g.b) && svColoured(g.b) && !svMaskOn() && SV.glideSheets !== 1 ? svGlideSheets(g.a, g.b, carry.s) : [];
+    // (the seams first: drawLandscape draws the copies in this order, then the principal surface over them. band: the
+    // cut's angle when a seam may draw a band about it alone (svSeamCut), else null)
+    const band = svSeamCut(g.b, carry.s), seams = sheets.length && SV.glideSeams !== 0 ? svGlideSeams(g.a, g.b, carry.s) : [];
+    carry.copies = [...seams.map((v) => ({ draw: (f) => svOnSheets(v, f), band })), ...sheets.map((v) => ({ draw: (f) => svOnSheets(v, f), band: null }))];
+    render3D(pane, carry);
     return true;
   }
   // the carry the Landscape draws now (render3D's), undefined for a plane's own relief at rest
@@ -1097,6 +1110,9 @@
   // frame starts it at 0 (svDrawPlane), so a frame at rest, on the globe or of the classic core leaves no hold behind, and
   // the idle job (svPolesAhead) sets it to 0, and asks for a frame, once plane b's tracks are whole
   let svHoldB = 0;
+  // how many things the last frame svHolds tested waits for: its inverse paths still linking, the carried meshes, the Cauchy style's
+  // carried programs, and the pole tracks (one); 0 when the frame need not wait. A hold's ring is the share of it that has gone
+  let svHoldLeft = 0;
   // the first glide whose tracks for the current windows are not whole, null when all are (the key's window is clipWin,
   // as svSheetKey gives it, without its singular points)
   // (the glide held by svLinkHold for its missing tracks comes first)
@@ -1391,6 +1407,7 @@
     svSetElapsed(A, A.held.el); SV.g.set(A.held.at); requestRender('L');
     // (the thread, and a play's head and live region, stand at the held place for the whole wait: the live region goes back
     // to A.said, its words before the crossing of the frame that starts the hold)
+    if (first && SV.play === A) svHoldWaitBegin(A);
     if (first) {
       const r = Math.round(A.held.at);
       if (SV.play === A && r !== SV.i) { SV.i = r; if (SV.els && SV.els.live && A.said != null) SV.els.live.textContent = A.said; }
@@ -1407,20 +1424,23 @@
   // a frame of the motion A drawn at the thread's place, on any surface: its last frame drawn, and no hold
   function svMotionDrawn(A) {
     if (A) { A.held = null; A.drawn = { at: SV.g.x, el: svElapsed(A) }; A.said = null; }
+    svHoldWaitEnd(true);
   }
   // whether the glide frame g (svBetween: a step's glide, or an All-at-once span's) on the plane must wait: the inverse
   // pass draws it and that pass's programs still link, or, once linked, the pole tracks a step's frames are drawn from
   // are not made (svHoldB is then plane b, else 0); or the carried meshes draw it and their programs link
   function svHolds(g) {
-    svHoldB = 0;
+    svHoldB = 0; svHoldLeft = 0;
     if (g.u <= SV_REST_U || g.b === g.a || isDeriv(g.b)) return false;
     const inv = (g.map.mode === 1 || g.map.mode === 3) && !!GLR.inverseState;
     // (an All-at-once frame: its span's paths and its later planes' shapes', no pole tracks of its own)
     const span = inv ? svSpanPaths(g) : null, h = inv ? svHomPaths(g.b, g.u, span).h : null;
     // (the Cauchy style's carried programs too, its own variants: while they link, nothing past z draws its colour)
-    const linking = (h ? [h, svStagedOf(false, g), svStagedCurves(g)].some((q) => !!q && q.paths.some((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending')) : svMeshLinking(g.map, null))
-      || (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry());
+    const waits = (h ? [h, svStagedOf(false, g), svStagedCurves(g)].reduce((n, q) => n + (q ? q.paths.filter((p, i) => svInvState(q, i, g.b, g.u, span ? span.a : g.b - 1) === 'pending').length : 0), 0) : (svMeshLinking(g.map, null) ? 1 : 0))
+      + (S.dc === 'cauchy' && !!GLR.carryCauchyLinking && GLR.carryCauchyLinking() && !!svCauchyCarry() ? 1 : 0);
+    const linking = waits > 0;
     const P = inv && !linking && !span ? svTracksMissing(g.b, h) : null;
+    svHoldLeft = waits + (P ? 1 : 0);
     if (P) {
       svPoleMake(P, SV.poleFrameMs || SV_POLE_BUDGET, 'frame');
       // (made whole by this slice: the frame draws the glide, its paths prepared again from the tracks)
@@ -2087,31 +2107,38 @@
   // A combo is the chain with each multivalued step's sheet (its k, which the GPU reads as data, so the programs are the
   // same) moved by an offset: 0 to n − 1 for a root's n sheets, −W to W for an infinitely sheeted step (S.sheetW, the
   // window All sheets draws). The combo of offsets 0 is the chain as it is; the others, at most SV_GLIDE_SHEETS_MAX − 1,
-  // are svGlideSheets(a, b)'s for the glide from plane a to plane b, nearest the principal sheet first (the sum of the
-  // offsets' distances from 0, a root's around its circle of sheets), made once per chain and glide. A combo whose maps
-  // to every plane from a to b are an earlier combo's is left out, as the Landscape's sheets are (sheetUniq: the same
-  // values at SHEET_PTS): a later step can undo a sheet (exp after log, z² after √), and a glide frame is placed by the
-  // map to plane a and coloured by the map to plane b, so a combo the glide's planes cannot tell apart is drawn once and
-  // the cap counts distinct ones. A chain with more distinct combos leaves the farthest ones out.
-  // SV.glideSheets 1 (a test hook's) draws the chain as it is alone.
+  // are svGlideSheets(a, b, from)'s for the glide from plane a to plane b, nearest the principal sheet first (the sum
+  // of the offsets' distances from 0, a root's around its circle of sheets), made once per chain and glide. A combo
+  // whose maps to every plane from a to b are an earlier combo's is left out, as the Landscape's sheets are (sheetUniq:
+  // the same values at SHEET_PTS): a later step can undo a sheet (exp after log, z² after √), and a glide frame is
+  // placed by the map to plane a and coloured by the map to plane b, so a combo the glide's planes cannot tell apart is
+  // drawn once and the cap counts distinct ones. A chain with more distinct combos leaves the farthest ones out.
+  // from moves the steps in (from, b] alone: a Landscape glide carries the points of plane from, which no step before
+  // it moves (0, every step up to b, on the Plane). SV.glideSheets 1 (a test hook's) draws the chain as it is alone, on
+  // the Plane and on the Landscape.
   // SV_SHEET_STEPS: the steps whose sheet is a parameter, k, that the GPU reads as data, so a copy is the same programs
   // with k moved. A custom formula's branch points have no such parameter (its sheets are only the All-sheets combo's
   // digits), so a copy of it would be a chain of its own to compile: its principal sheet alone is carried.
   // The window of an infinitely sheeted step: S.sheetW within its bounds (sheetWOf), as the Landscape's "sheets ±"
   // choice and the GPU's sheet plan draw it
   const SV_GLIDE_SHEETS_MAX = 8, SV_SHEET_STEPS = ['root', 'powa', 'log'];
-  // svGlideSheets' last answer, made again when its key (the chain's signature, planes a and b, the window W) changes: key,
-  // list (the copies), W, and own, the chain as it is on the GPU, which svOnSheets sets back after each copy's draw
+  // a step's cut in degrees: its own, else the default every multivalued step starts with (SV_CUT, the negative real
+  // axis); SV_HALF_TURN: a seam's cut turned from it (svGlideSeams)
+  const SV_CUT = 180, SV_HALF_TURN = 180;
+  const svCut = (st) => (st.params.cut == null ? SV_CUT : +st.params.cut);
+  // svGlideSheets' last answer, made again when its key (the chain's signature, planes a, b and from, the window W)
+  // changes: key, list (the copies), W, seamList (the seams, svGlideSeams, made when first asked for), and own, the
+  // chain as it is on the GPU, which svOnSheets sets back after each copy's draw
   let svSheetMemo = { key: '', list: [] };
-  function svGlideSheets(a, b) {
+  function svGlideSheets(a, b, from = 0) {
     const W = sheetWOf(S.sheetW);
-    const key = `${chainSig[nSteps()]}|${a}|${b}|${W}`;
+    const key = `${chainSig[nSteps()]}|${a}|${b}|${from}|${W}`;
     if (svSheetMemo.key === key) return svSheetMemo.list;
     // (each multivalued step's offsets, 0 first, and how far each is from the principal sheet)
     const radix = [];
     for (const e of Funcs.sheetSteps(S.steps, built)) {
       const st = S.steps[e.k - 1];
-      if (e.k > b || !SV_SHEET_STEPS.includes(st.type)) continue;
+      if (e.k <= from || e.k > b || !SV_SHEET_STEPS.includes(st.type)) continue;
       // (the piece's sheets as the sheets module reads them, from sheet 0 on round the circle: 0, 1 … W, −W … −1)
       const all = Funcs.sheetOffsets(e, W), i0 = all.indexOf(0), offs = [...all.slice(i0), ...all.slice(0, i0)];
       radix.push({ k: e.k, offs, far: (o) => (e.n > 0 ? Math.min(o, e.n - o) : Math.abs(o)) });
@@ -2130,21 +2157,48 @@
       for (let j = a; j <= b; j++) for (const z of SHEET_PTS) { let w = null; try { w = G && G[j] ? G[j](z) : null; } catch (e) { w = null; } out.push(w); }
       return out;
     };
-    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and stagesFollow,
-    // which change the user's chain; a combo whose values match the chain's or a kept copy's is not kept)
+    // (each copy's steps, built forms, signature and GPU chain: rebuild()'s, without its repeatsFollow and
+    // stagesFollow, which change the user's chain; turn: each of those steps' cuts turned half a turn too,
+    // svGlideSeams)
+    const variant = (offs, tag, turn) => {
+      const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
+      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; if (turn) st.params.cut = svCut(st) + SV_HALF_TURN; });
+      const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
+      return { offs, steps, built: bs, sig: chainSig.map((g) => `${g}|${tag}`), gl: null };
+    };
+    // (a combo whose values match the chain's or a kept copy's is not kept; the GPU chain is built for the kept ones)
     const seen = [valsOf(S.steps, built)], list = [];
     for (const offs of combos) {
       if (list.length >= SV_GLIDE_SHEETS_MAX - 1) break;
-      const steps = S.steps.map((st) => Object.assign({}, st, { params: Object.assign({}, st.params) }));
-      radix.forEach((d, i) => { const st = steps[d.k - 1]; st.params.k = (st.params.k || 0) + offs[i]; });
-      const bs = Funcs.applyRepeats(steps, steps.map((st) => Funcs.build(st)));
-      const v = valsOf(steps, bs);
-      if (seen.some((w) => sheetValsSame(w, v))) continue;
-      seen.push(v);
-      list.push({ offs, steps, built: bs, sig: chainSig.map((g) => `${g}|sheet${list.length + 1}`), gl: GLR.ok ? GLChain.build(steps, bs) : null });
+      const v = variant(offs, `sheet${list.length + 1}`, false), vals = valsOf(v.steps, v.built);
+      if (seen.some((w) => sheetValsSame(w, vals))) continue;
+      seen.push(vals);
+      if (GLR.ok) v.gl = GLChain.build(v.steps, v.built);
+      list.push(v);
     }
-    svSheetMemo = { key, list, W, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
+    // (the seams: every surface drawn, the chain as it is first, with its cuts turned, made when first asked for)
+    let seams = null;
+    const seamList = () => seams || (seams = [radix.map(() => 0), ...list.map((v) => v.offs)].map((offs, n) => { const v = variant(offs, `seam${n}`, true); if (GLR.ok) v.gl = GLChain.build(v.steps, v.built); return v; }));
+    svSheetMemo = { key, list, W, seamList, own: GLR.ok && list.length ? GLChain.build(S.steps, built) : null };
     return list;
+  }
+  // The seams of a Landscape glide's copies (svGlideSheets(a, b, from)): the carried grid leaves out a cell its map
+  // tears, and every surface drawn tears along the image of its multivalued steps' cuts, where one sheet meets the next,
+  // so the copies leave a slit there. Each surface again with those cuts turned half a turn is continuous across that
+  // image; drawn before the surfaces themselves, it shows only where none of them draws (a surface and its turned
+  // twin take the same values away from both cuts). SV.glideSeams 0 (a test hook's) draws none
+  function svGlideSeams(a, b, from = 0) {
+    return svGlideSheets(a, b, from).length ? svSheetMemo.seamList() : [];
+  }
+  // where a Landscape glide's seams tear (svGlideSeams): along step b's cut, a ray from 0 in the plane of its input,
+  // when that plane is the carry's source s (from) and step b is the one multivalued step it applies. Its angle in
+  // degrees when it lies on an axis, so a seam's cells can be a box about it (GLR.drawLandscape's band), else null (the
+  // seams cover the source plane's whole box)
+  function svSeamCut(b, from) {
+    const st = S.steps[b - 1];
+    if (from !== b - 1 || !st || !SV_SHEET_STEPS.includes(st.type)) return null;
+    const c = ((svCut(st) % 360) + 360) % 360;
+    return c % 90 === 0 ? c : null;
   }
   // draw() with the chain on sheet combo v (svGlideSheets): the steps, their built forms, their signature (the plans'
   // caches are keyed by it) and the GPU chain's data, then the chain as it is again; draw's answer
@@ -3588,6 +3642,10 @@
       // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
       if (SV.surf === 'land') {
         if (GLR.prestartNames) GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
+        // (All sheets on a multivalued chain: the sheets' programs, which the carried glide's first frame draws the sheets with
+        // in map mode 0, landSheetC for the linear heights (Re, Im) alone; started at rest, so that frame links none and
+        // svReady counts them)
+        if (GLR.prestartNames && S.sheets && multiSheet()) GLR.prestartNames(['landSheetTF', 'landSheet'].concat(S.height === 're' || S.height === 'im' ? ['landSheetC'] : []), [0]);
         if (GLR.prestart) GLR.prestart(['landCarryNrm', 'lineFC']);
       }
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
@@ -3808,13 +3866,13 @@
   }
   // ▶ and pause, the loop's state
   function svPlaySync() {
-    const E = SV.els, on = !!SV.play, label = SV.gate && SV.gate.shown && SV.gate.btn === E.play ? $t('Cancel') : on ? $t('Pause') : $t('Play');
+    const E = SV.els, on = !!SV.play, waits = svWaitOn(E.play), label = waits ? $t('Cancel') : on ? $t('Pause') : $t('Play');
     // (the pause is two bars, drawn: no glyph of the bundled faces)
-    if (E.play.dataset.on !== String(on) && !(SV.gate && SV.gate.shown && SV.gate.btn === E.play)) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
+    if (E.play.dataset.on !== String(on) && !waits) { E.play.dataset.on = String(on); E.play.textContent = ''; if (on) E.play.append(h('span', { class: 'sv-bar' }), h('span', { class: 'sv-bar' })); else E.play.textContent = '▶'; }
     E.play.setAttribute('aria-label', label);
     E.play.setAttribute('data-tip', `${label}  K`);
     // (a plain button, Cancel, while the press waits: a "not pressed" toggle named Cancel would be read as one)
-    if (SV.gate && SV.gate.shown && SV.gate.btn === E.play) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
+    if (waits) E.play.removeAttribute('aria-pressed'); else E.play.setAttribute('aria-pressed', String(on));
     E.loop.setAttribute('aria-pressed', String(SV.loop));
     E.loop.classList.toggle('on', SV.loop);
     // (Paths: pressed as S.morphPaths; off with a d/dz in the chain, which has no paths, as the classic toggle)
@@ -3858,6 +3916,8 @@
     if (svAhead) svAhead.paused = null;
     svGated(SV.els.play, () => svPlayNow(resume), M);
   }
+  // the live region's words for a play to plane index end, from the plane the thread is near
+  const svPlayWords = (end) => $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(svPlanes()[end]) });
   // (resume: { M, el }, a play paused on frames drawn ahead, which goes on at el ms into its schedule M)
   function svPlayNow(resume) {
     const P = svPlanes();
@@ -3882,7 +3942,7 @@
     svSync();
     requestRender('L');
     tourEmit('play-started', { from: Math.round(SV.g.x) });
-    if (SV.els.live) SV.els.live.textContent = $t('Playing from {a} to {b}', { a: svName(svNear()), b: svName(P[end]) });
+    if (SV.els.live) SV.els.live.textContent = svPlayWords(end);
     sndMorphStart();   // (the play's swell; its arrival is at the play's own end)
     const A = SV.play;
     if (!A.slide) svAheadStart({ from: A.from, to: A.to, ms: A.ms, eased: false, span: SV.span });
@@ -3956,6 +4016,7 @@
     const A = SV.play;
     if (!A) return;
     SV.play = null;
+    svHoldWaitEnd(false);
     if (A.slide) clearTimeout(A.timer);
     // (a play on frames drawn ahead keeps them, and where it paused, for a resume: svPlay)
     const R = svAhead && svAhead.A === A ? svAhead : null;

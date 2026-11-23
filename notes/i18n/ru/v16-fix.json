@@ -19,10 +19,5 @@
   "en": "Listen",
   "ru": "Слушать",
   "note": "The toast's button: turns sound on if needed and listens along the spiral."
- },
- "fix.listening_ph": {
-  "en": "Listening along {name}",
-  "ru": "Звучит вдоль кривой «{name}»",
-  "note": "The same chip on a phone (no Esc key)."
  }
 }

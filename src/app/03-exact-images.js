@@ -696,8 +696,14 @@
   // for SUM_IDLE_MS (a drag or a slider does not wait on it), and kept per pane for the chain and window it was taken at.
   const SUM_GRID = [24, 16], SUM_STEP = 235, SUM_IDLE_MS = 250;
   let sumWork = 150000;   // the terms a sample may evaluate (it stops after the point that passes them; a test sets it, __cmwSumRun)
-  const sumRuns = new Map();   // pane -> { chain, view, hit, tried, timer }: the last sample (hit: points where an infinite sum did not converge; tried: points where one ran)
-  const sumSay = () => $t('Part of this plane is blank: an infinite sum does not converge there within {terms} terms.', { terms: Expr.SER_CAP });
+  const sumRuns = new Map();   // pane -> { chain, view, hit, spent, tried, timer }: the last sample (see sumSay; tried: points where an infinite sum ran)
+  // (hit: points where an infinite sum did not converge within SER_CAP terms; spent: points where the sums took more than
+  // the GPU's SER_GPU_TERMS in all; the note names the limit or limits the sample met, and for the second says what to do)
+  const sumSay = (r) => (r.hit && r.spent
+    ? $t('Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.', { terms: Expr.SER_CAP, budget: GLChain.TERMS_BUDGET })
+    : r.spent
+      ? $t('Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.', { budget: GLChain.TERMS_BUDGET })
+      : $t('Part of this plane is blank: an infinite sum does not converge there within {terms} terms.', { terms: Expr.SER_CAP }));
   // the sample of the pane's colour plot for its map, at its window: null when a step of the map is a derivative (it has no function of its own)
   function sumSample(pane, map) {
     const [lo, hi] = GLR.stepsOf(map), fs = [];
@@ -707,15 +713,16 @@
       if (f) fs.push(f);
     }
     const stat = Expr.SUM_STAT, n = SUM_GRID[0] * SUM_GRID[1], t0 = stat.terms;
-    let hit = 0, tried = 0;
+    let hit = 0, spent = 0, tried = 0;
     for (let p = 0; p < n && (p === 0 || stat.terms - t0 < sumWork); p++) {
       const c = (p * SUM_STEP) % n;
       let z = pane.s2w(((c % SUM_GRID[0]) + 0.5) * pane.w / SUM_GRID[0], (Math.floor(c / SUM_GRID[0]) + 0.5) * pane.h / SUM_GRID[1]);
-      const inf0 = stat.inf, out0 = stat.out;
-      for (const f of fs) { z = f(z); if (!CX.isFin(z)) break; }
-      if (stat.inf > inf0) { tried++; if (stat.out > out0) hit++; }
+      const inf0 = stat.inf, out0 = stat.out, over0 = stat.over;
+      stat.left = Expr.SER_BUDGET;   // (the pixel's terms, as the GPU counts them: armed for this point only)
+      try { for (const f of fs) { z = f(z); if (!CX.isFin(z)) break; } } finally { stat.left = Infinity; }
+      if (stat.inf > inf0) { tried++; if (stat.out > out0) hit++; if (stat.over > over0) spent++; }
     }
-    return { hit, tried };
+    return { hit, spent, tried };
   }
   // called with the colour plot's map each time the pane draws it: the pane's last sample if it is of this chain and map (one
   // at another window stands until the new one is taken), and a new one is due after SUM_IDLE_MS if the window changed
@@ -723,7 +730,7 @@
     const range = GLR.stepsOf(map), chain = chainSig[Math.min(range[1], chainSig.length - 1)] + '|' + range,
       v = pane.view, view = [v.cx, v.cy, v.s, pane.w, pane.h].join(',');
     let r = sumRuns.get(pane);
-    if (!r || r.chain !== chain) { if (r && r.timer) clearTimeout(r.timer); sumRuns.set(pane, (r = { chain, view: null, hit: 0, tried: 0, timer: 0 })); }
+    if (!r || r.chain !== chain) { if (r && r.timer) clearTimeout(r.timer); sumRuns.set(pane, (r = { chain, view: null, hit: 0, spent: 0, tried: 0, timer: 0 })); }
     if (r.view === view || r.timer) return;
     const role = pane === paneL ? 'L' : 'R';
     const take = () => {
@@ -733,16 +740,16 @@
       const now = pane.view, nowKey = [now.cx, now.cy, now.s, pane.w, pane.h].join(',');
       let out = null;
       try { out = sumSample(pane, map); } catch (e) { out = null; }
-      const was = !!r.hit;
-      r.view = nowKey; r.hit = out ? out.hit : 0; r.tried = out ? out.tried : 0;
-      if (was !== !!r.hit) requestRender(role);
+      const was = sumNote(pane);
+      r.view = nowKey; r.hit = out ? out.hit : 0; r.spent = out ? out.spent : 0; r.tried = out ? out.tried : 0;
+      if (was !== sumNote(pane)) requestRender(role);
     };
     r.timer = setTimeout(take, SUM_IDLE_MS);
   }
   // the pane shows paper, not the colour plot (the Cauchy style's reason): a sample of the plot is of nothing drawn, so it is dropped
   const sumDrop = (pane) => { const r = sumRuns.get(pane); if (r && r.timer) clearTimeout(r.timer); sumRuns.delete(pane); };
-  // the pane's note for it: '' when the sample found no point where an infinite sum did not converge
-  const sumNote = (pane) => { const r = sumRuns.get(pane); return r && r.hit ? sumSay() : ''; };
+  // the pane's note for it: '' when the sample found no point that did not converge or took more than the budget
+  const sumNote = (pane) => { const r = sumRuns.get(pane); return r && (r.hit || r.spent) ? sumSay(r) : ''; };
   // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
   const compileShown = { L: false, R: false };
   function setCompileShown(role, on) {
