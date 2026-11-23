@@ -649,7 +649,7 @@ void main() {
   // height step over uStep (a cut of G, which the edge passes split at rest) is left out. uStep is 0.3 H for the
   // heights Re F and Im F, which step at a cut; ln |F| and |F| do not (a branch changes F's phase, not its size), and
   // there a steep pole wall is drawn as at rest (uStep infinite). vZ is the point of plane s, where the fragment stage
-  // evaluates G exactly (LAND_FS's carry form). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
+  // evaluates G exactly (LAND_FS's carry form; vZc, the same centroid, for its colour). The box's grid (uPolar 0) leaves out a triangle whose corners all lie in
   // one of the uDiscN discs uDisc (x, y, r: a seamed patch's, svPatchSeam): that patch draws them, ended along the map's
   // cut, where a box cell would straddle the cut and its corner's shading would show the box's edge. (The box's corners
   // for that test by the box's own formula, not carryZ, whose patch branch costs every vertex.) A triangle wholly past
@@ -667,7 +667,7 @@ bool inDisc(vec2 a, vec2 b, vec2 c) {
   }
   return false;
 }
-out vec2 vZ; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
+out vec2 vZ; centroid out vec2 vZc; out vec2 vW; out vec3 vPos; out vec3 vNor; out float vAO; out vec3 vBary;
 flat out vec3 vEdge; flat out vec3 vBoxE;
 ` + CARRY_Z + `
 void main() {
@@ -689,7 +689,7 @@ void main() {
   if (any(greaterThan(lo, uAspect)) || any(lessThan(hi, -uAspect))) return;
   ivec2 V = k == 0 ? V0 : (k == 1 ? V1 : V2);
   vec4 t = k == 0 ? t0 : (k == 1 ? t1 : t2), nv = texelFetch(uT2, V, 0);
-  vZ = carryZ(vec2(V));
+  vZ = carryZ(vec2(V)); vZc = vZ;
   vPos = vec3(((t.xy - uBox.xy) / uBox.zw - 0.5) * 2.0 * uAspect, t.z);
   vNor = nv.xyz; vAO = nv.w;
   vBary = k == 0 ? vec3(1.0, 0.0, 0.0) : (k == 1 ? vec3(0.0, 1.0, 0.0) : vec3(0.0, 0.0, 1.0));
@@ -1235,8 +1235,13 @@ float frontA() { return uFront > 0 && texelFetch(uBehind, ivec3(ivec2(gl_FragCoo
   // shows is the one in front, and surfaces apart by more than that share keep their order. Far from the window's centre the
   // keys of folded places differ by little (D grows with the log of the distance), so the share must exceed what the depth
   // buffer resolves between near-equal heights at a grazing angle, or those places tie and speck
+  // (carry: G at vZ, the pixel's centre; in a pixel a surface's edge covers in part (vZc, vZ centroid, differs), G at
+  // vZc too, and that one where the two are over half its size apart: the centre lay past the edge on another branch.
+  // Along a cut's image, where a glide's sheets meet, the centre's colour was the other branch's, which blended with the
+  // surface's greyed the line (#2303). Elsewhere the centre's stands: on folded triangles (exp past T) a centroid's
+  // colour leaves isolated specks at their edges. The depth key and the regions keep vZ, as the depth itself is)
   const LAND_FS = (sheet, plain, lite, carry = false) => glsl`
-in vec2 vZ; in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
+in vec2 vZ;${carry ? ' centroid in vec2 vZc;' : ''} in vec2 vW; in vec3 vPos; in vec3 vNor; in float vAO; in vec3 vBary;
 flat in vec3 vEdge; flat in vec3 vBoxE;
 uniform vec3 uCut; uniform vec4 uBox;${lite ? '' : ' uniform int uVW;'}${carry ? ` uniform float uKeyEps;\n${PRE_KEY_DECL}` : `\n${PEEL_DECL}`}${LAND_PEEL_DECL}${sheet ? ' uniform int uCarry; uniform vec2 uClipA; uniform int uCarryCol;' : ''}
 out vec4 o;
@@ -1296,7 +1301,7 @@ vec2 facetW(vec2 w) {
 void main() {
 ${carry ? '  float fdep = uKeyOn > 0 ? min(gl_FragCoord.z + (1.0 - gl_FragCoord.z) * uKeyEps * preKeyDepth(vZ, true), 1.0) : gl_FragCoord.z;\n' : '  float fdep = gl_FragCoord.z;\n'}${LAND_PEEL}${carry ? '  if (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y) discard;\n' : sheet ? '  if (uCarry == 1 && (abs(vPos.x) > uClipA.x || abs(vPos.y) > uClipA.y)) discard;\n' : ''}  // colour from F at the interpolated z: contours stay crisp. (Sub-cells under about a pixel: F at their corners,
   // interpolated, which at that size is the same picture without the chain in every fragment of every tiny triangle)
-${lite ? `  vec2 w0 = landW(vZ), w = w0;
+${lite ? `  vec2 w0 = landW(vZ)${carry ? ';\n  if (vZc != vZ) { vec2 wc = landW(vZc); if (length(w0 - wc) > 0.5 * length(wc)) w0 = wc; }\n  vec2 w = w0' : ', w = w0'};
   const float la = 1.0;` : `  vec2 w0 = uVW == 1${sheet ? ' && uCarryCol == 0' : ''} ? vW : landW(vZ), w = ${sheet ? 'uCarryCol == 1 ? w0 : ' : ''}facetW(w0);
   float pw = max(max(length(dFdx(vPos)), length(dFdy(vPos))), 1e-9);
   vec2 ht = heightW(w);
