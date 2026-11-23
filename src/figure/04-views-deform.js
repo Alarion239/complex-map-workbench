@@ -462,6 +462,8 @@
     // saying where the colour is carried from, in a column right of the second picture)
     const sk = A.svKey ? A.svKey(to) : null;
     const keyW = sk && sk.carried ? Math.min(KEY_COL_MAX, W * KEY_COL_FRAC) : 0;
+    // (the key's column starts after the room kept right of the second picture, as in the plain still)
+    const keyAt = mR;
     mR += keyW ? keyW + KEY_GAP : 0;
     let h = (W - mL - gut - mR) / (asp[0] + asp[1]);
     h = Math.min(h, W * 0.62, P.maxH - top - bottom);
@@ -492,7 +494,7 @@
     items.push(XD.mapArrow(a0, a1, ay, arrowTex, lp, P.lw.arrow, '#000000'));
     let keyBottom = 0;
     if (keyW) {
-      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
+      const k = await carriedKey(sk.carried, xs[1] + h * asp[1] + keyAt + KEY_GAP + keyW / 2, y, keyW, tp, P.lw.frame);
       items.push(...k.items);
       keyBottom = k.bottom;
     }
