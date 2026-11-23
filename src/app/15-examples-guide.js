@@ -647,6 +647,8 @@
     // (a focus counts as keyboard navigation when a Tab or arrow key came this many ms before it)
     const NAV_KEY_MS = 300;
     let timer = 0, cur = null, lastHide = 0, kbdTip = null, navKeyAt = -1e9;
+    // the element whose data-tip the open tip shows, and the observer that keeps the tip to its words
+    let tipObs = null, tipWatched = null;
     // the tool descriptions that say click, in touch words (the others drag, hold or pick)
     const TOUCH_DESC = {
       point: () => $t('Tap to place a point; its images are labelled a′, a″, …'),
@@ -677,8 +679,16 @@
       let y = r.top - th - 6; if (y < 6) y = r.bottom + 6;
       tip.style.left = Math.max(6, Math.min(window.innerWidth - tw - 6, r.left + r.width / 2 - tw / 2)) + 'px';
       tip.style.top = y + 'px';
+      // (an open tip follows its element's words: a control that changes its data-tip while it is shown, as Play does when
+      // its glide waits and when the wait ends, shows the new words at once, and no tip when it has none)
+      if (tipWatched !== el) {
+        if (tipObs) tipObs.disconnect();
+        tipWatched = el;
+        tipObs = new MutationObserver(() => { if (!tip.hidden && tipWatched === el) { if (el.getAttribute('data-tip')) show(el); else hide(); } });
+        tipObs.observe(el, { attributes: true, attributeFilter: ['data-tip', 'data-desc'] });
+      }
     };
-    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; };
+    const hide = () => { clearTimeout(timer); if (!tip.hidden) lastHide = performance.now(); tip.hidden = true; cur = null; kbdTip = null; if (tipObs) { tipObs.disconnect(); tipObs = null; tipWatched = null; } };
     document.addEventListener('pointerover', (e) => {
       if (e.pointerType === 'touch') return;
       const tg = /** @type {HTMLElement} */ (e.target);
