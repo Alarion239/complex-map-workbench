@@ -141,6 +141,7 @@ const TIMING = {
   'series_edit_cmd.js': [t(/^timing: /)],
   'link_standin_cmd.js': [t(/^timing: /)],
   'steps_line_standin_cmd.js': [t(/^timing: /)],
+  'steps_stack_tubes_cmd.js': [t(/^timing: /)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],

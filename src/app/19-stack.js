@@ -18,7 +18,7 @@
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time)}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // the Stack is shown, and its camera draws: not while its floor is drawn flat, which the flat plane's own draw does
   const stackOn = () => SV.on && SV.surf === 'stack' && !stackFlat;
@@ -96,7 +96,7 @@
     let tubes = null;
     const layers = {
       'floor marks': () => mk && drawLookLayer(ctx, mk, lv, 'floor'),
-      tubes: () => { if (mk) tubes = drawStackTubes(pane, ctx, s, F, G, tilt, mk.critZ); },
+      tubes: () => { if (!mk) return; const t0 = performance.now(); tubes = drawStackTubes(pane, ctx, s, F, G, tilt, mk.critZ); if (tubes) tubes.ms = performance.now() - t0; },
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lv, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),

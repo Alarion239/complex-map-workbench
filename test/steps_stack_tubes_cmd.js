@@ -10,7 +10,9 @@
 //  - the join ring on the glass is dashed in the cut's red (the overlay is red on it);
 //  - the tubes' colours keep a 3:1 contrast with the plane in the light and the dark theme;
 //  - on a phone (360 × 640) the Stack's Tilt draws the tubes, and M1's label lies inside the plane;
-//  - straight down the tubes are not drawn.
+//  - straight down the tubes are not drawn;
+//  - timing (reported, not gated): a phone's Tilt turn on M3, the CPU slowed 4×, draws the tubes in at most 4 ms a
+//    frame (median) and 8 ms (90th percentile).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const LOAD_MS = 40000, READY_MS = 60000;
@@ -115,5 +117,25 @@ const paneW = await ev(`document.getElementById('overlayL').getBoundingClientRec
 info.phone = { tubes: pT && pT.pieces.length, labels: pT && pT.labels, pane: [paneW, paneH] };
 ok('phone: the Stack\'s Tilt draws the tubes', !!pT && pT.pieces.length === 2, info.phone);
 ok('phone: the narrowing\'s label lies inside the plane', !!pT && pT.labels.length === 1 && !!pT.labels[0].box && pT.labels[0].box[0] >= 0 && pT.labels[0].box[2] <= paneW && pT.labels[0].box[1] >= 0 && pT.labels[0].box[3] <= paneH, info.phone);
+
+// the tubes' cost a frame while a phone's Tilt turns (M3, the CPU slowed 4×, as the perf suite's phone): reported, not
+// gated (ci/browser_suites.js TIMING)
+await open('M3', { w: 360, h: 640, phone: true });
+const ms = [];
+if (await hooked()) {
+  await send('Emulation.setCPUThrottlingRate', { rate: 4 });
+  for (let i = 0; i < 24; i++) {
+    await ev(`__cmwCam('L', { yaw: ${-30 * DEG} + ${i} * ${15 * DEG}, pitch: ${(20 + (i % 6) * 8) * DEG} }); 1`);
+    await frames();
+    const d = await drawn();
+    if (d && d.tubes && d.tubes.ms != null) ms.push(d.tubes.ms);
+  }
+  await send('Emulation.setCPUThrottlingRate', { rate: 1 });
+}
+info.costEach = ms.map((x) => +x.toFixed(1));
+ms.sort((a, b) => a - b);
+const med = ms.length ? ms[ms.length >> 1] : null, p90 = ms.length ? ms[Math.floor(ms.length * 0.9)] : null;
+info.cost = { frames: ms.length, med, p90, worst: ms.length ? ms[ms.length - 1] : null };
+ok('timing: a phone\'s Tilt turn draws M3\'s tubes in at most 4 ms a frame (median) and 8 ms (90th percentile)', ms.length === 24 && med <= 4 && p90 <= 8, info.cost);
 
 return { pass: fails.length === 0, passed: pass, fails, info };
