@@ -100,7 +100,7 @@
   const tourState = () => JSON.parse(JSON.stringify(Object.assign({}, S, { hideLeft: dockPref.L, hideRight: dockPref.R, rightView: rightAuto ? null : { cx: V.right.cx, cy: V.right.cy, s: V.right.s } }), noRuntime));
   function tourSnapshot() {
     phHold();
-    if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place now: the tour moves it, and restore puts it back)
+    if (typeof svStore === 'function') svStore();   // (S.sv holds the steps view's place: the tour moves it, and the restore puts it back)
     const xl = document.querySelector('#examplesBtn .exlabel');
     return {
       state: tourState(),

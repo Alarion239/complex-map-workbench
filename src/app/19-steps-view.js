@@ -279,7 +279,7 @@
     SV.at = Math.abs(p - SV.i) < SV_REST_U ? SV.i : null;
     svApply();
   }
-  // an undo put another S.sv under the view
+  // another S.sv is under the view: an undo put it there, or the tour's end gave the user's work back
   function svRestored() {
     if (!SV.on || !SV.ready) return;
     if (SV.alone) { SV.alone = 0; SV.back = null; }   // (an undo leaves a step shown alone)
