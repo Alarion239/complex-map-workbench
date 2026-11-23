@@ -4,6 +4,7 @@
 // An expression for eval in a suite, which supplies ev, fs and DIR: `const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'carry_kit.js'), 'utf8'))`.
 // - lpx(pts): { view, dpr, pw, ph, px }: for each plane point [x, y], the 3 x 3 device pixels of canvasL about it as
 //   [r, g, b, a] each, row by row (the centre is index 4), or null off the pane; and the camera and size they were read in;
+// - pxIn(pts): that read as a page expression, for a suite's own page condition (settled's until);
 // - paneOf(): the pane's camera (v: the view, with cx, cy, s) and its size in css px (w, h);
 // - nearest(p, ref): the least, over the 9 pixels ref of a point, of the largest channel difference (0..255) from p;
 // - bare(p): whether the centre pixel p (of a 3 x 3 read) is bare paper, its channels within 6 of each other;
@@ -35,10 +36,9 @@
 //   3 x 3 pixels spread over o.spread (30 of 255) in some channel: { of: the grid's points, n: those read, rough, share }.
 (() => {
   // (canvasL in the left pane's camera, __cmwCards().main: a plane point x + iy at device pixel (W/2 + (x - cx) s dpr,
-  // H/2 - (y - cy) s dpr); a read that throws answers { __exc }, which fails the suite here rather than reading as no
-  // pixels)
-  const lpx = async (pts) => {
-    const r = await ev(`(() => {
+  // H/2 - (y - cy) s dpr). pxIn(pts): that read as a page expression, for a suite's own page condition (settled's until);
+  // lpx runs it, and a read that throws answers { __exc }, which fails the suite here rather than reading as no pixels)
+  const pxIn = (pts) => `(() => {
       const c = document.getElementById('canvasL'), m = __cmwCards().main, v = m.view, d = m.dpr, W = c.width, H = c.height;
       const img = c.getContext('2d').getImageData(0, 0, W, H).data;
       const px = ${JSON.stringify(pts)}.map(([x, y]) => {
@@ -49,7 +49,9 @@
         return out;
       });
       return { view: { cx: v.cx, cy: v.cy, s: v.s }, dpr: d, pw: W, ph: H, px };
-    })()`);
+    })()`;
+  const lpx = async (pts) => {
+    const r = await ev(pxIn(pts));
     if (r && r.__exc !== undefined) throw new Error('lpx failed: ' + r.__exc);
     return r;
   };
@@ -269,5 +271,5 @@
     const n = sp.filter((x) => x > spread).length;
     return { of: nx * ny, n: sp.length, rough: n, share: n / sp.length };
   };
-  return { lpx, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead, DRAWN, openSteps, toPlane, rough };
+  return { lpx, pxIn, paneOf, nearest, bare, tally, bareCount, grid, shown, fronts, joukPath, chainPoints, carryRead, DRAWN, openSteps, toPlane, rough };
 })()

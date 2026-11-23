@@ -634,14 +634,19 @@ float net(vec2 g, vec2 gw) { return max(iso(g.x, gw.x, 1.0), iso(g.y, gw.y, 1.0)
   };
   // pre-mapped triangles (SphereMesh, SPEC 8.7, P5): the pattern coordinates arrive interpolated from the CPU mesh:
   // vG = (z - Q_t) / cell (reduced per triangle by multiples of 10 cells), vP = (ln |z|, arg z) * 16 / tau (arg
-  // unwrapped per triangle; the mesh keeps both within 0.5 px of the true ones) or, for graph paper (4), the source
-  // point itself. Footprints by fwidth, as the 'fwidth' mode. The pattern formulas (PAT_CHAIN) are the shared text.
-  PAT_PRE.pre = `  vec2 g = vG;
+  // unwrapped per triangle; the mesh keeps both within 0.5 px of the true ones) or, for graph paper (4) and for the
+  // triangles about z = 0 whose polar coordinates cannot stand for z (vCart, SphereMesh's cart), the source point
+  // itself. Footprints by fwidth, as the 'fwidth' mode. The pattern formulas (PAT_CHAIN) are the shared text.
+  PAT_PRE.pre = glsl`  vec2 g = vG;
   vec2 gw = fwidth(g);
-  vec2 gp = vP, gpw = fwidth(vP);
+  // (a triangle that carries its source point itself, vCart: its polar coordinates from it here, as the 'fwidth' mode's)
+  vec2 gc = vec2(log(max(length(vP), 1e-30)), atan(vP.y, vP.x)) * (16.0 / TAU);
+  vec2 gcw = vec2(fwidth(gc.x), argWidth(vP) * (16.0 / TAU)), gvw = fwidth(vP);
+  bool cart = vCart > 0.5;
+  vec2 gp = cart ? gc : vP, gpw = cart ? gcw : gvw;
   vec2 rt = preRT(gp);
   float rr = rt.x, th = rt.y;
-  vec2 sa = uPattern == 4 ? vP : preSrc(gp);
+  vec2 sa = uPattern == 4 || cart ? vP : preSrc(gp);
   vec2 fs = uPattern == 4 ? fwidth(vP) : gw * uCell;
   float gr = rr / uCell, fgr = fwidth(gr);
   float ra = th * (12.0 / PI), fra = gpw.y * 1.5;
@@ -747,16 +752,18 @@ ${sphere ? glsl`
 `;
   // ---- pre-mapped triangles (SPEC 8.7, P5): SphereMesh's leaves, mapped on the CPU, drawn far to near ----
   // aPos = w - w0 (flat; uRel = view centre - w0, a float64 difference) or the conjugate lift of w (globe); aAttr the
-  // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern)
+  // pattern coordinates (PAT_PRE.pre); aTri the triangle's area scale (vJac, the Area scale pattern); aCart 1 where the
+  // triangle's vP is its source point itself, not its polar coordinates (SphereMesh's cart: about z = 0)
   const PRE_VS = (sphere) => `
 layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
 layout(location = 2) in float aTri;
+layout(location = 4) in float aCart;
 out vec2 vG; out vec2 vP;
-flat out float vJac; flat out float vKErr;
+flat out float vJac; flat out float vKErr; flat out float vCart;
 ${sphere ? 'out vec3 vNor; out vec3 vPos;\nuniform mat4 uMVP;' : 'uniform vec2 uRel; uniform vec2 uScale;'}
 void main() {
-  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vKErr = 0.0;
+  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vKErr = 0.0; vCart = aCart;
 ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPos * 1.002, 1.0);' : '  gl_Position = vec4((aPos - uRel) * uScale, 0.0, 1.0);'}
 }
 `;
@@ -827,7 +834,7 @@ float preKeyRes(vec2 sa) {
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
     const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_DECL + PRE_KEY_RES], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
-    for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP;\n' + PRE_SRC], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
+    for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP; flat in float vCart;\n' + PRE_SRC], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
       if (!t.includes(a)) throw new Error('REGION_PRE_FS: ' + a.slice(0, 40));
       t = t.split(a).join(b);
     }
@@ -1305,8 +1312,8 @@ void main() {
   // exact image shows, not the mesh's order
   // (key false: no key here, the vertex stage's depth orders the sheets: REGION_VS's carry option)
   // (pre: a pre-mapped mesh's vP, PAT_PRE's (ln |z|, arg z) * 16 / tau, or z itself where uPreZ is 1 (graph paper's
-  // mesh), turned back into the source point; clip: REGION_VS's sheet option's vSide, a fragment past a cut its
-  // triangle's branch was continued across left out)
+  // mesh) or vCart is (a triangle about z = 0), turned back into the source point; clip: REGION_VS's sheet option's
+  // vSide, a fragment past a cut its triangle's branch was continued across left out)
   // (centroid: vP read at the centroid of the pixel's covered samples, as REGION_VS's carry option writes it unless its centre option is set, so a
   // pixel a region's triangle only partly covers takes its colour inside the triangle: past its edge on a cut, vP
   // extrapolated lands on the other sheet. Otherwise at the pixel centre, as PRE_VS and CARRY_GLOBE_VS write it (the two
@@ -1319,9 +1326,9 @@ void main() {
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = false) => `
 uniform int uGs; uniform int uGt;${cz ? ' uniform int uCT; uniform vec2 uEdgeO;' : ''}
 ${key ? PRE_KEY_DECL + PRE_KEY_RES : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
-${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
+${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ; flat in float vCart;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
-${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
+${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 || vCart > 0.5 ? vP : preSrc(vP)' : 'vP'};
 ${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
   vec2 sw = carryW(sa);
   o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}

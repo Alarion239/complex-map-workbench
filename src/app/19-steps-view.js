@@ -1964,11 +1964,6 @@
     // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
     // (GLR.carryLayers) with the programs that write each fragment's sheet key (st.peel); while those link, or if the
     // layers cannot be drawn, the front layer alone is drawn)
-    // (while the carried colour's programs link: a still frame of plane z's colour (T = 0) whose shapes are all drawn from
-    // their SphereMeshes (the tiling's stand-in while a chain's first program links, smNeed's 'linking') shows those
-    // meshes in the phase of their source points, which is that colour, with programs that carry no chain)
-    const standIn = () => T === 0 && n > 0 && lay.every((d) => d.pre)
-      && lay.every((d, i) => GLR.drawPreMapped(d.res, Object.assign({}, sts[i], { carry: null, pattern: 'phase', sphN: 16 })));
     const a = svOpacity();
     let layers = a < 0.999 && !!GLR.carryLayers;
     // (a frame whose sheets can tie draws its meshes through the resolve of ties, with the layers' programs: at full
@@ -1981,7 +1976,7 @@
         if (!lay[i].pre && (sts[i].prep = GLR.carryPrep(lay[i].res, sts[i])) === false) { ready = false; break; }
       }
       if (ready) break;
-      if (!layers && !ties) return standIn();
+      if (!layers && !ties) return false;
       layers = ties = false;
     }
     const drawAll = () => {
@@ -1996,7 +1991,7 @@
       return true;
     };
     const layered = layers ? GLR.carryLayers(a, drawAll, ties ? svTieBand() : null) : ties ? GLR.carryResolve(svTieBand(), drawAll) : null;
-    return (layered === null ? drawAll() : layered) || standIn();
+    return layered === null ? drawAll() : layered;
   }
   // A frame of the plane between two planes (or at rest on a plane past the colour plane, where it is u = 0): the
   // colour carried by the points along h_{b,u} (the inverse pass, svCarryExactHom, or the carried meshes, svCarryRegions);
@@ -3565,7 +3560,7 @@
       if (GLR.prestartModes) GLR.prestartModes([1]);
       // (perf on #448: the programs keyed by the map that the first glide linked synchronously)
       if (GLR.prestartNames) GLR.prestartNames(['region0', 'regionC', 'regionP', 'line0', 'lineC', 'tfRegion', 'tfLine', 'color', 'pre'], [0, 1]);
-      if (GLR.prestart) GLR.prestart(['regionP', 'keepA']);
+      if (GLR.prestart) GLR.prestart(['regionP', 'keepA', 'regionPKid']);
       // (the Landscape shown: its glide's carry, the moved grid (landCarryTF), its normals and surface, the sheets'
       // places under All sheets, and the floor's carried outlines (lineFC); its heights and the rest frame are mode 0's)
       if (SV.surf === 'land') {
