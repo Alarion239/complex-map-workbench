@@ -232,6 +232,10 @@ ok('the browser job has llvmpipe emit AVX code only (GALLIUM_OVERRIDE_CPU_CAPS: 
 // every job that draws with lavapipe (CMW_ANGLE: vulkan, ci/lavapipe.sh) has it
 const lvpJobs = Y.split(/^ {2}(?=[\w-]+:\n)/m).filter((b) => /CMW_ANGLE: vulkan|ci\/lavapipe\.sh/.test(b));
 ok('every job that installs or draws with lavapipe sets GALLIUM_OVERRIDE_CPU_CAPS: avx', lvpJobs.length >= 1 && lvpJobs.every((b) => /^ {6}GALLIUM_OVERRIDE_CPU_CAPS: avx$/m.test(b)), lvpJobs.map((b) => b.split(':')[0]));
+// (#1835: the smoke shard runs the glsl page's chain that crashed Mesa 25's lavapipe on this image's Mesa 26, and the step fails when fewer than
+// its values are compared: on a lavapipe that does not run the chain the page passes with none)
+const sqrtStep = /name: GLSL page, the chain that crashed Mesa 25's lavapipe\n\s+if: matrix\.shard == 'smoke'\n\s+run: (.+)\n/.exec(job);
+ok('the browser job runs the sheets sqrt d d chain in the smoke shard and fails on fewer than 7172 values compared', !!sqrtStep && /ci\/glsl\.js --only glsl --filter 'sheets sqrt d d' --expect-compared 7172$/.test(sqrtStep[1]), sqrtStep && sqrtStep[1]);
 const at = (re) => job.search(re);
 const order = [/name: Mesa cache key\n\s+id: mesa-key\n\s+run: ci\/lavapipe\.sh --key >> "\$GITHUB_OUTPUT"\n/, /name: Mesa cache \(restore\)\n\s+id: mesa-cache\n\s+uses: actions\/cache\/restore@v\d+\n/, /name: Mesa's Vulkan drivers \(lavapipe\)\n\s+id: mesa\n\s+run: ci\/lavapipe\.sh "\$RUNNER_TEMP\/cmw-lavapipe-debs"/, /name: Mesa cache \(save\)\n\s+if: .+\n\s+uses: actions\/cache\/save@v\d+\n/, /run: node ci\/browser\.js/].map(at);
 ok('the steps: key, restore, install, save, then the suites', order.every((i, k) => i >= 0 && (k === 0 || i > order[k - 1])), order);

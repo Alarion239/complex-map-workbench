@@ -430,7 +430,7 @@ layout(location = 3) in vec2 aC;
 layout(location = 4) in float aSkip;
 out vec2 vSrc;
 flat out float vJac;
-${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
+${o.carry ? `${o.centre ? '' : 'centroid '}out vec2 vP;\nflat out float vKErr;\nuniform float uKPx; uniform float uKLim;\n${PRE_KEY_DECL}` : ''}${o.sheet && o.clip ? 'out float vSide;\nflat out float vSideTol;\nuniform int uKPass;\n' : ''}${o.sheet && o.own ? 'invariant gl_Position;\nout vec2 vW;\nflat out float vWTol;\nflat out float vTorn;\nuniform int uKPass;\n' : ''}${sphere ? 'out vec3 vNor; out vec3 vPos;' : ''}
 uniform vec2 uCenter; uniform vec2 uCenterLo; uniform vec2 uScale; uniform vec2 uRel; uniform vec2 uSrcOff;
 uniform mat4 uMVP;
 ${SRC}
@@ -488,7 +488,29 @@ ${o.points ? `  vec2 w0 = FT(0, d0), w1 = FT(1, d1), w2 = FT(2, d2);
 ` : ''}  int c = int(aTpl1.z + 0.5);
   // pattern coordinates: the source point relative to a pattern-aligned origin near O (uSrcOff = O - Q)
   vSrc = (c == 0 ? s0 : (c == 1 ? s1 : s2)) + uSrcOff;
-${o.carry ? '  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));\n' : ''}${o.sheet && o.own ? glsl`  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
+${o.carry ? glsl`  vP = srcOf(c == 0 ? s0 : (c == 1 ? s1 : s2));
+  // (the sheet key's error across the triangle, for the resolve of ties (uKRes 2, PRE_KEY_RES): the fragment stage
+  // interpolates the source point linearly across the triangle's places, that is it interpolates g = f^-1, whose error is
+  // up to |g''| hw^2 / 8 = |f''| h^2 / (8 |f'|), h the longest source edge, at an edge's middle. f' is fitted to the edges;
+  // f is analytic, so f'' is one complex number, which the centroid's place wm gives: off the corners' mean by
+  // -f'' m2 / 2, m2 the mean of the corners' squared offsets from their mean (h^2 / 9 for the grid's right isosceles
+  // triangles; kept to at least a twentieth of h^2, where a triangle near equilateral in z averages the term out). Near a
+  // pole or a critical point of f the estimate grows. The error in units of s: the key's gradient (by differences, so
+  // the key's own poles count) times that distance)
+  vKErr = 0.0;
+  if (uKRes == 2) {
+    vec2 z0 = srcOf(s0), z1 = srcOf(s1), z2 = srcOf(s2), zb = (z0 + z1 + z2) / 3.0;
+    vec2 a1 = z1 - z0, a2 = z2 - z0, b1 = w1 - w0, b2 = w2 - w0;
+    vec2 fp = (vec2(b1.x * a1.x + b1.y * a1.y, b1.y * a1.x - b1.x * a1.y) + vec2(b2.x * a2.x + b2.y * a2.y, b2.y * a2.x - b2.x * a2.y)) / max(dot(a1, a1) + dot(a2, a2), 1e-30);
+    vec2 d0 = z0 - zb, d1 = z1 - zb, d2 = z2 - zb;
+    vec2 m2 = (vec2(d0.x * d0.x - d0.y * d0.y, 2.0 * d0.x * d0.y) + vec2(d1.x * d1.x - d1.y * d1.y, 2.0 * d1.x * d1.y) + vec2(d2.x * d2.x - d2.y * d2.y, 2.0 * d2.x * d2.y)) / 3.0;
+    float h = longest(z0, z1, z2);
+    float f2 = 2.0 * len2(wm - (w0 + w1 + w2) / 3.0) / max(len2(m2), 0.05 * h * h + 1e-30);
+    float dz = 0.125 * f2 * h * h / max(len2(fp), 1e-30);
+    float t0, t1, t2, sb = preKeyS(zb, t0);
+    vKErr = length(vec2(preKeyS(zb + vec2(dz, 0.0), t1) - sb, preKeyS(zb + vec2(0.0, dz), t2) - sb));
+  }
+` : ''}${o.sheet && o.own ? glsl`  // (the place drawn at this vertex, and how far the map's own place may be from the one interpolated across the
   // triangle: 4 px, and a quarter of its longest edge, a bound on its interpolation's error where midOk holds)
   vW = c == 0 ? w0 : (c == 1 ? w1 : w2);
   vWTol = uKPx + 0.25 * longest(w0, w1, w2);
@@ -731,10 +753,10 @@ layout(location = 0) in ${sphere ? 'vec3' : 'vec2'} aPos;
 layout(location = 1) in vec4 aAttr;
 layout(location = 2) in float aTri;
 out vec2 vG; out vec2 vP;
-flat out float vJac;
+flat out float vJac; flat out float vKErr;
 ${sphere ? 'out vec3 vNor; out vec3 vPos;\nuniform mat4 uMVP;' : 'uniform vec2 uRel; uniform vec2 uScale;'}
 void main() {
-  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri;
+  vG = aAttr.xy; vP = aAttr.zw; vJac = aTri; vKErr = 0.0;
 ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPos * 1.002, 1.0);' : '  gl_Position = vec4((aPos - uRel) * uScale, 0.0, 1.0);'}
 }
 `;
@@ -761,10 +783,12 @@ ${sphere ? '  vNor = aPos; vPos = aPos * 1.002;\n  gl_Position = uMVP * vec4(aPo
   // uPeelD holds (a 32-bit float depth); the 1e-7 lets the layer's own fragments, which compare equal, drop out
   const PEEL_DECL = 'uniform int uPeelOn; uniform highp sampler2D uPeelD;\n';
   const PRE_KEY_DECL = glsl`${PEEL_DECL}uniform int uKeyOn; uniform vec4 uKWin; uniform float uKR; uniform float uKRs; uniform vec2 uKSing[4]; uniform int uKSingN; uniform vec2 uKSingT;
+uniform int uKRes; uniform float uKBand;
 const float KEY_STEPS = 16384.0;
 const float KEY_DMAX = 63.0;
 const float KEY_SMAX = 68141.0;
-float preKeyDepth(vec2 sa, bool stepped) {
+// the key s = KEY_STEPS ln(1 + D) of source point sa, and its tie order in [0, 0.999) (smaller in front)
+float preKeyS(vec2 sa, out float tie) {
   float D = log2(1.0 + length(sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR);
   // (the distance to a point's class modulo the key's period uKSingT, 0: none; Inverse.sheetKey's)
   float tt = dot(uKSingT, uKSingT);
@@ -776,16 +800,33 @@ float preKeyDepth(vec2 sa, bool stepped) {
   }
   // (the tie order: larger Im z in front, then larger Re z, over the whole plane, in [0, 1))
   vec2 tk = atan((sa - 0.5 * (uKWin.xy + uKWin.zw)) / uKR) / 3.14159265 + 0.5;
-  float d = log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
-  float x = (stepped ? floor(d + 0.5) : d) + 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
-  return x / (KEY_SMAX + 1.0);
+  tie = 0.999 * (1.0 - (tk.y + 1e-3 * tk.x) / 1.001);
+  return log(1.0 + min(D, KEY_DMAX)) * KEY_STEPS;
+}
+float preKeyDepth(vec2 sa, bool stepped) {
+  float tie, d = preKeyS(sa, tie);
+  return ((stepped ? floor(d + 0.5) : d) + tie) / (KEY_SMAX + 1.0);
 }
 `;
-  const PRE_KEY = '  float kd = uKeyOn > 0 ? preKeyDepth(sa, true) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
+  // The resolve of ties (GLR.carryResolve, uKRes 1 then 2; fragment stages only): pass 1 writes s / (KEY_SMAX + 1) alone, so
+  // each pixel keeps its smallest key smin (a 32-bit float depth, uPeelD in pass 2); pass 2 puts the fragments whose key
+  // is within uKBand of smin (the band, in units of s: the mesh's own error in the key) in front, ordered by their tie
+  // order alone, as the inverse pass orders the keys within its band (Inverse.order), and the others behind them by s
+  const PRE_KEY_RES = glsl`flat in float vKErr;
+uniform highp sampler2D uKMin;
+const float KEY_ERR_K = 4.0;
+float preKeyRes(vec2 sa) {
+  float tie, s = preKeyS(sa, tie);
+  if (uKRes == 1) return s / (KEY_SMAX + 1.0);
+  float smin = texelFetch(uKMin, ivec2(gl_FragCoord.xy), 0).r * (KEY_SMAX + 1.0);
+  return s <= smin + max(uKBand, KEY_ERR_K * vKErr) ? 0.5 * tie : 0.5 + 0.5 * s / (KEY_SMAX + 1.0);
+}
+`;
+  const PRE_KEY = '  float kd = uKeyOn > 0 ? (uKRes > 0 ? preKeyRes(sa) : preKeyDepth(sa, true)) : gl_FragCoord.z;\n  if (uPeelOn > 0 && kd <= texelFetch(uPeelD, ivec2(gl_FragCoord.xy), 0).r + 1e-7) discard;\n  gl_FragDepth = kd;\n';
   // REGION_FS with the source point replaced by the interpolated pattern coordinates (and no stretched-mesh feather)
   const REGION_PRE_FS = (sphere) => {
     let t = REGION_FS(sphere);
-    const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_DECL], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
+    const key = sphere ? [] : [['out vec4 o;\n', 'out vec4 o;\n' + PRE_KEY_DECL + PRE_KEY_RES], ['  o = vec4(col * a, a);\n}', PRE_KEY + '  o = vec4(col * a, a);\n}']];
     for (const [a, b] of [['in vec2 vSrc;\n', 'in vec2 vG; in vec2 vP;\n' + PRE_SRC], [PATTERN_SRC('fwidth'), PAT_PRE.pre + PAT_CHAIN], ['float a = uAlpha * fadeOf(sa);', 'float a = uAlpha;'], ...key]) {
       if (!t.includes(a)) throw new Error('REGION_PRE_FS: ' + a.slice(0, 40));
       t = t.split(a).join(b);
@@ -796,8 +837,8 @@ float preKeyDepth(vec2 sa, bool stepped) {
   // one-pixel point straight into its texel of the RG32F cache texture (point i = instance * uP + vertex lands on
   // texel (i % W, i / W), the same layout as the transform-feedback copy). A plain draw, so the program is ready when
   // its background compile is: ANGLE builds the transform-feedback variant of a vertex shader only at its first
-  // transform-feedback draw, which held the GPU process (every frame on the page) for 60-110 ms per chain program
-  // right after each step was added (spec 8.7). Without the extension: transform feedback, copied via a buffer.
+  // transform-feedback draw, which holds the GPU process (every frame on the page) for 60-110 ms per chain program
+  // when a step is added (spec 8.7). Without the extension: transform feedback, copied via a buffer.
   const TF_EMIT = (rt) => (rt ? `
 flat out vec2 tfOut;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
@@ -1277,11 +1318,11 @@ void main() {
   // by uCT, and the curve's edges and poles are those of the plot on plane z. Without cz the program has none of it
   const CARRY_FS = (id, key = true, pre = false, clip = false, centroid = false, cz = false) => `
 uniform int uGs; uniform int uGt;${cz ? ' uniform int uCT; uniform vec2 uEdgeO;' : ''}
-${key ? PRE_KEY_DECL : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
+${key ? PRE_KEY_DECL + PRE_KEY_RES : ''}${centroid ? 'centroid in' : 'in'} vec2 vP;
 ${cz ? CAUCHY_CORE('sw', 'uCEdges') + CARRY_W : ''}${pre ? 'uniform int uPreZ;\n' + PRE_SRC : ''}${clip ? 'in float vSide;\nflat in float vSideTol;\n' : ''}out vec4 o;
 void main() {
 ${clip ? '  if (vSide < -vSideTol) discard;\n' : ''}  vec2 sa = ${pre ? 'uPreZ == 1 ? vP : preSrc(vP)' : 'vP'};
-${key ? PRE_KEY : ''}${cz ? `  bool cz = uCT >= 0;
+${key ? PRE_KEY + '  if (uKRes == 1) { o = vec4(0.0); return; }\n' : ''}${cz ? `  bool cz = uCT >= 0;
   vec2 sw = carryW(sa);
   o = vec4(cz ? cauchyCol(sa, sa - uEdgeO, sw) : dcolor(sw), 1.0);` : `  o = vec4(dcolor(${id ? 'sa' : 'chainRange(sa, uGs, uGt)'}), 1.0);`}
 }
@@ -1297,8 +1338,9 @@ ${key ? PRE_KEY : ''}${cz ? `  bool cz = uCT >= 0;
   const GLOBE_SHELL = '1.002';
   const CARRY_GLOBE_VS = LIFT + `
 uniform mat4 uMVP; uniform ivec2 uN; uniform float uLim; uniform float uPole;
-out vec2 vP; out vec3 vNor; out vec3 vPos;
+out vec2 vP; out vec3 vNor; out vec3 vPos; flat out float vKErr;
 void main() {
+  vKErr = 0.0;
   int tri = gl_VertexID / 3, cn = gl_VertexID - 3 * tri, cell = tri / 2, hf = tri - 2 * cell;
   ivec2 c = ivec2(cell % uN.x, cell / uN.x);
   vec3 q0 = vec3(0.0), q1 = q0, q2 = q0;
@@ -1349,7 +1391,7 @@ void main() {
   // (key: the depth is the sheet key of the fragment's source point, as CARRY_FS's with a key, for the carried colour's
   // layers: GLR.carryLayers)
   const CARRY_MASK_FS = (key) => `
-${key ? PRE_KEY_DECL : ''}centroid in vec2 vP; in vec2 vW;
+${key ? PRE_KEY_DECL + PRE_KEY_RES : ''}centroid in vec2 vP; in vec2 vW;
 flat in float vWTol; flat in float vTorn;
 out vec4 o;
 void main() {
@@ -1557,7 +1599,7 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
     L = g;
   }
   else if (kind == 7) L = formulaLevel(int(K.z + 0.5), w);
-  else if (kind == 8) { vec2 u = w - A.xy; L = -0.5 * (A.z * dot(u, u) + 2.0 * dot(B.xy, u) + A.w); }   // v16 gdisc: -f/2
+  else if (kind == 8) { vec2 u = w - A.xy; L = -0.5 * (A.z * dot(u, u) + 2.0 * dot(B.xy, u) + A.w); }   // gdisc: -f/2
   if (K.y > 0.5) L = -L;
   return L > -1e30 ? min(L, 1e30) : -1e30;
 }
@@ -1570,7 +1612,7 @@ vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
     for (int k = 1; k < 256; k++) { if (k >= n) break; q = nearer(w, q, segNear(w, R(s + k - 1).xy, R(s + k).xy)); }
     return q;
   }
-  if (kind == 20) {           // v16 gcurve: two Newton steps on f / 2 (the signed distance near the curve)
+  if (kind == 20) {           // gcurve: two Newton steps on f / 2 (the signed distance near the curve)
     vec2 q = w;
     for (int k = 0; k < 2; k++) {
       vec2 u = q - A.xy;
