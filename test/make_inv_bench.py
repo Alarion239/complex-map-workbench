@@ -2,7 +2,7 @@
 """Builds dist/inv-bench.html: the generated-program benchmark of the inverse renderer (SPEC 4.7, 13.10).
 
 Inlines the app's pure modules and gl.js (src/cx.js, parse.js, funcs.js, invops.js, invpatterns.js, inverse.js, calc.js,
-glsl.js, region.js, gl.js) and test/inv_bench.js, which drives GLR.drawInverse with the programs glsl.js and gl.js generate (no
+glslroots.js, glsl.js, region.js, gl.js) and test/inv_bench.js, which drives GLR.drawInverse with the programs glsl.js and gl.js generate (no
 hand-written GLSL). Run it through a CDP daemon (test/cdp_kit): test/inv_bench_cmd.js.
 """
 import pathlib

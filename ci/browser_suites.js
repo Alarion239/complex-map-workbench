@@ -99,6 +99,7 @@ const SUITES = {
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'newt_member0_cmd.js': { pages: ['glsl-inverse-test.html'] },
+  'newt_poly_order_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'series_limit_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
