@@ -1120,6 +1120,9 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     // bareMs(map, names): ms the current chain's draws of programs names (default its area draws) for map have had
     // nothing to draw (0: they draw), and the tests' hold on its links
     bareMs, holdLinks, chainProgs, colorProgName,
+    // whether links are slow on this renderer (ANGLE's Direct3D 11: slowLinks), and the tests' override of that (null:
+    // the renderer decides)
+    slowLinks, forceSlowLinks,
     // the app drew a stand-in for programs still linking (a SphereMesh for bareMs): the frame stays pending, so what
     // waits for the final picture (the quality harness's settle, onReady's redraw) still waits
     markPending() { framePending = true; },

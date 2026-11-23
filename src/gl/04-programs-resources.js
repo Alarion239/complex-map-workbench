@@ -473,23 +473,25 @@ float wabs(vec2 w) {
   }
   // How far the current chain's programs that prestartNames was asked for have come, with those prestartModes plans
   // for the map modes `modes` (the other map modes of the programs the views draw, which the warm-up starts once
-  // nothing else links), and the static programs that prestart was asked for (staticWanted): {done, total}. done: linked (or failed: nothing more will come of it); a program not started
+  // nothing else links), and the static programs that prestart was asked for (staticWanted): {done, total, pending}. done:
+  // linked (or failed: nothing more will come of it); pending: linking; a program not started
   // counts in total only. The chain's other programs still compiling are counted in total as well, so the answer is
   // complete only when nothing of the chain is left linking: its programs that a draw starts at their first use (as the
   // carried colour's region fills; while one links, no inverse program of the chain is started, invProgram) and its
   // inverse programs (the exact images'; an inverse program's askKey: the key of the chain whose draw or state query
   // asked for it last). A view's no pane shows (e.offView) is not counted
   function progStatus(modes) {
-    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0 };
+    if (!ok || lost || sideMode || !cur.info) return { done: 0, total: 0, pending: 0 };
     const w = wanted.get(cur.key), ids = [];
     // (no prestartNames call for this chain yet: one program not started, so the answer is not complete)
-    if (!w) return { done: 0, total: 1 };
+    if (!w) return { done: 0, total: 1, pending: 0 };
     for (const [name, m] of w.values()) if (DEFS[name]) ids.push(progId(name, cur, { mode: m }));
     for (const name of staticWanted) ids.push(name + '|static');
     const extra = [];
     for (const e of progs.values()) if (e.state === 'pending' && !e.offView && (e.inv ? e.askKey === cur.key : e.chain && !e.side && e.key === cur.key)) extra.push(e.id);
     const r = warmCount([['chain', ids], ['modes', warmIds('modes', modes)]], (id) => { const e = progs.get(id); return e && e.state; }, extra);
-    return { done: r.done, total: r.total };
+    // (pending: of the total, those linking; the rest of it is not started yet)
+    return { done: r.done, total: r.total, pending: r.pending };
   }
   // ---- what a chain owns ----
   // A chain's GPU and CPU state is its programs (forward, and the inverse ones, owned by the chain that asked for them last:
@@ -541,7 +543,7 @@ float wabs(vec2 w) {
   // static one), started in the background ahead of a switch to Landscape, as prestartModes does for a deformation:
   // a view's no pane shows until a draw asks for them (e.offView). -> the number started
   function prestartLand() {
-    if (!ok || lost || !pcExt || sideMode || !cur.info) return 0;
+    if (!ok || lost || !pcExt || sideMode || !cur.info || !landWarmOk()) return 0;
     let n = prestart(LAND_STATIC, true);
     for (const name of LAND_CHAIN) {
       if (progs.has(progId(name, cur, { mode: 0 }))) continue;
@@ -565,6 +567,8 @@ float wabs(vec2 w) {
   function warmIds(group, modes) {
     if (group === '2d') return PRESTART_2D.map((n) => n + '|static');
     if (group === 'globe') return GLOBE_PROGS.map((n) => n + '|static');
+    // (the Landscape's warm-up waits for its first draw where links are slow, landWarmOk: until then none of it is to come)
+    if (group === 'land' && !landWarmOk()) return [];
     if (!ok || lost || !pcExt || sideMode || !cur.info) return group === 'land' ? LAND_STATIC.map((n) => n + '|static') : [];
     if (group === 'modes') return modesPlan(modes || []).map((q) => q.id);
     if (group === 'land') return LAND_STATIC.map((n) => n + '|static').concat(LAND_CHAIN.map((n) => progId(n, cur, { mode: 0 })));
@@ -716,6 +720,34 @@ float wabs(vec2 w) {
   let held = (() => { try { return new URLSearchParams(location.search).has('glhold'); } catch (err) { return false; } })();
   let heldNames = null;
   function heldOf(e) { return held && e.chain && !e.side && !e.inv && (!heldNames || heldNames.has(e.name)); }
+  // Links are slow on this renderer: ANGLE's Direct3D 11 back end runs FXC at link time (on WARP 0.2-0.5 s for a
+  // program of 13-27 KB, on an Iris Xe 2.5-5x that), so a program linked for nothing holds back the ones the next frame
+  // needs. There the app starts the programs it links ahead of their use (the steps view's prestart, the warm-up's
+  // groups) once a typed edit is committed, not at each pause in the typing (typingHold, in the app), and the
+  // Landscape's warm-up (prestartLand) only once a Landscape has been drawn (landWarmOk). Elsewhere nothing changes. (A
+  // measured link time is not the test: links that land seconds late, as Metal's do, are no sign of FXC's cost per link.)
+  // ?slowlinks forces it on and ?slowlinks=0 off from the page's start; forceSlowLinks(true | false | null) at any time
+  // (null: the renderer decides again)
+  let slowForce = (() => { try { const q = new URLSearchParams(location.search).get('slowlinks'); return q === null ? null : q !== '0'; } catch (err) { return null; } })();
+  let slowRenderer = null, landDrawn = false;
+  function slowLinks() {
+    if (slowForce !== null) return slowForce;
+    if (slowRenderer === null && gl && !lost) {
+      let r = '';
+      try {
+        // (Chrome masks RENDERER as "WebKit WebGL" and gives ANGLE's string through the debug extension, asked only then:
+        // Firefox's RENDERER is already unmasked, and Firefox warns that the extension is deprecated)
+        r = String(gl.getParameter(gl.RENDERER) || '');
+        if (/^WebKit WebGL$/i.test(r.trim())) { const x = gl.getExtension('WEBGL_debug_renderer_info'); if (x) r = String(gl.getParameter(x.UNMASKED_RENDERER_WEBGL) || ''); }
+      } catch (err) { r = ''; }
+      slowRenderer = /Direct3D ?11|D3D11/i.test(r);
+    }
+    return !!slowRenderer;
+  }
+  function forceSlowLinks(on) { slowForce = on == null ? null : !!on; return slowLinks(); }
+  // the Landscape's warm-up may start: links are not slow here, or a Landscape has been drawn (drawLandscape, not a
+  // side chain's), so the user opens that view
+  const landWarmOk = () => landDrawn || !slowLinks();
   // (tests) the names of the programs started for the current chain (of any map mode), each once
   function chainProgs() {
     const out = new Set();
