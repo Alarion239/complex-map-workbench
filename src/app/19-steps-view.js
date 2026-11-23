@@ -3034,6 +3034,7 @@
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
   function svSync() {
     if (!SV.on || !SV.els || SV.offscreen) return;
+    svTileSync();
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
     // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
