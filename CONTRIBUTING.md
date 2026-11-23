@@ -123,6 +123,12 @@ taste that no rule here covers is a "Nit:" and never blocks.
   - generated files regenerated with their tools;
   - the lint and type ratchet only goes down;
   - the code rules above: comments, simplicity, names, API docs and hygiene;
+  - a **part split** (a block moved out of one file of `src/app/`, `src/gl/` or another split file into a new part)
+    cites the output of `node tools/part_move.js <base> <head>` (the PR's base and head commits): it tokenises the
+    joined file at both commits and says `pure move: yes` when one contiguous run of tokens moved and the rest is the
+    same token for token, with the lines the run came from and went to, and the lines that differ as a multiset. A
+    comment line it lists (a new part's header) is read, a code line that differs fails it (`--strict` fails any
+    line);
   - one subject per PR, with no reformatting mixed into a behaviour change. A change to how the project is built,
     tested, run or released updates the docs (`README.md`, `ci/README.md`, this file), and deleted code takes its
     docs with it;
