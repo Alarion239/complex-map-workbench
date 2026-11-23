@@ -2,13 +2,16 @@
 // piece's lit patch on the floor, along the straight strands z → F(z). Read from the page (__cmwStack().drawn.tubes), on
 // the plan's maps with the disc on w₁ selected on z, at the Stack's opening camera (Tilt):
 //  - M1 z², |w − 1| < 0.5: 2 tubes; the −1 tube narrows a third of the way up, labelled
-//    "narrows here: F′(−1) = −2, not a join"; the critical point 0 has a dashed strand to its value 0;
+//    "narrows here: F′(−1) = −2, not a join"; the critical point 0 has a dotted strand to its value 0 (dotted: the
+//    key's dashed red is the join radius);
 //  - M2 Joukowski, |w − 0.6 − 0.5i| < 0.35: 2 tubes, no narrowing, the critical points ±1's strands;
 //  - M3 z³ − 1.2z + 0.3, |w − 1.1| < 0.25: 3 tubes, no narrowing, the critical points ±√0.4's strands;
 //  - each tube's floor end is on its patch's edge (|F(z) − c| = r) and its glass end on the disc's rim, at F of its floor
 //    end; both ends are where the floor's and the glass's maps put them; each piece has its own colour;
 //  - the join ring on the glass is dashed in the cut's red (the overlay is red on it);
-//  - the tubes' colours keep a 3:1 contrast with the plane in the light and the dark theme;
+//  - the tubes' strands, as painted (their colour at their alpha over the plane), keep a 3:1 contrast with the plane in
+//    the light and the dark theme;
+//  - the key is titled Stack and names the tubes and the critical strands; straight down it does not;
 //  - on a phone (360 × 640) the Stack's Tilt draws the tubes, and M1's label lies inside the plane;
 //  - straight down the tubes are not drawn;
 //  - timing (reported, not gated): a phone's Tilt turn on M3, the CPU slowed 4×, draws the tubes in at most 4 ms a
@@ -51,6 +54,8 @@ const flat = async (re, im) => { const [x, y] = await ev(`__cmwPlaneMenu().w2s('
 const through = (m, [x, y]) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
 const near = (p, q, tol = 0.75) => !!p && !!q && Math.hypot(p[0] - q[0], p[1] - q[1]) <= tol;
 // the WCAG contrast of two #rrggbb colours
+// #rrggbb colour a at alpha over #rrggbb colour b
+const over = (a, alpha, b) => '#' + [1, 3, 5].map((i) => Math.round(alpha * parseInt(a.slice(i, i + 2), 16) + (1 - alpha) * parseInt(b.slice(i, i + 2), 16)).toString(16).padStart(2, '0')).join('');
 const lum = (hx) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hx.slice(i, i + 2), 16) / 255).map((c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4)); return 0.2126 * r + 0.7152 * g + 0.0722 * b; };
 const contrast = (a, b) => { const [x, y] = [lum(a), lum(b)].sort((p, q) => q - p); return (x + 0.05) / (y + 0.05); };
 
@@ -76,7 +81,7 @@ for (const m of ['M1', 'M2', 'M3']) {
   ok(`${m}: every tube's floor end lies on its lit patch's edge (|F(z) − c| = r)`, n > 0 && onEdge === n, { n, onEdge });
   ok(`${m}: every tube's glass end lies on the disc's rim, at F of its floor end`, n > 0 && onRim === n && atF === n, { n, onRim, atF });
   ok(`${m}: the ends are drawn where the floor's and the glass's maps put them`, n > 0 && floorPx === n && glassPx === n, { n, floorPx, glassPx });
-  ok(`${m}: a dashed strand from each critical point to its value (${M.crit})`, T.strands.length === M.crit, T.strands);
+  ok(`${m}: a dotted strand from each critical point to its value (${M.crit})`, T.strands.length === M.crit && !!T.dots && T.dots[0] === 0, { strands: T.strands, dots: T.dots });
   if (M.label) ok(`${m}: the narrowing is labelled "${M.label}", a third of the way up`, T.labels.length === 1 && T.labels[0].text === M.label && Math.abs(T.labels[0].s - M.s) < 1e-4, T.labels);
   else ok(`${m}: no narrowing`, T.labels.length === 0, T.labels);
   // the join ring, dashed in the cut's red, on the glass: red-dominant ink at a majority of points round it
@@ -101,14 +106,24 @@ if (await hooked()) {
 }
 const top = await drawn();
 ok('straight down the tubes are not drawn', !!top && top.tubes === null, top && top.tubes);
+const keyText = () => ev(`(() => { const k = document.querySelector('#plotL .ld-key'); return k && !k.hidden ? [k.querySelector('.ld-ttl'), ...k.querySelectorAll('.ld-it')].map((e) => e.textContent).join('; ') : null; })()`);
+const keyTop = await keyText();
+ok('straight down the key names no tubes', !!keyTop && keyTop.startsWith('Stack;') && !keyTop.includes('tube of a piece'), keyTop);
+if (await hooked()) {
+  await ev(`__cmwCam('L', { yaw: ${-30 * DEG}, pitch: ${35 * DEG} }); 1`);
+  await until(`(() => { const d = __cmwStack().drawn; return !!d && !!d.tubes; })()`, 10000);
+}
+const keyTilt = await keyText();
+info.key = { top: keyTop, tilt: keyTilt };
+ok('tilted, the key is titled Stack and names the tubes and the critical strands', keyTilt === 'Stack; target; to the target; critical point; critical value; join radius; tube of a piece; critical point to its value', keyTilt);
 // the themes: the tubes' colours against the plane
 for (const theme of ['light', 'dark']) {
   await open('M1', { theme });
   const d = await drawn(), T = d && d.tubes;
-  const cs = T && d.plane ? T.pieces.map((p) => contrast(p.colour, d.plane)) : [];
+  const cs = T && d.plane ? T.pieces.map((p) => contrast(over(p.colour, T.ruleA, d.plane), d.plane)) : [];
   info[theme] = { colours: T && T.pieces.map((p) => p.colour), plane: d && d.plane, cs };
   ok(`${theme}: the plane is the ${theme} theme's`, !!d && !!d.plane && (theme === 'dark' ? lum(d.plane) < 0.2 : lum(d.plane) > 0.8), d && d.plane);
-  ok(`${theme}: the tubes keep a 3:1 contrast with the plane`, cs.length === 2 && cs.every((x) => x >= 3), info[theme]);
+  ok(`${theme}: the tubes' strands, as painted, keep a 3:1 contrast with the plane`, cs.length === 2 && cs.every((x) => x >= 3), info[theme]);
 }
 // a phone's Tilt
 await open('M1', { w: 360, h: 640, phone: true });

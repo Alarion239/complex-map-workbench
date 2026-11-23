@@ -3,11 +3,13 @@
   // straight line: at height s, 0 the floor and 1 the glass, it is at (1 − s)·z + s·F(z) in the floor's own coordinates,
   // so the box's slice at s is the graph of F turned in C². A piece of the disc's preimage (Pieces.count, the readout
   // card's) is bounded by loops of preimages of the disc's rim, so the strands from its loops make a tube from its lit
-  // patch on the floor up to the rim on the glass. A tube is drawn as its slices, bottom to top: the camera is above the
-  // floor, so along any line of sight a higher slice is nearer, and that order is the order in depth. Each piece takes
+  // patch on the floor up to the rim on the glass. A tube is drawn as its slices, bottom to top, with the strands between
+  // two slices drawn before the upper one: the camera is above the floor, so along any line of sight a higher slice is
+  // nearer, and that order is the order in depth. The critical strands and the lines from the floor to the glass (the
+  // 'lines' layer) span every height and are drawn over all the slices, which are nearly clear. Each piece takes
   // one colour (TUBE_INKS: the shapes' theme colours, the violet first), filled even-odd so a piece's holes stay open.
-  // Every TUBE_RULE_EVERY-th strand of a loop is drawn, and each critical point's strand rises, dashed in the cut's red,
-  // to its critical value. Near a preimage z₀ of the centre, the slice at s is the loop scaled by (1 − s) + s·F′(z₀):
+  // Every TUBE_RULE_EVERY-th strand of a loop is drawn, and each critical point's strand rises, dotted in the cut's red
+  // (the join ring is dashed), to its critical value. Near a preimage z₀ of the centre, the slice at s is the loop scaled by (1 − s) + s·F′(z₀):
   // where F′(z₀) is a negative real number that is 0 at s = 1 / (1 − F′(z₀)), so the tube narrows to a point there,
   // which is not a join, and a label says so, drawn last, over the glass.
   // The tubes, the critical strands and the labels stand up out of the floor: they fade in with the tilt (stackTilt), at
@@ -17,7 +19,7 @@
   const TUBE_FILL_A = 0.08, TUBE_RING_A = 0.4, TUBE_RULE_A = 0.6;
   const TUBE_FULL_TILT = 0.5;                  // cos(pitch) at 60°
   const NARROW_TOL = 1e-6;                     // F′ counts as real when |Im F′| ≤ NARROW_TOL·|F′|
-  const TUBE_CRIT_DASH = [4, 3];               // css px: a critical strand's dashes
+  const TUBE_CRIT_DOTS = [0, 4];               // css px: a critical strand's dots (round caps make each dash of length 0 a dot)
   const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin
   const tubeCache = new Map();
   // n of a closed loop's points, about evenly spaced by arc length: the loop's own points (preimages of the rim, so a
@@ -104,23 +106,25 @@
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (let j = 0; j <= TUBE_LEVELS; j++) {
       const t0 = (j - 1) / TUBE_LEVELS, t = j / TUBE_LEVELS;
-      for (const P of d.pieces) {
-        // the strands between the slice below and this one, then this slice (its fill, and its ring)
-        if (j > 0) {
+      // every piece's strands between the slice below and this one, then every piece's slice here (its fill, and its ring)
+      if (j > 0) {
+        for (const P of d.pieces) {
           ctx.globalAlpha = TUBE_RULE_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.beginPath();
           for (const L of P.loops) for (let i = 0; i < L.z.length; i += TUBE_RULE_EVERY) { ctx.moveTo(...at(mix(L.z[i], L.w[i], t0), t0)); ctx.lineTo(...at(mix(L.z[i], L.w[i], t), t)); }
           ctx.stroke();
         }
-        if (j === 0 || j === TUBE_LEVELS) continue;
+      }
+      if (j === 0 || j === TUBE_LEVELS) continue;
+      for (const P of d.pieces) {
         ctx.beginPath();
         for (const L of P.loops) { L.z.forEach((z, i) => { const [x, y] = at(mix(z, L.w[i], t), t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
         ctx.globalAlpha = TUBE_FILL_A * fade; ctx.fillStyle = ink(P).c0; ctx.fill('evenodd');
         ctx.globalAlpha = TUBE_RING_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.stroke();
       }
     }
-    // the critical points' strands, dashed, to their values
+    // the critical points' strands, dotted, to their values
     const F = rangeF(leftStage(), shapeStage(s)), strands = [];
-    ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 1.25; ctx.setLineDash(TUBE_CRIT_DASH);
+    ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2; ctx.setLineDash(TUBE_CRIT_DOTS);
     for (const z of crit) {
       const w = F(z);
       if (!CX.isFin(w)) continue;
@@ -133,5 +137,5 @@
     const c = C(s.c[0], s.c[1]);
     const labels = d.narrows.map((n) => ({ text: tubeNarrowText(n), z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) }));
     const pts = (L, key, t) => L[key].filter((_, i) => i % TUBE_RULE_EVERY === 0).map((p) => ({ p: [p.re, p.im], px: at(p, t) }));
-    return { fade, pieces: d.pieces.map((P) => ({ ink: P.ink, colour: ink(P).edge, loops: P.loops.map((L) => ({ floor: pts(L, 'z', 0), glass: pts(L, 'w', 1) })) })), strands, labels };
+    return { fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, pieces: d.pieces.map((P) => ({ ink: P.ink, colour: ink(P).edge, loops: P.loops.map((L) => ({ floor: pts(L, 'z', 0), glass: pts(L, 'w', 1) })) })), strands, labels };
   }

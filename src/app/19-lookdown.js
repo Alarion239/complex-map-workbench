@@ -89,15 +89,17 @@
       || d.lines.some(([x0, y0, x1, y1]) => segDist([x, y], [x0, y0], [x1, y1]) <= LD_HIT / 2);
     return near ? findShape(d.id) : null;
   }
-  // the key chip over the left plane, shown with the marks. On a phone it starts folded to its title, a button that
-  // unfolds it (the open key covers a fifth of a 360 px plane)
+  // the key chip over the left plane, shown with the marks: titled Look down, or Stack on the Stack, where it also names
+  // the tubes and the critical strands while they are drawn (19-stack-tubes.js). On a phone it starts folded to its
+  // title, a button that unfolds it (the open key covers a fifth of a 360 px plane)
   let lookKey = null, lookKeyOpen = false, lookFits = 0;
   const LD_KEY = [
     { kind: 'ring', text: () => $t('target') }, { kind: 'line', text: () => $t('to the target') }, { kind: 'cross', text: () => $t('critical point') },
     { kind: 'dot', text: () => $t('critical value') }, { kind: 'dash', text: () => $t('join radius') },
   ];
+  const LD_TUBE_KEY = [{ kind: 'tube', text: () => $t('tube of a piece') }, { kind: 'strand', text: () => $t('critical point to its value') }];
   const ldSwatch = (kind) => h('span', { class: `ld-sw ld-${kind}`, 'aria-hidden': 'true' });
-  function syncLookKey(on) {
+  function syncLookKey(on, stack = false, tubes = false) {
     const host = $('plotL');
     if (!host) return;
     if (!lookKey) {
@@ -108,15 +110,16 @@
       try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLookKey)); ro.observe(lookKey); ro.observe(host); } catch (e) { /* no ResizeObserver */ }
       try { new MutationObserver(() => requestAnimationFrame(fitLookKey)).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
     }
-    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}` : '';
+    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}` : '';
     if (lookKey.dataset.sig === sig) return;
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
     if (!on) { fitLookKey(); return; }
     const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
-    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
+    const title = stack ? $t('Stack') : $t('Look down');
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
     // (the marks are a list, so a screen reader says them one by one)
-    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
+    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.concat(tubes ? LD_TUBE_KEY : []).map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     lookKey.classList.toggle('folded', ph && !lookKeyOpen);
     if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
     fitLookKey();

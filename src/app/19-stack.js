@@ -111,7 +111,7 @@
   function stackDrawOverlay(pane) {
     if (!stackOn()) return false;
     stackDrawn = stackMarks(pane, pane.octx, stackCam);
-    syncLookKey(stackDrawn.marks);
+    syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
     return true;
   }
   // TEST-HOOK (dropped from the published page by build.py): the Stack's state and its last frame; o.same: {yaw, pitch}
