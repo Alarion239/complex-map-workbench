@@ -128,7 +128,7 @@
     SV.offscreen++;
     try {
       SV.anim = A; SV.play = null; SV.span = M.span; SV.g.set(x);
-      mfDrawn = null; cutMarksL = []; svGlideRec = null; svRestRec = null; svHeldOn = null;
+      mfDrawn = null; cutMarksL = []; svGlideRec = null; svRestRec = null; svHeldOn = null; svCarryPreOff = 0;
       return draw(A);
     } finally {
       SV.anim = keep.anim; SV.play = keep.play; SV.span = keep.span; SV.g.set(keep.x);
@@ -138,8 +138,8 @@
     }
   }
   // frame k of R drawn off-screen (svAheadVisit) into R's scratch canvas through a proxy of the left pane, its labels
-  // placed at once -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it
-  // is not the exact frame at its place (R.reject says why)
+  // placed at once -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record, pre: its pre-mapped
+  // meshes' draws (svCarryPreOff) }, or null when it is not the exact frame at its place (R.reject says why)
   function svAheadDraw(R, k) {
     const pane = paneL, M = R.M, x = R.xs[k];
     if (!R.cv || R.cv.width !== pane.pw || R.cv.height !== pane.ph) R.cv = new OffscreenCanvas(pane.pw, pane.ph);
@@ -157,7 +157,7 @@
       R.reject = A.held ? 'hold' : still ? (!svRestRec || svRestRec.path === 'inverse' ? null : svRestRec.path)
         : !svGlideRec ? 'none' : svGlideRec.path !== 'inverse' ? `${svGlideRec.path}${svGlideRec.reason ? ': ' + svGlideRec.reason : ''}`
           : svGlideRec.b !== bt.b || svGlideRec.u !== bt.u ? 'place' : null;
-      return R.reject ? null : { bm: R.cv.transferToImageBitmap(), mf: mfDrawn, cm: cutMarksL, rec: svGlideRec };
+      return R.reject ? null : { bm: R.cv.transferToImageBitmap(), mf: mfDrawn, cm: cutMarksL, rec: svGlideRec, pre: svCarryPreOff };
     });
   }
   // the motion under way is R's (its schedule, unremapped) -> the frame it shows now, or null
@@ -180,7 +180,7 @@
     pane.begin(TH.plane);
     pane.ctx.save(); pane.ctx.setTransform(1, 0, 0, 1, 0, 0); pane.ctx.drawImage(s.bm, 0, 0); pane.ctx.restore();
     pane.ctx.setTransform(pane.dpr, 0, 0, pane.dpr, 0, 0);
-    mfDrawn = s.mf; cutMarksL = s.cm; cutHandlesL = []; svGlideRec = s.rec;
+    mfDrawn = s.mf; cutMarksL = s.cm; cutHandlesL = []; svGlideRec = s.rec; svCarryPre = s.pre;
     svMotionDrawn(svMotion());
     svAhead.shown++;
     return true;

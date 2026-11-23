@@ -1895,7 +1895,10 @@
   const svTieMemo = new Map();
   // (the band's floor, SV_TIE_BAND unless a test hook set another: __cmwSteps({ tieBand }))
   let svTieBandSet = null;
-  let svCarryPre = 0;   // the pre-mapped meshes among the last carried frame's draws (the tests read it: __cmwSteps().carryPre)
+  // the pre-mapped meshes among the draws of the frame on the screen (the tests read it: __cmwSteps().carryPre): 0 from the
+  // start of each screen frame (svDrawPlane), set by its carried colour's layout, and a frame drawn ahead brings its own
+  // (svAheadShow); a frame drawn off-screen (SV.offscreen: the frames drawn ahead and their probe) sets svCarryPreOff instead
+  let svCarryPre = 0, svCarryPreOff = 0;
   const svTieBand = () => (svTieBandSet == null ? SV_TIE_BAND : svTieBandSet);
   function svTies(map, b, k) {
     const s = map.mode === 1 ? b - 1 : map.mode === 3 ? map.a : b;
@@ -1964,7 +1967,7 @@
     // (an old mesh drawn inside its guard box never ends the depth: its clear would be scissored too, so the depth is
     // cleared after it; it is never first, its shape's tessellated mesh comes before it)
     const n = lay.length, tail = n > 1 && lay[n - 1].scissor;
-    svCarryPre = lay.filter((d) => d.pre).length;
+    if (SV.offscreen) svCarryPreOff = lay.filter((d) => d.pre).length; else svCarryPre = lay.filter((d) => d.pre).length;
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
@@ -2030,6 +2033,7 @@
   // classic core, which pulls the colour back through the map (and draws the globe and the relief of a push plane too)
   function svDrawPlane(pane, still) {
     svHoldB = 0; svRedrawDue = false; SV.restHeld = -1;
+    if (!SV.offscreen) svCarryPre = 0;
     if (svAhead && svAhead.state === 'fill') svAhead.live++;
     cutMarksL = [];
     if (svMoving()) {

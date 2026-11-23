@@ -18,12 +18,12 @@
 // 0.38 from w = 1, off the real axis, are rough), and the band's floor at BAND_WIDE moves it as little; its map cos(z³)
 // keeps a sixth turn (GLR.carryResolveOrd() 6). Left of Re w = LEFT_X (past the arc of triangles, #2286), once they
 // cover it, at most LEFT_ROUGH_MAX of its points are rough: sheets of equal angle about the centre and unequal radius
-// are not the rotation's partners. Behind the arc's tip (TIP, about w = -1,
-// cos's critical value) at most EXACT_WRONG_MAX of the points show the second sheet in the inverse pass's order rather
-// than the front one (plane z's colours at the two, where they differ by over TIP_APART: the nearer is the one shown).
-// The source points' target's fallbacks:
-// RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth; none ('none') ties by the band alone
-// (GLR.carryResolveOrd() 0) and still draws.
+// are not the rotation's partners. Behind the arc's tip (TIP, about w = -1, cos's critical value) at most
+// EXACT_WRONG_MAX of the points show the second sheet in the inverse pass's order rather than the front one (plane z's
+// colours at the two, where they differ by over TIP_APART: the nearer is the one shown). Once the render-ahead probe has
+// drawn its frames off-screen, __cmwSteps().carryPre still counts the screen frame's pre-mapped draws (#2298).
+// The source points' target's fallbacks: RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth;
+// none ('none') ties by the band alone (GLR.carryResolveOrd() 0) and still draws.
 // Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -131,6 +131,14 @@ const covered = await settled({ max: PRE_WAIT, until: `__mtLeftPaper() === 0 && 
 const left = Object.assign(await leftRough(), { covered: covered.ok });
 info.left = { pre: left };
 ok(`plane 2 at rest on the pre-mapped meshes, left of Re w = ${LEFT_X} once they cover it: at most ${LEFT_ROUGH_MAX * 100} % of the points rough`, left.covered && left.n >= 0.9 * left.of && left.share <= LEFT_ROUGH_MAX, info.left);
+// (the render-ahead probe, svAheadProbe, draws the motion's frames off-screen at idle once it has ended: the frame on the
+// screen keeps its own count of pre-mapped draws, #2298)
+{
+  const end = await settled({ max: PRE_WAIT * 2, until: '(() => { const p = __cmwSteps().aheadProbe; return !!p && p.state !== "waiting" && p.state !== "drawing"; })()' });
+  const r = await ev('(() => { const s = __cmwSteps(), p = s.aheadProbe; return { pre: s.carryPre, probe: p && { state: p.state, frames: p.frames, rejects: p.rejects.length } }; })()');
+  info.probe = r;
+  ok('plane 2 at rest: once the render-ahead probe has drawn its frames off-screen, __cmwSteps().carryPre still counts the pre-mapped draws of the frame on the screen', end.ok && !!r.probe && r.probe.frames + r.probe.rejects > 0 && r.pre > 0, r);
+}
 // the points z of the key's window with cos(z³) = w: z³ = ±acos w + 2 pi k, and their cube roots
 const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
 const csqrt = (a) => { const r = Math.hypot(a[0], a[1]), x = Math.sqrt(Math.max(0, (r + a[0]) / 2)), y = Math.sqrt(Math.max(0, (r - a[0]) / 2)); return [x, a[1] < 0 ? -y : y]; };
