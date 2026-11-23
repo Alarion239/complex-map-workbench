@@ -12,7 +12,7 @@ const Export = (() => {
     lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers,
     morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell,
     pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, shapeF, shapeStage, stageF, fNameTex, parkedAt,
-    runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
+    runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn,
     smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt;
   // ---- export: plane images (PNG) and the map with its guarantees (LaTeX) ----
   // Files go through the viewer's downloads capability in claude.ai (the viewer confirms each save); a copy of the
@@ -275,11 +275,11 @@ const Export = (() => {
     return out.map((g) => (g._s ? { t: g.t } : g));
   };
   function shapePhrase(s, idx, cs) {
-    let tex = '';
-    try { tex = shapeTexOf(s); } catch (e) { tex = ''; }
-    // a drawn area is a closed set (Region.isOpen, spec 6.5: only open boundaries are drawn dashed), so its caption
-    // says so: the disc |z| <= 2, and its complement |z| > 2 is the open set. Typed formulas keep their own relations
-    if (tex && kindType(s) === 'area' && s.kind !== 'formula') tex = tex.replace(/</g, '\\le ').replace(/>/g, '\\ge ');
+    // (a shape drawn on a later plane is written in that plane's variable, |w₁ − 1| = 0.5, as its row writes it)
+    let tex = '', typed = false;
+    try { tex = shapeTexOwn(s); typed = !!s.srcTex && shapeTexOf(s) === s.srcTex; } catch (e) { tex = ''; }
+    // (a drawn area is a closed set, Region.isOpen, spec 6.5: its TeX says so, the disc |z| <= 2, and its complement |z| > 2 is
+    // the open set; a typed formula keeps its own relations)
     // inline maths as journals set it: plain bars and a slashed fraction, not \left|...\right| or a stacked \frac
     if (tex) tex = inlineFrac(tex.replace(/\\left\|/g, '|').replace(/\\right\|/g, '|').replace(/\\left\(/g, '(').replace(/\\right\)/g, ')')).replace(/\\tfrac\{([^{}]+)\}\{([^{}]+)\}/g, '$1/$2');
     const P = (a) => CX.tex(C(a[0], a[1]), 3);
@@ -292,7 +292,7 @@ const Export = (() => {
       // before punctuation and at the end)
       if (s.def || s.at) { const ph = Construct.phrase(s, P); if (ph) { const r = sp(ph.src, ph.params); if (ph.close) r.push({ t: ',', pc: 1 }); return r; } }
       // a shape added from an equation, as recognized: by its equation
-      if (s.srcTex && tex === s.srcTex && s.kind !== 'point') {
+      if (typed && s.kind !== 'point') {
         switch (s.kind) {
           case 'line': return sp('the line %{m}', { m: M(tex) });
           case 'ray': return sp('the ray %{m}', { m: M(tex) });
@@ -315,7 +315,7 @@ const Export = (() => {
           }
           // (a label that is a word, "trailing edge", is set as text, not as a product of italic letters)
           // a name that is a word: "the trailing edge $z=1$", not a symbol "$\\text{trailing edge}=1$"
-          if (s.label && (I18N.lang === 'en' ? /[A-Za-z]{2}|\s/ : /\p{L}{2}|\s/u).test(exLabel(s.label))) return sp('the %{label} %{m}', { label: String(exLabel(s.label)).trim(), m: M(`z=${P(s.p)}`) });
+          if (s.label && (I18N.lang === 'en' ? /[A-Za-z]{2}|\s/ : /\p{L}{2}|\s/u).test(exLabel(s.label))) return sp('the %{label} %{m}', { label: String(exLabel(s.label)).trim(), m: M(`${wvar(shapeStage(s))}=${P(s.p)}`) });
           // (a point drawn on a later plane by its plane's name, w₁,₁, as the page and the figure's labels name it)
           const lab = s.label ? s.label.replace(/₀/g, '_0').replace(/₁/g, '_1').replace(/₂/g, '_2') : (shapeStage(s) > 0 && Construct.nameTex(pointLabel(s, idx, 0))) || `z_{${idx}}`;
           return sp('the point %{m}', { m: M(`${lab}=${P(s.p)}`) });
@@ -998,7 +998,7 @@ const Export = (() => {
 
   function init(api) {
     A = api;
-    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, shapeF, shapeStage, stageF, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
+    ({ BADGES, cauchyKind, C, EX, PATHS, PHASE, V, activeSteps, copyFigureLink, copyText, enOf, exLabel, exactTexF, flushLabels, focusDeriv, hov, inkCache, inlineFrac, isDeriv, keyHex, keyRGB, kindType, lColor, lFlat, lGlobe, lLand, lPaintsF, lPhase, lPlain, leftStage, leftView, mfFigCache, morph, morphCaption, pathsSentence, morphFigureLayers, morphHasDeriv, morphHomSegs, morphLen, morphOn, morphRange, nSteps, openMenu, pathOf, pathsGen, patternCell, pickScene, pointLabel, rGlobe, rImage, readTheme, refineAllNow, renderLeft, renderRight, requestRender, rightStage, shapeF, shapeStage, stageF, fNameTex, parkedAt, runGenSliced, saveScene, shapeTexOf, shapeTexOwn, sheetsClause, sheetsShown, sheetsTexP, sm, smDropExport, smOn, smPrepareExport, sndError, sndExportDone, stageMap, texSegs, toast, wDefSegs, wvar, setOpt } = api);
   }
   return { init, getDownloads, saveFile, prepareExport, effW, renderOff, panelVar, capT, shapePhrase, joinList, cap1, pcTidy, compositeTexShort, patternSegs, figureCaption, captionLatex, figMorphPaths, buildFigure, artRender, figViewKind, figSceneName, figCapParts, hueBytes, viewBoxOf, latexDocument, exportMenuItems, openExportMenu, shareMenuItems, openShareMenu, hiStep };
 })();

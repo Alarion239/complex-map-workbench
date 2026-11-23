@@ -8,6 +8,7 @@
 //   F(z₀) on the last plane; f₂(…) for the focused step's image of a point of its plane; w₁,₁ with a thin space after its comma);
 // - the caption's (a) lists the shapes of (a)'s plane and earlier ones, and names the w₁ point w₁,₁ with its own plane (en, ru).
 // (control: the same scene with both points on z keeps both on panel (a), at focus 0, at their coordinates)
+// A circle and a disc drawn on w₁ are carried from their own plane the same way (the last block).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -21,13 +22,13 @@ const csq = ([x, y]) => [x * x - y * y, 2 * x * y];
 const STEPS = [{ type: 'custom', params: { expr: 'e^z', cut: 180 }, on: true }, { type: 'custom', params: { expr: 'z^2', cut: 180 }, on: true }];
 const scene = (focus, stage = 1) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus, rightMode: 'image', steps: STEPS,
   shapes: [{ id: 'p0', kind: 'point', p: Z0, visible: true }, Object.assign({ id: 'p1', kind: 'point', p: W11, visible: true }, stage ? { stage } : {})] });
-const build = async (ns, st, lang = 'en') => {
+const build = async (ns, st, lang = 'en', forWhat = 'article') => {
   await view(1440, 900, false);
   await seed(ns, st);
   await go(`${base}/test.html?ns=${ns}&lang=${lang}&view=classic`);
   await settled({ until: 'window.MathJax && typeof MathJax.tex2svg === "function" && !!window.__cmwFig && typeof __cmwP === "function"', max: 30000 });
-  return ev(`await (async () => { try { const f = await __cmwFig.build({ for: 'article', cols: 2, capInImage: false }); if (!f) return { none: true };
-    return { view: f.view, panels: f.info && f.info.panels, points: f.info && f.info.points, cap: String(f.captionTex || '') }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
+  return ev(`await (async () => { try { const f = await __cmwFig.build({ for: '${forWhat}', cols: 2, capInImage: false }); if (!f) return { none: true };
+    return { view: f.view, panels: f.info && f.info.panels, points: f.info && f.info.points, curves: f.info && f.info.curves, chevrons: !!(f.info && f.info.chevrons), cap: String(f.captionTex || '') }; } catch (e) { return { err: String(e && e.stack || e).slice(0, 600) }; } })()`, 180000);
 };
 // the panel's points near p, and whether a panel has a point near p
 const near = (pts, p) => (pts || []).filter((q) => Math.hypot(q.z[0] - p[0], q.z[1] - p[1]) < NEAR);
@@ -95,5 +96,68 @@ for (const lang of ['en', 'ru']) {
   info.control = f;
   ok('both points on z (control): panel (a) has both at their coordinates', has(L, Z0) && has(L, W11), L);
   ok('both points on z (control): the caption is as before, both points in the z-plane', /^\(a\) The point \$z_\{0\}=0\.4\+0\.3i\$ and the point \$z_\{1\}=1\+0\.5i\$ in the \$z\$-plane\. \(b\) Their images under \$F\$/.test(f.cap || '') && !/also shows/.test(f.cap || ''), f.cap);
+}
+// ---- a circle and a disc drawn on w₁: carried from their own plane, as the page draws them, like the points above.
+// The circle |w₁ − 1| = 0.5 and the disc |w₁ − 1| ≤ 0.3 on w₁:
+// - focus 0: panel (a), the z-plane, draws neither (a later plane's shape is not drawn there); panel (b), w₂, draws their images
+//   under z² alone, so √w lies on the circle (on the disc's edge);
+// - step 2 focused: panel (a), the w₁-plane, draws them themselves; panel (b) their images under z².
+// (control: the same circle and disc drawn on z, at focus 0: (a) draws them themselves, (b) their images under F = (e^z)², so
+// Log(w)/2 lies on them)
+const csqrt = ([x, y]) => { const r = Math.hypot(x, y), a = Math.sqrt((r + x) / 2), b = Math.sign(y || 1) * Math.sqrt(Math.max(0, (r - x) / 2)); return [a, b]; };
+const clog2 = ([x, y]) => [Math.log(Math.hypot(x, y)) / 2, Math.atan2(y, x) / 2];
+// the most a sampled point's preimage strays from the shape's edge, |pre(w) − 1| − r, over the points of the shape's curve on a panel
+const CURVE_TOL = 2e-3;
+const stray = (curves, id, r, pre) => { const c = (curves || []).find((q) => q.id === id); if (!c || !c.pts.length) return null; return Math.max(...c.pts.map((w) => { const z = pre(w); return Math.abs(Math.hypot(z[0] - 1, z[1]) - r); })); };
+const curveScene = (focus, stage) => Object.assign(scene(focus), { shapes: [Object.assign({ id: 'c1', kind: 'circle', c: [1, 0], r: 0.5, visible: true }, stage ? { stage } : {}), Object.assign({ id: 'd1', kind: 'disc', c: [1, 0], r: 0.3, visible: true }, stage ? { stage } : {})] });
+const id = (w) => w;
+// (the caption writes each shape in its own plane's variable, as its row does: |w₁ − 1| = 0.5 for the circle of w₁, |z − 1| = 0.5
+// for the control's)
+const W1_CIRCLE = '|w_{1}-1|=0.5', W1_DISC = '|w_{1}-1|\\le 0.3', Z_CIRCLE = '|z-1|=0.5', Z_DISC = '|z-1|\\le 0.3';
+for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['control, on z, focus 0', 0, 0]]) {
+  const f = await build('xspcv' + focus + stage + Date.now(), curveScene(focus, stage)), L = f.curves && f.curves.L, R = f.curves && f.curves.R;
+  info['caption ' + tag] = f.cap;
+  if (stage) ok(`caption, ${tag}: the circle and the disc of w₁ are written in w₁, $${W1_CIRCLE}$ and $${W1_DISC}$, not in z`, (f.cap || '').includes(W1_CIRCLE) && (f.cap || '').includes(W1_DISC) && !/\|z-1\|/.test(f.cap || ''), f.cap);
+  else ok(`caption, ${tag}: the circle and the disc of z keep z, $${Z_CIRCLE}$ and $${Z_DISC}$`, (f.cap || '').includes(Z_CIRCLE) && (f.cap || '').includes(Z_DISC) && !/w_\{1\}-1/.test(f.cap || ''), f.cap);
+  info['curves ' + tag] = { L: (L || []).map((c) => ({ id: c.id, n: c.pts.length, first: c.pts[0] })), R: (R || []).map((c) => ({ id: c.id, n: c.pts.length, first: c.pts[0] })), err: f.err };
+  ok(`curves, ${tag}: the figure has two panels (control)`, !f.err && !f.none && JSON.stringify(f.panels) === JSON.stringify(['L', 'R']), f.err || f.panels);
+  for (const [sid, r, what] of [['c1', 0.5, 'circle'], ['d1', 0.3, 'disc']]) {
+    if (tag === 'focus 0') {
+      ok(`curves, focus 0: panel (a), the z-plane, does not draw the ${what} of w₁`, !(L || []).some((c) => c.id === sid), info['curves ' + tag].L);
+      const e = stray(R, sid, r, csqrt);
+      ok(`curves, focus 0: panel (b) draws the ${what} of w₁'s image under z², √w on its edge (off by ${e})`, e != null && e < CURVE_TOL, info['curves ' + tag].R);
+    } else if (tag === 'focus 2') {
+      const eL = stray(L, sid, r, id), eR = stray(R, sid, r, csqrt);
+      ok(`curves, focus 2: panel (a), the w₁-plane, draws the ${what} itself (off by ${eL})`, eL != null && eL < CURVE_TOL, info['curves ' + tag].L);
+      ok(`curves, focus 2: panel (b) draws its image under z², √w on its edge (off by ${eR})`, eR != null && eR < CURVE_TOL, info['curves ' + tag].R);
+    } else {
+      const eL = stray(L, sid, r, id), eR = stray(R, sid, r, clog2);
+      ok(`curves, control: panel (a) draws the ${what} of z itself (off by ${eL})`, eL != null && eL < CURVE_TOL, info['curves ' + tag].L);
+      ok(`curves, control: panel (b) draws its image under F = (e^z)², Log(w)/2 on its edge (off by ${eR})`, eR != null && eR < CURVE_TOL, info['curves ' + tag].R);
+    }
+  }
+}
+// (in Russian too, with the decimal comma: |w₁ − 1| = 0{,}5)
+for (const focus of [0, 2]) {
+  const f = await build('xspcvru' + focus + Date.now(), curveScene(focus, 1), 'ru');
+  info['caption ru, focus ' + focus] = f.cap;
+  ok(`caption ru, focus ${focus}: the circle and the disc of w₁ are written in w₁, |w_{1}-1|=0{,}5 and |w_{1}-1|\\le 0{,}3`, (f.cap || '').includes('|w_{1}-1|=0{,}5') && (f.cap || '').includes('|w_{1}-1|\\le 0{,}3') && !/\|z-1\|/.test(f.cap || ''), f.cap);
+}
+// ---- the Homework figure's orientation chevrons on a disc drawn on w₁: drawn as on a disc of z, carried from w₁ (at focus 0 on
+// panel (b) alone, which alone draws it; at step 2 focused on both). (control: the disc on z)
+const discScene = (focus, stage) => Object.assign(scene(focus), { shapes: [Object.assign({ id: 'd1', kind: 'disc', c: [1, 0], r: 0.3, visible: true }, stage ? { stage } : {})] });
+for (const [tag, focus, stage] of [['focus 0', 0, 1], ['focus 2', 2, 1], ['control, on z, focus 0', 0, 0]]) {
+  const f = await build('xsphw' + focus + stage + Date.now(), discScene(focus, stage), 'en', 'homework');
+  info['chevrons ' + tag] = { chevrons: f.chevrons, err: f.err };
+  ok(`Homework, ${tag}: the disc${stage ? ' of w₁' : ''} has its orientation chevrons`, !f.err && f.chevrons === true, info['chevrons ' + tag]);
+}
+// ---- a point of w₁ whose label is a word: its value is given in its plane's variable, "the trailing edge $w_{1}=1+0.5i$" ("The" when it opens the sentence), at
+// step 2 focused (in (a)'s list, its own plane) and at focus 0 (the "Panel (b) also shows" sentence); (control: on z, "$z=…$")
+for (const [tag, focus, stage] of [['focus 2', 2, 1], ['focus 0', 0, 1], ['control, on z', 0, 0]]) {
+  const st = Object.assign(scene(focus), { shapes: [Object.assign({ id: 'pw', kind: 'point', p: W11, label: 'trailing edge', visible: true }, stage ? { stage } : {})] });
+  const f = await build('xspwd' + focus + stage + Date.now(), st);
+  info['word label ' + tag] = f.cap;
+  const want = stage ? 'trailing edge $w_{1}=1+0.5i$' : 'trailing edge $z=1+0.5i$';
+  ok(`a point named by a word, ${tag}: its value in its plane's variable, ${want}`, (f.cap || '').includes(want), f.cap);
 }
 return { pass: fails.length === 0, fails, info };
