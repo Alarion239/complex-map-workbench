@@ -3581,8 +3581,9 @@
       if (SV.surf === 'land') {
         if (GLR.prestartNames) GLR.prestartNames(['landCarryTF', 'landCarry'].concat(S.sheets && multiSheet() ? ['landCarryPlace'] : []), [1]);
         // (All sheets on a multivalued chain: the sheets' programs, which the carried glide's first frame draws the sheets with
-        // in map mode 0; started at rest, so that frame links none and svReady counts them)
-        if (GLR.prestartNames && S.sheets && multiSheet()) GLR.prestartNames(['landSheetTF', 'landSheet', 'landSheetC'], [0]);
+        // in map mode 0, landSheetC for the linear heights (Re, Im) alone; started at rest, so that frame links none and
+        // svReady counts them)
+        if (GLR.prestartNames && S.sheets && multiSheet()) GLR.prestartNames(['landSheetTF', 'landSheet'].concat(S.height === 're' || S.height === 'im' ? ['landSheetC'] : []), [0]);
         if (GLR.prestart) GLR.prestart(['landCarryNrm', 'lineFC']);
       }
       // (the region meshes' carried colour, the glide's own: the map cache's places and the cut fill, then drawn once:
