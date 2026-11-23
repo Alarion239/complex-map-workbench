@@ -3,8 +3,7 @@
 // 1 and 2) and the Joukowski map: the paths chosen for the step end on the planes' images (checked without typesetting); vectors present (a path set, a ring and an end dot per path, at most one arrowhead per
 // path), the caption names the shown plane and the paths, no inline \frac, single and double column, the same figure twice
 // is the same vectors, a dark theme leaves no dark-theme ink, and the option is off, with a reason, on plane 0 and on the
-// Landscape (every plane, and after a d/dz). The
-// classic view's selection checks are morphfig_classic_cmd.js.
+// Landscape (every plane, and after a d/dz).
 // A command file for a CDP daemon:  <runner> test/morphfig_cmd.js
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };

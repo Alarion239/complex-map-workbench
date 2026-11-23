@@ -85,9 +85,9 @@ const rules = {
 // A file may shrink, never grow: lower its number when it shrinks (never raise one), and drop it once it is under
 // 1,500, where the aim above applies again. Moving code out of a file into a new one is how a number goes down.
 const SIZE_BUDGET = {
-  'src/tour.js': 2582,
+  'src/tour.js': 2558,
   'src/glsl.js': 2150,
-  'src/app/19-steps-view.js': 3263,
+  'src/app/19-steps-view.js': 3258,
 };
 
 // the parts of a split file: each is linted as the joined file (its own text in its place, as the editor holds it), and
