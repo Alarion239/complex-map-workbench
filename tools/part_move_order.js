@@ -20,6 +20,8 @@ function parse(text) {
   try { return acorn.parse(text, { ...OPTIONS, sourceType: 'module' }); } catch (e) { return acorn.parse(text, { ...OPTIONS, sourceType: 'script' }); }
 }
 
+// the declaration an `export` statement holds, or the statement
+const unexported = (s) => (s.type === 'ExportNamedDeclaration' && s.declaration ? s.declaration : s);
 const isFunction = (n) => n && (n.type === 'FunctionExpression' || n.type === 'ArrowFunctionExpression');
 // the function an expression calls at once, through a `!`, an `await` or an assignment: (() => {...})(),
 // !function () {...}()
@@ -30,6 +32,7 @@ function calledAtOnce(e) {
 // the functions a top-level statement calls at once at its own level: `(() => {...})();`,
 // `const GLR = (() => {...})();`, `x = (() => {...})();`
 function closures(s) {
+  s = unexported(s);
   const e = s.type === 'ExpressionStatement' ? [s.expression] : s.type === 'VariableDeclaration' ? s.declarations.map((d) => d.init) : [];
   return e.map(calledAtOnce).filter(Boolean);
 }
@@ -118,6 +121,7 @@ function reads(n, out, shadow) {
 // [[name, kind]] a top-level statement declares by const, let, var or class (a function declaration is hoisted, so it
 // is not listed)
 function declared(s) {
+  s = unexported(s);
   if (s.type === 'ClassDeclaration') return [[s.id.name, 'class']];
   if (s.type !== 'VariableDeclaration') return [];
   const out = [];
