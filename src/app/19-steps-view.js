@@ -1302,7 +1302,7 @@
   // as the band's outer edge
   const svInvArg = (pane, p, shape, carry, alphaOf, edgeOf, glide) => {
     return { map: p.m, plan: p.plan, prep: p.prep, inv: p.inv, shape, dpr: pane.dpr, look: svCarryLook(alphaOf ? alphaOf(shape) : 1, shape, glide, carry.T),
-      carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true };
+      carry, edge: edgeOf ? edgeOf(shape) : null, grow: shapeStage(shape) && !edgeOf ? 0.5 * pullBandW(shape, pane.dpr) + 0.5 : 0, half: false, motion: false, coldOk: true, whole: offRender };
   };
   // At rest on plane a that is not coloured (past the colour plane T, or before it with a d/dz step between): exactly,
   // by the tiling's inverse pass (GLR.drawInverse, its carried colour variant): at each pixel w of plane a, the shapes'
@@ -2579,6 +2579,7 @@
           o.paint();
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
+          reptHatch(mp, map);
           if (o.after) o.after();
           onPage = true;
         },
@@ -2599,7 +2600,7 @@
       const p = reached && reached.get(s);
       // (an open region's outline dashed as at rest, OPEN_DASH along its arc at rest: GLR.drawInverse's st.edge.dash)
       if (p) { svDrawInverse(pane, [s], [p.path], svT(), { open: true }, null, null, (x) => Object.assign(svStrokeAt(shapeStroke(x, pane.dpr, { plane: shapeStage(x) }), p.k), kindType(x) === 'area' && Region.isOpen(x) ? { dash: OPEN_DASH } : {})); continue; }
-      const map = svShapeMap(s, map0), r = map && shapeGPU(s);
+      const map = svShapeMap(s, map0), r = map && !reptExact(map) && shapeGPU(s);
       if (!r || !r.lineRes) continue;
       const dash = openDash(r, map);
       GLR.drawLines(r.lineRes, Object.assign({ map, view: pane.view, dpr: pane.dpr, M: 8, cpu: () => cpuMap(map) }, shapeStroke(s, pane.dpr, { domain: svStage() === 0, plane: svStage() }), dash));
@@ -2637,10 +2638,12 @@
     const own = { w: pw, h: ph, pw, ph, dpr: 1, view: { cx: (box.x0 + box.x1) / 2, cy: (box.y0 + box.y1) / 2, s: pw / W } };
     const over = Object.create(paneL, Object.fromEntries(Object.entries(own).map(([k, value]) => [k, { value, writable: true }])));
     svMask(over, stageMap(k), k, { cc });
+    // (the pixels a REPT plan left unresolved, which the mask cannot show: counted, never read as uncovered unseen)
+    const unres = reptExact(stageMap(k)) && GLR.reptMarkCount ? GLR.reptMarkCount() : 0;
     // (a pass that left a program linking drew its regions short: the mask is not kept under this key, so the frame
     // that follows the link draws it afresh)
     const linking = !!GLR.frameStatus().pending;
-    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true };
+    svLandMaskC = { cv, key: linking ? key + '|linking' + (++svLandMaskLinking) : key, box: Object.assign({}, box), cut: true, unres };
     return svLandMaskC;
   }
   // the map of shape s under map0, the frame's map of the z-plane's shapes: shapeMap's, and under a glide's map (mode 1:
@@ -3707,7 +3710,8 @@
   // programs linked (both map modes, the carried colour and its cut fills, the glide's map mode of the programs the
   // panes draw, which the warm-up starts in the init part (WARM's first group, in the same modes), any inverse one
   // still compiling), the carried colour's warm draw made, the idle jobs finished (the pole tracks, the outer ring, the
-  // meshes); while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
+  // meshes); while a pane's last frame had a REPT draw still drawing its tiles (__cmwPaneStatus's rept), that draw as a
+  // part not done; while svRedrawDue, the left pane's frame that draws with the program that landed, a part not done. The
   // programs of a view no pane shows are no part of it (GLR's offView). total is 0 only while the GPU layer or the chain
   // is not up; ready is true only when done = total > 0
   // (test hook: the idle jobs count as unfinished while set)
@@ -3722,6 +3726,7 @@
     try { jobs = (svPolesLeft() ? 1 : 0) + (svRingLeft() ? 1 : 0) + (svMeshNext() ? 1 : 0); } catch (e) { jobs = 0; }
     if (svJobsHold) jobs = 3;
     parts.jobs = { done: 3 - jobs, total: 3 };
+    if (['L', 'R'].some((r) => paneGl[r] && paneGl[r].rept)) parts.rept = { done: 0, total: 1 };
     if (svRedrawDue) parts.redraw = { done: 0, total: 1 };
     // (M: the motion the gate is about to start, whose frames may be drawn ahead once all else is ready, svAheadPart)
     const ahead = M ? svAheadPart(M) : null;
