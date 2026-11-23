@@ -26,7 +26,8 @@
   // the join radius drawn for a disc of radius r: the least above r, else the largest
   const ldJoin = (joins, r) => { const up = joins.filter((q) => q > r); return up.length ? Math.min(...up) : joins.length ? Math.max(...joins) : null; };
   // the marks for disc s on the flat plane of pane (its view), in that plane's css px: the target's centre c and radius r,
-  // the join radius (null: none), the preimages zs of c, the critical points crit and the critical values vals
+  // the join radius (null: none), the preimages zs of c, the critical points crit and the critical values vals; and the
+  // critical points as plane points, critZ
   function lookMarks(pane, s) {
     const k = leftStage(), T = shapeStage(s), c = C(s.c[0], s.c[1]), b = pane.box();
     const [cx, cy] = pane.w2s(c), px = (r) => Math.hypot(...pane.w2s(C(c.re + r, c.im)).map((v, i) => v - [cx, cy][i]));
@@ -34,7 +35,7 @@
     const cr = stageCritical(k, T, b), crit = cr ? cr.points.list.map((p) => p.z).filter((z) => z && inBoxZ(z, b, 0)).slice(0, LD_CAP) : [];
     const vals = cr && cr.values.known ? cr.values.list.map((v) => v.w).filter((w) => w && inBoxZ(w, b, 0)) : [];
     const jr = ldJoin(readoutData(s).joins, s.r);
-    return { id: s.id, c: [cx, cy], r: px(s.r), join: jr === null ? null : px(jr), zs: zs.map((z) => pane.w2s(z)), crit: crit.map((z) => pane.w2s(z)), vals: vals.map((w) => pane.w2s(w)) };
+    return { id: s.id, c: [cx, cy], r: px(s.r), join: jr === null ? null : px(jr), zs: zs.map((z) => pane.w2s(z)), crit: crit.map((z) => pane.w2s(z)), vals: vals.map((w) => pane.w2s(w)), critZ: crit };
   }
   // The marks' layers, bottom to top: the floor's (the critical points), the lines from each preimage on the floor to the
   // target's centre on the glass, and the glass's (the target, its centre, the join ring, the critical values). Seen
@@ -88,15 +89,17 @@
       || d.lines.some(([x0, y0, x1, y1]) => segDist([x, y], [x0, y0], [x1, y1]) <= LD_HIT / 2);
     return near ? findShape(d.id) : null;
   }
-  // the key chip over the left plane, shown with the marks. On a phone it starts folded to its title, a button that
-  // unfolds it (the open key covers a fifth of a 360 px plane)
+  // the key chip over the left plane, shown with the marks: titled Look down, or Stack on the Stack, where it also names
+  // the tubes and the critical strands while they are drawn (19-stack-tubes.js). On a phone it starts folded to its
+  // title, a button that unfolds it (the open key covers a fifth of a 360 px plane)
   let lookKey = null, lookKeyOpen = false, lookFits = 0;
   const LD_KEY = [
     { kind: 'ring', text: () => $t('target') }, { kind: 'line', text: () => $t('to the target') }, { kind: 'cross', text: () => $t('critical point') },
     { kind: 'dot', text: () => $t('critical value') }, { kind: 'dash', text: () => $t('join radius') },
   ];
+  const LD_TUBE_KEY = [{ kind: 'tube', text: () => $t('tube of a piece') }, { kind: 'strand', text: () => $t('critical point to its value') }];
   const ldSwatch = (kind) => h('span', { class: `ld-sw ld-${kind}`, 'aria-hidden': 'true' });
-  function syncLookKey(on) {
+  function syncLookKey(on, stack = false, tubes = false) {
     const host = $('plotL');
     if (!host) return;
     if (!lookKey) {
@@ -107,15 +110,16 @@
       try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLookKey)); ro.observe(lookKey); ro.observe(host); } catch (e) { /* no ResizeObserver */ }
       try { new MutationObserver(() => requestAnimationFrame(fitLookKey)).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
     }
-    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}` : '';
+    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}` : '';
     if (lookKey.dataset.sig === sig) return;
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
     if (!on) { fitLookKey(); return; }
     const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
-    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
+    const title = stack ? $t('Stack') : $t('Look down');
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, title) : h('span', { class: 'ld-ttl' }, title);
     // (the marks are a list, so a screen reader says them one by one)
-    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
+    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.concat(tubes ? LD_TUBE_KEY : []).map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
     lookKey.classList.toggle('folded', ph && !lookKeyOpen);
     if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
     fitLookKey();
