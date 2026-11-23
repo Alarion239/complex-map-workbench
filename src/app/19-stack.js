@@ -86,6 +86,44 @@
     stackCamSet = true;
     tweenCam(stackCam, name === 'down' ? STACK_DOWN : { yaw: STACK_CAM.yaw, pitch: STACK_CAM.pitch });
   }
+  // The Stack's view control (rvE's ruling on #1989): Tilt and Look down, its two cameras, and Plane, which leaves for
+  // the Plane surface. On the desk it is a three-state segment in the head beside the Surface button, shown only on the
+  // Stack; on a phone the head has no room, so the plane's key column has one toggle key, named Tilt and pressed while
+  // the camera is not straight down, and the Display sheet carries the segment. The card's Look down switch, which
+  // shows the plane's marks, is hidden on the Stack (page.html, .sv-stack), where the marks always show: two controls
+  // named Look down would do two things
+  const STACK_VIEWS = () => [['tilt', $t('Tilt')], ['down', $t('Look down')], ['plane', $t('Plane')]];
+  let stackSegs = [], stackKey = null, stackSynced = '';
+  // a segment v of the control chose
+  function stackChoose(v) {
+    if (v === 'plane') { svSetSurface('plane'); return; }
+    stackView(v);
+    stackSyncControls(v);
+  }
+  // a new segment of the control (cls: its place's class), kept in step with the camera by stackSyncControls
+  function stackSeg(cls) {
+    const el = seg(null, stackViewNow(), STACK_VIEWS(), stackChoose, $t('Stack view'), { cls: `sv-seg ${cls}` });
+    stackSegs = stackSegs.filter((e) => e.isConnected).concat(el);
+    return el;
+  }
+  // the control shown where the Stack is, and set to the camera's view (v, else the camera's own, while no turn to a
+  // preset is under way)
+  function stackSyncControls(v = null) {
+    const on = SV.on && SV.surf === 'stack';
+    if (!v && typeof camTweens !== 'undefined' && camTweens.some((t) => t.c === stackCam)) return;
+    const now = v || stackViewNow(), key = `${on}|${now}|${stackSegs.length}`;
+    document.documentElement.classList.toggle('sv-stack', on);
+    const col = document.querySelector('#plotL .ph-col');
+    if (col && !stackKey) {
+      stackKey = h('button', { class: 'ph-key ph-tilt', type: 'button', 'aria-label': $t('Tilt'), 'data-tip': $t('Tilt'), html: MODE_ICONS.stack, onclick: () => stackChoose(stackViewNow() === 'tilt' ? 'down' : 'tilt') });
+      col.prepend(stackKey);
+      stackSynced = '';
+    }
+    if (key === stackSynced) return;
+    stackSynced = key;
+    if (stackKey) { stackKey.hidden = !on; stackKey.setAttribute('aria-pressed', String(now === 'tilt')); }
+    for (const el of stackSegs) { if (el.classList.contains('sv-camseg')) el.hidden = !on; if (on) setSeg(el, now); }
+  }
   // The Stack chosen (the Surface menu, the palette): its camera opens as stackCamOpen says the first time in the page,
   // and with no target to show (a selected disc of a later plane) the first such disc is selected; with none, a starter
   // disc is added on the next plane (one edit, said in the live region), about F(c) for c a quarter of the view off its
@@ -187,6 +225,7 @@
   function stackDrawOverlay(pane) {
     if (!stackOn()) return false;
     stackDrawn = stackMarks(pane, pane.octx, stackCam);
+    stackSyncControls();
     syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
     return true;
   }

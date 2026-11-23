@@ -744,6 +744,9 @@ details.psec::details-content { content-visibility: visible; display: contents; 
   max-width: calc(100% - 96px); padding: 4px 10px; font: var(--t-label); color: var(--ink-2);
 }
 .ld-key[hidden] { display: none; }
+/* (on the Stack the card's Look down switch is hidden: the Stack's view control has a Look down of its own, 19-stack.js) */
+:root.sv-stack .ro-look { display: none; }
+.sv-camseg[hidden] { display: none; }
 .ld-key .ld-ttl { color: var(--ink); }
 .ld-list { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; min-width: 0; }
 .ld-it { display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
