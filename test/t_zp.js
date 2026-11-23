@@ -177,7 +177,11 @@ check('degree 2 with a pole: RAT2', kinds(opsOf({})) === 'RAT2', kinds(opsOf({})
 check('degree 2 polynomial: QUAD', kinds(opsOf({ poles: '' })) === 'QUAD', kinds(opsOf({ poles: '' })));
 check('degree 1: MOB / AFF', kinds(opsOf({ zeros: '1', poles: '2' })) === 'MOB' && kinds(opsOf({ zeros: '1', poles: '' })) === 'AFF' && kinds(opsOf({ zeros: '', poles: '1' })) === 'MOB');
 check('degree 3: RAT3, with a pole or a polynomial', kinds(opsOf({ zeros: '1, 2', poles: '0, 3, 4' })) === 'RAT3' && kinds(opsOf({ zeros: '1, 2, 3', poles: '' })) === 'RAT3', [kinds(opsOf({ zeros: '1, 2', poles: '0, 3, 4' })), kinds(opsOf({ zeros: '1, 2, 3', poles: '' }))]);
-check('degree 5: forward, with the reason', /^X: rational map of degree 5 \(the exact renderer inverts degree ≤ 4\)$/.test(kinds(opsOf({ zeros: '1, 2', poles: '0, 3, 4, 5, 6' }))) && /^X: polynomial of degree 5/.test(kinds(opsOf({ zeros: '1, 2, 3, 4, 5', poles: '' }))), [kinds(opsOf({ zeros: '1, 2', poles: '0, 3, 4, 5, 6' })), kinds(opsOf({ zeros: '1, 2, 3, 4, 5', poles: '' }))]);
+check('degree 5 with a pole: RAT5 (Aberth\'s roots); a polynomial of degree 5: forward, with the reason', kinds(opsOf({ zeros: '1, 2', poles: '0, 3, 4, 5, 6' })) === 'RAT5' && /^X: polynomial of degree 5/.test(kinds(opsOf({ zeros: '1, 2, 3, 4, 5', poles: '' }))), [kinds(opsOf({ zeros: '1, 2', poles: '0, 3, 4, 5, 6' })), kinds(opsOf({ zeros: '1, 2, 3, 4, 5', poles: '' }))]);
+{
+  const k13 = kinds(opsOf({ zeros: '1', poles: '0, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12' }));
+  check('degree 13 with poles: forward, with the reason', /^X: rational map of degree 13 \(the exact renderer inverts degree ≤ 12\)$/.test(k13), k13);
+}
 check('a constant: no inverse', !opsOf({ a: '0' }).ok);
 for (const p of [{}, { poles: '' }, { a: '2i', zeros: '1+i', poles: '-0.5' }, { a: '0.5', zeros: '1+i, -2', poles: '0.25i, 3' }, { a: '-1', zeros: '1, i', poles: '' }, { zeros: '', poles: '0.3-i' }]) {
   const b = ZP(p), r = Inverse.stepOps(b);

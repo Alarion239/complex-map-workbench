@@ -4,6 +4,7 @@
   const hist = [];
   const progs = new Map(); // `${name}|${key}` -> {name, key, ch, state: 'pending'|'ready'|'error', p, loc, error, used}
   let lastError = '';
+  let chainRefused = '';   // why the build refused the current chain (a message, '' when it was accepted): no earlier version draws in its place
   let maxTex = 4096;
   let pcExt = null;        // KHR_parallel_shader_compile
   let rtOK = false;        // EXT_color_buffer_float: map caches are drawn into their RG32F texture (tfEntry)
@@ -837,8 +838,8 @@ float preKeyRes(vec2 sa) {
   // one-pixel point straight into its texel of the RG32F cache texture (point i = instance * uP + vertex lands on
   // texel (i % W, i / W), the same layout as the transform-feedback copy). A plain draw, so the program is ready when
   // its background compile is: ANGLE builds the transform-feedback variant of a vertex shader only at its first
-  // transform-feedback draw, which held the GPU process (every frame on the page) for 60-110 ms per chain program
-  // right after each step was added (spec 8.7). Without the extension: transform feedback, copied via a buffer.
+  // transform-feedback draw, which holds the GPU process (every frame on the page) for 60-110 ms per chain program
+  // when a step is added (spec 8.7). Without the extension: transform feedback, copied via a buffer.
   const TF_EMIT = (rt) => (rt ? `
 flat out vec2 tfOut;
 uniform int uP; uniform int uRtW; uniform vec2 uRtSz;
@@ -1599,7 +1600,7 @@ float areaLevel(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
     L = g;
   }
   else if (kind == 7) L = formulaLevel(int(K.z + 0.5), w);
-  else if (kind == 8) { vec2 u = w - A.xy; L = -0.5 * (A.z * dot(u, u) + 2.0 * dot(B.xy, u) + A.w); }   // v16 gdisc: -f/2
+  else if (kind == 8) { vec2 u = w - A.xy; L = -0.5 * (A.z * dot(u, u) + 2.0 * dot(B.xy, u) + A.w); }   // gdisc: -f/2
   if (K.y > 0.5) L = -L;
   return L > -1e30 ? min(L, 1e30) : -1e30;
 }
@@ -1612,7 +1613,7 @@ vec2 curveNear(int kind, vec4 K, vec4 A, vec4 B, vec2 w) {
     for (int k = 1; k < 256; k++) { if (k >= n) break; q = nearer(w, q, segNear(w, R(s + k - 1).xy, R(s + k).xy)); }
     return q;
   }
-  if (kind == 20) {           // v16 gcurve: two Newton steps on f / 2 (the signed distance near the curve)
+  if (kind == 20) {           // gcurve: two Newton steps on f / 2 (the signed distance near the curve)
     vec2 q = w;
     for (int k = 0; k < 2; k++) {
       vec2 u = q - A.xy;

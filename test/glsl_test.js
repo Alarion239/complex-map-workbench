@@ -343,7 +343,57 @@
     add('series nested 32 x 64 terms (the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{32} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
     add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
     chains[chains.length - 1].gpuBlank = true;
+    // a pixel takes at most 2048 terms in all, across every sum of a step, however they nest (the innermost loop counts them):
+    // an infinite sum around a finite one that converges in a few terms is within it, against the CPU; one whose outer sum needs
+    // about 150 terms, with 100 inside it (0.9^m), is past it at every pixel: blank on the GPU
+    add('series infinite around finite, a few terms (within the term budget)', [S('custom', { expr: '\\sum_{m=0}^{\\infty} \\sum_{n=1}^{4} \\frac{(z^2/1000)^m}{n+z}' })]);
+    add('series infinite around finite 100 terms (past the term budget)', [S('custom', { expr: '\\sum_{m=0}^{\\infty} \\sum_{n=1}^{100} \\frac{0.9^m}{n+z}' })]);
+    chains[chains.length - 1].gpuBlank = true;
   }
+  // the cap on a chain's uniform slots (GLChain.maxChainSlots(vecs), vecs the GPU's smaller uniform-vector limit): the
+  // largest chain above (series d/dz e^z 0.2z+1) is refused at the spec minimum and built at LIMIT_BIG vectors; Möbius
+  // chains are refused at the first step count over the live cap and built one step short of it; at the WebGL2 minimum the
+  // cap is SPEC_MIN_SLOTS and a chain of 60 Möbius steps is refused
+  {
+    const SPEC_MIN = 224, LIMIT_BIG = 1024, SPEC_MIN_SLOTS = 138, FEW_STEPS = 60;
+    const tryBuild = (steps, vecs) => { try { return { slots: GLChain.build(steps, steps.map((st) => Funcs.build(st)), vecs).slots }; } catch (e) { return { err: String(e && e.message) }; } };
+    const mob = (n) => Array.from({ length: n }, () => S('mobius'));
+    const refused = (r) => !!(r && r.err && /exceed the cap of/.test(r.err));
+    const big = chains.find((c) => c.name === 'series d/dz e^z 0.2z+1');
+    const perStep = tryBuild(mob(1), LIMIT_BIG).slots;
+    const capBig = GLChain.maxChainSlots(LIMIT_BIG), over = Math.floor(capBig / perStep) + 1;
+    // the page's own GPU limit: one step over its cap is refused, one short builds
+    const lg = document.createElement('canvas').getContext('webgl2');
+    const live = lg ? Math.min(lg.getParameter(lg.MAX_FRAGMENT_UNIFORM_VECTORS), lg.getParameter(lg.MAX_VERTEX_UNIFORM_VECTORS)) : 0;
+    const liveOver = Math.floor(GLChain.maxChainSlots(live) / perStep) + 1;
+    const liveRows = { live, over: liveOver, overBuilt: tryBuild(mob(liveOver), live), underBuilt: tryBuild(mob(liveOver - 1), live) };
+    const rows = { big: big && tryBuild(big.steps, LIMIT_BIG), bigMin: big && tryBuild(big.steps, SPEC_MIN), noGl: big && tryBuild(big.steps), perStep, over, overBuilt: tryBuild(mob(over), LIMIT_BIG), underBuilt: tryBuild(mob(over - 1), LIMIT_BIG), fewMin: tryBuild(mob(FEW_STEPS), SPEC_MIN), fewNoGl: tryBuild(mob(FEW_STEPS)) };
+    R.slotCap = { rows, liveRows, other: GLChain.OTHER_UNIFORM_VECS, capMin: GLChain.maxChainSlots(SPEC_MIN), capBig };
+    if (GLChain.maxChainSlots(SPEC_MIN) !== SPEC_MIN_SLOTS) R.errors.push(`slot cap: the cap at ${SPEC_MIN} vectors is ${GLChain.maxChainSlots(SPEC_MIN)}, not ${SPEC_MIN_SLOTS}`);
+    if (!big) R.errors.push('slot cap: the largest series chain is missing from the list');
+    else {
+      if (!(rows.big && rows.big.slots > GLChain.maxChainSlots(SPEC_MIN))) R.errors.push(`slot cap: the series chain must take more slots than the spec minimum allows (${JSON.stringify(rows.big)})`);
+      if (!refused(rows.bigMin)) R.errors.push(`slot cap: the series chain (${rows.big && rows.big.slots} slots) was not refused at ${SPEC_MIN} vectors (${JSON.stringify(rows.bigMin)})`);
+      if (!refused(rows.noGl)) R.errors.push(`slot cap: without a GPU limit the series chain was not refused at the spec minimum (${JSON.stringify(rows.noGl)})`);
+      if (rows.big.err) R.errors.push(`slot cap: the series chain was refused at ${LIMIT_BIG} vectors (${rows.big.err})`);
+    }
+    if (!refused(rows.overBuilt)) R.errors.push(`slot cap: ${over} Möbius steps (the first count over the cap ${capBig}) were not refused at ${LIMIT_BIG} vectors (${JSON.stringify(rows.overBuilt)})`);
+    if (rows.underBuilt.err) R.errors.push(`slot cap: ${over - 1} Möbius steps (one short of the cap ${capBig}) were refused at ${LIMIT_BIG} vectors (${rows.underBuilt.err})`);
+    if (!live) R.errors.push('slot cap: the page has no WebGL2 limit to read');
+    else {
+      if (!refused(liveRows.overBuilt)) R.errors.push(`slot cap: ${liveOver} Möbius steps (the first count over the live cap, ${live} vectors) were not refused (${JSON.stringify(liveRows.overBuilt)})`);
+      if (liveRows.underBuilt.err) R.errors.push(`slot cap: ${liveOver - 1} Möbius steps (one short of the live cap, ${live} vectors) were refused (${liveRows.underBuilt.err})`);
+    }
+    if (!refused(rows.fewMin) || !refused(rows.fewNoGl)) R.errors.push(`slot cap: ${FEW_STEPS} Möbius steps were not refused at the spec minimum (${JSON.stringify([rows.fewMin, rows.fewNoGl])})`);
+  }
+  // 14. the two-phase glide of a real negative exponent (last, so every chain above keeps its place and its --part):
+  // the rows at the times of NEGPOW_TS, the phase switch (1/2) and the one-phase path's zero (2/3, 1/3) among them
+  const NEGPOW_TS = [0.25, 0.5, 0.6, 2 / 3, 0.75, 1];
+  const addNeg = (name, steps) => chains.push({ name, steps, ts: NEGPOW_TS });
+  addNeg('negpow powa -1/2', [S('powa', { alpha: '-0.5' })]);
+  addNeg('negpow formula z^(-1/2)', [S('custom', { expr: 'z^{-1/2}' })]);
+  addNeg('negpow powa -3/2', [S('powa', { alpha: '-1.5' })]);
+  addNeg('negpow formula (z-0.5)^(-2)', [S('custom', { expr: '(z-0.5)^{-2}' })]);
   const selected = chains.filter((c, i) => GLSLTiers.keep('glsl', c.name, i) && (!FILTER || c.name.includes(FILTER)));
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
 
@@ -699,6 +749,7 @@
   const canvas = document.createElement('canvas');
   const gl = canvas.getContext('webgl2');
   if (!gl) { R.errors.push('no webgl2'); R.done = true; return; }
+  GLChain.setUniformVecs(Math.min(gl.getParameter(gl.MAX_FRAGMENT_UNIFORM_VECTORS), gl.getParameter(gl.MAX_VERTEX_UNIFORM_VECTORS)));
   if (!gl.getExtension('EXT_color_buffer_float')) { R.errors.push('no EXT_color_buffer_float'); R.done = true; return; }
   R.renderer = (() => { const e = gl.getExtension('WEBGL_debug_renderer_info'); return e ? gl.getParameter(e.UNMASKED_RENDERER_WEBGL) : gl.getParameter(gl.RENDERER); })();
   // (the library's sin and cos for this renderer, as the app chooses them: GLChain.useRenderer)
@@ -829,6 +880,7 @@ void main() {
     // ([issue #6] a repeat's last step runs its block n times, as in the app)
     const built = Funcs.applyRepeats(ch.steps, ch.steps.map((s) => Funcs.build(s)));
     const gc = GLChain.build(ch.steps, built);
+    if (gc.slots > (R.maxSlots || 0)) { R.maxSlots = gc.slots; R.maxSlotsChain = ch.name; }
     if (srcByKey.has(gc.key) && srcByKey.get(gc.key) !== gc.source) R.errors.push(`key collision: ${ch.name}`);
     srcByKey.set(gc.key, gc.source);
     const n = ch.steps.length;
@@ -836,7 +888,7 @@ void main() {
     if (n > 1) rows.push({ mode: 0, a: 1, b: n }, { mode: 0, a: 0, b: n - 1 });
     rows.push({ mode: 0, a: 2, b: 1 });
     for (let i = 1; i <= n; i++) rows.push({ mode: 1, i });
-    for (let i = 1; i <= n; i++) for (const t of TS) rows.push({ mode: 2, i, t });
+    for (let i = 1; i <= n; i++) for (const t of ch.ts || TS) rows.push({ mode: 2, i, t });
     // all steps at once (the app's map mode 3): every step's natural path at the same t
     if (n > 1) for (const t of TS) rows.push({ mode: 6, a: 0, b: n, t });
     const derivs = gc.derivs || [], sheets = gc.sheets ? gc.sheets.steps : [];

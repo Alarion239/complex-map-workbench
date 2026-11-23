@@ -675,12 +675,12 @@
   }
   // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
   // sheets off, a deformation with no sheet form, or no multivalued step in the map it draws the sheets of,
-  // landSheetsMap), else {K: the surfaces drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom}
+  // landSheetsMap, or the CPU stand-in's frame, which draws the principal branch alone while the sheets' programs link), else {K: the surfaces drawn, total: the sheet combinations of the window, W, pieces: [{n, of}], hom}
   // (one per multivalued piece of that map: n sheets all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for
   // log). hom: the deformation shows, and H_t is drawn on the sheets that become these sheets of F (at most these:
   // a step not begun adds its sheets when it starts; notes/v16-user5/SHEETS-DESIGN.md)
   function sheetsShown() {
-    if (!S.sheets || !lLand()) return null;
+    if (!S.sheets || !lLand() || render3D.standIn) return null;
     const hom = morphOn();
     if (hom && !deformSheetsOk()) return null;
     const carry = SV.on && SV.surf === 'land' ? svLandCarryNow() : null, m = landSheetsMap(carry ? carry.s : null), ms = multiSheet(m);

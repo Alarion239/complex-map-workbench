@@ -107,6 +107,7 @@ const SUITES = {
   'raw_tex_cmd.js': RAW_TEX,
   'raw_tex_classic_cmd.js': RAW_TEX,
   'newt_member0_cmd.js': { pages: ['glsl-inverse-test.html'] },
+  'newt_poly_order_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'series_limit_cmd.js': { pages: ['glsl-inverse-test.html'] },
   'export_tex_cmd.js': { pages: ['mj', 'test-mj.html'] },   // (#529: the figure's own text)
   'steps_land_footprint_fig_cmd.js': { pages: ['mj', 'test-mj.html'] },
@@ -141,6 +142,7 @@ const TIMING = {
   'series_edit_cmd.js': [t(/^timing: /)],
   'link_standin_cmd.js': [t(/^timing: /)],
   'steps_line_standin_cmd.js': [t(/^timing: /)],
+  'steps_stack_tubes_cmd.js': [t(/^timing: /, (d) => d && d.frames === 24)],
   'param_planes_cmd.js': [t(/^timing: /)],
   'touch_cmd.js': [t(/^F hover with the hint: rAF work max/), t(/^F hover with the two rings: rAF work max/, (d) => d && d.nRings === 2)],
   'fix163_cmd.js': [t(/^U4 T \(a glider\) dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved && r.und === 0)), t(/^U4 a free point dragged/, (d) => Array.isArray(d) && d.every((r) => r.moved))],

@@ -396,8 +396,9 @@
   // The part of a glide's plans that is the same at every t, per (a, k, chain): the chain's built steps, each live one
   // standing for itself with its ops decomposed once (Inverse.stepOps reads __homOps), and so the steps of a formula
   // recognized as a chain of them (b.rec, which step k's homotopy walks at t), so the plan, the inverse op list and
-  // step k's homotopy at a new t decompose no step again. Its ops are shared by the plans made from it, whose
-  // planChain sets the same step, node and j on them (they have the same a and k)
+  // step k's homotopy at a new t decompose no step again. Its ops are shared by the homotopy's ops at every t, where one
+  // op can sit at another node (a recognised formula's sub-step comes after its predecessors' ops once the glide has
+  // passed them); each plan made from it copies them (planChain), so it keeps its own step, node and j
   const invHomSkels = new Map();
   function invHomOnce(b) {
     if (!b || b.error || !b.def) return b;
@@ -619,7 +620,24 @@
   }
   // a short message over a plane (GPU problems, an idle Cauchy or Integral view): a level-2 chip like the DOM ones
   // (--overlay, 1px --line-strong, --shadow-1, --r-2, --ink-2 text), wrapped to at most 360px, below the centre
+  const NOTE_GAP = 4;   // the room a note keeps from a message above which it stands
+  const NOTE_ROOM_MIN = 160;   // the least room, in px, a note is laid out in beside the chips over its plane (narrower, it keeps its centred place)
   const PH_RAIL = 56;   // a phone plane's key column and the gap before it: 8 px from the plane's right edge + the 44 px key (.ph-col and .ph-key in phone.css) + 4 px
+  // where a message standing over the plane begins, in the pane's CSS px from its top (Infinity: none over it)
+  function messageTop(pane) {
+    const msg = document.querySelector('#toastHost .toast');
+    if (!msg || !msg.getClientRects().length) return Infinity;
+    const mr = msg.getBoundingClientRect(), pr = pane.canvas.getBoundingClientRect();
+    return mr.right > pr.left && mr.left < pr.right && mr.bottom > pr.top ? mr.top - pr.top - NOTE_GAP : Infinity;
+  }
+  // the chips that stand over the plane's plot (its readout, its colour key) as boxes in the pane's CSS px, those that are laid out
+  function chipBoxes(pane) {
+    const side = pane === paneL ? 'left' : 'right', pr = pane.canvas.getBoundingClientRect();
+    return [side + 'Readout', side + 'Legend'].map((id) => document.getElementById(id)).filter((el) => el && el.getClientRects().length).map((el) => {
+      const r = el.getBoundingClientRect();
+      return { left: r.left - pr.left, right: r.right - pr.left, top: r.top - pr.top, bottom: r.bottom - pr.top };
+    });
+  }
   function paneNote(pane, text) {
     const ctx = pane.ctx;
     ctx.save();
@@ -628,12 +646,28 @@
     ctx.font = `13px ${TH.ui}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     // (a phone's note is centred in the room left of the key column and wraps to that width)
     const free = pane.w - (document.documentElement.classList.contains('ph') && !pane.canvas.closest('.ph-inset') ? PH_RAIL : 0);
-    const maxW = Math.max(80, Math.min(360, free - 48));
-    const lines = wrapWords(ctx, text, maxW);
-    const tw = Math.min(free - 16, Math.max(...lines.map((t) => ctx.measureText(t).width)));
-    const bw = Math.round(tw + 24), bh = lines.length * 18 + 14;
-    const x0 = Math.round(free / 2 - bw / 2) + 0.5, y0 = Math.round(Math.min(pane.h - bh - 56, pane.h / 2 + 28)) + 0.5;   // below the centre, clear of a point at the view's middle
-    const tx = free / 2;   // (the words' centre: the room's, as the box is)
+    // the note's box centred in the room from left to right: below the centre, clear of a point at the view's middle, and clear of a message
+    // standing over the plane (the note moves up only when it has to, and stays inside the pane); the 1 px below: the box is drawn on the
+    // half pixel and its stroke is a pixel wide
+    const lay = (left, right) => {
+      const room = right - left, lines = wrapWords(ctx, text, Math.max(80, Math.min(360, room - 48)));
+      const bw = Math.round(Math.min(room - 16, Math.max(...lines.map((t) => ctx.measureText(t).width))) + 24), bh = lines.length * 18 + 14;
+      const y0 = Math.round(Math.max(NOTE_GAP, Math.min(pane.h - bh - 56, pane.h / 2 + 28, messageTop(pane) - bh - 1))) + 0.5;
+      return { lines, bw, bh, y0, tx: (left + right) / 2, x0: Math.round((left + right) / 2 - bw / 2) + 0.5 };
+    };
+    let n = lay(0, free);
+    // (a pane too short for note and message has the box meet the chips over the plane: it stands in the room between those it meets, wrapped to it)
+    const meets = (o) => n.x0 - NOTE_GAP < o.right && n.x0 + n.bw + NOTE_GAP > o.left && n.y0 - NOTE_GAP < o.bottom && n.y0 + n.bh + NOTE_GAP > o.top;
+    const chips = chipBoxes(pane);
+    let left = 0, right = free;
+    for (let pass = 0; pass < chips.length; pass++) {
+      const hit = chips.filter(meets);
+      if (!hit.length) break;
+      for (const o of hit) { if (o.left + o.right < free) left = Math.max(left, o.right + NOTE_GAP); else right = Math.min(right, o.left - NOTE_GAP); }
+      if (right - left < NOTE_ROOM_MIN) break;
+      n = lay(left, right);
+    }
+    const { lines, bw, bh, y0, x0, tx } = n;
     pane.noteBox = { x: x0, y: y0, w: bw, h: bh, tx };   // (the box as drawn, and where its words are centred, in the pane's CSS px: read by the layout checks)
     ctx.beginPath();
     if (ctx.roundRect) ctx.roundRect(x0, y0, bw, bh, 3); else ctx.rect(x0, y0, bw, bh);
@@ -653,6 +687,69 @@
   // takes seconds, or minutes; the browser's program cache keeps them for later visits).
   const compileT = new Map();   // pane -> since when its draws stand in for a compiling program
   const overNote = (n) => $t('This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.', { n, cap: GLChain.FINITE_CAP });
+  // An infinite sum that does not converge within its term cap leaves the plot blank where it does. The GPU stops at SER_GPU_LOOP
+  // terms and so does the CPU's evaluation (Expr's SER_CAP; SUM_STAT.out counts the sums that end NaN without converging), so the
+  // page evaluates the steps the colour plot applies at points of the window and says so when some did not converge. The points
+  // are a sample of SUM_GRID, taken in a lattice order (SUM_STEP is coprime to their number) so that any prefix of them spans the
+  // window, and cut by the terms they evaluate (SUM_WORK), not by the clock: the same window gives the same points on any
+  // machine. A small area can be missed, so the note says "part". The sample is taken once the window and the chain have rested
+  // for SUM_IDLE_MS (a drag or a slider does not wait on it), and kept per pane for the chain and window it was taken at.
+  const SUM_GRID = [24, 16], SUM_STEP = 235, SUM_IDLE_MS = 250;
+  let sumWork = 150000;   // the terms a sample may evaluate (it stops after the point that passes them; a test sets it, __cmwSumRun)
+  const sumRuns = new Map();   // pane -> { chain, view, hit, spent, tried, timer }: the last sample (see sumSay; tried: points where an infinite sum ran)
+  // (hit: points where an infinite sum did not converge within SER_CAP terms; spent: points where the sums took more than
+  // the GPU's SER_GPU_TERMS in all; the note names the limit or limits the sample met, and for the second says what to do)
+  const sumSay = (r) => (r.hit && r.spent
+    ? $t('Part of this plane is blank. An infinite sum does not converge there within {terms} terms, and other sums need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.', { terms: Expr.SER_CAP, budget: GLChain.TERMS_BUDGET })
+    : r.spent
+      ? $t('Part of this plane is blank: the sums there need more than the {budget} terms the GPU adds at a point. Try a lower upper limit on a finite sum.', { budget: GLChain.TERMS_BUDGET })
+      : $t('Part of this plane is blank: an infinite sum does not converge there within {terms} terms.', { terms: Expr.SER_CAP }));
+  // the sample of the pane's colour plot for its map, at its window: null when a step of the map is a derivative (it has no function of its own)
+  function sumSample(pane, map) {
+    const [lo, hi] = GLR.stepsOf(map), fs = [];
+    for (let k = Math.max(1, lo); k <= Math.min(hi, nSteps()); k++) {
+      if (isDeriv(k)) return null;
+      const f = stepFn(k);
+      if (f) fs.push(f);
+    }
+    const stat = Expr.SUM_STAT, n = SUM_GRID[0] * SUM_GRID[1], t0 = stat.terms;
+    let hit = 0, spent = 0, tried = 0;
+    for (let p = 0; p < n && (p === 0 || stat.terms - t0 < sumWork); p++) {
+      const c = (p * SUM_STEP) % n;
+      let z = pane.s2w(((c % SUM_GRID[0]) + 0.5) * pane.w / SUM_GRID[0], (Math.floor(c / SUM_GRID[0]) + 0.5) * pane.h / SUM_GRID[1]);
+      const inf0 = stat.inf, out0 = stat.out, over0 = stat.over;
+      stat.left = Expr.SER_BUDGET;   // (the pixel's terms, as the GPU counts them: armed for this point only)
+      try { for (const f of fs) { z = f(z); if (!CX.isFin(z)) break; } } finally { stat.left = Infinity; }
+      if (stat.inf > inf0) { tried++; if (stat.out > out0) hit++; if (stat.over > over0) spent++; }
+    }
+    return { hit, spent, tried };
+  }
+  // called with the colour plot's map each time the pane draws it: the pane's last sample if it is of this chain and map (one
+  // at another window stands until the new one is taken), and a new one is due after SUM_IDLE_MS if the window changed
+  function sumWatch(pane, map) {
+    const range = GLR.stepsOf(map), chain = chainSig[Math.min(range[1], chainSig.length - 1)] + '|' + range,
+      v = pane.view, view = [v.cx, v.cy, v.s, pane.w, pane.h].join(',');
+    let r = sumRuns.get(pane);
+    if (!r || r.chain !== chain) { if (r && r.timer) clearTimeout(r.timer); sumRuns.set(pane, (r = { chain, view: null, hit: 0, spent: 0, tried: 0, timer: 0 })); }
+    if (r.view === view || r.timer) return;
+    const role = pane === paneL ? 'L' : 'R';
+    const take = () => {
+      r.timer = 0;
+      if (sumRuns.get(pane) !== r) return;
+      if (interacting()) { r.timer = setTimeout(take, SUM_IDLE_MS); return; }
+      const now = pane.view, nowKey = [now.cx, now.cy, now.s, pane.w, pane.h].join(',');
+      let out = null;
+      try { out = sumSample(pane, map); } catch (e) { out = null; }
+      const was = sumNote(pane);
+      r.view = nowKey; r.hit = out ? out.hit : 0; r.spent = out ? out.spent : 0; r.tried = out ? out.tried : 0;
+      if (was !== sumNote(pane)) requestRender(role);
+    };
+    r.timer = setTimeout(take, SUM_IDLE_MS);
+  }
+  // the pane shows paper, not the colour plot (the Cauchy style's reason): a sample of the plot is of nothing drawn, so it is dropped
+  const sumDrop = (pane) => { const r = sumRuns.get(pane); if (r && r.timer) clearTimeout(r.timer); sumRuns.delete(pane); };
+  // the pane's note for it: '' when the sample found no point that did not converge or took more than the budget
+  const sumNote = (pane) => { const r = sumRuns.get(pane); return r && (r.hit || r.spent) ? sumSay(r) : ''; };
   // whether each screen pane's "Compiling…" note is drawn: its LED says so (updateLeds), where a screen reader hears it
   const compileShown = { L: false, R: false };
   function setCompileShown(role, on) {
@@ -667,7 +764,7 @@
     if (!quiet && st && st.error) { paneNote(pane, st.error); setLed(pane === paneL ? 'L' : 'R', 'err', st.error); }
     // (a finite sum with more terms than the GPU takes, GLChain.FINITE_CAP, leaves the plot with no value: the pane, its
     // LED and the plane's description say why; the description where the LED is hidden too, on a phone)
-    const note = st && !st.error && st.over ? overNote(st.over) : '';
+    const note = st && !st.error ? (st.over ? overNote(st.over) : sumNote(pane)) : '';
     if (!quiet && note) { paneNote(pane, note); setLed(pane === paneL ? 'L' : 'R', 'err', note); paneSay(pane, 'note', note); }
     // (the screen's panes only: an export's off-screen pane is drawn once and dropped)
     if (pane !== paneL && pane !== paneR) return;
@@ -1055,6 +1152,11 @@
     if (primes < 0) return `Hₜ(${base})`;   // (a bracket's moving point with a live post: morphPrimes)
     // (a figure's carried point reads as the image on the plane it is shown on: primes counts the maps from the point's own plane, so
     // that plane is stage + primes; F is the whole map from z)
-    if (figMode && primes > 0) { const k = st + primes; return `${S.focus === 0 && st === 0 && k === nSteps() ? 'F' : S.focus > 0 ? `f${sub(S.focus)}` : `w${sub(k)}`}(${base})`; }
+    if (figMode && primes > 0) {
+      // (F for a point of z on the last plane; the focused step's f_k for the image of a point of the plane before it; else the plane
+      // shown, w_k, whatever step is focused)
+      const k = st + primes, f = st === 0 && k === nSteps() ? 'F' : S.focus > 0 && primes === 1 && k === S.focus ? `f${sub(k)}` : `w${sub(k)}`;
+      return `${f}(${base})`;
+    }
     return base + (primes < 4 ? PRIMES[primes] : '⁽' + String(primes).split('').map((d) => SUP[+d]).join('') + '⁾');
   }
