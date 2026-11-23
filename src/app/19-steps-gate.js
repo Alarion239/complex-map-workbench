@@ -1,27 +1,15 @@
   // ---------------- the Play gate (a part of the steps view: svGo and svPlay start the wait) ----------------
   // A glide (▶, or a step by the arrows) waits for the programs and the warm draw, so it never runs on programs still
-  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill}; svCheck
-  // ends it when another chain is loaded under it (an edit on the thread, a Split or an undo, keeps it); it polls
-  // every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard only: past it
-  // the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc, the button
-  // again or Cancel cancels; nothing starts afterwards
+  // linking or frames not yet drawn. SV.gate holds the wait: {btn, start, t0, timer, hung, shown, toast, keep, fill,
+  // aheadFrom}; svCheck ends it when another chain is loaded under it (an edit on the thread, a Split or an undo, keeps
+  // it); it polls every SV_GATE_POLL_MS and calls start when nothing is left to prepare. SV_GATE_HANG_MS is a hang guard
+  // only: past it the wait shows a message with Retry and Cancel, and it never starts a glide that is not ready. Esc,
+  // the button again or Cancel cancels; nothing starts afterwards
   const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
   // the ring's fill while the gauge has no total yet
   const SV_GATE_UNKNOWN_FILL = 0.25;
   // the ring's share for what svReady counts but the frames drawn ahead, while a wait has them to make too
   const SV_GATE_PREP_SHARE = 0.5;
-  // The ring's fill for g's wait from r (svReady(g.M)): the share of r done. With frames drawn ahead (r.parts.ahead), which
-  // are made only once all else is ready, the rest fills the ring up to SV_GATE_PREP_SHARE, and the frames then fill
-  // what is left of it, from where it was when they started (g.aheadFrom): from 0 when all else was ready at once
-  function svGateFill(r, g) {
-    if (!r.total) return SV_GATE_UNKNOWN_FILL;
-    const a = r.parts.ahead;
-    if (!a) return r.done / r.total;
-    const restT = r.total - a.total, restD = r.done - a.done;
-    if (restD < restT) return SV_GATE_PREP_SHARE * restD / restT;
-    if (g.aheadFrom == null) g.aheadFrom = g.fill || 0;
-    return g.aheadFrom + (1 - g.aheadFrom) * a.done / a.total;
-  }
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
@@ -66,33 +54,102 @@
     if (g.toast) { const x = g.toast.querySelector('.toast-x'); if (x) x.click(); else g.toast.remove(); }
     SV.gate = null;
     requestRender('L');
-    if (g.keep) {
-      g.btn.replaceChildren(...g.keep.kids);
-      for (const [k, v] of g.keep.attrs) { if (v == null) g.btn.removeAttribute(k); else g.btn.setAttribute(k, v); }
-    }
-    g.btn.toggleAttribute('aria-busy', false);
-    delete g.btn.dataset.wait;
-    g.btn.style.removeProperty('--wait');
-    if (g.btn === (SV.els && SV.els.play)) { delete g.btn.dataset.on; svPlaySync(); }
+    svWaitRestore(g);
   }
-  function svGateSync() {
-    const g = SV.gate;
-    if (!g || !g.shown) return;
-    const B = g.btn;
-    if (!g.keep) {
-      g.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
+  // The Play gate's gauge for its wait g: the share of what svReady(g.M) counts that is done, SV_GATE_UNKNOWN_FILL while it
+  // has no total. With frames drawn ahead (the part ahead), which are made only once all else is ready, all else fills
+  // the ring up to SV_GATE_PREP_SHARE and the frames fill what is left of it, from where it stood when they started
+  // (g.aheadFrom): from 0 when all else was ready at once, so that the ring reads the share of the frames made
+  function svGateFill(g) {
+    const r = svReady(g.M), a = r.parts.ahead;
+    if (!r.total) return SV_GATE_UNKNOWN_FILL;
+    if (!a) return r.done / r.total;
+    const restT = r.total - a.total, restD = r.done - a.done;
+    if (restD < restT) return SV_GATE_PREP_SHARE * restD / restT;
+    if (g.aheadFrom == null) g.aheadFrom = g.fill || 0;
+    return g.aheadFrom + (1 - g.aheadFrom) * a.done / a.total;
+  }
+  // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its icon a
+  // cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the glide…".
+  // w: {btn, keep, fill, gauge?, hung?}, kept so svWaitRestore gives the control back as it was
+  function svWaitLook(w) {
+    const B = w.btn;
+    if (!w.keep) {
+      w.keep = { kids: Array.from(B.childNodes), attrs: ['aria-label', 'data-tip', 'aria-description', 'aria-pressed'].map((k) => [k, B.getAttribute(k)]) };
       B.replaceChildren();
       B.insertAdjacentHTML('beforeend', ICONS.close);
     }
-    const r = svReady(g.M);
     B.toggleAttribute('aria-busy', true);
-    B.dataset.wait = g.hung ? 'hung' : 'busy';
-    g.fill = Math.max(g.fill || 0, svGateFill(r, g));
-    B.style.setProperty('--wait', String(g.fill));
+    B.dataset.wait = w.hung ? 'hung' : 'busy';
+    w.fill = Math.max(w.fill || 0, w.gauge ? w.gauge() : svGateFill(w));
+    B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
     B.setAttribute('aria-description', $t('Preparing the glide…'));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
+  }
+  function svWaitRestore(w) {
+    const B = w.btn;
+    if (w.keep) {
+      B.replaceChildren(...w.keep.kids);
+      for (const [k, v] of w.keep.attrs) { if (v == null) B.removeAttribute(k); else B.setAttribute(k, v); }
+    }
+    B.toggleAttribute('aria-busy', false);
+    delete B.dataset.wait;
+    B.style.removeProperty('--wait');
+    if (B === (SV.els && SV.els.play)) { delete B.dataset.on; svPlaySync(); }
+  }
+  // whether button B shows the wait look: the Play gate's (once shown) or a hold's
+  const svWaitOn = (B) => !!((SV.gate && SV.gate.shown && SV.gate.btn === B) || (SV.hold && SV.hold.shown && SV.hold.btn === B));
+  function svGateSync() {
+    const g = SV.gate;
+    if (!g || !g.shown) return;
+    svWaitLook(g);
+  }
+  // A hold in the middle of a play (svLinkHold: the programs of a later glide still link, so the play's clock stands still):
+  // past SV_GATE_SHOW_MS ▶ takes the gate's look and the live region says "Preparing the glide…" once, and when the hold ends
+  // ▶ goes back to Pause and the live region says the play's words once. A shorter hold shows nothing. Pressing ▶ (Cancel) or
+  // Esc pauses the play, as for any play
+  function svHoldWaitBegin(A) {
+    if (SV.hold && SV.hold.ending) svHoldWaitLeave(SV.hold);
+    if (SV.hold) return;
+    // (the ring is this hold's own, and of what the held glide waits for (svHoldLeft): the share that has gone since the hold began,
+    // so it is full when the glide can go; svReady's gauge counts what was done before the play, so it would start high and never
+    // fill. With nothing counted, the ring stands at the unknown fill)
+    const w = SV.hold = { btn: SV.els.play, A, t0: performance.now(), timer: 0, shown: false, keep: null, fill: 0, left0: svHoldLeft, ending: false,
+      gauge: () => { w.left0 = Math.max(w.left0, svHoldLeft); return w.left0 > 0 ? 1 - Math.min(svHoldLeft, w.left0) / w.left0 : SV_GATE_UNKNOWN_FILL; } };
+    w.timer = setTimeout(svHoldWaitTick, SV_GATE_SHOW_MS);
+  }
+  function svHoldWaitTick() {
+    const w = SV.hold;
+    if (!w || w.ending) return;
+    if (SV.play !== w.A || !w.A.held) { svHoldWaitEnd(SV.play === w.A); return; }
+    if (!w.shown) {
+      w.shown = true;
+      if (SV.els.live) SV.els.live.textContent = $t('Preparing the glide…');
+    }
+    svWaitLook(w);
+    w.timer = setTimeout(svHoldWaitTick, SV_GATE_POLL_MS);
+  }
+  // the hold's look given back, and the hold gone
+  function svHoldWaitLeave(w) {
+    if (SV.hold === w) SV.hold = null;
+    svWaitRestore(w);
+  }
+  // the hold is over (say: the play goes on, so the ring is full, painted for two animation frames, and its words are said again; else, as
+  // when ▶ pauses the play, ▶ is given back at once)
+  function svHoldWaitEnd(say) {
+    const w = SV.hold;
+    if (!w) return;
+    if (w.ending) { if (!say) svHoldWaitLeave(w); return; }
+    clearTimeout(w.timer);
+    if (!w.shown) { SV.hold = null; return; }
+    if (!say) { svHoldWaitLeave(w); return; }
+    w.ending = true;
+    w.gauge = () => 1;
+    svWaitLook(w);
+    if (SV.els.live && SV.play === w.A) SV.els.live.textContent = svPlayWords(w.A.to);
+    requestAnimationFrame(() => requestAnimationFrame(() => { if (SV.hold === w) svHoldWaitLeave(w); }));
   }
   function svGateTick() {
     const g = SV.gate;

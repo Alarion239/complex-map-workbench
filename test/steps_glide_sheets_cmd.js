@@ -9,10 +9,10 @@
 //   - no frame leaves paper where the copies' images cover the plane: its paper share is at most PAPER_MAX (one sheet
 //     leaves the left half paper, about 0.5);
 //   - at u = 1 − TINY the frame is as close to the plane it arrives at, parked, as the frame at u = TINY is to the
-//     plane it leaves (no sheet is missing at either end): the share of pixels more than DIFF_TOL apart (held_frames.js)
-//     at most SAME_FRAC over the departure's. (A glide frame and a parked plane are drawn by different passes, whose
-//     colour bands meet a pixel apart: a few per cent of the pane at either end, with the principal sheet alone too;
-//     one sheet missing on arrival is half the pane);
+//     plane it leaves (no sheet is missing at either end): the share of pixels more than DIFF_TOL apart
+//     (held_frames.js) at most SAME_FRAC over the departure's. (A glide frame and a parked plane are drawn by different
+//     passes, whose colour bands meet a pixel apart: a few per cent of the pane at either end, with the principal sheet
+//     alone too; one sheet missing on arrival is half the pane);
 // - each frame between the planes is coloured as the parked plane it arrives at: its share of pixels of saturation over
 //   SAT (no paper, no black) at least the parked plane's less COLOUR_TOL;
 // - the K = 1 control (__cmwSteps({ glideSheets: 1 }): the principal combo alone) leaves the left half paper again, so
