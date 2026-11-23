@@ -440,6 +440,11 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   // product of their terms, which keeps to SER_GPU_FINITE (loopGL). An infinite sum around them counts 1 there,
   // its terms bounded by SER_GPU_LOOP
   const SER_GPU_FINITE = 2048;
+  // the terms one pixel takes in all, across every sum of a step: its loops' innermost iterations count down from here, and a
+  // pixel that needs more is NaN, as one past SER_GPU_LOOP or SER_GPU_FINITE is. The draw's time per pixel is bounded by it, however
+  // the sums nest (an infinite sum around a finite one, or two infinite ones, would take up to 262144 or 1048576 terms); a sum that
+  // converges early takes few terms and is not affected. The same as Expr's SER_BUDGET (the CPU's twin, armed by the page's sample)
+  const SER_GPU_TERMS = 2048;
   // (a Dirichlet series on the GPU: its |Im w| limit, CX_ZETA_TMAX, and cx_zetaEM's six B₂ⱼ/(2j)!, written into its code:
   // the special functions' library is linked only for their calls)
   const DIR_TMAX = 120, EM6 = '0.08333333333333333, -0.001388888888888889, 0.0000330687830687831, -8.267195767195768e-7, 2.08767569878681e-8, -5.284190138687493e-10';
@@ -492,10 +497,12 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
   function genCustom(ast, P, A, TH, writers, lines, baked = null, shape = [], budget = null) {
     let tmp = 0, out = lines;
     const dep = Expr.depends;
+    // (the pixel's terms left, SER_GPU_TERMS: declared at the top of the function when a sum that is a loop is generated, in the line reserved here)
+    const termsAt = Expr.hasSeries(ast) ? lines.push('') - 1 : -1, TL = `${P}_tl`;
     const tv = (expr) => { const nm = `${P}_${tmp++}`; out.push(`  vec2 ${nm} = ${expr};`); return nm; };
     // [issue #5] the loop variables of the sums being generated, innermost last
     const idxVar = [];
-    let sums = 0;
+    let sums = 0, nest = 0;   // (sums: the names of the sums' and recurrences' loops; nest: the sums only, which the innermost test counts)
     const constOf = (n, th) => Expr.compile(n, { theta: th })(C(0, 0));
     // a loop's trip count as a uniform (a cell its writer fills with n, or with n() at write time), never a constant:
     // D3D's FXC (ANGLE on Windows) unrolls a loop with a constant bound, so a long series body becomes hundreds of copies
@@ -703,7 +710,11 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
       out = inner;
       idxVar.push(me);
       let t;
+      const nest0 = nest;
       try { t = g(n.a); } finally { idxVar.pop(); out = saved; }
+      // (a loop with no sum inside it takes the terms; the loops around it only stop once they are spent)
+      const innermost = nest === nest0;
+      lines[termsAt] = `  float ${TL} = ${SER_GPU_TERMS}.0;`;
       if (me.used) out[at] = `${head}, ${id}_fn = ${id}_lo < -1e30 || ${id}_hi > 1e30 ? 1.0 : ${id}_hi - ${id}_lo + 1.0;`;
       for (const e of outerFn) e.used = true;
       const LO = `${id}_lo`, HI = `${id}_hi`;
@@ -722,6 +733,7 @@ vec2 cx_mobpathu(vec2 u, float t, bool inv, vec4 p0, vec4 p1, vec4 p2, vec4 p3, 
     for (int j = 0; j < nj; j++) {
       float ${k} = from + dir * float(j);
       if (dir > 0.0 ? ${k} > ${HI} : ${k} < ${LO}) { done = true; break; }
+      ${innermost ? `${TL} -= 1.0; ` : ''}if (${TL} < 0.0) { ${OK} = false; done = true; break; }
 ${inner.map((x) => '    ' + x).join('\n')}
       vec2 t = ${t};
       ${prod ? `${S} = cmul(${S}, t); vec2 u = t - vec2(1.0, 0.0); float d = cx_abs(u); if (${S} == vec2(0.0)) { done = true; break; }` : `${S} += t; ${M} += cx_abs(t); vec2 u = t; float d = cx_abs(t);`}
@@ -768,6 +780,7 @@ ${inner.map((x) => '  ' + x).join('\n')}
     }
     function genSum(n) {
       const id = `${P}_s${sums++}`;
+      nest++;
       let plan = Expr.planOf(n);
       if (!plan && !idxVar.length) { try { Expr.compile(n); } catch (e) { /* summed as it is */ } plan = Expr.planOf(n); }
       // (a plan's terms never involve an outer index: inside another sum the loop is used)
@@ -3246,7 +3259,7 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
   return {
     get LIB() { return trigAccurate ? LIB_ACCURATE : LIB; },
     useRenderer, trigAccurate: () => trigAccurate, build, buildInverse, mobPathData, levelGLSL, circleRel: GPU_REL, ZETA_LN_K_COUNT,
-    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE, LOOP_CAP: SER_GPU_LOOP,
+    INV_LIB, seriesTrust, FINITE_CAP: SER_GPU_FINITE, LOOP_CAP: SER_GPU_LOOP, TERMS_BUDGET: SER_GPU_TERMS,
   };
 })();
 import { CX } from './cx.js';
