@@ -3,6 +3,7 @@
 //   - a button is "Click"ed (a key is "Press"ed): no string of the tour says "press" with anything but a key after it;
 //   - on a touch phone (390 wide) the two sound tasks that carry a "sound is off" line (Grieg on a curve, A loop sings its number) say
 //     Tap / Коснитесь / Tocca, not Press, Click, Нажмите, Premi or Fai clic;
+//   - every line of the tour that names the Loop button says its label (ru «Цикл»; «Повтор» is the Repeat step) (#2282);
 //   - at 390 px no step's title is cut with an ellipsis beside the chapter count (the strip's .ts-title: scrollWidth within clientWidth).
 // It runs in the steps view (ci/suite_views.js: steps({ pin: true })). A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -30,10 +31,13 @@ for (const lang of ['en', 'ru', 'it']) {
     const strs = [];
     const walk = (v) => { if (typeof v === 'string') strs.push(v); else if (v && typeof v === 'object' && !(v instanceof Function)) for (const k of Object.keys(v)) walk(v[k]); };
     for (const c of Tour._t.CHAPTERS) for (const s of c.steps) walk(s);
-    return { draw: [st.body, st.try && st.try.text, st.try && st.try.then].map((s) => tr(s || '')), press: strs.filter((s) => /\\b[Pp]ress /.test(s)) };
+    return { draw: [st.body, st.try && st.try.text, st.try && st.try.then].map((s) => tr(s || '')), press: strs.filter((s) => /\\b[Pp]ress /.test(s)), loop: strs.filter((s) => /\\bLoop\\b|speed and loop/.test(s)).map((s) => [s, tr(s)]), loopLabel: tr('Loop') };
   })()`);
   info[lang + '_draw'] = data.draw;
   ok(`${lang}: Basics > Draw a shape (body, task, then) names no X or Y`, !data.draw.some(letterXY), data.draw);
+  // the tour names the Loop button by its label (ru «Цикл», not «Повтор», which is the Repeat step): every line that says Loop says the control's own name
+  const loopOff = data.loop.filter(([en, t]) => !t.toLowerCase().includes(data.loopLabel.toLowerCase())).map(([en, t]) => t);
+  ok(`${lang}: the tour's lines that name Loop say its label (${data.loopLabel})`, data.loop.length >= 8 && loopOff.length === 0, { found: data.loop.length, off: loopOff });
   if (lang === 'en') {
     const bad = [];
     for (const s of data.press) for (const m of s.matchAll(/\b[Pp]ress (\S+)/g)) if (!KEY_AFTER_PRESS.test(m[1])) bad.push(m[0]);
