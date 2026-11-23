@@ -152,7 +152,6 @@ const tipCand = (win) => (w) => {
   const two = await ev(`(() => { const k = __cmwSvKey(2), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])), per: k.per && CX.C(k.per[0], k.per[1]) };
     return ${JSON.stringify(lists)}.map((L) => { const o = Inverse.order(L.map((p, i) => ({ z: CX.C(p[0], p[1]), D: Inverse.sheetKey(prep, CX.C(p[0], p[1]), null), lam: null, i }))); return o.length > 1 ? [o[0].i, o[1].i] : null; }); })()`);
   const got = (await lpx(pts)).px;
-  const pre = await ev('__cmwSteps().carryPre');
   await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); 1`);
   await settled({ max: PRE_WAIT * 2, until: `__cmwSteps().stage === 0 && __cmwSvFixed() && ${DRAWN}` });
   const idx = pts.map((w, k) => two[k]).map((t, k) => t && [lists[k][t[0]], lists[k][t[1]]]);
@@ -165,10 +164,10 @@ const tipCand = (win) => (w) => {
     n++;
     if (dist(g, q) < dist(g, f)) { wrong++; if (ex.length < 4) ex.push({ w, got: g, front: f, second: q }); }
   });
-  info.tip = { n, wrong, of: pts.length, pre, ex };
+  info.tip = { n, wrong, of: pts.length, pre: preOk.ok, ex };
   await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 2, now: true }); 1`);
-  await settled({ max: PRE_WAIT * 2, until: `__cmwSteps().stage === 2 && __cmwSteps().carryPre > 0 && __mtLeftPaper() === 0 && ${DRAWN}` });
-  ok(`plane 2 at rest on the pre-mapped meshes, about the arc's tip (w = -1): at most ${EXACT_WRONG_MAX * 100} % of the points show the second sheet's colour rather than the front one's`, pre > 0 && n >= 0.25 * pts.length && wrong <= EXACT_WRONG_MAX * n, info.tip);
+  await settled({ max: PRE_WAIT * 2, until: `__cmwSteps().stage === 2 && __mtLeftPaper() === 0 && ${DRAWN}` });
+  ok(`plane 2 at rest on the pre-mapped meshes, about the arc's tip (w = -1): at most ${EXACT_WRONG_MAX * 100} % of the points show the second sheet's colour rather than the front one's`, preOk.ok && left.covered && n >= 0.25 * pts.length && wrong <= EXACT_WRONG_MAX * n, info.tip);
 }
 const pre = { ok: preOk.ok, ord: await ev('GLR.carryResolveOrd()'), disc: await discRough(), wide: await bandShift() };
 info.pre = pre;
