@@ -737,7 +737,7 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 #warmBar > i { display: block; height: 100%; background: var(--accent); transform-origin: 0 50%; transform: scaleX(var(--warm, 0)); transition: transform var(--t-med) var(--ease-out, ease-out); }
 #warmBar.indet > i { width: 30%; transform: none; transition: none; animation: hairline 900ms var(--ease-inout) infinite; }
 
-/* Look down's key (19-lookdown.js): what each mark over the plane is, at its bottom left, clear of the rulers and of the
+/* Look down's key, and the Stack's (19-lookdown.js): what each mark over the plane is, at its bottom left, clear of the rulers and of the
    view buttons at the bottom right */
 .ld-key {
   position: absolute; z-index: 10; left: 28px; bottom: 28px; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px;
@@ -752,6 +752,8 @@ details.psec::details-content { content-visibility: visible; display: contents; 
 .ld-line { height: 0; border-top: 1.5px solid var(--ink); }
 .ld-dash { height: 0; border-top: 2px dashed var(--cut); }
 .ld-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--cut); }
+.ld-tube { width: 10px; height: 13px; border: 1.5px solid var(--c6-edge); border-radius: 5px / 3px; }
+.ld-strand { height: 0; border-top: 2px dotted var(--cut); }
 .ld-cross { width: 11px; height: 11px; background: linear-gradient(45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%), linear-gradient(-45deg, transparent 42%, var(--cut) 42% 58%, transparent 58%); }
 .empty-chip {
   position: absolute; z-index: 10; top: 40px; left: 50%; translate: -50% 0;
