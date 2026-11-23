@@ -164,15 +164,15 @@ const VIEWS = {
   'steps_chipname_cmd.js': steps(),
   'steps_rail_fit_cmd.js': steps(),
   'steps_fchip_cmd.js': steps(),
-  'steps_colour_pick_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
-  'steps_colour_parity_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_colour_pick_cmd.js': steps(),
+  'steps_colour_parity_cmd.js': steps(),
   'steps_sheet_grid_cmd.js': steps({ pin: true }),
   'steps_opacity_cmd.js': steps(),
   'steps_opacity_mesh_cmd.js': steps(),
   'steps_mesh_tie_cmd.js': steps(),
   'steps_mesh_tie_newt_cmd.js': steps(),
   'steps_exact_saved_false_cmd.js': steps(),
-  'steps_drawplane_cmd.js': steps({ pin: true }),   // (the kit opens its page: its URL names the steps view)
+  'steps_drawplane_cmd.js': steps(),
   'steps_readout_cmd.js': steps(),
   'steps_regions_note_cmd.js': steps({ pin: true }),
   'steps_order_cmd.js': steps(),
@@ -458,11 +458,12 @@ const VIEWS = {
 };
 
 // the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
-// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps),
+// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps, or opens its page through the chain kit),
 // so a steps() entry without it, or a port or classic one with it, is wrong (a ported suite, pin: true, needs no URL)
 function checkViews(runnable) {
   const fs = require('fs'), path = require('path'), bad = [];
-  const asksSteps = (f) => { try { return /view=steps/.test(fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8')); } catch (e) { return false; } };
+  // (a suite asks the steps view by naming it in a URL, or by opening its page through test/lib/steps_chain_kit.js, whose openChain does)
+  const asksSteps = (f) => { try { const src = fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8'); return /view=steps/.test(src) || /steps_chain_kit\.js/.test(src); } catch (e) { return false; } };
   for (const f of runnable) if (!VIEWS[f]) bad.push(`${f}: no view in ci/suite_views.js (steps, port or classic)`);
   for (const [f, tag] of Object.entries(VIEWS)) {
     if (!runnable.includes(f)) bad.push(`${f}: in ci/suite_views.js but not a runnable suite`);
