@@ -9,7 +9,7 @@ root = pathlib.Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(root))
 from tools.src_parts import source  # noqa: E402  (the files without their import and export lines: one classic script)
 src = root / 'src'
-parts = [(root / 'test' / 'module_stubs.js').read_text(encoding='utf-8')] + [source(f, src, esm='strip') for f in ['cx.js', 'symbolic.js', 'parse.js', 'derivs.js', 'natpaths.js', 'sheets.js', 'formulasteps.js', 'funcs.js', 'homrange.js', 'glsl.js']]
+parts = [(root / 'test' / 'module_stubs.js').read_text(encoding='utf-8')] + [source(f, src, esm='strip') for f in ['cx.js', 'symbolic.js', 'parse.js', 'derivs.js', 'natpaths.js', 'sheets.js', 'formulasteps.js', 'funcs.js', 'homrange.js', 'glslroots.js', 'glsl.js']]
 parts += [(root / 'test' / f).read_text(encoding='utf-8') for f in ['glsl_dh_orbit_test.js', 'glsl_dh_stop_test.js']]
 js = '\n'.join(parts).replace('</script', '<\\/script')
 html = f"""<!doctype html>
