@@ -362,6 +362,21 @@ for (const t of ['\\operatorname{tg} z', '\\operatorname{th} z+\\ln z', '\\opera
 eq(perr('\\operatorname{arcth}(z+2)'), "Unknown name 'arcth'", 'arcth: no inverse coth in the formula language');
 eq(perr('\\operatorname{arcoth}(z+2)'), "Unknown name 'arcoth'", 'arcoth: the same in English');
 eq(val(I18N.notation('\\tan z+\\sinh z-\\operatorname{artanh}(z/2)', 'ru')), val('\\tan z+\\sinh z-\\operatorname{artanh}(z/2)'), 'notation keeps the value');
+// ---- a shape's name in a Russian sentence (#2293): the name is what the user typed or the automatic «Круг 1», in the
+// nominative; a slot that needs another case gets a head noun, and a name in running text is quoted «…» (#2130, #2142).
+// (English keeps its words)
+as('ru', () => {
+  const T = (k, p) => I18N.t(k, p);
+  const del = T('Delete {label} and the {n} that use it', { label: 'Круг 1', n: 2 });
+  eq(del, 'Удалить объект «Круг 1» и зависимые от него объекты (2)', 'ru names: Delete with its dependants, the name after a head noun (any gender)');
+  eq(T('Line integral along {name}', { name: 'задний край' }), 'Интеграл по кривой «задний край»', 'ru names: the line integral popover along a curve quotes its name');
+  eq(T('Line integral around {name}', { name: 'задний край' }), 'Интеграл по контуру «задний край»', 'ru names: the line integral popover around a contour quotes its name');
+  eq(T('{sym} along {name}{part}', { sym: '∫', name: 'задний край', part: '' }), '∫ по кривой «задний край»', 'ru names: the popover title along a curve quotes its name');
+  eq(T('{sym} around {name}{part}', { sym: '∮', name: 'задний край', part: '' }), '∮ по контуру «задний край»', 'ru names: the popover title around a contour quotes its name');
+  const cau = T('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh: 'F', name: 'задний край' });
+  ok(cau.includes('по контуру «задний край»: F внутри'), `ru names: the Cauchy pane title quotes its contour's name, as its two siblings do: ${cau}`);
+});
+eq(I18N.t('Delete {label} and the {n} that use it', { label: 'Circle 1', n: 2 }), 'Delete Circle 1 and the 2 that use it', 'English keeps its words (control)');
 // the language is fixed at load: $t in a module is the identity in English, and every key's English is itself
 eq(I18N.lang, 'en', 'English after the checks');
 eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
