@@ -62,7 +62,6 @@ ok('ru: the Deformation section has no X → Y', dr && !/X\s*→\s*Y/.test(dr.te
 // heading does, and names no key
 const origin = await ev('location.origin');
 await view(412, 860, false, true);
-await send('Page.navigate', { url: 'about:blank' }); await settled({ panes: false });
 await go(`${origin}/test.html?ns=guidenavph${Date.now()}`); await settled();
 await ev(`(document.querySelector('.modal-bg') || { remove() {} }).remove()`); await ev(`__tourApi.openGuide()`); await settled();
 const dp = await ev(`(() => { const sec = [...document.querySelectorAll('.guide-sec')].find((x) => x.querySelector('h3').textContent === 'Deformation'); return { ph: document.documentElement.classList.contains('ph'), text: sec ? sec.textContent.replace(/\\s+/g, ' ') : null, keys: sec ? [...sec.querySelectorAll('.kbd')].map((x) => x.textContent) : null }; })()`);
