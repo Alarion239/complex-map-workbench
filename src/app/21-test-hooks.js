@@ -328,8 +328,8 @@
     return { src: Object.assign({}, S.srcView), left: Object.assign({}, V.left) };
   };
   window.__cmwLandCarry = (box) => (box ? render3D.box || null : render3D.carried || null);
-  // the seams svPatchSeam has measured (svLandPoleMemo.runs: a seam is measured again only for a new map or box, or a pole that moved); with
-  // redraw, a frame of both panes is asked for first
+  // the seams svPatchSeam has measured (svLandPoleMemo.runs: a seam is measured again only for a new map or box, or a pole or
+  // branch point that moved); with redraw, a frame of both panes is asked for first
   window.__cmwLandSeams = (redraw) => { if (redraw) requestRender('L', 'R'); return { runs: svLandPoleMemo.runs }; };
   // TEST-HOOK
 
