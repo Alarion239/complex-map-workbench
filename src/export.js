@@ -352,7 +352,7 @@ const Export = (() => {
   const cap1 = (segs) => { const s = segs.slice(); if (s[0] && s[0].t) s[0] = { t: s[0].t.charAt(0).toUpperCase() + s[0].t.slice(1) }; return s; };
   // a phrase's closing comma ({pc}) stays only before more words: it goes before punctuation, an
   // opening bracket, another comma and at the end (keepEnd: a list that a template continues; it is left as PC_MARK,
-  // which figure.js's polish resolves the same way once the sentence is whole). [verify-1] It also goes before the
+  // which figure.js's polish resolves the same way once the sentence is whole). It also goes before the
   // English "and" (a list's or a meet's): there it would read as a list break; Russian keeps it («…, и~…»)
   const PC_MARK = '\u2063';
   function pcTidy(segs, keepEnd) {
