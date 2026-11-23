@@ -374,6 +374,7 @@ as('ru', () => {
   // (the popover's visible title is one line, cut with an ellipsis when too long: its words stay as short as they were, and
   // its aria-label above names the curve in «»)
   eq(T('{sym} along {name}{part}', { sym: '∫', name: 'Прямая 1', part: '' }), '∫ по кривой Прямая 1', 'ru names: the popover title keeps its one-line words');
+  eq(T('{sym} around {name}{part}', { sym: '∮', name: 'Окружность 1', part: '' }), '∮ по контуру Окружность 1', 'ru names: the popover title around a contour keeps its one-line words');
   const cau = T('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh: 'F', name: 'задний край' });
   ok(cau.includes('по контуру «задний край»: F внутри'), `ru names: the Cauchy pane title quotes its contour's name, as its two siblings do: ${cau}`);
   // (the plane's spoken description of a point's marked preimages: {name} is the point's label, after its head noun «точки»)
