@@ -76,6 +76,7 @@ const MAP = [
   ['src/app/19-lookdown.js', ui('views', 'desktop', 'phone')],                                     // Look down: the target ring, lines, critical marks and key (#1984)
   ['src/app/19-stack.js', ui('views', 'desktop', 'phone')],                                        // the Stack: the floor and the glass seen by the Tilt camera (#1986)
   ['src/app/19-stack-tubes.js', ui('views', 'desktop', 'phone')],                                  // the Stack's tubes, critical strands and narrowing labels (#1987)
+  ['src/app/19-stack-pick.js', ui('views', 'desktop', 'phone')],                                   // picking in the Stack: the floor's and the glass's points under the pointer (#1988)
   ['src/app/20-init.js', full('the app\'s start-up')],                                     // (its area wiring is in the areas' parts: #385)
   ['src/app/21-test-hooks.js', { hooks: true }],                                           // window.__cmw*: what calls them
   ['src/app/22-start.js', full('the app\'s start')],

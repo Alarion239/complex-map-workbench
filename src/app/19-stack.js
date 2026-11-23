@@ -7,7 +7,8 @@
   // (stackLevel). The levels are drawn in one fixed order, STACK_ORDER, whatever the camera:
   // - the floor's picture, on the main canvas;
   // - then on the overlay: the floor's marks, the tubes (19-stack-tubes.js), the box's edges and the lines from the
-  //   floor to the glass, the glass (its tint and rim), the glass's marks, and the tubes' labels.
+  //   floor to the glass, the glass (its tint and rim), the glass's marks, the picks (19-stack-pick.js), and the tubes'
+  //   labels.
   // The camera is never under the floor, so a higher level is always nearer to it: the fixed order is the order in depth.
   // Seen straight down with yaw 0 both levels' maps are the identity, and the frame is Look down's.
   const STACK_PITCH_MIN = 10 * DEG;
@@ -16,7 +17,7 @@
   const stackCam = Object.assign({ vyaw: 0, vpitch: 0 }, STACK_CAM);
   const STACK_GLASS_H = 0.5;                  // the glass's height above the floor, a share of the pane's shorter side
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
-  const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'labels'];
+  const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
   let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time)}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
@@ -70,7 +71,7 @@
     return true;
   }
   // The Stack's layers after the floor on ctx (css px, pane's overlay), for the flat view of pane: the floor's marks, the
-  // tubes, the box's edges and the lines, the glass, the glass's marks, the tubes' labels (STACK_ORDER). The marks are Look down's, for the selected
+  // tubes, the box's edges and the lines, the glass, the glass's marks, the picks, the tubes' labels (STACK_ORDER). The marks are Look down's, for the selected
   // disc while its readout card shows (lookMarksOn). Returns the frame's record (stackDrawn's)
   function stackMarks(pane, ctx, camera) {
     const s = findShape(selected), on = lookMarksOn(s), mk = on ? lookMarks(pane, s) : null;
@@ -100,6 +101,7 @@
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lv, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
+      picks: () => drawStackPicks(pane, ctx, F, G),
       labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, pane.w); },
     };
     const order = ['floor'];
@@ -114,11 +116,18 @@
     syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
     return true;
   }
-  // TEST-HOOK (dropped from the published page by build.py): the Stack's state and its last frame; o.same: {yaw, pitch}
+  // TEST-HOOK (dropped from the published page by build.py): the Stack's state, its last frame and the glass's hovered or
+  // pinned point (hov: {w, zs, pinned}); o.pick: [x, y] (the pane's css px) gives the levels' points under it (stackPick:
+  // floor {p, z}, glass {p, w}, each with on) and the level a hover and a press there pick; o.same: {yaw, pitch}
   // draws the Stack's frame at that camera for the left pane as it is now, the floor on its main canvas and the rest on
   // a canvas of the overlay's size, and counts the device px where each differs from the pane's own frame before it
   // ({main, over, px}); the pane is drawn again after
   window.__cmwStack = (o) => {
+    const cx = (q) => q && [q.re, q.im];
+    if (o && o.pick) {
+      const [x, y] = o.pick, hit = stackPick(paneL, x, y);
+      return { floor: hit.floor && { p: hit.floor.p, z: cx(hit.floor.z), on: hit.floor.on }, glass: hit.glass && { p: hit.glass.p, w: cx(hit.glass.w), on: hit.glass.on }, hover: stackPickLevel(paneL, hit, x, y, false), press: stackPickLevel(paneL, hit, x, y, true) };
+    }
     if (o && o.same) {
       const pane = paneL, grab = (cv) => cv.getContext('2d', { willReadFrequently: true }).getImageData(0, 0, cv.width, cv.height).data;
       const main0 = grab(pane.canvas), over0 = grab(pane.ocanvas);
@@ -136,6 +145,7 @@
       requestRender('L');
       return r;
     }
-    return { on: stackOn(), camera: { yaw: stackCam.yaw, pitch: stackCam.pitch }, drawn: stackDrawn && JSON.parse(JSON.stringify(stackDrawn)), lflat: lFlat() };
+    const hv = stackHovNow();
+    return { on: stackOn(), camera: { yaw: stackCam.yaw, pitch: stackCam.pitch }, drawn: stackDrawn && JSON.parse(JSON.stringify(stackDrawn)), lflat: lFlat(), hov: hv && { w: cx(hv.w), zs: hv.zs.map((r) => [...cx(r.z), r.mult]), more: hv.more, pinned: hv.pinned } };
   };
   // TEST-HOOK

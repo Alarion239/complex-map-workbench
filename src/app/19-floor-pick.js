@@ -18,23 +18,30 @@
   const PICK_SEARCH_MS = 120;          // the search's budget where the steps have no exact inverse
   const PICK_SEARCH_MAX = 40;          // the most twins the search lists
   let floorPick = null;                // the lit twins: {sig, k, T, z0, w, zs: [{z, mult}], more}
-  // whether the Pick tool picks here: the steps view's flat plane, with the target's plane past it
-  const pickAvail = () => !!(SV.on && lFlat() && svT() > leftStage());
+  // whether the Pick tool picks here: the steps view's flat plane or the Stack (19-stack-pick.js), with the target's plane
+  // past it
+  const pickAvail = () => !!(SV.on && (lFlat() || stackOn()) && svT() > leftStage());
   const pickSig = () => `${leftStage()}|${svT()}|${chainSig[nSteps()]}`;
-  // the twins of z₀ on plane k over plane T: {w, zs, more} (more: the search may have missed some), or null where F(z₀)
-  // is not finite
-  function pickTwins(k, T, z0) {
-    const F = rangeF(k, T), w = F(z0);
-    if (!CX.isFin(w)) return null;
+  // the preimages of w on plane k over plane T: {w, zs: [{z, mult}], more} (more: the search may have missed some); exact
+  // where the steps have finitely many inverse branches, else a search of the view of at most ms; null where w is not
+  // finite
+  function pickFibre(k, T, w, ms = PICK_SEARCH_MS) {
+    if (!w || !CX.isFin(w)) return null;
     const ex = exactPre(k, T, [w.re, w.im]);
     if (ex) return { w, zs: ex.zs.map((z, i) => ({ z, mult: ex.mult[i] })), more: false };
     paneL.setView(leftView());
     let sols = null;
-    try { sols = zerosPolesTimed(F, paneL.box(), { target: w, max: PICK_SEARCH_MAX }, PICK_SEARCH_MS); } catch (e) { sols = null; }
+    try { sols = zerosPolesTimed(rangeF(k, T), paneL.box(), { target: w, max: PICK_SEARCH_MAX }, ms); } catch (e) { sols = null; }
     const zs = (sols || []).filter((r) => r && r.z && CX.isFin(r.z) && r.kind !== 'pole').map((r) => ({ z: r.z, mult: r.mult || 1 }));
-    // (the pressed point is one of them, whatever the search found)
-    if (!zs.some((r) => CX.abs(CX.sub(r.z, z0)) <= 1e-6 * (1 + CX.abs(z0)))) zs.push({ z: z0, mult: 1 });
     return { w, zs, more: !sols || !!(sols.truncated || sols.incomplete) };
+  }
+  // the twins of z₀ on plane k over plane T: {w, zs, more} (pickFibre's of F(z₀)), or null where F(z₀) is not finite
+  function pickTwins(k, T, z0) {
+    const t = pickFibre(k, T, rangeF(k, T)(z0));
+    if (!t) return null;
+    // (the pressed point is one of them, whatever the search found)
+    if (!t.zs.some((r) => CX.abs(CX.sub(r.z, z0)) <= 1e-6 * (1 + CX.abs(z0)))) t.zs.push({ z: z0, mult: 1 });
+    return t;
   }
   // lights the twins of z₀ and says how many there are in the steps view's live region
   function pickLight(k, T, z0) {
@@ -75,13 +82,13 @@
     setCursor(pane, 'L');
     return true;
   }
-  // the pointer at (x, y) of the pane while a press of the picker is held
+  // the pointer at (x, y) of the pane while a press of the picker is held (d.level: on the Stack, the level it holds)
   function pickMove(d, pane, x, y) {
     if (!d.moved && Math.hypot(x - d.x0, y - d.y0) < PICK_SLOP) return;
     d.moved = true;
     pane.setView(leftView());
-    const w = d.F(pane.s2w(x, y));
-    if (!CX.isFin(w)) return;
+    const p = d.level ? stackPickAt(pane, d.level, x, y) : pane.s2w(x, y), w = p && d.F(p);
+    if (!w || !CX.isFin(w)) return;
     if (d.mode === 'pickMove') { Region.translate(d.shape, CX.sub(w, d.w)); d.w = w; }
     else if (!d.disc) {
       // (the disc is in the chain's shapes while it is drawn, so its patches show; it is added as one edit on release)
@@ -127,10 +134,14 @@
     svSay($t('Disc added on {w}, about the image of the lit point', { w: svName(T) }));
     return true;
   }
+  // the lit twins while they are the chain's and the Pick tool's, else null
+  function floorPickNow() {
+    if (floorPick && (floorPick.sig !== pickSig() || tool !== 'pick')) floorPick = null;
+    return floorPick;
+  }
   // the lit twins over the floor: the pressed point a dot, its twins rings (an overlay of the steps view's plane)
   function drawFloorPick(pane) {
-    if (!floorPick) return;
-    if (floorPick.sig !== pickSig() || tool !== 'pick') { floorPick = null; return; }
+    if (!floorPickNow()) return;
     const ctx = pane.octx, b = pane.box(), z0 = floorPick.z0;
     ctx.save();
     for (const { z } of floorPick.zs) {
