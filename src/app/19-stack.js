@@ -41,6 +41,31 @@
     const k = Math.min(1, (w / 2) / ax, (h / 2) / (ay * sp + H * cp / 2));
     return [k * co, -k * sp * si, k * si, k * sp * co, w / 2 - k * (co * w / 2 + si * h / 2), h / 2 + k * sp * (si * w / 2 - co * h / 2) - k * cp * (up - 0.5) * H];
   }
+  // The parts inside the box of a path through it: pts [[x, y, t], ...] in the flat plane's css px at heights t (0 the
+  // floor, 1 the glass), the box being pane's rectangle at every height; a straight strand is its two ends, a curved one
+  // its samples. -> {runs: the paths' parts inside, each [[x, y, t], ...]; ends: the points where a part meets the box's
+  // side, the off-view mark's place}
+  function stackClipPath(pane, pts) {
+    const runs = [], ends = [];
+    let cur = null;
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i], b = pts[i + 1];
+      let u0 = 0, u1 = 1;
+      for (const [p, q, L] of [[a[0], b[0], pane.w], [a[1], b[1], pane.h]]) {
+        const d = q - p;
+        if (Math.abs(d) < 1e-12) { if (p < 0 || p > L) { u0 = 1; u1 = 0; } continue; }
+        const lo = (0 - p) / d, hi = (L - p) / d;
+        u0 = Math.max(u0, Math.min(lo, hi)); u1 = Math.min(u1, Math.max(lo, hi));
+      }
+      if (u0 > u1) { if (cur) { runs.push(cur); cur = null; } continue; }
+      const at = (u) => a.map((v, j) => v + u * (b[j] - v));
+      if (!cur) { cur = [at(u0)]; if (u0 > 0) ends.push(cur[0]); }
+      cur.push(at(u1));
+      if (u1 < 1) { ends.push(cur[cur.length - 1]); runs.push(cur); cur = null; }
+    }
+    if (cur) runs.push(cur);
+    return { runs, ends };
+  }
   // a level of the marks (drawLookLayer's) from its map m
   const stackMarkLevel = (m) => ({
     at: (x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]],

@@ -20,8 +20,8 @@
   // floor's twins (pickKey).
   // The camera turns apart from the pick: a drag with any other tool, the right or middle button or Shift with the Pick
   // tool, or two fingers (14-interaction.js). Esc puts out the picks one at a time: the pin, then the floor's lit twins,
-  // then (the page's own Esc) the selection. A strand is drawn only inside the box, and where it leaves the box it ends
-  // in an open ring, the off-view mark.
+  // then (the page's own Esc) the selection. A strand is drawn only inside the box (stackClipPath), and where it leaves
+  // the box it ends in an open ring, the off-view mark. A pin's point on the glass is a filled dot, a hover's an open one.
   const STACK_PICK_RING = 64;          // the target's ring as the pick sees it: a polygon of this many sides
   const STACK_PICK_SLOP = 4, STACK_PICK_SLOP_TOUCH = 8;   // css px a press moves before it is no click (a mouse's, a finger's)
   const STACK_HOLD_MS = 450;           // a still press held this long reads the floor (the plane's long press)
@@ -119,8 +119,9 @@
     const lr = $('leftReadout');
     if (!lr || lr.classList.contains('copied')) return;
     const t = stackHov && stackHov.w === w ? stackHov : pickFibre(leftStage(), svT(), w, STACK_PICK_MS);
-    const n = t ? t.zs.reduce((a, r) => a + (r.mult || 1), 0) : 0, where = '';
-    const words = !t ? $tx('readout', 'at') : t.more ? $tn('at least {n} preimage{where} of', 'at least {n} preimages{where} of', n, { where }) : $tn('{n} preimage{where} of', '{n} preimages{where} of', n, { where });
+    // (the right plane's hover's words, with no "(flat view)": the Stack's pick is its own levels')
+    const n = t ? t.zs.reduce((a, r) => a + (r.mult || 1), 0) : 0;
+    const words = !t ? $tx('readout', 'at') : t.more ? $tn('at least {n} preimage{where} of', 'at least {n} preimages{where} of', n, { where: '' }) : $tn('{n} preimage{where} of', '{n} preimages{where} of', n, { where: '' });
     lr.innerHTML = `<span class="rp"><span class="rk"><span class="rw">${words}</span> <i>w</i>${sub(svT())}</span> <span class="rv">${fmtCxHtml(w)}</span></span>`;
     copyValue.L = CX.fmt(w, 6).replace(/\s/g, '');
   }
@@ -235,18 +236,6 @@
     stackPin(w);
     return true;
   }
-  // The part of the strand from the floor's point a to the glass's point b (the flat plane's css px, at heights 0 and 1)
-  // inside the box, whose levels are pane's rectangle: [t0, t1] in heights, or null where none of it is
-  function stackClip(pane, a, b) {
-    let t0 = 0, t1 = 1;
-    for (const [p, q, L] of [[a[0], b[0], pane.w], [a[1], b[1], pane.h]]) {
-      const d = q - p;
-      if (Math.abs(d) < 1e-12) { if (p < 0 || p > L) return null; continue; }
-      const u = (0 - p) / d, v = (L - p) / d;
-      t0 = Math.max(t0, Math.min(u, v)); t1 = Math.min(t1, Math.max(u, v));
-    }
-    return t0 <= t1 ? [t0, t1] : null;
-  }
   // The picks over the Stack's levels on ctx (css px; maps F and G of the floor and the glass): the floor's lit point,
   // its strand up to its image and dashed strands down to its twins; the glass's hovered or pinned point, with a strand
   // down to each of its preimages. A strand is drawn inside the box only, with an open ring where it leaves it. Returns
@@ -268,15 +257,15 @@
     };
     // the strand from the floor's point a to the glass's point b (flat css px), as far as it is inside the box
     const strand = (a, b, colour, w, dash) => {
-      const c = stackClip(pane, a, b);
-      if (!c) return;
-      const mix = (t) => at([a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1])], t), p = mix(c[0]), q = mix(c[1]);
+      const clip = stackClipPath(pane, [[a[0], a[1], 0], [b[0], b[1], 1]]);
       ctx.setLineDash(dash || []);
-      ctx.lineWidth = w + 2.5; ctx.strokeStyle = TH.halo; ctx.globalAlpha = TH.haloA; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
-      ctx.globalAlpha = 1; ctx.lineWidth = w; ctx.strokeStyle = colour; ctx.beginPath(); ctx.moveTo(p[0], p[1]); ctx.lineTo(q[0], q[1]); ctx.stroke();
-      rec.strands++;
-      if (c[0] > 0) { ring(p, STACK_PICK_OFF, colour, false); rec.off++; }
-      if (c[1] < 1) { ring(q, STACK_PICK_OFF, colour, false); rec.off++; }
+      for (const run of clip.runs) {
+        const q = run.map((p) => at(p, p[2])), path = () => { ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); };
+        ctx.lineWidth = w + 2.5; ctx.strokeStyle = TH.halo; ctx.globalAlpha = TH.haloA; path(); ctx.stroke();
+        ctx.globalAlpha = 1; ctx.lineWidth = w; ctx.strokeStyle = colour; path(); ctx.stroke();
+        rec.strands++;
+      }
+      for (const e of clip.ends) { ring(at(e, e[2]), STACK_PICK_OFF, colour, false); rec.off++; }
     };
     ctx.save();
     ctx.lineCap = 'round';
@@ -293,7 +282,8 @@
       const top = flat(hv.w), w = hv.pinned ? 1.75 : 1.25;
       for (const { z } of hv.zs) strand(flat(z), top, TH.accent, w);
       for (const { z } of hv.zs) { const p = flat(z); if (inside(p)) ring(at(p, 0), PICK_RING, TH.accent, false); }
-      if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.accent, true);
+      // (a pin's point is a filled dot, a hover's an open one)
+      if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.accent, hv.pinned);
     }
     ctx.restore();
     return rec;

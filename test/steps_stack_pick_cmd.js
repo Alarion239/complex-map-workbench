@@ -216,6 +216,23 @@ if (both && floorOnly) {
   ok('Esc puts out the pin, then the floor\'s lit twins, then the selection', JSON.stringify(peel) === JSON.stringify(want), peel);
   await ev(`__cmwSelect('d'); 1`);
   await frames();
+  // (after a held press, Esc puts out its twins and keeps the target, so Shift+Enter still pins the target's centre)
+  await mouse('mouseMoved', ...both);
+  await mouse('mousePressed', ...both, { button: 'left', buttons: 1, clickCount: 1 });
+  await sleep(700);
+  await mouse('mouseReleased', ...both, { button: 'left', buttons: 0, clickCount: 1 });
+  await frames();
+  for (let i = 0; i < 8 && (await ev('document.activeElement && document.activeElement.id')) !== 'overlayL'; i++) await key('F6');
+  await key('Escape');
+  await frames();
+  const afterHold = { lit: !!(await ev('__cmwPick()')).lit, sel: (await ev('__cmwShapes()')).selected };
+  await key('Enter', 8);
+  await frames();
+  const pinAfter = (await S()).hov;
+  info.afterHold = { afterHold, pinAfter };
+  ok('after a held press, Esc puts out its twins and keeps the target: Shift+Enter then pins the target\'s centre, not 0', !afterHold.lit && afterHold.sel === 'd' && !!pinAfter && pinAfter.pinned && close(pinAfter.w, [1.1, 0]), info.afterHold);
+  await key('Escape');
+  await frames();
 }
 
 // ---- strands stop at the box: a held press near the floor's corner, its image far off
