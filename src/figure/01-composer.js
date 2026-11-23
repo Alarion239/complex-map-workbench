@@ -507,10 +507,13 @@
         if (Math.abs(t) < 1e-12 || minor(t)) continue; const px = X(t); if (px > tipX - ah - 1 || px < x + 1) continue;
         const it = XD.tex(XD.tickTex(t, decX), tp, ink);
         const cands = /** @type {[number, number, string, string][]} */ ([[px, oy + L + 1.2, 'middle', 'top'], [px + 1.2, oy + L + 0.8, 'start', 'top'], [px - 1.2, oy + L + 0.8, 'end', 'top'], [px + 1.2, oy - L - 0.8, 'start', 'bottom']]);
-        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines)
+        // (then slid along the axis, at most half its width, so it still covers its tick: between two close lines; a place
+        // that starts left of the panel is none, as the figure's margin there is a few points: near the left edge the
+        // label stands right of its tick)
+        const inX = (q) => XD.boxOf(it, ...q).x0 >= x;
         const sl = /** @type {[number, number, string, string][]} */ ([]);
         for (let d = -it.w / 2; d <= it.w / 2; d += 0.25) sl.push([px + d, oy + L + 1.2, 'middle', 'top']);
-        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => clean(it, q, 0.4)) || slide(it, sl) || cands[0]);
+        const c = /** @type {[number, number, string, string]} */ (cands.find((q) => inX(q) && clean(it, q, 0.4)) || slide(it, sl.filter(inX)) || cands.find(inX) || cands[0]);
         out += XD.at(it, ...c, 'tick', under(XD.boxOf(it, ...c))[2] < 240 ? 0.4 : 0);
       }
       for (const t of yt) {
