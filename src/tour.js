@@ -1129,6 +1129,8 @@ const Tour = (() => {
 }
 .ts-text:hover { background: var(--well, transparent); }
 .ts-text:focus-visible, .tour-strip button:focus-visible, .ts-why button:focus-visible, .ts-why input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* (Start and Next are filled with the accent: their ring, inside the box and in the label's own colour, stands on the fill; the strip clips what lies outside it) */
+.tour-strip .ts-next:not(.skip):focus-visible { outline-color: var(--accent-ink); outline-offset: -4px; }
 .ts-l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 13px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tour-strip[data-mode="desk"] .ts-count { display: none; }

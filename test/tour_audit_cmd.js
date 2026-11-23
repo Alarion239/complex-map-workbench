@@ -235,10 +235,12 @@ for (const cfg of runs) {
   if (CFG.focus && theme === 'light') {
     await ev(`Tour.start({ chapter: 'basics', step: 1 })`); await settle();
     await ev(`document.querySelector('.tour-strip .ts-next').focus()`);
+    // (a ring drawn inside the control's own box stands on the control's fill: it must tell from it; over: their contrast ratio, null for a ring outside the box)
+    const RING = `(() => { const a = document.activeElement; if (!a) return null; const cs = getComputedStyle(a); const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2) || /(\\d+(\\.\\d+)?px\\s*){3}[1-9]/.test(cs.boxShadow); const rgb = (c) => { const m = String(c).match(/[\\d.]+/g); return m ? m.map(Number) : null; }; ${LUM_JS} const o = rgb(cs.outlineColor), f = rgb(cs.backgroundColor); const over = ring && cs.outlineStyle !== 'none' && parseFloat(cs.outlineOffset) < 0 && o && f && (f.length < 4 || f[3] === 1) && (o.length < 4 || o[3] === 1) ? Math.round(ratio(o, f) * 100) / 100 : null; return { over, label: (a.getAttribute('aria-label') || a.textContent || a.tagName).trim().slice(0, 30), inStrip: !!a.closest('.tour-strip'), ring }; })()`;
     const seenF = [];
     for (let i = 0; i < 4; i++) {
       await key('Tab', i === 3 ? 8 : 0);
-      seenF.push(await ev(`(() => { const a = document.activeElement; if (!a) return null; const cs = getComputedStyle(a); const ring = (cs.outlineStyle !== 'none' && parseFloat(cs.outlineWidth) >= 2) || /(\\d+(\\.\\d+)?px\\s*){3}[1-9]/.test(cs.boxShadow); return { label: (a.getAttribute('aria-label') || a.textContent || a.tagName).trim().slice(0, 30), inStrip: !!a.closest('.tour-strip'), ring }; })()`));
+      seenF.push(await ev(RING));
     }
     await ev(`document.querySelector('.tour-strip .ts-next').focus()`);
     await key('k', 4); await shown('#popHost > .pop.palette');
@@ -247,10 +249,12 @@ for (const cfg of runs) {
     const back = await ev(`({ inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), tour: Tour.isActive() })`);
     FOCUS.push({ tag, seenF, back });
     check(`${tag} focus: every strip control the focus reaches shows a ring`, seenF.every((x) => !x || !x.inStrip || x.ring), seenF);
+    check(`${tag} focus: a ring drawn over a strip control's own fill (Start's) tells from it, a contrast of 3 or more`, seenF.every((x) => !x || !x.inStrip || x.over == null || x.over >= 3), seenF);
     check(`${tag} focus: the palette from the strip, Esc: the tour stays and the focus is back in the strip`, back.tour && back.inStrip, back);
     await ev('Tour.isActive() && Tour.stop()'); await calm();
     // the tour started from the Help menu by keyboard: the focus is in the strip (the menu's item is gone with the menu), at a desk, where Help is in the header
     if (!phoneSize(w, h)) {
+      await ev(`Tour.reset()`);   // (no tour to continue: the menu's first item starts the first chapter, at its Start)
       await ev(`document.getElementById('helpBtn').focus()`);
       await key('Enter');
       const menu = await settled({ only: true, max: SHOWN_MS, until: `!!(document.activeElement && document.activeElement.closest('[role=menu]'))` });
@@ -261,6 +265,9 @@ for (const cfg of runs) {
         await settle();
         const landed = await ev(`({ tour: Tour.isActive(), inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), on: document.activeElement ? document.activeElement.tagName + '.' + document.activeElement.className : null })`);
         check(`${tag} focus: the tour started from the Help menu by keyboard has the focus in the strip`, on.ok && landed.tour && landed.inStrip, landed);
+        // (Start is where it lands, filled with the accent: its ring must be seen on it, so a ring inside its box tells from its fill)
+        const ring = await ev(RING);
+        check(`${tag} focus: the Start the focus lands on shows a ring that tells from its fill (a contrast of 3 or more, or a ring outside its box)`, !!ring && ring.ring && (ring.over == null || ring.over >= 3), ring);
       }
       await ev('Tour.isActive() && Tour.stop()'); await calm();
       // and from the command palette: its first "Tour: ..." row (the palette lists them all, in the page's language), picked with the arrow keys
