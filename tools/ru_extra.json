@@ -438,6 +438,8 @@
  "gen\u0004the external ray %{m}": "внешнего луча %{m}",
  "the equipotential %{m}": "эквипотенциаль %{m}",
  "gen\u0004the equipotential %{m}": "эквипотенциали %{m}",
+ "the %{label} %{m}": "точка «%{label}» %{m}",
+ "gen\u0004the %{label} %{m}": "точки «%{label}» %{m}",
  "Steps N: the orbit must pass |w| = 10⁴ within N steps (|u| > 2 is not enough for Φ), so a thin band next to the set, wider than the escape test |u| ≤ 2 leaves, stays blank": "Шагов N: орбита должна выйти за |w| = 10⁴ не более чем за N шагов (|u| > 2 для Φ недостаточно), поэтому тонкая полоса у множества, шире той, что оставляет проверка ухода |u| ≤ 2, остаётся пустой",
  "Cauchy: a simple pole": "Коши: простой полюс",
  "Cauchy: a regular part and a pole": "Коши: регулярная часть и полюс",
@@ -840,5 +842,8 @@
  "The next plane shows its image under $F$.": "Следующая плоскость показывает её образ при $F$.",
  "Natural domain": "Естественная область",
  "Stack": "Стопка",
- "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d"
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d",
+ "narrows here: {d}, not a join": "сужается здесь: {d}, это не слияние",
+ "tube of a piece": "трубка части",
+ "critical point to its value": "от критической точки к её значению"
 }
