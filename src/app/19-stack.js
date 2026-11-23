@@ -90,8 +90,9 @@
   // and with no target to show (a selected disc of a later plane) the first such disc is selected; with none, a starter
   // disc is added on the next plane (one edit, said in the live region), about F(c) for c a quarter of the view off its
   // centre (off a critical point there, as z² has at 0), of radius STACK_START_R of the view's width through F′(c), so
-  // that its patches and tubes land in view. With no later plane nothing is added
-  const STACK_START_R = 0.12;
+  // that its patches and tubes land in view, but at most STACK_START_GAP of the way to the nearest critical value, so
+  // that its pieces are apart (z³ − 1.2z + 0.3 shows three). With no later plane nothing is added
+  const STACK_START_R = 0.12, STACK_START_GAP = 0.6;
   function stackChosen() {
     if (!stackCamSet) stackCamOpen(null);
     const k = leftStage(), sel = findShape(selected);
@@ -103,9 +104,11 @@
     const F = rangeF(k, T);
     paneL.setView(leftView());
     const b = paneL.box(), W = b.x1 - b.x0, H = b.y1 - b.y0, mid = C((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
+    const cr = stageCritical(k, T, b), vals = cr && cr.values.known ? cr.values.list.map((v) => v.w).filter((w) => w && CX.isFin(w)) : [];
     for (const [u, v] of [[0.25, 0], [0.25, 0.15], [-0.25, 0.15], [0, 0.25]]) {
       const c = C(mid.re + u * W, mid.im + v * H), h = 1e-4 * W, w = F(c);
-      const d = CX.abs(CX.sub(F(C(c.re + h, c.im)), F(C(c.re - h, c.im)))) / (2 * h), r = STACK_START_R * W * d;
+      const d = CX.abs(CX.sub(F(C(c.re + h, c.im)), F(C(c.re - h, c.im)))) / (2 * h), gap = Math.min(Infinity, ...vals.map((v) => CX.abs(CX.sub(v, w))));
+      const r = Math.min(STACK_START_R * W * d, STACK_START_GAP * gap);
       if (!CX.isFin(w) || !(r > 0) || !Number.isFinite(r)) continue;
       addShape(newShape('disc', { c: [w.re, w.im], r, stage: T }));
       svSay($t('A starter disc added on {w}, with its preimage on {z}', { w: svName(T), z: svName(k) }));
