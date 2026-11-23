@@ -10,15 +10,10 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
 const settle = async (ms = 500) => { await sleep(ms); await ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const ns = 'svp' + Date.now();
+const { MOB, CUBE, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 // Cayley, then cube's chain with the upper half-plane: z → w₁ (Möbius) → w₂ (cube)
-const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }],
-  steps: [{ type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, { type: 'pown', params: { n: 3 }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
 const open = async () => {
-  await view(1280, 800, false, false);
-  await go(`http://localhost:${PORT}/gl-helpers.html`); await sleep(300);
-  await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await go(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
-  await settled({ max: 30000, until: `typeof __cmwSteps === 'function'` }); await settle(500);
+  await openChain({ ns, steps: [MOB, CUBE], w: 1280, h: 800, until: `typeof __cmwSteps === 'function'`, max: 30000 }); await settle(500);
 };
 const S = () => ev('__cmwSteps()');
 const ctl = (o) => ev(`__cmwSteps(${JSON.stringify(o)})`);

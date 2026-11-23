@@ -255,6 +255,10 @@ artifact.
   listed with their numbers in the summary and a warning, and do not fail the job. Where one condition also asserts
   something else (the drag drew frames, the step did advance), the check counts as timing only when that part held.
   Every other check gates.
+- **Rows that made no check** (`noCheck` in a suite's result, `ci/browser_no_check.js`): a suite that cannot test a row when the
+  runner is late (tour_auto's 400 ms spike rows when the poll came too late for them) passes it and lists it in `noCheck`.
+  The log, the head line (`, N no check`) and the summary show those rows, and a warning names them; they do not fail the job.
+  (Not `skipped`: tour_phone and tour_audit return that for the tour's "step skipped" log lines, which a normal run has.)
 - **Software-renderer failures** (`SOFTWARE` in `ci/browser_suites.js`): a few correctness checks need several frames
   in a short window (a voice update in each of 60 frames, a Loop that moves t within 1 s, a ring drawn 450 ms after
   a layer opens). Each is listed with its reason and a predicate on the check's own detail that holds only for that
@@ -556,6 +560,7 @@ Settings (environment variables):
 | `ci/browser.js`, `ci/browser_shards.js`, `ci/browser_suites.js` | the browser suites, one summary row each; the shards; what the runner knows about some suites (excluded files, runs, extra pages, timing checks, software-renderer failures, known failures) |
 | `ci/snapshots.js` | the old source snapshots some unit tests compare with (v13, v16.2, v16.3), from the git history (a shallow clone: it fetches each commit by itself, #427); a test whose snapshot is missing fails with what to run |
 | `ci/glsl.js` | the GLSL conformance pages |
+| `ci/glsl_failures.js` | a failing GLSL page's failures as short text (a few lines per row, the counts, the rows left out) for the log and the job summary; `test/t_glsl_failures.js` tests it |
 | `ci/quality.js` | the paired image-quality gate |
 | `ci/perf_shard.js`, `ci/perf_shards.js`, `ci/perf_busy.js`, `ci/perf_verdicts.js` | one paired perf shard or part; the shards and their parts (Perf shards and their parts); its loaded-machine guard (Perf on a loaded machine); `test/t_perf_shards.js`, `test/t_perf_verdicts.js` and `test/t_perf_busy.js` test them |
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |

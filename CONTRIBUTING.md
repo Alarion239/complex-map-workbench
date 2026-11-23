@@ -87,6 +87,10 @@ ruff check
   (each names its generator at the top). `node test/t_i18n_tables.js` fails a pull request whose ru or it table is not a
   fresh generation (a changed ru or it JSON, or a changed string): run the generator it
   names (`python3 tools/make_ru_table.py --strict`, `python3 tools/make_it_table.py`; `--check` writes nothing).
+  The Russian of a string is edited in `tools/ru_extra.json`. The later tables of `notes/i18n/ru/` (phase 2b's and the
+  versioned rounds') are history: to change a string one of them holds, put its key in `tools/ru_extra.json` and delete the
+  table's entry; a key held by both fails `--strict` and `--check` (`IN BOTH`). `tools/ru_extra.json` overrides the base
+  inventory tables (`chrome.json`, `math.json`, `guide-tour.json`) without an edit there.
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
   `python3 tools/vendor.py` again (it needs npm and `pip install fonttools brotli`) and commit `vendor/`. A character

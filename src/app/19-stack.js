@@ -6,8 +6,8 @@
   // (straight down). Each level is a plane, so the camera sees it as an affine map of the flat plane's css px
   // (stackLevel). The levels are drawn in one fixed order, STACK_ORDER, whatever the camera:
   // - the floor's picture, on the main canvas;
-  // - then on the overlay: the floor's marks, the box's edges and the lines from the floor to the glass, the glass (its
-  //   tint and rim), and the glass's marks.
+  // - then on the overlay: the floor's marks, the tubes (19-stack-tubes.js), the box's edges and the lines from the
+  //   floor to the glass, the glass (its tint and rim), the glass's marks, and the tubes' labels.
   // The camera is never under the floor, so a higher level is always nearer to it: the fixed order is the order in depth.
   // Seen straight down with yaw 0 both levels' maps are the identity, and the frame is Look down's.
   const STACK_PITCH_MIN = 10 * DEG;
@@ -16,9 +16,9 @@
   const stackCam = Object.assign({ vyaw: 0, vpitch: 0 }, STACK_CAM);
   const STACK_GLASS_H = 0.5;                  // the glass's height above the floor, a share of the pane's shorter side
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
-  const STACK_ORDER = ['floor', 'floor marks', 'lines', 'glass', 'glass marks'];
+  const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'labels'];
   let stackCv = null;                         // the floor's picture as the flat plane drew it last (svCanvas's)
-  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps}
+  let stackDrawn = null;                      // the last frame: {order: its layers as drawn, camera, floor, glass: the levels' maps, marks, tubes (with ms: their draw time)}
   let stackFlat = false;                      // the Stack's floor is being drawn flat (stackDrawPlane)
   // the Stack is shown, and its camera draws: not while its floor is drawn flat, which the flat plane's own draw does
   const stackOn = () => SV.on && SV.surf === 'stack' && !stackFlat;
@@ -70,7 +70,7 @@
     return true;
   }
   // The Stack's layers after the floor on ctx (css px, pane's overlay), for the flat view of pane: the floor's marks, the
-  // box's edges and the lines, the glass, the glass's marks (STACK_ORDER). The marks are Look down's, for the selected
+  // tubes, the box's edges and the lines, the glass, the glass's marks, the tubes' labels (STACK_ORDER). The marks are Look down's, for the selected
   // disc while its readout card shows (lookMarksOn). Returns the frame's record (stackDrawn's)
   function stackMarks(pane, ctx, camera) {
     const s = findShape(selected), on = lookMarksOn(s), mk = on ? lookMarks(pane, s) : null;
@@ -93,22 +93,25 @@
       ctx.globalAlpha = STACK_EDGE_A * tilt; ctx.strokeStyle = TH.ink; ctx.lineWidth = 1; ctx.stroke();
       ctx.restore();
     };
+    let tubes = null;
     const layers = {
       'floor marks': () => mk && drawLookLayer(ctx, mk, lv, 'floor'),
+      tubes: () => { if (!mk) return; const t0 = performance.now(); tubes = drawStackTubes(pane, ctx, s, F, G, tilt, mk.critZ); if (tubes) tubes.ms = performance.now() - t0; },
       lines: () => { edges(); if (mk) drawLookLayer(ctx, mk, lv, 'lines'); },
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
+      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, pane.w); },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
-    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk };
+    return { order, camera: { yaw: camera.yaw, pitch: camera.pitch }, floor: F, glass: G, marks: !!mk, tubes, plane: TH.plane };
   }
   // the Stack's overlay on the left pane (renderOverlays'), with Look down's key chip when the marks show. False when the
   // Stack is not shown
   function stackDrawOverlay(pane) {
     if (!stackOn()) return false;
     stackDrawn = stackMarks(pane, pane.octx, stackCam);
-    syncLookKey(stackDrawn.marks);
+    syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
     return true;
   }
   // TEST-HOOK (dropped from the published page by build.py): the Stack's state and its last frame; o.same: {yaw, pitch}

@@ -135,11 +135,6 @@
   "ru": "Добавить",
   "note": "params build (v15)"
  },
- "v15p.ui.cancel": {
-  "en": "Cancel",
-  "ru": "Отмена",
-  "note": "params build (v15)"
- },
  "v15p.ui.rename": {
   "en": "Rename",
   "ru": "Переименовать",
@@ -153,11 +148,6 @@
  "v15p.ui.value_x": {
   "en": "Value of {x}",
   "ru": "Значение {x}",
-  "note": "params build (v15)"
- },
- "v15p.ui.pause": {
-  "en": "Pause",
-  "ru": "Пауза",
   "note": "params build (v15)"
  },
  "v15p.ui.play_tip": {
@@ -228,11 +218,6 @@
  "v15p.ui.step_l": {
   "en": "step",
   "ru": "шаг",
-  "note": "params build (v15)"
- },
- "v15p.ui.done": {
-  "en": "Done",
-  "ru": "Готово",
   "note": "params build (v15)"
  },
  "v15p.ui.delete_x": {
