@@ -17,8 +17,8 @@
   const LD_CAP = 24;                     // the most critical points drawn (an infinite set: those in the window)
   let lookDown = true;                   // the readout card's Look down switch
   let lookDrawn = null;                  // the marks as drawn, in the pane's css px (lookHit, __cmwLookDown)
-  // whether Look down draws for shape s: only where its readout card, with the switch, shows (the Inspector)
-  const lookDownOn = (s) => lookDown && readoutOn(s) && lFlat() && inspEditsShapes();
+  // whether Look down draws for shape s: only where its readout card, with the switch, is built (readoutShown)
+  const lookDownOn = (s) => lookDown && lFlat() && readoutShown(s);
   // the join radius drawn for a disc of radius r: the least above r, else the largest
   const ldJoin = (joins, r) => { const up = joins.filter((q) => q > r); return up.length ? Math.min(...up) : joins.length ? Math.max(...joins) : null; };
   function drawLookDown(pane) {
@@ -65,8 +65,9 @@
       || d.lines.some(([x0, y0, x1, y1]) => segDist([x, y], [x0, y0], [x1, y1]) <= LD_HIT / 2);
     return near ? findShape(d.id) : null;
   }
-  // the key chip over the left plane, shown with the marks
-  let lookKey = null;
+  // the key chip over the left plane, shown with the marks. On a phone it starts folded to its title, a button that
+  // unfolds it (the open key covers a fifth of a 360 px plane)
+  let lookKey = null, lookKeyOpen = false, lookFits = 0;
   const LD_KEY = [
     { kind: 'ring', text: () => $t('target') }, { kind: 'line', text: () => $t('to the target') }, { kind: 'cross', text: () => $t('critical point') },
     { kind: 'dot', text: () => $t('critical value') }, { kind: 'dash', text: () => $t('join radius') },
@@ -75,15 +76,38 @@
   function syncLookKey(on) {
     const host = $('plotL');
     if (!host) return;
-    if (!lookKey) { lookKey = h('div', { class: 'ld-key', role: 'note' }); host.append(lookKey); }
-    const sig = on ? I18N.lang : '';
+    if (!lookKey) {
+      lookKey = h('div', { class: 'ld-key', role: 'note' });
+      host.append(lookKey);
+      // (its room is measured again when the key or the plane changes size, or the root's classes change: the context bar
+      // opening or closing, a turn to landscape; never per overlay frame)
+      try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLookKey)); ro.observe(lookKey); ro.observe(host); } catch (e) { /* no ResizeObserver */ }
+      try { new MutationObserver(() => requestAnimationFrame(fitLookKey)).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+    }
+    const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}` : '';
     if (lookKey.dataset.sig === sig) return;
     lookKey.dataset.sig = sig;
     lookKey.hidden = !on;
+    if (!on) { fitLookKey(); return; }
+    const fold = (open) => { lookKeyOpen = open; lookKey.classList.toggle('folded', ph && !open); ttl.setAttribute('aria-expanded', String(open)); fitLookKey(); };
+    const ttl = ph ? h('button', { type: 'button', class: 'ld-ttl', 'aria-controls': 'ldList', onclick: () => fold(!lookKeyOpen) }, $t('Look down')) : h('span', { class: 'ld-ttl' }, $t('Look down'));
     // (the marks are a list, so a screen reader says them one by one)
-    if (on) lookKey.replaceChildren(h('span', { class: 'ld-ttl' }, $t('Look down')), h('span', { class: 'ld-list', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
+    lookKey.replaceChildren(ttl, h('span', { class: 'ld-list', id: 'ldList', role: 'list' }, ...LD_KEY.map(({ kind, text }) => h('span', { class: 'ld-it', role: 'listitem' }, ldSwatch(kind), text()))));
+    lookKey.classList.toggle('folded', ph && !lookKeyOpen);
+    if (ph) ttl.setAttribute('aria-expanded', String(lookKeyOpen));
+    fitLookKey();
   }
-  // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, and the key's words, its marks after
-  // its title, "; " between them
-  window.__cmwLookDown = () => (lookDrawn ? Object.assign({ key: lookKey && !lookKey.hidden ? [lookKey.querySelector('.ld-ttl'), ...lookKey.querySelectorAll('.ld-it')].map((e) => e.textContent).join('; ') : '' }, JSON.parse(JSON.stringify(lookDrawn))) : null);
+  // an open key on a landscape phone that the room under the plane's readout would cut: it takes the plane's top, over the
+  // readout, which gives way (phone.css)
+  function fitLookKey() {
+    if (!lookKey) return;
+    lookFits++;
+    lookKey.classList.remove('over-readout');
+    const rc = document.documentElement.classList;
+    if (lookKey.hidden || !lookKeyOpen || !rc.contains('ph') || !rc.contains('ph-land')) return;
+    if (lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
+  }
+  // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, the key's words (its marks after its
+  // title, "; " between them), and how many times the key's room was measured (fits)
+  window.__cmwLookDown = () => (lookDrawn ? Object.assign({ key: lookKey && !lookKey.hidden ? [lookKey.querySelector('.ld-ttl'), ...lookKey.querySelectorAll('.ld-it')].map((e) => e.textContent).join('; ') : '', fits: lookFits }, JSON.parse(JSON.stringify(lookDrawn))) : null);
   // TEST-HOOK
