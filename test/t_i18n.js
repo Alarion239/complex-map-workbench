@@ -371,8 +371,9 @@ as('ru', () => {
   eq(del, 'Удалить объект «Круг 1» и зависимые от него объекты (2)', 'ru names: Delete with its dependants, the name after a head noun (any gender)');
   eq(T('Line integral along {name}', { name: 'задний край' }), 'Интеграл по кривой «задний край»', 'ru names: the line integral popover along a curve quotes its name');
   eq(T('Line integral around {name}', { name: 'задний край' }), 'Интеграл по контуру «задний край»', 'ru names: the line integral popover around a contour quotes its name');
-  eq(T('{sym} along {name}{part}', { sym: '∫', name: 'задний край', part: '' }), '∫ по кривой «задний край»', 'ru names: the popover title along a curve quotes its name');
-  eq(T('{sym} around {name}{part}', { sym: '∮', name: 'задний край', part: '' }), '∮ по контуру «задний край»', 'ru names: the popover title around a contour quotes its name');
+  // (the popover's visible title is one line, cut with an ellipsis when too long: its words stay as short as they were, and
+  // its aria-label above names the curve in «»)
+  eq(T('{sym} along {name}{part}', { sym: '∫', name: 'Прямая 1', part: '' }), '∫ по кривой Прямая 1', 'ru names: the popover title keeps its one-line words');
   const cau = T('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh: 'F', name: 'задний край' });
   ok(cau.includes('по контуру «задний край»: F внутри'), `ru names: the Cauchy pane title quotes its contour's name, as its two siblings do: ${cau}`);
   // (the plane's spoken description of a point's marked preimages: {name} is the point's label, after its head noun «точки»)
