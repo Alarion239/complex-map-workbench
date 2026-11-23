@@ -548,6 +548,9 @@ html:not(.ph) .ph-only { display: none !important; }
    says the same sentence whole, so the words fold away and the chip keeps its × and ?. From 390 px tall, and in the steps view's wide plane, they fit) */
 @media (max-height: 389.98px) {
   :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip > .cm-t { display: none; }
+  /* (the folded chip's × is 32 px and its ? 20, each with a 44 px tap: 18 px between them put their centres 44 px apart, side by side or stacked, so
+     a finger between them is in one tap only and never cancels the construction by landing between the two) */
+  :root.ph.ph-land:not(.sv):has(.ph-ctx.in:not(.under)) .draft-chip.cm-on .cm-chip { gap: 18px; }
 }
 /* (an unfolded key is the one the person opened to read: it stands over what it meets, the keys (Fit view, the zoom group, Sphere) at any height where
    it meets them and the end of the construction chip, so its words are not hidden, and opaque, so what is under it does not show through; a tap on it
