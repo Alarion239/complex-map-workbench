@@ -45,6 +45,7 @@
   "other": "%{n} раза"
  },
  "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (principal branch), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (главная ветвь), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
+ "the homotopy $H_t(%{v})=%{v}^{%{e}}$ for $0\\le t\\le 1/2$ (%{cut}), then the elliptic Möbius transformations from the identity to $1/w$": "гомотопия $H_t(%{v})=%{v}^{%{e}}$ при $0\\le t\\le 1/2$ (%{cut}), затем эллиптические дробно-линейные отображения от тождественного до $1/w$",
  "A zero and a pole cancel at {at}": "Нуль и полюс сокращаются в точке %{at}",
  "{n} zero–pole pairs cancel at {at}\u0004{n} zero–pole pairs cancel at {at}": {
   "one": "%{n} пара «нуль — полюс» сокращается (%{at})",
@@ -184,7 +185,7 @@
  "Send to back": "На задний план",
  "Y hidden": "Y скрыта",
  "X hidden": "X скрыта",
- "Listening along {name}": "Слушаем: %{name}",
+ "Listening along {name}": "Звучит вдоль кривой «{name}»",
  "Listening along": "Слушаем вдоль кривой",
  "Leave the tool": "Выйти из инструмента",
  "A sum needs its index, as in \\sum_{n=0}^{\\infty}": "У суммы нужен индекс, например \\sum_{n=0}^{\\infty}",
@@ -274,8 +275,8 @@
  "Try: open Zeros of the zeta function and compare the colours to the right of Re z = 1.": "Попробуйте: откройте «Нули дзета-функции» и сравните цвета правее Re z = 1.",
  "Σ n^(−z), a Series step of the Dirichlet kind with aₙ = 1, is ζ(z) where it converges, to the right of the dashed line Re z = 1. To its left the series diverges and the plane is blank, while ζ itself continues.": "Σ n^(−z), шаг «Ряд» вида «ряд Дирихле» с aₙ = 1, равен ζ(z) там, где сходится, — правее штриховой прямой Re z = 1. Левее ряд расходится и плоскость пуста, хотя сама ζ продолжается.",
  "Open ⋯, then Search.": "Откройте ⋯ и выберите «Поиск».",
- "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
- "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
+ "This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.": "Эта кнопка открывает обучение по главам, руководство и список всех сочетаний клавиш. {?} сразу открывает руководство.",
+ "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide.": "Пункт «Обучение» в этом меню открывает обучение по главам, а «Руководство» — всё руководство.",
  "Construct: circle through 3 points, intersect, midpoint, bisector, perpendicular, touching, hyperbolic": "Конструкции: окружность через 3 точки, пересечение, середина, серединный перпендикуляр, ортогональная окружность, касающаяся окружность, гиперболическая прямая",
  "Preparing formulas…": "Готовим формулы…",
  "Add this shape": "Добавить эту фигуру",
@@ -308,6 +309,7 @@
  "Tap the line $\\operatorname{Im} z=0.8$, then drag it up or down.": "Коснитесь прямой $\\operatorname{Im} z=0{,}8$, затем потяните её вверх или вниз.",
  "Preparing the GPU… (first time only; shaders left: {n})": "Подготовка видеокарты… (только в первый раз; осталось шейдеров: %{n})",
  "This sum has more terms than the GPU draws ({n} of at most {cap}), so the pane is left blank. Lower its upper limit to draw it.": "В этой сумме больше слагаемых, чем рисует видеокарта (%{n} при максимуме %{cap}), поэтому панель остаётся пустой. Уменьшите верхний предел суммы, чтобы её нарисовать.",
+ "Part of this plane is blank: an infinite sum does not converge there within {terms} terms.": "Часть этой плоскости пуста: бесконечная сумма там не сходится за %{terms} слагаемых.",
  "The plane $%{p}$ at $%{c}=%{list}$.": "Плоскость $%{p}$ при $%{c}=%{list}$.",
  "The planes": "Плоскостям цепочки",
  "A Number": "Числу",
@@ -491,7 +493,7 @@
  "Place on the chain": "Место в цепочке",
  "Play": "Воспроизвести",
  "Pause": "Пауза",
- "Loop": "Повтор",
+ "Loop": "Цикл",
  "Start over at the end": "В конце начать сначала",
  "Clear the range": "Снять диапазон",
  "Clear the range  Esc": "Снять диапазон  Esc",
@@ -711,6 +713,9 @@
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Петля начата. Двигайтесь клавишами Alt + стрелки; Enter замыкает её.",
  "Preparing the glide…": "Готовим переход…",
  "Still preparing the glide.": "Переход всё ещё готовится.",
+ "The glide draws as it goes: its frames would take too long to prepare.": "Переход рисуется на ходу: кадры готовились бы слишком долго.",
+ "The glide draws as it goes: its frames would not fit in memory.": "Переход рисуется на ходу: кадры не поместились бы в памяти.",
+ "The glide draws as it goes: a frame could not be prepared exactly.": "Переход рисуется на ходу: кадр не удалось подготовить точно.",
  "Retry": "Повторить",
  "Cancel": "Отмена",
  "Outlines are drawn on the colour plane": "Контуры рисуются на плоскости цвета",
@@ -780,7 +785,7 @@
  },
  "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
  "phone tile\u0004Pick": "Точки",
- "Disc added on {w}, about the image of the lit point": "На %{w} добавлен круг с центром в образе выбранной точки",
+ "Disc added on {w}, about the image of the lit point": "В плоскости %{w} добавлен круг с центром в образе выбранной точки",
  "The pieces of its preimage are not counted for these steps": "Для этих шагов части прообраза не подсчитываются",
  "{n} preimage\u0004{n} preimages": {
   "one": "%{n} прообраз",
@@ -820,5 +825,7 @@
  "to the target": "к цели",
  "critical value": "критическое значение",
  "join radius": "радиус слияния",
- "Look down": "Взгляд сверху"
+ "Look down": "Взгляд сверху",
+ "Stack": "Стопка",
+ "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, стопка, коробка, стекло, пол, наклон, прообразы, цель, 3d"
 }

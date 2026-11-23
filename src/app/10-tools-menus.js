@@ -532,7 +532,10 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
+    // (a disc of a later plane's readout card under its editor where the Inspector does not edit shapes: 19-readout.js)
+    const ro = ed && !inspEditsShapes() ? readoutBuild(s) : null;
+    if (ro) { box.append(ro.root); readoutFill(ro, s); }
+    shapeRows.set(s.id, { d, box, sw, ed, ro, kind: rowKind(s), row, k: name, more: openMore });
     // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
     if (!touchUI() && list.length > 1) {
       box.draggable = true;
@@ -590,6 +593,7 @@
       const r = shapeRows.get(s.id);
       if (!r) continue;
       if (r.ed && r.ed._sync) r.ed._sync();
+      if (r.ro) readoutFill(r.ro, s);
       r.sw.style.cssText = swatchStyle(s);
       let tex;
       try { tex = isTarget(s) ? shapeTexOf(s) : shapeTexOwn(s); } catch (e) { tex = '\\text{?}'; }
