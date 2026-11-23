@@ -1,19 +1,19 @@
 {
  "quintic @ 0.3": {
   "newt": 1,
-  "src": "83524daebf005911845deecfa84e6f917dd7f1b14c3aeb2086f7a52dea32d58f"
+  "src": "2d6a14599c1578b5a83c8531b74ff35c318525b5b094c6a93b1479544d17725a"
  },
  "quintic @ 0.7": {
   "newt": 1,
-  "src": "0201ee92c0e52344abebc11e747a13f7c7842554225237aead02a227a721a50a"
+  "src": "f31956b21663db961e748e51067e48185df3963087eb8dd1a22a6a86c0f872b2"
  },
  "sextic @ 0.3": {
   "newt": 1,
-  "src": "b77f9c86e3dc787d85b314619d1f3b3277d6fd33a6eb20aeedeebf2e1a7d5877"
+  "src": "a3aa492c796633d2c9e4a4885fb33836a549f1a869a1608f73aa93d547e4a0d6"
  },
  "sextic @ 0.7": {
   "newt": 1,
-  "src": "b77f9c86e3dc787d85b314619d1f3b3277d6fd33a6eb20aeedeebf2e1a7d5877"
+  "src": "a3aa492c796633d2c9e4a4885fb33836a549f1a869a1608f73aa93d547e4a0d6"
  },
  "gamma+1 @ 0.3": {
   "newt": 1,

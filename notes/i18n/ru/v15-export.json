@@ -105,11 +105,6 @@
     "ru": "Размер видео",
     "note": ""
   },
-  "v15x.speed": {
-    "en": "Speed",
-    "ru": "Скорость",
-    "note": "Video row: frame rate and length."
-  },
   "v15x.frame_rate": {
     "en": "Frame rate",
     "ru": "Частота кадров",
@@ -124,11 +119,6 @@
     "en": "Once",
     "ru": "Один раз",
     "note": ""
-  },
-  "v15x.loop": {
-    "en": "Loop",
-    "ru": "Цикл",
-    "note": "Three runs from t = 0 to the end (a short word: three choices share 210 px)."
   },
   "v15x.bounce": {
     "en": "Bounce",
@@ -160,11 +150,6 @@
   "v15x.save_video": {
     "en": "Save video",
     "ru": "Сохранить видео",
-    "note": ""
-  },
-  "v15x.cancel": {
-    "en": "Cancel",
-    "ru": "Отмена",
     "note": ""
   },
   "v15x.making_video": {
