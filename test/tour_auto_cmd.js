@@ -9,7 +9,7 @@
 // Run: test/<you>_cdp/q.sh test/tour_auto_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
-const R = [], skipped = [];   // (the rows whose precondition the runner's lateness denied: they are made again or skipped, and a skip is listed in the result)
+const R = [], noCheck = [];   // (the rows whose precondition the runner's lateness denied are made again, or made no check; the latter are listed in the result's noCheck)
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = async () => { const c = await ev('Tour.current()'); return c ? c.chapter + '/' + c.id : null; };
@@ -154,7 +154,7 @@ const spikesX = !!dX && dX.left >= SPIKE_ROOM_MS;
 if (spikesX) await blockAtDue(dX);
 const aX = await advanceFrom(PAN, dX, 150);
 check('x: moves on 1500 ± 150 ms after the release', aX.ok, [aX, dX]);
-if (!spikesX) skipped.push('x: the 400 ms block (the poll saw done with less than ' + SPIKE_ROOM_MS + ' ms left)');
+if (!spikesX) noCheck.push('x: the 400 ms block (the poll saw done with less than ' + SPIKE_ROOM_MS + ' ms left)');
 check('x: the long-task record sees the 400 ms block and the advance followed it', !spikesX || (aX.blocked >= 350 && aX.at >= dX.left + 200), [spikesX, aX]);
 // Draw: the disc; an input at +1 s changes nothing: the advance stays at CD_MS after the event
 const disc = await center('#tools > .tool[data-tool="disc"]');
@@ -202,7 +202,7 @@ if (kc) {
   const dK = await doneAt(t0), wheelLate = !!dK && dK.left < INPUT_ROOM_MS;
   const wheelAt = wheelLate ? null : await inputAtPlus1s(dK, 'wheel', () => send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 }));
   const aK = await advanceFrom(KEYSTEP, dK, 300);
-  if (wheelLate) skipped.push('key: the wheel at +1 s (the poll saw done with less than ' + INPUT_ROOM_MS + ' ms left)');
+  if (wheelLate) noCheck.push('key: the wheel at +1 s (the poll saw done with less than ' + INPUT_ROOM_MS + ' ms left)');
   check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && (wheelLate || (wheelAt != null && wheelAt < dK.p + dK.left)), [aK, dK, wheelAt, wheelLate]);
 }
 // (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
@@ -249,7 +249,7 @@ if (fi) {
   if (spikes) await blockAtDue(dD);
   const aD = await advanceFrom('basics/formula', dD, 250);
   check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done, late only as far as the page was blocked', aD.ok, [aD, dD, await ev('document.activeElement && document.activeElement.id')]);
-  if (!spikes) skipped.push('formula: the 400 ms spike (the poll saw done with less than ' + SPIKE_ROOM_MS + ' ms left)');
+  if (!spikes) noCheck.push('formula: the 400 ms spike (the poll saw done with less than ' + SPIKE_ROOM_MS + ' ms left)');
   check('formula: the long-task record sees the 400 ms spike and the advance followed it', !spikes || (aD.blocked >= 350 && aD.at >= dD.left + 200), [spikes, aD]);
   // (controls: the advance check keeps both its bounds. The same advance, judged against a due moment 0.5 s after the advance, came before it; against
   // one 1 s before it, with no stall counted, it came later than nothing explains: neither is ok, whatever the load of this run)
@@ -669,4 +669,4 @@ check('1366 × 768: a tour-sr line at the end of the body does not make the page
 await view(1440, 900, false, false);
 const L = logs().filter((l) => /EXC|\[tour\]/i.test(l.t + l.m)).slice(0, 12);
 check('no exceptions or tour warnings', !L.length, L);
-return { pass: R.filter((r) => r[1]).length, of: R.length, fails: R.filter((r) => !r[1]), skipped, logs: L };
+return { pass: R.filter((r) => r[1]).length, of: R.length, fails: R.filter((r) => !r[1]), noCheck, logs: L };

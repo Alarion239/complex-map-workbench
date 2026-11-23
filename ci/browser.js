@@ -23,7 +23,7 @@ const { SUITES, EXCLUDED, TIMING, SOFTWARE, KNOWN, PAGES, ALWAYS } = require('./
 const { suitesOf } = require('./browser_shards');
 const { VIEWS } = require('./suite_views');
 const runLock = require('./run_lock');
-const { skippedOf, skippedMarkdown } = require('./browser_skipped');
+const { noCheckOf, noCheckMarkdown } = require('./browser_no_check');
 
 const argv = process.argv.slice(2);
 const opt = (k, d) => (argv.includes(k) ? argv[argv.indexOf(k) + 1] : d);
@@ -205,7 +205,7 @@ async function main() {
   const srv = await serve(dist, Number(opt('--port', 0)));
   const port = srv.server.address().port;
   console.log(`dist/ at ${srv.base}; ${runs.length} run(s)${shard ? ` of shard ${shard}` : ''}`);
-  const rows = [], timing = [], soft = [], known = [], skipped = [], notes = [];
+  const rows = [], timing = [], soft = [], known = [], noCheck = [], notes = [];
   let failed = 0, n = 0;
   const t00 = Date.now();
   try {
@@ -233,14 +233,14 @@ async function main() {
       for (const f of t) timing.push({ name, f });
       for (const f of sw) soft.push({ name, f, why: matches(SOFTWARE[file], f).why });
       for (const f of k) known.push({ name, f, why: matches(KNOWN[file], f).why });
-      const sk = skippedOf(res.out);
-      for (const row of sk) skipped.push({ name, row });
+      const nc = noCheckOf(res.out);
+      for (const row of nc) noCheck.push({ name, row });
       const ok = !hard.length;
       if (!ok) failed++;
       // (a passing suite's screenshots are not kept, unless it reports with them: SUITES[f].keepShots)
       if (ok && !(SUITES[file] && SUITES[file].keepShots)) fs.rmSync(shotsDir(file, r), { recursive: true, force: true });
       fs.writeFileSync(path.join(OUT, name.replace(/[^\w.-]+/g, '_') + '.json'), JSON.stringify({ file, run: r.label, ms: res.ms, error: res.error, out: res.out }, null, 1));
-      const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}${sk.length ? `, ${sk.length} skipped` : ''}`;
+      const head = `${ok ? 'pass' : 'FAIL'} ${name} (${secs(res.ms)})${t.length ? `, ${t.length} timing` : ''}${sw.length ? `, ${sw.length} software` : ''}${k.length ? `, ${k.length} known` : ''}${nc.length ? `, ${nc.length} no check` : ''}`;
       console.log(gh ? `::group::${head}` : `== ${head}`);
       if (res.out && res.out.pass != null && res.out.of != null) console.log(`${res.out.pass} of ${res.out.of}`);
       // (a suite that reports, SUITES[f].logLine: its result in one line of the log, readable with the job's log alone)
@@ -251,15 +251,15 @@ async function main() {
       for (const f of t) console.log(`  timing (not gated) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of sw) console.log(`  software renderer (not gated here) ${f.name}: ${short(f.detail, 600)}`);
       for (const f of k) console.log(`  known ${f.name}: ${short(f.detail, 600)}`);
-      for (const row of sk) console.log(`  skipped (made no check, not a failure) ${row}`);
+      for (const row of nc) console.log(`  no check (the runner was late for it, not a failure) ${row}`);
       if (!ok && res.log) console.log('-- daemon log --\n' + res.log.slice(-4000));
       if (!ok && res.out && res.out.logs) console.log('-- page console --\n' + short(res.out.logs, 4000));
       if (gh) console.log('::endgroup::');
       if (!ok && gh) console.log(`::error title=${name} failed::${esc(short(hard[0].name + (hard[0].detail !== undefined ? ': ' + short(hard[0].detail, 200) : ''), 300))}`);
       if (t.length && gh) console.log(`::warning title=${name}: timing (not gated)::${esc(short(t.map((f) => f.name).join('; '), 300))}`);
-      if (sk.length && gh) console.log(`::warning title=${name}: rows made no check::${esc(short(sk.join('; '), 300))}`);
+      if (nc.length && gh) console.log(`::warning title=${name}: rows made no check::${esc(short(nc.join('; '), 300))}`);
       const res1 = res.out && typeof res.out.pass === 'number' && typeof res.out.of === 'number' ? `${res.out.pass}/${res.out.of}` : ok ? 'pass' : '';
-      rows.push(`| ${ok ? (t.length || sw.length || k.length || sk.length ? '✅⚠️' : '✅') : '❌'} | \`${name}\` | ${secs(res.ms)} | ${esc(short([res1, ...hard.slice(0, 3).map((f) => f.name)].filter(Boolean).join('; '), 240))} | ${t.length || ''} | ${sw.length || ''} | ${k.length || ''} |`);
+      rows.push(`| ${ok ? (t.length || sw.length || k.length || nc.length ? '✅⚠️' : '✅') : '❌'} | \`${name}\` | ${secs(res.ms)} | ${esc(short([res1, ...hard.slice(0, 3).map((f) => f.name)].filter(Boolean).join('; '), 240))} | ${t.length || ''} | ${sw.length || ''} | ${k.length || ''} |`);
     }
   } finally { srv.server.close(); }
   const md = [`### Browser suites${shard ? ` (${shard})` : ''}: ${n - failed} of ${n} passed, ${secs(Date.now() - t00)}`, '',
@@ -272,7 +272,7 @@ async function main() {
     ...soft.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} | ${esc(short(x.f.detail, 200))} |`), '', '</details>', '');
   if (known.length) md.push('**Known failures (listed in ci/browser_suites.js, not gated):**', '', '| suite | check | why |', '|---|---|---|',
     ...known.map((x) => `| \`${x.name}\` | ${esc(short(x.f.name, 160))} | ${esc(x.why)} |`), '');
-  md.push(...skippedMarkdown(skipped, esc, short));
+  md.push(...noCheckMarkdown(noCheck, esc, short));
   const ex = all.filter((f) => EXCLUDED[f]);
   if (notes.length) md.push(...notes, '');
   md.push(`<details><summary>Not run here (${ex.length} files: ci/browser_suites.js EXCLUDED)</summary>`, '', ...ex.map((f) => `- \`${f}\`: ${esc(EXCLUDED[f])}`), '', '</details>', '');
