@@ -102,12 +102,24 @@ ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.query
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
 await calm();
-await ev(`document.querySelector('.sv-play').click(); 1`);
-const p2 = await S();
+// (▶ pressed again in the frame its glide is first seen in, the glide read in that frame and the pause in the next, all
+// in the page: two reads from outside it can take longer to come back than the whole 0.9 s glide on a loaded renderer,
+// and the second press would then find the glide over and start another, as for the first press above)
+const pp = await ev(`await new Promise((res) => {
+  const btn = document.querySelector('.sv-play'), t0 = performance.now(), pick = (s) => ({ play: s.play, x: s.x, i: s.i, moving: s.moving, playRec: s.playRec });
+  btn.click();
+  const look = () => {
+    const s = __cmwSteps();
+    if (s.play === 'glide' && s.moving) { const p2 = pick(s); btn.click(); requestAnimationFrame(() => res({ p2, pz: pick(__cmwSteps()) })); return; }
+    if (performance.now() - t0 > 5000) { res({ p2: pick(s), pz: null }); return; }
+    requestAnimationFrame(look);
+  };
+  look();
+})`);
+const p2 = pp.p2;
 ok('▶ at the end starts over', p2.play === 'glide' && p2.x < 1, p2);
-await ev(`document.querySelector('.sv-play').click(); 1`);
-const pz = await S();
-ok('▶ again pauses: it stays where it was, and nothing moves on', pz.play === null, pz);
+const pz = pp.pz || await S();
+ok('▶ again pauses: it stays where it was, and nothing moves on', !!pp.pz && pz.play === null, pz);
 await sleep(300); const pz2 = await S();
 ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x]);
 // (nominal planes a second: slow 0.5, normal 1.11, each told from the other; fast, 2.2, is a 0.9 s glide that a software renderer's frames
@@ -134,16 +146,18 @@ ok('a new speed takes over while it plays: the play goes on at fast, 450 ms a pl
   !!before && !!after && after.t0 >= before.t0 + before.el && after.to === before.to && after.from >= before.from
   && Math.abs(after.ms - FAST_MS * Math.max(sw.rebaseMinSpan, after.to - after.from)) < 1e-6, after);
 const e2 = await until('!__cmwSteps().play');
+info.speedTakeover = { ms: e2.ms, i: e2.s.i, ahead: e2.s.ahead, probe: e2.s.aheadProbe };
 ok('… and it ends on the last plane', !e2.timeout && e2.s.i === 2 && Math.abs(e2.s.x - 2) < 1e-9, e2);
 ok('the speed is the state\'s: S.sv.speed holds the strip\'s choice, and the device keeps it as the default', (await S()).svSpeed === 'fast' && await ev(`localStorage.getItem('cmw-sv-speed') === 'fast'`), await S());
 
 // keys: K plays and pauses, Esc pauses, ‹ › pause
 await ctl({ go: 0, now: true });
 await ev(`document.body.focus(); 1`);
-await press('k'); ok('K plays', (await S()).play === 'glide', await S());
+// (a play of a chain whose frames are slow waits first while they are drawn ahead, #1339: K and M play once that wait ends)
+await press('k'); const kp = await until("__cmwSteps().play === 'glide'"); ok('K plays', !kp.timeout && kp.s.play === 'glide', kp);
 await press('k'); ok('K pauses', (await S()).play === null, await S());
 await ctl({ go: 0, now: true });
-await press('m'); ok('M plays', (await S()).play === 'glide', await S());
+await press('m'); const mp = await until("__cmwSteps().play === 'glide'"); ok('M plays', !mp.timeout && mp.s.play === 'glide', mp);
 await press('Escape'); ok('Esc pauses', (await S()).play === null, await S());
 await ctl({ go: 0, now: true });
 await ctl({ play: true }); await sleep(100);
@@ -214,7 +228,8 @@ const bd = await ev(`(() => { const b = document.querySelector('.sv-band'); retu
 ok('the band shows, the clear button and the ring name it', !bd.hidden && /w₁/.test(bd.label) && bd.x === 'Clear the range' && /range z to w₁/.test(bd.vt), bd);
 ok('the range is saved as S.homRange', JSON.stringify((await S()).homRange) === '[1,1]', (await S()).homRange);
 await ctl({ play: true });
-const e3 = await until('!__cmwSteps().play');
+// (until it has played: a play of a chain whose frames are slow waits first while they are drawn ahead, #1339, and moving counts the wait)
+const e3 = await until('!__cmwSteps().moving');
 ok('play keeps to the range: it stops on w₁, not at w₂', !e3.timeout && e3.s.i === 1 && Math.abs(e3.s.x - 1) < 1e-9, e3.s);
 await ev(`document.querySelector('.sv-loop').click(); 1`);
 await ctl({ clock: LOOP_CLOCK, play: true });

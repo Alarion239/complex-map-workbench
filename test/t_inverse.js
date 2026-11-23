@@ -122,8 +122,8 @@ const noRec = (on, f) => { if (!on) return f(); const chain = Recognize.chain; R
   check('every catalog type except d/dz, Γ, ζ, a series, a recurrence, Φ_M and φ_c is round-tripped', Object.keys(Funcs.DEFS).every((id) => byRule.has(id) || covered.has(id)), Object.keys(Funcs.DEFS).filter((id) => !byRule.has(id) && !covered.has(id)).join(' '));
   // ineligible exactly
   const INELIGIBLE = [
-    ['poly', { co: '1, 0, 0, 0, -1, 0' }, 'polynomial of degree 5'], ['rational', { p: '1, 0, 0, 0, 0, 1', q: '1, 0' }, 'rational map of degree 5'],
-    ['custom', { expr: 'z^4+\\frac{1}{z}' }, 'rational formula of degree 5'], ['custom', { expr: '\\Re z+1' }, 'lose'], ['custom', { expr: '\\Im(z)' }, 'lose'],
+    ['poly', { co: '1, 0, 0, 0, -1, 0' }, 'polynomial of degree 5'], ['rational', { p: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1', q: '1, 0' }, 'rational map of degree 13'],
+    ['custom', { expr: 'z^{12}+\\frac{1}{z}' }, 'rational formula of degree 13'], ['custom', { expr: '\\Re z+1' }, 'lose'], ['custom', { expr: '\\Im(z)' }, 'lose'],
     ['custom', { expr: '|z|^2' }, 'lose'], ['custom', { expr: '\\arg(z)' }, 'lose'], ['deriv', {}, 'd/dz'], ['pown', { n: 17 }, '|n| > 16'], ['custom', { expr: 'z^{20}' }, '|n| > 16'],
     ['poly', { co: '1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1' }, '|n| > 16'], ['custom', { expr: 'z^{z}' }, 'variable base and exponent'], ['custom', { expr: '(1+z)^{\\sin z}' }, ''], ['custom', { expr: 'z\\cdot\\overline{z}' }, 'more than once'],
     ['mul', { c: '0' }, 'constant'], ['powa', { alpha: '0' }, 'constant'], ['mobius', { a: '1', b: '2', c: '2', d: '4' }, ''],
