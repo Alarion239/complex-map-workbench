@@ -2060,7 +2060,7 @@
             if (svHeldKept(key, asks)) return;
             const n0 = colourAsks;
             svRestAt(at, pane, still);
-            if (colourAsks === n0 || !colourBlank) { svRestFell = null; svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; return; }
+            if (colourAsks === n0 || !colourBlank) { svRestFell = null; svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; svHeldOn.pre = svCarryPre; return; }
             svRestFell = key;
           }
           SV.core = 'carry';
@@ -2210,7 +2210,8 @@
   }
   // the held frame on the left pane while a held glide's frames keep it there: { key: its inputs (the place held, the
   // view, the pane's size, the chain), asks: renderAsks once it was drawn or kept, mf: its moving paths (mfDrawn), cm:
-  // its cuts' inert handles (cutMarksL) }; null after any other frame
+  // its cuts' inert handles (cutMarksL), pre: its pre-mapped draws (svCarryPre, which a kept frame sets again) }; null
+  // after any other frame
   let svHeldOn = null;
   // the held frame at rest on plane z (its svHeldKept key) whose plot drew nothing while its program linked: drawn by the
   // carry core until nothing links (svDrawPlane); null otherwise
@@ -2220,8 +2221,8 @@
   // and the hold's own checks are all this frame does -> true; else -> false, svHeldOn starts over for key (null: none),
   // the frame's moving paths and cut handles put on it once drawn
   function svHeldKept(key, asks) {
-    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; return true; }
-    svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [] };
+    if (key !== null && svHeldOn && svHeldOn.key === key && svHeldOn.asks === asks) { svHeldOn.asks = renderAsks; mfDrawn = svHeldOn.mf; cutMarksL = svHeldOn.cm; svCarryPre = svHeldOn.pre; return true; }
+    svHeldOn = key === null ? null : { key, asks: renderAsks, mf: null, cm: [], pre: 0 };
     return false;
   }
   // hold: the place a waiting glide is drawn at instead of the thread's (svDrawPlane's svLinkHold), or null; asks: the
@@ -2372,7 +2373,7 @@
     if (rest) drawRulers(pane, 'L');
     // (the pane's GPU status and its notes, compiling or preparing, as renderLeft's frames keep them)
     glStatusNote(pane);
-    if (svHeldOn) { svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; }
+    if (svHeldOn) { svHeldOn.mf = mfDrawn; svHeldOn.cm = cutMarksL; svHeldOn.pre = svCarryPre; }
   }
   // Inside regions between two planes: the alpha of the regions of later planes (all: and of the colour's plane) in the
   // open frame, by the inverse pass (a region of plane k holds the points whose F_{0->k} it holds, moved by the glide's
