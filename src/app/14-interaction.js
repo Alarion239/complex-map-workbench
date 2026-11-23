@@ -21,13 +21,13 @@
   const is3DSide = (side) => (side === 'L' ? lLand() || lGlobe() : rGlobe());
   const is3D = () => rGlobe();
   const cam3 = () => camS;
-  const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : leftCam());
-  const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : leftCamBase());
+  const camOf = (side) => (side === 'R' ? camS : lLand() ? cam : stackOn() ? stackCam : leftCam());
+  const camBaseOf = (c) => (c === camS ? CAMS : c === cam ? CAM3 : c === stackCam ? STACK_CAM : leftCamBase());
   // the orbit camera of the left plane's sphere view (renderSphereLeft keeps it fitted, like camS)
   const leftCam = () => camL;
   const leftCamBase = () => CAML;
   // the landscape may be seen from the side and from below; the spheres from any latitude
-  const pitchMin = (c) => (c === cam ? -60 * DEG : -88 * DEG);
+  const pitchMin = (c) => (c === cam ? -60 * DEG : c === stackCam ? STACK_PITCH_MIN : -88 * DEG);
   // the reach of a zero or pole and of the cut handle for a pointer that is a finger (touch, or a pen: ptrTouch) or not: 22 px (a 44 px
   // target) for a finger, 11 and 12 px for a mouse
   const zpReach = (finger) => (finger ? 22 : 11), cutReach = (finger) => (finger ? 22 : 12);
@@ -166,7 +166,8 @@
           // a second finger ends the one-finger gesture; an edit it already made is kept as its own undo step (SPEC 2.6, the rail:
           // a point's or a shape's move goes back to its press state, no step)
           if (drag && (drag.mode === 'move' || drag.mode === 'handle') && Construct.cancelDrag && Construct.cancelDrag()) { /* cancelled */ }
-          else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp') && drag.moved))) onUp(pane, side, e);
+          else if (drag && (drag.mode === 'cut' || ((drag.mode === 'move' || drag.mode === 'handle' || drag.mode === 'gmove' || drag.mode === 'ghandle' || drag.mode === 'zp' || drag.mode === 'pickMove') && drag.moved))) onUp(pane, side, e);
+          if (drag && drag.mode === 'pickOut') pickCancel(drag);
           if (drag && drag.mode === 'gdraw') { draft = null; requestRender(side); }
           drag = null; draft = draft && draft.kind === 'polygon' ? draft : null; return;
         }
@@ -1243,6 +1244,8 @@
       requestRender('L', 'OR', rGlobe() ? 'R' : null);
       return;
     }
+    // (the Stack picks no point under the pointer: its tilted levels are not the flat plane's)
+    if (side === 'L' && stackOn()) { if (probe) { probe = null; setReadouts(null); requestRender('OL'); } return; }
     if (side === 'L') {
       cutHover(pane, side, x, y);
       const zh = zpHit(x, y);

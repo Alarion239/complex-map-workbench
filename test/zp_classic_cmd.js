@@ -1,4 +1,4 @@
-// Zeros and poles, classic view only: maps of degree 2 and 3 are drawn by the inverse renderer, a degree-5 one forward
+// Zeros and poles, classic view only: maps of degree 2, 3 and 5 are drawn by the inverse renderer, a degree-13 one forward
 // with its reason. X's pane at stage 1 of [zp, z^2] (focus on step 2) shows the image plane w1 = zp(z), and its paths are
 // read there. (standards-ok: the frame held mid-drag was read on Y's pane, not drawn since #994; the steps view cannot show
 // the image plane while a handle of the domain is held)
@@ -29,13 +29,17 @@ info.deg3 = paths;
 await load('zppaths5' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1, 0.5i, 2, -2i', poles: '0' }, on: true }, POW2], focus: 2, srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
 await settle(1200); await grab();
 paths = await pathsR();
-ok('degree 5: forward, with the reason', paths.every((p) => p.path === 'forward' && /degree 5/.test(p.reason || '')), paths);
+ok('degree 5: drawn exactly (inverse renderer)', paths.length && paths.every((p) => p.path === 'inverse'), paths);
 info.deg5 = paths;
+await load('zppaths13' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1', poles: '0, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12' }, on: true }, POW2], focus: 2, srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
+await settle(1200); await grab();
+paths = await pathsR();
+ok('degree 13: forward, with the reason', paths.length && paths.every((p) => p.path === 'forward' && /degree 13/.test(p.reason || '')), paths);
+info.deg13 = paths;
 await load('zppaths2' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on: true }, POW2], focus: 2, srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
 await settle(1200); await grab();
 paths = await pathsR();
 ok('back to degree 2: exact again', paths.every((p) => p.path === 'inverse'), paths);
-
 
 await grab();
 ok('no exceptions', errs.length === 0, errs.slice(0, 5));

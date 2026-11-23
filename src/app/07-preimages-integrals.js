@@ -653,7 +653,7 @@
     if (said.length) paneSay(pane, 'off', said.join('. ') + '.');
     if (labels.length) placeLabels(pane.ctx, pane, labels);
     // (the readout card follows the count as the window moves)
-    if (selected != null && offOf(selected) !== was) requestRender('P');
+    if (selected != null && offOf(selected) !== was) readoutRefresh();
   }
   // the dots: the PRE_SHOW nearest to the centre of the view; their places on screen for the press (P.hits)
   function drawPre(pane, side, j) {

@@ -47,9 +47,9 @@ ok('#34: Move on by itself is a checkbox in the chapters menu (no timer icon in 
 // ---- Russian (UX78, UX93 and every string of this piece)
 const RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../notes/i18n/ru/v165-ux-learn.json'), 'utf8'));
 const ents = Object.entries(RU).filter(([k]) => !k.startsWith('_'));
-// (63: the piece's strings the page still ships; the classic transport's six and the classic tour's Phase key task are
+// (61: the piece's strings the page still ships; the classic transport's six and the classic tour's Phase key task are
 // not among them, #994)
-ok('the table has the piece\'s strings', ents.length >= 63, ents.length);
+ok('the table has the piece\'s strings', ents.length >= 61, ents.length);
 ok('every entry has en and ru', ents.every(([, v]) => v.en && v.ru), ents.filter(([, v]) => !(v.en && v.ru)).map(([k]) => k));
 const MK = fs.readFileSync(path.join(__dirname, '../tools/make_ru_table.py'), 'utf8');
 // (V165_HERE is one set holding every piece's table, this one among them)
@@ -60,6 +60,9 @@ const keyOf = (v) => (v.ctx ? v.ctx + '\u0004' : '') + v.en;
 // Russian comes from v164-help.json)
 const missing = ents.filter(([, v]) => !(keyOf(v) in TABLE));
 ok('every string of the piece is in the shipped table', missing.length === 0, missing.map(([k]) => k));
+// (the two Help texts of the chapters menu and its button are kept in tools/ru_extra.json, not in this table: the generator rejects a key in both)
+const EXTRA_RU = JSON.parse(fs.readFileSync(path.join(__dirname, '../tools/ru_extra.json'), 'utf8'));
+for (const k of ["This button opens the tour by chapter, the guide and every shortcut. {?} opens the guide directly.", "Guided tour, in this menu, starts the tour by chapter; Guide opens the whole guide."]) ok(`ru_extra.json holds the Russian of "${k.slice(0, 30)}…", and it is in the shipped table`, typeof EXTRA_RU[k] === 'string' && TABLE[k] === EXTRA_RU[k], k);
 ok('no stopgap entry is left for the older Help "Deformation" paragraph, and the release\'s paragraph is in the table',
   !ents.some(([, v]) => /^Stopgap/.test(v.note || '')) && !ents.some(([k]) => /^help\.deformation\./.test(k))
   && Object.keys(TABLE).some((k) => k.startsWith('<b>Deformation</b> in the top bar') && /when the step is analytic, is analytic for every/.test(k) && APP.includes(k)));

@@ -402,10 +402,10 @@ eq(I18N.texDecimal(0.5, 'ru'), '0{,}5', 'texDecimal is texNum');
   // a formula's TeX is the reader's own formula printed back by Expr.toTex, which stays English (it feeds saved work and
   // the copied LaTeX): '|z-0.5|<1.5' typed is shown with its point
   eq(tx({ kind: 'formula', expr: '|z-0.5|<1.5' }), '\\left|z-0.5\\right| < 1.5', 'region: a typed formula is shown as typed');
-  eq(tx({ kind: 'disc', c: [0, 0], r: 1.5e-4 }), '|z|<1{,}5×10⁻⁴', 'region: the mantissa of a small radius');
+  eq(tx({ kind: 'disc', c: [0, 0], r: 1.5e-4 }), '|z|\\le 1{,}5×10⁻⁴', 'region: the mantissa of a small radius');
   vm.runInContext("I18N._setLang('en')", ctx);
   eq(tx({ kind: 'cgrid', a, b, n: 8 }), '\\text{grid } [-0.5,1]\\times[0.25,1.25]', 'region: the grid in English');
-  eq(tx({ kind: 'disc', c, r: 1.5 }), '|z-(0.5+0.25i)|<1.5', 'region: a disc in English');
+  eq(tx({ kind: 'disc', c, r: 1.5 }), '|z-(0.5+0.25i)|\\le 1.5', 'region: a disc in English');
 }
 // ---- 8. phase 2b: detection on, the decimal-comma hint, the leftovers table ----
 eq(I18N._autoDetect, true, 'phase 2b: a Russian browser gets Russian (AUTO_DETECT on)');

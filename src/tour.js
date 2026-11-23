@@ -1009,7 +1009,7 @@ const Tour = (() => {
    and usable; the rings and a phone's Why panel (.tour-top) sit above every app layer, in the top layer while the app
    has one open there (its More menu is a popover). The strip itself is in the page's layout, a hole of the shade */
 .tour-root { position: fixed; inset: 0; z-index: 25; pointer-events: none; }
-:root.ph .tour-root { z-index: 27; }   /* (v15: above the chain bar, 26; under the More sheet, 28, a layer) */
+:root.ph .tour-root { z-index: 27; }   /* (above the chain bar, 26; under the More sheet, 28, a layer) */
 .tour-top, .tour-top[popover] { position: fixed; inset: 0; z-index: 2147483000; pointer-events: none; width: auto; height: auto; max-width: none; max-height: none; margin: 0; padding: 0; border: 0; background: transparent; overflow: visible; color: inherit; }
 .tour-top::backdrop { background: transparent; pointer-events: none; }
 .tour-dim { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
@@ -1017,7 +1017,7 @@ const Tour = (() => {
 .tour-dim .tour-ring { fill: none; stroke: var(--accent); stroke-width: 1.5; pointer-events: none; }
 .tour-dim .tour-glow { fill: none; stroke: var(--accent); stroke-opacity: 0.22; stroke-width: 7; pointer-events: none; }
 .tour-dim .tour-mark { fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 4 3; pointer-events: none; }
-/* v15.1 (notes/tour/PHONE.md): on a phone the spotlight of a part inside a scrolling panel (a sheet, the chain) is
+/* (notes/tour/PHONE.md) on a phone the spotlight of a part inside a scrolling panel (a sheet, the chain) is
    drawn inside that panel, so the panel's own scroll moves it in the same frame as the content (no script follows) */
 .tour-dim.tour-host { inset: auto; left: 0; top: 0; width: 1px; height: 1px; overflow: visible; z-index: 2147482000; pointer-events: none; }
 /* (the rings fade while something they cannot follow natively moves: a fling of the page, a sliding layer) */
@@ -1028,11 +1028,11 @@ const Tour = (() => {
 .tour-dim { transition: opacity 200ms linear; }
 .tour-dim.tour-quiet, .tour-rings.tour-quiet { opacity: 0; transition: opacity 200ms linear; }
 .tour-dim.tour-quiet .tour-shade { pointer-events: none; }
-/* (v16.4: a lit control smaller than 48 x 48 px pulses its ring once when its step appears; the text is not beside it) */
+/* (a lit control smaller than 48 x 48 px pulses its ring once when its step appears; the text is not beside it) */
 .tour-rings g.pulse .tour-glow { animation: tour-ring-pulse 900ms var(--ease-out, ease-out) 1; }
 @keyframes tour-ring-pulse { 40% { stroke-width: 14px; stroke-opacity: 0.45; } }
 .tour-caret { position: absolute; width: 12px; height: 12px; background: var(--surface); border: 1px solid var(--line-strong); rotate: 45deg; }
-/* ---- v16.4 (notes/tour-r3/SPEC.md 1): the docked strip, a row the layout makes room for. It covers nothing and never
+/* ---- (notes/tour-r3/SPEC.md 1) the docked strip, a row the layout makes room for. It covers nothing and never
    moves: the stage's first row on a tablet or a desktop (62 px, plus the step's body while Why is open), a 68 px row
    under a phone's header, or a landscape phone's header itself (48 px). The text block is the Why button. */
 .tour-strip {
@@ -1100,7 +1100,7 @@ const Tour = (() => {
 .tour-strip[data-mode="head"] .ts-text, .tour-strip[data-mode="row"] .ts-text { padding: 2px 4px; }
 /* (r3 review user-7: a phone's text block shows that it opens: a chevron after the count) */
 .tour-strip[data-mode="port"] .ts-chev { display: inline; }
-/* (v16.5 UX93: the count and its chevron closer, so «Добро пожаловать» is whole on a 360 px phone) */
+/* (the count and its chevron closer, so «Добро пожаловать» is whole on a 360 px phone) */
 .tour-strip[data-mode="port"] .ts-l1 { gap: 6px; }
 .tour-strip[data-mode="port"] .ts-chev { margin-left: -3px; }
 /* (r3 review user-3, user-10: a chapter whose line needs three lines here gets a taller row) */
@@ -1169,7 +1169,7 @@ const Tour = (() => {
 .tour-top .ts-why.ts-panel .ts-wtitle { display: block; margin: 0 0 4px; font: 600 15px/20px var(--f-ui); color: var(--ink); }
 .ts-wtitle { display: none; }
 .tour-sr { position: absolute; top: 0; left: 0; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
-/* (v16.5 UX21) the learning lane: one line in the tour's docked slot (the first-run invitation, an example's Try
+/* the learning lane: one line in the tour's docked slot (the first-run invitation, an example's Try
    line). It sits in the layout like the strip and covers nothing: a 48 px row at the stage's top on a desktop (plus the
    8 px gap), a 56 px row under a phone's header, a landscape phone's header when it has room */
 .tour-lane {
@@ -3267,7 +3267,7 @@ const Tour = (() => {
     // a tour that was running and is not running in another page (its heartbeat is stale or gone): cut short
     cutShort = !run && rec.open && !liveElsewhere();
     if (cutShort) { rec.open = false; save(); }
-    // a tour running in this page holds the stash: a second init only replaces the adapter
+    // a tour running in this page holds the stash: a second init only swaps in its adapter
     if (!run) recoverStash();
     return Tour;
   }

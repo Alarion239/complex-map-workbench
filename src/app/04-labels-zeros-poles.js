@@ -49,8 +49,9 @@
     pane.labels = null;
     if (!r.items.length) return;
     const v0 = pane.view; pane.view = r.view;
-    const t0 = labelProbe ? performance.now() : 0;
-    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (labelProbe) labelProbe(performance.now() - t0, r.curves.length); }
+    // (the probe times the screen's panes' passes: a frame drawn off-screen, the steps view's frames drawn ahead, is none of them)
+    const probe = labelProbe && (pane === paneL || pane === paneR) ? labelProbe : null, t0 = probe ? performance.now() : 0;
+    try { flushLabelsIn(pane, r); } finally { pane.view = v0; if (probe) probe(performance.now() - t0, r.curves.length); }
   }
   // (a probe for the time of a pass and the curves it keeps the labels off, set by the test page and the perf run: none in the
   // published page)
