@@ -140,8 +140,9 @@
     }
   }
   // frame k of R drawn off-screen (svAheadVisit) into R's scratch canvas through a proxy of the left pane, its labels
-  // placed at once (on the Stack, the floor's flat picture: a glide frame's draw reads nothing of the Stack) -> { bm: the frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it
-  // is not the exact frame at its place (R.reject says why)
+  // placed at once (on the Stack, the floor's flat picture: a glide frame's draw reads nothing of the Stack) -> { bm: the
+  // frame, mf, cm: its moving paths and cuts' marks, rec: its glide record }, or null when it is not the exact frame at
+  // its place (R.reject says why)
   function svAheadDraw(R, k) {
     const pane = paneL, M = R.M, x = R.xs[k];
     if (!R.cv || R.cv.width !== pane.pw || R.cv.height !== pane.ph) R.cv = new OffscreenCanvas(pane.pw, pane.ph);
