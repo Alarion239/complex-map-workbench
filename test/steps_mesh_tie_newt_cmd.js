@@ -13,13 +13,14 @@
 // so sheets whose keys are merely near stay in the key's order wherever the band reaches.
 // The control: z³ then 1 z at rest on plane 2, the same ties drawn by the inverse pass (which orders keys within its band
 // by the tie order, Inverse.order), is smooth by the same measure: at most SMOOTH_MAX of its points are rough.
-// At rest the pre-mapped meshes (SphereMeshes) take over once built (__cmwSteps().carryPre): their frame is as smooth inside
-// the disc about w = 1, where cos's critical value bends the mesh most (at most DISC_ROUGH_MAX of the points 0.12 to 0.38
-// from w = 1, off the real axis, are rough), and the band's floor at BAND_WIDE moves it as little; its map cos(z³) keeps a
-// sixth turn (GLR.carryResolveOrd() 6). Left of Re w = LEFT_X, once they cover it, it is no rougher than the region
-// meshes' frame before them (at most ROUGH_MARGIN more of its points): sheets of equal angle about the centre and unequal
-// radius are not the rotation's partners. The source points' target's fallbacks: RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth; none ('none') ties by
-// the band alone (GLR.carryResolveOrd() 0) and still draws.
+// At rest the pre-mapped meshes (SphereMeshes) take over once built (__cmwSteps().carryPre): their frame is as smooth
+// inside the disc about w = 1, where cos's critical value bends the mesh most (at most DISC_ROUGH_MAX of the points 0.12 to
+// 0.38 from w = 1, off the real axis, are rough), and the band's floor at BAND_WIDE moves it as little; its map cos(z³)
+// keeps a sixth turn (GLR.carryResolveOrd() 6). Left of Re w = LEFT_X (past the arc of triangles), once they cover it,
+// it is no rougher than the region meshes' frame before them (at most ROUGH_MARGIN more of its points): sheets of equal
+// angle about the centre and unequal radius are not the rotation's partners. The source points' target's fallbacks:
+// RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth; none ('none') ties by the band alone
+// (GLR.carryResolveOrd() 0) and still draws.
 // Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -37,7 +38,7 @@ const BAND_WIDE = 256, BAND_DIFF_MAX = 0.01;   // the band's floor raised to, an
 const PIX_TOL = 24;                // a pixel changes over this in some channel (0..255)
 const DISC_ROUGH_MAX = 0.05;       // the share of the points inside the disc about w = 1 that may be rough
 const PRE_WAIT = 30000;            // ms for the pre-mapped meshes to take over at rest
-const LEFT_X = -0.8;               // the left part of the pane read (Re w below this): sheets of equal argument, unequal radius
+const LEFT_X = -3.4;               // the pane read left of this Re w (left of the arc of triangles at rest)
 await view(1200, 800, false, false);
 const ZCUBE = { type: 'pown', params: { n: 3 }, on: true };
 const STEPS = [ZCUBE, { type: 'cos', params: {}, on: true }], CONTROL = [ZCUBE, { type: 'mul', params: { c: '1' }, on: true }];
