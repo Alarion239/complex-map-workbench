@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Builds dist/glsl-inverse-test.html: the GLSL parity test of the inverse renderer (SPEC 12.2).
 
-Inlines src/cx.js, parse.js, funcs.js, invops.js, invpatterns.js, inverse.js, calc.js, glsl.js, region.js, gl.js, the
+Inlines src/cx.js, parse.js, funcs.js, invops.js, invpatterns.js, inverse.js, calc.js, glslroots.js, glsl.js, region.js, gl.js, the
 REGION_FS fixtures (test/fixtures/region_fs_*.glsl: recorded before P2 from the pre-change gl.js, re-recorded in P3 with the
 reviewed pattern-8 addition; the pre-P3 ones are region_fs_*.pre-p3.glsl) and test/glsl_inverse_test.js.
 Run in headless Chrome (test/cdp_kit): test/glsl_inverse_cmd.js; results in window.__invTest.
