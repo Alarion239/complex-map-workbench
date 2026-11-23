@@ -46,47 +46,11 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   const back = await still();
   ok(`${tag}: with the bar gone the key is back where it was`, !!back.legend && Math.abs(back.legend.t - home.legend.t) <= 1 && Math.abs(back.legend.l - home.legend.l) <= 1, { back: back.legend, home: home.legend });
 }
-// the classic view at 568 × 320, a construction tool in hand: Y's open Regions key (#rightLegend) has less room above the bar than the key
-// is tall below Y's two-line readout. The key takes the plane's top over the readout, which gives way (hidden), so all its lines show: it
-// ends above the bar, inside the plane and clear of the readout that shows, and what would not fit scrolls (its whole height is in
-// reach); with the bar gone it is whole again
-{
-  const tag = 'classic 568×320 tall bar, Y\'s key';
-  await view(568, 320, false, true);
-  const ns = 'ploc' + (Date.now() % 1000000);
-  await go(`${U}?ns=${ns}&lang=en&view=classic`);
-  await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
-  const measureY = () => ev(`(() => {
-    const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; };
-    const lg = document.getElementById('rightLegend'), cs = getComputedStyle(lg);
-    return { legend: rect(lg), open: !lg.classList.contains('collapsed'), bar: rect(document.querySelector('.ph-ctx.in')), plot: rect(document.getElementById('plotR')), readout: rect(document.querySelector('#plotR > .chip.readout')), roHidden: !!document.querySelector('#plotR > .chip.readout') && getComputedStyle(document.querySelector('#plotR > .chip.readout')).visibility === 'hidden',
-      scrollH: lg.scrollHeight, clientH: lg.clientHeight, overflowY: cs.overflowY };
-  })()`);
-  const stillY = () => kit.still(measureY, STILL_MS, SETTLE_MAX);
-  await ev(`document.getElementById('rightLegend').click(), 1`);
-  await settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
-  const home = await stillY();
-  ok(`${tag}: the key is unfolded, with no bar open (control)`, home.open && !home.bar && !!home.legend, home);
-  await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
-  await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
-  const m = await stillY();
-  info[tag] = { home, m };
-  ok(`${tag}: the bar is open and the key is still unfolded`, !!m.bar && m.open, m);
-  if (m.bar && m.legend) {
-    ok(`${tag}: the room above the bar is less than the key's height (control)`, !!m.readout && m.bar.t - m.readout.b < home.legend.b - home.legend.t, { home: home.legend, readout: m.readout, bar: m.bar });
-    ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar });
-    ok(`${tag}: the key is inside the plane`, !!m.plot && m.legend.t >= m.plot.t - EPS && m.legend.r <= m.plot.r + EPS, { legend: m.legend, plot: m.plot });
-    ok(`${tag}: the key is clear of the readout, ${READOUT_GAP} px below it where it lies under it`, clearOf(m.legend, m.readout, m.roHidden), { legend: m.legend, readout: m.readout, hidden: m.roHidden });
-    ok(`${tag}: what does not fit scrolls, so the whole key is in reach`, m.scrollH <= m.clientH + EPS || m.overflowY === 'auto', { scrollH: m.scrollH, clientH: m.clientH, overflowY: m.overflowY });
-  }
-  await ev(`document.querySelector('[data-tool="select"]').click(), 1`);
-  await settled({ max: SETTLE_MAX, panes: false, until: `!document.querySelector('.ph-ctx.in')` });
-  const back = await stillY();
-  ok(`${tag}: with the bar gone the key is whole again`, !!back.legend && Math.abs(back.legend.b - back.legend.t - (home.legend.b - home.legend.t)) <= 1 && back.scrollH <= back.clientH + EPS, { back, home: home.legend });
-}
+// (standards-ok: the classic view's Y's open Regions key under the tall bar, below Y's two-line readout, goes with Y's pane,
+// which the classic view does not draw, #994; the steps view's tall-bar rows above read the one key under the same bar)
 // The open key is operated by the keyboard: Escape folds it (the focus stays on the key, which is the folded one, aria-expanded false), and Enter
 // unfolds it again; a plane key the open key lies over folds it when the key takes focus (the focus is never hidden under the card). With real key
-// events, in the steps view at 568 × 320 and 360 × 640 (the key) and in the classic view at 568 × 320 and 600 × 320 under the tall bar (Y's keys).
+// events, in the steps view at 568 × 320 and 360 × 640 (the key), and at 568 × 320 and 600 × 320 under the tall bar (the plane's keys).
 const keyState = (id) => ev(`(() => { const lg = document.getElementById(${JSON.stringify(id)}); return { open: !lg.classList.contains('collapsed'), expanded: lg.getAttribute('aria-expanded'), focused: document.activeElement === lg, role: lg.getAttribute('role') }; })()`);
 for (const [w, h] of [[568, 320], [360, 640]]) {
   const tag = `${w}×${h} key by keyboard`;
@@ -112,28 +76,30 @@ for (const [w, h] of [[568, 320], [360, 640]]) {
 // (focus events reach a page only while it has focus: a headless page is made to, until the rows end)
 await send('Emulation.setFocusEmulationEnabled', { enabled: true });
 for (const w of [568, 600]) {
-  const tag = `classic ${w}×320 tall bar, Y's keys`;
+  const tag = `${w}×320 tall bar, the plane's keys`;
   await view(w, 320, false, true);
-  await go(`${U}?ns=plokc${w}${Date.now() % 1000000}&lang=en&view=classic`);
-  const upY = await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden && !!document.querySelector('[data-tool="perp"]')` });
+  const ns = `plokt${w}${Date.now() % 1000000}`;
+  await load(ns, ST);
+  await go(`${U}?ns=${ns}&lang=en&view=steps`);
+  const up = await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('leftLegend') && !document.getElementById('leftLegend').hidden && !!document.querySelector('[data-tool="perp"]')` });
   await ev(`document.querySelector('[data-tool="perp"]').click(), 1`);
-  const barY = await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
+  const bar = await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
   // (the key unfolded: a tap on it, and the wait for it. The keys it lies over that can take the focus: a readout that gives way to the key, hidden, takes none)
   const open = async () => {
-    await ev(`(() => { const lg = document.getElementById('rightLegend'); if (lg.classList.contains('collapsed')) lg.click(); return 1; })()`);
-    return settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('rightLegend').classList.contains('collapsed')` });
+    await ev(`(() => { const lg = document.getElementById('leftLegend'); if (lg.classList.contains('collapsed')) lg.click(); return 1; })()`);
+    return settled({ max: SETTLE_MAX, panes: false, until: `!document.getElementById('leftLegend').classList.contains('collapsed')` });
   };
   const opened = await open();
-  const covered = await ev(`(() => { const lg = document.getElementById('rightLegend'), a = lg.getBoundingClientRect();
+  const covered = await ev(`(() => { const lg = document.getElementById('leftLegend'), a = lg.getBoundingClientRect();
     return [...lg.parentNode.querySelectorAll('button, [tabindex]')].filter((e) => e !== lg && !lg.contains(e) && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e, i) => { const b = e.getBoundingClientRect(); e.setAttribute('data-kk', i);
       return { i, name: e.id || String(e.className), meets: a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top }; }).filter((q) => q.meets); })()`);
   info[tag] = covered;
-  ok(`${tag}: the open key lies over at least one of Y's keys (control)`, upY.ok && barY.ok && opened.ok && covered.length > 0, { upY, barY, opened, covered });
+  ok(`${tag}: the open key lies over at least one of the plane's keys (control)`, up.ok && bar.ok && opened.ok && covered.length > 0, { up, bar, opened, covered });
   for (const c of covered) {
     const w = await open();
     // (focus() runs the page's focusin handlers before it returns: the key's fold is there to read at once)
     await ev(`document.querySelector('[data-kk="${c.i}"]').focus(), 1`);
-    const st = await keyState('rightLegend');
+    const st = await keyState('leftLegend');
     ok(`${tag}: the focus on ${c.name}, under the open key, folds the key`, w.ok && !st.open && st.expanded === 'false', { w, st });
   }
 }

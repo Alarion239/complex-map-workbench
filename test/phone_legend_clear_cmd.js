@@ -72,30 +72,11 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   ok('568×320: the two-line readout reaches the folded legend (control)', !!m.readout && !!home.reach && m.readout.r > home.reach.l && m.readout.b > home.reach.t, { readout: m.readout, reach: home.reach });
   ok('568×320: the legend\'s hit area is clear of the two-line readout', !inter(m.reach, m.readout), { reach: m.reach, readout: m.readout, drop: m.drop });
 }
-// the classic view at 568 × 320 on its first load, the Disc tool in hand: X and Y side by side, and Y's own readout of two
-// lines ("Draw a target in Y ...") beside the folded key of the plane Y (#rightLegend): the page, which attached its
-// observer on this first load, places the key below the readout; no state is loaded, no page loaded twice. (A drawing
-// tool opens no context bar; under the tall bar of a construction tool, landscape keeps the readout short of the key)
-{
-  const [w, h] = [568, 320];
-  await view(w, h, false, true);
-  const ns = 'plc3' + (Date.now() % 1000000);
-  await go(`${U}?ns=${ns}&lang=en&view=classic`);
-  await settled({ max: 30000, until: `!!window.Phone && Phone.isOn() && !!document.getElementById('rightLegend') && !document.getElementById('rightLegend').hidden` });
-  await ev(`document.querySelector('[data-tool="disc"]').click(), 1`);
-  const dropped = await settled({ max: SETTLE_MAX, panes: false, until: `document.getElementById('rightLegend').style.getPropertyValue('--lg-drop') !== ''` });
-  const m = await ev(`(() => { const rect = (e) => { if (!e || !e.getClientRects().length) return null; const r = e.getBoundingClientRect(); return { l: r.left, t: r.top, r: r.right, b: r.bottom }; }; const lg = document.getElementById('rightLegend'), ro = document.querySelector('#plotR > .chip.readout'), bar = document.querySelector('.ph-ctx.in'), r = rect(lg); return { legend: r, reach: r && { l: r.l - ${HIT_PX}, t: r.t - ${HIT_PX}, r: r.r + ${HIT_PX}, b: r.b + ${HIT_PX} }, readout: rect(ro), text: ro ? ro.textContent.trim().slice(0, 40) : null, bar: rect(bar), planes: [...document.querySelectorAll('.pane')].map((p) => Math.round(p.getBoundingClientRect().width)), drop: lg.style.getPropertyValue('--lg-drop') }; })()`);
-  info['classic first load, real readout'] = m;
-  ok('classic 568×320, first load: X and Y are both shown', m.planes.length === 2 && m.planes.every((x) => x > 0), m.planes);
-  // (the case relies on the tool in hand opening no context bar: under the tall bar of a construction tool the readout is held short of the key, and what it pins would not happen)
-  ok('classic 568×320, first load: no context bar is open, so the readout is not held short of the key', m.bar === null, m.bar);
-  ok('classic 568×320, first load: Y\'s readout has two lines and reaches the folded key (control)', !!m.readout && m.readout.b - m.readout.t > TWO_LINE_PX && m.readout.r > m.reach.l, { readout: m.readout, reach: m.reach });
-  ok('classic 568×320, first load: the key is placed again, below Y\'s readout, with no reload', dropped.ok, { drop: m.drop, wait: dropped });
-  ok('classic 568×320, first load: the key\'s hit area is clear of Y\'s readout and above the bar', !inter(m.reach, m.readout) && (!m.bar || m.legend.b <= m.bar.t + 0.5), { reach: m.reach, readout: m.readout, bar: m.bar });
-}
+// (standards-ok: the classic view's first load, Y's two-line readout beside Y's folded key, goes with Y's pane, which the
+// classic view does not draw, #994; the steps view's two-line readout rows above place its one key the same way)
 // the folded key is a button for keyboard and screen reader: a role, a place in the focus order, a name, and
-// aria-expanded that follows the key as a tap, Enter and Space fold and unfold it. The steps view at 360 × 640 (X's
-// key, in English and Russian) and the classic view at 568 × 320 (Y's key; X's is not drawn there).
+// aria-expanded that follows the key as a tap, Enter and Space fold and unfold it. The steps view at 360 × 640, the
+// plane's key, in English and Russian (the classic view draws X alone, with no key in X → Y).
 {
   const axOf = async (id) => {
     const { root } = await send('DOM.getDocument', { depth: 0 });
@@ -109,7 +90,7 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
   const state = (id) => ev(`(() => { const e = document.getElementById('${id}'); return { exp: e.getAttribute('aria-expanded'), folded: e.classList.contains('collapsed'), tab: e.tabIndex, tag: e.tagName, role: e.getAttribute('role'), focused: document.activeElement === e }; })()`);
   // Tab from the page's first control until the key has focus (or 80 presses): "in the phone's focus order"
   const tabTo = async (id) => { await ev(`document.activeElement && document.activeElement.blur(), 1`); for (let i = 0; i < 80; i++) { await key('Tab', 'Tab', 9)(); if ((await state(id)).focused) return i + 1; } return 0; };
-  for (const [lang, w, h, q, ids] of [['en', 360, 640, 'steps', ['leftLegend']], ['ru', 360, 640, 'steps', ['leftLegend']], ['en', 568, 320, 'classic', ['rightLegend']]]) {
+  for (const [lang, w, h, q, ids] of [['en', 360, 640, 'steps', ['leftLegend']], ['ru', 360, 640, 'steps', ['leftLegend']]]) {
     await view(w, h, false, true);
     const ns = 'plk' + w + lang + q + (Date.now() % 1000000);
     if (q === 'steps') await load(ns, ST);
@@ -123,9 +104,6 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
       info[tag] = { s0, a0 };
       ok(`${tag}: a folded key is a button (a native one or role=button)`, s0.folded && (s0.tag === 'BUTTON' || s0.role === 'button') && !!a0 && a0.role === 'button', { s0, a0 });
       ok(`${tag}: it has a name`, !!a0 && !!a0.name && a0.name.length > 2, a0);
-      // (Classic Y's key: its name says which key it is, "Regions key"; what it shows is its description's
-      // (phone_legend_said))
-      if (q === 'classic') ok(`${tag}: it is named "Regions key"`, !!a0 && a0.name === 'Regions key', a0);
       ok(`${tag}: it is expanded=false while folded`, s0.exp === 'false' && a0 && a0.expanded === false, { s0, a0 });
       ok(`${tag}: it is in the focus order (tabIndex ≥ 0)`, s0.tab >= 0, s0);
       const tabs = await tabTo(id);

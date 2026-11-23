@@ -1,7 +1,7 @@
 // The pane heads' LEDs, in every state they have (ok, busy, err): a keyboard user reaches each one by Tab and reads its state
 // in the tip; a screen-reader user is told, politely, when its state has held for a moment; busy, up to date and failed
 // differ in shape, not only in hue, and a busy LED keeps 3:1 against the bar at the pulse's lowest opacity, light and
-// dark. The classic view has both LEDs (left, right); the steps view has the left; a phone shows none, and its pane's states are said all the same.
+// dark. Both views show X's LED, the left one; a phone shows none, and its pane's states are said all the same.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); };
@@ -51,14 +51,14 @@ const announced = async (leg, tipOf) => {
   const want = tipOf.busy;
   const s1 = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(want)})` });
   ok(`${leg}: a busy state that holds is announced politely (#ledLive says "${want}")`, s1.ok, await live());
-  // (each shown LED's words come once, with its pane's title when the pane shows one: "X · z-plane: ..." in the classic view,
-  // where there are two; the steps view's hidden right LED says nothing)
+  // (the shown LED's words come once, with its pane's title when the pane shows one: "X · z-plane: ..." in the classic view;
+  // the hidden right LED says nothing)
   const shown = await ev(`['L', 'R'].map((side) => { const led = document.getElementById(side === 'L' ? 'leftLed' : 'rightLed'), t = document.querySelector(side === 'L' ? '#leftTitle .ptitle' : '#rightTitle .ptitle'); return { led: led.getClientRects().length > 0, title: t && t.getClientRects().length ? t.textContent.trim() : '' }; })`);
   const said = await live();
   // (a pane whose title is hidden at this width is named by its letter when two LEDs are shown, X and Y: the words alone would not say which)
   const two = shown.filter((x) => x.led).length > 1;
   const lines = shown.map((x, i) => ({ x, i })).filter((e) => e.x.led).map((e) => { const name = e.x.title || (two ? ['X', 'Y'][e.i] : ''); return (name ? name + ': ' : '') + tipOf.busy; });
-  ok(`${leg}: each shown LED's words come once, with its pane's title (its letter when the title is hidden and two LEDs are shown)`, lines.length === (leg.startsWith('classic') ? 2 : 1) && said === lines.join('. '), { shown, said, lines });
+  ok(`${leg}: the one shown LED's words come once, with its pane's title`, lines.length === 1 && said === lines.join('. '), { shown, said, lines });
   ok(`${leg}: #ledLive is a polite live region`, await ev(`document.getElementById('ledLive').getAttribute('aria-live') === 'polite'`));
   await busy(false);
   const s2 = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(tipOf.ok)})` });
@@ -71,41 +71,30 @@ const announced = async (leg, tipOf) => {
   await settled({ max: 4000, only: true, until: `performance.now() - window.__ledT0 > 1200` });
   ok(`${leg}: a flicker is not announced`, (await ev(`window.__ledMut`)) === 0, await ev(`window.__ledMut`));
 };
-// ---- the classic view: both LEDs; the right one fails on a bad step
+// ---- the classic view: X's LED, the one its view draws
+// (standards-ok: Y's LED, its pane's title or letter beside X's, and the Russian leg on the hidden right title go with Y's
+// pane, which the classic view does not draw, #994; the failed state is read on X's LED in the steps view below)
 await open('classic', 1280, 800, false);
-const cl = await states('classic', [['L', 'leftLed'], ['R', 'rightLed']]);
+const cl = await states('classic', [['L', 'leftLed']]);
 info.classic = cl;
 await announced('classic', { busy: cl.leftLed.busy.tip, ok: cl.leftLed.ok.tip });
-// the failed state, from a step that does not parse
-await open('classic', 1280, 800, false, BAD);
-await settled({ max: 20000, only: true, until: `document.getElementById('rightLed').classList.contains('err')` });
-const err = await led('rightLed'), okL = await led('leftLed');
-info.err = err;
-ok('classic: a failed step makes the right LED err, with the step named in its tip', err.cls.includes('err') && !!err.tip, err);
-ok('classic: the failed LED is focusable and named by its tip', err.role === 'img' && err.tab === 0 && err.label === err.tip, err);
-const sizes = (a, b, c) => new Set([shape(a), shape(b), shape(c)]).size;
-ok('classic: ok, busy and err are three different shapes (a viewer without hue tells them apart)', sizes(okL, cl.leftLed.busy, err) === 3, { ok: shape(okL), busy: shape(cl.leftLed.busy), err: shape(err) });
-const errLive = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(err.tip)})` });
-ok('classic: a failed step is announced', errLive.ok, await live());
-// ---- the classic view in Russian at the same width: the right pane's title is hidden, and its LED is named X / Y
-await open('classic', 1280, 800, false, undefined, 'ru');
-{
-  const hidden = await ev(`(() => { const t = document.querySelector('#rightTitle .ptitle'); return !t || !t.getClientRects().length; })()`);
-  ok('classic ru: the right pane head shows no title at 1280 px (the case this leg is for)', hidden, hidden);
-  await busy(true);
-  await settled({ max: 4000, only: true, until: `document.querySelector('#leftLed').classList.contains('busy')` });
-  const busyTip = (await led('leftLed')).tip;
-  await busy(false);
-  await settled({ max: 4000, only: true, until: `document.querySelector('#leftLed').classList.contains('ok')` });
-  const okTip = (await led('leftLed')).tip;
-  ok('classic ru: the LED tips are the Russian ones', /[а-яё]/i.test(busyTip) && /[а-яё]/i.test(okTip), { busyTip, okTip });
-  await announced('classic ru', { busy: busyTip, ok: okTip });
-}
 // ---- the steps view: the left LED
 await open('steps', 1280, 800, false);
 const sv = await states('steps', [['L', 'leftLed']]);
 info.steps = sv;
 await announced('steps', { busy: sv.leftLed.busy.tip, ok: sv.leftLed.ok.tip });
+// the failed state, from a step that does not parse: X's LED, the one shown, says so
+await open('steps', 1280, 800, false, BAD);
+await settled({ max: 20000, only: true, until: `document.getElementById('leftLed').classList.contains('err')` });
+const err = await led('leftLed');
+info.err = err;
+ok('steps: a failed step makes X\'s LED err, with the step named in its tip', err.cls.includes('err') && !!err.tip, err);
+ok('steps: the failed LED is focusable and named by its tip', err.role === 'img' && err.tab === 0 && err.label === err.tip, err);
+const sizes = (a, b, c) => new Set([shape(a), shape(b), shape(c)]).size;
+ok('ok, busy and err are three different shapes (a viewer without hue tells them apart)', sizes(sv.leftLed.ok, sv.leftLed.busy, err) === 3, { ok: shape(sv.leftLed.ok), busy: shape(sv.leftLed.busy), err: shape(err) });
+const errLive = await settled({ max: 4000, only: true, until: `(document.getElementById('ledLive').textContent || '').includes(${JSON.stringify(err.tip)})` });
+ok('steps: a failed step is announced', errLive.ok, await live());
+await open('steps', 1280, 800, false);
 // ---- the pulse: the busy LED keeps 3:1 against the bar at its lowest opacity, in light and dark
 const pulse = await ev(`(() => {
   const kf = [...document.styleSheets].flatMap((s) => { try { return [...s.cssRules]; } catch (e) { return []; } }).find((r) => r.type === CSSRule.KEYFRAMES_RULE && r.name === 'led-pulse');

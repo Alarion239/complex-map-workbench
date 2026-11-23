@@ -480,7 +480,8 @@
     // "Compiling…" note is drawn is busy, and its LED says so: both notes are canvas text, which a screen reader does not read)
     const note = (side) => (paneGl[side] && paneGl[side].note) || '';
     const compTip = (side) => (compileShown[side] ? $t('Compiling…') : undefined);
-    if (note('L')) setLed('L', 'err', note('L'));
+    // (X is the one plane both views draw: its LED also reports a step that fails to build, which Y's hidden LED holds too)
+    if (note('L') || errTip) setLed('L', 'err', note('L') || errTip);
     else setLed('L', busy || colourPending() || compileShown.L ? 'busy' : 'ok', colourPending() ? $t('Drawing a quick preview; the exact plot is still being built') : compTip('L'));
     setLed('R', errStep >= 0 || note('R') ? 'err' : busy || compileShown.R ? 'busy' : 'ok', errTip || note('R') || compTip('R'));
   }

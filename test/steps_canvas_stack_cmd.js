@@ -1,10 +1,10 @@
-// One stack of canvas controls on every plane (laptop). A plane's .viewstack holds Zoom in, Zoom out, Fit view, Expand, then the
-// plane's surface button, Sphere, in that order; the steps view shows one plane, so its Expand (which swaps two planes) is not
-// shown and its stack is the other four. The stack is the same on the Plane, the Sphere and the Landscape, and its buttons keep
-// their places (x and y within a half pixel) when the surface changes. A button the surface cannot use stays where it is and is
-// aria-disabled with its reason in the tooltip and in an aria-describedby note: Sphere on the Landscape, Fit on a plane with no
-// image. Sphere keeps one name and carries the surface in aria-pressed: in the steps view one press switches the view's surface;
-// with two planes shown (?view=classic) a press switches that plane's own surface.
+// One stack of canvas controls on every plane (laptop). A plane's .viewstack holds Zoom in, Zoom out, Fit view, then the
+// plane's surface button, Sphere, in that order; both views show one plane, so there is nothing to expand. The stack is
+// the same on the Plane, the Sphere and the Landscape, and its buttons keep their places (x and y within a half pixel)
+// when the surface changes. A button the surface cannot use stays where it is and is aria-disabled with its reason in the
+// tooltip and in an aria-describedby note: Sphere on the Landscape. Sphere keeps one name and carries the surface in
+// aria-pressed: in the steps view one press switches the view's surface; in the classic view (?view=classic), which shows
+// X alone, a press switches X's own surface.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -14,9 +14,7 @@ const ns = 'svstk' + Date.now();
 const MOB = { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' }, on: true }, CUBE = { type: 'pown', params: { n: 3 }, on: true };
 const SURFACES = ['plane', 'sphere', 'land'];
 const STEPS_LABELS = ['Zoom in', 'Zoom out', 'Fit view', 'Sphere'];
-const TWO_LABELS = ['Zoom in', 'Zoom out', 'Fit view', /^Expand the (left|right) plane$/, 'Sphere'];
 const NO_SPHERE_ON_LAND = 'The Landscape has no sphere: choose Plane or Sphere in the surface menu';
-const NOTHING_TO_FIT = 'Nothing to fit yet';
 const open = async (tag, steps, mode = 'steps') => {
   const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'h1', kind: 'halfplane', a: [0, 0], b: [1, 0], ci: 0, visible: true }], steps, nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: 90 } };
   await view(1440, 900, false, false);
@@ -24,7 +22,7 @@ const open = async (tag, steps, mode = 'steps') => {
   const k = ns + tag;
   await ev(`localStorage.setItem('complex-map-workbench-v1:${k}', ${JSON.stringify(JSON.stringify(st))}); 1`);
   await go(`http://localhost:${PORT}/test.html?ns=${k}&lang=en&view=${mode}`);
-  await still({ until: mode === 'steps' ? "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" : "!!window.__cmwSteps && !__cmwSteps().on && !!document.querySelector('#paneR .viewstack')" });
+  await still({ until: mode === 'steps' ? "window.__cmwSteps && __cmwSteps().on && !__cmwSteps().moving && !!document.querySelector('#svStrip .sv-rail')" : "!!window.__cmwSteps && !__cmwSteps().on && !!document.querySelector('#paneL .viewstack')" });
 };
 // the shown buttons of a plane's stack: label, state, the reason a disabled one gives, and its box
 const stack = (side) => ev(`(() => [...document.querySelectorAll('#pane${side} .viewstack button')].filter((b) => b.getClientRects().length).map((b) => {
@@ -68,19 +66,14 @@ const afterOff = await ev(`__cmwSteps().surf`);
 ok('a second press takes it back to the plane', afterOff === 'plane', afterOff);
 ok('Sphere shows released after it', (byLabel(await stack('L'), 'Sphere') || {}).pressed === 'false');
 
-// two planes shown (the classic view): the five, on each plane
+// the classic view: X alone, the same four (one plane, nothing to expand), and a press switches X's own surface
+// (standards-ok: Y's stack, its Sphere and its Fit view with no image go with Y's pane, which the classic view does not draw,
+// #994; X's stack and its Sphere are read here. A plane with nothing to fit was Y on the sphere: X always has its picture)
 await open('two', [MOB, CUBE], 'classic');
-for (const side of ['L', 'R']) {
-  const s = await stack(side);
-  ok(`two planes, ${side}: the stack is Zoom in, Zoom out, Fit view, Expand, Sphere`, matches(s, TWO_LABELS), s.map((b) => b.label));
-  const sp = byLabel(s, 'Sphere');
-  ok(`two planes, ${side}: Sphere is enabled and released`, !!sp && sp.disabled !== 'true' && sp.pressed === 'false', sp);
-}
-// a press on the right plane switches that plane's surface, and it has no image to fit then
-await ev(`document.querySelector('#paneR .viewstack button[aria-label="Sphere"]').click(), 1`); await still();
-const r = await stack('R'), l = await stack('L');
-ok('two planes: Sphere on the right plane shows pressed there', (byLabel(r, 'Sphere') || {}).pressed === 'true', byLabel(r, 'Sphere'));
-ok('two planes: and the left plane\'s Sphere is untouched', (byLabel(l, 'Sphere') || {}).pressed === 'false', byLabel(l, 'Sphere'));
-const rf = byLabel(r, 'Fit view');
-ok('a right plane with no image has Fit view aria-disabled, with its reason in the tooltip and the note, and in its place', !!rf && rf.disabled === 'true' && rf.title === NOTHING_TO_FIT && rf.note === NOTHING_TO_FIT && matches(r, TWO_LABELS), { rf, labels: r.map((b) => b.label) });
+const cx = await stack('L');
+ok('classic view, X: the stack is Zoom in, Zoom out, Fit view, Sphere', matches(cx, STEPS_LABELS), cx.map((b) => b.label));
+const csp = byLabel(cx, 'Sphere');
+ok('classic view, X: Sphere is enabled and released', !!csp && csp.disabled !== 'true' && csp.pressed === 'false', csp);
+await ev(`document.querySelector('#paneL .viewstack button[aria-label="Sphere"]').click(), 1`); await still();
+ok('classic view: Sphere on X shows pressed after a press', (byLabel(await stack('L'), 'Sphere') || {}).pressed === 'true', byLabel(await stack('L'), 'Sphere'));
 return { pass: !fails.length, fails, info };
