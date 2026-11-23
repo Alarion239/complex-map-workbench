@@ -673,6 +673,8 @@ await section('G', async () => {
   // (the page opens the classic view at its load: the same scene, reloaded with view=classic)
   const capClassic = async (lang) => {
     await nav(`${U}?ns=${NS}g&view=classic${lang ? '&lang=' + lang : ''}`);
+    // (the page opens in the view the scene saved, which may be Phase or the Sphere: the caption is read in X → Y on the plane)
+    await ev(`__cmwSetMain('xy'); __cmwSetView('L', 'plane'); 1`); await settle(400);
     return ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' }); return f ? f.captionTex : null; })()`);
   };
   const cap = await capClassic('');

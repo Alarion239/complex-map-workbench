@@ -88,7 +88,12 @@ const capClassic = async (o) => {
   const back = await ev('location.href'), u = new URL(back);
   u.searchParams.set('view', 'classic');
   await nav(u.toString());
+  // (the page opens in the view the scene saved, which the steps view may have left as Phase or the Sphere: the caption
+  // is read in X → Y on the plane, and that view put back before the page it was is loaded again)
+  const was = await ev('(() => { const v = __cmwState().view; return { main: v.main, surf: v.L ? v.L.surf : null }; })()');
+  await ev(`__cmwSetMain('xy'); __cmwSetView('L', 'plane'); 1`); await settled({ floor: 400 });
   const c = await ev(`await (async () => { const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xyL' }, o || { for: 'article', cols: 1 }))}); return f ? f.captionTex : null; })()`, 60000);
+  await ev(`__cmwSetMain(${JSON.stringify(was.main)}); ${was.surf ? `__cmwSetView('L', ${JSON.stringify(was.surf)});` : ''} 1`);
   await nav(back);
   return c;
 };

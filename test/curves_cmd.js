@@ -154,7 +154,11 @@ await settle(1500);
   const back = await ev('location.href'), cu = new URL(back);
   cu.searchParams.set('view', 'classic');
   await nav(cu.toString());
+  // (the page opens in the view the scene saved: the caption is read in X → Y on the plane, that view put back after)
+  const was = await ev('(() => { const v = __cmwState().view; return { main: v.main, surf: v.L ? v.L.surf : null }; })()');
+  await ev(`__cmwSetMain('xy'); __cmwSetView('L', 'plane'); 1`); await settle(400);
   const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' }); return f ? f.captionTex : null; })()`, 60000);
+  await ev(`__cmwSetMain(${JSON.stringify(was.main)}); ${was.surf ? `__cmwSetView('L', ${JSON.stringify(was.surf)});` : ''} 1`);
   await nav(back);
   R.caption = cap;
   ok('the figure caption names the traced curves', typeof cap === 'string' && /the curve/.test(cap) && /operatorname\{Re\}/.test(cap), cap);

@@ -146,6 +146,8 @@ check('live region: "Done.", the result line and "Next step in 1.5 s."', /^Done\
 await advancedAt('basics/draw', Date.now());
 // the chapter's last task: the slider of a (a drag along it), or the chip f₁; an input at +1 s does not restart the countdown
 await goStep(KEYSTEP);
+// (the step opens the Inspector, which slides in: the slider is read once the tour's strip has stopped moving)
+await until('!(Tour.lit() || {}).moving', 3000);
 const kc = await center(SV ? '#svStrip .sv-step[data-k="1"] .sv-fchip' : SLIDER);
 check(SV ? 'key: the chip f₁ is there' : 'key: the slider of a is there', !!kc, kc);
 if (kc) {
@@ -273,6 +275,7 @@ try {
 await goStep(KEYSTEP);
 const rectOf = (js) => ev(`(() => { const e = ${js}; if (!e || !e.getClientRects().length) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const keySel = SV ? `document.querySelector('#svStrip .sv-step[data-k="1"] .sv-fchip')` : `document.querySelector(${JSON.stringify(SLIDER)})`;
+await until('!(Tour.lit() || {}).moving', 3000);
 const st = await rectOf(keySel);
 if (SV) await click(st[0], st[1]); else await mdrag(st[0] - 20, st[1], st[0] + 20, st[1]);
 t0 = Date.now();
