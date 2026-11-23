@@ -3510,5 +3510,9 @@
  "stack, box, glass, floor, tilt, preimages, target, 3d": "stack, box, glass, floor, tilt, preimages, target, 3d, pila, scatola, vetro, pavimento, inclinazione, controimmagini, bersaglio, 3d",
  "narrows here: {d}, not a join": "si restringe qui: {d}, non è un’unione",
  "tube of a piece": "tubo di un pezzo",
- "critical point to its value": "dal punto critico al suo valore"
+ "critical point to its value": "dal punto critico al suo valore",
+ "Connectors": "Collegamenti",
+ "Glide paths": "Percorsi della transizione",
+ "Straight": "Dritti",
+ "torn here by the glide’s cut, not a split": "strappato qui dal taglio della transizione, non è una divisione"
 }
