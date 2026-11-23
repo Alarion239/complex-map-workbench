@@ -1129,6 +1129,8 @@ const Tour = (() => {
 }
 .ts-text:hover { background: var(--well, transparent); }
 .ts-text:focus-visible, .tour-strip button:focus-visible, .ts-why button:focus-visible, .ts-why input:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* (Start and Next are filled with the accent: their ring, inside the box and in the label's own colour, stands on the fill; the strip clips what lies outside it) */
+.tour-strip .ts-next:not(.skip):focus-visible { outline-color: var(--accent-ink); outline-offset: -4px; }
 .ts-l1 { display: flex; align-items: baseline; gap: 8px; min-width: 0; }
 .ts-title { flex: 0 1 auto; min-width: 0; margin: 0; font: 600 13px/18px var(--f-ui); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .tour-strip[data-mode="desk"] .ts-count { display: none; }
@@ -1564,7 +1566,14 @@ const Tour = (() => {
     sizeDesk(r);
     wire(r);
     if (!prev) call('onTour', true);
-    return show(r.ci, r.si, 1).then(() => true);
+    // (a start from the Help menu or a suggestion has its control gone with the menu or the toast, so the focus fell to the page: it goes to the strip's
+    // first action, where Tab goes on through the strip's controls before the page's)
+    const fromControl = !!opt.opener;
+    return show(r.ci, r.si, 1).then(() => {
+      const at = document.activeElement;
+      if (fromControl && run === r && (!at || at === document.body || !at.isConnected || at.closest('[role=menu]'))) { try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } }
+      return true;
+    });
   }
   // the user's work back; true when it is (or nothing was borrowed). A failed restore keeps the autosave paused and the
   // backup stash, so the saved copy stays the user's and a reload brings it back
@@ -3377,6 +3386,8 @@ const Tour = (() => {
   const Tour = {
     VERSION, init, start, stop: (o) => Promise.resolve(stop(o || {})), next: () => go(1), back: () => go(-1),
     suggest, dismissSuggestion: () => hideSuggest(false), openHelpMenu,
+    // (the control a start that the user asks for names as its opener: Help, or the phone's More, where the focus goes back to when the tour ends)
+    helpAnchor: () => anchorEl(['helpBtn', 'moreBtn']),
     // (for tests) the line that continues a tour cut short, at once: -> whether it is shown
     offerContinue: () => { load(); if (run || sugg) return false; return showContinue(); },
     // the learning lane: one closable line in the tour's docked slot (an example's Try line)
