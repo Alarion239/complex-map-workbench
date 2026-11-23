@@ -103,9 +103,9 @@ ok('straight down the tubes are not drawn', !!top && top.tubes === null, top && 
 for (const theme of ['light', 'dark']) {
   await open('M1', { theme });
   const d = await drawn(), T = d && d.tubes;
-  const cs = T ? T.pieces.map((p) => contrast(p.colour, d.plane)) : [];
+  const cs = T && d.plane ? T.pieces.map((p) => contrast(p.colour, d.plane)) : [];
   info[theme] = { colours: T && T.pieces.map((p) => p.colour), plane: d && d.plane, cs };
-  ok(`${theme}: the plane is the ${theme} theme's`, !!d && (theme === 'dark' ? lum(d.plane) < 0.2 : lum(d.plane) > 0.8), d && d.plane);
+  ok(`${theme}: the plane is the ${theme} theme's`, !!d && !!d.plane && (theme === 'dark' ? lum(d.plane) < 0.2 : lum(d.plane) > 0.8), d && d.plane);
   ok(`${theme}: the tubes keep a 3:1 contrast with the plane`, cs.length === 2 && cs.every((x) => x >= 3), info[theme]);
 }
 // a phone's Tilt
