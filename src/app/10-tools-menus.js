@@ -532,7 +532,10 @@
     // Inspector view is its construction's)
     const ed = selected === s.id && !s.def && (!inspEditsShapes() || s.at) ? shapeEditor(s) : null;
     if (ed) box.append(ed);
-    shapeRows.set(s.id, { d, box, sw, ed, kind: rowKind(s), row, k: name, more: openMore });
+    // (a disc of a later plane's readout card under its editor where the Inspector does not edit shapes: 19-readout.js)
+    const ro = ed && !inspEditsShapes() ? readoutBuild(s) : null;
+    if (ro) { box.append(ro.root); readoutFill(ro, s); }
+    shapeRows.set(s.id, { d, box, sw, ed, ro, kind: rowKind(s), row, k: name, more: openMore });
     // a row dragged onto another takes its place in the list (the laptop; a phone has Move in the ⋯ menu)
     if (!touchUI() && list.length > 1) {
       box.draggable = true;
@@ -590,15 +593,15 @@
       const r = shapeRows.get(s.id);
       if (!r) continue;
       if (r.ed && r.ed._sync) r.ed._sync();
+      if (r.ro) readoutFill(r.ro, s);
       r.sw.style.cssText = swatchStyle(s);
       let tex;
-      try { tex = shapeTexOf(s); } catch (e) { tex = '\\text{?}'; }
+      try { tex = isTarget(s) ? shapeTexOf(s) : shapeTexOwn(s); } catch (e) { tex = '\\text{?}'; }
       if (s.complement) tex = $t('\\text{not }%{tex}', { tex });
       // a target is a set in Y, written in Y's variable (P13: w, or w_k with step k focused), so the row states what
       // X shades (the stored target is unchanged)
-      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1${yv}`); }
-      // (a shape of a plane of the chain, in that plane's variable)
-      else if (shapeStage(s)) tex = tex.replace(/(^|[^\\a-zA-Z])z(?![a-zA-Z])/g, `$1w_{${shapeStage(s)}}`);
+      // (a shape of a plane of the chain is in that plane's variable already: shapeTexOwn)
+      if (isTarget(s)) { const yv = yAtF() ? 'w' : `w_{${rightStage()}}`; tex = tex.replace(Z_VAR, `$1${yv}`); }
       r.d.title = texTitle(tex);   // (the spoken text, in the current language: not the raw LaTeX)
       if (Construct.row(s, r)) continue;   // (definitions, reasons)
       const er = s.undef || s._err;
@@ -971,6 +974,12 @@
   function shapeTexOf(s) {
     if (s.srcTex && s.srcKey === shapeKey(s)) return s.srcTex;
     return Region.KINDS[s.kind].tex(s);
+  }
+  // a shape's TeX in its own plane's variable: one drawn on plane k of the chain writes z as w_k (its row, the figure's caption)
+  const Z_VAR = /(^|[^\\a-zA-Z])z(?![a-zA-Z])/g;
+  function shapeTexOwn(s) {
+    const tex = shapeTexOf(s), k = shapeStage(s);
+    return k ? tex.replace(Z_VAR, `$1${wvar(k)}`) : tex;
   }
   function setupFormula() {
     const inp = $('formulaInput'), prev = $('formulaPrev'), tag = $('formulaPlane'), note = $('formulaNote');

@@ -206,10 +206,11 @@ const Commands = (() => {
         plane: $t('plane, flat, domain, z-plane, phase portrait, domain colouring, domain coloring, colouring, coloring, color, colour, phase, argument, modulus'),
         sphere: $t('riemann sphere, globe, infinity, sphere'),
         land: $t('landscape, 3d, surface, riemann surface, modulus surface, height, relief, sheets'),
+        stack: $t('stack, box, glass, floor, tilt, preimages, target, 3d'),
       };
       const aliasScore = (alias) => Math.max(0, ...alias.split(',').map((p) => score(p.trim())));
       const view = [
-        ...(svSurface() ? ['plane', 'sphere', 'land'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
+        ...(svSurface() ? ['plane', 'sphere', 'land', 'stack'].map((v) => [svSurfaceLabel(v), () => svSetSurface(v), '', SURFACE_ALIAS[v]]) : []),
         // (the deformation's paths, order and range: the steps view's glide; the classic view has no deformation)
         ...(svSurface() ? [
           [A.S.morphPaths !== false ? $t('Deformation: hide the paths t ↦ Hₜ(z)') : $t('Deformation: show the paths t ↦ Hₜ(z)'), () => setMorphPaths(!(A.S.morphPaths !== false)), '', $t('paths trajectories arrows homotopy deformation lines')],

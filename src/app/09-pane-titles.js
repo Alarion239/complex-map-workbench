@@ -654,11 +654,12 @@
   // neither, so it adds no sheets
   function landSheetsMap(s = null) { return s != null ? svColourMap(s) : focusMap(); }
   // (v16.1 user-5) what the landscape draws with All sheets, as render3D does: null for the principal branch (All
-  // sheets off, or no multivalued step in the map it draws the sheets of, landSheetsMap), else {K: the surfaces drawn,
-  // total: the sheet combinations of the window, W, pieces: [{n, of}]} (one per multivalued piece of that map: n sheets
-  // all drawn, or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for log)
+  // sheets off, or no multivalued step in the map it draws the sheets of, landSheetsMap, or the CPU stand-in's frame,
+  // which draws the principal branch alone while the sheets' programs link), else {K: the surfaces drawn, total: the
+  // sheet combinations of the window, W, pieces: [{n, of}]} (one per multivalued piece of that map: n sheets all drawn,
+  // or n = 0 for the window k = -W, ..., W; of: the piece's own count, Infinity for log)
   function sheetsShown() {
-    if (!S.sheets || !lLand()) return null;
+    if (!S.sheets || !lLand() || render3D.standIn) return null;
     const carry = SV.on && SV.surf === 'land' ? svLandCarryNow() : null, m = landSheetsMap(carry ? carry.s : null), ms = multiSheet(m);
     if (!ms) return null;
     const a = Math.max(0, m.a || 0), b = m.b || 0, pieces = [];

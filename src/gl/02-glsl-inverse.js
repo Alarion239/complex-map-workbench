@@ -143,7 +143,7 @@ vec2 ixClipPiece(vec4 P0, vec4 P1, vec2 z0, vec2 q, float m) {
     float tt = -L0 / cq;
     return cq > 0.0 ? vec2(tt, IX_INF) : vec2(-IX_INF, tt);
   }
-  if (t == 4) {               // v16 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
+  if (t == 4) {               // 'g': {f(z0 + t q) < 2m} relative to the anchor P0.yz; A = P0.w >= 0, B = P1.xy, C = P1.z
     vec2 u0 = z0 - P0.yz;
     float a = P0.w * qq, b = 2.0 * (P0.w * dot(u0, q) + dot(P1.xy, q));
     float c = P0.w * dot(u0, u0) + 2.0 * dot(P1.xy, u0) + P1.z - 2.0 * m;
@@ -271,7 +271,7 @@ vec3 ixKindLevel(vec2 z) {
     return dm > 0.0 ? vec3(sg * dm, sg * (z - qn) / dm) : vec3(0.0);
   }
   if (kind == 4) return vec3(uShA.z * (z.y - uShA.y) - uShA.w * (z.x - uShA.x), -uShA.w, uShA.z);
-  if (kind == 8) {            // v16 gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
+  if (kind == 8) {            // gdisc: -f/2 and its gradient, relative to the anchor uShA.xy (A uShA.z, C uShA.w, B uShB.xy)
     vec2 u = z - uShA.xy;
     return vec3(-0.5 * (uShA.z * dot(u, u) + 2.0 * dot(uShB.xy, u) + uShA.w), -(uShA.z * u + uShB.xy));
   }

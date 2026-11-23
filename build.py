@@ -91,6 +91,15 @@ assert 'TEST-HOOK' not in pub_js and 'TEMP-DEBUG-HOOK' not in pub_js, 'a hook ma
 # checks that its output has the same tokens and line breaks); the test page keeps its source as written
 # (bytes both ways: a text-mode pipe on Windows would write CRLF)
 pub_js = subprocess.run(['node', str(root / 'tools' / 'strip_js.js')], input=pub_js.encode('utf-8'), stdout=subprocess.PIPE, check=True).stdout.decode('utf-8')
+# the published stylesheet without its comments and spare whitespace (tools/strip_css.js, which checks that its text and
+# esbuild's parse of it are the same); the published and offline pages take it, and the test page keeps its source as
+# written
+_css = list(re.finditer(r'<style>([\s\S]*?)</style>', page))
+assert len(_css) == 1, f'the page\'s one stylesheet: {len(_css)}'
+_css = _css[0]
+page_pub = (page[:_css.start(1)]
+            + subprocess.run(['node', str(root / 'tools' / 'strip_css.js')], input=_css.group(1).encode('utf-8'), stdout=subprocess.PIPE, check=True).stdout.decode('utf-8')
+            + page[_css.end(1):])
 # (a charset first, so the file decodes as UTF-8 even served without a charset header or opened from disk; the
 # artifact host's skeleton declares UTF-8 too)
 dist = root / 'dist'
@@ -156,7 +165,7 @@ def font_face(f):
 
 fonts = '<style id="cmw-fonts">\n' + ''.join(font_face(f) for f in vlock['faces'] if f['set'] == 'main') + '</style>\n'
 # (the head's three Google Fonts lines go)
-page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https://fonts\.(?:googleapis|gstatic)\.com[^>]*>\n', '', page)
+page_off, n_links = re.subn(r'<link rel="(?:preconnect|stylesheet)" href="https://fonts\.(?:googleapis|gstatic)\.com[^>]*>\n', '', page_pub)
 assert n_links == 3, f'the Google Fonts links build.py drops: {n_links}'
 # (the figure export's PDF library, jsPDF and svg2pdf.js, as JSON blocks too: figure.js starts them on the first PDF
 # export, issue #393; the live page loads them from their CDNs then)
@@ -177,7 +186,7 @@ offline = ('<meta charset="utf-8">\n' + fonts + page_off + '\n' + data + block('
 save(dist / 'complex-map-workbench-offline.html', offline)
 # the live page names the offline page's size (Settings: Download offline page); the offline page has no such entry
 off_bytes = len(offline.encode())
-pub = f'<meta charset="utf-8">\n<meta name="cmw-offline" content="{off_bytes}">\n' + page + '\n' + data + mj + '<script>\n' + pub_js + '\n</script>\n'
+pub = f'<meta charset="utf-8">\n<meta name="cmw-offline" content="{off_bytes}">\n' + page_pub + '\n' + data + mj + '<script>\n' + pub_js + '\n</script>\n'
 save(dist / 'complex-map-workbench.html', pub)
 test = """<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <style>:root{color-scheme:light;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}body{margin:0;font:14px system-ui,sans-serif}img{max-width:100%}[hidden]{display:none!important}</style>
