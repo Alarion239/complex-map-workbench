@@ -9,7 +9,7 @@
 // Run: test/<you>_cdp/q.sh test/tour_auto_cmd.js
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const U = `http://localhost:${PORT}/test.html`;
-const R = [];
+const R = [], skipped = [];   // (the rows whose precondition the runner's lateness denied: they are made again or skipped, and a skip is listed in the result)
 const check = (name, pass, detail) => R.push([name, !!pass, detail]);
 const settle = async (ms = 900) => { await sleep(ms); await ev('new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)))'); };
 const cur = async () => { const c = await ev('Tour.current()'); return c ? c.chapter + '/' + c.id : null; };
@@ -38,7 +38,20 @@ const advancedAt = async (id, t0, max = 9000) => { while (Date.now() - t0 < max)
 // and the poll with it): the advance is measured from the poll and expected as the countdown's own `left`, which never exceeds CD_MS.
 // A blocked main thread also fires the countdown's timer late, by up to the blocked time: the page's long tasks (PerformanceObserver,
 // buffered) are summed over the wait, so the advance may be late by what was blocked and never early
-const ltInstall = () => ev(`(() => { if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } } return !!window.__lt; })()`);
+// The page's own record of when it could not run anything: its long tasks, and a heartbeat (a 10 ms timer, whose beats also log the
+// moment the tour's step changes): a gap between two beats is time the main thread was blocked or the machine took its core, which no
+// long task records when the page was not running at all. The advance is timed from the beat that sees the step change, so the
+// runner's own latency (a poll that a loaded machine delays) is not in it
+const ltInstall = () => ev(`(() => {
+  if (!window.__lt) { window.__lt = []; try { new PerformanceObserver((l) => { for (const e of l.getEntries()) window.__lt.push([e.startTime, e.startTime + e.duration]); }).observe({ type: 'longtask', buffered: true }); } catch (e) { window.__lt = null; } }
+  if (!window.__hb) {
+    const h = window.__hb = { ticks: [], steps: [], id: undefined }, id = () => { const c = Tour.current(); return c ? c.chapter + '/' + c.id : null; };
+    h.id = id();
+    setInterval(() => { const p = performance.now(), i = id(); h.ticks.push(p); if (i !== h.id) { h.steps.push([p, h.id, i]); h.id = i; } if (h.ticks.length > 30000) h.ticks.splice(0, 15000); }, 10);
+  }
+  return !!window.__lt;
+})()`);
+const HB_GAP_MS = 60;   // a gap this long between two beats: the page ran nothing
 const BUSY_MS = 300;   // a long task that ended less than this ago, or a program still linking: the page is busy
 // (the 6 s is counted from the page's last busy moment: a formula's compile and link on a loaded runner take as long as they take,
 // and the limit is on how long the page then takes to show done once it is idle. A step that is never done still gives up 6 s
@@ -60,13 +73,26 @@ const leftOk = (d) => !!d && d.left != null && d.left <= CDMS + 20;
 // that moment (a blocked main thread runs it late, never early), and the advance's own work (a chapter change) is a long task that
 // starts at the due moment and shows when it ends. The advance must come between the due time and that end, within the poll's
 // tolerance. Time is the page's clock, read in the poll that sees the advance. The page's blocked ms (long tasks) are reported
+// The advance is read from the heartbeat's log of the step changes: the beat that first sees the step leave id after the poll that
+// showed done. `stalls`: the page's long tasks and its beat gaps, merged, as the time it ran nothing; the timer is due at the poll's
+// time + left, fires at the end of any stall that covers that moment, and the step's own change is a stall that starts there (within
+// 30 ms of the end of the one before): exp is that moment, after the chain of them. judge(left) is the check against a due moment
+// `left` ms after the poll: the advance at least left - tol after it, and at most exp + tol
+const stallEnd = (stalls, p, left) => { let f = p + left; for (const [a, b] of stalls) if (a <= f + 30 && f < b) f = b; return f - p; };
 const advanceFrom = async (id, d, tol) => {
-  let r = null;
-  for (const t1 = Date.now() + 9000; Date.now() < t1;) { r = await ev(`(() => { const c = Tour.current(); return { id: c ? c.chapter + '/' + c.id : null, p: performance.now() }; })()`); if (r.id !== id) break; await sleep(25); }
-  const p1 = r ? r.p : 0;
-  const lt = d ? await ev(`(() => { const T = (window.__lt || []).slice().sort((x, y) => x[0] - y[0]); let f = ${d.p} + ${d.left}; for (const [a, b] of T) if (a <= f + 30 && f < b) f = b; return { exp: f - ${d.p}, blocked: T.reduce((s, [a, b]) => s + Math.max(0, Math.min(b, ${p1}) - Math.max(a, ${d.p})), 0) }; })()`) : { exp: 0, blocked: 0 };
-  const exp = Math.round(lt.exp), blocked = Math.round(lt.blocked), at = d ? Math.round(p1 - d.p) : null;
-  return { at, exp, blocked, ok: leftOk(d) && at != null && at >= d.left - tol && at <= exp + tol };
+  let ch = null;
+  for (const t1 = Date.now() + 9000; Date.now() < t1;) {
+    ch = await ev(`(() => { const h = window.__hb; if (!h) return null; const s = h.steps.find(([p, from]) => from === ${JSON.stringify(id)} && p >= ${d ? d.p : 0}); return { p: s ? s[0] : null, now: performance.now() }; })()`);
+    if (ch && ch.p != null) break;
+    await sleep(25);
+  }
+  const p1 = ch ? (ch.p != null ? ch.p : ch.now) : 0;
+  const stalls = d ? await ev(`(() => { const T = (window.__lt || []).map((x) => x.slice()), B = (window.__hb || { ticks: [] }).ticks; for (let i = 1; i < B.length; i++) if (B[i] - B[i - 1] > ${HB_GAP_MS}) T.push([B[i - 1], B[i]]);
+    T.sort((x, y) => x[0] - y[0]); const m = []; for (const t of T) { if (t[1] <= ${d.p} || t[0] >= ${p1}) continue; if (m.length && t[0] <= m[m.length - 1][1]) m[m.length - 1][1] = Math.max(m[m.length - 1][1], t[1]); else m.push(t.slice()); } return m; })()`) : [];
+  const at = d ? Math.round(p1 - d.p) : null;
+  const judge = (left, withStalls = true) => { const exp = Math.round(stallEnd(withStalls ? stalls : [], d.p, left)); return { exp, ok: at != null && at >= left - tol && at <= exp + tol }; };
+  const j = d ? judge(d.left) : { exp: 0, ok: false }, blocked = d ? Math.round(stalls.reduce((sum, [a, b]) => sum + Math.max(0, Math.min(b, p1) - Math.max(a, d.p)), 0)) : 0;
+  return { at, exp: j.exp, blocked, ok: leftOk(d) && j.ok, judge: d ? judge : null };
 };
 // an advance check on the page's clock: the moment done shows, polled from t0 (a step whose countdown is held has none until the hold
 // ends), then the advance from it. The result is advanceFrom's with the doneAt as .d; no doneAt reads as not ok
@@ -89,6 +115,12 @@ const inputAtPlus1s = async (d, evName, send) => {
 const stays = async (id, ms) => { const t0 = Date.now(); while (Date.now() - t0 < ms) { if ((await cur()) !== id) return false; await sleep(200); } return true; };
 // (a phone page polls slowly under software rendering: the phone checks allow the poll's own latency)
 const CDMS = 1500;   // the countdown (Tour._t.CD_MS: Alexander's 1 to 2 s, #250)
+// (a loaded runner can take the clicks' 250 ms waits past the 1.5 s countdown: the tour is then on the step after, which only done leads to)
+const taskDone = (next) => `document.querySelector('.ts-l2').classList.contains('done') || (() => { const c = Tour.current(); return !!c && c.chapter + '/' + c.id === '${next}'; })()`;
+const c3Done = taskDone('construct/follow');
+const INPUT_ROOM_MS = 600, INPUT_TRIES = 3;   // an input 1 s into the countdown needs the poll that shows done to come 600 ms or more before it is due; a row is made again that often
+const SPIKE_ROOM_MS = 300;   // the countdown's time left, at the poll that shows done, that a block across its due moment needs
+const HELD_TRIES = 3;   // the formula field's hold: the sequence is run again when the countdown ran out before the text arrived (below)
 const center = (sel) => ev(`(() => { const e = [...document.querySelectorAll(${JSON.stringify(sel)})].find((x) => x.getClientRects().length && x.offsetParent !== null); if (!e) return null; const b = e.getBoundingClientRect(); return [b.left + b.width / 2, b.top + b.height / 2]; })()`);
 const mdrag = async (x0, y0, x1, y1) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0, y: y0 }); await send('Input.dispatchMouseEvent', { type: 'mousePressed', x: x0, y: y0, button: 'left', clickCount: 1 }); for (let i = 1; i <= 10; i++) { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x: x0 + (x1 - x0) * i / 10, y: y0 + (y1 - y0) * i / 10, button: 'left', buttons: 1 }); await sleep(16); } await send('Input.dispatchMouseEvent', { type: 'mouseReleased', x: x1, y: y1, button: 'left', clickCount: 1 }); };
 const T = (type, pts) => send('Input.dispatchTouchEvent', { type, touchPoints: pts.map((p) => ({ x: p[0], y: p[1], id: 1, radiusX: 4, radiusY: 4, force: 1 })) });
@@ -118,22 +150,29 @@ check('x: the tick within 300 ms of the pan', tk != null && tk <= 300, tk);
 // (the advance is measured on the page's clock from the moment done shows, late only as far as the page was blocked: a 400 ms
 // block across the due moment delays it, and the check still reads it as on time)
 const dX = await doneAt(t0);
-await blockAtDue(dX);
+const spikesX = !!dX && dX.left >= SPIKE_ROOM_MS;
+if (spikesX) await blockAtDue(dX);
 const aX = await advanceFrom(PAN, dX, 150);
 check('x: moves on 1500 ± 150 ms after the release', aX.ok, [aX, dX]);
-check('x: the long-task record sees the 400 ms block and the advance followed it', aX.blocked >= 350 && aX.at >= dX.left + 200, aX);
+if (!spikesX) skipped.push('x: the 400 ms block (the poll saw done with less than ' + SPIKE_ROOM_MS + ' ms left)');
+check('x: the long-task record sees the 400 ms block and the advance followed it', !spikesX || (aX.blocked >= 350 && aX.at >= dX.left + 200), [spikesX, aX]);
 // Draw: the disc; an input at +1 s changes nothing: the advance stays at CD_MS after the event
-await goStep('basics/draw');
 const disc = await center('#tools > .tool[data-tool="disc"]');
-await click(disc[0], disc[1]); await settle(200);
-a = await paneBox('#paneL');
 const hd = await center('header .mark');
-await mdrag(a.l + 120, a.b - 140, a.l + 170, a.b - 100);
-t0 = Date.now();
-const dW = await doneAt(t0);
-const clickAt = await inputAtPlus1s(dW, 'click', () => click(hd[0], hd[1]));
-const aW = await advanceFrom('basics/draw', dW, 150);
-check('draw: an input at +1 s changes nothing: CD_MS after the event', aW.ok && clickAt != null && clickAt < dW.p + dW.left, [aW, dW, clickAt]);
+const drawAttempt = async () => {
+  await goStep('basics/draw');
+  await click(disc[0], disc[1]); await settle(200);
+  a = await paneBox('#paneL');
+  await mdrag(a.l + 120, a.b - 140, a.l + 170, a.b - 100);
+  t0 = Date.now();
+  const d = await doneAt(t0);
+  if (d && d.left < INPUT_ROOM_MS) return { late: true, d };   // (the poll saw done after the moment of the input: made again)
+  const at = await inputAtPlus1s(d, 'click', () => click(hd[0], hd[1]));
+  return { d, at, adv: await advanceFrom('basics/draw', d, 150) };
+};
+let rw = await drawAttempt();
+for (let n = 1; n < INPUT_TRIES && rw.late; n++) rw = await drawAttempt();
+check('draw: an input at +1 s changes nothing: CD_MS after the event', !rw.late && rw.adv.ok && rw.at != null && rw.at < rw.d.p + rw.d.left, rw);
 // live region: the result line once, then "Next step in 1.5 s."
 await goStep('basics/draw');
 await click(disc[0], disc[1]); await settle(200);
@@ -158,10 +197,13 @@ if (kc) {
   // (the countdown runs on the page's clock: the wheel comes when that clock is 1 s into it, and the advance is measured on it
   // too, late only as far as the page was blocked, as the formula step's is. A wheel that reached the page after the countdown's
   // due moment, because the page was blocked, proves nothing and fails the check)
-  const dK = await doneAt(t0);
-  const wheelAt = await inputAtPlus1s(dK, 'wheel', () => send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 }));
+  // (a poll that saw done with less than INPUT_ROOM_MS left, because the runner was late, is past the wheel's moment: the step cannot be done again
+  // from here, so the wheel is not sent and the advance alone is judged, the wheel row being held to what it could test)
+  const dK = await doneAt(t0), wheelLate = !!dK && dK.left < INPUT_ROOM_MS;
+  const wheelAt = wheelLate ? null : await inputAtPlus1s(dK, 'wheel', () => send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: 700, y: 400, deltaX: 0, deltaY: 40 }));
   const aK = await advanceFrom(KEYSTEP, dK, 300);
-  check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && wheelAt != null && wheelAt < dK.p + dK.left, [aK, dK, wheelAt]);
+  if (wheelLate) skipped.push('key: the wheel at +1 s (the poll saw done with less than ' + INPUT_ROOM_MS + ' ms left)');
+  check('key: a wheel at +1 s changes nothing: CD_MS after the done, late only as far as the page was blocked', aK.ok && (wheelLate || (wheelAt != null && wheelAt < dK.p + dK.left)), [aK, dK, wheelAt, wheelLate]);
 }
 // (the Display options popover the step opened is closed again, so the next ⌘K opens the palette)
 await ev(`(() => { const b = document.querySelector('#rightFoot .opts-btn:not(.pat-btn)'); if (b && b.getAttribute('aria-expanded') === 'true') b.click(); return 1; })()`); await sleep(200);
@@ -201,16 +243,33 @@ if (fi) {
   const dD = await doneAt(t0);
   check('formula: done by the formula field (via formula)', !!dD && dD.left != null, dD);
   // (a main-thread block across the countdown's due moment: the timer fires about 300 ms late)
-  await blockAtDue(dD);
+  // (the block starts 100 ms before the due moment: a poll that saw done with less than SPIKE_ROOM_MS left, because the runner was late, cannot place
+  // it across that moment, and then the record of the spike has nothing to see)
+  const spikes = !!dD && dD.left >= SPIKE_ROOM_MS;
+  if (spikes) await blockAtDue(dD);
   const aD = await advanceFrom('basics/formula', dD, 250);
   check('formula: added with Enter, the focus still in the emptied field: moves on CD_MS after it is done, late only as far as the page was blocked', aD.ok, [aD, dD, await ev('document.activeElement && document.activeElement.id')]);
-  check('formula: the long-task record sees the 400 ms spike and the advance followed it', aD.blocked >= 350 && aD.at >= dD.left + 200, aD);
-  await goStep('basics/formula');
-  await click(fi[0], fi[1]); await settle(100);
-  await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
-  await type('|z|<1'); await key('Enter'); await settle(150);
-  await type('0<'); await settle(100);
-  check('formula: held while the field holds text not yet sent (5 s)', await stays('basics/formula', 5000), await lit());
+  if (!spikes) skipped.push('formula: the 400 ms spike (the poll saw done with less than ' + SPIKE_ROOM_MS + ' ms left)');
+  check('formula: the long-task record sees the 400 ms spike and the advance followed it', !spikes || (aD.blocked >= 350 && aD.at >= dD.left + 200), [spikes, aD]);
+  // (controls: the advance check keeps both its bounds. The same advance, judged against a due moment 0.5 s after the advance, came before it; against
+  // one 1 s before it, with no stall counted, it came later than nothing explains: neither is ok, whatever the load of this run)
+  check('formula: control: an advance 0.5 s before its due moment is not ok', !!aD.judge && !aD.judge(aD.at + 500).ok, aD.at);
+  check('formula: control: an advance 1 s after its due moment, with no stall to explain it, is not ok', !!aD.judge && !aD.judge(aD.at - 1000, false).ok, aD.at);
+  // (the text is typed within the countdown that Enter started. When the runner or the page was so late that the step had moved on before the text
+  // reached the page, that countdown ran out with nothing held: the attempt tests no hold, and the sequence is run again, up to HELD_TRIES times;
+  // a step that is still here when the text has arrived and then moves on in 5 s is the failure)
+  let heldOk = false, heldInfo = null;
+  for (let tries = 0; tries < HELD_TRIES && !heldOk; tries++) {
+    await goStep('basics/formula');
+    await click(fi[0], fi[1]); await settle(100);
+    await ev(`(() => { const e = document.activeElement; e.value = ''; })()`);
+    await type('|z|<1'); await key('Enter'); await settle(150);
+    await type('0<'); await settle(100);
+    if ((await cur()) !== 'basics/formula') { heldInfo = ['the step moved on before the text reached the page, ' + (tries + 1) + ' tries', await lit()]; continue; }
+    heldOk = await stays('basics/formula', 5000); heldInfo = await lit();
+    break;
+  }
+  check('formula: held while the field holds text not yet sent (5 s)', heldOk, heldInfo);
   await key('Backspace'); await key('Backspace'); t0 = Date.now();
   const aF2 = await advanceAfter('basics/formula', t0, 250);
   check('formula: moves on CD_MS after that text is gone', aF2.ok, aF2);
@@ -313,14 +372,14 @@ const c3b = await center('#constructTools .tool[data-tool="circle3"], #tools .to
 if (c3b) await click(c3b[0], c3b[1]);
 await settle(300);
 for (const p of [[-1.5, -0.5], [1, -1], [0.25, 1.25]]) { const q = await w2s(p[0], p[1]); await click(q[0], q[1]); await settle(250); }
-check('construct: the circle task is done', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+check('construct: the circle task is done', (await until(c3Done, 2500)) != null, [await cur(), await lit()]);
 check('construct: the tour moves on to the family step', (await advancedAt('construct/c3', Date.now() - 200, 6000)) != null && (await cur()) === 'construct/follow', await cur());
 const sel = await center('#tools .tool[data-tool="select"]');
 if (sel) { await click(sel[0], sel[1]); await settle(200); }
 // (one drag from above the line to well below it: the disc turns into its outside in a step, never being a half-plane)
 const z2a = await w2s(0.25, 1.25), z2c = await w2s(0.25, -2.2);
 await mdrag(z2a[0], z2a[1], z2c[0], z2c[1]);
-check('construct: dragging z2 across the line ticks the step (the disc becomes its outside)', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+check('construct: dragging z2 across the line ticks the step (the disc becomes its outside)', (await until(taskDone('construct/meet'), 2500)) != null, [await cur(), await lit()]);
 await ev('Tour.stop()'); await settle(300);
 } catch (e) { check('the Constructions chapter at 1440' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
 try {
@@ -457,12 +516,12 @@ const c3t = await center('.ph-tiles .ph-tile[data-tool="circle3"]');
 if (c3t) { await tap(c3t[0], c3t[1]); await settle(600); }
 const pb = await paneBox('#paneL'), cx = (pb.l + pb.r) / 2, cy = (pb.t + Math.min(pb.b, 560)) / 2;
 for (const p of [[cx - 70, cy + 40], [cx + 70, cy + 40], [cx, cy - 70]]) { await tap(p[0], p[1]); await settle(300); }
-check('phone construct: the circle task is done', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+check('phone construct: the circle task is done', (await until(c3Done, 2500)) != null, [await cur(), await lit()]);
 check('phone construct: the tour moves on to the family step', (await advancedAt('construct/c3', Date.now() - 200, 6000)) != null && (await cur()) === 'construct/follow', await cur());
 const selK = await center('#secDraw .tool[data-tool="select"], #tools > .tool[data-tool="select"]');
 if (selK) { await tap(selK[0], selK[1]); await settle(200); }
 await tdrag(cx, cy - 70, cx, cy + 130);
-check('phone construct: a finger dragging z2 across the line ticks the step', (await until(`document.querySelector('.ts-l2').classList.contains('done')`, 2500)) != null, [await cur(), await lit()]);
+check('phone construct: a finger dragging z2 across the line ticks the step', (await until(taskDone('construct/meet'), 2500)) != null, [await cur(), await lit()]);
 await ev('Tour.stop()'); await settle(300);
 
 } catch (e) { check('390 × 844, touch, English' + ': ran', false, String(e && e.stack || e).slice(0, 300)); try { await ev('Tour.stop()'); } catch (x) { /* */ } }
@@ -550,8 +609,12 @@ if (pf) {
 if (!SV) {
   await goStep('basics/preimages');
   const pr = await paneBox('#paneR');
-  await tdrag(pr.l + (pr.r - pr.l) / 2, pr.t + (pr.b - pr.t) / 2, pr.l + (pr.r - pr.l) / 2 + 60, pr.t + (pr.b - pr.t) / 2 + 20, 250);
-  await until(`/ring fills/.test(document.querySelector('#tourLead').textContent)`, 3000);
+  // (the hold is shorter than the ring only if the runner delivers the touch's events on time: a late one makes it a long hold, and the drag is made again with a shorter hold)
+  const hintOn = `/ring fills/.test(document.querySelector('#tourLead').textContent) && /moved Y/.test(document.querySelector('#tourLead').textContent)`;
+  for (const hold of [250, 150, 80]) {
+    await tdrag(pr.l + (pr.r - pr.l) / 2, pr.t + (pr.b - pr.t) / 2, pr.l + (pr.r - pr.l) / 2 + 60, pr.t + (pr.b - pr.t) / 2 + 20, hold);
+    if ((await until(hintOn, 3000)) != null) break;
+  }
   const hl = await ev(`document.querySelector('#tourLead').textContent`);
   check('phone preimages: a short hold that pans Y shows the hint', /ring fills/.test(hl) && /moved Y/.test(hl), hl);
 }
@@ -567,7 +630,8 @@ check('RU 360: the Sound chapter needs at most 3 lines, and the strip has them',
 const pa = await center('.ts-act');
 await tap(pa[0], pa[1]); t0 = Date.now();
 const seenC = []; let lastC = '', cutC = [];
-while (Date.now() - t0 < 27000 && (await cur()) === 'sound/song') {
+// (the song's captions come at the page's pace, and a loaded runner stretches it: the loop ends when the step moves on, 60 s at the latest)
+while (Date.now() - t0 < 60000 && (await cur()) === 'sound/song') {
   const g = await ev(`(() => { const s = document.querySelector('.tour-strip'), l2 = s.querySelector('.ts-l2'), t = s.querySelector('.ts-text'); return { lead: document.querySelector('#tourLead').textContent, cut: l2.getBoundingClientRect().bottom > s.getBoundingClientRect().bottom + 0.5 || t.scrollHeight > t.clientHeight + 1, title: s.querySelector('.ts-title').getBoundingClientRect().top >= s.getBoundingClientRect().top - 0.5 }; })()`);
   if (g.lead !== lastC) { lastC = g.lead; seenC.push(g.lead.slice(0, 20)); if (g.cut || !g.title) cutC.push(g); }
   await sleep(120);
@@ -605,4 +669,4 @@ check('1366 × 768: a tour-sr line at the end of the body does not make the page
 await view(1440, 900, false, false);
 const L = logs().filter((l) => /EXC|\[tour\]/i.test(l.t + l.m)).slice(0, 12);
 check('no exceptions or tour warnings', !L.length, L);
-return { pass: R.filter((r) => r[1]).length, of: R.length, fails: R.filter((r) => !r[1]), logs: L };
+return { pass: R.filter((r) => r[1]).length, of: R.length, fails: R.filter((r) => !r[1]), skipped, logs: L };

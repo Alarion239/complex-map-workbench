@@ -59,7 +59,7 @@ ivec2 lvAt(ivec2 c) {
   if (v != 0 && uCuts > 0 && cellJump(c)) return ivec2(0);
   return ivec2(v & 7, v >> 3);
 }
-// drawn by the refined cells' draw, not a cell that now holds a jump
+// drawn by the refined cells' draw, unless the cuts put a jump in the cell
 bool lvDrawnR(ivec2 c) { return lvRaw(c) != 0 && !(uCuts > 0 && cellJump(c)); }
 ivec2 lstCell(int e) {
   int ci = int(texelFetch(uLst, ivec2(e & 1023, e >> 10), 0).x + 0.5);
@@ -775,7 +775,7 @@ void refined() {
   int iv = k == 0 ? iA : (k == 1 ? iB : iC);
   vec4 tv = k == 0 ? ta : (k == 1 ? tb : tc), t2 = rfAt(iv + 1);
   ivec2 c = lstCell(uRefE + e);
-  if (!lvDrawnR(c)) return;   // (a cell that now holds a jump: drawn by the base cells' draw)
+  if (!lvDrawnR(c)) return;   // (a cell the cuts put a jump in: drawn by the base cells' draw)
   vec2 uv = t2.zw / float(16 * uM);
   vZ = uBox.xy + uv * uBox.zw;
   vW = t2.xy;
