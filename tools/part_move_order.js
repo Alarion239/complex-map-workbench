@@ -4,12 +4,13 @@
 //   orderViolations(text)           the top-level statements that read, while they run, a const, let, class or var
 //                                   that a later top-level statement declares
 //   newOrderViolations(old, new)    those of `new` that `old` does not have: what a move introduced
-// "Top level" is the module's statements and, where one is an immediately called function (the closure of a split file:
-// `(() => { ... })();`), that function's body, and so on inside it. A statement reads a name while it runs when the
-// name is in its own code outside every function and method body (a called function's body is not followed), in the
-// heritage, computed keys and static members of a class, and in the body of a function it calls at once. A name a
-// statement declares in a block of its own is left out. A function declaration is hoisted, so a statement may read it
-// anywhere. Each violation is { name, kind, use, decl } (the two statements as acorn nodes with `loc`, and `key`).
+// "Top level" is the module's statements and, where one calls a function at once (the closure of a split file: `(()
+// => { ... })();` or `const GLR = (() => { ... })();`), that function's body, and so on inside it. A statement reads
+// a name while it runs when the name is in its own code outside every function and method body (a called function's
+// body is not followed), in the heritage, computed keys and static members of a class, and in the body of a function
+// it calls at once. A name declared in a block, loop head, catch clause or called function around the read is that
+// scope's, not the later one. A function declaration is hoisted, so a statement may read it anywhere. Each violation
+// is { name, kind, use, decl } (the two statements as acorn nodes with `loc`, and `key`).
 const crypto = require('crypto');
 const acorn = require('acorn');
 
@@ -20,11 +21,17 @@ function parse(text) {
 }
 
 const isFunction = (n) => n && (n.type === 'FunctionExpression' || n.type === 'ArrowFunctionExpression');
-// the function an expression statement calls at once: (() => {...})(), (function () {...})(), !function () {...}()
-function calledAtOnce(s) {
-  let e = s.type === 'ExpressionStatement' ? s.expression : null;
-  if (e && e.type === 'UnaryExpression') e = e.argument;
+// the function an expression calls at once, through a `!`, an `await` or an assignment: (() => {...})(),
+// !function () {...}()
+function calledAtOnce(e) {
+  while (e && (e.type === 'UnaryExpression' || e.type === 'AwaitExpression' || e.type === 'AssignmentExpression')) e = e.type === 'AssignmentExpression' ? e.right : e.argument;
   return e && e.type === 'CallExpression' && isFunction(e.callee) && e.callee.body.type === 'BlockStatement' ? e.callee : null;
+}
+// the functions a top-level statement calls at once at its own level: `(() => {...})();`,
+// `const GLR = (() => {...})();`, `x = (() => {...})();`
+function closures(s) {
+  const e = s.type === 'ExpressionStatement' ? [s.expression] : s.type === 'VariableDeclaration' ? s.declarations.map((d) => d.init) : [];
+  return e.map(calledAtOnce).filter(Boolean);
 }
 
 // the names a binding pattern declares, into `names`; what evaluating it reads (defaults, computed keys) through `read`
@@ -37,36 +44,68 @@ function bound(p, names, read) {
   else if (p.type === 'AssignmentPattern') { read(p.right); bound(p.left, names, read); }
 }
 
-// the names node `n` reads while it runs, into `out`; the names it declares in blocks of its own, into `local`
-function reads(n, out, local) {
+// the names a list of statements declares in its own scope: let, const, class and function declarations
+function lexical(stmts) {
+  const names = [];
+  for (const s of stmts) {
+    if (s.type === 'VariableDeclaration' && s.kind !== 'var') for (const d of s.declarations) bound(d.id, names, () => {});
+    else if ((s.type === 'ClassDeclaration' || s.type === 'FunctionDeclaration') && s.id) names.push(s.id.name);
+  }
+  return names;
+}
+// the names `var` declares anywhere in n, outside the functions in it (var is scoped to the function)
+function varNames(n, names = []) {
+  if (!n || typeof n.type !== 'string' || n.type === 'FunctionDeclaration' || isFunction(n)) return names;
+  if (n.type === 'VariableDeclaration' && n.kind === 'var') for (const d of n.declarations) bound(d.id, names, () => {});
+  for (const k of Object.keys(n)) {
+    if (k === 'type' || k === 'start' || k === 'end' || k === 'loc') continue;
+    const v = n[k];
+    if (Array.isArray(v)) v.forEach((x) => varNames(x, names)); else if (v && typeof v.type === 'string') varNames(v, names);
+  }
+  return names;
+}
+// the shadowed names with `names` added
+const within = (shadow, names) => (names.length ? new Set([...shadow, ...names]) : shadow);
+
+// the names node `n` reads while it runs, into `out`, except those in `shadow` (declared in a scope around it, inside
+// the statement)
+function reads(n, out, shadow) {
   if (!n || typeof n.type !== 'string') return;
-  const go = (x) => reads(x, out, local);
+  const go = (x) => reads(x, out, shadow);
   switch (n.type) {
     case 'FunctionDeclaration': case 'FunctionExpression': case 'ArrowFunctionExpression': return;
-    case 'Identifier': out.add(n.name); return;
+    case 'Identifier': if (!shadow.has(n.name)) out.add(n.name); return;
     case 'ClassDeclaration': case 'ClassExpression':
       go(n.superClass);
       for (const m of n.body.body) {
         if (m.computed) go(m.key);
-        if (m.type === 'StaticBlock') m.body.forEach(go); else if (m.type === 'PropertyDefinition' && m.static) go(m.value);
+        if (m.type === 'StaticBlock') { const sh = within(shadow, [...lexical(m.body), ...varNames(m)]); m.body.forEach((x) => reads(x, out, sh)); } else if (m.type === 'PropertyDefinition' && m.static) go(m.value);
       }
       return;
     case 'CallExpression':
-      // (a function called at once runs its body now, with its parameters its own)
+      // (a function called at once runs its body now, with its parameters and its own declarations)
       if (isFunction(n.callee)) {
         const names = [];
         for (const p of n.callee.params) bound(p, names, go);
-        names.forEach((x) => local.add(x));
-        go(n.callee.body);
+        const sh = within(shadow, [...names, ...varNames(n.callee.body), ...(n.callee.body.type === 'BlockStatement' ? lexical(n.callee.body.body) : [])]);
+        reads(n.callee.body, out, sh);
       } else go(n.callee);
       n.arguments.forEach(go);
       return;
+    case 'BlockStatement': { const sh = within(shadow, lexical(n.body)); n.body.forEach((x) => reads(x, out, sh)); return; }
+    case 'SwitchStatement': { go(n.discriminant); const sh = within(shadow, lexical(n.cases.flatMap((c) => c.consequent))); for (const c of n.cases) { reads(c.test, out, sh); c.consequent.forEach((x) => reads(x, out, sh)); } return; }
+    case 'ForStatement': case 'ForInStatement': case 'ForOfStatement': {
+      const head = n.type === 'ForStatement' ? n.init : n.left;
+      const sh = within(shadow, head && head.type === 'VariableDeclaration' && head.kind !== 'var' ? lexical([head]) : []);
+      for (const k of ['init', 'test', 'update', 'left', 'right', 'body']) reads(n[k], out, sh);
+      return;
+    }
+    case 'CatchClause': { const names = []; bound(n.param, names, go); reads(n.body, out, within(shadow, names)); return; }
     case 'MemberExpression': go(n.object); if (n.computed) go(n.property); return;
     case 'Property': if (n.computed) go(n.key); go(n.value); return;
     case 'LabeledStatement': go(n.body); return;
     case 'BreakStatement': case 'ContinueStatement': case 'MetaProperty': return;
-    case 'VariableDeclarator': { const names = []; bound(n.id, names, go); names.forEach((x) => local.add(x)); go(n.init); return; }
-    case 'CatchClause': { const names = []; bound(n.param, names, go); names.forEach((x) => local.add(x)); go(n.body); return; }
+    case 'VariableDeclarator': bound(n.id, [], go); go(n.init); return;
     default:
       for (const k of Object.keys(n)) {
         if (k === 'type' || k === 'start' || k === 'end' || k === 'loc') continue;
@@ -76,8 +115,8 @@ function reads(n, out, local) {
   }
 }
 
-// [[name, kind]] a top-level statement declares by const, let, var or class (a function declaration is hoisted: not
-// listed)
+// [[name, kind]] a top-level statement declares by const, let, var or class (a function declaration is hoisted, so it
+// is not listed)
 function declared(s) {
   if (s.type === 'ClassDeclaration') return [[s.id.name, 'class']];
   if (s.type !== 'VariableDeclaration') return [];
@@ -86,10 +125,10 @@ function declared(s) {
   return out;
 }
 
-// the lists of top-level statements: the module's, and inside each immediately called function that is one of them
+// the lists of top-level statements: the module's, and inside each function that is called at once by one of them
 function levels(program) {
   const out = [];
-  const visit = (stmts) => { out.push(stmts); for (const s of stmts) { const f = calledAtOnce(s); if (f) visit(f.body.body); } };
+  const visit = (stmts) => { out.push(stmts); for (const s of stmts) for (const f of closures(s)) visit(f.body.body); };
   visit(program.body);
   return out;
 }
@@ -101,12 +140,13 @@ function orderViolations(text) {
     const decl = new Map();   // name -> { index, kind }
     stmts.forEach((s, i) => { for (const [name, kind] of declared(s)) if (!decl.has(name)) decl.set(name, { index: i, kind }); });
     stmts.forEach((s, i) => {
-      if (s.type === 'ImportDeclaration' || calledAtOnce(s)) return;
-      const names = new Set(), local = new Set();
-      reads(s, names, local);
+      if (s.type === 'ImportDeclaration') return;
+      // (the names the statement declares itself, with a `var` in a block of it, are not another statement's)
+      const names = new Set();
+      reads(s, names, new Set([...declared(s).map((d) => d[0]), ...varNames(s)]));
       for (const name of names) {
         const d = decl.get(name);
-        if (d && d.index > i && !local.has(name)) out.push({ name, kind: d.kind, use: s, decl: stmts[d.index], key: hash(stmts[d.index], hash(s, name)) });
+        if (d && d.index > i) out.push({ name, kind: d.kind, use: s, decl: stmts[d.index], key: hash(stmts[d.index], hash(s, name)) });
       }
     });
   }

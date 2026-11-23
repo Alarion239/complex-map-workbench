@@ -94,6 +94,15 @@ const orderOf = (a, b) => proveMove(a, b);
   const vr = orderOf(closure('var n = 1;', 'const a = n;'), closure('const a = n;', 'var n = 1;'));
   ok('a var read before its declaration is flagged (it reads undefined)', vr.order.length === 1 && vr.order[0].kind === 'var');
   ok('a violation the old file had is not the move\'s', proveMove(closure(ICONS, MSVG, LAST), closure(LAST, ICONS, MSVG)).order.length === 0);
+  // the closures of src/gl, src/figure and src/construct are `const X = (() => { ... })();`
+  const named = (...stmts) => `const GLR = (() => {\n${stmts.join('\n')}\nreturn {};\n})();\n`;
+  ok('a const moved below its reader inside `const X = (() => {...})();` is flagged', orderOf(named(MSVG, ICONS, LAST), named(ICONS, MSVG, LAST)).order.length === 1);
+  ok('the same inside `var X = (function () {...})();` and `x = (() => {...})();`', orderOf(`var X = (function () {\n${MSVG}\n${ICONS}\n})();\n`, `var X = (function () {\n${ICONS}\n${MSVG}\n})();\n`).order.length === 1 && orderOf(`let x; x = (() => {\n${MSVG}\n${ICONS}\n})();\n`, `let x; x = (() => {\n${ICONS}\n${MSVG}\n})();\n`).order.length === 1);
+  ok('a closure inside a closure is read too', orderOf(closure(named(MSVG, ICONS, LAST)), closure(named(ICONS, MSVG, LAST))).order.length === 1);
+  ok('a closure that reads a later const of the module is flagged at the module\'s level', orderOf(`const v = 1;\n(() => { w(v); })();\n`, `(() => { w(v); })();\nconst v = 1;\n`).order.length === 1);
+  // a name declared in one block hides the read in that block only
+  ok('the read in the other branch is not hidden by a block-local name', flagged('if (c) { const v = 1; w(v); } else { w(v); }') && flagged('{ const v = 2; w(v); } w(v);') && flagged('for (const v of xs) w(v); w(v);'));
+  ok('a name declared by the block, the loop head, the switch or the called function hides its own reads', !flagged('{ const v = 2; w(v); }') && !flagged('for (const v of xs) w(v);') && !flagged('for (let v = 0; v < 3; v++) w(v);') && !flagged('switch (c) { case 1: const v = 2; w(v); }') && !flagged('(() => { const v = 2; w(v); })();') && !flagged('(() => { w(v); var v = 2; })();'));
   ok('the module\'s own statements are read too, beside a closure', orderOf(`import { x } from './x.js';\n${MSVG}\n${ICONS}\n(() => { ${LAST} })();\n`, `import { x } from './x.js';\n${ICONS}\n${MSVG}\n(() => { ${LAST} })();\n`).order.length === 1);
   ok('the report names the statement, the name and both places', /"const ICONS = \{ a: msvg\("a"\), b: msvg\("b"\) \};" at joined line 2 \(src\/app\/x\.js line 2\) reads msvg, a const declared after it, "const msvg = \(s\) => "<" \+ s;" at joined line 3/.test(require('../tools/part_move').report(p, { a: { name: 'old', text: '' }, b: { name: 'new', text: closure(ICONS, MSVG, LAST) }, layoutA: [], layoutB: [{ name: 'src/app/x.js', from: 1, to: 5 }] }).lines.join('\n')), require('../tools/part_move').report(p, { a: { name: 'old', text: '' }, b: { name: 'new', text: closure(ICONS, MSVG, LAST) }, layoutA: [], layoutB: [{ name: 'src/app/x.js', from: 1, to: 5 }] }).lines.join('\n'));
 }

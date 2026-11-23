@@ -58,22 +58,15 @@ function find(txt, pat) {
   return -1;
 }
 
-// two tokenizations -> { kind: 'identical' } | { kind: 'move', length, a: [from, to), b: [from, to) } (token indices of
-// the run in
-// each) | { kind: 'changed', start, a: [from, to), b: [from, to) } (not a move: the region from the first difference to
-// the
-// common end).
-// A move is one run that is in both streams, with the streams equal once it is taken out of each. With the common start
-// and
-// the common end taken off, what is left of one stream is the other's turned (U V against V U): the shorter of U and V
-// is the
-// run. Tokens at the edges of the run that equal their neighbours (`) ; }` before a moved function ends the code before
-// it
-// in both) make the common start and end reach into the run, so the turn is looked for in windows that begin up to EDGE
-// tokens
-// before the first difference and end up to EDGE tokens after the common end, whole lines first (a run is whole lines
-// when a
-// part is split), the smaller ones first.
+// two tokenizations -> { kind: 'identical' } | { kind: 'move', length, a: [from, to), b: [from, to) } (token indices
+// of the run in each) | { kind: 'changed', start, a: [from, to), b: [from, to) } (not a move: the region from the
+// first difference to the common end).
+// A move is one run that is in both streams, with the streams equal once it is taken out of each. With the common
+// start and the common end taken off, what is left of one stream is the other's turned (U V against V U): the
+// shorter of U and V is the run. Tokens at the edges of the run that equal their neighbours (`) ; }` before a moved
+// function ends the code before it in both) make the common start and end reach into the run, so the turn is looked
+// for in windows that begin up to EDGE tokens before the first difference and end up to EDGE tokens after the common
+// end, whole lines first (a run is whole lines when a part is split), the smaller ones first.
 const EDGE = 32, EDGE_ANY = 8;
 function compareStreams(ta, tb) {
   const ka = ta.keys, kb = tb.keys, n = ka.length, m = kb.length, lim = Math.min(n, m);
@@ -148,8 +141,8 @@ function proveMove(textA, textB, { strict = false } = {}) {
   return { pure: tokens.kind !== 'changed' && !codeDiffers && !(strict && differs) && !order.length && !orderError, tokens, tA, tB, diff, codeDiffers, order, orderError };
 }
 
-// the parts of the joined file as line ranges -> [{ name, from, to }] (1-based, inclusive); the closure's own lines are
-// wrap.js
+// the parts of the joined file as line ranges -> [{ name, from, to }] (1-based, inclusive); the closure's own lines
+// are wrap.js
 function layoutOf(file, dir) {
   const text = source(file, dir), total = text.split('\n').length - (text.endsWith('\n') ? 1 : 0);
   const ps = parts(file, dir);
@@ -172,8 +165,8 @@ function layoutOf(file, dir) {
 // 'line 7' or 'lines 1203-1563'
 const span = (a, z) => (a === z ? `line ${a}` : `lines ${a}-${z}`);
 
-// 'src/app/19-steps-view.js lines 1203-1563' for the lines [from, to] of the joined file (each part it touches, if more
-// than one)
+// 'src/app/19-steps-view.js lines 1203-1563' for the lines [from, to] of the joined file (each part it touches, if
+// more than one)
 function whereIs(layout, from, to) {
   const hit = layout.filter((x) => x.from <= to && x.to >= from).map((x) => {
     const a = Math.max(from, x.from) - x.from + 1, z = Math.min(to, x.to) - x.from + 1;
