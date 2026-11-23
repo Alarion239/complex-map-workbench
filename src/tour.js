@@ -1566,12 +1566,11 @@ const Tour = (() => {
     sizeDesk(r);
     wire(r);
     if (!prev) call('onTour', true);
-    // (a start from the Help menu or a suggestion has its control gone with the menu or the toast, so the focus fell to the page: it goes to the strip's
-    // first action, where Tab goes on through the strip's controls before the page's)
-    const fromControl = !!opt.opener;
+    // (a start the user asks for names its control as the opener (the Help menu, the palette, a Show me, a suggestion): the control goes with the menu or the
+    // toast, or the palette or the guide hands the focus back to it as it closes, so the focus goes to the strip's first action, where Tab goes on
+    // through the strip's controls before the page's)
     return show(r.ci, r.si, 1).then(() => {
-      const at = document.activeElement;
-      if (fromControl && run === r && (!at || at === document.body || !at.isConnected || at.closest('[role=menu]'))) { try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } }
+      if (opt.opener && run === r && !r.ui.strip.contains(document.activeElement)) { try { r.ui.next.focus({ preventScroll: true }); } catch (e) { /* */ } }
       return true;
     });
   }
