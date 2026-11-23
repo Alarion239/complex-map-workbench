@@ -284,6 +284,24 @@ for (const cfg of runs) {
       const pLanded = await ev(`({ tour: Tour.isActive(), inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), on: document.activeElement ? document.activeElement.tagName + '.' + document.activeElement.className : null })`);
       check(`${tag} focus: the tour started from the command palette has the focus in the strip`, pOn.ok && pLanded.tour && pLanded.inStrip, pLanded);
       await ev('Tour.isActive() && Tour.stop()'); await calm();
+      // and from the palette or the guide opened while the focus was on a control that keeps it (the palette and the guide hand the focus back to it when they close)
+      for (const via of ['palette', 'guide']) {
+        await ev(`document.getElementById('examplesBtn').focus(); 1`);
+        if (via === 'palette') {
+          await key('k', 4); await shown('#popHost > .pop.palette');
+          const at = await ev(`(() => { const its = [...document.querySelectorAll('#popHost > .pop.palette .pal-item')], i = its.findIndex((e) => /^(Tour|Обучение): /.test(e.textContent.trim())); return { i, sel: its.findIndex((e) => e.classList.contains('sel')) }; })()`);
+          for (let i = at.sel; i < at.i; i++) await key('ArrowDown');
+          await key('Enter');
+        } else {
+          await key('?', 0); await shown('.modal .guide-sec');
+          await ev(`document.querySelector('.modal .guide-show .btn').click(); 1`);
+        }
+        const vOn = await settled({ only: true, max: SHOWN_MS, until: `Tour.isActive() && !!document.querySelector('.tour-strip')` });
+        await settle();
+        const vLanded = await ev(`({ tour: Tour.isActive(), inStrip: !!(document.activeElement && document.activeElement.closest('.tour-strip')), on: document.activeElement ? document.activeElement.tagName + '.' + (document.activeElement.id || document.activeElement.className) : null })`);
+        check(`${tag} focus: the tour started from the ${via} opened on a control has the focus in the strip`, vOn.ok && vLanded.tour && vLanded.inStrip, vLanded);
+        await ev('Tour.isActive() && Tour.stop()'); await calm();
+      }
     }
   }
   // ---- follow: the spotlight keeps up with a scroll, a resize and a layout change, in the next frame
