@@ -117,13 +117,16 @@ for (const [w, h, tools] of FOLD_CASES) for (const lang of ['en', 'ru', 'it']) f
         const top = (b) => { if (!b) return false; const r = b.getBoundingClientRect(), at = document.elementFromPoint(r.left + r.width / 2, r.top + r.height / 2); return !!at && (at === b || b.contains(at)); };
         const q = e.querySelector('.cm-q'), ctr = (b) => { const r = b.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2]; }, cx = x && ctr(x), cq = q && ctr(q);
         return { chipW: Math.round(c.width), words: t && t.getClientRects().length ? f(t) : 'folded', bar: f(document.querySelector('.ph-ctx.in .ph-ctn')), xOnTop: top(x), qOnTop: top(q),
-          apart: cx && cq ? Math.round(Math.max(Math.abs(cx[0] - cq[0]), Math.abs(cx[1] - cq[1])) * 10) / 10 : null }; })()); else requestAnimationFrame(tick); };
+          apart: cx && cq ? Math.round(Math.max(Math.abs(cx[0] - cq[0]), Math.abs(cx[1] - cq[1])) * 10) / 10 : null,
+          // (points of each 44 px tap square, a 5 x 5 grid inside it, where the context bar is hit instead of the chip: a tap there goes to the bar)
+          under: [x, q].map((b) => { if (!b) return 0; const [px, py] = ctr(b); let n = 0; for (let i = -2; i <= 2; i++) for (let j = -2; j <= 2; j++) { const at = document.elementFromPoint(px + i * 10, py + j * 10); if (at && at.closest('.ph-ctx')) n++; } return n; }) }; })()); else requestAnimationFrame(tick); };
     requestAnimationFrame(tick); })`);
   ok(`${name}: the chip's words are whole or folded away, never a stub`, m.words === true || m.words === 'folded', m);
   if (h >= KEEPS_WORDS) ok(`${name}: the chip keeps its words, whole (control)`, m.words === true, m);
   ok(`${name}: the context bar's sentence ends in the tool's name, on screen`, m.bar === true, m);
   ok(`${name}: the chip's × and ? are on top at their centres`, m.xOnTop && m.qOnTop, m);
   // (the two 44 px taps (touch: each control's ::after) do not overlap: their centres are 44 px apart along a side, so a tap between them is in one only)
+  ok(`${name}: no point of the × and ? taps' 44 px squares lands on the context bar`, m.words !== 'folded' || (m.under || []).every((n) => n === 0), m);
   ok(`${name}: the chip's × and ? take 44 px taps that do not overlap (their centres at least 44 px apart)`, m.words !== 'folded' || (m.apart != null && m.apart >= 44), m);
 }
 return { pass: fails.length === 0, fails, info };
