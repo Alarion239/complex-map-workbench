@@ -360,7 +360,7 @@ try {
       const second = Object.assign(q1.got, await ev('({ links: GLR.pendingLinks })'));
       const q2 = await settled({ only: true, max: PLAY_MS, until: '__cmwSvX() === 2' });
       const said = await ev('(window.__paintOn = false, { btn: window.__playLog, live: window.__liveLog, paint: window.__paintLog })');
-      ok(`${POLE_EX}, then z⁴ + z: a hold in the middle of the play for ${HOLD_SHOWN_MS / 1000} s: ▶ is the gate's Cancel (busy, named Cancel, described "Preparing the glide…") while the play is still on`, busyW.ok && busy.busy && busy.label === 'Cancel' && busy.desc === 'Preparing the glide…' && busy.play, { busyW, busy });
+      ok(`${POLE_EX}, then z⁴ + z: a hold in the middle of the play for ${HOLD_SHOWN_MS / 1000} s: ▶ is the gate's Cancel (busy, named Cancel, described "Preparing the glide… N %", its ring's fill in whole tens) while the play is still on`, busyW.ok && busy.busy && busy.label === 'Cancel' && /^Preparing the glide… \d+ %$/.test(busy.desc) && busy.play, { busyW, busy });
       // (each hold's ring, as painted: it starts below half, never goes back, and is full only as the glide can go: it stands full for a frame or
       // two (the frames' count, as software GL's take a second) before ▶ is given back, not for the rest of the hold)
       const holds = said.paint.reduce((rs, e, i, all) => { if (e.busy) { if (!rs.open) rs.all.push((rs.open = [])); rs.open.push({ fill: e.fill, n: e.n, end: (all[i + 1] || e).n }); } else rs.open = null; return rs; }, { all: [], open: null }).all;

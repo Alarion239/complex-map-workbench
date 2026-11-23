@@ -3353,6 +3353,7 @@
  "On a plane with the sound probe (steps view): move the probe": "Su un piano con la sonda del suono (vista a passi): sposta la sonda",
  "Loop started. Move with Alt + the arrow keys; Enter closes it.": "Laccio iniziato. Muoviti con Alt + i tasti freccia; Enter lo chiude.",
  "Preparing the glide…": "Preparazione del passaggio…",
+ "Preparing the glide… {p} %": "Preparazione del passaggio… {p} %",
  "Still preparing the glide.": "Preparazione del passaggio ancora in corso.",
  "The glide draws as it goes: its frames would take too long to prepare.": "Il passaggio si disegna mentre scorre: preparare i fotogrammi richiederebbe troppo tempo.",
  "The glide draws as it goes: its frames would not fit in memory.": "Il passaggio si disegna mentre scorre: i fotogrammi non starebbero in memoria.",

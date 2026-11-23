@@ -8,8 +8,13 @@
   const SV_GATE_POLL_MS = 100, SV_GATE_HANG_MS = 10000, SV_GATE_SHOW_MS = 300;
   // the ring's fill while the gauge has no total yet
   const SV_GATE_UNKNOWN_FILL = 0.25;
-  // the ring's share for what svReady counts but the frames drawn ahead, while a wait has them to make too
+  // the ring's share for what svReady counts but the frames drawn ahead, while a wait has them to make too: a half, as
+  // neither part's time is known before it starts (the programs' links and the frames' cost vary by machine and chain),
+  // so each is given the same room and neither part's progress is squeezed into a sliver of the ring
   const SV_GATE_PREP_SHARE = 0.5;
+  // the steps, as a share of the ring, in which a waiting control's description gives the ring's fill (svWaitLook): it
+  // changes at most 1 / SV_WAIT_SAY_STEP times a wait
+  const SV_WAIT_SAY_STEP = 0.1;
   // What a glide needs before its first frame: the chain's programs linked, the carried colour's warm draw made and the idle
   // jobs of svReady (the pole tracks, the ring, the meshes) finished, so no frame is shown that a job would redraw. No GPU
   // layer: nothing to prepare
@@ -70,8 +75,11 @@
     return g.aheadFrom + (1 - g.aheadFrom) * a.done / a.total;
   }
   // The look of a control that waits for the programs (the Play gate's, and ▶ in a hold in the middle of a play): its icon a
-  // cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the glide…".
-  // w: {btn, keep, fill, gauge?, hung?}, kept so svWaitRestore gives the control back as it was
+  // cross in a ring that fills by its gauge (w.gauge, else the gate's), named Cancel and described "Preparing the glide… 40 %",
+  // the fill in whole steps of SV_WAIT_SAY_STEP: the ring's progress for a screen reader, read when the control has the
+  // focus or is asked for (a description, so a change of it is not announced; the live region says "Preparing the
+  // glide…" once). w: {btn, keep, fill, gauge?, hung?} and, for the gate's, M and aheadFrom (svGateFill); kept so
+  // svWaitRestore gives the control back as it was
   function svWaitLook(w) {
     const B = w.btn;
     if (!w.keep) {
@@ -85,7 +93,8 @@
     B.style.setProperty('--wait', String(w.fill));
     B.removeAttribute('aria-pressed');
     B.setAttribute('aria-label', $t('Cancel'));
-    B.setAttribute('aria-description', $t('Preparing the glide…'));
+    const p = Math.round(100 * SV_WAIT_SAY_STEP * Math.floor(w.fill / SV_WAIT_SAY_STEP + 1e-9));
+    B.setAttribute('aria-description', $t('Preparing the glide… {p} %', { p: I18N.num(p) }));
     B.setAttribute('data-tip', `${$t('Preparing the glide…')}  Esc`);
   }
   function svWaitRestore(w) {
