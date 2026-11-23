@@ -1,7 +1,8 @@
 // Zeros and poles, classic view only. The steps view shows one plane and has neither the right pane's area renderer nor
 // the deformation transport, so these cases stay in the classic view:
 //   - while a zero is held still mid-drag the motion frame of Y is the rest frame (per pixel against the exact image);
-//   - maps of degree 2 and 3 are drawn by the inverse renderer, a degree-5 one forward with its reason (the right pane's paths);
+//   - maps of degree 2, 3 and 5 are drawn by the inverse renderer, a degree-13 one forward with its reason (the right pane's
+//     paths);
 //   - the deformation of a polynomial and of a rational map (natural path, figure caption, 60 fps).
 // A command file for a CDP daemon (test/cdp_kit README).
 const fails = [], info = {}, shots = [];
@@ -30,8 +31,13 @@ info.deg3 = paths;
 await load('zppaths5' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1, 0.5i, 2, -2i', poles: '0' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
 await settle(1200); await grab();
 paths = await pathsR();
-ok('degree 5: forward, with the reason', paths.every((p) => p.path === 'forward' && /degree 5/.test(p.reason || '')), paths);
+ok('degree 5: drawn exactly (inverse renderer)', paths.length && paths.every((p) => p.path === 'inverse'), paths);
 info.deg5 = paths;
+await load('zppaths13' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1', poles: '0, 1.5, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
+await settle(1200); await grab();
+paths = await pathsR();
+ok('degree 13: forward, with the reason', paths.length && paths.every((p) => p.path === 'forward' && /degree 13/.test(p.reason || '')), paths);
+info.deg13 = paths;
 await load('zppaths2' + Date.now(), Object.assign({ shapes: [DISC], steps: [{ type: 'zp', params: { a: '1', zeros: '1, -1', poles: '0' }, on: true }], srcView: { cx: 0, cy: 0, s: 110 } }, PLAIN));
 await settle(1200); await grab();
 paths = await pathsR();
