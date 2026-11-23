@@ -54,7 +54,7 @@
     if (!any) tourSnd = null;
     return any;
   }
-  // (r3 review user-6) a sound setting the user changes while the tour holds it becomes theirs: it is not given back
+  // a sound setting the user changes while the tour holds it becomes theirs: it is not given back
   function tourSndMine(keys) {
     if (!tourSnd) return;
     for (const k of keys) { delete tourSnd.held[k]; delete tourSnd.saved[k]; }
