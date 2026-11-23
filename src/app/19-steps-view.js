@@ -3502,10 +3502,11 @@
   // input puts the job off; anything svInvKey names changing drops the rest, and svPrestart, which runs after such a
   // change, queues them again
   const SV_INV_WARM_MAX = 4;
-  // (the left pane's stand-in for a NEWT frame's warm draw: its view, SV_WARM_NR_PX device px square; warm: its roots pass
+  // (the left pane's stand-in for a NEWT frame's warm draw, the pane itself (its prototype, so its methods) but SV_WARM_NR_PX
+  // device px square; warm: its roots pass
   // keeps to targets of its own, GLR.newtRoots' st.warm, and leaves the glide frames' roots as they were)
   const SV_WARM_NR_PX = 16;
-  const svWarmPane = () => Object.assign({}, paneL, { pw: SV_WARM_NR_PX, ph: SV_WARM_NR_PX, warm: true });
+  const svWarmPane = () => Object.create(paneL, { pw: { value: SV_WARM_NR_PX }, ph: { value: SV_WARM_NR_PX }, warm: { value: true } });
   // (the jobs left [{b, u, asked}] for what svInvWarmKey names: the chain, the surface, the scope, the colour plane, the
   // colour style and the plane shown; svInvFlushing: a job's frame is still running on the GPU; read by the test hooks;
   // svInvQueuedAt, svInvReadyAt: when the jobs were queued, and since when svReady has read ready, 0 while it does not)
