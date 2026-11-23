@@ -6,12 +6,14 @@
 //         formulas of SPEC 12.1 (a)) x random shapes x random view points: a recording program (the production
 //         lib, INV_HEAD and walker, with the IX_RECORD hook) writes the first 8 visited leaves of each test point
 //         (z, range level in px, sqrt|det dz/dw|), the visited / covering counts and the front keys; compared with
-//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl|, coverage to 0.03,
+//         Inverse.enumerate in walk order: |dz| <= 2e-3 (1 + |z|), d lvl <= 0.05 px + 1e-4 |lvl| (+ lvlTol's float32 term for a
+//         chain with a Complex power step of |alpha| < 1), coverage to 0.03,
 //         the same visited count; |J| to 5e-3 and the keys D to 2e-3 where float32 resolves them (D <= 16 and
 //         1e-15 < |J| < 1e15; the deeper leaves are counted in skipped.deepLeaves). A point is skipped when the CPU's leaf paths change within
 //         2e-4 (1 + |w|) of it (a cut, a window or a range boundary: float32 decides those differently) or when a
 //         member's range level lies within 0.02 px of the -1 px ramp.
-//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included)
+//  clip   ixShapeClip against Region.shapeClip on random lines per shape kind (complements included; a line float32
+//         cannot place, one whose crossings its inputs' float32 rounding moves past the tolerance, left out)
 //  fs     REGION_FS(false / true) byte-identical to the fixtures (SPEC 6.1; patterns 0-8 since P3)
 //  flip   12.1 (l): poly 1,0,0,0,-1,0 <-> 1,0,0,0,0,5, rational q 1,0 <-> 0,1, a Mobius map through degeneracy, at a constant
 //         forward key: the inverse key changes, the program drawn is the one of the current inverse key (its source
@@ -136,6 +138,13 @@ window.__invTestRun = async (opts = {}) => {
   chains.push({ name: 'quartic rational (z^4+1)/(z^4-z^2+2z)', steps: [St('custom', { expr: '\\frac{z^4+1}{z^4-z^2+2z}', cut: 180 })] });
   chains.push({ name: 'quartic zp zeros 1, 2, i poles 0, 3, 4, -i', steps: [St('zp', { a: '1', zeros: '1, 2, i', poles: '0, 3, 4, -i' })] });
   chains.push({ name: 'quartic mobius > (1-i)z^4+2z^3+0.5iz-1', steps: [St('mobius'), St('poly', { co: '1-i, 2, 0, 0.5i, -1' })] });
+  // degree 5 to 12 by Aberth's iteration (RAT<n>): rational maps of degree 5 (a formula, the catalog's, zeros and poles),
+  // of degree 6 with its value at infinity inside the views, and of degree 12
+  chains.push({ name: 'rat5 rational (z^5+z)/(2z^2-1)', steps: [St('custom', { expr: '\\frac{z^5+z}{2z^2-1}', cut: 180 })] });
+  chains.push({ name: 'rat5 catalog rational (z^5+1)/(z^2+z)', steps: [St('rational', { p: '1, 0, 0, 0, 0, 1', q: '1, 1, 0' })] });
+  chains.push({ name: 'rat5 zp zeros 1, 2, i, -i, 0.5 poles 0, 3', steps: [St('zp', { a: '1', zeros: '1, 2, i, -i, 0.5', poles: '0, 3' })] });
+  chains.push({ name: 'rat6 rational (z^6+z)/(z^6-z^2+2)', steps: [St('custom', { expr: '\\frac{z^6+z}{z^6-z^2+2}', cut: 180 })] });
+  chains.push({ name: 'rat12 rational (z^12+z)/(z^2-3)', steps: [St('custom', { expr: '\\frac{z^{12}+z}{z^2-3}', cut: 180 })] });
   // ---- shapes ----
   const SH = [];
   const GDISC = typeof Constr !== 'undefined' && opts.gdisc !== false;   // (the exact-form discs, when constr.js is loaded)
@@ -279,6 +288,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   const isF = (z) => z && Number.isFinite(z.re) && Number.isFinite(z.im);
   const cabs = (z) => Math.hypot(z.re, z.im);
+  // The level's tolerance in px: 0.05 + 1e-4 |lvl|, and for a chain whose inverse raises to a power 1/|alpha| > 1 (a Complex power
+  // step with |alpha| < 1) the float32 resolution of the points that power amplifies: (cond - 1) ulps of |w| in the output
+  // plane, in px (pix is the px in that plane's units). cond is the product of those 1/|alpha| over the chain; 1 for every other
+  // chain, whose tolerance is the plain one. A step that is off (on: false) is no part of the chain. WARP (Direct3D 11's software renderer)
+  // gave gaps of 0.43 and 0.44 px at levels of 811 and 954 on a chain with alpha 0.008 (cond 125, pix 2.3e-5, |w| 1.0): about 85 ulps of
+  // w, where SwiftShader's gap is one ulp of the level (6e-5 px)
+  const F32_ULP = 2 ** -23;
+  const lvlTol = (cl, w, pix, cond) => 0.05 + 1e-4 * Math.abs(cl) + (cond - 1) * F32_ULP * cabs(w) / pix;
+  const condOf = (steps, built) => steps.reduce((c, st, i) => (st.type === 'powa' && st.on !== false && built[i] && built[i].vals && built[i].vals.alpha ? c * Math.max(1, 1 / cabs(built[i].vals.alpha)) : c), 1);
   // o.members: the kept members of the step's generic NEWT op 0 at the GRID x GRID points of the window (o.grid), as the GPU's
   // NEWT roots pass writes them (the pixel centres are the points), against Inverse's op.pre(w): z, index m, and for a GPU
   // member its residual |H_t(z) - w| / (1 + |w|)
@@ -334,14 +352,14 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- walk parity ----
   const SPC = opts.shapesPerChain ?? 2;
-  let seedRat = null;   // the rational chains (last in the list) hand the random stream back as they found it: the clip test keeps its sample
   // the first gChains eligible chains take one exact-form disc after their other shapes, on a
   // random stream of its own (the other cases stay the same cases); the GPU packs it at the window's centre, as the app does
   let gSaved = null, gLeft = GDISC ? (opts.gChains ?? 60) : 0;
   R.gWalk = { cases: 0 };
   // (test/glsl_tiers.js: the whole page, tier all, walks every chain on one random stream, as it always did; a tier or a
   // part walks the chains it keeps, each on a stream seeded by its name, so a chain's cases do not depend on which
-  // other chains run; the clip test after the walk then starts from the page's seed)
+  // other chains run; the clip test after the walk starts from the page's seed either way, so its sample does not depend
+  // on the chains or on which of them are eligible)
   const legacy = GLSLTiers.LEGACY || (GLSLTiers.TIER === 'all' && GLSLTiers.PARTS === 1), seed0 = opts.seed || 20261019;
   let prevCh = null, prevT = 0;
   Object.assign(R, { partition: GLSLTiers.LEGACY ? 'index' : 'hash', tier: GLSLTiers.TIER, chainMs: {} });
@@ -355,8 +373,8 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
     prevCh = ch.name; prevT = performance.now();
     const steps = ch.steps, built = steps.map(Funcs.build);
+    const cond = condOf(steps, built);
     const RA = /^(rational|rand-rational)/.test(ch.name) ? R.rational : null;
-    if (RA && seedRat === null) seedRat = seed;
     const plan = Inverse.planChain(steps, built);
     if (!plan.ok) { R.skipped.ineligible++; continue; }
     if (RA) { RA.chains++; const k = plan.ops.map((o) => o.kind).join('>'); RA.kinds[k] = (RA.kinds[k] || 0) + 1; }
@@ -429,7 +447,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
           const dz = Math.hypot(q[0] - c.z.re, q[1] - c.z.im);
           if (!(dz <= 2e-3 * (1 + cabs(c.z)))) bad.push(`leaf ${r} z gpu ${q[0]},${q[1]} cpu ${c.z.re},${c.z.im} (${c.path})`);
           const cl = Number.isFinite(c.lvl) ? c.lvl : 1e38;
-          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= 0.05 + 1e-4 * Math.abs(cl))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl}`);
+          if (!((cl >= 1e30 && q[2] >= 1e30) || Math.abs(q[2] - cl) <= lvlTol(cl, w, pix, cond))) bad.push(`leaf ${r} lvl gpu ${q[2]} cpu ${cl} (allowed ${lvlTol(cl, w, pix, cond).toFixed(3)}, cond ${cond.toFixed(1)})`);
           // |J| and D only where float32 resolves them: keys D <= 16 (deeper sheets lie 2^16 window radii away or within
           // ~1e-6 rs of an accumulation point, and are never visible) and 1e-15 < |dz/dw| < 1e15
           const cj = Math.sqrt(Math.abs(c.J[0] * c.J[3] - c.J[1] * c.J[2]));
@@ -459,9 +477,7 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     }
   }
   if (prevCh) R.chainMs[prevCh] = Math.round(performance.now() - prevT);
-  if (seedRat !== null) seed = seedRat;
-  if (!legacy) seed = seed0;
-  if (gSaved !== null) { seed = gSaved; gSaved = null; }
+  seed = seed0; gSaved = null;
   if (GLR.setFormAnchor) GLR.setFormAnchor(null);
   // ---- saturation anchors (SPEC 13.12, P2 review): artanh / arctan of shapes through +-1 / +-i, far out in the strip
   // (|Re w| up to 40: float32 tanh w is +-1 there): GPU leaf coverage = CPU (anchored, float64), and the coverage of
@@ -593,7 +609,10 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
     GLR.setChain(GLChain.build(steps, built));
     const plan = Inverse.planChain(steps, built);
     const kinds = { disc: 0, rect: 0, halfplane: 0, sector: 0, annulus: 0, polygon: 0, cdisc: 0, chalf: 0, cpoly: 0, formula: 0, gform: 0 };
-    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0 };
+    // (ULP32: float32's rounding, relative; illCond: of skipped, the lines float32 cannot place, at most ILL_MAX of the lines:
+    // 14 of the core tier's 102,400 on lavapipe, near-parallel half-plane and sector lines)
+    const ULP32 = 2 ** -24, ILL_MAX = 1e-3;
+    const CL = R.clip = { lines: 0, compared: 0, failCount: 0, fails: [], skipped: 0, illCond: 0 };
     const N = 1024;
     // after the nV15 shapes (their random stream unchanged), the exact-form discs: near
     // collinear, a far anchor (1e4 away; the GPU packs at the view's centre, as the app does), complements
@@ -626,6 +645,15 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
         const emptyC = !(c.lo <= c.hi), emptyG = !(o[0] <= o[1]);
         // near-tangent lines (interval shorter than the tolerance) decide emptiness by rounding
         if (emptyC !== emptyG) { if ((!emptyC && (c.hi - c.lo) <= 4 * tol(c.lo)) || emptyC) { CL.skipped++; continue; } }
+        // lines float32 cannot place: their inputs moved by float32's rounding (q turned by ULP32 either way, z0 moved by
+        // ULP32 (1 + |z0|) across q) move the CPU's own crossings by more than the tolerance (a line nearly parallel to a
+        // boundary, whose crossing is that rounding over the sine of their angle), so the GPU's are rounding too
+        if (!emptyC) {
+          const n = C(-q.im / qa, q.re / qa), dz = ULP32 * (1 + cabs(z0));
+          const moved = [C(q.re - ULP32 * q.im, q.im + ULP32 * q.re), C(q.re + ULP32 * q.im, q.im - ULP32 * q.re)].map((q2) => Region.shapeClip(prim, z0, q2, m))
+            .concat([1, -1].map((sg) => Region.shapeClip(prim, C(z0.re + sg * dz * n.re, z0.im + sg * dz * n.im), q, m)));
+          if (moved.some((c2) => !(c2.lo <= c2.hi) || !same(c.lo, c2.lo) || !same(c.hi, c2.hi))) { CL.skipped++; CL.illCond++; continue; }
+        }
         CL.compared++;
         const bad = [];
         if (emptyC !== emptyG) bad.push(`empty cpu ${emptyC} gpu ${emptyG}`);
@@ -637,6 +665,9 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
       }
       kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] = (kinds[shape._g ? 'gform' : shape.kind + (shape.complement ? '~' : '')] || 0) + 1;
     }
+    // (a mass skip cannot hide behind clip 0 failed: past ILL_MAX of the lines, the lines left out as float32 cannot place
+    // them are a fail of their own)
+    if (CL.illCond > ILL_MAX * CL.lines) { CL.failCount++; CL.fails.push({ illCond: CL.illCond, lines: CL.lines, bad: [`${CL.illCond} of ${CL.lines} lines left out as float32 cannot place them, more than ${ILL_MAX} of them`] }); }
     CL.kinds = kinds;
   }
   // ---- REGION_FS byte identity (SPEC 6.1) ----
@@ -646,6 +677,28 @@ ${Array.from({ length: Math.ceil(NB / 2) - 1 }, (_, k) => `#if IX_NR_N > ${k + 1
   }
   // ---- 12.1 (l): program identity under eligibility flips ----
   if (opts.flip !== false) R.flip = await flipTest();
+  // ---- the level tolerance and the gaps WARP produced on rand#172 (GitHub job 137195994579: powa alpha 0.008, cut 90, k 2) ----
+  // each gap is inside the rule for its chain (cond 125), the plain rule would have rejected it (control), and a chain with no
+  // Complex power step keeps the plain rule
+  {
+    const WARP = [{ cl: 810.7226543436661, gpu: 811.1634521484375, w: C(1.0038121938705444, 0.09487950801849365) },
+      { cl: 953.5565243774365, gpu: 953.9886474609375, w: C(1.0055485963821411, 0.09170592576265335) }];
+    const WPIX = 0.000023453630650284904;
+    const wst = [St('recip'), St('recip'), St('powa', { alpha: '0.008', cut: 90, k: 2 })], plainSt = [St('recip'), St('exp')];
+    const T = R.tolCheck = { cond: condOf(wst, wst.map(Funcs.build)), plainCond: condOf(plainSt, plainSt.map(Funcs.build)), rows: [], bad: [] };
+    if (!(Math.abs(T.cond - 125) < 1e-9)) T.bad.push(`cond of the powa chain ${T.cond}, not 125`);
+    if (T.plainCond !== 1) T.bad.push(`cond of a chain without a Complex power step ${T.plainCond}, not 1`);
+    const offSt = [St('recip'), Object.assign(St('powa', { alpha: '0.008', cut: 90, k: 2 }), { on: false })];
+    if (condOf(offSt, offSt.map(Funcs.build)) !== 1) T.bad.push('a Complex power step that is off counts in cond');
+    for (const x of WARP) {
+      const gap = Math.abs(x.gpu - x.cl), tol = lvlTol(x.cl, x.w, WPIX, T.cond), plain = lvlTol(x.cl, x.w, WPIX, 1);
+      T.rows.push({ gap, tol, plain });
+      if (!(gap <= tol)) T.bad.push(`gap ${gap.toFixed(3)} px is over the allowed ${tol.toFixed(3)} (level ${x.cl.toFixed(1)})`);
+      if (!(gap > plain)) T.bad.push(`gap ${gap.toFixed(3)} px is inside the plain ${plain.toFixed(3)}: the control is not one`);
+      if (plain !== 0.05 + 1e-4 * x.cl) T.bad.push('the plain rule is not 0.05 px + 1e-4 |lvl|');
+    }
+    if (T.bad.length) { R.failCount++; R.fails.unshift({ chain: 'the level tolerance', bad: T.bad }); }
+  }
   R.programs = R.programs.size;
   R.ms = Math.round(performance.now() - t0);
   R.done = true;
