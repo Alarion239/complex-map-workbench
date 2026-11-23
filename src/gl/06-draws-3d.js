@@ -1517,7 +1517,7 @@
       u1f(P, 'uFogFar', fogFar);
       dcUniforms(P, { style: 'enhanced', sectors: st.sectors || 12, dark: C.dark }, dpr);
       maskUniforms(P, st.mask);
-      u1i(P, 'uPeelOn', lay.on); u1f(P, 'uPeelS', lay.s); u1i(P, 'uPeelD', LAND_PEEL_UNIT);
+      u1i(P, 'uPeelOn', lay.on); u1f(P, 'uPeelS', lay.s); u1i(P, 'uPlain', lay.mark && !lay.front ? 1 : 0); u1i(P, 'uPeelD', LAND_PEEL_UNIT);
       u1i(P, 'uFront', lay.front); u1f(P, 'uFrontA', lay.a); u1i(P, 'uBehind', LAND_PEEL_UNIT + 1);
       u1i(P, 'uSheetK', hs ? hs.K : 0); u1i(P, 'uTileC', hs ? hs.tileC : 1);
       // (carried sheets: the heights are of the stages (s, hT], the colour of the same surface over (s, T], the combo's
@@ -1604,6 +1604,8 @@
           u1f(Pc, 'uLim', st.carry.lim); u1f(Pc, 'uStep', carryStep(mode, H)); u1i(Pc, 'uGs', st.carry.s); u1i(Pc, 'uGt', st.carry.T);
           // (where the places fold, the sheet key orders the points on one spot: LAND_FS's carry; 10 % of the distance)
           keyUniforms(Pc, st.carry.key || null); u1f(Pc, 'uKeyEps', 1e-1);
+          // (keyUniforms set the 2D carried colour's layer (off, its unit): the relief's layer is the pass's)
+          u1i(Pc, 'uPeelOn', lay.on); u1i(Pc, 'uPeelD', LAND_PEEL_UNIT);
           u2f(Pc, 'uClipA', aspect[0], aspect[1]);
           u4f(Pc, 'uSrc', sb.x0, sb.y0, sb.x1 - sb.x0, sb.y1 - sb.y0);
           polarUniforms(Pc, null, false); discUniforms(Pc, st.carry.polar);
