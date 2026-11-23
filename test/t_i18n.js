@@ -375,6 +375,9 @@ as('ru', () => {
   eq(T('{sym} around {name}{part}', { sym: '∮', name: 'задний край', part: '' }), '∮ по контуру «задний край»', 'ru names: the popover title around a contour quotes its name');
   const cau = T('(1/2π<i>i</i>) ∮ {Fh}(<i>ζ</i>)/(<i>ζ</i> − <i>z</i>) d<i>ζ</i> over {name}: {Fh} inside, 0 outside', { Fh: 'F', name: 'задний край' });
   ok(cau.includes('по контуру «задний край»: F внутри'), `ru names: the Cauchy pane title quotes its contour's name, as its two siblings do: ${cau}`);
+  // (the plane's spoken description of a point's marked preimages: {name} is the point's label, after its head noun «точки»)
+  eq(T('Marked preimages of {name}: {k} of {n}', { name: 'A', k: 3, n: 5 }), 'Отмеченные прообразы точки «A»: 3 из 5', 'ru names: the marked preimages of a point name it after «точки»');
+  eq(T('Marked preimages of {name}: {k}, and there may be more', { name: 'A', k: 3 }), 'Отмеченные прообразы точки «A»: 3, возможно, есть и другие', 'ru names: the marked preimages of a point, and maybe more, name it after «точки»');
 });
 eq(I18N.t('Delete {label} and the {n} that use it', { label: 'Circle 1', n: 2 }), 'Delete Circle 1 and the 2 that use it', 'English keeps its words (control)');
 // the language is fixed at load: $t in a module is the identity in English, and every key's English is itself
