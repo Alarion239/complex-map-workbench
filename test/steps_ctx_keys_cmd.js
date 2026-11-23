@@ -230,7 +230,9 @@ for (const [w, h, lang, surf] of CASES) {
       ok(`${name}: Escape folds the unfolded colour key and the readout is as it is after a tap`, fold.folded && fold.escHidden === fold.tapHidden, fold);
       const sync = await foldedHides('leftLegend', '#leftReadout');
       info[`${name} folded hides`] = sync;
-      ok(`${name}: a colour key that hides the readout gives it back as soon as it is folded`, !sync.hides, sync);
+      // (only a key that took the readout's place, .over-readout, hides it: a readout hidden for another reason, as on the
+      // globe, stays hidden)
+      ok(`${name}: a colour key that hides the readout gives it back as soon as it is folded`, !sync.had || !sync.hides, sync);
     }
     // (the readout, which has pointer-events none on a phone so a press goes through it, stops short of the folded key's hit area under the
     // tall bar: the rule that moves the key to the top row and holds the readout back (#1857). It is given the longest text it holds, in one

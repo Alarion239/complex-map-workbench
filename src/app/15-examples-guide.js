@@ -411,7 +411,7 @@
     syncModeChips();
     if (mg !== layoutMg) { layoutMg = mg; if (paneL && paneR) onPaneResize(); requestRender('L', 'R', 'OL', 'OR'); }
   }
-  let layoutMg = null;
+  let layoutMg;   // (undefined until the first layout, which always resizes the panes)
   // the panes' canvases follow their boxes (the ResizeObserver, and a layout change at once: a merge or a split
   // must not leave a frame, a fit or a mesh to be made at the old width)
   function onPaneResize() {
