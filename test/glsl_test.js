@@ -343,6 +343,12 @@
     add('series nested 32 x 64 terms (the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{32} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
     add('series nested 33 x 64 terms (past the budget)', [S('affine', { a: '0.25', b: '1.5' }), S('custom', { expr: '\\sum_{m=1}^{33} \\sum_{n=1}^{64} (m+n)^{-z}' })]);
     chains[chains.length - 1].gpuBlank = true;
+    // a pixel takes at most 2048 terms in all, across every sum of a step, however they nest (the innermost loop counts them):
+    // an infinite sum around a finite one that converges in a few terms is within it, against the CPU; one whose outer sum needs
+    // about 150 terms, with 100 inside it (0.9^m), is past it at every pixel: blank on the GPU
+    add('series infinite around finite, a few terms (within the term budget)', [S('custom', { expr: '\\sum_{m=0}^{\\infty} \\sum_{n=1}^{4} \\frac{(z^2/1000)^m}{n+z}' })]);
+    add('series infinite around finite 100 terms (past the term budget)', [S('custom', { expr: '\\sum_{m=0}^{\\infty} \\sum_{n=1}^{100} \\frac{0.9^m}{n+z}' })]);
+    chains[chains.length - 1].gpuBlank = true;
   }
   // the cap on a chain's uniform slots (GLChain.maxChainSlots(vecs), vecs the GPU's smaller uniform-vector limit): the
   // largest chain above (series d/dz e^z 0.2z+1) is refused at the spec minimum and built at LIMIT_BIG vectors; Möbius

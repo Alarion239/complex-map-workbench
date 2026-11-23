@@ -87,6 +87,10 @@ ruff check
   (each names its generator at the top). `node test/t_i18n_tables.js` fails a pull request whose ru or it table is not a
   fresh generation (a changed ru or it JSON, or a changed string): run the generator it
   names (`python3 tools/make_ru_table.py --strict`, `python3 tools/make_it_table.py`; `--check` writes nothing).
+  The Russian of a string is edited in `tools/ru_extra.json`. The later tables of `notes/i18n/ru/` (phase 2b's and the
+  versioned rounds') are history: to change a string one of them holds, put its key in `tools/ru_extra.json` and delete the
+  table's entry; a key held by both fails `--strict` and `--check` (`IN BOTH`). `tools/ru_extra.json` overrides the base
+  inventory tables (`chrome.json`, `math.json`, `guide-tour.json`) without an edit there.
 - **`vendor/` is written by `tools/vendor.py`** (the offline page's MathJax and faces, issue #21, subset to the
   characters `src/` uses). A change that adds a character outside the subset fails `test/t_vendor.js`; run
   `python3 tools/vendor.py` again (it needs npm and `pip install fonttools brotli`) and commit `vendor/`. A character
@@ -123,6 +127,15 @@ taste that no rule here covers is a "Nit:" and never blocks.
   - generated files regenerated with their tools;
   - the lint and type ratchet only goes down;
   - the code rules above: comments, simplicity, names, API docs and hygiene;
+  - a **part split** (a block moved out of one file of `src/app/`, `src/gl/` or another split file into a new part)
+    cites the output of `node tools/part_move.js <merge base> <head>` (the commit where the PR last merged the
+    integration branch, or the integration commit it branched from, and the PR's head): it tokenises the joined file
+    at both commits and says `pure move: yes` when one contiguous run of tokens moved and the rest is the same token
+    for token, with the lines the run came from and went to, and the lines that differ as a multiset. A comment line
+    it lists (a new part's header) is read, a code line that differs fails it (`--strict` fails any line). It does not
+    prove the order the top-level statements run in: a `const`, `let`, `class` or statement of the run that uses
+    something declared after its new place (or that something earlier uses) reads yes and throws at load (a
+    temporal-dead-zone ReferenceError), so the reviewer checks that by eye or by loading the page;
   - one subject per PR, with no reformatting mixed into a behaviour change. A change to how the project is built,
     tested, run or released updates the docs (`README.md`, `ci/README.md`, this file), and deleted code takes its
     docs with it;

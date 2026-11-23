@@ -1083,6 +1083,7 @@ async function svGlideUnit(scene, o = {}) {
   for (const dpr of [1, 2]) {
     const pre = `${id}${dpr === 2 ? '.dpr2' : ''}`;
     const R = [], copies = [], links = [], labelMs = [], longInt = [], dprOk = [], readyMs = [], td = Date.now();
+    const FR = [], firstLinks = [], firstLong = [];
     let unready = false;
     if (dpr !== 1) await setDpr(dpr);
     try {
@@ -1113,7 +1114,16 @@ async function svGlideUnit(scene, o = {}) {
         await sleep(SV_IDLE_MS);
         await B.ev(SV_GLCOUNT);
         // (a warm glide there and back first: the glide's programs linked, as K's acceptance asks of a warm view)
+        // (o.first: the first of them, the page's first glide, measured as a glide is: its rows are .first's)
         for (const to of [pb, pa]) {
+          if (o.first && to === pb) {
+            const f = await glide(pb);
+            if (!f.drawn.length && surf === 'land') throw new Error(`${id}: this build's Landscape changes plane at once (no glide)`);
+            FR.push(legSummary([f], 'none'));
+            firstLinks.push(f.links);
+            firstLong.push(f.ints.filter((d) => d > SV_GLIDE_JANK_MS).length);
+            continue;
+          }
           const moving = await B.ev(`(__cmwSteps({ go: ${to} }), __cmwSteps().moving)`);
           if (!moving && surf === 'land' && to === pb) throw new Error(`${id}: this build's Landscape changes plane at once (no glide)`);
           await B.until('!__cmwSteps().moving', SETTLE_TIMEOUT, 20);
@@ -1149,6 +1159,14 @@ async function svGlideUnit(scene, o = {}) {
     else put(`${pre}.gl_copies`, 'limit', 'copies/frame', [Math.max(0, ...copies)], { limit: SV_COPIES_LIMIT, samples: copies.map(r3) });
     put(`${pre}.links`, 'limit', 'programs', [Math.max(0, ...links)], { limit: 0, samples: links });
     put(`${pre}.label_ms`, 'limit', 'ms/frame', [Math.max(0, ...labelMs)], { limit: SV_LABEL_MS_LIMIT, samples: labelMs.map(r3) });
+    // (o.first: the page's first glide, from pb's side of the warm pair: the same rows, and the programs it linked)
+    if (FR.length) {
+      putPooled(`${pre}.first.frame_p95_ms`, 'frame_ms', 'ms', FR, 'frame', 0.95, 'frame_p95');
+      put(`${pre}.first.fps`, 'throughput', 'frames/s', FR.map((r) => r.fps));
+      put(`${pre}.first.jank_ms`, 'jank_ms', 'ms', FR.map((r) => r.jank));
+      put(`${pre}.first.long_intervals`, 'info', `intervals > ${SV_GLIDE_JANK_MS} ms`, firstLong);
+      put(`${pre}.first.links`, 'info', 'programs', firstLinks);
+    }
     // (o.info: every row but dpr_ok is info: the unit measures a cost, it gates nothing)
     if (o.info) for (const [k, m] of Object.entries(RES.metrics)) if (k.startsWith(pre + '.') && k !== `${pre}.dpr_ok`) m.kind = 'info';
   }
@@ -1954,6 +1972,7 @@ unit('sv.glide.land_in', 'the steps view\'s Landscape, the default page: the sam
 // z's plane to keep the √z step's sheets)
 const SV_SHEETS_STATE = Object.assign({}, SV_CUT_STATE, { sheets: true, height: 'im' });
 unit('sv.glide.land_sheets', 'the steps view\'s Landscape with All sheets (Surface: Landscape, on a GPU), √z then z + 2: a warm glide there and back between w₁ and w₂ at dpr 1 and 2, the carry from z\'s plane drawing the √z step\'s two sheets (#1099); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets', surf: 'land', state: SV_SHEETS_STATE, planes: [1, 2], info: true }));
+unit('sv.glide.land_sheets_max', 'the steps view\'s Landscape with All sheets at the Max mesh (meshN 1920, a 512² grid), √z then z + 2: the page\'s first glide w₁ → w₂ once the chain is prepared, then a warm glide there and back, at dpr 1 and 2 (#48: 60 fps, the first glide included); info rows only', () => svGlideUnit('sheets', { id: 'sv.glide.land_sheets_max', surf: 'land', state: Object.assign({}, SV_SHEETS_STATE, { meshN: 1920 }), planes: [1, 2], ready: true, first: true, info: true }), { timeoutS: 600 });
 unit('sv.glide.land_pole', 'the steps view\'s Landscape, the default page: a warm glide there and back between w₁ and w₂, the Möbius step, whose pole at w₁ = -1 is in the carried box (the pole patches), Everywhere; info rows only', () => svGlideUnit('default', { id: 'sv.glide.land_pole', surf: 'land', planes: [1, 2], info: true }));
 // The carried Landscape's most pole patches (CARRY_POLES in src/gl/06-draws-3d.js): svLandPatches keeps the 4 poles of the
 // glide's map nearest the carried box's centre and the 8 poles of the height map (LAND_HEIGHT_POLES) outside the box
