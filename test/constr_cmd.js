@@ -22,8 +22,8 @@ const ONLY = process.env.CMW_ONLY ? process.env.CMW_ONLY.split(',') : typeof __O
 const run = (k) => !ONLY || ONLY.includes(k);
 const fails = [], info = {};
 let checks = 0;
-// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
-// full names become the tile labels, so each suite states the label once)
+// (the chip names its tool in full on the wide plane, X's, in both views; the full names become the tile labels, so each
+// suite states the label once)
 const CHIP_NAMES = [
   ['Circle through 3 points', '3-pt circle'],
   ['Perpendicular circle', 'Perpendicular'],
@@ -33,7 +33,7 @@ const CHIP_NAMES = [
   ['Касающаяся окружность', 'Касание']
 ];
 const chipLabel = async (c) => {
-  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  if (!c) return c;
   const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
   return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
 };
@@ -652,13 +652,6 @@ await section('G', async () => {
   await key('z', 4); await settle(300);
   st = await ST();
   ok('G: undo brings ζ₁ and the circle back', st.zeros === '1.5-1i' && !byId(st, cz.id).cundef, [st.zeros, byId(st, cz.id).cundef]);
-  // the export caption names the circle through its points (the plain picture: a phase figure names no shapes; the
-  // steps view opens coloured)
-  const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
-    return f ? f.captionTex : null;
-    })()`);
-  info.capEn = cap;
-  ok('G: the caption: the circle through z₂ = …, z₀ = … and ζ₁ = …', /the (circle|disc bounded by the circle) through z₂ = .*, z₀ = .* and ζ₁ = 1\.5 − i/.test(cap || '') || /through/.test(cap || ''), cap);
   // drawing in Y: Circle through 3 points picks z₂″ (F(z₂) of X's point) and two empty spots
   await tool('circle3');
   const st0 = await ST();
@@ -675,11 +668,18 @@ await section('G', async () => {
   const yt = last(st);
   ok('G: in Y the circle picks z₂″ (an image ref)', yt.def && yt.def.args[0].img === 'u5' && st.list.length === st0.list.length + 3, [yt.def, info.yRing]);
   await shot('cm-d1440-y');
+  // the export caption names the circle through its points. It is read on the classic view's X → Y figure: X there is
+  // the plain picture, which names its shapes, where the steps view's plane is coloured and its caption a phase portrait's
+  // (the page opens the classic view at its load: the same scene, reloaded with view=classic)
+  const capClassic = async (lang) => {
+    await nav(`${U}?ns=${NS}g&view=classic${lang ? '&lang=' + lang : ''}`);
+    return ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' }); return f ? f.captionTex : null; })()`);
+  };
+  const cap = await capClassic('');
+  info.capEn = cap;
+  ok('G: the caption: the circle through z₂ = …, z₀ = … and ζ₁ = …', /the (circle|disc bounded by the circle) through z₂ = .*, z₀ = .* and ζ₁ = 1\.5 − i/.test(cap || '') || /through/.test(cap || ''), cap);
   // Russian caption
-  await nav(`${U}?ns=${NS}g&lang=ru`);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capRu = await capClassic('ru');
   info.capRu = capRu;
   ok('G: the Russian caption names the circle', /проходящей через|проходящая через/.test(capRu || ''), capRu);
   // no English inside the Russian caption (outside maths and TeX commands)

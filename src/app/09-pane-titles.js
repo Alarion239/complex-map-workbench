@@ -329,7 +329,7 @@
   // a sliders button into a popover; on a phone all of them do.
   const phoneMQ = matchMedia('(max-width: 767px)');
   // one options strip per pane (panels.md 4): foot.L in X, foot.R in Y
-  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null, pat: null });
+  const footOf = () => ({ kids: [], widths: null, n: -1, w: -1, phone: null, pop: null });
   const foot = { L: footOf(), R: footOf() };
   phoneMQ.addEventListener('change', () => { if (S && paneR) layoutFoot(true); });
   function layoutFoot(force) { layoutFootSide('L', force); layoutFootSide('R', force); }
@@ -450,10 +450,7 @@
     ft.head = inHead; ft.headW = headW; ft.titleW = titleW; ft.roleW = roleW; ft.legW = legW;
     if (ft.nk !== kids.length) ft.widths = null;
     ft.nk = kids.length;
-    // (one Regions button per pane, kept across layouts: a layout while its pop-up is open leaves it the pop-up's anchor,
-    // aria-expanded and all; its swatch and its name are set again, as the regions' fill or the language may have changed)
-    const pat = inHead && pushHome() ? (ft.pat || (ft.pat = patternBtn(side))) : null;
-    if (pat) { drawPhaseSwatch(/** @type {HTMLCanvasElement} */ (pat.firstChild)); pat.setAttribute('aria-label', $t('Regions')); pat.dataset.tip = $t('Regions'); }
+    const pat = inHead && pushHome() ? patternBtn(side) : null;
     let n = kids.length;
     if (phone) n = 0;
     else {

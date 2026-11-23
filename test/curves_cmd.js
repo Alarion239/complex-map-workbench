@@ -149,7 +149,13 @@ await settle(1500);
   ok('a right click on the Cassini oval integrates around it', /∮ around Curve formula 1/.test(rtxt || '') && /6\.2832\s*i/.test(rtxt || ''), rtxt);
   await key('Escape'); await sleep(200);
   // the figure: its caption names the curves by their equations
+  // (read on the classic view's X → Y figure, where X is the plain picture that names its shapes: the steps view's plane is
+  // coloured and its caption a phase portrait's. The same scene is reloaded with view=classic, and the page it was after)
+  const back = await ev('location.href'), cu = new URL(back);
+  cu.searchParams.set('view', 'classic');
+  await nav(cu.toString());
   const cap = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' }); return f ? f.captionTex : null; })()`, 60000);
+  await nav(back);
   R.caption = cap;
   ok('the figure caption names the traced curves', typeof cap === 'string' && /the curve/.test(cap) && /operatorname\{Re\}/.test(cap), cap);
   // the globe and the export: no errors, strokes on the globe

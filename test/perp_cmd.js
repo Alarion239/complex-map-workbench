@@ -81,9 +81,20 @@ const dragH = async (x0, y0, x1, y1, n, dt) => {
   return drag(x0, y0, x1, y1, n, dt);
 };
 const toastText = () => ev(`(document.querySelector('#toastHost .toast > span') || {}).textContent || ''`);
+// the X → Y figure's caption, read on the classic view's figure: X there is the plain picture, which names its shapes,
+// where the steps view's plane is coloured and its caption a phase portrait's. The same scene is reloaded with
+// view=classic (the page reads its view at its load), and the page it was is loaded again after
+const capClassic = async (o) => {
+  const back = await ev('location.href'), u = new URL(back);
+  u.searchParams.set('view', 'classic');
+  await nav(u.toString());
+  const c = await ev(`await (async () => { const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xyL' }, o || { for: 'article', cols: 1 }))}); return f ? f.captionTex : null; })()`, 60000);
+  await nav(back);
+  return c;
+};
 const toasts = () => ev(`[...document.querySelectorAll('#toastHost .toast')].map((t) => t.textContent.trim())`);
-// (the chip names its tool in full on the steps view's wide plane, by its tile label on a narrow classic pane: the
-// full names become the tile labels, so each suite states the label once)
+// (the chip names its tool in full on the wide plane, X's, in both views; the full names become the tile labels, so each
+// suite states the label once)
 const CHIP_NAMES = [
   ['Circle through 3 points', '3-pt circle'],
   ['Perpendicular circle', 'Perpendicular'],
@@ -93,7 +104,7 @@ const CHIP_NAMES = [
   ['Касающаяся окружность', 'Касание']
 ];
 const chipLabel = async (c) => {
-  if (!c || !(await ev(`document.documentElement.classList.contains('sv')`))) return c;
+  if (!c) return c;
   const f = (s) => CHIP_NAMES.reduce((t, [a, b]) => t.replace(' · ' + a, ' · ' + b), s);
   return typeof c === 'string' ? f(c) : Object.assign({}, c, { text: f(c.text) });
 };
@@ -550,9 +561,7 @@ await section('C', async () => {
   await shot('perp-d1440-ru-made');
   // the caption (the pencil circle removed first: an undefined shape has no phrase)
   await key('z', 4); await settle(250);
-  const capRu = await ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capRu = await capClassic();
   info.capRuC = capRu;
   ok('C RU caption: «окружность, проходящая через … и ортогональная окружности …»', /окружност[ьи], проходящ(ая|ей) через .* и[ ~]ортогональн(ая|ой) окружности/.test(capRu || ''), capRu);
   const ruText = String(capRu || '').replace(/\$[^$]*\$/g, ' ').replace(/\\[A-Za-z]+/g, ' ');
@@ -661,9 +670,7 @@ await section('E', async () => {
     ],
     steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 120 }, nextId: 50,
   };
-  const cap = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
-    return f ? f.captionTex : null;
-    })()`);
+  const cap = () => capClassic();
   await load(NS + 'e1', SE); await settle(900);
   info.capC = await cap();
   ok('E EN caption, circle C: "the circle through z₀ = … and z₁ = … perpendicular to the circle |z| = 1"', /the circle through .+ and .+ perpendicular to the circle/.test(info.capC || ''), info.capC);
@@ -734,17 +741,14 @@ await section('G', async () => {
   );
   await settle(600);
   const SV = await ev(`document.documentElement.classList.contains('sv')`);
+  // (the steps view's last plane holds the circle; standards-ok: the classic view's case drew a target circle in Y's pane,
+  // not drawn since #994)
+  if (!SV) return;
   const SG = {
-    shapes: [{ id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true }],
-    // (the classic Y pane holds the target circle; the steps view's last plane holds a circle of its own)
-    ...(SV ?
-      {
-        shapes: [
-          { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
-          { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
-        ]
-      } :
-      { targets: [{ id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, visible: true }] }),
+    shapes: [
+      { id: 'g0', kind: 'point', p: [-1, -1.5], ci: 0, visible: true },
+      { id: 'tc', kind: 'circle', c: [0, 0.3], r: 1.1, ci: 5, stage: 1, visible: true }
+    ],
     steps: [{ type: 'zp', params: { a: '1', zeros: '1.5-1i', poles: '' }, on: true }],
     srcView: { cx: 0, cy: 0, s: 80 }, nextId: 50,
   };
@@ -757,7 +761,7 @@ await section('G', async () => {
   let d = (await CI()).draft;
   ok(
     'G Y: the target circle is picked as the curve',
-    d && d.side === (SV ? 'L' : 'R') && d.curve1 && d.curve1.s === 'tc',
+    d && d.side === 'L' && d.curve1 && d.curve1.s === 'tc',
     d
   );
   const w0 = [-1 - 1.5, -1.5 + 1];   // f₁(z) = z − 1.5 + i
@@ -1014,9 +1018,7 @@ await section('I', async () => {
   info.yOpen = { n: ypts.length, drawn: yDiff, kind: kY.kind, ink };
   ok('I4 Y under 1/z: the image is the open arc only (nothing on the image of K outside the disc)', kY.kind === 'arc' && ypts.length > 20 && yDiff === 0, info.yOpen);
   // ---- I5 export captions, EN and RU (through z₀ and z₁; and on K when z₁ is outside the disc)
-  const capF = () => ev(`await (async () => { const f = await __cmwFig.build({ for: 'article', cols: 1, view: 'xyL' });
-    return f ? f.captionTex : null;
-    })()`);
+  const capF = () => capClassic();
   info.segCap = await capF();
   ok('I5 EN caption: "the hyperbolic line through z₀ … and z₁ … in the domain |z|<1"', /the hyperbolic line through .+ and .+ in the domain \$\|z\|<1\$/.test(info.segCap || ''), info.segCap);
   await ev(`__cmwC({ call: 'moved', args: [{ all: true }] }) && 1`);
@@ -1133,10 +1135,7 @@ await section('J', async () => {
   // v16.4 review fixes (notes/orthogonal-circle/segments/ledger.json): captions close their phrase (user-2, user-3), the
   // outside's domain on the sphere (math-3), through only for points of the domain (math-7), the row off the arc
   // (user-6), the ⋯ item's words (math-6), the chip's words by its free width (user-4), the phone's hit area (user-5)
-  const capF = (o) => ev(`await (async () => {
-    const f = await __cmwFig.build(${JSON.stringify(Object.assign({ view: 'xyL' }, o || { for: 'article', cols: 1 }))});
-    return f ? f.captionTex : null;
-    })()`);
+  const capF = (o) => capClassic(o);
   const Kd = (id, a, b, seg, c = 'c') => ({ id, kind: 'arc', a: [1, 0], m: [0, 1], b: [-1, 0], visible: true, def: Object.assign({ op: 'perp', args: [{ s: c, part: 0 }, { s: a }, { s: b }], fill: 'none', nk: 'arc' }, seg ? { seg } : {}) });
   const pt = (id, p) => ({ id, kind: 'point', p, visible: true });
   const scene = (shapes) => ({ shapes, steps: [{ type: 'recip', params: {}, on: true }], srcView: { cx: 0, cy: 0, s: 150 }, nextId: 50 });

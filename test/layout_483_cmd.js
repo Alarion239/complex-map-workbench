@@ -64,11 +64,11 @@ await settle(300);
 await key('Tab'); await sleep(100);
 const rows = await ev(`(() => { const f = ${RING}; return [...document.querySelectorAll('.ph-sheet[data-k="more"] button.ph-row')].filter((e) => e.getClientRects().length).map((e) => f(e)); })()`);
 ok('740x360: the menu rows have a ring that no panel cuts, drawn inside the row', rows.length > 3 && rows.every((r) => !r.none && r.cut === 0 && r.off < 0), rows.slice(0, 3));
-// 7. the sphere's hint in the right readout wraps: nothing cut at 740 x 360, in en and ru
+// 7. the sphere's hint in X's readout wraps: nothing cut at 740 x 360, in en and ru
 for (const lang of ['en', 'ru']) {
   await open(740, 360, lang, true);
-  await ev(`__cmwSetView('R', 'sphere'); 1`); await settle(1800);
-  const h = await ev(`(() => { const c = document.getElementById('rightReadout'); if (!c || !c.getClientRects().length) return null; const r = c.querySelector('.rhint'); return { text: c.textContent.length, sw: c.scrollWidth, cw: c.clientWidth, sh: c.scrollHeight, ch: c.clientHeight, ws: getComputedStyle(c).whiteSpace, hint: !!r }; })()`);
+  await ev(`__cmwSetView('L', 'sphere'); 1`); await settle(1800);
+  const h = await ev(`(() => { const c = document.getElementById('leftReadout'); if (!c || !c.getClientRects().length) return null; const r = c.querySelector('.rhint'); return { text: c.textContent.length, sw: c.scrollWidth, cw: c.clientWidth, sh: c.scrollHeight, ch: c.clientHeight, ws: getComputedStyle(c).whiteSpace, hint: !!r }; })()`);
   ok(`740x360 ${lang}: the sphere's hint is whole (wrapped, not cut)`, !!h && h.hint && h.sw <= h.cw + 1 && h.sh <= h.ch + 1, h);
 }
 // 8b. the export dialog's caption: its focus ring is inside the box
