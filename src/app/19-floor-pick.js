@@ -106,6 +106,12 @@
     shapesChanged(true);
     commit();
   }
+  // the press of the picker ended by a second finger: a disc it was drawing goes, with no edit
+  function pickCancel(d) {
+    if (!d.disc) return;
+    setShapes(S.shapes.filter((s) => s !== d.disc));
+    shapesChanged(true);
+  }
   // Enter with the Pick tool on the focused plane: the twins of the selected point of the floor, or of the view's centre,
   // then the disc about their image; true when it acted
   function pickKey() {
