@@ -653,7 +653,7 @@ const Expr = (() => {
     const ast = parseOr();
     if (BOUND.size) checkIdx(ast, bound);
     if (peek().t !== 'eof') throw new ParseError(commaHint(src, peek().pos) || $t("Unexpected '{x}'", { x: peek().v ?? peek().src ?? peek().t }), peek().pos);
-    // Russian only (verify-5): a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
+    // Russian only: a comma between two digits that still reads as two conditions (Re z>0,5<|z| is Re z>0
     // and 5<|z|) is kept, but a caller that passes opts.notes gets a warning to show under its field
     if (digitComma && opts && Array.isArray(opts.notes)) opts.notes.push($t('A comma between digits separates conditions; write the decimal part with a point'));
     // names not defined yet: one is offered as a new number (e.unknown), two at once are refused (DESIGN.md 1.4)

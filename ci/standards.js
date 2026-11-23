@@ -3,7 +3,7 @@
 // change adds (the Plan job runs it; ci/README.md, Standards check). Three rules:
 //   history   a comment that tells the code's history: the words, version and wave labels and changelog issue numbers
 //             of HISTORY below
-//   plan      a plan label in a comment: the labels of PLAN below
+//   plan      a plan label in a comment: the labels of PLAN below (an entry's third part: the files it leaves alone)
 //   asserts   a test file (test/t_*.js, test/*_cmd.js) whose diff removes more assertions (check/ok/assert calls) than it
 //             adds, unless the diff creates a test file that takes them over (a split), or retires the file (below)
 //   retired   a suite the diff deletes is retired, its assertions not counted as dropped, when the same diff names it in
@@ -49,6 +49,9 @@ const PLAN = [
   [/#\d+ (?:item|step|phase|part) \d+/i, 'an issue number as a plan step'],
   [/\b(?:item|step|phase) \d+ of #\d+/i, 'an issue number as a plan step'],
   [/\[[A-Za-z]{1,3}\d+(?: [^\]]*)?\]/, 'a bracketed plan label'],
+  // (the number of a review round's finding, bracketed or not: a review, check or verify item, a UX item; a suite under
+  // test/ names the finding its rows pin, so the rule leaves test/ alone)
+  [/\b(?:review|check) (?:user|app|ux)-\d+\b|\bverify-\d+\b|\bUX ?\d{1,3}\b/, 'a review label', /^test\//],
 ];
 const MARKER = /standards-ok:(.*)$/;
 // a call that checks something: check(, ok(, assert( and assert.method(; not a definition (function check(, ok = (...))
@@ -152,7 +155,7 @@ function check(files) {
           continue;
         }
         for (const [rule, list] of [['history', HISTORY], ['plan', PLAN]]) {
-          for (const [re, what] of list) if (re.test(c)) { found.push({ file: f.file, line: a.n, rule, text: a.text.trim(), why: what }); break; }
+          for (const [re, what, skip] of list) if (!(skip && skip.test(f.file)) && re.test(c)) { found.push({ file: f.file, line: a.n, rule, text: a.text.trim(), why: what }); break; }
         }
       }
     }

@@ -232,7 +232,7 @@ const Commands = (() => {
         ...(ql ? Palette.LIST.map(([id]) => [$t('Phase colours: {name}', { name: PAL_NAMES()[id][0] }), () => setPalette(id), '', 'palette, colours, colors, цвета, палитра, colori, arb, chrome']) : []),
         [$t('Draw panel'), () => setPanels(!A.S.hideLeft, A.S.hideRight), '['],
         [$t('Inspector panel'), () => setPanels(A.S.hideLeft, !A.S.hideRight), ']'],
-        // (the language names carry their own lang for a screen reader, as in the menu: verify-7)
+        // (the language names carry their own lang for a screen reader, as in the menu)
         ...(ql ? [[$t('Language: {name}', { name: $t('Auto') }), () => pickLang('auto'), '', 'language, язык, lingua, russian, русский, english, английский, italian, italiano'], [$t('Language: {name}', { name: 'English' }), () => pickLang('en'), '', 'language, язык, lingua, english, английский, inglese', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'en' }, 'English') })], [$t('Language: {name}', { name: 'Русский' }), () => pickLang('ru'), '', 'language, язык, lingua, russian, русский, russo', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'ru' }, 'Русский') })], [$t('Language: {name}', { name: 'Italiano' }), () => pickLang('it'), '', 'language, язык, lingua, italian, итальянский, italiano', () => I18N.parts('Language: {name}', { name: h('span', { lang: 'it' }, 'Italiano') })]] : []),
       ];
       for (const [label, run, key, alias, labelParts] of view) if (!ql || score(label) || (alias && aliasScore(alias) >= 2)) items.push(labelParts ? { kind: 'cmd', group: $t('View'), label, key, run, labelParts } : { kind: 'cmd', group: $t('View'), label, key, run });

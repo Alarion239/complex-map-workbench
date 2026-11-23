@@ -39,6 +39,17 @@ for (const c of ['// K1 item 3', '// #620 item 2', '// step 2 of #620', '// [v17
   ok(`plan: ${c}`, rules('ci/x.js', [c]).some((r) => r.startsWith('plan:') || r.startsWith('history:')), rules('ci/x.js', [c]));
 }
 ok('plan: K1 item is a plan label', rules('ci/x.js', ['// K1 item 3']).join() === 'plan:a plan label');
+// (review and verify labels, bracketed or in parentheses: the labels of a review round's findings)
+for (const c of ['/* [review user-11] a definition wraps */', '/* (r3 review user-7: a chevron after the count) */', '// [verify-1] it goes first',
+  '// Russian only (verify-5): a comma', '/* (r3 verify-2: x stays in the row) */', '// ([check app-5] at the foot)', '// (UX20) the key']) {
+  ok(`plan: a review label: ${c}`, rules('src/x.js', [c]).some((r) => r === 'plan:a review label'), rules('src/x.js', [c]));
+}
+for (const c of ['// a review of the user\'s settings', '// verify that the map is entire', '// check the app state, then the user', '// the UX of the strip',
+  '// review step 2', '/* --user-1: a custom property */']) {
+  ok(`plan: prose is not a review label: ${c}`, !rules('src/x.js', [c]).some((r) => r === 'plan:a review label'), rules('src/x.js', [c]));
+}
+ok('plan: a suite under test/ may name the review finding its rows pin', rules('test/ux165_plane_cmd.js', ['// UX52: a refused pick in the chip']).length === 0
+  && rules('test/t_i18n.js', ['// verify-5: a comma between digits']).length === 0, rules('test/ux165_plane_cmd.js', ['// UX52: a refused pick in the chip']));
 ok('plan: a single cite of a decision issue is fine', rules('src/x.js', ['// see #620 for the decision', '// the chain limit (issue #234)']).length === 0);
 
 // dropped assertions
