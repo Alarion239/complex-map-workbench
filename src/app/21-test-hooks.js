@@ -337,8 +337,8 @@
   // CPU only; a pole patch's rings start at its seam, svPatchZ). where (x, y) -> boolean: the points counted (all by
   // default). copies: the other sheets' copies of a glide (carried.sheetCopies) count too, each with the map on its own
   // sheet combo: a sheet's box grid, none of it left to the discs, and, as the last frame drew them (carried.copyPatches,
-  // at carried.copyPatch of the points a side), its own patches; a seam's far patches' columns about the cut
-  // (carried.seamFar), its band of the box's grid left out. {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
+  // at carried.copyPatch of the points a side), its own patches; a seam's grid over its box (its band about the cut)
+  // and its far patches' columns about the cut, as the frame drew them (carried.seamFar). {n, bare: the points no kept triangle covers, at: the first of them}, or null with no carry. (The heights'
   // step limit, LAND_CARRY_VS's uStep, is left out: it drops cells only in Re F and Im F)
   window.__cmwLandCover = (nx = 480, ny = 400, patches = /** @type {boolean | string} */ (true), more = [], where = null, copies = false) => {
     const c = render3D.carried;
@@ -383,10 +383,10 @@
     };
     const s = c.src, n = c.cells, discs = (c.polar || []).filter((p) => p.seam).slice(0, 4).map((p) => [p[0], p[1], GLR.CARRY_DISC_IN * p[3]]);
     const pats = (on, m) => (on ? (c.polar || []).slice(0, m).concat(c.far && patches !== 'poles' ? c.far : []) : []);
-    // (one surface: the box's grid, its triangles inside the discs ds left out, then its patches ps, at the share f of
-    // their points a side)
-    const surf = (ps, ds, f = 1) => {
-      grid(n, (i, j) => [s.x0 + (i / (n - 1)) * (s.x1 - s.x0), s.y0 + (j / (n - 1)) * (s.y1 - s.y0)], ds);
+    // (one surface: the grid of m points a side over the box sb, its triangles inside the discs ds left out, then its
+    // patches ps, at the share f of their points a side)
+    const surf = (ps, ds, f = 1, sb = s, m = n) => {
+      grid(m, (i, j) => [sb.x0 + (i / (m - 1)) * (sb.x1 - sb.x0), sb.y0 + (j / (m - 1)) * (sb.y1 - sb.y0)], ds);
       for (const p of ps) {
         const n = Math.round((p[4] || c.patchN || 96) * f);
         grid(n, (i, j) => svPatchZ(p, i, j, n));
@@ -396,7 +396,11 @@
     if (copies) for (const [k, cp] of (c.sheetCopies || []).entries()) cp.draw(() => {
       F = cpuMap(c.map);
       if (!cp.seam) surf(pats(patches && c.copyPatches > 0, c.copyPatches), [], c.copyPatch || 1);
-      else for (const q of (patches && patches !== 'poles' && c.seamFar && c.seamFar[k]) || []) grid(q.N, (i, j) => svPatchZ(q.polar, i, j, q.N), [], q.cols);
+      else if (c.seamFar && c.seamFar[k]) {
+        const sf = c.seamFar[k];
+        surf([], discs, 1, sf.box, sf.n);
+        for (const q of patches && patches !== 'poles' ? sf.far : []) grid(q.N, (i, j) => svPatchZ(q.polar, i, j, q.N), [], q.cols);
+      }
     });
     let bare = 0, counted = 0;
     const at = [];

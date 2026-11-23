@@ -1706,7 +1706,7 @@
             gl.disable(gl.POLYGON_OFFSET_FILL);
             info.copies++;
             if (!cp.seam) info.copyPatches = h.pp.length;
-            else (info.seamFar || (info.seamFar = []))[i] = h.far.map((p) => ({ polar: [...p.polar], N: p.N, cols: p.polar.cols }));
+            else (info.seamFar || (info.seamFar = []))[i] = { box: Object.assign({}, band || sb), n, far: h.far.map((p) => ({ polar: [...p.polar], N: p.N, cols: p.polar.cols })) };
           });
         }
         setUp(sb);

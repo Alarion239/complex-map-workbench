@@ -31,7 +31,9 @@
 //   copy draws the patches the principal surface draws, on its combo: the branch point's patch, seamed at the cut, and
 //   the far patches. With every copy counted (__cmwLandCover's copies), at most HUB_BARE of the points within HUB_R of
 //   H_u(0) are bare, beyond the image of the branch point patch's inner ring (its radius r0 about 0, the patch's hole
-//   at the point itself: #1243).
+//   at the point itself: #1243). And over the whole window at most WIN_BARE of the points are bare: every surface's
+//   far patches tear along the cut's image, which the seams close past the box as on it (without, a slit to the
+//   window's edge, 628 points of 191,850).
 // A command file for a CDP daemon (test/cdp_kit README); prints {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); };
@@ -58,6 +60,7 @@ const ARRIVE_SLACK = 0.05;
 const BARE_SLACK = 20;  // the arrival: the pixels All sheets may leave bare beyond the sheets-off frame's
 const EDGE = 0.02, NEAR_0 = 0.2;  // √'s sector about w = 0 at the arrival in the small window
 const MID = 0.75, HUB_R = 0.5, HUB_BARE = 0.01;  // the logarithm mid-glide: the disc about H_u(0) and its bare share
+const WIN_BARE = 0.001;  // the share of the window's points it may leave bare
 const CASES = [
   { name: 'log of an annulus, sheets off', steps: LOG, shapes: ANN, sheets: false, min: 0.95, patched: true },
   { name: 'log of an annulus, All sheets', steps: LOG, shapes: ANN, sheets: true, min: 0.95, top: true, base: 'log of an annulus, sheets off', patched: true, arrive: true },
@@ -116,9 +119,11 @@ for (const c of CASES) {
     const c = __cmwLandCarry(), p = (c.polar || []).find((q) => q.hole), h = __cmwEval('cpuMap', c.map, [[1e-12, 0]])[0];
     const r0 = p ? Math.hypot(...__cmwEval('cpuMap', c.map, [[p[0] + p[2], p[1]]])[0].map((v, i) => v - h[i])) : 0;
     const near = (x, y) => { const d = Math.hypot(x - h[0], y - h[1]); return d > 1.1 * r0 && d < ${HUB_R}; };
-    return Object.assign({ h, r0, branch: !!p, copies: c.copies, copyPatches: c.copyPatches, patches: c.patches }, __cmwLandCover(480, 400, true, [], near, true));
+    const win = __cmwLandCover(480, 400, true, [], (x, y) => Math.hypot(x - h[0], y - h[1]) > 1.1 * r0, true);
+    return Object.assign({ h, r0, branch: !!p, copies: c.copies, copyPatches: c.copyPatches, patches: c.patches, win }, __cmwLandCover(480, 400, true, [], near, true));
   })())`);
   ok(`log of an annulus, sheets off, u = ${MID}: at most ${HUB_BARE} of the points within ${HUB_R} of H_u(0) bare (beyond the branch point patch's inner ring), every sheet's copy counted`, r.branch && r.copies > 0 && r.n > 0 && r.bare <= HUB_BARE * r.n, r);
+  ok(`log of an annulus, sheets off, u = ${MID}: at most ${WIN_BARE} of the window's points bare (beyond the branch point patch's inner ring), every sheet's copy and seam counted`, r.win && r.win.n > 0 && r.win.bare <= WIN_BARE * r.win.n, r.win);
 }
 // the arrival in the small window: the frame at u = .998 and the plane it arrives at, parked, sheets off and on
 const SMALL = 900;
