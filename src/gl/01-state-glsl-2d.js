@@ -823,14 +823,14 @@ float preKeyDepth(vec2 sa, bool stepped) {
   // - a pre-mapped mesh has none (vKErr < 0, PRE_VS): a wide band (KEY_BAND_WIDE), since the rotation's partners have equal
   //   keys whatever the mesh's error, and R_k of the front point within KEY_ORBIT_TOL of its distance from the centre, the
   //   radius as well as the angle (cos(z^3) has sheets of equal angle and radii a few % apart, z^3 = a and a + 2 pi, which
-  //   an angle alone would tie: 0.005 speckles the disc about w = 1, 0.04 starts to tie inregion's exp, Möbius, square, sin
-  //   wrong); without a rotation, uKBand alone.
+  //   an angle alone would tie). For z^3 then cos at rest 0.0075 to 0.01 read clean; 0.005 speckles the disc about w = 1,
+  //   and from 0.015 a wedge behind the arc's tip about w = -1 shows the second sheet; without a rotation, uKBand alone.
   // Within one unit of s, the inverse pass's own tie step, a fragment ties whatever the symmetry, as there (exp, Möbius,
   // square, sin also has F(-z + 2 pi i) = F(z), a rotation about i pi). Past it, two sheets the rotation does not carry
   // into each other are kept in the key's order. The others go behind them, by s.
   const PRE_KEY_RES = glsl`flat in float vKErr; flat in float vKDz;
 uniform highp sampler2D uKMin; uniform highp sampler2D uKPos; uniform int uKOrd;
-const float KEY_ERR_K = 4.0, KEY_BAND_WIDE = 1024.0, KEY_ORBIT_TOL = 0.02;
+const float KEY_ERR_K = 4.0, KEY_BAND_WIDE = 1024.0, KEY_ORBIT_TOL = 0.01;
 float preKeyRes(vec2 sa) {
   float tie, s = preKeyS(sa, tie);
   if (uKRes == 1) return s / (KEY_SMAX + 1.0);

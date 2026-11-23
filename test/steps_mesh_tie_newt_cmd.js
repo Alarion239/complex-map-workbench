@@ -16,9 +16,12 @@
 // At rest the pre-mapped meshes (SphereMeshes) take over once built (__cmwSteps().carryPre): their frame is as smooth
 // inside the disc about w = 1, where cos's critical value bends the mesh most (at most DISC_ROUGH_MAX of the points 0.12 to
 // 0.38 from w = 1, off the real axis, are rough), and the band's floor at BAND_WIDE moves it as little; its map cos(z³)
-// keeps a sixth turn (GLR.carryResolveOrd() 6). Left of Re w = LEFT_X (past the arc of triangles), once they cover it,
-// it is no rougher than the region meshes' frame before them (at most ROUGH_MARGIN more of its points): sheets of equal
-// angle about the centre and unequal radius are not the rotation's partners. The source points' target's fallbacks:
+// keeps a sixth turn (GLR.carryResolveOrd() 6). Left of Re w = LEFT_X (past the arc of triangles, #2286), once they
+// cover it, at most LEFT_ROUGH_MAX of its points are rough: sheets of equal angle about the centre and unequal radius
+// are not the rotation's partners. Behind the arc's tip (TIP, about w = -1,
+// cos's critical value) at most EXACT_WRONG_MAX of the points show the second sheet in the inverse pass's order rather
+// than the front one (plane z's colours at the two, where they differ by over TIP_APART: the nearer is the one shown).
+// The source points' target's fallbacks:
 // RG16F (GLR.carryProbes({ kpos: 'half' })) tests the same orbit, as smooth; none ('none') ties by the band alone
 // (GLR.carryResolveOrd() 0) and still draws.
 // Each page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
@@ -37,8 +40,12 @@ const FREEZE_X = 1.6;              // the glide from plane 1 is frozen once the 
 const BAND_WIDE = 256, BAND_DIFF_MAX = 0.01;   // the band's floor raised to, and the share of the pane that may change then
 const PIX_TOL = 24;                // a pixel changes over this in some channel (0..255)
 const DISC_ROUGH_MAX = 0.05;       // the share of the points inside the disc about w = 1 that may be rough
+const TIP = { x0: -3.6, x1: -2.6, y0: -1.2, y1: 1.2, nx: 10, ny: 12 };   // the box behind the arc's tip (w near -1), short of the arc (#2286)
+const EXACT_WRONG_MAX = 0.02;      // the share of the box's points that may show the second sheet rather than the front one
+const TIP_APART = 40;              // the two sheets' colours on plane z differ by over this in some channel for a point to count
 const PRE_WAIT = 30000;            // ms for the pre-mapped meshes to take over at rest
-const LEFT_X = -3.4;               // the pane read left of this Re w (left of the arc of triangles at rest)
+const LEFT_X = -3.4;               // the pane read left of this Re w (left of the arc of triangles at rest, #2286)
+const LEFT_ROUGH_MAX = 0.05;       // the share of those points that may be rough (the region meshes' frame there reads 0)
 await view(1200, 800, false, false);
 const ZCUBE = { type: 'pown', params: { n: 3 }, on: true };
 const STEPS = [ZCUBE, { type: 'cos', params: {}, on: true }], CONTROL = [ZCUBE, { type: 'mul', params: { c: '1' }, on: true }];
@@ -118,13 +125,51 @@ const discRough = async () => {
 };
 await open(0);
 await toPlane(2);
-const leftRef = { pre: await ev('__cmwSteps().carryPre'), r: await leftRough() };
 const preOk = await settled({ max: PRE_WAIT, until: `__cmwSteps().carryPre > 0 && ${DRAWN}` });
 await ev(LEFT_PAPER);
 const covered = await settled({ max: PRE_WAIT, until: `__mtLeftPaper() === 0 && ${DRAWN}` });
 const left = Object.assign(await leftRough(), { covered: covered.ok });
-info.left = { ref: leftRef, pre: left };
-ok(`plane 2 at rest on the pre-mapped meshes, left of Re w = ${LEFT_X} once they cover it: at most ${ROUGH_MARGIN * 100} % more of the points rough than the region meshes' frame`, leftRef.pre === 0 && left.covered && left.n >= 0.9 * left.of && left.share <= leftRef.r.share + ROUGH_MARGIN, info.left);
+info.left = { pre: left };
+ok(`plane 2 at rest on the pre-mapped meshes, left of Re w = ${LEFT_X} once they cover it: at most ${LEFT_ROUGH_MAX * 100} % of the points rough`, left.covered && left.n >= 0.9 * left.of && left.share <= LEFT_ROUGH_MAX, info.left);
+// the points z of the key's window with cos(z³) = w: z³ = ±acos w + 2 pi k, and their cube roots
+const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
+const csqrt = (a) => { const r = Math.hypot(a[0], a[1]), x = Math.sqrt(Math.max(0, (r + a[0]) / 2)), y = Math.sqrt(Math.max(0, (r - a[0]) / 2)); return [x, a[1] < 0 ? -y : y]; };
+const cacos = (w) => { const q = csqrt([1 - cmul(w, w)[0], -cmul(w, w)[1]]), u = [w[0] - q[1], w[1] + q[0]]; return [Math.atan2(u[1], u[0]), -Math.log(Math.hypot(u[0], u[1]))]; };
+const tipCand = (win) => (w) => {
+  const A = cacos(w), R = Math.max(...[[win.x0, win.y0], [win.x0, win.y1], [win.x1, win.y0], [win.x1, win.y1]].map((p) => Math.hypot(p[0], p[1]))), K = Math.ceil(R ** 3 / (2 * Math.PI)) + 1, out = [];
+  for (let k = -K; k <= K; k++) for (const s of [1, -1]) {
+    const a = [s * A[0] + 2 * Math.PI * k, s * A[1]], r = Math.cbrt(Math.hypot(a[0], a[1])), th = Math.atan2(a[1], a[0]) / 3;
+    for (let j = 0; j < 3; j++) { const z = [r * Math.cos(th + 2 * Math.PI * j / 3), r * Math.sin(th + 2 * Math.PI * j / 3)]; if (z[0] >= win.x0 && z[0] <= win.x1 && z[1] >= win.y0 && z[1] <= win.y1) out.push({ z, out: false }); }
+  }
+  return out;
+};
+{
+  // (each point's two first sheets in the inverse pass's order, Inverse.order under __cmwSvKey(2); plane z's colours at both,
+  // and the frame's pixel nearer the second's where the two differ by over TIP_APART)
+  const win = (await ev('__cmwSvKey(2)')).win, cand = tipCand(win), pts = [];
+  for (let i = 0; i < TIP.nx; i++) for (let j = 0; j < TIP.ny; j++) pts.push([TIP.x0 + (i + 0.5) / TIP.nx * (TIP.x1 - TIP.x0), TIP.y0 + (j + 0.5) / TIP.ny * (TIP.y1 - TIP.y0)]);
+  const lists = pts.map((w) => cand(w).map((c) => c.z));
+  const two = await ev(`(() => { const k = __cmwSvKey(2), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])), per: k.per && CX.C(k.per[0], k.per[1]) };
+    return ${JSON.stringify(lists)}.map((L) => { const o = Inverse.order(L.map((p, i) => ({ z: CX.C(p[0], p[1]), D: Inverse.sheetKey(prep, CX.C(p[0], p[1]), null), lam: null, i }))); return o.length > 1 ? [o[0].i, o[1].i] : null; }); })()`);
+  const got = (await lpx(pts)).px;
+  const pre = await ev('__cmwSteps().carryPre');
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 0, now: true }); 1`);
+  await settled({ max: PRE_WAIT * 2, until: `__cmwSteps().stage === 0 && __cmwSvFixed() && ${DRAWN}` });
+  const idx = pts.map((w, k) => two[k]).map((t, k) => t && [lists[k][t[0]], lists[k][t[1]]]);
+  const ref = (await lpx(idx.flatMap((t) => (t ? t : [[0, 0], [0, 0]])))).px;
+  const c4 = (p) => p && p[4], dist = (a, b) => Math.max(...[0, 1, 2].map((c) => Math.abs(a[c] - b[c])));
+  let n = 0, wrong = 0; const ex = [];
+  pts.forEach((w, k) => {
+    const g = c4(got[k]), f = c4(ref[2 * k]), q = c4(ref[2 * k + 1]);
+    if (!idx[k] || !g || !f || !q || dist(f, q) <= TIP_APART) return;
+    n++;
+    if (dist(g, q) < dist(g, f)) { wrong++; if (ex.length < 4) ex.push({ w, got: g, front: f, second: q }); }
+  });
+  info.tip = { n, wrong, of: pts.length, pre, ex };
+  await ev(`__cmwSteps({ scope: 'all', surf: 'plane', go: 2, now: true }); 1`);
+  await settled({ max: PRE_WAIT * 2, until: `__cmwSteps().stage === 2 && __cmwSteps().carryPre > 0 && __mtLeftPaper() === 0 && ${DRAWN}` });
+  ok(`plane 2 at rest on the pre-mapped meshes, about the arc's tip (w = -1): at most ${EXACT_WRONG_MAX * 100} % of the points show the second sheet's colour rather than the front one's`, pre > 0 && n >= 0.25 * pts.length && wrong <= EXACT_WRONG_MAX * n, info.tip);
+}
 const pre = { ok: preOk.ok, ord: await ev('GLR.carryResolveOrd()'), disc: await discRough(), wide: await bandShift() };
 info.pre = pre;
 ok('plane 2 at rest: the pre-mapped meshes take over, through the resolve with its map\'s rotation: a sixth turn (z³ changes sign, cos is even)', pre.ok && pre.ord === 6, pre);
