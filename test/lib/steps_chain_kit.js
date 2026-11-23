@@ -1,5 +1,5 @@
-// What the suites that open the app on a saved chain share (steps_canvas_stack_cmd.js, steps_phone_stack_cmd.js,
-// steps_width_cmd.js, steps_long_549_cmd.js): the chain's steps, the saved state over the half-plane h1, and opening the app
+// What the suites that open the app on a saved chain share (steps_parked_pan_cmd.js, steps_play_cmd.js,
+// steps_view_cmd.js): the chain's steps, the saved state over the half-plane h1, and opening the app
 // on it at a size, in a language and a view. An expression for eval in a suite:
 // `const { MOB, CUBE, SIN, still, openChain } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });`
 ({ ev, go, view, settled, PORT }) => {
