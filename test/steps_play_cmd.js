@@ -102,12 +102,24 @@ ok('… and says where it stopped', await ev(`/Stopped at w/.test(document.query
 ok('… which ends on the last plane at rest', !e1.timeout && e1.s.i === 2 && Math.abs(e1.s.x - 2) < 1e-9 && !e1.s.moving, e1.s);
 ok('… in about two planes of the speed (fast: 450 ms a plane)', e1.ms > 700 && e1.ms < 6000, e1.ms);
 await calm();
-await ev(`document.querySelector('.sv-play').click(); 1`);
-const p2 = await S();
+// (▶ pressed again in the frame its glide is first seen in, the glide read in that frame and the pause in the next, all
+// in the page: two reads from outside it can take longer to come back than the whole 0.9 s glide on a loaded renderer,
+// and the second press would then find the glide over and start another, as for the first press above)
+const pp = await ev(`await new Promise((res) => {
+  const btn = document.querySelector('.sv-play'), t0 = performance.now(), pick = (s) => ({ play: s.play, x: s.x, i: s.i, moving: s.moving, playRec: s.playRec });
+  btn.click();
+  const look = () => {
+    const s = __cmwSteps();
+    if (s.play === 'glide' && s.moving) { const p2 = pick(s); btn.click(); requestAnimationFrame(() => res({ p2, pz: pick(__cmwSteps()) })); return; }
+    if (performance.now() - t0 > 5000) { res({ p2: pick(s), pz: null }); return; }
+    requestAnimationFrame(look);
+  };
+  look();
+})`);
+const p2 = pp.p2;
 ok('▶ at the end starts over', p2.play === 'glide' && p2.x < 1, p2);
-await ev(`document.querySelector('.sv-play').click(); 1`);
-const pz = await S();
-ok('▶ again pauses: it stays where it was, and nothing moves on', pz.play === null, pz);
+const pz = pp.pz || await S();
+ok('▶ again pauses: it stays where it was, and nothing moves on', !!pp.pz && pz.play === null, pz);
 await sleep(300); const pz2 = await S();
 ok('… (no drift after the pause)', Math.abs(pz2.x - pz.x) < 1e-9, [pz.x, pz2.x]);
 // (nominal planes a second: slow 0.5, normal 1.11, each told from the other; fast, 2.2, is a 0.9 s glide that a software renderer's frames
