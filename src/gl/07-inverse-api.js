@@ -371,7 +371,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (c && c.inv === inv && c.plan === plan) return c.d;
     const N = Math.max(1, inv.nOps), ops = inv.ops;
     const d = { ref: new Float32Array(2 * N), N: new Int32Array(N).fill(1), RK: new Int32Array(N), AB: new Float32Array(4 * N), box: new Float32Array(4 * N),
-      stopOp: -1, stopMob: [0, 0, 0, 0], stopT: new Float32Array(8), mobOn: false, pInP: 0, sing: new Float32Array(8), singN: 0, ok: true, reason: null,
+      stopOp: -1, stopMob: [0, 0, 0, 0], stopT: new Float32Array(8), mobOn: false, pInP: 0, sing: new Float32Array(12), singN: 0, ok: true, reason: null,
       tail: prep.tail ? 1 : 0 };
     const TAU = 2 * Math.PI;
     for (let j = 0; j < plan.ops.length; j++) {
@@ -402,11 +402,12 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     if (prep.stopMob && d.stopOp >= 0) {
       const sm = prep.stopMob, T = CX.mobScaled(sm.T);
-      d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP ? 1 : 0;
+      d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP;
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
     const sing = (prep.sing || []).slice(0, 4);
-    sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
+    // (each point's re, im and weight w, 1 when it has none, as Inverse.keyW reads it: uSing's vec3)
+    sing.forEach((p, i) => { d.sing[3 * i] = p.re; d.sing[3 * i + 1] = p.im; d.sing[3 * i + 2] = p.w === undefined ? 1 : p.w; });
     d.singN = sing.length;
     d.singT = prep.per ? [prep.per.re, prep.per.im] : [0, 0];
     // saturation anchors (SPEC 13.12): the anchor op's index in the program, the affine ops' (A, B), each anchor's
@@ -717,7 +718,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
-    if (P.loc.uSing) gl.uniform2fv(P.loc.uSing, d.sing);
+    if (P.loc.uSing) gl.uniform3fv(P.loc.uSing, d.sing);
     u1i(P, 'uSingN', d.singN);
     u2f(P, 'uSingT', d.singT[0], d.singT[1]);
     if (P.loc.uAncJ) {

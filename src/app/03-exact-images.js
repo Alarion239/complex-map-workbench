@@ -504,8 +504,8 @@
     return { plan, inv, preps: new Map(), sing: null, per: undefined };
   }
   // the inverse path of area shape s from plane a to plane b through h (invOwnPlan's), prepared once for each window and
-  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing),
-  // and its period h.per
+  // shape: the sheet key's singular points own (a glide's NEWT op, the caller's), else the plan's own (Inverse.keySing,
+  // weighted by h.wOf when the plan has one), and its period h.per
   function invOwnPath(h, s, a, b, own) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!h.plan.ok) return F(h.plan.reason);
@@ -513,7 +513,7 @@
     let prep = h.preps.get(wk);
     if (!prep) {
       try {
-        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per) };
+        if (!own && (!h.sing || h.sing.k !== winKey())) h.sing = { k: winKey(), v: Inverse.keySing(h.plan, clipWin, h.per, h.wOf || null) };
         prep = Inverse.prepare(h.plan, { win: clipWin, shape: s, sing: own || h.sing.v, per: h.per });
       } catch (err) { prep = { ok: false, reason: 'prepare: ' + (err && err.message) }; }
       h.preps.set(wk, prep);
@@ -568,8 +568,11 @@
   // (Inverse.homBuilt: no ops at t_k = 0, the step itself at 1) and every step up to lo for itself; its inverse op list
   // (GLChain.buildInverse, invOwnPlan) and the shape's preparation (invOwnPath). Same answer as invHomPath's, and its key's
   // period as invHomPer takes it: Inverse.keyPeriod of the span's plan at u, so the key at u -> 1 meets plane b's (eᶻ's
-  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Forward where a step's homotopy has no exact inverse at
-  // its time or a NEWT op (those spans keep the carried meshes)
+  // homotopy has 2 pi i / t); with no plan, the steps' up to lo. Its key's points: those of each step k of the span weigh
+  // t_k (h.wOf, Inverse.keySing), so that the key goes from plane lo's at u = 0 to plane b's at u = 1 with no jump, a
+  // pole that step k's homotopy brings in from infinity coming in with no weight (where it lands beside a pole of an
+  // earlier step, as Cayley's pulled back through Joukowski lands beside 0, the two would count twice up to t_k = 0).
+  // Forward where a step's homotopy has no exact inverse at its time or a NEWT op (those spans keep the carried meshes)
   function invSpanPath(s, a, lo, b, u, stepT, singAt) {
     const F = (reason) => ({ path: 'forward', reason });
     if (!GLR.ok || !GLR.drawInverse || !GLChain.buildInverse) return F('no inverse renderer');
@@ -590,6 +593,8 @@
       }
       h = plan ? { plan, inv: null, preps: new Map(), sing: null, per: undefined } : invOwnPlan(S.steps, bh, a, b);
       h.per = h.plan.ok ? Inverse.keyPeriod(h.plan) : lo > a ? Inverse.keyPeriod(invPlan(a, lo)) : null;
+      const tOf = new Map(ts);
+      h.wOf = (o) => (tOf.has(o.step) ? Math.min(1, tOf.get(o.step)) : 1);
       if (invHoms.size >= INV_HOMS_MAX) invHoms.clear();
       invHoms.set(ck, h);
     }

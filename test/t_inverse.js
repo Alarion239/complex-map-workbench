@@ -1468,5 +1468,40 @@ const FLOOR_ZETA = { 0.25: 1, 0.5: 0.95, 0.75: 0.95, 0.9: 1, 0.99: 0.95 };
   }
 }
 
+// =================================================================================================
+// the sheet key's weights (#1742): an All-at-once span's key points weigh their step's time (keySing's wOf), so the
+// key goes from the span's first plane's to its last's with no jump
+// =================================================================================================
+section('sheet key weights');
+{
+  const prepOf = (sing, per = null) => { const R = Math.hypot(WIN0.x1 - WIN0.x0, WIN0.y1 - WIN0.y0) / 2; return { win: WIN0, R, rs: R / 8, sing, per }; };
+  const ps = (pts) => pts.map((p) => [p.re, p.im, Inverse.keyW(p)]);
+  // [Joukowski, Cayley] in full: Cayley's pole pulled back through Joukowski (two points) and Joukowski's own (0)
+  const { plan: jc } = planOf([{ type: 'joukowski' }, { type: 'mobius', params: { a: '1', b: '-i', c: '1', d: 'i' } }], 0, 2);
+  const { plan: j1 } = planOf([{ type: 'joukowski' }], 0, 1);
+  const plain = Inverse.keySing(jc, WIN0), w1 = Inverse.keySing(jc, WIN0, undefined, () => 1);
+  check('keySing with every weight 1 is the plain key (the same points, none weighted)', JSON.stringify(ps(w1)) === JSON.stringify(ps(plain)) && w1.every((p) => p.w === undefined), [ps(w1), ps(plain)]);
+  const w0 = Inverse.keySing(jc, WIN0, undefined, (o) => (o.step === 2 ? 0 : 1));
+  check("keySing with step 2's weight 0 leaves its points out: the key of step 1 alone", JSON.stringify(ps(w0)) === JSON.stringify(ps(Inverse.keySing(j1, WIN0))), [ps(w0), ps(Inverse.keySing(j1, WIN0))]);
+  const wh = Inverse.keySing(jc, WIN0, undefined, (o) => (o.step === 2 ? 0.3 : 1));
+  check("keySing with step 2's weight 0.3: its points weigh 0.3, step 1's 1", wh.length === plain.length && wh.filter((p) => Inverse.keyW(p) === 0.3).length === plain.length - 1 && wh.filter((p) => Inverse.keyW(p) === 1).length === 1, ps(wh));
+  // a point's penalty scales with its weight: at w = 0.5 the key is midway between w = 0 and w = 1
+  const p0 = C(0.4, -0.2), at = (w) => Inverse.sheetKey(prepOf([Object.assign(C(p0.re, p0.im), { w })]), C(0.45, -0.18));
+  check('sheetKey: a point of weight 0.5 adds half its penalty', Math.abs(at(0.5) - (at(0) + at(1)) / 2) < 1e-12 && at(1) - at(0) > 1, [at(0), at(0.5), at(1)]);
+  // keyClasses keeps one point of each class modulo the period, with the class's largest weight
+  const per = C(0, TAU), kc = Inverse.keyClasses([Object.assign(C(0.5, 1), { w: 0.2 }), Object.assign(C(0.5, 1 + TAU), { w: 0.7 })], per);
+  check("keyClasses: one point of the class, the first's place, the class's largest weight", kc.length === 1 && kc[0].re === 0.5 && kc[0].im === 1 && kc[0].w === 0.7, ps(kc));
+  // the span (1, 4] of [J, 1.2 z, Cayley, z³] at a small time t: weighted, its key is plane 1's at rest within a hair away
+  // from 0; unweighted, Cayley's pole pulled back beside 0 doubles the penalty there (#1742's downward glide)
+  const steps = [St('joukowski'), St('mul', { c: '1.2' }), St('mobius', { a: '1', b: '-i', c: '1', d: 'i' }), St('pown', { n: 3 })], built = steps.map(Funcs.build);
+  const t = 1e-3, bh = built.map((b, k) => (k >= 1 ? Inverse.homBuilt(b, Inverse.homOps(b, t)) : b));
+  const span = Inverse.planChain(steps, bh, 0, 4), rest = Inverse.keySing(Inverse.planChain(steps, built, 0, 1), WIN0);
+  const kw = Inverse.keySing(span, WIN0, undefined, (o) => (o.step > 1 ? t : 1)), ku = Inverse.keySing(span, WIN0);
+  const zs = [C(0.3, 0.1), C(-0.2, 0.25), C(0.15, -0.3), C(0.5, 0), C(-1, 0.6), C(2, -1)];
+  const dev = (k) => Math.max(...zs.map((z) => Math.abs(Inverse.sheetKey(prepOf(k), z) - Inverse.sheetKey(prepOf(rest), z))));
+  check(`the span's key at t = ${t}, weighted by t: plane 1's at rest (within 0.01 octave at |z| >= 0.2)`, span.ok && dev(kw) < 0.01, { dev: dev(kw), kw: ps(kw), rest: ps(rest) });
+  check(`control: unweighted, it is off plane 1's by over half an octave`, dev(ku) > 0.5, { dev: dev(ku), ku: ps(ku) });
+}
+
 console.log(`\n${n} checks, ${bad} failed (${((Date.now() - t0All) / 1000).toFixed(1)} s)`);
 process.exitCode = bad ? 1 : 0;
