@@ -3,7 +3,7 @@
 // - the head is one row: every item it shows sits on the bar's row, none overlaps the next, none is cut;
 // - it keeps the style row (#247) and every control of the bar: the title, the colour plane, the scope, the surface;
 // - short of room, the colour-plane button keeps its wheel and its name (its words in its accessible name);
-// - the surface is one button, named "Surface: …", that opens a menu of the three, the shown one checked; a pick
+// - the surface is one button, named "Surface: …", that opens a menu of the four, the shown one checked; a pick
 //   changes the surface;
 // - on a phone the head's controls are in the header and the surface button is the same one;
 // - (#1596) on a phone at 360 px, in en, ru and it, each segment of the scope switch keeps the segmented control's 10 px of padding
@@ -70,11 +70,11 @@ for (const go of [1, 2]) {
   const L = await ev(LAYOUT);
   ok(`ru 1024 after a glide to plane ${go}: the head is one row`, L.off.length === 0 && L.hh <= 44 && L.lap.length === 0, L);
 }
-// the surface menu (en, 1280): one button, a menu of the three with the shown one checked, a pick changes the surface
+// the surface menu (en, 1280): one button, a menu of the four with the shown one checked, a pick changes the surface
 await open(1280, 800, false, 'en');
 await ev(`document.querySelector('#svHead .sv-surf1').click(); 1`); await settle(400);
 const menu = await ev(`(() => { const m = document.querySelector('.pop.menu'); if (!m) return null; return { label: m.getAttribute('aria-label'), items: [...m.querySelectorAll('[role=menuitemradio]')].map((b) => b.textContent.trim() + ':' + b.getAttribute('aria-checked')) }; })()`);
-ok('the surface button opens a menu of the three, Plane checked', menu && menu.label === 'Surface' && menu.items.join() === 'Plane:true,Sphere:false,Landscape:false', menu);
+ok('the surface button opens a menu of the four, Plane checked', menu && menu.label === 'Surface' && menu.items.join() === 'Plane:true,Sphere:false,Landscape:false,Stack:false', menu);
 await ev(`[...document.querySelectorAll('.pop.menu [role=menuitemradio]')].find((b) => /Landscape/.test(b.textContent)).click(); 1`); await settle(1500);
 const after = await ev(`({ surf: __cmwSteps().surf, name: document.querySelector('#svHead .sv-surf1').getAttribute('aria-label') })`);
 ok('a pick in the menu changes the surface, and the button names it', after.surf === 'land' && after.name === 'Surface: Landscape', after);
