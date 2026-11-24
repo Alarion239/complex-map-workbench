@@ -462,11 +462,13 @@ const VIEWS = {
 };
 
 // the entries' faults against the runnable suites: a suite with no entry, an entry for no runnable suite, a bad entry,
-// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps, or opens its page through the chain kit),
-// so a steps() entry without it, or a port or classic one with it, is wrong (a ported suite, pin: true, needs no URL)
+// and a tag its source contradicts: steps() is what a suite that asks ?view=steps itself is (its source has view=steps,
+// or opens its page through the chain kit), so a steps() entry without it, or a port or classic one with it, is wrong
+// (a ported suite, pin: true, needs no URL)
 function checkViews(runnable) {
   const fs = require('fs'), path = require('path'), bad = [];
-  // (a suite asks the steps view by naming it in a URL, or by opening its page through test/lib/steps_chain_kit.js, whose openChain does)
+  // (a suite asks the steps view by naming it in a URL, or by opening its page through test/lib/steps_chain_kit.js,
+  // whose openChain does)
   const asksSteps = (f) => { try { const src = fs.readFileSync(path.join(__dirname, '..', 'test', f), 'utf8'); return /view=steps/.test(src) || /steps_chain_kit\.js/.test(src); } catch (e) { return false; } };
   for (const f of runnable) if (!VIEWS[f]) bad.push(`${f}: no view in ci/suite_views.js (steps, port or classic)`);
   for (const [f, tag] of Object.entries(VIEWS)) {
