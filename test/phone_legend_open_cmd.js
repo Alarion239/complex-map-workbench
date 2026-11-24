@@ -21,6 +21,7 @@ const inter = (a, b) => !!a && !!b && Math.min(a.r, b.r) - Math.max(a.l, b.l) > 
 // .over-readout: the key takes the plane's top to show all its lines) is no readout on screen)
 const READOUT_GAP = 4;
 const clearOf = (k, ro, hidden) => !!hidden || !inter(k, ro) && !(k && ro && Math.min(k.r, ro.r) - Math.max(k.l, ro.l) > EPS && k.t >= ro.t && k.t - ro.b < READOUT_GAP - EPS);
+const tooTall = [];   // (the cases where the room above the bar is less than the unfolded key's height)
 for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode of ['tall', 'edit']) {
   const tag = `${lang} ${w}×${h} ${mode === 'tall' ? 'tall bar' : 'Edit row'}`;
   await view(w, h, false, true);
@@ -35,7 +36,10 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   if (mode === 'tall') await ev(`document.querySelector('[data-tool="perp"]').click(), 1`); else await ev(`__cmwSelect('s1'), 1`);
   await settled({ max: SETTLE_MAX, panes: false, until: `!!document.querySelector('.ph-ctx.in')` });
   const m = await still();
-  info[tag] = { home: home.legend, m };
+  // (the room above the bar: from the readout that shows, or the plot's top, to the bar)
+  const room = m.bar ? m.bar.t - (m.readout && !m.roHidden ? m.readout.b : (m.plot ? m.plot.t : 0)) : null, keyH = home.legend ? home.legend.b - home.legend.t : null;
+  if (room !== null && keyH !== null && room < keyH) tooTall.push(tag);
+  info[tag] = { home: home.legend, keyH, room, m };
   ok(`${tag}: the bar is open and the key is still unfolded`, !!m.bar && m.open, m);
   if (!m.bar || !m.legend) continue;
   ok(`${tag}: the key ends above the bar`, m.legend.b <= m.bar.t + EPS, { legend: m.legend, bar: m.bar, drop: m.drop });
@@ -46,11 +50,12 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) for (const mode
   await settled({ max: SETTLE_MAX, panes: false, until: `!document.querySelector('.ph-ctx.in')` });
   const back = await still();
   ok(`${tag}: with the bar gone the key is back where it was`, !!back.legend && Math.abs(back.legend.t - home.legend.t) <= 1 && Math.abs(back.legend.l - home.legend.l) <= 1, { back: back.legend, home: home.legend });
+  ok(`${tag}: with the bar gone the key is whole again, at its height`, !!back.legend && !!home.legend && Math.abs(back.legend.b - back.legend.t - (home.legend.b - home.legend.t)) <= 1 && back.scrollH <= back.clientH + EPS, { back: back.legend, home: home.legend, scrollH: back.scrollH, clientH: back.clientH });
 }
+ok('in at least one case the room above the bar is less than the key\'s height, so the scrolling row reads a key cut short (control: 568 × 320 under the tall bar)', tooTall.length > 0, tooTall);
 // (standards-ok: the classic view's Y's open Regions key under the tall bar, below Y's two-line readout, goes with Y's pane,
-// which the classic view does not draw, #994. The steps view's tall-bar rows above read the one key under the same bar:
-// where it ends, and that what does not fit scrolls. The control that the room above the bar is less than the key's
-// height, and the key whole again at its height with the bar gone, are not read)
+// which the classic view does not draw, #994; the steps view's rows above read the one key under the same bar, with its
+// control (a key taller than the room), its scrolling and its height again once the bar has gone)
 // The open key is operated by the keyboard: Escape folds it (the focus stays on the key, which is the folded one, aria-expanded false), and Enter
 // unfolds it again; a plane key the open key lies over folds it when the key takes focus (the focus is never hidden under the card). With real key
 // events, in the steps view at 568 × 320 and 360 × 640 (the key), and at 568 × 320 and 600 × 320 under the tall bar (the plane's keys).

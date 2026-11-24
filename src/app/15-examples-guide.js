@@ -547,16 +547,14 @@
     btn.title = off ? why : tip;
     note.textContent = off ? why : '';
   }
+  // X's stack: Sphere (not on the Landscape, with the reason) and Fit view, which X's picture always has something to fit
   function syncStackKeys() {
-    for (const side of ['left', 'right']) {
-      const L = side === 'left', sph = $(side + 'Sph');
-      if (!sph) continue;
-      const on = SV.on ? SV.surf === 'sphere' : (L ? xView().surf : S.view.R.surf) === 'sphere';
-      sph.setAttribute('aria-pressed', String(on));
-      sph.innerHTML = MODE_ICONS.sphere;
-      setStackKey(sph, $(side + 'SphWhy'), SV.on ? SV.surf === 'land' : L && lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
-      setStackKey($(side + 'Fit'), $(side + 'FitWhy'), !L && !rImage(), $t('Nothing to fit yet'), $t('Fit view') + '  Z');
-    }
+    const sph = $('leftSph');
+    if (!sph) return;
+    sph.setAttribute('aria-pressed', String(SV.on ? SV.surf === 'sphere' : xView().surf === 'sphere'));
+    sph.innerHTML = MODE_ICONS.sphere;
+    setStackKey(sph, $('leftSphWhy'), SV.on ? SV.surf === 'land' : lLand(), $t('The Landscape has no sphere: choose Plane or Sphere in the surface menu'), $t('Sphere'));
+    setStackKey($('leftFit'), $('leftFitWhy'), false, '', $t('Fit view') + '  Z');
   }
   // Sphere on a plane's stack: the steps view's own surface switches Plane | Sphere; elsewhere the pane's own tabs do
   function stackSphere(side) {

@@ -74,7 +74,8 @@ for (const lang of ['en', 'ru']) for (const [w, h] of VIEWPORTS) {
 }
 // (standards-ok: the classic view's first load, Y's two-line readout beside Y's folded key, goes with Y's pane, which the
 // classic view does not draw, #994. The steps view's two-line readout rows above place its one key below the readout the
-// same way, on a page loaded with a state; the first load with no state (the key placed again with no reload) is not read)
+// same way, on a page loaded with a state: its first load runs the same code, the ResizeObserver 05-panes-rulers.js sets
+// up for each legend at load, whatever the view and the state, which calls placeKeyPop as the readout grows)
 // the folded key is a button for keyboard and screen reader: a role, a place in the focus order, a name, and
 // aria-expanded that follows the key as a tap, Enter and Space fold and unfold it. The steps view at 360 × 640, the
 // plane's key, in English and Russian (the classic view draws X alone, with no key in X → Y).

@@ -3338,7 +3338,6 @@
  "Read as {read}. For the power {power}, write {fix}.": "Letto come {read}. Per la potenza {power}, scrivi {fix}.",
  "Use {fix}": "Usa {fix}",
  "The Landscape has no sphere: choose Plane or Sphere in the surface menu": "Il Paesaggio non ha una sfera: scegli Piano o Sfera nel menu della superficie",
- "Nothing to fit yet": "Ancora niente da adattare",
  "Tap Loop.": "Tocca «Ciclo».",
  "A band over the thread plays only the steps inside it. Shift-drag across two chips; Esc clears it.": "Una fascia sul filo riproduce solo i passi al suo interno. Trascina con Shift su due chip; Esc la rimuove.",
  "A step's place in the chain decides what every plane after it shows. Move one with its ⋯ menu, or Alt+← and Alt+→ on the selected chip.": "La posizione di un passo nella catena decide ciò che mostra ogni piano successivo. Spostalo con il suo menu ⋯, oppure con Alt+← e Alt+→ sul chip selezionato.",
