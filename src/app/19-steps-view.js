@@ -1480,6 +1480,12 @@
   // (the last plane at rest past the colour plane: { a, path: 'inverse' | 'mesh' }, how its colour was drawn)
   let svRestRec = null;
   const SV_CARRY_L = 2;
+  // the carried colour's length cap, as a share of the pane's larger side: a mapped triangle longer than the pane is a
+  // point the map sends far, which would cover the pane many times over, so it is left out; a shorter one may be the front
+  // sheet's own, stretched (about cos's critical values under z³ then cos a whole-plane cell is drawn about half the pane
+  // long), and the sheet key's depth puts it in front of or behind the others
+  const SV_CARRY_LIM = 1;
+  const svCarryLim = (pane) => SV_CARRY_LIM * Math.max(pane.w, pane.h) / pane.view.s;
   // Everywhere, the points the view needs from past the whole plane's mesh (it covers clipWin, about the camera's
   // window): where the map pulls far points into the view (the edge of clipWin lands in it), a coarse annulus about
   // clipWin's centre, from its inscribed circle out to m times its half-diagonal: the least m of SV_RING_M whose circle
@@ -1956,6 +1962,7 @@
   function svCarryRegions(pane, map, T, b, frame, F) {
     const list = svCarryShapes();
     if (!list || !list.length || !GLR.drawRegion) return false;
+    const lim = svCarryLim(pane);
     const key = map.mode === 1 ? svSheetKeyAt(b, map.t) : map.mode === 3 ? svSheetKey(map.b) : svSheetKey(b);
     const carry = svCarryStyle(T);
     const ring = list.includes(SV_ALL) ? svRingFor(pane, map) : null, shapes = ring ? list.concat([ring]) : list;
@@ -1990,15 +1997,14 @@
       if (end) lay.push({ res: o.res, pre: true, scissor: o.so.sc });
     }
     // (one depth over them all: the sheet key orders the points of every mesh against each other, the first draw
-    // clears it, the last clears it after; lim, 0.35 of the pane's larger side: a longer mapped triangle is a point
-    // the map sends far, which would cover the pane many times over, so it is left out)
+    // clears it, the last clears it after; lim, the length cap: svCarryLim)
     // (an old mesh drawn inside its guard box never ends the depth: its clear would be scissored too, so the depth is
     // cleared after it; it is never first, its shape's tessellated mesh comes before it)
     const n = lay.length, tail = n > 1 && lay[n - 1].scissor;
     const sts = lay.map((d, i) => {
       const depth = n === 1 ? 'only' : i === 0 ? 'first' : i === n - 1 && !tail ? 'last' : 'mid';
       // (preZ: under graph paper the SphereMesh keeps the source point itself as vP, not its polar coordinates)
-      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim: 0.35 * Math.max(pane.w, pane.h) / pane.view.s, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, peel: false, behind: d.behind || 0 };
+      return { map, view: pane.view, dpr: pane.dpr, L: d.L, skip: d.skip, scissors: d.scissors, scissor: d.scissor, alpha: 1, pattern: 'carry', cell: 1, lines: false, carry, key, depth, lim, preZ: d.pre && GLR.PATTERNS[S.pattern] === GLR.PATTERNS.grid, prep: null, peel: false, behind: d.behind || 0 };
     });
     // (every mesh's off-screen passes first, then the draws: the frame's framebuffer is left once, not once a mesh. Below full
     // opacity every covering layer shows, as the exact pass composites them: the meshes are drawn once per layer
