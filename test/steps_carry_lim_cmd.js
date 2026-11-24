@@ -11,10 +11,11 @@
 //   than FRONT_MIN of the points the frame shows the front sheet: the colour plane z shows at the first of w's preimages
 //   in the inverse pass's order under __cmwSvKey(2) (each channel within MATCH; the preimages: z³ = ±acos w + 2πk and
 //   their cube roots, in the key's window).
-// (control) the cap leaves out what the map sends far: 1/z at rest on plane 1 (its pole at 0, the cells about it sent
-// across the plane), POLE_LEGS: no point of the grid bare paper, and the front sheet, its one preimage 1/w (a pixel of plane z
-// within NEAR of 1/w: plane z's axes and lines are thin, and a preimage on one is read off it), at no fewer than FRONT_MIN of
-// the grid's points: no streak of a cell sent across the pole.
+// (guard) a scene with a pole in the plane, 1/z at rest on plane 1 (its pole at 0), POLE_LEGS: no point of the grid bare
+// paper, and the front sheet, its one preimage 1/w (a pixel of plane z within NEAR of 1/w: plane z's axes and lines are
+// thin, and a preimage on one is read off it), at no fewer than FRONT_MIN of the grid's points. (Its frame is the same with
+// no length cap at all: the polar mesh about the key's singular point puts the pole on a vertex, so this guards the pole's
+// drawing, not the cap.)
 // The page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (typeof process !== 'undefined' && process.env.CMW_PORT) || (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -25,7 +26,7 @@ const GRID_NX = 24, GRID_NY = 16, PAPER_MIN = 235;   // the pane's grid, and pap
 const MATCH = 40, FRONT_MIN = 0.99;   // a pixel is a sheet's within this largest channel difference; the share of the points that show the front sheet
 const AXIS_STRIP = 0.4;   // the real axis's strip, |Im w| up to this (plane units)
 const PLANE_WAIT = 60000;   // ms
-const NEAR = 3;   // the pole legs: plane z's pixels read about a preimage, up to this many CSS px from it on each axis
+const NEAR = 3;   // the pole legs: plane z's pixels read about a preimage, up to this many CSS px from it on each axis (each read its 3 x 3 device pixels)
 // the legs: the window (CSS px) and its device pixel ratio (1200 x 800: no bare corner there, other sheets past the cut cells)
 const LEGS = [{ id: 'desk1440', w: 1440, h: 900, dpr: 1 }, { id: 'desk1440@2', w: 1440, h: 900, dpr: 2 }, { id: 'desk1920', w: 1920, h: 1080, dpr: 1 }, { id: 'desk1200', w: 1200, h: 800, dpr: 1 }];
 const STEPS = [{ type: 'pown', params: { n: 3 }, on: true }, { type: 'cos', params: {}, on: true }];
@@ -99,7 +100,7 @@ for (const L of POLE_LEGS) {
   const paper = [], wrong = [];
   let n = 0, fronts = 0;
   PTS.forEach((w, k) => {
-    const g = got[k] && got[k][4], r = ref[k][OFF.length >> 1], rs = ref[k].filter(Boolean).flat(), cell = [k % GRID_NX, Math.floor(k / GRID_NX)];
+    const g = got[k] && got[k][4], r = ref[k][OFF.length >> 1], rs = ref[k].filter(Boolean).flatMap((nine) => nine), cell = [k % GRID_NX, Math.floor(k / GRID_NX)];
     if (!g) return;
     if (g.slice(0, 3).every((c) => c > PAPER_MIN)) paper.push(cell);
     if (!r) return;
@@ -109,7 +110,7 @@ for (const L of POLE_LEGS) {
   const share = n ? +(fronts / n).toFixed(4) : 0;
   info[L.id] = { region, entries, points: PTS.length, read: n, paper, front: share, wrong };
   ok(`${L.id}: 1/z at rest, plane 1, the region meshes' frame: no point of the pane is bare paper`, region.ok && entries === 0 && got.filter(Boolean).length === PTS.length && paper.length === 0, info[L.id]);
-  ok(`${L.id}: 1/z at rest, plane 1, the region meshes' frame shows the front sheet (1/w) at ${FRONT_MIN * 100} % of the pane's points or more: no streak across the pole`, region.ok && entries === 0 && n >= 0.8 * PTS.length && share >= FRONT_MIN, info[L.id]);
+  ok(`${L.id}: 1/z at rest, plane 1, the region meshes' frame shows the front sheet (1/w) at ${FRONT_MIN * 100} % of the pane's points or more`, region.ok && entries === 0 && n >= 0.8 * PTS.length && share >= FRONT_MIN, info[L.id]);
 }
 await send('Emulation.setDeviceMetricsOverride', { width: 1200, height: 800, deviceScaleFactor: 1, mobile: false });
 return { pass: fails.length === 0, fails, info };

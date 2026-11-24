@@ -396,8 +396,8 @@ float longest(vec2 a, vec2 b, vec2 c) { return max(max(len2(b - a), len2(c - b))
   // fetch: 'tex' | 'chain' | 'local' (see FETCH); 'local' places the mesh by uRel = O - view centre
   // o (flat only, the steps view's carried colour): carry, the absolute source point vP for the fragment stage, the
   // sheet key as the depth (preKeyDepth, uKeyOn), and the triangle test of a colour mesh (also a triangle a few pixels
-  // small whose middle strays, a fold of the map where two sheets meet, kept: uKPx; none longer than uKLim, 0.35 of
-  // the pane: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
+  // small whose middle strays, a fold of the map where two sheets meet, kept: uKPx; none longer than uKLim, the
+  // steps view's length cap, svCarryLim: a point the map sends far, whose triangle would cover the pane many times over); sheet, the places of
   // each triangle continued from its centre's sheet (chainSheetHom, the landscape's evalAt), so a triangle across a cut
   // of the deformation's path is continued, not torn and left out; clip (read only with sheet, whose side values it
   // uses), a cut a path's dom marks; own (with sheet, not clip), the place drawn at each vertex (vW) and whether its
