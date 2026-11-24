@@ -109,6 +109,8 @@
       // opening or closing, a turn to landscape; never per overlay frame)
       try { const ro = new ResizeObserver(() => requestAnimationFrame(fitLookKey)); ro.observe(lookKey); ro.observe(host); } catch (e) { /* no ResizeObserver */ }
       try { new MutationObserver(() => requestAnimationFrame(fitLookKey)).observe(document.documentElement, { attributes: true, attributeFilter: ['class'] }); } catch (e) { /* no MutationObserver */ }
+      // (and when it has ridden up or down with the plane's other keys: the Stack's rooms, stackMeasureRooms)
+      lookKey.addEventListener('transitionend', () => requestAnimationFrame(fitLookKey));
     }
     const ph = document.documentElement.classList.contains('ph'), sig = on ? `${I18N.lang}|${ph}|${stack}|${tubes}` : '';
     if (lookKey.dataset.sig === sig) return;
@@ -131,8 +133,8 @@
     lookFits++;
     lookKey.classList.remove('over-readout');
     const rc = document.documentElement.classList;
-    if (lookKey.hidden || !lookKeyOpen || !rc.contains('ph') || !rc.contains('ph-land')) return;
-    if (lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
+    if (!lookKey.hidden && lookKeyOpen && rc.contains('ph') && rc.contains('ph-land') && lookKey.scrollHeight > lookKey.clientHeight + 1) lookKey.classList.add('over-readout');
+    stackMeasureRooms();
   }
   // TEST-HOOK (dropped from the published page by build.py): the marks as drawn, the key's words (its marks after its
   // title, "; " between them), and how many times the key's room was measured (fits)

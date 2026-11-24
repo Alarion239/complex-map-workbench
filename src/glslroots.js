@@ -3,7 +3,8 @@
 // GLSL text of the inverse pass's polynomial roots, in two families.
 // The closed forms: the ops whose members over w are the roots of a polynomial of degree at most 4 in closed form, JOUK,
 // QUAD, RAT2, RAT3 and RAT4 (InvOps' opJouk, opQuad, opRat2, opRatN by closedRoots): their functions (closedFns) and uInv
-// values (closedValues), and the solvers RAT3 and RAT4 call (ixRoots, put into a program that has an op of RAT_N).
+// values (closedValues), and the solvers they call: ixQuad, the stable quadratic of QUAD and RAT2 (put into a program that
+// has an op of QUAD_N), and ixRoots, RAT3's and RAT4's (one that has an op of RAT_N).
 // Aberth's iteration (InvOps.newtAberth's, in float32): the sweeps that the polynomial NEWT op (GLChain's newtPolyFns) and
 // the rational ops RAT5 ... RAT<NEWT_POLY_MAX> (InvOps.opRatN by aberthRoots) share, and those ops' functions.
 // GLChain takes these names in its inverse section. Inverse is read only inside the functions, when GLChain builds a
@@ -167,6 +168,23 @@ bool ${P}_one_b(inout Lf L, int b) {
   // is float32's rounding of its terms, so a step there is that rounding over p' and can throw an exact root far off,
   // where that rounding is not 0 (a GPU that fuses or reorders the products)
   const RAT_N = new Set(['RAT3', 'RAT4']), RAT_NEAR = '1e-2', F32_EPS = '5.96e-8';
+  // the stable quadratic of QUAD and RAT2, in a program with an op of QUAD_N: ixQuadratic(a, b, c, r0, r1), the roots of
+  // a u^2 + b u + c (a not 0), root for root InvOps' opQuad's and opRat2's: q = -(b + s) / 2, s the square root of the
+  // discriminant on b's side, then r0 = q / a and r1 = c / q; false, with both 0, when q is 0, a double root at 0.
+  // (ixRoots' ixQuadMonic, on the monic polynomial, is not it: dividing by a first changes the square root's branch, and
+  // so which root comes first)
+  const QUAD_N = new Set(['QUAD', 'RAT2']);
+  const ixQuad = () => `
+bool ixQuadratic(vec2 a, vec2 b, vec2 c, out vec2 r0, out vec2 r1) {
+  vec2 disc = csqrtp(cmul(b, b) - 4.0 * cmul(a, c));
+  if (dot(b, disc) < 0.0) disc = -disc;
+  vec2 q = -0.5 * (b + disc);
+  r0 = vec2(0.0); r1 = vec2(0.0);
+  if (q.x == 0.0 && q.y == 0.0) return false;
+  r0 = cdiv(q, a); r1 = cdiv(c, q);
+  return true;
+}
+`;
   const ixRoots = () => `
 // root k of y^2 + beta y + gamma (stable)
 vec2 ixQuadMonic(vec2 beta, vec2 gamma, int k) {
@@ -259,10 +277,9 @@ bool ${P}_one_b(inout Lf L, int b) {
 bool ${P}_one_b(inout Lf L, int b) {
   vec4 P0 = ${U(0)};
   vec2 a = P0.xy, bb = P0.zw, cc = ${U(1)}.xy - L.u;
-  vec2 disc = csqrtp(cmul(bb, bb) - 4.0 * cmul(a, cc));
-  if (dot(bb, disc) < 0.0) disc = -disc;
-  vec2 q = -0.5 * (bb + disc);
-  vec2 u = (q.x == 0.0 && q.y == 0.0) ? vec2(0.0) : (b == 0 ? cdiv(q, a) : cdiv(cc, q));
+  vec2 r0, r1;
+  ixQuadratic(a, bb, cc, r0, r1);
+  vec2 u = b == 0 ? r0 : r1;
   return ixApply(L, u, cinv(2.0 * cmul(a, u) + bb), ${NOR});
 }
 `;
@@ -271,12 +288,7 @@ bool ${P}_one_b(inout Lf L, int b) {
   vec2 A = S0.xy - cmul(w, S1.zw), B = S0.zw - cmul(w, S2.xy), Cc = S1.xy - cmul(w, S2.zw);
   r0 = vec2(0.0); r1 = vec2(0.0);
   if (cx_abs(A) <= ${Inverse.RAT_DROP} * (cx_abs(B) + cx_abs(Cc))) { if (cx_abs(B) > 0.0) { r0 = -cdiv(Cc, B); return 1; } return 0; }
-  vec2 disc = csqrtp(cmul(B, B) - 4.0 * cmul(A, Cc));
-  if (dot(B, disc) < 0.0) disc = -disc;
-  vec2 qq = -0.5 * (B + disc);
-  if (qq.x == 0.0 && qq.y == 0.0) return 1;
-  r0 = cdiv(qq, A); r1 = cdiv(Cc, qq);
-  return 2;
+  return ixQuadratic(A, B, Cc, r0, r1) ? 2 : 1;
 }
 int ${P}_nb(Lf L) { if (!ixFin(L.u)) return 0; vec2 a, b; return ${P}_roots(L.u, a, b); }
 bool ${P}_one_b(inout Lf L, int b) {
@@ -353,7 +365,7 @@ bool ${P}_one_b(inout Lf L, int b) {
       }
     }
   }
-  return { NEWT_STEP_TOL, aberthFns, evFns, sweepFns, orderFns, ratAberthFns, RAT_N, ixRoots, closedFns, closedValues };
+  return { NEWT_STEP_TOL, aberthFns, evFns, sweepFns, orderFns, ratAberthFns, RAT_N, QUAD_N, ixRoots, ixQuad, closedFns, closedValues };
 })();
 import { CX } from './cx.js';
 import { Inverse } from './inverse.js';
