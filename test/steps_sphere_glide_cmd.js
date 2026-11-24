@@ -7,7 +7,8 @@
 //    (globeError: a throw's message, named in the check)
 //  - the arrival on √'s plane (#2391, 'Square root and its sheets', Everywhere): the glide frame just short of plane w1
 //    draws every sheet, so it is the parked globe; the control, the principal sheet alone, is not; the same on the
-//    carried mesh's path, z⁵ − 5z (no inverse plan) then √, onto √'s plane w2
+//    carried mesh's path, z⁵ − 5z (no inverse plan) then √, onto √'s plane w2; at u = 1/2 the principal sheet is in front:
+//    wherever it alone colours the globe, the frame with every sheet shows its colour
 // A command file for a CDP daemon (test/cdp_kit README). Prints {pass, fails, results}.
 const fails = [], R = {};
 const ok = (name, cond, got) => { if (!cond) fails.push({ name, got }); return cond; };
@@ -85,6 +86,28 @@ await heldAt(1 - ARRIVE_EPS);
 ok('the glide frame near plane w1, the principal sheet alone, is drawn', !!(await grab('sphArriveOne')), null);
 await ev('__cmwSteps({ glideSheets: 0 }); 1');
 R.arrival = { all: await compare('sphArrive', 'sphParked1'), one: await compare('sphArriveOne', 'sphParked1') };
+// Mid-glide, the principal sheet is in front: at u = 1/2 the two sheets' images overlap on the globe, and wherever the
+// principal sheet alone colours a pixel (saturation over FRONT_SAT) the frame with every sheet shows that colour (at most
+// FRONT_MAX of those pixels more than FRONT_TOL apart in a channel); a copy drawn over it would show its own sheet's colour
+// there. Control: the frame with every sheet differs from the principal one somewhere (the copy fills its holes)
+const FRONT_SAT = 40, FRONT_TOL = 32, FRONT_MAX = 0.005;
+await heldAt(0.5);
+ok('the glide frame at u = 1/2 is drawn', !!(await grab('sphMid')), null);
+await ev('__cmwSteps({ glideSheets: 1 }); 1');
+await heldAt(0.5);
+ok('the glide frame at u = 1/2, the principal sheet alone, is drawn', !!(await grab('sphMidOne')), null);
+await ev('__cmwSteps({ glideSheets: 0 }); 1');
+R.front = await ev(`(() => {
+  const A = window.__heldPx.sphMid, P = window.__heldPx.sphMidOne;
+  let n = 0, off = 0, other = 0;
+  for (let i = 0; i < P.length; i += 4) {
+    const d = Math.max(Math.abs(A[i] - P[i]), Math.abs(A[i + 1] - P[i + 1]), Math.abs(A[i + 2] - P[i + 2]));
+    if (Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${FRONT_SAT}) { n++; if (d > ${FRONT_TOL}) off++; } else if (d > ${FRONT_TOL}) other++;
+  }
+  return { principal: n, off, frac: n ? +(off / n).toFixed(4) : null, copiesShow: other };
+})()`);
+ok(`u = 1/2: wherever the principal sheet colours the globe, the frame with every sheet shows its colour (at most ${FRONT_MAX * 100} % apart)`, R.front.principal > 1000 && R.front.frac <= FRONT_MAX, R.front);
+ok('u = 1/2: the copy fills the principal sheet\'s holes (the frames differ there)', R.front.copiesShow > 1000, R.front);
 ok(`the glide frame ${ARRIVE_EPS} short of plane w1 is the parked globe: at most ${ARRIVE_MAX * 100} % of the pixels apart`, !!R.arrival.all && R.arrival.all.frac <= ARRIVE_MAX, R.arrival);
 ok(`the control: the principal sheet alone, more than ${ARRIVE_CONTROL * 100} % apart`, !!R.arrival.one && R.arrival.one.frac > ARRIVE_CONTROL, R.arrival);
 // The same on the carried mesh's path: z⁵ − 5z (no inverse plan) then √, onto √'s plane w2
