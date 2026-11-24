@@ -86,6 +86,7 @@
     const joins = h('div', { class: 'ro-joins' }), off = h('div', { class: 'ro-off' });
     // (Look down's switch, 19-lookdown.js)
     const look = checkEl('ld_' + s.id, lookDown, $t('Look down'), (v) => { lookDown = v; requestRender('OL'); });
+    look.classList.add('ro-look');   // (hidden on the Stack, whose view control has a Look down of its own: 19-stack.js)
     const row = h('label', { class: 'fader-row ro-row' }, h('span', { class: 'fl', html: $t('radius <i>r</i>') }), val, h('div', { class: 'ro-track' }, range, ticks));
     const E = { root: h('div', { class: 'ro-card', 'data-id': s.id }, h('div', { class: 'cm-ilabel', html: $t('Preimage on {w}', { w: svNameHtml(leftStage()) }) }), counts, row, joins, off, look), counts, range, val, ticks, joins, off, top: 0 };
     return E;

@@ -66,8 +66,9 @@
     while (tubeCache.size > 16) tubeCache.delete(tubeCache.keys().next().value);
     return d;
   }
-  // a number or a complex number as the labels write it: the language's decimal mark and a true minus sign
-  const tubeNum = (z) => I18N.num(CX.fmt(z, 3)).replace(/-/g, '−');
+  // a number or a complex number as the labels write it: the language's decimal mark in each of its parts (I18N.num marks
+  // one number) and a true minus sign
+  const tubeNum = (z) => CX.fmt(z, 3).split(/(\s+)/).map((p) => I18N.num(p)).join('').replace(/-/g, '−');
   // the narrowing's words: "narrows here: F′(−1) = −2, not a join" (the map named as the plane's title names it)
   function tubeNarrowText(n) {
     const name = svMapName('text', leftStage(), shapeStage(findShape(selected))) || 'f', f = name.includes('∘') ? `(${name})` : name;
