@@ -67,6 +67,7 @@ const VIEWS = {
   'steps_seams_cmd.js': steps(),
   'gl_uniform_units_cmd.js': steps(),
   'glchain_slot_cap_cmd.js': steps(),
+  'steps_refused_seam_cmd.js': steps(),   // (a refused chain's status card, the seam's handle and θ chip clear of it, #2330)
   'steps_region_centre_cmd.js': steps(),
   'steps_glide_cost_cmd.js': steps(),
   'steps_glide_negpow_cmd.js': steps(),
@@ -82,6 +83,7 @@ const VIEWS = {
   'steps_land_glide_sheets_cmd.js': steps(),
   'steps_land_sheets_prestart_cmd.js': steps(),
   'steps_land_cracks_cmd.js': steps(),
+  'steps_glide_tile_cmd.js': steps(),
   'steps_glide_cut_cmd.js': steps(),
   'steps_glide_sheets_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
   'steps_land_glide_copies_cmd.js': steps({ pin: true }),   // (its page, loadView('steps', …), asks ?view=steps itself)
@@ -160,6 +162,7 @@ const VIEWS = {
   'steps_lookdown_phone_cmd.js': steps(),
   'steps_stack_levels_cmd.js': steps(),
   'steps_stack_tubes_cmd.js': steps(),
+  'steps_stack_links_cmd.js': steps(),
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),
