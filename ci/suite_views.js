@@ -224,6 +224,7 @@ const VIEWS = {
   'steps_toast_ctx_cmd.js': steps(),
   'phone_legend_clear_cmd.js': steps(),
   'classic_chain_box_cmd.js': classic('the classic view\'s empty chain box under the plane (#2269), which goes with the classic view'),
+  'phone_keys_room_cmd.js': steps(),
   'phone_legend_said_cmd.js': steps(),
   'phone_legend_open_cmd.js': steps(),
   'steps_arrows_cmd.js': steps(),
