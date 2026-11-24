@@ -4,7 +4,7 @@
 // have one key and the tie order alone (larger Im z, Inverse.order) puts one in front. The arc runs through cos's
 // critical value w = -1, whose preimages (z³ = π, |z| about 1.46) fold the map: a mesh that stops short of the leaves
 // there (its work or node budget, refined in device pixels) draws other sheets, or colours of none, triangle by triangle.
-// Each leg (LEGS: a desktop pane at dpr 1 and 2, a 390 x 844 phone at dpr 2) opens the page anew at its size:
+// Each leg (LEGS: a desktop pane at dpr 1 and 2, 390 x 844 and 360 x 780 phones at dpr 2) opens the page anew at its size:
 // - each point's first four sheets in the inverse pass's order under __cmwSvKey(2); plane z's colours at them (read on plane
 //   0); the frame's pixel is the nearest of the four within MATCH, else none;
 // - (control) the region meshes' frame (the pre-mapped meshes dropped, __cmwSmReset, and the frame before one is built
@@ -28,7 +28,7 @@ const FRONT_MIN = 0.99;            // the share of the counted points that show 
 const PRE_WAIT = 60000, PLANE_WAIT = 60000;   // ms
 const PAPER_NX = 24, PAPER_NY = 16, PAPER_MIN = 235;   // the pane's grid for bare paper, and paper's least channel
 // the legs: the window (CSS px), its device pixel ratio, and whether it is a phone (touch, mobile metrics)
-const LEGS = [{ id: 'desk', w: 1200, h: 800, dpr: 1, phone: false }, { id: 'desk@2', w: 1200, h: 800, dpr: 2, phone: false }, { id: 'phone@2', w: 390, h: 844, dpr: 2, phone: true }];
+const LEGS = [{ id: 'desk', w: 1200, h: 800, dpr: 1, phone: false }, { id: 'desk@2', w: 1200, h: 800, dpr: 2, phone: false }, { id: 'phone@2', w: 390, h: 844, dpr: 2, phone: true }, { id: 'phone360@2', w: 360, h: 780, dpr: 2, phone: true }];
 const STEPS = [{ type: 'pown', params: { n: 3 }, on: true }, { type: 'cos', params: {}, on: true }];
 // the points z of the key's window with cos(z³) = w: z³ = ±acos w + 2πk, and their cube roots
 const cmul = (a, b) => [a[0] * b[0] - a[1] * b[1], a[0] * b[1] + a[1] * b[0]];
