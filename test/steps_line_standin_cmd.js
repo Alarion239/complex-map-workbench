@@ -50,6 +50,10 @@ await settled({ max: 30000, panes: false, until: "typeof __cmwSteps === 'functio
 const exWait = await settled({ only: true, max: 30000, until: `GLR.lineStandIns().length >= ${SHAPES.length}` });
 info.expensive = { wait: exWait, x: await ev('__cmwSteps().x'), made: await ev('GLR.lineStandIns()') };
 ok('an expensive series: no stand-in, each outline refused', exWait.ok && info.expensive.x === 1 && info.expensive.made.length === SHAPES.length && info.expensive.made.every((r) => r.m === 0), info.expensive);
+// (the probe: the first CPU_LINE_PROBE segments, each at the template size M, 2M + 1 evaluations: the refusal comes at the
+// latest there, however fast the machine runs, so the evaluations made are bounded without a clock)
+const PROBE_EVALS = 8 * (2 * 8 + 1);
+ok('an expensive series: each outline is refused within the probe\'s evaluations (' + PROBE_EVALS + '), whatever the machine\'s speed', info.expensive.made.length === SHAPES.length && info.expensive.made.every((r) => r.m === 0 && r.ev > 0 && r.ev <= PROBE_EVALS), info.expensive);
 ok('timing: an expensive series\' outlines are refused within the budget and a segment (60 ms)', info.expensive.made.length === SHAPES.length && info.expensive.made.every((r) => r.ms <= 60), info.expensive);
 await ev('GLR.holdLinks(false), 1');
 const exc = (await logs()).filter((x) => (x.t === 'EXC' || x.t === 'error' || x.t === 'log-error') && !/Failed to load resource/.test(x.m || ''));
