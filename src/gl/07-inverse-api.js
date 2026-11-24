@@ -388,7 +388,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     if (c && c.inv === inv && c.plan === plan) return c.d;
     const N = Math.max(1, inv.nOps), ops = inv.ops;
     const d = { ref: new Float32Array(2 * N), N: new Int32Array(N).fill(1), RK: new Int32Array(N), AB: new Float32Array(4 * N), box: new Float32Array(4 * N),
-      stopOp: -1, stopMob: [0, 0, 0, 0], stopT: new Float32Array(8), mobOn: false, pInP: 0, sing: new Float32Array(8), singN: 0, ok: true, reason: null,
+      stopOp: -1, stopMob: [0, 0, 0, 0], stopT: new Float32Array(8), mobOn: false, pInP: 0, sing: new Float32Array(12), singN: 0, ok: true, reason: null,
       tail: prep.tail ? 1 : 0 };
     const TAU = 2 * Math.PI;
     for (let j = 0; j < plan.ops.length; j++) {
@@ -419,7 +419,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     }
     if (prep.stopMob && d.stopOp >= 0) {
       const sm = prep.stopMob, T = CX.mobScaled(sm.T);
-      d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP ? 1 : 0;
+      d.mobOn = true; d.stopMob = [sm.uPole.re, sm.uPole.im, sm.pAcc.re, sm.pAcc.im]; d.pInP = sm.pInP;
       d.stopT.set([T[0].re, T[0].im, T[1].re, T[1].im, T[2].re, T[2].im, T[3].re, T[3].im]);
     }
     // a REPT plan's forward enclosures E_r (already rounded to float32 by Inverse.prepare): the box (x0, y0, x1, y1) and
@@ -432,7 +432,8 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
       d.repS.set(e ? [e.esc > 0 ? e.esc : -1, e.empty ? 1 : 0] : [-1, 0], 2 * r);
     }
     const sing = (prep.sing || []).slice(0, 4);
-    sing.forEach((p, i) => { d.sing[2 * i] = p.re; d.sing[2 * i + 1] = p.im; });
+    // (each point's re, im and weight w, 1 when it has none, as Inverse.keyW reads it: uSing's vec3)
+    sing.forEach((p, i) => { d.sing[3 * i] = p.re; d.sing[3 * i + 1] = p.im; d.sing[3 * i + 2] = p.w === undefined ? 1 : p.w; });
     d.singN = sing.length;
     d.singT = prep.per ? [prep.per.re, prep.per.im] : [0, 0];
     // saturation anchors (SPEC 13.12): the anchor op's index in the program, the affine ops' (A, B), each anchor's
@@ -751,7 +752,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     const win = st.prep.win;
     u4f(P, 'uWin', win.x0, win.y0, win.x1, win.y1);
     u1f(P, 'uWinR', st.prep.R); u1f(P, 'uWinRs', st.prep.rs);
-    if (P.loc.uSing) gl.uniform2fv(P.loc.uSing, d.sing);
+    if (P.loc.uSing) gl.uniform3fv(P.loc.uSing, d.sing);
     u1i(P, 'uSingN', d.singN);
     u2f(P, 'uSingT', d.singT[0], d.singT[1]);
     if (P.loc.uAncJ) {
@@ -1148,16 +1149,28 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
   // the frame (invFrame) whose stencil holds REPT marks, and the hatch over the marked pixels: the grey no-value hatch,
   // opaque, then the marks cleared. False when its program is not ready
   let repMarkFrame = -1;
-  function reptHatchFill(dpr) {
-    const Q = ok && program('reptHatch');
-    if (!Q || repMarkFrame !== invFrame) return false;
+  // the grey no-value hatch of program Q over the frame open, opaque: where the stencil holds the marks (marked), else everywhere
+  function hatchPass(Q, dpr, marked) {
     use(Q);
     u1f(Q, 'uDpr', dpr || 1);
     gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
-    gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP);
+    if (marked) { gl.enable(gl.STENCIL_TEST); gl.stencilMask(0xff); gl.stencilFunc(gl.EQUAL, 1, 0xff); gl.stencilOp(gl.KEEP, gl.KEEP, gl.KEEP); }
     gl.bindVertexArray(empty());
     gl.drawArrays(gl.TRIANGLES, 0, 3);
     gl.bindVertexArray(null);
+  }
+  // the hatch over the whole frame open (a plane whose image is nowhere known: a refused repeat's). False when its program is
+  // not ready
+  function hatchAll(dpr) {
+    const Q = ok && program('reptHatch');
+    if (!Q) return false;
+    hatchPass(Q, dpr, false);
+    return true;
+  }
+  function reptHatchFill(dpr) {
+    const Q = ok && program('reptHatch');
+    if (!Q || repMarkFrame !== invFrame) return false;
+    hatchPass(Q, dpr, true);
     gl.clearStencil(0); gl.clear(gl.STENCIL_BUFFER_BIT); gl.disable(gl.STENCIL_TEST);
     repMarkFrame = -1;
     return true;
@@ -1398,7 +1411,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     setReptTileSolves: (n) => { reptTileSolves = n > 0 ? n : 0; }, setReptFastNodes: (n) => { reptFastNodes = n > 0 ? n : 0; },
     holdReptB: (on) => { reptHoldB = !!on; },
     reptTiles: () => { const r = Object.assign({ kept: reptAccs.size }, reptStat); for (const k of Object.keys(reptStat)) reptStat[k] = 0; return r; },
-    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, reptHatchFill, reptMarkCount, packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
+    setReptNodes: (n) => { reptNodes = n > 0 ? Math.floor(n) : 1 << 30; }, setReptPoison: (p) => { reptPoison = p === 'nan' || p === 'inf' ? p : null; }, hatchAll, reptHatchFill, reptMarkCount, packShapes, INV_CURVE_MAX, setFormAnchor: (xy) => { formAnchor = Array.isArray(xy) && xy.every(Number.isFinite) ? xy.slice() : null; }, packShape, TKIND, drawInverse, newtRoots, inverseState, timer, CostGuard, warmInverse, flushHalf, beginHalfPre, compositeHalf, inverseEstimate, wantHalf,
     // a ready inverse program waits for warmInverse (call it at a quiet moment, then redraw)
     get inverseColdWaiting() { return inverseColdWaiting(); },
     inverseColdState,
@@ -1434,7 +1447,7 @@ vec3 ixCarryCol(vec2 z, bool zf, vec2 dX, vec2 dY) {
     _src: { logK, DEFS, SAMPLER_UNITS, program: (name) => program(name), programSources: (name, mode) => sources(name, cur, mode || 0), warmCount, warmBarStep, REGION_FS: (s) => REGION_FS(!!s), PATTERN_SRC, INV_HEAD, INV_MAIN, IX_TIE_ORDER, LINE_VS, invB, invK, invSources: (B, globe, forms, extra, info) => invSources(info || cur.info, B, !!globe, forms || [], extra), invProgram, passData, invAltProgram,
       // tests: every new inverse program gets a unique uniform (a cold compile and first draw, SPEC 13.12)
       set coldCompiles(v) { coldNonce = v ? Math.max(1, coldNonce) : 0; }, get coldCompiles() { return coldNonce > 0; } },
-    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, SEAM_RINGS, CARRY_DISCS, CARRY_DISC_IN,
+    createMesh, createSkip, setSkip, createLines, destroy, alphaOnly, writeMask, clearRGB, keepInAlpha, dropCached, releaseLandscape: landRelease, createPreMesh, drawPreMapped, get preBytes() { return preBytes; }, M4, camera, globeLimb, clearOfLimb, landGeom, fitDist, hexRGB, phaseRGB, paletteRGB, palRGB, setPalette, palette, PATTERNS, STYLES, SEAM_EPS, SEAM_RINGS, CARRY_DISCS, CARRY_DISC_IN, CARRY_FAR_N,
     get ok() { return ok; }, get lost() { return lost; }, get error() { return lastError; }, get gl() { return gl; }, get canvas() { return canvas; },
     // the steps a map applies, [lo, hi] (1-based; none when lo > hi)
     stepsOf,

@@ -19,9 +19,10 @@
   const LD_CAP = 24;                     // the most critical points drawn (an infinite set: those in the window)
   let lookDown = true;                   // the readout card's Look down switch
   let lookDrawn = null;                  // the marks as drawn, in the pane's css px (lookHit, __cmwLookDown)
-  // whether the marks draw for shape s on any surface (the Stack's levels too), and whether Look down draws them on the
-  // flat plane: only where the disc's readout card, with the switch, is built (readoutShown)
-  const lookMarksOn = (s) => lookDown && readoutShown(s);
+  // whether the marks draw for shape s on any surface (the Stack's levels too: there always, as the card hides the switch
+  // there), and whether Look down draws them on the flat plane: only where the disc's readout card, with the switch, is
+  // built (readoutShown)
+  const lookMarksOn = (s) => (lookDown || stackOn()) && readoutShown(s);
   const lookDownOn = (s) => lFlat() && lookMarksOn(s);
   // the join radius drawn for a disc of radius r: the least above r, else the largest
   const ldJoin = (joins, r) => { const up = joins.filter((q) => q > r); return up.length ? Math.min(...up) : joins.length ? Math.max(...joins) : null; };
