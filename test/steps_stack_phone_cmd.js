@@ -10,8 +10,9 @@
 //    following (S.sv.cam);
 //  - a second finger that lands while one is down turns the camera and leaves no pick behind: no lit twins, no pin;
 //  - at 360 × 640 (en), 390 × 844 (ru), 740 × 360 (it), 600 × 320 (en) and 568 × 320 (ru), in Tilt, the Tilt key, Look
-//    down's key and the plane's other keys meet neither each other nor the context bar, the box's levels lie in the room
-//    beside them, and the tubes' labels inside that room.
+//    down's key and the plane's other keys meet neither each other nor the context bar; the Tilt key makes the column no
+//    taller where it would reach the head (on a landscape phone it stands left of the Display key); the box lies in the pane above the bar, and the
+//    tubes' labels clear of the keys.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
 const fails = [], info = {};
@@ -136,8 +137,7 @@ for (const finger of [true, false]) {
 // ---- the Tilt key: 44 × 44, Look down ⇄ Tilt, the camera kept in S.sv
 await open(390, 844, {});
 {
-  const camNow = async () => { const p = await ev('__cmwP()'); return p.sv && p.sv.cam; };
-  await ev(`(() => { const b = document.querySelector('#plotL .ph-tilt'); return b && b.getClientRects().length ? 1 : 0; })()`);
+  const camNow = async () => { const p = await ev('__cmwFigureState()'); return p && p.sv && p.sv.cam; };
   await cam(0, 90);
   const k = await box('#plotL .ph-tilt');
   info.key = { k };
@@ -178,7 +178,7 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'ru'], [740, 360, 'it']
   await open(w, h, { lang });
   await cam(0, 35);
   await sleep(300); await frames();
-  const P = await pane(), tilt = await box('#plotL .ph-tilt'), ld = await box('#plotL .ld-key');
+  const P = await pane(), tilt = await box('#plotL .ph-tilt'), ld = await box('#plotL .ld-key'), sph = await box('#plotL .ph-col > .ph-sph');
   const bar = await ev(`(() => { const c = document.querySelector('.ph-ctx.in:not(.under)'); return c ? c.getBoundingClientRect().top : Infinity; })()`);
   const others = await ev(`[...document.querySelectorAll('#plotL > .chip, #plotL > .legend-chip, #plotL > .viewstack, #plotL > .ph-col, #plotL > .empty-chip, #plotL > .draft-chip, #toastHost .toast')].filter((e) => !e.hidden && e.getClientRects().length && getComputedStyle(e).visibility !== 'hidden').map((e) => { const r = e.getBoundingClientRect(); return { k: e.className, b: [r.left, r.top, r.right, r.bottom] }; })`);
   // (the box: the pane's corners through the floor's and the glass's maps; the labels' plates as placed)
@@ -186,11 +186,13 @@ for (const [w, h, lang] of [[360, 640, 'en'], [390, 844, 'ru'], [740, 360, 'it']
   for (const m of [d.floor, d.glass]) for (const [u, v] of [[0, 0], [P[2] - P[0], 0], [0, P[3] - P[1]], [P[2] - P[0], P[3] - P[1]]]) corners.push([P[0] + m[0] * u + m[2] * v + m[4], P[1] + m[1] * u + m[3] * v + m[5]]);
   const bx = [Math.min(...corners.map((q) => q[0])), Math.min(...corners.map((q) => q[1])), Math.max(...corners.map((q) => q[0])), Math.max(...corners.map((q) => q[1]))];
   const labels = ((d.tubes && d.tubes.labels) || []).filter((L) => L.box).map((L) => [P[0] + L.box[0], P[1] + L.box[1], P[0] + L.box[2], P[1] + L.box[3]]);
-  info[at] = { P, tilt, ld, bar, others, bx, labels };
+  info[at] = { P, tilt, ld, sph, bar, others, bx, labels };
   ok(`${at}: the Tilt key is shown, at least 44 × 44, above the context bar`, !!tilt && tilt[2] - tilt[0] >= 44 && tilt[3] - tilt[1] >= 44 && tilt[3] <= bar + 0.5, { tilt, bar });
   ok(`${at}: Look down's key is above the context bar and meets neither the Tilt key nor the plane's other keys`, !!ld && ld[3] <= bar + 0.5 && !(tilt && meets(ld, tilt)) && !others.some((q) => meets(q.b, ld)), { ld, tilt, others });
   ok(`${at}: the Tilt key meets none of the plane's other keys, nor a toast`, !!tilt && !others.filter((q) => !(inside(tilt, q.b))).some((q) => meets(q.b, tilt)), { tilt, others });
-  ok(`${at}: the box lies in the pane, above the context bar, clear of Look down's key and the Tilt key`, inside(bx, P) && bx[3] <= bar + 0.5 && !(ld && meets(bx, ld)) && !(tilt && meets(bx, tilt)), { bx, P, bar, ld, tilt });
+  // (on a landscape phone the column's keys already reach the head: there the Tilt key stands beside them, not above)
+  ok(`${at}: the Tilt key raises the column neither above the pane nor above the column's Sphere key`, !!tilt && !!sph && tilt[1] >= Math.min(P[1], sph[1]) - 0.5, { tilt, sph, P });
+  ok(`${at}: the box lies in the pane, above the context bar`, inside(bx, P) && bx[3] <= bar + 0.5, { bx, P, bar });
   ok(`${at}: the tubes' labels lie in the pane, clear of the keys and above the bar`, labels.every((L) => inside(L, P) && L[3] <= bar + 0.5 && !(ld && meets(L, ld)) && !(tilt && meets(L, tilt))), { labels, ld, tilt, bar });
 }
 
