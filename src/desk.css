@@ -3,6 +3,10 @@
    ====================================================================== */
 /* ---------- the chain's row: 188 px ---------- */
 .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 8px var(--chain-h, 188px); }
+/* (the classic view's chain box: its cards are drawn by the Inspector, so while #pipeline holds none the box and its gutter
+   take no room, as in the steps view; the phone parks #pipeline in its sheet and keeps its box) */
+:root:not(.sv):not(.ph) .stage:has(> .pipe-wrap > #pipeline:empty) { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
+:root:not(.sv):not(.ph) .stage:has(> .pipe-wrap > #pipeline:empty) > :is(.pipe-wrap, #gutterRow) { display: none; }
 
 /* ---------- the Inspector (the right panel) ---------- */
 .panel.right { overflow: hidden; }
@@ -446,9 +450,6 @@ button.pal-ctx:hover { background: var(--hover, var(--well)); }
 /* ---------- the steps view, ?view=steps: one plane, its head, the chain strip (src/app/19-steps-view.js) ---------- */
 :root.sv .pipe-wrap, :root.sv #gutterRow, :root.sv #leftTabs, :root.sv #leftTitle, :root.sv #leftSolo { display: none !important; }
 :root.sv:not(.ph) .stage { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
-/* (the classic view's chain box: its cards are drawn by the Inspector, so while #pipeline holds none, the box and its gutter take no room, as in the steps view; the phone parks #pipeline in its sheet and keeps its box) */
-:root:not(.sv):not(.ph) .stage:has(> .pipe-wrap > #pipeline:empty) { grid-template-rows: var(--tour-h, 0px) minmax(0, 1fr) 0 0; }
-:root:not(.sv):not(.ph) .stage:has(> .pipe-wrap > #pipeline:empty) > :is(.pipe-wrap, #gutterRow) { display: none; }
 :root.sv:not(.ph) #paneL { grid-template-rows: auto minmax(0, 1fr) auto auto; }
 /* (the pane keeps its column whatever its thread's length: the grid's one column is no wider than the pane, and its
    items may be narrower than their content) */
