@@ -1,8 +1,8 @@
 // A Repeat chain's exact plane (#1472, #1323): the REPT op (InvOps' REPT section) that stands for n copies of one
 // rational step of degree 3, and its CPU twin's search (Inverse.enumerate).
 //  1. routing: Newton's step for z^3 - 1 repeated 20 times (gallery 28) is one REPT op, and so is a catalog step of
-//     degree 3 (Integer power z^3, a rational step, zeros and poles), the same op as its formula's; other repeats keep
-//     their path;
+//     degree 3 (Integer power z^3, a coprime rational step, zeros and poles), the same op as its formula's; other
+//     repeats (a P/Q that is not coprime among them) keep their path;
 //     a plan that holds a REPT op and another op is refused with its reason;
 //  2. the root certificate: every certified root lies within its radius of a root that an independent float64
 //     Durand-Kerner finds; a root set with a duplicate, a far-off root or a chain error past the roots' separation
@@ -77,6 +77,7 @@ const sameOp = (a, c) => {
 check('Integer power z^3 x 20 (a catalog step) is one REPT op, the one z^3 written as a formula has', sameOp(opOf(St('pown', { n: 3 }, { n: 20, len: 1 })), opOf(St('custom', { expr: 'z^3', cut: 180 }, { n: 20, len: 1 }))), kinds(chainOf([St('pown', { n: 3 }, { n: 20, len: 1 })]).built[0]));
 check('a rational step of degree 3 (deg q < 3) x 3 is the REPT op of its formula', sameOp(opOf(St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 })), opOf(St('custom', { expr: '(z^3+0.5)/(z+0.3)', cut: 180 }, { n: 3, len: 1 }))), kinds(chainOf([St('rational', { p: '1, 0, 0, 0.5', q: '1, 0.3' }, { n: 3, len: 1 })]).built[0]));
 check('zeros and poles of degree 3 (zeros 1, -1, 2; pole 0) x 3 is the REPT op of its formula', sameOp(opOf(St('zp', { a: '1', zeros: '1, -1, 2', poles: '0' }, { n: 3, len: 1 })), opOf(St('custom', { expr: '(z-1)*(z+1)*(z-2)/z', cut: 180 }, { n: 3, len: 1 }))), kinds(chainOf([St('zp', { a: '1', zeros: '1, -1, 2', poles: '0' }, { n: 3, len: 1 })]).built[0]));
+check('a P/Q that is not coprime ((z^3 - z)/z, degree 2 in fact) x 3 is not REPT', !/^REPT/.test(kinds(chainOf([St('rational', { p: '1, 0, -1, 0', q: '1, 0' }, { n: 3, len: 1 })]).built[0])), kinds(chainOf([St('rational', { p: '1, 0, -1, 0', q: '1, 0' }, { n: 3, len: 1 })]).built[0]));
 check('Integer power z^2 x 3 keeps its ops, copy by copy', kinds(chainOf([St('pown', { n: 2 }, { n: 3, len: 1 })]).built[0]) === 'IPOW>IPOW>IPOW', kinds(chainOf([St('pown', { n: 2 }, { n: 3, len: 1 })]).built[0]));
 check('Integer power z^-3 x 3 is not REPT (deg Q = 3)', !/^REPT/.test(kinds(chainOf([St('pown', { n: -3 }, { n: 3, len: 1 })]).built[0])));
 check('a degree-2 step x 3 keeps its ops, copy by copy', kinds(chainOf([St('custom', { expr: 'z^2+0.3', cut: 180 }, { n: 3, len: 1 })]).built[0]) === 'IPOW>AFF>IPOW>AFF>IPOW>AFF');
