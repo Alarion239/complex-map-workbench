@@ -27,7 +27,9 @@
 //   that the control covers, and the control leaves at least SLIT_MIN bare where the frame with them has surface
 //   (the slit);
 //   at 1 − NEAR, against plane b parked, the frame is bare at most GAP_SHARE as often as the control (the rest: the
-//   surface's outer edge, a pixel apart);
+//   surface's outer edge, a pixel apart), and where the control's surface is plane b's colour (within OVER_TOL), the
+//   frame is too, at all but OVER_MAX pixels: the seams fill the slit and draw nothing over the surfaces about it (a
+//   translucent band down the cut's image where their triangles come out in front);
 // - Inside regions, an annulus about 0 under the square root: plane w parked shows the principal sheet's image of the
 //   region, and so does the glide onto it: no copy at u = 1/2 and 1 − NEAR.
 // - the page's own heights (log |F|) and window, square root alone: leaving plane z the other sheet has the principal's
@@ -51,6 +53,8 @@ const COPY_SHOWS = 48;                // u = 1/4: the copy shows where the frame
 const SEAM_GAP = 20;                  // the pixels the seams' surfaces may leave bare that the frame without them covers (edges)
 const GAP_SHARE = 0.25;               // arrival: the share of the control's bare pixels (against the parked plane) the seams may leave
 const SLIT_MIN = 200;                 // the slit the control leaves along the seam, at least
+const OVER_MAX = 20;                  // arrival: the pixels the seams' surfaces may draw over the other surfaces
+const OVER_TOL = 8;                   // a pixel counts more than this apart in a channel (the band is translucent, under DIFF_TOL)
 const SCALE = 900;                    // px per unit: a window of about ±0.5, inside the disc its square root covers
 const SPECKLE = 40, SPECKLE_TOL = 24; // log |F| heights: the isolated pixels the frame and the control may differ in, and by how much
 const READY = 'typeof __cmwSteps === "function" && !!window.GLR';
@@ -66,6 +70,9 @@ const surface = () => ev(`(() => { const cv = document.getElementById('canvasL')
 // the pixels bare (saturation SAT or less: floor or paper) in the kept frame tag where the kept frame ref shows
 // surface: n; reverse: the other way round
 const gap = (tag, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], B = window.__heldPx[${JSON.stringify(ref)}]; const sat = (P, i) => Math.max(P[i], P[i + 1], P[i + 2]) - Math.min(P[i], P[i + 1], P[i + 2]) > ${SAT}; const W = document.getElementById('canvasL').width; let n = 0, reverse = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { const a = sat(A, i), b = sat(B, i); if (b && !a) { n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } if (a && !b) reverse++; } return { n, reverse, box: n ? [x0, x1, y0, y1] : null }; })()`);
+// the pixels where the kept frame ctrl shows surface within OVER_TOL of the kept frame ref in every channel and the
+// kept frame tag is more than OVER_TOL from it in one (what tag draws over ctrl's surface), and their box
+const over = (tag, ctrl, ref) => ev(`(() => { const A = window.__heldPx[${JSON.stringify(tag)}], C = window.__heldPx[${JSON.stringify(ctrl)}], R = window.__heldPx[${JSON.stringify(ref)}]; const W = document.getElementById('canvasL').width; const far = (P, i) => Math.max(Math.abs(P[i] - R[i]), Math.abs(P[i + 1] - R[i + 1]), Math.abs(P[i + 2] - R[i + 2])) > ${OVER_TOL}; let n = 0, x0 = 1e9, x1 = -1, y0 = 1e9, y1 = -1; for (let i = 0; i < A.length; i += 4) { if (Math.max(C[i], C[i + 1], C[i + 2]) - Math.min(C[i], C[i + 1], C[i + 2]) <= ${SAT} || far(C, i) || !far(A, i)) continue; n++; const p = i / 4, x = p % W, y = (p - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); } return { n, box: n ? [x0, x1, y0, y1] : null }; })()`);
 const carried = async () => JSON.parse(await ev('JSON.stringify((({ u, s, copies, copyAlpha }) => ({ u, s, copies, copyAlpha }))(__cmwLandCarry() || {}))'));
 // where the kept frames A and P differ (a copy shows, over COPY_SHOWS in a channel): the share of those pixels of the
 // kept frame F more than BLEND_TOL from (A + P) / 2
@@ -130,7 +137,11 @@ for (const [name, steps] of [['square root', [ROOT]], ['z³ − 3z then square r
     const g = r[`seam ${u}`] = { seams: await gap(`s${u}`, 'pb'), none: await gap(`ns${u}`, 'pb'), slit: await gap(`ns${u}`, `s${u}`) };
     ok(`${name}, u = ${u}: the seams' surfaces only add surface (at most ${SEAM_GAP} px bare that the frame without them covers)`, g.slit.reverse <= SEAM_GAP, g);
     ok(`${name}, u = ${u}: the control, without them: the slit along the seam, at least ${SLIT_MIN} px bare where the frame with them has surface`, g.slit.n >= SLIT_MIN, g);
-    if (u !== 0.5) ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare at most ${GAP_SHARE} as often as without them`, g.seams.n <= GAP_SHARE * g.none.n, g);
+    if (u !== 0.5) {
+      ok(`${name}, u = ${u}: against plane ${b} parked, the frame with the seams is bare at most ${GAP_SHARE} as often as without them`, g.seams.n <= GAP_SHARE * g.none.n, g);
+      g.over = await over(`s${u}`, `ns${u}`, 'pb');
+      ok(`${name}, u = ${u}: the seams' surfaces draw over at most ${OVER_MAX} px where the frame without them is plane ${b} parked`, g.over.n <= OVER_MAX, g.over);
+    }
   }
   await ev('__cmwSteps({ glideSeams: 1 }); 1');
   await ev('__cmwSteps({ glideSheets: 0 }); 1');

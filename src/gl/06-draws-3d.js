@@ -1445,7 +1445,9 @@
       // a little behind its depth (further than the pole patches' offset), so the principal surface is the one shown
       // where a copy meets it or nearly coincides with it: under |F| a root's other sheet has the principal's height,
       // and early in a glide its copy lies in the principal surface's place on triangles of its own, which a tie in
-      // depth would show pixel by pixel)
+      // depth would show pixel by pixel. A seam (band) is twice as far behind: it fills the slit the surfaces leave along
+      // the cut's image, and where it meets them there, on their steep walls, its finer triangles about the turned cut
+      // would come out in front at a copy's offset and draw a translucent band down the cut)
       // A copy's alpha: one draws it opaque before the principal surface. Under one it is drawn after the
       // principal surface and its patches: first every such copy's depth alone, then each one's colour blended over
       // what is drawn, with LEQUAL and a stencil that takes one blend a pixel, so a pixel shows the nearest translucent
@@ -1468,7 +1470,7 @@
         gl.activeTexture(gl.TEXTURE3); gl.bindTexture(gl.TEXTURE_2D, m.o.tex2);
         u1i(Pc, 'uN', m.o.N);
         const cells = 6 * (m.o.N - 1) * (m.o.N - 1);
-        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(4, 32);
+        gl.enable(gl.POLYGON_OFFSET_FILL); gl.polygonOffset(m.band ? 8 : 4, m.band ? 64 : 32);
         if (pass === 'depth') {
           gl.colorMask(false, false, false, false);
           gl.drawArrays(gl.TRIANGLES, 0, cells);
