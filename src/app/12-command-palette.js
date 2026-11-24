@@ -65,7 +65,7 @@
       addStep, addSteps, armOutside, chooseRange, circleDeriv, clearChain, closePalette, copyFigureLink, copyText, curvePlan,
       defOf, derivativeAction, enOf, exOk, exThumbs, fUni, focusBack, focusKey, fsub, intLabel, integrateSelected,
       integrateShape, inverseAction, isDerivStep, kindType, latexDocument, leftStage, loadExample, morph,
-      morphOn, nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints,
+      nSteps, newShape, openGallery, openGuide, pickLang, pickScene, recentTypes, renumberPoints,
       renumberZp, replaceSteps, robustBox, lsk, saveScene, selOf, setFocus, setHomAll, setMorphPaths, setPalette, setPanels,
       setTheme, setTool, svSetSurface, svSurface, svSurfaceLabel, shapeGPU, shapeInk, shapeKey, shapeNames, sndExportDone, soundHear, soundMode, soundStop,
       soundToggle, stageF, sub, toast, toggleAlone, tourEmit, viewBox, dhFocusAdd,

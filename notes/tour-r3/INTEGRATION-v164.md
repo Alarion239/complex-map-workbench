@@ -29,7 +29,6 @@ first grid row `var(--tour-h, 0px)`; on a phone `--ph-tour` is added wherever `-
 | `view-moved` | `{ pane: 'L' \| 'R' \| 'P', how: 'pan' \| 'zoom' \| 'orbit' }` | the end of the user's pan, zoom (a wheel: 250 ms after its last tick; a pinch: on lift) or orbit (Landscape, sphere); `'P'` is the one wide panel |
 | `layer-opened` | `{ kind: 'catalog' }` | the step catalog opens (the add card, {+}, the palette's Add a step: `openPalette` with `fnOnly`) |
 | `phase-key` | `{ on }` | Phase key is toggled (Y's check, the legend's key check) |
-| `order-changed` | `{ all }` | One after another / All at once changes (`setHomAll`) |
 | `step-replaced` | `{ k, type }` | a step is replaced by its inverse (`invertStep`); `type` is the new step's type |
 | `tex-copied` | `{ what: 'F' }` | F's LaTeX is copied (the Inspector's copy button with the F tile selected) |
 | `listen-ended` | `{ piece, closed, W, heard, full }` | a Listen along ends: played out (`full: true`), stopped, or cut by a scene change; `heard` in seconds; `W` the rounded winding number of a closed curve with no cut, else null |

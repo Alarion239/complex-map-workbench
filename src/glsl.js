@@ -3074,8 +3074,8 @@ uniform bool uIxStopMobOn; uniform float uIxPAccInP;
       const nq = ops.filter((o) => o.kind === 'NEWT').pop(), D = nq ? newtDeg(nq) : 0;
       const nr = !nq ? null : D ? { j: nq.j, targets: Math.ceil(D / 2), main: newtRootsMain(nq.j, nq.cell, D) }
         : { j: nq.j, targets: 2, main: newtGridMain(nq.j, nq.cell, !!newtBack(nq), !!newtPole(nq)) };
-      const roots = ops.some((o) => GLSLRoots.RAT_N.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => GLSLRoots.RAT_N.has(q.kind))));
-      txt = { lib: head + INV_LIB + (roots ? GLSLRoots.ixRoots() : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
+      const has = (kinds) => ops.some((o) => kinds.has(o.kind) || (newtBack(o) && newtBack(o).ops.some((q) => kinds.has(q.kind))));
+      txt = { lib: head + INV_LIB + (has(GLSLRoots.QUAD_N) ? GLSLRoots.ixQuad() : '') + (has(GLSLRoots.RAT_N) ? GLSLRoots.ixRoots() : '') + ops.map((o) => invOpFns(o, o.j, o.cell, o === nq)).join(''), walker: invWalkerSrc(ops), nr };
       invTextCache.set(key, txt);
       if (invTextCache.size > 32) invTextCache.delete(invTextCache.keys().next().value);
     }
