@@ -8,8 +8,12 @@
 //   the canvas, the frame has a stroke pixel within RING_R CSS px of it: a pixel that differs from the same frame with
 //   the strokes hidden (__cmwHideStrokes) and lies within INK_TOL of the shape's ink (__cmwLook's edge), for at least
 //   HIT_MIN of at least MIN_EDGE such points. At the scene's scale on the desk, and wheel-zoomed in about the image
-//   until its scale is ZOOM times the scene's (the outline is refined for the view, so looking closer keeps it), on the
-//   desk and in a narrow window (NARROW);
+//   until its scale is at least ZOOM times the scene's (the outline is refined for the view, so looking closer keeps
+//   it), on the desk and in a narrow window (NARROW); and at least DEEP times on the desk about the image's top tip
+//   (DEEP_N points of the boundary about it carried instead), where most of the image lies past the pane: its pieces
+//   there are accepted unrefined (outlineRes's box), so the refined outline has at most DEEP_VERTS_MAX vertices
+//   (__cmwRept({ outline }).verts; refining them all takes ten times as many), and the GPU's float32 places the
+//   pieces the CPU's float64 accepted;
 // - its control: the same count with another shape's ink (a hidden shape of another colour) finds at most CTRL_MAX of
 //   them, so a stroke in another colour, or the colour plot's own edge, fails the row;
 // - a pan: PAN_STEPS drags of 1 / (2 PAN_STEPS) of the pane's width each, each drawn, move the image left by half the
@@ -24,13 +28,15 @@ const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); return pass; };
 const DESK = [1200, 800], NARROW = [360, 740];   // CSS px: the pages
 const VIEW_SCALE = 140;    // the scene's px per unit
-const ZOOM = 8;            // the zoomed rows' scale over VIEW_SCALE
+const ZOOM = 8, DEEP = 100;   // the zoomed rows' least scale over the scene's (the wheel's notches overshoot it)
 const WHEEL_DY = -400, WHEEL_MAX = 40;   // a wheel notch's delta, and the most notches a zoom takes
 const PAN_TOL = 0.1;       // the pan's share of the pane it may miss half the pane by
 const STEP_EXPR = 'z-(z^3-1)/(3*z^2)';   // Newton's map for z³ − 1
 const CUT_DEG = 180;       // the formula step's cut direction
 const BITE = { a: [0.6, -0.5], b: [1.6, 0.5] }, BITE_N = 2;
 const EDGE_N = 800;        // points of the rectangle's boundary carried to plane 1
+const DEEP_N = 4000, DEEP_ARC = 0.02;   // the deep row's points, and the share of the perimeter they span
+const DEEP_VERTS_MAX = 2000;  // most vertices of the deep row's refined outline (608 here; 6818 refining off the pane too)
 const RING_R = 3;          // CSS px around a carried point in which its stroke pixel is looked for
 const INK_TOL = 40;        // largest channel difference (of 255) from the ink of a stroke pixel
 const DIFF_MIN = 60;       // summed channel difference from the frame with the strokes hidden of a drawn pixel
@@ -81,21 +87,25 @@ const measure = (tag, id, body) => ev(`(() => {
   return (${body})(ring, inked);
 })()`);
 
-// the rectangle's boundary, EDGE_N points, each carried by N twice (N(z) = z − (z³ − 1) / (3 z²))
-const edge = [];
-{
-  const [ax, ay] = BITE.a, [bx, by] = BITE.b, per = 2 * (bx - ax + by - ay);
-  for (let i = 0; i < EDGE_N; i++) {
-    let d = (i + 0.5) * per / EDGE_N, x, y;
-    if (d < bx - ax) { x = ax + d; y = ay; } else if ((d -= bx - ax) < by - ay) { x = bx; y = ay + d; } else if ((d -= by - ay) < bx - ax) { x = bx - d; y = by; } else { d -= bx - ax; x = ax; y = by - d; }
-    for (let k = 0; k < BITE_N; k++) {
-      const r2 = x * x - y * y, i2 = 2 * x * y, r3 = r2 * x - i2 * y - 1, i3 = r2 * y + i2 * x;   // z² and z³ − 1
-      const qr = 3 * r2, qi = 3 * i2, q = qr * qr + qi * qi;                                       // 3 z²
-      x -= (r3 * qr + i3 * qi) / q; y -= (i3 * qr - r3 * qi) / q;
-    }
-    edge.push([x, y]);
+// the point of the rectangle's boundary at arc length d from its corner a, carried by N twice
+// (N(z) = z − (z³ − 1) / (3 z²))
+const carry = (d) => {
+  const [ax, ay] = BITE.a, [bx, by] = BITE.b;
+  let x, y;
+  if (d < bx - ax) { x = ax + d; y = ay; } else if ((d -= bx - ax) < by - ay) { x = bx; y = ay + d; } else if ((d -= by - ay) < bx - ax) { x = bx - d; y = by; } else { d -= bx - ax; x = ax; y = by - d; }
+  for (let k = 0; k < BITE_N; k++) {
+    const r2 = x * x - y * y, i2 = 2 * x * y, r3 = r2 * x - i2 * y - 1, i3 = r2 * y + i2 * x;   // z² and z³ − 1
+    const qr = 3 * r2, qi = 3 * i2, q = qr * qr + qi * qi;                                       // 3 z²
+    x -= (r3 * qr + i3 * qi) / q; y -= (i3 * qr - r3 * qi) / q;
   }
-}
+  return [x, y];
+};
+const PER = 2 * (BITE.b[0] - BITE.a[0] + BITE.b[1] - BITE.a[1]);
+// the boundary's image, EDGE_N points; and the deep row's, DEEP_N points within DEEP_ARC of the perimeter about the
+// arc length that carries to the image's top tip, which that row zooms about
+const edge = Array.from({ length: EDGE_N }, (_, i) => carry((i + 0.5) * PER / EDGE_N));
+const tipK = edge.reduce((m, p, i) => (p[1] > edge[m][1] ? i : m), 0), tipD = (tipK + 0.5) * PER / EDGE_N;
+const deepEdge = Array.from({ length: DEEP_N }, (_, i) => carry(((tipD + (i / (DEEP_N - 1) - 0.5) * DEEP_ARC * PER) % PER + PER) % PER));
 // (the image's centre, which the zoomed rows zoom about)
 const mid = [edge.reduce((t, p) => t + p[0], 0) / EDGE_N, edge.reduce((t, p) => t + p[1], 0) / EDGE_N];
 const BITE_STATE = { v3: true, v4: true, v5: true, v6: true, exactImages: true, outline: true, nextId: 10, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
@@ -105,26 +115,28 @@ const BITE_STATE = { v3: true, v4: true, v5: true, v6: true, exactImages: true, 
 const scaleAt = () => ev(`(() => { const a = __cmwW2S('L', 0, 0), b = __cmwW2S('L', 1, 0); return b[0] - a[0]; })()`);
 // the bite on page [w, h], wheel-zoomed zoom times about the image: the outline in the shape's ink along the carried
 // boundary, and the control's ink not
-const bite = async (tag, page, zoom) => {
+const bite = async (tag, page, zoom, at = mid, pts = edge) => {
   await view(page[0], page[1], false, false);
   await loadView('steps', 'reptol' + Date.now(), BITE_STATE);
   await parkInside(SETTLE);
   const s0 = await scaleAt();
   if (zoom !== 1) {
     for (let i = 0; i < WHEEL_MAX && (await scaleAt()) < zoom * s0; i++) {
-      const p = await ev(`__cmwW2S('L', ${mid[0]}, ${mid[1]})`);
+      const p = await ev(`__cmwW2S('L', ${at[0]}, ${at[1]})`);
       await wheel(p[0], p[1], WHEEL_DY);
       await settled({ max: SETTLE, panes: false });
     }
     const s1 = await scaleAt();
     info[tag + ' zoom'] = { s0, s1 };
-    ok(`${tag}: the wheel zooms the plane in ${zoom} times`, s1 >= zoom * s0, info[tag + ' zoom']);
+    ok(`${tag}: the wheel zooms the plane in at least ${zoom} times`, s1 >= zoom * s0, info[tag + ' zoom']);
   }
   await grabBoth(tag);
-  const own = await measure(tag, 's1', `(ring) => ring(${JSON.stringify(edge)})`);
-  const ctrl = await measure(tag, 'c2', `(ring) => ring(${JSON.stringify(edge)})`);
+  const ol = info[tag + ' outline'] = await ev('__cmwRept({ outline: true })');
+  if (zoom === DEEP) ok(`${tag}: the outline is refined on the pane alone, at most ${DEEP_VERTS_MAX} vertices`, !!ol && ol.verts <= DEEP_VERTS_MAX, ol);
+  const own = await measure(tag, 's1', `(ring) => ring(${JSON.stringify(pts)})`);
+  const ctrl = await measure(tag, 'c2', `(ring) => ring(${JSON.stringify(pts)})`);
   info[tag] = { own, ctrl };
-  const what = `bite ×${BITE_N} ${page === NARROW ? `in a ${page[0]} px window` : 'on the desk'}${zoom !== 1 ? `, zoomed in ${zoom} times` : ''}`;
+  const what = `bite ×${BITE_N} ${page === NARROW ? `in a ${page[0]} px window` : 'on the desk'}${zoom !== 1 ? `, wheel-zoomed to at least ${zoom} times its scale` : ''}`;
   ok(`${what}: at least ${MIN_EDGE} carried boundary points inside the canvas`, own.n >= MIN_EDGE, own);
   ok(`${what}: the outline in the shape's ink along the image of its boundary (at least ${HIT_MIN} of the points)`, own.n > 0 && own.hit / own.n >= HIT_MIN, own);
   ok(`${what}, control: another shape's ink is found along it at no more than ${CTRL_MAX} of the points`, ctrl.n > 0 && ctrl.hit / ctrl.n <= CTRL_MAX, ctrl);
@@ -132,6 +144,7 @@ const bite = async (tag, page, zoom) => {
 await bite('B', DESK, 1);
 await bite('Z', DESK, ZOOM);
 await bite('P', NARROW, ZOOM);
+await bite('D', DESK, DEEP, edge[tipK], deepEdge);
 
 // ---- the pan: the outline kept per pane-wide cell, not refined again at each frame
 {

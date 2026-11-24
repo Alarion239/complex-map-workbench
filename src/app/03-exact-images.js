@@ -95,8 +95,9 @@
   // The pieces GLR.drawLines draws each segment of an outline in (its st.M); the most CSS px a piece may span on a
   // pane under a REPT plan; the halvings a segment may take to get there; the vertices a refined outline may have
   const OUTLINE_M = 8, REPT_PIECE_PX = 4, REPT_DEPTH = 10, REPT_VERTS = 65536;
-  // (the refinements outlineRes has run, for the test hook: a pan within a cell runs none)
-  let reptOutlineRuns = 0;
+  // (for the test hook: the refinements outlineRes has run, a pan within a cell runs none, and the last one's
+  // vertices)
+  let reptOutlineRuns = 0, reptOutlineVerts = 0;
   // The lines a shape's outline is drawn by on pane under map (r: its shapeGPU record), with the record openDash reads
   // for them: {res, rec}, or null for none. Always r's own lines, but under a REPT plan, whose copies' expansion can
   // scatter the boundary carried forward: there the drawn polylines (r.lpolys) are refined for the view, each segment
@@ -152,6 +153,7 @@
       if (!ok) break;
       polys.push(Float64Array.from(out));
     }
+    reptOutlineVerts = verts;
     const res = ok && polys.length && GLR.ok ? GLR.createLines(polys, r.lorigin) : null;
     const rec = { open: r.open, lpolys: polys, lorigin: r.lorigin, lineKey: key, arcs: null };
     r.rept = { key, res, out: res ? { res, rec } : null };
