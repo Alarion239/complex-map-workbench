@@ -6,7 +6,7 @@
 //  - with any tool, a hover on the floor reads its point z in the left readout (|z| and all), and one on the glass reads
 //    w with its count of preimages;
 //  - with the Pick tool, a hover on the glass drops strands to w's three preimages (each maps to w); where the glass lies
-//    over the floor, a click pins the very point the hover showed (rvE's ruling, at three such pixels), the strands stay
+//    over the floor, a click pins the very point the hover showed (at three such pixels), the strands stay
 //    when the pointer moves on, and Esc unpins them;
 //  - a press held there reads the floor: its point's three twins light, and a press dragged on reads the floor under the
 //    pointer; neither adds a shape or moves the target;
@@ -129,7 +129,7 @@ if (both) {
   info.hov = s.hov;
   ok('Pick: a hover on the glass drops strands to w\'s three preimages, each of which maps to w', !!s.hov && !s.hov.pinned && s.hov.zs.length === 3 && s.hov.zs.every((q) => close(f(q), s.hov.w)) && close(s.hov.w, k.glass.w), { hov: s.hov, k });
 }
-// (rvE's ruling: at three pixels where the glass lies over the floor, the click pins the very point the hover showed)
+// (at three pixels where the glass lies over the floor, the click pins the very point the hover showed)
 const spots = both ? [both, [both[0] + 23, both[1] + 11], [both[0] - 17, both[1] + 19]] : [];
 const same = [];
 for (const q of spots) {

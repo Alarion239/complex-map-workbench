@@ -3455,6 +3455,9 @@
  "{n} preimages of {w} found on {plane}, and there may be more": "{n} controimmagini di {w} trovate sul piano {plane}, e potrebbero essercene altre",
  "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre",
  "phone tile\u0004Pick": "Punti",
+ "Tilt": "Inclinata",
+ "Stack view": "Vista della pila",
+ "A starter disc added on {w}, with its preimage on {z}": "Disco iniziale aggiunto su {w}, con la sua controimmagine su {z}",
  "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",
  "The pieces of its preimage are not counted for these steps": "Per questi passi i pezzi della controimmagine non si contano",
  "{n} preimage\u0004{n} preimages": {
