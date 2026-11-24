@@ -83,7 +83,7 @@ const Inverse = (() => {
       if (!r.ok) return { ok: false, reason: `step ${k}: ${r.reason}`, ops: [], key, a, b, fams: [], injective: false };
       r.ops.forEach((o, i) => { ops.push(Object.assign(Object.create(Object.getPrototypeOf(o)), o, { step: k, node: i })); });
     }
-    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', ops: [], key, a, b, fams: [], injective: false };
+    if (ops.length > OPS_MAX) return { ok: false, reason: 'chain too long', tooLong: true, ops: [], key, a, b, fams: [], injective: false };
     // a Repeat chain's REPT op is exact as the plan's only op: its search starts from the pixel's own w (chain error 0)
     // and ends at the shape (Inverse.enumerate's REPT search, the GLSL walker's)
     if (ops.length > 1 && ops.some((o) => o.kind === 'REPT')) return { ok: false, reason: 'a repeated step inverts exactly only as the plane\'s one step', ops: [], key, a, b, fams: [], injective: false };

@@ -2580,6 +2580,7 @@
           GLR.writeMask(true, true);
           GLR.keepInAlpha();
           reptHatch(mp, map);
+          refusedHatch(pane, map);
           if (o.after) o.after();
           onPage = true;
         },
