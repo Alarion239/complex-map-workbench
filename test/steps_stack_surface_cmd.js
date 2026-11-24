@@ -1,16 +1,18 @@
 // Surface ▸ Stack (#1989, P2d): the Stack as the fourth Surface, on M3 z³ − 1.2z + 0.3 with no shapes, real pointer and
 // key events:
 //  - the Surface menu opens the Stack in two clicks, with a starter disc on w₁ (selected, said in the live region), whose
-//    three pieces are apart (three tubes), at the Tilt camera; one Undo takes the disc away;
+//    three pieces are apart (three tubes) and which lies in the view the glass shows (at most 0.15 of its width across),
+//    at the Tilt camera; one Undo takes the disc away;
 //  - on the desk the head shows the Stack's view control, Tilt | Look down | Plane, on the Stack only: a radio group with
 //    one Tab stop (the checked radio); Look down turns the camera straight down (yaw 0), Tilt back to Tilt, Plane leaves
-//    for the Plane surface; an arrow key moves the check and keeps the focus on the radio it checked (rvE's row);
+//    for the Plane surface; an arrow key moves the check and keeps the focus on the radio it checked (rvE's row), ← at
+//    Tilt stays there (no wrap), and → onto Plane leaves with the focus on the Surface button;
 //  - on the Stack the disc card's Look down switch is hidden (the control has a Look down of its own), and on the Plane
 //    it shows;
 //  - a link carries the Surface and the Stack's camera (Look down opens as Look down), and an old link with no camera
 //    opens the Stack at Tilt on the desk;
 //  - the zoom key and the wheel zoom the Stack's floor;
-//  - on a phone (390 × 844) the Stack opens in Look down; the plane's key column has a 44 px Tilt key, pressed while
+//  - on a phone (390 × 844) the head has no view control; the Stack opens in Look down; the plane's key column has a 44 px Tilt key, pressed while
 //    tilted, which a tap toggles; the Display sheet carries the same three-state control; an old link opens in Look down.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) || [0, '8793'])[1];
@@ -62,6 +64,13 @@ ok('the Surface menu opens the Stack in two clicks', two && (await S()).surf ===
 ok('the Stack opens with a starter disc on w₁, selected, and says so', P0.shapes.length === 1 && P0.shapes[0].kind === 'disc' && P0.shapes[0].stage === 1 && sel === P0.shapes[0].id && /starter disc added on w₁/.test(live0), info.start);
 ok('the starter disc\'s pieces are apart: three tubes', !!st0 && !!st0.drawn.tubes && st0.drawn.tubes.pieces.length === 3, info.start);
 ok('on the desk the Stack opens at Tilt', !!st0 && near(st0.camera.yaw, -30 * DEG) && near(st0.camera.pitch, 35 * DEG), st0 && st0.camera);
+{
+  // (the view the glass shows is the floor's: [cx, cy, s] and the pane's css size)
+  const v = (await S()).win, pw = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return [r.width, r.height]; })()`), d = P0.shapes[0];
+  const W = pw[0] / v[2], H = pw[1] / v[2];
+  info.start.view = { v, W, H };
+  ok('the starter disc lies in the view the glass shows, at most 0.15 of its width across', !!d && Math.abs(d.c[0] - v[0]) + d.r <= W / 2 && Math.abs(d.c[1] - v[1]) + d.r <= H / 2 && d.r <= 0.15 * W + 1e-9, info.start);
+}
 
 // ---- the view control
 let c = await ctl();
@@ -93,6 +102,12 @@ if (tl) await click(tl[0], tl[1]);
 await settleCam();
 cm = await cam();
 ok('Tilt turns the camera back to Tilt', !!cm && near(cm.yaw, -30 * DEG) && near(cm.pitch, 35 * DEG), cm);
+// (← at Tilt stays there: no wrap round to Plane)
+await ev(`document.querySelector('.sv-camseg [aria-checked="true"]').focus(), 1`);
+await key('ArrowLeft');
+await frames();
+c = await ctl();
+ok('← at Tilt stays at Tilt (no wrap round to Plane), the focus on it', (await S()).surf === 'stack' && !!c && c.radios[0].checked === 'true' && c.focus === 0, c);
 
 // ---- zoom: the key and the wheel
 const w0 = (await S()).win;
@@ -115,13 +130,15 @@ ok('a link carries the Stack and its camera (Look down: [0, 90])', !!fs0 && !!fs
 await ev(`(Params.encodeLink(__cmwFigureState()).then((p) => { window.__ssLink = p; }), 1)`);
 let payload = null;
 for (let i = 0; i < 50 && !payload; i++) { await sleep(100); payload = await ev('window.__ssLink || null'); }
-// ---- Plane leaves, and the switch shows again
-const pl = await radio('plane');
-if (pl) await click(pl[0], pl[1]);
+// ---- Plane leaves (by the keyboard: → from Look down), the focus on the Surface button, and the switch shows again
+await ev(`document.querySelector('.sv-camseg [aria-checked="true"]').focus(), 1`);
+await key('ArrowRight');
 await until(`__cmwSteps().surf === 'plane'`, 20000);
-await frames();
+await frames(); await sleep(50);
 c = await ctl();
+const fsurf = await ev(`!!document.activeElement && document.activeElement.classList.contains('sv-surf1')`);
 ok('Plane leaves for the Plane surface, and the control goes with the Stack', (await S()).surf === 'plane' && !!c && !c.shown, c);
+ok('→ onto Plane leaves with the focus on the Surface button, not the page', fsurf, await ev(`document.activeElement && (document.activeElement.className || document.activeElement.tagName)`));
 ok('on the Plane the card\'s Look down switch shows', (await lookSwitch()) === true, await lookSwitch());
 // ---- one Undo takes the starter disc away
 {
@@ -154,6 +171,8 @@ await frames();
 {
   const cl = await cam();
   ok('phone: the Stack opens in Look down', !!cl && near(cl.pitch, 90 * DEG) && near(cl.yaw, 0), cl);
+  const headSeg = await ev(`(() => { const g = document.querySelector('.sv-camseg'); return g ? g.getClientRects().length : null; })()`);
+  ok('phone: the head has no view control (no room: the Tilt key and the Display sheet carry it)', headSeg === 0, headSeg);
   const keyAt = () => ev(`(() => { const b = document.querySelector('#plotL .ph-col .ph-tilt'); if (!b) return null; const r = b.getBoundingClientRect(); return { shown: !b.hidden && r.width > 0, box: [r.width, r.height], label: b.getAttribute('aria-label'), pressed: b.getAttribute('aria-pressed'), at: [r.left + r.width / 2, r.top + r.height / 2] }; })()`);
   let k = await keyAt();
   info.phoneKey = { k };
