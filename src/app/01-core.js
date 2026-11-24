@@ -287,6 +287,8 @@
   }
   const regionLook = () => solidKeep || { pattern: S.pattern, alpha: S.alpha, lines: S.lines };
   // the sheets drawn on each side of an infinitely sheeted step's principal one (S.sheetW, the Landscape's "sheets ±"):
+  // smoothstep(a, b, x): 0 below a, 1 above b, and between them the cubic with no slope at either end
+  const smoothstep = (a, b, x) => { const t = Math.min(1, Math.max(0, (x - a) / (b - a))); return t * t * (3 - 2 * t); };
   // SHEET_W_MIN to SHEET_W_MAX, SHEET_W_DEFAULT when unset; sheetWOf(w): w within them
   const SHEET_W_MIN = 1, SHEET_W_MAX = 4, SHEET_W_DEFAULT = 2;
   const sheetWOf = (w) => Math.max(SHEET_W_MIN, Math.min(SHEET_W_MAX, Math.round(w) || SHEET_W_DEFAULT));

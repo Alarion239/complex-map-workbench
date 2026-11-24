@@ -19,7 +19,7 @@ const STEPS = [{ type: 'pown', params: { n: 5 }, on: true }];
 const POINT = { id: 'p1', kind: 'point', p: P, stage: 1, label: 'p', ci: 2 };
 const SAID = {
   en: (k, n) => `Marked preimages of p: ${k} of ${n}.`,
-  ru: (k, n) => `Отмеченные прообразы «p»: ${k} из ${n}.`,
+  ru: (k, n) => `Отмеченные прообразы точки «p»: ${k} из ${n}.`,
   it: (k, n) => `Controimmagini segnate di p: ${k} su ${n}.`,
 };
 const MORE = { en: (n) => `+${n} more`, ru: (n) => `ещё ${n}`, it: (n) => `altri ${n}` };

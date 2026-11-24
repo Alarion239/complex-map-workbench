@@ -6,7 +6,7 @@
 //  - with any tool, a hover on the floor reads its point z in the left readout (|z| and all), and one on the glass reads
 //    w with its count of preimages;
 //  - with the Pick tool, a hover on the glass drops strands to w's three preimages (each maps to w); where the glass lies
-//    over the floor, a click pins the very point the hover showed (rvE's ruling, at three such pixels), the strands stay
+//    over the floor, a click pins the very point the hover showed (at three such pixels), the strands stay
 //    when the pointer moves on, and Esc unpins them;
 //  - a press held there reads the floor: its point's three twins light, and a press dragged on reads the floor under the
 //    pointer; neither adds a shape or moves the target;
@@ -20,6 +20,7 @@
 //    strands with open rings where they leave the box;
 //  - the camera turns apart from the pick: with the Pick tool a right-button drag and a Shift-drag turn it, with Select a
 //    drag does, and none of them moves the target or adds a shape;
+//  - in Russian, a pin's live text writes its point with the decimal comma in both of its parts;
 //  - on a phone (390 × 844, touch) one finger lights the twins, and the left readout keeps the tapped point's z; two fingers
 //    turn the camera, the target where it was.
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
@@ -34,13 +35,13 @@ const DEG = Math.PI / 180, REL = 1e-9, PX_TOL = 0.02;
 const f = ([x, y]) => { const x2 = x * x - y * y, y2 = 2 * x * y; return [x2 * x - y2 * y - 1.2 * x + 0.3, x2 * y + y2 * x - 1.2 * y]; };
 const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const close = (a, b) => !!a && !!b && dist(a, b) <= REL * (1 + Math.hypot(...b));
-const open = async (w, h, phone) => {
+const open = async (w, h, phone, lang = 'en', c = [1.1, 0]) => {
   const ns = `spick-${Date.now()}`;
-  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c: [1.1, 0], r: 0.25, stage: 1 }], steps: [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: phone ? 70 : 110 } };
+  const st = { v3: true, v4: true, v5: true, v6: true, shapes: [{ id: 'd', kind: 'disc', c, r: 0.25, stage: 1 }], steps: [{ type: 'custom', params: { expr: 'z^3-1.2z+0.3' }, on: true }], nextId: 50, focus: 0, srcView: { cx: 0, cy: 0, s: phone ? 70 : 110 } };
   await view(w, h, false, phone);
   await nav(`http://localhost:${PORT}/gl-helpers.html`);
   await ev(`localStorage.setItem('complex-map-workbench-v1:${ns}', ${JSON.stringify(JSON.stringify(st))}); 1`);
-  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=en&view=steps`);
+  await nav(`http://localhost:${PORT}/test.html?ns=${ns}&lang=${lang}&view=steps`);
   await until("typeof __cmwSteps === 'function' && !!document.querySelector('#svStrip .sv-plane')", 40000);
   await until('__cmwSteps().ready.ready && __cmwSteps().i === 0');
   await ev(`__cmwSelect('d'); 1`);
@@ -128,7 +129,7 @@ if (both) {
   info.hov = s.hov;
   ok('Pick: a hover on the glass drops strands to w\'s three preimages, each of which maps to w', !!s.hov && !s.hov.pinned && s.hov.zs.length === 3 && s.hov.zs.every((q) => close(f(q), s.hov.w)) && close(s.hov.w, k.glass.w), { hov: s.hov, k });
 }
-// (rvE's ruling: at three pixels where the glass lies over the floor, the click pins the very point the hover showed)
+// (at three pixels where the glass lies over the floor, the click pins the very point the hover showed)
 const spots = both ? [both, [both[0] + 23, both[1] + 11], [both[0] - 17, both[1] + 19]] : [];
 const same = [];
 for (const q of spots) {
@@ -326,6 +327,19 @@ await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
     info.phone.turn = { dyaw: s.camera.yaw - y0, d, d1 };
     ok('phone: two fingers turn the camera, the target where it was and no shape added', Math.abs(s.camera.yaw - y0) > 5 * DEG && dist(d1.c, d.c) === 0 && (await nShapes()) === n, info.phone.turn);
   } else ok('phone: a floor spot outside the glass to press', false, info.phone);
+}
+
+// ---- Russian: a pin's point is written with the decimal comma in both its parts
+await open(1440, 900, false, 'ru', [1.1, 0.35]);
+await key('x');
+await settled({ panes: false, until: `__cmwPick().tool === 'pick'` });
+for (let i = 0; i < 8 && (await ev('document.activeElement && document.activeElement.id')) !== 'overlayL'; i++) await key('F6');
+await key('Enter', 8);
+await frames();
+{
+  const live = (await ev('__cmwPick()')).live;
+  info.ru = live;
+  ok('ru: a pin\'s live text writes its point with the decimal comma in both its parts', /1,1 \+ 0,35i/.test(live) && !/\d\.\d/.test(live), live);
 }
 
 return { pass: fails.length === 0, passed: pass, fails, info };

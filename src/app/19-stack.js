@@ -15,6 +15,9 @@
   // Tilt, the camera the Stack opens with (dist, tx and ty are fields the orbit and its reset read; the levels do not)
   const STACK_CAM = { yaw: -30 * DEG, pitch: 35 * DEG, dist: 1, tx: 0, ty: 0 };
   const stackCam = Object.assign({ vyaw: 0, vpitch: 0 }, STACK_CAM);
+  // Look down, the Stack's other camera: straight down with yaw 0, where the frame is Look down's
+  const STACK_DOWN = { yaw: 0, pitch: 90 * DEG };
+  let stackCamSet = false;                    // the Stack's camera was opened by a state or turned in this page
   const STACK_GLASS_H = 0.5;                  // the glass's height above the floor, a share of the pane's shorter side
   const STACK_TINT_A = 0.3, STACK_EDGE_A = 0.45;   // the glass's tint and the box's edges seen side-on; times cos(pitch)
   const STACK_ORDER = ['floor', 'floor marks', 'tubes', 'lines', 'glass', 'glass marks', 'picks', 'labels'];
@@ -105,6 +108,102 @@
     }
     if (cur) runs.push(cur);
     return { runs, ends };
+  }
+  // the Stack's camera as the state keeps it (S.sv.cam, Views.cleanSv): [yaw, pitch] in degrees, to 0.01°
+  const stackCamSaved = () => [stackCam.yaw, stackCam.pitch].map((a) => Math.round((a / DEG) * 100) / 100);
+  // opens the Stack's camera on saved ([yaw, pitch] in degrees, S.sv.cam), or with none on its own: Look down on a phone,
+  // where the Stack opens flat and exact, and Tilt elsewhere
+  function stackCamOpen(saved) {
+    const c = saved ? { yaw: saved[0] * DEG, pitch: saved[1] * DEG } : document.documentElement.classList.contains('ph') ? STACK_DOWN : STACK_CAM;
+    Object.assign(stackCam, { yaw: c.yaw, pitch: c.pitch, vyaw: 0, vpitch: 0 });
+    stackCamSet = true;
+  }
+  // the Stack's camera's preset: 'down' at Look down (straight down, yaw 0), else 'tilt'
+  const stackViewNow = () => (stackTilt(stackCam) === 0 && Math.abs(Math.sin(stackCam.yaw)) < 1e-9 && Math.cos(stackCam.yaw) > 0 ? 'down' : 'tilt');
+  // turns the Stack's camera to a preset, 'tilt' (STACK_CAM) or 'down' (Look down), in a short tween (at once when motion is
+  // reduced: tweenCam)
+  function stackView(name) {
+    stackCamSet = true;
+    tweenCam(stackCam, name === 'down' ? STACK_DOWN : { yaw: STACK_CAM.yaw, pitch: STACK_CAM.pitch });
+  }
+  // The Stack's view control (#1989): Tilt and Look down, its two cameras, and Plane, which leaves for
+  // the Plane surface. On the desk it is a three-state segment in the head beside the Surface button, shown only on the
+  // Stack; on a phone the head has no room, so the plane's key column has one toggle key, named Tilt and pressed while
+  // the camera is not straight down, and the Display sheet carries the segment (the head's is hidden there: page.html).
+  // The card's Look down switch, which shows the plane's marks, is hidden on the Stack (page.html, .sv-stack), where the
+  // marks always show: two controls named Look down would do two things
+  const STACK_VIEWS = () => [['tilt', $t('Tilt')], ['down', $t('Look down')], ['plane', $t('Plane')]];
+  let stackSegs = [], stackKey = null, stackSynced = '';
+  // a segment v of the control chose
+  function stackChoose(v) {
+    if (v === 'plane') {
+      // (the segment goes with the Stack: a focus on it moves to the Surface button, which reads Plane)
+      const held = !!document.activeElement && !!document.activeElement.closest('.sv-camseg');
+      svSetSurface('plane');
+      if (held) setTimeout(() => { if (SV.els && SV.els.surf1) SV.els.surf1.focus(); }, 0);
+      return;
+    }
+    stackView(v);
+    stackSyncControls(v);
+  }
+  // a new segment of the control (cls: its place's class), kept in step with the camera by stackSyncControls
+  function stackSeg(cls) {
+    // (no wrap: an arrow at an end stays, so ← from Tilt never leaves for the Plane)
+    const el = seg(null, stackViewNow(), STACK_VIEWS(), stackChoose, $t('Stack view'), { cls: `sv-seg ${cls}`, wrap: false });
+    stackSegs = stackSegs.filter((e) => e.isConnected).concat(el);
+    return el;
+  }
+  // the control shown where the Stack is, and set to the camera's view (v, else the camera's own, while no turn to a
+  // preset is under way)
+  function stackSyncControls(v = null) {
+    const on = SV.on && SV.surf === 'stack';
+    if (!v && typeof camTweens !== 'undefined' && camTweens.some((t) => t.c === stackCam)) return;
+    const now = v || stackViewNow(), key = `${on}|${now}|${stackSegs.length}`;
+    document.documentElement.classList.toggle('sv-stack', on);
+    const col = document.querySelector('#plotL .ph-col');
+    if (col && !stackKey) {
+      stackKey = h('button', { class: 'ph-key ph-tilt', type: 'button', 'aria-label': $t('Tilt'), 'data-tip': $t('Tilt'), html: MODE_ICONS.stack, onclick: () => stackChoose(stackViewNow() === 'tilt' ? 'down' : 'tilt') });
+      col.prepend(stackKey);
+      stackSynced = '';
+    }
+    if (key === stackSynced) return;
+    stackSynced = key;
+    if (stackKey) { stackKey.hidden = !on; stackKey.setAttribute('aria-pressed', String(now === 'tilt')); }
+    for (const el of stackSegs) { if (el.classList.contains('sv-camseg')) el.hidden = !on; if (on) setSeg(el, now); }
+  }
+  // The Stack chosen (the Surface menu, the palette): its camera opens as stackCamOpen says the first time in the page,
+  // and with no target to show (a selected disc of a later plane) the first such disc is selected; with none, a starter
+  // disc is added on the next plane (one edit, said in the live region). Its centre is F(c) for c the first point of
+  // rings about the view's centre (a quarter of the view's width out, then nearer: off a critical point at the centre,
+  // as z² has at 0) where the disc lies in the view, which the glass shows: its radius is STACK_START_R of the view's
+  // width through F′(c), at most STACK_START_GAP of the way to the nearest critical value, so that its pieces are apart
+  // (z³ − 1.2z + 0.3 shows three), and at most STACK_START_MAX of the view's width. With no later plane, or no such c,
+  // nothing is added
+  const STACK_START_R = 0.12, STACK_START_GAP = 0.6, STACK_START_MAX = 0.15;
+  function stackChosen() {
+    if (!stackCamSet) stackCamOpen(null);
+    const k = leftStage(), sel = findShape(selected);
+    if (readoutOn(sel)) return;
+    const own = S.shapes.find((q) => q.visible !== false && readoutOn(q));
+    if (own) { selected = own.id; zpSel = null; buildShapeList(); requestRender('L', 'R', 'OL'); return; }
+    const T = svPlanes().find((st) => st > k);
+    if (T == null) return;
+    const F = rangeF(k, T);
+    paneL.setView(leftView());
+    const b = paneL.box(), W = b.x1 - b.x0, mid = C((b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2);
+    const cr = stageCritical(k, T, b), vals = cr && cr.values.known ? cr.values.list.map((v) => v.w).filter((w) => w && CX.isFin(w)) : [];
+    // (the rings' points, a quarter of the view's width out first, each ring from its east point anticlockwise)
+    const at = [0.25, 0.2, 0.15, 0.1, 0.05].flatMap((q) => Array.from({ length: 8 }, (_, i) => [q * W * Math.cos((TAU * i) / 8), q * W * Math.sin((TAU * i) / 8)]));
+    for (const [u, v] of at) {
+      const c = C(mid.re + u, mid.im + v), h = 1e-4 * W, w = F(c);
+      if (!CX.isFin(w)) continue;
+      const d = CX.abs(CX.sub(F(C(c.re + h, c.im)), F(C(c.re - h, c.im)))) / (2 * h), gap = Math.min(Infinity, ...vals.map((q) => CX.abs(CX.sub(q, w))));
+      const r = Math.min(STACK_START_R * W * d, STACK_START_GAP * gap, STACK_START_MAX * W);
+      if (!(r > 0) || !Number.isFinite(r) || w.re - r < b.x0 || w.re + r > b.x1 || w.im - r < b.y0 || w.im + r > b.y1) continue;
+      addShape(newShape('disc', { c: [w.re, w.im], r, stage: T }));
+      svSay($t('A starter disc added on {w}, with its preimage on {z}', { w: svName(T), z: svName(k) }));
+      return;
+    }
   }
   // a level of the marks (drawLookLayer's) from its map m
   const stackMarkLevel = (m) => ({
@@ -198,7 +297,7 @@
       glass,
       'glass marks': () => mk && drawLookLayer(ctx, mk, lv, 'glass'),
       picks: () => { picks = drawStackPicks(pane, ctx, F, G); },
-      labels: () => { if (tubes) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), tubes.marks.concat(lookPts())); },
+      labels: () => { if (tubes && tubes.labels.length) drawStackLabels(ctx, tubes.labels, tubes.fade, stackRoom(pane, camera), tubes.marks.concat(lookPts())); },
     };
     const order = ['floor'];
     for (const layer of STACK_ORDER.slice(1)) { layers[layer](); order.push(layer); }
@@ -209,6 +308,7 @@
   function stackDrawOverlay(pane) {
     if (!stackOn()) return false;
     stackDrawn = stackMarks(pane, pane.octx, stackCam);
+    stackSyncControls();
     syncLookKey(stackDrawn.marks, true, !!stackDrawn.tubes);
     return true;
   }

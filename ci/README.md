@@ -465,6 +465,7 @@ node ci/perf_shard.js --shard views --ref origin/main   # one perf shard, paired
 node ci/glprof.js                                  # shader link times, cold and warm (issue #72; GPU gate mode glprof)
 node ci/glprof.js --ref origin/main --rounds 2    # the same, this build and main's in turn (on a Mac add --clear-metal-cache)
 node ci/fxc_size.js --ref origin/main --json f.json   # each linked program's size with every call inlined, as Windows' FXC compiles it (#1545): fails on a new program over 100 KB, or +20 % on one over 40 KB
+node ci/newt_ab.js --base origin/claude/funny-darwin-l5uis3   # the NEWT ops' GPU output against the base's, bit for bit, with a negative control (#1365)
 node ci/browser.js --only '^steps_glide_look_cmd' # browser suites by file name; on the Mac's GPU: GPU gate by hand, mode suites, input suites (run it on two refs to compare)
 node ci/perf_shards.js matrix                      # the shards; check: every perf unit is in exactly one
 node ci/browser.js --only '^tour_cmd' --port 9950   # browser suites (--shard ID for a shard; a free port by default)
@@ -566,12 +567,13 @@ Settings (environment variables):
 | `ci/glprof.js` | the app's shader link times (`?glprof`) through a walk of the app, cold then warm (issue #72) |
 | `ci/fxc_size.js` | every program the app links over a walk of it (the default example, each example's first frame, typed formulas; glides, the globe, Landscape), sized with every call inlined, as Windows' FXC compiles it (#1545): the largest, their top functions and flagged loops; `--ref` fails on a new program over 100 KB or +20 % on one over 40 KB; `test/t_fxc_size.js` tests it |
 | `ci/glsl_inline.js` | a GLSL stage as FXC sees it: its own `#if`s resolved, the inlined size of `main`, each function's copies, the constant-bound loops that call into the chain; for `ci/fxc_size.js` and unit tests; `test/t_fxc_size.js` tests it |
+| `ci/newt_ab.js` | the NEWT ops' GPU output, this build's against a base's bit for bit (#1365): both built in worktrees, `test/newt_ab_cmd.js` records every float target of its scenes (zeta, the series, the inverse Joukowski map, a polynomial, the Douady-Hubbard map under Everywhere) and the settled canvas as hashes; a third build with the Newton kit's forward-difference step moved to the next float32 must differ in at least a quarter of the targets |
 | `ci/reference.js` | builds the reference app in a worktree under `.ci/` |
 | `ci/equiv.js` | is the app the reference's? (#20 phase 4: the ES-module bundle against the concatenation) The page outside the app script and i18n.js at its head byte for byte; in one Chrome (the test page in the steps view, its scenes from `ci/steps_scenes.js`, as `ci/glprof.js`'s walks), every shader source, the audio worklet's source, each scene's picture (pixel for pixel, `--limit`, 0.01 % by default), exceptions and the globals; the published page runs scenes of its own (the default, two examples, sound on) and keeps every global it set on window. `node ci/equiv.js --ref <commit>` |
 | `ci/gpu_probe.js` | the renderer; `--require-hardware` on our GPU machines; `--fallback` on GitHub's |
 | `ci/lib.js` | a static server, the job summary, running commands |
 | `test/lib/layout.js`, `test/lib/layout_matrix.js` | the layout checks and their matrix (#470): `test/layout_invariants_cmd.js` and `tools/inspect.js` |
 | `ci/layout_ratchet.js`, `ci/layout_baseline.json` | the layout suite's ratchet: its violation keys per run only go down (#470); `test/t_layout_ratchet.js` tests it |
-| `tools/part_move.js` | is a split of a file into parts a pure move? the joined file at two commits, tokenised: one run moved, the rest the same token for token, and the lines that differ as a multiset (`node tools/part_move.js <old> <new>`; Review checklist in `CONTRIBUTING.md`); `test/t_part_move.js` tests it |
+| `tools/part_move.js` | is a split of a file into parts a pure move? the joined file at two commits, tokenised: one run moved, the rest the same token for token, and the lines that differ as a multiset, and no top-level statement runs before a const, let, class or var it reads (`node tools/part_move.js <old> <new>`; Review checklist in `CONTRIBUTING.md`); `tools/part_move_order.js` reads that order; `test/t_part_move.js` tests both |
 | `tools/inspect.js` | the visual inspection of a design change: two builds over the layout matrix, an HTML gallery side by side (#470) |
 | `ci/RUNNERS.md` | setting up our Mac and, for runs on request, a Windows desktop (#169) as runners |
