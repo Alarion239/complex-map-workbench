@@ -159,6 +159,7 @@ const VIEWS = {
   'steps_stack_levels_cmd.js': steps(),
   'steps_stack_tubes_cmd.js': steps(),
   'steps_stack_links_cmd.js': steps(),
+  'steps_stack_pick_cmd.js': steps(),
   'floor_pick_cmd.js': steps({ pin: true }),
   'example_roots_sv_cmd.js': steps(),
   'steps_headpop_keys_cmd.js': steps({ pin: true }),

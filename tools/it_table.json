@@ -3450,6 +3450,11 @@
   "one": "{n} controimmagine sul piano {plane}",
   "other": "{n} controimmagini sul piano {plane}"
  },
+ "{n} preimage of {w} on {plane}\u0004{n} preimages of {w} on {plane}": {
+  "one": "{n} controimmagine di {w} sul piano {plane}",
+  "other": "{n} controimmagini di {w} sul piano {plane}"
+ },
+ "{n} preimages of {w} found on {plane}, and there may be more": "{n} controimmagini di {w} trovate sul piano {plane}, e potrebbero essercene altre",
  "{n} preimages found on {plane}, and there may be more": "{n} controimmagini trovate sul piano {plane}, e potrebbero essercene altre",
  "phone tile\u0004Pick": "Punti",
  "Disc added on {w}, about the image of the lit point": "Disco aggiunto su {w}, attorno all’immagine del punto illuminato",

@@ -781,6 +781,13 @@
   "many": "%{n} прообразов в плоскости %{plane}",
   "other": "%{n} прообраза в плоскости %{plane}"
  },
+ "{n} preimage of {w} on {plane}\u0004{n} preimages of {w} on {plane}": {
+  "one": "%{n} прообраз точки %{w} в плоскости %{plane}",
+  "few": "%{n} прообраза точки %{w} в плоскости %{plane}",
+  "many": "%{n} прообразов точки %{w} в плоскости %{plane}",
+  "other": "%{n} прообраза точки %{w} в плоскости %{plane}"
+ },
+ "{n} preimages of {w} found on {plane}, and there may be more": "Найдено прообразов точки %{w} в плоскости %{plane}: %{n}; возможно, есть и другие",
  "{n} preimages found on {plane}, and there may be more": "Найдено прообразов в плоскости %{plane}: %{n}; возможно, есть и другие",
  "phone tile\u0004Pick": "Точки",
  "Disc added on {w}, about the image of the lit point": "В плоскости %{w} добавлен круг с центром в образе выбранной точки",
