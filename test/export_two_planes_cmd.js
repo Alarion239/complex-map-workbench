@@ -236,8 +236,8 @@ if (!ru.err) {
 // has its label centred under it, which reached past the figure's few points of margin («−8» in example 1, on the camera's
 // window). A label whose centred place is inside the figure keeps it; one that would start left of the figure slides right
 // just as far as the edge, still over its tick. The steps view's Two planes figure and the classic X → Y figure (X's panel,
-// the one it draws, #994), Homework and Slides in en, Homework in ru. (An x tick label: a 'tick' box just under its panel's real axis; its tick: the
-// label's value through the panel's window.)
+// the one it draws, #994; built as the dialog builds it, view xyL), Homework and Slides in en, Homework in ru. (An x tick
+// label: a 'tick' box just under its panel's real axis; its tick: the label's value through the panel's window.)
 {
   const EDGE = 0.01, CENTRE = 0.05;
   const ticksOf = (o) => evJson(`await (async () => { try { const f = await Figure.build(${JSON.stringify(o)}); if (!f) return JSON.stringify({ none: true });
