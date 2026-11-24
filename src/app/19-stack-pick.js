@@ -255,9 +255,10 @@
       ctx.lineWidth = 1.75; ctx.strokeStyle = colour; ctx.fillStyle = colour; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU);
       if (fill) ctx.fill(); else ctx.stroke();
     };
-    // the strand from the floor's point a to the glass's point b (flat css px), as far as it is inside the box
-    const strand = (a, b, colour, w, dash) => {
-      const clip = stackClipPath(pane, [[a[0], a[1], 0], [b[0], b[1], 1]]);
+    // the strand from the floor's point z up to the glass's point v (plane points), along the connector shown
+    // (stackLinkFlat), as far as it is inside the box
+    const strand = (z, v, colour, w, dash) => {
+      const clip = stackClipPath(pane, stackLinkFlat(pane, z, v));
       ctx.setLineDash(dash || []);
       for (const run of clip.runs) {
         const q = run.map((p) => at(p, p[2])), path = () => { ctx.beginPath(); q.forEach((p, i) => (i ? ctx.lineTo(p[0], p[1]) : ctx.moveTo(p[0], p[1]))); };
@@ -273,14 +274,14 @@
     if (lookRing) { ctx.lineWidth = 3.5; ctx.strokeStyle = TH.probe; ctx.beginPath(); stackMarkLevel(G).path(ctx, () => ctx.arc(lookRing.c[0], lookRing.c[1], lookRing.r, 0, TAU)); ctx.stroke(); }
     if (lit) {
       const z0 = lit.z0, top = flat(lit.w), own = (z) => CX.abs(CX.sub(z, z0)) <= 1e-6 * (1 + CX.abs(z0));
-      for (const { z } of lit.zs) if (!own(z)) strand(flat(z), top, TH.probe, 1.5, STACK_PICK_DASH);
-      strand(flat(z0), top, TH.probe, 1.75);
+      for (const { z } of lit.zs) if (!own(z)) strand(z, lit.w, TH.probe, 1.5, STACK_PICK_DASH);
+      strand(z0, lit.w, TH.probe, 1.75);
       for (const { z } of lit.zs) { const p = flat(z); if (inside(p)) ring(at(p, 0), own(z) ? PICK_DOT : PICK_RING, TH.probe, own(z)); }
       if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.probe, true);
     }
     if (hv) {
       const top = flat(hv.w), w = hv.pinned ? 1.75 : 1.25;
-      for (const { z } of hv.zs) strand(flat(z), top, TH.accent, w);
+      for (const { z } of hv.zs) strand(z, hv.w, TH.accent, w);
       for (const { z } of hv.zs) { const p = flat(z); if (inside(p)) ring(at(p, 0), PICK_RING, TH.accent, false); }
       // (a pin's point is a filled dot, a hover's an open one)
       if (inside(top)) ring(at(top, 1), STACK_PICK_DOT, TH.accent, hv.pinned);

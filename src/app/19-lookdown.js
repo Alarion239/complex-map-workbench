@@ -58,11 +58,12 @@
     if (layer === 'floor') {
       for (const [x, y] of m.crit.map((p) => lv.floor.at(...p))) stroke(1.75, TH.cut, null, () => { ctx.moveTo(x - LD_CROSS, y - LD_CROSS); ctx.lineTo(x + LD_CROSS, y + LD_CROSS); ctx.moveTo(x - LD_CROSS, y + LD_CROSS); ctx.lineTo(x + LD_CROSS, y - LD_CROSS); });
     } else if (layer === 'lines') {
-      // (straight from the floor to the glass, or along lv.link(i), line i's points in canvas px, where the levels have it)
+      // (straight from the floor to the glass, or along lv.link(i), line i's runs of points in canvas px, where the levels
+      // have it)
       const [cx, cy] = lv.glass.at(...m.c);
       m.zs.forEach((p, i) => {
-        const pts = lv.link && lv.link(i);
-        if (pts) stroke(1.25, TH.ink, null, () => pts.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y))));
+        const runs = lv.link && lv.link(i);
+        if (runs) stroke(1.25, TH.ink, null, () => runs.forEach((r) => r.forEach(([x, y], n) => (n ? ctx.lineTo(x, y) : ctx.moveTo(x, y)))));
         else { const [x0, y0] = lv.floor.at(...p); stroke(1.25, TH.ink, null, () => { ctx.moveTo(x0, y0); ctx.lineTo(cx, cy); }); }
       });
     } else {

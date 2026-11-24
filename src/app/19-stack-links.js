@@ -15,6 +15,9 @@
   // lies in the middle of the turn its loop leaves free (linkMid); every branch ends at the one zⁿ. A slice still torn
   // (another glide's cut, or a piece about 0) is found where a step between two of its points is far longer than the
   // rest (linkTear), and labelled so where it is widest, as the narrowing is.
+  // Two pieces' tubes may meet on the way up, across and apart again, or, curved, together from a height to the glass well
+  // below where the straight strands bring them together (M3's: the zoom's path makes the three tubes one from half
+  // way up), which is no join: the place is labelled so (linkCrosses).
   const STACK_LINKS = ['straight', 'curved'];
   const LINK_N = 40;                // the heights a connector is sampled at, LINK_N + 1 with both ends (a multiple of TUBE_LEVELS)
   const LINK_TEAR_K = 10;           // a slice's step between two of its points that is LINK_TEAR_K times its median step
@@ -116,13 +119,13 @@
   const linkInside = (q, z) => { let c = false; for (let i = 0, j = q.length - 1; i < q.length; j = i++) { const a = q[i], b = q[j]; if ((a.im > z.im) !== (b.im > z.im) && z.re < ((b.re - a.re) * (z.im - a.im)) / (b.im - a.im) + a.re) c = !c; } return c; };
   // The connectors of disc s's tubes (tubeData), of the preimages zs of its centre and of the critical points crit (plane
   // points), by the given kind: {mode, pieces: [{loops: [lev]}] (each loop's levels, lev[j][i]), zs: [path] and crit:
-  // [path] (path[j], a point's place at height j / LINK_N), tears: [{piece, s, z}]}. A preimage of the centre inside a
-  // piece rises with it, on its branch
+  // [path] (path[j], a point's place at height j / LINK_N), tears: [{piece, s, z}], crosses: [{pieces, kind, s, s1, z}]
+  // (linkCrosses)}. A preimage of the centre inside a piece rises with it, on its branch
   function stackLinks(s, mode, zs, crit) {
     const k = leftStage(), T = shapeStage(s), d = tubeData(s);
     const key = JSON.stringify([k, T, chainSig[nSteps()], s.c, s.r, mode, !!S.homAll, zs.map((z) => [z.re, z.im]), crit.map((z) => [z.re, z.im])]);
     if (linkCache.has(key)) return linkCache.get(key);
-    const out = { mode, pieces: [], zs: zs.map(() => null), crit: [], tears: [] }, free = [];
+    const out = { mode, pieces: [], zs: zs.map(() => null), crit: [], tears: [], crosses: [] }, free = [];
     const pieces = d ? d.pieces : [];
     const outers = pieces.map((P) => { let o = 0; P.loops.forEach((L, i) => { if (Math.abs(linkArea(L.z)) > Math.abs(linkArea(P.loops[o].z))) o = i; }); return o; });
     const homes = zs.map((z) => pieces.findIndex((P, n) => linkInside(P.loops[outers[n]].z, z)));
@@ -145,6 +148,7 @@
         if (tr && !out.tears.some((x) => x.piece === n)) out.tears.push({ piece: n, s: tr.j / LINK_N, z: tr.z });
       }
     });
+    out.crosses = linkCrosses(out.pieces.map((P, n) => P.loops[outers[n]]), mode === 'curved');
     // (the preimages outside every piece and the critical points rise on the steps' own cuts)
     const rest = free.map((i) => zs[i]).concat(crit);
     if (rest.length) {
@@ -155,6 +159,52 @@
     linkCache.set(key, out);
     while (linkCache.size > 16) linkCache.delete(linkCache.keys().next().value);
     return out;
+  }
+  // whether the closed loops p and q (plane points) meet: an edge of one crosses an edge of the other, or one lies inside
+  // the other; where: a point of the meeting, or null
+  function linkMeet(p, q) {
+    for (let i = 0; i < p.length; i++) {
+      const a = p[i], b = p[(i + 1) % p.length];
+      for (let j = 0; j < q.length; j++) {
+        const c = q[j], e = q[(j + 1) % q.length];
+        const d = (b.re - a.re) * (e.im - c.im) - (b.im - a.im) * (e.re - c.re);
+        if (d === 0) continue;
+        const u = ((c.re - a.re) * (e.im - c.im) - (c.im - a.im) * (e.re - c.re)) / d, v = ((c.re - a.re) * (b.im - a.im) - (c.im - a.im) * (b.re - a.re)) / d;
+        if (u >= 0 && u <= 1 && v >= 0 && v <= 1) return C(a.re + u * (b.re - a.re), a.im + u * (b.im - a.im));
+      }
+    }
+    return linkInside(q, p[0]) ? p[0] : linkInside(p, q[0]) ? q[0] : null;
+  }
+  // Where two pieces' tubes meet on the way up, though they are separate pieces: [{pieces: [a, b], kind, s, s1, z}] from
+  // the pieces' outer loops (outer[n], levels lev[j][i]), z a point of the meeting at s. Every piece ends on the disc's
+  // rim, so near the glass the slices crowd onto it and meet, as the straight strands bring them there; a meeting is told
+  // only where it is not that:
+  // - 'cross': their slices meet at s and part again at s1, below the glass;
+  // - 'sooner' (curved): they meet from s up to the glass (s1 = 1), and the straight strands bring the same two pieces
+  //   together LINK_SOONER or more higher up (straight, the levels between each loop's floor and glass ends).
+  const LINK_SOONER = 0.1;
+  function linkCrosses(outer, curved) {
+    const out = [], first = (p, q) => { for (let J = 1; J < LINK_N; J++) if (linkMeet(p(J), q(J))) return J; return LINK_N; };
+    const flat = (lev) => (J) => lev[0].map((z, i) => { const w = lev[LINK_N][i], t = J / LINK_N; return C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im)); });
+    for (let a = 0; a < outer.length; a++) for (let b = a + 1; b < outer.length; b++) {
+      const meet = [null];
+      for (let J = 1; J < LINK_N; J++) meet.push(linkMeet(outer[a][J], outer[b][J]));
+      const J0 = meet.findIndex(Boolean), J1 = J0 < 0 ? -1 : meet.findIndex((m, J) => J > J0 && !m);
+      if (J0 > 0 && J1 > 0) out.push({ pieces: [a, b], kind: 'cross', s: J0 / LINK_N, s1: J1 / LINK_N, z: meet[J0] });
+      else if (J0 > 0 && curved && first(flat(outer[a]), flat(outer[b])) - J0 >= LINK_SOONER * LINK_N) out.push({ pieces: [a, b], kind: 'sooner', s: J0 / LINK_N, s1: 1, z: meet[J0] });
+    }
+    return out.sort((x, y) => x.s - y.s);
+  }
+  // The connector shown from the floor's point z up to v on the glass (plane points), in the flat plane's css px with its
+  // heights, [[x, y, t], ...], for a strand that rises along it (the picks'): curved, the glide's path from the floor to
+  // the selected disc's plane, where it ends at v; else straight, its two ends
+  function stackLinkFlat(pane, z, v) {
+    const s = findShape(selected);
+    if (linkMode() === 'curved' && s) {
+      const lev = linkLevels(leftStage(), shapeStage(s), 'curved', [z], null).lev, w = lev[LINK_N][0];
+      if (CX.isFin(w) && CX.abs(CX.sub(w, v)) <= 1e-6 * (1 + CX.abs(v))) return lev.map((q, J) => [...pane.w2s(q[0]), J / LINK_N]);
+    }
+    return [[...pane.w2s(z), 0], [...pane.w2s(v), 1]];
   }
   // the tear's words: "torn here by the glide's cut, not a split"
   const linkTearText = () => $t('torn here by the glide’s cut, not a split');
@@ -176,7 +226,7 @@
     const mk = lookMarks(paneL, sh), ln = stackLinks(sh, linkMode(), mk.zsZ, mk.critZ), xy = (p) => [p.re, p.im];
     return {
       mode: linkMode(), n: LINK_N, saved: S.sv ? S.sv.links : null,
-      data: { pieces: ln.pieces.map((P) => ({ loops: P.loops.map((lev) => lev.map((q) => q.map(xy))) })), zs: ln.zs.map((p) => p && p.map(xy)), crit: ln.crit.map((p) => p.map(xy)), tears: ln.tears.map((r) => ({ piece: r.piece, s: r.s, z: xy(r.z) })) },
+      data: { pieces: ln.pieces.map((P) => ({ loops: P.loops.map((lev) => lev.map((q) => q.map(xy))) })), zs: ln.zs.map((p) => p && p.map(xy)), crit: ln.crit.map((p) => p.map(xy)), tears: ln.tears.map((r) => ({ piece: r.piece, s: r.s, z: xy(r.z) })), crosses: ln.crosses.map((r) => ({ pieces: r.pieces, kind: r.kind, s: r.s, s1: r.s1, z: xy(r.z) })) },
     };
   };
   // TEST-HOOK

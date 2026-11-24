@@ -3517,5 +3517,9 @@
  "Connectors": "Collegamenti",
  "Glide paths": "Percorsi della transizione",
  "Straight": "Dritti",
- "torn here by the glide’s cut, not a split": "strappato qui dal taglio della transizione, non è una divisione"
+ "torn here by the glide’s cut, not a split": "strappato qui dal taglio della transizione, non è una divisione",
+ "out of the window from here to height {s}": "fuori dalla finestra da qui fino all’altezza {s}",
+ "out of the window from here up": "fuori dalla finestra da qui in su",
+ "the pieces cross here, not a join": "i pezzi qui si incrociano, non è un’unione",
+ "the glide brings the pieces together from here, not a join": "la transizione unisce i pezzi da qui, non è un’unione"
 }

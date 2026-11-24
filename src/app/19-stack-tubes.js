@@ -23,7 +23,7 @@
   const tubeFade = (tilt) => Math.min(1, tilt / TUBE_FULL_TILT);
   const NARROW_TOL = 1e-6;                     // F′ counts as real when |Im F′| ≤ NARROW_TOL·|F′|
   const TUBE_CRIT_DOTS = [0, 4];               // css px: a critical strand's dots (round caps make each dash of length 0 a dot)
-  const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin
+  const TUBE_DOT = 2.5, TUBE_LABEL_DX = 7, TUBE_FONT = 12, TUBE_PLATE = 3, TUBE_OFF = 3;   // css px: a narrowing's dot, its words' gap from it, their size, their plate's margin; the open ring where a critical strand leaves the box
   const tubeCache = new Map();
   // n of a closed loop's points, about evenly spaced by arc length: the loop's own points (preimages of the rim, so a
   // tube's ends lie exactly on the patch's edge and the rim), all of them when it has n or fewer
@@ -94,20 +94,24 @@
   }
   // The tubes of disc s on ctx (the pane's overlay, css px) for the flat view of pane, seen through the floor's and the
   // glass's level maps Fm and Gm at the given tilt, along the connectors ln (stackLinks': the tubes' loops, and the
-  // critical points' strands, dotted). Straight, a narrowing is labelled; curved, a slice the glide's cut tears is.
-  // Returns what was drawn, in the plane's coordinates and the pane's css px (stackDrawn's tubes), or null
+  // critical points' strands, dotted). Everything is drawn inside the box only: a slice inside the box's rectangle at its
+  // height, a strand as far as it is inside (stackClipPath), a critical strand with an open ring where it leaves it.
+  // Labelled: straight, a narrowing; curved, a slice the glide's cut tears; and in both, where a tube leaves the window
+  // (tubeExits) and where two pieces' tubes meet (ln.crosses). Returns what was drawn, in the plane's coordinates and
+  // the pane's css px (stackDrawn's tubes), or null
   function drawStackTubes(pane, ctx, s, Fm, Gm, tilt, ln) {
     const d = tubeData(s), fade = tubeFade(tilt);
     if (!d || fade <= 0) return null;
-    // a plane point at height t, through the level map at t (the levels' maps are affine in the height)
-    const at = (p, t) => {
-      const [x, y] = pane.w2s(p), m = Fm.map((v, i) => v + t * (Gm[i] - v));
-      return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
-    };
+    // a point of the flat plane's css px at height t, through the level map at t (the levels' maps are affine in the
+    // height); a plane point there
+    const lift = (q, t) => { const m = Fm.map((v, i) => v + t * (Gm[i] - v)); return [m[0] * q[0] + m[2] * q[1] + m[4], m[1] * q[0] + m[3] * q[1] + m[5]]; };
+    const at = (p, t) => lift(pane.w2s(p), t);
     const mix = (z, w, t) => C(z.re + t * (w.re - z.re), z.im + t * (w.im - z.im));
-    const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS;
-    // (a point's path through the heights J0..J1 of the connectors' samples)
-    const path = (get, J0, J1) => { for (let J = J0; J <= J1; J++) { const q = at(get(J), J / LINK_N); if (J === J0) ctx.moveTo(...q); else ctx.lineTo(...q); } };
+    const ink = (P) => TH.c[P.ink], per = LINK_N / TUBE_LEVELS, box = [[0, 0], [pane.w, 0], [pane.w, pane.h], [0, pane.h]];
+    // (a point's path through the heights J0..J1 of the connectors' samples, as far as it is inside the box: its runs
+    // there, and the points where it leaves it)
+    const clipped = (get, J0, J1) => { const q = []; for (let J = J0; J <= J1; J++) q.push([...pane.w2s(get(J)), J / LINK_N]); return stackClipPath(pane, q); };
+    const runs = (c) => { for (const r of c.runs) r.forEach((p, i) => { const [x, y] = lift(p, p[2]); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); };
     ctx.save();
     ctx.lineJoin = 'round'; ctx.lineCap = 'round';
     for (let j = 0; j <= TUBE_LEVELS; j++) {
@@ -115,36 +119,67 @@
       if (j > 0) {
         d.pieces.forEach((P, n) => {
           ctx.globalAlpha = TUBE_RULE_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.beginPath();
-          for (const lev of ln.pieces[n].loops) for (let i = 0; i < lev[0].length; i += TUBE_RULE_EVERY) path((J) => lev[J][i], (j - 1) * per, j * per);
+          for (const lev of ln.pieces[n].loops) for (let i = 0; i < lev[0].length; i += TUBE_RULE_EVERY) runs(clipped((J) => lev[J][i], (j - 1) * per, j * per));
           ctx.stroke();
         });
       }
       if (j === 0 || j === TUBE_LEVELS) continue;
+      const t = j / TUBE_LEVELS;
+      ctx.save();
+      ctx.beginPath(); box.forEach((q, i) => { const [x, y] = lift(q, t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); ctx.clip();
       d.pieces.forEach((P, n) => {
         ctx.beginPath();
-        for (const lev of ln.pieces[n].loops) { lev[j * per].forEach((z, i) => { const [x, y] = at(z, j / TUBE_LEVELS); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
+        for (const lev of ln.pieces[n].loops) { lev[j * per].forEach((z, i) => { const [x, y] = at(z, t); if (i) ctx.lineTo(x, y); else ctx.moveTo(x, y); }); ctx.closePath(); }
         ctx.globalAlpha = TUBE_FILL_A * fade; ctx.fillStyle = ink(P).c0; ctx.fill('evenodd');
         ctx.globalAlpha = TUBE_RING_A * fade; ctx.strokeStyle = ink(P).edge; ctx.lineWidth = 1; ctx.stroke();
       });
+      ctx.restore();
     }
-    // the critical points' strands, dotted, to their values
+    // the critical points' strands, dotted, to their values, and an open ring where one leaves the box
     const strands = [];
-    ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2; ctx.setLineDash(TUBE_CRIT_DOTS);
     for (const lev of ln.crit) {
       const z = lev[0], w = lev[LINK_N];
       if (!CX.isFin(w)) continue;
-      ctx.beginPath(); path((J) => lev[J], 0, LINK_N); ctx.stroke();
-      strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: at(z, 0), to: at(w, 1), pts: lev.filter((_, J) => J % per === 0).map((p, J) => at(p, J / TUBE_LEVELS)) });
+      const c = clipped((J) => lev[J], 0, LINK_N);
+      ctx.globalAlpha = fade; ctx.strokeStyle = TH.cut; ctx.lineWidth = 2; ctx.setLineDash(TUBE_CRIT_DOTS);
+      ctx.beginPath(); runs(c); ctx.stroke();
+      ctx.setLineDash([]); ctx.lineWidth = 1.5;
+      for (const e of c.ends) { ctx.beginPath(); ctx.arc(...lift(e, e[2]), TUBE_OFF, 0, TAU); ctx.stroke(); }
+      strands.push({ z: [z.re, z.im], w: [w.re, w.im], from: at(z, 0), to: at(w, 1), off: c.ends.length, pts: lev.filter((_, J) => J % per === 0).map((p, J) => at(p, J / TUBE_LEVELS)) });
     }
     ctx.restore();
-    // the labels (drawStackLabels): straight, the narrowings; curved, the tears
-    const c = C(s.c[0], s.c[1]);
-    const labels = ln.mode === 'curved'
+    // the labels (drawStackLabels): straight, the narrowings; curved, the tears; the tubes out of the window and the
+    // pieces that meet (of the tubes the glide brings together, the lowest meeting alone)
+    const c = C(s.c[0], s.c[1]), exits = tubeExits(pane, ln), num = (x) => I18N.num(x.toFixed(2));
+    const labels = (ln.mode === 'curved'
       ? ln.tears.map((r) => ({ text: linkTearText(), kind: 'tear', piece: r.piece, z: [r.z.re, r.z.im], s: r.s, at: at(r.z, r.s) }))
-      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) }));
+      : d.narrows.map((n) => ({ text: tubeNarrowText(n), kind: 'narrow', z: [n.z.re, n.z.im], s: n.s, at: at(mix(n.z, c, n.s), n.s) })))
+      .concat(exits.map((x) => ({ text: x.s1 < 1 ? $t('out of the window from here to height {s}', { s: num(x.s1) }) : $t('out of the window from here up'), kind: 'exit', piece: x.piece, s: x.s0, s1: x.s1, at: lift(x.at, x.at[2]) })))
+      .concat(ln.crosses.filter((x, i) => x.kind === 'cross' || ln.crosses.findIndex((y) => y.kind === 'sooner') === i)
+        .map((x) => ({ text: x.kind === 'cross' ? $t('the pieces cross here, not a join') : $t('the glide brings the pieces together from here, not a join'), kind: x.kind, pieces: x.pieces, z: [x.z.re, x.z.im], s: x.s, s1: x.s1, at: at(x.z, x.s) })));
     const pts = (lev, J) => lev[J].map((p, i) => [p, i]).filter(([, i]) => i % TUBE_RULE_EVERY === 0).map(([p]) => ({ p: [p.re, p.im], px: at(p, J / LINK_N) }));
     return {
       fade, ruleA: TUBE_RULE_A, dots: TUBE_CRIT_DOTS, mode: ln.mode, strands, labels,
       pieces: d.pieces.map((P, n) => ({ ink: P.ink, colour: ink(P).edge, loops: ln.pieces[n].loops.map((lev) => ({ floor: pts(lev, 0), glass: pts(lev, LINK_N) })) })),
     };
+  }
+  // Where the tubes leave the window (the pane's rectangle, at every height): for each piece whose slices go out of it,
+  // the first stretch of heights they are out, s0 to s1 (1: they do not come back in), and the point (the flat plane's
+  // css px, with its height) where the first of its strands to go out leaves the box: [{piece, s0, s1, at}]
+  function tubeExits(pane, ln) {
+    const out = [], inside = (q) => q[0] >= 0 && q[0] <= pane.w && q[1] >= 0 && q[1] <= pane.h;
+    ln.pieces.forEach((P, n) => {
+      let J0 = -1, J1 = LINK_N, first = null;
+      for (let J = 1; J < LINK_N; J++) {
+        const away = [];
+        P.loops.forEach((lev, l) => lev[J].forEach((z, i) => { if (!inside(pane.w2s(z))) away.push([l, i]); }));
+        if (away.length && J0 < 0) { J0 = J; first = away[0]; } else if (!away.length && J0 >= 0) { J1 = J; break; }
+      }
+      if (J0 < 0) return;
+      const lev = P.loops[first[0]], q = [];
+      for (let J = 0; J <= J0; J++) q.push([...pane.w2s(lev[J][first[1]]), J / LINK_N]);
+      const e = stackClipPath(pane, q).ends[0] || q[J0];
+      out.push({ piece: n, s0: J0 / LINK_N, s1: J1 / LINK_N, at: e });
+    });
+    return out;
   }

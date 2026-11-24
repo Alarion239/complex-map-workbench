@@ -167,15 +167,15 @@
       ctx.restore();
     };
     // (the connectors, by the kind the key's switch shows. Curved, the lines to the target rise along them, through the
-    // levels' maps at their heights, as far as the tubes stand up (tubeFade): straight down they are the lines from the
-    // floor to the glass that Look down draws, as they are straight)
+    // levels' maps at their heights, as far as the tubes stand up (tubeFade), and inside the box only: straight down they
+    // are the lines from the floor to the glass that Look down draws, as they are straight)
     let tubes = null, picks = null;
     const ln = mk ? stackLinks(s, linkMode(), mk.zsZ, mk.critZ) : null, up = tubeFade(tilt);
-    const link = (path) => path.map((p, J) => {
-      const t = J / LINK_N, m = F.map((v, n) => v + t * (G[n] - v)), z = path[0], w = path[LINK_N];
-      const [x, y] = pane.w2s(C((1 - up) * (z.re + t * (w.re - z.re)) + up * p.re, (1 - up) * (z.im + t * (w.im - z.im)) + up * p.im));
-      return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
-    });
+    // (a line's runs inside the box (stackClipPath), each a polyline in the canvas's css px)
+    const link = (path) => stackClipPath(pane, path.map((p, J) => {
+      const t = J / LINK_N, z = path[0], w = path[LINK_N];
+      return [...pane.w2s(C((1 - up) * (z.re + t * (w.re - z.re)) + up * p.re, (1 - up) * (z.im + t * (w.im - z.im)) + up * p.im)), t];
+    })).runs.map((r) => r.map(([x, y, t]) => { const m = F.map((v, n) => v + t * (G[n] - v)); return [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]]; }));
     const lines = ln && ln.mode === 'curved' && up > 0 ? Object.assign({ link: (i) => ln.zs[i] && link(ln.zs[i]) }, lv) : lv;
     const layers = {
       'floor marks': () => mk && drawLookLayer(ctx, mk, lv, 'floor'),

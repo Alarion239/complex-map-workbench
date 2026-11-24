@@ -10,9 +10,15 @@
 //    median step), with no label; on the steps' own cuts (the test hook's branch: false) the cut tears it, and the tear is
 //    labelled "torn here by the glide’s cut, not a split". Straight, the narrowing keeps its label. M2 and M3, curved:
 //    no slice is torn (M2's inner piece is stretched far, not torn);
+//  - the window, in both kinds: nothing of the tubes is drawn outside the box (the overlay's px away from its hull and the
+//    labels' plates); M2, curved: the inner piece leaves the window, labelled "out of the window from here to height …"
+//    inside the pane; straight, and M1 and M3, no tube leaves it;
+//  - the pieces' meetings: M3, curved, the zoom's path makes the three tubes one from below half way up, much lower than
+//    the straight strands bring them together: labelled once, "the glide brings the pieces together from here, not a
+//    join"; M3 straight, and M1 and M2 in both kinds, no meeting is labelled;
 //  - the choice is saved with the steps view's place (S.sv.links) and a reload opens on it; the switch takes the arrow keys
-//    (→ and ←) and the mouse, and keeps the focus on the radio checked; it shows its name, Connectors; on a phone (390 × 844) its radios are 44 px
-//    targets inside the switch's box;
+//    (→ and ←) and the mouse, and keeps the focus on the radio checked; it shows its name, Connectors; on a phone
+//    (390 × 844) its radios are 44 px targets inside the switch's box;
 //  - curved, seen straight down, the frame is Look down's (the lines to the target bend only as the tubes stand up);
 //  - timing (reported, not gated): a Tilt turn on M3 draws the tubes in about the same time a frame in both kinds (the
 //    curved connectors' samples are kept, not made again a frame).
@@ -26,7 +32,7 @@ const ok = (name, cond, got) => { if (cond) pass++; else fails.push({ name, got 
 const until = (expr, max = READY_MS) => settled({ until: expr, max });
 const frames = () => ev('new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)))');
 const DEG = Math.PI / 180;
-const TEAR = 'torn here by the glide’s cut, not a split', NARROW = 'narrows here: F′(−1) = −2, not a join';
+const TEAR = 'torn here by the glide’s cut, not a split', NARROW = 'narrows here: F′(−1) = −2, not a join', SOONER = 'the glide brings the pieces together from here, not a join';
 const MAPS = {
   M1: { steps: [{ type: 'pown', params: { n: 2 }, on: true }], c: [1, 0], r: 0.5 },
   M2: { steps: [{ type: 'joukowski', params: {}, on: true }], c: [0.6, 0.5], r: 0.35 },
@@ -71,7 +77,33 @@ const worstStep = (data, j) => {
   return worst;
 };
 
+// the overlay's px drawn outside the box as the camera sees it (the hull of its floor's and glass's corners, with OUT_PX
+// to spare for the open rings on its sides), away from the labels' plates, sampled every 3 device px; and the pane's size
+const OUT_PX = 6;
+let pane = null;
+const outside = (d) => ev(`(() => {
+  const o = document.getElementById('overlayL'), r = o.getBoundingClientRect(), dpr = o.width / r.width, w = r.width, h = r.height, D = ${JSON.stringify(d)};
+  const lv = (m, x, y) => [m[0] * x + m[2] * y + m[4], m[1] * x + m[3] * y + m[5]];
+  const pts = [[0, 0], [w, 0], [w, h], [0, h]].flatMap(([x, y]) => [lv(D.floor, x, y), lv(D.glass, x, y)]).sort((a, b) => a[0] - b[0] || a[1] - b[1]);
+  const cross = (o, a, b) => (a[0] - o[0]) * (b[1] - o[1]) - (a[1] - o[1]) * (b[0] - o[0]);
+  const lo = [], hi = [];
+  for (const p of pts) { while (lo.length > 1 && cross(lo[lo.length - 2], lo[lo.length - 1], p) <= 0) lo.pop(); lo.push(p); }
+  for (const p of pts.slice().reverse()) { while (hi.length > 1 && cross(hi[hi.length - 2], hi[hi.length - 1], p) <= 0) hi.pop(); hi.push(p); }
+  const hull = lo.slice(0, -1).concat(hi.slice(0, -1));
+  const away = (x, y) => hull.some((a, i) => { const b = hull[(i + 1) % hull.length], L = Math.hypot(b[0] - a[0], b[1] - a[1]); return cross(a, b, [x, y]) / L < -${OUT_PX}; });
+  const plates = (D.tubes ? D.tubes.labels : []).map((l) => l.box).filter(Boolean);
+  const data = o.getContext('2d').getImageData(0, 0, o.width, o.height).data;
+  let n = 0;
+  for (let Y = 0; Y < o.height; Y += 3) for (let X = 0; X < o.width; X += 3) {
+    if (data[(Y * o.width + X) * 4 + 3] < 40) continue;
+    const x = X / dpr, y = Y / dpr;
+    if (away(x, y) && !plates.some((b) => x >= b[0] - 2 && x <= b[2] + 2 && y >= b[1] - 2 && y <= b[3] + 2)) n++;
+  }
+  return n;
+})()`);
+
 await open('M1');
+pane = await ev(`(() => { const r = document.getElementById('overlayL').getBoundingClientRect(); return { w: r.width, h: r.height }; })()`);
 ok('the page has the connectors\' hook', await hooked(), null);
 for (const m of ['M1', 'M2', 'M3']) {
   if (m !== 'M1') await open(m);
@@ -79,11 +111,11 @@ for (const m of ['M1', 'M2', 'M3']) {
   const r = info[m] = {};
   const s0 = r.switch = await sw();
   ok(`${m}: the key ends with the switch, Glide paths and Straight, Straight checked`, !!s0 && s0.vals.join() === 'curved,straight' && s0.on === 'straight' && s0.label === 'Connectors', s0);
-  const d0 = await drawn(), h0 = await floorHash();
+  const d0 = await drawn(), h0 = await floorHash(), o0 = await outside(d0);
   await shot(`links-${m}-straight`);
   ok(`${m}: straight on opening`, d0.links === 'straight' && d0.tubes.mode === 'straight', { links: d0.links, mode: d0.tubes.mode });
   await press('curved');
-  const d1 = await drawn(), h1 = await floorHash();
+  const d1 = await drawn(), h1 = await floorHash(), o1 = await outside(d1);
   await shot(`links-${m}-curved`);
   ok(`${m}: a press on Glide paths draws the curved connectors`, d1.links === 'curved' && d1.tubes.mode === 'curved' && (await sw()).on === 'curved', { links: d1.links, mode: d1.tubes.mode });
   ok(`${m}: the floor's picture and its lit patches do not change`, h0 === h1, { h0, h1 });
@@ -105,6 +137,26 @@ for (const m of ['M1', 'M2', 'M3']) {
   r.glide = { tried, on, worstOff };
   ok(`${m}: curved, a tube's points lie on the steps view's glide at heights 1/4, 1/2 and 3/4`, tried > 0 && on === tried, r.glide);
   // (a slice stretched far, M2's inner piece, is no tear)
+  // (the window: each label's kind, straight and curved; what the overlay draws outside the box)
+  const kinds = (d) => d.tubes.labels.map((x) => x.kind).sort().join(',');
+  r.kinds = { straight: kinds(d0), curved: kinds(d1) };
+  r.outside = { straight: o0, curved: o1 };
+  ok(`${m}: straight, no tube leaves the window`, !/exit/.test(r.kinds.straight), r.kinds);
+  ok(`${m}: nothing of the tubes is drawn outside the box, in either kind`, r.outside.straight === 0 && r.outside.curved === 0, r.outside);
+  if (m === 'M2') {
+    const ex = d1.tubes.labels.filter((x) => x.kind === 'exit');
+    r.exit = ex;
+    ok('M2: curved, the inner piece leaves the window, labelled "out of the window from here to height …"', ex.length === 1 && /^out of the window from here/.test(ex[0].text) && ex[0].s > 0 && ex[0].s < 1, ex);
+    ok('M2: curved, the exit label lies inside the pane', ex.length === 1 && !!ex[0].box && ex[0].box[0] >= 0 && ex[0].box[1] >= 0 && ex[0].box[2] <= pane.w && ex[0].box[3] <= pane.h, { box: ex[0] && ex[0].box, pane });
+  } else ok(`${m}: curved, no tube leaves the window`, !/exit/.test(r.kinds.curved), r.kinds);
+  if (m === 'M3') {
+    // (the zoom's path makes the three tubes one from half way up, well below where the straight strands bring them
+    // together: labelled once, at the lowest meeting)
+    const meets = (d) => d.tubes.labels.filter((x) => x.kind === 'cross' || x.kind === 'sooner');
+    const c1 = r.meetCurved = meets(d1), c0 = r.meetStraight = meets(d0);
+    ok(`M3: curved, the glide's early meeting of the pieces is labelled once, "${SOONER}", below the glass's half`, c1.length === 1 && c1[0].kind === 'sooner' && c1[0].text === SOONER && c1[0].s < 0.5, c1);
+    ok('M3: straight, no meeting is labelled', c0.length === 0, c0);
+  } else ok(`${m}: no meeting of pieces is labelled, in either kind`, !/cross|sooner/.test(r.kinds.curved + ',' + r.kinds.straight), r.kinds);
   if (m !== 'M1') ok(`${m}: curved, no slice is torn and no tear is labelled`, L.data.tears.length === 0 && !d1.tubes.labels.some((x) => x.kind === 'tear'), { tears: L.data.tears, labels: d1.tubes.labels });
   if (m === 'M1') {
     const wc = r.worstCurved = Math.max(...[...Array(n - 1)].map((_, j) => worstStep(L.data, j + 1)));
