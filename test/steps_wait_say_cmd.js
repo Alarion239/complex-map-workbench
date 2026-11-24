@@ -9,7 +9,10 @@
 // - says: each time, the description is the language's "Preparing the glide… {p} %", p the fill in whole tens (floor);
 // - follows: it takes at least MIN_SAYS values during the wait (it changes with the ring);
 // - once: the live region says the language's "Preparing the glide…" exactly once while the play waits;
-// - after: once the play starts, ▶ is described and named as it is when it plays (no share, not Cancel), and not busy.
+// - after: once the play starts, ▶ is described and named as it is when it plays (no share, not Cancel), and not busy;
+// - unknown: a gauge with no total yet (null) leaves the ring at the unknown fill (0.25) and the description at the
+//   language's "Preparing the glide…" alone, no share that was not measured; control: a gauge of 0.47 says 40 %
+//   (__cmwWaitSay: the wait's look on a button apart from the page).
 // A command file for a CDP daemon (test/cdp_kit README); prints { pass, fails, info }.
 const fails = [], info = {};
 let pass = 0;
@@ -51,6 +54,10 @@ for (const lang of Object.keys(WORDS)) {
   await goOk(`http://localhost:${PORT}/test.html?ns=${ns}&view=steps&lang=${lang}`);
   const up = await settled({ only: true, max: 60000, until: 'typeof __cmwSteps === "function" && !!window.GLR' });
   if (!up.ok) throw new Error(`${lang}: the page hooks are not up: ` + JSON.stringify(up));
+  const unk = await ev('__cmwWaitSay(null)'), known = await ev('__cmwWaitSay(0.47)');
+  info[`${lang} unknown`] = { unk, known };
+  ok(`${lang} unknown: with no total yet the ring stands at 0.25 and the description is "${W.live}" alone`, !!unk && unk.desc === W.live && unk.fill === 0.25, unk);
+  ok(`${lang} unknown control: a gauge of 0.47 is described with 40 %`, !!known && known.desc === W.say.replace('{p}', '40'), known);
   await ev(`__cmwSet('morphPaths', false), __cmwSteps({ scope: 'all', surf: 'plane', ahead: { ms: 0, waitMs: ${WAIT_MS} } }), 1`);
   await rest(0);
   // (the chain's first glide plays live; its frame cost is measured after it ends)
