@@ -670,11 +670,42 @@
   // disc about the image of infinity), where no cell of the box's grid reaches. The inner ring is the part the glides
   // of a periodic map (exp) bring into the block, so it has the finer grid. The inner ring runs a little past the outer
   // one's start (LAND_FAR_LAP), so the chords of their polygons, of different sizes, leave no crack.
+  // With carry, the outer ring carries its copies' strip (dup, svLandFarDup).
   const LAND_FAR_NEAR = 4, LAND_FAR_REACH = 1000, LAND_FAR_LAP = 1.002;
-  const svLandFar = (src) => {
+  const svLandFar = (src, carry = null) => {
     const w = src.x1 - src.x0, h = src.y1 - src.y0, x = (src.x0 + src.x1) / 2, y = (src.y0 + src.y1) / 2, r = Math.min(w, h) / 2;
-    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)]];
+    const outer = [x, y, LAND_FAR_NEAR * r, LAND_FAR_REACH * Math.max(w, h)];
+    const dup = carry && svLandFarDup(carry, src, outer[2]);
+    if (dup) outer.dup = dup;
+    return [[x, y, r, LAND_FAR_LAP * LAND_FAR_NEAR * r], outer];
   };
+  // The outer ring's copies of the nearer surface (LAND_CARRY_VS uDup): where the carried surface is periodic in plane s's
+  // point z, with a period P whose half is shorter than the outer ring's inner radius R (the places F(z + P) = F(z) and the
+  // heights the same: the glide map's period, invHomPer, or at rest the chain's from s, Inverse.keyPeriod, or the least
+  // multiple of it, up to LAND_DUP_M, that the height has too, checked at LAND_DUP_AT points of the box), each point of the
+  // strip within sqrt(R² − |P|²/4) of the box's centre across P has a copy z − kP within R, which the box's grid and the
+  // inner ring draw with their finer cells. The outer ring leaves out its triangles in that strip: its coarse cells span
+  // several periods there, and their facets stood out of the surface they copy (#1137). [n.x, n.y, half-width, 1], n the
+  // unit normal to P; null where no such period is found
+  const LAND_DUP_M = 4, LAND_DUP_AT = [[0.5, 0.5], [0.2, 0.3], [0.8, 0.7], [0.35, 0.85], [0.7, 0.15]], LAND_DUP_TOL = 1e-7;
+  function svLandFarDup(carry, src, R) {
+    if (carry.plain) return null;
+    let p0 = null;
+    try {
+      p0 = carry.b != null ? invHomPer(carry.s, carry.b, carry.u) : carry.a > carry.s ? Inverse.keyPeriod(invPlan(carry.s, carry.a)) : null;
+    } catch (e) { p0 = null; }
+    if (!p0 || !(CX.abs(p0) > 0)) return null;
+    const F = cpuMap(carry.map), H = cpuMap(carry.hmap), same = (a, b) => (CX.isFin(a) ? CX.isFin(b) && CX.abs(CX.sub(a, b)) <= LAND_DUP_TOL * (1 + CX.abs(a)) : !CX.isFin(b));
+    const ht = (z) => { const v = H(z); return CX.isFin(v) ? C(landValue(v), 0) : v; };
+    const zs = LAND_DUP_AT.map(([fx, fy]) => C(src.x0 + fx * (src.x1 - src.x0), src.y0 + fy * (src.y1 - src.y0)));
+    for (let m = 1; m <= LAND_DUP_M; m++) {
+      const P = CX.scale(p0, m), half = CX.abs(P) / 2;
+      if (half >= R) return null;
+      if (!zs.every((z) => same(F(z), F(CX.add(z, P))) && same(ht(z), ht(CX.add(z, P))))) continue;
+      return [-P.im / (2 * half), P.re / (2 * half), Math.sqrt(R * R - half * half), 1];
+    }
+    return null;
+  }
   // the glide between planes a and b at x: (a, b, u, the map of the z-plane's shapes along h_{b,u}, and near, the nearer
   // plane, whose title and key the pane shows). The regions' fill and stroke do not switch at near: each blends its own
   // look in by its share own(x) (svStagedOf), outlined over colour and filled past the colour plane as each plane at rest
