@@ -60,18 +60,17 @@
   // chip of the mode Esc closes next also shows Esc.
   const modeNext = () => {
     if (S.focus > 0) return 'alone';
-    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view, morphOn())) return 'solo';
-    return morphOn() ? 'morph' : null;
+    if (S.view.main === 'xy' && S.solo && !Views.merged(S.view)) return 'solo';
+    return null;
   };
   function modeClose(m) {
     if (m === 'tool') { Construct.cancel(); setTool('select'); return; }
     if (m === 'listen') { sndStopPlay(true); updateDraftChips(); return; }
     if (m === 'alone') setFocus(0);
     else if (m === 'solo') setSolo(S.solo);
-    else if (m === 'morph') closeTransport();
   }
   function syncModeChips() {
-    const mg = Views.merged(S.view, morphOn()), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
+    const mg = Views.merged(S.view), side = mg || (S.view.main === 'xy' && S.solo) || 'L';
     const head = document.querySelector(side === 'R' ? '#paneR .pane-head' : '#paneL .pane-head');
     if (!head) return;
     let box = $('modeChips');
@@ -79,7 +78,6 @@
     const next = modeNext();
     const want = [];
     if (S.view.main === 'xy' && S.solo && !mg) want.push(['solo', S.solo === 'L' ? $t('Y hidden') : $t('X hidden'), $t('Show both planes'), '']);
-    if (morphOn()) want.push(['morph', $t('Deformation'), $t('Turn the deformation off'), 'M']);
     // the Construct tool in use: its name and count in the head, × leaves the tool (the pick's sentence stays on the plane)
     const tc = Construct.toolChip && Construct.toolChip();
     if (tc) want.push(['tool', tc.name, $t('Leave the tool'), '', tc.count || '']);
@@ -326,9 +324,6 @@
     h, openMenu, toast, copyText, saveFile, lsk,
     numbers: figNumbers, numberHold: figNumberHold, numberAt: figNumberAt, numberParse: figNumberParse,
     svIndex: () => SV.i,
-    // Video in the export dialog turns the deformation on, where there is one
-    canDeform: () => morphRange().steps.length > 0,
-    deformOn: () => { if (!morphRange().steps.length) return false; if (!morph.open) openTransport(); return morphOn(); },
     soundDone: () => sndExportDone(), soundError: () => sndError(),
     art: artRender,
     state: () => ({ alpha: S.alpha, focus: S.focus, lFlat: lFlat(), rImage: rImage(), lGlobe: lGlobe(), rGlobe: rGlobe(), lLand: lLand(), main: S.view.main }),
