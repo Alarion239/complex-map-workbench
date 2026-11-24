@@ -25,6 +25,7 @@
     T: -1,           // the colour plane's stage (-1: the last plane, F's)
     scope: 'all',    // 'all' | 'in'
     surf: 'plane',   // 'plane' | 'sphere' | 'land' | 'stack' (19-stack.js)
+    links: 'straight',   // the Stack's connectors: 'straight' | 'curved' (19-stack-links.js)
     g: HomRange.glider({ omega: 7 }),   // the position x in planes (set directly: a scrub, a swipe, the glide below)
     anim: null,      // the glide to a plane: {from, to, t0, ms, held, drawn}, eased in and out over a fixed time (no spring tail); held: the place a hold waits on ({x: the place it waits to draw, at: the place it shows, el: its clock there}), drawn: its last frame's place and clock (svMotionDrawn)
     sig: null,       // the chain and shapes last seen (another one: an example or a link was opened)
@@ -234,7 +235,7 @@
     // Views.svOf, concept §6)
     const areas = S.shapes.some((s) => s.visible !== false && kindType(s) === 'area');
     const o = Views.svOf(S.view, areas, S.steps.length === 0);
-    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.links = 'straight';
     if (SV.els) setSeg(SV.els.scope, SV.scope);   // (the head's switch shows what the view opened on)
     SV.i = 0; SV.g.set(0);
   }
@@ -251,7 +252,7 @@
     if (!SV.on || !SV.ready) return null;
     // (a step shown alone keeps the whole chain's place, which is what undo and a link restore)
     const b = SV.alone && SV.back ? SV.back : null;
-    const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, speed: SV.speed };
+    const o = { at: b ? b.i : SV.anim ? SV.anim.to : SV.g.x, T: b ? b.T : SV.T, scope: SV.scope, surf: SV.surf, links: SV.links, speed: SV.speed };
     if (SV.alone) o.alone = SV.alone;   // (the step shown alone is part of the state: a reload, a language switch and a link keep it)
     return o;
   }
@@ -259,7 +260,7 @@
     // (by the chain's own steps: after an undo the active steps (svPlanes) still read the chain before it, which would clamp the place)
     const o = Views.cleanSv(S.sv, svAloneOk() ? svPlanes() : svPlanesOf(S.steps));
     if (!o) return false;
-    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf;
+    SV.T = o.T; SV.scope = o.scope; SV.surf = o.surf; SV.links = o.links || 'straight';
     if (o.speed) { SV.speed = o.speed; svPlayRebase(); if (SV.els) { if (SV.els.speed) SV.els.speed.value = o.speed; if (SV.els.sheetSpeed) SV.els.sheetSpeed.value = o.speed; } }   // (a state without one keeps the device's)
     SV.anim = null; SV.g.max = svPlanes().length - 1; SV.g.set(o.at); SV.i = Math.round(o.at);
     SV.at = Math.abs(o.at - SV.i) < SV_REST_U ? SV.i : null;
@@ -280,7 +281,7 @@
     SV.at = Math.abs(p - SV.i) < SV_REST_U ? SV.i : null;
     svApply();
   }
-  // an undo put another S.sv under the view
+  // another S.sv is under the view: an undo put it there, or the tour's end gave the user's work back
   function svRestored() {
     if (!SV.on || !SV.ready) return;
     if (SV.alone) { SV.alone = 0; SV.back = null; }   // (an undo leaves a step shown alone)
@@ -3118,6 +3119,7 @@
   // writes the ring's transform alone, from the nodes' centres measured once per layout, with no forced layout)
   function svSync() {
     if (!SV.on || !SV.els || SV.offscreen) return;
+    svTileSync();
     const E = SV.els, k = svStage(), T = svT(), P = svPlanes();
     svBuildTrack();
     // (the Cauchy parts in the style row read the colour plane and the kind of integral the selected curve has: the row is
