@@ -21,7 +21,7 @@ const PORT = (/localhost:(\d+)/.exec(fs.readFileSync(DIR + '/cdpd.js', 'utf8')) 
 const K = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'steps_chain_kit.js'), 'utf8'))({ ev, go, view, settled, PORT });
 const RATES = [1, 3, 4, 6];
 const BUILT_MAX_MS = 400000;     // the meshes are built within this at the slowest rate
-const SLOW_MIN = 3;              // the least factor by which a mesh's CPU per evaluation grows from rate 1 to 6 (about 6 times; the cold run to a warm one: 2 at most)
+const SLOW_MIN = 3;              // the least factor by which a mesh's CPU per evaluation grows from rate 1 to 6: about 6 times throttled, about 2.1 to 2.2 at most unthrottled (a cold run to a warm one)
 const CAP_SHARE = 0.9;           // the share of the cap's milliseconds a mesh that ended on it has spent at least
 const ENDS = ['done', 'work', 'nodes', 'budgetMs'];
 const MESHES = { all: /^__svAll\|/, ring: /^__svRing\|/ };
@@ -52,6 +52,8 @@ for (const tag of Object.keys(MESHES)) {
   // (one key: the meshing window follows the pane's box when the mesh is built, so two runs can mesh two windows)
   const byKey = new Map();
   for (const e of fixed) byKey.set(e.key, (byKey.get(e.key) || []).concat(e));
+  // (a key with one mesh compares nothing: its size is in info.groups)
+  info.groups = Object.assign(info.groups || {}, { [tag]: [...byKey].map(([key, same]) => ({ key, meshes: same.length })) });
   for (const [key, same] of byKey) ok(`the ${tag} mesh: those of one key that end on a deterministic budget are one mesh (nodes, evaluations, triangles), at every slowing`, same.every((e) => e.nodes === same[0].nodes && e.work === same[0].work && e.n === same[0].n), { key, same });
   const per = (e) => e.ms / Math.max(1, e.work);
   ok(`the ${tag} mesh at 6 times spends at least ${SLOW_MIN} times the CPU per evaluation that it spends at 1 (the slowing is felt)`, !!base[tag] && !!slow[tag] && per(slow[tag]) >= SLOW_MIN * per(base[tag]), { one: base[tag] && base[tag].ms / base[tag].work, six: slow[tag] && slow[tag].ms / slow[tag].work });
