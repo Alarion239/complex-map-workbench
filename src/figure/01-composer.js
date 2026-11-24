@@ -146,7 +146,7 @@
   XD.at = (it, x, y, ax = 'start', ay = 'base', kind = 'label', halo = 0) => {
     const b = XD.boxOf(it, x, y, ax, ay);
     if (XD.rec) XD.rec.push({ tex: it.tex, pt: it.pt, color: it.color, x, y, ax, ay, halo });
-    XD.boxes.push({ kind, tex: it.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1, base: b.base });
+    XD.boxes.push({ kind, tex: it.tex, x0: b.x0, y0: b.y0, x1: b.x1, y1: b.y1 });
     if (XD.texts && TEXT_KINDS.includes(kind)) {
       const text = XD.plain(it.tex);
       if (text) XD.texts.push({ kind, text, x: b.x0, base: b.base, w: b.x1 - b.x0, h: b.y1 - b.y0 });
