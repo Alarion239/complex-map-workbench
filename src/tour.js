@@ -2539,8 +2539,7 @@ const Tour = (() => {
     const tr = tryOf(step);
     const end = (t) => (/[.!?…]\s*$/.test(t) ? t.trim() : t.trim() + '.');
     const line = tr ? plainCopy(tryFor(tr), modKey()) : step.lead ? plainCopy($t(leadFor(step)), modKey()) : '';
-    // (what the tour changed in the user's settings for this step, and that they come back, is said to a screen reader: the
-    // Details panel that showed it as text is gone)
+    // (what the tour changed in the user's settings for this step, and that they come back, is said to a screen reader)
     const notes = (r.picNote && step.pictures ? ' ' + $t('The tour turns the cards\' pictures on for this step; your setting comes back after it.') : '')
       + (r.sndNote && step.hear ? ' ' + $t('The tour turns Hear the function on for this step; your setting comes back after it.') : '');
     r.ui.live.textContent = $t('{chapter}, step {k}. {title}. ', { chapter: $t(ch.title), k: r.countText, title: stepTitle(step) }) + (line ? end(line) : '') + notes;
