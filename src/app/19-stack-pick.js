@@ -51,35 +51,43 @@
     const f = at(0), g = at(1);
     return { floor: f && { p: f.p, z: f.pt, on: f.on }, glass: g && { p: g.p, w: g.pt, on: g.on } };
   }
-  // the selected disc when (x, y) is within LD_HIT / 2 css px of its ring on the glass (the target, while its marks show),
-  // or null
-  function stackRingAt(pane, x, y, camera = stackCam) {
+  // the selected disc when (x, y) is near its ring on the glass (the target, while its marks show), or null. Near is
+  // Look down's (ldRingNear) for a press of a finger or a pen (finger) or not, with the ring as drawn: an ellipse in Tilt,
+  // whose drawn radius inward is its half minor axis
+  function stackRingAt(pane, x, y, camera = stackCam, finger = false) {
     const s = findShape(selected);
     if (!lookMarksOn(s)) return null;
     const m = lookMarks(pane, s), G = stackLevel(pane, camera, 1);
     const pts = Array.from({ length: STACK_PICK_RING }, (_, i) => { const a = (TAU * i) / STACK_PICK_RING, u = m.c[0] + m.r * Math.cos(a), v = m.c[1] + m.r * Math.sin(a); return [G[0] * u + G[2] * v + G[4], G[1] * u + G[3] * v + G[5]]; });
-    return pts.some((p, i) => segDist([x, y], p, pts[(i + 1) % pts.length]) <= LD_HIT / 2) ? s : null;
+    const gap = Math.min(...pts.map((p, i) => segDist([x, y], p, pts[(i + 1) % pts.length])));
+    // (inside: (x, y) taken back through the glass's map lies in the disc; the least stretch of the map is the ratio of
+    // the ellipse's half minor axis to the ring's radius)
+    const det = G[0] * G[3] - G[1] * G[2], X = x - G[4], Y = y - G[5];
+    const inside = det !== 0 && Math.hypot((G[3] * X - G[2] * Y) / det - m.c[0], (G[0] * Y - G[1] * X) / det - m.c[1]) < m.r;
+    const sq = G[0] ** 2 + G[1] ** 2 + G[2] ** 2 + G[3] ** 2, least = Math.sqrt(Math.max(0, (sq - Math.sqrt(Math.max(0, sq * sq - 4 * det * det))) / 2));
+    return ldRingNear(gap, inside, m.r * least, finger) ? s : null;
   }
   // whether a floor's mark lies under (x, y) at the floor's point z: a lit patch, a lit twin's ring or a critical point's
-  // cross, seen through the floor's map
-  function stackFloorMark(pane, x, y, z, camera = stackCam) {
+  // cross, seen through the floor's map; a finger's or a pen's press (finger) reaches a ring or a cross LD_HIT_TOUCH / 2
+  // css px from its centre
+  function stackFloorMark(pane, x, y, z, camera = stackCam, finger = false) {
     if (pickPatch(leftStage(), z)) return true;
     const F = stackLevel(pane, camera, 0), near = (q, r) => { const [u, v] = pane.w2s(q); return Math.hypot(F[0] * u + F[2] * v + F[4] - x, F[1] * u + F[3] * v + F[5] - y) <= r; };
     const lit = floorPickNow();
-    if (lit && lit.zs.some((t) => near(t.z, PICK_RING + 4))) return true;
+    if (lit && lit.zs.some((t) => near(t.z, finger ? LD_HIT_TOUCH / 2 : PICK_RING + 4))) return true;
     const s = findShape(selected);
-    return lookMarksOn(s) && lookMarks(pane, s).critZ.some((c) => near(c, LD_CROSS + 4));
+    return lookMarksOn(s) && lookMarks(pane, s).critZ.some((c) => near(c, finger ? LD_HIT_TOUCH / 2 : LD_CROSS + 4));
   }
   // where neither level's marks are under the pointer and both levels are: the level a hover, a click or a held press
   // ('hover', 'click', 'hold') picks. A hover and a click the glass, the nearer level; a held press the floor
   const stackOverlap = (how) => (how === 'hold' ? 'floor' : 'glass');
   // the level the pointer at (x, y) picks for how (stackOverlap's), given the levels under it (stackPick's), or null off
-  // both
-  function stackPickLevel(pane, hit, x, y, how) {
+  // both; finger: a finger's or a pen's press, whose marks reach farther (stackRingAt, stackFloorMark)
+  function stackPickLevel(pane, hit, x, y, how, finger = false) {
     const f = hit.floor && hit.floor.on ? hit.floor : null, g = hit.glass && hit.glass.on ? hit.glass : null;
     if (!f && !g) return null;
-    if (g && stackRingAt(pane, x, y)) return 'glass';
-    if (f && stackFloorMark(pane, x, y, f.z)) return 'floor';
+    if (g && stackRingAt(pane, x, y, stackCam, finger)) return 'glass';
+    if (f && stackFloorMark(pane, x, y, f.z, stackCam, finger)) return 'floor';
     return f && g ? stackOverlap(how) : f ? 'floor' : 'glass';
   }
   // the glass's point w hovered (pinned: clicked), with its preimages on the floor; null clears an unpinned one
@@ -161,7 +169,7 @@
       drag = { mode: 'pickOut', level: 'floor', T, F, w0, x0: x, y0: y, disc: null, moved: false };
       return true;
     }
-    const ring = g && stackRingAt(pane, x, y);
+    const ring = g && stackRingAt(pane, x, y, stackCam, touch);
     if (ring) {
       selected = ring.id; zpSel = null; buildShapeList();
       drag = { mode: 'pickMove', level: 'glass', shape: ring, F: (w) => w, w: g.w, x0: x, y0: y, moved: false };
@@ -174,7 +182,7 @@
       drag = { mode: 'pickMove', level: 'floor', shape: patch, F, w: F(f.z), x0: x, y0: y, moved: false };
       return true;
     }
-    const d = { mode: 'stackPress', hit, x0: x, y0: y, x, y, slop: touch ? STACK_PICK_SLOP_TOUCH : STACK_PICK_SLOP, held: false, moved: false, z: null, pane };
+    const d = { mode: 'stackPress', hit, x0: x, y0: y, x, y, touch, slop: touch ? STACK_PICK_SLOP_TOUCH : STACK_PICK_SLOP, held: false, moved: false, z: null, pane };
     d.timer = setTimeout(() => { if (drag === d && !d.moved) stackHold(d, pane, d.x0, d.y0); }, STACK_HOLD_MS);
     drag = d;
     return true;
@@ -204,7 +212,7 @@
     clearTimeout(d.timer);
     const k = leftStage(), T = svT();
     if (d.held || d.moved) { if (d.z) pickLight(k, T, d.z); return; }
-    const lv = stackPickLevel(d.pane, d.hit, d.x0, d.y0, 'click');
+    const lv = stackPickLevel(d.pane, d.hit, d.x0, d.y0, 'click', d.touch);
     if (lv === 'glass') { stackPin(d.hit.glass.w); return; }
     if (lv === 'floor') { stackHov = null; stackReadW = null; stackReadZ = d.hit.floor.z; setReadouts(stackReadZ); pickLight(k, T, d.hit.floor.z); }
   }
