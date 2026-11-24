@@ -1965,7 +1965,7 @@ const SV_TIE_STATE = { v3: true, v4: true, v5: true, v6: true, nextId: 50, focus
 unit('sv.glide.tie', 'the steps view (on a GPU), z³ then cos about 0: a warm glide there and back between w₁ and w₂, Everywhere on the plane, at dpr 1 and 2. Its glide is the carried mesh\'s, and z³\'s three sheets tie over every w, so each frame draws the meshes twice to resolve the ties per pixel (#1054); info rows only: the cost of a frame with ties', () => svGlideUnit('tie', { id: 'sv.glide.tie', state: SV_TIE_STATE, planes: [1, 2], info: true }));
 // The pre-mapped meshes (SphereMesh) of z³ then cos about 0 at rest on w₂, the pane's and its outer ring's, which end on
 // the work budget or the node budget about the critical value's preimages (#2286). Built undisturbed: the time from the
-// arrival until both are built and drawn, their nodes and work, the CPU they took, each and in all (__cmwSphere's
+// arrival until both are built, their nodes and work, the CPU they took, each and in all (__cmwSphere's
 // stats), the main thread's long tasks meanwhile (the longest, and how many passed SV_TIE_LONG_MS: their jobs run in
 // slices) and the GL bytes held: info rows. Then a pan within their guard box (panPlane), every frame of which draws
 // them; and, with them dropped (__cmwSmReset) and building again, pan legs (there, and back) and scrubs of the strip from w₂ to w₁, each
@@ -1976,7 +1976,9 @@ unit('sv.glide.tie', 'the steps view (on a GPU), z³ then cos about 0: a warm gl
 const SV_TIE_LONG_MS = 50;
 async function svTieMeshUnit() {
   const pre = 'sv.tie_mesh';
-  const BUILT = '(() => { const q = __cmwSphere(); return q.entries.length >= 2 && q.jobs.length === 0 && !q.kick && __cmwSteps().carryPre > 0; })()';
+  // (both meshes built, the pane's and its outer ring's, and none building or asked for; whether a frame draws them is
+  // smNeed's call, not the build's)
+  const BUILT = '(() => { const q = __cmwSphere(); return q.entries.length >= 2 && q.jobs.length === 0 && !q.kick; })()';
   const BUILDING = '(() => { const q = __cmwSphere(); return q.jobs.length > 0; })()';
   const putLong = async (id, a, b) => {
     const ds = (await B.ev(`__perf.longSince(${a}, ${b})`)).map((t) => t[1]);
@@ -2058,7 +2060,7 @@ async function svTieMeshUnit() {
   putInteraction(`${pre}.scrub_building`, scrubs);
   put(`${pre}.building_after`, 'info', '', [after / Math.max(1, legs)]);
 }
-unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built and drawn, the CPU they took (each and in all), the long tasks meanwhile, their nodes and the GL bytes held (info); a pan of the plane within their guard box, which draws them every frame; a pan and a scrub begun while they build, a glide\'s press to its first frame while they build and once built; and the built meshes and their pan again at dpr 2 (#2286)', svTieMeshUnit, { timeoutS: 900 });
+unit('sv.tie_mesh', 'the steps view, z³ then cos about 0 at rest on w₂: its pre-mapped meshes (the pane\'s and its outer ring\'s), the time from the arrival until both are built, the CPU they took (each and in all), the long tasks meanwhile, their nodes and the GL bytes held (info); a pan of the plane within their guard box, which draws them every frame; a pan and a scrub begun while they build, a glide\'s press to its first frame while they build and once built; and the built meshes and their pan again at dpr 2 (#2286)', svTieMeshUnit, { timeoutS: 900 });
 const SV_EXT_STATE = (type, params) => ({ v3: true, v4: true, v5: true, v6: true, nextId: 50, focus: 0, shapes: [], steps: [{ type, params, on: true }], srcView: { cx: 0, cy: 0, s: 60 } });
 unit('sv.glide.dh', 'the steps view (on a GPU), the Douady–Hubbard map: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, its homotopy inverted by Newton from the identity seed landed down the external ray; info rows only (its cost is measured against the mesh the reference build draws, the look decides)', () => svGlideUnit('dh', { id: 'sv.glide.dh', state: SV_EXT_STATE('dh', { N: 64 }), info: true }));
 unit('sv.glide.bottcher', 'the steps view (on a GPU), the Böttcher coordinate at c = -1: a warm glide there and back between z and w₁, Everywhere on the plane, at dpr 1 and 2, the same seed and ray as the Douady–Hubbard map; info rows only', () => svGlideUnit('bottcher', { id: 'sv.glide.bottcher', state: SV_EXT_STATE('bottcher', { c: '-1', N: 64 }), info: true }));
