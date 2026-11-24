@@ -9,10 +9,10 @@
 //   0); the frame's pixel is the nearest of the four within MATCH, else none;
 // - (control) the region meshes' frame (the pre-mapped meshes dropped, __cmwSmReset, and the frame before one is built
 //   again: __cmwSteps().carryPre 0) shows the front sheet at no fewer than FRONT_MIN of the points;
-// - once the pre-mapped meshes are built (__cmwSphere()'s jobs done: the pane's and its outer ring's), the plane's frame
-//   shows the front sheet at no fewer than FRONT_MIN of the points too (whichever draws it: the pre-mapped meshes, or the
-//   region meshes again once their fix-up has nothing left that needs one), and no point of the arc's strip along the
-//   real axis (|Im w| < ARC.axis, AXIS_Y) is bare paper;
+// - the first frame the pre-mapped meshes draw once both are built (__cmwSphere()'s jobs done: the pane's and its outer
+//   ring's; a copy taken in that animation frame, whatever draws the frames after it) shows the front sheet at no fewer
+//   than FRONT_MIN of the points too, and no point of the arc's strip along the real axis (|Im w| < ARC.axis, AXIS_Y) is
+//   bare paper;
 // - no frame they draw, from the first until both are built, leaves a point of the pane bare paper (a PAPER_NX x PAPER_NY
 //   grid, every channel over PAPER_MIN), as the region meshes' frame leaves none (control).
 // The page is opened in the steps view (carry_kit's openSteps: test.html?view=steps).
@@ -55,22 +55,34 @@ for (const L of LEGS) {
   for (let x = Math.max(ARC.x0, Math.ceil((box.x0 + ARC.edge) / ARC.step) * ARC.step); x <= ARC.x1 + 1e-9; x += ARC.step) for (let y = -Math.min(ARC.y, box.y1 - ARC.edge); y <= Math.min(ARC.y, box.y1 - ARC.edge) + 1e-9; y += ARC.step) if (Math.abs(y) > ARC.axis) PTS.push([+x.toFixed(2), +y.toFixed(2)]);
   for (let x = box.x0 + ARC.edge; x <= ARC.x1 + 1e-9; x += AXIS_STEP) for (const y of AXIS_Y) AXIS.push([+x.toFixed(3), y]);
   // (every animation frame drawn by a pre-mapped mesh, __cmwSteps().carryPre > 0: the points of a PAPER_NX x PAPER_NY grid over
-  // the pane that are bare paper, each channel over PAPER_MIN; the most in any one frame, until __arcPaperStop)
+  // the pane that are bare paper, each channel over PAPER_MIN; the most in any one frame, until P.on is cleared; and a copy
+  // of the first such frame once both meshes are built, P.snap)
   await ev(`(() => { const P = window.__arcPaper = { frames: 0, most: 0, at: null, on: true };
     const tick = () => { if (!P.on) return;
       if (__cmwSteps().carryPre > 0) { const c = document.getElementById('canvasL'), g = c.getContext('2d'); let n = 0;
         for (let i = 0; i < ${PAPER_NX}; i++) for (let j = 0; j < ${PAPER_NY}; j++) { const d = g.getImageData(Math.floor((i + 0.5) / ${PAPER_NX} * c.width), Math.floor((j + 0.5) / ${PAPER_NY} * c.height), 1, 1).data; if (d[0] > ${PAPER_MIN} && d[1] > ${PAPER_MIN} && d[2] > ${PAPER_MIN}) n++; }
-        P.frames++; if (n > P.most) { P.most = n; P.at = performance.now(); } }
+        P.frames++; if (n > P.most) { P.most = n; P.at = performance.now(); }
+        // (the first frame drawn by the pre-mapped meshes once both are built, kept with its view: the rows read it)
+        const q = __cmwSphere();
+        if (!P.snap && q.entries.length >= 2 && q.jobs.length === 0 && !q.kick) {
+          const k = document.createElement('canvas'), m = __cmwCards().main; k.width = c.width; k.height = c.height;
+          k.getContext('2d').drawImage(c, 0, 0); P.snap = k; P.snapView = { cx: m.view.cx, cy: m.view.cy, s: m.view.s, dpr: m.dpr }; P.snapPre = __cmwSteps().carryPre;
+        } }
       requestAnimationFrame(tick); };
     requestAnimationFrame(tick); return 1; })()`);
   await toPlane(2);
   // (the plane at rest once its pre-mapped meshes are built: none still building or asked for, the pane's and its outer ring's)
-  const pre = await settled({ max: PRE_WAIT, until: `!!__cmwSteps().rest && __cmwSteps().rest.a === 2 && __cmwSphere().entries.length > 0 && __cmwSphere().jobs.length === 0 && !__cmwSphere().kick && ${DRAWN}` });
+  const pre = await settled({ max: PRE_WAIT, until: `!!__cmwSteps().rest && __cmwSteps().rest.a === 2 && __cmwSphere().entries.length > 0 && __cmwSphere().jobs.length === 0 && !__cmwSphere().kick && !!window.__arcPaper.snap && ${DRAWN}` });
+  // (the 3 x 3 device pixels about each plane point in that copy, as carry_kit's lpx reads the pane's canvas)
+  const snapPx = (pts) => ev(`(() => { const P = window.__arcPaper, k = P.snap, v = P.snapView, g = k.getContext('2d');
+    return ${JSON.stringify(pts)}.map(([x, y]) => { const px = Math.floor(k.width / 2 + (x - v.cx) * v.s * v.dpr), py = Math.floor(k.height / 2 - (y - v.cy) * v.s * v.dpr);
+      if (px < 1 || py < 1 || px > k.width - 2 || py > k.height - 2) return null;
+      const d = g.getImageData(px - 1, py - 1, 3, 3).data, out = []; for (let i = 0; i < 9; i++) out.push(Array.from(d.slice(4 * i, 4 * i + 4))); return out; }); })()`);
   const win = (await ev('__cmwSvKey(2)')).win, lists = PTS.map(cand(win));
   const order = await ev(`(() => { const k = __cmwSvKey(2), prep = { win: k.win, R: k.R, rs: k.rs, sing: k.sing.map((p) => CX.C(p[0], p[1])), per: k.per && CX.C(k.per[0], k.per[1]) };
     return ${JSON.stringify(lists)}.map((L) => Inverse.order(L.map((p, i) => ({ z: CX.C(p[0], p[1]), D: Inverse.sheetKey(prep, CX.C(p[0], p[1]), null), lam: null, i }))).slice(0, 4).map((o) => o.i)); })()`);
-  const paper = await ev('(() => { const P = window.__arcPaper; P.on = false; return { frames: P.frames, most: P.most }; })()');
-  const frames = { pre: { wait: pre, carryPre: await ev('__cmwSteps().carryPre'), mesh: await ev('__cmwSphere().entries.map((e) => ({ partial: e.partial, nodes: e.nodes, work: e.work, why: e.budgetWhy }))'), px: (await lpx(PTS)).px, axis: (await lpx(AXIS)).px } };
+  const paper = await ev('(() => { const P = window.__arcPaper; P.on = false; return { frames: P.frames, most: P.most, snapPre: P.snapPre }; })()');
+  const frames = { pre: { wait: pre, carryPre: await ev('__cmwSteps().carryPre'), mesh: await ev('__cmwSphere().entries.map((e) => ({ partial: e.partial, nodes: e.nodes, work: e.work, why: e.budgetWhy }))'), px: await snapPx(PTS), axis: await snapPx(AXIS) } };
   // (the region meshes: the pre-mapped ones dropped, read before one is built again)
   await ev('__cmwSmReset(), 1');
   const region = await settled({ max: PLANE_WAIT, until: `__cmwSteps().carryPre === 0 && ${DRAWN}` });
@@ -102,7 +114,7 @@ for (const L of LEGS) {
     return t;
   };
   const isPaper = (p) => !!p && p[4].slice(0, 3).every((c) => c > PAPER_MIN);
-  for (const [key, what] of [['region', 'the region meshes\' frame (control)'], ['pre', 'the frame once the pre-mapped meshes are built']]) {
+  for (const [key, what] of [['region', 'the region meshes\' frame (control)'], ['pre', 'the first frame the pre-mapped meshes draw once both are built']]) {
     const f = frames[key], c = classify(f.px), bare = AXIS.filter((w, k) => isPaper(f.axis[k]));
     info[L.id][key] = { wait: f.wait, carryPre: f.carryPre, mesh: f.mesh, tally: c, axisPaper: bare.length, axisEx: bare.slice(0, 4) };
     ok(`${L.id}: z³ then cos at rest, plane 2, ${what}: the arc's points show the front sheet at ${FRONT_MIN * 100} % or more of ${PTS.length}`, f.wait.ok && (key !== 'region' || f.carryPre === 0) && c.n >= 0.9 * PTS.length && c.front >= FRONT_MIN, info[L.id][key]);
