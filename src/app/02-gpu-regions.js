@@ -169,7 +169,7 @@
     if (!r) return;
     destroyFix(r);
     dropHold(r); dropLive(r); gcLines(r, true);
-    GLR.destroy(r.meshRes); GLR.destroy(r.lineRes);
+    GLR.destroy(r.meshRes); GLR.destroy(r.lineRes); if (r.rept) GLR.destroy(r.rept.res);
     gpu.delete(id);
   }
   function dropAllGPU() { for (const id of [...gpu.keys()]) dropShapeGPU(id); }

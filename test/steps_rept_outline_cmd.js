@@ -1,15 +1,20 @@
-// A region's image under a Repeat chain drawn by the exact REPT renderer keeps the shape's outline in the shape's colour
-// while its carried boundary stays resolved, as every other step's image does (#1482); where the copies' expansion
-// scatters the boundary, no carried outline is drawn, and the exact fill's own edge is the only one.
+// A region's image under a Repeat chain drawn by the exact REPT renderer keeps the shape's outline in the shape's
+// colour while its carried boundary resolves at the view, as every other step's image does (#1482); where the copies'
+// expansion scatters the boundary, no carried outline is drawn, and the exact fill's own edge is the only one.
 // - the bite: the rectangle [0.6, 1.6] × [−0.5, 0.5] under Newton's map for z³ − 1 repeated twice, parked on plane 1,
 //   Inside regions. Its image is two bounded lobes, and the outline is the image of the rectangle's boundary, which
 //   holds the exact fill's edge (an open map's image has its edge in the image of the boundary). EDGE_N points of the
 //   boundary are carried to plane 1 on the CPU (N twice, in float64); at each one that lands RING_R px or more inside
 //   the canvas, the frame has a stroke pixel within RING_R CSS px of it: a pixel that differs from the same frame with
 //   the strokes hidden (__cmwHideStrokes) and lies within INK_TOL of the shape's ink (__cmwLook's edge), for at least
-//   HIT_MIN of at least MIN_EDGE such points;
+//   HIT_MIN of at least MIN_EDGE such points. At the scene's scale on the desk, and wheel-zoomed in about the image
+//   until its scale is ZOOM times the scene's (the outline is refined for the view, so looking closer keeps it), on the
+//   desk and in a narrow window (NARROW);
 // - its control: the same count with another shape's ink (a hidden shape of another colour) finds at most CTRL_MAX of
 //   them, so a stroke in another colour, or the colour plot's own edge, fails the row;
+// - a pan: PAN_STEPS drags of 1 / (2 PAN_STEPS) of the pane's width each, each drawn, move the image left by half the
+//   pane and refine the outline again at most PAN_RUNS_MAX times (__cmwRept({ outline }).runs: the refinement is kept
+//   per pane-wide cell of the view, not redone per frame), and the outline is still there;
 // - the gallery (the same step repeated twenty times over the square [−2, 2]²): its image covers the plane, and its
 //   carried boundary is scattered by the copies' expansion. The frame with the strokes hidden differs from the frame
 //   with them in at most NOISE_MAX of the canvas's pixels in the shape's ink: no carried outline comes back as noise.
@@ -17,27 +22,34 @@
 // {pass, fails, info}.
 const fails = [], info = {};
 const ok = (name, pass, detail) => { if (!pass) fails.push({ name, got: detail }); return pass; };
-const VIEW_W = 1200, VIEW_H = 800, VIEW_SCALE = 140;   // px: the page, and the scene's px per unit
+const DESK = [1200, 800], NARROW = [360, 740];   // CSS px: the pages
+const VIEW_SCALE = 140;    // the scene's px per unit
+const ZOOM = 8;            // the zoomed rows' scale over VIEW_SCALE
+const WHEEL_DY = -400, WHEEL_MAX = 40;   // a wheel notch's delta, and the most notches a zoom takes
+const PAN_TOL = 0.1;       // the pan's share of the pane it may miss half the pane by
 const STEP_EXPR = 'z-(z^3-1)/(3*z^2)';   // Newton's map for z³ − 1
 const CUT_DEG = 180;       // the formula step's cut direction
 const BITE = { a: [0.6, -0.5], b: [1.6, 0.5] }, BITE_N = 2;
-const EDGE_N = 400;        // points of the rectangle's boundary carried to plane 1
+const EDGE_N = 800;        // points of the rectangle's boundary carried to plane 1
 const RING_R = 3;          // CSS px around a carried point in which its stroke pixel is looked for
 const INK_TOL = 40;        // largest channel difference (of 255) from the ink of a stroke pixel
 const DIFF_MIN = 60;       // summed channel difference from the frame with the strokes hidden of a drawn pixel
 const MIN_EDGE = 100;      // least carried points inside the canvas
 const HIT_MIN = 0.9;       // least share of them with a stroke pixel in the shape's ink
 const CTRL_MAX = 0.2;      // most share of them with a stroke pixel in the control's ink
+const PAN_STEPS = 10;      // the pan's steps
+const PAN_RUNS_MAX = 1;    // most refinements over the pan
 const NOISE_MAX = 1e-4;    // most share of the gallery's canvas in its shape's ink where the strokes changed it
 const SETTLE = 120000;     // ms: the most a wait for the parked plane takes
 const { PARKED_DRAWN, loadGallery, parkInside } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'parked_kit.js'), 'utf8'))({ ev, settled, exampleNames });
 const { grab } = eval(fs.readFileSync(path.join(DIR, '..', 'lib', 'held_frames.js'), 'utf8'));
+const wheel = async (x, y, dy) => { await send('Input.dispatchMouseEvent', { type: 'mouseMoved', x, y }); await send('Input.dispatchMouseEvent', { type: 'mouseWheel', x, y, deltaX: 0, deltaY: dy }); };
+const parked = async (what) => { const st = await settled({ max: SETTLE, until: PARKED_DRAWN }); ok(`${what}: the parked plane is drawn`, st.ok, st.busy); };
 // the parked plane held twice, its strokes drawn (tag) and hidden (tag + '0')
 const grabBoth = async (tag) => {
   for (const hide of [false, true]) {
     await ev(`__cmwHideStrokes(${hide}), 1`);
-    const st = await settled({ max: SETTLE, until: PARKED_DRAWN });
-    ok(`${tag}: the parked plane is drawn (strokes ${hide ? 'hidden' : 'shown'})`, st.ok, st.busy);
+    await parked(`${tag} (strokes ${hide ? 'hidden' : 'shown'})`);
     ok(`${tag}: the frame is still (strokes ${hide ? 'hidden' : 'shown'})`, await grab(tag + (hide ? '0' : '')), null);
   }
   await ev('__cmwHideStrokes(false), 1');
@@ -68,36 +80,86 @@ const measure = (tag, id, body) => ev(`(() => {
   const inked = () => { let m = 0; for (let i = 0; i < W * H * 4; i += 4) if (stroke(i)) m++; return { m, of: W * H }; };
   return (${body})(ring, inked);
 })()`);
-await view(VIEW_W, VIEW_H, false, false);
 
-// ---- the bite: Repeat ×2, the outline along the exact fill's edge
+// the rectangle's boundary, EDGE_N points, each carried by N twice (N(z) = z − (z³ − 1) / (3 z²))
+const edge = [];
+{
+  const [ax, ay] = BITE.a, [bx, by] = BITE.b, per = 2 * (bx - ax + by - ay);
+  for (let i = 0; i < EDGE_N; i++) {
+    let d = (i + 0.5) * per / EDGE_N, x, y;
+    if (d < bx - ax) { x = ax + d; y = ay; } else if ((d -= bx - ax) < by - ay) { x = bx; y = ay + d; } else if ((d -= by - ay) < bx - ax) { x = bx - d; y = by; } else { d -= bx - ax; x = ax; y = by - d; }
+    for (let k = 0; k < BITE_N; k++) {
+      const r2 = x * x - y * y, i2 = 2 * x * y, r3 = r2 * x - i2 * y - 1, i3 = r2 * y + i2 * x;   // z² and z³ − 1
+      const qr = 3 * r2, qi = 3 * i2, q = qr * qr + qi * qi;                                       // 3 z²
+      x -= (r3 * qr + i3 * qi) / q; y -= (i3 * qr - r3 * qi) / q;
+    }
+    edge.push([x, y]);
+  }
+}
+// (the image's centre, which the zoomed rows zoom about)
+const mid = [edge.reduce((t, p) => t + p[0], 0) / EDGE_N, edge.reduce((t, p) => t + p[1], 0) / EDGE_N];
 const BITE_STATE = { v3: true, v4: true, v5: true, v6: true, exactImages: true, outline: true, nextId: 10, focus: 0, srcView: { cx: 0, cy: 0, s: VIEW_SCALE },
   shapes: [{ id: 's1', kind: 'rect', a: BITE.a, b: BITE.b, ci: 0, visible: true }, { id: 'c2', kind: 'rect', a: [3, 3], b: [3.5, 3.5], ci: 4, visible: false }],
   steps: [{ type: 'custom', params: { expr: STEP_EXPR, cut: CUT_DEG }, on: true, repeat: { n: BITE_N, len: 1 } }] };
-await loadView('steps', 'reptol' + Date.now(), BITE_STATE);
-await parkInside(SETTLE);
-await grabBoth('B');
-// the rectangle's boundary, EDGE_N points, each carried by N twice (N(z) = z − (z³ − 1) / (3 z²))
-const edge = [];
-const [ax, ay] = BITE.a, [bx, by] = BITE.b, per = 2 * (bx - ax + by - ay);
-for (let i = 0; i < EDGE_N; i++) {
-  let d = (i + 0.5) * per / EDGE_N, x, y;
-  if (d < bx - ax) { x = ax + d; y = ay; } else if ((d -= bx - ax) < by - ay) { x = bx; y = ay + d; } else if ((d -= by - ay) < bx - ax) { x = bx - d; y = by; } else { d -= bx - ax; x = ax; y = by - d; }
-  for (let k = 0; k < BITE_N; k++) {
-    const r2 = x * x - y * y, i2 = 2 * x * y, r3 = r2 * x - i2 * y - 1, i3 = r2 * y + i2 * x;   // z² and z³ − 1
-    const qr = 3 * r2, qi = 3 * i2, q = qr * qr + qi * qi;                                       // 3 z²
-    x -= (r3 * qr + i3 * qi) / q; y -= (i3 * qr - r3 * qi) / q;
+// the left plane's px per unit, as drawn
+const scaleAt = () => ev(`(() => { const a = __cmwW2S('L', 0, 0), b = __cmwW2S('L', 1, 0); return b[0] - a[0]; })()`);
+// the bite on page [w, h], wheel-zoomed zoom times about the image: the outline in the shape's ink along the carried
+// boundary, and the control's ink not
+const bite = async (tag, page, zoom) => {
+  await view(page[0], page[1], false, false);
+  await loadView('steps', 'reptol' + Date.now(), BITE_STATE);
+  await parkInside(SETTLE);
+  const s0 = await scaleAt();
+  if (zoom !== 1) {
+    for (let i = 0; i < WHEEL_MAX && (await scaleAt()) < zoom * s0; i++) {
+      const p = await ev(`__cmwW2S('L', ${mid[0]}, ${mid[1]})`);
+      await wheel(p[0], p[1], WHEEL_DY);
+      await settled({ max: SETTLE, panes: false });
+    }
+    const s1 = await scaleAt();
+    info[tag + ' zoom'] = { s0, s1 };
+    ok(`${tag}: the wheel zooms the plane in ${zoom} times`, s1 >= zoom * s0, info[tag + ' zoom']);
   }
-  edge.push([x, y]);
+  await grabBoth(tag);
+  const own = await measure(tag, 's1', `(ring) => ring(${JSON.stringify(edge)})`);
+  const ctrl = await measure(tag, 'c2', `(ring) => ring(${JSON.stringify(edge)})`);
+  info[tag] = { own, ctrl };
+  const what = `bite ×${BITE_N} ${page === NARROW ? `in a ${page[0]} px window` : 'on the desk'}${zoom !== 1 ? `, zoomed in ${zoom} times` : ''}`;
+  ok(`${what}: at least ${MIN_EDGE} carried boundary points inside the canvas`, own.n >= MIN_EDGE, own);
+  ok(`${what}: the outline in the shape's ink along the image of its boundary (at least ${HIT_MIN} of the points)`, own.n > 0 && own.hit / own.n >= HIT_MIN, own);
+  ok(`${what}, control: another shape's ink is found along it at no more than ${CTRL_MAX} of the points`, ctrl.n > 0 && ctrl.hit / ctrl.n <= CTRL_MAX, ctrl);
+};
+await bite('B', DESK, 1);
+await bite('Z', DESK, ZOOM);
+await bite('P', NARROW, ZOOM);
+
+// ---- the pan: the outline kept per pane-wide cell, not refined again at each frame
+{
+  await view(DESK[0], DESK[1], false, false);
+  await loadView('steps', 'reptolpan' + Date.now(), BITE_STATE);
+  await parkInside(SETTLE);
+  await parked('pan, before');
+  const r0 = await ev('__cmwRept({ outline: true })');
+  const b = await ev("(() => { const r = document.getElementById('canvasL').getBoundingClientRect(); return [r.left, r.top, r.width, r.height]; })()");
+  const at0 = await ev(`__cmwW2S('L', ${mid[0]}, ${mid[1]})`), dx = b[2] / (2 * PAN_STEPS), y = b[1] + b[3] / 2;
+  for (let i = 0; i < PAN_STEPS; i++) {
+    const x = b[0] + b[2] / 2 - (i - PAN_STEPS / 2) * dx;
+    await drag(x, y, x - dx, y, 4, 40);
+    await parked(`pan, step ${i + 1}`);
+  }
+  const r1 = await ev('__cmwRept({ outline: true })'), at1 = await ev(`__cmwW2S('L', ${mid[0]}, ${mid[1]})`);
+  info.pan = { before: r0, after: r1, moved: at1[0] - at0[0], pane: b[2] };
+  ok('pan: the drags move the image left by half the pane', Math.abs(at0[0] - at1[0] - b[2] / 2) <= PAN_TOL * b[2], info.pan);
+  ok(`pan of half the pane in ${PAN_STEPS} drawn steps: the outline refined again at most ${PAN_RUNS_MAX} time`, !!r0 && !!r1 && r1.runs - r0.runs <= PAN_RUNS_MAX, info.pan);
+  await grabBoth('N');
+  const own = await measure('N', 's1', `(ring) => ring(${JSON.stringify(edge)})`);
+  info.panned = own;
+  ok(`pan: the outline still in the shape's ink along the image of its boundary (at least ${HIT_MIN} of the points)`, own.n >= MIN_EDGE && own.hit / own.n >= HIT_MIN, own);
 }
-const own = await measure('B', 's1', `(ring) => ring(${JSON.stringify(edge)})`);
-const ctrl = await measure('B', 'c2', `(ring) => ring(${JSON.stringify(edge)})`);
-info.bite = { own, ctrl };
-ok(`bite ×${BITE_N}: at least ${MIN_EDGE} carried boundary points inside the canvas`, own.n >= MIN_EDGE, own);
-ok(`bite ×${BITE_N}: the outline in the shape's ink along the image of its boundary (at least ${HIT_MIN} of the points)`, own.n > 0 && own.hit / own.n >= HIT_MIN, own);
-ok(`bite ×${BITE_N}, control: another shape's ink is found along it at no more than ${CTRL_MAX} of the points`, ctrl.n > 0 && ctrl.hit / ctrl.n <= CTRL_MAX, ctrl);
 
 // ---- the gallery: Repeat ×20, no carried outline as noise
+await view(DESK[0], DESK[1], false, false);
+await loadView('steps', 'reptolg' + Date.now(), {});
 await loadGallery(SETTLE);
 await parkInside(SETTLE);
 await grabBoth('G');
